@@ -1,10 +1,12 @@
 """Steps 5-7: confined run, assessment, replay, verification.
 
-Two identities for one assessment: `build_assessment` returns a value whose
-`run` is the bare closure address; the stored record spells it as the typed
-`run:<address>`, so `stored.assessment_value(node).identity()` differs from
-`assessment.identity()`. Both are written to `state.json`; neither is
-substituted for the other.
+One assessment, two identities measured, never one substituted for the other:
+`build_assessment` returns a value and the stored record is read back, and
+both identities are written to `state.json`. They agreed on the 2026-09-15
+recreated corpus — `assessment_value` hands `run` back bare, as the derived
+value spells it — and disagreed on the 2026-09-05 corpus, where the stored
+record spelled it `run:<address>`. The guard below stays: it is what measured
+that, and it is what would measure a spelling drifting apart again.
 """
 
 from __future__ import annotations
@@ -99,16 +101,6 @@ def main() -> int:
         findings.record(6, "defect", f"AssessmentFinding: {derived.reason}")
         print(f"ASSESSMENT FINDING: {derived.reason}")
         return 2
-    optional = {
-        k: v
-        for k, v in (
-            ("estimate", derived.estimate),
-            ("uncertainty", derived.uncertainty),
-            ("estimand", derived.estimand),
-            ("applicability", derived.applicability),
-        )
-        if v is not None
-    }
     writer = world.open_writer()
     minted = writer.add(
         stored.assessment_node(
@@ -119,10 +111,13 @@ def main() -> int:
             proposition=st["proposition_ref"],
             outcome=derived.outcome,
             interpretation_rule=derived.interpretation_rule,
-            **optional,
+            estimand=derived.estimand,
+            applicability=derived.applicability,
+            estimate=derived.estimate,
+            uncertainty=derived.uncertainty,
         )
     )
-    stored_identity = stored.assessment_value(writer.read_view.get(minted.id)).identity()
+    stored_identity = stored.assessment_value(writer.read_view.get(minted.id), profile=profile()).identity()
     if stored_identity != derived.identity():
         findings.record(
             6,

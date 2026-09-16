@@ -189,6 +189,35 @@ So v1 weights every directional eligible assessment at 1. The cost is stated
 plainly in limitation 1: a large, well-controlled study and a small uncontrolled
 one contribute equally.
 
+> **Amended 2026-09-16 — the blocker this section named is supplied, and v1
+> still weights at 1** (`2026-09-12-estimand-typing-design.md`, discharged at
+> conformance cut 31). Both sentences above are now false as statements about
+> the artifacts, and true as statements about v1.
+>
+> **`estimand` has a type.** It is a typed opaque value built against the typed
+> claim it answers — a contrast on one argument slot, a measured quantity on a
+> declared scale, a reference, and a control structure of one identification
+> term and a set of conditioning members — under a kernel-owned closed grammar,
+> with each member's vocabulary declared by a domain contract per operator. A
+> design-weight table has a key domain: `commensuration_key`, exposed through
+> the total predicate `commensurable`, which is equality on every member except
+> `control.identification` — the member a design weight would read.
+>
+> **The precision term has its reference.** `uncertainty` is typed as an
+> interval with a level, or a dispersion with a standard error, on the scale
+> and against the reference the **spec** declared, and the rule cannot move
+> either. That is exactly the "what the estimate is measured against" this
+> section said the facet did not supply.
+>
+> **What this does not do is write the successor.** `science.belief.v1` reads
+> none of these fields and weights every directional eligible assessment at 1;
+> the estimand-typing design's Q9 asserts that making either predicate raise
+> leaves every P row passing, so v1's independence from them is measured, not
+> claimed. Limitation 1 stands as written. What has changed is that the
+> successor is now a **policy** question — which weights the key licenses, and
+> §9 question 3's scope of its constants — rather than a typing one, and it is
+> `weighted-belief`'s to design.
+
 There is one compensation worth naming, because it is not merely consolation. A
 count is **interpretable**. The units are not a fitted quantity standing in for
 evidence; they are the number of demonstrably independent assessments, and the
@@ -373,6 +402,30 @@ Kernel limitation 5's residue is unchanged. What this design adds is its
 **blocker, named**: the residue is not waiting on effort, it is waiting on a
 typed reference and a commensuration contract that ρO3 leaves open.
 
+> **Amended 2026-09-16 — `applicability` is typed, and v1 still reads none of
+> it** (`2026-09-12-estimand-typing-design.md`, discharged at conformance cut
+> 31). `applicability` is no longer untyped prose: it is a **qualifier map over
+> the target operator's declared dimensions**, sorted exactly as a claim's
+> qualifiers are, so the map equality M5 pins **does** apply to it and
+> `applicability == claim.qualifiers` is decidable in both directions. The
+> `scope-mismatch` finding this section withdrew as *not constructible* is
+> therefore constructible now.
+>
+> **It is still not emitted, and the reason has changed.** It was blocked on
+> computability; it is now declined on the banked ground this section already
+> gives — P6 is frozen, v1 reads no magnitude-bearing field, and amending a
+> frozen arm for a report nobody reads is not worth the amendment. A `science`
+> view can render the same comparison from the typed fields. The
+> estimand-typing design's Q4 asserts this directly: change only
+> `applicability`, and the belief value is unchanged, the digest moves, and
+> **no mismatch finding exists to be emitted**. `co_scoped` is exposed beside
+> `commensurable` for whoever wants the comparison, and v1 calls neither.
+>
+> **Quantifier-directed gating is unchanged and still blocked.** It needs term
+> subsumption, which nothing here supplies: no order over terms is defined, and
+> a qualifier map's equality is not a subsumption relation. Kernel limitation
+> 5's residue narrows to its semantic half — see the amendment there.
+
 ## 6. What this amends
 
 Applied at banking, as one amendment set.
@@ -472,8 +525,32 @@ overloading that document was written to remove.
    contrast, a commensuration contract — could be owned by the claim operator,
    the estimand, or the interpretation rule. Until it has an owner, no weighted
    successor policy can be written.
+
+   > **Answered 2026-09-16** (`2026-09-12-estimand-typing-design.md`,
+   > discharged at conformance cut 31). It lands in **three places, split by
+   > who may own what**. The **kernel** (the base contract) owns the closed
+   > *structure*: the grammar version, the contrast kinds, the scales and the
+   > uncertainty kinds. A **domain contract** owns every *vocabulary* that
+   > fills it, declared per operator in an `estimands:` table. The **spec**
+   > carries the instance — the estimand built against its typed target claim,
+   > and the applicability map over that claim's operator's dimensions — and
+   > the **interpretation rule** owns none of it: it returns an estimate and an
+   > uncertainty *within* the spec's declared scale and reference and may not
+   > move either. A weighted successor policy can now be written; what it
+   > reads is `commensuration_key` and the typed uncertainty, and question 3
+   > below is what remains of this question.
 3. **Scope of a weighted successor's constants.** Global, per-domain, or
    per-corpus. Per-corpus would make belief follow the checkout and is almost
    certainly wrong; per-domain interacts with D §8's contract-agreement rule.
+
+   > **Amended 2026-09-16 — still open, and now the binding one**
+   > (`2026-09-12-estimand-typing-design.md`, discharged at conformance cut
+   > 31). Question 2's answer supplies the key domain and does **not** answer
+   > this: whether a design weight over `control.identification`, or a
+   > precision term over a typed uncertainty, is fixed globally or per domain
+   > is a policy ruling no typing decides. It now blocks `weighted-belief`
+   > alone, which is why the roadmap's *blocked on* for that boundary becomes
+   > the successor belief-policy design over `commensurable` and `co_scoped`
+   > rather than ρO3.
 4. **Whether `NoBeliefReason` is extensible by a domain**, or closed at the
    kernel. Closed is the default here; question 1 is the first pressure on it.

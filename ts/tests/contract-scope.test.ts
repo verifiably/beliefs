@@ -28,6 +28,12 @@ claim_grammar:
   polarities: [positive, negative, unsigned]
   sign_inapt_tag: inapt
   layers: [causal, structural]
+estimand_grammar:
+  version: 1
+  tag_encoding: science.identity.v1
+  contrast_kinds: [levels, continuous]
+  scales: [additive, multiplicative]
+  uncertainty_kinds: [interval, standard-error]
 kinds: {}
 relations: {}
 facets: {}
@@ -50,6 +56,33 @@ operators:
     sign_apt: false
     layers: [structural]
     dimensions: []
+`;
+
+const WITH_ESTIMAND = `
+contract: testing
+version: 1
+lineage: genesis
+sorts:
+  entity:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
+  measure:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
+dimensions:
+  setting:
+    restriction_sort: entity
+operators:
+  subtype-of:
+    arity: 2
+    arg_sorts: [entity, entity]
+    sign_apt: false
+    layers: [structural]
+    dimensions: []
+estimands:
+  subtype-of:
+    level_sorts: { "0": entity }
+    measure_sort: measure
+    identification_sort: entity
+    conditioning_sort: entity
 `;
 
 const base = parseBaseContract(BASE, "<base>");
@@ -165,5 +198,31 @@ operators:
   it("still refuses a bare undeclared name", () => {
     const bare = crossing.replace("testing/entity", "entity");
     expect(() => parseDomainContract(bare, "<crossing>", base)).toThrow(/not a declared sort/);
+  });
+});
+
+describe("an estimand declaration (estimand-typing design §5.1)", () => {
+  it("reads a declaration keyed by a declared operator", () => {
+    const contract = parseDomainContract(WITH_ESTIMAND, "<domain>", base);
+    expect(Object.keys(contract.estimands)).toEqual(["subtype-of"]);
+    const decl = contract.estimands["subtype-of"];
+    expect(decl.levelSorts).toEqual({ "0": "entity" });
+    expect([decl.measureSort, decl.identificationSort, decl.conditioningSort]).toEqual(["measure", "entity", "entity"]);
+  });
+
+  it("refuses an estimand declaration keyed by an undeclared operator", () => {
+    const bad = WITH_ESTIMAND.replace("estimands:\n  subtype-of:", "estimands:\n  affects:");
+    expect(() => parseDomainContract(bad, "<domain>", base)).toThrow(/not a declared operator/);
+  });
+
+  it("refuses a level_sorts slot outside the arity", () => {
+    const bad = WITH_ESTIMAND.replace('level_sorts: { "0": entity }', 'level_sorts: { "5": entity }');
+    expect(() => parseDomainContract(bad, "<domain>", base)).toThrow(/Fin\(2\)/);
+  });
+
+  it("compiles an estimand declaration's sorts to term identifiers", () => {
+    const profile = compileProfile(base, [parseDomainContract(WITH_ESTIMAND, "<domain>", base)]);
+    expect(profile.estimands["testing/subtype-of"].measureSort).toBe("testing/measure");
+    expect(profile.estimands["testing/subtype-of"].levelSorts).toEqual({ "0": "testing/entity" });
   });
 });

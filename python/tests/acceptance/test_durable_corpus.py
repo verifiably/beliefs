@@ -26,6 +26,7 @@ from durable_fixture import (
     pinned,
     slug,
 )
+from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
 from fixtures_cut4 import path_for, raw_write, reopen
 from nodes.core.errors import ExecutionError
 from profiles import BASE
@@ -145,6 +146,8 @@ class TestS7BothBoundariesDurably:
                     proposition="proposition:p2",
                     outcome="supported",
                     interpretation_rule=RULE,
+                    estimand=typed_estimand(),
+                    applicability=typed_applicability(),
                 )
             )
         assert not path_for(durable_root, "assessment:a2").exists()
@@ -162,6 +165,8 @@ class TestS7BothBoundariesDurably:
                 proposition="proposition:p2",
                 outcome="supported",
                 interpretation_rule=RULE,
+                estimand=typed_estimand(),
+                applicability=typed_applicability(),
             ),
         )
         findings = corpus_check(reopen(durable_root), BASE)
@@ -249,7 +254,7 @@ class TestTheUncertifiedTupleFailsClosed:
 class TestTheMintedRecordsReadBack:
     def test_the_assessment_reads_back_as_the_value_it_was_minted_from(self, minted_corpus):
         view = reopen(minted_corpus)
-        value = stored.assessment_value(view.get(ASSESSMENT))
+        value = stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE)
         # 2026-09-11: V2 returns the run's bare world identity; this live cut-4
         # expectation had retained the pre-V2 typed reference.
         assert (value.spec, value.run, value.proposition) == (SPEC, slug(RUN), PROPOSITION)

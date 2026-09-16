@@ -32,6 +32,19 @@ claim_grammar:
 
   layers: [causal, structural, statistical, methodological]
 
+# --- estimand grammar (estimand-typing design §3.1) ---------------------------
+# Three closed *structural* sets: each member is defined by an operation the
+# kernel performs — a `levels` contrast requires two bound levels, an
+# `additive` scale compares by difference, an `interval` carries bounds and a
+# level. Identification classes and measured quantities are vocabulary and are
+# declared by domain contracts (§5), never here.
+estimand_grammar:
+  version: 1
+  tag_encoding: science.identity.v1
+  contrast_kinds: [levels, continuous]
+  scales: [additive, multiplicative]
+  uncertainty_kinds: [interval, standard-error]
+
 # --- kinds, relations and facets (facet-contracts design §3) -----------------
 kinds:
   proposition:

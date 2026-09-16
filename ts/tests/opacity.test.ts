@@ -33,6 +33,7 @@ import {
   BaseContract,
   type ClaimGrammar,
   DomainContract,
+  type EstimandGrammar,
   parseBaseContract,
   parseDomainContract,
 } from "../src/contract.js";
@@ -44,7 +45,13 @@ import {
   UnparsedContract,
   UntypedReferent,
 } from "../src/errors.js";
-import { type CompiledDimension, type CompiledOperator, ProfileSpec, compileProfile } from "../src/profile.js";
+import {
+  type CompiledDimension,
+  type CompiledEstimandDecl,
+  type CompiledOperator,
+  ProfileSpec,
+  compileProfile,
+} from "../src/profile.js";
 import { claimIdentity, projectClaim } from "../src/projection.js";
 
 const REPO_ROOT = new URL("../../", import.meta.url);
@@ -62,6 +69,14 @@ const FORGED_GRAMMAR: ClaimGrammar = {
   polarities: ["yes"],
   signInaptTag: "no",
   layers: ["made-up"],
+};
+
+/** Likewise, for the estimand grammar. */
+const FORGED_ESTIMAND_GRAMMAR: EstimandGrammar = {
+  version: 1,
+  contrastKinds: ["whatever"],
+  scales: ["made-up"],
+  uncertaintyKinds: ["made-up"],
 };
 
 const gene = new Referent("testing/entity", "EX:gene-x");
@@ -188,6 +203,7 @@ describe("the qualifiers a claim holds are genuinely immutable", () => {
 describe("a profile that did not come from the contracts is not a profile", () => {
   const forgedProfile = {
     claimGrammar: FORGED_GRAMMAR,
+    estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
     operators: {
       "forged/op": {
         term: "forged/op",
@@ -198,6 +214,7 @@ describe("a profile that did not come from the contracts is not a profile", () =
         dimensions: [],
       } satisfies CompiledOperator,
     },
+    estimands: {} as Record<string, CompiledEstimandDecl>,
     dimensions: {} as Record<string, CompiledDimension>,
     sorts: ["forged/sort"],
   };
@@ -295,9 +312,14 @@ describe("a contract that nobody authored cannot be compiled", () => {
   });
 
   it("cannot be authored through either constructor", () => {
-    expect(() => new BaseContract(Symbol("forged"), { version: 1, claimGrammar: FORGED_GRAMMAR })).toThrow(
-      UnparsedContract,
-    );
+    expect(
+      () =>
+        new BaseContract(Symbol("forged"), {
+          version: 1,
+          claimGrammar: FORGED_GRAMMAR,
+          estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+        }),
+    ).toThrow(UnparsedContract);
     expect(
       () =>
         new DomainContract(Symbol("forged"), {
@@ -307,6 +329,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           dimensions: {},
           operators: {},
           facets: {},
+          estimands: {},
           base,
         }),
     ).toThrow(UnparsedContract);
@@ -315,9 +338,14 @@ describe("a contract that nobody authored cannot be compiled", () => {
   it("cannot be authored through a subclass either", () => {
     class RogueBase extends BaseContract {}
     class RogueDomain extends DomainContract {}
-    expect(() => new RogueBase(Symbol("forged"), { version: 1, claimGrammar: FORGED_GRAMMAR })).toThrow(
-      SubclassRefused,
-    );
+    expect(
+      () =>
+        new RogueBase(Symbol("forged"), {
+          version: 1,
+          claimGrammar: FORGED_GRAMMAR,
+          estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+        }),
+    ).toThrow(SubclassRefused);
     expect(
       () =>
         new RogueDomain(Symbol("forged"), {
@@ -327,6 +355,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           dimensions: {},
           operators: {},
           facets: {},
+          estimands: {},
           base,
         }),
     ).toThrow(SubclassRefused);

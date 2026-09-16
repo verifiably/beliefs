@@ -347,18 +347,25 @@ _M7 = [
     Arm(
         row="M7",
         asserts="a semantic schema edit recompiles the profile; a description edit does not",
+        # Re-targeted 2026-09-15 (estimand-typing Task 3, Q2): `compile_profile`'s
+        # `_projection(...)` call gained an `estimands=estimands,` keyword when
+        # `estimands:` entered the compiled profile. Both `before` and `after`
+        # carry it now so the sabotage still lands on the live call instead of
+        # matching nothing and scoring stale.
         sabotage=Sabotage(
             module="profile.py",
             before='''        compiled_identity=v1.digest(
             PROFILE_DOMAIN,
             _projection(
                 base.claim_grammar,
+                base.estimand_grammar,
                 operators,
                 dimensions,
                 sorts,
                 kinds=kinds,
                 facets=facets,
                 relations=base.relations,
+                estimands=estimands,
                 coordination=coordination_projection,
             ),
         ),''',
@@ -367,12 +374,14 @@ _M7 = [
             {
                 **_projection(
                     base.claim_grammar,
+                    base.estimand_grammar,
                     operators,
                     dimensions,
                     sorts,
                     kinds=kinds,
                     facets=facets,
                     relations=base.relations,
+                    estimands=estimands,
                     coordination=coordination_projection,
                 ),
                 "activated": {ns: c.content_identity for ns, c in seen.items()},

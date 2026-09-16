@@ -285,6 +285,8 @@ def test_f3_attestation_bound_and_preserved(corpora):
 
 
 def test_f4_eligibility_reads_the_validity_predicate(corpora, acquisition_report):
+    from fixtures_cut3 import typed_applicability, typed_estimand
+
     for variant in ("payload", "absent", "basis", "deleted-retrieval"):
         w = corpora()
         good = w.add(acquired("good", ACTOR))
@@ -307,7 +309,7 @@ def test_f4_eligibility_reads_the_validity_predicate(corpora, acquisition_report
             expected = "facet-retrieval-unresolved"
         raw_write(w.root, stored.stamp_semantic_identity(bad))
         run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s", observes=[bad.id]))
-        assessment = stored.assessment_node("a", title="a", spec="analysis-spec:s", run=run.id, proposition="proposition:p", outcome="supported", interpretation_rule="rule:threshold")
+        assessment = stored.assessment_node("a", title="a", spec="analysis-spec:s", run=run.id, proposition="proposition:p", outcome="supported", interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability())
         reason = eligibility_refusal(reopen(w.root), assessment, BASE)
         assert reason is not None and expected in reason
         run.relations.append(Relation(source=run.id, predicate="observes", target=good.id))
@@ -380,7 +382,7 @@ def test_f7_retrieval_resolves_or_refuses(corpora, acquisition_report):
 def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
     from closure_fixtures import make_closure
     from coordination_fixtures import content_for
-    from fixtures_cut3 import spec_draft, spec_rules
+    from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
     from test_holdings_records import observation
 
     from beliefs.corpus import CoordinationResolver
@@ -398,7 +400,7 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
         "dataset_node": acquired("d", ACTOR),
         "run_node": producing("r", dataset_ref("x")),
         "run_publication_node": stored.run_publication_node("rp", title="rp", projection=projection_text(closure).decode(), spec="analysis-spec:s"),
-        "assessment_node": stored.assessment_node("a", title="a", spec="analysis-spec:s", run="run:r", proposition="proposition:p", outcome="supported", interpretation_rule="rule:r"),
+        "assessment_node": stored.assessment_node("a", title="a", spec="analysis-spec:s", run="run:r", proposition="proposition:p", outcome="supported", interpretation_rule="rule:r", estimand=typed_estimand(), applicability=typed_applicability()),
         "verification_node": stored.verification_node("v", title="v", assessment="a", assessment_ref="assessment:a", scope="same-environment", verdict="passed"),
         "analysis_spec_node": stored.analysis_spec_node(freeze(spec_draft(), held_rules=spec_rules())),
         "retraction_node": stored.retraction_node(title="r", target=stored.NodeTarget(dataset_ref("d"), dataset_ref("d"), "1" * 64), reason="authored-error", rationale="wrong", grounds=["source:s"], actor=ACTOR, event_token="e"),

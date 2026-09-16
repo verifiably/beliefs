@@ -745,5 +745,33 @@ travel with them.
    they answer different questions. Settling this is a prerequisite for
    quoting either figure in §2.3, and it interacts with the estimand-match
    deferral (F6), which is where a wrong answer would surface.
+
+   > **Answered 2026-09-16** (`2026-09-12-estimand-typing-design.md`,
+   > discharged at conformance cut 31). The default placement above is adopted
+   > as written, with the three homes made concrete and the two axes kept
+   > independent.
+   >
+   > - A set that only **identifies or estimates the same target** stays in
+   >   `method` / `assumptions` / `parameters`, as prose or a ref. The typed
+   >   estimand takes nothing from it.
+   > - A set that **defines a different target quantity** is typed, and it has
+   >   its own member: the estimand's `control` carries one `identification`
+   >   term and an unordered set of `conditioning` members, each sorted by the
+   >   operator's `estimands:` declaration. Duplicates are refused; reordering
+   >   does not move the spec's identity, because the set is unordered and its
+   >   canonical projection says so.
+   > - A source **asserting the relationship conditional on** that set is the
+   >   claim's qualification, and that row is **not** settled here: the
+   >   qualifier home for "conditional on" stays a grammar question (design
+   >   §13 limitation 5), so this third home remains as banked.
+   >
+   > The split is what makes the first two decidable rather than a matter of
+   > taste: `commensurable` is equality on every estimand member **except**
+   > `control.identification`, so two analyses that identify one quantity
+   > differently are commensurable, and two that condition into different
+   > quantities are not. That is the same distinction this question drew, now
+   > computed. The earlier draft's withdrawn claim — that conditioning makes it
+   > *"a different claim"* — stays withdrawn: conditioning moves the estimand,
+   > not the claim.
 5. **Sub-problem 6** (F4) — audit liveness and the divergence table remain the
    corpus's largest structural deferral.

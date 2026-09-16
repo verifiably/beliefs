@@ -304,6 +304,28 @@ limit:
 > optional, uncovered source facet. Its named reader is `stored.identifier_corrections`;
 > `stored.validate_source_history` applies the history and redirect contract together.
 
+> **Amended 2026-09-16 — two reader rows become strict and profile-taking**
+> (`2026-09-12-estimand-typing-design.md`, discharged at conformance cut 31).
+>
+> - **`assessment`** (`assessment_value`): the "five fields coerced with `str`;
+>   non-string optionals dropped" column is retired. `estimand` and
+>   `applicability` decode to typed values and `estimate` and `uncertainty` to
+>   an exact decimal and a typed uncertainty; a malformed member is **refused**
+>   (`MalformedRecord`), never coerced and never dropped, and a record minted
+>   before `science.estimand.v1` is refused by its own name
+>   (`PreGrammarAssessment`). The reader takes the **profile** as an argument,
+>   because the sorts its members resolve through are the profile's. The closed
+>   outcome set is still enforced at audit, not here.
+> - **`analysis-spec`** (`analysis_spec_value`, and `spec.restore` beneath it):
+>   no longer "this design does not audit them". It is strict on the facet's
+>   shape — exactly `{identity, projection}` — takes the profile, and refuses a
+>   pre-grammar projection by its own name (`PreGrammarSpec`). `source-assertion`
+>   and `act-report` are unchanged.
+>
+> Both rows are still **`shape: reader`**: no facet migrates to a schema here,
+> and §9 item 1's limitation is narrowed by exactly these two readers and
+> otherwise stands.
+
 Reader strictness is recorded as a limitation (§9 item 1). No reader-shaped
 facet migrates to a schema in this slice.
 

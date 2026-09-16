@@ -16,11 +16,32 @@ import beliefs
 
 # Live matcher migration, 2026-09-14: the frozen declaration keeps the
 # pre-slice-5 handle return while this adapter preserves F8's undeclared-facet sabotage.
+#
+# Live matcher migration, 2026-09-15 (estimand-typing Task 2, Q2): the frozen
+# declaration's `_fields(...)` call names the pre-`estimands:` optional set;
+# `parse_domain_contract` now passes `_CONTRACT_OPTIONAL`, which the estimand
+# declaration extended to include `"estimands"`. This adapter re-targets D8a's
+# `before` at the current line and keeps the same defeated refusal — `kinds`
+# and `relations` accepted alongside it — so the sabotage still catches D8's
+# check rather than scoring stale.
 _LIVE_SABOTAGES = {
     "F8": Sabotage(
         module="stored.py",
         before='    return _node("dataset", address.partition(":")[2], title, facets, ())\n',
         after='    facets["provenance"] = {}\n    return _node("dataset", address.partition(":")[2], title, facets, ())\n',
+    ),
+    "D8a": Sabotage(
+        module="contract/domain.py",
+        before=(
+            '    for section in ("kinds", "relations"):\n'
+            "        if section in root:\n"
+            "            raise MalformedContract(\n"
+            '                f"{source}: a domain contract declares no {section}; a kernel kind or relation signature is the "\n'
+            "                \"base contract's, and a domain contributes facets to kinds that already exist (D §3.3, D8) — refused\"\n"
+            "            )\n"
+            "    _fields(root, _CONTRACT_FIELDS, _CONTRACT_OPTIONAL, source)\n"
+        ),
+        after='    _fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets", "estimands", "kinds", "relations"}), source)\n',
     ),
 }
 CUT20_ARMS = tuple(

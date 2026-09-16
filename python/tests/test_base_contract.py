@@ -183,3 +183,57 @@ def test_genuinely_empty_deferred_declarations_remain_accepted(document):
     contract = parse(document)
     for kind in ("instrument-certification",):
         assert not contract.kinds[kind].facets
+
+
+class TestEstimandGrammar:
+    def test_the_shipped_base_declares_the_three_closed_sets(self, base_contract):
+        grammar = base_contract.estimand_grammar
+        assert grammar.version == 1
+        assert grammar.contrast_kinds == ("levels", "continuous")
+        assert grammar.scales == ("additive", "multiplicative")
+        assert grammar.uncertainty_kinds == ("interval", "standard-error")
+
+    def test_a_base_contract_lacking_the_grammar_is_refused(self, base_contract_path):
+        import yaml
+
+        from beliefs.contract.base import parse_base_contract
+        from beliefs.errors import MalformedContract
+
+        document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
+        del document["estimand_grammar"]
+        with pytest.raises(MalformedContract, match="estimand_grammar"):
+            parse_base_contract(document, source="<no-grammar>")
+
+    def test_another_tag_encoding_is_refused(self, base_contract_path):
+        import yaml
+
+        from beliefs.contract.base import parse_base_contract
+        from beliefs.errors import MalformedContract
+
+        document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
+        document["estimand_grammar"]["tag_encoding"] = "science.identity.v2"
+        with pytest.raises(MalformedContract, match="tag_encoding"):
+            parse_base_contract(document, source="<encoding>")
+
+    def test_a_duplicate_tag_in_a_closed_set_is_refused(self, base_contract_path):
+        import yaml
+
+        from beliefs.contract.base import parse_base_contract
+        from beliefs.errors import TagCollision
+
+        document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
+        document["estimand_grammar"]["scales"] = ["additive", "additive"]
+        with pytest.raises(TagCollision):
+            parse_base_contract(document, source="<dup>")
+
+    def test_the_grammar_enters_the_compiled_identity(self, base_contract_path):
+        import yaml
+
+        from beliefs.contract.base import parse_base_contract
+        from beliefs.profile import compile_profile
+
+        document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
+        before = compile_profile(parse_base_contract(document, source="<a>"), []).compiled_identity
+        document["estimand_grammar"]["scales"] = ["additive", "multiplicative", "ordinal"]
+        after = compile_profile(parse_base_contract(document, source="<b>"), []).compiled_identity
+        assert before != after

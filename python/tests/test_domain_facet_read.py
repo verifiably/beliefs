@@ -190,15 +190,17 @@ def test_isolated_case_an_unrelated_bump_leaves_it(tmp_path):
 
 
 def test_isolated_case_holds_with_no_claim_record(tmp_path):
-    """A proposition with no claim consults only the base — plus biology
-    through the facet. The assessments name a proposition the corpus does not
-    hold, as `test_evaluation.claimless_fixture` does."""
+    """A proposition with no claim consults the base — plus biology through
+    the facet, plus testing through the matched assessments' estimand (which
+    is unconditional on the claim schema, estimand-typing §5.4). The
+    assessments name a proposition the corpus does not hold, as
+    `test_evaluation.claimless_fixture` does."""
     absent = "proposition:never-stored"
     profile = profile_with()
     view = seed(tmp_path, proposition=absent)
     inputs = gather(view, absent, **_gathered(kwargs_for(view, profile)))
     assert inputs.claim is None
-    assert set(dict(inputs.consulted)) == {"science", "biology"}
+    assert set(dict(inputs.consulted)) == {"science", "biology", "testing"}
 
 
 # --- the dogfood shape: biology by both routes (design §5.6) ----------------
@@ -251,10 +253,19 @@ def test_dogfood_payload_change_moves_the_digest(tmp_path):
 def test_m8_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest(tmp_path):
     """The claim is at `crossing/affects-local-entity`, no domain facet is in
     the closure (`axis=None`), and the bumped contract is `testing`, reached
-    through slot 1's sort and nothing else. Dropping the walk's sort-contract
-    collection leaves `testing` unconsulted and this test fails (M8a)."""
-    from domain_facet_fixtures import CROSSING_CLAIM
+    **through the claim** by slot 1's sort and nothing else.
 
+    The end-to-end consulted set no longer isolates that route: since
+    estimand typing the fixture's assessments carry a typed estimand whose
+    declaration is `testing`'s, so `testing` is consulted twice over and a
+    walk that lost the claim's sort collection would still reach it (cut 22's
+    M8a scored vacuous on exactly that). The claim route is therefore measured
+    on its own below, with no estimand supplied — which is what M8a asserts.
+    """
+    from domain_facet_fixtures import CROSSING_CLAIM
+    from profiles import pins_for
+
+    from beliefs.consulted import consulted_contracts
     from beliefs.projection import claim_identity
 
     view = seed(tmp_path, axis=None, claim=CROSSING_CLAIM)
@@ -268,4 +279,12 @@ def test_m8_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_
     assert inputs_one.observed_facets == () and inputs_one.claim is not None and inputs_two.claim is not None
     assert claim_identity(inputs_one.claim) == claim_identity(inputs_two.claim)
     assert "testing" in dict(inputs_one.consulted)
+    claim_only = consulted_contracts(
+        claims={PROPOSITION_REF: inputs_one.claim},
+        profile=before,
+        node_corpus={},
+        pins={"c1": pins_for(before)},
+        closure_nodes=(),
+    )
+    assert "testing" in dict(claim_only)  # the claim's own route, with no estimand to cover for it
     assert one.value == two.value and one.belief_input_digest != two.belief_input_digest

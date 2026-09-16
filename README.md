@@ -27,7 +27,7 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Sixty-five documents in `docs/designs/`: the banked redesigns, review disposition,
+Sixty-seven documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
 2026-08-02 through 2026-09-15. Read them in this order:
 
@@ -98,6 +98,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-14-conformance-cut-28.md` | the frozen slice 4 cut: view-query evaluation over the world read view, W7, and the W8/W8b discharge over existing code |
 | `2026-09-14-conformance-cut-29.md` | the frozen slice 5 cut: dataset ids derived from the content identity, held at the write boundary and at both inputs of `consolidate`; W2, W3 and W8 re-read on dataset arms |
 | `2026-09-15-conformance-cut-30.md` | the frozen slice 6 cut: divergent correction histories reconciled at `consolidate` by absorption, idempotent over a re-run; no guarantee row read |
+| `2026-09-12-estimand-typing-design.md` | the owner of ρO3's estimand half: a kernel-owned estimand grammar, per-operator `estimands:` declarations in a domain contract, a typed estimand and qualifier-map applicability on the frozen spec, decimal estimates and typed uncertainty on the spec's scale, structural match at the boundary and under audit, and commensuration exposed and unread by v1 (Q1–Q10); worked against a second domain in Appendix A |
+| `2026-09-15-conformance-cut-31.md` | the frozen estimand-typing cut: Q1–Q10 selected in full, 10 declaration units, 26 sabotage arms, the cut 30 runner as prefix; the first off-path lane after the world-read path closed |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -105,7 +107,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 30** is implemented and discharged. What
+Every conformance cut through **cut 31** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -146,19 +148,24 @@ normalized identifiers, and identifier correction preserves attributed history.
 Epoch import evaluates every receipt before writing; epoch audit and query
 reduce retained receipt states; and the world audit reports damaged corpora
 while judging their captured remainder.
-The latest discharged boundary is cut 30
-([cut](docs/designs/2026-09-15-conformance-cut-30.md),
-[results](docs/plans/2026-09-15-conformance-cut-30-results.md)).
+The estimand, its applicability, and the estimate and uncertainty an
+interpretation rule returns are typed against a kernel-owned grammar and
+per-operator domain declarations, with structural match checked at the write
+boundary and under audit and commensuration exposed but unread by
+`science.belief.v1`.
+The latest discharged boundary is cut 31
+([cut](docs/designs/2026-09-15-conformance-cut-31.md),
+[results](docs/plans/2026-09-16-conformance-cut-31-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **196 rows** across **eighteen frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B), and every cut is frozen
+test before it is a passing one. There are **206 rows** across **nineteen frozen
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-15).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

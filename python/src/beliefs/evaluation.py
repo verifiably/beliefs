@@ -218,7 +218,7 @@ def gather(
     for node in view.iter_stored():
         if node.kind != "assessment":
             continue
-        value = stored.assessment_value(node)
+        value = stored.assessment_value(node, profile=profile)
         if value.proposition != proposition:
             continue  # a lookup, not a value handed out
         matched.append(value)
@@ -306,6 +306,7 @@ def gather(
     )
     consulted = consulted_contracts(
         claims={proposition: claim} if claim is not None else {},
+        estimands={a.identity(): a.estimand for a in matched},
         profile=profile,
         node_corpus=node_corpus,
         pins=context.pins,

@@ -6,10 +6,11 @@ node→corpus attributions plus per-corpus pins (cut 2 §4.2, D7 row).
 """
 
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from profiles import WITH_BIOLOGY, pins_for
+from profiles import WITH_BIOLOGY, biology, pins_for
 
 from beliefs.claim import Referent, build_claim
 from beliefs.consulted import CorpusPins, consulted_contracts
@@ -175,7 +176,7 @@ class TestAgreement:
         import inspect
 
         parameters = inspect.signature(consulted_contracts).parameters
-        assert set(parameters) == {"claims", "profile", "node_corpus", "pins", "closure_nodes", "facets_read"}
+        assert set(parameters) == {"claims", "estimands", "profile", "node_corpus", "pins", "closure_nodes", "facets_read"}
 
 
 class TestSlotSorts:
@@ -326,4 +327,83 @@ def test_a_facet_read_outside_the_closure_is_malformed():
             pins=_biology_pins(),
             closure_nodes=("dataset:d",),
             facets_read={"dataset:outside": ("biology/gene-axis",)},
+        )
+
+
+@pytest.fixture()
+def measured(base_contract, testing_document):
+    """`testing` whose `affects` estimand measures in `measures/assay`, compiled
+    beside the `measures` fixture: a contract reached through the estimand and
+    through nothing else, so the arm below cannot pass on the claim walk."""
+    import copy
+
+    fixture = Path(__file__).resolve().parent / "fixtures" / "measures-fixture.yaml"
+    from beliefs.contract.document import load_document
+
+    measures = domain.parse_domain_contract(
+        load_document(fixture, source=str(fixture)), source=str(fixture), base=base_contract, predecessor=None
+    )
+    document = copy.deepcopy(testing_document)
+    document["estimands"]["affects"]["measure_sort"] = "measures/assay"
+    testing = domain.parse_domain_contract(document, source="<measured>", base=base_contract, predecessor=None)
+    return compile_profile(base_contract, [testing, measures])
+
+
+def test_an_estimand_reaches_a_contract_no_claim_reaches(measured, claim):
+    from fixtures_cut3 import UNCONSULTED
+
+    from beliefs.claim import Referent
+    from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
+
+    claim = build_claim(profile=measured, operator="testing/affects", args=claim.args, qualifiers={}, polarity="positive", layer="causal")
+    estimand, _ = build_estimand(
+        measured, claim, snapshot=UNCONSULTED,
+        contrast=LevelsContrast(0, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
+        measure=Measure(Referent("measures/assay", "EX:m"), "additive"), reference=Decimal(0),
+        control=Control(Referent("testing/identification", "EX:obs"), ()),
+    )
+    pins = pins_for(measured)
+    claim_only = consulted_contracts(claims={"p": claim}, profile=measured, node_corpus={}, pins={"c1": pins}, closure_nodes=())
+    with_estimand = consulted_contracts(claims={"p": claim}, estimands={"a1": estimand}, profile=measured, node_corpus={}, pins={"c1": pins}, closure_nodes=())
+    assert "measures" not in dict(claim_only) and dict(with_estimand)["measures"] == pins.domains["measures"]
+
+
+def test_an_estimand_under_an_unpinned_namespace_refuses(base_contract, testing_document):
+    # A cross-contract measure sort pinned by no corpus is `ContractDisagreement`, as an operator's sort would be.
+    import copy
+
+    from fixtures_cut3 import UNCONSULTED
+
+    from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
+
+    document = copy.deepcopy(testing_document)
+    document["estimands"]["affects"]["measure_sort"] = "biology/gene"
+    testing = domain.parse_domain_contract(document, source="<unpinned>", base=base_contract, predecessor=None)
+    bio = biology("fixture")
+    profile = compile_profile(base_contract, [testing, bio])
+
+    claim = build_claim(
+        profile=profile,
+        operator="testing/affects",
+        args=(Referent(sort="testing/entity", term="EX:gene-x"), Referent(sort="testing/outcome", term="EX:pheno-y")),
+        qualifiers={},
+        polarity="positive",
+        layer="causal",
+    )
+    estimand, _ = build_estimand(
+        profile, claim, snapshot=UNCONSULTED,
+        contrast=LevelsContrast(0, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
+        measure=Measure(Referent("biology/gene", "EX:g"), "additive"), reference=Decimal(0),
+        control=Control(Referent("testing/identification", "EX:obs"), ()),
+    )
+    real = pins_for(profile)
+    pins_without_biology = CorpusPins(science_contract=real.science_contract, domains={"testing": real.domains["testing"]})
+    with pytest.raises(ContractDisagreement, match="'biology' is consulted but pinned by no corpus"):
+        consulted_contracts(
+            claims={"p": claim},
+            estimands={"a1": estimand},
+            profile=profile,
+            node_corpus={},
+            pins={"c1": pins_without_biology},
+            closure_nodes=(),
         )

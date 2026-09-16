@@ -7,6 +7,7 @@ from typing import Any
 
 from authority import ACTOR
 from dataset_fixtures import dataset_ref, pinned
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from profiles import biology, pins_for
@@ -115,16 +116,18 @@ def seed(
     assessments = [
         stored.assessment_node(
             "a-1", title="a-1", spec="spec-a", run="run:run-a", proposition=proposition,
-            outcome="supported", interpretation_rule="rule-1"
+            outcome="supported", interpretation_rule="rule-1",
+            estimand=typed_estimand(), applicability=typed_applicability(),
         ),
         stored.assessment_node(
             "a-2", title="a-2", spec="spec-b", run="run:run-b", proposition=proposition,
-            outcome="supported", interpretation_rule="rule-1"
+            outcome="supported", interpretation_rule="rule-1",
+            estimand=typed_estimand(), applicability=typed_applicability(),
         ),
     ]
     nodes.extend(assessments)
     for index, node in enumerate(assessments, start=1):
-        value = stored.assessment_value(node)
+        value = stored.assessment_reference(node)
         nodes.append(
             stored.verification_node(
                 f"v-{index}", title=f"v-{index}", assessment=value.identity(), assessment_ref=node.id,
@@ -142,7 +145,7 @@ def seed(
 
 
 def kwargs_for(view: ReadView, profile: ProfileSpec) -> dict[str, Any]:
-    identities = {stored.assessment_value(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
+    identities = {stored.assessment_reference(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
     return {
         "availability": Availability(
             observations={

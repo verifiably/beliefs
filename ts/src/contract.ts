@@ -65,6 +65,13 @@ export interface ClaimGrammar {
   readonly layers: readonly string[];
 }
 
+export interface EstimandGrammar {
+  readonly version: number;
+  readonly contrastKinds: readonly string[];
+  readonly scales: readonly string[];
+  readonly uncertaintyKinds: readonly string[];
+}
+
 export type FieldType = "string" | "integer" | "boolean" | "ref" | "locator" | "actor";
 export interface FieldDecl {
   readonly name: string;
@@ -105,6 +112,7 @@ export class BaseContract {
   readonly name: string;
   readonly version: number;
   readonly claimGrammar: ClaimGrammar;
+  readonly estimandGrammar: EstimandGrammar;
   readonly kinds: DeclarationTable<KindDecl>;
   readonly relations: DeclarationTable<RelationDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
@@ -114,6 +122,7 @@ export class BaseContract {
     parts: {
       version: number;
       claimGrammar: ClaimGrammar;
+      estimandGrammar: EstimandGrammar;
       kinds?: DeclarationTable<KindDecl>;
       relations?: DeclarationTable<RelationDecl>;
       facets?: DeclarationTable<FacetDecl>;
@@ -139,6 +148,12 @@ export class BaseContract {
       polarities: Object.freeze([...parts.claimGrammar.polarities]),
       signInaptTag: parts.claimGrammar.signInaptTag,
       layers: Object.freeze([...parts.claimGrammar.layers]),
+    });
+    this.estimandGrammar = Object.freeze({
+      version: parts.estimandGrammar.version,
+      contrastKinds: Object.freeze([...parts.estimandGrammar.contrastKinds]),
+      scales: Object.freeze([...parts.estimandGrammar.scales]),
+      uncertaintyKinds: Object.freeze([...parts.estimandGrammar.uncertaintyKinds]),
     });
     this.kinds = parts.kinds;
     this.relations = parts.relations;
@@ -170,6 +185,18 @@ export interface OperatorDecl {
   readonly dimensions: readonly string[];
 }
 
+/**
+ * Which sorts fill the kernel's estimand structure at one operator
+ * (estimand-typing §5.1).
+ */
+export interface EstimandDecl {
+  readonly operator: string;
+  readonly levelSorts: Readonly<Record<string, string>>;
+  readonly measureSort: string;
+  readonly identificationSort: string;
+  readonly conditioningSort: string;
+}
+
 export class DomainContract {
   #minted = true;
   readonly namespace: string;
@@ -178,6 +205,7 @@ export class DomainContract {
   readonly dimensions: DeclarationTable<DimensionDecl>;
   readonly operators: DeclarationTable<OperatorDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
+  readonly estimands: DeclarationTable<EstimandDecl>;
 
   /**
    * The base contract this domain was **typed against**.
@@ -208,6 +236,7 @@ export class DomainContract {
       dimensions: DeclarationTable<DimensionDecl>;
       operators: DeclarationTable<OperatorDecl>;
       facets: DeclarationTable<FacetDecl>;
+      estimands: DeclarationTable<EstimandDecl>;
       base: BaseContract;
     },
   ) {
@@ -226,6 +255,7 @@ export class DomainContract {
     this.dimensions = parts.dimensions;
     this.operators = parts.operators;
     this.facets = parts.facets;
+    this.estimands = parts.estimands;
     this.base = parts.base;
     Object.freeze(this);
   }
@@ -377,7 +407,12 @@ export function parseFacetDeclarations(
 
 export function parseBaseContract(text: string, source: string): BaseContract {
   const document = mapping(parseYaml(text), source);
-  exactFields(document, ["contract", "version", "claim_grammar", "kinds", "relations", "facets"], [], source);
+  exactFields(
+    document,
+    ["contract", "version", "claim_grammar", "estimand_grammar", "kinds", "relations", "facets"],
+    [],
+    source,
+  );
   if (document.contract !== "science") {
     throw new MalformedContract(
       `${source}: the base contract is named \`science\`, found ${JSON.stringify(document.contract)}`,
@@ -405,6 +440,24 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       `${source}.claim_grammar.sign_inapt_tag: ${JSON.stringify(signInaptTag)} is also an assertable polarity`,
     );
   }
+  const estimandDocument = mapping(document.estimand_grammar, `${source}.estimand_grammar`);
+  exactFields(
+    estimandDocument,
+    ["version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"],
+    [],
+    `${source}.estimand_grammar`,
+  );
+  if (estimandDocument.tag_encoding !== TAG_ENCODING) {
+    throw new MalformedContract(
+      `${source}.estimand_grammar.tag_encoding: this implementation carries ${TAG_ENCODING}, the contract names ${JSON.stringify(estimandDocument.tag_encoding)}`,
+    );
+  }
+  const estimandGrammar: EstimandGrammar = {
+    version: positiveInt(estimandDocument.version, `${source}.estimand_grammar.version`),
+    contrastKinds: closedSet(estimandDocument.contrast_kinds, `${source}.estimand_grammar.contrast_kinds`),
+    scales: closedSet(estimandDocument.scales, `${source}.estimand_grammar.scales`),
+    uncertaintyKinds: closedSet(estimandDocument.uncertainty_kinds, `${source}.estimand_grammar.uncertainty_kinds`),
+  };
   const facets = parseFacetDeclarations(document.facets, `${source}.facets`, null);
   const kindEntries: [string, KindDecl][] = [];
   for (const [name, bodyValue] of Object.entries(mapping(document.kinds, `${source}.kinds`))) {
@@ -466,6 +519,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       signInaptTag,
       layers: closedSet(grammarDocument.layers, `${source}.claim_grammar.layers`),
     },
+    estimandGrammar,
     kinds,
     relations,
     facets,
@@ -503,7 +557,12 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     if (section in document)
       throw new MalformedContract(`${source}: a domain contract declares no ${section}; refused`);
   }
-  exactFields(document, ["contract", "version", "lineage"], ["sorts", "dimensions", "operators", "facets"], source);
+  exactFields(
+    document,
+    ["contract", "version", "lineage"],
+    ["sorts", "dimensions", "operators", "facets", "estimands"],
+    source,
+  );
 
   if (document.lineage !== "genesis") {
     throw new UncheckableContract(
@@ -590,13 +649,64 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     ]);
   }
 
+  const operators = frozenTable(operatorEntries);
+
+  const estimandEntries: [string, EstimandDecl][] = [];
+  for (const [name, body] of Object.entries(declarations(document.estimands, `${source}.estimands`))) {
+    const where = `${source}.estimands.${name}`;
+    const decl = mapping(body, where);
+    exactFields(
+      decl,
+      ["level_sorts", "measure_sort", "identification_sort", "conditioning_sort"],
+      ["description"],
+      where,
+    );
+    const operator = operators[name];
+    if (operator === undefined)
+      throw new MalformedContract(`${where}: ${JSON.stringify(name)} is not a declared operator`);
+    if (operator.arity === 0)
+      throw new MalformedContract(`${where}: ${JSON.stringify(name)} has arity 0 and admits no estimand`);
+    const levelSorts: Record<string, string> = Object.create(null);
+    for (const [slot, sort] of Object.entries(mapping(decl.level_sorts, `${where}.level_sorts`))) {
+      if (!/^(0|[1-9][0-9]*)$/.test(slot))
+        throw new MalformedContract(`${where}.level_sorts: ${JSON.stringify(slot)} is not a slot index`);
+      if (Number(slot) >= operator.arity)
+        throw new MalformedContract(`${where}.level_sorts: slot ${slot} is outside Fin(${operator.arity})`);
+      levelSorts[slot] = sortReference(sort, `${where}.level_sorts[${slot}]`, namespace, base.name, sorts);
+    }
+    estimandEntries.push([
+      name,
+      Object.freeze({
+        operator: name,
+        levelSorts: Object.freeze(levelSorts),
+        measureSort: sortReference(decl.measure_sort, `${where}.measure_sort`, namespace, base.name, sorts),
+        identificationSort: sortReference(
+          decl.identification_sort,
+          `${where}.identification_sort`,
+          namespace,
+          base.name,
+          sorts,
+        ),
+        conditioningSort: sortReference(
+          decl.conditioning_sort,
+          `${where}.conditioning_sort`,
+          namespace,
+          base.name,
+          sorts,
+        ),
+      }),
+    ]);
+  }
+  const estimands = frozenTable(estimandEntries);
+
   return new DomainContract(MINT, {
     namespace,
     version: positiveInt(document.version, `${source}.version`),
     sorts,
     dimensions,
-    operators: frozenTable(operatorEntries),
+    operators,
     facets,
+    estimands,
     base,
   });
 }

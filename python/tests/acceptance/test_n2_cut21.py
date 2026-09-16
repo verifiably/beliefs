@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -26,7 +27,8 @@ from n2_arms_cut17 import CUT17_ARMS
 from n2_arms_cut18 import CUT18_ARMS
 from n2_arms_cut19 import CUT19_ARMS
 from n2_arms_cut20 import CUT20_ARMS
-from n2_arms_cut21 import CO_CITED, CUT21_ARMS, DECLARATION_UNITS, unit_of
+from n2_arms_cut21 import CO_CITED, DECLARATION_UNITS, unit_of
+from n2_arms_cut21 import CUT21_ARMS as FROZEN_CUT21_ARMS
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
@@ -57,6 +59,89 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut20.py": "8639771",
     "python/tests/acceptance/n2_arms_cut20.py": "d5e203c",
 }
+
+# Live re-target, 2026-09-15 (estimand-typing Task 6): `stored.analysis_spec_value`
+# and `audit.check_analysis_spec` gained a required `profile` keyword (design §7.2,
+# §9 — every stored spec re-identifies against a typed estimand and must restore
+# under the profile that wrote it). The frozen tuple in n2_arms_cut21.py names the
+# old, profile-less call shape; this table is what the live guard audits.
+#
+# Live re-target, 2026-09-15 (estimand-typing Task 7): V2a's frozen pin named a
+# line inside the old `stored.assessment_value`, which read `run` as a bare
+# `.get("run")`. Task 7 retyped `assessment_value` to require `profile` and
+# split the bare-run reader out into `stored.AssessmentRef`/`assessment_reference`
+# (design §9 — a pre-grammar record can still be referenced without being
+# typed); both of V2a's own checks (`test_v2_assessment_value_hands_back_the_bare_run…`,
+# `test_v2_one_identity_admits_over_the_corpus_and_audits_clean`) were updated
+# in the same task to call `assessment_reference`, which is what this table
+# now sabotages instead.
+#
+# Live re-target, 2026-09-15 (estimand-typing Task 8): `audit_corpus`'s
+# analysis-spec branch now calls `check_spec_target` (§7.2's target/operator
+# comparison), not `check_analysis_spec` directly, so V8e's pin follows that
+# call. `stored_specs` gained a `PreGrammarSpec` branch ahead of its generic
+# `RecordError` catch (decision 10, `spec-pre-grammar`), so V8c's pin now spans
+# from the restore call through that branch to the generic catch it sabotages.
+# V8f's two-line pin inside `_refuse` still occurs verbatim (Task 8 appended a
+# third line, `_refuse_estimand_target_mismatch`, rather than editing either of
+# the first two), so the staleness probe never flagged it — but `before`'s
+# blank replacement (`"        pass\n"`) then landed ahead of that third,
+# now-orphaned line at the old line's indent, a `SyntaxError` that failed the
+# sabotaged process's collection rather than the named tests' assertions
+# (`pytest exited 4`, not a check failure). The pin now spans all three lines,
+# so the sabotage still reduces the block to `pass` alone.
+_LIVE_SABOTAGES = {
+    "V2a": Sabotage(
+        "stored.py",
+        '    return AssessmentRef(spec=facet["spec"], run=local_id("run", facet["run"]), proposition=facet["proposition"])\n',
+        '    return AssessmentRef(spec=facet["spec"], run=str(facet.get("run", "")), proposition=facet["proposition"])\n',
+    ),
+    "V8e": Sabotage(
+        "audit.py",
+        (
+            '            elif node.kind == "analysis-spec":\n'
+            "                outcome = check_spec_target(view, node, profile=profile)\n"
+        ),
+        "            elif False:\n                continue\n",
+    ),
+    "V8c": Sabotage(
+        "audit.py",
+        (
+            "            spec = stored.analysis_spec_value(node, profile=profile)\n"
+            "        except PreGrammarSpec as refused:\n"
+            "            findings.append(\n"
+            "                Finding(\n"
+            '                    severity="error",\n'
+            '                    code="spec-pre-grammar",\n'
+            "                    ref=node.id,\n"
+            "                    detail=str(refused),\n"
+            '                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",\n'
+            "                )\n"
+            "            )\n"
+            "            continue\n"
+            "        except RecordError as refused:\n"
+        ),
+        (
+            "            spec = stored.analysis_spec_value(node, profile=profile)\n"
+            "        except RecordError:\n"
+            "            continue\n"
+        ),
+    ),
+    "V8f": Sabotage(
+        "corpus.py",
+        (
+            '        if node.kind == "analysis-spec":\n'
+            "            self._refuse_r20_contradiction(node)\n"
+            "            self._refuse_estimand_target_mismatch(node, view=self._view if view is None else view)\n"
+        ),
+        "        pass\n",
+    ),
+}
+RETARGETED_ROWS = frozenset(_LIVE_SABOTAGES)
+
+CUT21_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in FROZEN_CUT21_ARMS
+)
 
 PRIOR_ARMS = (
     *CUT3_ARMS,

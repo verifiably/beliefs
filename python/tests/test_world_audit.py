@@ -300,3 +300,76 @@ def test_a_malformed_attestation_is_a_per_record_finding_and_the_audit_completes
 
     assert any(f.ref == broken.id and f.code == "semantic-hash-stale" for f in audit.corpora[ALPHA])
     assert not any(f.ref == broken.id for f in audit.world)
+
+
+
+def test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues(tmp_path):
+    """Decision 10, `audit_world`'s own seam (Task 8 review finding 3): a
+    pre-grammar spec or assessment is named by its own code, never folded
+    into `derivation-malformed`, and the exception that names it does not
+    stop the loop from reaching a genuine finding for the record after it —
+    `self_consistent_forgery`'s verdict-only forgery, part of the same
+    published capture. Built inline rather than through
+    `split_verification_world`: the pre-grammar records must be present
+    **before** `publish`, the same way `split_verification_world`'s own
+    forgery is, or `audit_world`'s per-node recomputation loop (over
+    `view.iter_stored()`, which only sees what the epoch mapped) never
+    reaches them at all — a raw write after `publish` only ever surfaces as
+    drift, never as a recomputation finding."""
+    from authority import FULL
+    from fixtures_cut4 import reopen
+    from nodes.core.write_plan import DefaultExecutor
+    from profiles import pins_for
+    from test_world_receipts import corpora, hold_shipped, publish, world_over
+    from verification_fixtures import publish_corpus, self_consistent_forgery
+
+    from beliefs.corpus import CorpusWriter
+    from beliefs.identity import v1
+
+    scratch = tmp_path / "scratch"
+    writer = CorpusWriter(scratch, DefaultExecutor, authority=FULL, profile=BASE)
+    writer.adopt_manifest(profile=pins_for(BASE))
+    published = publish_corpus(writer, publish=True)
+    assert published.node is not None
+    forged = self_consistent_forgery(
+        writer, published.node, mutate=lambda facet: facet.__setitem__("verdict", "failed")
+    )
+
+    spec_node = stored.stamp_semantic_identity(
+        stored._node(
+            "analysis-spec", "old", "old",
+            {stored.ANALYSIS_SPEC_FACET: {"identity": "old", "projection": v1.encode({
+                "target": "proposition:p", "estimand": "prose", "method": "m", "assumptions": "a",
+                "falsification": "f", "input_roles": [], "applicability": "prose",
+                "interpretation_rule": "r", "equivalence_rule": "e", "parameters": {},
+                "nondeterminism": {"variant": "deterministic"}, "rule_bindings": [],
+            }).decode()}},
+            (),
+        )
+    )
+    assessment_node = stored.stamp_semantic_identity(
+        stored._node(
+            "assessment", "old", "old",
+            {stored.ASSESSMENT_FACET: {
+                "spec": "old", "run": "run:x", "proposition": "proposition:p",
+                "outcome": "supported", "interpretation_rule": "r", "estimand": "prose",
+            }},
+            (),
+        )
+    )
+    raw_write(scratch, spec_node)
+    raw_write(scratch, assessment_node)
+
+    nodes = tuple(reopen(scratch).iter_stored())
+    runs = tuple(node for node in nodes if node.kind == "run")
+    roots = corpora(tmp_path, {ALPHA: tuple(node for node in nodes if node.kind != "run"), BETA: runs})
+    world = world_over(tmp_path, roots)
+    epoch = publish(world, (ALPHA, BETA), hold_shipped(world))
+
+    audit = audit_world(world, epoch, evidence=published.evidence, profile=BASE)
+
+    found = {f.ref: f.code for f in audit.corpora[ALPHA]}
+    assert found[spec_node.id] == "spec-pre-grammar"
+    assert found[assessment_node.id] == "assessment-pre-grammar"
+    assert "derivation-malformed" not in found.values()
+    assert any(f.ref == forged.id and f.code == "verification-derivation-contradicted" for f in audit.corpora[ALPHA])

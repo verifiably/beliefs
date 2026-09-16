@@ -36,6 +36,11 @@ def concept_lines(predecessor: Path) -> bytes:
 
 
 def main() -> int:
+    """Three phases in one step, and the order is the whole point: the address
+    is computed and saved **before** `world.adopt()`, which compiles the
+    contract, and the contract binds this list's address along with the three
+    `lists.py` writes (design §9). The held copy and the dataset record follow
+    adoption, because minting needs a manifest."""
     content = concept_lines(paths.PREDECESSOR)
     count = content.count(b"\n")
     digest = "sha256:" + sha256(content).hexdigest()

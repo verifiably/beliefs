@@ -352,7 +352,9 @@ class TestSuccession:
     def test_the_scope_is_claim_vocabulary_and_nothing_else(self, genesis):
         # §8.3's scope restriction: an unscoped "every identifier" would have
         # this design quietly deciding facet versioning, which D §12 leaves open.
-        assert all(key.split(":")[0] in {"sort", "dimension", "operator"} for key in genesis.claim_vocabulary())
+        assert all(
+            key.split(":")[0] in {"sort", "dimension", "operator", "estimand"} for key in genesis.claim_vocabulary()
+        )
 
 
 class TestRetirementIsOneWay:
@@ -418,6 +420,11 @@ class TestRetirementIsOneWay:
         document, contract = tombstoned
         dropped = copy.deepcopy(document)
         del dropped["operators"]["affects"]
+        # An estimand declaration lives with its operator (estimand-typing §5.1)
+        # and cannot outlive it in the document, so it is dropped in step to keep
+        # the document internally consistent — this test is about the operator
+        # drop being refused, not about the estimand table.
+        del dropped["estimands"]["affects"]
         dropped["lineage"] = {"successor": contract.content_identity}
         dropped["version"] = contract.version + 1
         with pytest.raises(SuccessionViolation, match="drops claim-vocabulary"):

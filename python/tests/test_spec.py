@@ -5,12 +5,14 @@ import inspect
 from decimal import Decimal
 
 import pytest
-from fixtures_cut3 import DATA_ADDRESS
+from fixtures_cut3 import DATA_ADDRESS, typed_applicability, typed_estimand
 from fixtures_cut3 import seed_plan as plan
 from fixtures_cut3 import spec_draft as draft
 from fixtures_cut3 import spec_rules as held_rules
 
+from beliefs.contract.base import ESTIMAND_GRAMMAR
 from beliefs.errors import MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
+from beliefs.estimand import applicability_projection, estimand_projection
 from beliefs.identity import v1
 from beliefs.recipe import job_key
 from beliefs.spec import (
@@ -139,7 +141,7 @@ def test_r7_an_assessment_spec_with_no_target_is_refused():
 
 def test_the_identity_is_over_the_normative_facet():
     a = freeze(draft(), held_rules=held_rules())
-    b = freeze(draft(estimand="a different quantity"), held_rules=held_rules())
+    b = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
     assert a.identity != b.identity
     assert freeze(draft(), held_rules=held_rules()).identity == a.identity  # recomputable
 
@@ -150,12 +152,13 @@ def test_the_identity_matches_the_hand_authored_complete_normative_projection():
         SPEC_DOMAIN,
         {
             "target": "prop-1",
-            "estimand": "the effect of x on y",
+            "estimand_grammar": ESTIMAND_GRAMMAR,
+            "estimand": estimand_projection(typed_estimand()),
             "method": "fit the model",
             "assumptions": "iid draws",
             "falsification": "a null effect",
             "input_roles": [{"role": "observes", "dataset": DATA_ADDRESS}],
-            "applicability": "the sampled population",
+            "applicability": applicability_projection(typed_applicability()),
             "interpretation_rule": "median-difference/v1",
             "equivalence_rule": "content-identity-equality/v1",
             "parameters": {"alpha": Decimal("0.05")},
@@ -194,7 +197,7 @@ def test_frozen_specs_are_minted_only_by_freeze_and_revise():
 
     successor = revise(
         original,
-        edits={"estimand": "a revised quantity"},
+        edits={"estimand": typed_estimand(reference=Decimal(1))},
         held_rules=held_rules(),
         recorded_failures=frozenset(),
     )
@@ -208,12 +211,13 @@ def test_supersedes_is_in_the_hand_authored_normative_projection():
         SPEC_DOMAIN,
         {
             "target": "prop-1",
-            "estimand": "the effect of x on y",
+            "estimand_grammar": ESTIMAND_GRAMMAR,
+            "estimand": estimand_projection(typed_estimand()),
             "method": "fit the model",
             "assumptions": "iid draws",
             "falsification": "a null effect",
             "input_roles": [{"role": "observes", "dataset": DATA_ADDRESS}],
-            "applicability": "the sampled population",
+            "applicability": applicability_projection(typed_applicability()),
             "interpretation_rule": "median-difference/v1",
             "equivalence_rule": "content-identity-equality/v1",
             "parameters": {"alpha": Decimal("0.05")},
@@ -281,7 +285,7 @@ def test_r8_changing_a_root_seed_mints_a_successor_spec():
 
 def test_g4_an_unreferenced_successor_to_a_recorded_failed_replay_is_refused():
     original = freeze(draft(), held_rules=held_rules())
-    unreferenced = freeze(draft(estimand="revised"), held_rules=held_rules())  # supersedes=None
+    unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())  # supersedes=None
     verdict = admit_successor(unreferenced, original, frozenset({original.identity}), frozenset())
     assert isinstance(verdict, SuccessorRefused)
 
@@ -290,7 +294,7 @@ def test_g4_a_referencing_successor_is_admitted():
     original = freeze(draft(), held_rules=held_rules())
     successor = revise(
         original,
-        edits={"estimand": "revised"},
+        edits={"estimand": typed_estimand(reference=Decimal(1))},
         held_rules=held_rules(),
         recorded_failures=frozenset({original.identity}),
     )
@@ -302,13 +306,13 @@ def test_g4_a_discarded_failed_attempt_is_undetectable():
     # a failure absent from the supplied set never happened, and nothing can
     # tell (kernel G4's bound, pinned rather than papered over).
     original = freeze(draft(), held_rules=held_rules())
-    unreferenced = freeze(draft(estimand="revised"), held_rules=held_rules())
+    unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
     assert isinstance(admit_successor(unreferenced, original, frozenset(), frozenset()), SuccessorAdmitted)
 
 
 def test_g4_an_unreferenced_successor_to_an_unfinished_recorded_attempt_is_refused():
     original = freeze(draft(), held_rules=held_rules())
-    unreferenced = freeze(draft(estimand="revised"), held_rules=held_rules())
+    unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
     verdict = admit_successor(unreferenced, original, frozenset(), frozenset({original.identity}))
     assert isinstance(verdict, SuccessorRefused)
     assert verdict.reason == "an unreferenced successor to an unfinished recorded attempt"
@@ -316,7 +320,7 @@ def test_g4_an_unreferenced_successor_to_an_unfinished_recorded_attempt_is_refus
 
 def test_g4_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
     original = freeze(draft(), held_rules=held_rules())
-    unreferenced = freeze(draft(estimand="revised"), held_rules=held_rules())
+    unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
     both = frozenset({original.identity})
     verdict = admit_successor(unreferenced, original, both, both)
     assert isinstance(verdict, SuccessorRefused)
@@ -326,7 +330,7 @@ def test_g4_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
 def test_g4_a_referencing_successor_lifts_both_classes():
     original = freeze(draft(), held_rules=held_rules())
     successor = revise(
-        original, edits={"estimand": "revised"}, held_rules=held_rules(), recorded_failures=frozenset()
+        original, edits={"estimand": typed_estimand(reference=Decimal(1))}, held_rules=held_rules(), recorded_failures=frozenset()
     )
     both = frozenset({original.identity})
     assert isinstance(admit_successor(successor, original, both, both), SuccessorAdmitted)
@@ -364,7 +368,7 @@ def test_revise_is_the_only_edit_path_and_freeze_takes_drafts_only():
 
 
 # --- V8: restore from canonical projection text, no coercion (design §7) -----
-from fixtures_cut3 import spec_draft, spec_rules
+from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
 
 from beliefs.spec import frozen_projection, restore
 
@@ -387,7 +391,7 @@ def _identified(mapping) -> tuple[str, bytes]:
 def test_v8_restore_round_trips_every_member_and_the_decimal_by_type():
     spec = _rich_spec()
     text = v1.encode(frozen_projection(spec))
-    restored = restore(spec.identity, text)
+    restored = restore(spec.identity, text, profile=TESTING_PROFILE)
     assert restored == spec and restored.identity == spec.identity
     assert type(restored.parameters["alpha"]) is Decimal and restored.parameters["alpha"] == Decimal("0.05")
     assert type(restored.parameters["iterations"]) is int
@@ -409,7 +413,7 @@ def test_v8_restore_refuses_a_projection_that_does_not_digest_to_the_identity(co
     mapping = frozen_projection(spec)
     corrupt(mapping)
     with pytest.raises(MalformedRecord):
-        restore(spec.identity, v1.encode(mapping))
+        restore(spec.identity, v1.encode(mapping), profile=TESTING_PROFILE)
 
 
 @pytest.mark.parametrize(
@@ -432,7 +436,7 @@ def test_v8_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identi
     corrupt(mapping)
     identity, text = _identified(mapping)
     with pytest.raises(MalformedRecord):
-        restore(identity, text)
+        restore(identity, text, profile=TESTING_PROFILE)
 
 
 def test_v8_restore_refuses_a_projection_the_restored_spec_would_not_reproduce():
@@ -449,17 +453,122 @@ def test_v8_restore_refuses_a_projection_the_restored_spec_would_not_reproduce()
     plan["roots"] = {"r": 7}
     identity, text = _identified(mapping)
     with pytest.raises(MalformedRecord, match="own projection"):
-        restore(identity, text)
+        restore(identity, text, profile=TESTING_PROFILE)
 
 
 def test_v8_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
     spec = _rich_spec()
     text = v1.encode(frozen_projection(spec))
     with pytest.raises(MalformedRecord):
-        restore(spec.identity, text + b"\n")
+        restore(spec.identity, text + b"\n", profile=TESTING_PROFILE)
     with pytest.raises(MalformedRecord):
-        restore(spec.identity, b"{}")
+        restore(spec.identity, v1.encode({"estimand_grammar": ESTIMAND_GRAMMAR}), profile=TESTING_PROFILE)
     mapping = {**frozen_projection(freeze(spec_draft(), held_rules=spec_rules())), "nondeterminism": StochasticUnseeded(rationale="urandom").projection()}
     identity, text = _identified(mapping)
     with pytest.raises(UnfreezableSpec):
-        restore(identity, text)
+        restore(identity, text, profile=TESTING_PROFILE)
+
+
+# --- estimand typing: the typed members, the grammar member, restoration (Q7, Q10) ---
+
+
+def test_the_projection_carries_the_grammar_and_typed_members():
+    from beliefs.contract.base import ESTIMAND_GRAMMAR
+    from beliefs.estimand import applicability_projection, estimand_projection
+    from beliefs.spec import frozen_projection
+
+    spec = freeze(draft(), held_rules=held_rules())
+    projection = frozen_projection(spec)
+    assert projection["estimand_grammar"] == ESTIMAND_GRAMMAR
+    assert projection["estimand"] == estimand_projection(spec.estimand)
+    assert projection["applicability"] == applicability_projection(spec.applicability)
+
+
+def test_a_string_estimand_is_refused_at_the_draft():
+    with pytest.raises(MalformedSpec, match="Estimand"):
+        draft(estimand="the effect of x on y")
+
+
+@pytest.mark.parametrize("override", [
+    {"contrast": __import__("beliefs.estimand", fromlist=["LevelsContrast"]).LevelsContrast(
+        slot=0,
+        baseline=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:pd"),
+        comparison=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:ndmm"),
+    )},
+    {"reference": Decimal("0.5")},
+])
+def test_each_estimand_member_moves_the_spec_identity(override):
+    from fixtures_cut3 import typed_estimand
+
+    assert freeze(draft(), held_rules=held_rules()).identity != freeze(draft(estimand=typed_estimand(**override)), held_rules=held_rules()).identity
+
+
+def test_applicability_moves_the_spec_identity():
+    from fixtures_cut3 import typed_applicability
+
+    from beliefs.claim import Qualifier, Referent
+
+    adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
+    assert freeze(draft(), held_rules=held_rules()).identity != freeze(draft(applicability=adults), held_rules=held_rules()).identity
+
+
+def test_restore_round_trips_the_typed_members():
+    from fixtures_cut3 import TESTING_PROFILE
+
+    from beliefs.spec import frozen_projection, restore
+
+    spec = freeze(draft(), held_rules=held_rules())
+    restored = restore(spec.identity, v1.encode(frozen_projection(spec)), profile=TESTING_PROFILE)
+    assert restored.estimand == spec.estimand and dict(restored.applicability) == dict(spec.applicability)
+    assert restored.identity == spec.identity
+
+
+def test_a_pre_grammar_projection_is_refused_by_name():
+    from fixtures_cut3 import TESTING_PROFILE
+
+    from beliefs.errors import PreGrammarSpec, UnfreezableSpec
+    from beliefs.spec import frozen_projection, restore
+
+    spec = freeze(draft(), held_rules=held_rules())
+    projection = frozen_projection(spec)
+    del projection["estimand_grammar"]
+    projection["estimand"] = "the effect of x on y"
+    projection["applicability"] = "the sampled population"
+    identity = v1.digest(SPEC_DOMAIN, projection)
+    with pytest.raises(PreGrammarSpec, match="pre-grammar spec") as caught:
+        restore(identity, v1.encode(projection), profile=TESTING_PROFILE)
+    assert isinstance(caught.value, UnfreezableSpec)
+
+
+def test_another_grammar_identity_is_malformed_not_pre_grammar():
+    from fixtures_cut3 import TESTING_PROFILE
+
+    from beliefs.spec import frozen_projection, restore
+
+    spec = freeze(draft(), held_rules=held_rules())
+    projection = frozen_projection(spec)
+    projection["estimand_grammar"] = "science.estimand.v2"
+    with pytest.raises(MalformedRecord, match="estimand_grammar"):
+        restore(v1.digest(SPEC_DOMAIN, projection), v1.encode(projection), profile=TESTING_PROFILE)
+
+
+def test_a_malformed_typed_member_restores_as_a_record_error():
+    from fixtures_cut3 import TESTING_PROFILE
+
+    from beliefs.errors import RecordError
+    from beliefs.spec import frozen_projection, restore
+
+    spec = freeze(draft(), held_rules=held_rules())
+    projection = frozen_projection(spec)
+    projection["estimand"]["measure"]["quantity"] = {"sort": "", "term": "EX:tpm"}  # type: ignore[index]
+    with pytest.raises(RecordError, match="do not restore"):
+        restore(v1.digest(SPEC_DOMAIN, projection), v1.encode(projection), profile=TESTING_PROFILE)
+
+
+def test_revise_copies_the_typed_members():
+    from fixtures_cut3 import typed_estimand
+
+    original = freeze(draft(), held_rules=held_rules())
+    successor = revise(original, edits={"estimand": typed_estimand(reference=Decimal(1))}, held_rules=held_rules(), recorded_failures=frozenset())
+    assert successor.supersedes == original.identity and successor.estimand.reference == Decimal(1)
+    assert dict(successor.applicability) == dict(original.applicability)

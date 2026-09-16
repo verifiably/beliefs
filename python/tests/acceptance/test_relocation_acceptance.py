@@ -16,6 +16,7 @@ from authority import ACTOR, FULL
 from dataset_fixtures import pinned as seed_pinned
 from durable_fixture import basis, route
 from fixtures_cut3 import report as sample_report
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut6 import OTHER_PINS, PINS
 from fixtures_cut15 import SNAKEFILE_CONSTANT_PRODUCTION, run_workflow
 from nodes.core.errors import RefError
@@ -606,6 +607,8 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
                     proposition=proposition.id,
                     outcome="supported",
                     interpretation_rule="rule:threshold",
+                    estimand=typed_estimand(),
+                    applicability=typed_applicability(),
                 )
             )
         )
@@ -757,6 +760,8 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
             proposition=proposition.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
     )
     target_identity = stored.stored_semantic_hash(target)

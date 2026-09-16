@@ -17,6 +17,7 @@ from dataclasses import replace
 import pytest
 from authority import ACTOR
 from dataset_fixtures import dataset_ref, pinned
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
@@ -266,6 +267,8 @@ def admissible_corpus(tmp_path, **run_kwargs):
         proposition="proposition:p1",
         outcome="supported",
         interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     proposition = stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
     return seed(tmp_path, dataset, run, assessment, proposition)
@@ -387,7 +390,7 @@ class TestTheCorpusCheck:
         view = seed(
             tmp_path, good, bad,
             stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[good.id, bad.id]),
-            stored.assessment_node("a1", title="a1", spec="analysis-spec:s1", run="run:r1", proposition="proposition:p1", outcome="supported", interpretation_rule="rule:threshold"),
+            stored.assessment_node("a1", title="a1", spec="analysis-spec:s1", run="run:r1", proposition="proposition:p1", outcome="supported", interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()),
             stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
         )
         codes = [f.code for f in corpus_check(view, BASE)]
@@ -421,6 +424,8 @@ class TestTheCorpusCheck:
                 proposition="proposition:p1",
                 outcome="supported",
                 interpretation_rule="rule:threshold",
+                estimand=typed_estimand(),
+                applicability=typed_applicability(),
             ),
             stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
         )
@@ -442,6 +447,8 @@ class TestTheCorpusCheck:
                 proposition="proposition:p1",
                 outcome="supported",
                 interpretation_rule="rule:threshold",
+                estimand=typed_estimand(),
+                applicability=typed_applicability(),
             ),
             stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
         )

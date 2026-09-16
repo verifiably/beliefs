@@ -5,6 +5,7 @@ raw-write half and negative (c) (store, audit) — cut 3 §4.2.
 
 import dataclasses
 import inspect
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,8 @@ from fixtures_cut3 import (
     runs_for,
     spec_draft,
     spec_rules,
+    typed_applicability,
+    typed_estimand,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -30,9 +33,11 @@ from fixtures_cut3 import (
 from beliefs.admission import AdmissionRefused, admit
 from beliefs.assess import AssessmentFinding, build_assessment, run_record
 from beliefs.boundary import RunMinted
+from beliefs.claim import Qualifier, Referent
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import SignatureRefused
+from beliefs.estimand import Interval, StandardError
 from beliefs.recipe import EnvironmentManifest, RecipeInput, project_recipe
 from beliefs.record import AssessmentValue, RunValue
 from beliefs.spec import (
@@ -54,6 +59,8 @@ def assessment_over(run: RunValue) -> AssessmentValue:
         proposition="prop-1",
         outcome="supported",
         interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
 
@@ -109,7 +116,7 @@ def test_r22_the_facet_derives_from_the_frozen_spec_and_the_manifest(minted):
     assert derived.proposition == spec.target
     assert derived.estimand == spec.estimand and derived.applicability == spec.applicability
     assert derived.interpretation_rule == spec.interpretation_rule
-    assert derived.estimate == "0.4" and derived.uncertainty == "0.1"
+    assert derived.estimate == Decimal("0.4") and derived.uncertainty == StandardError(Decimal("0.1"))
     assert derived.outcome == "supported" and derived.run == minted.run.address()
 
 
@@ -226,7 +233,7 @@ def test_r22_the_derived_outcome_moves_only_with_the_result_or_the_rule(tmp_path
         identity="impl-interp-2",
         evaluate=lambda manifest: {
             "outcome": ("refuted" if int(manifest.outputs[0][1].split(":", 1)[1], 16) % 2 == 0 else "supported"),
-            "estimate": "0.4",
+            "estimate": Decimal("0.4"),
         },
         fixtures=(),
     )
@@ -267,9 +274,10 @@ def test_r22_negative_a_narrowing_applicability_needs_a_successor_spec_and_a_new
     minted,
 ):
     spec = freeze(spec_draft(), held_rules=spec_rules())
+    narrower = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
     narrowed = revise(
         spec,
-        edits={"applicability": "a narrower population"},
+        edits={"applicability": narrower},
         held_rules=spec_rules(),
         recorded_failures=frozenset(),
     )
@@ -427,3 +435,62 @@ def test_r7_zero_observes_inputs_admit_nothing_at_any_quantity_of_reads():
     )
     assert isinstance(verdict, AdmissionRefused)
     assert verdict.reason.startswith("no-observes-input")
+
+
+# --- Q5: estimate and uncertainty are typed on the spec's scale ---
+
+
+@pytest.fixture
+def run_assessment_under(tmp_path_factory):
+    def build(spec):
+        outcome = run_assessment(tmp_path_factory.mktemp("mult"), spec=spec)
+        assert isinstance(outcome, RunMinted), outcome
+        return outcome.run
+
+    return build
+
+
+def _rule(output):
+    return {"impl-interp-1": RuleImplementation(identity="impl-interp-1", evaluate=lambda manifest: output, fixtures=())}
+
+
+@pytest.mark.parametrize("output,reason", [
+    ({"outcome": "supported", "estimate": 0.4}, "Decimal"),
+    ({"outcome": "supported", "estimate": "0.4"}, "Decimal"),
+    ({"outcome": "supported", "estimate": Decimal("0.4"), "uncertainty": {"kind": "interval", "low": Decimal("0.5"), "high": Decimal("0.7"), "level": Decimal("0.95")}}, "excludes the estimate"),
+    ({"outcome": "supported", "estimate": Decimal("0.4"), "uncertainty": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal(1)}}, "level"),
+    ({"outcome": "supported", "estimate": Decimal("0.4"), "uncertainty": {"kind": "standard-error", "value": Decimal("-0.1")}}, "non-negative"),
+    ({"outcome": "supported", "estimate": Decimal("0.4"), "reference": Decimal(0)}, "reference"),
+    ({"outcome": "supported", "scale": "additive"}, "scale"),
+    ({"outcome": "supported", "uncertainty": {"kind": "standard-error", "value": Decimal("0.1")}}, "estimate"),
+])
+def test_an_ill_typed_rule_output_is_a_finding_never_inconclusive(minted, output, reason):
+    spec = freeze(spec_draft(), held_rules=spec_rules())
+    derived = build_assessment(minted.run, specs={spec.identity: spec}, implementations=_rule(output))
+    assert isinstance(derived, AssessmentFinding) and reason in derived.reason
+    assert "inconclusive" not in derived.reason
+
+
+def test_a_well_typed_output_mints_typed_members(minted):
+    spec = freeze(spec_draft(), held_rules=spec_rules())
+    output = {"outcome": "supported", "estimate": Decimal("0.4"), "uncertainty": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal("0.95")}}
+    derived = build_assessment(minted.run, specs={spec.identity: spec}, implementations=_rule(output))
+    assert isinstance(derived, AssessmentValue)
+    assert isinstance(derived.uncertainty, Interval)
+    assert derived.estimate == Decimal("0.4") and derived.uncertainty.level == Decimal("0.95")
+    assert derived.estimand == spec.estimand and dict(derived.applicability) == dict(spec.applicability)
+
+
+def test_a_multiplicative_estimate_must_be_positive(minted, run_assessment_under):
+    from fixtures_cut3 import typed_estimand
+
+    from beliefs.claim import Referent
+    from beliefs.estimand import Measure
+
+    spec = freeze(
+        spec_draft(estimand=typed_estimand(measure=Measure(Referent("testing/measure", "EX:hr"), "multiplicative"), reference=Decimal(1))),
+        held_rules=spec_rules(),
+    )
+    run = run_assessment_under(spec)  # the module's helper that executes a closure under a given frozen spec
+    derived = build_assessment(run, specs={spec.identity: spec}, implementations=_rule({"outcome": "supported", "estimate": Decimal(0)}))
+    assert isinstance(derived, AssessmentFinding) and "multiplicative" in derived.reason

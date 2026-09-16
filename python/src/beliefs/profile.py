@@ -38,9 +38,9 @@ from typing import final
 from nodes.core.node import Node
 from nodes.core.registry import KindSpec, Registry, Violation
 
-from beliefs.contract.base import BaseContract, ClaimGrammar, FacetUse, RelationDecl
+from beliefs.contract.base import BaseContract, ClaimGrammar, EstimandGrammar, FacetUse, RelationDecl
 from beliefs.contract.coordination import CoordinationContract
-from beliefs.contract.domain import DomainContract, OperatorDecl, VocabularyBinding, _name
+from beliefs.contract.domain import DomainContract, EstimandDecl, OperatorDecl, VocabularyBinding, _name
 from beliefs.contract.facets import FieldDecl
 from beliefs.errors import (
     ContractMismatch,
@@ -56,6 +56,7 @@ from beliefs.sealed import sealed
 __all__ = [
     "CompiledCoordinationKind",
     "CompiledDimension",
+    "CompiledEstimandDecl",
     "CompiledFacet",
     "CompiledKind",
     "CompiledOperator",
@@ -173,6 +174,27 @@ class CompiledOperator:
 
 
 @dataclass(frozen=True)
+class CompiledEstimandDecl:
+    """An `estimands:` entry with every sort resolved to a term identifier
+    (estimand-typing §5.2)."""
+
+    operator: str
+    level_sorts: Mapping[str, str]
+    measure_sort: str
+    identification_sort: str
+    conditioning_sort: str
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {
+            "level_sorts": {slot: self.level_sorts[slot] for slot in sorted(self.level_sorts, key=int)},
+            "measure_sort": self.measure_sort,
+            "identification_sort": self.identification_sort,
+            "conditioning_sort": self.conditioning_sort,
+        }
+
+
+@dataclass(frozen=True)
 class CompiledKind:
     name: str
     role: str  # "world" | "prose" — coordination kinds carry "coordination"
@@ -229,7 +251,9 @@ class ProfileSpec:
     relations: Mapping[str, RelationDecl]
     _registry: Registry
     claim_grammar: ClaimGrammar
+    estimand_grammar: EstimandGrammar
     operators: Mapping[str, CompiledOperator]
+    estimands: Mapping[str, CompiledEstimandDecl]
     dimensions: Mapping[str, CompiledDimension]
     sorts: Mapping[str, CompiledSort]
     coordination_kinds: Mapping[str, CompiledCoordinationKind]
@@ -304,12 +328,14 @@ class ProfileSpec:
             }
         return _projection(
             self.claim_grammar,
+            self.estimand_grammar,
             self.operators,
             self.dimensions,
             self.sorts,
             kinds=self.kinds,
             facets=self.facets,
             relations=self.relations,
+            estimands=self.estimands,
             coordination=coordination,
         )
 
@@ -345,6 +371,19 @@ class ProfileSpec:
             raise ProfileError(
                 f"no operator {term!r} in this profile. Operators are domain-issued (§7.1); "
                 f"activated namespaces are {sorted(self.activated_contracts)}."
+            ) from None
+
+    def estimand(self, term: str) -> CompiledEstimandDecl:
+        """The estimand declaration for an operator, or refuse. An operator with
+        no declaration admits no typed estimand, so a spec targeting a claim at
+        it refuses at construction (estimand-typing §7.1)."""
+        self.operator(term)
+        try:
+            return self.estimands[term]
+        except KeyError:
+            raise ProfileError(
+                f"operator {term!r} declares no estimand; its contract's `estimands:` table has no entry for it "
+                "(estimand-typing §5.1), so no spec can target a claim at it."
             ) from None
 
     def authorable_operators(self) -> tuple[str, ...]:
@@ -552,6 +591,7 @@ def compile_profile(
     sorts: dict[str, CompiledSort] = {}
     dimensions: dict[str, CompiledDimension] = {}
     operators: dict[str, CompiledOperator] = {}
+    estimands: dict[str, CompiledEstimandDecl] = {}
 
     # Sorted for a reproducible construction order, which helps a reader diffing
     # two profiles. It is **not** what makes merge order inert: identity.v1 sorts
@@ -576,6 +616,8 @@ def compile_profile(
             )
         for name, operator in contract.operators.items():
             operators[contract.term(name)] = _compile_operator(contract, operator, sorts)
+        for name, decl in contract.estimands.items():
+            estimands[contract.term(name)] = _compile_estimand(contract, decl, sorts)
 
     coordination_kinds = (
         {
@@ -600,12 +642,14 @@ def compile_profile(
         relations=base.relations,
         _registry=registry,
         claim_grammar=base.claim_grammar,
+        estimand_grammar=base.estimand_grammar,
         # Wrapped so `compiled_identity` cannot come to describe a profile that
         # no longer exists. The `dict()` copy is insurance against a later
         # restructure that wraps something a caller still holds — today these are
         # compiler locals nobody else can reach, so sabotaging the copy alone
         # breaks nothing, and no test claims otherwise.
         operators=MappingProxyType(dict(operators)),
+        estimands=MappingProxyType(dict(estimands)),
         dimensions=MappingProxyType(dict(dimensions)),
         sorts=MappingProxyType(dict(sorts)),
         coordination_kinds=MappingProxyType(dict(coordination_kinds)),
@@ -620,12 +664,14 @@ def compile_profile(
             PROFILE_DOMAIN,
             _projection(
                 base.claim_grammar,
+                base.estimand_grammar,
                 operators,
                 dimensions,
                 sorts,
                 kinds=kinds,
                 facets=facets,
                 relations=base.relations,
+                estimands=estimands,
                 coordination=coordination_projection,
             ),
         ),
@@ -638,6 +684,7 @@ def _coordination_projection(contract: CoordinationContract) -> dict[str, object
 
 def _projection(
     claim_grammar: ClaimGrammar,
+    estimand_grammar: EstimandGrammar,
     operators: Mapping[str, CompiledOperator],
     dimensions: Mapping[str, CompiledDimension],
     sorts: Mapping[str, CompiledSort],
@@ -645,6 +692,7 @@ def _projection(
     kinds: Mapping[str, CompiledKind],
     facets: Mapping[str, CompiledFacet],
     relations: Mapping[str, RelationDecl],
+    estimands: Mapping[str, CompiledEstimandDecl],
     coordination: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Every declaration is keyed **by term identifier**, never held positionally.
@@ -666,10 +714,12 @@ def _projection(
             "sign_inapt_tag": claim_grammar.sign_inapt_tag,
             "layers": sorted(claim_grammar.layers),
         },
+        "estimand_grammar": estimand_grammar.projection(),
         "kinds": {name: kind.projection() for name, kind in kinds.items()},
         "facets": {key: facet.projection() for key, facet in facets.items()},
         "relations": {name: relation.projection() for name, relation in relations.items()},
         "operators": {term: decl.schema_projection() for term, decl in operators.items()},
+        "estimands": {term: decl.schema_projection() for term, decl in estimands.items()},
         "dimensions": {term: decl.schema_projection() for term, decl in dimensions.items()},
         "sorts": {term: decl.schema_projection() for term, decl in sorts.items()},
     }
@@ -706,5 +756,24 @@ def _compile_operator(
         layers=operator.layers,
         dimensions=tuple(contract.term(dimension) for dimension in operator.dimensions),
         retired=operator.retired,
+        contract=contract.namespace,
+    )
+
+
+def _compile_estimand(
+    contract: DomainContract, decl: EstimandDecl, sorts: Mapping[str, CompiledSort]
+) -> CompiledEstimandDecl:
+    where = f"estimands.{decl.operator}"
+    return CompiledEstimandDecl(
+        operator=contract.term(decl.operator),
+        level_sorts=MappingProxyType(
+            {
+                slot: _resolve_sort(contract, sort, sorts, where=f"{where}: level_sorts[{slot}]")
+                for slot, sort in decl.level_sorts.items()
+            }
+        ),
+        measure_sort=_resolve_sort(contract, decl.measure_sort, sorts, where=f"{where}: measure_sort"),
+        identification_sort=_resolve_sort(contract, decl.identification_sort, sorts, where=f"{where}: identification_sort"),
+        conditioning_sort=_resolve_sort(contract, decl.conditioning_sort, sorts, where=f"{where}: conditioning_sort"),
         contract=contract.namespace,
     )

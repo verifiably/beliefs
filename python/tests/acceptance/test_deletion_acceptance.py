@@ -48,10 +48,11 @@ from atoms.chain.model import IntentEntry, RegisteredEntry, SettledEntry
 from atoms.coordinator.commands import inspect_chain_detached
 from atoms.fs.linux import LinuxBackend
 from authority import FULL
+from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
-from profiles import BASE, WITH_BIOLOGY, pins_for
+from profiles import WITH_BIOLOGY, pins_for
 from test_audit import forged_single_over_two_producers, raw_cyclic_retraction_pair
 from test_belief import CLAIM, PROFILE, PROPOSITION
 from test_claim_restore import stored_proposition
@@ -105,7 +106,7 @@ from test_import_derivation import (
     _stored_from,
     _two_runs,
 )
-from test_relocation import CONSOLIDATE_FIELDS, SCIENCE
+from test_relocation import CONSOLIDATE_FIELDS
 from test_relocation_rows import _basis_route, _duplicate_datasets
 from test_retract import mint_eligible_assessment
 
@@ -152,9 +153,12 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 BASE_CONTRACT = REPO_ROOT / "contracts" / "science" / "CONTRACT.yaml"
 TESTING_CONTRACT = REPO_ROOT / "fixtures" / "contracts" / "testing.yaml"
 
-DEFAULT_PINS = CorpusPins(SCIENCE, {})
-"""What `test_relocation._writer` adopts, so a durable corpus and its portable
-twin are pinned to one contract set and an import across them is comparable."""
+DEFAULT_PINS = pins_for(TESTING_PROFILE)
+"""What the portable twin (`test_deletion_rows.py`'s `_writer_for`, since
+estimand-typing Task 7) adopts, so a durable corpus and its portable twin are
+pinned to one contract set and an import across them is comparable. Every
+assessment `test_deletion_rows.py`'s builders mint carries a typed estimand
+against `testing/affects`, which BASE does not declare."""
 
 _COUNTER = count()
 
@@ -189,7 +193,7 @@ def _durable_corpora(
             root = work / f"cut18-{os.getpid()}-{next(_COUNTER)}-{label}"
             init_corpus_root(root, authority=FULL)
             roots.append(root)
-            writers.append(_adopted(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY if pins == PINS else BASE), pins))
+            writers.append(_adopted(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY if pins == PINS else TESTING_PROFILE), pins))
         yield tuple(writers)
     finally:
         for root in roots:
@@ -334,7 +338,7 @@ def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, 
     **log** audit can: the raw removal is `refuted`, the managed one is
     `validated` carrying `record-removed` and, resolved against the caller's
     held copy, `failing-verification-removed` at error severity."""
-    raw_writer = _adopted(open_corpus(durable_root, authority=FULL, profile=BASE))
+    raw_writer = _adopted(open_corpus(durable_root, authority=FULL, profile=TESTING_PROFILE))
     with _durable_corpora(work_directory, "g8-managed") as (managed_writer,):
         raw = _scenario(raw_writer)
         managed = _scenario(managed_writer)
@@ -393,7 +397,8 @@ def _r5_records() -> Records:
     its admitting verification: the smallest corpus in which unholding the
     input is unholding the **last** directional one (P9)."""
     assessment = AssessmentValue(
-        spec="spec-a", run="run-a", proposition=PROPOSITION, outcome="supported", interpretation_rule="rule-1"
+        spec="spec-a", run="run-a", proposition=PROPOSITION, outcome="supported", interpretation_rule="rule-1",
+        estimand=typed_estimand(), applicability=typed_applicability(),
     )
     run = RunValue(ref=stored.typed_ref("run", "run-a"), spec="spec-a", inputs=(RunInput(role="observes", dataset=R5_DECLARATION),))
     verification = Verification(

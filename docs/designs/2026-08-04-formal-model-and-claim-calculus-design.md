@@ -2005,6 +2005,29 @@ So the amendment is stated, not glossed:
 > vocabulary binding each sort resolves through — in addition to every contract
 > reached through a facet namespace.
 
+> **Amended 2026-09-16 — a third trigger, and a fourth declaration class**
+> (`2026-09-12-estimand-typing-design.md`, discharged at conformance cut 31).
+> A domain contract gains an `estimands:` table: one entry per operator it
+> declares, naming the sorts that operator's levels, measures, identifications
+> and conditioning members draw on. It is a declaration class like the three
+> above — succession-governed under **M6 unamended**, entering
+> `_declarations()` as `estimand:<operator>`, and leaving the operator's own
+> `schema_projection()` byte-identical when an entry is added, so a successor
+> that adds one for an operator that had none is **accepted**.
+>
+> **D6's trigger set widens again, for the reason it widened before.** An
+> estimand reaches contracts a claim-schema walk does not: the contract
+> declaring the `estimands:` entry, and the contract declaring each sort its
+> contrast levels, measured quantity, identification term and conditioning
+> members resolve through. A derivation over an assessment carrying a typed
+> estimand therefore consults those too, and bumping one moves
+> `belief_input_digest` while bumping an activated contract the estimand does
+> not reach leaves it unchanged. D6's **asymmetry is inherited unchanged**; a
+> walk that collected only facet and claim-schema namespaces would fail
+> **open**, exactly as D limitation 2 warns and exactly as the claim-schema
+> amendment above was written to prevent. Typing an estimand under a sort
+> pinned by no corpus is a `ContractDisagreement`, not a silent omission.
+
 With that, the reach is what §7.1 wants and no wider: a derivation interpreting
 a claim consults the contract declaring its operator, so a biology contract bump
 still leaves beliefs over chemistry claims undisturbed.
@@ -2925,6 +2948,25 @@ premature, and it stays withdrawn.
 future entailment relation would need and defines nothing. Kernel limitation 5's
 estimand match becomes **stateable** as `match(claim_type, estimand_type)` and
 is not stated. The two are related and not assumed identical.
+
+> **Amended 2026-09-16 — the estimand half is answered; the entailment half is
+> not** (`2026-09-12-estimand-typing-design.md`, discharged at conformance cut
+> 31). `match(claim_type, estimand_type)` is now **stated and checked**, and the
+> answer to this row's own question is that estimand compatibility is **not**
+> derived from entailment: an estimand is built against a typed `Claim` and
+> carries its identity, so the match is the structural agreement of the
+> estimand's claim and operator with the target record's — refused at the write
+> boundary, refused at explicit import, and contradicted under audit. Beside it,
+> `commensurable` and `co_scoped` relate two **estimands** to each other, both
+> total and decidable, neither read by `science.belief.v1`. The match is
+> **structural**: that the measured quantity operationalizes the claim's
+> argument stays authored, which is kernel limitation 5's surviving residue.
+>
+> The **entailment half is untouched**. §6.7 still defines no order over claims,
+> so evidence still cannot be said to bear from one claim to another, and none
+> of the above supplies it: two estimands over two claims at one operator are
+> **not** commensurable, by construction. Belief aggregation across related
+> claims remains this row's open question.
 
 **~~ρO5~~ — Merge versus immutable exact targets. CLOSED 2026-08-08.** Stated in
 full at ρA10: a merge that would change a retraction's **exact target tuple**

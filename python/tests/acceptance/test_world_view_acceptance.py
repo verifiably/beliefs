@@ -14,6 +14,7 @@ from dataset_fixtures import dataset_ref
 from dataset_fixtures import pinned as seed_pinned
 from domain_facet_fixtures import kwargs_for, profile_with, seed
 from durable_fixture import pinned
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_to_markdown
@@ -427,12 +428,14 @@ def test_identical_assessments_consult_both_carriers_durably(durable_world):
         proposition="proposition:p",
         outcome="supported",
         interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     world, _roots, published, a, b, profile = evaluation_world(durable_world, (twin.id,), extra=(twin,))
     view = open_world_view(world, published)
     kwargs = world_kwargs(view, profile, a, b)
     inputs = gathered(view, kwargs)
-    identity = stored.assessment_value(twin).identity()
+    identity = stored.assessment_reference(twin).identity()
     assert inputs.node_corpus[identity] == tuple(sorted((a, b)))
     with pytest.raises(TypeError):
         cast(Any, inputs.node_corpus)[identity] = (a,)

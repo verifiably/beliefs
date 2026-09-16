@@ -9,14 +9,17 @@ independent supports, no contestation.
 
 from __future__ import annotations
 
+import copy
 import inspect
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 from typing import TypedDict, cast
 
 import pytest
 import yaml
-from profiles import pins_for
+from fixtures_cut3 import UNCONSULTED, typed_applicability, typed_estimand
+from profiles import biology, pins_for
 
 from beliefs.belief import (
     NO_BELIEF_REASONS,
@@ -28,12 +31,13 @@ from beliefs.belief import (
     SuppliedContext,
     evaluate,
 )
-from beliefs.claim import Referent, build_claim
+from beliefs.claim import Qualifier, Referent, build_claim
 from beliefs.closure import RetractionEnumeration
 from beliefs.consulted import CorpusPins
 from beliefs.contract import domain, load_base_contract
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
+from beliefs.estimand import Control, LevelsContrast, Measure, StandardError, build_applicability, build_estimand
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.profile import ProfileSpec, compile_profile
@@ -107,7 +111,10 @@ def _run(ref: str, spec: str, dataset: DatasetDeclaration) -> RunValue:
 
 
 def _assessment(spec: str, run: str, outcome: str = "supported") -> AssessmentValue:
-    return AssessmentValue(spec=spec, run=run, proposition=PROPOSITION, outcome=outcome, interpretation_rule="rule-1")
+    return AssessmentValue(
+        spec=spec, run=run, proposition=PROPOSITION, outcome=outcome, interpretation_rule="rule-1",
+        estimand=typed_estimand(), applicability=typed_applicability(),
+    )
 
 
 def _fifty_inconclusive_records() -> Records:
@@ -295,12 +302,23 @@ class TestP4TheAbsencesAreDistinguishable:
 
 
 class TestP6NoMagnitudeBearingRead:
-    @pytest.mark.parametrize("field", ["estimate", "uncertainty", "estimand", "applicability"])
-    def test_each_field_moves_the_digest_and_not_the_value(self, field):
+    @pytest.mark.parametrize(
+        "field,overrides",
+        [
+            ("estimate", {"estimate": Decimal("0.4")}),
+            ("uncertainty", {"estimate": Decimal("0.4"), "uncertainty": StandardError(Decimal("0.1"))}),
+            ("estimand", {"estimand": typed_estimand(reference=Decimal(1))}),
+            (
+                "applicability",
+                {"applicability": typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})},
+            ),
+        ],
+    )
+    def test_each_field_moves_the_digest_and_not_the_value(self, field, overrides):
         baseline = evaluate(**scenario())
         kwargs = scenario()
         a1, a2 = kwargs["records"].assessments
-        records = replace(kwargs["records"], assessments=(replace(a1, **{field: "mutated"}), a2))
+        records = replace(kwargs["records"], assessments=(replace(a1, **overrides), a2))
         mutated = evaluate(**scenario(records=records))
         assert isinstance(baseline, Belief) and isinstance(mutated, Belief)
         assert mutated.value == baseline.value
@@ -486,6 +504,105 @@ class TestD7AtTheEvaluator:
         claims = {**kwargs["records"].claims, OTHER_PROPOSITION: OTHER_CLAIM}
         records = replace(kwargs["records"], claims=claims)
         mutated = evaluate(**scenario(records=records))
+        assert isinstance(baseline, Belief) and isinstance(mutated, Belief)
+        assert mutated.value == baseline.value
+        assert mutated.belief_input_digest == baseline.belief_input_digest
+
+
+class TestQ8TheEstimandWalk:
+    """D6's third trigger, at the evaluator (estimand-typing §5.4): an
+    assessment's estimand reaches its contracts whether or not the claim
+    schema would. `measures` declares no operator, so the first arm below
+    cannot pass on the claim walk alone — dropping the estimand walk in
+    `consulted_contracts` is exactly Task 11's sabotage for this row, and it
+    fails here first."""
+
+    @staticmethod
+    def _profile(*, measures_description: str = "fixture", biology_description: str = "fixture") -> ProfileSpec:
+        measures_path = Path(__file__).resolve().parent / "fixtures" / "measures-fixture.yaml"
+        measures_document = yaml.safe_load(measures_path.read_text(encoding="utf-8"))
+        measures_document["description"] = measures_description
+        measures = domain.parse_domain_contract(measures_document, source="<q8-measures>", base=_base, predecessor=None)
+        testing_document = copy.deepcopy(_testing_document)
+        testing_document["estimands"]["affects"]["measure_sort"] = "measures/assay"
+        testing = domain.parse_domain_contract(testing_document, source="<q8-testing>", base=_base, predecessor=None)
+        return compile_profile(_base, [testing, measures, biology(biology_description)])
+
+    @staticmethod
+    def _kwargs(profile: ProfileSpec) -> _Scenario:
+        claim = build_claim(
+            profile=profile,
+            operator="testing/affects",
+            args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")),
+            polarity="positive",
+            layer="causal",
+        )
+        proposition = claim_identity(claim)
+        estimand, _receipt = build_estimand(
+            profile, claim, snapshot=UNCONSULTED,
+            contrast=LevelsContrast(0, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
+            measure=Measure(Referent("measures/assay", "EX:m"), "additive"), reference=Decimal(0),
+            control=Control(Referent("testing/identification", "EX:obs"), ()),
+        )
+        applicability, _receipt = build_applicability(profile, claim, {}, snapshot=UNCONSULTED)
+        a1 = AssessmentValue(
+            spec="spec-q8-a", run="run-q8-a", proposition=proposition, outcome="supported",
+            interpretation_rule="rule-1", estimand=estimand, applicability=applicability,
+        )
+        a2 = AssessmentValue(
+            spec="spec-q8-b", run="run-q8-b", proposition=proposition, outcome="supported",
+            interpretation_rule="rule-1", estimand=estimand, applicability=applicability,
+        )
+        runs = {
+            "run-q8-a": _run("run-q8-a", "spec-q8-a", DATASET_A),
+            "run-q8-b": _run("run-q8-b", "spec-q8-b", DATASET_B),
+        }
+        verifications = (
+            Verification(ref="v-q8-a", assessment=a1.identity(), scope="clean-environment", verdict="passed"),
+            Verification(ref="v-q8-b", assessment=a2.identity(), scope="clean-environment", verdict="passed"),
+        )
+        records = Records(
+            claims={proposition: claim}, assessments=(a1, a2), runs=runs, source_assertions=(), verifications=verifications,
+        )
+        availability = Availability(
+            observations=_held(DATASET_A, DATASET_B),
+            implementations={BELIEF_V1.identity: BELIEF_V1},
+            fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES},
+        )
+        context = SuppliedContext(
+            snapshot=LineageSnapshot(roots=(ADDRESS_A, ADDRESS_B), bases={}, producers={}),
+            producer_snapshot_identity="producer-snapshot-1",
+            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
+            node_corpus={a1.identity(): ("c1",), a2.identity(): ("c1",)},
+            pins={"c1": pins_for(profile)},
+        )
+        return cast(
+            _Scenario,
+            {
+                "proposition": proposition,
+                "records": records,
+                "availability": availability,
+                "context": context,
+                "binding": PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
+                "profile": profile,
+            },
+        )
+
+    def test_bumping_the_estimands_measure_contract_moves_the_digest(self):
+        # `measures` touches no facet, no operator and no claim — only the
+        # estimand's measure sort reaches it. Editorial only: content
+        # identity moves, no projection does.
+        baseline = evaluate(**self._kwargs(self._profile()))
+        mutated = evaluate(**self._kwargs(self._profile(measures_description="fixture, bumped for Q8")))
+        assert isinstance(baseline, Belief) and isinstance(mutated, Belief)
+        assert mutated.value == baseline.value
+        assert mutated.belief_input_digest != baseline.belief_input_digest
+
+    def test_bumping_an_activated_contract_the_estimand_does_not_reach_leaves_the_digest(self):
+        # `biology` is activated and pinned but reached by neither the claim
+        # nor the estimand.
+        baseline = evaluate(**self._kwargs(self._profile()))
+        mutated = evaluate(**self._kwargs(self._profile(biology_description="fixture, second variant")))
         assert isinstance(baseline, Belief) and isinstance(mutated, Belief)
         assert mutated.value == baseline.value
         assert mutated.belief_input_digest == baseline.belief_input_digest

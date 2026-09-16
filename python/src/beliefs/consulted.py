@@ -6,8 +6,11 @@ N2. So membership is walked here: the base contract unconditionally, each
 domain contract only if the derivation actually read something it declares —
 which in this slice means the claim schema: the proposition's operator, whose
 compiled declaration carries the namespace that declared it (formal model ρA6:
-a facet-only walk would miss exactly this), plus the explicit facet-read arm.
-Resolution runs against supplied
+a facet-only walk would miss exactly this), plus the explicit facet-read arm,
+plus — for every typed estimand an assessment carries — the contract declaring
+its `estimands:` entry and each of its four sorts (estimand-typing §5.4, D6
+amended a second time): an assessment reaches those contracts even when its
+claim's operator does not. Resolution runs against supplied
 per-corpus pins; §8.1's agreement rule refuses a closure whose corpora disagree.
 """
 
@@ -20,6 +23,7 @@ from typing import final
 
 from beliefs.claim import Claim
 from beliefs.errors import ContractDisagreement, ContractMismatch, MalformedRecord
+from beliefs.estimand import Estimand
 from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
 
@@ -45,6 +49,7 @@ class CorpusPins:
 def consulted_contracts(
     *,
     claims: Mapping[str, Claim],
+    estimands: Mapping[str, Estimand] = MappingProxyType({}),
     profile: ProfileSpec,
     node_corpus: Mapping[str, tuple[str, ...]],
     pins: Mapping[str, CorpusPins],
@@ -91,6 +96,15 @@ def consulted_contracts(
             declared = profile.dimensions[dimension]
             read.add(declared.contract)
             read.add(profile.sorts[declared.restriction_sort].contract)
+
+    # An assessment reaches its contract through the estimand's declaration and
+    # its four sorts (estimand-typing §5.4, D6's third trigger). Keyed by
+    # assessment identity so the walk is over what the derivation read.
+    for estimand in estimands.values():
+        declaration = profile.estimand(estimand.operator)
+        read.add(declaration.contract)
+        for sort in (declaration.measure_sort, declaration.identification_sort, declaration.conditioning_sort, *declaration.level_sorts.values()):
+            read.add(profile.sorts[sort].contract)
     for node, keys in facets_read.items():
         if node not in closure_nodes:
             raise MalformedRecord(

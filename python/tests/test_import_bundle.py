@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import pytest
 from authority import ACTOR, FULL, narrowed
-from fixtures_cut3 import spec_draft, spec_rules
+from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -393,7 +393,13 @@ def test_uncanonically_encodable_success_finding_refuses_before_payload(writer_w
     assert not writer_with_port.read_view.holds(record.id)
 
 
-def test_ordinary_eligibility_is_evaluated_over_bundle_union(writer_with_port):
+def test_ordinary_eligibility_is_evaluated_over_bundle_union(tmp_path, monkeypatch):
+    # `check_assessment`'s recomputation reads the stored typed estimand under
+    # the writer's own profile before it ever reaches the run's closure — the
+    # assessment's typed `estimand` is against `testing/affects`, which BASE
+    # does not declare, so this needs `_testing_profile_writer` (the same
+    # precedent `_refuse_r20_contradiction`'s tests use for a spec).
+    writer_with_port = _testing_profile_writer(tmp_path, monkeypatch)
     dataset = stored.dataset_node(
                 title="observed",
         resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
@@ -409,6 +415,8 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(writer_with_port):
         proposition=proposition.id,
         outcome="supported",
         interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
     report = import_records(writer_with_port, [assessment, run, proposition, dataset])
@@ -635,12 +643,27 @@ def test_malformed_foreign_act_report_refuses_even_when_restamped(writer_with_po
     assert Recorder.plans == []
 
 
-def test_contradictory_nondeterminism_contract_refused(writer_with_port):
+def _testing_profile_writer(tmp_path, monkeypatch) -> CorpusWriter:
+    """`writer_with_port`, but on `TESTING_PROFILE`: `spec_draft()`'s typed
+    estimand is against `testing/affects`, which BASE does not declare, and
+    `_refuse_r20_contradiction` restores a stored spec under the writer's own
+    profile. `FakePort.profile` is a class attribute the port bares to the
+    writer's compatibility check, so it moves with monkeypatch's own teardown
+    rather than leaking to the rest of the module."""
+    from fixtures_cut3 import TESTING_PROFILE
+
+    Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
+    monkeypatch.setattr(FakePort, "profile", TESTING_PROFILE)
+    return CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FakePort(tmp_path), profile=TESTING_PROFILE)
+
+
+def test_contradictory_nondeterminism_contract_refused(tmp_path, monkeypatch):
     # The unfreezable pair, built from the raw mapping exactly as
     # `test_spec.py`'s `_identified` case does: `freeze` itself refuses this
     # combination, so the only way to a self-consistent stored record of it is
     # the mapping (V8's r20 refusal is `restore`'s `UnfreezableSpec`, surfaced
     # by `_refuse_r20_contradiction` as document validation).
+    writer = _testing_profile_writer(tmp_path, monkeypatch)
     mapping = {
         **frozen_projection(freeze(spec_draft(), held_rules=spec_rules())),
         "nondeterminism": StochasticUnseeded(rationale="the process has no stable seed surface").projection(),
@@ -658,15 +681,16 @@ def test_contradictory_nondeterminism_contract_refused(writer_with_port):
     )
 
     with pytest.raises(ImportRefused, match="bitwise"):
-        import_records(writer_with_port, [spec])
+        import_records(writer, [spec])
 
     assert Recorder.plans == []
 
 
-def test_malformed_nondeterminism_contract_refuses_without_leaking_a_type_error(writer_with_port):
+def test_malformed_nondeterminism_contract_refuses_without_leaking_a_type_error(tmp_path, monkeypatch):
     # Self-consistent (its identity is its own digest) but its nondeterminism
     # member names no string variant — `restore`'s type check refuses it
     # cleanly rather than leaking a `TypeError` out of a `.get` on a list.
+    writer_with_port = _testing_profile_writer(tmp_path, monkeypatch)
     mapping = frozen_projection(freeze(spec_draft(), held_rules=spec_rules()))
     mapping["nondeterminism"] = {"variant": []}
     identity = v1.digest(SPEC_DOMAIN, mapping)

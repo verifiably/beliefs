@@ -2719,7 +2719,7 @@ class CorpusWriter:
                 if record.kind == "verification":
                     outcome = check_verification(union, record, evidence=evidence)
                 elif record.kind == "assessment":
-                    outcome = check_assessment(union, record, evidence=evidence)
+                    outcome = check_assessment(union, record, evidence=evidence, profile=self._profile)
                 else:
                     continue
             except ScienceError as caught:
@@ -2784,17 +2784,46 @@ class CorpusWriter:
                 f"{record.id}: route identity {target['route_identity']!r} is absent from the stamped basis"
             )
 
-    @staticmethod
-    def _refuse_r20_contradiction(record: Node) -> None:
+    def _refuse_r20_contradiction(self, record: Node) -> None:
         """A stored spec restores, or the record is refused: the r20 pair is
         `restore`'s `UnfreezableSpec`, surfaced as document validation; every
         other malformedness propagates as `restore` raised it."""
         if record.kind != "analysis-spec":
             return
         try:
-            stored.analysis_spec_value(record)
+            stored.analysis_spec_value(record, profile=self._profile)
         except UnfreezableSpec as caught:
             raise ValidationRefused(f"{record.id}: {caught}") from caught
+
+    def _refuse_estimand_target_mismatch(self, record: Node, *, view: ReadView | _ImportView) -> None:
+        """Estimand-typing §7.2: the spec's estimand names the claim its target
+        record carries — both the identity and the operator, since a stored
+        estimand carries the two as independent members with no preimage."""
+        from beliefs.decode import claim_from_stored
+        from beliefs.projection import claim_identity
+        from beliefs.resolution import build_snapshot
+
+        spec = stored.analysis_spec_value(record, profile=self._profile)
+        if not view.holds(spec.target):
+            raise ValidationRefused(
+                f"{record.id}: estimand-target-unresolvable: target {spec.target!r} does not resolve in this corpus; "
+                "a cross-corpus target is world-resolution's read (estimand-typing §13)"
+            )
+        target = view.get(spec.target)
+        if target.kind != "proposition":
+            raise ValidationRefused(f"{record.id}: estimand-target-unresolvable: {spec.target!r} is not a proposition")
+        # Identities only: the boundary consults no vocabulary, so every binding is not-consulted and nothing refuses here.
+        claim, _receipt = claim_from_stored(target, profile=self._profile, snapshot=build_snapshot(readable={}))
+        if spec.estimand.claim != claim_identity(claim):
+            raise ValidationRefused(
+                f"{record.id}: estimand-target-mismatch: the estimand answers claim {spec.estimand.claim[:12]}…, "
+                f"the target record carries {claim_identity(claim)[:12]}…"
+            )
+        if spec.estimand.operator != claim.operator:
+            raise ValidationRefused(
+                f"{record.id}: estimand-target-mismatch: the estimand's operator {spec.estimand.operator!r} is not the "
+                f"target's {claim.operator!r} — a stored pair with the true hash and another operator"
+            )
 
     @staticmethod
     def _refuse_malformed_act_report(record: Node) -> None:
@@ -2971,6 +3000,7 @@ class CorpusWriter:
             self._refuse_verification(node, view=self._view if view is None else view)
         if node.kind == "analysis-spec":
             self._refuse_r20_contradiction(node)
+            self._refuse_estimand_target_mismatch(node, view=self._view if view is None else view)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)
@@ -3035,7 +3065,7 @@ class CorpusWriter:
         target = view.get(edge.target)
         if target.kind != "assessment":
             raise VerificationTargetMismatch(f"{node.id}: the verifies target {edge.target!r} is a {target.kind}, not an assessment")
-        identity = stored.assessment_value(target).identity()
+        identity = stored.assessment_reference(target).identity()
         if identity != decoded.assessment:
             raise VerificationTargetMismatch(
                 f"{node.id}: the verifies target carries assessment identity {identity}, not the verification's {decoded.assessment}"

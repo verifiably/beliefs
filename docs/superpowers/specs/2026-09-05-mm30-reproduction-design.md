@@ -322,3 +322,32 @@ answered in the record; the corpus passes `corpus_check` and the semantic
 audit with every finding classified; and both halves of step 10 are run in
 a fresh process over the on-disk corpus alone and reported separately. The `test_designs_corpus.py` guards run
 unchanged, since no cut, row or ledger state changes until the re-rank.
+
+## 13. Amendment — the step table under estimand typing, 2026-09-15
+
+Appended, not edited: §4's table above is what the 2026-09-05 run walked and
+stays as written. The estimand-typing design
+(`../../designs/2026-09-12-estimand-typing-design.md`, §9, decision 10, row
+Q10) recreates the corpus under successor contracts rather than migrating it,
+which adds one step, makes two that were implicit explicit, and splits two
+that were single.
+
+| # | step | what changed |
+|---|---|---|
+| 0 | `preflight` | unchanged: certifies the volume, confinement and the predecessor root before anything is written |
+| 1 | `world` | unchanged: register the world root and the store. The corpus is **not** adopted here |
+| 2 | `select_target` | unchanged |
+| 2a | `analysis_inputs` | already run in 2026-09-05; named here, since the five analysis keys it fixes into `target.yaml` are inputs to step 4 |
+| 1c | `lists prepare` | **new.** Write the three corpus-local sort vocabularies — `stage-level`, `measure`, `identification` — one canonical identifier per line, and save each list's dataset address. Addresses only: nothing is minted, because the contract binds these addresses and `adopt` compiles the contract |
+| 1b | `concepts` | **split into three phases in one step**: the concept list's address is computed and saved first, then `world.adopt()` compiles the contract with all four addresses present, then the bytes are held and the dataset record minted |
+| 1c′ | `lists mint` | **new.** Hold each list's bytes through the holdings boundary and mint its dataset record, after adoption |
+| 3 | `type_target` | unchanged |
+| 4 | `hold` | unchanged |
+| 5 | `spec` | the draft is typed: `build_estimand` and `build_applicability` over the claim and a snapshot covering all four held lists |
+| 6–7 | `run` | the assessment record carries the typed `estimand` and `applicability` |
+| 8 | `belief` | **made explicit.** It published the verification and computed the belief in 2026-09-05 too; the table did not name it as its own command, and `rederive` reads the baseline it saves |
+| 10a/10b/10c | `rederive` | 10c is new: spec and assessment restored from disk through the typed readers, assessment and belief re-derived and compared, and the **prior** corpus state opened read-only under the successor profile |
+| 9 | `close` | unchanged. Run last, as before |
+
+The prior corpus state is moved aside, never deleted: it is what 10c reads.
+

@@ -13,10 +13,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import cast, final
 
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
 from beliefs.errors import MalformedClosure, MalformedRecord, SignatureRefused
+from beliefs.estimand import check_estimate, uncertainty_from_mapping
 from beliefs.recipe import RunClosure
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.sealed import sealed
@@ -70,25 +72,31 @@ def build_assessment(
         if not isinstance(raw, Mapping):
             raise TypeError("the interpretation rule returned no facet mapping")
         derived = cast(Mapping[str, object], raw)
+        extra = sorted(set(derived) - {"outcome", "estimate", "uncertainty"})
+        if extra:
+            raise TypeError(
+                f"the interpretation rule returned {extra}; a rule yields outcome, estimate and uncertainty only — "
+                "the reference and scale are the spec's, and a rule restating them is a rule that lies (estimand-typing §6)"
+            )
         outcome = derived.get("outcome")
-        estimate = derived.get("estimate")
-        uncertainty = derived.get("uncertainty")
         if type(outcome) is not str:
             raise TypeError("the interpretation rule returned no string outcome")
-        if estimate is not None and type(estimate) is not str:
-            raise TypeError("the interpretation rule returned a non-string estimate")
-        if uncertainty is not None and type(uncertainty) is not str:
-            raise TypeError("the interpretation rule returned non-string uncertainty")
+        scale = spec.estimand.measure.scale
+        estimate = derived.get("estimate")
+        if estimate is not None:
+            estimate = check_estimate(cast(Decimal, estimate), scale)
+        uncertainty_body = derived.get("uncertainty")
+        uncertainty = None if uncertainty_body is None else uncertainty_from_mapping(uncertainty_body, estimate=estimate, scale=scale)
         return AssessmentValue(
             spec=spec.identity,
             run=run_address,
             proposition=spec.target,
             outcome=outcome,
             interpretation_rule=spec.interpretation_rule,
-            estimate=estimate,
-            uncertainty=uncertainty,
             estimand=spec.estimand,
             applicability=spec.applicability,
+            estimate=estimate,
+            uncertainty=uncertainty,
         )
     except Exception as error:  # noqa: BLE001 — arbitrary rule machinery records a finding
         return AssessmentFinding(run=run_address, reason=f"evaluation-failed: {error}")

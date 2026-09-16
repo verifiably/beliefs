@@ -7,10 +7,11 @@ non-fulfilling `execute`, intents through `append_intent`, reports through
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 
 from authority import FULL
-from fixtures_cut3 import spec_draft, spec_rules
+from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp
@@ -38,9 +39,9 @@ def specs() -> tuple[FrozenSpec, FrozenSpec, FrozenSpec]:
     """`(original, unreferenced, referencing)` — the second supersedes nothing,
     the third supersedes the first by construction."""
     original = freeze(spec_draft(), held_rules=spec_rules())
-    unreferenced = freeze(spec_draft(estimand="revised"), held_rules=spec_rules())
+    unreferenced = freeze(spec_draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=spec_rules())
     referencing = revise(
-        original, edits={"estimand": "revised"}, held_rules=spec_rules(), recorded_failures=frozenset()
+        original, edits={"estimand": typed_estimand(reference=Decimal(1))}, held_rules=spec_rules(), recorded_failures=frozenset()
     )
     return original, unreferenced, referencing
 
@@ -54,11 +55,13 @@ def assessment(spec_identity: str, slug: str = "a1") -> Node:
         proposition=PROPOSITION,
         outcome="refuted",
         interpretation_rule=RULE,
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
 
 def identity_of(assessment_node: Node) -> str:
-    return stored.assessment_value(assessment_node).identity()
+    return stored.assessment_reference(assessment_node).identity()
 
 
 def verification(slug: str, target: Node, verdict: str, *, supersedes: str | None = None) -> Node:

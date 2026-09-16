@@ -4,7 +4,7 @@ import dataclasses
 import inspect
 from pathlib import Path
 
-from fixtures_cut3 import D_IN, closure_kwargs, report
+from fixtures_cut3 import D_IN, closure_kwargs, report, typed_applicability, typed_estimand
 
 import beliefs
 from beliefs.admission import Admitted, admit
@@ -24,6 +24,8 @@ def admitted_scenario():
         proposition="prop-1",
         outcome="supported",
         interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     address = dataset_address(d)
     assert address is not None

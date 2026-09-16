@@ -50,6 +50,8 @@ from beliefs.errors import (
     CorpusDamaged,
     IdentityError,
     MalformedRecord,
+    PreGrammarAssessment,
+    PreGrammarSpec,
     RecordError,
     RuleUnbound,
     SemanticHashMissing,
@@ -80,6 +82,7 @@ __all__ = [
     "check_analysis_spec",
     "check_assessment",
     "check_lineage_basis",
+    "check_spec_target",
     "check_verification",
     "stored_specs",
 ]
@@ -226,10 +229,10 @@ def check_verification(
 
 
 def check_assessment(
-    view: ReadView | _ImportView | WorldReadView, node: Node, *, evidence: DerivationEvidence
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, evidence: DerivationEvidence, profile: ProfileSpec
 ) -> DerivationOutcome:
     """Recompute a stored assessment's facet from the run it names."""
-    stored_value = stored.assessment_value(node)
+    stored_value = stored.assessment_value(node, profile=profile)
     closure, why = _closure(view, stored.typed_ref("run", stored_value.run))
     if closure is None:
         return _unchecked(why)
@@ -304,25 +307,67 @@ def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> Derivatio
     )
 
 
-def check_analysis_spec(node: Node) -> DerivationOutcome:
+def check_spec_target(view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
+    """The boundary's estimand-target comparison, over a stored record (§7.2)."""
+    from beliefs.decode import claim_from_stored
+    from beliefs.projection import claim_identity
+    from beliefs.resolution import build_snapshot
+
+    spec = stored.analysis_spec_value(node, profile=profile)
+    if not view.holds(spec.target):
+        return _unchecked(f"{spec.target} does not resolve here")
+    target = view.get(spec.target)
+    if target.kind != "proposition":
+        return _unchecked(f"{spec.target} is not a proposition")
+    claim, _receipt = claim_from_stored(target, profile=profile, snapshot=build_snapshot(readable={}))
+    disagreements = []
+    if spec.estimand.claim != claim_identity(claim):
+        disagreements.append("claim")
+    if spec.estimand.operator != claim.operator:
+        disagreements.append("operator")
+    if not disagreements:
+        return DerivationOutcome(checked=True, reason="", contradiction=None)
+    return DerivationOutcome(
+        checked=True, reason="",
+        contradiction=Finding(severity="error", code="spec-target-contradicted", ref=node.id, detail=",".join(disagreements),
+                              message=f"{node.id}: the spec's estimand does not answer the claim its target carries"),
+    )
+
+
+def check_analysis_spec(node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
     """A stored spec restores or is malformed; `audit_corpus` reports the
     latter as `derivation-malformed` under the catch R11 already has."""
-    stored.analysis_spec_value(node)
+    stored.analysis_spec_value(node, profile=profile)
     return DerivationOutcome(checked=True, reason="", contradiction=None)
 
 
-def stored_specs(view: ReadView | _ImportView | WorldReadView) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]:
+def stored_specs(
+    view: ReadView | _ImportView | WorldReadView, *, profile: ProfileSpec
+) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]:
     """Every restorable stored spec keyed by identity, and one
     `derivation-malformed` finding per record that does not restore — the
     two halves travel together so a false spec never vanishes into an
-    unchecked derivation (design decision 15)."""
+    unchecked derivation (design decision 15). A pre-grammar spec is named by
+    its own code (`spec-pre-grammar`), never folded into `derivation-malformed`
+    (decision 10)."""
     specs: dict[str, FrozenSpec] = {}
     findings: list[Finding] = []
     for node in view.iter_stored():
         if node.kind != "analysis-spec":
             continue
         try:
-            spec = stored.analysis_spec_value(node)
+            spec = stored.analysis_spec_value(node, profile=profile)
+        except PreGrammarSpec as refused:
+            findings.append(
+                Finding(
+                    severity="error",
+                    code="spec-pre-grammar",
+                    ref=node.id,
+                    detail=str(refused),
+                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",
+                )
+            )
+            continue
         except RecordError as refused:
             findings.append(
                 Finding(
@@ -358,13 +403,23 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
             if node.kind == "verification":
                 outcome = check_verification(view, node, evidence=evidence)
             elif node.kind == "assessment":
-                outcome = check_assessment(view, node, evidence=evidence)
+                outcome = check_assessment(view, node, evidence=evidence, profile=profile)
             elif node.kind == "dataset":
                 outcome = check_lineage_basis(view, node)
             elif node.kind == "analysis-spec":
-                outcome = check_analysis_spec(node)
+                outcome = check_spec_target(view, node, profile=profile)
             else:
                 continue
+        except PreGrammarSpec as refused:
+            findings.append(
+                Finding(severity="error", code="spec-pre-grammar", ref=node.id, detail=str(refused), message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)")
+            )
+            continue
+        except PreGrammarAssessment as refused:
+            findings.append(
+                Finding(severity="error", code="assessment-pre-grammar", ref=node.id, detail=str(refused), message=f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)")
+            )
+            continue
         except RecordError as refused:
             findings.append(
                 Finding(
@@ -381,15 +436,17 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
 
 
-def _recompute(view: WorldReadView, node: Node, evidence: DerivationEvidence) -> DerivationOutcome | None:
+def _recompute(
+    view: WorldReadView, node: Node, evidence: DerivationEvidence, profile: ProfileSpec
+) -> DerivationOutcome | None:
     if node.kind == "verification":
         return check_verification(view, node, evidence=evidence)
     if node.kind == "assessment":
-        return check_assessment(view, node, evidence=evidence)
+        return check_assessment(view, node, evidence=evidence, profile=profile)
     if node.kind == "dataset":
         return check_lineage_basis(view, node)
     if node.kind == "analysis-spec":
-        return check_analysis_spec(node)
+        return check_analysis_spec(node, profile=profile)
     return None
 
 
@@ -491,7 +548,7 @@ def audit_world(
         if corpus_id in excluded or node.id in malformed.get(corpus_id, set()):
             continue
         try:
-            outcome = _recompute(view, node, evidence)
+            outcome = _recompute(view, node, evidence, profile)
         except CorpusDamaged as unreachable:
             corpora[corpus_id].append(
                 Finding(
@@ -501,6 +558,16 @@ def audit_world(
                     unreachable.corpus_id,
                     f"{node.id}: its recomputation reaches {unreachable.corpus_id}, which this audit could not read whole",
                 )
+            )
+            continue
+        except PreGrammarSpec as refused:
+            corpora[corpus_id].append(
+                Finding("error", "spec-pre-grammar", node.id, str(refused), f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)")
+            )
+            continue
+        except PreGrammarAssessment as refused:
+            corpora[corpus_id].append(
+                Finding("error", "assessment-pre-grammar", node.id, str(refused), f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)")
             )
             continue
         except RecordError as refused:

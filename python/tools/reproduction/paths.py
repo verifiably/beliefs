@@ -17,5 +17,9 @@ WORK = Path(os.environ.get("SCIENCE_MM30_ROOT", CHECKOUT / ".work" / "reproducti
 PREDECESSOR = Path(
     os.environ.get("MM30_PREDECESSOR", Path.home() / "d" / "cancer" / "cancer-types" / "multiple-myeloma")
 )
+# The prior corpus state, moved aside when the corpus was recreated under the
+# successor contracts (estimand-typing decision 10). Read-only: Q10's
+# transition arm presents it to the successor readers.
+PRIOR = WORK.with_name(WORK.name + ".cut22")
 WORLD_ROOT, CORPUS_ROOT, STORE_ROOT, SCRATCH = WORK / "world", WORK / "corpus", WORK / "store", WORK / "scratch"
 STATE, FINDINGS, TARGET = WORK / "state.json", WORK / "findings.jsonl", WORK / "target.yaml"

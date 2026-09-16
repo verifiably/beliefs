@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-15)
+## Current state (2026-09-16)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,12 +46,12 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-15** for cut 30's world-resolution slice 6 discharge.
+**Updated 2026-09-16** for cut 31's estimand-typing discharge.
 
-**Implemented through conformance cut 30.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 31.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–30 record discharge in their dated results records, most recently
-`../plans/2026-09-15-conformance-cut-30-results.md`.
+and cuts 26–31 record discharge in their dated results records, most recently
+`../plans/2026-09-16-conformance-cut-31-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -179,7 +179,20 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   retains only its rules-store clauses and W8a only its
   `instrument-certification` arm. W7 and W8b close at cut 28; W8's
   ambiguous-search-term conflict is re-homed to `authority-labels`.
-  The corpus has 153 of 196 rows closed.
+- **Typed estimands, applicability, estimate and uncertainty** — the base
+  contract owns a closed `estimand_grammar` (`science.estimand.v1`); a domain
+  contract declares, per operator, the sorts its levels, measures,
+  identifications and conditioning members draw on; the frozen spec carries a
+  typed estimand built against the typed claim it answers and a qualifier-map
+  applicability over that operator's dimensions; the interpretation rule
+  returns decimal estimates and typed uncertainty on the spec's declared scale
+  and reference and nothing else; structural match is checked at the write
+  boundary, at import and under audit; and `commensurable` and `co_scoped` are
+  exposed from `beliefs.estimand` and read by nothing in `science.belief.v1`.
+  A pre-grammar record is refused under its own name and audited under its own
+  code — the transition is recreation, not migration. Q1–Q10 close at cut 31,
+  which also re-runs the mm30 reproduction into a recreated corpus. The corpus
+  has 163 of 206 rows closed.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -202,14 +215,14 @@ not listed.
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
-| `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
+| `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
 | `publish` | W17’s publication-binding intent-position arm; governed publication act, marker and binding records | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication; follows the complete world-read lane and precedes the final contract cut |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-15-conformance-cut-30-results.md`) discharges world-resolution slice 6, reconciling divergent correction histories at consolidate; the world-resolution boundary is closed and beliefs-d248ba with it. W8 remains unchanged. nodes-remainder closed 2026-09-12: `nodes`
+(`../plans/2026-09-16-conformance-cut-31-results.md`) discharges estimand typing: `estimand-typing` entered this table and the roadmap's boundary index at that record and closed in the same commit, so neither carries an open row for it, and the roadmap's lane table carries the closed `estimand-typing` lane. Q1–Q10 close in full; the design's twelve limitations are banked as limitations, not work. `weighted-belief` is re-blocked — its key domain is supplied and what it now waits on is the successor belief-policy design over `commensurable` and `co_scoped` (beliefs-638318) — and `contract-cut` gains this lane as a dependency, because the base contract, the operator declaration class, the assessment facet and the D6 oracle are all amended here. The previous record (`../plans/2026-09-15-conformance-cut-30-results.md`) discharged world-resolution slice 6 and closed that boundary and beliefs-d248ba with it. W8 remains unchanged. nodes-remainder closed 2026-09-12: `nodes`
 merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 `nodes-ce28b8`), so row 3 carries no live work and the contract-cut join
 (`beliefs-eacbe2`) no longer waits on `nodes`. Every boundary's tracker entry is named in the
@@ -225,7 +238,7 @@ roadmap to one set of ids.
 
 The artifact rows and §3 preserve the dated adoption history; their original
 "awaits implementation" statements describe those earlier cuts. Use
-[Current state](#current-state-2026-09-15) for the live remainder.
+[Current state](#current-state-2026-09-16) for the live remainder.
 
 > **Artifact status reconciliation (2026-09-10, through cut 24).** Row 5's
 > general intent qualification closed at cut 11 and G4 at cut 12; its live

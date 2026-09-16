@@ -1,0 +1,36 @@
+# python/tests/fixtures/natural-systems-pilot-fixture.yaml
+#
+# The corpus-local contract of the estimand-typing design's Appendix A.2 — the
+# natural-systems v2 time-series pilot's surrogate-contrast assessment,
+# transcribed exactly as A.2 spells it. This is a TEST FIXTURE, not a domain:
+# the eventual `natural-systems` pack question ("which of this it owns") is
+# that project's, and this fixture decides nothing about it (A.2).
+#
+# One operator, one estimand declaration, four one-line-per-term sorts. The
+# release date below is a stand-in for A.2's `<sample date>` placeholder.
+contract: natural-systems-pilot
+version: 1
+lineage: genesis
+sorts:
+  series-source:
+    vocabulary: { namespace: ns-pilot-series, release: "2026-09-15" }
+  observation-procedure:
+    vocabulary: { namespace: ns-pilot-procedures, release: "2026-09-15" }
+  statistic:
+    vocabulary: { namespace: ns-pilot-statistics, release: "2026-09-15" }
+  identification:
+    vocabulary: { namespace: ns-pilot-identification, release: "2026-09-15" }
+dimensions: {}
+operators:
+  departs-from-series-source-observation-procedure:
+    arity: 2
+    arg_sorts: [series-source, observation-procedure]
+    sign_apt: true
+    layers: [statistical]
+    dimensions: []
+estimands:
+  departs-from-series-source-observation-procedure:
+    level_sorts: { "1": observation-procedure }
+    measure_sort: statistic
+    identification_sort: identification
+    conditioning_sort: statistic

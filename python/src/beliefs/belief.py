@@ -254,6 +254,7 @@ def evaluate(
     try:
         consulted = consulted_contracts(
             claims=read_claims,
+            estimands={a.identity(): a.estimand for a in matched},
             profile=profile,
             node_corpus=context.node_corpus,
             pins=context.pins,
