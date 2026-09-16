@@ -392,11 +392,18 @@ def test_the_binding_is_guarded_before_any_read(corpus_fixture, monkeypatch):
     assert isinstance(result, Refused) and result.reason.startswith("binding-not-exact")
 
 
-def test_a_proposition_with_no_claim_record_consults_only_the_base_contract(claimless_fixture):
+def test_a_proposition_with_no_claim_record_still_reaches_its_assessments_estimand(claimless_fixture):
+    # The claim schema contributes nothing here (no claim resolves), but the
+    # estimand walk is unconditional on that: each matched assessment still
+    # carries a typed estimand under `testing/affects`, so `testing` is
+    # consulted through it alone (estimand-typing §5.4, D6's third trigger).
     inputs = gather(claimless_fixture.view, claimless_fixture.proposition, **claimless_fixture.gather_kwargs)
     assert inputs.claim is None
     assert dict(inputs.records().claims) == {}
-    assert inputs.consulted == (("science", pins_for(PROFILE).science_contract),)
+    assert inputs.consulted == (
+        ("science", pins_for(PROFILE).science_contract),
+        ("testing", pins_for(PROFILE).domains["testing"]),
+    )
     assert "proposition" not in {kind for kind, _ in inputs.read_trace}
     assert set(inputs.read_trace) <= inputs.declared_refs()
 

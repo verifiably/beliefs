@@ -1,0 +1,15 @@
+# python/tests/fixtures/measures-fixture.yaml
+# A TEST FIXTURE in the `measures` namespace, not a domain. It declares no
+# operator, so no claim can reach it through the claim-schema walk — only an
+# estimand whose measure sort binds `measures/assay` can reach it (Q8's
+# decisive arm: the estimand walk is what makes this contract consulted).
+contract: measures
+version: 1
+lineage: genesis
+description: fixture
+sorts:
+  assay:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
+dimensions: {}
+operators: {}
+facets: {}

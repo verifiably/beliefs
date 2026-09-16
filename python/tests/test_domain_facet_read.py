@@ -190,15 +190,17 @@ def test_isolated_case_an_unrelated_bump_leaves_it(tmp_path):
 
 
 def test_isolated_case_holds_with_no_claim_record(tmp_path):
-    """A proposition with no claim consults only the base — plus biology
-    through the facet. The assessments name a proposition the corpus does not
-    hold, as `test_evaluation.claimless_fixture` does."""
+    """A proposition with no claim consults the base — plus biology through
+    the facet, plus testing through the matched assessments' estimand (which
+    is unconditional on the claim schema, estimand-typing §5.4). The
+    assessments name a proposition the corpus does not hold, as
+    `test_evaluation.claimless_fixture` does."""
     absent = "proposition:never-stored"
     profile = profile_with()
     view = seed(tmp_path, proposition=absent)
     inputs = gather(view, absent, **_gathered(kwargs_for(view, profile)))
     assert inputs.claim is None
-    assert set(dict(inputs.consulted)) == {"science", "biology"}
+    assert set(dict(inputs.consulted)) == {"science", "biology", "testing"}
 
 
 # --- the dogfood shape: biology by both routes (design §5.6) ----------------
