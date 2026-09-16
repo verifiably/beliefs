@@ -35,6 +35,7 @@
 import {
   BaseContract,
   type ClaimGrammar,
+  type CompositeGrammar,
   type DeclarationTable,
   DomainContract,
   type EstimandGrammar,
@@ -78,6 +79,7 @@ export class ProfileSpec {
   readonly relations: DeclarationTable<RelationDecl>;
   readonly claimGrammar: ClaimGrammar;
   readonly estimandGrammar: EstimandGrammar;
+  readonly compositeGrammar: CompositeGrammar;
   readonly operators: ResolutionTable<CompiledOperator>;
   readonly estimands: ResolutionTable<CompiledEstimandDecl>;
   readonly dimensions: ResolutionTable<CompiledDimension>;
@@ -91,6 +93,7 @@ export class ProfileSpec {
       relations: DeclarationTable<RelationDecl>;
       claimGrammar: ClaimGrammar;
       estimandGrammar: EstimandGrammar;
+      compositeGrammar: CompositeGrammar;
       operators: ResolutionTable<CompiledOperator>;
       estimands: ResolutionTable<CompiledEstimandDecl>;
       dimensions: ResolutionTable<CompiledDimension>;
@@ -117,6 +120,7 @@ export class ProfileSpec {
     this.relations = frozenTable(Object.entries(parts.relations));
     this.claimGrammar = parts.claimGrammar;
     this.estimandGrammar = parts.estimandGrammar;
+    this.compositeGrammar = parts.compositeGrammar;
     this.operators = frozenTable(Object.entries(parts.operators));
     this.estimands = frozenTable(Object.entries(parts.estimands));
     this.dimensions = frozenTable(Object.entries(parts.dimensions));
@@ -262,6 +266,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     facets,
     claimGrammar: base.claimGrammar,
     estimandGrammar: base.estimandGrammar,
+    compositeGrammar: base.compositeGrammar,
     operators,
     estimands,
     dimensions,

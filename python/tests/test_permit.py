@@ -44,6 +44,10 @@ class TestE4KindActsIsClosedAndComplete:
         assert COMMAND_REACHABLE_FAMILIES == {"corpus-write", "run", "holdings"}
 
 
+def test_a_composite_is_minted_by_corpus_write_alone():
+    assert KIND_ACTS["composite"] == frozenset({"corpus-write"})
+
+
 class TestWritePermitConstruction:
     def test_full_holds_every_kind_and_family_and_the_ungoverned_kinds(self):
         full = WritePermit.full()

@@ -38,7 +38,7 @@ from typing import final
 from nodes.core.node import Node
 from nodes.core.registry import KindSpec, Registry, Violation
 
-from beliefs.contract.base import BaseContract, ClaimGrammar, EstimandGrammar, FacetUse, RelationDecl
+from beliefs.contract.base import BaseContract, ClaimGrammar, CompositeGrammar, EstimandGrammar, FacetUse, RelationDecl
 from beliefs.contract.coordination import CoordinationContract
 from beliefs.contract.domain import DomainContract, EstimandDecl, OperatorDecl, VocabularyBinding, _name
 from beliefs.contract.facets import FieldDecl
@@ -251,6 +251,7 @@ class ProfileSpec:
     relations: Mapping[str, RelationDecl]
     _registry: Registry
     claim_grammar: ClaimGrammar
+    composite_grammar: CompositeGrammar
     estimand_grammar: EstimandGrammar
     operators: Mapping[str, CompiledOperator]
     estimands: Mapping[str, CompiledEstimandDecl]
@@ -329,6 +330,7 @@ class ProfileSpec:
         return _projection(
             self.claim_grammar,
             self.estimand_grammar,
+            self.composite_grammar,
             self.operators,
             self.dimensions,
             self.sorts,
@@ -643,6 +645,7 @@ def compile_profile(
         _registry=registry,
         claim_grammar=base.claim_grammar,
         estimand_grammar=base.estimand_grammar,
+        composite_grammar=base.composite_grammar,
         # Wrapped so `compiled_identity` cannot come to describe a profile that
         # no longer exists. The `dict()` copy is insurance against a later
         # restructure that wraps something a caller still holds — today these are
@@ -665,6 +668,7 @@ def compile_profile(
             _projection(
                 base.claim_grammar,
                 base.estimand_grammar,
+                base.composite_grammar,
                 operators,
                 dimensions,
                 sorts,
@@ -685,6 +689,7 @@ def _coordination_projection(contract: CoordinationContract) -> dict[str, object
 def _projection(
     claim_grammar: ClaimGrammar,
     estimand_grammar: EstimandGrammar,
+    composite_grammar: CompositeGrammar,
     operators: Mapping[str, CompiledOperator],
     dimensions: Mapping[str, CompiledDimension],
     sorts: Mapping[str, CompiledSort],
@@ -715,6 +720,7 @@ def _projection(
             "layers": sorted(claim_grammar.layers),
         },
         "estimand_grammar": estimand_grammar.projection(),
+        "composite_grammar": composite_grammar.projection(),
         "kinds": {name: kind.projection() for name, kind in kinds.items()},
         "facets": {key: facet.projection() for key, facet in facets.items()},
         "relations": {name: relation.projection() for name, relation in relations.items()},

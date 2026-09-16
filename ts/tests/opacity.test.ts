@@ -32,6 +32,7 @@ import { Claim, type ClaimParts, Qualifier, Referent, buildClaim } from "../src/
 import {
   BaseContract,
   type ClaimGrammar,
+  type CompositeGrammar,
   DomainContract,
   type EstimandGrammar,
   parseBaseContract,
@@ -77,6 +78,12 @@ const FORGED_ESTIMAND_GRAMMAR: EstimandGrammar = {
   contrastKinds: ["whatever"],
   scales: ["made-up"],
   uncertaintyKinds: ["made-up"],
+};
+
+/** Likewise, for the composite grammar. */
+const FORGED_COMPOSITE_GRAMMAR: CompositeGrammar = {
+  version: 1,
+  shapes: ["made-up"],
 };
 
 const gene = new Referent("testing/entity", "EX:gene-x");
@@ -204,6 +211,7 @@ describe("a profile that did not come from the contracts is not a profile", () =
   const forgedProfile = {
     claimGrammar: FORGED_GRAMMAR,
     estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+    compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
     operators: {
       "forged/op": {
         term: "forged/op",
@@ -318,6 +326,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           version: 1,
           claimGrammar: FORGED_GRAMMAR,
           estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+          compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
         }),
     ).toThrow(UnparsedContract);
     expect(
@@ -344,6 +353,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           version: 1,
           claimGrammar: FORGED_GRAMMAR,
           estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+          compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
         }),
     ).toThrow(SubclassRefused);
     expect(

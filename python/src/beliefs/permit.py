@@ -56,6 +56,7 @@ KIND_ACTS: Mapping[str, frozenset[str]] = MappingProxyType(
         "instrument-certification": _CORPUS_WRITE,
         "coreference-attestation": _CORPUS_WRITE,
         "act-report": frozenset({"corpus-write", "run"}),
+        "composite": _CORPUS_WRITE,
         **{kind: _CORPUS_WRITE for kind in _COORDINATION_KINDS},
     }
 )

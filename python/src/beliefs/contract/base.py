@@ -37,9 +37,11 @@ from beliefs.identity import v1
 from beliefs.sealed import sealed
 
 __all__ = [
+    "COMPOSITE_GRAMMAR",
     "ESTIMAND_GRAMMAR",
     "BaseContract",
     "ClaimGrammar",
+    "CompositeGrammar",
     "EstimandGrammar",
     "FacetUse",
     "KindDecl",
@@ -76,10 +78,20 @@ distinction worth keeping is between a hole and a documented limit.
 _CONTRACT_FIELDS = frozenset(
     {"contract", "version", "claim_grammar", "estimand_grammar", "kinds", "relations", "facets"}
 )
+_CONTRACT_FIELDS = _CONTRACT_FIELDS | {"composite_grammar"}  # the baseline's set already carries `estimand_grammar`; extend it, never restate it
 _GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "quantifiers", "polarities", "sign_inapt_tag", "layers"})
 _ESTIMAND_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"})
+_COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
+SUPPORTED_SHAPES = ("dag",)
+"""The shapes this implementation derives (design §3.4). A contract naming a
+shape outside this set is refused at parse: a profile carrying `pag` would
+otherwise run `dag` classification under another shape's name."""
+_RELATION_FIELDS = frozenset({"group", "sources", "targets"})
+_RELATION_OPTIONAL = frozenset({"same_kind"})
 _RELATION_GROUPS = ("world", "lifecycle")
 ESTIMAND_GRAMMAR = "science.estimand.v1"
+COMPOSITE_GRAMMAR = "science.composite.v1"
+"""The tag a stored composite facet carries under `grammar` (design §3.2)."""
 
 
 @dataclass(frozen=True)
@@ -127,6 +139,18 @@ class EstimandGrammar:
 
 
 @dataclass(frozen=True)
+class CompositeGrammar:
+    """The closed set of shapes a composite may take (design §3.1). A shape is
+    a derivation the kernel performs, never a domain's declaration."""
+
+    version: int
+    shapes: tuple[str, ...]
+
+    def projection(self) -> dict[str, object]:
+        return {"version": self.version, "shapes": list(self.shapes)}
+
+
+@dataclass(frozen=True)
 class FacetUse:
     required: bool
     covered: bool
@@ -157,9 +181,18 @@ class RelationDecl:
     group: str
     sources: tuple[str, ...]
     targets: tuple[str, ...]
+    same_kind: bool = False
+    """An instance's endpoints must be records of one kind (design §3.1).
+    Admissible only where `sources` and `targets` are equal sets, so the rule
+    can never name a pair the signature already forbids."""
 
     def projection(self) -> dict[str, object]:
-        return {"group": self.group, "sources": sorted(self.sources), "targets": sorted(self.targets)}
+        return {
+            "group": self.group,
+            "sources": sorted(self.sources),
+            "targets": sorted(self.targets),
+            "same_kind": self.same_kind,
+        }
 
 
 @sealed
@@ -185,6 +218,7 @@ class BaseContract:
     version: int
     claim_grammar: ClaimGrammar
     estimand_grammar: EstimandGrammar
+    composite_grammar: CompositeGrammar
     kinds: Mapping[str, KindDecl]
     relations: Mapping[str, RelationDecl]
     facets: Mapping[str, FacetDecl]
@@ -321,6 +355,22 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         layers=_closed_set(grammar["layers"], f"{grammar_where}: layers"),
     )
 
+    composite_where = f"{source}: composite_grammar"
+    composite = _mapping(root["composite_grammar"], composite_where)
+    _exact_fields(composite, _COMPOSITE_GRAMMAR_FIELDS, composite_where)
+    composite_grammar = CompositeGrammar(
+        version=_positive_int(composite["version"], f"{composite_where}: version"),
+        shapes=_closed_set(composite["shapes"], f"{composite_where}: shapes"),
+    )
+    if not composite_grammar.shapes:
+        raise MalformedContract(f"{composite_where}: shapes must be non-empty; a grammar with no shape admits no composite")
+    unsupported = sorted(set(composite_grammar.shapes) - set(SUPPORTED_SHAPES))
+    if unsupported:
+        raise MalformedContract(
+            f"{composite_where}: shapes {unsupported} are not shapes this implementation derives ({SUPPORTED_SHAPES}); "
+            "a later grammar version arrives with its classification, never ahead of it"
+        )
+
     estimand_where = f"{source}: estimand_grammar"
     estimand = _mapping(root["estimand_grammar"], estimand_where)
     _exact_fields(estimand, _ESTIMAND_GRAMMAR_FIELDS, estimand_where)
@@ -368,7 +418,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
     for relation_name, body_value in _mapping(root["relations"], f"{source}: relations").items():
         where = f"{source}: relations.{relation_name}"
         body = _mapping(body_value, where)
-        _exact_fields(body, frozenset({"group", "sources", "targets"}), where)
+        _exact_fields({k: v for k, v in body.items() if k not in _RELATION_OPTIONAL}, _RELATION_FIELDS, where)
         if body["group"] not in _RELATION_GROUPS:
             raise MalformedContract(f"{where}: group is one of {', '.join(_RELATION_GROUPS)}, found {body['group']!r}")
         sources = _closed_set(body["sources"], f"{where}: sources")
@@ -376,7 +426,15 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         for kind in (*sources, *targets):
             if kind not in kinds:
                 raise MalformedContract(f"{where}: {kind!r} is not a kind this contract declares")
-        relations[relation_name] = RelationDecl(relation_name, body["group"], sources, targets)
+        same_kind = body.get("same_kind", False)
+        if not isinstance(same_kind, bool):
+            raise MalformedContract(f"{where}: same_kind is a boolean, found {same_kind!r}")
+        if same_kind and set(sources) != set(targets):
+            raise MalformedContract(
+                f"{where}: same_kind requires sources and targets to be equal sets; "
+                f"{sorted(set(sources) ^ set(targets))} appear on one side only"
+            )
+        relations[relation_name] = RelationDecl(relation_name, body["group"], sources, targets, same_kind)
 
     return BaseContract._parsed(
         _MINT,
@@ -384,6 +442,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         version=_positive_int(root["version"], f"{source}: version"),
         claim_grammar=claim_grammar,
         estimand_grammar=estimand_grammar,
+        composite_grammar=composite_grammar,
         kinds=MappingProxyType(kinds),
         relations=MappingProxyType(relations),
         facets=MappingProxyType(facets),

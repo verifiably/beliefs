@@ -16,11 +16,36 @@ describe("document load refuses duplicate keys (design §3.7)", () => {
 
 describe("the base contract's declarations (design §3.1–§3.4)", () => {
   const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
-  it("declares thirteen world kinds and three prose kinds", () => {
-    expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(13);
+  it("declares fourteen world kinds and three prose kinds", () => {
+    expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(14);
     expect(Object.values(base.kinds).filter((kind) => kind.role === "prose")).toHaveLength(3);
     expect(base.kinds["instrument-certification"].domain).toBeNull();
     expect(base.kinds["coreference-attestation"].domain).toBe("science.coreference-attestation.v1");
+  });
+  it("declares the composite grammar and the same-kind rule on supersedes", () => {
+    expect(base.compositeGrammar).toEqual({ version: 1, shapes: ["dag"] });
+    expect(base.relations.supersedes.sameKind).toBe(true);
+    expect(base.relations.composes.sameKind).toBe(false);
+    expect(base.relations.composes.targets).toEqual(["proposition"]);
+  });
+  it("refuses same_kind where sources and targets differ", () => {
+    const line = "composes: { group: world, sources: [composite], targets: [proposition] }";
+    expect(SHIPPED).toContain(line); // the mutation must land, or the assertion below asserts nothing
+    const bad = SHIPPED.replace(
+      line,
+      "composes: { group: world, sources: [composite], targets: [proposition], same_kind: true }",
+    );
+    expect(() => parseBaseContract(bad, "<bad>")).toThrow(/same_kind/);
+  });
+  it("refuses an unsupported shape", () => {
+    const line = "  shapes: [dag]\n";
+    expect(SHIPPED).toContain(line);
+    expect(() => parseBaseContract(SHIPPED.replace(line, "  shapes: [dag, pag]\n"), "<bad>")).toThrow(/pag/);
+  });
+  it("refuses a base contract without the composite grammar", () => {
+    const block = "composite_grammar:\n  version: 1\n  shapes: [dag]\n";
+    expect(SHIPPED).toContain(block);
+    expect(() => parseBaseContract(SHIPPED.replace(block, ""), "<bad>")).toThrow(/composite_grammar/);
   });
   it("declares empirical-observation as the one schema-shaped facet", () => {
     expect(

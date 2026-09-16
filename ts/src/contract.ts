@@ -72,6 +72,12 @@ export interface EstimandGrammar {
   readonly uncertaintyKinds: readonly string[];
 }
 
+export interface CompositeGrammar {
+  readonly version: number;
+  readonly shapes: readonly string[];
+}
+const SUPPORTED_SHAPES: readonly string[] = ["dag"];
+
 export type FieldType = "string" | "integer" | "boolean" | "ref" | "locator" | "actor";
 export interface FieldDecl {
   readonly name: string;
@@ -101,6 +107,7 @@ export interface RelationDecl {
   readonly group: "world" | "lifecycle";
   readonly sources: readonly string[];
   readonly targets: readonly string[];
+  readonly sameKind: boolean;
 }
 
 const SEMANTIC_DOMAIN = /^science\.[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*\.v[1-9][0-9]*$/;
@@ -113,6 +120,7 @@ export class BaseContract {
   readonly version: number;
   readonly claimGrammar: ClaimGrammar;
   readonly estimandGrammar: EstimandGrammar;
+  readonly compositeGrammar: CompositeGrammar;
   readonly kinds: DeclarationTable<KindDecl>;
   readonly relations: DeclarationTable<RelationDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
@@ -123,6 +131,7 @@ export class BaseContract {
       version: number;
       claimGrammar: ClaimGrammar;
       estimandGrammar: EstimandGrammar;
+      compositeGrammar: CompositeGrammar;
       kinds?: DeclarationTable<KindDecl>;
       relations?: DeclarationTable<RelationDecl>;
       facets?: DeclarationTable<FacetDecl>;
@@ -154,6 +163,10 @@ export class BaseContract {
       contrastKinds: Object.freeze([...parts.estimandGrammar.contrastKinds]),
       scales: Object.freeze([...parts.estimandGrammar.scales]),
       uncertaintyKinds: Object.freeze([...parts.estimandGrammar.uncertaintyKinds]),
+    });
+    this.compositeGrammar = Object.freeze({
+      version: parts.compositeGrammar.version,
+      shapes: Object.freeze([...parts.compositeGrammar.shapes]),
     });
     this.kinds = parts.kinds;
     this.relations = parts.relations;
@@ -409,7 +422,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   const document = mapping(parseYaml(text), source);
   exactFields(
     document,
-    ["contract", "version", "claim_grammar", "estimand_grammar", "kinds", "relations", "facets"],
+    ["contract", "version", "claim_grammar", "estimand_grammar", "composite_grammar", "kinds", "relations", "facets"],
     [],
     source,
   );
@@ -440,6 +453,20 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       `${source}.claim_grammar.sign_inapt_tag: ${JSON.stringify(signInaptTag)} is also an assertable polarity`,
     );
   }
+  const compositeDocument = mapping(document.composite_grammar, `${source}.composite_grammar`);
+  exactFields(compositeDocument, ["version", "shapes"], [], `${source}.composite_grammar`);
+  const shapes = closedSet(compositeDocument.shapes, `${source}.composite_grammar.shapes`);
+  if (shapes.length === 0) throw new MalformedContract(`${source}.composite_grammar.shapes: must be non-empty`);
+  for (const shape of shapes) {
+    if (!SUPPORTED_SHAPES.includes(shape))
+      throw new MalformedContract(
+        `${source}.composite_grammar.shapes: ${JSON.stringify(shape)} is not a shape this implementation derives`,
+      );
+  }
+  const compositeGrammar: CompositeGrammar = Object.freeze({
+    version: positiveInt(compositeDocument.version, `${source}.composite_grammar.version`),
+    shapes: Object.freeze(shapes),
+  });
   const estimandDocument = mapping(document.estimand_grammar, `${source}.estimand_grammar`);
   exactFields(
     estimandDocument,
@@ -500,14 +527,22 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   for (const [name, bodyValue] of Object.entries(mapping(document.relations, `${source}.relations`))) {
     const where = `${source}.relations.${name}`;
     const body = mapping(bodyValue, where);
-    exactFields(body, ["group", "sources", "targets"], [], where);
+    exactFields(body, ["group", "sources", "targets"], ["same_kind"], where);
     if (body.group !== "world" && body.group !== "lifecycle")
       throw new MalformedContract(`${where}: group is world or lifecycle`);
     const sources = Object.freeze(closedSet(body.sources, `${where}.sources`));
     const targets = Object.freeze(closedSet(body.targets, `${where}.targets`));
     for (const kind of [...sources, ...targets])
       if (!(kind in kinds)) throw new MalformedContract(`${where}: ${JSON.stringify(kind)} is not a declared kind`);
-    relationEntries.push([name, Object.freeze({ name, group: body.group, sources, targets })]);
+    const sameKind = body.same_kind === undefined ? false : body.same_kind;
+    if (typeof sameKind !== "boolean") throw new MalformedContract(`${where}.same_kind: is a boolean`);
+    if (sameKind) {
+      const sourceSet = new Set(sources);
+      const targetSet = new Set(targets);
+      const equal = sourceSet.size === targetSet.size && [...sourceSet].every((kind) => targetSet.has(kind));
+      if (!equal) throw new MalformedContract(`${where}.same_kind: requires sources and targets to be equal sets`);
+    }
+    relationEntries.push([name, Object.freeze({ name, group: body.group, sources, targets, sameKind })]);
   }
   const relations = frozenTable(relationEntries);
   return new BaseContract(MINT, {
@@ -520,6 +555,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       layers: closedSet(grammarDocument.layers, `${source}.claim_grammar.layers`),
     },
     estimandGrammar,
+    compositeGrammar,
     kinds,
     relations,
     facets,

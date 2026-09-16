@@ -45,6 +45,13 @@ estimand_grammar:
   scales: [additive, multiplicative]
   uncertainty_kinds: [interval, standard-error]
 
+# --- composite grammar (composite-claims design §3.1) ------------------------
+# A shape is a thing the kernel does — for `dag`, derive directed edges from the
+# members' claims and refuse a cycle — so the set is kernel-owned and closed.
+composite_grammar:
+  version: 1
+  shapes: [dag]
+
 # --- kinds, relations and facets (facet-contracts design §3) -----------------
 kinds:
   proposition:
@@ -78,6 +85,11 @@ kinds:
     domain: science.coreference-attestation.v1
     facets: { coreference-attestation: { required: true, covered: true } }
   act-report: { domain: science.act-report.v1, facets: { act-report: { required: true, covered: true } } }
+  composite:
+    domain: science.composite.v1
+    facets:
+      composite: { required: true, covered: true }
+      display: { required: false, covered: false }
   interpretation: { role: prose, facets: { display: { required: false, covered: false } } }
   discussion: { role: prose, facets: { display: { required: false, covered: false } } }
   story: { role: prose, facets: { display: { required: false, covered: false } } }
@@ -94,7 +106,8 @@ relations:
   verifies: { group: world, sources: [verification], targets: [assessment] }
   member_of: { group: world, sources: [source], targets: [dataset] }
   grounded-in: { group: world, sources: [retraction], targets: [retraction, verification, source] }
-  supersedes: { group: lifecycle, sources: [proposition], targets: [proposition] }
+  composes: { group: world, sources: [composite], targets: [proposition] }
+  supersedes: { group: lifecycle, sources: [proposition, composite], targets: [proposition, composite], same_kind: true }
   retracts: { group: lifecycle, sources: [retraction], targets: [assessment, retraction, verification] }
   succeeded-by: { group: lifecycle, sources: [retraction], targets: [retraction] }
   anchored_in: { group: lifecycle, sources: [source-assertion], targets: [source] }
@@ -116,6 +129,7 @@ facets:
   retraction: { shape: reader, reader: corpus.CorpusWriter._validated_retraction }
   coreference-attestation: { shape: reader, reader: stored.coreference_attestation_value }
   act-report: { shape: reader, reader: stored.act_report_facet }
+  composite: { shape: reader, reader: stored.composite_value }
   empirical-observation:
     shape: schema
     description: The declared acquisition boundary (design §6). `locator` names the most upstream form outside the held boundary; `attested_by` is bound to the writer's actor at mint; `retrieval` is the boundary-minted acquisition report when one exists.
