@@ -69,9 +69,10 @@ discharged and no row moves. Slice 2 takes C8 and C9 (§12).
 
 1. **The enumeration is derived at the read, never supplied.**
    `SuppliedContext` loses `retractions`. A world read takes the enumeration
-   the bound epoch published (`retraction-enumeration`, §7.6's projection); a
-   corpus-local read computes it from the corpus with coverage
-   `(corpus_id,)`. A member the caller could set to empty is a member the
+   the bound epoch published (the `enumeration` member of
+   `retraction-receipt.yaml`, §7.6's projection, accepted only when it
+   recomputes to the receipt's subject identity — §3.1); a corpus-local read
+   computes it from the corpus with coverage `(corpus_id,)`. A member the caller could set to empty is a member the
    caller could use to declare retractions away, and the digest would then
    certify the declaration rather than the corpus. Rejected: keeping it
    supplied and checking it against the view — the check would need the
@@ -81,12 +82,21 @@ discharged and no row moves. Slice 2 takes C8 and C9 (§12).
    it.** It has no local derivation (a corpus-local read has no epoch), so it
    stays the caller's declaration; a world read refuses a supplied identity
    that is not the bound epoch's (`ProducerSnapshotMismatch`). Slice 2 adds
-   the retracted case.
+   the retracted case. What `gather` derives — the enumeration and the
+   retired snapshot — travels to the evaluator on `EvaluationInputs`, not on
+   the context: `evaluate_over_traced` today forwards the caller's context
+   with only `node_corpus` replaced, and `evaluate_traced` builds the closure
+   from `context.snapshot` and `context.retractions`, so without a handoff
+   the derived values would never reach the digest (§4, "the handoff").
 3. **Standing is recomputed by the evaluator over what it dereferences, and
    must agree with what the enumeration recorded.** Every found retraction —
    upheld or overturned — is read through the view, its target resolved, the
    graph folded with the one shared fold (§3.2), and the result compared with
-   the enumeration's resolutions; disagreement refuses. The epoch's resolution
+   the enumeration's resolutions; disagreement refuses. The fold reads every
+   found retraction's facet and target, and that is a lookup: only the
+   closure's own retractions (decision 10) are traced and declared, exactly
+   as `gather` decodes every stored verification to select the ones it hands
+   out. The epoch's resolution
    is computed per corpus at capture (`epoch._standing_retractions`); a
    `move` that separates a counter-retraction from the retraction it counters
    makes the two folds differ, and a digest whose recorded resolution the
@@ -101,6 +111,11 @@ discharged and no row moves. Slice 2 takes C8 and C9 (§12).
    guess. The audit is where the record is reported (`retraction-target-invalid`,
    already emitted); `delete` (cut 18) is the remedy. Precedent:
    `test_local_standing.py::test_stale_retraction_refuses_the_whole_evaluation`.
+   Absence is not unreadability: a found retraction, or the target it names,
+   recorded in a covered corpus with no carrier here is an `absent` entry,
+   and the evaluation answers `NoBelief("unavailable-corpus-absent")` as it
+   does for every other absent input — never an exception out of
+   `view.get`.
 5. **Subtraction is read-set removal, before decoding.** An assessment or
    verification a standing retraction names is skipped where `gather`
    iterates — a lookup, not a value handed out — so it is neither traced nor
@@ -125,14 +140,19 @@ discharged and no row moves. Slice 2 takes C8 and C9 (§12).
    certifies over that route, two or more stay `conflict`, none is
    `lineage-incomplete` and therefore `not-certified`, never silently single.
    `retired` is a projected member of every dataset's basis, so a retirement
-   moves the digest. Rejected: retiring inside `corpus.lineage_snapshot` —
+   moves the digest — and so is each route's identity (decision 7), because
+   the retired set selects survivors *by* identity and a projection that
+   omitted the identity-to-route association would digest two snapshots
+   with swapped identities, and different survivors, alike. Rejected: retiring inside `corpus.lineage_snapshot` —
    it is also the audit's and the verifier's snapshot, and their reading of a
    stamped basis is not this slice's question.
 7. **A route's identity is the `identity` its stamped basis records.** The
    write boundary already refuses a `route` arm naming an identity the basis
    lacks; a route without one cannot be named and is never retired.
-   `lineage.Route` gains `identity: str | None`, read from the stored route
-   and used only for matching — the route projection is unchanged.
+   `lineage.Route` gains `identity: str | None`, read from the stored route,
+   projected as `"identity": [] | [id]` in `_route_projection` (the
+   `_ref_projection` spelling for an absent half), and matched against
+   `retired`.
 8. **One fold.** `epoch._standing_retractions` and `standing_in_local_view`
    each carry a copy of the graph fold; this slice names it once
    (`corpus.retraction_standing`) and both call it. The local one-at-a-time
@@ -142,7 +162,25 @@ discharged and no row moves. Slice 2 takes C8 and C9 (§12).
    resolves a target through the epoch's address map, so a retraction and
    its target separated by `move` still read; only the counter-retraction
    split of decision 3 refuses, and it is named in §11.
-10. **The four src-touching follow-ups ride.** `beliefs-0521da`,
+10. **The closure carries the enumeration over its own inputs, not the
+    world's.** Correction lifecycle §6 reads "for every input in a
+    computation's closure, the retraction enumeration over that input is in
+    the closure", and its first consequence is that a standing retraction
+    moves the digest of "every computation whose closure contains its
+    target, and no other computation's"; cut 5's C3 arm pins exactly that.
+    So `found` in the closure is the **input-scoped** subset: retractions
+    whose node-arm target is one of this proposition's assessments or
+    verifications (before subtraction — the subtracted record is an input the
+    enumeration was run over), retractions whose route-arm dataset is in the
+    lineage walk's inspected set, and transitively every retraction targeting
+    one of those, with the resolutions the enumeration recorded; `coverage`
+    is the whole declared coverage. The fold that decides standing runs over
+    every found retraction (decision 3) — a counter-retraction elsewhere in
+    coverage can overturn a retraction in the chain, and only the whole graph
+    knows. Rejected: digesting the whole enumeration — one retraction against
+    an unrelated proposition would move every digest in the world, which the
+    banked guarantee forbids.
+11. **The four src-touching follow-ups ride.** `beliefs-0521da`,
     `beliefs-1dd03f`, `beliefs-010c6e` and `beliefs-b1245d` each say "lands
     with the next cut that re-runs the certified chain"; this is that cut.
     `beliefs-010c6e` (filter assessments by their `assesses` edge before
@@ -157,13 +195,21 @@ discharged and no row moves. Slice 2 takes C8 and C9 (§12).
 `(ref, resolution)` pairs, `coverage` sorted corpus ids, both projected into
 the digest as today.
 
-**World read.** `WorldReadView` is opened over an epoch and already carries
-its producers map; it gains the epoch's retraction enumeration and producer
-snapshot identity, parsed once at `open_world_view` from the published
-members (`derive.retraction_enumeration` over the enumeration document; the
-producer receipt carrier's `subject_identity` for the snapshot) and exposed as `retraction_enumeration() -> RetractionEnumeration` and
-`producer_snapshot_identity() -> str`. Nothing about the open changes:
-the same lock, the same barrier, the same captures.
+**World read.** An epoch has no enumeration document: the `found` and
+`coverage` projection lives inside `retraction-receipt.yaml` under the
+`enumeration` key (`epoch.RECEIPT_KEYS`), reachable through the receipt
+carrier's parsed `document`. `WorldReadView` is opened over an epoch and
+already carries its producers map; it gains the epoch's retraction
+enumeration and producer snapshot identity, parsed once at `open_world_view`:
+`derive.retraction_enumeration(document["enumeration"])`, accepted only when
+`derive.retraction_enumeration_identity` of the parsed value equals the
+receipt's `subject` — otherwise the open refuses `EpochMalformed`, since an
+edited receipt would otherwise feed the digest an enumeration nothing
+checked — and the producer receipt carrier's `subject_identity` for the
+snapshot. They are exposed as `retraction_enumeration() ->
+RetractionEnumeration` and `producer_snapshot_identity() -> str`. Nothing
+else about the open changes: the same lock, the same barrier, the same
+captures.
 
 **Corpus-local read.** `ReadView` gains `corpus_id` (the manifest's, through
 `world.load_manifest(root)`; a corpus without a readable manifest cannot
@@ -172,7 +218,11 @@ unchanged). `corpus.local_retraction_enumeration(view) ->
 RetractionEnumeration` enumerates every stored retraction, validates its facet
 (`_validated_retraction_facet`, as capture does), folds standing (§3.2) and
 returns `found = sorted((id, "upheld" | "overturned"))`,
-`coverage = (view.corpus_id,)`. A world address and a corpus-local id are the
+`coverage = (view.corpus_id,)`. It validates with the capture's validator
+(`_validated_retraction_facet`), as the epoch build does; `gather` then
+applies the boundary's stricter one (§4), so a retraction the local
+enumeration lists can still be unreadable at `gather` — intended, and the
+same two-validator split the world path already has. A world address and a corpus-local id are the
 same string (`epoch._captured_records` sets `address=node.id`), so the two
 enumerations agree in their keys.
 
@@ -211,19 +261,32 @@ its result in three places.
 ```
 facets = {}
 for ref, recorded in enumeration.found:
-    node = view.get(ref)                                   # traced as ("retraction", ref)
+    corpus_id = _absence_of(view, ref)
+    if corpus_id is not None:
+        absent.append((ref, corpus_id)); continue           # a covered corpus with no carrier
+    node = view.get(ref)                                    # a lookup: traced only if in the closure (below)
     facets[ref] = CorpusWriter._validated_retraction(node)
-    CorpusWriter._resolve_retraction_target(node, view)    # exact resolution, content identity, route presence
+    target_ref = the arm's `ref` or `dataset`
+    corpus_id = _absence_of(view, target_ref)
+    if corpus_id is not None:
+        absent.append((target_ref, corpus_id)); continue
+    CorpusWriter._resolve_retraction_target(node, view)     # exact resolution, content identity, route presence
 standing = retraction_standing(view, facets)
 ```
 
-A `MalformedRecord`, `RetractionTargetIneligible` or
-`RetractionTargetUnresolvable` raised for a found ref is re-raised as
-`RetractionUnreadable(ref, cause)` (decision 4). Then, for every found ref,
-`("upheld" if standing[ref] else "overturned") == recorded` or the evaluation
-refuses with `RetractionResolutionDisagreement` naming the ref and both
-resolutions (decision 3). Every found retraction is traced: the evaluator
-read it, and `declared_refs` already declares each one.
+Any `ScienceError` raised for a found ref — `MalformedRecord`,
+`ValidationRefused` (an unstamped or non-canonical facet),
+`SemanticHashStale` from `view.get`, `RetractionTargetIneligible`,
+`RetractionTargetUnresolvable` — is re-raised as `RetractionUnreadable(ref,
+cause)` (decision 4), the catch `corpus_check` uses. `_resolve_retraction_target`
+reads the target record to compare its content identity; that read is a
+lookup and not a hand-out, as the module docstring already says of the
+proposition-ref read. If `absent` is non-empty the evaluation answers
+`NoBelief("unavailable-corpus-absent")` through the existing path, and
+nothing below runs. Then, for every found ref, `("upheld" if standing[ref]
+else "overturned") == recorded` or the evaluation refuses with
+`RetractionResolutionDisagreement` naming the ref and both resolutions
+(decision 3).
 
 From the upheld retractions: `subtracted = {target["resolved"] for node
 arms}` and `retired = {target["resolved"]: {route_identity, ...} for route
@@ -252,11 +315,34 @@ projected member). The rest of `gather` — runs, observed facets, the claim,
 **Datasets and runs** are not eligible targets (design §4); the loops that
 read them are unchanged.
 
-**`EvaluationInputs`** is built with `retractions=enumeration` and
+**The closure's enumeration** (decision 10). After the assessment and
+verification loops have selected this proposition's records — the standing
+ones handed out and the subtracted ones skipped — the closure subset is
+computed from `facets`: start from the ids of every assessment and
+verification the loops *visited* for this proposition (subtracted included)
+and every dataset in `context.snapshot.bases`; take every found retraction
+whose node-arm `resolved` or route-arm `resolved` is in that set; then
+transitively every found retraction whose node-arm `resolved` is a
+retraction already taken. `EvaluationInputs.retractions =
+RetractionEnumeration(found=sorted((ref, recorded) for those),
+coverage=enumeration.coverage)`. Each of those refs is traced as
+`("retraction", ref)`; the rest were lookups.
+
+**`EvaluationInputs`** is built with that enumeration and
 `producer_snapshot_identity=context.producer_snapshot_identity`, the latter
 refused on a world read when it differs from
 `view.producer_snapshot_identity()` (`ProducerSnapshotMismatch`, decision 2).
 `declared_refs` and `closure()` are unchanged in shape.
+
+**The handoff.** `belief.evaluate_traced` and `belief.evaluate` gain a
+required keyword `retractions: RetractionEnumeration`, and build the closure
+from it and from `context.snapshot`; `evaluate_over_traced` calls
+`evaluate_traced(..., context=replace(context, node_corpus=inputs.node_corpus,
+snapshot=inputs.snapshot), retractions=inputs.retractions)`. Direct callers
+of `evaluate` — the tests that construct `Records` by hand — supply the
+enumeration beside the records, which is what it is: an already-read input.
+`inputs.closure().digest == answer.closure.digest` holds by construction and
+is asserted (§8.1).
 
 **The composite reading** (`composite.read_composite`) calls
 `evaluate_over_traced` per member and takes its admission from the same
@@ -267,8 +353,8 @@ and that design gains a dated note saying so (§9).
 ## 5. Route retirement — `lineage.py`
 
 - `Route` gains `identity: str | None`, filled by `corpus.lineage_snapshot`
-  from the stored route's `identity` key (`None` when absent). It is not a
-  member of `_route_projection`.
+  from the stored route's `identity` key (`None` when absent), and
+  `_route_projection` gains `"identity": [] | [id]` (decision 7).
 - `LineageSnapshot` gains `retired: Mapping[str, tuple[str, ...]]`, default
   empty, frozen like the other maps; each value sorted and distinct
   (`MalformedSnapshot` otherwise).
@@ -311,12 +397,16 @@ standing retraction held in a registered corpus the epoch does not cover is
 not in `found`, subtracts nothing, and moves no digest; the coverage
 declaration is a digest member (`closure.py`, unchanged), so widening
 coverage to that corpus and rebuilding moves the digest even before the
-retraction is applied. The fixture is two corpora holding **replicas** of one
-assessment (equal content identity, equal address): the retraction is
-written in the uncovered corpus against its replica; the covered corpus's
-replica is read unretracted. After the widening rebuild the retraction is
-found, its target resolves through the world address map to the one address
-both replicas share, and the covered replica leaves the read set.
+retraction is applied. The fixture cannot hold one address in two covered
+corpora — `derive.address_map` refuses that as `AddressMapConflict`
+(`duplicate-location`) at the widening build — so it is built with `move`:
+the retraction is written in covered corpus A against its target there,
+then `move`d to registered, uncovered corpus B. The epoch over `{A}` does
+not find it and the target is read unretracted; after the widening rebuild
+over `{A, B}` it is found, its target resolves through the world address map
+to A, and the target leaves the read set. B's per-corpus resolution is
+`upheld` (its target does not resolve in B, so it sits in no graph there)
+and the evaluator's fold agrees.
 
 **Corpus move.** `move` (cut 16) relocates a record between corpora, changing
 both corpus-state identities and neither the record's address nor any
@@ -324,8 +414,12 @@ content identity. Moving the retraction's *target* from covered corpus A to
 covered corpus B and rebuilding: `found` is the same pairs (the retraction's
 address and its per-corpus resolution are unchanged), `coverage` is the
 same ids, the target resolves in B through the address map, and the digest
-is unchanged; the new epoch's receipts record B's and A's new states. Moving
-the *retraction* instead reads the same way. What is not exercised — the
+is unchanged; the new epoch's receipts record B's and A's new states. Two
+things make that true and the fixture pins both: the moved target is
+subtracted, so it contributes to no `consulted` walk in either epoch; and A
+and B pin identical contracts, so `consulted` — computed from `node_corpus`
+and `pins` — is the same tuple either way. Moving the *retraction* instead
+reads the same way. What is not exercised — the
 counter-retraction split — is §11's limitation and decision 3's refusal, and
 the test for the refusal is in §8.1.
 
@@ -366,10 +460,18 @@ minted is that cut's question.
   active again and admission is `invalidated`;
 - `SuppliedContext(retractions=...)` is a `TypeError` (the member is gone);
   a supplied `LineageSnapshot` with non-empty `retired` refuses;
-- a found retraction whose target ref was raw-edited to a missing record →
-  `RetractionUnreadable`; one whose stored `content_identity` was raw-edited
-  → `RetractionUnreadable`; a raw-written retraction facet missing `grounds`
-  → `RetractionUnreadable` (the cause is the boundary's own message);
+- a found retraction whose target ref was raw-edited to a missing record
+  and restamped → `RetractionUnreadable`; one whose stored
+  `content_identity` was raw-edited and restamped → `RetractionUnreadable`
+  (without the restamp `view.get` raises `SemanticHashStale`, and that too
+  is wrapped — a third case, asserted); a raw-written retraction facet
+  missing `grounds` → `RetractionUnreadable` (the cause is the boundary's
+  own message);
+- the closure's enumeration is input-scoped: a standing retraction against
+  an unrelated proposition's assessment leaves this proposition's `found`
+  and digest unchanged; a counter-retraction of a retraction in the chain
+  is in `found`; `inputs.closure().digest == answer.closure.digest`;
+- `evaluate(...)` without `retractions=` is a `TypeError`;
 - `local_retraction_enumeration` over a corpus with no retractions is
   `found=()`, `coverage=(corpus_id,)`; over a manifest-less corpus root
   refuses.
@@ -387,6 +489,9 @@ minted is that cut's question.
   match the retired route and differ from the survivor's is `divergent`;
 - `snapshot_projection` carries `retired` per dataset and the digest of a
   snapshot with one retired route differs from the same snapshot with none;
+  swapping the `identity` of two routes in a conflict basis with one
+  identity retired changes the survivor, the certification, and the digest
+  (the association is projected);
 - `retire` refuses an unsorted or duplicated identity tuple.
 
 `python/tests/test_world_standing.py` (new, world fixture):
@@ -396,8 +501,15 @@ minted is that cut's question.
   byte for byte the same `found` pairs as `derive.retraction_enumeration`
   parses; `SuppliedContext.producer_snapshot_identity` equal to the epoch's
   passes and any other string refuses `ProducerSnapshotMismatch`;
-- C3 uncovered: the replica fixture of §6, digest unchanged, coverage in the
-  projection, digest moved by the widening rebuild;
+- absence: a found retraction in a covered corpus whose carrier is removed
+  → `NoBelief("unavailable-corpus-absent")` naming that corpus; a target in
+  such a corpus → the same;
+- C3 uncovered: the `move` fixture of §6 — digest unchanged before the
+  widening, the subtraction after it; and, isolated at the closure,
+  `build_closure` over identical members but a wider `retractions.coverage`
+  yields a different digest (the coverage member's own evidence — the
+  widening rebuild also changes the producer snapshot identity and `found`,
+  so it cannot be that evidence alone);
 - C3 move: the target moved between covered corpora, digest unchanged,
   receipt states changed;
 - the split: retraction R in A targeting X in A, counter-retraction C in A
@@ -430,8 +542,9 @@ certified tuple through the durable writer, one check per selected clause:
 - **C7-b** retire the second: `not-certified`, finding `lineage-incomplete`;
 - **C7-c** the dataset's stored basis facet is byte-identical throughout, and
   the retraction operation writes exactly one record;
-- **C3-a** uncovered-corpus replica: digest unchanged; widening moves it
-  (§6);
+- **C3-a** uncovered corpus: the `move` fixture of §6, digest unchanged
+  before the widening and the target subtracted after; plus the isolated
+  closure check that varies only `retractions.coverage`;
 - **C3-b** in-coverage move: digest unchanged, receipts record the new
   states;
 - **C10-a** the four raw-written refused shapes, reported by `audit_corpus`
@@ -457,13 +570,13 @@ string occurs exactly once in its module at freeze, and a mutated module is
 |---|---|---|---|
 | C7-a | `lineage.py` | `effective_routes` returns `basis.routes` (ignores `retired`) | acceptance C7-a |
 | C7-b | `lineage.py` | the `"retired"` branch in `_closure` appends nothing | acceptance C7-b |
-| C7-c | `adapter.py` | `retract` also rewrites the target dataset's `lineage-basis` facet dropping the retired route | acceptance C7-c |
-| C3-a | `closure.py` | `"coverage": list(retractions.coverage)` → `"coverage": []` | acceptance C3-a (the widening half fails) |
+| C7-c | `corpus.py` | `CorpusWriter.retract` (line 2241 at baseline) also plans an update of the target dataset's `lineage-basis` facet dropping the retired route | acceptance C7-c |
+| C3-a | `closure.py` | `"coverage": list(retractions.coverage)` → `"coverage": []` | acceptance C3-a (the isolated closure check fails) |
 | C3-b | `evaluation.py` | the world enumeration's `coverage` is replaced by `f"{id}@{state}"` pairs from `view.stamp()` | acceptance C3-b |
 | C10-a | `corpus.py` | the `retraction-target-invalid` `Finding` append is removed | acceptance C10-a |
 | BI-1 | `evaluation.py` | `if node.id in subtracted: continue` (assessments) → `if False: continue` | acceptance BI-1 |
 | BI-2 | `evaluation.py` | the same line in the verification loop | acceptance BI-2 |
-| BI-3 | `evaluation.py` | `enumeration` replaced by `RetractionEnumeration((), enumeration.coverage)` | acceptance BI-3 |
+| BI-3 | `evaluation.py` | the closure subset is replaced by every found retraction (decision 10's scoping dropped) | acceptance BI-3 (the unrelated-proposition half fails) |
 | BI-4 | `evaluation.py` | the `except` that raises `RetractionUnreadable` swallows and `continue`s | acceptance BI-4 |
 | BI-5 | `evaluation.py` | the disagreement comparison → `if False:` | acceptance BI-5 |
 
@@ -472,7 +585,7 @@ string occurs exactly once in its module at freeze, and a mutated module is
 Conformance cut **33**, claimed at freeze (rule 1); no other worktree or
 branch holds a cut-33 document at 2026-09-16 (scanned: `main`,
 `design/correction-remainder`, `.worktrees/audio-baseline`). The runner
-`python/tools/cut33_acceptance.py` names `cut32_acceptance` in
+`python/tools/cut33_acceptance.py` names `"cut32_acceptance.py"` in
 `PREFIX_RUNNERS` (rule 5) and carries
 `PHASE_MODULES = ("test_correction_acceptance.py", "test_n2_cut33.py")`.
 Declaration units: C7-a, C7-b, C7-c, C3-a, C3-b, C10-a, and BI-1–BI-5 —
@@ -486,10 +599,23 @@ Cut 5's `_STANDING_DISABLED` sabotage pins
 `return standing.get(view.resolve(ref) or ref, True)` in `corpus.py`; the
 refactor of §3.2 keeps that line verbatim in `standing_in_local_view` (it
 reads the shared fold's answer) so the pinned string still occurs once. Cut
-7's arms over `epoch._standing_retractions` are checked the same way before
-the freeze; a pinned line the refactor moves is re-targeted in the live
+7's arms are checked the same way before the freeze (none is believed to
+pin a line inside `_standing_retractions`; the staleness probe decides, not
+this sentence); a pinned line the refactor moves is re-targeted in the live
 guard, and the frozen cut document is not edited; the staleness probe's
 baseline is the tree's own output at freeze, never an asserted `stale: []`.
+
+Frozen acceptance modules the runner chain reaches construct
+`SuppliedContext` with `retractions=`: `test_deletion_acceptance.py` (cuts
+17/18), `test_confinement_acceptance.py` (cut 22) and
+`test_world_view_acceptance.py` (cut 23, which rewrites
+`context.retractions` in `world_kwargs`), beside `test_belief.py`,
+`test_evaluation.py`, `test_composite_reading.py`, `test_deletion_rows.py`,
+`test_world_view.py`, `test_reproduction_driver.py`,
+`verification_fixtures.py` and `domain_facet_fixtures.py`. They are edited
+to the new contract — the enumeration passed to `evaluate` beside the
+records, or derived by `gather` — as cuts 31 and 32 edited frozen modules
+under a successor contract, and the frozen cut documents are not.
 
 The reproduction re-runs under this slice (§10) and every digest it pins
 moves with the `retired` key; the record's transition section states that.
@@ -499,7 +625,8 @@ moves with the `retired` key; the record's transition section states that.
 `errors.py` (`RetractionUnreadable`, `RetractionResolutionDisagreement`,
 `ProducerSnapshotMismatch`), `python/tests/test_designs_corpus.py`, the
 ledger, the roadmap and the guide index, as every lane. Beyond those this
-slice rewrites `evaluation.py`, `belief.py` (`SuppliedContext`), `closure.py`
+slice rewrites `evaluation.py`, `belief.py` (`SuppliedContext`, `evaluate`,
+`evaluate_traced`), `closure.py`
 (no change in shape; named because C3-a's sabotage lands there), `corpus.py`
 (the fold, `local_retraction_enumeration`, `ReadView.corpus_id`,
 `lineage_snapshot`'s route identity), `lineage.py`, `verification.py`
@@ -534,8 +661,11 @@ deleted.
    which is slice 2's or `contract-cut`'s to schedule; filed as an idea at
    the cut.
 2. **An unreadable retraction anywhere in coverage refuses every evaluation
-   over that epoch.** Fail-closed by decision 4; the audit names the record,
-   `delete` removes it, a rebuild publishes over the corrected corpus. A
+   over that epoch, and an absent one makes every evaluation
+   `unavailable-corpus-absent`.** Fail-closed by decision 4; the audit names
+   the unreadable record, `delete` removes it, a rebuild publishes over the
+   corrected corpus; an absent corpus is the existing absence answer, now
+   reached through a retraction as well as through an assessment. A
    narrower refusal (only when the unreadable retraction could name this
    closure) would need the target it cannot read.
 3. **Cross-corpus retraction targets are still refused at the write.** The
@@ -545,10 +675,10 @@ deleted.
    basis's route identity is authored by whatever mints the basis; the
    kernel's `production.StampedBasis` mints none. C10's absent-route refusal
    already covers the write; the read follows it.
-5. **The audit's and the verifier's lineage reading ignores retirement.**
+5. **The audit's lineage reading ignores retirement.**
    `corpus.lineage_snapshot` still returns `retired` empty, and
-   `check_lineage_basis` and `world/verify.py` read the stored basis as
-   today. Retirement is a belief-input fact in this slice; whether an audit
+   `audit.check_lineage_basis` reads the stored basis as today
+   (`world/verify.py` reads no basis). Retirement is a belief-input fact in this slice; whether an audit
    should report a certification that retirement would change is filed as
    an idea.
 6. **The instrument-certification eligibility arm of C10** stays with
@@ -586,4 +716,20 @@ filed at the cut.
 
 ## 14. Review log
 
-- 2026-09-16 — drafted against `main` at `25ab84c`; not yet reviewed.
+- 2026-09-16 — drafted against `main` at `25ab84c`.
+- 2026-09-16 — two reviews. Changed: the closure's enumeration is
+  input-scoped (decision 10; the world-wide version contradicted
+  correction-lifecycle §6 and cut 5's C3 arm); the derived snapshot and
+  enumeration travel on `EvaluationInputs` into `evaluate_traced`, which
+  gains `retractions=` (the context handoff would have dropped both); route
+  identities are projected (the survivor selection was not digest-visible);
+  the world enumeration is read from `retraction-receipt.yaml`'s
+  `enumeration` key and checked against the receipt's subject identity; the
+  C3-a fixture uses `move` (two covered replicas refuse `duplicate-location`
+  at the build) and its coverage evidence is an isolated closure check (the
+  widening also moves the producer snapshot identity); absent covered
+  corpora answer `unavailable-corpus-absent` through the existing path;
+  every `ScienceError` on a found retraction is wrapped; the C7-c sabotage
+  lands in `corpus.py`; C3-b's `consulted` invariance is stated; frozen
+  acceptance modules that construct `SuppliedContext` are named; limitation
+  5 names the real basis readers.
