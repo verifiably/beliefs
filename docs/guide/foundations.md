@@ -92,8 +92,7 @@ The formal inventory contains fourteen kernel kinds:
 
 | Group | Kinds | Purpose |
 |---|---|---|
-| Epistemic | `proposition`, `source-assertion`, `assessment` | Represent a typed claim, what a source said about it, and a run-derived result that may bear on it. |
-| Epistemic | `composite` | Represent the **structure** a set of claims is drawn against: an explicit closed node set of `(sort, term)` pairs and members that are propositions named by claim identity, each read as a signed directed edge. Under the one shape, `dag`, the *absence* of an edge between two declared nodes is the record's assertion. Belief-inert: its reading is derived, never stored, and never an input to belief. |
+| Epistemic | `proposition`, `source-assertion`, `assessment`, `composite` | Represent a typed claim, what a source said about it, and a run-derived result that may bear on it; and, as a `composite`, the **structure** a set of claims is drawn against — an explicit closed node set of `(sort, term)` pairs and members that are propositions named by claim identity, each read as a signed directed edge. Under the one shape, `dag`, the *absence* of an edge between two declared nodes is the record's assertion. A composite is belief-inert: its reading is derived, never stored, and never an input to belief. |
 | Computation | `analysis-spec`, `run`, `verification` | Predeclare an analysis, capture one complete execution, and compare two executions immutably. |
 | Materials | `dataset`, `source`, `holdings-observation` | Hold data or a literature corpus, and identify works within a corpus; and record, act-by-act, what was found at each held location. |
 | Change and conformance | `retraction`, `instrument-certification` | Subtract standing without deletion and demonstrate that an executable instrument conforms to a contract. |
