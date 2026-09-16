@@ -1161,3 +1161,88 @@ def test_pre_grammar_records_audit_under_their_own_codes(writer):
     codes = {f.ref: f.code for f in audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=TESTING_PROFILE)}
     assert codes[spec_node.id] == "spec-pre-grammar" and codes[assessment_node.id] == "assessment-pre-grammar"
     assert "derivation-malformed" not in codes.values()
+
+
+def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_contradicts_on_operator_alone(writer, tmp_path):
+    """Q6's stored-pair arm, run through the seams the write-time refusal
+    (`test_corpus_write.py::TestEstimandTargetMatch::
+    test_the_inconsistent_stored_pair_is_caught_by_operator_equality`) never
+    reaches: raw-written, so `_refuse` never sees it. Comparing identities
+    only must let it through — the record decodes cleanly, unlike the
+    same-operator arm above (`test_a_raw_written_mismatching_spec_is_caught_only_under_audit`,
+    which differs by referent, not by operator, so the claim disagreement
+    alone already fires and the operator equality is never what's tested).
+    Here the operator disagreement is the only one — the target's true claim
+    hash sits beside a different declared operator — and it alone is what
+    explicit import refuses (through `_ImportView`, review finding 2) and the
+    audit contradicts (review finding 1)."""
+    from decimal import Decimal
+
+    from fixtures_cut3 import TESTING_CLAIM, UNCONSULTED
+
+    from beliefs.claim import Referent, build_claim
+    from beliefs.errors import ImportRefused
+    from beliefs.estimand import ContinuousContrast, Control, Measure, build_estimand
+    from beliefs.identity import v1
+    from beliefs.projection import claim_identity
+    from beliefs.spec import SPEC_DOMAIN, frozen_projection
+
+    target = writer.add(stored.proposition_node("p-target", title="p-target", claim=project_claim(TESTING_CLAIM)))
+    correlates = build_claim(
+        TESTING_PROFILE, operator="testing/correlates-with",
+        args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")),
+        layer="statistical", polarity="positive",
+    )
+    foreign, _ = build_estimand(
+        TESTING_PROFILE, correlates, snapshot=UNCONSULTED,
+        contrast=ContinuousContrast(0, Referent("testing/measure", "EX:tpm"), Decimal(1)),
+        measure=Measure(Referent("testing/measure", "EX:tpm"), "additive"), reference=Decimal(0),
+        control=Control(Referent("testing/identification", "EX:observational"), ()),
+    )  # correlates-with declares level_sorts {}, so the contrast is continuous, not levels
+    spec = freeze(spec_draft(target=target.id, estimand=foreign), held_rules=spec_rules())
+    projection = frozen_projection(spec)
+    projection["estimand"]["claim"] = claim_identity(TESTING_CLAIM)  # type: ignore[index]  # the target's true hash, another operator
+    text = v1.encode(projection)
+    identity = v1.digest(SPEC_DOMAIN, projection)
+    node = stored._node(
+        "analysis-spec", identity, "forged",
+        {stored.ANALYSIS_SPEC_FACET: {"identity": identity, "projection": text.decode()}}, (),
+    )
+    raw_write(writer.root, node)
+
+    # decodes cleanly: identities only, no cross-check at restore (decision 10 / §7.2).
+    restored = stored.analysis_spec_value(reopen(writer.root).get(node.id), profile=TESTING_PROFILE)
+    assert restored.estimand.claim == claim_identity(TESTING_CLAIM)
+    assert restored.estimand.operator == "testing/correlates-with"
+
+    # explicit import refuses, never repairs — through _ImportView, not the live corpus's ReadView.
+    target_writer = _testing_writer(tmp_path / "target")
+    target_writer.add(stored.proposition_node("p-target", title="p-target", claim=project_claim(TESTING_CLAIM)))
+    with pytest.raises(ImportRefused, match="estimand-target-mismatch"):
+        target_writer.import_bundle(
+            [node], observer="o", instrument="i",
+            opened_at="2026-09-15T00:00:00Z", closed_at="2026-09-15T00:00:01Z",
+        )
+
+    # the audit contradicts on the operator equality alone — the claim agrees.
+    findings = audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=TESTING_PROFILE)
+    [finding] = [f for f in findings if f.ref == node.id]
+    assert finding.code == "spec-target-contradicted"
+    assert finding.detail == "operator"
+
+
+def test_explicit_import_refuses_a_spec_whose_target_does_not_resolve_in_the_union(tmp_path):
+    """The `_ImportView` branch of the boundary check (Task 8 review finding
+    2), the unresolvable arm: a spec whose target resolves nowhere in the
+    base corpus nor the bundle is refused at import, never admitted
+    unchecked."""
+    from beliefs.errors import ImportRefused
+
+    target_writer = _testing_writer(tmp_path / "target")
+    spec = freeze(spec_draft(target="proposition:elsewhere"), held_rules=spec_rules())
+    node = stored.analysis_spec_node(spec)
+    with pytest.raises(ImportRefused, match="estimand-target-unresolvable"):
+        target_writer.import_bundle(
+            [node], observer="o", instrument="i",
+            opened_at="2026-09-15T00:00:00Z", closed_at="2026-09-15T00:00:01Z",
+        )

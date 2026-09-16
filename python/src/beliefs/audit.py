@@ -560,6 +560,16 @@ def audit_world(
                 )
             )
             continue
+        except PreGrammarSpec as refused:
+            corpora[corpus_id].append(
+                Finding("error", "spec-pre-grammar", node.id, str(refused), f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)")
+            )
+            continue
+        except PreGrammarAssessment as refused:
+            corpora[corpus_id].append(
+                Finding("error", "assessment-pre-grammar", node.id, str(refused), f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)")
+            )
+            continue
         except RecordError as refused:
             corpora[corpus_id].append(
                 Finding(
