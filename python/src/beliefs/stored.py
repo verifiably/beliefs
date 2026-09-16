@@ -199,6 +199,7 @@ COREFERENCE_ENDPOINT_KINDS: tuple[str, ...] = (
     "source",
     "retraction",
     "instrument-certification",
+    "composite",
 )
 """The kinds a coreference attestation may name as endpoints (slice 2 design
 §2 item 4): the world kinds less the attestation itself and the two

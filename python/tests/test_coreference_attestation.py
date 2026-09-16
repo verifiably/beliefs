@@ -193,15 +193,13 @@ class TestTheKindIsGoverned:
         assert stored.WORLD_KINDS.index("coreference-attestation") == stored.WORLD_KINDS.index("act-report") - 1
 
     def test_the_endpoint_kinds_are_the_world_kinds_less_the_three_exclusions(self):
-        # `composite` (composite-claims design §3.1) is a fourteenth world kind
-        # that names no coreference endpoint role; the design is silent on
-        # composites co-referring, so it is excluded here rather than assumed in.
         assert set(stored.COREFERENCE_ENDPOINT_KINDS) == (
-            set(stored.WORLD_KINDS) - {"coreference-attestation", "composite"} - set(EXCLUDED_MUTATION_KINDS)
+            set(stored.WORLD_KINDS) - {"coreference-attestation"} - set(EXCLUDED_MUTATION_KINDS)
         )
         assert stored.COREFERENCE_ENDPOINT_KINDS == (
             "proposition", "source-assertion", "assessment", "analysis-spec", "run",
             "verification", "dataset", "source", "retraction", "instrument-certification",
+            "composite",
         )
 
 
