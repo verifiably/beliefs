@@ -5,8 +5,9 @@ status: todo
 priority: 2
 size: m
 complexity: mid
+process: direct
 created: 2026-09-13T01:56:09Z
-updated: 2026-09-13T01:56:09Z
+updated: 2026-09-16T11:18:55Z
 depends: [beliefs-0eac74]
 parent: beliefs-4bcf88
 tags: [design]
