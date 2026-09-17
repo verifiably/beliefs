@@ -869,7 +869,10 @@ class TestSubtractionAtTheRead:
         kwargs = kwargs_for(writer.read_view, profile)
         with pytest.raises(TypeError):
             replace(kwargs["context"], retractions=RetractionEnumeration(found=(), coverage=()))
-        pre = replace(kwargs["context"], snapshot=retire(kwargs["context"].snapshot, {"dataset:d-a": ("route:x",)}))
+        snapshot = kwargs["context"].snapshot
+        # Construct the forbidden input directly: retire() drops entries for these basisless roots.
+        pre = replace(kwargs["context"], snapshot=replace(snapshot, retired={snapshot.roots[0]: ("route:x",)}))
+        assert pre.snapshot.retired
         with pytest.raises(MalformedRecord, match="may not pre-retire"):
             gather(writer.read_view, "proposition:p", context=pre, profile=profile, resolution=kwargs["resolution"], binding=kwargs["binding"])
 
@@ -882,7 +885,7 @@ class TestSubtractionAtTheRead:
             evaluate(**kwargs)
 ```
 
-(`retire` imported from `beliefs.lineage`; `MalformedRecord` from `beliefs.errors`.) Then the verification cases and the unreadable cases:
+(`MalformedRecord` imported from `beliefs.errors`.) Then the verification cases and the unreadable cases:
 
 ```python
 class TestTheAmendedG8Clause:
@@ -940,13 +943,22 @@ class TestUnreadableAndAbsent:
             gathered(writer, profile, fresh(writer))  # a fresh view: the writer's index does not hold a raw write
         assert refused.value.ref == node.id
 
-    def test_a_wrong_content_identity_restamped_is_unreadable(self, tmp_path):
+    def test_a_canonical_retraction_with_wrong_content_identity_is_unreadable(self, tmp_path):
         from fixtures_cut4 import raw_write
 
         writer, profile = seeded(tmp_path)
-        node = retracts(writer.read_view.get(A1), "t1")
-        node.facets[stored.RETRACTION_FACET]["target"]["content_identity"] = "sha256:" + "ab" * 32
-        raw_write(writer.root, stored.stamp_semantic_identity(node))
+        target = writer.read_view.get(A1)
+        node = stored.retraction_node(
+            title="t1",
+            target=stored.NodeTarget(target.id, target.id, "sha256:" + "ab" * 32),
+            reason="defective-code",
+            rationale="the record is invalid",
+            grounds=("verification:v1",),
+            actor=ACTOR,
+            event_token="t1",
+        )
+        CorpusWriter._validated_retraction(node)  # canonical shape; the target identity check must refuse it
+        raw_write(writer.root, node)
         with pytest.raises(RetractionUnreadable, match="content identity"):
             gathered(writer, profile, fresh(writer))
 
@@ -1633,5 +1645,7 @@ Per the repository's convention every cut merges `--no-ff` into `main` after its
 **Placeholder scan.** The `...  # verbatim` markers in Task 4 name baseline line ranges that are copied unchanged, not written anew — they are references to existing code, with the lines given. `<…>` in Task 6's §12 are two values read from `state.json` at execution and named as such. Task 7's `before` strings are the lines Task 4 writes, and the guard's exactly-once test is what holds them.
 
 **Review corrections (2026-09-16, six findings, all taken).** Task 1 imports `closure` inside `local_retraction_enumeration` (module-level closes `closure → facet_read → corpus`); Task 3's `_absent_references` follows the walk's stopping rules (an unretired conflict examines no route); Task 1's counter-retraction test expects the target standing (`True`); Task 4's recipes use the real seed (`a-1`/`a-2`, `v-1`/`v-2`, a new `outcomes` knob), `admit`'s real signature and result types, fresh views after raw writes, and the two read prerequisites (manifests on raw-written fixtures; the view's producer identity on world reads) with the green checkpoint after the new `gather`; Task 6 and Task 7 set `SCIENCE_MM30_ROOT` / `SCIENCE_CUT33_ROOT` explicitly because `paths.py` and the runner resolve the main checkout through the worktree's real path.
+
+**Review corrections (2026-09-17, two test recipes).** Task 4 constructs the forbidden nonempty `retired` map directly, bypassing `retire`'s basis filter, and constructs a canonical retraction naming a wrong target content identity so shape validation passes and target resolution supplies the refusal.
 
 **Type consistency.** `retraction_standing(view, facets: Mapping[str, Mapping[str, object]]) -> Mapping[str, bool]` in Tasks 1, 4; `local_retraction_enumeration(view: ReadView) -> RetractionEnumeration` in Tasks 1, 4, 7; `RETRACTION_UPHELD`/`RETRACTION_OVERTURNED` from `closure` in Tasks 1, 4, 7; `WorldReadView.retraction_enumeration()` / `.producer_snapshot_identity()` (methods, not properties) in Tasks 2, 4, 7; `retire(snapshot, retired)`, `effective_routes`, `effective_tag`, `absences(snapshot)` in Tasks 3, 4, 7; `Route.identity: str | None = None` in Tasks 3, 4; `evaluate_traced(..., retractions=)`, `evaluate(..., retractions=)` in Tasks 4, 6, 7; `RetractionUnreadable(ref, cause)`, `RetractionResolutionDisagreement(ref, recorded, computed)`, `ProducerSnapshotMismatch(supplied, bound)` in Tasks 1, 4, 7; `over_kwargs` in `domain_facet_fixtures.py` in Tasks 4, 7.
