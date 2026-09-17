@@ -280,11 +280,35 @@ audit. Neither changes the C8/C9 slice-2 scope.
 
 ## 6. Main integration
 
-**Pending controller review and local merge.** The branch has not been merged
-or pushed. After the controller's final whole-branch review, the reviewed plan
-requires a local `--no-ff` merge to `main`, `just gate` on the merged tree, and
-a follow-up commit recording the merge revision and merged-main verification
-here. No merge commit or merged-main gate result is claimed by this record yet.
+The controller completed the final whole-branch review, took the final fix wave
+at `f4c2cef` (two correctness findings, two minor findings and the decision-10
+scope wording recorded in §3.4), and completed a scoped re-review with every
+finding addressed. The reviewed branch was merged locally into `main` with
+`--no-ff` on 2026-09-17 at
+`507e1f5a01863930154fafaf4f6e48ae1eb41255`. The retained mutation-lane branch
+was then fast-forwarded to that merge commit. Nothing was pushed.
+
+`just gate` on the merged commit exited **0**. Ruff, Pyright, TypeScript
+typecheck and Biome passed; task validation reported zero errors and zero
+warnings. The serial Python suite reported:
+
+```text
+5002 passed, 1 skipped in 1181.83s (0:19:41)
+```
+
+The skip is the intentional `tests/test_composite.py:119` causal-only fixture
+arm documented in §1. TypeScript passed all seven files and 155 tests:
+
+```text
+ Test Files  7 passed (7)
+      Tests  155 passed (155)
+```
+
+The controller-provided merged-main transcript had SHA-256
+`4ad3f5eb230428db1921074dde82a836a94bdaf703dcc820c60366fcf906f6ed`;
+the durable summaries are recorded above because the plan's scratch workspace
+is removed at completion. No capability refusal or waiver occurred. This
+integration record changes only documentation after the successful gate.
 
 ## 7. Execution rulings
 

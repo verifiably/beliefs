@@ -1640,7 +1640,7 @@ git commit -m "docs(cut): discharge conformance cut 33; correction-remainder sli
 
 `beliefs-aa27da` stays open (C8, C9); `beliefs-eacbe2` (`contract-cut`) gains no dependency here — the base contract is unamended by this slice (no grammar, kind or relation changed; the estimand-set exactness is an implementation check, not a document change).
 
-- [ ] **Step 5: Merge**
+- [x] **Step 5: Merge**
 
 Per the repository's convention every cut merges `--no-ff` into `main` after its results record lands; the memory `execution-ledgers-are-durable-artifacts` says the rulings ledger must be committed to a tracked path before the worktree is removed. From the main checkout: `git merge --no-ff design/correction-remainder -m "merge: correction remainder slice 1 — conformance cut 33"`, then `just gate` on the merged tree, then record the merge commit in the results record's §6 in a follow-up commit (`docs(cut33): record merged-main verification`), as cut 32 did (`81c68c9`). The worktree stays for slice 2 (rule 4: one worktree per lane).
 
