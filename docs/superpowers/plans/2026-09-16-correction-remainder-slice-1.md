@@ -1412,14 +1412,14 @@ retargeted after measured drift and independently returned baseline
 **Interfaces:**
 - Produces: `audit_world` reports `spec-target-contradicted`; `MalformedContract` at parse for a closed set not exactly the implemented tags; `estimand.SUPPORTED_CONTRAST_KINDS`, `SUPPORTED_SCALES`, `SUPPORTED_UNCERTAINTY_KINDS`.
 
-- [ ] **Step 1: `beliefs-0521da` — the failing test**
+- [x] **Step 1: `beliefs-0521da` — the failing test**
 
 In `python/tests/test_world_audit.py`, beside the existing spec test (`grep -n "analysis-spec\|spec-" python/tests/test_world_audit.py`), add a test that seeds a world with a raw-written `analysis-spec` whose estimand names a different claim identity than its target proposition carries (the fixture `test_audit.py` uses for `spec-target-contradicted` under `audit_corpus` — reuse its builder), publishes an epoch over it, runs `audit_world`, and asserts one `Finding` with `code == "spec-target-contradicted"` for that ref.
 
 Run: `cd python && uv run --frozen pytest tests/test_world_audit.py -q -k spec_target`
 Expected: FAIL — no such finding.
 
-- [ ] **Step 2: `beliefs-0521da` — the line**
+- [x] **Step 2: `beliefs-0521da` — the line**
 
 In `audit._recompute`, replace `return check_analysis_spec(node, profile=profile)` with
 

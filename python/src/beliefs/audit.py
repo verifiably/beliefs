@@ -525,7 +525,8 @@ def _recompute(
     if node.kind == "dataset":
         return check_lineage_basis(view, node)
     if node.kind == "analysis-spec":
-        return check_analysis_spec(node, profile=profile)
+        check_analysis_spec(node, profile=profile)
+        return check_spec_target(view, node, profile=profile)
     if node.kind == "composite":
         return check_composite(view, node, profile=profile)
     return None

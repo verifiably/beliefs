@@ -458,3 +458,32 @@ def test_a_dangling_composite_is_reported_through_the_world_audits_recompute(tmp
 
     assert [(f.code, f.ref) for f in audit.corpora[ALPHA]] == [("composite-member-unresolvable", composite.id)]
     assert audit.corpora[BETA] == ()
+
+
+def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recompute(tmp_path):
+    from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
+    from profiles import pins_for
+    from test_audit import OTHER_CLAIM
+    from test_world_receipts import hold_shipped, publish, world_over
+
+    from beliefs.projection import project_claim
+    from beliefs.spec import freeze
+    from beliefs.world import registry
+
+    root = tmp_path / "corpus"
+    root.mkdir()
+    (root / "corpus.yaml").write_bytes(
+        registry.manifest_bytes(registry.CorpusManifest(2, ALPHA, pins_for(TESTING_PROFILE)))
+    )
+    target = stored.proposition_node("p-other", title="other", claim=project_claim(OTHER_CLAIM))
+    spec = stored.analysis_spec_node(freeze(spec_draft(target=target.id), held_rules=spec_rules()))
+    raw_write(root, target)
+    raw_write(root, spec)
+    world = world_over(tmp_path, {ALPHA: root})
+    published = publish(world, (ALPHA,), hold_shipped(world))
+
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=TESTING_PROFILE)
+
+    assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [
+        ("spec-target-contradicted", spec.id)
+    ]
