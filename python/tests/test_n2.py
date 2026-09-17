@@ -469,6 +469,8 @@ def test_an_explicit_uncertified_cut10_root_reaches_holdings_engine_checks(monke
 
 
 def test_an_empty_cut10_root_uses_the_repository_relative_fallback(monkeypatch, request):
+    monkeypatch.delenv("SCIENCE_CUT12_ROOT", raising=False)
+    monkeypatch.delenv("SCIENCE_CUT13_ROOT", raising=False)
     monkeypatch.setenv("SCIENCE_CUT10_ROOT", "")
     work = request.getfixturevalue("certified_work")
     assert work.parent.resolve() == (TESTS.parent.parent / ".lifecycle-wrappers-test").resolve()

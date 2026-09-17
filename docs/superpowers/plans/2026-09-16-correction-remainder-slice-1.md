@@ -1551,7 +1551,7 @@ git commit -m "docs(reproduction): re-derive under the derived enumeration; adde
 - Consumes: the frozen cut document and `CUT33_FREEZE_COMMIT` (Task 0); every module above.
 - Produces: C7-a..c, C3-a..b, C10-a, BI-1..5 discharged on the certified volume; the guard pinning the freeze commit, the cut document's SHA-256 and the declaration's SHA-256.
 
-- [ ] **Step 1: The acceptance module**
+- [x] **Step 1: The acceptance module**
 
 `python/tests/acceptance/test_correction_acceptance.py`, one test per declaration unit, over the `durable_writer` fixture (`acceptance/conftest.py`; `TESTING_PROFILE`) for the corpus-local units and a durable world (the `durable_root`-shaped world the cut-23 module `test_world_view_acceptance.py` builds; reuse its helpers) for the C3 units. Each test is the unit test of Task 4 re-composed over the durable root, named exactly as `UNIT_CHECKS` names it:
 
@@ -1567,7 +1567,7 @@ git commit -m "docs(reproduction): re-derive under the derived enumeration; adde
 - `test_bi4_an_unreadable_found_retraction_refuses` — the three unreadable shapes.
 - `test_bi5_a_resolution_disagreement_refuses` — `TestTheSplit` over the durable world.
 
-- [ ] **Step 2: The declaration file**
+- [x] **Step 2: The declaration file**
 
 `python/tests/n2_arms_cut33.py` on `n2_arms_cut32.py`'s shape: `DECLARATION_UNITS = ("C7-a", "C7-b", "C7-c", "C3-a", "C3-b", "C10-a", "BI-1", "BI-2", "BI-3", "BI-4", "BI-5")`, `UNIT_CHECKS` mapping each to its acceptance test, `CO_CITED = ()`, `unit_of` (rows are exactly the units here — no letter suffix beyond the unit's own), and `CUT33_ARMS`, one per unit, `before` copied verbatim from the tree at freeze:
 
@@ -1587,11 +1587,11 @@ git commit -m "docs(reproduction): re-derive under the derived enumeration; adde
 
 Every `before` must occur exactly once in its module and the mutated module must `ast.parse` (`test_each_sabotage_names_one_real_source_site_and_keeps_the_module_importable`); the two `subtracted` lines differ by their comments, which is why the comments are part of the pinned strings. `python/tests/acceptance/n2_arms_cut33.py` re-exports the five names as `acceptance/n2_arms_cut32.py` does.
 
-- [ ] **Step 3: The guard and the runner**
+- [x] **Step 3: The guard and the runner**
 
 `python/tests/acceptance/test_n2_cut33.py` on `test_n2_cut32.py`'s shape: `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-16-conformance-cut-33.md"`, `CUT33_FREEZE_COMMIT` and `CUT33_FROZEN_SHA256` from Task 0's Step 4, `FROZEN_DECLARATION = "python/tests/n2_arms_cut33.py"` with its SHA-256 pinned after the declaration is final, `FROZEN_PRIOR_CUT_FILES` = cut 32's dict plus `"python/tests/n2_arms_cut32.py": "<cut 32's declaration commit — git log -1 --format=%h -- python/tests/n2_arms_cut32.py>"`, `PRIOR_ARMS` extended with `CUT32_ARMS`, no `UNAUDITED_UNIT` (every unit homes an arm — the accounting test asserts `homed == {unit: 1 for unit in DECLARATION_UNITS}` and `len(CUT33_ARMS) == 11`), the freeze-pin test asserting `"**11 declaration units**"` and `'("cut32_acceptance.py",)'` in the current document, `test_every_acceptance_test_the_arms_name_exists` over `test_correction_acceptance.py`, and the audit over every arm with the staleness baseline from the tree. `python/tools/cut33_acceptance.py` is `cut32_acceptance.py` with `32→33`, `PREFIX_RUNNERS = ("cut32_acceptance.py",)`, `PHASE_MODULES = ("test_correction_acceptance.py", "test_n2_cut33.py")`, `DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut33"`, and `declared_accounting` importing from `n2_arms_cut33` (rows counted from `UNIT_CHECKS`).
 
-- [ ] **Step 4: Freeze the declaration, discharge, commit**
+- [x] **Step 4: Freeze the declaration, discharge, commit**
 
 Pin `CUT33_DECLARATION_SHA256`; run `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut33.py -q -k "not sabotage"` for the accounting and pins, then on the certified volume `SCIENCE_CUT33_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut33 uv run --frozen python tools/cut33_acceptance.py` — the runner's `DEFAULT_WORK` resolves the main checkout through the worktree's real path and lands under `WORK_ROOT` on this host (Task 6's note; `beliefs-51ffdf`), so the root is set explicitly to the main checkout's `.work/acceptance/cut33`, beside cut 32's, on the certified volume; the runner exports `SCIENCE_CUT4_ROOT`…`SCIENCE_CUT33_ROOT` to the prefix chain itself. ~190 `CapabilityUnavailable` failures mean a root is on uncertified storage, not a regression (memory `worktree-on-work-root-needs-cut-root-exports`), then `just hook-pre-push`. Record both summary lines (the runner's and pytest's) for the results record. Every arm `sound`, the baseline `resolved`, no `stale`.
 
