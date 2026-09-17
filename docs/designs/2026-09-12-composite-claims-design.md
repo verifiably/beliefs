@@ -1028,6 +1028,11 @@ merged rather than beside it.
     retraction names contributes a term as it contributes to belief. The
     column and the belief share one admission function, so they move
     together and never disagree.
+    *Discharged 2026-09-17 by correction-remainder slice 1
+    (`../superpowers/specs/2026-09-16-correction-remainder-slice-1-design.md`,
+    decision 5): `gather` subtracts retracted assessments and verifications
+    before decoding; the identification column inherits it through
+    `evaluate_over_traced`.*
 17. **Relation endpoint kinds are not enforced at the write boundary.**
     The base contract's `sources` and `targets` are parsed and compiled and
     consulted by nothing on the shared refusal path — found while planning.

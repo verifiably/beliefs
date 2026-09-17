@@ -38,6 +38,7 @@ from typing import Any
 import pytest
 import yaml
 from authority import FULL
+from domain_facet_fixtures import over_kwargs
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.relations import Relation
 from profiles import FIXTURE, WITH_BIOLOGY, biology, pins_for
@@ -498,7 +499,7 @@ def test_u4_belief_inert(corpora):
     address = _seed_assessment(writer, "proposition:ab", slug="a-ab", letter="a", outcome="supported", estimand=_estimand(_claim("EX:a", "EX:b")))
 
     def digest() -> str:
-        answer = evaluate_over(writer.read_view, "proposition:ab", **_inputs(writer, address))
+        answer = evaluate_over(writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address)))
         assert isinstance(answer, Belief), answer
         return answer.belief_input_digest
 
@@ -724,7 +725,7 @@ def test_u8_reading_equals_the_wrapper(corpora):
     assert reading.identity == stored.stored_semantic_hash(writer.read_view.get(minted.id))
     by_ref = {row.ref: row for row in reading.rows}
     for ref, row in by_ref.items():
-        assert row.belief == evaluate_over(writer.read_view, ref, **_inputs(writer, address)), ref
+        assert row.belief == evaluate_over(writer.read_view, ref, **over_kwargs(_inputs(writer, address))), ref
     assert isinstance(by_ref["proposition:ab"].belief, Belief)
     assert by_ref["proposition:ab"].identification == ("EX:observational",)
     assert by_ref["proposition:bc"].belief == NoBelief("no-eligible-assessment")
@@ -742,12 +743,12 @@ def test_u8_reading_equals_the_wrapper(corpora):
     assert row.resolution.state == "superseded" and row.resolution.successors == (ac2.id,)
     # The row's belief is the evaluator's own answer for that member, like every
     # other row: succession moves the resolution column, never the belief column.
-    assert row.belief == evaluate_over(writer.read_view, "proposition:ca", **_inputs(writer, address))
+    assert row.belief == evaluate_over(writer.read_view, "proposition:ca", **over_kwargs(_inputs(writer, address)))
 
     # --- the withholding arms ----------------------------------------------
     unheld = read_composite(writer.read_view, minted.id, **_inputs(writer, address, hold=False))
     unheld_row = next(r for r in unheld.rows if r.ref == "proposition:ab")
-    assert unheld_row.belief == evaluate_over(writer.read_view, "proposition:ab", **_inputs(writer, address, hold=False))
+    assert unheld_row.belief == evaluate_over(writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address, hold=False)))
     assert isinstance(unheld_row.belief, NoBelief) and unheld_row.identification == ()
     no_policy = read_composite(writer.read_view, minted.id, **_inputs(writer, address, with_policy=False))
     no_policy_row = next(r for r in no_policy.rows if r.ref == "proposition:ab")
@@ -762,7 +763,7 @@ def test_u8_reading_equals_the_wrapper(corpora):
     )
     absent = read_composite(writer.read_view, minted.id, **absent_arguments)
     absent_row = next(r for r in absent.rows if r.ref == "proposition:ab")
-    assert absent_row.belief == evaluate_over(writer.read_view, "proposition:ab", **absent_arguments)
+    assert absent_row.belief == evaluate_over(writer.read_view, "proposition:ab", **over_kwargs(absent_arguments))
     assert isinstance(absent_row.belief, NoBelief) and absent_row.belief.reason == "unavailable-corpus-absent"
 
     # --- the admitted set is not the digest's keyed set ---------------------
@@ -772,7 +773,7 @@ def test_u8_reading_equals_the_wrapper(corpora):
     )
     only_a = read_composite(writer.read_view, minted.id, **_inputs(writer, address))
     only_a_row = next(r for r in only_a.rows if r.ref == "proposition:ab")
-    assert only_a_row.belief == evaluate_over(writer.read_view, "proposition:ab", **_inputs(writer, address))
+    assert only_a_row.belief == evaluate_over(writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address)))
     assert only_a_row.identification == ("EX:observational",)  # the `b`-held assessment is keyed, not admitted
 
     # --- two admitted `inconclusive` assessments keep their terms -----------

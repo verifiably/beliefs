@@ -23,7 +23,7 @@ negative and does not duplicate it.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import pytest
@@ -56,7 +56,6 @@ from test_stored import _testing_writer
 from beliefs import relocation, stored
 from beliefs.audit import NO_EVIDENCE, audit_corpus
 from beliefs.belief import Availability, Belief, SuppliedContext
-from beliefs.closure import RetractionEnumeration
 from beliefs.contract import load_domain_contract
 from beliefs.corpus import CorpusWriter, ReadView, corpus_check, lineage_snapshot, standing_in_local_view
 from beliefs.decode import claim_from_stored
@@ -80,7 +79,15 @@ def _writer_for(corpus, **options) -> CorpusWriter:
     does."""
     if isinstance(corpus, CorpusWriter):
         return _base_writer_for(corpus, **options)
-    return _testing_writer(corpus)
+    from domain_facet_fixtures import LOCAL_CORPUS_ID
+
+    from beliefs.world import registry
+
+    writer = _testing_writer(corpus)
+    # These alternative histories share one logical corpus and therefore coverage.
+    manifest = registry.load_manifest(writer.root)
+    (writer.root / "corpus.yaml").write_bytes(registry.manifest_bytes(replace(manifest, corpus_id=LOCAL_CORPUS_ID)))
+    return writer
 
 
 # --- the shared corpus: one full belief scenario, minted through the writer ---
@@ -133,7 +140,6 @@ class Scenario:
         return SuppliedContext(
             snapshot=self.snapshot(),
             producer_snapshot_identity="producer-snapshot-1",
-            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             node_corpus={value.identity(): ("c1",) for value in self.values.values()},
             pins={"c1": pins_for(PROFILE)},
         )
@@ -160,9 +166,8 @@ class Scenario:
     def lifecycle(self, assessment: str) -> str:
         """Kernel §3.3's state for one assessment, over the stored verification
         records, `active` read under the amendment: a verification a standing
-        retraction targets is not active. `gather` enumerates no retractions —
-        they reach a closure as supplied `context.retractions` — so the
-        amendment is applied here, over `standing_in_local_view`."""
+        retraction targets is not active. `gather` now applies the same amendment before decoding; this independent
+        lifecycle check uses `standing_in_local_view`."""
         identity = self.values[assessment].identity()
         live = tuple(
             stored.verification_value(node)

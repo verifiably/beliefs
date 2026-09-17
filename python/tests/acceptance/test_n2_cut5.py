@@ -158,6 +158,7 @@ def test_scope_supersession_preserves_predecessor_evidence(durable_writer):
             records=records,
             availability=availability,
             context=context,
+            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             binding=template["binding"],
             profile=template["profile"],
         )

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
-from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, profile_with, seed
+from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
 from profiles import pins_for
 from test_evaluation import GENE, OTHER_GENE
 from test_session_acceptance import adopted
@@ -33,11 +33,11 @@ def test_d6_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_dir
     root = adopted(work_directory, "corpus", pins=pins_for(profile), profile=profile)
     writer = open_corpus(root, authority=FULL, profile=profile)
     view = seed(writer, axis="rows", claim=BIOLOGY_CLAIM)
-    result = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, profile))
+    result = evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, profile)))
     assert isinstance(result, Belief)
     reopened = open_corpus(root, authority=FULL, profile=profile).read_view
     gathered_kwargs = {k: v for k, v in kwargs_for(reopened, profile).items() if k != "availability"}
-    inputs = gather(reopened, PROPOSITION_REF, **gathered_kwargs)
+    inputs = gather(reopened, PROPOSITION_REF, **over_kwargs(gathered_kwargs))
     assert inputs.claim is not None and inputs.claim.operator == "biology/affects"
     assert [row.key for row in inputs.observed_facets] == ["biology/gene-axis"]
     assert "biology" in dict(inputs.consulted)
@@ -47,7 +47,7 @@ def test_d6_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_dir
     original_pins = kwargs_for(reopened, profile)["context"].pins
     mismatched = kwargs_for(reopened, bumped)
     mismatched["context"] = replace(mismatched["context"], pins=original_pins)
-    refused = evaluate_over(reopened, PROPOSITION_REF, **mismatched)
+    refused = evaluate_over(reopened, PROPOSITION_REF, **over_kwargs(mismatched))
     assert isinstance(refused, Refused) and refused.reason.startswith("profile-pin-mismatch: biology")
 
 

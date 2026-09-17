@@ -8,9 +8,10 @@ so the table is total by construction.
 
 "Active" here means **not superseded by a later verification that explicitly
 references it**. The amended definition (correction-lifecycle §7a) also excludes
-targets of a standing retraction; that clause needs retraction records and is
-deferred with the C group — cut 2 §4.2 records the split, and this docstring is
-the claim's stated bound.
+targets of a standing retraction. That clause lives at the read:
+`evaluation.gather` drops a retracted verification before decoding, so a
+retracted resolution no longer supersedes the failure it named. This module
+computes over the standing read set (correction-remainder slice 1, decision 5).
 """
 
 from __future__ import annotations

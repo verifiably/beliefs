@@ -209,7 +209,19 @@ def test_retract_accepts_an_exact_route_identity(writer):
         event_token="event-1",
     )
 
+    from fixtures_cut4 import path_for
+
+    before_bytes = path_for(writer.root, dataset.id).read_bytes()
+    before = writer.read_view.get(dataset.id)
+    before_basis = stored.lineage_basis(before)
+    before_hash = stored.stored_semantic_hash(before)
+    count = len(tuple(writer.read_view.iter_stored()))
     assert writer.retract(record).id == record.id
+    after = writer.read_view.get(dataset.id)
+    assert path_for(writer.root, dataset.id).read_bytes() == before_bytes
+    assert stored.lineage_basis(after) == before_basis
+    assert stored.stored_semantic_hash(after) == before_hash
+    assert len(tuple(writer.read_view.iter_stored())) == count + 1
 
 
 def test_retract_refuses_a_route_absent_from_the_stamped_basis(writer):

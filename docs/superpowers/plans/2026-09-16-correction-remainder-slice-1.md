@@ -765,11 +765,11 @@ git commit -m "feat(lineage): route identities, retirement, effective routes and
 - Consumes: Task 1's fold, enumeration and errors; Task 2's view methods; Task 3's `retire`, `absences`.
 - Produces: `SuppliedContext(snapshot, producer_snapshot_identity, node_corpus, pins)`; `evaluate_traced(*, proposition, records, availability, context, retractions, binding, profile)` and `evaluate(...)` likewise; `gather` returning `EvaluationInputs` with the derived `retractions` (input-scoped) and the retired `snapshot`.
 
-- [ ] **Step 1: `SuppliedContext`, `evaluate_traced`, `evaluate`**
+- [x] **Step 1: `SuppliedContext`, `evaluate_traced`, `evaluate`**
 
 In `belief.py`: delete the `retractions: RetractionEnumeration` field from `SuppliedContext` (line 231) and its mention in the class docstring; `evaluate_traced` and `evaluate` each gain a keyword-only parameter `retractions: RetractionEnumeration,` after `context`; `evaluate` passes it through; the `build_closure(...)` call in step 9 passes `retractions=retractions`. `RetractionEnumeration` stays imported (it is now a parameter type).
 
-- [ ] **Step 2: The contract edits and the two read prerequisites**
+- [x] **Step 2: The contract edits and the two read prerequisites**
 
 Three migrations, then the mechanical pass. They are edits to test fixtures only, and the green checkpoint for them is at the end of Step 4 (the suite cannot be green between Step 1 and the new `gather`).
 
@@ -779,7 +779,7 @@ Three migrations, then the mechanical pass. They are edits to test fixtures only
 
 *The enumeration.* Mechanical, one pass: everywhere a `SuppliedContext(` is constructed with `retractions=`, delete that argument; everywhere `evaluate(` or `evaluate_traced(` is called, add `retractions=`. The two fixture builders make most of it one edit each: in `test_belief.scenario`, delete `retractions=` from the context and add `"retractions": RetractionEnumeration(found=(), coverage=("c1",))` to `kwargs` (and `retractions: RetractionEnumeration` to `_Scenario`); in `domain_facet_fixtures.kwargs_for`, delete `retractions=` from the context and add `"retractions": RetractionEnumeration(found=(), coverage=("c1",))` to the returned dict — callers that pass `**kwargs_for(...)` to `evaluate` now carry it, and callers that pass it to `gather`/`evaluate_over` must drop the key (`{k: v for k, v in kwargs.items() if k != "retractions"}`) — write a helper `over_kwargs(kwargs)` in `domain_facet_fixtures.py` that does that and use it at every `gather(`/`evaluate_over(`/`evaluate_over_traced(` site. `test_world_view.world_kwargs` loses its `retractions=replace(...)` line. `acceptance/test_world_view_acceptance.py:343` loses the same. `test_reproduction_driver.py` and the reproduction driver's `context()` (Task 6 finishes the driver; here only what the test imports). No green checkpoint here: `gather` still constructs `EvaluationInputs(retractions=context.retractions)` until Step 4 rewrites it. Tests whose assertions pinned `coverage == ("c1",)` on a corpus-local closure now read `(LOCAL_CORPUS_ID,)`; update them as they surface in Step 4's run.
 
-- [ ] **Step 3: The failing tests for `gather`**
+- [x] **Step 3: The failing tests for `gather`**
 
 Append to `python/tests/test_standing_read.py`:
 
@@ -1139,7 +1139,7 @@ Add to `python/tests/test_retract.py` one test beside `test_retract_refuses_a_ro
 Run: `cd python && uv run --frozen pytest tests/test_standing_read.py tests/test_world_standing.py -q`
 Expected: FAIL — `gather` still reads retracted records; `ProducerSnapshotMismatch` not raised; `retractions` still the caller's.
 
-- [ ] **Step 4: `gather`**
+- [x] **Step 4: `gather`**
 
 Replace `gather`'s body (evaluation.py 210–340) with the following; the parts that are unchanged from the baseline are marked, and the `assesses`-edge filter is `beliefs-010c6e`'s.
 
@@ -1383,7 +1383,7 @@ Imports in `evaluation.py`: `cast` from `typing`; `from beliefs.closure import R
 Run: `cd python && uv run --frozen pytest tests/test_standing_read.py tests/test_world_standing.py tests/test_composite_reading.py tests/test_retract.py tests/test_belief.py tests/test_evaluation.py tests/test_world_view.py tests/test_deletion_rows.py tests/test_local_standing.py -q`
 Expected: PASS — this is the green checkpoint Step 2 deferred: every test that passed at the baseline passes here with an identical answer, except assertions that pinned the old coverage literal or a projection literal (updated as they surface). Then `just test-fast` green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 tasks check
@@ -1395,6 +1395,13 @@ tasks done beliefs-010c6e "gather filters assessments by their assesses edge bef
 (`tasks done` writes the task record; amend it into the same commit: `git add tasks && git commit --amend --no-edit`.)
 
 ---
+
+Task 4 executed 2026-09-17: derived enumeration and retirement reach the
+read wrapper, with all caller migrations and the edge-selection rider.
+Static `just test-fast`: 4945 passed, 2 skipped; focused evaluator/guard checks
+and 46 durable migration checks passed. Live cut18 M1 and cut32 U4-a were
+retargeted after measured drift and independently returned baseline
+`resolved` / mutation `sound`; frozen declarations remain unchanged.
 
 ### Task 5: The riders — audit_world's spec-target check, total estimand sets, the composite tidy
 

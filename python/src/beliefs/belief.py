@@ -228,7 +228,6 @@ class SuppliedContext:
 
     snapshot: LineageSnapshot
     producer_snapshot_identity: str
-    retractions: RetractionEnumeration
     node_corpus: Mapping[str, tuple[str, ...]]
     pins: Mapping[str, CorpusPins]
 
@@ -261,6 +260,7 @@ def evaluate_traced(
     records: Records,
     availability: Availability,
     context: SuppliedContext,
+    retractions: RetractionEnumeration,
     binding: object,
     profile: ProfileSpec,
 ) -> tuple[Belief | NoBelief | Refused, Admission]:
@@ -430,7 +430,7 @@ def evaluate_traced(
         verifications=records.verifications,
         snapshot=context.snapshot,
         producer_snapshot_identity=context.producer_snapshot_identity,
-        retractions=context.retractions,
+        retractions=retractions,
         consulted=consulted,
         binding=(binding.rule, binding.implementation),
         observed_facets=records.observed_facets,
@@ -444,6 +444,7 @@ def evaluate(
     records: Records,
     availability: Availability,
     context: SuppliedContext,
+    retractions: RetractionEnumeration,
     binding: object,
     profile: ProfileSpec,
 ) -> Belief | NoBelief | Refused:
@@ -454,6 +455,7 @@ def evaluate(
         records=records,
         availability=availability,
         context=context,
+        retractions=retractions,
         binding=binding,
         profile=profile,
     )[0]

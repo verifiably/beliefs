@@ -7,11 +7,12 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
-from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, profile_with, seed
+from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
 from domain_facet_fixtures import testing_contract as _testing_contract
 from test_evaluation import GENE, OTHER_GENE
 
 from beliefs.belief import Belief, Records, Refused, evaluate
+from beliefs.closure import RetractionEnumeration
 from beliefs.consulted import CorpusPins
 from beliefs.contract import domain
 from beliefs.errors import MalformedRecord
@@ -27,7 +28,7 @@ def _gathered(kwargs):
 def test_gather_reads_the_declared_facet_off_the_held_observed_dataset(tmp_path):
     profile = profile_with()
     view = seed(tmp_path)
-    inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile)))
+    inputs = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, profile))))
     assert [row.key for row in inputs.observed_facets] == ["biology/gene-axis"]
     assert ("biology", "biology:" + profile.activated_contracts["biology"]) in inputs.consulted
     assert ("dataset", inputs.observed_facets[0].address) in inputs.read_trace
@@ -37,8 +38,8 @@ def test_records_accept_reader_rows_in_order_and_reject_other_carriers(tmp_path)
     profile = profile_with()
     first_view = seed(tmp_path / "a")
     second_view = seed(tmp_path / "b", axis="columns")
-    first = gather(first_view, PROPOSITION_REF, **_gathered(kwargs_for(first_view, profile)))
-    second = gather(second_view, PROPOSITION_REF, **_gathered(kwargs_for(second_view, profile)))
+    first = gather(first_view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(first_view, profile))))
+    second = gather(second_view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(second_view, profile))))
     rows = tuple(sorted(first.observed_facets + second.observed_facets, key=FacetRead.projection))
     Records(**{**first.records().__dict__, "observed_facets": rows})
     with pytest.raises(MalformedRecord, match="sorted"):
@@ -52,7 +53,7 @@ def test_records_accept_reader_rows_in_order_and_reject_other_carriers(tmp_path)
 def test_records_snapshot_the_reader_rows_from_a_caller_list(tmp_path):
     profile = profile_with()
     view = seed(tmp_path)
-    inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile)))
+    inputs = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, profile))))
     supplied = list(inputs.observed_facets)
     records = Records(**{**inputs.records().__dict__, "observed_facets": supplied})  # type: ignore[arg-type]
     supplied.append(Mock(spec=FacetRead))
@@ -63,8 +64,8 @@ def test_gather_and_evaluate_agree_on_the_consulted_set(tmp_path):
     profile = profile_with()
     view = seed(tmp_path)
     kwargs = kwargs_for(view, profile)
-    inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs))
-    belief = evaluate_over(view, PROPOSITION_REF, **kwargs)
+    inputs = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs)))
+    belief = evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs))
     assert isinstance(belief, Belief)
     assert inputs.closure().digest() == belief.belief_input_digest
     assert "biology" in dict(inputs.consulted)
@@ -73,18 +74,18 @@ def test_gather_and_evaluate_agree_on_the_consulted_set(tmp_path):
 def test_an_absent_observed_dataset_is_absent_from_gather(tmp_path):
     profile = profile_with()
     view = seed(tmp_path, observes_missing=True)
-    inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile)))
+    inputs = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, profile))))
     assert inputs.observed_facets == ()
     assert all(entry.role != "observes" for entry in inputs.runs["run-a"].inputs)
     assert len(cast(list[object], inputs.closure().projection["observes"])) == 1
     assert ("dataset", "dataset:d-missing") not in inputs.read_trace
-    assert not isinstance(evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, profile)), Refused)
+    assert not isinstance(evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, profile))), Refused)
 
 
 def test_the_member_is_present_and_empty_when_nothing_was_read(tmp_path):
     profile = profile_with()
     view = seed(tmp_path, axis=None)
-    inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile)))
+    inputs = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, profile))))
     assert inputs.closure().projection["observed_facets"] == []
     assert "biology" not in dict(inputs.consulted)
 
@@ -93,8 +94,8 @@ def test_a_payload_byte_change_moves_the_digest(tmp_path):
     profile = profile_with()
     rows_view = seed(tmp_path / "rows")
     columns_view = seed(tmp_path / "columns", axis="columns")
-    rows = evaluate_over(rows_view, PROPOSITION_REF, **kwargs_for(rows_view, profile))
-    columns = evaluate_over(columns_view, PROPOSITION_REF, **kwargs_for(columns_view, profile))
+    rows = evaluate_over(rows_view, PROPOSITION_REF, **over_kwargs(kwargs_for(rows_view, profile)))
+    columns = evaluate_over(columns_view, PROPOSITION_REF, **over_kwargs(kwargs_for(columns_view, profile)))
     assert isinstance(rows, Belief) and isinstance(columns, Belief)
     assert rows.value == columns.value
     assert rows.belief_input_digest != columns.belief_input_digest
@@ -103,7 +104,7 @@ def test_a_payload_byte_change_moves_the_digest(tmp_path):
 def test_a_malformed_payload_refuses_the_derivation_through_evaluate_over(tmp_path):
     profile = profile_with()
     view = seed(tmp_path, axis="")
-    result = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, profile))
+    result = evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, profile)))
     assert isinstance(result, Refused) and result.reason.startswith("facet-payload-refused:")
 
 
@@ -117,7 +118,7 @@ def test_evaluate_over_refuses_a_pin_mismatch_before_evaluate_runs(tmp_path):
         domains={**pin.domains, "biology": "biology:" + "9" * 64},
     )
     result = evaluate_over(
-        view, PROPOSITION_REF, **{**kwargs, "context": replace(kwargs["context"], pins={"c1": wrong})}
+        view, PROPOSITION_REF, **over_kwargs({**kwargs, "context": replace(kwargs["context"], pins={"c1": wrong})})
     )
     assert isinstance(result, Refused) and result.reason.startswith("profile-pin-mismatch: biology")
 
@@ -128,7 +129,7 @@ def test_old_facet_receipts_refuse_under_a_new_profile_identity(tmp_path):
     loose = profile_with()
     view = seed(tmp_path)
     loose_kwargs = kwargs_for(view, loose)
-    inputs = gather(view, PROPOSITION_REF, **_gathered(loose_kwargs))
+    inputs = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(loose_kwargs)))
 
     document = load_document(FIXTURE, source=str(FIXTURE))
     assert isinstance(document, dict)
@@ -138,12 +139,13 @@ def test_old_facet_receipts_refuse_under_a_new_profile_identity(tmp_path):
     )
     strict = compile_profile(shipped_base_contract(), [_testing_contract(), strict_contract])
     strict_kwargs = kwargs_for(view, strict)
-    fresh = evaluate_over(view, PROPOSITION_REF, **strict_kwargs)
+    fresh = evaluate_over(view, PROPOSITION_REF, **over_kwargs(strict_kwargs))
     stale = evaluate(
         proposition=PROPOSITION_REF,
         records=inputs.records(),
         availability=loose_kwargs["availability"],
         context=strict_kwargs["context"],
+        retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         binding=strict_kwargs["binding"],
         profile=strict,
     )
@@ -155,7 +157,7 @@ def test_old_facet_receipts_refuse_under_a_new_profile_identity(tmp_path):
 
 
 def _belief(view, profile):
-    result = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, profile))
+    result = evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, profile)))
     assert isinstance(result, Belief), result
     return result
 
@@ -167,8 +169,8 @@ def test_isolated_case_biology_enters_through_the_ledger_alone(tmp_path):
     profile = profile_with()
     with_view = seed(tmp_path / "with")
     without_view = seed(tmp_path / "without", axis=None)
-    with_facet = gather(with_view, PROPOSITION_REF, **_gathered(kwargs_for(with_view, profile)))
-    without = gather(without_view, PROPOSITION_REF, **_gathered(kwargs_for(without_view, profile)))
+    with_facet = gather(with_view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(with_view, profile))))
+    without = gather(without_view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(without_view, profile))))
     assert with_facet.claim is not None and with_facet.claim.operator == "testing/affects"
     assert "biology" in dict(with_facet.consulted)
     assert "biology" not in dict(without.consulted)
@@ -198,7 +200,7 @@ def test_isolated_case_holds_with_no_claim_record(tmp_path):
     absent = "proposition:never-stored"
     profile = profile_with()
     view = seed(tmp_path, proposition=absent)
-    inputs = gather(view, absent, **_gathered(kwargs_for(view, profile)))
+    inputs = gather(view, absent, **over_kwargs(_gathered(kwargs_for(view, profile))))
     assert inputs.claim is None
     assert set(dict(inputs.consulted)) == {"science", "biology", "testing"}
 
@@ -221,7 +223,7 @@ def test_dogfood_shape_reaches_biology_by_both_routes(tmp_path):
     the isolated case is the proof."""
     profile = profile_with()
     view = seed(tmp_path, claim=BIOLOGY_CLAIM)
-    inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile)))
+    inputs = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, profile))))
     assert inputs.claim is not None and inputs.claim.operator == "biology/affects"
     assert "biology" in dict(inputs.consulted)
     assert [row.key for row in inputs.observed_facets] == ["biology/gene-axis"]
@@ -271,11 +273,11 @@ def test_m8_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_
     view = seed(tmp_path, axis=None, claim=CROSSING_CLAIM)
     before = profile_with(crossing=True)
     after = profile_with(crossing=True, testing_description="editorial")
-    one = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, before))
-    two = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, after))
+    one = evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, before)))
+    two = evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, after)))
     assert isinstance(one, Belief) and isinstance(two, Belief)
-    inputs_one = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, before)))
-    inputs_two = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, after)))
+    inputs_one = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, before))))
+    inputs_two = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, after))))
     assert inputs_one.observed_facets == () and inputs_one.claim is not None and inputs_two.claim is not None
     assert claim_identity(inputs_one.claim) == claim_identity(inputs_two.claim)
     assert "testing" in dict(inputs_one.consulted)

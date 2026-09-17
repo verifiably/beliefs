@@ -14,6 +14,7 @@ from dataclasses import dataclass, replace
 from authority import ACTOR
 from confinement_fixtures import confined_receipt, instance
 from dataset_fixtures import pinned_for
+from domain_facet_fixtures import over_kwargs
 from fixtures_cut3 import closure_with, planned, spec_draft, spec_rules, traced
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
@@ -26,7 +27,6 @@ from beliefs import runrecord, stored
 from beliefs.admission import admit
 from beliefs.assess import build_assessment
 from beliefs.belief import Availability, SuppliedContext
-from beliefs.closure import RetractionEnumeration
 from beliefs.corpus import lineage_snapshot
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.evaluation import evaluate_over, gather
@@ -184,7 +184,6 @@ def evaluation_kwargs(view) -> dict:
         "context": SuppliedContext(
             snapshot=lineage_snapshot(view, [n.id for n in view.iter_stored() if n.kind == "dataset"]),  # corpus refs, not content addresses [R2, second round]
             producer_snapshot_identity="producer-snapshot-1",
-            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             node_corpus={identity: ("c1",) for identity in identities},
             pins={"c1": pins_for(PROFILE)},
         ),
@@ -201,10 +200,10 @@ def admission_over(writer, proposition_ref: str, original: RunClosure):
     view = writer.read_view
     kwargs = evaluation_kwargs(view)
     gathered = {k: v for k, v in kwargs.items() if k != "availability"}
-    inputs = gather(view, proposition_ref, **gathered)
+    inputs = gather(view, proposition_ref, **over_kwargs(gathered))
     a = next(a for a in inputs.assessments if a.run == original.address())
     verdict = admit(a, inputs.runs[a.run], kwargs["availability"].observations, inputs.verifications)
-    return verdict, evaluate_over(view, proposition_ref, **kwargs)
+    return verdict, evaluate_over(view, proposition_ref, **over_kwargs(kwargs))
 
 
 def self_consistent_forgery(writer, node: Node, *, mutate) -> Node:

@@ -22,6 +22,9 @@ from beliefs.dataset import ByteObservation
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
 from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract
 from beliefs.resolution import build_snapshot
+from beliefs.world import registry
+
+LOCAL_CORPUS_ID = "c1" + "0" * 30
 
 PROPOSITION_REF = "proposition:p"
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -86,6 +89,7 @@ def seed(
     observes_missing: bool = False,
     claim: dict[str, Any] | None = None,
     proposition: str = PROPOSITION_REF,
+    outcomes: tuple[str, str] = ("supported", "supported"),
 ) -> ReadView:
     domain_facets: dict[str, Any] = {"biology/gene-axis": {"axis": axis}} if axis is not None else {}
     nodes: list[Node] = [stored.proposition_node("p", title="p", claim=claim or CLAIM_FACET)]
@@ -116,12 +120,12 @@ def seed(
     assessments = [
         stored.assessment_node(
             "a-1", title="a-1", spec="spec-a", run="run:run-a", proposition=proposition,
-            outcome="supported", interpretation_rule="rule-1",
+            outcome=outcomes[0], interpretation_rule="rule-1",
             estimand=typed_estimand(), applicability=typed_applicability(),
         ),
         stored.assessment_node(
             "a-2", title="a-2", spec="spec-b", run="run:run-b", proposition=proposition,
-            outcome="supported", interpretation_rule="rule-1",
+            outcome=outcomes[1], interpretation_rule="rule-1",
             estimand=typed_estimand(), applicability=typed_applicability(),
         ),
     ]
@@ -139,6 +143,7 @@ def seed(
             corpus.add(node)
         return corpus.read_view
     corpus.mkdir(parents=True, exist_ok=True)
+    (corpus / "corpus.yaml").write_bytes(registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(profile_with()))))
     for node in nodes:
         raw_write(corpus, node)
     return reopen(corpus)
@@ -147,6 +152,7 @@ def seed(
 def kwargs_for(view: ReadView, profile: ProfileSpec) -> dict[str, Any]:
     identities = {stored.assessment_reference(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
     return {
+        "retractions": RetractionEnumeration(found=(), coverage=("c1",)),
         "availability": Availability(
             observations={
                 dataset_ref(seed): (ByteObservation(digest=pinned(seed)[0]["digest"], location="repo://data"),)
@@ -158,7 +164,6 @@ def kwargs_for(view: ReadView, profile: ProfileSpec) -> dict[str, Any]:
         "context": SuppliedContext(
             snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"))),
             producer_snapshot_identity="producer-snapshot-1",
-            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             node_corpus={identity: ("c1",) for identity in identities},
             pins={"c1": pins_for(profile)},
         ),
@@ -166,3 +171,7 @@ def kwargs_for(view: ReadView, profile: ProfileSpec) -> dict[str, Any]:
         "resolution": build_snapshot(readable={EX: [GENE, PHENO, OTHER_GENE]}),
         "binding": PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
     }
+
+
+def over_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in kwargs.items() if key != "retractions"}

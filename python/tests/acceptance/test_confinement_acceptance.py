@@ -158,7 +158,6 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
     context = SuppliedContext(
         snapshot=LineageSnapshot(roots=tuple(root for root in observed if root is not None), bases={}, producers={}),
         producer_snapshot_identity="snap-1",
-        retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={assessment.identity(): ("c1",)},
         pins={"c1": pins_for(PROFILE)},
     )
@@ -167,6 +166,7 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
         records=records,
         availability=availability,
         context=context,
+        retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         binding=PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
         profile=PROFILE,
     )

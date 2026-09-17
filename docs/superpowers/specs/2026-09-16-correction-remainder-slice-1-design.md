@@ -815,3 +815,14 @@ filed at the cut.
   `composite.py`, `audit.py`, `contract/base.py`, `contract/decode.py`,
   `contract/estimand.py`, the reproduction driver, their named tests, the
   cut-33 acceptance/N2 files, and the freeze/discharge documentation.
+- 2026-09-17 — Task 4 integration retains the edge-first selection decision:
+  historical raw-written divergent-edge and unrelated pre-grammar fixtures
+  now characterize the new membership behavior. Alternative-history digest
+  fixtures share a logical corpus identity, because derived coverage is a
+  digest member; durable adoption remains real and deterministic randomness
+  is scoped to adoption. C3-b's dataset, run, and proposition prerequisites
+  move before the measured target-relocation baseline. The live cut32 U4-a
+  guard follows effective-walk absence. The live cut18 M1 mutation now
+  widens both membership and value selection, because the old predicate-only
+  mutation was measured vacuous behind the new edge guard. Frozen
+  declarations and cut bodies remain unchanged.

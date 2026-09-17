@@ -2799,7 +2799,7 @@ class CorpusWriter:
 
     @staticmethod
     def _resolve_retraction_target(
-        record: Node, view: ReadView | _ImportView | _CheckView | _CapturedCheckView
+        record: Node, view: ReadView | WorldReadView | _ImportView | _CheckView | _CapturedCheckView
     ) -> None:
         target = _validated_retraction_target(record)
         if target["arm"] == "node":

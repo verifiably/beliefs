@@ -29,7 +29,6 @@ from test_belief import PROFILE
 
 from beliefs import stored
 from beliefs.belief import Availability, Belief, NoBelief, Refused, SuppliedContext, evaluate
-from beliefs.closure import RetractionEnumeration
 from beliefs.contract.domain import VocabularyBinding
 from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
@@ -269,12 +268,15 @@ def _fixture(
 ) -> CorpusFixture:
     if isinstance(corpus, Path):
         corpus.mkdir(parents=True, exist_ok=True)
+        from domain_facet_fixtures import LOCAL_CORPUS_ID
+
+        from beliefs.world import registry
+        (corpus / "corpus.yaml").write_bytes(registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(PROFILE))))
     view, values = _seed(corpus, proposition_ref, reads=reads, assesses_target=assesses_target)
     matched = (values["assessment:a-1"], values["assessment:a-2"])
     context = SuppliedContext(
         snapshot=lineage_snapshot(view, (_address("a"), _address("b"))),
         producer_snapshot_identity="producer-snapshot-1",
-        retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={value.identity(): ("c1",) for value in values.values()},
         pins={"c1": pins_for(PROFILE)},
     )
@@ -320,12 +322,14 @@ def divergent_fixture(tmp_path) -> CorpusFixture:
 
 
 def test_evaluate_over_is_the_corpus_backed_path_and_yields_a_belief(corpus_fixture):
-    result = evaluate_over(corpus_fixture.view, corpus_fixture.proposition, **corpus_fixture.kwargs)
+    from domain_facet_fixtures import over_kwargs
+    result = evaluate_over(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.kwargs))
     assert isinstance(result, Belief)
     assert result.value == 2  # two independent supports, as test_belief's scenario publishes
 
 
 def test_evaluate_over_maps_a_profile_pin_mismatch_to_refused(corpus_fixture):
+    from domain_facet_fixtures import over_kwargs
     context = replace(
         corpus_fixture.context,
         pins={"c1": replace(pins_for(PROFILE), science_contract="science:" + "0" * 64)},
@@ -333,14 +337,15 @@ def test_evaluate_over_maps_a_profile_pin_mismatch_to_refused(corpus_fixture):
     result = evaluate_over(
         corpus_fixture.view,
         corpus_fixture.proposition,
-        **{**corpus_fixture.kwargs, "context": context},
+        **over_kwargs({**corpus_fixture.kwargs, "context": context}),
     )
     assert isinstance(result, Refused)
     assert result.reason.startswith("profile-pin-mismatch: science")
 
 
 def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixture):
-    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **corpus_fixture.gather_kwargs)
+    from domain_facet_fixtures import over_kwargs
+    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
     assert inputs.claim is not None
     # π_claim accepts it — the brand chain survived the restore — and it
     # projects back to exactly the facet the stored proposition carries.
@@ -354,7 +359,8 @@ def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixtu
 
 
 def test_m1_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_fixture):
-    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **corpus_fixture.gather_kwargs)
+    from domain_facet_fixtures import over_kwargs
+    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
     assert set(inputs.read_trace) <= inputs.declared_refs()
     assert {kind for kind, _ in inputs.read_trace} == set(READ_KINDS) - {
         "retraction",
@@ -366,6 +372,7 @@ def test_m1_every_read_through_the_resolver_is_inside_the_declared_closure(corpu
         records=inputs.records(),
         availability=corpus_fixture.availability,
         context=corpus_fixture.context,
+        retractions=inputs.retractions,
         binding=corpus_fixture.binding,
         profile=PROFILE,
     )
@@ -374,7 +381,8 @@ def test_m1_every_read_through_the_resolver_is_inside_the_declared_closure(corpu
 
 
 def test_the_records_are_already_proposition_scoped(corpus_fixture):
-    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **corpus_fixture.gather_kwargs)
+    from domain_facet_fixtures import over_kwargs
+    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
     assert all(a.proposition == corpus_fixture.proposition for a in inputs.assessments)
     assert {a.identity() for a in inputs.assessments} == {a.identity() for a in corpus_fixture.assessments}
     assert set(inputs.runs) == {a.run for a in inputs.assessments}
@@ -386,13 +394,16 @@ def test_the_records_are_already_proposition_scoped(corpus_fixture):
 
 
 def test_m1_sabotage_shape_an_unrelated_verification_read_fails_containment(corpus_fixture, monkeypatch):
+    from domain_facet_fixtures import over_kwargs
     """The sabotage N2 declares: `gather` reads one verification belonging to a
     different proposition; the digest is unchanged and the check fails."""
     from beliefs import evaluation
 
-    honest = gather(corpus_fixture.view, corpus_fixture.proposition, **corpus_fixture.gather_kwargs)
+    honest = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
     monkeypatch.setattr(evaluation, "_verification_selected", lambda value, ids: True)
-    leaky = gather(corpus_fixture.view, corpus_fixture.proposition, **corpus_fixture.gather_kwargs)
+    resolve = corpus_fixture.view.resolve
+    monkeypatch.setattr(corpus_fixture.view, "resolve", lambda ref: "assessment:a-1" if ref == "assessment:a-3" else resolve(ref))
+    leaky = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
 
     assert {v.ref for v in leaky.verifications} > {v.ref for v in honest.verifications}
     assert leaky.closure().digest() == honest.closure().digest()
@@ -401,13 +412,15 @@ def test_m1_sabotage_shape_an_unrelated_verification_read_fails_containment(corp
 
 
 def test_the_binding_is_guarded_before_any_read(corpus_fixture, monkeypatch):
+    from domain_facet_fixtures import over_kwargs
+
     from beliefs import evaluation
 
     monkeypatch.setattr(evaluation, "gather", lambda *a, **k: pytest.fail("read before the binding was refused"))
     result = evaluate_over(
         corpus_fixture.view,
         corpus_fixture.proposition,
-        **{**corpus_fixture.kwargs, "binding": ("rule", "impl")},
+        **over_kwargs({**corpus_fixture.kwargs, "binding": ("rule", "impl")}),
     )
     assert isinstance(result, Refused) and result.reason.startswith("binding-not-exact")
 
@@ -417,7 +430,8 @@ def test_a_proposition_with_no_claim_record_still_reaches_its_assessments_estima
     # estimand walk is unconditional on that: each matched assessment still
     # carries a typed estimand under `testing/affects`, so `testing` is
     # consulted through it alone (estimand-typing §5.4, D6's third trigger).
-    inputs = gather(claimless_fixture.view, claimless_fixture.proposition, **claimless_fixture.gather_kwargs)
+    from domain_facet_fixtures import over_kwargs
+    inputs = gather(claimless_fixture.view, claimless_fixture.proposition, **over_kwargs(claimless_fixture.gather_kwargs))
     assert inputs.claim is None
     assert dict(inputs.records().claims) == {}
     assert inputs.consulted == (
@@ -428,22 +442,18 @@ def test_a_proposition_with_no_claim_record_still_reaches_its_assessments_estima
     assert set(inputs.read_trace) <= inputs.declared_refs()
 
 
-def test_a_divergent_assesses_edge_is_traced_at_the_ref_the_resolver_read(divergent_fixture):
-    """Nothing reconciles an assessment's `assesses` edge with its facet's
-    `proposition`, so the read can land on a proposition the closure never
-    declared — and the claim it yields feeds `consulted`, a digested member.
-    The trace records the ref actually read, so containment catches it."""
-    inputs = gather(divergent_fixture.view, divergent_fixture.proposition, **divergent_fixture.gather_kwargs)
+def test_a_divergent_assesses_edge_is_selected_before_decode(divergent_fixture):
+    from beliefs.errors import MalformedRecord
 
-    assert inputs.claim is not None
-    assert project_claim(inputs.claim) == OTHER_CLAIM_FACET, "q's claim was decoded, not p's"
-    assert ("proposition", OTHER_PROPOSITION_REF) in inputs.read_trace
-    assert ("proposition", OTHER_PROPOSITION_REF) not in inputs.declared_refs()
-    assert ("proposition", PROPOSITION_REF) in inputs.declared_refs()
-    assert not set(inputs.read_trace) <= inputs.declared_refs()
+    inputs = gather(divergent_fixture.view, divergent_fixture.proposition, **divergent_fixture.gather_kwargs)
+    assert inputs.assessments == () and inputs.claim is None
+    assert not any(kind == "assessment" for kind, _ in inputs.read_trace)
+    with pytest.raises(MalformedRecord, match="assesses edge"):
+        gather(divergent_fixture.view, OTHER_PROPOSITION_REF, **divergent_fixture.gather_kwargs)
 
 
 def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
+    from domain_facet_fixtures import over_kwargs
     """M1's second bound, pinned rather than hidden: `run_value` hands out the
     declaration of every input role, and the resolver traces only `observes` —
     because the closure declares dataset refs only under `observes` and
@@ -452,20 +462,21 @@ def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
     plain = _fixture(tmp_path / "plain", PROPOSITION_REF)
     with_reads = _fixture(tmp_path / "with-reads", PROPOSITION_REF, reads=True)
 
-    inputs = gather(with_reads.view, with_reads.proposition, **with_reads.gather_kwargs)
+    inputs = gather(with_reads.view, with_reads.proposition, **over_kwargs(with_reads.gather_kwargs))
     run_a = inputs.runs["run-a"]
     assert {i.role for i in run_a.inputs} == {"observes", "reads"}, "the declaration really was handed out"
 
     assert ("dataset", _address("e")) not in inputs.read_trace
     assert set(inputs.read_trace) <= inputs.declared_refs()
 
-    honest = gather(plain.view, plain.proposition, **plain.gather_kwargs)
+    honest = gather(plain.view, plain.proposition, **over_kwargs(plain.gather_kwargs))
     assert inputs.closure().digest() == honest.closure().digest(), (
         "the closure consumes no `reads` declaration; if this moves, the untraced hand-out is a real gap"
     )
 
 
 def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(corpus_fixture, monkeypatch):
+    from domain_facet_fixtures import over_kwargs
     """G3 makes the closure exist whenever a belief is produced; `NoBelief` and
     `Refused` commit no input closure, so there is nothing on those arms for a
     read to be contained in. `gather` still runs — the only guard before it is
@@ -479,7 +490,7 @@ def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(c
     no_belief = evaluate_over(
         corpus_fixture.view,
         corpus_fixture.proposition,
-        **{**corpus_fixture.kwargs, "availability": replace(corpus_fixture.availability, fixtures={})},
+        **over_kwargs({**corpus_fixture.kwargs, "availability": replace(corpus_fixture.availability, fixtures={})}),
     )
     assert isinstance(no_belief, NoBelief) and no_belief.reason == "unavailable-fixtures-unheld"
 
@@ -487,10 +498,10 @@ def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(c
     refused = evaluate_over(
         corpus_fixture.view,
         corpus_fixture.proposition,
-        **{
+        **over_kwargs({
             **corpus_fixture.kwargs,
             "availability": replace(corpus_fixture.availability, implementations={BELIEF_V1.identity: broken}),
-        },
+        }),
     )
     assert isinstance(refused, Refused) and refused.reason.startswith("implementation-fails-fixtures")
 
@@ -511,6 +522,7 @@ from test_verify import production_pair  # noqa: F401 - the module-scoped fixtur
 
 
 def test_v7_gather_never_selects_a_production_verification(request, tmp_path):
+    from domain_facet_fixtures import over_kwargs
     from test_relocation import _writer
     from test_verify import _production_verification
 
@@ -520,16 +532,18 @@ def test_v7_gather_never_selects_a_production_verification(request, tmp_path):
     writer = _writer(tmp_path / "corpus")
     node = writer.add(publication_node(production))
     fixture = _fixture(writer, PROPOSITION_REF)
-    inputs = gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs)
+    inputs = gather(fixture.view, PROPOSITION_REF, **over_kwargs(fixture.gather_kwargs))
     assert node.id not in {v.ref for v in inputs.verifications}
 
 
 def test_evaluate_over_is_the_first_projection_of_evaluate_over_traced(corpus_fixture, claimless_fixture):
+    from domain_facet_fixtures import over_kwargs
+
     from beliefs.belief import Reached
     from beliefs.evaluation import evaluate_over_traced
 
     for fixture in (corpus_fixture, claimless_fixture):
-        answer, admission = evaluate_over_traced(fixture.view, fixture.proposition, **fixture.kwargs)
-        assert evaluate_over(fixture.view, fixture.proposition, **fixture.kwargs) == answer
+        answer, admission = evaluate_over_traced(fixture.view, fixture.proposition, **over_kwargs(fixture.kwargs))
+        assert evaluate_over(fixture.view, fixture.proposition, **over_kwargs(fixture.kwargs)) == answer
         if isinstance(answer, Belief):
             assert isinstance(admission, Reached) and admission.admitted == {a.identity() for a in fixture.assessments}
