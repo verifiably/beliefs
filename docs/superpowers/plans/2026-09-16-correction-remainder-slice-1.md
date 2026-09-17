@@ -56,19 +56,19 @@
 **Interfaces:**
 - Produces: the freeze commit `CUT33_FREEZE_COMMIT` and the cut document's SHA-256, both pinned by Task 7's guard; the task ids every later commit closes.
 
-- [ ] **Step 1: Confirm the baseline and the lane**
+- [x] **Step 1: Confirm the baseline and the lane**
 
 Run `git -C /mnt/ssd/Dropbox/beliefs log --oneline -1` and confirm `main` is at `25ab84c` or a descendant that touches none of the shared surfaces (`evaluation.py`, `belief.py`, `closure.py`, `corpus.py`, `lineage.py`, `world/view.py`, `world/epoch.py`); if it moved, `git rebase main` in the worktree, re-read spec §1's baseline claims against the tree, and record any drift in the spec's §14 before continuing. Run `tasks prime` inside the worktree: `beliefs-aa27da` is `doing`, owned by this branch; no other kernel lane is open (roadmap lane table: `world-read`, `mutation`, `acquisition`, `cross-repo` all "waits" or closed). Note it: `tasks note beliefs-aa27da "lane admitted under rule 6 at cut 33: no kernel lane open, tier 1 on-path empty"`.
 
-- [ ] **Step 2: Claim the cut number**
+- [x] **Step 2: Claim the cut number**
 
 `git worktree list`, then `ls <each worktree>/docs/designs/*conformance-cut-3[3-9]*.md` and `for b in $(git branch --format='%(refname:short)'); do git ls-tree -r --name-only $b docs/designs | grep -i 'cut-3[3-9]'; done`. Nothing may match; if something does, the number is the next unclaimed one and every `33` below moves with it (concurrency rule 1). The highest discharged runner is `python/tools/cut32_acceptance.py` (`PREFIX_RUNNERS` for Task 7).
 
-- [ ] **Step 3: The tasks are filed**
+- [x] **Step 3: The tasks are filed**
 
 Filed at the planning commit so `tasks check` links every heading: the slice-1 task is `beliefs-dc4e56` (child of `beliefs-aa27da`, carrying the spec and this plan), its step children are `beliefs-9429af` (Task 0), `beliefs-3f6f07` (1), `beliefs-57fb55` (2), `beliefs-738d42` (3), `beliefs-d5512a` (4), `beliefs-8d4109` (5), `beliefs-2a75e1` (6), `beliefs-d25046` (7), `beliefs-f4a89c` (8), and the four riders (`beliefs-0521da`, `beliefs-1dd03f`, `beliefs-010c6e`, `beliefs-b1245d`) are reparented under it. `tasks start <step>` before each task, `tasks done <step> "<what landed>"` in its commit; `S1` below means `beliefs-dc4e56`.
 
-- [ ] **Step 4: Write and freeze the cut document**
+- [x] **Step 4: Write and freeze the cut document**
 
 Write `docs/designs/2026-09-16-conformance-cut-33.md` on cut 32's shape (`docs/designs/2026-09-16-conformance-cut-32.md`): a `**Status:**` line ("frozen 2026-09-16, before implementation; C7, C3's coverage clauses and C10's audit arm are open"); §1 what this cut is (spec §1, condensed; the slice design cited by its `docs/superpowers/specs/` path — a slice design stays there, as the six world-resolution slices did); §2 the boundary — the files in the file map above, named as the surfaces a sabotage may land in; §3 selection — the eleven declaration units single-homed, each with its frozen row text quoted where it has one:
 

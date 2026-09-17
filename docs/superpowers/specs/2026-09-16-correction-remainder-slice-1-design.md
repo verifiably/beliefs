@@ -1,7 +1,7 @@
 # Correction remainder, slice 1 — standing reaches the evaluator
 
 **Date:** 2026-09-16
-**Status:** draft, under review
+**Status:** approved; implementation in progress 2026-09-17
 **Boundary:** `correction-remainder` (`beliefs-aa27da`), the mutation lane's only open boundary; slice 1 of 2
 **Lane:** `mutation`, worktree `.worktrees/correction-remainder`
 **Sources:** `../../designs/2026-08-03-correction-lifecycle-design.md` (§3, §4, §6, §7a, C3, C7, C10),
@@ -804,3 +804,14 @@ filed at the cut.
   conflict or an unresolved route (aligning `gather` with `certify`), with
   both cases tested; `test_standing_read.py` seeds manifests through
   `adopt_manifest`. Clear for the implementation plan.
+- 2026-09-17 — implementation authorized from the reviewed spec and plan.
+  Planning corrected §10's reproduction claim: its answer is `NoBelief`, so
+  it has no pinned `belief_input_digest` to move. The re-run instead records
+  the same answer with the enumeration derived as `found=()` and
+  `coverage=(corpus_id,)`; no successful contract is recreated or moved to
+  `.work/reproduction/mm30.cut32`. The implementation file map is
+  `errors.py`, `closure.py`, `corpus.py`, `world/epoch.py`, `world/view.py`,
+  `lineage.py`, `belief.py`, `evaluation.py`, `verification.py`,
+  `composite.py`, `audit.py`, `contract/base.py`, `contract/decode.py`,
+  `contract/estimand.py`, the reproduction driver, their named tests, the
+  cut-33 acceptance/N2 files, and the freeze/discharge documentation.
