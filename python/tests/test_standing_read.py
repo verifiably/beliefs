@@ -337,3 +337,20 @@ def test_subtracted_assessments_and_verifications_are_never_decoded(tmp_path):
     assert len(inputs.assessments) == 1
     assert not inputs.verifications
     assert len(inputs.retractions.found) == 2
+
+
+def test_a_found_retraction_missing_from_the_local_index_is_unreadable(tmp_path):
+    from fixtures_cut4 import raw_write
+    from nodes.core.errors import RefError
+
+    writer, profile = seeded(tmp_path)
+    view = fresh(writer)
+    kwargs = kwargs_for(view, profile)
+    retraction = stored.stamp_semantic_identity(retracts(view.get(A1), "unindexed"))
+    raw_write(writer.root, retraction)
+    assert (retraction.id, RETRACTION_UPHELD) in local_retraction_enumeration(view).found
+    with pytest.raises(RetractionUnreadable) as refused:
+        gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+    assert refused.value.ref == retraction.id
+    assert isinstance(refused.value.__cause__, RefError)
+    assert refused.value.cause == str(refused.value.__cause__)

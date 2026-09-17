@@ -39,6 +39,7 @@ from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeAlias, cast, final
 
+from nodes.core.errors import RefError
 from nodes.core.node import Node
 
 from beliefs import stored
@@ -278,11 +279,11 @@ def gather(
     trace: list[ReadRef] = []
     facets: dict[str, Mapping[str, object]] = {}
     for ref, _recorded in enumeration.found:
-        corpus_id = _absence_of(view, ref)
-        if corpus_id is not None:
-            absent.append((ref, corpus_id))
-            continue
         try:
+            corpus_id = _absence_of(view, ref)
+            if corpus_id is not None:
+                absent.append((ref, corpus_id))
+                continue
             node = view.get(ref)  # a lookup; traced below only if the closure carries it
             facet = CorpusWriter._validated_retraction(node)
             target = cast(Mapping[str, str], facet["target"])
@@ -292,7 +293,7 @@ def gather(
                 absent.append((target_ref, corpus_id))
                 continue
             CorpusWriter._resolve_retraction_target(node, view)  # exact resolution, content identity, route presence
-        except ScienceError as caught:
+        except (ScienceError, RefError) as caught:
             raise RetractionUnreadable(ref, str(caught)) from caught
         facets[ref] = facet
     if absent:

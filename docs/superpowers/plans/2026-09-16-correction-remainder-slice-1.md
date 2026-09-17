@@ -1186,11 +1186,11 @@ def gather(
     trace: list[ReadRef] = []
     facets: dict[str, Mapping[str, object]] = {}
     for ref, _recorded in enumeration.found:
-        corpus_id = _absence_of(view, ref)
-        if corpus_id is not None:
-            absent.append((ref, corpus_id))
-            continue
         try:
+            corpus_id = _absence_of(view, ref)
+            if corpus_id is not None:
+                absent.append((ref, corpus_id))
+                continue
             node = view.get(ref)  # a lookup; traced below only if the closure carries it
             facet = CorpusWriter._validated_retraction(node)
             target = cast(Mapping[str, str], facet["target"])
@@ -1200,7 +1200,7 @@ def gather(
                 absent.append((target_ref, corpus_id))
                 continue
             CorpusWriter._resolve_retraction_target(node, view)  # exact resolution, content identity, route presence
-        except ScienceError as caught:
+        except (ScienceError, RefError) as caught:
             raise RetractionUnreadable(ref, str(caught)) from caught
         facets[ref] = facet
     if absent:
@@ -1372,7 +1372,7 @@ Check `EvaluationInputs.__post_init__` (if any) admits `consulted=()`; if it req
 
 and add `except RetractionUnreadable as exc: return Refused(f"retraction-unreadable: {exc}"), NotReached()` and `except RetractionResolutionDisagreement as exc: return Refused(f"retraction-resolution-disagreement: {exc}"), NotReached()` beside the existing `except` arms **only if** the spec's tests expect a `Refused` — they expect the exception (`pytest.raises`), so do **not** add those arms; a `RecordError` propagates as `MalformedRecord` does today.
 
-Imports in `evaluation.py`: `cast` from `typing`; `from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, Closure, RetractionEnumeration, build_closure`; `from beliefs.corpus import ReadView, _absence_of, retraction_standing, run_value`; `from beliefs.errors import (..., ProducerSnapshotMismatch, RetractionResolutionDisagreement, RetractionUnreadable, ScienceError)`; `from beliefs.lineage import LineageSnapshot, absences, retire`. `CorpusWriter` and `local_retraction_enumeration` are imported inside `gather` as `WorldReadView` is (the module-level import of `CorpusWriter` may be a cycle; try the module level first and fall back to the function-local import if it is).
+Imports in `evaluation.py`: `RefError` from `nodes.core.errors`; `cast` from `typing`; `from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, Closure, RetractionEnumeration, build_closure`; `from beliefs.corpus import ReadView, _absence_of, retraction_standing, run_value`; `from beliefs.errors import (..., ProducerSnapshotMismatch, RetractionResolutionDisagreement, RetractionUnreadable, ScienceError)`; `from beliefs.lineage import LineageSnapshot, absences, retire`. `CorpusWriter` and `local_retraction_enumeration` are imported inside `gather` as `WorldReadView` is (the module-level import of `CorpusWriter` may be a cycle; try the module level first and fall back to the function-local import if it is).
 
 `verification.py` docstring, lines 9–13: replace with
 
@@ -1582,7 +1582,7 @@ git commit -m "docs(reproduction): re-derive under the derived enumeration; adde
 | BI-1 | `evaluation.py` | `        if node.id in subtracted:\n            continue  # a standing retraction names it: a lookup, never decoded` | `        if False:\n            continue  # a standing retraction names it: a lookup, never decoded` |
 | BI-2 | `evaluation.py` | `        if node.id in subtracted:\n            continue  # the amended G8 clause (§7a): it leaves the read set; \`active\` recomputes over what remains` | `        if False:` … |
 | BI-3 | `evaluation.py` | `        found=tuple(sorted((ref, recorded) for ref, recorded in enumeration.found if ref in taken)),` | `        found=tuple(sorted(enumeration.found)),` |
-| BI-4 | `evaluation.py` | `        except ScienceError as caught:\n            raise RetractionUnreadable(ref, str(caught)) from caught` | `        except ScienceError:\n            continue` |
+| BI-4 | `evaluation.py` | `        except (ScienceError, RefError) as caught:\n            raise RetractionUnreadable(ref, str(caught)) from caught` | `        except (ScienceError, RefError):\n            continue` |
 | BI-5 | `evaluation.py` | `        if computed != recorded:\n            raise RetractionResolutionDisagreement(ref, recorded, computed)` | `        if False:\n            raise RetractionResolutionDisagreement(ref, recorded, computed)` |
 
 Every `before` must occur exactly once in its module and the mutated module must `ast.parse` (`test_each_sabotage_names_one_real_source_site_and_keeps_the_module_importable`); the two `subtracted` lines differ by their comments, which is why the comments are part of the pinned strings. `python/tests/acceptance/n2_arms_cut33.py` re-exports the five names as `acceptance/n2_arms_cut32.py` does.

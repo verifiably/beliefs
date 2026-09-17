@@ -281,3 +281,24 @@ def test_lineage_absence_uses_the_effective_world_walk(tmp_path, mode):
         else:
             assert certification.state == "not-certified"
             assert certification.findings == (("lineage-divergent",) if mode == "conflict" else ("lineage-incomplete",))
+
+
+def test_a_found_retraction_in_a_damaged_carrier_is_unreadable(tmp_path):
+    from test_world_view import damage
+
+    from beliefs.errors import CorpusDamaged, RetractionUnreadable
+
+    world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
+    profile = profile_with()
+    alpha, beta = writer_at(roots[ALPHA], profile), writer_at(roots[BETA], profile)
+    retraction = alpha.retract(retracts(support_in(open_world_view(world, published), ALPHA), "damaged-carrier"))
+    move(alpha, beta, retraction.id, **MOVE_FIELDS)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    kwargs = world_kwargs(open_world_view(world, published), profile)
+    damage(roots[BETA], "parse-error")
+    view = open_world_view(world, published, on_damage="report")
+    with pytest.raises(RetractionUnreadable) as refused:
+        gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+    assert refused.value.ref == retraction.id
+    assert isinstance(refused.value.__cause__, CorpusDamaged)
+    assert refused.value.cause == str(refused.value.__cause__)
