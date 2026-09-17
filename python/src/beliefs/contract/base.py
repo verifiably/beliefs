@@ -86,12 +86,15 @@ _GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "quantifiers", "polariti
 _ESTIMAND_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"})
 _COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
 SUPPORTED_SHAPES = ("dag",)
-SUPPORTED_CONTRAST_KINDS = ("continuous", "levels")
-SUPPORTED_SCALES = ("additive", "multiplicative")
-SUPPORTED_UNCERTAINTY_KINDS = ("interval", "standard-error")
 """The shapes this implementation derives (design §3.4). A contract naming a
 shape outside this set is refused at parse: a profile carrying `pag` would
 otherwise run `dag` classification under another shape's name."""
+SUPPORTED_CONTRAST_KINDS = ("continuous", "levels")
+SUPPORTED_SCALES = ("additive", "multiplicative")
+SUPPORTED_UNCERTAINTY_KINDS = ("interval", "standard-error")
+"""The three estimand closed sets this implementation operates. A contract
+must declare each set exactly: widening would route a new tag through an
+existing operation, while narrowing would declare less than the kernel does."""
 _RELATION_FIELDS = frozenset({"group", "sources", "targets"})
 _RELATION_OPTIONAL = frozenset({"same_kind"})
 _RELATION_GROUPS = ("world", "lifecycle")
