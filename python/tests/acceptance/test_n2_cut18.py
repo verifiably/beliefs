@@ -31,6 +31,22 @@ import beliefs.root as science_root
 
 # Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at e0bc65c.
 _LIVE_SABOTAGES = {
+    # Correction remainder slice 1, 2026-09-17: the conflict check reads the
+    # effective tag and surviving routes after retirement.
+    "W16": Sabotage(
+        module="lineage.py",
+        before=(
+            '        if tag == "conflict":\n'
+            '            findings.append("lineage-divergent")\n'
+            "            continue  # decided on the tag alone, before resolution or comparison\n"
+        ),
+        after=(
+            '        if tag == "conflict":\n'
+            "            if all(r.resolved_run is not None for r in effective_routes(snapshot, dataset)):\n"
+            '                findings.append("lineage-divergent")\n'
+            "            continue\n"
+        ),
+    ),
     "C1": Sabotage(
         module="corpus.py",
         before=(

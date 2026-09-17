@@ -1185,6 +1185,11 @@ def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> Li
         routes = []
         for route in stored.basis_routes(node):
             run, ancestor = str(route.get("run", "")), str(route.get("ancestor", ""))
+            identity = route.get("identity")
+            if identity is not None and (type(identity) is not str or not identity):
+                raise MalformedRecord(
+                    f"{dataset}: a stamped basis route's identity is a non-empty string when present"
+                )
             for ref in (run, ancestor):
                 corpus_id = _absence_of(view, ref)
                 if corpus_id is not None:
@@ -1197,6 +1202,7 @@ def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> Li
                     stored_ancestor=ancestor,
                     resolved_ancestor=view.resolve(ancestor),
                     transforms=tuple(str(entry) for entry in route.get("transforms", []) or ()),
+                    identity=identity,
                 )
             )
         facet = stored.lineage_basis(node)

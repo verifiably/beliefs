@@ -37,6 +37,21 @@ import beliefs.root as science_root
 # Final review, 2026-09-09: source map membership now also excludes drift.
 # Bypass the whole index membership boundary; the frozen declaration stays intact.
 _LIVE_SABOTAGES = {
+    # Correction remainder slice 1, 2026-09-17: absence collection reads only
+    # surviving routes after the effective-tag stop.
+    "S5e": Sabotage(
+        module="lineage.py",
+        before=(
+            "            for route in effective_routes(snapshot, dataset):\n"
+            "                for ref in (route.stored_run, route.stored_ancestor):\n"
+            "                    if ref in snapshot.not_present:\n"
+        ),
+        after=(
+            "            for route in effective_routes(snapshot, dataset):\n"
+            "                for ref in (route.stored_run, route.stored_ancestor):\n"
+            "                    if ref in snapshot.not_present and ref in inspected:\n"
+        ),
+    ),
     "W10d": Sabotage(
         module="world/view.py",
         before=(

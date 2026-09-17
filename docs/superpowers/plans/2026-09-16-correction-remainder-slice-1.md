@@ -494,7 +494,7 @@ git commit -m "feat(world): the read view carries the epoch's enumeration and pr
 **Interfaces:**
 - Produces: `Route.identity: str | None = None`; `LineageSnapshot.retired: Mapping[str, tuple[str, ...]]` (default empty); `lineage.retire(snapshot, retired: Mapping[str, Iterable[str]]) -> LineageSnapshot`; `lineage.effective_routes(snapshot, dataset) -> tuple[Route, ...]`; `lineage.effective_tag(snapshot, dataset) -> Literal["single", "conflict", "retired"]`; `lineage.absences(snapshot) -> tuple[Absence, ...]`; the projection's per-dataset `retired` list and per-route `identity` list.
 
-- [ ] **Step 1: The failing tests**
+- [x] **Step 1: The failing tests**
 
 Append to `python/tests/test_lineage.py` (the `route` helper at the top gains an `identity: str | None = None` keyword passed through to `Route`):
 
@@ -613,7 +613,7 @@ class TestWalkAbsences:
 Run: `cd python && uv run --frozen pytest tests/test_lineage.py -q`
 Expected: FAIL — `ImportError: cannot import name 'absences'`.
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 In `lineage.py`:
 
@@ -744,7 +744,7 @@ In `corpus.lineage_snapshot`, the `Route(...)` construction gains `identity=iden
 Run: `cd python && uv run --frozen pytest tests/test_lineage.py tests/test_read_side.py tests/test_world_view.py tests/test_belief.py tests/test_evaluation.py -q`
 Expected: PASS — every existing digest assertion that pins a literal projection must be updated for the two new keys (`retired`, `identity`); a test asserting a *literal* digest string moves (`grep -rn '"lineage"' python/tests | head` finds them). A test asserting equality between two projections built the same way does not.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 tasks check

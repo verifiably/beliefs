@@ -29,6 +29,13 @@ import beliefs.root as science_root
 
 # Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at b0882d3.
 _LIVE_SABOTAGES = {
+    # Correction remainder slice 1, 2026-09-17: certification now branches on
+    # the effective tag after retired routes are removed.
+    "R23c": Sabotage(
+        module="lineage.py",
+        before='        if tag == "conflict":\n',
+        after="        if False:\n",
+    ),
     # Live reconciliation migration, 2026-09-15 (slice 6): `_reconcile` now
     # computes merged facets before stamping, and public consolidate passes
     # correction history into it. The frozen declaration remains unchanged.
