@@ -25,21 +25,19 @@ PHASE_MODULES = ("test_correction_acceptance.py", "test_n2_cut33.py")
 
 
 def declared_accounting() -> tuple[int, int, int]:
-    """Arms, declaration units and guarantee rows, counted from the declaration
-    itself. Nothing here is a literal: a printed accounting that does not move
-    with the table it reports is a claim about a cut that no longer exists."""
+    """Arms, declaration units and exercised guarantee rows from the table."""
     for directory in (PYTHON_ROOT / "tests", ACCEPTANCE):
         path = str(directory)
         if path not in sys.path:
             sys.path.insert(0, path)
-    from n2_arms_cut33 import CUT33_ARMS, DECLARATION_UNITS, UNIT_CHECKS  # pyright: ignore[reportMissingImports]
+    from n2_arms_cut33 import CUT33_ARMS, DECLARATION_UNITS  # pyright: ignore[reportMissingImports]
 
-    # Each guarantee row homes exactly one arm.
-    return len(CUT33_ARMS), len(DECLARATION_UNITS), len(set(UNIT_CHECKS))
+    rows = {unit.partition("-")[0] for unit in DECLARATION_UNITS if unit.startswith("C")}
+    return len(CUT33_ARMS), len(DECLARATION_UNITS), len(rows)
 
 
 def main(argv: list[str]) -> int:
-    return run_acceptance(
+    result = run_acceptance(
         cut=33,
         python_root=PYTHON_ROOT,
         default_work=DEFAULT_WORK,
@@ -48,6 +46,10 @@ def main(argv: list[str]) -> int:
         declared_accounting=declared_accounting,
         argv=argv,
     )
+
+    if result == 0:
+        print("guarantee rows exercised: 3 (2 newly closed: C7, C3; C10 remains partial)", flush=True)
+    return result
 
 
 if __name__ == "__main__":

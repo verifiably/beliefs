@@ -79,17 +79,18 @@ _LIVE_SABOTAGES = {
     ),
     # Composite claims Task 6, 2026-09-16: `evaluate_over` became the first
     # projection of `evaluate_over_traced`, so the absent-corpus arm returns
-    # the answer paired with `NotReached()`. The row is unchanged — the arm
+    # the answer paired with `NotReached()`. Final review retains gathered
+    # inputs as a third internal result (`None` on absence). The row is unchanged; the arm
     # still flips the banked reason — and the declaration stays byte-exact.
     "R19e": Sabotage(
         module="evaluation.py",
         before=(
             '        return NoBelief("unavailable-corpus-absent", '
-            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()\n'
+            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None\n'
         ),
         after=(
             '        return NoBelief("unavailable-input-unheld", '
-            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()\n'
+            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None\n'
         ),
     ),
 }

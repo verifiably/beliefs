@@ -62,6 +62,47 @@ _LIVE_SABOTAGES = {
         before="    if len(composes) != len(facet.members) or any(relation.source != node.id for relation in composes):\n",
         after="    if any(relation.source != node.id for relation in composes):\n",
     ),
+    # Final review: identification now uses the evaluator's gathered values.
+    "U8-b": Sabotage(
+        module="composite.py",
+        before="            identification = tuple(sorted({\n"
+        "                value.estimand.control.identification.term\n"
+        "                for value in inputs.assessments\n"
+        "                if value.identity() in admission.admitted\n"
+        "            }))\n",
+        after="            identification = tuple(sorted({\n"
+        "                value.estimand.control.identification.term\n"
+        "                for value in inputs.assessments\n"
+        "                if value.identity() in admission.admitted\n"
+        '            })) or ("identification:observational",)\n',
+    ),
+    "U8-d": Sabotage(
+        module="evaluation.py",
+        before="    if inputs.absent:\n",
+        after="    if False:  # the evaluator wrapper's absent-corpus arm skipped\n",
+    ),
+    "U8-e": Sabotage(
+        module="composite.py",
+        before="            identification = tuple(sorted({\n"
+        "                value.estimand.control.identification.term\n"
+        "                for value in inputs.assessments\n"
+        "                if value.identity() in admission.admitted\n"
+        "            }))\n",
+        after="            from beliefs.admission import Admitted as _Admitted, admit as _admit\n"
+        "            identification = tuple(sorted({\n"
+        "                value.estimand.control.identification.term\n"
+        "                for value in inputs.assessments\n"
+        "                if isinstance(_admit(value, inputs.runs[value.run], availability.observations, ()), _Admitted)\n"
+        "            }))  # a separate admission decision for the identification column\n",
+    ),
+    "U8-g": Sabotage(
+        module="composite.py",
+        before="            assert inputs is not None  # admission was reached over these gathered values\n",
+        after="            assert inputs is not None  # admission was reached over these gathered values\n"
+        "            from beliefs import belief as _belief\n"
+        "            _belief.admitted(inputs.assessments, runs=inputs.runs, observations=availability.observations, "
+        "verifications=inputs.verifications)  # a second admission pass\n",
+    ),
 }
 CUT32_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT32_ARMS

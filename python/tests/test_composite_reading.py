@@ -245,8 +245,6 @@ def test_the_identification_column_reads_only_the_assessments_naming_the_member(
     and makes one member's reading depend on another's records."""
     from test_evaluation import seed_assessed_proposition
 
-    from beliefs import composite as composite_module
-
     w, dataset_address, *_ = corpus
     seed_assessed_proposition(
         w, "proposition:bc", slug="i-bc",
@@ -257,13 +255,13 @@ def test_the_identification_column_reads_only_the_assessments_naming_the_member(
     assert unrelated
 
     decoded: list[str] = []
-    original = composite_module.assessment_value
+    original = stored.assessment_value
 
     def counting(node, **kwargs):
         decoded.append(node.id)
         return original(node, **kwargs)
 
-    monkeypatch.setattr(composite_module, "assessment_value", counting)
+    monkeypatch.setattr(stored, "assessment_value", counting)
     reading = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))
 
     assert reading.rows[0].identification == ("EX:observational",)
@@ -339,3 +337,33 @@ def test_a_retracted_support_reaches_the_composite_member(corpus):
     after = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address)).rows[0]
     assert after.belief == NoBelief("no-eligible-assessment")
     assert after.identification == ()
+
+
+@pytest.mark.parametrize("surviving", [False, True])
+def test_identification_never_decodes_a_retracted_malformed_assessment(corpus, surviving):
+    from fixtures_cut4 import raw_write, reopen
+    from test_evaluation import seed_assessed_proposition
+    from test_local_standing import retracts
+
+    w, dataset_address, *_ = corpus
+    if surviving:
+        seed_assessed_proposition(
+            w, "proposition:ab", slug="survivor",
+            estimand=_estimand(_claim("EX:a", "EX:b")), applicability={},
+        )
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    malformed = w.read_view.get("assessment:a-ab")
+    malformed.facets[stored.ASSESSMENT_FACET]["outcome"] = "malformed"
+    malformed = stored.stamp_semantic_identity(malformed)
+    raw_write(w.root, malformed)
+    raw_write(w.root, stored.stamp_semantic_identity(retracts(malformed, "withdraw-malformed")))
+    view = reopen(w.root)
+    inputs = _inputs(w, dataset_address)
+    expected = evaluate_over(view, "proposition:ab", **over_kwargs(inputs))
+    if surviving:
+        assert isinstance(expected, Belief)
+    else:
+        assert expected == NoBelief("no-eligible-assessment")
+    row = read_composite(view, minted.id, **inputs).rows[0]
+    assert row.belief == expected
+    assert row.identification == (("EX:observational",) if surviving else ())

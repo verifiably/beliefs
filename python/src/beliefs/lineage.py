@@ -111,7 +111,7 @@ class Route:
 
 def _route_sort_key(route: Route) -> tuple[object, ...]:
     """A total order over routes for `conflict`'s sortedness check and the
-    projection: `None` sorts before every string, at its own field, rather
+    projection: `None` sorts after every string, at its own field, rather
     than being coerced into one — coercion could make two genuinely different
     routes compare equal."""
     return (
@@ -123,6 +123,8 @@ def _route_sort_key(route: Route) -> tuple[object, ...]:
         route.resolved_ancestor is None,
         route.resolved_ancestor or "",
         route.transforms,
+        route.identity is None,
+        route.identity or "",
     )
 
 

@@ -439,3 +439,16 @@ class TestWalkAbsences:
             not_present={"x": "c2"},
         )
         assert absences(snapshot) == (Absence("run-x", "c9"), Absence("x", "c2"))
+
+
+@pytest.mark.parametrize("identities", [("route:a", "route:b"), ("route:a", None)])
+def test_identity_only_routes_have_one_canonical_order(identities):
+    routes = tuple(route("x", "a", identity=identity) for identity in identities)
+    basis = Basis(tag="conflict", routes=routes)
+    snapshot = LineageSnapshot(roots=("x",), bases={"x": basis}, producers={})
+    projected = cast(dict[str, Any], snapshot_projection(snapshot)["bases"])["x"]["routes"]
+    assert [item["identity"] for item in projected] == [
+        [] if identity is None else [identity] for identity in identities
+    ]
+    with pytest.raises(MalformedSnapshot, match="routes sorted"):
+        Basis(tag="conflict", routes=tuple(reversed(routes)))

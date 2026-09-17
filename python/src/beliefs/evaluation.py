@@ -466,6 +466,53 @@ def gather(
         node_corpus=MappingProxyType(dict(node_corpus)),
     )
 
+def _evaluate_over_inputs(
+    view: ReadView | WorldReadView,
+    proposition: str,
+    *,
+    availability: Availability,
+    context: SuppliedContext,
+    profile: ProfileSpec,
+    resolution: ResolutionSnapshot,
+    binding: object,
+) -> tuple[Belief | NoBelief | Refused, Admission, EvaluationInputs | None]:
+    """`evaluate`'s step-1 guard first, then `gather`, then `evaluate_traced`,
+    carrying the admission and its gathered inputs (design §6.2).
+
+    The guard runs before anything is read: without it the wrapper would open
+    the corpus, or crash projecting `.rule` off a `None` or a string, before
+    `evaluate` ever got to refuse — turning a clean refusal into reads and an
+    exception. Every answer this wrapper gives itself precedes step 5, so it
+    is `NotReached`; only the evaluator's own answer carries a set."""
+    if not isinstance(binding, PolicyBinding):
+        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"), NotReached(), None
+    try:
+        inputs = gather(view, proposition, context=context, profile=profile, resolution=resolution, binding=binding)
+    except ContractDisagreement as exc:
+        return Refused(f"consulted-contracts-disagree: {exc}"), NotReached(), None
+    except ContractMismatch as exc:
+        return Refused(str(exc)), NotReached(), None
+    except FacetPayloadRefused as exc:
+        return Refused(f"facet-payload-refused: {exc}"), NotReached(), None
+    except FacetUndeclared as exc:
+        return Refused(str(exc)), NotReached(), None
+    if inputs.absent:
+        corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
+        return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None
+    context = replace(context, node_corpus=inputs.node_corpus, snapshot=inputs.snapshot)
+    answer, admission = evaluate_traced(
+        proposition=proposition,
+        records=inputs.records(),
+        availability=availability,
+        context=context,
+        retractions=inputs.retractions,
+        binding=binding,
+        profile=profile,
+    )
+
+    return answer, admission, inputs
+
+
 def evaluate_over_traced(
     view: ReadView | WorldReadView,
     proposition: str,
@@ -476,39 +523,12 @@ def evaluate_over_traced(
     resolution: ResolutionSnapshot,
     binding: object,
 ) -> tuple[Belief | NoBelief | Refused, Admission]:
-    """`evaluate`'s step-1 guard first, then `gather`, then `evaluate_traced`,
-    carrying the admission the answer rests on (design §6.2).
-
-    The guard runs before anything is read: without it the wrapper would open
-    the corpus, or crash projecting `.rule` off a `None` or a string, before
-    `evaluate` ever got to refuse — turning a clean refusal into reads and an
-    exception. Every answer this wrapper gives itself precedes step 5, so it
-    is `NotReached`; only the evaluator's own answer carries a set."""
-    if not isinstance(binding, PolicyBinding):
-        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"), NotReached()
-    try:
-        inputs = gather(view, proposition, context=context, profile=profile, resolution=resolution, binding=binding)
-    except ContractDisagreement as exc:
-        return Refused(f"consulted-contracts-disagree: {exc}"), NotReached()
-    except ContractMismatch as exc:
-        return Refused(str(exc)), NotReached()
-    except FacetPayloadRefused as exc:
-        return Refused(f"facet-payload-refused: {exc}"), NotReached()
-    except FacetUndeclared as exc:
-        return Refused(str(exc)), NotReached()
-    if inputs.absent:
-        corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
-        return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()
-    context = replace(context, node_corpus=inputs.node_corpus, snapshot=inputs.snapshot)
-    return evaluate_traced(
-        proposition=proposition,
-        records=inputs.records(),
-        availability=availability,
-        context=context,
-        retractions=inputs.retractions,
-        binding=binding,
-        profile=profile,
+    """Return the answer and its single traced admission (design §6.2)."""
+    answer, admission, _inputs = _evaluate_over_inputs(
+        view, proposition, availability=availability, context=context,
+        profile=profile, resolution=resolution, binding=binding,
     )
+    return answer, admission
 
 
 def evaluate_over(

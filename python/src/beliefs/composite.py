@@ -24,14 +24,14 @@ from beliefs.contract.base import COMPOSITE_GRAMMAR
 from beliefs.corpus import superseded_by
 from beliefs.decode import claim_from_stored
 from beliefs.errors import ClaimError, CompositeError, DecodeError, MalformedRecord, ProfileError
-from beliefs.evaluation import evaluate_over_traced
+from beliefs.evaluation import _evaluate_over_inputs
 from beliefs.identity import v1
 from beliefs.policy import PolicyBinding
 from beliefs.profile import ProfileSpec
 from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import ReferentPosition, ResolutionSnapshot, TermOutcome, build_snapshot
 from beliefs.sealed import sealed
-from beliefs.stored import ASSESSES, COMPOSES, assessment_value
+from beliefs.stored import COMPOSES
 from beliefs.stored import composite_value as stored_composite_value
 
 COMPOSITE_DOMAIN = "science.composite.v1"
@@ -472,36 +472,19 @@ def read_composite(
 
     rows: list[MemberRow] = []
     for member, member_ref in zip(facet.members, refs, strict=True):
-        answer, admission = evaluate_over_traced(
+        answer, admission, inputs = _evaluate_over_inputs(
             view,  # type: ignore[arg-type]
             member_ref, availability=availability, context=context, profile=profile, resolution=resolution, binding=binding,
         )
         if isinstance(admission, NotReached):
             identification: tuple[str, ...] | NotReached = admission
         else:
-            terms = set()
-            scanned: set[str] = set()
-            for stored_node in view.iter_stored():  # type: ignore[attr-defined]
-                if stored_node.kind != "assessment" or not any(
-                    r.predicate == ASSESSES and r.target == member_ref for r in stored_node.relations
-                ):
-                    continue  # §6.2: the column is this member's admitted assessments, not the corpus's
-                value = assessment_value(stored_node, profile=profile)
-                scanned.add(value.identity())
-                if value.identity() in admission.admitted:
-                    terms.add(value.estimand.control.identification.term)
-            unscanned = sorted(frozenset(admission.admitted) - scanned)
-            if unscanned:
-                # Nothing checks that an assessment's `assesses` edge agrees with
-                # its facet (`evaluation.gather`), so a raw-written record can be
-                # admitted by facet and invisible to this scan. A short set would
-                # be the two columns silently resting on different admissions.
-                raise CompositeError(
-                    "composite-admission-unscanned",
-                    f"{ref}: member {member_ref}: the evaluator admitted {', '.join(unscanned)}, which no assessment "
-                    "naming that member carries",
-                )
-            identification = tuple(sorted(terms))
+            assert inputs is not None  # admission was reached over these gathered values
+            identification = tuple(sorted({
+                value.estimand.control.identification.term
+                for value in inputs.assessments
+                if value.identity() in admission.admitted
+            }))
         rows.append(
             MemberRow(
                 member=member,

@@ -168,18 +168,21 @@ discharged and no row moves. Slice 2 takes C8 and C9 (§12).
     the closure", and its first consequence is that a standing retraction
     moves the digest of "every computation whose closure contains its
     target, and no other computation's"; cut 5's C3 arm pins exactly that.
-    So `found` in the closure is the **input-scoped** subset: retractions
-    whose node-arm target is one of this proposition's assessments or
-    verifications (before subtraction — the subtracted record is an input the
-    enumeration was run over), retractions whose route-arm dataset is in the
-    lineage walk's inspected set, and transitively every retraction targeting
-    one of those, with the resolutions the enumeration recorded; `coverage`
-    is the whole declared coverage. The fold that decides standing runs over
-    every found retraction (decision 3) — a counter-retraction elsewhere in
-    coverage can overturn a retraction in the chain, and only the whole graph
-    knows. Rejected: digesting the whole enumeration — one retraction against
-    an unrelated proposition would move every digest in the world, which the
-    banked guarantee forbids.
+    Here `found` is scoped by the explicit §4 algorithm: the union of this
+    proposition's assessment ids and their verification ids (both before
+    subtraction) with **every dataset key in the supplied `snapshot.bases`**,
+    plus transitively every retraction targeting a member of that scope or
+    another included retraction. This covers both node and route arms naming
+    those datasets, with the resolutions the enumeration recorded; `coverage`
+    is the whole declared coverage. The whole supplied snapshot is projected,
+    including bases outside the effective lineage walk. The scope is therefore
+    not limited to that walk's inspected set; tighter route locality would be
+    a separate behavior change. The fold that decides standing runs over every
+    found retraction (decision 3) — a counter-retraction elsewhere in coverage
+    can overturn a retraction in the chain, and only the whole graph knows.
+    Rejected: digesting the whole enumeration — a retraction whose target is
+    outside this supplied-input scope must not move this computation's digest.
+
 11. **The four src-touching follow-ups ride.** `beliefs-0521da`,
     `beliefs-1dd03f`, `beliefs-010c6e` and `beliefs-b1245d` each say "lands
     with the next cut that re-runs the certified chain"; this is that cut.

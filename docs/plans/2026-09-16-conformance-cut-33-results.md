@@ -20,7 +20,8 @@ verbatim, was:
 declared arms: 11 (= 11 declaration units; 11 guarantee rows)
 ```
 
-The runner's last phrase is its inherited accounting label. The eleven items
+The historical runner's last phrase was an incorrect accounting label (corrected
+at final review; see §3.4). The eleven items
 are declaration units: C7-a, C7-b, C7-c, C3-a, C3-b, C10-a and BI-1–BI-5.
 Five are boundary-invariant units rather than guarantee rows. At row level this
 cut closes C7 and C3 and reads only C10's audit arm; C10 remains partial.
@@ -132,8 +133,9 @@ the frozen body.
   carriers use direct dataclass replacement. The boundary failures are more
   specific without widening behavior.
 - **The supplied snapshot bounds the route scope.** The implementation follows
-  the plan's explicit `snapshot.bases` algorithm; it does not infer a wider
-  inspected world from the design's shorthand.
+  the plan's explicit `snapshot.bases` algorithm and projects the whole supplied
+  snapshot. This scope can exceed the effective walk's inspected set; final
+  review corrected decision 10's narrower wording without changing behavior.
 - **Fixture prerequisites were made real.** Task 1 seeds the referenced spec and
   run nodes; C7 supplies a real observed empirical ancestor; C3-b moves the
   destination's dataset, run and proposition prerequisites before the measured
@@ -188,6 +190,57 @@ The host's default work-root and predecessor paths remain host-dependent; the
 certified runner and reproduction preflight use explicit existing roots. A
 Pyright upgrade advisory appeared during the lane, but analysis was clean and
 no dependency upgrade was requested. Neither is a behavioral remainder.
+
+### 3.4 Final-review corrections — 2026-09-17
+
+Final whole-branch review at `fd0a5ae` found two behavior defects. The new
+regressions first failed in all four cases: a validly retracted malformed
+assessment was decoded again by the composite identification scan, with both
+empty and surviving admissions; conflicts differing only by route identity
+accepted reversed order, including a `None` identity.
+
+The composite now reads the same gathered assessment values and traced
+admission as the evaluator through one shared internal evaluation path. It
+performs no second standing fold, gather, or assessment decode. The public
+`evaluate_over_traced` result remains the answer/admission pair. Route ordering
+now includes an optional identity tie-breaker, preserving the existing ordering
+of the earlier fields; `None` sorts after strings without comparing it to one.
+All four regressions then passed.
+
+The live runner now counts distinct exercised guarantee rows separately from
+declaration units. Its current output is:
+
+```text
+declared arms: 11 (= 11 declaration units; 3 guarantee rows)
+guarantee rows exercised: 3 (2 newly closed: C7, C3; C10 remains partial)
+```
+
+The runner-output test exercises this accounting with subprocess execution
+replaced; the historical full-run output in §1 remains verbatim. No new full
+prefix run is claimed. The README and guide now correctly say that assessments
+and verifications **targeted by standing retractions** leave the input set.
+Decision 10 now names the explicit `snapshot.bases` scope: the whole supplied
+snapshot is projected, even beyond the effective walk. This corrects wording,
+including the interpretation in the third historical ruling below; no tighter
+route-locality behavior was introduced. The nineteenth ruling records this
+correction.
+
+The shared evaluator change moved five live mutation anchors: cut 32 U8-b,
+U8-d, U8-e, U8-g and cut 23 R19e. Each retargeted arm had a **resolved** baseline
+and a **sound** mutation. Only the live guards changed; all canonical declarations
+and frozen cut bodies remain unchanged. The focused cut-33 acceptance, guard,
+staleness and documentation checks passed **52 tests in 84.51s**. The normal
+Python collection now contains **5003 tests**, five more than the earlier gate:
+four behavior-regression cases and one cut-33 runner case.
+
+The stable certified `just test-fast` checkpoint passed **4961 tests, 1 skipped
+in 181.47s**; the skip is the same intentional causal-only fixture arm described
+in §1. The TypeScript changed-file selection found no test files and exited 0.
+Final documentation and cut-32 source-site/AST/freeze checks passed **31 tests**.
+No capability waiver was used.
+
+The final merged-main serial gate remains the controller's required integration
+check (§6); the earlier full-gate output in §1 is historical evidence.
 
 ## 4. Reproduction measurement
 
@@ -325,3 +378,7 @@ Every `Ruling:` entry from the execution ledger, in chronological order:
   exposed an incomplete test precondition. Cost if wrong: fallback behavior
   coverage could narrow; fixture and capability policy remain unchanged and the
   final full gate must pass.
+- **Align decision 10 wording to explicit §4 `snapshot.bases` scope rather
+  than tighten to the effective walk.** The full supplied snapshot is projected,
+  but inspected-set wording was not literally equivalent. Cost if wrong:
+  stricter route locality remains a separately reviewed behavior change.

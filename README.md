@@ -162,9 +162,9 @@ The `composite` kind records the structure a set of claims is drawn against —
 a closed node set, members read as signed directed edges, and the assertion
 that no other direct edge holds among those nodes — with a reading derived
 through the traced evaluator, stored nowhere, and inert to belief.
-Retraction standing now reaches the evaluator at the read: standing assessments
-and verifications are subtracted, and standing route retractions retire lineage
-routes without changing the stored basis.
+Retraction standing now reaches the evaluator at the read: assessments and
+verifications targeted by standing retractions are subtracted, and standing
+route retractions retire lineage routes without changing the stored basis.
 The latest discharged boundary is cut 33
 ([cut](docs/designs/2026-09-16-conformance-cut-33.md),
 [results](docs/plans/2026-09-16-conformance-cut-33-results.md)).
