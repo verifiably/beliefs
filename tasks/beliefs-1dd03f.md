@@ -7,8 +7,9 @@ size: s
 complexity: mid
 process: direct
 created: 2026-09-16T06:45:37Z
-updated: 2026-09-16T06:45:37Z
+updated: 2026-09-17T01:15:33Z
 depends: []
+parent: beliefs-dc4e56
 tags: [belief, contract]
 agent: claude-code/claude-fable-5-1
 ---

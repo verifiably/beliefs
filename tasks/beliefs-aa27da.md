@@ -8,11 +8,12 @@ complexity: high
 process: planned
 owner: design/correction-remainder
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-16T23:17:08Z
+updated: 2026-09-17T01:14:45Z
 started: 2026-09-16T22:59:34Z
 depends: [beliefs-676a2c]
 tags: [migration, mutation, correction]
 spec: docs/superpowers/specs/2026-09-16-correction-remainder-slice-1-design.md
+plan: docs/superpowers/plans/2026-09-16-correction-remainder-slice-1.md
 ---
 
 Outcome: Beliefs completes standing-retraction evaluation, conflict semantics, semantic snapshots, coverage, audit reporting, and correction succession over the delivered consolidate family.
