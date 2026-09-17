@@ -287,9 +287,14 @@ Any `ScienceError` raised for a found ref — `MalformedRecord`,
 cause)` (decision 4), the catch `corpus_check` uses. `_resolve_retraction_target`
 reads the target record to compare its content identity; that read is a
 lookup and not a hand-out, as the module docstring already says of the
-proposition-ref read. If `absent` is non-empty the evaluation answers
-`NoBelief("unavailable-corpus-absent")` through the existing path, and
-nothing below runs. Then, for every found ref, `("upheld" if standing[ref]
+proposition-ref read. If `absent` is non-empty after this loop, `gather` returns early: an
+`EvaluationInputs` with `absent` populated and every selection empty
+(`assessments=()`, `runs={}`, `verifications=()`, `claim=None`,
+`observed_facets=()`, `read_trace` holding what was read, `retractions`
+carrying `coverage` and an empty `found`, `snapshot=context.snapshot`), and
+`evaluate_over_traced` answers `NoBelief("unavailable-corpus-absent")` from
+it as it does today. A partial fold over an incomplete graph must never
+yield a subtracted set, so no selection runs on one. Then, for every found ref, `("upheld" if standing[ref]
 else "overturned") == recorded` or the evaluation refuses with
 `RetractionResolutionDisagreement` naming the ref and both resolutions
 (decision 3).
@@ -324,7 +329,18 @@ instead appends `lineage.absences(inputs.snapshot)` — `_absent_references`
 over the effective closure of `snapshot.roots`, iterating
 `effective_routes` rather than `basis.routes` (§5) — so an absence confined
 to a retired branch blocks nothing, and one on a surviving route or a root
-blocks as before. `not_present` itself is unchanged and still projected. The rest of `gather` — runs, observed facets, the claim,
+blocks as before. `not_present` itself is unchanged and still projected.
+
+This is wider than the retired case. `_closure` stops at a `conflict`
+basis and at an unresolved route, so `_absent_references` never sees what
+lies beneath either; `not_present` whole is filled by the relation closure
+`corpus.lineage_snapshot` walks, which goes deeper than the basis walk.
+After the switch an absence beneath a conflict, or beneath an unresolved
+route, no longer answers `unavailable-corpus-absent`: the evaluation
+proceeds and certifies `not-certified` on the conflict or the incompleteness
+it already reached, which is what `certify` has always answered for those
+snapshots. `gather` and `certify` now agree on what an absence blocks;
+accepted, and tested (§8.1). The rest of `gather` — runs, observed facets, the claim,
 `consulted` — reads the filtered assessment set as today.
 
 **Datasets and runs** are not eligible targets (design §4); the loops that
@@ -334,7 +350,11 @@ read them are unchanged.
 verification loops have selected this proposition's records — the standing
 ones handed out and the subtracted ones skipped — the closure subset is
 computed from `facets`: start from the ids of every assessment and
-verification the loops *visited* for this proposition (subtracted included)
+verification that belong to this proposition — membership decided by the
+**relation edge**, `assesses` for an assessment and `verifies` for a
+verification (a verification belongs when its `verifies` target is one of
+the proposition's assessment ids, subtracted ones included), never by
+decoding, because a subtracted record is skipped before it is decoded —
 and every dataset in `context.snapshot.bases`; take every found retraction
 whose node-arm `resolved` or route-arm `resolved` is in that set; then
 transitively every found retraction whose node-arm `resolved` is a
@@ -463,7 +483,13 @@ minted is that cut's question.
 
 ### 8.1 Unit
 
-`python/tests/test_standing_read.py` (new):
+`python/tests/test_standing_read.py` (new). Every corpus it reads carries a
+manifest, because `ReadView.corpus_id` reads one: corpora are seeded through
+`CorpusWriter(root, DefaultExecutor, authority=FULL, profile=...)` followed
+by `writer.adopt_manifest(profile=pins_for(...))`, the shape
+`test_world_view.py::split_verification_world` uses — not
+`test_local_standing.py::seed`, which writes none — and one test seeds a
+manifest-less corpus to pin the refusal.
 
 - a corpus-local `gather` over a corpus with a retracted supporting
   assessment: the assessment is absent from `EvaluationInputs.assessments`,
@@ -525,7 +551,11 @@ minted is that cut's question.
   such a corpus → the same; a conflict basis whose **retired** route names an
   ancestor in an absent corpus while the surviving route is complete →
   `absent` empty, a `Belief`, certified over the survivor; the same absence
-  on the surviving route → `unavailable-corpus-absent`;
+  on the surviving route → `unavailable-corpus-absent`; an absence beneath
+  an unretired conflict (an ancestor of one of its routes in an absent
+  corpus) → `absent` empty and `not-certified` with `lineage-divergent`, and
+  beneath an unresolved route → `absent` empty and `not-certified` with
+  `lineage-incomplete`;
 - C3 uncovered: the `move` fixture of §6 — digest unchanged before the
   widening, the subtraction after it; and, isolated at the closure,
   `build_closure` over identical members but a wider `retractions.coverage`
@@ -767,3 +797,10 @@ filed at the cut.
   than `not_present` whole, with a retired-branch absence test; BI-3's
   acceptance clause tests the scoped subset with matching and unrelated
   retractions together; the digest assertion names `belief_input_digest`.
+- 2026-09-16 — fourth review; wording only. A subtracted record's closure
+  membership is decided by its `assesses`/`verifies` edge, never by
+  decoding; `gather` returns early on absence with every selection empty;
+  the effective-walk absences are stated to widen the change beneath a
+  conflict or an unresolved route (aligning `gather` with `certify`), with
+  both cases tested; `test_standing_read.py` seeds manifests through
+  `adopt_manifest`. Clear for the implementation plan.
