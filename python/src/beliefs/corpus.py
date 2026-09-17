@@ -3111,11 +3111,8 @@ class CorpusWriter:
         if facet.shape not in self._profile.composite_grammar.shapes:
             raise CompositeError("composite-shape", f"{node.id}: {facet.shape!r} is not a shape the base contract declares")
         composes = [relation for relation in node.relations if relation.predicate == stored.COMPOSES]
-        if len(composes) != len(facet.members) or any(relation.source != node.id for relation in composes):
-            raise CompositeError(
-                "composite-relations-mismatch",
-                f"{node.id}: the facet names {len(facet.members)} member(s) and the record carries {len(composes)} composes edge(s)",
-            )
+        if reason := composite_module.check_composes_relations(node, facet):
+            raise CompositeError("composite-relations-mismatch", reason)
         refs = tuple(relation.target for relation in composes)
         claims = composite_module.restore_members(
             view, facet.members, refs, profile=self._profile, snapshot=composite_module.EMPTY_SNAPSHOT

@@ -57,6 +57,11 @@ _LIVE_SABOTAGES = {
         '        if node.kind == "composite" and any(relation.target in set(proposition_refs) for relation in node.relations)\n'
         "    )  # the composites naming the proposition reach the belief inputs\n",
     ),
+    "U6-b": Sabotage(
+        module="composite.py",
+        before="    if len(composes) != len(facet.members) or any(relation.source != node.id for relation in composes):\n",
+        after="    if any(relation.source != node.id for relation in composes):\n",
+    ),
 }
 CUT32_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT32_ARMS

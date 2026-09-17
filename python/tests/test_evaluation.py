@@ -542,6 +542,7 @@ def test_evaluate_over_is_the_first_projection_of_evaluate_over_traced(corpus_fi
     from beliefs.belief import Reached
     from beliefs.evaluation import evaluate_over_traced
 
+    # P1–P9 carry the proof that the first projection is the answer; this pins only that the tuple's first member is what `evaluate` returns.
     for fixture in (corpus_fixture, claimless_fixture):
         answer, admission = evaluate_over_traced(fixture.view, fixture.proposition, **over_kwargs(fixture.kwargs))
         assert evaluate_over(fixture.view, fixture.proposition, **over_kwargs(fixture.kwargs)) == answer

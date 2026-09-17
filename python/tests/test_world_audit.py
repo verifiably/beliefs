@@ -446,6 +446,21 @@ def test_a_composite_member_in_an_absent_corpus_is_unchecked_not_a_raise(tmp_pat
     assert members["bc"].id in outcome.reason and BETA in outcome.reason
 
 
+def test_an_absent_composite_member_does_not_hide_a_dangling_sibling(tmp_path):
+    composite, members = _composite_across(tmp_path)
+    first, second = (relation.target for relation in composite.relations if relation.predicate == stored.COMPOSES)
+    by_id = {member.id: member for member in members.values()}
+    world, roots, published = _world_of(tmp_path, {ALPHA: (composite,), BETA: (by_id[first],)})
+    make_absent(roots, BETA)
+
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+    assert second != first
+    assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [
+        ("composite-member-unresolvable", composite.id)
+    ]
+
+
 def test_a_dangling_composite_is_reported_through_the_world_audits_recompute(tmp_path):
     """The U7 arm `beliefs-6776d3` names: `check_composite` reached through
     `audit_world`'s `_recompute` dispatch rather than through `audit_corpus`."""

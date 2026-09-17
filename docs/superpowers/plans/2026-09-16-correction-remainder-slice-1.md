@@ -1473,7 +1473,7 @@ In `contract/base.py`, after the `EstimandGrammar(...)` construction:
 
 Run: `cd python && uv run --frozen pytest tests/test_base_contract.py tests/test_estimand.py tests/test_decode.py -q` and `cd ts && npm test -- declarations` green; then `just test-fast`. Commit: `git commit -m "fix(contract): the estimand grammar's three closed sets are exactly the operable tags, in both implementations"` with `tasks done beliefs-1dd03f "..."`.
 
-- [ ] **Step 5: `beliefs-b1245d` — the composite tidy**
+- [x] **Step 5: `beliefs-b1245d` — the composite tidy**
 
 Read the task body (`tasks show beliefs-b1245d --pretty`) — it is the list. Each item, in order, with the tests that pin it:
 

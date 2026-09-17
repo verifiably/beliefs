@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 from domain_facet_fixtures import over_kwargs
 from profiles import pins_for
@@ -9,12 +11,12 @@ from test_composite_boundary import GENE, SNAPSHOT, A, _build, _claim, _estimand
 from test_evaluation import _observations  # the held byte observations helper, keyed by dataset address
 
 from beliefs import stored
-from beliefs.belief import Availability, Belief, NoBelief, NotReached, SuppliedContext
+from beliefs.belief import Availability, Belief, NoBelief, NotReached, Refused, SuppliedContext
 from beliefs.composite import CompositeError, CompositeNode, CompositeReading, build_composite, read_composite
 from beliefs.corpus import lineage_snapshot
 from beliefs.evaluation import evaluate_over
 from beliefs.identity import v1
-from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
+from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.projection import project_claim
 from beliefs.resolution import TermOutcome, build_snapshot
 
@@ -77,6 +79,60 @@ def test_withholding_follows_the_evaluator(corpus):
     assert isinstance(unheld.belief, NoBelief) and unheld.identification == ()
     no_policy = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address, with_policy=False)).rows[0]
     assert no_policy.belief == NoBelief("unavailable-policy-unheld") and no_policy.identification == NotReached()
+
+
+def test_answers_before_admission_carry_not_reached(corpus):
+    w, dataset_address, *_ = corpus
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    inputs = _inputs(w, dataset_address)
+
+    fixtures_unheld = read_composite(
+        w.read_view,
+        minted.id,
+        **{**inputs, "availability": replace(inputs["availability"], fixtures={})},
+    ).rows[0]
+    assert fixtures_unheld.belief == NoBelief("unavailable-fixtures-unheld")
+    assert fixtures_unheld.identification == NotReached()
+
+    broken = PolicyImplementation(identity=BELIEF_V1.identity, aggregate=lambda _problem: 999)
+    fixture_failure = read_composite(
+        w.read_view,
+        minted.id,
+        **{
+            **inputs,
+            "availability": replace(inputs["availability"], implementations={BELIEF_V1.identity: broken}),
+        },
+    ).rows[0]
+    assert isinstance(fixture_failure.belief, Refused)
+    assert fixture_failure.belief.reason.startswith("implementation-fails-fixtures")
+    assert fixture_failure.identification == NotReached()
+
+    gather_exception = read_composite(
+        w.read_view,
+        minted.id,
+        **{
+            **inputs,
+            "context": replace(
+                inputs["context"],
+                pins={"c1": replace(pins_for(w.profile), science_contract="science:" + "0" * 64)},
+            ),
+        },
+    ).rows[0]
+    assert isinstance(gather_exception.belief, Refused)
+    assert gather_exception.identification == NotReached()
+
+    absent_context = replace(
+        inputs["context"],
+        snapshot=replace(inputs["context"].snapshot, not_present={dataset_address: "corpus-elsewhere"}),
+    )
+    corpus_absent = read_composite(
+        w.read_view,
+        minted.id,
+        **{**inputs, "context": absent_context},
+    ).rows[0]
+    assert isinstance(corpus_absent.belief, NoBelief)
+    assert corpus_absent.belief.reason == "unavailable-corpus-absent"
+    assert corpus_absent.identification == NotReached()
 
 
 def test_two_inconclusive_admitted_assessments_keep_their_terms(corpus):

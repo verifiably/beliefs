@@ -653,6 +653,7 @@ class TestPolicyBindingRefuses:
 
 
 def test_evaluate_is_the_first_projection_of_evaluate_traced():
+    # P1–P9 carry the proof that the first projection is the answer; this pins only that the tuple's first member is what `evaluate` returns.
     for overrides in ({}, {"binding": None}, {"availability": scenario()["availability"].__class__(observations={}, implementations={}, fixtures={})}):
         kwargs = scenario(**overrides)
         answer, _ = evaluate_traced(**kwargs)

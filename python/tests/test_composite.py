@@ -122,12 +122,6 @@ class TestConstruction:
             build_composite(PROFILE, view, shape="dag", nodes=[A, C], members=["proposition:m"], snapshot=CONSULTED, slug="x")
         assert caught.value.code == "composite-member-layer"
 
-    def test_a_cycle_through_a_negative_edge_refuses(self, tmp_path):
-        # entity → outcome only exists under `affects`; a cycle needs an entity-sorted effect, so use `regulates`-shaped
-        # claims from the biology fixture: see test_composite_boundary. Here: a two-node cycle over the testing
-        # fixture is unconstructible (arg sorts differ), which is itself the assertion.
-        pytest.skip("cycle detection is exercised in test_composite_boundary under the biology fixture (gene → gene)")
-
     def test_an_isolated_node_with_an_undeclared_sort_refuses_in_shared_classification(self, tmp_path):
         from beliefs.composite import CompositeFacet, classify
         from beliefs.contract.base import COMPOSITE_GRAMMAR
