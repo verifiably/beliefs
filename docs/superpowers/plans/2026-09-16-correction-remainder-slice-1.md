@@ -1431,13 +1431,13 @@ In `audit._recompute`, replace `return check_analysis_spec(node, profile=profile
 
 Run the test: PASS. Commit: `git commit -m "fix(audit): audit_world runs check_spec_target so spec-target-contradicted is reachable in the world audit"` with `tasks done beliefs-0521da "..."` amended in.
 
-- [ ] **Step 3: `beliefs-1dd03f` — the failing tests**
+- [x] **Step 3: `beliefs-1dd03f` — the failing tests**
 
 In `python/tests/test_base_contract.py`, add three tests that parse the shipped base document with one closed set widened (`contrast_kinds: [levels, continuous, ordinal]`; `scales: [additive, multiplicative, log]`; `uncertainty_kinds: [interval, standard-error, credible]`) and assert `MalformedContract` naming the unoperable tag (`match="ordinal"` etc.); and one that narrows a set (`scales: [additive]`) and asserts `MalformedContract` too (a set the kernel implements more of is not the contract's set either — "exactly the tags the kernel implements"). In the module that tests `decode`'s wire estimand, add a test that a wire contrast with `kind` in the grammar but not `levels`/`continuous` cannot arise (the grammar refuses first), and in `test_estimand.py` a test that `check_estimate(Decimal("1"), "log")` raises `MeasureRefused` (or the module's scale-refusal class) rather than passing as additive.
 
 Run: FAIL.
 
-- [ ] **Step 4: `beliefs-1dd03f` — the sets**
+- [x] **Step 4: `beliefs-1dd03f` — the sets**
 
 In `estimand.py`, near the top:
 

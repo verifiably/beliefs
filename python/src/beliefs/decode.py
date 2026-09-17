@@ -394,13 +394,15 @@ def _typed_estimand(wire: WireEstimand, profile: ProfileSpec, *, stored: bool) -
             baseline=_wire_referent(contrast_body["baseline"], "contrast.baseline", declared=level_sort, stored=stored),
             comparison=_wire_referent(contrast_body["comparison"], "contrast.comparison", declared=level_sort, stored=stored),
         )
-    else:
+    elif kind == "continuous":
         _exact_keys(contrast_body, {"slot", "kind", "quantity", "increment"}, "contrast")
         contrast = ContinuousContrast(
             slot=slot,
             quantity=_wire_referent(contrast_body["quantity"], "contrast.quantity", declared=declaration.measure_sort, stored=stored),
             increment=_decimal(contrast_body["increment"], "contrast.increment"),
         )
+    else:
+        raise MalformedWireEstimand(f"contrast.kind {kind!r} is declared but not operable")
     _exact_keys(measure_body, {"quantity", "scale"}, "measure")
     measure = Measure(
         quantity=_wire_referent(measure_body["quantity"], "measure.quantity", declared=declaration.measure_sort, stored=stored),
