@@ -12,20 +12,22 @@ from nodes.core.errors import RefError
 from nodes.core.node import Node
 from nodes.core.structural_index import ResolvedEdge
 
+from beliefs.closure import RetractionEnumeration
 from beliefs.corpus import Finding, ReadView, _collecting_view, _operation_lock_for, _producer_ids, validated_node
 from beliefs.errors import (
     CaptureDrift,
     ContractMismatch,
     CorpusDamaged,
     CorpusStateMalformed,
+    EpochMalformed,
     EpochUnknown,
     ManifestMalformed,
     RecordNotPresent,
     ResolutionRefused,
 )
 from beliefs.sealed import sealed
-from beliefs.world import epoch, registry
-from beliefs.world.read import BoundStamp, Location, NotPresent, Resolved, Unknown, _address_map, _stamp
+from beliefs.world import derive, epoch, registry
+from beliefs.world.read import BoundStamp, Location, NotPresent, Resolved, Unknown, _address_map, _stamp, _thawed
 
 __all__ = ["DamageReport", "DriftReport", "WorldReadView", "open_world_view"]
 
@@ -65,6 +67,8 @@ class WorldReadView:
     _inbound: Mapping[tuple[str, str], tuple[ResolvedEdge, ...]]
     _producers: Mapping[tuple[str, str], tuple[str, ...]]
     _live: Mapping[str, ReadView]
+    _retractions: RetractionEnumeration
+    _producer_snapshot: str
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise ResolutionRefused("WorldReadView is opened, never constructed — use open_world_view(world, published)")
@@ -86,6 +90,8 @@ class WorldReadView:
         inbound: Mapping[tuple[str, str], tuple[ResolvedEdge, ...]],
         producers: Mapping[tuple[str, str], tuple[str, ...]],
         live: Mapping[str, ReadView],
+        retractions: RetractionEnumeration,
+        producer_snapshot: str,
     ) -> WorldReadView:
         if mint is not _MINT:
             raise ResolutionRefused("WorldReadView._opened is open_world_view's own route")
@@ -102,6 +108,8 @@ class WorldReadView:
         view._inbound = inbound
         view._producers = producers
         view._live = live
+        view._retractions = retractions
+        view._producer_snapshot = producer_snapshot
         return view
 
     @property
@@ -143,6 +151,14 @@ class WorldReadView:
     def published_producers(self, dataset: str) -> tuple[str, ...]:
         entry = self._recorded.get(dataset)
         return () if entry is None else self._producers.get(entry, ())
+
+    def retraction_enumeration(self) -> RetractionEnumeration:
+        """The enumeration the bound epoch published — the evaluator's, never a caller's."""
+        return self._retractions
+
+    def producer_snapshot_identity(self) -> str:
+        """The bound epoch's producer-snapshot subject identity."""
+        return self._producer_snapshot
 
     def resolve(self, ref: str) -> str | None:
         self._refuse_damaged(ref)
@@ -207,6 +223,10 @@ def open_world_view(
     world: registry.World, published: epoch.Epoch, *, on_damage: Literal["refuse", "report"] = "refuse"
 ) -> WorldReadView:
     stamp = _stamp(published)
+    enumeration = _carried_enumeration(published)
+    producer_identity = published.receipts["producer-receipt.yaml"].subject_identity
+    if producer_identity is None:
+        raise EpochMalformed(f"{published.packaging_identity}: the producer receipt names no subject identity")
     recorded = _address_map(published)
     covered = tuple(corpus_id for corpus_id, _ in published.coverage)
     published_states = dict(published.coverage)
@@ -346,4 +366,27 @@ def open_world_view(
         inbound={key: tuple(edges) for key, edges in inbound.items()},
         producers={location: tuple(sorted(runs)) for location, runs in producer_sets.items()},
         live=live,
+        retractions=enumeration,
+        producer_snapshot=producer_identity,
     )
+
+
+def _carried_enumeration(published: epoch.Epoch) -> RetractionEnumeration:
+    """Parse the receipt's §7.6 enumeration and check it against its named subject."""
+    receipt = published.receipts["retraction-receipt.yaml"]
+    carried = receipt.document.get("enumeration")
+    if not isinstance(carried, Mapping):
+        raise EpochMalformed(f"{published.packaging_identity}: retraction-receipt.yaml carries no enumeration mapping")
+    try:
+        enumeration = derive.retraction_enumeration(_thawed(carried))
+    except Exception as caught:
+        raise EpochMalformed(
+            f"{published.packaging_identity}: the carried enumeration is not §7.6's projection: {caught}"
+        ) from caught
+    identity = derive.retraction_enumeration_identity(enumeration)
+    if identity != receipt.subject_identity:
+        raise EpochMalformed(
+            f"{published.packaging_identity}: the carried enumeration does not digest to the subject the receipt "
+            f"names ({identity} != {receipt.subject_identity})"
+        )
+    return enumeration

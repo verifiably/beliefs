@@ -232,6 +232,55 @@ class TestBoundReads:
             view.corpus_view("dataset:never-observed")
 
 
+class TestTheEpochsEnumeration:
+    def test_the_view_carries_the_receipts_enumeration_and_the_producer_subject(self, tmp_path):
+        world, _roots, published = two_corpus_world(tmp_path)
+        view = open_world_view(world, published)
+        receipt = published.receipts["retraction-receipt.yaml"]
+        from beliefs.world import derive
+
+        assert view.retraction_enumeration() == derive.retraction_enumeration(
+            read._thawed(receipt.document["enumeration"])
+        )
+        assert view.retraction_enumeration().coverage == (ALPHA, BETA)
+        assert view.producer_snapshot_identity() == published.receipts["producer-receipt.yaml"].subject_identity
+
+    def test_an_edited_enumeration_that_no_longer_digests_to_the_subject_refuses_the_open(self, tmp_path):
+        from beliefs.errors import EpochMalformed
+
+        world, _roots, published = two_corpus_world(tmp_path)
+        carrier = published.receipts["retraction-receipt.yaml"]
+        document = dict(carrier.document)
+        document["enumeration"] = {"found": [["retraction:forged", "upheld"]], "coverage": [ALPHA, BETA]}
+        receipts = dict(published.receipts)
+        receipts["retraction-receipt.yaml"] = replace(carrier, document=document)
+        with pytest.raises(EpochMalformed, match="does not digest to the subject"):
+            open_world_view(world, replace(published, receipts=receipts))
+
+    def test_a_carried_enumeration_that_does_not_parse_refuses_the_open(self, tmp_path):
+        from beliefs.errors import EpochMalformed
+
+        world, _roots, published = two_corpus_world(tmp_path)
+        carrier = published.receipts["retraction-receipt.yaml"]
+        document = dict(carrier.document)
+        document["enumeration"] = {"found": "not-a-list", "coverage": [ALPHA, BETA]}
+        receipts = dict(published.receipts)
+        receipts["retraction-receipt.yaml"] = replace(carrier, document=document)
+        with pytest.raises(EpochMalformed, match="not .*projection"):
+            open_world_view(world, replace(published, receipts=receipts))
+
+    def test_a_producer_receipt_without_subject_identity_refuses_the_open(self, tmp_path):
+        from beliefs.errors import EpochMalformed
+
+        world, _roots, published = two_corpus_world(tmp_path)
+        receipts = dict(published.receipts)
+        receipts["producer-receipt.yaml"] = replace(
+            receipts["producer-receipt.yaml"], subject_identity=None
+        )
+        with pytest.raises(EpochMalformed, match="producer receipt names no subject identity"):
+            open_world_view(world, replace(published, receipts=receipts))
+
+
 class TestCrossCorpusEdges:
     @pytest.mark.parametrize("source_state", ["unknown", "absent", "local", "foreign"])
     def test_inbound_resolves_the_declared_source_not_the_container(self, tmp_path, source_state):

@@ -365,7 +365,7 @@ git commit -m "feat(correction): one standing fold, the corpus-local enumeration
 - Consumes: `derive.retraction_enumeration`, `derive.retraction_enumeration_identity`, `read._thawed`, `epoch.Epoch.receipts[member].document / .subject_identity`.
 - Produces: `WorldReadView.retraction_enumeration() -> RetractionEnumeration`, `WorldReadView.producer_snapshot_identity() -> str`; `EpochMalformed` at open for a carried enumeration that does not parse or does not recompute to the receipt's subject.
 
-- [ ] **Step 1: The failing tests**
+- [x] **Step 1: The failing tests**
 
 Append to `python/tests/test_world_view.py`:
 
@@ -419,7 +419,7 @@ class TestTheEpochsEnumeration:
 Run: `cd python && uv run --frozen pytest tests/test_world_view.py::TestTheEpochsEnumeration -q`
 Expected: FAIL — `AttributeError: 'WorldReadView' object has no attribute 'retraction_enumeration'`.
 
-- [ ] **Step 2: Parse and check at the open**
+- [x] **Step 2: Parse and check at the open**
 
 In `view.py`, after `stamp = _stamp(published)` at the top of `open_world_view`, before the lock:
 
@@ -475,7 +475,7 @@ Imports: `from beliefs.closure import RetractionEnumeration`, `from beliefs.erro
 Run: `cd python && uv run --frozen pytest tests/test_world_view.py -q`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 tasks check
