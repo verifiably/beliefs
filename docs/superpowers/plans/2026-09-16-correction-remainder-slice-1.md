@@ -107,7 +107,7 @@ Record the commit hash: `git rev-parse HEAD` is `CUT33_FREEZE_COMMIT`; `sha256su
 **Interfaces:**
 - Produces: `errors.RetractionUnreadable(ref: str, cause: str)` (`RecordError`; `.ref`, `.cause`), `errors.RetractionResolutionDisagreement(ref, recorded, computed)` (`RecordError`), `errors.ProducerSnapshotMismatch(supplied, bound)` (`RecordError`); `closure.RETRACTION_UPHELD = "upheld"`, `closure.RETRACTION_OVERTURNED = "overturned"`; `corpus.retraction_standing(view, facets) -> Mapping[str, bool]`; `corpus.local_retraction_enumeration(view: ReadView) -> RetractionEnumeration`; `ReadView.corpus_id -> str`.
 
-- [ ] **Step 1: The errors and the constants**
+- [x] **Step 1: The errors and the constants**
 
 In `errors.py`, after `RetractionGroundsMissing`:
 
@@ -164,7 +164,7 @@ from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_RESOLUTIONS, RETRA
 
 placed with the other imports at the top of the module (move it there; keep the docstring that followed the constants, now under the import). Run `cd python && uv run --frozen ruff check src/beliefs/world/epoch.py` — if ruff refuses the placement, keep the three names as `RETRACTION_OVERTURNED = closure.RETRACTION_OVERTURNED` assignments at their original lines instead.
 
-- [ ] **Step 2: The failing tests for the fold and the local enumeration**
+- [x] **Step 2: The failing tests for the fold and the local enumeration**
 
 Create `python/tests/test_standing_read.py`:
 
@@ -243,7 +243,7 @@ def test_a_raw_retraction_the_capture_validator_refuses_is_unreadable_at_the_enu
 Run: `cd python && uv run --frozen pytest tests/test_standing_read.py -q`
 Expected: FAIL — `ImportError: cannot import name 'local_retraction_enumeration'`.
 
-- [ ] **Step 3: The fold, the local enumeration, `corpus_id`**
+- [x] **Step 3: The fold, the local enumeration, `corpus_id`**
 
 In `corpus.py`, replace `standing_in_local_view` (lines 949–970) with the fold and the reading over it:
 
@@ -340,11 +340,11 @@ where `corpus_module` is however `epoch.py` reaches `beliefs.corpus` (it imports
 Run: `cd python && uv run --frozen pytest tests/test_standing_read.py tests/test_local_standing.py tests/test_world_build.py tests/test_world_receipts.py -q`
 Expected: PASS.
 
-- [ ] **Step 4: The staleness probe over cuts 5 and 7**
+- [x] **Step 4: The staleness probe over cuts 5 and 7**
 
 Run `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut32.py::test_prior_declarations_are_frozen_and_no_check_is_reclaimed -q` (the frozen files are untouched) and then the probe itself: `uv run --frozen python -m arm_staleness --cuts 5 7` — if the module has no CLI, run `uv run --frozen pytest tests/test_arm_staleness.py -q -k "cut5 or cut7"`; read `tests/arm_staleness.py`'s docstring for the invocation. Every arm of cuts 5 and 7 must still be `sound`; a `stale` arm whose `before` string moved is re-targeted in the live guard by the mechanism `test_n2_cut25.py`'s `RETARGETED_ROWS` established (never in the frozen file), and recorded in the task note. Expected: nothing stale — no cut-7 arm pins a line inside `_standing_retractions`' body, and cut 5's pinned return line is verbatim.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 tasks check

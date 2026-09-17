@@ -48,9 +48,19 @@ from beliefs.record import AssessmentValue, RunValue
 from beliefs.sealed import sealed
 from beliefs.verification import Verification, active
 
-__all__ = ["BELIEF_INPUT_DOMAIN", "Closure", "RetractionEnumeration", "build_closure"]
+__all__ = [
+    "BELIEF_INPUT_DOMAIN", "RETRACTION_OVERTURNED", "RETRACTION_RESOLUTIONS", "RETRACTION_UPHELD",
+    "Closure", "RetractionEnumeration", "build_closure",
+]
 
 BELIEF_INPUT_DOMAIN = "science.belief-input.v1"
+
+RETRACTION_OVERTURNED = "overturned"
+RETRACTION_UPHELD = "upheld"
+RETRACTION_RESOLUTIONS: tuple[str, ...] = (RETRACTION_OVERTURNED, RETRACTION_UPHELD)
+"""The closed resolution vocabulary a found retraction carries — a capture's
+per-corpus fold (`epoch`) and the corpus-local enumeration (`corpus`) both
+spell it here, so the closure member and both producers share one set."""
 
 
 @sealed

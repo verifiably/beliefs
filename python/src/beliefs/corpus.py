@@ -110,6 +110,7 @@ from beliefs.errors import (
     RetractionGroundsMissing,
     RetractionTargetIneligible,
     RetractionTargetUnresolvable,
+    RetractionUnreadable,
     ReviseKindImmutable,
     ReviseOutsideAllowlist,
     RevisionTargetMissing,
@@ -138,6 +139,7 @@ from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
 from beliefs.view_query import _world_address, parse_view_query
 
 if TYPE_CHECKING:
+    from beliefs.closure import RetractionEnumeration
     from beliefs.world import CorpusManifest
     from beliefs.world.view import WorldReadView
 
@@ -157,6 +159,8 @@ __all__ = [
     "corpus_check",
     "derived_from",
     "lineage_snapshot",
+    "local_retraction_enumeration",
+    "retraction_standing",
     "run_value",
     "standing_in_local_view",
     "superseded_by",
@@ -265,6 +269,13 @@ class ReadView:
         never leaves the facade, which is what makes a read-only opener safe to
         hand to any module."""
         return cls(Corpus(Path(root)))
+
+    @property
+    def corpus_id(self) -> str:
+        """The readable manifest's corpus identity."""
+        from beliefs.world import load_manifest
+
+        return load_manifest(self._corpus.store.root).corpus_id
 
     # --- resolution ---------------------------------------------------------
 
@@ -946,29 +957,58 @@ def superseded_by(view: ReadView | WorldReadView, ref: str) -> tuple[str, ...]:
     return closure(ref, RelationAdjacency(view, stored.SUPERSEDES, "inbound")).reached
 
 
+def retraction_standing(view: ReadView | WorldReadView, facets: Mapping[str, Mapping[str, object]]) -> Mapping[str, bool]:
+    """Fold validated retraction facets into standing values."""
+    targets: dict[str, list[str]] = {}
+    for address, facet in facets.items():
+        target = cast(Mapping[str, str], facet["target"])
+        if target["arm"] != "node":
+            continue
+        resolved = view.resolve(target["ref"])
+        if resolved is not None:
+            targets.setdefault(resolved, []).append(address)
+    graph = {target: tuple(sorted(retractions)) for target, retractions in targets.items()}
+    standing: dict[str, bool] = {}
+    for target in _acyclic_postorder(graph):
+        standing[target] = not any(standing[retraction] for retraction in graph.get(target, ()))
+    for address in facets:
+        standing.setdefault(address, True)
+    return MappingProxyType(standing)
+
+
+def local_retraction_enumeration(view: ReadView) -> RetractionEnumeration:
+    """Enumerate this corpus's retractions with their folded resolutions."""
+    from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, RetractionEnumeration
+
+    facets: dict[str, Mapping[str, object]] = {}
+    for node in view.iter_stored():
+        if node.kind != "retraction":
+            continue
+        try:
+            facets[node.id] = _validated_retraction_facet(node)
+        except ScienceError as caught:
+            facet = node.facets.get(stored.RETRACTION_FACET)
+            cause = f"{caught}; missing grounds" if isinstance(facet, dict) and "grounds" not in facet else str(caught)
+            raise RetractionUnreadable(node.id, cause) from caught
+    standing = retraction_standing(view, facets)
+    found = tuple(sorted((ref, RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED) for ref in facets))
+    return RetractionEnumeration(found=found, coverage=(view.corpus_id,))
+
+
 def standing_in_local_view(view: ReadView, ref: str) -> bool:
     """Whether `ref` has no standing node-arm retraction in this corpus.
 
     This is deliberately non-authoritative and corpus-local. Route-arm targets
     name an embedded route, not a record, so they never subtract node standing.
     """
-    targets: dict[str, list[str]] = {}
+    facets: dict[str, Mapping[str, object]] = {}
     for stored_node in view.iter_stored():
         if stored_node.kind != "retraction":
             continue
         retraction = view.get(stored_node.id)
-        target = CorpusWriter._validated_retraction(retraction)["target"]
+        facets[retraction.id] = CorpusWriter._validated_retraction(retraction)
         CorpusWriter._resolve_retraction_target(retraction, view)
-        if target["arm"] != "node":
-            continue
-        resolved = view.resolve(target["ref"])
-        if resolved is not None:
-            targets.setdefault(resolved, []).append(retraction.id)
-
-    graph = {target: tuple(sorted(retractions)) for target, retractions in targets.items()}
-    standing: dict[str, bool] = {}
-    for target in _acyclic_postorder(graph):
-        standing[target] = not any(standing[retraction] for retraction in graph.get(target, ()))
+    standing = retraction_standing(view, facets)
     return standing.get(view.resolve(ref) or ref, True)
 
 

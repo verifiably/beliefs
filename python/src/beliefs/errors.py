@@ -1129,6 +1129,37 @@ class RetractionGroundsMissing(WriteRefused):
     """A retraction carries no present string grounds reference."""
 
 
+class RetractionUnreadable(RecordError):
+    """A found retraction the evaluator cannot read — its facet, its stamp, its
+    target's exact resolution or content identity, or its route — so standing
+    is undecidable for every input it might name (correction-remainder slice 1
+    §4, decision 4). The audit names the record; `delete` is the remedy."""
+
+    def __init__(self, ref: str, cause: str) -> None:
+        super().__init__(f"{ref}: standing is undecidable: {cause}")
+        self.ref = ref
+        self.cause = cause
+
+
+class RetractionResolutionDisagreement(RecordError):
+    """The evaluator's standing fold and the enumeration's recorded resolution
+    disagree for one retraction — the epoch folded per corpus and a `move`
+    separated a counter-retraction from what it counters (slice 1 §11.1)."""
+
+    def __init__(self, ref: str, recorded: str, computed: str) -> None:
+        super().__init__(f"{ref}: the enumeration records {recorded!r} but the standing fold computes {computed!r}")
+        self.ref, self.recorded, self.computed = ref, recorded, computed
+
+
+class ProducerSnapshotMismatch(RecordError):
+    """A world read was handed a producer-snapshot identity that is not the
+    bound epoch's (slice 1 decision 2)."""
+
+    def __init__(self, supplied: str, bound: str) -> None:
+        super().__init__(f"the supplied producer snapshot {supplied!r} is not the bound epoch's {bound!r}")
+        self.supplied, self.bound = supplied, bound
+
+
 class CoreferenceEndpointRefused(WriteRefused):
     """A coreference attestation names an endpoint the seam refuses (world
     address ruling §5.1): the four typing refusals, one class, a closed reason."""

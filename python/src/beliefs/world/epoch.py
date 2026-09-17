@@ -103,7 +103,8 @@ import yaml
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan
 
 from beliefs import stored
-from beliefs.corpus import ReadView, _acyclic_postorder, _root_state_for, _validated_retraction_facet
+from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_RESOLUTIONS, RETRACTION_UPHELD
+from beliefs.corpus import ReadView, _root_state_for, _validated_retraction_facet, retraction_standing
 from beliefs.errors import (
     CaptureDrift,
     CoverageNotLive,
@@ -913,9 +914,6 @@ an edit here — and a *new* enumerated kind that arrives ungoverned starts
 refusing without one either.
 """
 
-RETRACTION_OVERTURNED = "overturned"
-RETRACTION_UPHELD = "upheld"
-RETRACTION_RESOLUTIONS: tuple[str, ...] = (RETRACTION_OVERTURNED, RETRACTION_UPHELD)
 """The closed resolution vocabulary a capture attaches to a found retraction.
 
 `derive.CapturedRetraction` takes the resolution as opaque non-empty text
@@ -1305,19 +1303,7 @@ def _standing_retractions(view: ReadView, facets: Mapping[str, Mapping[str, obje
     retraction-discovery map, which is what they are for. Pinned by
     `test_world_build.py::TestSerialCapture`'s drifted-target arm.
     """
-    targets: dict[str, list[str]] = {}
-    for address, facet in facets.items():
-        target = cast(Mapping[str, str], facet["target"])
-        if target["arm"] != "node":
-            continue
-        resolved = view.resolve(target["ref"])
-        if resolved is not None:
-            targets.setdefault(resolved, []).append(address)
-    graph = {target: tuple(sorted(retractions)) for target, retractions in targets.items()}
-    standing: dict[str, bool] = {}
-    for target in _acyclic_postorder(graph):
-        standing[target] = not any(standing[retraction] for retraction in graph.get(target, ()))
-    return standing
+    return retraction_standing(view, facets)
 
 
 def _locked_recheck_rule_bindings(world_root: Path, draft: _BuildDraft) -> Mapping[str, rules._HeldRule]:
