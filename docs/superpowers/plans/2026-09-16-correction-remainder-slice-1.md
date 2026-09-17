@@ -1502,15 +1502,15 @@ Run `just test-fast` green. Commit: `git commit -m "refactor(composite): one rel
 - Consumes: Task 4's `SuppliedContext`.
 - Produces: `state.json` on the certified corpus with a fresh `rederived_belief`, `rederived_equal`; record §12.
 
-- [ ] **Step 1: The driver**
+- [x] **Step 1: The driver**
 
 In `python/tools/reproduction/belief.py`, `context()` loses `retractions=RetractionEnumeration(found=(), coverage=(st["corpus_id"],))` and the `RetractionEnumeration` import. The docstring line above it ("supplied: this exercise builds no epoch") stays for the snapshot identity.
 
-- [ ] **Step 2: Re-derive in a fresh process**
+- [x] **Step 2: Re-derive in a fresh process**
 
 `paths.py` resolves "the main checkout" through the worktree's **real** path, which on this host is under `WORK_ROOT` (`/mnt/ssd3/work/beliefs/.worktrees/…`), so its default lands beside the WORK_ROOT parent where no `state.json` exists (`beliefs-51ffdf` records the defect). Set the root explicitly to the existing corpus: `export SCIENCE_MM30_ROOT=/mnt/ssd/Dropbox/beliefs/.work/reproduction/mm30` and confirm `test -f "$SCIENCE_MM30_ROOT/state.json"` before either command. Then from `python/`: `PYTHONPATH=tools uv run --frozen python -m reproduction.preflight` (it must say `ok`; on a refusal for host load, `tasks park <task> "rerun reproduction.preflight then reproduction.rederive" --reason quiet --waiting-on user --minutes 5`), then `PYTHONPATH=tools uv run --frozen python -m reproduction.rederive`. Read `state.json`: `rederived_belief` is the same `NoBelief` payload as before (`no-directional-outcome` per record §10/§11 — read the prior value from the file before running and quote both), `rederived_equal` is `true`. Nothing is minted and nothing is moved aside: no contract succeeded, so the corpus is not recreated (the plan's correction to spec §10).
 
-- [ ] **Step 3: §12**
+- [x] **Step 3: §12**
 
 Append to `docs/designs/2026-09-05-mm30-reproduction.md`:
 
