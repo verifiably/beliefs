@@ -987,9 +987,7 @@ def local_retraction_enumeration(view: ReadView) -> RetractionEnumeration:
         try:
             facets[node.id] = _validated_retraction_facet(node)
         except ScienceError as caught:
-            facet = node.facets.get(stored.RETRACTION_FACET)
-            cause = f"{caught}; missing grounds" if isinstance(facet, dict) and "grounds" not in facet else str(caught)
-            raise RetractionUnreadable(node.id, cause) from caught
+            raise RetractionUnreadable(node.id, str(caught)) from caught
     standing = retraction_standing(view, facets)
     found = tuple(sorted((ref, RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED) for ref in facets))
     return RetractionEnumeration(found=found, coverage=(view.corpus_id,))

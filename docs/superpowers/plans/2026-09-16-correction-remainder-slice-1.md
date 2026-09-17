@@ -235,10 +235,11 @@ def test_a_raw_retraction_the_capture_validator_refuses_is_unreadable_at_the_enu
     raw_write(writer.root, stored.stamp_semantic_identity(node))
     with pytest.raises(RetractionUnreadable) as refused:
         local_retraction_enumeration(ReadView.opened_at(writer.root))
-    assert refused.value.ref == node.id and "grounds" in refused.value.cause
+    assert refused.value.ref == node.id
+    assert refused.value.cause == f"{node.id}: malformed retraction facet"
 ```
 
-`assessment()` and `retracts()` are `test_local_standing.py`'s (they carry a typed estimand under `BASE`'s testing operators; if `writer.add(assessment())` refuses under `BASE`, open the writer with `TESTING_PROFILE` from `profiles` as `acceptance/conftest.py`'s `durable_writer` does, and pin the profile with `pins_for(TESTING_PROFILE)`). `reopen` and `raw_write` are `fixtures_cut4.py`'s. If `writer.root` is not the attribute name, use what `CorpusWriter` exposes (`grep -n "def root" python/src/beliefs/corpus.py`).
+`assessment()` and `retracts()` are `test_local_standing.py`'s. Seed the real write boundary's dataset, run, and proposition prerequisites before adding the assessment, as `test_retract.py` does. `reopen` and `raw_write` are `fixtures_cut4.py`'s. The capture validator deliberately reports the closed-layout refusal as the generic `malformed retraction facet`; `RetractionUnreadable.cause` preserves that message byte-for-byte and chains the original `MalformedRecord`. If `writer.root` is not the attribute name, use what `CorpusWriter` exposes (`grep -n "def root" python/src/beliefs/corpus.py`).
 
 Run: `cd python && uv run --frozen pytest tests/test_standing_read.py -q`
 Expected: FAIL — `ImportError: cannot import name 'local_retraction_enumeration'`.

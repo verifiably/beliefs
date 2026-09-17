@@ -8,7 +8,7 @@ complexity: low
 process: direct
 owner: design/correction-remainder
 created: 2026-09-17T01:15:33Z
-updated: 2026-09-17T07:24:13Z
+updated: 2026-09-17T07:30:42Z
 started: 2026-09-17T07:09:02Z
 completed: 2026-09-17T07:24:13Z
 depends: []
@@ -24,3 +24,4 @@ step: "Task 1: Errors, the shared fold, the local enumeration"
 - 2026-09-17T07:09:02Z (design/correction-remainder): claimed by Codex task1, pid 3990822
 - 2026-09-17T07:24:13Z (design/correction-remainder): RED: test_standing_read collection failed on missing closure resolution constants. GREEN: 91 focused passed; final focused set 100 passed; ruff and pyright clean; arm staleness 8 passed; cut 5 unchanged at seven baseline stale pins and cut 7 at zero.
 - 2026-09-17T07:24:13Z (design/correction-remainder): Added one shared standing fold, corpus-local enumeration, manifest coverage identity, and structured correction errors.
+- 2026-09-17T07:30:42Z (design/correction-remainder): Review fix 1: preserved _validated_retraction_facet's exact generic cause in RetractionUnreadable; RED 1 failed on synthesized suffix, GREEN 25 passed; ruff, pyright, tasks check clean.

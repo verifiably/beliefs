@@ -78,4 +78,6 @@ def test_a_raw_retraction_the_capture_validator_refuses_is_unreadable_at_the_enu
     raw_write(writer.root, stored.stamp_semantic_identity(node))
     with pytest.raises(RetractionUnreadable) as refused:
         local_retraction_enumeration(ReadView.opened_at(writer.root))
-    assert refused.value.ref == node.id and "grounds" in refused.value.cause
+    assert refused.value.ref == node.id
+    assert refused.value.cause == f"{node.id}: malformed retraction facet"
+    assert isinstance(refused.value.__cause__, corpus.MalformedRecord)
