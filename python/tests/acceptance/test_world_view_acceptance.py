@@ -12,7 +12,7 @@ import pytest
 from authority import FULL
 from dataset_fixtures import dataset_ref
 from dataset_fixtures import pinned as seed_pinned
-from domain_facet_fixtures import kwargs_for, profile_with, seed
+from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
 from durable_fixture import pinned
 from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import path_for, raw_write
@@ -340,7 +340,7 @@ def world_kwargs(view, profile, a, b):
     kwargs = kwargs_for(view, profile)
     context = replace(
         kwargs["context"],
-        retractions=replace(kwargs["context"].retractions, coverage=tuple(sorted((a, b)))),
+        producer_snapshot_identity=view.producer_snapshot_identity(),
         node_corpus={},
         pins={a: pins_for(profile), b: pins_for(profile)},
     )
@@ -348,7 +348,7 @@ def world_kwargs(view, profile, a, b):
 
 
 def gathered(view, kwargs):
-    return gather(view, "proposition:p", **{k: v for k, v in kwargs.items() if k != "availability"})
+    return gather(view, "proposition:p", **over_kwargs({k: v for k, v in kwargs.items() if k != "availability"}))
 
 
 def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(durable_world):
@@ -362,16 +362,16 @@ def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(
     assert all(inputs.node_corpus[value.identity()] == (a,) for value in inputs.assessments)
     assert ("biology", pins_for(profile).domains["biology"]) in inputs.consulted
     assert set(inputs.read_trace) <= inputs.declared_refs()
-    complete_belief = evaluate_over(view, "proposition:p", **kwargs)
+    complete_belief = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
     assert isinstance(complete_belief, Belief)
     supplied = replace(kwargs["context"], node_corpus={"anything": (a,)})
     with pytest.raises(MalformedRecord, match="node_corpus.*derived"):
-        evaluate_over(view, "proposition:p", **{**kwargs, "context": supplied})
+        evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": supplied}))
     with pytest.raises(MalformedRecord, match="node_corpus.*derived"):
         gathered(view, {**kwargs, "context": supplied})
     absent(roots, b)
     view = open_world_view(world, published)
-    result = evaluate_over(view, "proposition:p", **world_kwargs(view, profile, a, b))
+    result = evaluate_over(view, "proposition:p", **over_kwargs(world_kwargs(view, profile, a, b)))
     assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent" and b in result.detail
     local = ReadView.opened_at(roots[a])
     local_context = replace(
@@ -382,7 +382,7 @@ def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(
     local_kwargs = {**kwargs, "context": local_context}
     local_inputs = gathered(local, local_kwargs)
     assert local_inputs.absent == () and local_inputs.observed_facets == ()
-    local_result = evaluate_over(local, "proposition:p", **local_kwargs)
+    local_result = evaluate_over(local, "proposition:p", **over_kwargs(local_kwargs))
     # Run-b's local evidence still admits a belief; the foreign evidence is gone.
     assert isinstance(local_result, Belief)
     assert local_result.belief_input_digest != complete_belief.belief_input_digest
@@ -399,7 +399,7 @@ def test_absent_runs_and_all_input_roles_are_named_durably(durable_world, role):
     kwargs = world_kwargs(view, profile, a, b)
     inputs = gathered(view, kwargs)
     assert ("run:run-a", b) in inputs.absent and (extra.id, b) in inputs.absent
-    result = evaluate_over(view, "proposition:p", **kwargs)
+    result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
     assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 
 
@@ -415,7 +415,7 @@ def test_proposition_and_snapshot_absence_are_named_durably(durable_world, targe
             kwargs["context"], snapshot=lineage_snapshot(view, [dataset_ref("d-a"), dataset_ref("d-b"), target])
         )
     assert gathered(view, kwargs).absent == ((target, b),)
-    result = evaluate_over(view, "proposition:p", **kwargs)
+    result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
     assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent" and b in result.detail
 
 
@@ -439,10 +439,10 @@ def test_identical_assessments_consult_both_carriers_durably(durable_world):
     assert inputs.node_corpus[identity] == tuple(sorted((a, b)))
     with pytest.raises(TypeError):
         cast(Any, inputs.node_corpus)[identity] = (a,)
-    assert isinstance(evaluate_over(view, "proposition:p", **kwargs), Belief)
+    assert isinstance(evaluate_over(view, "proposition:p", **over_kwargs(kwargs)), Belief)
     disagreeing = replace(pins_for(profile), science_contract="science:" + "0" * 64)
     context = replace(kwargs["context"], pins={a: pins_for(profile), b: disagreeing})
-    result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+    result = evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
     assert isinstance(result, Refused) and "consulted-contracts-disagree" in result.reason
 
 

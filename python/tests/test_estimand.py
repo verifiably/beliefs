@@ -216,6 +216,10 @@ class TestPredicates:
 
 
 class TestEstimateAndUncertainty:
+    def test_an_unoperable_scale_is_refused(self):
+        with pytest.raises(UncertaintyRefused, match="log"):
+            check_estimate(Decimal(1), "log")
+
     def test_a_multiplicative_estimate_must_be_positive(self):
         check_estimate(Decimal("1.2"), "multiplicative")
         with pytest.raises(UncertaintyRefused, match="multiplicative"):

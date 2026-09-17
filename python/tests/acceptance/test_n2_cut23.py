@@ -37,6 +37,21 @@ import beliefs.root as science_root
 # Final review, 2026-09-09: source map membership now also excludes drift.
 # Bypass the whole index membership boundary; the frozen declaration stays intact.
 _LIVE_SABOTAGES = {
+    # Correction remainder slice 1, 2026-09-17: absence collection reads only
+    # surviving routes after the effective-tag stop.
+    "S5e": Sabotage(
+        module="lineage.py",
+        before=(
+            "            for route in effective_routes(snapshot, dataset):\n"
+            "                for ref in (route.stored_run, route.stored_ancestor):\n"
+            "                    if ref in snapshot.not_present:\n"
+        ),
+        after=(
+            "            for route in effective_routes(snapshot, dataset):\n"
+            "                for ref in (route.stored_run, route.stored_ancestor):\n"
+            "                    if ref in snapshot.not_present and ref in inspected:\n"
+        ),
+    ),
     "W10d": Sabotage(
         module="world/view.py",
         before=(
@@ -64,17 +79,18 @@ _LIVE_SABOTAGES = {
     ),
     # Composite claims Task 6, 2026-09-16: `evaluate_over` became the first
     # projection of `evaluate_over_traced`, so the absent-corpus arm returns
-    # the answer paired with `NotReached()`. The row is unchanged — the arm
+    # the answer paired with `NotReached()`. Final review retains gathered
+    # inputs as a third internal result (`None` on absence). The row is unchanged; the arm
     # still flips the banked reason — and the declaration stays byte-exact.
     "R19e": Sabotage(
         module="evaluation.py",
         before=(
             '        return NoBelief("unavailable-corpus-absent", '
-            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()\n'
+            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None\n'
         ),
         after=(
             '        return NoBelief("unavailable-input-unheld", '
-            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()\n'
+            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None\n'
         ),
     ),
 }

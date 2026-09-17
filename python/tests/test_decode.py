@@ -17,9 +17,11 @@ import textwrap
 from typing import ClassVar
 
 import pytest
+import yaml
 
 from beliefs import resolution
 from beliefs.claim import Claim, Referent, build_claim
+from beliefs.contract.base import parse_base_contract
 from beliefs.contract.domain import VocabularyBinding
 from beliefs.decode import WireClaim, decode_claim
 from beliefs.errors import (
@@ -50,6 +52,14 @@ OTHER_GENE = "EX:gene-z"
 OUTCOME = "EX:outcome-y"
 ADULTS = "EX:adults"
 ABSENT = "EX:not-in-the-vocabulary"
+
+
+def test_a_wire_contrast_kind_without_an_operable_decoder_cannot_enter_the_grammar(base_contract_path):
+    document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
+    document["estimand_grammar"]["contrast_kinds"].append("ordinal")
+
+    with pytest.raises(MalformedContract, match="ordinal"):
+        parse_base_contract(document, source="<ordinal>")
 
 
 @pytest.fixture()

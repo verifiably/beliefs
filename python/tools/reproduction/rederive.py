@@ -1,11 +1,11 @@
 """Steps 10a/10b/10c, in a fresh process. Every input is labelled corpus / supplied / in-process.
 
 10a's inputs: the corpus (assessment, run, dataset, verification, claim,
-holdings observation) plus *supplied* context (producer snapshot identity,
-retraction enumeration) plus *in-process* profile and binding. 10b's: the
-corpus (verification record, two run publications, analysis-spec record)
-plus *in-process* interpretation and equivalence rule implementations — the
-only thing no kernel reader restores from a record.
+holdings observation), the corpus-derived retraction enumeration, plus
+*supplied* context (producer snapshot identity) and *in-process* profile and
+binding. 10b's: the corpus (verification record, two run publications,
+analysis-spec record) plus *in-process* interpretation and equivalence rule
+implementations — the only thing no kernel reader restores from a record.
 
 10c is Q10's own arm: the frozen spec and the assessment restored from the
 records on disk through the typed readers, the assessment re-derived from its

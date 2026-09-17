@@ -77,6 +77,9 @@ export interface CompositeGrammar {
   readonly shapes: readonly string[];
 }
 const SUPPORTED_SHAPES: readonly string[] = ["dag"];
+const SUPPORTED_CONTRAST_KINDS: readonly string[] = ["continuous", "levels"];
+const SUPPORTED_SCALES: readonly string[] = ["additive", "multiplicative"];
+const SUPPORTED_UNCERTAINTY_KINDS: readonly string[] = ["interval", "standard-error"];
 
 export type FieldType = "string" | "integer" | "boolean" | "ref" | "locator" | "actor";
 export interface FieldDecl {
@@ -503,6 +506,20 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     scales: closedSet(estimandDocument.scales, `${source}.estimand_grammar.scales`),
     uncertaintyKinds: closedSet(estimandDocument.uncertainty_kinds, `${source}.estimand_grammar.uncertainty_kinds`),
   };
+  for (const [name, declared, supported] of [
+    ["contrast_kinds", estimandGrammar.contrastKinds, SUPPORTED_CONTRAST_KINDS],
+    ["scales", estimandGrammar.scales, SUPPORTED_SCALES],
+    ["uncertainty_kinds", estimandGrammar.uncertaintyKinds, SUPPORTED_UNCERTAINTY_KINDS],
+  ] as const) {
+    const unoperable = [
+      ...declared.filter((tag) => !supported.includes(tag)),
+      ...supported.filter((tag) => !declared.includes(tag)),
+    ].sort();
+    if (unoperable.length > 0)
+      throw new MalformedContract(
+        `${source}.estimand_grammar: ${name} does not declare exactly the set this implementation operates; ${JSON.stringify(unoperable)} is not operable here`,
+      );
+  }
   const facets = parseFacetDeclarations(document.facets, `${source}.facets`, null);
   const kindEntries: [string, KindDecl][] = [];
   for (const [name, bodyValue] of Object.entries(mapping(document.kinds, `${source}.kinds`))) {

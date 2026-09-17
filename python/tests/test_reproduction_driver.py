@@ -601,7 +601,6 @@ def test_the_reading_projection_round_trips_through_identity_v1(tmp_path):
 
     from beliefs import stored
     from beliefs.belief import Availability, SuppliedContext
-    from beliefs.closure import RetractionEnumeration
     from beliefs.composite import CompositeNode, build_composite, read_composite
     from beliefs.corpus import lineage_snapshot
     from beliefs.identity import v1
@@ -620,7 +619,6 @@ def test_the_reading_projection_round_trips_through_identity_v1(tmp_path):
         context=SuppliedContext(
             snapshot=lineage_snapshot(writer.read_view, ()),
             producer_snapshot_identity="no-epoch-published",
-            retractions=RetractionEnumeration(found=(), coverage=()),
             node_corpus={},
             pins={},
         ),

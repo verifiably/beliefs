@@ -9,7 +9,7 @@ from typing import Any, cast
 import pytest
 from authority import FULL
 from dataset_fixtures import dataset_ref, pinned
-from domain_facet_fixtures import kwargs_for, profile_with, seed
+from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
 from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.corpus import Corpus
@@ -230,6 +230,55 @@ class TestBoundReads:
             view.corpus_view(address_in(published, BETA))
         with pytest.raises(RefError):
             view.corpus_view("dataset:never-observed")
+
+
+class TestTheEpochsEnumeration:
+    def test_the_view_carries_the_receipts_enumeration_and_the_producer_subject(self, tmp_path):
+        world, _roots, published = two_corpus_world(tmp_path)
+        view = open_world_view(world, published)
+        receipt = published.receipts["retraction-receipt.yaml"]
+        from beliefs.world import derive
+
+        assert view.retraction_enumeration() == derive.retraction_enumeration(
+            read._thawed(receipt.document["enumeration"])
+        )
+        assert view.retraction_enumeration().coverage == (ALPHA, BETA)
+        assert view.producer_snapshot_identity() == published.receipts["producer-receipt.yaml"].subject_identity
+
+    def test_an_edited_enumeration_that_no_longer_digests_to_the_subject_refuses_the_open(self, tmp_path):
+        from beliefs.errors import EpochMalformed
+
+        world, _roots, published = two_corpus_world(tmp_path)
+        carrier = published.receipts["retraction-receipt.yaml"]
+        document = dict(carrier.document)
+        document["enumeration"] = {"found": [["retraction:forged", "upheld"]], "coverage": [ALPHA, BETA]}
+        receipts = dict(published.receipts)
+        receipts["retraction-receipt.yaml"] = replace(carrier, document=document)
+        with pytest.raises(EpochMalformed, match="does not digest to the subject"):
+            open_world_view(world, replace(published, receipts=receipts))
+
+    def test_a_carried_enumeration_that_does_not_parse_refuses_the_open(self, tmp_path):
+        from beliefs.errors import EpochMalformed
+
+        world, _roots, published = two_corpus_world(tmp_path)
+        carrier = published.receipts["retraction-receipt.yaml"]
+        document = dict(carrier.document)
+        document["enumeration"] = {"found": "not-a-list", "coverage": [ALPHA, BETA]}
+        receipts = dict(published.receipts)
+        receipts["retraction-receipt.yaml"] = replace(carrier, document=document)
+        with pytest.raises(EpochMalformed, match="not .*projection"):
+            open_world_view(world, replace(published, receipts=receipts))
+
+    def test_a_producer_receipt_without_subject_identity_refuses_the_open(self, tmp_path):
+        from beliefs.errors import EpochMalformed
+
+        world, _roots, published = two_corpus_world(tmp_path)
+        receipts = dict(published.receipts)
+        receipts["producer-receipt.yaml"] = replace(
+            receipts["producer-receipt.yaml"], subject_identity=None
+        )
+        with pytest.raises(EpochMalformed, match="producer receipt names no subject identity"):
+            open_world_view(world, replace(published, receipts=receipts))
 
 
 class TestCrossCorpusEdges:
@@ -501,7 +550,7 @@ def world_kwargs(view, profile):
     context = replace(
         kwargs["context"],
         snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"))),
-        retractions=replace(kwargs["context"].retractions, coverage=(ALPHA, BETA)),
+        producer_snapshot_identity=view.producer_snapshot_identity(),
         node_corpus={},
         pins={ALPHA: kwargs["context"].pins["c1"], BETA: kwargs["context"].pins["c1"]},
     )
@@ -541,8 +590,9 @@ class TestEvaluationOverTheWorld:
             if consumer == "evaluate":
                 return evaluate(proposition="proposition:p", records=inputs.records(),
                                 context=replace(context, node_corpus=inputs.node_corpus),
+                                retractions=inputs.retractions,
                                 profile=profile, availability=kwargs["availability"], binding=kwargs["binding"])
-            return evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+            return evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
 
         if pin_state == "missing":
             with pytest.raises(MalformedRecord, match="hold a closure node but have no entry in pins"):
@@ -576,7 +626,7 @@ class TestEvaluationOverTheWorld:
         assert inputs.node_corpus[inputs.observed_facets[0].address] == (BETA,)
         assert inputs.node_corpus["run:run-a"] == (ALPHA,)
         assert set(inputs.read_trace) <= inputs.declared_refs()
-        result = evaluate_over(view, "proposition:p", **kwargs)
+        result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
         assert isinstance(result, Belief)
 
     def test_an_absent_input_corpus_is_the_banked_reason(self, tmp_path):
@@ -586,7 +636,7 @@ class TestEvaluationOverTheWorld:
         world, roots, published = split_evaluation_world(tmp_path)
         make_absent(roots, BETA)
         view = open_world_view(world, published)
-        result = evaluate_over(view, "proposition:p", **world_kwargs(view, profile_with()))
+        result = evaluate_over(view, "proposition:p", **over_kwargs(world_kwargs(view, profile_with())))
         assert isinstance(result, NoBelief)
         assert result.reason == "unavailable-corpus-absent" and BETA in result.detail
 
@@ -618,7 +668,7 @@ class TestEvaluationOverTheWorld:
         inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
         assert ("run:run-a", BETA) in inputs.absent and (dataset_ref("d-t"), BETA) in inputs.absent
-        result = evaluate_over(view, "proposition:p", **kwargs)
+        result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 
     def test_the_derived_attribution_reaches_evaluate(self, tmp_path):
@@ -634,7 +684,7 @@ class TestEvaluationOverTheWorld:
         kwargs = world_kwargs(view, profile)
         unrelated = replace(kwargs["context"].pins[ALPHA], science_contract="science:" + "0" * 64)
         context = replace(kwargs["context"], pins={**kwargs["context"].pins, "unrelated": unrelated})
-        result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+        result = evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
         assert isinstance(result, Belief)
 
     def test_a_supplied_attribution_over_a_world_view_refuses(self, tmp_path):
@@ -704,11 +754,11 @@ class TestEvaluationOverTheWorld:
         assert inputs.node_corpus[stored.assessment_value(original, profile=profile).identity()] == (ALPHA, BETA)
         with pytest.raises(TypeError):
             cast(Any, inputs.node_corpus)[stored.assessment_value(original, profile=profile).identity()] = (ALPHA,)
-        assert isinstance(evaluate_over(view, "proposition:p", **kwargs), Belief)
+        assert isinstance(evaluate_over(view, "proposition:p", **over_kwargs(kwargs)), Belief)
         pins = kwargs["context"].pins
         disagreeing = replace(pins[BETA], science_contract="science:" + "0" * 64)
         context = replace(kwargs["context"], pins={ALPHA: pins[ALPHA], BETA: disagreeing})
-        result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+        result = evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
         assert isinstance(result, Refused) and "consulted-contracts-disagree" in result.reason
 
     def test_a_proposition_only_absent_carrier_is_reported(self, tmp_path):
@@ -724,7 +774,7 @@ class TestEvaluationOverTheWorld:
         inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
         assert inputs.absent == (("proposition:p", BETA),)
-        result = evaluate_over(view, "proposition:p", **kwargs)
+        result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
         assert BETA in result.detail
 
@@ -746,7 +796,7 @@ class TestEvaluationOverTheWorld:
         inputs = gather(view, "proposition:p", context=context, profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
         assert inputs.absent == ((dataset_ref("extra"), BETA),)
-        result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+        result = evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 
     def test_an_unknown_proposition_reference_is_not_absence(self, tmp_path):

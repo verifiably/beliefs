@@ -190,6 +190,10 @@ than silent (§8).
 
 Per instantiation:
 
+> **Landed 2026-09-17 at conformance cut 33.** Assessment, verification and
+> production-route standing now reach the evaluator at the read. The semantic
+> snapshot target and coverage narrowing remain slice 2.
+
 - **Assessment.** A retracted assessment leaves belief aggregation's read set. Support
   and dispute both: retracting a refuting assessment legitimately raises support (comp
   §5.2's monotone-downward correction is preserved as a guarantee, C4).

@@ -16,6 +16,7 @@ from types import MappingProxyType
 from typing import final
 
 from nodes.core.errors import RefError
+from nodes.core.node import Node
 
 from beliefs.belief import Availability, Belief, NoBelief, NotReached, Refused, SuppliedContext
 from beliefs.claim import Claim, require_identifier
@@ -23,14 +24,14 @@ from beliefs.contract.base import COMPOSITE_GRAMMAR
 from beliefs.corpus import superseded_by
 from beliefs.decode import claim_from_stored
 from beliefs.errors import ClaimError, CompositeError, DecodeError, MalformedRecord, ProfileError
-from beliefs.evaluation import evaluate_over_traced
+from beliefs.evaluation import _evaluate_over_inputs
 from beliefs.identity import v1
 from beliefs.policy import PolicyBinding
 from beliefs.profile import ProfileSpec
 from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import ReferentPosition, ResolutionSnapshot, TermOutcome, build_snapshot
 from beliefs.sealed import sealed
-from beliefs.stored import ASSESSES, COMPOSES, assessment_value
+from beliefs.stored import COMPOSES
 from beliefs.stored import composite_value as stored_composite_value
 
 COMPOSITE_DOMAIN = "science.composite.v1"
@@ -203,6 +204,13 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
     return tuple(edges)
 
 
+def check_composes_relations(node: Node, facet: CompositeFacet) -> str | None:
+    composes = [relation for relation in node.relations if relation.predicate == COMPOSES]
+    if len(composes) != len(facet.members) or any(relation.source != node.id for relation in composes):
+        return f"{node.id}: the facet names {len(facet.members)} member(s) and the record carries {len(composes)} composes edge(s)"
+    return None
+
+
 def _refuse_cycle(nodes: Sequence[CompositeNode], edges: Sequence[Edge]) -> None:
     """Every member is an arrow, whatever its sign (§3.4); a cycle through a
     negative edge is a cycle. Depth-first, reporting the first cycle found."""
@@ -210,23 +218,28 @@ def _refuse_cycle(nodes: Sequence[CompositeNode], edges: Sequence[Edge]) -> None
     for edge in edges:
         out[edge.cause].append(edge.effect)
     state: dict[CompositeNode, int] = {}
-    stack: list[CompositeNode] = []
-
-    def visit(node: CompositeNode) -> None:
-        state[node] = 1
-        stack.append(node)
-        for nxt in out[node]:
-            if state.get(nxt) == 1:
-                cycle = stack[stack.index(nxt):] + [nxt]
+    for start in nodes:
+        if start in state:
+            continue
+        state[start] = 1
+        path = [start]
+        stack = [(start, iter(out[start]))]
+        while stack:
+            node, successors = stack[-1]
+            try:
+                successor = next(successors)
+            except StopIteration:
+                state[node] = 2
+                path.pop()
+                stack.pop()
+                continue
+            if state.get(successor) == 1:
+                cycle = path[path.index(successor):] + [successor]
                 raise CompositeError("composite-cyclic", "cycle " + " -> ".join(f"({n.sort}, {n.term})" for n in cycle))
-            if nxt not in state:
-                visit(nxt)
-        stack.pop()
-        state[node] = 2
-
-    for node in nodes:
-        if node not in state:
-            visit(node)
+            if successor not in state:
+                state[successor] = 1
+                path.append(successor)
+                stack.append((successor, iter(out[successor])))
 
 
 def restore_members(view: object, expect: Sequence[str] | None, refs: Sequence[str], *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> dict[str, Claim]:
@@ -262,6 +275,23 @@ def restore_members(view: object, expect: Sequence[str] | None, refs: Sequence[s
             raise CompositeError("composite-member-mismatch", f"member {ref} carries claim {claim_identity(claim)}, the facet names {member}")
         claims[member] = claim
     return claims
+
+
+def _member_outcomes(
+    nodes: Sequence[CompositeNode], profile: ProfileSpec, snapshot: ResolutionSnapshot
+) -> dict[str, TermOutcome]:
+    outcomes = {
+        ReferentPosition.node(index).label(): snapshot.resolve(profile.sorts[node.sort].vocabulary, node.term)
+        for index, node in enumerate(nodes)
+    }
+    refused = [label for label, outcome in outcomes.items() if outcome.refuses]
+    if refused:
+        named = ", ".join(f"{label} ({nodes[int(label.partition(':')[2])].term})" for label in refused)
+        raise CompositeError(
+            "composite-node-not-member",
+            f"{named}: the term is not in the vocabulary its sort binds, and the vocabulary was read",
+        )
+    return outcomes
 
 
 def build_composite(
@@ -302,13 +332,7 @@ def build_composite(
     )
 
     require_node_sorts(profile, canonical_nodes)
-    outcomes: dict[str, TermOutcome] = {}
-    for index, node in enumerate(canonical_nodes):
-        outcomes[ReferentPosition.node(index).label()] = snapshot.resolve(profile.sorts[node.sort].vocabulary, node.term)
-    refused = [label for label, outcome in outcomes.items() if outcome.refuses]
-    if refused:
-        named = ", ".join(f"{label} ({canonical_nodes[int(label.partition(':')[2])].term})" for label in refused)
-        raise CompositeError("composite-node-not-member", f"{named}: the term is not in the vocabulary its sort binds, and the vocabulary was read")
+    outcomes = _member_outcomes(canonical_nodes, profile, snapshot)
 
     edges = classify(profile, facet, {identities[ref]: claim for ref, claim in by_ref.items()})
     value = Composite._checked(_MINT, facet=facet, refs=ordered_refs, edges=edges, slug=slug)
@@ -442,47 +466,25 @@ def read_composite(
     claims = restore_members(view, facet.members, refs, profile=profile, snapshot=resolution)
     edges = {edge.member: edge for edge in classify(profile, facet, claims)}
 
-    outcomes: dict[str, TermOutcome] = {}
-    for index, n in enumerate(facet.nodes):
-        outcomes[ReferentPosition.node(index).label()] = resolution.resolve(profile.sorts[n.sort].vocabulary, n.term)
-    refused = [label for label, outcome in outcomes.items() if outcome.refuses]
-    if refused:
-        # U3: construction and reading refuse alike under an excluding snapshot;
-        # only the boundary and the audit, which hold no snapshot, check form alone.
-        raise CompositeError("composite-node-not-member", f"{ref}: {', '.join(refused)}: the term is not in the vocabulary its sort binds, and the vocabulary was read")
+    # U3: construction and reading refuse alike under an excluding snapshot;
+    # only the boundary and the audit, which hold no snapshot, check form alone.
+    outcomes = _member_outcomes(facet.nodes, profile, resolution)
 
     rows: list[MemberRow] = []
     for member, member_ref in zip(facet.members, refs, strict=True):
-        answer, admission = evaluate_over_traced(
+        answer, admission, inputs = _evaluate_over_inputs(
             view,  # type: ignore[arg-type]
             member_ref, availability=availability, context=context, profile=profile, resolution=resolution, binding=binding,
         )
         if isinstance(admission, NotReached):
             identification: tuple[str, ...] | NotReached = admission
         else:
-            terms = set()
-            scanned: set[str] = set()
-            for stored_node in view.iter_stored():  # type: ignore[attr-defined]
-                if stored_node.kind != "assessment" or not any(
-                    r.predicate == ASSESSES and r.target == member_ref for r in stored_node.relations
-                ):
-                    continue  # §6.2: the column is this member's admitted assessments, not the corpus's
-                value = assessment_value(stored_node, profile=profile)
-                scanned.add(value.identity())
-                if value.identity() in admission.admitted:
-                    terms.add(value.estimand.control.identification.term)
-            unscanned = sorted(frozenset(admission.admitted) - scanned)
-            if unscanned:
-                # Nothing checks that an assessment's `assesses` edge agrees with
-                # its facet (`evaluation.gather`), so a raw-written record can be
-                # admitted by facet and invisible to this scan. A short set would
-                # be the two columns silently resting on different admissions.
-                raise CompositeError(
-                    "composite-admission-unscanned",
-                    f"{ref}: member {member_ref}: the evaluator admitted {', '.join(unscanned)}, which no assessment "
-                    "naming that member carries",
-                )
-            identification = tuple(sorted(terms))
+            assert inputs is not None  # admission was reached over these gathered values
+            identification = tuple(sorted({
+                value.estimand.control.identification.term
+                for value in inputs.assessments
+                if value.identity() in admission.admitted
+            }))
         rows.append(
             MemberRow(
                 member=member,

@@ -13,7 +13,6 @@ import sys
 from beliefs import stored
 from beliefs.admission import Admitted, admit
 from beliefs.belief import Availability, SuppliedContext
-from beliefs.closure import RetractionEnumeration
 from beliefs.consulted import CorpusPins
 from beliefs.corpus import ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation
@@ -47,7 +46,6 @@ def context(view: ReadView) -> SuppliedContext:
     return SuppliedContext(
         snapshot=lineage_snapshot(view, [st["dataset_address"]]),
         producer_snapshot_identity="no-epoch-published",  # supplied: this exercise builds no epoch (record §3)
-        retractions=RetractionEnumeration(found=(), coverage=(st["corpus_id"],)),
         node_corpus={st["assessment_identity_stored"]: (st["corpus_id"],)},
         pins={st["corpus_id"]: world.open_writer().manifest_pins()},
     )

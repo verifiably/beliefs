@@ -9,6 +9,7 @@ from typing import Any
 
 import cut23_acceptance as cut23
 import cut24_acceptance as cut24
+import cut33_acceptance as cut33
 import pytest
 
 from beliefs import root
@@ -16,8 +17,8 @@ from beliefs import root
 
 @pytest.mark.parametrize(
     ("runner", "cut", "accounting"),
-    ((cut23, 23, (25, 8, 8)), (cut24, 24, (20, 5, 5))),
-    ids=("cut23", "cut24"),
+    ((cut23, 23, (25, 8, 8)), (cut24, 24, (20, 5, 5)), (cut33, 33, (11, 11, 3))),
+    ids=("cut23", "cut24", "cut33"),
 )
 def test_recent_runner_preserves_commands_environment_and_cleanup(
     runner, cut: int, accounting: tuple[int, int, int], tmp_path: Path, monkeypatch, capsys
@@ -57,6 +58,9 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
     output = capsys.readouterr().out
     assert [f"[cut{cut} phase {phase}/3]" in output for phase in range(1, 4)] == [True, True, True]
     assert f"declared arms: {accounting[0]} (= {accounting[1]} declaration units; {accounting[2]} guarantee rows)" in output
+
+    if cut == 33:
+        assert "guarantee rows exercised: 3 (2 newly closed: C7, C3; C10 remains partial)" in output
 
 
 @pytest.mark.parametrize(("runner", "cut"), ((cut23, 23), (cut24, 24)), ids=("cut23", "cut24"))

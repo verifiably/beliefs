@@ -143,6 +143,7 @@ class _Scenario(TypedDict):
     records: Records
     availability: Availability
     context: SuppliedContext
+    retractions: RetractionEnumeration
     binding: PolicyBinding
     profile: ProfileSpec
 
@@ -169,7 +170,6 @@ def scenario(**overrides: object) -> _Scenario:
     context = SuppliedContext(
         snapshot=LineageSnapshot(roots=(ADDRESS_A, ADDRESS_B), bases={}, producers={}),
         producer_snapshot_identity="producer-snapshot-1",
-        retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={a1.identity(): ("c1",), a2.identity(): ("c1",)},
         pins={"c1": pins_for(PROFILE)},
     )
@@ -178,6 +178,7 @@ def scenario(**overrides: object) -> _Scenario:
         "records": records,
         "availability": availability,
         "context": context,
+        "retractions": RetractionEnumeration(found=(), coverage=("c1",)),
         "binding": PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
         "profile": PROFILE,
     }
@@ -336,7 +337,7 @@ class TestP6NoMagnitudeBearingRead:
 class TestP7BeliefIsAComputedView:
     def test_the_evaluator_accepts_no_prior_value_and_no_prior_digest(self):
         parameters = inspect.signature(evaluate).parameters
-        assert set(parameters) == {"proposition", "records", "availability", "context", "binding", "profile"}
+        assert set(parameters) == {"proposition", "records", "availability", "context", "retractions", "binding", "profile"}
         assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in parameters.values())
         assert all(p.default is inspect.Parameter.empty for p in parameters.values())
 
@@ -575,7 +576,6 @@ class TestQ8TheEstimandWalk:
         context = SuppliedContext(
             snapshot=LineageSnapshot(roots=(ADDRESS_A, ADDRESS_B), bases={}, producers={}),
             producer_snapshot_identity="producer-snapshot-1",
-            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             node_corpus={a1.identity(): ("c1",), a2.identity(): ("c1",)},
             pins={"c1": pins_for(profile)},
         )
@@ -586,6 +586,7 @@ class TestQ8TheEstimandWalk:
                 "records": records,
                 "availability": availability,
                 "context": context,
+                "retractions": RetractionEnumeration(found=(), coverage=("c1",)),
                 "binding": PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
                 "profile": profile,
             },
@@ -652,6 +653,7 @@ class TestPolicyBindingRefuses:
 
 
 def test_evaluate_is_the_first_projection_of_evaluate_traced():
+    # P1–P9 carry the proof that the first projection is the answer; this pins only that the tuple's first member is what `evaluate` returns.
     for overrides in ({}, {"binding": None}, {"availability": scenario()["availability"].__class__(observations={}, implementations={}, fixtures={})}):
         kwargs = scenario(**overrides)
         answer, _ = evaluate_traced(**kwargs)

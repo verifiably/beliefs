@@ -446,6 +446,21 @@ def test_a_composite_member_in_an_absent_corpus_is_unchecked_not_a_raise(tmp_pat
     assert members["bc"].id in outcome.reason and BETA in outcome.reason
 
 
+def test_an_absent_composite_member_does_not_hide_a_dangling_sibling(tmp_path):
+    composite, members = _composite_across(tmp_path)
+    first, second = (relation.target for relation in composite.relations if relation.predicate == stored.COMPOSES)
+    by_id = {member.id: member for member in members.values()}
+    world, roots, published = _world_of(tmp_path, {ALPHA: (composite,), BETA: (by_id[first],)})
+    make_absent(roots, BETA)
+
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+    assert second != first
+    assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [
+        ("composite-member-unresolvable", composite.id)
+    ]
+
+
 def test_a_dangling_composite_is_reported_through_the_world_audits_recompute(tmp_path):
     """The U7 arm `beliefs-6776d3` names: `check_composite` reached through
     `audit_world`'s `_recompute` dispatch rather than through `audit_corpus`."""
@@ -458,3 +473,32 @@ def test_a_dangling_composite_is_reported_through_the_world_audits_recompute(tmp
 
     assert [(f.code, f.ref) for f in audit.corpora[ALPHA]] == [("composite-member-unresolvable", composite.id)]
     assert audit.corpora[BETA] == ()
+
+
+def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recompute(tmp_path):
+    from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
+    from profiles import pins_for
+    from test_audit import OTHER_CLAIM
+    from test_world_receipts import hold_shipped, publish, world_over
+
+    from beliefs.projection import project_claim
+    from beliefs.spec import freeze
+    from beliefs.world import registry
+
+    root = tmp_path / "corpus"
+    root.mkdir()
+    (root / "corpus.yaml").write_bytes(
+        registry.manifest_bytes(registry.CorpusManifest(2, ALPHA, pins_for(TESTING_PROFILE)))
+    )
+    target = stored.proposition_node("p-other", title="other", claim=project_claim(OTHER_CLAIM))
+    spec = stored.analysis_spec_node(freeze(spec_draft(target=target.id), held_rules=spec_rules()))
+    raw_write(root, target)
+    raw_write(root, spec)
+    world = world_over(tmp_path, {ALPHA: root})
+    published = publish(world, (ALPHA,), hold_shipped(world))
+
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=TESTING_PROFILE)
+
+    assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [
+        ("spec-target-contradicted", spec.id)
+    ]

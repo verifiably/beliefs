@@ -271,6 +271,9 @@ decode, and Python/TypeScript parity are implemented. So is the belief seam:
 the derived admission state, the assessment admission gate, the belief-input
 closure digest, and `science.belief.v1` computed under an exact binding, with
 the belief policy's P1–P9 and the admission ramp's G9 in cut 2's selection.
+Since cut 33, retraction standing reaches that evaluator at the read:
+assessments and verifications targeted by standing retractions leave its input
+set, and standing route retractions retire lineage routes before certification.
 Verified holdings are a governed stored kind — recorded per location by
 intent-bearing acts and projected under a declared coverage — so an
 observation's admission input is a system record rather than a supplied

@@ -39,6 +39,7 @@ from beliefs.assess import AssessmentValue, build_assessment
 from beliefs.corpus import (
     Finding,
     ReadView,
+    _absence_of,
     _CapturedCheckView,
     _ImportView,
     _manifest_findings,
@@ -345,7 +346,6 @@ def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *,
     """Design §4.3: the boundary's four steps over the stored record, reported
     rather than raised. Form only — the audit holds no snapshot."""
     from beliefs import composite as composite_module
-    from beliefs.corpus import _absence_of
     from beliefs.errors import CompositeError
     from beliefs.world.view import WorldReadView
 
@@ -358,29 +358,50 @@ def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *,
 
     facet = stored.composite_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
     composes = [r for r in node.relations if r.predicate == stored.COMPOSES]
-    if len(composes) != len(facet.members) or any(r.source != node.id for r in composes):
-        return contradiction("composite-relations-mismatch", f"facet names {len(facet.members)} member(s), record carries {len(composes)} composes edge(s)")
+    if reason := composite_module.check_composes_relations(node, facet):
+        return contradiction("composite-relations-mismatch", reason)
+    available = []
+    absent = []
     if isinstance(view, WorldReadView):
         # Recorded elsewhere is not gone (module docstring, third case): a member
         # whose corpus has no carrier here would answer `RecordNotPresent` inside
         # `restore_members`, which translates `RefError` alone. Reporting
         # `composite-member-unresolvable` for it would convict the composite of
         # its neighbour's absence; the derivation is simply unchecked.
-        for relation in composes:
+        for index, relation in enumerate(composes):
             if view.holds(relation.target):
+                available.append(index)
                 continue
             elsewhere = _absence_of(view, relation.target)
             if elsewhere is not None:
-                return _unchecked(f"member {relation.target} is recorded in {elsewhere}, which has no carrier here")
+                absent.append((relation.target, elsewhere))
+                continue
+            available.append(index)
+    else:
+        available = list(range(len(composes)))
     try:
-        claims = composite_module.restore_members(
-            view, facet.members, tuple(r.target for r in composes), profile=profile, snapshot=composite_module.EMPTY_SNAPSHOT
+        checked_facet = composite_module.CompositeFacet(
+            grammar=facet.grammar,
+            shape=facet.shape,
+            nodes=facet.nodes,
+            members=tuple(facet.members[index] for index in available),
         )
-        composite_module.classify(profile, facet, claims)
+        claims = composite_module.restore_members(
+            view,
+            checked_facet.members,
+            tuple(composes[index].target for index in available),
+            profile=profile,
+            snapshot=composite_module.EMPTY_SNAPSHOT,
+        )
+        composite_module.classify(profile, checked_facet, claims)
     except CompositeError as refused:
         if refused.code in ("composite-member-unresolvable", "composite-member-mismatch"):
             return contradiction(refused.code, str(refused))
         return contradiction("composite-malformed", str(refused))
+    if absent:
+        return _unchecked(
+            "; ".join(f"member {ref} is recorded in {corpus}, which has no carrier here" for ref, corpus in absent)
+        )
     return DerivationOutcome(checked=True, reason="", contradiction=None)
 
 
@@ -525,7 +546,8 @@ def _recompute(
     if node.kind == "dataset":
         return check_lineage_basis(view, node)
     if node.kind == "analysis-spec":
-        return check_analysis_spec(node, profile=profile)
+        check_analysis_spec(node, profile=profile)
+        return check_spec_target(view, node, profile=profile)
     if node.kind == "composite":
         return check_composite(view, node, profile=profile)
     return None

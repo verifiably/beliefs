@@ -48,6 +48,7 @@ from atoms.chain.model import IntentEntry, RegisteredEntry, SettledEntry
 from atoms.coordinator.commands import inspect_chain_detached
 from atoms.fs.linux import LinuxBackend
 from authority import FULL
+from domain_facet_fixtures import over_kwargs
 from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
@@ -166,18 +167,25 @@ _COUNTER = count()
 # --- the durable roots --------------------------------------------------------
 
 
-def _adopted(writer: CorpusWriter, pins: CorpusPins = DEFAULT_PINS) -> CorpusWriter:
+def _adopted(writer: CorpusWriter, pins: CorpusPins = DEFAULT_PINS, *, corpus_id: str | None = None) -> CorpusWriter:
     """The manifest the portable writer adopts, adopted here too.
 
     `durable_root` registers a root and stops; the pins are a separate act, and
     every row that imports, consolidates or is audited needs them."""
-    writer.adopt_manifest(profile=pins)
+    if corpus_id is None:
+        writer.adopt_manifest(profile=pins)
+    else:
+        from types import SimpleNamespace
+        # Alternative histories of one logical corpus retain the coverage member.
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr("beliefs.corpus.secrets", SimpleNamespace(token_hex=lambda _: corpus_id))
+            writer.adopt_manifest(profile=pins)
     return writer
 
 
 @contextmanager
 def _durable_corpora(
-    work: Path, *labels: str, pins: CorpusPins = DEFAULT_PINS
+    work: Path, *labels: str, pins: CorpusPins = DEFAULT_PINS, corpus_id: str | None = None
 ) -> Iterator[tuple[CorpusWriter, ...]]:
     """Registered corpus roots beside `work`, removed with their metadata peers.
 
@@ -193,7 +201,7 @@ def _durable_corpora(
             root = work / f"cut18-{os.getpid()}-{next(_COUNTER)}-{label}"
             init_corpus_root(root, authority=FULL)
             roots.append(root)
-            writers.append(_adopted(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY if pins == PINS else TESTING_PROFILE), pins))
+            writers.append(_adopted(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY if pins == PINS else TESTING_PROFILE), pins, corpus_id=corpus_id))
         yield tuple(writers)
     finally:
         for root in roots:
@@ -338,8 +346,8 @@ def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, 
     **log** audit can: the raw removal is `refuted`, the managed one is
     `validated` carrying `record-removed` and, resolved against the caller's
     held copy, `failing-verification-removed` at error severity."""
-    raw_writer = _adopted(open_corpus(durable_root, authority=FULL, profile=TESTING_PROFILE))
-    with _durable_corpora(work_directory, "g8-managed") as (managed_writer,):
+    raw_writer = _adopted(open_corpus(durable_root, authority=FULL, profile=TESTING_PROFILE), corpus_id="c1" + "0" * 30)
+    with _durable_corpora(work_directory, "g8-managed", corpus_id=raw_writer.corpus_id) as (managed_writer,):
         raw = _scenario(raw_writer)
         managed = _scenario(managed_writer)
         failing = {
@@ -459,7 +467,6 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
     context_for_belief = SuppliedContext(
         snapshot=LineageSnapshot(roots=(address,), bases={}, producers={}),
         producer_snapshot_identity="producer-snapshot-1",
-        retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={records.assessments[0].identity(): ("c1",)},
         pins={"c1": pins_for(PROFILE)},
     )
@@ -474,6 +481,7 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
                 fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES},
             ),
             context=context_for_belief,
+            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             binding=PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
             profile=PROFILE,
         )
@@ -511,7 +519,7 @@ def test_s5_deletion_half_durably(durable_writer):
     epistemic reading agrees with a corpus in which that run never existed.
     §7's scoping: the log is not one of those readings and is never compared."""
     work = durable_writer.root.parent
-    with _durable_corpora(work, "s5-diverged", "s5-never") as (diverged_root, never_root):
+    with _durable_corpora(work, "s5-diverged", "s5-never", corpus_id="c1" + "0" * 30) as (diverged_root, never_root):
         ancestor = _lineage_corpus(_adopted(durable_writer), second_producer=False)
         before = _reloaded(ancestor)
         assert _certification(before) == Certification(state="independent", findings=())
@@ -557,7 +565,7 @@ def test_r23_deletion_and_audit_clauses_durably(durable_writer):
     §7, the absence of the semantic code, never of all findings."""
     work = durable_writer.root.parent
     labels = ("r23-ancestor", "r23-second", "r23-residue", "r23-never", "r23-forged")
-    with _durable_corpora(work, *labels) as (ancestor, second, residue, never_writer, forged):
+    with _durable_corpora(work, *labels, corpus_id="c1" + "0" * 30) as (ancestor, second, residue, never_writer, forged):
         separated = (
             (PRODUCER, "producing_run", _adopted(durable_writer)),
             (BASIS_ANCESTOR, "ancestor", ancestor),
@@ -991,7 +999,7 @@ def test_m1_containment_over_a_durable_corpus(durable_writer):
     read that never crosses `gather` is still invisible here."""
     fixture = _fixture(_adopted(durable_writer), PROPOSITION_REF)
 
-    honest = gather(fixture.view, fixture.proposition, **fixture.gather_kwargs)
+    honest = gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
     assert set(honest.read_trace) <= honest.declared_refs()
     assert {kind for kind, _ in honest.read_trace} == set(evaluation.READ_KINDS) - {
         "retraction",
@@ -1003,6 +1011,7 @@ def test_m1_containment_over_a_durable_corpus(durable_writer):
         records=honest.records(),
         availability=fixture.availability,
         context=fixture.context,
+        retractions=honest.retractions,
         binding=fixture.binding,
         profile=PROFILE,
     )
@@ -1011,7 +1020,9 @@ def test_m1_containment_over_a_durable_corpus(durable_writer):
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(evaluation, "_verification_selected", lambda value, ids: True)
-        leaky = gather(fixture.view, fixture.proposition, **fixture.gather_kwargs)
+        resolve = fixture.view.resolve
+        patch.setattr(fixture.view, "resolve", lambda ref: "assessment:a-1" if ref == "assessment:a-3" else resolve(ref))
+        leaky = gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
 
     assert {v.ref for v in leaky.verifications} > {v.ref for v in honest.verifications}
     assert leaky.closure().digest() == honest.closure().digest()
@@ -1028,7 +1039,7 @@ def test_m3_audit_classification_and_admission_order_durably(work_directory):
     then the negative: no topological rank is stored anywhere, so the same
     records admitted in two orders leave every stored identity and the belief
     digest unchanged."""
-    with _durable_corpora(work_directory, "m3-cyclic", "m3-first", "m3-second") as (cyclic, first, second):
+    with _durable_corpora(work_directory, "m3-cyclic", "m3-first", "m3-second", corpus_id="c1" + "0" * 30) as (cyclic, first, second):
         raw_cyclic_retraction_pair(cyclic)
 
         with pytest.MonkeyPatch.context() as patch:

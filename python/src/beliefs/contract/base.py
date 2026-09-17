@@ -40,6 +40,9 @@ __all__ = [
     "COMPOSES_SIGNATURE",
     "COMPOSITE_GRAMMAR",
     "ESTIMAND_GRAMMAR",
+    "SUPPORTED_CONTRAST_KINDS",
+    "SUPPORTED_SCALES",
+    "SUPPORTED_UNCERTAINTY_KINDS",
     "BaseContract",
     "ClaimGrammar",
     "CompositeGrammar",
@@ -86,6 +89,12 @@ SUPPORTED_SHAPES = ("dag",)
 """The shapes this implementation derives (design §3.4). A contract naming a
 shape outside this set is refused at parse: a profile carrying `pag` would
 otherwise run `dag` classification under another shape's name."""
+SUPPORTED_CONTRAST_KINDS = ("continuous", "levels")
+SUPPORTED_SCALES = ("additive", "multiplicative")
+SUPPORTED_UNCERTAINTY_KINDS = ("interval", "standard-error")
+"""The three estimand closed sets this implementation operates. A contract
+must declare each set exactly: widening would route a new tag through an
+existing operation, while narrowing would declare less than the kernel does."""
 _RELATION_FIELDS = frozenset({"group", "sources", "targets"})
 _RELATION_OPTIONAL = frozenset({"same_kind"})
 _RELATION_GROUPS = ("world", "lifecycle")
@@ -387,6 +396,18 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         scales=_closed_set(estimand["scales"], f"{estimand_where}: scales"),
         uncertainty_kinds=_closed_set(estimand["uncertainty_kinds"], f"{estimand_where}: uncertainty_kinds"),
     )
+    for set_name, declared, supported in (
+        ("contrast_kinds", estimand_grammar.contrast_kinds, SUPPORTED_CONTRAST_KINDS),
+        ("scales", estimand_grammar.scales, SUPPORTED_SCALES),
+        ("uncertainty_kinds", estimand_grammar.uncertainty_kinds, SUPPORTED_UNCERTAINTY_KINDS),
+    ):
+        if set(declared) != set(supported):
+            unoperable = sorted(set(declared) ^ set(supported))
+            raise MalformedContract(
+                f"{estimand_where}: {set_name} declares {sorted(declared)}, not the set this implementation operates "
+                f"{sorted(supported)}; {unoperable} is not operable here (a later grammar version arrives with its "
+                "interpretation, never ahead of it)"
+            )
 
     facets = parse_facet_declarations(root["facets"], where=f"{source}: facets", namespace=None)
     kinds: dict[str, KindDecl] = {}

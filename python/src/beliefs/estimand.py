@@ -18,6 +18,7 @@ from types import MappingProxyType
 from typing import cast, final
 
 from beliefs.claim import Claim, Qualifier, Referent
+from beliefs.contract.base import SUPPORTED_CONTRAST_KINDS, SUPPORTED_SCALES, SUPPORTED_UNCERTAINTY_KINDS
 from beliefs.errors import (
     ContrastRefused,
     ControlRefused,
@@ -37,6 +38,9 @@ from beliefs.sealed import sealed
 
 __all__ = [
     "ESTIMAND_ERRORS",
+    "SUPPORTED_CONTRAST_KINDS",
+    "SUPPORTED_SCALES",
+    "SUPPORTED_UNCERTAINTY_KINDS",
     "ContinuousContrast",
     "Control",
     "Estimand",
@@ -204,6 +208,8 @@ class Estimand:
         if measure.scale not in grammar.scales:
             raise MeasureRefused(f"measure.scale {measure.scale!r} is outside the kernel's closed set {list(grammar.scales)}")
         reference = _finite(reference, "reference", ReferenceRefused)
+        if measure.scale not in SUPPORTED_SCALES:
+            raise MeasureRefused(f"scale {measure.scale!r} is not operable")
         if measure.scale == "multiplicative" and reference <= 0:
             raise ReferenceRefused(f"reference must be > 0 under a multiplicative scale, found {reference}")
         if not isinstance(control, Control):
@@ -381,6 +387,8 @@ def co_scoped(a: Mapping[str, Qualifier], b: Mapping[str, Qualifier]) -> bool:
 
 
 def check_estimate(estimate: Decimal, scale: str) -> Decimal:
+    if scale not in SUPPORTED_SCALES:
+        raise UncertaintyRefused(f"scale {scale!r} is not operable")
     estimate = _finite(estimate, "estimate", UncertaintyRefused)
     if scale == "multiplicative" and estimate <= 0:
         raise UncertaintyRefused(f"estimate must be > 0 under a multiplicative scale, found {estimate}")
@@ -390,6 +398,8 @@ def check_estimate(estimate: Decimal, scale: str) -> Decimal:
 def check_uncertainty(uncertainty: Interval | StandardError, estimate: Decimal, scale: str) -> None:
     """§6's one meaning per kind: a two-sided central interval at `level` around
     the estimate on its own scale; a standard error on the scale's additive form."""
+    if scale not in SUPPORTED_SCALES:
+        raise UncertaintyRefused(f"scale {scale!r} is not operable")
     if isinstance(uncertainty, Interval):
         low, high, level = (_finite(getattr(uncertainty, n), f"uncertainty.{n}", UncertaintyRefused) for n in ("low", "high", "level"))
         if not (low <= estimate <= high):

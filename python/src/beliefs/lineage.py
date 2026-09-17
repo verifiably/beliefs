@@ -46,10 +46,10 @@ never a null.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import final
+from typing import Literal, final
 
 from beliefs.errors import BasisTagMismatch, MalformedSnapshot
 from beliefs.sealed import sealed
@@ -65,8 +65,12 @@ __all__ = [
     "LineageSnapshot",
     "Producer",
     "Route",
+    "absences",
     "certify",
     "divergence_state",
+    "effective_routes",
+    "effective_tag",
+    "retire",
     "snapshot_projection",
 ]
 
@@ -91,7 +95,10 @@ class Absence:
 @dataclass(frozen=True)
 class Route:
     """One basis route: a producing run and the ancestor it names, each as a
-    stored ref plus its resolution — `None` when the referent is gone."""
+    stored ref plus its resolution — `None` when the referent is gone. The
+    identity is what the stamped basis records for this route, or `None` when
+    it records none — what a route-arm retraction names; a route without one
+    is never retired."""
 
     dataset: str
     stored_run: str
@@ -99,11 +106,12 @@ class Route:
     stored_ancestor: str
     resolved_ancestor: str | None
     transforms: tuple[str, ...]
+    identity: str | None = None
 
 
 def _route_sort_key(route: Route) -> tuple[object, ...]:
     """A total order over routes for `conflict`'s sortedness check and the
-    projection: `None` sorts before every string, at its own field, rather
+    projection: `None` sorts after every string, at its own field, rather
     than being coerced into one — coercion could make two genuinely different
     routes compare equal."""
     return (
@@ -115,6 +123,8 @@ def _route_sort_key(route: Route) -> tuple[object, ...]:
         route.resolved_ancestor is None,
         route.resolved_ancestor or "",
         route.transforms,
+        route.identity is None,
+        route.identity or "",
     )
 
 
@@ -177,6 +187,7 @@ class LineageSnapshot:
     bases: Mapping[str, Basis]
     producers: Mapping[str, tuple[Producer, ...]]
     not_present: Mapping[str, str] = field(default_factory=dict)
+    retired: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not all(isinstance(b, Basis) for b in self.bases.values()):
@@ -186,9 +197,46 @@ class LineageSnapshot:
             for entries in self.producers.values()
         ):
             raise MalformedSnapshot("a snapshot's producers map holds tuples of Producer values only")
+        for dataset, identities in self.retired.items():
+            if (
+                type(dataset) is not str
+                or type(identities) is not tuple
+                or not all(type(identity) is str and identity for identity in identities)
+                or list(identities) != sorted(set(identities))
+            ):
+                raise MalformedSnapshot("a snapshot's retired map holds sorted, distinct route identities per dataset")
         object.__setattr__(self, "bases", MappingProxyType(dict(self.bases)))
         object.__setattr__(self, "producers", MappingProxyType(dict(self.producers)))
         object.__setattr__(self, "not_present", MappingProxyType(dict(self.not_present)))
+        object.__setattr__(self, "retired", MappingProxyType(dict(self.retired)))
+
+
+def retire(snapshot: LineageSnapshot, retired: Mapping[str, Iterable[str]]) -> LineageSnapshot:
+    """Return the snapshot with canonical retirements for datasets carrying a basis."""
+    kept = {
+        dataset: tuple(sorted(set(identities)))
+        for dataset, identities in retired.items()
+        if dataset in snapshot.bases
+    }
+    return LineageSnapshot(
+        roots=snapshot.roots,
+        bases=snapshot.bases,
+        producers=snapshot.producers,
+        not_present=snapshot.not_present,
+        retired=kept,
+    )
+
+
+def effective_routes(snapshot: LineageSnapshot, dataset: str) -> tuple[Route, ...]:
+    """Return the basis routes that have not been retired."""
+    retired = frozenset(snapshot.retired.get(dataset, ()))
+    return tuple(route for route in snapshot.bases[dataset].routes if route.identity not in retired)
+
+
+def effective_tag(snapshot: LineageSnapshot, dataset: str) -> Literal["single", "conflict", "retired"]:
+    """Return the basis tag implied by its surviving routes."""
+    count = len(effective_routes(snapshot, dataset))
+    return "conflict" if count >= 2 else "single" if count == 1 else "retired"
 
 
 @sealed
@@ -218,24 +266,23 @@ def divergence_state(snapshot: LineageSnapshot, dataset: str) -> str:
     `single` basis route; `"incomplete"` if an input is absent; `"undiverged"`
     otherwise. A replay whose transforms equal the route's is not divergence.
 
-    Defined **only** against a `single` basis: a `conflict` has no one route
-    to diverge from, and that case is decided on the tag alone, before this is
-    ever reached for that dataset (certify's traversal short-circuits a
-    `conflict` before calling this). An unresolved producer's `transforms` are
-    still literal, stored data and participate in the comparison unless the
-    producer is explicitly absent, when its empty transforms are unknown.
+    Defined **only** against an effectively single basis — one surviving route
+    (slice 1 §5). An unresolved producer's `transforms` are still literal,
+    stored data and participate in the comparison unless the producer is
+    explicitly absent, when its empty transforms are unknown.
 
     Raises `BasisTagMismatch` for a `conflict` basis: the snapshot itself is
     well-formed, this is a call outside the domain the comparison is defined
     over, and it stays inside the package's error hierarchy rather than a
     bare `ValueError` — see that class's docstring.
     """
-    basis = snapshot.bases[dataset]
-    if basis.tag != "single":
+    snapshot.bases[dataset]  # preserve KeyError for an unknown dataset
+    tag = effective_tag(snapshot, dataset)
+    if tag != "single":
         raise BasisTagMismatch(
-            f"divergence_state is defined only against a `single` basis; {dataset!r} carries {basis.tag!r}"
+            f"divergence_state is defined only against an effectively single basis; {dataset!r} is {tag!r}"
         )
-    route = basis.routes[0]
+    route = effective_routes(snapshot, dataset)[0]
     producers = snapshot.producers.get(dataset, ())
     if (
         route.stored_run in snapshot.not_present
@@ -280,10 +327,14 @@ def _closure(snapshot: LineageSnapshot, root: str) -> tuple[frozenset[str], tupl
             if any(producer.absent for producer in snapshot.producers.get(dataset, ())):
                 findings.append("lineage-incomplete")
             continue  # a root whose basis names nothing
-        if basis.tag == "conflict":
+        tag = effective_tag(snapshot, dataset)
+        if tag == "conflict":
             findings.append("lineage-divergent")
             continue  # decided on the tag alone, before resolution or comparison
-        for r in basis.routes:
+        if tag == "retired":
+            findings.append("lineage-incomplete")  # every route retired: no standing ancestry
+            continue
+        for r in effective_routes(snapshot, dataset):
             if r.resolved_run is None or r.resolved_ancestor is None:
                 findings.append("lineage-incomplete")
                 continue
@@ -334,7 +385,9 @@ def _absent_references(
     for dataset in inspected:
         basis = snapshot.bases.get(dataset)
         if basis is not None:
-            for route in basis.routes:
+            if effective_tag(snapshot, dataset) != "single":
+                continue  # the walk stopped on the tag and examined no route or producer
+            for route in effective_routes(snapshot, dataset):
                 for ref in (route.stored_run, route.stored_ancestor):
                     if ref in snapshot.not_present:
                         named[ref] = snapshot.not_present[ref]
@@ -342,6 +395,12 @@ def _absent_references(
             if producer.absent:
                 named[producer.stored_run] = producer.absent[0]
     return tuple(Absence(ref, corpus_id) for ref, corpus_id in sorted(named.items()))
+
+
+def absences(snapshot: LineageSnapshot) -> tuple[Absence, ...]:
+    """Return absences reached by the effective walk from the snapshot roots."""
+    inspected, _findings = _walk_all(snapshot, snapshot.roots)
+    return _absent_references(snapshot, inspected, snapshot.roots)
 
 
 def _ref_projection(stored: str, resolved: str | None) -> dict[str, object]:
@@ -357,6 +416,7 @@ def _route_projection(route: Route) -> dict[str, object]:
         "producing_run": _ref_projection(route.stored_run, route.resolved_run),
         "ancestor": _ref_projection(route.stored_ancestor, route.resolved_ancestor),
         "transforms": list(route.transforms),
+        "identity": [] if route.identity is None else [route.identity],
     }
 
 
@@ -378,14 +438,24 @@ def snapshot_projection(snapshot: LineageSnapshot) -> dict[str, object]:
     It also records the absent corpus per not-present reference
     (world-resolution slice 1 §5.1)."""
     bases = {
-        dataset: {"tag": basis.tag, "routes": [_route_projection(r) for r in basis.routes]}
+        dataset: {
+            "tag": basis.tag,
+            "routes": [_route_projection(r) for r in basis.routes],
+            "retired": list(snapshot.retired.get(dataset, ())),
+        }
         for dataset, basis in snapshot.bases.items()
     }
     producers = {dataset: [_producer_projection(p) for p in entries] for dataset, entries in snapshot.producers.items()}
-    divergence = {
-        dataset: "divergent" if basis.tag == "conflict" else divergence_state(snapshot, dataset)
-        for dataset, basis in snapshot.bases.items()
-    }
+    divergence = {}
+    for dataset in snapshot.bases:
+        tag = effective_tag(snapshot, dataset)
+        divergence[dataset] = (
+            "divergent"
+            if tag == "conflict"
+            else "incomplete"
+            if tag == "retired"
+            else divergence_state(snapshot, dataset)
+        )
     return {
         "roots": sorted(snapshot.roots),
         "bases": bases,

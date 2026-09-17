@@ -5,12 +5,13 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
 import yaml
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -43,6 +44,69 @@ from n2_arms_cut32 import CO_CITED, CUT32_ARMS, DECLARATION_UNITS, UNIT_CHECKS, 
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+# Correction-remainder slice 1 derives absence from the effective retired walk.
+_LIVE_SABOTAGES = {
+    "U4-a": Sabotage(
+        module="evaluation.py",
+        before="    absent.extend((entry.ref, entry.corpus_id) for entry in absences(snapshot))\n",
+        after="    absent.extend((entry.ref, entry.corpus_id) for entry in absences(snapshot))\n"
+        "    absent.extend(\n"
+        "        (node.id, \"composite\")\n"
+        "        for node in view.iter_stored()\n"
+        '        if node.kind == "composite" and any(relation.target in set(proposition_refs) for relation in node.relations)\n'
+        "    )  # the composites naming the proposition reach the belief inputs\n",
+    ),
+    "U6-b": Sabotage(
+        module="composite.py",
+        before="    if len(composes) != len(facet.members) or any(relation.source != node.id for relation in composes):\n",
+        after="    if any(relation.source != node.id for relation in composes):\n",
+    ),
+    # Final review: identification now uses the evaluator's gathered values.
+    "U8-b": Sabotage(
+        module="composite.py",
+        before="            identification = tuple(sorted({\n"
+        "                value.estimand.control.identification.term\n"
+        "                for value in inputs.assessments\n"
+        "                if value.identity() in admission.admitted\n"
+        "            }))\n",
+        after="            identification = tuple(sorted({\n"
+        "                value.estimand.control.identification.term\n"
+        "                for value in inputs.assessments\n"
+        "                if value.identity() in admission.admitted\n"
+        '            })) or ("identification:observational",)\n',
+    ),
+    "U8-d": Sabotage(
+        module="evaluation.py",
+        before="    if inputs.absent:\n",
+        after="    if False:  # the evaluator wrapper's absent-corpus arm skipped\n",
+    ),
+    "U8-e": Sabotage(
+        module="composite.py",
+        before="            identification = tuple(sorted({\n"
+        "                value.estimand.control.identification.term\n"
+        "                for value in inputs.assessments\n"
+        "                if value.identity() in admission.admitted\n"
+        "            }))\n",
+        after="            from beliefs.admission import Admitted as _Admitted, admit as _admit\n"
+        "            identification = tuple(sorted({\n"
+        "                value.estimand.control.identification.term\n"
+        "                for value in inputs.assessments\n"
+        "                if isinstance(_admit(value, inputs.runs[value.run], availability.observations, ()), _Admitted)\n"
+        "            }))  # a separate admission decision for the identification column\n",
+    ),
+    "U8-g": Sabotage(
+        module="composite.py",
+        before="            assert inputs is not None  # admission was reached over these gathered values\n",
+        after="            assert inputs is not None  # admission was reached over these gathered values\n"
+        "            from beliefs import belief as _belief\n"
+        "            _belief.admitted(inputs.assessments, runs=inputs.runs, observations=availability.observations, "
+        "verifications=inputs.verifications)  # a second admission pass\n",
+    ),
+}
+CUT32_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT32_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

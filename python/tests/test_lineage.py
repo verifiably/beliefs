@@ -5,6 +5,8 @@ Deferred and absent here: the walk that *produces* a snapshot from a store
 where that run never existed" clause, a store property (cut 2 §4.2).
 """
 
+from typing import Any, cast
+
 import pytest
 
 from beliefs.errors import BasisTagMismatch, MalformedSnapshot
@@ -15,13 +17,24 @@ from beliefs.lineage import (
     LineageSnapshot,
     Producer,
     Route,
+    absences,
     certify,
     divergence_state,
+    effective_routes,
+    effective_tag,
+    retire,
     snapshot_projection,
 )
 
 
-def route(dataset: str, ancestor: str, *, resolved: bool = True, transforms: tuple[str, ...] = ()) -> Route:
+def route(
+    dataset: str,
+    ancestor: str,
+    *,
+    resolved: bool = True,
+    transforms: tuple[str, ...] = (),
+    identity: str | None = None,
+) -> Route:
     return Route(
         dataset=dataset,
         stored_run=f"run-{dataset}",
@@ -29,6 +42,7 @@ def route(dataset: str, ancestor: str, *, resolved: bool = True, transforms: tup
         stored_ancestor=ancestor,
         resolved_ancestor=ancestor if resolved else None,
         transforms=transforms,
+        identity=identity,
     )
 
 
@@ -276,3 +290,165 @@ class TestAbsenceIsProjected:
             Producer(stored_run="r", resolved_run=None, transforms=(), absent=("a", "b"))
         with pytest.raises(MalformedSnapshot):
             Certification(state="not-certified", findings=(), absent=("beta",))  # type: ignore[arg-type]
+
+
+def conflict_snapshot(
+    *, retired_routes: dict[str, tuple[str, ...]] | None = None, not_present: dict[str, str] | None = None
+) -> LineageSnapshot:
+    """x with two routes to distinct ancestors a and b, y with one route to c."""
+    snapshot = LineageSnapshot(
+        roots=("x", "y"),
+        bases={
+            "x": Basis(
+                tag="conflict",
+                routes=tuple(
+                    sorted(
+                        (route("x", "a", identity="route:a"), route("x", "b", identity="route:b")),
+                        key=lambda r: r.stored_ancestor,
+                    )
+                ),
+            ),
+            "y": Basis(tag="single", routes=(route("y", "c", identity="route:c"),)),
+        },
+        producers={},
+        not_present=not_present or {},
+    )
+    return retire(snapshot, retired_routes or {})
+
+
+class TestRetirement:
+    def test_effective_tag_follows_the_survivors(self):
+        assert effective_tag(conflict_snapshot(), "x") == "conflict"
+        assert effective_tag(conflict_snapshot(retired_routes={"x": ("route:a",)}), "x") == "single"
+        assert effective_tag(conflict_snapshot(retired_routes={"x": ("route:a", "route:b")}), "x") == "retired"
+        assert effective_tag(conflict_snapshot(retired_routes={"y": ("route:c",)}), "y") == "retired"
+        assert [
+            r.stored_ancestor
+            for r in effective_routes(conflict_snapshot(retired_routes={"x": ("route:a",)}), "x")
+        ] == ["b"]
+
+    def test_retiring_one_conflicting_route_certifies_over_the_survivor(self):
+        assert certify(conflict_snapshot(), ("x",), ("y",)).findings == ("lineage-divergent",)
+        result = certify(conflict_snapshot(retired_routes={"x": ("route:a",)}), ("x",), ("y",))
+        assert result.state == "independent" and result.findings == ()
+
+    def test_retiring_every_route_is_incomplete_never_single(self):
+        result = certify(
+            conflict_snapshot(retired_routes={"x": ("route:a", "route:b")}), ("x",), ("y",)
+        )
+        assert result.state == "not-certified"
+        assert "lineage-incomplete" in result.findings and "lineage-divergent" not in result.findings
+
+    def test_divergence_runs_against_the_survivor(self):
+        snapshot = conflict_snapshot(retired_routes={"x": ("route:a",)})
+        producers = {"x": (Producer(stored_run="run-x", resolved_run="run-x", transforms=("t",)),)}
+        snapshot = LineageSnapshot(
+            roots=snapshot.roots, bases=snapshot.bases, producers=producers, retired=snapshot.retired
+        )
+        assert divergence_state(snapshot, "x") == "divergent"
+        with pytest.raises(BasisTagMismatch):
+            divergence_state(conflict_snapshot(), "x")
+        with pytest.raises(BasisTagMismatch):
+            divergence_state(conflict_snapshot(retired_routes={"x": ("route:a", "route:b")}), "x")
+
+    def test_the_projection_carries_retired_and_identities_and_moves(self):
+        plain = snapshot_projection(conflict_snapshot())
+        plain_bases = cast(dict[str, Any], plain["bases"])
+        plain_divergence = cast(dict[str, str], plain["divergence"])
+        assert plain_bases["x"]["retired"] == [] and plain_bases["y"]["retired"] == []
+        assert [r["identity"] for r in plain_bases["x"]["routes"]] == [["route:a"], ["route:b"]]
+        assert plain_divergence["x"] == "divergent"
+        one = snapshot_projection(conflict_snapshot(retired_routes={"x": ("route:a",)}))
+        one_bases = cast(dict[str, Any], one["bases"])
+        one_divergence = cast(dict[str, str], one["divergence"])
+        assert one_bases["x"]["retired"] == ["route:a"] and one_divergence["x"] == "undiverged"
+        both = snapshot_projection(conflict_snapshot(retired_routes={"x": ("route:a", "route:b")}))
+        assert cast(dict[str, str], both["divergence"])["x"] == "incomplete"
+        assert plain != one != both
+        no_identity = snapshot_projection(
+            LineageSnapshot(
+                roots=("z",), bases={"z": Basis(tag="single", routes=(route("z", "w"),))}, producers={}
+            )
+        )
+        no_identity_bases = cast(dict[str, Any], no_identity["bases"])
+        assert no_identity_bases["z"]["routes"][0]["identity"] == []
+
+    def test_swapping_identities_changes_survivor_certification_and_digest(self):
+        from beliefs.identity import v1
+
+        bases = {
+            "x": Basis(
+                tag="conflict",
+                routes=(route("x", "a", identity="route:a"), route("x", "b", identity="route:b")),
+            ),
+            "y": Basis(tag="single", routes=(route("y", "a", identity="route:y"),)),
+        }
+        swapped_bases = {
+            **bases,
+            "x": Basis(
+                tag="conflict",
+                routes=(route("x", "a", identity="route:b"), route("x", "b", identity="route:a")),
+            ),
+        }
+        original = retire(LineageSnapshot(roots=("x", "y"), bases=bases, producers={}), {"x": ("route:a",)})
+        swapped = retire(
+            LineageSnapshot(roots=("x", "y"), bases=swapped_bases, producers={}), {"x": ("route:a",)}
+        )
+        assert [r.stored_ancestor for r in effective_routes(original, "x")] == ["b"]
+        assert [r.stored_ancestor for r in effective_routes(swapped, "x")] == ["a"]
+        assert certify(original, ("x",), ("y",)).state == "independent"
+        assert certify(swapped, ("x",), ("y",)).state == "shared-source"
+        assert v1.digest("science.lineage-snapshot.v1", snapshot_projection(original)) != v1.digest(
+            "science.lineage-snapshot.v1", snapshot_projection(swapped)
+        )
+
+    def test_retire_keeps_only_datasets_with_a_basis_and_refuses_unsorted(self):
+        snapshot = retire(
+            conflict_snapshot(), {"x": ("route:b", "route:a"), "elsewhere": ("route:z",)}
+        )
+        assert dict(snapshot.retired) == {"x": ("route:a", "route:b")}
+        with pytest.raises(MalformedSnapshot):
+            LineageSnapshot(roots=("x",), bases={}, producers={}, retired={"x": ("route:b", "route:a")})
+        with pytest.raises(MalformedSnapshot):
+            LineageSnapshot(roots=("x",), bases={}, producers={}, retired={"x": ("route:a", "route:a")})
+
+
+class TestWalkAbsences:
+    def test_an_absence_on_a_retired_branch_blocks_nothing(self):
+        snapshot = conflict_snapshot(retired_routes={"x": ("route:a",)}, not_present={"a": "c2"})
+        assert absences(snapshot) == ()
+        assert certify(snapshot, ("x",), ("y",)).state == "independent"
+
+    def test_an_absence_on_the_surviving_route_blocks(self):
+        snapshot = conflict_snapshot(retired_routes={"x": ("route:a",)}, not_present={"b": "c2"})
+        assert absences(snapshot) == (Absence("b", "c2"),)
+
+    def test_an_absence_beneath_an_unretired_conflict_is_not_reached(self):
+        snapshot = conflict_snapshot(not_present={"a": "c2"})
+        assert absences(snapshot) == ()
+        result = certify(snapshot, ("x",), ("y",))
+        assert result.state == "not-certified" and result.findings == ("lineage-divergent",)
+
+    def test_an_absent_root_and_a_producer_absence_are_still_reached(self):
+        snapshot = LineageSnapshot(
+            roots=("x",),
+            bases={},
+            producers={
+                "x": (Producer(stored_run="run-x", resolved_run=None, transforms=(), absent=("c9",)),)
+            },
+            not_present={"x": "c2"},
+        )
+        assert absences(snapshot) == (Absence("run-x", "c9"), Absence("x", "c2"))
+
+
+@pytest.mark.parametrize("identities", [("route:a", "route:b"), ("route:a", None)])
+def test_identity_only_routes_have_one_canonical_order(identities):
+    routes = tuple(route("x", "a", identity=identity) for identity in identities)
+    basis = Basis(tag="conflict", routes=routes)
+    snapshot = LineageSnapshot(roots=("x",), bases={"x": basis}, producers={})
+    projected = cast(dict[str, Any], snapshot_projection(snapshot)["bases"])["x"]["routes"]
+    assert [item["identity"] for item in projected] == [
+        [] if identity is None else [identity] for identity in identities
+    ]
+    with pytest.raises(MalformedSnapshot, match="routes sorted"):
+        Basis(tag="conflict", routes=tuple(reversed(routes)))

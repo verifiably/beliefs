@@ -226,6 +226,22 @@ class TestEstimandGrammar:
         with pytest.raises(TagCollision):
             parse_base_contract(document, source="<dup>")
 
+    @pytest.mark.parametrize(
+        ("closed_set", "tags", "unoperable"),
+        [
+            ("contrast_kinds", ["levels", "continuous", "ordinal"], "ordinal"),
+            ("scales", ["additive", "multiplicative", "log"], "log"),
+            ("uncertainty_kinds", ["interval", "standard-error", "credible"], "credible"),
+            ("scales", ["additive"], "multiplicative"),
+        ],
+    )
+    def test_a_closed_set_must_exactly_match_the_tags_the_kernel_operates(
+        self, document, closed_set, tags, unoperable
+    ):
+        document["estimand_grammar"][closed_set] = tags
+        with pytest.raises(MalformedContract, match=unoperable):
+            parse(document)
+
     def test_the_grammar_enters_the_compiled_identity(self, base_contract_path):
         import yaml
 
@@ -234,7 +250,7 @@ class TestEstimandGrammar:
 
         document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
         before = compile_profile(parse_base_contract(document, source="<a>"), []).compiled_identity
-        document["estimand_grammar"]["scales"] = ["additive", "multiplicative", "ordinal"]
+        document["estimand_grammar"]["version"] = 2
         after = compile_profile(parse_base_contract(document, source="<b>"), []).compiled_identity
         assert before != after
 

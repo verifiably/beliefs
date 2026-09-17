@@ -834,3 +834,43 @@ coercion this kernel exists to refuse. This is the **first exercise of spec
 limitation 5**, and it is recorded as a limitation reached, not a defect: the
 composite says what it can say about this inquiry, and the inquiry's
 representation edges wait for a grammar version that types them.
+
+## 12. Addendum — standing reaches the evaluator, 2026-09-17
+
+Re-run under correction-remainder slice 1
+(`../superpowers/specs/2026-09-16-correction-remainder-slice-1-design.md`;
+cut 33). No contract succeeded, so the corpus was neither recreated nor moved
+aside: `.work/reproduction/mm30` is the cut-32 state, read in place, and
+`mm30.cut22` / `mm30.cut31` are untouched.
+
+### 12.1 What changed in the driver
+
+Step 8 and step 10a no longer supply a retraction enumeration.
+`SuppliedContext` has no such member: `gather` derives it from the corpus under
+the manifest's corpus id as coverage. The standing fold resolves every stored
+retraction; `EvaluationInputs` and the closure carry only the input-scoped
+subset and its counter chain under that full coverage (slice 1 decisions 1,
+3, and 10). The producer-snapshot identity stays supplied
+(`no-epoch-published`; no epoch is built here) and is the one member of the
+context this exercise still declares rather than reads.
+
+### 12.2 What the re-run reached
+
+`reproduction.rederive`, 2026-09-17, in a fresh process:
+`rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}`,
+equal to the recorded step-8 answer (`rederived_equal: true`). The corpus holds
+no retraction, so both the full fold and the input-scoped enumeration are
+`found=()`, `coverage=(8b5d0c802677ee445e2b9d91ebf5d6a7,)` — byte for byte
+the declaration the driver used to supply, now computed. The answer is a
+`NoBelief` and carries no `belief_input_digest`, so the slice's projection
+change (`retired` and `identity` on every lineage basis) moves no pinned digest
+here; it is measured by `test_lineage.py` and the cut's C7 arms, not by this
+corpus.
+
+### 12.3 What this addendum does not claim
+
+That a retraction in the mm30 corpus would subtract: none exists, and minting
+one is the dogfood's work, not the reproduction's. That the answer would
+survive an epoch: none is built. The transition measured is the driver's
+supplied member becoming a derived one with the same value.

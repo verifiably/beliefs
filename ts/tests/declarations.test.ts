@@ -110,6 +110,14 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
     expect(base.estimandGrammar.scales).toEqual(["additive", "multiplicative"]);
     expect(base.estimandGrammar.uncertaintyKinds).toEqual(["interval", "standard-error"]);
   });
+  it("refuses an estimand closed set wider than the tags the kernel operates", () => {
+    expect(() =>
+      parseBaseContract(
+        SHIPPED.replace("scales: [additive, multiplicative]", "scales: [additive, multiplicative, log]"),
+        "<bad>",
+      ),
+    ).toThrow(/log/);
+  });
   it("refuses a base contract without the estimand grammar", () => {
     const missing = SHIPPED.replace(/estimand_grammar:[\s\S]*?uncertainty_kinds: \[interval, standard-error\]\n/, "");
     expect(() => parseBaseContract(missing, "<missing>")).toThrow(/estimand_grammar/);

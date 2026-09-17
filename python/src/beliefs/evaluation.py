@@ -37,8 +37,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from types import MappingProxyType
-from typing import TYPE_CHECKING, TypeAlias, final
+from typing import TYPE_CHECKING, TypeAlias, cast, final
 
+from nodes.core.errors import RefError
 from nodes.core.node import Node
 
 from beliefs import stored
@@ -54,9 +55,9 @@ from beliefs.belief import (
     evaluate_traced,
 )
 from beliefs.claim import Claim
-from beliefs.closure import Closure, RetractionEnumeration, build_closure
+from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, Closure, RetractionEnumeration, build_closure
 from beliefs.consulted import consulted_contracts
-from beliefs.corpus import ReadView, _absence_of, run_value
+from beliefs.corpus import ReadView, _absence_of, retraction_standing, run_value
 from beliefs.dataset import dataset_address
 from beliefs.decode import claim_from_stored
 from beliefs.errors import (
@@ -66,10 +67,14 @@ from beliefs.errors import (
     FacetPayloadRefused,
     FacetUndeclared,
     MalformedRecord,
+    ProducerSnapshotMismatch,
+    RetractionResolutionDisagreement,
+    RetractionUnreadable,
+    ScienceError,
 )
 from beliefs.facet_read import FACET_READ_DOMAIN, FacetRead, read_observed_facets
 from beliefs.identity import v1
-from beliefs.lineage import LineageSnapshot
+from beliefs.lineage import LineageSnapshot, absences, retire
 from beliefs.policy import PolicyBinding
 from beliefs.profile import ProfileSpec
 from beliefs.record import AssessmentValue, RunValue
@@ -202,6 +207,36 @@ def _facets_held_to_capture(profile: ProfileSpec, view: WorldReadView, target: s
     return rows
 
 
+def _absent_inputs(
+    proposition: str,
+    context: SuppliedContext,
+    enumeration: RetractionEnumeration,
+    absent: tuple[tuple[str, str], ...],
+    trace: tuple[ReadRef, ...],
+    binding: PolicyBinding,
+    world: bool,
+) -> EvaluationInputs:
+    """No selection runs over a partial fold: an `EvaluationInputs` whose only
+    content is the absence, which `evaluate_over_traced` answers as
+    `unavailable-corpus-absent`."""
+    return EvaluationInputs(
+        proposition=proposition,
+        assessments=(),
+        runs={},
+        verifications=(),
+        snapshot=context.snapshot,
+        producer_snapshot_identity=context.producer_snapshot_identity,
+        retractions=RetractionEnumeration(found=(), coverage=enumeration.coverage),
+        consulted=(),
+        binding=(binding.rule, binding.implementation),
+        claim=None,
+        read_trace=trace,
+        observed_facets=(),
+        absent=absent,
+        node_corpus=MappingProxyType({} if world else dict(context.node_corpus)),
+    )
+
+
 def gather(
     view: ReadView | WorldReadView,
     proposition: str,
@@ -212,7 +247,18 @@ def gather(
     binding: PolicyBinding,
 ) -> EvaluationInputs:
     """Resolve one proposition's belief inputs from a corpus, tracing each
-    value at the moment it is handed out."""
+    value at the moment it is handed out.
+
+    Standing is decided here, before any assessment is read (correction-
+    remainder slice 1 §4): the retraction enumeration is the view's — the
+    bound epoch's for a world read, the corpus's own fold for a corpus-local
+    read — never the caller's; every found retraction is dereferenced and the
+    fold recomputed over what it names; a node-arm target of a standing
+    retraction is skipped before it is decoded; a route-arm target retires
+    its route in the lineage snapshot. Dereferencing a retraction outside the
+    closure is a lookup; membership is decided by relation edges.
+    """
+    from beliefs.corpus import CorpusWriter, local_retraction_enumeration
     from beliefs.world.view import WorldReadView
 
     world = isinstance(view, WorldReadView)
@@ -220,26 +266,84 @@ def gather(
         raise MalformedRecord(
             "node_corpus is derived from a world read and must be supplied empty; a caller may not relocate a record"
         )
-    attribution: dict[str, set[str]] = {}
+    if context.snapshot.retired:
+        raise MalformedRecord("a supplied lineage snapshot carries no retirement; a caller may not pre-retire a route")
+    if world:
+        bound = view.producer_snapshot_identity()
+        if context.producer_snapshot_identity != bound:
+            raise ProducerSnapshotMismatch(context.producer_snapshot_identity, bound)
+    enumeration = view.retraction_enumeration() if world else local_retraction_enumeration(view)
+
+    # --- standing, before any assessment is read ------------------------------
     absent: list[tuple[str, str]] = []
     trace: list[ReadRef] = []
+    facets: dict[str, Mapping[str, object]] = {}
+    for ref, _recorded in enumeration.found:
+        try:
+            corpus_id = _absence_of(view, ref)
+            if corpus_id is not None:
+                absent.append((ref, corpus_id))
+                continue
+            node = view.get(ref)  # a lookup; traced below only if the closure carries it
+            facet = CorpusWriter._validated_retraction(node)
+            target = cast(Mapping[str, str], facet["target"])
+            target_ref = target["ref"] if target["arm"] == "node" else target["dataset"]
+            corpus_id = _absence_of(view, target_ref)
+            if corpus_id is not None:
+                absent.append((target_ref, corpus_id))
+                continue
+            CorpusWriter._resolve_retraction_target(node, view)  # exact resolution, content identity, route presence
+        except (ScienceError, RefError) as caught:
+            raise RetractionUnreadable(ref, str(caught)) from caught
+        facets[ref] = facet
+    if absent:
+        return _absent_inputs(proposition, context, enumeration, tuple(sorted(set(absent))), tuple(trace), binding, world)
+    standing = retraction_standing(view, facets)
+    for ref, recorded in enumeration.found:
+        computed = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED
+        if computed != recorded:
+            raise RetractionResolutionDisagreement(ref, recorded, computed)
+    subtracted: set[str] = set()
+    retired: dict[str, set[str]] = {}
+    for ref, facet in facets.items():
+        if not standing[ref]:
+            continue
+        target = cast(Mapping[str, str], facet["target"])
+        if target["arm"] == "node":
+            subtracted.add(target["resolved"])
+        else:
+            retired.setdefault(target["resolved"], set()).add(target["route_identity"])
+
+    attribution: dict[str, set[str]] = {}
     matched: list[AssessmentValue] = []
     proposition_refs: list[str] = []
+    visited: set[str] = set()  # this proposition's assessment ids, subtracted included (decision 10)
     for node in view.iter_stored():
         if node.kind != "assessment":
             continue
+        # beliefs-010c6e: membership by the `assesses` edge, before any decode.
+        targets = [r.target for r in node.relations if r.predicate == stored.ASSESSES]
+        wanted = view.resolve(proposition) or proposition
+        if not any((view.resolve(target) or target) == wanted for target in targets):
+            continue  # a lookup, not a value handed out — membership by the edge, never by decoding
+        visited.add(node.id)
+        if node.id in subtracted:
+            continue  # a standing retraction names it: a lookup, never decoded
         value = stored.assessment_value(node, profile=profile)
         if value.proposition != proposition:
-            continue  # a lookup, not a value handed out
+            raise MalformedRecord(
+                f"{node.id}: the assesses edge names {proposition!r} but the facet names {value.proposition!r}"
+            )
         matched.append(value)
         if world:
             corpus_id = view.corpus_of(node.id)
             assert corpus_id is not None  # A served record has a location in this epoch.
             attribution.setdefault(value.identity(), set()).add(corpus_id)
         trace.append(("assessment", value.identity()))
-        proposition_refs.extend(r.target for r in node.relations if r.predicate == stored.ASSESSES)
+        proposition_refs.extend(targets)
     ids = frozenset(a.identity() for a in matched)
 
+    # --- runs and observed facets: unchanged from the baseline ------------------
     runs: dict[str, RunValue] = {}
     observed: dict[tuple[str, str, str], FacetRead] = {}
     for a in matched:
@@ -279,18 +383,46 @@ def gather(
                 _facets_held_to_capture(profile, view, target) if world else read_observed_facets(profile, view, target)
             ):
                 observed[(row.address, row.key, row.payload_digest)] = row
-    absent.extend(context.snapshot.not_present.items())
+    snapshot = retire(context.snapshot, retired)
+    absent.extend((entry.ref, entry.corpus_id) for entry in absences(snapshot))
     rows = tuple(observed[key] for key in sorted(observed))
 
     verifications: list[Verification] = []
+    verification_ids: set[str] = set()
     for node in view.iter_stored():
         if node.kind != "verification":
             continue
+        names = {r.target for r in node.relations if r.predicate == stored.VERIFIES}
+        if not any(view.resolve(name) in visited for name in names if view.resolve(name) is not None):
+            continue  # membership by the `verifies` edge, never by decoding (decision 10)
+        verification_ids.add(node.id)
+        if node.id in subtracted:
+            continue  # the amended G8 clause (§7a): it leaves the read set; `active` recomputes over what remains
         value = stored.verification_value(node)
         if _verification_selected(value, ids):
             verifications.append(value)
             trace.append(("verification", value.ref))
 
+    # --- the closure's enumeration: this proposition's inputs, transitively (decision 10)
+    scope = visited | verification_ids | set(snapshot.bases)
+    taken: set[str] = set()
+    grew = True
+    while grew:
+        grew = False
+        for ref, facet in facets.items():
+            if ref in taken:
+                continue
+            target = cast(Mapping[str, str], facet["target"])
+            if target["resolved"] in scope or target["resolved"] in taken:
+                taken.add(ref)
+                grew = True
+    scoped = RetractionEnumeration(
+        found=tuple(sorted((ref, recorded) for ref, recorded in enumeration.found if ref in taken)),
+        coverage=enumeration.coverage,
+    )
+    trace.extend(("retraction", ref) for ref, _recorded in scoped.found)
+
+    # --- the claim, consulted, attribution: unchanged from the baseline ----------
     claim: Claim | None = None
     for ref in dict.fromkeys(proposition_refs):
         corpus_id = _absence_of(view, ref)
@@ -298,15 +430,9 @@ def gather(
             absent.append((ref, corpus_id))
         if view.holds(ref):
             claim, _receipt = claim_from_stored(view.get(ref), profile=profile, snapshot=resolution)
-            # Traced at the ref actually read, never at the requested
-            # `proposition`. Nothing checks that an assessment's `assesses`
-            # edge agrees with its facet, so a raw-written record can send
-            # this read somewhere the closure never declared — and the claim
-            # it hands back feeds `consulted`, a digested member. Tracing the
-            # request instead of the read would hide exactly that.
+            # Trace the reference actually read.
             trace.append(("proposition", ref))
             break
-
     ledger: dict[str, list[str]] = {}
     for row in rows:
         ledger.setdefault(row.address, []).append(row.key)
@@ -328,9 +454,9 @@ def gather(
         assessments=tuple(matched),
         runs=runs,
         verifications=tuple(verifications),
-        snapshot=context.snapshot,
+        snapshot=snapshot,
         producer_snapshot_identity=context.producer_snapshot_identity,
-        retractions=context.retractions,
+        retractions=scoped,
         consulted=consulted,
         binding=(binding.rule, binding.implementation),
         claim=claim,
@@ -339,6 +465,52 @@ def gather(
         absent=tuple(sorted(set(absent))),
         node_corpus=MappingProxyType(dict(node_corpus)),
     )
+
+def _evaluate_over_inputs(
+    view: ReadView | WorldReadView,
+    proposition: str,
+    *,
+    availability: Availability,
+    context: SuppliedContext,
+    profile: ProfileSpec,
+    resolution: ResolutionSnapshot,
+    binding: object,
+) -> tuple[Belief | NoBelief | Refused, Admission, EvaluationInputs | None]:
+    """`evaluate`'s step-1 guard first, then `gather`, then `evaluate_traced`,
+    carrying the admission and its gathered inputs (design §6.2).
+
+    The guard runs before anything is read: without it the wrapper would open
+    the corpus, or crash projecting `.rule` off a `None` or a string, before
+    `evaluate` ever got to refuse — turning a clean refusal into reads and an
+    exception. Every answer this wrapper gives itself precedes step 5, so it
+    is `NotReached`; only the evaluator's own answer carries a set."""
+    if not isinstance(binding, PolicyBinding):
+        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"), NotReached(), None
+    try:
+        inputs = gather(view, proposition, context=context, profile=profile, resolution=resolution, binding=binding)
+    except ContractDisagreement as exc:
+        return Refused(f"consulted-contracts-disagree: {exc}"), NotReached(), None
+    except ContractMismatch as exc:
+        return Refused(str(exc)), NotReached(), None
+    except FacetPayloadRefused as exc:
+        return Refused(f"facet-payload-refused: {exc}"), NotReached(), None
+    except FacetUndeclared as exc:
+        return Refused(str(exc)), NotReached(), None
+    if inputs.absent:
+        corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
+        return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None
+    context = replace(context, node_corpus=inputs.node_corpus, snapshot=inputs.snapshot)
+    answer, admission = evaluate_traced(
+        proposition=proposition,
+        records=inputs.records(),
+        availability=availability,
+        context=context,
+        retractions=inputs.retractions,
+        binding=binding,
+        profile=profile,
+    )
+
+    return answer, admission, inputs
 
 
 def evaluate_over_traced(
@@ -351,38 +523,12 @@ def evaluate_over_traced(
     resolution: ResolutionSnapshot,
     binding: object,
 ) -> tuple[Belief | NoBelief | Refused, Admission]:
-    """`evaluate`'s step-1 guard first, then `gather`, then `evaluate_traced`,
-    carrying the admission the answer rests on (design §6.2).
-
-    The guard runs before anything is read: without it the wrapper would open
-    the corpus, or crash projecting `.rule` off a `None` or a string, before
-    `evaluate` ever got to refuse — turning a clean refusal into reads and an
-    exception. Every answer this wrapper gives itself precedes step 5, so it
-    is `NotReached`; only the evaluator's own answer carries a set."""
-    if not isinstance(binding, PolicyBinding):
-        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"), NotReached()
-    try:
-        inputs = gather(view, proposition, context=context, profile=profile, resolution=resolution, binding=binding)
-    except ContractDisagreement as exc:
-        return Refused(f"consulted-contracts-disagree: {exc}"), NotReached()
-    except ContractMismatch as exc:
-        return Refused(str(exc)), NotReached()
-    except FacetPayloadRefused as exc:
-        return Refused(f"facet-payload-refused: {exc}"), NotReached()
-    except FacetUndeclared as exc:
-        return Refused(str(exc)), NotReached()
-    if inputs.absent:
-        corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
-        return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()
-    context = replace(context, node_corpus=inputs.node_corpus)
-    return evaluate_traced(
-        proposition=proposition,
-        records=inputs.records(),
-        availability=availability,
-        context=context,
-        binding=binding,
-        profile=profile,
+    """Return the answer and its single traced admission (design §6.2)."""
+    answer, admission, _inputs = _evaluate_over_inputs(
+        view, proposition, availability=availability, context=context,
+        profile=profile, resolution=resolution, binding=binding,
     )
+    return answer, admission
 
 
 def evaluate_over(

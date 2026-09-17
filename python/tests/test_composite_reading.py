@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
+from domain_facet_fixtures import over_kwargs
 from profiles import pins_for
 from test_composite_boundary import GENE, SNAPSHOT, A, _build, _claim, _estimand, _proposition, _writer
 from test_evaluation import _observations  # the held byte observations helper, keyed by dataset address
 
 from beliefs import stored
-from beliefs.belief import Availability, Belief, NoBelief, NotReached, SuppliedContext
-from beliefs.closure import RetractionEnumeration
+from beliefs.belief import Availability, Belief, NoBelief, NotReached, Refused, SuppliedContext
 from beliefs.composite import CompositeError, CompositeNode, CompositeReading, build_composite, read_composite
 from beliefs.corpus import lineage_snapshot
 from beliefs.evaluation import evaluate_over
 from beliefs.identity import v1
-from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
+from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.projection import project_claim
 from beliefs.resolution import TermOutcome, build_snapshot
 
@@ -43,7 +45,6 @@ def _inputs(w, dataset_address, *, hold=True, with_policy=True):
     context = SuppliedContext(
         snapshot=lineage_snapshot(view, (dataset_address,)),
         producer_snapshot_identity="producer-snapshot-1",
-        retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={},
         pins={"c1": pins_for(w.profile)},
     )
@@ -62,7 +63,7 @@ def test_rows_equal_the_wrapper_answers_and_columns_share_one_admission(corpus):
     assert reading.identity == stored.stored_semantic_hash(w.read_view.get(minted.id))
     by_ref = {row.ref: row for row in reading.rows}
     for ref, row in by_ref.items():
-        assert row.belief == evaluate_over(w.read_view, ref, **_inputs(w, dataset_address))
+        assert row.belief == evaluate_over(w.read_view, ref, **over_kwargs(_inputs(w, dataset_address)))
     assert isinstance(by_ref["proposition:ab"].belief, Belief) and by_ref["proposition:ab"].identification == ("EX:observational",)
     assert by_ref["proposition:bc"].belief == NoBelief("no-eligible-assessment") and by_ref["proposition:bc"].identification == ()
     assert by_ref[ac].resolution.state == "superseded" and by_ref[ac].resolution.successors == (ac2,)
@@ -74,10 +75,64 @@ def test_withholding_follows_the_evaluator(corpus):
     w, dataset_address, _, _ = corpus
     minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
     unheld = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address, hold=False)).rows[0]
-    assert unheld.belief == evaluate_over(w.read_view, "proposition:ab", **_inputs(w, dataset_address, hold=False))
+    assert unheld.belief == evaluate_over(w.read_view, "proposition:ab", **over_kwargs(_inputs(w, dataset_address, hold=False)))
     assert isinstance(unheld.belief, NoBelief) and unheld.identification == ()
     no_policy = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address, with_policy=False)).rows[0]
     assert no_policy.belief == NoBelief("unavailable-policy-unheld") and no_policy.identification == NotReached()
+
+
+def test_answers_before_admission_carry_not_reached(corpus):
+    w, dataset_address, *_ = corpus
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    inputs = _inputs(w, dataset_address)
+
+    fixtures_unheld = read_composite(
+        w.read_view,
+        minted.id,
+        **{**inputs, "availability": replace(inputs["availability"], fixtures={})},
+    ).rows[0]
+    assert fixtures_unheld.belief == NoBelief("unavailable-fixtures-unheld")
+    assert fixtures_unheld.identification == NotReached()
+
+    broken = PolicyImplementation(identity=BELIEF_V1.identity, aggregate=lambda _problem: 999)
+    fixture_failure = read_composite(
+        w.read_view,
+        minted.id,
+        **{
+            **inputs,
+            "availability": replace(inputs["availability"], implementations={BELIEF_V1.identity: broken}),
+        },
+    ).rows[0]
+    assert isinstance(fixture_failure.belief, Refused)
+    assert fixture_failure.belief.reason.startswith("implementation-fails-fixtures")
+    assert fixture_failure.identification == NotReached()
+
+    gather_exception = read_composite(
+        w.read_view,
+        minted.id,
+        **{
+            **inputs,
+            "context": replace(
+                inputs["context"],
+                pins={"c1": replace(pins_for(w.profile), science_contract="science:" + "0" * 64)},
+            ),
+        },
+    ).rows[0]
+    assert isinstance(gather_exception.belief, Refused)
+    assert gather_exception.identification == NotReached()
+
+    absent_context = replace(
+        inputs["context"],
+        snapshot=replace(inputs["context"].snapshot, not_present={dataset_address: "corpus-elsewhere"}),
+    )
+    corpus_absent = read_composite(
+        w.read_view,
+        minted.id,
+        **{**inputs, "context": absent_context},
+    ).rows[0]
+    assert isinstance(corpus_absent.belief, NoBelief)
+    assert corpus_absent.belief.reason == "unavailable-corpus-absent"
+    assert corpus_absent.identification == NotReached()
 
 
 def test_two_inconclusive_admitted_assessments_keep_their_terms(corpus):
@@ -190,8 +245,6 @@ def test_the_identification_column_reads_only_the_assessments_naming_the_member(
     and makes one member's reading depend on another's records."""
     from test_evaluation import seed_assessed_proposition
 
-    from beliefs import composite as composite_module
-
     w, dataset_address, *_ = corpus
     seed_assessed_proposition(
         w, "proposition:bc", slug="i-bc",
@@ -202,24 +255,21 @@ def test_the_identification_column_reads_only_the_assessments_naming_the_member(
     assert unrelated
 
     decoded: list[str] = []
-    original = composite_module.assessment_value
+    original = stored.assessment_value
 
     def counting(node, **kwargs):
         decoded.append(node.id)
         return original(node, **kwargs)
 
-    monkeypatch.setattr(composite_module, "assessment_value", counting)
+    monkeypatch.setattr(stored, "assessment_value", counting)
     reading = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))
 
     assert reading.rows[0].identification == ("EX:observational",)
     assert not (set(decoded) & unrelated)
 
 
-def test_an_admitted_assessment_the_scan_cannot_see_is_named_and_never_dropped(corpus):
-    """A raw-written assessment whose facet names one proposition and whose
-    `assesses` edge names another: the evaluator admits it by facet, the column
-    scans by edge, and a short set would be a silent disagreement between the
-    two columns the design forbids."""
+def test_a_divergent_assesses_edge_is_skipped_by_both_columns(corpus):
+    """Both columns select membership by the assesses edge before decoding."""
     from fixtures_cut4 import raw_write, reopen
     from nodes.core.relations import Relation
 
@@ -235,9 +285,8 @@ def test_an_admitted_assessment_the_scan_cannot_see_is_named_and_never_dropped(c
     ]
     raw_write(w.root, node)  # the stamp covers the facet, not the relations
 
-    with pytest.raises(CompositeError) as caught:
-        read_composite(reopen(w.root), minted.id, **_inputs(w, dataset_address))
-    assert caught.value.code == "composite-admission-unscanned" and assessment not in str(caught.value)
+    row = read_composite(reopen(w.root), minted.id, **_inputs(w, dataset_address)).rows[0]
+    assert row.belief == NoBelief("no-eligible-assessment") and row.identification == ()
 
 
 def test_a_composite_ref_that_resolves_nowhere_refuses_under_its_own_code(corpus):
@@ -249,13 +298,10 @@ def test_a_composite_ref_that_resolves_nowhere_refuses_under_its_own_code(corpus
     assert caught.value.code == "composite-unresolvable"
 
 
-def test_a_pre_grammar_assessment_elsewhere_refuses_through_the_evaluators_own_gather(corpus):
-    """Not the column's refusal mode: `evaluation.gather` decodes every stored
-    assessment for every proposition it resolves, so the reading's refusal
-    surface here is the evaluator's and does not move with the column's scan."""
+def test_a_pre_grammar_assessment_elsewhere_is_not_decoded(corpus):
+    """An unrelated malformed assessment cannot poison this member's read."""
     from fixtures_cut4 import raw_write, reopen
 
-    from beliefs.errors import PreGrammarAssessment
     from beliefs.evaluation import gather
 
     w, dataset_address, *_ = corpus
@@ -273,8 +319,51 @@ def test_a_pre_grammar_assessment_elsewhere_refuses_through_the_evaluators_own_g
     raw_write(w.root, pre_grammar)
     view = reopen(w.root)
     inputs = _inputs(w, dataset_address)
-    with pytest.raises(PreGrammarAssessment):
-        gather(view, "proposition:ab", context=inputs["context"], profile=inputs["profile"],
-               resolution=inputs["resolution"], binding=inputs["binding"])
-    with pytest.raises(PreGrammarAssessment):
-        read_composite(view, minted.id, **inputs)
+    gathered = gather(view, "proposition:ab", context=inputs["context"], profile=inputs["profile"],
+                      resolution=inputs["resolution"], binding=inputs["binding"])
+    assert len(gathered.assessments) == 1
+    row = read_composite(view, minted.id, **inputs).rows[0]
+    assert isinstance(row.belief, Belief) and row.identification == ("EX:observational",)
+
+
+def test_a_retracted_support_reaches_the_composite_member(corpus):
+    from test_local_standing import retracts
+
+    w, dataset_address, *_ = corpus
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    before = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address)).rows[0]
+    assert isinstance(before.belief, Belief)
+    w.retract(retracts(w.read_view.get("assessment:a-ab"), "withdraw-support"))
+    after = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address)).rows[0]
+    assert after.belief == NoBelief("no-eligible-assessment")
+    assert after.identification == ()
+
+
+@pytest.mark.parametrize("surviving", [False, True])
+def test_identification_never_decodes_a_retracted_malformed_assessment(corpus, surviving):
+    from fixtures_cut4 import raw_write, reopen
+    from test_evaluation import seed_assessed_proposition
+    from test_local_standing import retracts
+
+    w, dataset_address, *_ = corpus
+    if surviving:
+        seed_assessed_proposition(
+            w, "proposition:ab", slug="survivor",
+            estimand=_estimand(_claim("EX:a", "EX:b")), applicability={},
+        )
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    malformed = w.read_view.get("assessment:a-ab")
+    malformed.facets[stored.ASSESSMENT_FACET]["outcome"] = "malformed"
+    malformed = stored.stamp_semantic_identity(malformed)
+    raw_write(w.root, malformed)
+    raw_write(w.root, stored.stamp_semantic_identity(retracts(malformed, "withdraw-malformed")))
+    view = reopen(w.root)
+    inputs = _inputs(w, dataset_address)
+    expected = evaluate_over(view, "proposition:ab", **over_kwargs(inputs))
+    if surviving:
+        assert isinstance(expected, Belief)
+    else:
+        assert expected == NoBelief("no-eligible-assessment")
+    row = read_composite(view, minted.id, **inputs).rows[0]
+    assert row.belief == expected
+    assert row.identification == (("EX:observational",) if surviving else ())
