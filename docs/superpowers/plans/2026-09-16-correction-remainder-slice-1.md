@@ -213,8 +213,8 @@ def test_the_local_enumeration_folds_standing_and_keys_by_id(tmp_path):
     assert found == {first.id: RETRACTION_OVERTURNED, counter.id: RETRACTION_UPHELD}
     facets = {n.id: corpus._validated_retraction_facet(n) for n in view.iter_stored() if n.kind == "retraction"}
     standing = retraction_standing(view, facets)
-    assert standing[first.id] is False and standing[counter.id] is True and standing[target.id] is False
-    assert corpus.standing_in_local_view(view, target.id) is False  # the one-at-a-time reading agrees
+    assert standing[first.id] is False and standing[counter.id] is True and standing[target.id] is True
+    assert corpus.standing_in_local_view(view, target.id) is True  # the only retraction of the target is overturned
 
 
 def test_a_manifest_less_corpus_cannot_declare_coverage(tmp_path):
@@ -314,7 +314,7 @@ def standing_in_local_view(view: ReadView, ref: str) -> bool:
     return standing.get(view.resolve(ref) or ref, True)
 ```
 
-The last line is byte-identical to the baseline's (cut 5's `_STANDING_DISABLED` pins it). Imports at the top of `corpus.py`: `from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, RetractionEnumeration` and `RetractionUnreadable` from `beliefs.errors`; `ScienceError` is already imported (the check code uses it). Add `"retraction_standing"`, `"local_retraction_enumeration"` to `__all__`.
+The last line is byte-identical to the baseline's (cut 5's `_STANDING_DISABLED` pins it). **Imports: `corpus.py` may not import `closure` at module level** — `closure → facet_read → corpus` closes a cycle and `ReadView` is then partially initialized at import (reproduced). So `local_retraction_enumeration` begins with a function-local `from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, RetractionEnumeration`, and the return annotation's name comes from an `if TYPE_CHECKING:` block at the top of the module (`from beliefs.closure import RetractionEnumeration`), the way `WorldReadView` is already annotated there. `RetractionUnreadable` from `beliefs.errors` at module level; `ScienceError` is already imported (the check code uses it). Add `"retraction_standing"`, `"local_retraction_enumeration"` to `__all__`.
 
 In `class ReadView`, after `opened_at`:
 
@@ -692,7 +692,24 @@ def effective_tag(snapshot: LineageSnapshot, dataset: str) -> str:
             stack.append(r.resolved_ancestor)
 ```
 
-`_absent_references`: `for route in basis.routes:` becomes `for route in effective_routes(snapshot, dataset):`. Add after it:
+`_absent_references` collects only what the walk examined: `_closure` adds a dataset to `inspected` and then stops on a `conflict` or a `retired` effective tag before reading any route or producer, so an absence beneath either is not examined and must not be collected (reproduced: the unretired-conflict fixture otherwise yields `Absence("a", "c2")`). Replace its loop body with
+
+```python
+    for dataset in inspected:
+        basis = snapshot.bases.get(dataset)
+        if basis is not None:
+            if effective_tag(snapshot, dataset) != "single":
+                continue  # the walk stopped here on the tag alone and examined no route or producer
+            for route in effective_routes(snapshot, dataset):
+                for ref in (route.stored_run, route.stored_ancestor):
+                    if ref in snapshot.not_present:
+                        named[ref] = snapshot.not_present[ref]
+        for producer in snapshot.producers.get(dataset, ()):
+            if producer.absent:
+                named[producer.stored_run] = producer.absent[0]
+```
+
+(a basisless dataset keeps its producer check, as `_closure` does). Add after it:
 
 ```python
 def absences(snapshot: LineageSnapshot) -> tuple[Absence, ...]:
@@ -751,9 +768,15 @@ git commit -m "feat(lineage): route identities, retirement, effective routes and
 
 In `belief.py`: delete the `retractions: RetractionEnumeration` field from `SuppliedContext` (line 231) and its mention in the class docstring; `evaluate_traced` and `evaluate` each gain a keyword-only parameter `retractions: RetractionEnumeration,` after `context`; `evaluate` passes it through; the `build_closure(...)` call in step 9 passes `retractions=retractions`. `RetractionEnumeration` stays imported (it is now a parameter type).
 
-- [ ] **Step 2: The contract edits, so the suite runs**
+- [ ] **Step 2: The contract edits and the two read prerequisites**
 
-Mechanical, one pass: everywhere a `SuppliedContext(` is constructed with `retractions=`, delete that argument; everywhere `evaluate(` or `evaluate_traced(` is called, add `retractions=`. The two fixture builders make most of it one edit each: in `test_belief.scenario`, delete `retractions=` from the context and add `"retractions": RetractionEnumeration(found=(), coverage=("c1",))` to `kwargs` (and `retractions: RetractionEnumeration` to `_Scenario`); in `domain_facet_fixtures.kwargs_for`, delete `retractions=` from the context and add `"retractions": RetractionEnumeration(found=(), coverage=("c1",))` to the returned dict — callers that pass `**kwargs_for(...)` to `evaluate` now carry it, and callers that pass it to `gather`/`evaluate_over` must drop the key (`{k: v for k, v in kwargs.items() if k != "retractions"}`) — write a helper `over_kwargs(kwargs)` in `domain_facet_fixtures.py` that does that and use it at every `gather(`/`evaluate_over(`/`evaluate_over_traced(` site. `test_world_view.world_kwargs` loses its `retractions=replace(...)` line. `acceptance/test_world_view_acceptance.py:343` loses the same. `test_reproduction_driver.py` and the reproduction driver's `context()` (Task 6 finishes the driver; here only what the test imports). Run `cd python && uv run --frozen pytest tests/test_belief.py tests/test_evaluation.py tests/test_composite_reading.py tests/test_deletion_rows.py tests/test_world_view.py tests/test_reproduction_driver.py -q` — every test that passed before Step 1 passes now, with identical answers (a retraction-free enumeration digests as before).
+Three migrations, then the mechanical pass. They are edits to test fixtures only, and the green checkpoint for them is at the end of Step 4 (the suite cannot be green between Step 1 and the new `gather`).
+
+*Manifests.* `ReadView.corpus_id` reads a manifest, and `domain_facet_fixtures.seed`'s `Path` branch raw-writes none (reproduced: `ManifestMissing`). In `seed`, after `corpus.mkdir(...)`, write one exactly as `test_world_build.corpus_at` does — `(corpus / "corpus.yaml").write_bytes(registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, PINS)))` with `from fixtures_cut6 import PINS`, `from beliefs.world import registry`, and a module constant `LOCAL_CORPUS_ID = "c1" + "0" * 30` (32 lower-hex characters, so the local coverage reads `("c1000…",)`). If `ReadView.get`'s base-pin check then refuses reads under `profile_with()` (`_require_base_pin`), build the manifest's pins from `pins_for(profile_with())` instead of `PINS` and record which in a task note. Every other raw-written corpus a test reads through `gather`/`evaluate_over` gets the same line (grep: `raw_write(` in `test_deletion_rows.py`, `verification_fixtures.py`, `test_evaluation.py`, `test_composite_reading.py`; the acceptance modules use `durable_writer`, which adopts one). A fixture whose *point* is a manifest-less corpus (`grep -rn "ManifestMissing" python/tests`) keeps it and asserts the refusal.
+
+*The producer identity on world reads.* `gather` now refuses a supplied `producer_snapshot_identity` that is not the bound epoch's, and every world-read site inherits `"producer-snapshot-1"` from `kwargs_for` (reproduced). In `test_world_view.world_kwargs` set `producer_snapshot_identity=view.producer_snapshot_identity()` in the `replace(...)`; grep `producer-snapshot-1` across `python/tests` (nine files: `domain_facet_fixtures.py`, `test_belief.py`, `test_closure.py`, `test_composite_reading.py`, `test_deletion_rows.py`, `test_evaluation.py`, `verification_fixtures.py`, `acceptance/test_deletion_acceptance.py`, `acceptance/test_durable_records.py`) and at each site that evaluates over a `WorldReadView`, replace the placeholder with the view's; corpus-local sites keep it (a corpus-local read has no epoch to check against).
+
+*The enumeration.* Mechanical, one pass: everywhere a `SuppliedContext(` is constructed with `retractions=`, delete that argument; everywhere `evaluate(` or `evaluate_traced(` is called, add `retractions=`. The two fixture builders make most of it one edit each: in `test_belief.scenario`, delete `retractions=` from the context and add `"retractions": RetractionEnumeration(found=(), coverage=("c1",))` to `kwargs` (and `retractions: RetractionEnumeration` to `_Scenario`); in `domain_facet_fixtures.kwargs_for`, delete `retractions=` from the context and add `"retractions": RetractionEnumeration(found=(), coverage=("c1",))` to the returned dict — callers that pass `**kwargs_for(...)` to `evaluate` now carry it, and callers that pass it to `gather`/`evaluate_over` must drop the key (`{k: v for k, v in kwargs.items() if k != "retractions"}`) — write a helper `over_kwargs(kwargs)` in `domain_facet_fixtures.py` that does that and use it at every `gather(`/`evaluate_over(`/`evaluate_over_traced(` site. `test_world_view.world_kwargs` loses its `retractions=replace(...)` line. `acceptance/test_world_view_acceptance.py:343` loses the same. `test_reproduction_driver.py` and the reproduction driver's `context()` (Task 6 finishes the driver; here only what the test imports). No green checkpoint here: `gather` still constructs `EvaluationInputs(retractions=context.retractions)` until Step 4 rewrites it. Tests whose assertions pinned `coverage == ("c1",)` on a corpus-local closure now read `(LOCAL_CORPUS_ID,)`; update them as they surface in Step 4's run.
 
 - [ ] **Step 3: The failing tests for `gather`**
 
@@ -764,35 +787,52 @@ from dataclasses import replace
 
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
 
-from beliefs.admission import admit
+from beliefs.admission import Admitted, AdmissionRefused, admit
 from beliefs.belief import Belief, NoBelief, evaluate
+from beliefs.verification import ADMITTED, INVALIDATED, NOT_ADMITTED, lifecycle_state
 from beliefs.errors import ProducerSnapshotMismatch, RetractionUnreadable
 from beliefs.evaluation import evaluate_over, evaluate_over_traced, gather
 from beliefs.lineage import LineageSnapshot
 
 
-def seeded(tmp_path):
-    """The domain-facet scenario (two assessments a-a supporting and a-b refuting
-    `proposition:p`, runs, datasets) in an adopted corpus, plus a writer over it."""
-    view = seed(tmp_path / "scratch", axis="rows")
-    writer = CorpusWriter(tmp_path / "scratch", DefaultExecutor, authority=FULL, profile=profile_with())
-    writer.adopt_manifest(profile=pins_for(profile_with()))
-    return writer, profile_with()
+def seeded(tmp_path, *, outcomes=("supported", "refuted")):
+    """The domain-facet scenario in a writer-adopted corpus: `assessment:a-1`
+    (`run:run-a` over `dataset:d-a`) and `assessment:a-2` (`run:run-b` over
+    `dataset:d-b`), each carrying one clean-environment pass (`verification:v-1`,
+    `verification:v-2`), both roots basisless so the pair certifies independent.
+    `outcomes` is the one knob this slice adds to `seed` (a second parameter,
+    default `("supported", "supported")` so every existing caller is unchanged):
+    with a-2 refuting, the baseline belief is 0 and subtracting a-1 moves it to
+    -1 — cut 5's C4 arithmetic through `evaluate_over` instead of a test-side
+    filter."""
+    profile = profile_with()
+    writer = CorpusWriter(tmp_path / "scratch", DefaultExecutor, authority=FULL, profile=profile)
+    writer.adopt_manifest(profile=pins_for(profile))
+    seed(writer, axis="rows", outcomes=outcomes)
+    return writer, profile
 
 
-def gathered(writer, profile):
-    view = writer.read_view
+def fresh(writer) -> ReadView:
+    """A view opened after the last write — a raw write past the boundary is
+    not in the writer's index, and the writer's view would not find it."""
+    return ReadView.opened_at(writer.root)
+
+
+def gathered(writer, profile, view=None):
+    view = view or fresh(writer)
     kwargs = over_kwargs(kwargs_for(view, profile))
-    return gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+    return kwargs, gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+
+
+A1, A2, V1, V2 = "assessment:a-1", "assessment:a-2", "verification:v-1", "verification:v-2"
 
 
 class TestSubtractionAtTheRead:
     def test_a_retracted_assessment_leaves_the_read_set_before_decoding(self, tmp_path):
         writer, profile = seeded(tmp_path)
-        baseline = gathered(writer, profile)
-        support = next(n for n in writer.read_view.iter_stored() if n.kind == "assessment" and "a-a" in n.id)
-        retraction = writer.retract(retracts(support, "t1"))
-        after = gathered(writer, profile)
+        _kwargs, baseline = gathered(writer, profile)
+        retraction = writer.retract(retracts(writer.read_view.get(A1), "t1"))
+        _kwargs, after = gathered(writer, profile)
         gone = {a.identity() for a in baseline.assessments} - {a.identity() for a in after.assessments}
         assert len(gone) == 1
         assert ("retraction", retraction.id) in after.read_trace
@@ -804,27 +844,24 @@ class TestSubtractionAtTheRead:
 
     def test_a_counter_retraction_returns_the_assessment_with_a_third_digest(self, tmp_path):
         writer, profile = seeded(tmp_path)
-        a = gathered(writer, profile).closure().digest()
-        support = next(n for n in writer.read_view.iter_stored() if n.kind == "assessment" and "a-a" in n.id)
-        first = writer.retract(retracts(support, "t1"))
-        b = gathered(writer, profile).closure().digest()
+        a = gathered(writer, profile)[1].closure().digest()
+        first = writer.retract(retracts(writer.read_view.get(A1), "t1"))
+        b = gathered(writer, profile)[1].closure().digest()
         counter = writer.retract(retracts(first, "t2"))
-        after = gathered(writer, profile)
+        _kwargs, after = gathered(writer, profile)
         assert len(after.assessments) == 2
         assert dict(after.retractions.found) == {first.id: RETRACTION_OVERTURNED, counter.id: RETRACTION_UPHELD}
         assert len({a, b, after.closure().digest()}) == 3
 
     def test_the_answer_moves_through_evaluate_over_with_no_test_side_filter(self, tmp_path):
-        writer, profile = seeded(tmp_path)
-        view = writer.read_view
-        kwargs = over_kwargs(kwargs_for(view, profile))
-        before = evaluate_over(view, "proposition:p", **kwargs)
-        support = next(n for n in view.iter_stored() if n.kind == "assessment" and "a-a" in n.id)
-        writer.retract(retracts(support, "t1"))
-        after = evaluate_over(writer.read_view, "proposition:p", **kwargs)
+        writer, profile = seeded(tmp_path)  # a-1 supports, a-2 refutes: 0
+        kwargs, _inputs = gathered(writer, profile)
+        before = evaluate_over(fresh(writer), "proposition:p", **kwargs)
+        writer.retract(retracts(writer.read_view.get(A1), "t1"))
+        kwargs, inputs = gathered(writer, profile)
+        after = evaluate_over(fresh(writer), "proposition:p", **kwargs)
         assert isinstance(before, Belief) and isinstance(after, Belief)
-        assert after.value < before.value
-        inputs = gather(writer.read_view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+        assert before.value == 0 and after.value == -1
         assert inputs.closure().digest() == after.belief_input_digest
 
     def test_a_supplied_enumeration_is_a_type_error_and_a_pre_retired_snapshot_refuses(self, tmp_path):
@@ -850,35 +887,44 @@ class TestSubtractionAtTheRead:
 ```python
 class TestTheAmendedG8Clause:
     """A retracted verification leaves the read set; `active` recomputes over
-    what remains (spec decision 5)."""
+    what remains (spec decision 5). Read two ways: the belief value through
+    `evaluate_over` (a-1 admitted → 0, a-1 not admitted → -1 with a-2 refuting
+    alone) and the gate itself, `admit(assessment, run, observations,
+    verifications)`, which answers `Admitted` or `AdmissionRefused`."""
 
-    def _one_assessment(self, tmp_path):
-        writer, profile = seeded(tmp_path)
-        view = writer.read_view
-        refute = next(n for n in view.iter_stored() if n.kind == "assessment" and "a-b" in n.id)
-        writer.retract(retracts(refute, "drop-refute"))  # leave one assessment, a-a, standing
-        support = next(n for n in view.iter_stored() if n.kind == "assessment" and "a-a" in n.id)
-        return writer, profile, support
+    def _gate(self, writer, profile):
+        """The gate's answer, the lifecycle state it rests on (the gate's reason
+        does not distinguish `invalidated` from `not-admitted`), and the belief."""
+        kwargs, inputs = gathered(writer, profile)
+        identity = stored.assessment_reference(writer.read_view.get(A1)).identity()
+        a1 = next(a for a in inputs.assessments if a.identity() == identity)
+        gate = admit(a1, inputs.runs[a1.run], kwargs["availability"].observations, inputs.verifications)
+        state = lifecycle_state(tuple(v for v in inputs.verifications if v.assessment == identity))
+        return gate, state, evaluate_over(fresh(writer), "proposition:p", **kwargs)
 
     def test_retracting_a_false_failure_admits_iff_a_standing_pass_remains(self, tmp_path):
-        writer, profile, support = self._one_assessment(tmp_path)
-        identity = stored.assessment_reference(support).identity()
-        passing = writer.add(verification_for(support, scope="clean-environment", verdict="passed", slug="pass"))
-        failing = writer.add(verification_for(support, scope="clean-environment", verdict="failed", slug="fail"))
-        assert admit(gathered(writer, profile).records(), identity).state == "invalidated"
+        writer, profile = seeded(tmp_path)  # a-1 carries v-1, a clean-environment pass
+        a1 = writer.read_view.get(A1)
+        failing = writer.add(verification_for(a1, scope="clean-environment", verdict="failed", slug="fail"))
+        gate, state, answer = self._gate(writer, profile)
+        assert isinstance(gate, AdmissionRefused) and state == INVALIDATED and answer.value == -1
         writer.retract(retracts(failing, "false-failure"))
-        assert admit(gathered(writer, profile).records(), identity).state == "admitted"
-        writer.retract(retracts(passing, "false-pass"))
-        assert admit(gathered(writer, profile).records(), identity).state == "not-admitted"
+        gate, state, answer = self._gate(writer, profile)
+        assert isinstance(gate, Admitted) and state == ADMITTED and answer.value == 0
+        writer.retract(retracts(writer.read_view.get(V1), "false-pass"))  # the only standing pass
+        gate, state, answer = self._gate(writer, profile)
+        assert isinstance(gate, AdmissionRefused) and state == NOT_ADMITTED and answer.value == -1
 
     def test_retracting_a_resolution_restores_the_failure_it_named(self, tmp_path):
-        writer, profile, support = self._one_assessment(tmp_path)
-        identity = stored.assessment_reference(support).identity()
-        failing = writer.add(verification_for(support, scope="clean-environment", verdict="failed", slug="fail"))
-        resolution = writer.add(verification_for(support, scope="clean-environment", verdict="passed", slug="fix", supersedes=failing.id))
-        assert admit(gathered(writer, profile).records(), identity).state == "admitted"
+        writer, profile = seeded(tmp_path)
+        a1 = writer.read_view.get(A1)
+        failing = writer.add(verification_for(a1, scope="clean-environment", verdict="failed", slug="fail"))
+        resolution = writer.add(verification_for(a1, scope="clean-environment", verdict="passed", slug="fix", supersedes=failing.id))
+        gate, state, answer = self._gate(writer, profile)
+        assert isinstance(gate, Admitted) and state == ADMITTED and answer.value == 0
         writer.retract(retracts(resolution, "false-resolution"))
-        assert admit(gathered(writer, profile).records(), identity).state == "invalidated"
+        gate, state, answer = self._gate(writer, profile)
+        assert isinstance(gate, AdmissionRefused) and state == INVALIDATED and answer.value == -1
 
 
 class TestUnreadableAndAbsent:
@@ -886,40 +932,37 @@ class TestUnreadableAndAbsent:
         from fixtures_cut4 import raw_write
 
         writer, profile = seeded(tmp_path)
-        support = next(n for n in writer.read_view.iter_stored() if n.kind == "assessment" and "a-a" in n.id)
-        node = retracts(support, "t1")
+        node = retracts(writer.read_view.get(A1), "t1")
         node.facets[stored.RETRACTION_FACET]["target"]["ref"] = "assessment:gone"
         node.facets[stored.RETRACTION_FACET]["target"]["resolved"] = "assessment:gone"
         raw_write(writer.root, stored.stamp_semantic_identity(node))
         with pytest.raises(RetractionUnreadable) as refused:
-            gathered(writer, profile)
+            gathered(writer, profile, fresh(writer))  # a fresh view: the writer's index does not hold a raw write
         assert refused.value.ref == node.id
 
     def test_a_wrong_content_identity_restamped_is_unreadable(self, tmp_path):
         from fixtures_cut4 import raw_write
 
         writer, profile = seeded(tmp_path)
-        support = next(n for n in writer.read_view.iter_stored() if n.kind == "assessment" and "a-a" in n.id)
-        node = retracts(support, "t1")
+        node = retracts(writer.read_view.get(A1), "t1")
         node.facets[stored.RETRACTION_FACET]["target"]["content_identity"] = "sha256:" + "ab" * 32
         raw_write(writer.root, stored.stamp_semantic_identity(node))
         with pytest.raises(RetractionUnreadable, match="content identity"):
-            gathered(writer, profile)
+            gathered(writer, profile, fresh(writer))
 
     def test_a_stale_stamp_is_unreadable_too(self, tmp_path):
         from fixtures_cut4 import raw_write
 
         writer, profile = seeded(tmp_path)
-        support = next(n for n in writer.read_view.iter_stored() if n.kind == "assessment" and "a-a" in n.id)
-        node = retracts(support, "t1")
+        node = retracts(writer.read_view.get(A1), "t1")
         stamped = stored.stamp_semantic_identity(node)
         stamped.facets[stored.RETRACTION_FACET]["rationale"] = "edited after the stamp"
         raw_write(writer.root, stamped)
         with pytest.raises(RetractionUnreadable, match="semantic-hash-stale|stale"):
-            gathered(writer, profile)
+            gathered(writer, profile, fresh(writer))
 ```
 
-`verification_for` is a module-local helper written at the top of the test file, on `test_deletion_rows._verification`'s shape (line 290 there):
+`AdmissionRefused(assessment, reason)` carries one prefix-stable reason for every verification-state refusal (`not-admitted-verification-state: …`, `admission.py:74`), so the `invalidated`/`not-admitted` distinction is read from `verification.lifecycle_state` over the gathered verifications, as above. `seed` gains `outcomes: tuple[str, str] = ("supported", "supported")` and uses `outcomes[0]`/`outcomes[1]` for a-1/a-2's `outcome=`. `verification_for` is a module-local helper written at the top of the test file, on `test_deletion_rows._verification`'s shape (line 290 there):
 
 ```python
 def verification_for(assessment, *, scope: str, verdict: str, slug: str, supersedes: str | None = None):
@@ -971,15 +1014,14 @@ def writer_at(root: Path, profile) -> CorpusWriter:
 
 def evaluation(world, published, profile):
     view = open_world_view(world, published)
-    kwargs = world_kwargs(view, profile)
-    kwargs["context"] = replace(kwargs["context"], producer_snapshot_identity=view.producer_snapshot_identity())
+    kwargs = world_kwargs(view, profile)  # sets producer_snapshot_identity from the view (Step 2)
     inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile, resolution=kwargs["resolution"], binding=kwargs["binding"])
     answer, _admission = evaluate_over_traced(view, "proposition:p", **over_kwargs(kwargs))
     return view, inputs, answer
 
 
 def support_in(view, corpus_id):
-    return next(n for n in view.captured_records(corpus_id) if n.kind == "assessment" and "a-a" in n.id)
+    return next(n for n in view.captured_records(corpus_id) if n.id == "assessment:a-1")
 
 
 class TestTheEpochsEnumerationReachesBelief:
@@ -1000,8 +1042,9 @@ class TestTheEpochsEnumerationReachesBelief:
         profile = profile_with()
         view = open_world_view(world, published)
         kwargs = world_kwargs(view, profile)
+        context = replace(kwargs["context"], producer_snapshot_identity="producer-snapshot-1")
         with pytest.raises(ProducerSnapshotMismatch):
-            gather(view, "proposition:p", context=kwargs["context"], profile=profile, resolution=kwargs["resolution"], binding=kwargs["binding"])
+            gather(view, "proposition:p", context=context, profile=profile, resolution=kwargs["resolution"], binding=kwargs["binding"])
 
 
 class TestC3Coverage:
@@ -1325,7 +1368,7 @@ Imports in `evaluation.py`: `cast` from `typing`; `from beliefs.closure import R
 `docs/designs/2026-09-12-composite-claims-design.md`, under limitation 16 in §13: append a dated line — "*Discharged 2026-09-16 by correction-remainder slice 1 (`../superpowers/specs/2026-09-16-correction-remainder-slice-1-design.md`, decision 5): `gather` subtracts a retracted assessment or verification before decoding, and the identification column inherits it through `evaluate_over_traced` with no change of its own.*"
 
 Run: `cd python && uv run --frozen pytest tests/test_standing_read.py tests/test_world_standing.py tests/test_composite_reading.py tests/test_retract.py tests/test_belief.py tests/test_evaluation.py tests/test_world_view.py tests/test_deletion_rows.py tests/test_local_standing.py -q`
-Expected: PASS. Then `just test-fast` green.
+Expected: PASS — this is the green checkpoint Step 2 deferred: every test that passed at the baseline passes here with an identical answer, except assertions that pinned the old coverage literal or a projection literal (updated as they surface). Then `just test-fast` green.
 
 - [ ] **Step 5: Commit**
 
@@ -1445,7 +1488,7 @@ In `python/tools/reproduction/belief.py`, `context()` loses `retractions=Retract
 
 - [ ] **Step 2: Re-derive in a fresh process**
 
-From `python/`, with the main checkout's corpus (the default `WORK` resolves to it from a worktree — `paths.py`), run `PYTHONPATH=tools uv run --frozen python -m reproduction.preflight` (it must say `ok`; on a refusal for host load, `tasks park <task> "rerun reproduction.preflight then reproduction.rederive" --reason quiet --waiting-on user --minutes 5`), then `PYTHONPATH=tools uv run --frozen python -m reproduction.rederive`. Read `state.json`: `rederived_belief` is the same `NoBelief` payload as before (`no-directional-outcome` per record §10/§11 — read the prior value from the file before running and quote both), `rederived_equal` is `true`. Nothing is minted and nothing is moved aside: no contract succeeded, so the corpus is not recreated (the plan's correction to spec §10).
+`paths.py` resolves "the main checkout" through the worktree's **real** path, which on this host is under `WORK_ROOT` (`/mnt/ssd3/work/beliefs/.worktrees/…`), so its default lands beside the WORK_ROOT parent where no `state.json` exists (`beliefs-51ffdf` records the defect). Set the root explicitly to the existing corpus: `export SCIENCE_MM30_ROOT=/mnt/ssd/Dropbox/beliefs/.work/reproduction/mm30` and confirm `test -f "$SCIENCE_MM30_ROOT/state.json"` before either command. Then from `python/`: `PYTHONPATH=tools uv run --frozen python -m reproduction.preflight` (it must say `ok`; on a refusal for host load, `tasks park <task> "rerun reproduction.preflight then reproduction.rederive" --reason quiet --waiting-on user --minutes 5`), then `PYTHONPATH=tools uv run --frozen python -m reproduction.rederive`. Read `state.json`: `rederived_belief` is the same `NoBelief` payload as before (`no-directional-outcome` per record §10/§11 — read the prior value from the file before running and quote both), `rederived_equal` is `true`. Nothing is minted and nothing is moved aside: no contract succeeded, so the corpus is not recreated (the plan's correction to spec §10).
 
 - [ ] **Step 3: §12**
 
@@ -1530,7 +1573,7 @@ Every `before` must occur exactly once in its module and the mutated module must
 
 - [ ] **Step 4: Freeze the declaration, discharge, commit**
 
-Pin `CUT33_DECLARATION_SHA256`; run `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut33.py -q -k "not sabotage"` for the accounting and pins, then on the certified volume `uv run --frozen python tools/cut33_acceptance.py` (with the `SCIENCE_CUT*_ROOT` exports the main checkout uses — memory `worktree-on-work-root-needs-cut-root-exports`; ~190 `CapabilityUnavailable` failures mean the exports are missing, not a regression), then `just hook-pre-push`. Record both summary lines (the runner's and pytest's) for the results record. Every arm `sound`, the baseline `resolved`, no `stale`.
+Pin `CUT33_DECLARATION_SHA256`; run `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut33.py -q -k "not sabotage"` for the accounting and pins, then on the certified volume `SCIENCE_CUT33_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut33 uv run --frozen python tools/cut33_acceptance.py` — the runner's `DEFAULT_WORK` resolves the main checkout through the worktree's real path and lands under `WORK_ROOT` on this host (Task 6's note; `beliefs-51ffdf`), so the root is set explicitly to the main checkout's `.work/acceptance/cut33`, beside cut 32's, on the certified volume; the runner exports `SCIENCE_CUT4_ROOT`…`SCIENCE_CUT33_ROOT` to the prefix chain itself. ~190 `CapabilityUnavailable` failures mean a root is on uncertified storage, not a regression (memory `worktree-on-work-root-needs-cut-root-exports`), then `just hook-pre-push`. Record both summary lines (the runner's and pytest's) for the results record. Every arm `sound`, the baseline `resolved`, no `stale`.
 
 ```bash
 tasks check
@@ -1588,5 +1631,7 @@ Per the repository's convention every cut merges `--no-ff` into `main` after its
 **Spec coverage.** §2 decision 1 → Tasks 1, 2, 4 (`SuppliedContext`, the two enumerations); decision 2 → Task 4 (`ProducerSnapshotMismatch`, the handoff); decision 3 → Task 4 (the refold and `RetractionResolutionDisagreement`); decision 4 → Tasks 1, 4 (`RetractionUnreadable` at both validators; the absence path and `_absent_inputs`); decision 5 → Task 4 (the two `subtracted` skips; the docstring; the composite note); decisions 6, 7 → Task 3 (`retired`, `Route.identity`, the projection) and Task 4 (`retire` in `gather`); decision 8 → Task 1 (the fold); decision 9 → no code (a bound; stated in the cut document's §7); decision 10 → Task 4 (`visited`, `verification_ids`, `scope`, `taken`, `scoped`); decision 11 → Tasks 4, 5; §3.1 → Tasks 1, 2; §3.2 → Task 1; §4 → Task 4 (every paragraph: dereference/fold, assessments, verifications, the snapshot and `absences`, the widened-absence consequence, the closure's enumeration, the handoff, the early return); §5 → Task 3; §6 → Task 4's `test_world_standing.py` and Task 7's C3-a/C3-b; §7 → Task 7's C10-a (no code); §8.1 → Tasks 1–4 (every listed test has a task); §8.2, §8.3, §8.4 → Task 7; §8.5 → Tasks 1 (probe), 4 (the frozen acceptance modules), 5 (cut 32's U8 pins); §9 → the file map; §10 → Task 6 with the planning correction; §11 → Task 8 (ideas 1 and 5 filed; the rest restated); §12 → Task 8 (the slice-2 task); §13 → Tasks 0, 8.
 
 **Placeholder scan.** The `...  # verbatim` markers in Task 4 name baseline line ranges that are copied unchanged, not written anew — they are references to existing code, with the lines given. `<…>` in Task 6's §12 are two values read from `state.json` at execution and named as such. Task 7's `before` strings are the lines Task 4 writes, and the guard's exactly-once test is what holds them.
+
+**Review corrections (2026-09-16, six findings, all taken).** Task 1 imports `closure` inside `local_retraction_enumeration` (module-level closes `closure → facet_read → corpus`); Task 3's `_absent_references` follows the walk's stopping rules (an unretired conflict examines no route); Task 1's counter-retraction test expects the target standing (`True`); Task 4's recipes use the real seed (`a-1`/`a-2`, `v-1`/`v-2`, a new `outcomes` knob), `admit`'s real signature and result types, fresh views after raw writes, and the two read prerequisites (manifests on raw-written fixtures; the view's producer identity on world reads) with the green checkpoint after the new `gather`; Task 6 and Task 7 set `SCIENCE_MM30_ROOT` / `SCIENCE_CUT33_ROOT` explicitly because `paths.py` and the runner resolve the main checkout through the worktree's real path.
 
 **Type consistency.** `retraction_standing(view, facets: Mapping[str, Mapping[str, object]]) -> Mapping[str, bool]` in Tasks 1, 4; `local_retraction_enumeration(view: ReadView) -> RetractionEnumeration` in Tasks 1, 4, 7; `RETRACTION_UPHELD`/`RETRACTION_OVERTURNED` from `closure` in Tasks 1, 4, 7; `WorldReadView.retraction_enumeration()` / `.producer_snapshot_identity()` (methods, not properties) in Tasks 2, 4, 7; `retire(snapshot, retired)`, `effective_routes`, `effective_tag`, `absences(snapshot)` in Tasks 3, 4, 7; `Route.identity: str | None = None` in Tasks 3, 4; `evaluate_traced(..., retractions=)`, `evaluate(..., retractions=)` in Tasks 4, 6, 7; `RetractionUnreadable(ref, cause)`, `RetractionResolutionDisagreement(ref, recorded, computed)`, `ProducerSnapshotMismatch(supplied, bound)` in Tasks 1, 4, 7; `over_kwargs` in `domain_facet_fixtures.py` in Tasks 4, 7.
