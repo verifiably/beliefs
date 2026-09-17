@@ -1,6 +1,6 @@
 # Conformance cut 33 — correction remainder, slice 1
 
-**Status:** frozen 2026-09-17, before implementation; C7, C3's coverage clauses and C10's audit arm are open.
+**Status:** discharged 2026-09-17 on the certified volume; results: `../plans/2026-09-16-conformance-cut-33-results.md`.
 **Design:** `../superpowers/specs/2026-09-16-correction-remainder-slice-1-design.md`, approved after four reviews; implementation in progress.
 **Plan:** `../superpowers/plans/2026-09-16-correction-remainder-slice-1.md`.
 **Numbered after** cut 32 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 33–39 at freeze; cut 32 is the highest discharged runner.
