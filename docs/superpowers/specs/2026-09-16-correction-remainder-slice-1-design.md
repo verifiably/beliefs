@@ -201,12 +201,15 @@ the digest as today.
 carrier's parsed `document`. `WorldReadView` is opened over an epoch and
 already carries its producers map; it gains the epoch's retraction
 enumeration and producer snapshot identity, parsed once at `open_world_view`:
-`derive.retraction_enumeration(document["enumeration"])`, accepted only when
+`derive.retraction_enumeration(read._thawed(document["enumeration"]))` —
+an opened document is deep-frozen (mapping proxies and tuples), and the
+parser takes the plain value, so the thaw `validate_receipt` already uses
+runs first; a projection the parser refuses (`RuleNonconformant`) is
+`EpochMalformed` at the open — accepted only when
 `derive.retraction_enumeration_identity` of the parsed value equals the
-receipt's `subject` — otherwise the open refuses `EpochMalformed`, since an
-edited receipt would otherwise feed the digest an enumeration nothing
-checked — and the producer receipt carrier's `subject_identity` for the
-snapshot. They are exposed as `retraction_enumeration() ->
+receipt's `subject`, otherwise likewise `EpochMalformed`, since an edited
+receipt would otherwise feed the digest an enumeration nothing checked;
+and the producer receipt carrier's `subject_identity` for the snapshot. They are exposed as `retraction_enumeration() ->
 RetractionEnumeration` and `producer_snapshot_identity() -> str`. Nothing
 else about the open changes: the same lock, the same barrier, the same
 captures.
@@ -219,10 +222,13 @@ RetractionEnumeration` enumerates every stored retraction, validates its facet
 (`_validated_retraction_facet`, as capture does), folds standing (§3.2) and
 returns `found = sorted((id, "upheld" | "overturned"))`,
 `coverage = (view.corpus_id,)`. It validates with the capture's validator
-(`_validated_retraction_facet`), as the epoch build does; `gather` then
-applies the boundary's stricter one (§4), so a retraction the local
-enumeration lists can still be unreadable at `gather` — intended, and the
-same two-validator split the world path already has. A world address and a corpus-local id are the
+(`_validated_retraction_facet`), as the epoch build does, and a record that
+validator refuses — a facet missing `grounds`, an unknown arm — is raised as
+`RetractionUnreadable(ref, cause)` from the enumeration itself, so the
+promise of decision 4 holds whichever validator meets the record first.
+`gather` then applies the boundary's stricter one (§4), so a retraction the
+local enumeration lists can still be unreadable at `gather` — intended, and
+the same two-validator split the world path already has. A world address and a corpus-local id are the
 same string (`epoch._captured_records` sets `address=node.id`), so the two
 enumerations agree in their keys.
 
@@ -309,7 +315,16 @@ world read — and `gather` returns `EvaluationInputs.snapshot =
 lineage.retire(context.snapshot, retired)`, which copies the snapshot with
 `retired` restricted to datasets that carry a basis (a route arm resolving
 to a dataset outside the walk retires nothing the walk reads and is still a
-projected member). The rest of `gather` — runs, observed facets, the claim,
+projected member). The absences the snapshot contributes to `absent` are
+then the **effective walk's**, not `not_present` whole: `gather` today
+appends every `context.snapshot.not_present` entry, which would make a
+conflict whose *retired* route names an absent ancestor answer
+`unavailable-corpus-absent` while its surviving route is complete. It
+instead appends `lineage.absences(inputs.snapshot)` — `_absent_references`
+over the effective closure of `snapshot.roots`, iterating
+`effective_routes` rather than `basis.routes` (§5) — so an absence confined
+to a retired branch blocks nothing, and one on a surviving route or a root
+blocks as before. `not_present` itself is unchanged and still projected. The rest of `gather` — runs, observed facets, the claim,
 `consulted` — reads the filtered assessment set as today.
 
 **Datasets and runs** are not eligible targets (design §4); the loops that
@@ -341,8 +356,8 @@ from it and from `context.snapshot`; `evaluate_over_traced` calls
 snapshot=inputs.snapshot), retractions=inputs.retractions)`. Direct callers
 of `evaluate` — the tests that construct `Records` by hand — supply the
 enumeration beside the records, which is what it is: an already-read input.
-`inputs.closure().digest == answer.closure.digest` holds by construction and
-is asserted (§8.1).
+`inputs.closure().digest() == answer.belief_input_digest` holds by
+construction and is asserted (§8.1).
 
 **The composite reading** (`composite.read_composite`) calls
 `evaluate_over_traced` per member and takes its admission from the same
@@ -377,6 +392,10 @@ and that design gains a dated note saying so (§9).
   `"divergent"` for effective `conflict`, `"incomplete"` for effective
   `retired`, else `divergence_state`. Every existing digest moves by the new
   key; the reproduction re-run records the transition (§10).
+- `_absent_references` iterates `effective_routes(snapshot, dataset)`, and
+  `absences(snapshot) -> tuple[Absence, ...]` exposes it over the effective
+  closure of `snapshot.roots` for `gather`. A retired route's absent run or
+  ancestor is not an absence the walk reaches.
 - `certify` is unchanged; it reads the walk.
 
 C7's three clauses follow: retire one of two conflicting routes → the
@@ -470,7 +489,7 @@ minted is that cut's question.
 - the closure's enumeration is input-scoped: a standing retraction against
   an unrelated proposition's assessment leaves this proposition's `found`
   and digest unchanged; a counter-retraction of a retraction in the chain
-  is in `found`; `inputs.closure().digest == answer.closure.digest`;
+  is in `found`; `inputs.closure().digest() == answer.belief_input_digest`;
 - `evaluate(...)` without `retractions=` is a `TypeError`;
 - `local_retraction_enumeration` over a corpus with no retractions is
   `found=()`, `coverage=(corpus_id,)`; over a manifest-less corpus root
@@ -503,7 +522,10 @@ minted is that cut's question.
   passes and any other string refuses `ProducerSnapshotMismatch`;
 - absence: a found retraction in a covered corpus whose carrier is removed
   → `NoBelief("unavailable-corpus-absent")` naming that corpus; a target in
-  such a corpus → the same;
+  such a corpus → the same; a conflict basis whose **retired** route names an
+  ancestor in an absent corpus while the surviving route is complete →
+  `absent` empty, a `Belief`, certified over the survivor; the same absence
+  on the surviving route → `unavailable-corpus-absent`;
 - C3 uncovered: the `move` fixture of §6 — digest unchanged before the
   widening, the subtraction after it; and, isolated at the closure,
   `build_closure` over identical members but a wider `retractions.coverage`
@@ -554,8 +576,12 @@ certified tuple through the durable writer, one check per selected clause:
   (no test-side filter);
 - **BI-2** the amended G8 clause: the three verification cases of §8.1
   through `evaluate_over` and `admission`;
-- **BI-3** the enumeration is the view's: a `SuppliedContext` cannot carry
-  one, and a world read's closure carries the epoch's member;
+- **BI-3** the enumeration is the view's and input-scoped: a
+  `SuppliedContext` cannot carry one; over a world read holding a standing
+  retraction against this proposition's assessment **and** one against an
+  unrelated proposition's, the closure's `found` is exactly the first (with
+  the epoch's recorded resolution) and the unrelated proposition's digest is
+  unchanged by the first;
 - **BI-4** an unreadable found retraction refuses (`RetractionUnreadable`);
 - **BI-5** a resolution disagreement refuses.
 
@@ -733,3 +759,11 @@ filed at the cut.
   lands in `corpus.py`; C3-b's `consulted` invariance is stated; frozen
   acceptance modules that construct `SuppliedContext` are named; limitation
   5 names the real basis readers.
+- 2026-09-16 — third review. Changed: the world enumeration is thawed
+  (`read._thawed`) before parsing and a parser refusal is `EpochMalformed`;
+  the local enumeration wraps its own validator's refusals as
+  `RetractionUnreadable`; absences come from the effective lineage walk
+  (`lineage.absences`, `_absent_references` over `effective_routes`) rather
+  than `not_present` whole, with a retired-branch absence test; BI-3's
+  acceptance clause tests the scoped subset with matching and unrelated
+  retractions together; the digest assertion names `belief_input_digest`.
