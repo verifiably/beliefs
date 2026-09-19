@@ -10,6 +10,8 @@
 # The git hooks in .githooks/ are installed (core.hooksPath); AGENTS.md says what each
 # costs. What is left of the audit is step 4, the after-week comparison (beliefs-f253a1).
 
+set quiet
+
 tt := "python3 tools/tt"
 
 # Two packages, so each command is written once per package and the whole-repo commands
