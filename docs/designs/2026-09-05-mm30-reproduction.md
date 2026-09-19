@@ -896,13 +896,15 @@ The slice adds one retraction target arm, `snapshot`, and its live standing:
 resolution at the write boundary through the world's retained epochs
 (BI-1, BI-2), a fold of a subject's live standing and validated history
 (BI-4, BI-7, BI-8), refusal of a retracted producer snapshot at import and
-its report by the audits (C8, BI-3, BI-6, BI-8), and the evaluator's mismatch
-check consulting that standing (C9). None of this is reached by the mm30
-driver: `context()` still supplies `producer_snapshot_identity` as the
-literal `"no-epoch-published"` (`python/tools/reproduction/belief.py`,
-unchanged this slice — no epoch is built here, so no snapshot is ever bound),
-and the scope loop's snapshot key is never populated because there is no
-bound snapshot to key on. The one new arm is exercised by the acceptance
+its report by the audits (C8, BI-3, BI-6, BI-8), and the evaluator's world
+read refusing a retracted bound snapshot after the mismatch check (C9). None
+of this is reached by the mm30 driver: `context()` still supplies
+`producer_snapshot_identity` as the literal `"no-epoch-published"`
+(`python/tools/reproduction/belief.py`, unchanged this slice — no epoch is
+built here, so no snapshot is ever bound), and the scope loop's snapshot key
+is the constant `None` for a snapshot arm regardless of binding (decision 8)
+— not something left unpopulated for want of a bound snapshot. The one new
+arm is exercised by the acceptance
 module alone — `python/tests/acceptance/test_snapshot_retraction_acceptance.py`,
 `n2_arms_cut34.py`, `test_n2_cut34.py`, and `cut34_acceptance.py` — not by
 this corpus.
