@@ -113,8 +113,9 @@ mutation.
 
 Both directions are required: the check passes on the real tree and fails
 under sabotage. The runner uses
-`PREFIX_RUNNERS = ("cut33_acceptance.py",)` and the snapshot-retraction
-acceptance and cut-34 N2 guard as its phase modules.
+`PREFIX_RUNNERS = ("cut33_acceptance.py",)` and carries
+`PHASE_MODULES = ("test_snapshot_retraction_acceptance.py",
+"test_n2_cut34.py")`.
 
 ## 6. Second reader
 
@@ -125,23 +126,33 @@ BI-7's two digests are compared over the *same* epoch.
 
 ## 7. Limitations
 
-A retraction's corpus can depart: the read then fails closed (`NoBelief`)
-and audit answers `unresolvable`; a departed corpus holding a snapshot's
-only retraction neither restores nor confirms it, filed as a limitation on
-the correction design. `move` of a snapshot retraction away from its
-counter-retraction remains slice 1 §11's split, now covering three arms. A
-raw computation that ignores retraction records can still bind to a
-retracted epoch's bytes (`read.open_epoch` does not refuse); the kernel has
-no process-level enforcement and this slice adds none. Retracting the
-current epoch's snapshot with no successor makes every world read bound to
-`current_epoch` refuse until a new epoch is built — intended, and recorded
-in the guide beside the consequence that a snapshot retraction makes every
-receipt covering the writing corpus `unresolvable` until a fresh epoch is
-built, the successor's included (world-index §7.5's availability rule,
-unchanged; the narrowing route meets it on its first step). Receipt
-subjects other than the producer snapshot remain unretractable.
-`build_epoch` republishes a retracted identity: a rebuild under the
-retracted snapshot's coverage yields the same identity, is retained, and
-may become `current`, so every read bound to it refuses and import of the
-same carrier elsewhere is refused — coherent but asymmetric; whether build
-should refuse is filed as an idea at the cut, not decided here.
+1. **A retraction's corpus can depart.** Decision 7 fails the read closed
+   (`NoBelief`), and audit answers `unresolvable`. A departed corpus that
+   held the only retraction of a snapshot therefore neither restores nor
+   confirms it; the design's "detected at audit" holds and nothing here
+   re-admits the snapshot. Filed as a limitation on the correction design.
+2. **`move` of a snapshot retraction away from its counter-retraction** is
+   slice 1 §11's split, unchanged; it now covers three arms.
+3. **A raw computation that ignores retraction records** can still bind to
+   a retracted epoch's bytes (`read.open_epoch` does not refuse). The
+   design bounds "unusable" to boundaries and audit; the kernel has no
+   process-level enforcement and this slice adds none. Recorded, not filed.
+4. **Retracting the current epoch's snapshot with no successor** makes every
+   world read bound to `current_epoch` refuse until a new epoch is built.
+   Intended: the alternative — `current_epoch` skipping retracted epochs —
+   is the implicit resolution C9's negative forbids. Recorded in the guide.
+5. **A snapshot retraction makes every receipt covering the writing corpus
+   `unresolvable` until a fresh epoch is built** — the successor's included
+   (decision 1's consequence, §9 step 3). World-index §7.5's availability
+   rule, unchanged; stated here because the narrowing route meets it on its
+   first step. Recorded in the guide beside item 4.
+6. **Other receipt subjects are not retractable** (decision 2).
+7. **`build_epoch` republishes a retracted identity.** A rebuild under the
+   retracted snapshot's coverage yields the same identity, is retained, and
+   may become `current`; every read bound to it refuses and import of the
+   same carrier elsewhere is refused, so the state is coherent but
+   asymmetric. Whether build should refuse — a change to world-index §5.3's
+   closed refusal surface — is filed as an idea at the cut, not decided
+   here. A certification inventory or a coreference reduction is corrected
+   by retracting the records it derives from. Recorded in the correction
+   design's note.
