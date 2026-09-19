@@ -87,14 +87,16 @@ from typing import cast
 
 from nodes.core.errors import NodesError
 
-from beliefs.corpus import ReadView, _operation_lock_for
+from beliefs.corpus import Finding, ReadView, _operation_lock_for
 from beliefs.errors import (
     CaptureDrift,
+    ContractMismatch,
     CorpusStateMalformed,
     EdgeIndeterminate,
     EpochUnknown,
     ManifestMalformed,
     ResolutionRefused,
+    RetractionUnreadable,
     RuleNonconformant,
     RuleNotHeld,
     SemanticHashMissing,
@@ -118,6 +120,7 @@ __all__ = [
     "current_epoch",
     "expand_coreference",
     "open_epoch",
+    "reported_receipt",
     "resolve_address",
     "validate_receipt",
 ]
@@ -271,6 +274,10 @@ def validate_receipt(
     fault = _contract_fault(kind, member, receipt, published)
     if fault is not None:
         return derive.ReceiptOutcome(kind, "malformed", fault)
+    if kind == derive.BELIEF_INPUT_KIND:
+        standing = _snapshot_standing(world, receipt)
+        if standing is not None:
+            return standing
     # Past this point the five identity members are present and well formed,
     # so the reads below can name them without re-checking that they exist.
     named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)
@@ -340,17 +347,79 @@ def validate_receipt(
     )
 
 
-def _member_for(kind: str) -> str:
-    """The §6.1 member the named receipt kind is written to.
+def _snapshot_standing(world: registry.World, receipt: epoch._ReceiptCarrier) -> derive.ReceiptOutcome | None:
+    """Slice 2 §7.1: the producer subject's live standing, decided before availability.
 
-    A kind outside §7.5's four is a caller error and refuses here: inventing a
-    fifth outcome for it would answer a question the specification does not
-    ask.
+    Every named corpus is captured under its own hold — state, records,
+    state again, `CaptureDrift` if they differ, exactly `_standing`'s
+    discipline — and the fold runs outside every lock over those captured
+    records through `_CapturedCheckView`, whose resolution and enumeration
+    are the same capture. The world lock is never held here. An absent or
+    unreadable corpus returns ``None`` so the availability phase reports it
+    in its own words. `RetractionUnreadable` propagates, as `CaptureDrift`
+    does: a raw-written retraction the write boundary would have refused
+    leaves no coherent standing to report on.
     """
-    for member, declared in epoch.RECEIPT_KINDS.items():
-        if declared == kind:
-            return member
-    raise ValueError(f"{kind!r} is not one of the four receipt kinds {sorted(epoch.RECEIPT_KINDS.values())}")
+    from beliefs.corpus import _CapturedCheckView, snapshot_standing
+
+    captured: dict[str, _CapturedCheckView] = {}
+    for corpus_id, _state in cast(Sequence[tuple[str, str]], receipt.corpus_states):
+        try:
+            carriers = registry._carrier_roots(world.config, corpus_id)
+        except ManifestMalformed:
+            return None
+        if len(carriers) != 1:
+            return None
+        with _operation_lock_for(carriers[0]).capture():
+            try:
+                before = registry.corpus_state_identity(carriers[0])
+                view = ReadView.opened_at(carriers[0])
+                view._require_base_pin()
+                records = tuple(view.iter_stored())
+                after = registry.corpus_state_identity(carriers[0])
+            except (CorpusStateMalformed, ContractMismatch):
+                return None
+        if before != after:
+            raise CaptureDrift(
+                f"{corpus_id}: {carriers[0]}: the corpus state moved inside a standing hold "
+                f"({before} -> {after}); no standing is reported from a corpus that did not hold still"
+            )
+        captured[corpus_id] = _CapturedCheckView(records)
+    standing = snapshot_standing(captured, derive.BELIEF_INPUT_KIND)
+    identity = cast(str, receipt.subject_identity)
+    if identity not in standing.retracted:
+        return None
+    upheld = sorted(ref for ref, resolution in standing.history[identity] if resolution == "upheld")
+    return derive.ReceiptOutcome(
+        derive.BELIEF_INPUT_KIND,
+        "retracted",
+        f"retraction(s) {', '.join(upheld)} in {', '.join(sorted(captured))} stand against this subject",
+    )
+
+
+def reported_receipt(
+    world: registry.World, published: epoch.Epoch, kind: derive.ReceiptKind
+) -> tuple[derive.ReceiptOutcome, Finding | None]:
+    """`validate_receipt` for a report (slice 2 §7.3): an unreadable standing
+    chain becomes an `unresolvable` outcome and a `retraction-unreadable`
+    finding instead of an exception, so a raw write cannot stop a report."""
+    try:
+        return validate_receipt(world, published, kind), None
+    except RetractionUnreadable as caught:
+        outcome = derive.ReceiptOutcome(
+            kind, "unresolvable", f"the standing of this subject cannot be decided: {caught}"
+        )
+        return outcome, Finding(
+            "error",
+            "retraction-unreadable",
+            caught.ref,
+            str(caught),
+            f"{published.packaging_identity}: the {kind} subject's standing cannot be decided: {caught}",
+        )
+
+
+# moved to `epoch` for `RetainedSnapshots`; every `read._member_for` caller is unchanged
+_member_for = epoch._member_for
 
 
 def _contract_fault(

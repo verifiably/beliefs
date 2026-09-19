@@ -55,6 +55,7 @@ from beliefs.errors import (
     PreGrammarSpec,
     RecordError,
     RuleUnbound,
+    ScienceError,
     SemanticHashMissing,
     SemanticHashStale,
 )
@@ -711,7 +712,7 @@ def _world_findings(
     from beliefs import source as source_basis
     from beliefs.errors import IdentifierMalformed
     from beliefs.world import audit as epoch_audit
-    from beliefs.world.read import Unknown, validate_receipt
+    from beliefs.world.read import Unknown, reported_receipt
 
     findings: list[Finding] = []
     identifiers: dict[tuple[str, str], list[str]] = {}
@@ -771,11 +772,60 @@ def _world_findings(
                     "precedence made these two addresses and they may be one work",
                 )
             )
+    from beliefs.corpus import _validated_retraction_target
+    from beliefs.errors import EpochMalformed
+    from beliefs.world.epoch import RetainedSnapshots
+
+    snapshot_arms: list[tuple[str, Node]] = []
+    for corpus_id, _state in published.coverage:
+        if corpus_id in view.absent() or corpus_id in excluded:
+            continue
+        for node in view.captured_records(corpus_id):      # unmapped post-build records included (§7.4)
+            if node.kind != "retraction":
+                continue
+            try:
+                target = _validated_retraction_target(node)
+            except ScienceError:
+                continue  # shape faults are corpus_check's
+            if target["arm"] == "snapshot":
+                snapshot_arms.append((corpus_id, node))
+    retained: Mapping[str, tuple[str, ...]] | None = None
+    if snapshot_arms:  # the retained inventory is read only when something names it
+        try:
+            retained = RetainedSnapshots(world).retained("producer")
+        except EpochMalformed as caught:
+            findings.append(
+                Finding(
+                    "error",
+                    "retained-epochs-unreadable",
+                    published.packaging_identity,
+                    str(caught),
+                    f"{published.packaging_identity}: the retained epochs do not read whole, so "
+                    f"{len(snapshot_arms)} snapshot-arm retraction(s) cannot be resolved here: {caught}",
+                )
+            )
+    for corpus_id, node in snapshot_arms:
+        if retained is None:
+            break
+        target = _validated_retraction_target(node)
+        faults = []
+        if target["subject_identity"] not in retained:
+            faults.append(f"no retained epoch carries producer snapshot {target['subject_identity']}")
+        elif corpus_id not in retained[target["subject_identity"]]:
+            faults.append(f"corpus {corpus_id} is outside the coverage of producer snapshot {target['subject_identity']}")
+        successor = node.facets[stored.RETRACTION_FACET].get("successor")
+        if successor is not None and successor not in retained:
+            faults.append(f"successor {successor} is not a retained producer snapshot")
+        for fault in faults:
+            findings.append(Finding("error", "retraction-target-invalid", node.id, "target", f"{node.id}: {fault}"))
+
     opened = {published.packaging_identity: published}
     outcomes = []
     for kind in epoch_audit._KINDS:
-        outcome = validate_receipt(world, published, kind)
+        outcome, unreadable = reported_receipt(world, published, kind)
         outcomes.append((published.packaging_identity, kind, outcome))
+        if unreadable is not None:
+            findings.append(unreadable)
         finding = epoch_audit._receipt_finding(published.packaging_identity, outcome)
         if finding is not None:
             findings.append(finding)

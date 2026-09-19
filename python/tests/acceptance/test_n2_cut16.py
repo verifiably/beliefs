@@ -29,6 +29,26 @@ import beliefs.root as science_root
 
 # Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at b0882d3.
 _LIVE_SABOTAGES = {
+    # Correction remainder slice 2, 2026-09-19: retract's write boundary now
+    # branches on snapshot_arm before re-resolving; the node/route re-check
+    # moved under `if not snapshot_arm:` (BI-1, BI-2, commit 6090cf4). The arm
+    # still asserts that retract re-resolves its target immediately before
+    # plan construction.
+    "boundary-reresolution-a": Sabotage(
+        module="corpus.py",
+        before=(
+            "            if not snapshot_arm:\n"
+            "                try:\n"
+            "                    self._view.get(target_ref)\n"
+            "                except RefError as caught:\n"
+            "                    raise RelocationTargetMissing(\n"
+            '                        f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "\n'
+            '                        "or deletion removed it (world-changing families §3.6)"\n'
+            "                    ) from caught\n"
+            "            return self._corpus.add(record)\n"
+        ),
+        after="            return self._corpus.add(record)\n",
+    ),
     # Correction remainder slice 1, 2026-09-17: certification now branches on
     # the effective tag after retired routes are removed.
     "R23c": Sabotage(

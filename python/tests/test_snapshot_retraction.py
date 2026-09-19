@@ -1,0 +1,393 @@
+"""The snapshot target arm (correction-remainder slice 2)."""
+from __future__ import annotations
+
+from pathlib import Path
+from types import MappingProxyType
+
+import pytest
+from authority import ACTOR, FULL
+from fixtures_cut4 import raw_write
+from nodes.core.relations import Relation
+from nodes.core.write_plan import DefaultExecutor
+from profiles import BASE, WITH_BIOLOGY, pins_for
+from test_corpus_write import OperationRecorder
+from test_local_standing import retracts
+from test_world_build import ALPHA, BETA
+from test_world_receipts import document, publish, published_world, repackage
+
+from beliefs import stored
+from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
+from beliefs.corpus import CorpusWriter, ReadView, _validated_retraction_target, snapshot_standing
+from beliefs.errors import (
+    EpochMalformed,
+    MalformedRecord,
+    RetractionTargetUnresolvable,
+    RetractionUnreadable,
+    ValidationRefused,
+)
+from beliefs.world.epoch import RetainedSnapshots
+
+S = "a" * 64
+S2 = "b" * 64
+
+
+def snapshot_retraction(identity: str = S, *, successor: str | None = None, token: str = "t1"):
+    return stored.retraction_node(
+        title=token,
+        target=stored.SnapshotTarget("producer", identity),
+        reason="authored-error",
+        rationale="the snapshot's coverage was too wide",
+        grounds=("verification:v1",),
+        actor=ACTOR,
+        event_token=token,
+        successor=successor,
+    )
+
+
+class TestTheStoredShape:
+    def test_the_facet_carries_the_arm_and_no_target_edge(self):
+        node = snapshot_retraction(successor=S2)
+        facet = node.facets[stored.RETRACTION_FACET]
+        assert facet["target"] == {"arm": "snapshot", "subject_kind": "producer", "subject_identity": S}
+        assert facet["successor"] == S2
+        predicates = {r.predicate for r in node.relations}
+        assert predicates == {stored.GROUNDED_IN}
+
+    def test_the_identity_moves_with_the_subject_and_the_successor(self):
+        assert snapshot_retraction().id != snapshot_retraction(S2).id
+        assert snapshot_retraction().id != snapshot_retraction(successor=S2).id
+
+    @pytest.mark.parametrize("kind", ["retraction-enumeration", "certification-enumeration", "coreference-reduction", ""])
+    def test_only_the_producer_kind_constructs(self, kind):
+        with pytest.raises(MalformedRecord):
+            stored.retraction_node(
+                title="t", target=stored.SnapshotTarget(kind, S), reason="authored-error", rationale="r",
+                grounds=("verification:v1",), actor=ACTOR, event_token="t",
+            )
+
+    @pytest.mark.parametrize("identity", ["a" * 63, "A" * 64, "g" * 64, ""])
+    def test_the_identity_is_sixty_four_lower_hex(self, identity):
+        with pytest.raises(MalformedRecord):
+            stored.retraction_node(
+                title="t", target=stored.SnapshotTarget("producer", identity), reason="authored-error",
+                rationale="r", grounds=("verification:v1",), actor=ACTOR, event_token="t",
+            )
+
+    def test_the_arm_set_is_named_once(self):
+        assert stored.RETRACTION_TARGET_ARMS == ("node", "route", "snapshot")
+        assert stored.SNAPSHOT_SUBJECT_KINDS == ("producer",)
+
+
+class TestTheValidatedTarget:
+    def test_the_arm_validates_and_the_controlled_shape_holds(self):
+        node = snapshot_retraction()
+        assert _validated_retraction_target(node)["arm"] == "snapshot"
+        assert CorpusWriter._validated_retraction(node)["target"]["subject_identity"] == S
+
+    def test_an_extra_or_missing_field_is_malformed(self):
+        node = snapshot_retraction()
+        node.facets[stored.RETRACTION_FACET]["target"]["ref"] = "x"
+        with pytest.raises(MalformedRecord):
+            _validated_retraction_target(node)
+        node = snapshot_retraction()
+        del node.facets[stored.RETRACTION_FACET]["target"]["subject_kind"]
+        with pytest.raises(MalformedRecord):
+            _validated_retraction_target(node)
+
+    def test_a_retracts_edge_fails_the_controlled_shape(self):
+        node = snapshot_retraction()
+        node.relations.append(Relation(source=node.id, predicate=stored.RETRACTS, target=f"producer-snapshot:{S}"))
+        stored.stamp_semantic_identity(node)
+        with pytest.raises(MalformedRecord):
+            CorpusWriter._validated_retraction(node)
+
+
+def test_the_discovery_map_keys_the_arm_by_identity():
+    from beliefs.world.epoch import _retraction_target
+
+    assert _retraction_target(snapshot_retraction().facets[stored.RETRACTION_FACET]) == S
+
+
+class StubResolver:
+    def __init__(self, retained):
+        self._retained = retained
+
+    def retained(self, subject_kind):
+        assert subject_kind == "producer"
+        return MappingProxyType(dict(self._retained))
+
+
+def writer_at(root: Path, profile=BASE, *, resolver=None) -> CorpusWriter:
+    """A manifest-bearing writer (ReadView.corpus_id reads one); reopening
+    the same root adopts nothing a second time (ManifestAlreadyPresent)."""
+    from authority import FULL
+
+    writer = CorpusWriter(
+        root, DefaultExecutor, authority=FULL, profile=profile,
+        operation_port=OperationRecorder(root, authority=FULL, profile=profile), snapshot_resolver=resolver,
+    )
+    if not (Path(root) / "corpus.yaml").exists():
+        writer.adopt_manifest(profile=pins_for(profile))
+    return writer
+
+
+def broken_counter(target, token: str = "counter"):
+    """A *canonical* counter-retraction whose target content identity is wrong:
+    the controlled shape holds (the id is derived from this facet), so only
+    target resolution can refuse it — the recipe slice 1's plan used."""
+    return stored.retraction_node(
+        title=token,
+        target=stored.NodeTarget(target.id, target.id, "0" * 64),
+        reason="defective-code",
+        rationale="a counter-retraction naming the wrong content",
+        grounds=("verification:v1",),
+        actor=ACTOR,
+        event_token=token,
+    )
+
+
+def stale_counter(target, token: str = "counter"):
+    """A *canonical* counter-retraction whose `resolved` field is wrong rather
+    than its `content_identity` (spec §11.1's second raw-write variant): the
+    `RETRACTS` relation is built from `target.ref` alone (`retraction_node`),
+    so it still names `target.id` and the chain-membership scan still finds
+    this record; only `_resolve_retraction_target`'s `resolved != stored`
+    comparison refuses it."""
+    content_identity = stored.stored_semantic_hash(target)
+    assert content_identity is not None
+    return stored.retraction_node(
+        title=token,
+        target=stored.NodeTarget(target.id, "retraction:" + "0" * 64, content_identity),
+        reason="defective-code",
+        rationale="a counter-retraction naming a resolved field the corpus does not answer",
+        grounds=("verification:v1",),
+        actor=ACTOR,
+        event_token=token,
+    )
+
+
+class TestTheWriteBoundary:
+    def test_a_writer_without_the_port_refuses_the_arm(self, tmp_path):
+        writer = writer_at(tmp_path / "c")
+        with pytest.raises(RetractionTargetUnresolvable, match="reaches none"):
+            writer.retract(snapshot_retraction())
+
+    def test_an_unretained_identity_refuses(self, tmp_path):
+        writer = writer_at(tmp_path / "c", resolver=StubResolver({}))
+        with pytest.raises(RetractionTargetUnresolvable, match="no retained epoch carries"):
+            writer.retract(snapshot_retraction())
+
+    def test_a_corpus_outside_the_coverage_refuses_naming_it(self, tmp_path):
+        writer = writer_at(tmp_path / "c", resolver=StubResolver({S: ("0" * 32,)}))
+        with pytest.raises(RetractionTargetUnresolvable, match=f"corpus {writer.corpus_id} is outside the coverage"):
+            writer.retract(snapshot_retraction())
+
+    def test_a_successor_must_be_retained_and_not_the_target(self, tmp_path):
+        writer = writer_at(tmp_path / "c")
+        cid = writer.corpus_id
+        writer = writer_at(tmp_path / "c", resolver=StubResolver({S: (cid,)}))
+        with pytest.raises(RetractionTargetUnresolvable, match="successor"):
+            writer.retract(snapshot_retraction(successor=S2))
+        writer = writer_at(tmp_path / "c", resolver=StubResolver({S: (cid,), S2: (cid,)}))
+        with pytest.raises(ValidationRefused, match="not its target"):
+            writer.retract(snapshot_retraction(successor=S))
+
+    def test_the_happy_path_writes_one_record(self, tmp_path):
+        writer = writer_at(tmp_path / "c")
+        cid = writer.corpus_id
+        writer = writer_at(tmp_path / "c", resolver=StubResolver({S: (cid,), S2: (cid,)}))
+        before = len(list(writer.read_view.iter_stored()))
+        minted = writer.retract(snapshot_retraction(successor=S2))
+        assert minted.kind == "retraction"
+        assert len(list(writer.read_view.iter_stored())) == before + 1
+
+    def test_a_snapshot_kind_outside_the_closed_set_is_ineligible_everywhere(self, tmp_path):
+        node = snapshot_retraction()
+        node.facets[stored.RETRACTION_FACET]["target"]["subject_kind"] = "coreference-reduction"
+        # shape validation refuses first; the eligibility refusal is reached through the static method
+        with pytest.raises(MalformedRecord):
+            _validated_retraction_target(node)
+
+
+class TestRetainedSnapshots:
+    def test_two_epochs_of_different_coverage_answer_with_their_coverage(self, tmp_path):
+        world, bindings, _roots, wide = published_world(tmp_path, (ALPHA, BETA))
+        narrow = publish(world, (ALPHA,), bindings)
+        retained = RetainedSnapshots(world).retained("producer")
+        wide_id = wide.receipts["producer-receipt.yaml"].subject_identity
+        narrow_id = narrow.receipts["producer-receipt.yaml"].subject_identity
+        assert wide_id is not None
+        assert narrow_id is not None
+        assert wide_id != narrow_id
+        assert retained[wide_id] == tuple(sorted((ALPHA, BETA)))
+        assert retained[narrow_id] == (ALPHA,)
+
+    def test_a_world_with_no_epochs_answers_empty_and_an_unknown_kind_refuses(self, tmp_path):
+        from test_world_receipts import sample_corpora, world_over
+
+        world = world_over(tmp_path, sample_corpora(tmp_path, (ALPHA,)))
+        assert dict(RetainedSnapshots(world).retained("producer")) == {}
+        with pytest.raises(ValueError):
+            RetainedSnapshots(world).retained("weather")
+
+    def test_a_carrier_whose_receipt_names_no_subject_is_skipped_not_raised(self, tmp_path):
+        """A producer receipt with no `subject` lifts as `subject_identity is
+        None` (`_parse_receipt`); `retained` skips it (`continue`) rather than
+        raising, leaving the well-formed carrier's identity as the only entry.
+        """
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA,))
+        receipt = document(published, "producer-receipt.yaml")
+        del receipt["subject"]
+        repackage(world, published, {"producer-receipt.yaml": receipt})
+
+        good_id = published.receipts["producer-receipt.yaml"].subject_identity
+        assert good_id is not None
+        retained = RetainedSnapshots(world).retained("producer")
+        assert dict(retained) == {good_id: (ALPHA,)}
+
+    def test_a_carrier_whose_receipt_names_no_corpus_states_is_skipped_not_raised(self, tmp_path):
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA,))
+        receipt = document(published, "producer-receipt.yaml")
+        del receipt["corpus_states"]
+        repackage(world, published, {"producer-receipt.yaml": receipt})
+
+        good_id = published.receipts["producer-receipt.yaml"].subject_identity
+        assert good_id is not None
+        retained = RetainedSnapshots(world).retained("producer")
+        assert dict(retained) == {good_id: (ALPHA,)}
+
+    def test_the_same_subject_retained_under_two_coverages_is_malformed(self, tmp_path):
+        """A second retained carrier naming the *same* subject digest but a
+        *different* `corpus_states` is exactly the fault `retained`'s comment
+        anticipates: the identity digests the coverage, so one of the two
+        carriers is not what it claims.
+        """
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
+        receipt = document(published, "producer-receipt.yaml")
+        assert len(receipt["corpus_states"]) == 2
+        receipt["corpus_states"] = receipt["corpus_states"][:1]  # narrower coverage, subject digest untouched
+        repackage(world, published, {"producer-receipt.yaml": receipt})
+
+        with pytest.raises(EpochMalformed, match="retained under two coverages"):
+            RetainedSnapshots(world).retained("producer")
+
+
+def corpus_with(tmp_path, *nodes, resolver):
+    writer = writer_at(tmp_path, resolver=resolver)
+    minted = [writer.retract(n) if n.kind == "retraction" else writer.add(n) for n in nodes]
+    return writer, minted
+
+
+class TestSnapshotStanding:
+    def _resolver(self, writer_root):
+        cid = writer_at(writer_root).corpus_id
+        return StubResolver({S: (cid,), S2: (cid,)}), cid
+
+    def test_no_retractions_is_empty(self, tmp_path):
+        writer = writer_at(tmp_path / "c")
+        standing = snapshot_standing({writer.corpus_id: writer.read_view})
+        assert standing.retracted == frozenset() and dict(standing.history) == {}
+
+    def test_one_standing_retraction_names_its_identity_with_history(self, tmp_path):
+        resolver, cid = self._resolver(tmp_path / "c")
+        writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        standing = snapshot_standing({cid: writer.read_view})
+        assert standing.retracted == {S}
+        assert standing.history[S] == ((r.id, RETRACTION_UPHELD),)
+
+    def test_a_counter_retraction_restores_and_the_history_carries_both(self, tmp_path):
+        resolver, cid = self._resolver(tmp_path / "c")
+        writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        c = writer.retract(retracts(r, "counter"))
+        standing = snapshot_standing({cid: writer.read_view})
+        assert standing.retracted == frozenset()
+        assert standing.history[S] == tuple(sorted([(c.id, RETRACTION_UPHELD), (r.id, RETRACTION_OVERTURNED)]))
+        cc = writer.retract(retracts(c, "counter-counter"))
+        standing = snapshot_standing({cid: writer.read_view})
+        assert standing.retracted == {S}
+        assert len(standing.history[S]) == 3 and (cc.id, RETRACTION_UPHELD) in standing.history[S]
+
+    def test_two_corpora_union(self, tmp_path):
+        a = writer_at(tmp_path / "a"); b = writer_at(tmp_path / "b")
+        ra = StubResolver({S: (a.corpus_id,)}); rb = StubResolver({S2: (b.corpus_id,)})
+        a = writer_at(tmp_path / "a", resolver=ra); b = writer_at(tmp_path / "b", resolver=rb)
+        a.retract(snapshot_retraction(S)); b.retract(snapshot_retraction(S2, token="t2"))
+        standing = snapshot_standing({a.corpus_id: a.read_view, b.corpus_id: b.read_view})
+        assert standing.retracted == {S, S2}
+
+    def test_an_unreadable_facet_refuses(self, tmp_path):
+        from test_local_standing import raw_retraction
+
+        writer = writer_at(tmp_path / "c")
+        raw = raw_retraction("retraction:raw", "assessment:x")
+        del raw.facets[stored.RETRACTION_FACET]["grounds"]      # raw_retraction alone is shape-valid; this is not
+        raw_write(tmp_path / "c", raw)
+        with pytest.raises(RetractionUnreadable):
+            snapshot_standing({writer.corpus_id: ReadView.opened_at(tmp_path / "c")})
+
+    def test_a_broken_counter_retraction_refuses_rather_than_restores(self, tmp_path):
+        resolver, cid = self._resolver(tmp_path / "c")
+        _writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        broken = broken_counter(r)                       # canonical shape, wrong target identity
+        raw_write(tmp_path / "c", broken)
+        with pytest.raises(RetractionUnreadable) as caught:
+            snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
+        assert caught.value.ref == broken.id
+
+    def test_a_counter_retraction_whose_resolved_field_no_longer_answers_refuses(self, tmp_path):
+        """Spec §11.1's second raw-write variant: `broken_counter` covers only a
+        wrong `content_identity`; `stale_counter` corrupts `resolved` instead
+        (baked in at construction, so the stamp is self-consistent — the same
+        recipe `broken_counter` uses for `content_identity`), so
+        `_resolve_retraction_target`'s `resolved != target["resolved"]` check is
+        what refuses here, not the content-identity check `broken_counter`
+        exercises. `RETRACTS` still targets `r.id` (`retraction_node` builds
+        that edge from `target.ref` alone), so the chain-membership scan still
+        finds it."""
+        resolver, cid = self._resolver(tmp_path / "c")
+        _writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        stale = stale_counter(r)
+        raw_write(tmp_path / "c", stale)
+        with pytest.raises(RetractionUnreadable) as caught:
+            snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
+        assert caught.value.ref == stale.id
+
+    def test_a_broken_retraction_outside_every_chain_raises_nothing(self, tmp_path):
+        resolver, cid = self._resolver(tmp_path / "c")
+        _writer, (_r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        unrelated = stored.retraction_node(
+            title="elsewhere", target=stored.NodeTarget("assessment:nobody", "assessment:nobody", "0" * 64),
+            reason="defective-code", rationale="names nothing", grounds=("verification:v1",), actor=ACTOR,
+            event_token="elsewhere",
+        )
+        raw_write(tmp_path / "c", unrelated)
+        standing = snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
+        assert standing.retracted == {S}
+
+
+def retracted_world(tmp_path, *, counter=False):
+    """A two-corpus world with one published epoch S, and S retracted by a
+    session-shaped writer in ALPHA (covered). With counter=True the
+    retraction is counter-retracted."""
+    from test_world_build import sample_nodes, slug_for
+    from test_world_receipts import corpora, hold_shipped, publish, world_over
+
+    coverage = (ALPHA, BETA)
+    roots = corpora(tmp_path, {c: sample_nodes(slug_for(c, coverage)) for c in coverage})
+    world = world_over(tmp_path, roots)
+    bindings = hold_shipped(world)
+    published = publish(world, coverage, bindings)
+    identity = published.receipts["producer-receipt.yaml"].subject_identity
+    assert identity is not None
+    # The brief names `profile=BASE` here; `roots[ALPHA]` is pinned `WITH_BIOLOGY`
+    # (test_world_build.corpus_at's PINS), so `BASE` would refuse at
+    # `_require_pins_agree` before any write — matching test_world_audit.py's and
+    # test_world_build.py's own writers over the same fixture corpora.
+    writer = CorpusWriter(
+        roots[ALPHA], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY,
+        operation_port=OperationRecorder(roots[ALPHA], authority=FULL, profile=WITH_BIOLOGY),
+        snapshot_resolver=RetainedSnapshots(world),
+    )
+    r = writer.retract(snapshot_retraction(identity))
+    c = writer.retract(retracts(r, "counter")) if counter else None
+    return world, roots, bindings, published, identity, writer, r, c

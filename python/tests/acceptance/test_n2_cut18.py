@@ -31,6 +31,26 @@ import beliefs.root as science_root
 
 # Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at e0bc65c.
 _LIVE_SABOTAGES = {
+    # Correction remainder slice 2, 2026-09-19: retract's write boundary now
+    # branches on snapshot_arm before the post-refuse re-resolution under the
+    # lock; the re-check moved under `if not snapshot_arm:` (BI-1, BI-2,
+    # commit 6090cf4). The arm still asserts that retract re-resolves its
+    # target under the lock immediately before writing.
+    "boundary-reresolution-after-delete-a": Sabotage(
+        module="corpus.py",
+        before=(
+            "            self._refuse(record, document_validated=True)\n"
+            "            if not snapshot_arm:\n"
+            "                try:\n"
+            "                    self._view.get(target_ref)\n"
+        ),
+        after=(
+            "            self._refuse(record, document_validated=True)\n"
+            "            if not snapshot_arm:\n"
+            "                try:\n"
+            "                    pass\n"
+        ),
+    ),
     # Edge membership and value selection now jointly confine the verification read.
     "M1": Sabotage(
         module="evaluation.py",

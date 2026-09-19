@@ -12,8 +12,8 @@ from beliefs.world import anchors, derive, epoch, read, registry
 
 __all__ = ["SNAPSHOT_STATES", "EpochAudit", "SnapshotVerdict", "audit_epochs", "snapshot_state"]
 
-SNAPSHOT_STATES: tuple[str, ...] = ("checked", "contradicted", "unchecked")
-SnapshotState = Literal["checked", "contradicted", "unchecked"]
+SNAPSHOT_STATES: tuple[str, ...] = ("checked", "contradicted", "unchecked", "retracted")
+SnapshotState = Literal["checked", "contradicted", "unchecked", "retracted"]
 _KINDS = cast(tuple[derive.ReceiptKind, ...], tuple(epoch.RECEIPT_KINDS.values()))
 
 
@@ -34,6 +34,8 @@ class EpochAudit:
 
 
 def _reduce(outcomes: list[derive.ReceiptOutcome]) -> SnapshotState:
+    if any(outcome.outcome == "retracted" for outcome in outcomes):
+        return "retracted"  # every receipt of a retracted subject is; stated first so a mixed case has a rule
     well_formed = [outcome for outcome in outcomes if outcome.outcome != "malformed"]
     if any(outcome.outcome == "validated" for outcome in well_formed):
         return "checked"
@@ -144,11 +146,11 @@ def audit_epochs(world: registry.World) -> EpochAudit:
     outcomes: list[tuple[str, derive.ReceiptKind, derive.ReceiptOutcome]] = []
     for name in sorted(opened):
         for kind in _KINDS:
-            outcome = read.validate_receipt(world, opened[name], kind)
+            outcome, unreadable_finding = read.reported_receipt(world, opened[name], kind)
             outcomes.append((name, kind, outcome))
-            finding = _receipt_finding(name, outcome)
-            if finding is not None:
-                findings.append(finding)
+            for finding in (unreadable_finding, _receipt_finding(name, outcome)):
+                if finding is not None:
+                    findings.append(finding)
     findings.extend(_anchor_findings(opened, view))
     snapshots = _verdicts(opened, outcomes, tuple(name for name, _refusal in unreadable))
     for verdict in snapshots:
@@ -173,7 +175,7 @@ def snapshot_state(
     opened, unreadable, _view = _retained(world)
     member = read._member_for(kind)
     members = [
-        (name, read.validate_receipt(world, opened[name], kind))
+        (name, read.reported_receipt(world, opened[name], kind)[0])
         for name in sorted(opened)
         if opened[name].receipts[member].subject_identity == subject_identity
     ]

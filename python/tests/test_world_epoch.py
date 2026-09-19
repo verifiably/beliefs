@@ -756,8 +756,11 @@ class TestOpening:
             assert not parameters & {"member", "member_name", "epoch_member"}, name
         # The read surface is pinned closed rather than sampled. Task 10 grew
         # it — receipt validation, the two bound queries and the answer types —
-        # and what it must never gain is an act whose subject is one member of
-        # one epoch, so the list is restated here every time it changes.
+        # and correction-remainder slice 2 task 4 grew it again with
+        # `reported_receipt`, the report-mode wrapper §7.3 gives every report
+        # caller instead of `validate_receipt`; what it must never gain is an
+        # act whose subject is one member of one epoch, so the list is
+        # restated here every time it changes.
         assert sorted(read.__all__) == [
             "BoundStamp",
             "EDGE_STATES",
@@ -770,6 +773,7 @@ class TestOpening:
             "current_epoch",
             "expand_coreference",
             "open_epoch",
+            "reported_receipt",
             "resolve_address",
             "validate_receipt",
         ]

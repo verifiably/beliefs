@@ -10,22 +10,31 @@ import pytest
 from authority import FULL
 from domain_facet_fixtures import over_kwargs, profile_with
 from test_local_standing import retracts
+from test_local_standing import retracts as counter_of
 from test_relocation import MOVE_FIELDS
+from test_snapshot_retraction import broken_counter, snapshot_retraction
 from test_world_build import ALPHA, BETA
 from test_world_receipts import corpora, hold_shipped, publish, world_over
 from test_world_view import make_absent, split_evaluation_world, world_kwargs
 
 from beliefs import stored
 from beliefs.belief import Belief, NoBelief
-from beliefs.closure import RETRACTION_UPHELD
+from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
 from beliefs.corpus import CorpusWriter
-from beliefs.errors import ProducerSnapshotMismatch, RetractionResolutionDisagreement
+from beliefs.errors import (
+    CorpusDamaged,
+    ProducerSnapshotMismatch,
+    ProducerSnapshotRetracted,
+    RetractionResolutionDisagreement,
+    RetractionUnreadable,
+)
 from beliefs.evaluation import evaluate_over_traced, gather
 from beliefs.relocation import move
+from beliefs.world.epoch import RetainedSnapshots
 from beliefs.world.view import open_world_view
 
 
-def writer_at(root: Path, profile) -> CorpusWriter:
+def writer_at(root: Path, profile, *, resolver=None) -> CorpusWriter:
     from nodes.core.write_plan import DefaultExecutor
     from test_corpus_write import OperationRecorder
 
@@ -35,6 +44,7 @@ def writer_at(root: Path, profile) -> CorpusWriter:
         authority=FULL,
         profile=profile,
         operation_port=OperationRecorder(root, authority=FULL, profile=profile),
+        snapshot_resolver=resolver,
     )
     from profiles import pins_for
 
@@ -201,12 +211,10 @@ def test_a_retraction_target_in_an_absent_corpus_answers_absence(tmp_path):
 
 
 @pytest.mark.parametrize("mode", ["retired", "surviving", "conflict", "unresolved"])
-def test_lineage_absence_uses_the_effective_world_walk(tmp_path, mode):
+def test_an_absent_covered_corpus_answers_absence_regardless_of_lineage_mode(tmp_path, mode):
     from authority import ACTOR
-    from dataset_fixtures import dataset_ref, pinned
+    from dataset_fixtures import pinned
     from domain_facet_fixtures import seed
-
-    from beliefs.lineage import certify
 
     view = seed(tmp_path / "seed")
     nodes = list(view.iter_stored())
@@ -266,27 +274,17 @@ def test_lineage_absence_uses_the_effective_world_walk(tmp_path, mode):
         )
     published = publish(world, (ALPHA, BETA), hold_shipped(world))
     make_absent(roots, BETA)
-    _, inputs, answer = evaluation(world, published, profile)
+    view, inputs, answer = evaluation(world, published, profile)
     assert inputs.snapshot.not_present[lost.id] == BETA
-    certification = certify(inputs.snapshot, (dataset_ref("d-a"),), (dataset_ref("d-b"),))
-    if mode == "surviving":
-        assert (lost.id, BETA) in inputs.absent
-        assert isinstance(answer, NoBelief) and answer.reason == "unavailable-corpus-absent"
-    else:
-        assert inputs.absent == () and isinstance(answer, Belief)
-        assert inputs.closure().digest() == answer.belief_input_digest
-        if mode == "retired":
-            assert inputs.snapshot.retired[replacement.id] == ("route:bad",)
-            assert certification.state == "independent" and answer.value == 2
-        else:
-            assert certification.state == "not-certified"
-            assert certification.findings == (("lineage-divergent",) if mode == "conflict" else ("lineage-incomplete",))
+    # correction-remainder slice 2 decision 7: BETA is in the producer snapshot's own
+    # coverage, so its absence answers absence for every mode here, before lineage's
+    # own per-mode walk ever runs — not only for the "surviving" walk that names it.
+    assert (f"producer-snapshot:{view.producer_snapshot_identity()}", BETA) in inputs.absent
+    assert isinstance(answer, NoBelief) and answer.reason == "unavailable-corpus-absent"
 
 
-def test_a_found_retraction_in_a_damaged_carrier_is_unreadable(tmp_path):
+def test_a_found_retraction_in_a_damaged_carrier_refuses_as_corpus_damaged(tmp_path):
     from test_world_view import damage
-
-    from beliefs.errors import CorpusDamaged, RetractionUnreadable
 
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     profile = profile_with()
@@ -297,8 +295,155 @@ def test_a_found_retraction_in_a_damaged_carrier_is_unreadable(tmp_path):
     kwargs = world_kwargs(open_world_view(world, published), profile)
     damage(roots[BETA], "parse-error")
     view = open_world_view(world, published, on_damage="report")
-    with pytest.raises(RetractionUnreadable) as refused:
+    # correction-remainder slice 2 decision 7: a damaged covered corpus refuses the whole
+    # world read before the standing loop is reached, whether or not it holds the
+    # retraction the query would otherwise find — so this refuses as `CorpusDamaged`
+    # directly rather than as a `RetractionUnreadable` wrapping one.
+    with pytest.raises(CorpusDamaged) as refused:
         gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
-    assert refused.value.ref == retraction.id
-    assert isinstance(refused.value.__cause__, CorpusDamaged)
-    assert refused.value.cause == str(refused.value.__cause__)
+    assert refused.value.ref == f"producer-snapshot:{view.producer_snapshot_identity()}"
+    assert refused.value.corpus_id == BETA
+
+
+def _retract_snapshot(world, roots, published, profile, *, corpus=ALPHA):
+    identity = published.receipts["producer-receipt.yaml"].subject_identity
+    writer = writer_at(roots[corpus], profile, resolver=RetainedSnapshots(world))
+    return identity, writer, writer.retract(snapshot_retraction(identity))
+
+
+class TestTheSnapshotTarget:
+    def test_a_retracted_bound_snapshot_refuses(self, tmp_path):
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        _identity, _w, _r = _retract_snapshot(world, roots, published, profile)
+        with pytest.raises(ProducerSnapshotRetracted):
+            evaluation(world, published, profile)
+
+    def test_a_counter_retraction_restores_and_the_history_is_in_the_digest(self, tmp_path):
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        _view, baseline, _answer = evaluation(world, published, profile)
+        _identity, writer, r = _retract_snapshot(world, roots, published, profile)
+        c = writer.retract(counter_of(r, "counter"))
+        _view, inputs, _answer = evaluation(world, published, profile)
+        assert (r.id, RETRACTION_OVERTURNED) in inputs.retractions.found and (c.id, RETRACTION_UPHELD) in inputs.retractions.found
+        assert ("retraction", r.id) in inputs.read_trace and ("retraction", c.id) in inputs.read_trace
+        assert inputs.closure().digest() != baseline.closure().digest()
+        assert len({ref for ref, _ in inputs.retractions.found}) == len(inputs.retractions.found)
+
+    def test_an_absent_covered_corpus_answers_absence_for_the_snapshot(self, tmp_path):
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        kwargs = world_kwargs(view, profile)
+        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        identity = view.producer_snapshot_identity()
+        assert (f"producer-snapshot:{identity}", BETA) in inputs.absent
+
+    def test_absence_takes_precedence_over_a_retracted_bound_snapshot(self, tmp_path):
+        """`if not absent and bound in snapshot_standing.retracted` (evaluation.py):
+        an absent covered corpus makes the snapshot's standing itself unreadable
+        (decision 7), so the read answers absence rather than `ProducerSnapshotRetracted`
+        even though the snapshot is, in fact, retracted in the corpus that is present."""
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        _identity, _w, _r = _retract_snapshot(world, roots, published, profile)
+        make_absent(roots, BETA)
+        view, inputs, answer = evaluation(world, published, profile)
+        identity = view.producer_snapshot_identity()
+        assert (f"producer-snapshot:{identity}", BETA) in inputs.absent
+        assert isinstance(answer, NoBelief) and answer.reason == "unavailable-corpus-absent"
+
+    @pytest.mark.parametrize("retraction_in", [None, BETA])
+    def test_a_damaged_covered_corpus_refuses_whatever_it_holds(self, tmp_path, retraction_in):
+        # beta_refs=(): BETA holds none of the lineage walk's own refs, so
+        # `world_kwargs` (which locates d-a/d-b before gather ever runs) does not
+        # itself trip `_refuse_damaged`; the refusal this test pins is `gather`'s
+        # own world-block check over every covered corpus, holdings aside — including
+        # when what BETA holds is the snapshot's own retraction (decision 7: damage
+        # refuses before the retraction that might resolve it is ever read).
+        from test_world_view import damage
+        world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
+        profile = profile_with()
+        if retraction_in is not None:
+            _retract_snapshot(world, roots, published, profile, corpus=retraction_in)
+        damage(roots[BETA], "parse-error")
+        view = open_world_view(world, published, on_damage="report")
+        kwargs = world_kwargs(view, profile)
+        with pytest.raises(CorpusDamaged) as caught:
+            gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                   resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert caught.value.ref == f"producer-snapshot:{view.producer_snapshot_identity()}" and caught.value.corpus_id == BETA
+
+    def test_a_rebuild_after_retraction_keeps_the_identity_and_still_refuses(self, tmp_path):
+        from test_world_receipts import hold_shipped, publish
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        identity, writer, r = _retract_snapshot(world, roots, published, profile)
+        rebuilt = publish(world, (ALPHA, BETA), hold_shipped(world))
+        assert rebuilt.receipts["producer-receipt.yaml"].subject_identity == identity
+        with pytest.raises(ProducerSnapshotRetracted):
+            evaluation(world, rebuilt, profile)
+        writer.retract(counter_of(r, "counter"))
+        rebuilt2 = publish(world, (ALPHA, BETA), hold_shipped(world))
+        _v, over_rebuilt, _a = evaluation(world, rebuilt2, profile)
+        _v, over_old, _a = evaluation(world, published, profile)
+        assert over_rebuilt.retractions.found == over_old.retractions.found
+
+    def test_an_older_snapshots_retraction_is_out_of_the_closure(self, tmp_path):
+        from test_world_receipts import hold_shipped, publish
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        _v, baseline, _a = evaluation(world, published, profile)
+        narrow = publish(world, (ALPHA,), hold_shipped(world))          # a different identity
+        old_identity = narrow.receipts["producer-receipt.yaml"].subject_identity
+        assert old_identity is not None
+        writer = writer_at(roots[ALPHA], profile, resolver=RetainedSnapshots(world))
+        writer.retract(snapshot_retraction(old_identity))
+        later = publish(world, (ALPHA, BETA), hold_shipped(world))       # captures that retraction
+        _v, inputs, _a = evaluation(world, later, profile)
+        assert inputs.retractions.found == baseline.retractions.found
+
+    def test_a_broken_counter_retraction_refuses_the_read(self, tmp_path):
+        from fixtures_cut4 import raw_write
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        _identity, _writer, r = _retract_snapshot(world, roots, published, profile)
+        broken = broken_counter(r)
+        raw_write(roots[ALPHA], broken)
+        with pytest.raises(RetractionUnreadable) as caught:
+            evaluation(world, published, profile)
+        assert caught.value.ref == broken.id
+
+    def test_a_retraction_outside_coverage_cannot_be_authored_and_a_raw_write_there_leaves_the_read_unchanged(
+        self, tmp_path
+    ):
+        """Decision 3: a snapshot-arm retraction resolves at authoring only in a
+        corpus the target snapshot's own coverage names; a writer over BETA refuses
+        one naming a producer snapshot covering only ALPHA. A raw write around that
+        refusal lands in a corpus decision 1's live fold never visits for this
+        snapshot (BETA is outside `narrow`'s own coverage), so the read is unchanged."""
+        from fixtures_cut4 import raw_write
+        from test_world_receipts import hold_shipped, publish
+
+        from beliefs.errors import RetractionTargetUnresolvable
+
+        # beta_refs=(): d-a/d-b stay in ALPHA, so a `narrow` epoch covering only ALPHA
+        # can still resolve `world_kwargs`'s own lineage walk; with the default split
+        # (d-a in BETA) `narrow` would not even publish d-a's address, and the setup
+        # would refuse with `RefError` before the coverage question is ever reached.
+        world, roots, _published = split_evaluation_world(tmp_path, beta_refs=())
+        profile = profile_with()
+        narrow = publish(world, (ALPHA,), hold_shipped(world))
+        narrow_identity = narrow.receipts["producer-receipt.yaml"].subject_identity
+        assert narrow_identity is not None
+        _v, baseline, _a = evaluation(world, narrow, profile)
+        writer = writer_at(roots[BETA], profile, resolver=RetainedSnapshots(world))
+        with pytest.raises(RetractionTargetUnresolvable, match="outside the coverage"):
+            writer.retract(snapshot_retraction(narrow_identity))
+        raw_write(roots[BETA], snapshot_retraction(narrow_identity))
+        _v, inputs, _a = evaluation(world, narrow, profile)
+        assert inputs.retractions.found == baseline.retractions.found
+        assert inputs.closure().digest() == baseline.closure().digest()

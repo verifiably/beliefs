@@ -117,11 +117,13 @@ RETRACTION_ENUMERATION_DOMAIN = "science.retraction-enumeration.v1"
 CERTIFICATION_INVENTORY_DOMAIN = "science.certification-inventory.v1"
 COREFERENCE_MAP_DOMAIN = "science.coreference-map.v1"
 
-RECEIPT_OUTCOMES: tuple[str, ...] = ("validated", "refuted", "unresolvable", "malformed")
+RECEIPT_OUTCOMES: tuple[str, ...] = ("validated", "refuted", "unresolvable", "malformed", "retracted")
 """§7.5's closed outcome set, in the order the specification writes it.
 
 Declared here because the outcomes are values of this slice's derivation
 contract; deciding one is Task 10's receipt validator, which reads this set.
+`retracted` (slice 2 decision 4) is the producer receipt's only, decided
+before availability.
 """
 
 BELIEF_INPUT_KIND = "producer"

@@ -64,10 +64,12 @@ from beliefs.errors import (
     CaptureDrift,
     ContractDisagreement,
     ContractMismatch,
+    CorpusDamaged,
     FacetPayloadRefused,
     FacetUndeclared,
     MalformedRecord,
     ProducerSnapshotMismatch,
+    ProducerSnapshotRetracted,
     RetractionResolutionDisagreement,
     RetractionUnreadable,
     ScienceError,
@@ -268,14 +270,23 @@ def gather(
         )
     if context.snapshot.retired:
         raise MalformedRecord("a supplied lineage snapshot carries no retirement; a caller may not pre-retire a route")
+    absent: list[tuple[str, str]] = []
+    history: tuple[tuple[str, str], ...] = ()
     if world:
         bound = view.producer_snapshot_identity()
         if context.producer_snapshot_identity != bound:
             raise ProducerSnapshotMismatch(context.producer_snapshot_identity, bound)
+        for report in view.damaged():  # the first damaged corpus refuses; the rest are not reported
+            raise CorpusDamaged(f"producer-snapshot:{bound}", report.corpus_id, view.stamp)
+        for corpus_id in view.absent():
+            absent.append((f"producer-snapshot:{bound}", corpus_id))
+        snapshot_standing = view.snapshot_standing()
+        if not absent and bound in snapshot_standing.retracted:
+            raise ProducerSnapshotRetracted(bound)
+        history = snapshot_standing.history.get(bound, ())
     enumeration = view.retraction_enumeration() if world else local_retraction_enumeration(view)
 
     # --- standing, before any assessment is read ------------------------------
-    absent: list[tuple[str, str]] = []
     trace: list[ReadRef] = []
     facets: dict[str, Mapping[str, object]] = {}
     for ref, _recorded in enumeration.found:
@@ -287,6 +298,9 @@ def gather(
             node = view.get(ref)  # a lookup; traced below only if the closure carries it
             facet = CorpusWriter._validated_retraction(node)
             target = cast(Mapping[str, str], facet["target"])
+            if target["arm"] == "snapshot":
+                facets[ref] = facet  # a vertex only: its one possible closure member is the bound snapshot, checked above
+                continue
             target_ref = target["ref"] if target["arm"] == "node" else target["dataset"]
             corpus_id = _absence_of(view, target_ref)
             if corpus_id is not None:
@@ -311,8 +325,9 @@ def gather(
         target = cast(Mapping[str, str], facet["target"])
         if target["arm"] == "node":
             subtracted.add(target["resolved"])
-        else:
+        elif target["arm"] == "route":
             retired.setdefault(target["resolved"], set()).add(target["route_identity"])
+        # a snapshot arm names no node and no route
 
     attribution: dict[str, set[str]] = {}
     matched: list[AssessmentValue] = []
@@ -413,11 +428,12 @@ def gather(
             if ref in taken:
                 continue
             target = cast(Mapping[str, str], facet["target"])
-            if target["resolved"] in scope or target["resolved"] in taken:
+            key = None if target["arm"] == "snapshot" else target["resolved"]   # a snapshot arm is never in scope (decision 8)
+            if key is not None and (key in scope or key in taken):
                 taken.add(ref)
                 grew = True
     scoped = RetractionEnumeration(
-        found=tuple(sorted((ref, recorded) for ref, recorded in enumeration.found if ref in taken)),
+        found=tuple(sorted({*((ref, recorded) for ref, recorded in enumeration.found if ref in taken), *history})),
         coverage=enumeration.coverage,
     )
     trace.extend(("retraction", ref) for ref, _recorded in scoped.found)

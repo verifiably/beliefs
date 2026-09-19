@@ -502,3 +502,106 @@ def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recomput
     assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [
         ("spec-target-contradicted", spec.id)
     ]
+
+
+def test_a_raw_written_snapshot_retraction_naming_nothing_retained_is_reported_from_captured_records(tmp_path):
+    """BI-6: the epoch predates the raw write, so the record is unmapped; iter_stored would miss it."""
+    from fixtures_cut4 import raw_write
+    from test_snapshot_retraction import S, snapshot_retraction
+    from test_world_receipts import published_world
+
+    from beliefs.audit import NO_EVIDENCE, audit_world
+    from beliefs.corpus import ReadView, corpus_check
+
+    world, _b, roots, published = published_world(tmp_path, (ALPHA,))
+    node = snapshot_retraction(S)                       # S is retained nowhere
+    raw_write(roots[ALPHA], node)
+    report = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+    assert ("retraction-target-invalid", node.id) in [(f.code, f.ref) for f in report.world]
+    assert not [f for f in corpus_check(ReadView.opened_at(roots[ALPHA]), BASE) if f.ref == node.id]
+
+
+def test_an_unreadable_retained_inventory_is_a_finding_and_the_audit_returns(tmp_path):
+    from fixtures_cut4 import raw_write
+    from test_snapshot_retraction import S, snapshot_retraction
+    from test_world_receipts import published_world
+
+    from beliefs.audit import NO_EVIDENCE, audit_world
+
+    world, _b, roots, published = published_world(tmp_path, (ALPHA,))
+    (world.config.world_root / "epochs" / "stray").write_text("not a carrier", encoding="utf-8")
+    clean = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)      # no snapshot arm: no new finding
+    assert "retained-epochs-unreadable" not in [f.code for f in clean.world]
+    node = snapshot_retraction(S)
+    raw_write(roots[ALPHA], node)
+    report = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+    codes_ = [f.code for f in report.world]
+    assert "retained-epochs-unreadable" in codes_ and ("retraction-target-invalid", node.id) not in [(f.code, f.ref) for f in report.world]
+
+
+def test_a_raw_written_snapshot_retraction_outside_the_targets_coverage_is_reported(tmp_path):
+    """The target is retained, but only under the narrow epoch's coverage
+    (ALPHA alone); raw-writing the retraction into BETA, then auditing an
+    epoch covering both, reaches `_world_findings`' `elif corpus_id not in
+    retained[target["subject_identity"]]` branch."""
+    from fixtures_cut4 import raw_write
+    from test_snapshot_retraction import snapshot_retraction
+    from test_world_receipts import publish, published_world
+
+    from beliefs.audit import NO_EVIDENCE, audit_world
+
+    world, bindings, roots, wide = published_world(tmp_path, (ALPHA, BETA))
+    narrow = publish(world, (ALPHA,), bindings)
+    narrow_id = narrow.receipts["producer-receipt.yaml"].subject_identity
+    assert narrow_id is not None
+
+    node = snapshot_retraction(narrow_id)
+    raw_write(roots[BETA], node)                          # narrow's coverage is ALPHA alone
+
+    report = audit_world(world, wide, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+    invalid = [f for f in report.world if f.code == "retraction-target-invalid"]
+    assert len(invalid) == 1
+    assert invalid[0].ref == node.id
+    assert "outside the coverage" in invalid[0].message
+
+
+def test_a_raw_written_snapshot_retraction_naming_an_unretained_successor_is_reported(tmp_path):
+    """The target itself resolves clean (retained, corpus within coverage);
+    only the named `successor` is not among the retained identities, which is
+    the audit's second, independent fault."""
+    from fixtures_cut4 import raw_write
+    from test_snapshot_retraction import snapshot_retraction
+    from test_world_receipts import published_world
+
+    from beliefs.audit import NO_EVIDENCE, audit_world
+
+    world, _bindings, roots, wide = published_world(tmp_path, (ALPHA, BETA))
+    wide_id = wide.receipts["producer-receipt.yaml"].subject_identity
+    assert wide_id is not None
+    successor = "c" * 64
+
+    node = snapshot_retraction(wide_id, successor=successor)
+    raw_write(roots[ALPHA], node)                          # the target's own coverage includes ALPHA
+
+    report = audit_world(world, wide, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+    invalid = [f for f in report.world if f.code == "retraction-target-invalid"]
+    assert len(invalid) == 1
+    assert invalid[0].ref == node.id
+    assert "is not a retained producer snapshot" in invalid[0].message
+
+
+def test_a_well_formed_admitted_snapshot_retraction_reports_no_invalid_target(tmp_path):
+    """The write boundary (`CorpusWriter.retract` with the resolver port)
+    mints only a retraction it has itself resolved eligible; the audit must
+    not re-flag what it admitted."""
+    from test_snapshot_retraction import retracted_world
+
+    from beliefs.audit import NO_EVIDENCE, audit_world
+
+    world, _roots, _bindings, published, _identity, _writer, r, _c = retracted_world(tmp_path)
+
+    report = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+    assert ("retraction-target-invalid", r.id) not in [(f.code, f.ref) for f in report.world]

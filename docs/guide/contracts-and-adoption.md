@@ -46,6 +46,7 @@ sources:
   - ../designs/2026-09-15-conformance-cut-31.md
   - ../designs/2026-09-16-conformance-cut-32.md
   - ../designs/2026-09-16-conformance-cut-33.md
+  - ../designs/2026-09-19-conformance-cut-34.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -54,6 +55,7 @@ sources:
   - ../plans/2026-09-05-conformance-cut-19-results.md
   - ../plans/2026-09-16-conformance-cut-32-results.md
   - ../plans/2026-09-16-conformance-cut-33-results.md
+  - ../plans/2026-09-19-conformance-cut-34-results.md
 ---
 
 # Contracts and adoption
@@ -200,7 +202,7 @@ W8b is measured and not selected. Its build defect is repaired by
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 
-Thirty conformance cuts have been frozen and discharged, each frozen before
+Thirty-one conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -244,10 +246,15 @@ Cut 30 discharges world resolution slice 6 — divergent correction histories re
 Cut 31 is discharged: estimand typing, the first off-path lane after the world-read path closed, reading Q1–Q10 in full over 26 sabotage arms — the estimand, its applicability, and the estimate and uncertainty the rule yields are typed, and a pre-grammar record is refused under its own name (`../designs/2026-09-15-conformance-cut-31.md`; design `../designs/2026-09-12-estimand-typing-design.md`; results `../plans/2026-09-16-conformance-cut-31-results.md`).
 Cut 32 discharges composite claims, the second off-path lane under rule 6, reading U1–U10 in full over 26 sabotage arms — the `composite` kind records the structure a set of claims is drawn against, its reading is derived through the traced evaluator and stored nowhere, and it is inert to belief (`../designs/2026-09-16-conformance-cut-32.md`; design `../designs/2026-09-12-composite-claims-design.md`; results `../plans/2026-09-16-conformance-cut-32-results.md`).
 Cut 33 discharges correction-remainder slice 1: standing reaches the evaluator,
-C7 and C3 close, and C10's audit arm is read over 11 declaration units. The
-corpus now has **175 of 216 rows closed, 41 open**
-(`../designs/2026-09-16-conformance-cut-33.md`;
-`../plans/2026-09-16-conformance-cut-33-results.md`).
+C7 and C3 close, and C10's audit arm is read over 11 declaration units.
+Cut 34 discharges correction-remainder slice 2 and closes the boundary: the
+retraction target gains a third arm, the semantic snapshot, read live from
+the corpora its own coverage names and reported or refused at import, audit,
+diagnostic query, and the world read; C8 and C9 close over 17 declaration
+units, and the mutation lane has no further open boundary. The corpus now
+has **177 of 216 rows closed, 39 open**
+(`../designs/2026-09-19-conformance-cut-34.md`;
+`../plans/2026-09-19-conformance-cut-34-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -281,4 +288,4 @@ questions under
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
 - [Cut 12 discharge results](../plans/2026-08-29-conformance-cut-12-results.md)
-- [Cut 33 discharge results, the newest results record](../plans/2026-09-16-conformance-cut-33-results.md)
+- [Cut 34 discharge results, the newest results record](../plans/2026-09-19-conformance-cut-34-results.md)

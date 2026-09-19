@@ -789,8 +789,9 @@ class TestBeliefBoundary:
         with pytest.raises(ValueError, match="producer"):
             derive.belief_input_identity(tuple(one for one in produced if one.kind != "producer"))
 
-    def test_receipt_outcomes_are_the_closed_four(self):
-        assert derive.RECEIPT_OUTCOMES == ("validated", "refuted", "unresolvable", "malformed")
+    def test_receipt_outcomes_are_the_closed_five(self):
+        # `retracted` (correction-remainder slice 2 decision 10) gained the set last.
+        assert derive.RECEIPT_OUTCOMES == ("validated", "refuted", "unresolvable", "malformed", "retracted")
 
 
 # --- Step 5: the shipped fixtures are normative ------------------------------

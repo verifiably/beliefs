@@ -6,13 +6,14 @@ from pathlib import Path
 
 import pytest
 import yaml
+from test_snapshot_retraction import retracted_world
 from test_world_build import ALPHA, BETA
 from test_world_import_epoch import exported, replica_world
 from test_world_receipts import document, hold_shipped, publish, published_world, repackage
 
 from beliefs.errors import EpochMalformed
 from beliefs.world import derive, epoch, registry
-from beliefs.world.audit import EpochAudit, SnapshotVerdict, audit_epochs, snapshot_state
+from beliefs.world.audit import SNAPSHOT_STATES, EpochAudit, SnapshotVerdict, audit_epochs, snapshot_state
 
 KINDS = tuple(epoch.RECEIPT_KINDS.values())
 
@@ -253,3 +254,51 @@ def test_a_symlinked_epochs_directory_still_refuses(tmp_path):
 
     with pytest.raises(EpochMalformed):
         audit_epochs(world)
+
+
+def test_the_closed_sets_gain_retracted_last():
+    assert derive.RECEIPT_OUTCOMES[-1] == "retracted" and SNAPSHOT_STATES[-1] == "retracted"
+    assert derive.ReceiptOutcome("producer", "retracted", "x").validated is False
+
+
+def test_a_retracted_subject_is_reported_and_is_not_a_finding(tmp_path):
+    world, _roots, _b, published, identity, *_ = retracted_world(tmp_path)
+    audit = audit_epochs(world)
+    assert (published.packaging_identity, "producer", "retracted") in [(n, k, o.outcome) for n, k, o in audit.receipts]
+    verdict = next(v for v in audit.snapshots if v.subject_identity == identity)
+    assert verdict.state == "retracted"
+    # C8-b's discriminating form (test_snapshot_retraction_acceptance.py): the
+    # earlier `if "retract" in f.code` clause narrowed the generator's domain
+    # before `f.ref == identity` was ever asked, so a finding naming this
+    # identity under a code that does not itself contain "retract" (e.g. a
+    # receipt-retracted finding filed under some other code) would never be
+    # looked at and this assertion would pass regardless.
+    assert [f for f in audit.findings if f.ref == identity or "retract" in f.code] == []
+    assert snapshot_state(world, "producer", identity).state == "retracted"
+
+
+def test_retracted_precedes_availability(tmp_path):
+    """BI-3: the retraction write moved ALPHA's state; a phase after availability would answer unresolvable."""
+    from beliefs.world import read
+    world, _roots, _b, published, *_ = retracted_world(tmp_path)
+    assert read.validate_receipt(world, published, "producer").outcome == "retracted"
+    assert read.validate_receipt(world, published, "retraction-enumeration").outcome == "unresolvable"
+
+
+def test_a_counter_retraction_leaves_the_subject_unchecked_not_retracted(tmp_path):
+    world, _roots, _b, _p, identity, *_ = retracted_world(tmp_path, counter=True)
+    verdict = snapshot_state(world, "producer", identity)
+    assert verdict.state == "unchecked"
+    assert all(o.outcome == "unresolvable" for _n, o in verdict.receipts)
+
+
+def test_an_unreadable_chain_is_an_unresolvable_outcome_and_a_finding_and_the_reports_return(tmp_path):
+    from fixtures_cut4 import raw_write
+    from test_snapshot_retraction import broken_counter
+    world, roots, _b, _published, identity, _w, r, _c = retracted_world(tmp_path)
+    broken = broken_counter(r)
+    raw_write(roots[ALPHA], broken)
+    audit = audit_epochs(world)
+    assert [f.code for f in audit.findings if f.ref == broken.id] == ["retraction-unreadable"]
+    verdict = snapshot_state(world, "producer", identity)
+    assert verdict.state == "unchecked" and "cannot be decided" in verdict.receipts[0][1].detail

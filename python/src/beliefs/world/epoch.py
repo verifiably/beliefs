@@ -147,6 +147,7 @@ __all__ = [
     "DerivationBindings",
     "Epoch",
     "EpochDeletionReport",
+    "RetainedSnapshots",
     "SeveredIdentity",
     "build_epoch",
     "delete_epoch",
@@ -1260,10 +1261,16 @@ def _retraction_target(facet: Mapping[str, object]) -> str:
     address map for. A route-arm retraction names an embedded route rather than
     a record, and its route identity keeps it disjoint from a node-arm
     retraction of the same dataset — two genuinely different claims that a
-    shared dataset key would silently merge.
+    shared dataset key would silently merge. A snapshot-arm retraction names a
+    subject identity, disjoint from every ref and every route identity by
+    namespace, so the key is the identity itself (slice 2 §6).
     """
     target = cast(Mapping[str, str], facet["target"])
-    return target["ref"] if target["arm"] == "node" else target["route_identity"]
+    if target["arm"] == "node":
+        return target["ref"]
+    if target["arm"] == "route":
+        return target["route_identity"]
+    return target["subject_identity"]
 
 
 def _standing_retractions(view: ReadView, facets: Mapping[str, Mapping[str, object]]) -> Mapping[str, bool]:
@@ -1758,6 +1765,44 @@ def _retained_identities_locked(world_root: Path) -> tuple[str, ...]:
     too — which is the enumeration's own share of §8.1's carrier rule.
     """
     return tuple(sorted({carrier.packaging_identity for carrier in _retained_receipt_bindings_locked(world_root)}))
+
+
+def _member_for(kind: str) -> str:
+    """The §6.1 member the named receipt kind is written to.
+
+    A kind outside §7.5's four is a caller error and refuses here: inventing a
+    fifth outcome for it would answer a question the specification does not
+    ask. Lives here rather than in `read` because `read` imports this module.
+    """
+    for member, declared in RECEIPT_KINDS.items():
+        if declared == kind:
+            return member
+    raise ValueError(f"{kind!r} is not one of the four receipt kinds {sorted(RECEIPT_KINDS.values())}")
+
+
+class RetainedSnapshots:
+    """The writer's snapshot resolver over one world's retained epochs
+    (slice 2 §4). One scan under the barrier; the mapping is built outside it."""
+
+    def __init__(self, world: registry.World) -> None:
+        self._world = world
+
+    def retained(self, subject_kind: str) -> Mapping[str, tuple[str, ...]]:
+        member = _member_for(subject_kind)
+        with registry._locked_barrier(self._world) as world_root:
+            carriers = _retained_receipt_bindings_locked(world_root)
+        retained: dict[str, tuple[str, ...]] = {}
+        for carrier in carriers:
+            if carrier.member != member or carrier.subject_identity is None or carrier.corpus_states is None:
+                continue  # a receipt-contract fault is the audit's to report, not a name to resolve against
+            coverage = tuple(sorted(corpus_id for corpus_id, _state in carrier.corpus_states))
+            if carrier.subject_identity in retained and retained[carrier.subject_identity] != coverage:
+                raise EpochMalformed(
+                    f"{carrier.packaging_identity}: subject {carrier.subject_identity} is retained under two "
+                    "coverages; the identity digests the coverage, so one of the carriers is not what it claims"
+                )
+            retained[carrier.subject_identity] = coverage
+        return MappingProxyType(retained)
 
 
 def _locked_retained_directories(world_root: Path) -> tuple[tuple[str, str | None], ...]:
