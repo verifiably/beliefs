@@ -502,3 +502,38 @@ def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recomput
     assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [
         ("spec-target-contradicted", spec.id)
     ]
+
+
+def test_a_raw_written_snapshot_retraction_naming_nothing_retained_is_reported_from_captured_records(tmp_path):
+    """BI-6: the epoch predates the raw write, so the record is unmapped; iter_stored would miss it."""
+    from fixtures_cut4 import raw_write
+    from test_snapshot_retraction import S, snapshot_retraction
+    from test_world_receipts import published_world
+
+    from beliefs.audit import NO_EVIDENCE, audit_world
+    from beliefs.corpus import ReadView, corpus_check
+
+    world, _b, roots, published = published_world(tmp_path, (ALPHA,))
+    node = snapshot_retraction(S)                       # S is retained nowhere
+    raw_write(roots[ALPHA], node)
+    report = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+    assert ("retraction-target-invalid", node.id) in [(f.code, f.ref) for f in report.world]
+    assert not [f for f in corpus_check(ReadView.opened_at(roots[ALPHA]), BASE) if f.ref == node.id]
+
+
+def test_an_unreadable_retained_inventory_is_a_finding_and_the_audit_returns(tmp_path):
+    from fixtures_cut4 import raw_write
+    from test_snapshot_retraction import S, snapshot_retraction
+    from test_world_receipts import published_world
+
+    from beliefs.audit import NO_EVIDENCE, audit_world
+
+    world, _b, roots, published = published_world(tmp_path, (ALPHA,))
+    (world.config.world_root / "epochs" / "stray").write_text("not a carrier", encoding="utf-8")
+    clean = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)      # no snapshot arm: no new finding
+    assert "retained-epochs-unreadable" not in [f.code for f in clean.world]
+    node = snapshot_retraction(S)
+    raw_write(roots[ALPHA], node)
+    report = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+    codes_ = [f.code for f in report.world]
+    assert "retained-epochs-unreadable" in codes_ and ("retraction-target-invalid", node.id) not in [(f.code, f.ref) for f in report.world]

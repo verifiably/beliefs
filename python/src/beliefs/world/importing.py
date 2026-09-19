@@ -11,7 +11,7 @@ from typing import Literal, cast
 from nodes.core.write_plan import CreateOp
 
 from beliefs.corpus import Finding
-from beliefs.errors import EpochImportRefused, EpochMalformed
+from beliefs.errors import EpochImportRefused, EpochMalformed, RetractionUnreadable
 from beliefs.world import derive, epoch, read, registry
 
 __all__ = ["EpochImportReport", "import_epoch"]
@@ -45,14 +45,21 @@ def import_epoch(world: registry.World, source: Path) -> EpochImportReport:
             f"{packaging_identity}: epoch belongs to world {carrier.world_anchor.subject}, not {world.config.world_id}",
         )
     kinds = cast(tuple[derive.ReceiptKind, ...], tuple(epoch.RECEIPT_KINDS.values()))
-    outcomes: dict[derive.ReceiptKind, derive.ReceiptOutcome] = {
-        kind: read.validate_receipt(world, carrier, kind) for kind in kinds
-    }
+    outcomes: dict[derive.ReceiptKind, derive.ReceiptOutcome] = {}
+    for kind in kinds:
+        try:
+            outcomes[kind] = read.validate_receipt(world, carrier, kind)
+        except RetractionUnreadable as caught:
+            raise EpochImportRefused(
+                "unreadable-standing",
+                f"{packaging_identity}: the {kind} subject's standing cannot be decided: {caught}",
+            ) from caught
     decisions: tuple[
         tuple[Literal["malformed-receipt"], Literal["malformed"]]
+        | tuple[Literal["retracted-snapshot"], Literal["retracted"]]
         | tuple[Literal["refuted-receipt"], Literal["refuted"]],
         ...,
-    ] = (("malformed-receipt", "malformed"), ("refuted-receipt", "refuted"))
+    ] = (("malformed-receipt", "malformed"), ("retracted-snapshot", "retracted"), ("refuted-receipt", "refuted"))
     for reason, outcome in decisions:
         offending = tuple(verdict for verdict in outcomes.values() if verdict.outcome == outcome)
         if offending:

@@ -5,11 +5,11 @@ from pathlib import Path
 from types import MappingProxyType
 
 import pytest
-from authority import ACTOR
+from authority import ACTOR, FULL
 from fixtures_cut4 import raw_write
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
-from profiles import BASE, pins_for
+from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_corpus_write import OperationRecorder
 from test_local_standing import retracts
 from test_world_build import ALPHA, BETA
@@ -278,3 +278,31 @@ class TestSnapshotStanding:
         raw_write(tmp_path / "c", unrelated)
         standing = snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
         assert standing.retracted == {S}
+
+
+def retracted_world(tmp_path, *, counter=False):
+    """A two-corpus world with one published epoch S, and S retracted by a
+    session-shaped writer in ALPHA (covered). With counter=True the
+    retraction is counter-retracted."""
+    from test_world_build import sample_nodes, slug_for
+    from test_world_receipts import corpora, hold_shipped, publish, world_over
+
+    coverage = (ALPHA, BETA)
+    roots = corpora(tmp_path, {c: sample_nodes(slug_for(c, coverage)) for c in coverage})
+    world = world_over(tmp_path, roots)
+    bindings = hold_shipped(world)
+    published = publish(world, coverage, bindings)
+    identity = published.receipts["producer-receipt.yaml"].subject_identity
+    assert identity is not None
+    # The brief names `profile=BASE` here; `roots[ALPHA]` is pinned `WITH_BIOLOGY`
+    # (test_world_build.corpus_at's PINS), so `BASE` would refuse at
+    # `_require_pins_agree` before any write — matching test_world_audit.py's and
+    # test_world_build.py's own writers over the same fixture corpora.
+    writer = CorpusWriter(
+        roots[ALPHA], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY,
+        operation_port=OperationRecorder(roots[ALPHA], authority=FULL, profile=WITH_BIOLOGY),
+        snapshot_resolver=RetainedSnapshots(world),
+    )
+    r = writer.retract(snapshot_retraction(identity))
+    c = writer.retract(retracts(r, "counter")) if counter else None
+    return world, roots, bindings, published, identity, writer, r, c

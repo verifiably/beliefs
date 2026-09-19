@@ -124,6 +124,7 @@ from beliefs.world.read import (
     current_epoch,
     expand_coreference,
     open_epoch,
+    reported_receipt,
     resolve_address,
     validate_receipt,
 )
@@ -321,6 +322,7 @@ __all__ = [
     "provenance_projection",
     "receipt_identity",
     "remove_rule_binding",
+    "reported_receipt",
     "resolve_address",
     "retraction_discovery_map",
     "retraction_discovery_map_projection",
