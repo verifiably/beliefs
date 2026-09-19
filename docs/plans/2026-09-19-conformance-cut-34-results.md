@@ -328,12 +328,36 @@ unrelated to any row this cut closes.
 
 ## 6. Main integration
 
-**Pending controller review and local merge.** The branch has not been
-merged or pushed. After the controller's final whole-branch review, the
-reviewed plan requires a local `--no-ff` merge to `main`, `just gate` on the
-merged tree, and a follow-up commit recording the merge revision and
-merged-main verification here. No merge commit or merged-main gate result
-is claimed by this record yet.
+The controller completed the final whole-branch review, took the final fix
+wave at `d6cb814` (the reproduction addendum's C9 sentence) and `a25305c`
+(ten seam tests pinning `RetainedSnapshots`'s skip and two-coverage refusal,
+`audit_world`'s outside-coverage and successor faults, the session's port
+pass-through, C8-b's discriminating "not a finding" form and the second
+raw-write counter-retraction variant; no source change), and completed a
+scoped re-review with every finding addressed. The reviewed branch was merged
+locally into `main` with `--no-ff` on 2026-09-19 at
+`bef38b971eb79e277a610510acf496945f39948c`. Nothing was pushed.
+
+`just gate` on the merged commit exited **0**. Ruff, Pyright, TypeScript
+typecheck and Biome passed; task validation reported zero errors and zero
+warnings. The serial Python suite reported:
+
+```text
+5062 passed, 1 skipped in 1241.01s (0:20:41)
+```
+
+The skip is the intentional `tests/test_composite.py` causal-only fixture arm
+documented at cut 33. TypeScript passed all seven files and 155 tests:
+
+```text
+ Test Files  7 passed (7)
+      Tests  155 passed (155)
+```
+
+The merged-main gate transcript had SHA-256 `fb76ac6668a3d76510108d306ecf067fde5208405a46873c94e7cf95f4481cf5`; the durable summaries
+are recorded above because the plan's scratch workspace is removed at
+completion. No capability refusal or waiver occurred. This integration record
+changes only documentation after the successful gate.
 
 ## 7. Execution rulings
 
