@@ -1,15 +1,16 @@
 ---
 id: beliefs-d79ca4
 title: "Correction remainder, slice 2 — the snapshot target (C8, C9)"
-status: doing
+status: done
 priority: 3
 size: l
 complexity: high
 process: planned
 owner: design/correction-remainder
 created: 2026-09-17T10:38:46Z
-updated: 2026-09-19T13:53:38Z
+updated: 2026-09-19T18:53:46Z
 started: 2026-09-19T12:09:01Z
+completed: 2026-09-19T18:53:46Z
 depends: [beliefs-dc4e56]
 parent: beliefs-aa27da
 tags: [migration, mutation, correction]
@@ -37,3 +38,7 @@ Spec-to-be: slice 1 design §12. A third retraction arm, snapshot, naming an epo
 - 2026-09-19T13:53:38Z (design/correction-remainder): resumed
   provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-19T13:53:38Z (design/correction-remainder): plan approved by user 2026-09-19; executing via subagent-driven-development, claimed by claude-code controller session
+- 2026-09-19T18:53:46Z (design/correction-remainder): done
+  provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T18:53:46Z (design/correction-remainder): slice 2 discharged at cut 34: the snapshot target; C8 and C9 closed; results docs/plans/2026-09-19-conformance-cut-34-results.md
+  provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

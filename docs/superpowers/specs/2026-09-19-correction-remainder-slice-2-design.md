@@ -1,7 +1,7 @@
 # Correction remainder, slice 2 — the snapshot target
 
 **Date:** 2026-09-19
-**Status:** approved for implementation planning 2026-09-19 at `435e254`; not yet frozen (cut 34 claims at freeze)
+**Status:** discharged at conformance cut 34 on 2026-09-19; results: `../../plans/2026-09-19-conformance-cut-34-results.md`
 **Boundary:** `correction-remainder` (`beliefs-aa27da`), the mutation lane's only open boundary; slice 2 of 2, task `beliefs-d79ca4`
 **Lane:** `mutation`, worktree `.worktrees/correction-remainder`
 **Sources:** `../../designs/2026-08-03-correction-lifecycle-design.md` (§3, §4 "Semantic snapshot" and "Coverage narrowing", §6, C8, C9),
@@ -986,3 +986,10 @@ that retirement would change") is read at the cut and closed or re-noted.
 - 2026-09-19 — plan review, second pass: BI-8's `audit_world` comparison
   excludes the broken counter's own `retraction-target-invalid` finding,
   which the corpus-level pass legitimately produces.
+- 2026-09-19 — Task 8 planning correction: §13 says cut 33's reproduction
+  state moved aside to `mm30.cut33` before this slice's re-run; nothing was
+  moved. No contract succeeded (the same `NoBelief` shape as cut 33's own
+  re-run), so `.work/reproduction/mm30` was read in place, exactly as at
+  §12, and the addendum records that. §13's move-aside sentence described
+  cut 32's shape, not cut 33's carry-forward one, and was not re-checked
+  against the actual cut-33 re-run before this slice's plan cited it.

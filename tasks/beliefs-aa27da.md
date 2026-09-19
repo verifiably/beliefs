@@ -1,15 +1,16 @@
 ---
 id: beliefs-aa27da
 title: Complete the correction lifecycle
-status: doing
+status: done
 priority: 3
 size: xl
 complexity: high
 process: planned
 owner: design/correction-remainder
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-17T07:02:45Z
+updated: 2026-09-19T18:53:48Z
 started: 2026-09-16T22:59:34Z
+completed: 2026-09-19T18:53:48Z
 depends: [beliefs-676a2c]
 tags: [migration, mutation, correction]
 spec: docs/superpowers/specs/2026-09-16-correction-remainder-slice-1-design.md
@@ -30,3 +31,7 @@ Uncertainty: Consolidate’s prerequisite is discharged; the semantic-snapshot k
 - 2026-09-16T22:47:03Z (main): 2026-09-16: process planned — roadmap tier-1 off-path row 1 with no lane open after cut 32; the stored semantic-snapshot kind, its evaluator and route standing are undesigned, so a slice design and cut freeze precede code. Cut 32's finding (retraction filtering the identification column inherits) and the src-touching cut-31/32 follow-ups (0521da, 1dd03f, 010c6e, b1245d) ride with this cut.
 - 2026-09-16T23:17:08Z (design/correction-remainder): claimed by claude-code/claude-opus-5 in .worktrees/correction-remainder (branch design/correction-remainder); slice 1 design drafted at docs/superpowers/specs/2026-09-16-correction-remainder-slice-1-design.md — standing reaches the evaluator (C7, C3's coverage clauses, C10's audit arm, G8 §7a as a boundary invariant); slice 2 is the snapshot target (C8, C9)
 - 2026-09-17T07:02:45Z (design/correction-remainder): lane admitted under rule 6 at cut 33: no kernel lane open, tier 1 on-path empty
+- 2026-09-19T18:53:48Z (design/correction-remainder): done
+  provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T18:53:48Z (design/correction-remainder): correction lifecycle complete: cuts 5, 33 and 34; C1–C9 closed, C10's certification arm with contract-cut
+  provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

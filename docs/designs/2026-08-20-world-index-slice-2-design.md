@@ -505,6 +505,15 @@ unsound receipt contract is `malformed`. The outcomes remain:
 validated | refuted | unresolvable | malformed
 ```
 
+> **Landed 2026-09-19 at conformance cut 34.** The producer receipt's
+> outcome set, and the snapshot-state query's state set, each gain
+> `retracted`: `derive.RECEIPT_OUTCOMES` and `audit.SNAPSHOT_STATES` are
+> amended by the same dated-note discipline this note follows
+> (correction-lifecycle design §4, decision 10,
+> [slice-2 design](../superpowers/specs/2026-09-19-correction-remainder-slice-2-design.md)). `retracted` is
+> decided before availability for the producer receipt only (decision 4
+> there); the other three receipt kinds never answer it.
+
 The coreference receipt carries no semantic identity and is never a belief
 input. Any outcome other than `validated` makes every covered edge
 `indeterminate` at query time.

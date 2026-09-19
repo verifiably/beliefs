@@ -81,6 +81,13 @@ One new immutable kernel kind, **`retraction`**, the ninth. Its content:
   "the run" whose defect motivated the act. A `dataset-production` run has no
   assessment; what its false certification corrupts is the lineage closure, and the
   retraction's `route` arm names exactly that.
+
+  > **Landed 2026-09-19 at conformance cut 34.** The union gains a third
+  > arm, `snapshot`, naming a producer subject by kind and identity. This
+  > section originally placed the semantic snapshot under the `node` arm on
+  > the assumption of a stored snapshot record; slice 1 found the snapshot
+  > has no stored record, so it is named this way instead (decision 10,
+  > [slice-2 design](../superpowers/specs/2026-09-19-correction-remainder-slice-2-design.md)).
 - **reason** — a typed code from a closed initial vocabulary (`defective-code`,
   `environment-miscapture`, `corrupt-input`, `false-certification`, `wrong-route`,
   `upstream-retraction`, `authored-error`) plus prose rationale. The vocabulary is
@@ -223,6 +230,11 @@ Per instantiation:
   raw computation that ignores retraction records can still read the bytes. "Unusable"
   is therefore bounded the way every enforcement claim here is bounded: enforced at
   boundaries, detected at audit (§8).
+
+  > **Landed 2026-09-19 at conformance cut 34.** This bullet's outcome set
+  > is built: `derive.RECEIPT_OUTCOMES` and `audit.SNAPSHOT_STATES` each
+  > gain `retracted`, import refuses before any write, and audit and the
+  > diagnostic query report it at the three call sites named above.
 - **Coverage narrowing.** Coverage is part of a snapshot's identity, and computations
   select a snapshot explicitly with no implicit successor (world §5) — so nothing here
   recomputes an "effective coverage" behind a standing identity. Narrowing is
@@ -237,6 +249,10 @@ Per instantiation:
   permission. A coverage declaration is therefore **not a separate target class**;
   the eligible-target set stays two arms.
 
+  > **Landed 2026-09-19 at conformance cut 34.** Narrowing is discharged:
+  > `build_epoch` under the narrower declaration, then retract the old
+  > snapshot naming the new one as `successor`.
+
 **Eligible targets are exactly the readable inputs.** A record is retraction-eligible
 iff a computed view reads its standing: assessments, verifications, semantic
 snapshots, and instrument certifications (the `node` arm — the last added at
@@ -246,6 +262,13 @@ not (their lifecycle is `supersedes`); runs are not (a run happened; its readabl
 products are the targets); notes and coordination kinds are not (outside every
 closure). A retraction naming an ineligible or ill-formed target is malformed —
 refused at the boundary, an audit finding when raw-written.
+
+> **Landed 2026-09-19 at conformance cut 34.** The eligible-target set is
+> now **three** arms, not two: `node`, `route`, and `snapshot` (§3). The
+> eligibility test above — "a computed view reads its standing" — is
+> unchanged, and the semantic snapshot still passes it; it was always
+> eligible, only misfiled under the `node` arm (decision 10,
+> [slice-2 design](../superpowers/specs/2026-09-19-correction-remainder-slice-2-design.md)).
 
 ## 5. Eligibility — the harder half, answered procedurally
 
@@ -401,6 +424,20 @@ deletion cut re-reads C1 against this narrowing.)*
    and the honesty is stated there as well as here — the **bound** is visible, the
    **actual** staleness is not, so no consumer may read a recent epoch as a fresh
    world. Nothing about the spatial half changes.
+7. **A retraction's corpus can depart** (landed 2026-09-19 at conformance
+   cut 34, spec §14 item 1,
+   [slice-2 design](../superpowers/specs/2026-09-19-correction-remainder-slice-2-design.md)). Decision 7 there
+   fails the world read closed (`NoBelief`) when a covered corpus holding a
+   snapshot retraction is absent, and audit answers `unresolvable`. A
+   departed corpus that held the only retraction of a snapshot therefore
+   neither restores nor confirms it; "detected at audit" holds above and
+   nothing built at cut 34 re-admits the snapshot.
+8. **Other receipt subjects are not retractable** (landed 2026-09-19 at
+   conformance cut 34, spec §14 item 6, decision 2 there). The `snapshot`
+   arm names a producer subject only; the retraction enumeration, the
+   certification inventory, and the coreference reduction are not belief
+   inputs and are not readable inputs in this section's sense, so a
+   `subject_kind` outside `producer` is refused as ineligible.
 
 ## 9. Open questions
 

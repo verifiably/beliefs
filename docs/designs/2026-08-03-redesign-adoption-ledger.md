@@ -46,12 +46,13 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-17** for cut 33's correction-remainder slice 1 discharge.
+**Updated 2026-09-19** for cut 34's correction-remainder slice 2 discharge,
+which closes the boundary.
 
-**Implemented through conformance cut 33.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 34.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–33 record discharge in their dated results records, most recently
-`../plans/2026-09-16-conformance-cut-33-results.md`.
+and cuts 26–34 record discharge in their dated results records, most recently
+`../plans/2026-09-19-conformance-cut-34-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -230,8 +231,14 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   lineage walk, and passes the input-scoped enumeration and effective snapshot
   into the belief closure. C7 and C3 close at cut 33; C10's raw-written audit
   arm is read and its `instrument-certification` eligibility arm remains with
-  `contract-cut`. Five boundary-invariant declaration units hold the read seam.
-  The corpus has **175 of 216 rows closed**; C8 and C9 remain for slice 2.
+  `contract-cut`. A third retraction target arm, the semantic snapshot, is
+  read **live** from the corpora its own coverage names and reported or
+  refused at import, audit, diagnostic query and the world read; coverage
+  narrowing is snapshot succession plus retraction. C8 and C9 close at
+  cut 34, and the correction lifecycle's mutation lane has no further open
+  boundary. Nine boundary-invariant declaration units at cut 34, five at
+  cut 33, hold the read seam.
+  The corpus has **177 of 216 rows closed**; the mutation lane is closed.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -250,7 +257,6 @@ not listed.
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
 | `act-report-remainder` | T1, T2, T4 | `2026-08-11-act-report-design.md` | the T table in full |
-| `correction-remainder` | C8, C9; slice 1 closed C7 and C3 and read C10's audit arm at cut 33 | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full; slice 2 is the mutation lane's next work |
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3), landed 2026-09-11 as the writable-source `read_preimage` command (`atoms-38887b`); `beliefs-a7df71` owns source-root selection, held-copy matching and the classification boundary | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
@@ -261,11 +267,16 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-16-conformance-cut-33-results.md`) discharges
+(`../plans/2026-09-19-conformance-cut-34-results.md`) discharges
+correction-remainder slice 2: the retraction target gains its third arm, the
+semantic snapshot, read live from the corpora its own coverage names; C8 and
+C9 close, and the boundary closes with them — `correction-remainder` leaves
+this table and the roadmap's boundary index in the same commit, and the
+`mutation` lane closes with no open boundary. The preceding record
+(`../plans/2026-09-16-conformance-cut-33-results.md`) discharged
 correction-remainder slice 1: C7 and C3 close, C10's audit arm is read, and
-standing reaches the evaluator through five boundary invariants. C8 and C9
-remain with slice 2; C10's certification arm remains with `contract-cut`.
-The preceding record
+standing reaches the evaluator through five boundary invariants; C10's
+certification arm remains with `contract-cut`. The previous record
 (`../plans/2026-09-16-conformance-cut-32-results.md`) discharged composite
 claims: `composite-claims` entered this table and the roadmap's boundary index
 at that record and closed in the same commit, so neither carries an open row for
@@ -275,11 +286,10 @@ limitations, not work. What that lane leaves standing elsewhere: the
 coordination-contract amendment that would add `composite` to version 1's
 literal `kinds` list and `composes` to its `relations` list is **sub-project 5's
 road**, and `closure` from a composite anchor and a `kinds: [composite]` view
-predicate both wait on it; `correction-remainder` still owns **C8 and C9**, and
-the reading's identification column now follows standing admission at the read;
+predicate both wait on it;
 and `contract-cut` still owns **N1–N10** and carries this lane
 as a dependency, added when the lane opened, because the base contract gains a
-grammar, a kind and a relation signature here. The previous record
+grammar, a kind and a relation signature here. The record before that
 (`../plans/2026-09-16-conformance-cut-31-results.md`) discharged estimand typing: `estimand-typing` entered this table and the roadmap's boundary index at that record and closed in the same commit, so neither carries an open row for it, and the roadmap's lane table carries the closed `estimand-typing` lane. Q1–Q10 close in full; the design's twelve limitations are banked as limitations, not work. `weighted-belief` is re-blocked — its key domain is supplied and what it now waits on is the successor belief-policy design over `commensurable` and `co_scoped` (beliefs-638318) — and `contract-cut` gains this lane as a dependency, because the base contract, the operator declaration class, the assessment facet and the D6 oracle are all amended here. The record before that (`../plans/2026-09-15-conformance-cut-30-results.md`) discharged world-resolution slice 6 and closed that boundary and beliefs-d248ba with it. W8 remains unchanged. nodes-remainder closed 2026-09-12: `nodes`
 merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 `nodes-ce28b8`), so row 3 carries no live work and the contract-cut join

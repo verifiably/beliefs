@@ -103,7 +103,7 @@ design written 2026-08-02 through 2026-09-19. Read them in this order:
 | `2026-09-12-composite-claims-design.md` | the owner of the `composite` kind, the structure a causal analysis is drawn against: a closed node set over `(sort, term)` pairs, members that are propositions read as signed edges under a domain's per-operator `edges:` declaration, no other direct edge asserted among the nodes, belief-inert by construction, succession by same-kind `supersedes`, and a derived reading over the evaluator's own admission (U1–U10); places kernel §11's `inquiry`, `patch-definition` and `structural-chain` |
 | `2026-09-16-conformance-cut-32.md` | the discharged composite-claims cut: U1–U10 read in full, 10 declaration units, 26 sabotage arms, the cut 31 runner as prefix; the `composite` kind, belief-inert by construction; the second off-path lane under rule 6 |
 | `2026-09-16-conformance-cut-33.md` | the discharged correction-remainder slice 1 cut: C7 and C3 closed, C10's audit arm read, and five read-boundary invariants; 11 declaration units, the cut 32 runner as prefix |
-| `2026-09-19-conformance-cut-34.md` | the frozen correction-remainder slice 2 cut: C8 and C9 selected in full, the snapshot target, 17 declaration units, nine boundary invariants, the cut 33 runner as prefix; the boundary closes |
+| `2026-09-19-conformance-cut-34.md` | the discharged correction-remainder slice 2 cut: C8 and C9 closed, the snapshot target, 17 declaration units, nine boundary invariants, the cut 33 runner as prefix; the boundary closes |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -111,7 +111,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 33** is implemented and discharged. What
+Every conformance cut through **cut 34** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -166,9 +166,14 @@ through the traced evaluator, stored nowhere, and inert to belief.
 Retraction standing now reaches the evaluator at the read: assessments and
 verifications targeted by standing retractions are subtracted, and standing
 route retractions retire lineage routes without changing the stored basis.
-The latest discharged boundary is cut 33
-([cut](docs/designs/2026-09-16-conformance-cut-33.md),
-[results](docs/plans/2026-09-16-conformance-cut-33-results.md)).
+A third retraction target arm, the semantic snapshot, is read live from the
+corpora its own coverage names and refused or reported at import, audit,
+diagnostic query, and the world read; coverage narrowing is snapshot
+succession plus retraction. The correction lifecycle's mutation lane has no
+further open boundary.
+The latest discharged boundary is cut 34
+([cut](docs/designs/2026-09-19-conformance-cut-34.md),
+[results](docs/plans/2026-09-19-conformance-cut-34-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **216 rows** across **twenty frozen

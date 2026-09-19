@@ -884,10 +884,11 @@ No contract succeeded, so nothing under `.work/reproduction/mm30` was
 recreated or moved aside: the corpus is read in place, exactly as at §12.
 `MM30_PREDECESSOR` had to be set explicitly to
 `/mnt/ssd/Dropbox/proto/projects/cancer/cancer-types/multiple-myeloma` — the
-declared default (`~/d/cancer/cancer-types/multiple-myeloma`) resolves one
-path segment short of it on this host and `preflight` refused once on the
-predecessor before the export, the same shape §11 recorded for
-`SCIENCE_MM30_ROOT`.
+declared default (`~/d/cancer/cancer-types/multiple-myeloma`) resolves two
+path segments short of it on this host (the real predecessor carries
+`proto/projects` ahead of `cancer/cancer-types/multiple-myeloma`) and
+`preflight` refused once on the predecessor before the export, the same
+shape §11 recorded for `SCIENCE_MM30_ROOT`.
 
 ### 13.1 What changed in the kernel this slice
 

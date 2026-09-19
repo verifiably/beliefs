@@ -98,7 +98,14 @@ An epoch's packaging identity commits to its coverage and derived contents. A
 mutable “current epoch” pointer is an operational convenience only: belief
 binds to an explicit producer-snapshot identity, while epoch read answers carry
 the packaging identity and coverage they came from. An older epoch may answer
-only inside its stated coverage and state.
+only inside its stated coverage and state. Retracting the current epoch's
+snapshot with no successor makes every world read bound to `current_epoch`
+refuse until a new epoch is built — intended: `current_epoch` silently
+skipping a retracted epoch is the implicit resolution the narrowing
+guarantee's negative forbids. The same snapshot retraction makes every
+receipt covering the writing corpus `unresolvable` until a fresh epoch is
+built, the successor's included, since the retracting write moves that
+corpus's state.
 
 Open a cross-corpus read with `open_world_view(world, published_epoch)`. It
 captures each present corpus against that explicit epoch's address map before
