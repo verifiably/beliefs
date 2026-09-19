@@ -127,7 +127,7 @@ class EpochImportRefused(ScienceError):
 
     def __init__(
         self,
-        reason: Literal["malformed-carrier", "foreign-world", "malformed-receipt", "refuted-receipt"],
+        reason: Literal["malformed-carrier", "foreign-world", "malformed-receipt", "refuted-receipt", "retracted-snapshot", "unreadable-standing"],
         message: str,
         *,
         outcomes: tuple["ReceiptOutcome", ...] = (),
@@ -1158,6 +1158,17 @@ class ProducerSnapshotMismatch(RecordError):
     def __init__(self, supplied: str, bound: str) -> None:
         super().__init__(f"the supplied producer snapshot {supplied!r} is not the bound epoch's {bound!r}")
         self.supplied, self.bound = supplied, bound
+
+
+class ProducerSnapshotRetracted(RecordError):
+    """A world read was handed the bound epoch's producer-snapshot identity,
+    and a standing snapshot-arm retraction in a covered corpus names it
+    (correction-remainder slice 2, decision 6). The computation is refused,
+    not performed; nothing enters a closure."""
+
+    def __init__(self, identity: str) -> None:
+        super().__init__(f"the supplied producer snapshot {identity!r} is retracted in its covered corpora")
+        self.identity = identity
 
 
 class CoreferenceEndpointRefused(WriteRefused):

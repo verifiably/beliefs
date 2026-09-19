@@ -1260,10 +1260,16 @@ def _retraction_target(facet: Mapping[str, object]) -> str:
     address map for. A route-arm retraction names an embedded route rather than
     a record, and its route identity keeps it disjoint from a node-arm
     retraction of the same dataset — two genuinely different claims that a
-    shared dataset key would silently merge.
+    shared dataset key would silently merge. A snapshot-arm retraction names a
+    subject identity, disjoint from every ref and every route identity by
+    namespace, so the key is the identity itself (slice 2 §6).
     """
     target = cast(Mapping[str, str], facet["target"])
-    return target["ref"] if target["arm"] == "node" else target["route_identity"]
+    if target["arm"] == "node":
+        return target["ref"]
+    if target["arm"] == "route":
+        return target["route_identity"]
+    return target["subject_identity"]
 
 
 def _standing_retractions(view: ReadView, facets: Mapping[str, Mapping[str, object]]) -> Mapping[str, bool]:

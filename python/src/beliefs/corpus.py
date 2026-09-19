@@ -1102,15 +1102,20 @@ def _validated_retraction_target(record: Node) -> dict:
     if not isinstance(facet, dict):
         raise MalformedRecord(f"{record.id}: malformed retraction facet")
     target = facet.get("target")
-    if not isinstance(target, dict) or target.get("arm") not in ("node", "route"):
+    if not isinstance(target, dict) or target.get("arm") not in stored.RETRACTION_TARGET_ARMS:
         raise MalformedRecord(f"{record.id}: malformed retraction target arm")
-    target_fields = (
-        {"arm", "ref", "resolved", "content_identity"}
-        if target["arm"] == "node"
-        else {"arm", "dataset", "resolved", "content_identity", "route_identity"}
-    )
+    target_fields = {
+        "node": {"arm", "ref", "resolved", "content_identity"},
+        "route": {"arm", "dataset", "resolved", "content_identity", "route_identity"},
+        "snapshot": {"arm", "subject_kind", "subject_identity"},
+    }[target["arm"]]
     if set(target) != target_fields or not all(type(target[field]) is str and target[field] for field in target):
         raise MalformedRecord(f"{record.id}: malformed retraction target")
+    if target["arm"] == "snapshot":
+        if target["subject_kind"] not in stored.SNAPSHOT_SUBJECT_KINDS:
+            raise MalformedRecord(f"{record.id}: malformed retraction target: subject kind outside the closed set")
+        if not stored._LOWER_HEX_64.fullmatch(target["subject_identity"]):
+            raise MalformedRecord(f"{record.id}: malformed retraction target: subject identity is not 64 lower hex")
     return target
 
 
@@ -2972,16 +2977,18 @@ class CorpusWriter:
                 raise ValidationRefused(f"{record.id}: refused by retraction stamp validation")
         except IdentityError as caught:
             raise ValidationRefused(f"{record.id}: refused by retraction stamp validation: {caught}") from caught
-        target_value: stored.NodeTarget | stored.RouteTarget
+        target_value: stored.NodeTarget | stored.RouteTarget | stored.SnapshotTarget
         if target["arm"] == "node":
             target_value = stored.NodeTarget(target["ref"], target["resolved"], target["content_identity"])
-        else:
+        elif target["arm"] == "route":
             target_value = stored.RouteTarget(
                 target["dataset"],
                 target["resolved"],
                 target["content_identity"],
                 target["route_identity"],
             )
+        else:
+            target_value = stored.SnapshotTarget(target["subject_kind"], target["subject_identity"])
         expected = stored.retraction_node(
             title=record.title,
             target=target_value,

@@ -48,6 +48,7 @@ covers exactly what it says: fields and stamp moved *together* are undetectable.
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -986,6 +987,20 @@ class RouteTarget:
     route_identity: str
 
 
+@dataclass(frozen=True)
+class SnapshotTarget:
+    """An epoch subject named by kind and identity (slice 2 §3). The snapshot
+    has no stored record, so neither arm above can name it."""
+
+    subject_kind: str
+    subject_identity: str
+
+
+RETRACTION_TARGET_ARMS: tuple[str, ...] = ("node", "route", "snapshot")
+SNAPSHOT_SUBJECT_KINDS: tuple[str, ...] = ("producer",)
+_LOWER_HEX_64 = re.compile(r"[0-9a-f]{64}")
+
+
 def _node(kind: str, slug: str, title: str, facets: Mapping[str, Any], relations: Sequence[Relation]) -> Node:
     node = Node(id=f"{kind}:{slug}", kind=kind, title=title, facets=dict(facets), relations=list(relations))
     return stamp_semantic_identity(node)
@@ -1223,7 +1238,7 @@ def analysis_spec_value(node: Node, *, profile: ProfileSpec) -> FrozenSpec:
 def retraction_node(
     *,
     title: str,
-    target: NodeTarget | RouteTarget,
+    target: NodeTarget | RouteTarget | SnapshotTarget,
     reason: str,
     rationale: str,
     grounds: Sequence[str],
@@ -1248,8 +1263,19 @@ def retraction_node(
             "route_identity": target.route_identity,
         }
         target_ref = target.dataset
+    elif isinstance(target, SnapshotTarget):
+        if target.subject_kind not in SNAPSHOT_SUBJECT_KINDS:
+            raise MalformedRecord(f"a snapshot target's subject kind is one of {SNAPSHOT_SUBJECT_KINDS}")
+        if type(target.subject_identity) is not str or not _LOWER_HEX_64.fullmatch(target.subject_identity):
+            raise MalformedRecord("a snapshot target's subject identity is 64 lower-hex characters")
+        target_mapping = {
+            "arm": "snapshot",
+            "subject_kind": target.subject_kind,
+            "subject_identity": target.subject_identity,
+        }
+        target_ref = None
     else:
-        raise MalformedRecord("a retraction target arm is NodeTarget or RouteTarget")
+        raise MalformedRecord("a retraction target arm is NodeTarget, RouteTarget or SnapshotTarget")
     if not all(type(value) is str and value for value in target_mapping.values()):
         raise MalformedRecord("a retraction target carries non-empty string fields")
     if type(reason) is not str:
@@ -1284,9 +1310,9 @@ def retraction_node(
     except LoneSurrogate as exc:
         raise MalformedRecord("a retraction identity field is not canonically encodable") from exc
     node_id = f"retraction:{slug}"
-    relations = [Relation(source=node_id, predicate=RETRACTS, target=target_ref)]
+    relations = [] if target_ref is None else [Relation(source=node_id, predicate=RETRACTS, target=target_ref)]
     relations.extend(Relation(source=node_id, predicate=GROUNDED_IN, target=ground) for ground in grounds_list)
-    if successor is not None:
+    if successor is not None and target_ref is not None:
         relations.append(Relation(source=node_id, predicate=SUCCEEDED_BY, target=successor))
     return _node("retraction", slug, title, {RETRACTION_FACET: facet}, relations)
 
