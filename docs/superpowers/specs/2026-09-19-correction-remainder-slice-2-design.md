@@ -1,7 +1,7 @@
 # Correction remainder, slice 2 — the snapshot target
 
 **Date:** 2026-09-19
-**Status:** draft, under review
+**Status:** approved for implementation planning 2026-09-19 at `435e254`; not yet frozen (cut 34 claims at freeze)
 **Boundary:** `correction-remainder` (`beliefs-aa27da`), the mutation lane's only open boundary; slice 2 of 2, task `beliefs-d79ca4`
 **Lane:** `mutation`, worktree `.worktrees/correction-remainder`
 **Sources:** `../../designs/2026-08-03-correction-lifecycle-design.md` (§3, §4 "Semantic snapshot" and "Coverage narrowing", §6, C8, C9),
@@ -492,9 +492,11 @@ It calls `validate_receipt`; a `RetractionUnreadable` becomes the outcome
 `ReceiptOutcome(kind, "unresolvable", f"the standing of this subject cannot
 be decided: {cause}")` and an `error` finding `retraction-unreadable`
 (`ref` the retraction's id, `detail` the cause, `message` naming the epoch
-and subject); every other return is `(outcome, None)`. Three callers, and
-the plan's grep for `validate_receipt(` outside `read.py` must find exactly
-them plus the query: `audit_epochs` (the finding joins `findings`),
+and subject); every other return is `(outcome, None)`. Three report callers, and the
+plan's grep for `validate_receipt(` outside `read.py` must find exactly one
+site left — `import_epoch`, which keeps the direct call under its own
+`unreadable-standing` wrapper (§7.2); the coreference query's call is
+inside `read.py`. The reports: `audit_epochs` (the finding joins `findings`),
 `snapshot_state` (the outcome joins `receipts`; the finding is dropped —
 `SnapshotVerdict` has no findings member and gains none), and
 `audit.py`'s `_world_findings` (the finding joins the world audit's
@@ -954,3 +956,5 @@ that retirement would change") is read at the cut and closed or re-noted.
   in `SnapshotVerdict.receipts` and no findings, `audit_epochs` and
   `audit_world` carry the finding, and BI-8 asserts `audit_world` returns
   its report.
+- 2026-09-19 — approved for implementation planning at `435e254`; the
+  §7.3 grep instruction corrected (import keeps its direct call).
