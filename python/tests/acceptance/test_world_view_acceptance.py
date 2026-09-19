@@ -394,11 +394,14 @@ def test_absent_runs_and_all_input_roles_are_named_durably(durable_world, role):
     world, roots, published, a, b, profile = evaluation_world(
         durable_world, ("run:run-a", extra.id), extra=(extra,), role=role
     )
+    # correction-remainder slice 2 decision 7: `b` is in the bound producer snapshot's
+    # own coverage, so `gather`'s world block answers absence for the whole read, under
+    # the snapshot spelling, before any assessment, run or input role is walked.
     absent(roots, b)
     view = open_world_view(world, published)
     kwargs = world_kwargs(view, profile, a, b)
     inputs = gathered(view, kwargs)
-    assert ("run:run-a", b) in inputs.absent and (extra.id, b) in inputs.absent
+    assert inputs.absent == ((f"producer-snapshot:{view.producer_snapshot_identity()}", b),)
     result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
     assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 
@@ -414,7 +417,10 @@ def test_proposition_and_snapshot_absence_are_named_durably(durable_world, targe
         kwargs["context"] = replace(
             kwargs["context"], snapshot=lineage_snapshot(view, [dataset_ref("d-a"), dataset_ref("d-b"), target])
         )
-    assert gathered(view, kwargs).absent == ((target, b),)
+    # correction-remainder slice 2 decision 7: the absent corpus is in the bound producer
+    # snapshot's own coverage, so its absence is reported under the snapshot spelling
+    # before the proposition's or the supplied snapshot's own refs are ever walked.
+    assert gathered(view, kwargs).absent == ((f"producer-snapshot:{view.producer_snapshot_identity()}", b),)
     result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
     assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent" and b in result.detail
 
