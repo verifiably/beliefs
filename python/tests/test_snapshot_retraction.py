@@ -6,16 +6,19 @@ from types import MappingProxyType
 
 import pytest
 from authority import ACTOR
+from fixtures_cut4 import raw_write
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, pins_for
 from test_corpus_write import OperationRecorder
+from test_local_standing import retracts
 from test_world_build import ALPHA, BETA
 from test_world_receipts import publish, published_world
 
 from beliefs import stored
-from beliefs.corpus import CorpusWriter, _validated_retraction_target
-from beliefs.errors import MalformedRecord, RetractionTargetUnresolvable, ValidationRefused
+from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
+from beliefs.corpus import CorpusWriter, ReadView, _validated_retraction_target, snapshot_standing
+from beliefs.errors import MalformedRecord, RetractionTargetUnresolvable, RetractionUnreadable, ValidationRefused
 from beliefs.world.epoch import RetainedSnapshots
 
 S = "a" * 64
@@ -200,3 +203,78 @@ class TestRetainedSnapshots:
         assert dict(RetainedSnapshots(world).retained("producer")) == {}
         with pytest.raises(ValueError):
             RetainedSnapshots(world).retained("weather")
+
+
+def corpus_with(tmp_path, *nodes, resolver):
+    writer = writer_at(tmp_path, resolver=resolver)
+    minted = [writer.retract(n) if n.kind == "retraction" else writer.add(n) for n in nodes]
+    return writer, minted
+
+
+class TestSnapshotStanding:
+    def _resolver(self, writer_root):
+        cid = writer_at(writer_root).corpus_id
+        return StubResolver({S: (cid,), S2: (cid,)}), cid
+
+    def test_no_retractions_is_empty(self, tmp_path):
+        writer = writer_at(tmp_path / "c")
+        standing = snapshot_standing({writer.corpus_id: writer.read_view})
+        assert standing.retracted == frozenset() and dict(standing.history) == {}
+
+    def test_one_standing_retraction_names_its_identity_with_history(self, tmp_path):
+        resolver, cid = self._resolver(tmp_path / "c")
+        writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        standing = snapshot_standing({cid: writer.read_view})
+        assert standing.retracted == {S}
+        assert standing.history[S] == ((r.id, RETRACTION_UPHELD),)
+
+    def test_a_counter_retraction_restores_and_the_history_carries_both(self, tmp_path):
+        resolver, cid = self._resolver(tmp_path / "c")
+        writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        c = writer.retract(retracts(r, "counter"))
+        standing = snapshot_standing({cid: writer.read_view})
+        assert standing.retracted == frozenset()
+        assert standing.history[S] == tuple(sorted([(c.id, RETRACTION_UPHELD), (r.id, RETRACTION_OVERTURNED)]))
+        cc = writer.retract(retracts(c, "counter-counter"))
+        standing = snapshot_standing({cid: writer.read_view})
+        assert standing.retracted == {S}
+        assert len(standing.history[S]) == 3 and (cc.id, RETRACTION_UPHELD) in standing.history[S]
+
+    def test_two_corpora_union(self, tmp_path):
+        a = writer_at(tmp_path / "a"); b = writer_at(tmp_path / "b")
+        ra = StubResolver({S: (a.corpus_id,)}); rb = StubResolver({S2: (b.corpus_id,)})
+        a = writer_at(tmp_path / "a", resolver=ra); b = writer_at(tmp_path / "b", resolver=rb)
+        a.retract(snapshot_retraction(S)); b.retract(snapshot_retraction(S2, token="t2"))
+        standing = snapshot_standing({a.corpus_id: a.read_view, b.corpus_id: b.read_view})
+        assert standing.retracted == {S, S2}
+
+    def test_an_unreadable_facet_refuses(self, tmp_path):
+        from test_local_standing import raw_retraction
+
+        writer = writer_at(tmp_path / "c")
+        raw = raw_retraction("retraction:raw", "assessment:x")
+        del raw.facets[stored.RETRACTION_FACET]["grounds"]      # raw_retraction alone is shape-valid; this is not
+        raw_write(tmp_path / "c", raw)
+        with pytest.raises(RetractionUnreadable):
+            snapshot_standing({writer.corpus_id: ReadView.opened_at(tmp_path / "c")})
+
+    def test_a_broken_counter_retraction_refuses_rather_than_restores(self, tmp_path):
+        resolver, cid = self._resolver(tmp_path / "c")
+        _writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        broken = broken_counter(r)                       # canonical shape, wrong target identity
+        raw_write(tmp_path / "c", broken)
+        with pytest.raises(RetractionUnreadable) as caught:
+            snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
+        assert caught.value.ref == broken.id
+
+    def test_a_broken_retraction_outside_every_chain_raises_nothing(self, tmp_path):
+        resolver, cid = self._resolver(tmp_path / "c")
+        _writer, (_r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        unrelated = stored.retraction_node(
+            title="elsewhere", target=stored.NodeTarget("assessment:nobody", "assessment:nobody", "0" * 64),
+            reason="defective-code", rationale="names nothing", grounds=("verification:v1",), actor=ACTOR,
+            event_token="elsewhere",
+        )
+        raw_write(tmp_path / "c", unrelated)
+        standing = snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
+        assert standing.retracted == {S}

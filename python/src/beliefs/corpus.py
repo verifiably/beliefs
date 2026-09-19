@@ -958,7 +958,9 @@ def superseded_by(view: ReadView | WorldReadView, ref: str) -> tuple[str, ...]:
     return closure(ref, RelationAdjacency(view, stored.SUPERSEDES, "inbound")).reached
 
 
-def retraction_standing(view: ReadView | WorldReadView, facets: Mapping[str, Mapping[str, object]]) -> Mapping[str, bool]:
+def retraction_standing(
+    view: ReadView | WorldReadView | _CapturedCheckView, facets: Mapping[str, Mapping[str, object]]
+) -> Mapping[str, bool]:
     """Fold validated retraction facets into standing values."""
     targets: dict[str, list[str]] = {}
     for address, facet in facets.items():
@@ -992,6 +994,98 @@ def local_retraction_enumeration(view: ReadView) -> RetractionEnumeration:
     standing = retraction_standing(view, facets)
     found = tuple(sorted((ref, RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED) for ref in facets))
     return RetractionEnumeration(found=found, coverage=(view.corpus_id,))
+
+
+@dataclass(frozen=True)
+class SnapshotStanding:
+    """Which subjects a live fold finds retracted, and each subject's history
+    (slice 2 §5): every snapshot-arm retraction naming it and, transitively,
+    every retraction naming one of those, each with its folded resolution."""
+
+    retracted: frozenset[str]
+    history: Mapping[str, tuple[tuple[str, str], ...]]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "history", MappingProxyType(dict(self.history)))
+
+
+def snapshot_standing(
+    views: Mapping[str, ReadView | _CapturedCheckView], subject_kind: str = "producer"
+) -> SnapshotStanding:
+    """Fold snapshot standing live over the corpora a snapshot covers.
+
+    Per corpus and then union: a counter-retraction lives beside the
+    retraction it counters (cross-corpus node targets are refused at the
+    write boundary). Every chain member is validated with the write
+    boundary's own checks before it is trusted — `retraction_standing`
+    resolves a ref and nothing else, and a raw-written counter-retraction
+    with a wrong content identity would otherwise restore a retracted
+    snapshot. Retractions outside every chain fold from their facet alone.
+
+    A caller that must be coherent hands a `_CapturedCheckView` over records
+    it captured under the corpus's hold: a `ReadView` resolves through the
+    index built at its open and enumerates the store as it is now, and the
+    two can disagree after a write.
+    """
+    from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
+
+    retracted: set[str] = set()
+    history: dict[str, dict[str, str]] = {}
+    for corpus_id in sorted(views):
+        view = views[corpus_id]
+        nodes: dict[str, Node] = {}
+        facets: dict[str, Mapping[str, object]] = {}
+        for node in view.iter_stored():
+            if node.kind != "retraction":
+                continue
+            try:
+                facets[node.id] = _validated_retraction_facet(node)
+            except ScienceError as caught:
+                raise RetractionUnreadable(node.id, str(caught)) from caught
+            nodes[node.id] = node
+        standing = retraction_standing(view, facets)
+        # chains: snapshot-arm roots of this kind, then every retraction whose resolved node target is a member
+        roots = {
+            ref for ref, facet in facets.items()
+            if cast(Mapping[str, str], facet["target"])["arm"] == "snapshot"
+            and cast(Mapping[str, str], facet["target"])["subject_kind"] == subject_kind
+        }
+        members: set[str] = set(roots)
+        grew = True
+        while grew:
+            grew = False
+            for ref, facet in facets.items():
+                target = cast(Mapping[str, str], facet["target"])
+                if ref in members or target["arm"] != "node":
+                    continue
+                if (view.resolve(target["ref"]) or target["ref"]) in members:
+                    members.add(ref)
+                    grew = True
+        for ref in sorted(members):
+            try:
+                CorpusWriter._validated_retraction(nodes[ref])
+                CorpusWriter._resolve_retraction_target(nodes[ref], view)
+            except ScienceError as caught:
+                raise RetractionUnreadable(ref, str(caught)) from caught
+        for root in roots:
+            identity = cast(Mapping[str, str], facets[root]["target"])["subject_identity"]
+            if standing[root]:
+                retracted.add(identity)
+            chain = history.setdefault(identity, {})
+            chain[root] = RETRACTION_UPHELD if standing[root] else RETRACTION_OVERTURNED
+            frontier = {root}
+            while frontier:
+                nxt: set[str] = set()
+                for ref in members - set(chain):
+                    target = cast(Mapping[str, str], facets[ref]["target"])
+                    if target["arm"] == "node" and (view.resolve(target["ref"]) or target["ref"]) in frontier:
+                        chain[ref] = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED
+                        nxt.add(ref)
+                frontier = nxt
+    return SnapshotStanding(
+        frozenset(retracted),
+        {identity: tuple(sorted(chain.items())) for identity, chain in history.items()},
+    )
 
 
 def standing_in_local_view(view: ReadView, ref: str) -> bool:
