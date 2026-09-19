@@ -874,3 +874,64 @@ That a retraction in the mm30 corpus would subtract: none exists, and minting
 one is the dogfood's work, not the reproduction's. That the answer would
 survive an epoch: none is built. The transition measured is the driver's
 supplied member becoming a derived one with the same value.
+
+## 13. Addendum — the snapshot target, 2026-09-19
+
+Re-run under correction-remainder slice 2
+(`../superpowers/specs/2026-09-19-correction-remainder-slice-2-design.md`;
+cut 34), from the worktree `design/correction-remainder`, at head `24f901c`.
+No contract succeeded, so nothing under `.work/reproduction/mm30` was
+recreated or moved aside: the corpus is read in place, exactly as at §12.
+`MM30_PREDECESSOR` had to be set explicitly to
+`/mnt/ssd/Dropbox/proto/projects/cancer/cancer-types/multiple-myeloma` — the
+declared default (`~/d/cancer/cancer-types/multiple-myeloma`) resolves one
+path segment short of it on this host and `preflight` refused once on the
+predecessor before the export, the same shape §11 recorded for
+`SCIENCE_MM30_ROOT`.
+
+### 13.1 What changed in the kernel this slice
+
+The slice adds one retraction target arm, `snapshot`, and its live standing:
+resolution at the write boundary through the world's retained epochs
+(BI-1, BI-2), a fold of a subject's live standing and validated history
+(BI-4, BI-7, BI-8), refusal of a retracted producer snapshot at import and
+its report by the audits (C8, BI-3, BI-6, BI-8), and the evaluator's mismatch
+check consulting that standing (C9). None of this is reached by the mm30
+driver: `context()` still supplies `producer_snapshot_identity` as the
+literal `"no-epoch-published"` (`python/tools/reproduction/belief.py`,
+unchanged this slice — no epoch is built here, so no snapshot is ever bound),
+and the scope loop's snapshot key is never populated because there is no
+bound snapshot to key on. The one new arm is exercised by the acceptance
+module alone — `python/tests/acceptance/test_snapshot_retraction_acceptance.py`,
+`n2_arms_cut34.py`, `test_n2_cut34.py`, and `cut34_acceptance.py` — not by
+this corpus.
+
+### 13.2 What the re-run reached
+
+`reproduction.rederive`, 2026-09-19, in a fresh process: `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}`, equal to
+the recorded step-8 answer (`rederived_equal: true`) — the same payload §12.2
+quoted, unchanged by this slice. The corpus holds no retraction of any arm,
+so the derived enumeration is still `found=()`,
+`coverage=(8b5d0c802677ee445e2b9d91ebf5d6a7,)`. `state.json` was rewritten
+with byte-identical content (`assessment_identity_derived`,
+`assessment_identity_stored`, `claim_identity`, `composite_identity`,
+`corpus_check_findings`, `audit_findings` all equal to the pre-run values);
+only `findings.jsonl` gained the run's own log lines. No pinned digest moved:
+decision 11 holds, and this re-run is the transition it predicted — a slice
+that adds a new retraction arm and its standing without touching any
+derivation rule or implementation identity the mm30 corpus's answer depends
+on.
+
+### 13.3 What this addendum does not claim
+
+That a snapshot-arm retraction exists in the mm30 corpus, or that one is
+minted here: none does and none is. Minting one is the dogfood's work, not
+the reproduction's, exactly as §12.3 held for the other arm. That the
+snapshot arm's live standing is read anywhere in this run: no epoch is ever
+built by this driver, so no producer snapshot is ever bound and
+`_snapshot_standing` is never called on this corpus's behalf. The transition
+this addendum measures is that the kernel gained an arm and a standing fold
+while the reproduction's one supplied member — the literal
+`producer_snapshot_identity` — and its answer stayed exactly where §12 left
+them.
