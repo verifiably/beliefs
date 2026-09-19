@@ -161,9 +161,9 @@ the mutation lane has no further open boundary.
    enumeration over every closure input in the closure, and
    `producer_snapshot` is a closure member (`closure.py:154`): a snapshot
    that was retracted and counter-retracted must digest differently from
-   one never retracted. No epoch can carry a retraction of its own
-   snapshot (it post-dates the build by construction), so the history is
-   the live fold's (§5): every snapshot-arm retraction naming `bound` and,
+   one never retracted. The epoch a computation is bound to when the
+   refusal matters — the one built before the retraction — cannot carry
+   it, so the history is the live fold's (§5): every snapshot-arm retraction naming `bound` and,
    transitively, every retraction naming one of those, each with the
    resolution the live fold computed. `gather` appends them to
    `scoped.found` and traces them as `("retraction", ref)`; if any
@@ -172,11 +172,22 @@ the mutation lane has no further open boundary.
    decision 3's agreement check does not apply to these entries — there is
    no recorded resolution to agree with — and the coverage member is
    unchanged (the epoch's, which is `S`'s). Snapshot-arm retractions in the
-   *epoch's* enumeration name older snapshots and are out of every
-   computation's scope (slice 1 decision 10: they target no assessment,
-   verification or dataset key); the scope loop never takes one, so the live
-   history is the sole source of snapshot-arm entries and no ref appears
-   twice. **Rejected:** excluding snapshot retractions from the digest and
+   *epoch's* enumeration — naming an older snapshot, or `bound` itself: a
+   producer subject digests coverage and producer edges only
+   (`derive.producer_snapshot`), so a rebuild under the same coverage after
+   the retraction republishes `S` and captures its history — are out of
+   every computation's scope (slice 1 decision 10: they target no
+   assessment, verification or dataset key); the scope loop never takes
+   one nor anything rooted at one, so the live history is the sole source
+   of snapshot-arm entries and no ref appears twice, whether the bound
+   epoch predates the retraction or captured it. A rebuild therefore
+   restores nothing: the rebuilt `S` reads as retracted exactly as the
+   original does, and `validate_receipt` over its producer receipt answers
+   `retracted` (decision 4 runs before availability). `build_epoch` does
+   not refuse to publish a retracted identity — world-index §5.3 closes
+   capture's refusal surface and the design names import, audit and query
+   as the recomputation sites — which leaves an asymmetry with import;
+   filed (§14 item 7), not widened here. **Rejected:** excluding snapshot retractions from the digest and
    refusing only while one stands — the never-retracted and the
    counter-retracted state would then digest alike, which is the collapse
    §6 forbids, and amending §6 to permit it would weaken a banked guarantee
@@ -363,13 +374,34 @@ the same transitive rule slice 1 decision 10 applies to the closure's
 enumeration, rooted at the snapshot instead of at an assessment.
 `history[S]` is sorted by ref; the union over corpora is the answer.
 
+**The chain is validated before it is trusted.** `retraction_standing`
+resolves a node target's `ref` and nothing else — capture deliberately
+folds without target validity (`_standing_retractions`'s docstring), and
+`gather` re-validates every found retraction before it trusts a recorded
+resolution (slice 1 decisions 3 and 4). The live history has no recorded
+resolution and no later validator, so this fold is where it is validated:
+every member of every `history[S]` chain goes through
+`CorpusWriter._validated_retraction` (the controlled stored shape) and,
+for a node or route arm, `_resolve_retraction_target(record, view)`
+against its own corpus view (exact resolution, content identity, route
+presence — the checks the write boundary applies); a snapshot arm is
+eligibility-checked. Any refusal is `RetractionUnreadable(ref, cause)`.
+Without this a raw-written counter-retraction the write boundary would
+refuse — a wrong `content_identity`, a `resolved` the ref no longer
+answers — would fold as overturning and restore a retracted snapshot.
+Retractions outside every chain are folded from their validated facet
+alone, as capture folds them: a chain member's standing depends only on
+the retractions naming it, which are in the chain by construction.
+
 Per corpus and then union, because a counter-retraction lives beside the
 retraction it counters: cross-corpus node targets are refused at the write
 boundary (slice 1 decision 9), and `move` — the one operation that can
 separate them — is slice 1 §11's named split, filed there and not widened
 here. The fold takes no lock: each caller hands it views it already holds
 under whatever hold that caller owns (§7, §8). `validate_receipt`, import
-and audit read `retracted` only; `gather` reads both.
+and audit read `retracted` only; `gather` reads both. `RetractionUnreadable`
+propagates out of the fold to every caller; each names its disposition
+(§7.1, §7.2, §7.3, §8).
 
 ## 6. Capture — the discovery map
 
@@ -411,9 +443,13 @@ in its own words); under `_operation_lock_for(carrier).capture()`,
 (`CorpusStateMalformed` or `ContractMismatch` → `None`, same fall-through;
 an unreadable corpus cannot say what it holds); the views are collected, the
 hold released per corpus, and `snapshot_standing(views).retracted` folded outside
-every lock. `RetractionUnreadable` from the fold → `None`: a corpus whose
-retractions do not read is one the availability phase and the corpus audit
-both report, and the receipt's outcome remains the availability answer.
+every lock. `RetractionUnreadable` from the fold **propagates** out of
+`validate_receipt`, as `CaptureDrift` does today: a raw-written retraction
+the write boundary would have refused is a raw edit, and there is no
+coherent standing to report an outcome on. The alternative — `unresolvable`
+— is the outcome import admits with a warning, and it would admit exactly
+the carrier whose subject an unreadable counter-retraction pretends to
+restore.
 `receipt.subject_identity in standing.retracted` → `ReceiptOutcome("producer",
 "retracted", f"retraction(s) {sorted ids} in {corpus ids} stand against this
 subject")`; else `None` and the phases continue unchanged.
@@ -426,10 +462,13 @@ the hold is `CaptureDrift`, as in `_standing`.
 
 `decisions` becomes `(("malformed-receipt", "malformed"),
 ("retracted-snapshot", "retracted"), ("refuted-receipt", "refuted"))`;
-`EpochImportRefused.reason`'s literal gains `"retracted-snapshot"`. The
-refusal is before `_locked_barrier` and creates no directory, as today. A
-retracted producer subject is the only receipt that can carry the outcome
-(decision 4), so the refusal's `outcomes` is that one verdict.
+`EpochImportRefused.reason`'s literal gains `"retracted-snapshot"` and
+`"unreadable-standing"`, the latter wrapping a `RetractionUnreadable` raised
+by the producer receipt's validation (`from caught`, with the record and
+cause in the message). Both refusals are before `_locked_barrier` and
+create no directory, as today. A retracted producer subject is the only
+receipt that can carry the outcome (decision 4), so the `retracted-snapshot`
+refusal's `outcomes` is that one verdict.
 
 ### 7.3 `audit_epochs` and `snapshot_state`
 
@@ -437,14 +476,26 @@ retracted producer subject is the only receipt that can carry the outcome
 `_reduce`: any outcome `retracted` → `"retracted"`, checked before the
 `validated` test (a retracted subject's receipts are all `retracted`, so no
 mixed case arises, and the order is stated so a future kind that could mix
-them has a rule). No finding is added (decision 5). `EpochAudit.receipts`
-carries the outcome per `(name, kind)`.
+them has a rule). No finding is added for `retracted` (decision 5).
+`EpochAudit.receipts` carries the outcome per `(name, kind)`.
+
+`audit_epochs` and `snapshot_state` are reports and must not stop at a
+raw-written record: each wraps its `validate_receipt` call for the
+producer receipt, and a `RetractionUnreadable` becomes the outcome
+`ReceiptOutcome("producer", "unresolvable", f"the standing of this subject
+cannot be decided: {cause}")` plus an `error` finding
+`retraction-unreadable` on the retraction's ref. The reduction then reads
+that outcome as it reads any `unresolvable`.
 
 ### 7.4 `audit_world` — the raw-write disposition
 
 `corpus_check` cannot resolve a snapshot arm (§4). `audit_world`, which
-has the world, resolves every snapshot-arm retraction it walks through
-`RetainedSnapshots(world)`: an identity no retained epoch carries, or a
+has the world, resolves every snapshot-arm retraction in
+`view.captured_records(corpus_id)` for every present covered corpus —
+**not** `view.iter_stored()`, which yields the epoch-mapped records only
+and would miss exactly the post-build raw write this check exists for
+(the corpus-level checks there already read `captured_records` through
+`_CapturedCheckView`) — through `RetainedSnapshots(world)`: an identity no retained epoch carries, or a
 writing corpus outside the identity's coverage, or a `successor` that is
 not retained, is reported as `retraction-target-invalid` with the writer's
 own message — the disposition correction-lifecycle §3 gives a raw-written
@@ -509,6 +560,9 @@ must find exactly these:
 4. **The enumeration handed out**: `scoped.found` is the scope loop's
    entries **plus** `history`, sorted, with `coverage` the epoch's; every
    history ref is traced as `("retraction", ref)`.
+
+`RetractionUnreadable` from `view.snapshot_standing()` propagates (slice 1
+decision 4: an unreadable retraction refuses the whole evaluation).
 
 `errors.py`: `ProducerSnapshotRetracted(RecordError)` with `identity`;
 message "the supplied producer snapshot {identity!r} is retracted in its
@@ -580,7 +634,12 @@ assertion pins that this slice adds nothing to it.
   ref; a counter-counter-retraction → three entries and `S` retracted
   again; two corpora, one each → both; an unreadable facet →
   `RetractionUnreadable`; a route-arm and a node-arm retraction naming
-  something else change nothing;
+  something else change nothing; a counter-retraction raw-written with a
+  wrong `content_identity`, and one whose `resolved` the ref no longer
+  answers, each → `RetractionUnreadable` naming the counter-retraction
+  (the fold does not mark the snapshot retraction overturned); a
+  raw-written retraction outside every chain with the same fault is folded
+  from its facet and raises nothing;
 - `standing_in_local_view` over a corpus holding a snapshot-arm retraction
   and no port: answers for a node ref without refusing; `corpus_check` over
   it reports nothing for the arm, and reports `retraction-target-invalid`
@@ -609,7 +668,13 @@ damaged corpus holds); a snapshot-arm retraction captured in the bound
 epoch's enumeration (naming an older snapshot) is in `facets`, not in
 `found`, and the digest is unchanged by it; after retract-then-counter the
 closure's `found` carries the pair, `read_trace` carries both refs, and
-`inputs.closure().digest()` differs from the never-retracted digest.
+`inputs.closure().digest()` differs from the never-retracted digest;
+rebuild under the same coverage after the retraction: the new epoch's
+producer identity equals `S`, its enumeration carries the snapshot
+retraction, `gather` bound to it refuses `ProducerSnapshotRetracted`, and
+`validate_receipt` answers `retracted`; rebuild after the counter-retraction:
+`found` carries the pair exactly once and equals `found` over the
+pre-retraction epoch.
 
 `python/tests/test_world_audit.py` (extended): `audit_world` over a
 raw-written snapshot retraction naming an unretained identity reports
@@ -657,14 +722,28 @@ the certified tuple through the durable writer, one check per clause:
   snapshot retraction of an older epoch captured in the bound epoch's
   enumeration, the closure's `found` and the digest are unchanged from a
   world without it;
-- **BI-6** the raw-write disposition: a raw-written snapshot retraction
-  naming an unretained identity is `retraction-target-invalid` at
-  `audit_world` and reported by nothing at `corpus_check`;
+- **BI-6** the raw-write disposition: with the epoch built **before** the
+  raw write, a raw-written snapshot retraction naming an unretained
+  identity is `retraction-target-invalid` at `audit_world` and reported by
+  nothing at `corpus_check`;
 - **BI-7** history is in the digest (correction §6): after
   retract-then-counter, `gather` over `old` proceeds, `found` carries
   `(r, "overturned")` and `(c, "upheld")`, both refs are in `read_trace`,
   and `belief_input_digest` differs from the never-retracted digest over
-  the same epoch.
+  the same epoch;
+- **BI-8** an unreadable counter-retraction refuses rather than restores:
+  with the snapshot retraction admitted and a counter-retraction
+  raw-written with a wrong `content_identity`, `gather` over `old` →
+  `RetractionUnreadable` naming the counter-retraction; `import_epoch` of
+  a carrier for `S` → `EpochImportRefused` with `reason ==
+  "unreadable-standing"` and no directory; `snapshot_state(S)` answers
+  `unresolvable` for the receipt with a `retraction-unreadable` finding
+  from `audit_epochs`;
+- **BI-9** a rebuild restores nothing and duplicates nothing: after the
+  retraction, `build_epoch` under `old`'s coverage yields the identity `S`
+  and `gather` bound to it refuses; after the counter-retraction, a further
+  rebuild yields `S` again and `gather` bound to it hands out `found` with
+  the pair exactly once, equal to `found` over `old`.
 
 ### 11.3 N2 sabotages
 
@@ -690,6 +769,8 @@ shared audit if it lands first, else carried per cut as cuts 31–33 did).
 | BI-5 | `evaluation.py` | the scope loop's snapshot key is `f"producer-snapshot:{target['subject_identity']}"` and `scope` gains every retained identity | acceptance BI-5 (the older snapshot's retraction enters `found`) |
 | BI-6 | `audit.py` | `audit_world`'s snapshot resolution is removed | acceptance BI-6 |
 | BI-7 | `evaluation.py` | `history` is dropped from `scoped.found` | acceptance BI-7 (the digest equals the never-retracted one) |
+| BI-8 | `corpus.py` | `snapshot_standing` skips `_resolve_retraction_target` for chain members | acceptance BI-8 (the broken counter-retraction overturns; `gather` proceeds) |
+| BI-9 | `evaluation.py` | the scope loop's snapshot key is `f"producer-snapshot:{target['subject_identity']}"` and `scope` gains `f"producer-snapshot:{bound}"` | acceptance BI-9 (the rebuilt epoch's `found` carries the pair twice) |
 
 ### 11.4 The cut
 
@@ -699,8 +780,8 @@ holds a cut-34 document at 2026-09-19 (scanned: `main`,
 `git branch -a`). The runner `python/tools/cut34_acceptance.py` names
 `"cut33_acceptance.py"` in `PREFIX_RUNNERS` (rule 5) and carries
 `PHASE_MODULES = ("test_snapshot_retraction_acceptance.py",
-"test_n2_cut34.py")`. Declaration units: C8-a–d, C9-a–d, BI-1–BI-7 —
-fifteen, eight against rows and seven boundary invariants. Frozen by dated
+"test_n2_cut34.py")`. Declaration units: C8-a–d, C9-a–d, BI-1–BI-9 —
+seventeen, eight against rows and nine boundary invariants. Frozen by dated
 commit after review clears; invalidated frozen evidence is pinned and cited,
 never edited.
 
@@ -720,7 +801,8 @@ are not.
 
 ## 12. Shared files, under roadmap concurrency rule 3
 
-`errors.py` (`ProducerSnapshotRetracted`; `EpochImportRefused.reason`),
+`errors.py` (`ProducerSnapshotRetracted`; `EpochImportRefused.reason`'s two
+new literals),
 `python/tests/test_designs_corpus.py`, the ledger, the roadmap and the
 guide index, as every lane. Beyond those this slice rewrites `stored.py`
 (`SnapshotTarget`, `retraction_node`, `RETRACTION_TARGET_ARMS`),
@@ -774,7 +856,14 @@ against decision 11 and the cut does not freeze until it is explained.
    (decision 1's consequence, §9 step 3). World-index §7.5's availability
    rule, unchanged; stated here because the narrowing route meets it on its
    first step. Recorded in the guide beside item 4.
-6. **Other receipt subjects are not retractable** (decision 2). A
+6. **Other receipt subjects are not retractable** (decision 2).
+7. **`build_epoch` republishes a retracted identity.** A rebuild under the
+   retracted snapshot's coverage yields the same identity, is retained, and
+   may become `current`; every read bound to it refuses and import of the
+   same carrier elsewhere is refused, so the state is coherent but
+   asymmetric. Whether build should refuse — a change to world-index §5.3's
+   closed refusal surface — is filed as an idea at the cut, not decided
+   here. A
    certification inventory or a coreference reduction is corrected by
    retracting the records it derives from. Recorded in the correction
    design's note.
@@ -820,3 +909,17 @@ that retirement would change") is read at the cut and closed or re-noted.
   `standing_in_local_view` and `corpus_check` never refuse for lack of a
   world (§4), and `audit_world` performs the resolution the corpus check
   cannot (§7.4, BI-6).
+- 2026-09-19 — second review, one blocker and two corrections, all
+  confirmed. Changed: the live history chain is validated in
+  `snapshot_standing` (controlled shape and exact target resolution, as
+  the write boundary checks) before it is folded, `RetractionUnreadable`
+  on failure, and each caller's disposition is named — `gather` and
+  `validate_receipt` propagate, import refuses `unreadable-standing`,
+  the epoch audit reports `unresolvable` plus a `retraction-unreadable`
+  finding (BI-8); the premise that no epoch carries a retraction of its
+  own subject was wrong — the producer identity digests coverage and
+  producer edges only — so decision 8 states the rebuild case, the live
+  fold stays the sole history source, a rebuild restores nothing (BI-9),
+  and build's asymmetry with import is limitation 7; `audit_world`'s
+  snapshot resolution reads `captured_records`, and BI-6 runs against an
+  epoch built before the raw write.
