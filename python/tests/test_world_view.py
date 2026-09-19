@@ -641,7 +641,7 @@ class TestEvaluationOverTheWorld:
         assert result.reason == "unavailable-corpus-absent" and BETA in result.detail
 
     @pytest.mark.parametrize("role", [stored.READS, stored.TRANSFORMS, stored.OBSERVES])
-    def test_an_absent_assessment_run_and_every_input_role_are_reported(self, tmp_path, role):
+    def test_an_absent_covered_corpus_refuses_before_any_input_role_is_walked(self, tmp_path, role):
         """Absence beyond the observed dataset: the assessment's own run, and a
         input of each role, each recorded in the absent corpus.
 

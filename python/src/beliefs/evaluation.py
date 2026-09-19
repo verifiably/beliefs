@@ -276,7 +276,7 @@ def gather(
         bound = view.producer_snapshot_identity()
         if context.producer_snapshot_identity != bound:
             raise ProducerSnapshotMismatch(context.producer_snapshot_identity, bound)
-        for report in view.damaged():
+        for report in view.damaged():  # the first damaged corpus refuses; the rest are not reported
             raise CorpusDamaged(f"producer-snapshot:{bound}", report.corpus_id, view.stamp)
         for corpus_id in view.absent():
             absent.append((f"producer-snapshot:{bound}", corpus_id))

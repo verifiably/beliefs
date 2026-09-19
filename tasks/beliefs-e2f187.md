@@ -8,7 +8,7 @@ complexity: high
 process: direct
 owner: design/correction-remainder
 created: 2026-09-19T13:18:33Z
-updated: 2026-09-19T16:01:53Z
+updated: 2026-09-19T16:16:28Z
 started: 2026-09-19T15:38:18Z
 completed: 2026-09-19T16:01:53Z
 depends: []
@@ -28,3 +28,4 @@ step: "Task 5: The evaluator — the world read's standing, history, damage and 
   provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-19T16:01:53Z (design/correction-remainder): gather: refuses a retracted bound snapshot, refuses damage, answers absence, hands the live history into the closure; the arm at all four target sites
   provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T16:16:28Z (design/correction-remainder): fix round 1: absence-precedence test, damaged-pair parametrize, raw-write-outside-coverage test, three renames

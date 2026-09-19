@@ -211,7 +211,7 @@ def test_a_retraction_target_in_an_absent_corpus_answers_absence(tmp_path):
 
 
 @pytest.mark.parametrize("mode", ["retired", "surviving", "conflict", "unresolved"])
-def test_lineage_absence_uses_the_effective_world_walk(tmp_path, mode):
+def test_an_absent_covered_corpus_answers_absence_regardless_of_lineage_mode(tmp_path, mode):
     from authority import ACTOR
     from dataset_fixtures import pinned
     from domain_facet_fixtures import seed
@@ -283,7 +283,7 @@ def test_lineage_absence_uses_the_effective_world_walk(tmp_path, mode):
     assert isinstance(answer, NoBelief) and answer.reason == "unavailable-corpus-absent"
 
 
-def test_a_found_retraction_in_a_damaged_carrier_is_unreadable(tmp_path):
+def test_a_found_retraction_in_a_damaged_carrier_refuses_as_corpus_damaged(tmp_path):
     from test_world_view import damage
 
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
@@ -342,14 +342,33 @@ class TestTheSnapshotTarget:
         identity = view.producer_snapshot_identity()
         assert (f"producer-snapshot:{identity}", BETA) in inputs.absent
 
-    def test_a_damaged_covered_corpus_refuses_whatever_it_holds(self, tmp_path):
+    def test_absence_takes_precedence_over_a_retracted_bound_snapshot(self, tmp_path):
+        """`if not absent and bound in snapshot_standing.retracted` (evaluation.py):
+        an absent covered corpus makes the snapshot's standing itself unreadable
+        (decision 7), so the read answers absence rather than `ProducerSnapshotRetracted`
+        even though the snapshot is, in fact, retracted in the corpus that is present."""
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        _identity, _w, _r = _retract_snapshot(world, roots, published, profile)
+        make_absent(roots, BETA)
+        view, inputs, answer = evaluation(world, published, profile)
+        identity = view.producer_snapshot_identity()
+        assert (f"producer-snapshot:{identity}", BETA) in inputs.absent
+        assert isinstance(answer, NoBelief) and answer.reason == "unavailable-corpus-absent"
+
+    @pytest.mark.parametrize("retraction_in", [None, BETA])
+    def test_a_damaged_covered_corpus_refuses_whatever_it_holds(self, tmp_path, retraction_in):
         # beta_refs=(): BETA holds none of the lineage walk's own refs, so
         # `world_kwargs` (which locates d-a/d-b before gather ever runs) does not
         # itself trip `_refuse_damaged`; the refusal this test pins is `gather`'s
-        # own world-block check over every covered corpus, holdings aside.
+        # own world-block check over every covered corpus, holdings aside — including
+        # when what BETA holds is the snapshot's own retraction (decision 7: damage
+        # refuses before the retraction that might resolve it is ever read).
         from test_world_view import damage
         world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
         profile = profile_with()
+        if retraction_in is not None:
+            _retract_snapshot(world, roots, published, profile, corpus=retraction_in)
         damage(roots[BETA], "parse-error")
         view = open_world_view(world, published, on_damage="report")
         kwargs = world_kwargs(view, profile)
@@ -397,3 +416,34 @@ class TestTheSnapshotTarget:
         with pytest.raises(RetractionUnreadable) as caught:
             evaluation(world, published, profile)
         assert caught.value.ref == broken.id
+
+    def test_a_retraction_outside_coverage_cannot_be_authored_and_a_raw_write_there_leaves_the_read_unchanged(
+        self, tmp_path
+    ):
+        """Decision 3: a snapshot-arm retraction resolves at authoring only in a
+        corpus the target snapshot's own coverage names; a writer over BETA refuses
+        one naming a producer snapshot covering only ALPHA. A raw write around that
+        refusal lands in a corpus decision 1's live fold never visits for this
+        snapshot (BETA is outside `narrow`'s own coverage), so the read is unchanged."""
+        from fixtures_cut4 import raw_write
+        from test_world_receipts import hold_shipped, publish
+
+        from beliefs.errors import RetractionTargetUnresolvable
+
+        # beta_refs=(): d-a/d-b stay in ALPHA, so a `narrow` epoch covering only ALPHA
+        # can still resolve `world_kwargs`'s own lineage walk; with the default split
+        # (d-a in BETA) `narrow` would not even publish d-a's address, and the setup
+        # would refuse with `RefError` before the coverage question is ever reached.
+        world, roots, _published = split_evaluation_world(tmp_path, beta_refs=())
+        profile = profile_with()
+        narrow = publish(world, (ALPHA,), hold_shipped(world))
+        narrow_identity = narrow.receipts["producer-receipt.yaml"].subject_identity
+        assert narrow_identity is not None
+        _v, baseline, _a = evaluation(world, narrow, profile)
+        writer = writer_at(roots[BETA], profile, resolver=RetainedSnapshots(world))
+        with pytest.raises(RetractionTargetUnresolvable, match="outside the coverage"):
+            writer.retract(snapshot_retraction(narrow_identity))
+        raw_write(roots[BETA], snapshot_retraction(narrow_identity))
+        _v, inputs, _a = evaluation(world, narrow, profile)
+        assert inputs.retractions.found == baseline.retractions.found
+        assert inputs.closure().digest() == baseline.closure().digest()
