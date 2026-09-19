@@ -73,7 +73,14 @@ the mutation lane has no further open boundary.
    snapshot's own declaration, and a corpus the snapshot never covered would
    decide its standing. The bound the design states ("a standing retraction
    in an uncovered corpus does not reach the computation") is made a refusal
-   at authoring rather than a silent miss by decision 3.
+   at authoring rather than a silent miss by decision 3. A consequence to
+   state plainly: the retraction write moves the writing corpus's state, so
+   every receipt whose coverage names that corpus — the retracted
+   snapshot's and the successor's alike — answers `unresolvable` at
+   availability until a fresh epoch is built. That is world-index §7.5's
+   existing rule met on the design's own route, not a change; `checked` is
+   therefore never a post-retraction state (§9), and the states this slice
+   promises are `retracted` and not-`retracted`.
 2. **The arm names the subject by kind and identity, and the kind is closed
    to `producer`.** `target = {arm: "snapshot", subject_kind: "producer",
    subject_identity: <64 lower hex>}`. The other three receipt subjects —
@@ -128,34 +135,52 @@ the mutation lane has no further open boundary.
    answering `NoBelief("snapshot-retracted")` — a retracted snapshot is not
    an evaluated state with no belief, it is a computation the design says
    may not run (C8: "refused where recomputation already happens").
-7. **An absent covered corpus makes the snapshot's standing unreadable, and
-   the read answers absence.** The fold runs over the present covered
-   corpora; for every corpus in `view.absent()` the evaluator appends
-   `(f"producer-snapshot:{identity}", corpus_id)` to `absent` and the
-   existing path answers `NoBelief("unavailable-corpus-absent")`. Slice 1
-   decision 4's rule — absence is not unreadability, and an absent covered
-   corpus is an `absent` entry rather than an exception — is kept; the
+7. **An absent covered corpus makes the snapshot's standing unreadable and
+   the read answers absence; a damaged one refuses.** The fold runs over the
+   present, readable covered corpora. For every corpus in `view.damaged()`
+   the evaluator raises `CorpusDamaged(f"producer-snapshot:{bound}",
+   corpus_id, view.stamp())` first — `open_world_view` in `report` mode
+   keeps a damaged corpus out of both `absent()` and the live views, so a
+   fold that consulted only those would silently skip the one corpus that
+   might hold the retraction; damage is corruption, and the view's own
+   disposition for a ref in a damaged corpus is refusal (`_refuse_damaged`).
+   In `refuse` mode the open has already refused. Then for every corpus in
+   `view.absent()` the evaluator appends `(f"producer-snapshot:{bound}",
+   corpus_id)` to `absent` and the existing path answers
+   `NoBelief("unavailable-corpus-absent")`: slice 1 decision 4's rule —
+   absence is an `absent` entry, never an exception — is kept, and the
    spelling is the one `declared_refs()` already uses for the snapshot. At
    `validate_receipt` an absent or unreadable covered corpus lets the phase
-   fall through, and availability answers `unresolvable` as it does today.
+   fall through and availability answers `unresolvable` as today.
    **Rejected:** folding over the present corpora and proceeding — a
-   retraction written to a corpus that later departs would silently stop
-   standing, and every other absence in a world read fails closed.
-8. **A snapshot-arm retraction is out of every computation's closure
-   scope, and `gather` does not resolve its target.** Slice 1 decision 10
-   scopes `found` to retractions targeting this proposition's assessments,
-   their verifications, the supplied snapshot's dataset keys, and
-   transitively retractions targeting included retractions. A snapshot arm
-   targets none of those, and a retraction targeting a snapshot-arm
-   retraction is out of scope with it. In `gather`'s standing loop a
-   snapshot-arm found retraction is facet-validated, entered in `facets` so
-   the fold sees it as a vertex, and its target is not dereferenced: its only
-   possible closure member is the bound snapshot, which decision 6 checks by
-   identity. The retained-identity resolution stays the write boundary's
-   (decision 3) and the audit's (§7). **Rejected:** resolving it through the
-   view — a `WorldReadView` has no retained-epoch handle, and adding one to
-   every open for a target the closure never contains is cost with no
-   reader.
+   retraction written to a corpus that later departs or breaks would
+   silently stop standing, and every other absence in a world read fails
+   closed.
+8. **The bound snapshot's retraction history enters the closure, read live,
+   and refuses while any of it stands.** Correction-lifecycle §6 puts the
+   enumeration over every closure input in the closure, and
+   `producer_snapshot` is a closure member (`closure.py:154`): a snapshot
+   that was retracted and counter-retracted must digest differently from
+   one never retracted. No epoch can carry a retraction of its own
+   snapshot (it post-dates the build by construction), so the history is
+   the live fold's (§5): every snapshot-arm retraction naming `bound` and,
+   transitively, every retraction naming one of those, each with the
+   resolution the live fold computed. `gather` appends them to
+   `scoped.found` and traces them as `("retraction", ref)`; if any
+   snapshot-arm retraction among them stands, it raises
+   `ProducerSnapshotRetracted(bound)` instead (decision 6). Slice 1
+   decision 3's agreement check does not apply to these entries — there is
+   no recorded resolution to agree with — and the coverage member is
+   unchanged (the epoch's, which is `S`'s). Snapshot-arm retractions in the
+   *epoch's* enumeration name older snapshots and are out of every
+   computation's scope (slice 1 decision 10: they target no assessment,
+   verification or dataset key); the scope loop never takes one, so the live
+   history is the sole source of snapshot-arm entries and no ref appears
+   twice. **Rejected:** excluding snapshot retractions from the digest and
+   refusing only while one stands — the never-retracted and the
+   counter-retracted state would then digest alike, which is the collapse
+   §6 forbids, and amending §6 to permit it would weaken a banked guarantee
+   to save one fold the read already performs.
 9. **`successor` for a snapshot arm is a producer subject identity, and no
    relation edge is emitted for the arm.** `retraction_node` emits no
    `retracts` edge for a snapshot target and no `succeeded-by` edge for its
@@ -242,21 +267,24 @@ _resolve_retraction_target(
 )
 ```
 
-The writer's call sites — `retract`, the import path's union view, the
-corpus check's `_CheckView` path — pass `self._snapshot_resolver` and
-`self.corpus_id` (the manifest's, through `load_manifest(self.root)`, the
-property that exists today). `gather` passes neither and never reaches the
-branch (decision 8); `standing_in_local_view` passes neither, and a
-snapshot-arm retraction there is a vertex only (it names no node). A
-snapshot arm reached with `corpus_id is None` is a programming error
-(`TypeError`), never a refusal. The branch:
+Two consumers have no world and must not refuse for lack of one:
+`standing_in_local_view` and `corpus_check` (module-level, no writer). So
+the static method's snapshot branch does **eligibility only** — `subject_kind`
+outside `SNAPSHOT_SUBJECT_KINDS` is `RetractionTargetIneligible`, and it
+returns — and the retained-epoch resolution is the writer's own
+`_resolve_snapshot_target(record, corpus_id)`, an instance method reading
+`self._snapshot_resolver`, called by `retract` and by the import path's
+union-view check after the static method. `standing_in_local_view` and
+`corpus_check` therefore treat a snapshot-arm retraction as a vertex with
+an eligible shape; `gather` never resolves one (decision 8). The world-level
+audit performs the resolution the corpus-level check cannot (§7.4). A
+snapshot arm reached by the instance method with `corpus_id is None` is a
+programming error (`TypeError`), never a refusal. The instance method:
 
-- `snapshot_resolver is None` → `RetractionTargetUnresolvable(f"{record.id}:
+- `self._snapshot_resolver is None` → `RetractionTargetUnresolvable(f"{record.id}:
   a snapshot target needs the world's retained epochs, and this writer
   reaches none")`.
-- `target["subject_kind"] not in SNAPSHOT_SUBJECT_KINDS` →
-  `RetractionTargetIneligible`.
-- `retained = snapshot_resolver.retained(target["subject_kind"])`;
+- `retained = self._snapshot_resolver.retained(target["subject_kind"])`;
   `target["subject_identity"] not in retained` →
   `RetractionTargetUnresolvable(f"{record.id}: no retained epoch carries
   producer snapshot {identity}")`.
@@ -267,6 +295,10 @@ snapshot arm reached with `corpus_id is None` is a programming error
   `RetractionTargetUnresolvable(... "successor ... is not a retained producer
   snapshot")`; `successor == identity` → `ValidationRefused(... "a snapshot
   retraction's successor is not its target")`.
+
+In `retract` itself, the `RelocationTargetMissing` re-resolution branch
+(world-changing families §3.6) is node- and route-only: a snapshot arm has
+no `lookup_ref`, and a concurrent `move` cannot remove a snapshot.
 
 The world supplies the port. `world/epoch.py`:
 
@@ -308,26 +340,36 @@ corpus-only test writer pass none and cannot author the arm.
 `corpus.py`:
 
 ```python
-def retracted_snapshots(
+@dataclass(frozen=True)
+class SnapshotStanding:
+    retracted: frozenset[str]
+    history: Mapping[str, tuple[tuple[str, str], ...]]
+
+def snapshot_standing(
     views: Mapping[str, ReadView], subject_kind: str = "producer"
-) -> frozenset[str]:
+) -> SnapshotStanding:
 ```
 
 For each `(corpus_id, view)` in sorted order: every stored retraction's
 facet through `_validated_retraction_facet` (a refusal is
 `RetractionUnreadable(node.id, cause)`, decision 4 of slice 1); the fold
 `retraction_standing(view, facets)` (slice 1 §3.2, unchanged — snapshot
-arms are vertices, never subtractors, exactly as route arms are); then
-`{facet["target"]["subject_identity"] for id, facet in facets.items() if
-facet["target"]["arm"] == "snapshot" and facet["target"]["subject_kind"] ==
-subject_kind and standing[id]}`. The union over corpora is the answer.
+arms are vertices, never subtractors, exactly as route arms are). Then, per
+snapshot-arm retraction `r` of the kind naming identity `S`: `S` joins
+`retracted` iff `standing[r]`; and `history[S]` gains `(r, upheld |
+overturned)` plus, transitively, every node-arm retraction whose resolved
+target is `r` or an already-included member, each with its own resolution —
+the same transitive rule slice 1 decision 10 applies to the closure's
+enumeration, rooted at the snapshot instead of at an assessment.
+`history[S]` is sorted by ref; the union over corpora is the answer.
 
 Per corpus and then union, because a counter-retraction lives beside the
 retraction it counters: cross-corpus node targets are refused at the write
 boundary (slice 1 decision 9), and `move` — the one operation that can
 separate them — is slice 1 §11's named split, filed there and not widened
 here. The fold takes no lock: each caller hands it views it already holds
-under whatever hold that caller owns (§7, §8).
+under whatever hold that caller owns (§7, §8). `validate_receipt`, import
+and audit read `retracted` only; `gather` reads both.
 
 ## 6. Capture — the discovery map
 
@@ -338,9 +380,10 @@ identity by namespace, so the map key is the identity itself. Nothing else
 in capture, `_captured_records`, `_standing_retractions` or the enumeration
 projection changes; `CapturedRetraction.target` is text. A snapshot-arm
 retraction captured by a later epoch therefore appears in that epoch's
-retraction enumeration with its folded resolution, is a digest member of no
-computation (decision 8), and is discoverable through the map by the
-identity it names.
+retraction enumeration with its folded resolution, is out of the closure
+scope of every computation bound to that epoch (decision 8; a computation
+bound to the older snapshot it names reads it live, as history), and is
+discoverable through the map by the identity it names.
 
 ## 7. The recomputation sites
 
@@ -367,11 +410,11 @@ in its own words); under `_operation_lock_for(carrier).capture()`,
 `ReadView.opened_at(carrier)` with `_require_base_pin()`
 (`CorpusStateMalformed` or `ContractMismatch` → `None`, same fall-through;
 an unreadable corpus cannot say what it holds); the views are collected, the
-hold released per corpus, and `retracted_snapshots(views)` folded outside
+hold released per corpus, and `snapshot_standing(views).retracted` folded outside
 every lock. `RetractionUnreadable` from the fold → `None`: a corpus whose
 retractions do not read is one the availability phase and the corpus audit
 both report, and the receipt's outcome remains the availability answer.
-`receipt.subject_identity in retracted` → `ReceiptOutcome("producer",
+`receipt.subject_identity in standing.retracted` → `ReceiptOutcome("producer",
 "retracted", f"retraction(s) {sorted ids} in {corpus ids} stand against this
 subject")`; else `None` and the phases continue unchanged.
 
@@ -397,43 +440,75 @@ mixed case arises, and the order is stated so a future kind that could mix
 them has a rule). No finding is added (decision 5). `EpochAudit.receipts`
 carries the outcome per `(name, kind)`.
 
+### 7.4 `audit_world` — the raw-write disposition
+
+`corpus_check` cannot resolve a snapshot arm (§4). `audit_world`, which
+has the world, resolves every snapshot-arm retraction it walks through
+`RetainedSnapshots(world)`: an identity no retained epoch carries, or a
+writing corpus outside the identity's coverage, or a `successor` that is
+not retained, is reported as `retraction-target-invalid` with the writer's
+own message — the disposition correction-lifecycle §3 gives a raw-written
+retraction (undetected until audit, then reported). `corpus_check` reports
+the arm's shape and eligibility faults as today and nothing about
+retained-ness, and its docstring says why.
+
 ## 8. The evaluator — the world read
 
 `WorldReadView` gains
 
 ```python
-def retracted_snapshots(self) -> frozenset[str]
+def snapshot_standing(self) -> SnapshotStanding
 ```
 
-— `corpus.retracted_snapshots(self._live)` computed once and cached on the
-view. `_live` holds the present covered corpora's `ReadView`s opened at
-`open_world_view` under each corpus's capture hold; the records a
+— `corpus.snapshot_standing(self._live)` computed once and cached on the
+view. `_live` holds the present, readable covered corpora's `ReadView`s
+opened at `open_world_view` under each corpus's capture hold; the records a
 post-epoch retraction lives in are the "unmapped" ones `DriftReport` names,
 and the open reports rather than refuses that drift, so the fold sees them.
-`_live` excludes damaged corpora (`_damaged_ids`); a damaged covered corpus
-in `report` mode is treated as absent for this read (decision 7), and in
-`refuse` mode the open has already refused.
+The fold reads through the corpus views, not through the epoch's address
+map: an unmapped record has no epoch address, and `WorldReadView.resolve`
+would answer `None` for a counter-retraction's target and break the fold.
 
-`gather`, in the `if world:` block after the mismatch check:
+`gather`, in the `if world:` block after the mismatch check, with `absent`
+declared before it:
 
 ```python
+for report in view.damaged():
+    raise CorpusDamaged(f"producer-snapshot:{bound}", report.corpus_id, view.stamp())
 for corpus_id in view.absent():
     absent.append((f"producer-snapshot:{bound}", corpus_id))
-if not absent and bound in view.retracted_snapshots():
+standing = view.snapshot_standing()
+if not absent and bound in standing.retracted:
     raise ProducerSnapshotRetracted(bound)
+history = standing.history.get(bound, ())
 ```
 
-with `absent` declared before the block. The existing `if absent:` return
-then answers `NoBelief("unavailable-corpus-absent")` with the snapshot
-spelling among the absent refs — the same shape a found retraction in an
-absent corpus produces (slice 1 §8.1). A corpus-local read has no epoch and
-is unchanged.
+The existing `if absent:` return then answers
+`NoBelief("unavailable-corpus-absent")` with the snapshot spelling among the
+absent refs — the same shape a found retraction in an absent corpus produces
+(slice 1 §8.1). A corpus-local read has no epoch: `history = ()` and none of
+the block runs.
 
-In the standing loop, the target branch becomes three-way: `node` and
-`route` as today; `snapshot` → `facets[ref] = facet` and `continue` (no
-absence probe, no `_resolve_retraction_target`; decision 8). Every
-`ScienceError` from the facet validation is still wrapped as
-`RetractionUnreadable`.
+The arm is then handled at every site that reads a target — four, and the
+plan's grep for `target["arm"]` and `target["resolved"]` in `evaluation.py`
+must find exactly these:
+
+1. **The standing loop** (`for ref, _recorded in enumeration.found`): after
+   `_validated_retraction`, a snapshot arm is `facets[ref] = facet;
+   continue` — no absence probe of a target, no
+   `_resolve_retraction_target` (decision 8; the static method would only
+   re-check eligibility). The pinned `target_ref = ...` line of cut 33 is
+   kept verbatim inside the node/route branch.
+2. **The subtraction loop** (`subtracted` / `retired`): a standing
+   snapshot-arm retraction contributes to neither; it names no node and no
+   route.
+3. **The scope loop**: the membership key is per arm — `target["resolved"]`
+   for node and route, and for a snapshot arm a key that is never in
+   `scope` (`None`), so no epoch-enumeration snapshot retraction and no
+   retraction rooted at one is taken (decision 8).
+4. **The enumeration handed out**: `scoped.found` is the scope loop's
+   entries **plus** `history`, sorted, with `coverage` the epoch's; every
+   history ref is traced as `("retraction", ref)`.
 
 `errors.py`: `ProducerSnapshotRetracted(RecordError)` with `identity`;
 message "the supplied producer snapshot {identity!r} is retracted in its
@@ -445,18 +520,23 @@ No new operation. The route is the design's composition, exercised by the
 acceptance module and the reproduction (§13):
 
 1. `build_epoch(world, coverage=narrower, bindings)` → `new`, with
-   `new.receipts["producer-receipt.yaml"].subject_identity == S'`.
+   `new.receipts["producer-receipt.yaml"].subject_identity == S'`. At this
+   point, and only at this point, `snapshot_state(world, "producer", S')`
+   is `checked` and `S` is `checked` too if nothing moved since its build.
 2. Through a session-held writer in a corpus both `S` and `S'` cover:
    `retract(retraction_node(target=SnapshotTarget("producer", S), ...,
    successor=S'))`.
 3. Asserted: `old.members` byte-identical before and after (read back
    through `read.open_epoch`); every receipt of `old` byte-identical;
-   `snapshot_state(world, "producer", S).state == "retracted"` and
-   `snapshot_state(world, "producer", S').state == "checked"`; `gather`
-   over `open_world_view(world, old)` with `producer_snapshot_identity=S`
-   → `ProducerSnapshotRetracted`; over `open_world_view(world, new)` with
-   `S'` → proceeds, and `answer.belief_input_digest` differs from the
-   pre-narrowing answer over `old`.
+   `snapshot_state(world, "producer", S).state == "retracted"`;
+   `snapshot_state(world, "producer", S').state == "unchecked"` with its
+   producer receipt `unresolvable` and the detail naming the moved state
+   (decision 1's consequence — the write moved a corpus both cover);
+   `gather` over `open_world_view(world, old)` with
+   `producer_snapshot_identity=S` → `ProducerSnapshotRetracted`; over
+   `open_world_view(world, new)` with `S'` → proceeds, and
+   `answer.belief_input_digest` differs from the pre-narrowing answer over
+   `old` (the identity member moved; `S'`'s history is empty).
 4. **Negative:** over `open_world_view(world, new)` with
    `producer_snapshot_identity=S` → `ProducerSnapshotMismatch`, and over
    `old` with `S'` → likewise. Nothing resolves through the retraction to
@@ -493,10 +573,18 @@ assertion pins that this slice adds nothing to it.
   unresolvable; corpus outside coverage → unresolvable naming the corpus;
   successor not retained → unresolvable; successor equal to target →
   `ValidationRefused`; the happy path writes one record;
-- `retracted_snapshots`: no retractions → `frozenset()`; one standing
-  snapshot retraction → its identity; counter-retracted → empty; two
-  corpora, one each → both; an unreadable facet → `RetractionUnreadable`;
-  a route-arm and a node-arm retraction alongside change nothing;
+- `snapshot_standing`: no retractions → empty `retracted`, empty
+  `history`; one standing snapshot retraction → its identity in `retracted`
+  and `history[S] == ((r, "upheld"),)`; counter-retracted → `retracted`
+  empty and `history[S] == ((c, "upheld"), (r, "overturned"))` sorted by
+  ref; a counter-counter-retraction → three entries and `S` retracted
+  again; two corpora, one each → both; an unreadable facet →
+  `RetractionUnreadable`; a route-arm and a node-arm retraction naming
+  something else change nothing;
+- `standing_in_local_view` over a corpus holding a snapshot-arm retraction
+  and no port: answers for a node ref without refusing; `corpus_check` over
+  it reports nothing for the arm, and reports `retraction-target-invalid`
+  for a `subject_kind` outside the closed set;
 - `RetainedSnapshots(world).retained("producer")` over a world with two
   epochs of different coverage → both identities with their coverage; a
   carrier with a `None` subject skipped; an unknown kind → `ValueError`;
@@ -513,9 +601,20 @@ retracted in a corpus outside coverage cannot be authored (the writer
 refuses), and a raw-written one there leaves the read unchanged; an absent
 covered corpus → `inputs.absent` carries
 `(f"producer-snapshot:{S}", corpus_id)` and the answer is
-`NoBelief("unavailable-corpus-absent")`; a snapshot-arm retraction captured
-in the bound epoch's enumeration (naming an older snapshot) is in `facets`,
-not in `found`, and the digest is unchanged by it.
+`NoBelief("unavailable-corpus-absent")`; a damaged covered corpus under
+`on_damage="report"` whose only post-build record is the snapshot
+retraction → `CorpusDamaged` with `ref == f"producer-snapshot:{S}"`, and the
+same with the retraction elsewhere (the refusal does not depend on what the
+damaged corpus holds); a snapshot-arm retraction captured in the bound
+epoch's enumeration (naming an older snapshot) is in `facets`, not in
+`found`, and the digest is unchanged by it; after retract-then-counter the
+closure's `found` carries the pair, `read_trace` carries both refs, and
+`inputs.closure().digest()` differs from the never-retracted digest.
+
+`python/tests/test_world_audit.py` (extended): `audit_world` over a
+raw-written snapshot retraction naming an unretained identity reports
+`retraction-target-invalid`; over one written outside the target's
+coverage, likewise; over a well-formed admitted one, nothing.
 
 ### 11.2 Acceptance
 
@@ -530,7 +629,10 @@ the certified tuple through the durable writer, one check per clause:
   `retracted`, its verdict `state == "retracted"`, and `findings` carries no
   code naming it;
 - **C8-c** `snapshot_state(world, "producer", S)` is `retracted` with the
-  receipts listed; for `S'` it is `checked`;
+  receipts listed; for `S'` it is `unchecked` with the producer receipt
+  `unresolvable` (the write moved a corpus both cover; decision 1);
+  `checked` for `S'` is asserted once, between the build and the
+  retraction;
 - **C8-d** the mount negative of §10, both corpora;
 - **C9-a** narrowing: `gather` bound to `old` refuses
   `ProducerSnapshotRetracted`;
@@ -548,12 +650,21 @@ the certified tuple through the durable writer, one check per clause:
   answers `retracted`, not `unresolvable` (a pre-slice validator would
   answer `unresolvable`);
 - **BI-4** a counter-retraction of the snapshot retraction restores the
-  snapshot: `snapshot_state` returns to `checked`, `gather` proceeds, and the
-  digest equals the pre-retraction digest (standing is a read; nothing was
-  stored on the target);
-- **BI-5** a snapshot-arm retraction is out of the closure: with a snapshot
-  retraction of an older epoch captured in the bound epoch's enumeration,
-  the closure's `found` and the digest are unchanged from a world without it.
+  snapshot: `snapshot_state(S).state != "retracted"` (it is `unchecked`,
+  the receipt being `unresolvable`), `gather` proceeds, and no record of
+  `old` changed (standing is a read; nothing was stored on the target);
+- **BI-5** an older snapshot's retraction is out of the closure: with a
+  snapshot retraction of an older epoch captured in the bound epoch's
+  enumeration, the closure's `found` and the digest are unchanged from a
+  world without it;
+- **BI-6** the raw-write disposition: a raw-written snapshot retraction
+  naming an unretained identity is `retraction-target-invalid` at
+  `audit_world` and reported by nothing at `corpus_check`;
+- **BI-7** history is in the digest (correction §6): after
+  retract-then-counter, `gather` over `old` proceeds, `found` carries
+  `(r, "overturned")` and `(c, "upheld")`, both refs are in `read_trace`,
+  and `belief_input_digest` differs from the never-retracted digest over
+  the same epoch.
 
 ### 11.3 N2 sabotages
 
@@ -566,17 +677,19 @@ shared audit if it lands first, else carried per cut as cuts 31–33 did).
 |---|---|---|---|
 | C8-a | `world/importing.py` | the `("retracted-snapshot", "retracted")` decision is removed | acceptance C8-a |
 | C8-b | `world/audit.py` | `_reduce`'s `retracted` test → `if False:` | acceptance C8-b |
-| C8-c | `world/read.py` | `_snapshot_standing` returns `None` unconditionally | acceptance C8-c (and C8-a, C8-b fail with it; the arm's check is C8-c) |
+| C8-c | `world/read.py` | `_snapshot_standing` returns `None` unconditionally | acceptance C8-c (C8-a and C8-b fail with it; the arm's check is C8-c) |
 | C8-d | `world/registry.py` | `_locked_admit` calls `read.validate_receipt` on the world's current epoch after the append | acceptance C8-d (the counting stub records one call) |
 | C9-a | `evaluation.py` | `raise ProducerSnapshotRetracted(bound)` → `pass` | acceptance C9-a |
 | C9-b | `closure.py` | `"producer_snapshot": producer_snapshot_identity` → `"producer_snapshot": ""` | acceptance C9-b (the digest no longer moves) |
 | C9-c | `world/epoch.py` | `RetainedSnapshots.retained`, under the barrier it already holds, appends a `retracted: true` line to the named subject's `producer-receipt.yaml` in its retained carrier — standing stored on the target, the shape §4 of the design forbids | acceptance C9-c (the receipt is no longer byte-identical) |
-| C9-d | `evaluation.py` | the mismatch check consults `view.retracted_snapshots()` and accepts the successor named by a standing retraction | acceptance C9-d |
+| C9-d | `evaluation.py` | the mismatch check consults `view.snapshot_standing()` and accepts the successor named by a standing retraction | acceptance C9-d |
 | BI-1 | `corpus.py` | the coverage clause of `_resolve_retraction_target`'s snapshot branch is removed | acceptance BI-1 |
 | BI-2 | `corpus.py` | `snapshot_resolver is None` → returns instead of raising | acceptance BI-2 |
 | BI-3 | `world/read.py` | `_snapshot_standing` is called after the availability phase | acceptance BI-3 |
-| BI-4 | `corpus.py` | `retracted_snapshots` collects every snapshot-arm retraction regardless of `standing[id]` | acceptance BI-4 |
-| BI-5 | `evaluation.py` | the snapshot branch of the standing loop resolves the target and adds the retraction to the closure's `found` | acceptance BI-5 |
+| BI-4 | `corpus.py` | `snapshot_standing` puts every snapshot-arm retraction's identity in `retracted` regardless of `standing[r]` | acceptance BI-4 (`gather` still refuses after the counter-retraction) |
+| BI-5 | `evaluation.py` | the scope loop's snapshot key is `f"producer-snapshot:{target['subject_identity']}"` and `scope` gains every retained identity | acceptance BI-5 (the older snapshot's retraction enters `found`) |
+| BI-6 | `audit.py` | `audit_world`'s snapshot resolution is removed | acceptance BI-6 |
+| BI-7 | `evaluation.py` | `history` is dropped from `scoped.found` | acceptance BI-7 (the digest equals the never-retracted one) |
 
 ### 11.4 The cut
 
@@ -586,8 +699,8 @@ holds a cut-34 document at 2026-09-19 (scanned: `main`,
 `git branch -a`). The runner `python/tools/cut34_acceptance.py` names
 `"cut33_acceptance.py"` in `PREFIX_RUNNERS` (rule 5) and carries
 `PHASE_MODULES = ("test_snapshot_retraction_acceptance.py",
-"test_n2_cut34.py")`. Declaration units: C8-a–d, C9-a–d, BI-1–BI-5 —
-thirteen, eight against rows and five boundary invariants. Frozen by dated
+"test_n2_cut34.py")`. Declaration units: C8-a–d, C9-a–d, BI-1–BI-7 —
+fifteen, eight against rows and seven boundary invariants. Frozen by dated
 commit after review clears; invalidated frozen evidence is pinned and cited,
 never edited.
 
@@ -612,11 +725,13 @@ are not.
 guide index, as every lane. Beyond those this slice rewrites `stored.py`
 (`SnapshotTarget`, `retraction_node`, `RETRACTION_TARGET_ARMS`),
 `corpus.py` (`_validated_retraction_target`, `_resolve_retraction_target`,
-`CorpusWriter.__init__`, `retracted_snapshots`, `SnapshotResolver`),
+`_resolve_snapshot_target`, `CorpusWriter.__init__`, `snapshot_standing`,
+`SnapshotStanding`, `SnapshotResolver`, `standing_in_local_view` and
+`corpus_check` docstrings), `audit.py` (§7.4),
 `evaluation.py` (§8), `world/derive.py` (`RECEIPT_OUTCOMES`),
 `world/epoch.py` (`_retraction_target`, `RetainedSnapshots`, `_member_for`),
 `world/read.py` (`_snapshot_standing`, the phase), `world/view.py`
-(`retracted_snapshots`), `world/audit.py`, `world/importing.py`,
+(`snapshot_standing`), `world/audit.py`, `world/importing.py`,
 `session/writer.py` (the factory hands the port through), the correction
 design and world-index slice-2 design (dated notes, decision 10), and the
 guide's kinds and outcomes tables. Both `CONTRACT.yaml` copies are
@@ -654,7 +769,12 @@ against decision 11 and the cut does not freeze until it is explained.
    world read bound to `current_epoch` refuse until a new epoch is built.
    Intended: the alternative — `current_epoch` skipping retracted epochs —
    is the implicit resolution C9's negative forbids. Recorded in the guide.
-5. **Other receipt subjects are not retractable** (decision 2). A
+5. **A snapshot retraction makes every receipt covering the writing corpus
+   `unresolvable` until a fresh epoch is built** — the successor's included
+   (decision 1's consequence, §9 step 3). World-index §7.5's availability
+   rule, unchanged; stated here because the narrowing route meets it on its
+   first step. Recorded in the guide beside item 4.
+6. **Other receipt subjects are not retractable** (decision 2). A
    certification inventory or a coreference reduction is corrected by
    retracting the records it derives from. Recorded in the correction
    design's note.
@@ -685,3 +805,18 @@ that retirement would change") is read at the cut and closed or re-noted.
 ## 17. Review log
 
 - 2026-09-19 — drafted against `main` at `1958ec5`.
+- 2026-09-19 — first review, four findings, all confirmed against the
+  tree. Changed: `checked` is not a post-retraction state (the write moves
+  a covered corpus, so `read._standing` answers `unresolvable`; C8-c and
+  BI-4 now assert `unchecked`/not-`retracted`, and decision 1 states the
+  consequence); the bound snapshot's live retraction history enters
+  `scoped.found` and the trace (decision 8 rewritten; correction §6 is
+  preserved rather than amended; BI-7 added; §5 returns
+  `SnapshotStanding` with `history`); a damaged covered corpus refuses
+  `CorpusDamaged` before the absence and retracted checks (decision 7; the
+  view keeps damaged corpora out of both `absent()` and `_live`); the arm
+  is handled at all four target-reading sites in `gather` (§8), the
+  retained-epoch resolution moves to an instance method so
+  `standing_in_local_view` and `corpus_check` never refuse for lack of a
+  world (§4), and `audit_world` performs the resolution the corpus check
+  cannot (§7.4, BI-6).
