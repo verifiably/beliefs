@@ -40,7 +40,7 @@ from datetime import datetime
 from itertools import pairwise
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Literal, cast, final
+from typing import TYPE_CHECKING, Literal, Protocol, cast, final
 
 from nodes.core.corpus import Corpus
 from nodes.core.errors import CollisionError, ExecutionError, FacetError, PlanRefusedError, RefError, UnknownKindError
@@ -156,6 +156,7 @@ __all__ = [
     "OperationPort",
     "ReadView",
     "RelationAdjacency",
+    "SnapshotResolver",
     "corpus_check",
     "derived_from",
     "lineage_snapshot",
@@ -998,6 +999,8 @@ def standing_in_local_view(view: ReadView, ref: str) -> bool:
 
     This is deliberately non-authoritative and corpus-local. Route-arm targets
     name an embedded route, not a record, so they never subtract node standing.
+    A snapshot-arm retraction is a vertex here: it names no node, and its
+    retained-epoch resolution is the writer's and the world audit's (slice 2 §4).
     """
     facets: dict[str, Mapping[str, object]] = {}
     for stored_node in view.iter_stored():
@@ -1308,7 +1311,9 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
     family faults this module can resolve. What it is silent on is a raw write
     that is **self-consistent** — the hash agrees because the writer computed
     it, and nothing structural is wrong because nothing is. That silence is
-    §4.2.1's stated bound, not a gap here.
+    §4.2.1's stated bound, not a gap here. Snapshot-arm retractions are checked
+    for shape and eligibility only; retained-ness needs the world and is
+    `audit_world`'s (slice 2 §7.4).
     """
     findings: list[Finding] = []
     manifest_path = view._corpus.store.root / "corpus.yaml"
@@ -1534,6 +1539,13 @@ def _record_findings(
     return findings
 
 
+class SnapshotResolver(Protocol):
+    """What a writer needs to resolve a snapshot-arm target (slice 2 §4): the
+    world's retained subjects of one kind, each with its covered corpus ids."""
+
+    def retained(self, subject_kind: str) -> Mapping[str, tuple[str, ...]]: ...
+
+
 @final
 class CoordinationResolver:
     def __init__(self, mounts: Mapping[Path, ProfileSpec]) -> None:
@@ -1705,6 +1717,7 @@ class CorpusWriter:
         profile: ProfileSpec,
         operation_port: OperationPort | None = None,
         coordination_resolver: CoordinationResolver | None = None,
+        snapshot_resolver: SnapshotResolver | None = None,
     ) -> None:
         if type(authority) is not Authority:
             raise TypeError("a writer binds an Authority")
@@ -1734,6 +1747,7 @@ class CorpusWriter:
         self._operation = _SettlingHold(self)
         self._operation_port = operation_port
         self._coordination_resolver = coordination_resolver
+        self._snapshot_resolver = snapshot_resolver
 
     @property
     def profile(self) -> ProfileSpec:
@@ -2317,29 +2331,35 @@ class CorpusWriter:
                         ) from caught
                 raise ValidationRefused(f"{record.id}: refused by retraction shape validation: {caught}") from caught
             target = facet["target"]
-            target_ref = target["resolved"]
-            lookup_ref = target["ref"] if target["arm"] == "node" else target["dataset"]
-            try:
+            snapshot_arm = target["arm"] == "snapshot"
+            if snapshot_arm:
                 self._resolve_retraction_target(record, self._view)
-            except RetractionTargetUnresolvable:
-                if self._view.resolve(lookup_ref) is None:
-                    try:
-                        self._view.get(target_ref)
-                    except RefError as caught:
-                        raise RelocationTargetMissing(
-                            f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
-                            "or deletion removed it (world-changing families §3.6)"
-                        ) from caught
-                raise
+                self._resolve_snapshot_target(record, self.corpus_id)
+            else:
+                target_ref = target["resolved"]
+                lookup_ref = target["ref"] if target["arm"] == "node" else target["dataset"]
+                try:
+                    self._resolve_retraction_target(record, self._view)
+                except RetractionTargetUnresolvable:
+                    if self._view.resolve(lookup_ref) is None:
+                        try:
+                            self._view.get(target_ref)
+                        except RefError as caught:
+                            raise RelocationTargetMissing(
+                                f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
+                                "or deletion removed it (world-changing families §3.6)"
+                            ) from caught
+                    raise
 
             self._refuse(record, document_validated=True)
-            try:
-                self._view.get(target_ref)
-            except RefError as caught:
-                raise RelocationTargetMissing(
-                    f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
-                    "or deletion removed it (world-changing families §3.6)"
-                ) from caught
+            if not snapshot_arm:
+                try:
+                    self._view.get(target_ref)
+                except RefError as caught:
+                    raise RelocationTargetMissing(
+                        f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
+                        "or deletion removed it (world-changing families §3.6)"
+                    ) from caught
             return self._corpus.add(record)
 
     def attest_coreference(self, record: Node, *, view: ReadView | WorldReadView | None = None) -> Node:
@@ -2740,6 +2760,8 @@ class CorpusWriter:
                 try:
                     self._validated_retraction(record)
                     self._resolve_retraction_target(record, union)
+                    if self._validated_retraction(record)["target"]["arm"] == "snapshot":
+                        self._resolve_snapshot_target(record, self.corpus_id)
                 except ScienceError as caught:
                     raise ImportRefused(str(caught), member=record.id) from caught
             elif record.kind == "coreference-attestation":
@@ -2823,6 +2845,12 @@ class CorpusWriter:
             if stored.stored_semantic_hash(resolved_target) != target["content_identity"]:
                 raise RetractionTargetUnresolvable(f"{record.id}: node target content identity does not resolve")
             return
+        if target["arm"] == "snapshot":
+            if target["subject_kind"] not in stored.SNAPSHOT_SUBJECT_KINDS:
+                raise RetractionTargetIneligible(
+                    f"{record.id}: snapshot subject kind is outside {stored.SNAPSHOT_SUBJECT_KINDS}"
+                )
+            return  # retained-epoch resolution is the writer's (_resolve_snapshot_target); a view has no world
         resolved = view.resolve(target["dataset"])
         if target["resolved"].partition(":")[0] != "dataset":
             raise RetractionTargetIneligible(f"{record.id}: a route target must name a dataset")
@@ -2837,6 +2865,36 @@ class CorpusWriter:
             raise RetractionTargetUnresolvable(
                 f"{record.id}: route identity {target['route_identity']!r} is absent from the stamped basis"
             )
+
+    def _resolve_snapshot_target(self, record: Node, corpus_id: str) -> None:
+        """Slice 2 §4: a snapshot arm resolves iff a retained epoch carries the
+        identity and this corpus is in that snapshot's coverage; a successor
+        must be retained and must not be the target."""
+        target = _validated_retraction_target(record)
+        if target["arm"] != "snapshot":
+            return
+        if type(corpus_id) is not str:
+            raise TypeError("a snapshot target is resolved against the writing corpus's id")
+        if self._snapshot_resolver is None:
+            raise RetractionTargetUnresolvable(
+                f"{record.id}: a snapshot target needs the world's retained epochs, and this writer reaches none"
+            )
+        retained = self._snapshot_resolver.retained(target["subject_kind"])
+        identity = target["subject_identity"]
+        if identity not in retained:
+            raise RetractionTargetUnresolvable(f"{record.id}: no retained epoch carries producer snapshot {identity}")
+        if corpus_id not in retained[identity]:
+            raise RetractionTargetUnresolvable(
+                f"{record.id}: corpus {corpus_id} is outside the coverage of producer snapshot {identity}"
+            )
+        successor = record.facets[stored.RETRACTION_FACET].get("successor")
+        if successor is not None:
+            if successor == identity:
+                raise ValidationRefused(f"{record.id}: a snapshot retraction's successor is not its target")
+            if successor not in retained:
+                raise RetractionTargetUnresolvable(
+                    f"{record.id}: successor {successor} is not a retained producer snapshot"
+                )
 
     def _refuse_r20_contradiction(self, record: Node) -> None:
         """A stored spec restores, or the record is refused: the r20 pair is

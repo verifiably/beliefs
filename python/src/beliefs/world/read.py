@@ -340,17 +340,8 @@ def validate_receipt(
     )
 
 
-def _member_for(kind: str) -> str:
-    """The §6.1 member the named receipt kind is written to.
-
-    A kind outside §7.5's four is a caller error and refuses here: inventing a
-    fifth outcome for it would answer a question the specification does not
-    ask.
-    """
-    for member, declared in epoch.RECEIPT_KINDS.items():
-        if declared == kind:
-            return member
-    raise ValueError(f"{kind!r} is not one of the four receipt kinds {sorted(epoch.RECEIPT_KINDS.values())}")
+# moved to `epoch` for `RetainedSnapshots`; every `read._member_for` caller is unchanged
+_member_for = epoch._member_for
 
 
 def _contract_fault(

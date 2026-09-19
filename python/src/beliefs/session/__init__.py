@@ -12,6 +12,7 @@ from beliefs.corpus import (
     CoordinationResolver,
     CorpusWriter,
     Finding,
+    SnapshotResolver,
     _operation_lock_for,
     require_pins_agree,
     require_profile_compatible,
@@ -77,8 +78,13 @@ def open_attended_session(
     profile: ProfileSpec,
     coordination: ProfileSpec | None = None,
     store_root: Path | None = None,
+    snapshot_resolver: SnapshotResolver | None = None,
 ) -> WriterSession:
-    """The interactive constructor (design §3.1): full permit by construction."""
+    """The interactive constructor (design §3.1): full permit by construction.
+
+    A world-bound caller passes `RetainedSnapshots(world)`; without it a
+    session cannot author a snapshot-arm retraction.
+    """
     if type(world_config) is not WorldConfig:
         raise TypeError("open_attended_session takes an exact WorldConfig")
     if not isinstance(operations_root, Path):
@@ -126,6 +132,7 @@ def open_attended_session(
             profile=profile,
             operation_port=durable_operation_port(root, authority, profile=profile),
             coordination_resolver=resolver,
+            snapshot_resolver=snapshot_resolver,
         )
 
     session = WriterSession(
