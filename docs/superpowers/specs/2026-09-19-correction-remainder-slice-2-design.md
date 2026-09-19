@@ -479,13 +479,33 @@ mixed case arises, and the order is stated so a future kind that could mix
 them has a rule). No finding is added for `retracted` (decision 5).
 `EpochAudit.receipts` carries the outcome per `(name, kind)`.
 
-`audit_epochs` and `snapshot_state` are reports and must not stop at a
-raw-written record: each wraps its `validate_receipt` call for the
-producer receipt, and a `RetractionUnreadable` becomes the outcome
-`ReceiptOutcome("producer", "unresolvable", f"the standing of this subject
-cannot be decided: {cause}")` plus an `error` finding
-`retraction-unreadable` on the retraction's ref. The reduction then reads
-that outcome as it reads any `unresolvable`.
+The reports must not stop at a raw-written record. `read.py` gains one
+helper every report calls instead of `validate_receipt`:
+
+```python
+def reported_receipt(
+    world: registry.World, published: epoch.Epoch, kind: derive.ReceiptKind
+) -> tuple[derive.ReceiptOutcome, Finding | None]
+```
+
+It calls `validate_receipt`; a `RetractionUnreadable` becomes the outcome
+`ReceiptOutcome(kind, "unresolvable", f"the standing of this subject cannot
+be decided: {cause}")` and an `error` finding `retraction-unreadable`
+(`ref` the retraction's id, `detail` the cause, `message` naming the epoch
+and subject); every other return is `(outcome, None)`. Three callers, and
+the plan's grep for `validate_receipt(` outside `read.py` must find exactly
+them plus the query: `audit_epochs` (the finding joins `findings`),
+`snapshot_state` (the outcome joins `receipts`; the finding is dropped —
+`SnapshotVerdict` has no findings member and gains none), and
+`audit.py`'s `_world_findings` (the finding joins the world audit's
+findings), which today calls `validate_receipt` directly and would
+otherwise discard the whole report on the exception. The distinction is
+deliberate and stated here: **`snapshot_state` is the diagnostic query and
+exposes the detail in `SnapshotVerdict.receipts`; structured findings are
+`audit_epochs`'s and `audit_world`'s.** `coreference_edge` keeps calling
+`validate_receipt` and lets the exception propagate: it is a query with one
+answer to give, and the disposition is `CaptureDrift`'s (§7.1). The
+reduction reads the substituted outcome as it reads any `unresolvable`.
 
 ### 7.4 `audit_world` — the raw-write disposition
 
@@ -736,9 +756,12 @@ the certified tuple through the durable writer, one check per clause:
   raw-written with a wrong `content_identity`, `gather` over `old` →
   `RetractionUnreadable` naming the counter-retraction; `import_epoch` of
   a carrier for `S` → `EpochImportRefused` with `reason ==
-  "unreadable-standing"` and no directory; `snapshot_state(S)` answers
-  `unresolvable` for the receipt with a `retraction-unreadable` finding
-  from `audit_epochs`;
+  "unreadable-standing"` and no directory; `snapshot_state(S)` returns a
+  verdict whose `receipts` carry `unresolvable` with the cause in the
+  detail and whose `state` is `unchecked`; `audit_epochs` and `audit_world`
+  each **return** their report, with one `retraction-unreadable` error
+  finding naming the counter-retraction, and `audit_world`'s report is
+  otherwise the one a readable chain produces;
 - **BI-9** a rebuild restores nothing and duplicates nothing: after the
   retraction, `build_epoch` under `old`'s coverage yields the identity `S`
   and `gather` bound to it refuses; after the counter-retraction, a further
@@ -812,8 +835,8 @@ guide index, as every lane. Beyond those this slice rewrites `stored.py`
 `corpus_check` docstrings), `audit.py` (§7.4),
 `evaluation.py` (§8), `world/derive.py` (`RECEIPT_OUTCOMES`),
 `world/epoch.py` (`_retraction_target`, `RetainedSnapshots`, `_member_for`),
-`world/read.py` (`_snapshot_standing`, the phase), `world/view.py`
-(`snapshot_standing`), `world/audit.py`, `world/importing.py`,
+`world/read.py` (`_snapshot_standing`, the phase, `reported_receipt`), `world/view.py`
+(`snapshot_standing`), `world/audit.py`, `world/importing.py`, `audit.py` (`_world_findings`),
 `session/writer.py` (the factory hands the port through), the correction
 design and world-index slice-2 design (dated notes, decision 10), and the
 guide's kinds and outcomes tables. Both `CONTRACT.yaml` copies are
@@ -923,3 +946,11 @@ that retirement would change") is read at the cut and closed or re-noted.
   and build's asymmetry with import is limitation 7; `audit_world`'s
   snapshot resolution reads `captured_records`, and BI-6 runs against an
   epoch built before the raw write.
+- 2026-09-19 — third review, two findings, both confirmed. Changed: the
+  outcome-plus-finding substitution moves into one `read.reported_receipt`
+  helper called by `audit_epochs`, `snapshot_state` and `audit.py`'s
+  `_world_findings` (which calls `validate_receipt` directly and would have
+  discarded the world audit's report); `snapshot_state` exposes the detail
+  in `SnapshotVerdict.receipts` and no findings, `audit_epochs` and
+  `audit_world` carry the finding, and BI-8 asserts `audit_world` returns
+  its report.
