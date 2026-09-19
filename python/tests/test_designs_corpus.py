@@ -309,6 +309,7 @@ _COUNT_WORDS = {
     68: "Sixty-eight",
     69: "Sixty-nine",
     70: "Seventy",
+    71: "Seventy-one",
 }
 
 

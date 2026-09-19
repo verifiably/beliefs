@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Seventy documents in `docs/designs/`: the banked redesigns, review disposition,
-adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-16. Read them in this order:
+Seventy-one documents in `docs/designs/`: the banked redesigns, review
+disposition, adoption ledger, measurements, rulings, and contributor-guide
+design written 2026-08-02 through 2026-09-19. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -103,6 +103,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-12-composite-claims-design.md` | the owner of the `composite` kind, the structure a causal analysis is drawn against: a closed node set over `(sort, term)` pairs, members that are propositions read as signed edges under a domain's per-operator `edges:` declaration, no other direct edge asserted among the nodes, belief-inert by construction, succession by same-kind `supersedes`, and a derived reading over the evaluator's own admission (U1–U10); places kernel §11's `inquiry`, `patch-definition` and `structural-chain` |
 | `2026-09-16-conformance-cut-32.md` | the discharged composite-claims cut: U1–U10 read in full, 10 declaration units, 26 sabotage arms, the cut 31 runner as prefix; the `composite` kind, belief-inert by construction; the second off-path lane under rule 6 |
 | `2026-09-16-conformance-cut-33.md` | the discharged correction-remainder slice 1 cut: C7 and C3 closed, C10's audit arm read, and five read-boundary invariants; 11 declaration units, the cut 32 runner as prefix |
+| `2026-09-19-conformance-cut-34.md` | the frozen correction-remainder slice 2 cut: C8 and C9 selected in full, the snapshot target, 17 declaration units, nine boundary invariants, the cut 33 runner as prefix; the boundary closes |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and

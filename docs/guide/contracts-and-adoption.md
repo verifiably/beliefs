@@ -46,6 +46,7 @@ sources:
   - ../designs/2026-09-15-conformance-cut-31.md
   - ../designs/2026-09-16-conformance-cut-32.md
   - ../designs/2026-09-16-conformance-cut-33.md
+  - ../designs/2026-09-19-conformance-cut-34.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -248,6 +249,8 @@ C7 and C3 close, and C10's audit arm is read over 11 declaration units. The
 corpus now has **175 of 216 rows closed, 41 open**
 (`../designs/2026-09-16-conformance-cut-33.md`;
 `../plans/2026-09-16-conformance-cut-33-results.md`).
+Cut 34 is frozen and not yet discharged: correction-remainder slice 2, the
+snapshot target (C8, C9; `../designs/2026-09-19-conformance-cut-34.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
