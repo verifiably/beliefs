@@ -643,7 +643,12 @@ class TestEvaluationOverTheWorld:
     @pytest.mark.parametrize("role", [stored.READS, stored.TRANSFORMS, stored.OBSERVES])
     def test_an_absent_assessment_run_and_every_input_role_are_reported(self, tmp_path, role):
         """Absence beyond the observed dataset: the assessment's own run, and a
-        input of each role, each recorded in the absent corpus."""
+        input of each role, each recorded in the absent corpus.
+
+        correction-remainder slice 2 decision 7: BETA is in the bound producer
+        snapshot's own coverage, so `gather`'s world block answers absence for the
+        whole read before any assessment, run or input role is walked — the same
+        outcome for every role this parametrizes."""
         from beliefs.belief import NoBelief
         from beliefs.evaluation import evaluate_over, gather
 
@@ -667,7 +672,7 @@ class TestEvaluationOverTheWorld:
         kwargs = world_kwargs(view, profile)
         inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
-        assert ("run:run-a", BETA) in inputs.absent and (dataset_ref("d-t"), BETA) in inputs.absent
+        assert (f"producer-snapshot:{view.producer_snapshot_identity()}", BETA) in inputs.absent
         result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 
@@ -762,6 +767,10 @@ class TestEvaluationOverTheWorld:
         assert isinstance(result, Refused) and "consulted-contracts-disagree" in result.reason
 
     def test_a_proposition_only_absent_carrier_is_reported(self, tmp_path):
+        """correction-remainder slice 2 decision 7: BETA is in the bound producer
+        snapshot's own coverage, so `gather`'s world block reports its absence
+        under the snapshot spelling before the proposition's own ref is ever
+        walked."""
         from beliefs.belief import NoBelief
         from beliefs.evaluation import evaluate_over, gather
 
@@ -773,12 +782,16 @@ class TestEvaluationOverTheWorld:
         assert kwargs["context"].snapshot.not_present == {}
         inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
-        assert inputs.absent == (("proposition:p", BETA),)
+        assert inputs.absent == ((f"producer-snapshot:{view.producer_snapshot_identity()}", BETA),)
         result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
         assert BETA in result.detail
 
     def test_absence_in_the_supplied_snapshot_is_reported(self, tmp_path):
+        """correction-remainder slice 2 decision 7: BETA is in the bound producer
+        snapshot's own coverage, so `gather`'s world block reports its absence
+        under the snapshot spelling before the supplied snapshot's own refs are
+        ever walked."""
         from beliefs.belief import NoBelief
         from beliefs.evaluation import evaluate_over, gather
 
@@ -795,7 +808,7 @@ class TestEvaluationOverTheWorld:
             view, (dataset_ref("d-a"), dataset_ref("d-b"), dataset_ref("extra"))))
         inputs = gather(view, "proposition:p", context=context, profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
-        assert inputs.absent == ((dataset_ref("extra"), BETA),)
+        assert inputs.absent == ((f"producer-snapshot:{view.producer_snapshot_identity()}", BETA),)
         result = evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 

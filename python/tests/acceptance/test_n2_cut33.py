@@ -51,7 +51,22 @@ from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
 # BI-2, commit 6090cf4). C7-c still asserts that retraction writes one record
 # without rewriting its dataset basis; the sabotage still inserts a route-arm
 # basis rewrite immediately before the final write.
+#
+# Correction remainder slice 2, 2026-09-19: `gather`'s scope loop now unions the
+# scoped, taken-filtered entries with the bound snapshot's live retraction
+# history (task 5, §8 item 4) before sorting into `scoped.found`. BI-3 still
+# asserts that the epoch enumeration is scoped to the proposition inputs; the
+# sabotage still drops exactly the `if ref in taken` filter and nothing else,
+# leaving the history union (and everything else on the line) intact.
 _LIVE_SABOTAGES = {
+    "BI-3": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        found=tuple(sorted({*((ref, recorded) for ref, recorded in enumeration.found if ref in taken), "
+            "*history})),"
+        ),
+        after="        found=tuple(sorted({*enumeration.found, *history})),",
+    ),
     "C7-c": Sabotage(
         module="corpus.py",
         before=(

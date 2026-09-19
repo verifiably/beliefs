@@ -13,7 +13,17 @@ from nodes.core.node import Node
 from nodes.core.structural_index import ResolvedEdge
 
 from beliefs.closure import RetractionEnumeration
-from beliefs.corpus import Finding, ReadView, _collecting_view, _operation_lock_for, _producer_ids, validated_node
+from beliefs.corpus import (
+    Finding,
+    ReadView,
+    SnapshotStanding,
+    _CapturedCheckView,
+    _collecting_view,
+    _operation_lock_for,
+    _producer_ids,
+    snapshot_standing,
+    validated_node,
+)
 from beliefs.errors import (
     CaptureDrift,
     ContractMismatch,
@@ -69,6 +79,8 @@ class WorldReadView:
     _live: Mapping[str, ReadView]
     _retractions: RetractionEnumeration
     _producer_snapshot: str
+    _captured_views: Mapping[str, _CapturedCheckView]
+    _snapshot_standing: SnapshotStanding | None
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise ResolutionRefused("WorldReadView is opened, never constructed — use open_world_view(world, published)")
@@ -92,6 +104,7 @@ class WorldReadView:
         live: Mapping[str, ReadView],
         retractions: RetractionEnumeration,
         producer_snapshot: str,
+        captured_views: Mapping[str, _CapturedCheckView],
     ) -> WorldReadView:
         if mint is not _MINT:
             raise ResolutionRefused("WorldReadView._opened is open_world_view's own route")
@@ -110,6 +123,8 @@ class WorldReadView:
         view._live = live
         view._retractions = retractions
         view._producer_snapshot = producer_snapshot
+        view._captured_views = captured_views
+        view._snapshot_standing = None
         return view
 
     @property
@@ -159,6 +174,19 @@ class WorldReadView:
     def producer_snapshot_identity(self) -> str:
         """The bound epoch's producer-snapshot subject identity."""
         return self._producer_snapshot
+
+    def snapshot_standing(self) -> SnapshotStanding:
+        """The live fold over the present covered corpora, over the same
+        captured records this view serves (slice 2 §8) — never over `_live`:
+        a `ReadView` resolves through the index built at its open and
+        enumerates the store as it is now, and the two disagree after a
+        write; never through the epoch's address map: a post-build record
+        has no epoch address. Folded on the first read, not at the open, so
+        a report-mode reader that never asks (`audit_world`) is not refused
+        by a raw-written chain member; `gather` asks, and is."""
+        if self._snapshot_standing is None:
+            self._snapshot_standing = snapshot_standing(self._captured_views)
+        return self._snapshot_standing
 
     def resolve(self, ref: str) -> str | None:
         self._refuse_damaged(ref)
@@ -295,6 +323,9 @@ def open_world_view(
         states[corpus_id] = before
         live[corpus_id] = view
     damaged_ids = frozenset(report.corpus_id for report in damaged)
+    # `live`'s keys are exactly the present, readable covered corpora (§8): the ones
+    # captured inside their own hold, with the drift check, and not diverted to `damaged`.
+    captured_views = {corpus_id: _CapturedCheckView(all_captured[corpus_id]) for corpus_id in live}
 
     mapped: dict[str, set[str]] = {}
     for address, (corpus_id, uid) in recorded.items():
@@ -368,6 +399,7 @@ def open_world_view(
         live=live,
         retractions=enumeration,
         producer_snapshot=producer_identity,
+        captured_views=captured_views,
     )
 
 
