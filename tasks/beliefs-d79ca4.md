@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/correction-remainder
 created: 2026-09-17T10:38:46Z
-updated: 2026-09-19T12:23:14Z
+updated: 2026-09-19T13:07:31Z
 started: 2026-09-19T12:09:01Z
 depends: [beliefs-dc4e56]
 parent: beliefs-aa27da
@@ -27,3 +27,6 @@ Spec-to-be: slice 1 design §12. A third retraction arm, snapshot, naming an epo
 - 2026-09-19T12:23:06Z (design/correction-remainder): slice 2 design drafted at docs/superpowers/specs/2026-09-19-correction-remainder-slice-2-design.md (cut 34 claimed at freeze, not yet frozen); awaiting user review before the implementation plan
 - 2026-09-19T12:23:14Z (design/correction-remainder): parked (waiting on user, review): user reviews the slice-2 design spec at docs/superpowers/specs/2026-09-19-correction-remainder-slice-2-design.md; on approval, writing-plans for the implementation plan, then freeze cut 34
   provenance: {"harness_session":"claude-code:b628b215-8628-4ce3-ab65-43b0297318c5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T13:07:31Z (design/correction-remainder): resumed
+  provenance: {"harness_session":"claude-code:b628b215-8628-4ce3-ab65-43b0297318c5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T13:07:31Z (design/correction-remainder): design approved 2026-09-19 at 435e254 after three reviews; writing the implementation plan
