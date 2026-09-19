@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/correction-remainder
 created: 2026-09-17T10:38:46Z
-updated: 2026-09-19T18:53:46Z
+updated: 2026-09-19T19:42:23Z
 started: 2026-09-19T12:09:01Z
 completed: 2026-09-19T18:53:46Z
 depends: [beliefs-dc4e56]
@@ -42,3 +42,4 @@ Spec-to-be: slice 1 design §12. A third retraction arm, snapshot, naming an epo
   provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-19T18:53:46Z (design/correction-remainder): slice 2 discharged at cut 34: the snapshot target; C8 and C9 closed; results docs/plans/2026-09-19-conformance-cut-34-results.md
   provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T19:42:23Z (design/correction-remainder): final review fix wave: reproduction addendum C9 sentence; seam tests for RetainedSnapshots, audit faults, session port

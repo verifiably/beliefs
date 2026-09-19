@@ -8,17 +8,20 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from authority import narrowed
+from authority import FULL, narrowed
 from nodes.core.write_plan import DefaultExecutor
-from profiles import BASE
+from profiles import BASE, WITH_BIOLOGY, pins_for
+from test_corpus_write import OperationRecorder
 from test_operation_writes import RecordingPort, proposition
 
+from beliefs import session as session_module
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
     PermitExceeded,
     PermitFact,
     PlanRefused,
+    RetractionTargetUnresolvable,
     SessionClosed,
     SessionLedgerFailed,
     SessionProtocolError,
@@ -376,3 +379,81 @@ def test_attended_session_refuses_an_uncompiled_profile_before_ledger_effects(tm
     with pytest.raises(TypeError, match="compiled ProfileSpec"):
         open_attended_session(config, tmp_path / "ops", profile=None)  # pyright: ignore[reportArgumentType]
     assert tuple(tmp_path.rglob("*")) == before
+
+
+# --- correction-remainder slice 2: the snapshot resolver reaches the writer --------
+#
+# `open_attended_session`'s own `writer_factory` closure passes `snapshot_resolver`
+# straight through to the `CorpusWriter` it builds; a session opened without the
+# port must refuse a snapshot-arm retraction exactly as a bare `CorpusWriter`
+# does. Reaching that through the real session (not `make_session`'s bypass of
+# `open_attended_session`) needs a registered corpus and a well-formed chain —
+# both, ordinarily, the durable engine's, which is certified-volume-only. The
+# durable seams (`log_seam`, `durable_executor_factory`, `durable_operation_port`)
+# are swapped here for this module's own in-memory doubles so the test stays
+# off the durable path entirely; nothing about the pass-through under test is a
+# durable-engine behaviour.
+def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, profile=WITH_BIOLOGY):
+    """`resolver_for` is handed the adopted corpus's id, since a resolver keyed
+    by it (`StubResolver`) can only be built once the corpus exists."""
+    from beliefs.session import open_attended_session
+    from beliefs.world import WorldConfig
+    from beliefs.world.logmodel import GenesisEntryView, WellFormedView
+
+    root = tmp_path / "corpus"
+    root.mkdir()
+    writer = CorpusWriter(
+        root, DefaultExecutor, authority=FULL, profile=profile,
+        operation_port=OperationRecorder(root, authority=FULL, profile=profile),
+    )
+    writer.adopt_manifest(profile=pins_for(profile))
+
+    genesis = GenesisEntryView(digest="g" * 64, payload=b"", baseline=())
+
+    class _StubLogSeam:
+        def inspect_detached(self, _root):
+            return WellFormedView(genesis=genesis, entries=(genesis,), tip=genesis.digest, pending=())
+
+    def _stub_port(port_root, authority, *, profile):
+        port = RecordingPort(authority, port_root)
+        port.profile = profile
+        return port
+
+    monkeypatch.setattr(session_module, "log_seam", lambda: _StubLogSeam())
+    monkeypatch.setattr(session_module, "durable_executor_factory", lambda: DefaultExecutor)
+    monkeypatch.setattr(session_module, "durable_operation_port", _stub_port)
+
+    config = WorldConfig(tmp_path / "world", WORLD, (root,))
+    resolver = resolver_for(writer.corpus_id)
+    return open_attended_session(config, tmp_path / "ops", profile=profile, snapshot_resolver=resolver)
+
+
+def _session_snapshot_retraction(identity: str, actor: str):
+    return stored.retraction_node(
+        title="t1", target=stored.SnapshotTarget("producer", identity), reason="authored-error",
+        rationale="the snapshot's coverage was too wide", grounds=("verification:v1",),
+        actor=actor, event_token="t1",
+    )
+
+
+def test_attended_sessions_snapshot_resolver_reaches_the_writer(tmp_path, monkeypatch):
+    from test_snapshot_retraction import S, StubResolver
+
+    session = _attended(tmp_path, monkeypatch, resolver_for=lambda corpus_id: StubResolver({S: (corpus_id,)}))
+    scoped = session.scoped(RequiredCapabilities.for_kinds({"retraction"}, {}), "A")
+    session.claim_invocation("A", "mint", DIGEST)
+
+    minted = scoped.retract(_session_snapshot_retraction(S, scoped.actor))
+
+    assert minted.kind == "retraction"
+
+
+def test_attended_session_without_a_snapshot_resolver_refuses_the_arm(tmp_path, monkeypatch):
+    from test_snapshot_retraction import S
+
+    session = _attended(tmp_path, monkeypatch)  # no snapshot_resolver
+    scoped = session.scoped(RequiredCapabilities.for_kinds({"retraction"}, {}), "A")
+    session.claim_invocation("A", "mint", DIGEST)
+
+    with pytest.raises(RetractionTargetUnresolvable, match="reaches none"):
+        scoped.retract(_session_snapshot_retraction(S, scoped.actor))

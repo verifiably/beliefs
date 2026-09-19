@@ -267,7 +267,13 @@ def test_a_retracted_subject_is_reported_and_is_not_a_finding(tmp_path):
     assert (published.packaging_identity, "producer", "retracted") in [(n, k, o.outcome) for n, k, o in audit.receipts]
     verdict = next(v for v in audit.snapshots if v.subject_identity == identity)
     assert verdict.state == "retracted"
-    assert not any(f.ref == identity or f.code.startswith("snapshot") for f in audit.findings if "retract" in f.code)
+    # C8-b's discriminating form (test_snapshot_retraction_acceptance.py): the
+    # earlier `if "retract" in f.code` clause narrowed the generator's domain
+    # before `f.ref == identity` was ever asked, so a finding naming this
+    # identity under a code that does not itself contain "retract" (e.g. a
+    # receipt-retracted finding filed under some other code) would never be
+    # looked at and this assertion would pass regardless.
+    assert [f for f in audit.findings if f.ref == identity or "retract" in f.code] == []
     assert snapshot_state(world, "producer", identity).state == "retracted"
 
 

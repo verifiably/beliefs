@@ -13,12 +13,18 @@ from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_corpus_write import OperationRecorder
 from test_local_standing import retracts
 from test_world_build import ALPHA, BETA
-from test_world_receipts import publish, published_world
+from test_world_receipts import document, publish, published_world, repackage
 
 from beliefs import stored
 from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
 from beliefs.corpus import CorpusWriter, ReadView, _validated_retraction_target, snapshot_standing
-from beliefs.errors import MalformedRecord, RetractionTargetUnresolvable, RetractionUnreadable, ValidationRefused
+from beliefs.errors import (
+    EpochMalformed,
+    MalformedRecord,
+    RetractionTargetUnresolvable,
+    RetractionUnreadable,
+    ValidationRefused,
+)
 from beliefs.world.epoch import RetainedSnapshots
 
 S = "a" * 64
@@ -140,6 +146,26 @@ def broken_counter(target, token: str = "counter"):
     )
 
 
+def stale_counter(target, token: str = "counter"):
+    """A *canonical* counter-retraction whose `resolved` field is wrong rather
+    than its `content_identity` (spec §11.1's second raw-write variant): the
+    `RETRACTS` relation is built from `target.ref` alone (`retraction_node`),
+    so it still names `target.id` and the chain-membership scan still finds
+    this record; only `_resolve_retraction_target`'s `resolved != stored`
+    comparison refuses it."""
+    content_identity = stored.stored_semantic_hash(target)
+    assert content_identity is not None
+    return stored.retraction_node(
+        title=token,
+        target=stored.NodeTarget(target.id, "retraction:" + "0" * 64, content_identity),
+        reason="defective-code",
+        rationale="a counter-retraction naming a resolved field the corpus does not answer",
+        grounds=("verification:v1",),
+        actor=ACTOR,
+        event_token=token,
+    )
+
+
 class TestTheWriteBoundary:
     def test_a_writer_without_the_port_refuses_the_arm(self, tmp_path):
         writer = writer_at(tmp_path / "c")
@@ -204,6 +230,47 @@ class TestRetainedSnapshots:
         with pytest.raises(ValueError):
             RetainedSnapshots(world).retained("weather")
 
+    def test_a_carrier_whose_receipt_names_no_subject_is_skipped_not_raised(self, tmp_path):
+        """A producer receipt with no `subject` lifts as `subject_identity is
+        None` (`_parse_receipt`); `retained` skips it (`continue`) rather than
+        raising, leaving the well-formed carrier's identity as the only entry.
+        """
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA,))
+        receipt = document(published, "producer-receipt.yaml")
+        del receipt["subject"]
+        repackage(world, published, {"producer-receipt.yaml": receipt})
+
+        good_id = published.receipts["producer-receipt.yaml"].subject_identity
+        assert good_id is not None
+        retained = RetainedSnapshots(world).retained("producer")
+        assert dict(retained) == {good_id: (ALPHA,)}
+
+    def test_a_carrier_whose_receipt_names_no_corpus_states_is_skipped_not_raised(self, tmp_path):
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA,))
+        receipt = document(published, "producer-receipt.yaml")
+        del receipt["corpus_states"]
+        repackage(world, published, {"producer-receipt.yaml": receipt})
+
+        good_id = published.receipts["producer-receipt.yaml"].subject_identity
+        assert good_id is not None
+        retained = RetainedSnapshots(world).retained("producer")
+        assert dict(retained) == {good_id: (ALPHA,)}
+
+    def test_the_same_subject_retained_under_two_coverages_is_malformed(self, tmp_path):
+        """A second retained carrier naming the *same* subject digest but a
+        *different* `corpus_states` is exactly the fault `retained`'s comment
+        anticipates: the identity digests the coverage, so one of the two
+        carriers is not what it claims.
+        """
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
+        receipt = document(published, "producer-receipt.yaml")
+        assert len(receipt["corpus_states"]) == 2
+        receipt["corpus_states"] = receipt["corpus_states"][:1]  # narrower coverage, subject digest untouched
+        repackage(world, published, {"producer-receipt.yaml": receipt})
+
+        with pytest.raises(EpochMalformed, match="retained under two coverages"):
+            RetainedSnapshots(world).retained("producer")
+
 
 def corpus_with(tmp_path, *nodes, resolver):
     writer = writer_at(tmp_path, resolver=resolver)
@@ -266,6 +333,24 @@ class TestSnapshotStanding:
         with pytest.raises(RetractionUnreadable) as caught:
             snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
         assert caught.value.ref == broken.id
+
+    def test_a_counter_retraction_whose_resolved_field_no_longer_answers_refuses(self, tmp_path):
+        """Spec §11.1's second raw-write variant: `broken_counter` covers only a
+        wrong `content_identity`; `stale_counter` corrupts `resolved` instead
+        (baked in at construction, so the stamp is self-consistent — the same
+        recipe `broken_counter` uses for `content_identity`), so
+        `_resolve_retraction_target`'s `resolved != target["resolved"]` check is
+        what refuses here, not the content-identity check `broken_counter`
+        exercises. `RETRACTS` still targets `r.id` (`retraction_node` builds
+        that edge from `target.ref` alone), so the chain-membership scan still
+        finds it."""
+        resolver, cid = self._resolver(tmp_path / "c")
+        _writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
+        stale = stale_counter(r)
+        raw_write(tmp_path / "c", stale)
+        with pytest.raises(RetractionUnreadable) as caught:
+            snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
+        assert caught.value.ref == stale.id
 
     def test_a_broken_retraction_outside_every_chain_raises_nothing(self, tmp_path):
         resolver, cid = self._resolver(tmp_path / "c")
