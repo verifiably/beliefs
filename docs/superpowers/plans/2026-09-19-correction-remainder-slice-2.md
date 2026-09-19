@@ -389,49 +389,66 @@ class StubResolver:
 
 
 def writer_at(root: Path, profile=BASE, *, resolver=None) -> CorpusWriter:
-    """A manifest-bearing writer (ReadView.corpus_id reads one)."""
+    """A manifest-bearing writer (ReadView.corpus_id reads one); reopening
+    the same root adopts nothing a second time (ManifestAlreadyPresent)."""
     from authority import FULL
 
     writer = CorpusWriter(
         root, DefaultExecutor, authority=FULL, profile=profile,
         operation_port=OperationRecorder(root, authority=FULL, profile=profile), snapshot_resolver=resolver,
     )
-    writer.adopt_manifest(profile=pins_for(profile))
+    if not (Path(root) / "corpus.yaml").exists():
+        writer.adopt_manifest(profile=pins_for(profile))
     return writer
+
+
+def broken_counter(target, token: str = "counter"):
+    """A *canonical* counter-retraction whose target content identity is wrong:
+    the controlled shape holds (the id is derived from this facet), so only
+    target resolution can refuse it — the recipe slice 1's plan used."""
+    return stored.retraction_node(
+        title=token,
+        target=stored.NodeTarget(target.id, target.id, "0" * 64),
+        reason="defective-code",
+        rationale="a counter-retraction naming the wrong content",
+        grounds=("verification:v1",),
+        actor=ACTOR,
+        event_token=token,
+    )
 
 
 class TestTheWriteBoundary:
     def test_a_writer_without_the_port_refuses_the_arm(self, tmp_path):
         writer = writer_at(tmp_path / "c")
         with pytest.raises(RetractionTargetUnresolvable, match="reaches none"):
-            writer.operations.retract(snapshot_retraction())
+            writer.retract(snapshot_retraction())
 
     def test_an_unretained_identity_refuses(self, tmp_path):
         writer = writer_at(tmp_path / "c", resolver=StubResolver({}))
         with pytest.raises(RetractionTargetUnresolvable, match="no retained epoch carries"):
-            writer.operations.retract(snapshot_retraction())
+            writer.retract(snapshot_retraction())
 
     def test_a_corpus_outside_the_coverage_refuses_naming_it(self, tmp_path):
         writer = writer_at(tmp_path / "c", resolver=StubResolver({S: ("0" * 32,)}))
         with pytest.raises(RetractionTargetUnresolvable, match=f"corpus {writer.corpus_id} is outside the coverage"):
-            writer.operations.retract(snapshot_retraction())
+            writer.retract(snapshot_retraction())
 
     def test_a_successor_must_be_retained_and_not_the_target(self, tmp_path):
         writer = writer_at(tmp_path / "c")
         cid = writer.corpus_id
         writer = writer_at(tmp_path / "c", resolver=StubResolver({S: (cid,)}))
         with pytest.raises(RetractionTargetUnresolvable, match="successor"):
-            writer.operations.retract(snapshot_retraction(successor=S2))
+            writer.retract(snapshot_retraction(successor=S2))
         writer = writer_at(tmp_path / "c", resolver=StubResolver({S: (cid,), S2: (cid,)}))
         with pytest.raises(ValidationRefused, match="not its target"):
-            writer.operations.retract(snapshot_retraction(successor=S))
+            writer.retract(snapshot_retraction(successor=S))
 
     def test_the_happy_path_writes_one_record(self, tmp_path):
         writer = writer_at(tmp_path / "c")
         cid = writer.corpus_id
         writer = writer_at(tmp_path / "c", resolver=StubResolver({S: (cid,), S2: (cid,)}))
         before = len(list(writer.read_view.iter_stored()))
-        minted = writer.operations.retract(snapshot_retraction(successor=S2))
+        minted = writer.retract(snapshot_retraction(successor=S2))
         assert minted.kind == "retraction"
         assert len(list(writer.read_view.iter_stored())) == before + 1
 
@@ -585,11 +602,15 @@ New instance method after it:
                 )
 ```
 
-Call sites. In `retract` (`:2314-2325`), replace the `lookup_ref`/try block with:
+Call sites. In `retract` (`:2314-2337`), the snapshot arm has no target
+record to re-resolve, so both the pre-`_refuse` resolution block **and the
+post-`_refuse` `self._view.get(target_ref)` lookup** are node/route-only.
+Replace from `target = facet["target"]` through `return self._corpus.add(record)` with:
 
 ```python
             target = facet["target"]
-            if target["arm"] == "snapshot":
+            snapshot_arm = target["arm"] == "snapshot"
+            if snapshot_arm:
                 self._resolve_retraction_target(record, self._view)
                 self._resolve_snapshot_target(record, self.corpus_id)
             else:
@@ -607,9 +628,27 @@ Call sites. In `retract` (`:2314-2325`), replace the `lookup_ref`/try block with
                                 "or deletion removed it (world-changing families §3.6)"
                             ) from caught
                     raise
+
+            self._refuse(record, document_validated=True)
+            if not snapshot_arm:
+                try:
+                    self._view.get(target_ref)
+                except RefError as caught:
+                    raise RelocationTargetMissing(
+                        f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
+                        "or deletion removed it (world-changing families §3.6)"
+                    ) from caught
+            return self._corpus.add(record)
 ```
 
-In the import path (`:2733-2738`) add `self._resolve_snapshot_target(record, self.corpus_id)` after `self._resolve_retraction_target(record, union)`, inside the same `try`.
+In the import path (`:2733-2738`), inside the same `try`, after `self._resolve_retraction_target(record, union)`:
+
+```python
+                    if self._validated_retraction(record)["target"]["arm"] == "snapshot":
+                        self._resolve_snapshot_target(record, self.corpus_id)
+```
+
+— guarded, because `self.corpus_id` reads the manifest and a node/route import must not acquire a manifest requirement it does not have today.
 
 Docstrings: `standing_in_local_view` — append "A snapshot-arm retraction is a vertex here: it names no node, and its retained-epoch resolution is the writer's and the world audit's (slice 2 §4)." `corpus_check` (`:1297`) — append "Snapshot-arm retractions are checked for shape and eligibility only; retained-ness needs the world and is `audit_world`'s (slice 2 §7.4)."
 
@@ -654,7 +693,7 @@ from fixtures_cut4 import raw_write
 
 def corpus_with(tmp_path, *nodes, resolver):
     writer = writer_at(tmp_path, resolver=resolver)
-    minted = [writer.operations.retract(n) if n.kind == "retraction" else writer.add(n) for n in nodes]
+    minted = [writer.retract(n) if n.kind == "retraction" else writer.add(n) for n in nodes]
     return writer, minted
 
 
@@ -678,11 +717,11 @@ class TestSnapshotStanding:
     def test_a_counter_retraction_restores_and_the_history_carries_both(self, tmp_path):
         resolver, cid = self._resolver(tmp_path / "c")
         writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
-        c = writer.operations.retract(retracts(r, "counter"))
+        c = writer.retract(retracts(r, "counter"))
         standing = snapshot_standing({cid: writer.read_view})
         assert standing.retracted == frozenset()
         assert standing.history[S] == tuple(sorted([(c.id, RETRACTION_UPHELD), (r.id, RETRACTION_OVERTURNED)]))
-        cc = writer.operations.retract(retracts(c, "counter-counter"))
+        cc = writer.retract(retracts(c, "counter-counter"))
         standing = snapshot_standing({cid: writer.read_view})
         assert standing.retracted == {S}
         assert len(standing.history[S]) == 3 and (cc.id, RETRACTION_UPHELD) in standing.history[S]
@@ -691,7 +730,7 @@ class TestSnapshotStanding:
         a = writer_at(tmp_path / "a"); b = writer_at(tmp_path / "b")
         ra = StubResolver({S: (a.corpus_id,)}); rb = StubResolver({S2: (b.corpus_id,)})
         a = writer_at(tmp_path / "a", resolver=ra); b = writer_at(tmp_path / "b", resolver=rb)
-        a.operations.retract(snapshot_retraction(S)); b.operations.retract(snapshot_retraction(S2, token="t2"))
+        a.retract(snapshot_retraction(S)); b.retract(snapshot_retraction(S2, token="t2"))
         standing = snapshot_standing({a.corpus_id: a.read_view, b.corpus_id: b.read_view})
         assert standing.retracted == {S, S2}
 
@@ -699,16 +738,16 @@ class TestSnapshotStanding:
         from test_local_standing import raw_retraction
 
         writer = writer_at(tmp_path / "c")
-        raw_write(tmp_path / "c", raw_retraction("retraction:raw", "assessment:x"))
+        raw = raw_retraction("retraction:raw", "assessment:x")
+        del raw.facets[stored.RETRACTION_FACET]["grounds"]      # raw_retraction alone is shape-valid; this is not
+        raw_write(tmp_path / "c", raw)
         with pytest.raises(RetractionUnreadable):
             snapshot_standing({writer.corpus_id: ReadView.opened_at(tmp_path / "c")})
 
     def test_a_broken_counter_retraction_refuses_rather_than_restores(self, tmp_path):
         resolver, cid = self._resolver(tmp_path / "c")
         writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
-        broken = retracts(r, "counter")
-        broken.facets[stored.RETRACTION_FACET]["target"]["content_identity"] = "0" * 64
-        stored.stamp_semantic_identity(broken)           # canonical shape, wrong target identity
+        broken = broken_counter(r)                       # canonical shape, wrong target identity
         raw_write(tmp_path / "c", broken)
         with pytest.raises(RetractionUnreadable) as caught:
             snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
@@ -717,17 +756,17 @@ class TestSnapshotStanding:
     def test_a_broken_retraction_outside_every_chain_raises_nothing(self, tmp_path):
         resolver, cid = self._resolver(tmp_path / "c")
         writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
-        unrelated = retracts(r, "elsewhere")
-        unrelated.facets[stored.RETRACTION_FACET]["target"] = {
-            "arm": "node", "ref": "assessment:nobody", "resolved": "assessment:nobody", "content_identity": "0" * 64,
-        }
-        stored.stamp_semantic_identity(unrelated)
+        unrelated = stored.retraction_node(
+            title="elsewhere", target=stored.NodeTarget("assessment:nobody", "assessment:nobody", "0" * 64),
+            reason="defective-code", rationale="names nothing", grounds=("verification:v1",), actor=ACTOR,
+            event_token="elsewhere",
+        )
         raw_write(tmp_path / "c", unrelated)
         standing = snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
         assert standing.retracted == {S}
 ```
 
-The `retracts(r, "counter")` fixture computes the target's content identity from `r`; the broken variants overwrite it and restamp so the controlled-shape check passes and target resolution supplies the refusal (the recipe slice 1's Task 4 used).
+`retracts(r, "counter")` (from `test_local_standing`) is the canonical counter-retraction; `broken_counter(r)` is the canonical one with a wrong content identity — restamping a mutated facet would not do, because the id is content-derived and `_validated_retraction` would refuse the id mismatch before target resolution is reached.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -751,7 +790,9 @@ class SnapshotStanding:
         object.__setattr__(self, "history", MappingProxyType(dict(self.history)))
 
 
-def snapshot_standing(views: Mapping[str, ReadView], subject_kind: str = "producer") -> SnapshotStanding:
+def snapshot_standing(
+    views: Mapping[str, ReadView | _CapturedCheckView], subject_kind: str = "producer"
+) -> SnapshotStanding:
     """Fold snapshot standing live over the corpora a snapshot covers.
 
     Per corpus and then union: a counter-retraction lives beside the
@@ -761,6 +802,11 @@ def snapshot_standing(views: Mapping[str, ReadView], subject_kind: str = "produc
     resolves a ref and nothing else, and a raw-written counter-retraction
     with a wrong content identity would otherwise restore a retracted
     snapshot. Retractions outside every chain fold from their facet alone.
+
+    A caller that must be coherent hands a `_CapturedCheckView` over records
+    it captured under the corpus's hold: a `ReadView` resolves through the
+    index built at its open and enumerates the store as it is now, and the
+    two can disagree after a write.
     """
     from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
 
@@ -823,7 +869,7 @@ def snapshot_standing(views: Mapping[str, ReadView], subject_kind: str = "produc
     )
 ```
 
-`retraction_standing` skips non-node arms as subtractors and answers for every vertex, so `standing[root]` and `standing[ref]` are always present. The import of `RetractionUnreadable` and `ScienceError` already exists in `corpus.py` (used by `local_retraction_enumeration`).
+`retraction_standing` skips non-node arms as subtractors and answers for every vertex, so `standing[root]` and `standing[ref]` are always present; widen its `view` annotation to `ReadView | WorldReadView | _CapturedCheckView` (it calls only `resolve`). `_CapturedCheckView` is defined later in the module than this function — reference it by name in the annotation under `from __future__ import annotations` (already at the top). The import of `RetractionUnreadable` and `ScienceError` already exists in `corpus.py`.
 
 - [ ] **Step 4: Run**
 
@@ -876,12 +922,12 @@ def retracted_world(tmp_path, *, counter=False):
         operation_port=OperationRecorder(roots[ALPHA], authority=FULL, profile=BASE),
         snapshot_resolver=RetainedSnapshots(world),
     )
-    r = writer.operations.retract(snapshot_retraction(identity))
-    c = writer.operations.retract(retracts(r, "counter")) if counter else None
+    r = writer.retract(snapshot_retraction(identity))
+    c = writer.retract(retracts(r, "counter")) if counter else None
     return world, roots, bindings, published, identity, writer, r, c
 ```
 
-(`from authority import FULL` at the module top.) If `sample_nodes` corpora carry a profile that refuses `retract` for the actor, use `writer_at`'s manifest-adopting shape over the same root instead — the requirement is a writer over `roots[ALPHA]` holding the port.
+(`from authority import FULL` at the module top.) `CorpusWriter.retract` returns the minted `Node`; `writer.operations.retract` returns an `OperationCommit` whose `.record` is the node — the tests use the former. If `sample_nodes` corpora refuse `retract` for the actor, use `writer_at` over the same root — the requirement is a writer over `roots[ALPHA]` holding the port.
 
 - [ ] **Step 2: The failing tests**
 
@@ -925,12 +971,9 @@ def test_a_counter_retraction_leaves_the_subject_unchecked_not_retracted(tmp_pat
 
 def test_an_unreadable_chain_is_an_unresolvable_outcome_and_a_finding_and_the_reports_return(tmp_path):
     from fixtures_cut4 import raw_write
-    from test_local_standing import retracts
-    from beliefs import stored
+    from test_snapshot_retraction import broken_counter
     world, roots, _b, published, identity, _w, r, _c = retracted_world(tmp_path)
-    broken = retracts(r, "counter")
-    broken.facets[stored.RETRACTION_FACET]["target"]["content_identity"] = "0" * 64
-    stored.stamp_semantic_identity(broken)
+    broken = broken_counter(r)
     raw_write(roots[ALPHA], broken)
     audit = audit_epochs(world)
     assert [f.code for f in audit.findings if f.ref == broken.id] == ["retraction-unreadable"]
@@ -957,12 +1000,9 @@ def test_a_retracted_producer_subject_refuses_before_any_write(tmp_path):
 
 def test_an_unreadable_standing_refuses_before_any_write(tmp_path):
     from fixtures_cut4 import raw_write
-    from test_local_standing import retracts
-    from beliefs import stored
+    from test_snapshot_retraction import broken_counter
     world, roots, _b, published, _i, _w, r, _c = retracted_world(tmp_path)
-    broken = retracts(r, "counter")
-    broken.facets[stored.RETRACTION_FACET]["target"]["content_identity"] = "0" * 64
-    stored.stamp_semantic_identity(broken)
+    broken = broken_counter(r)
     raw_write(roots[ALPHA], broken)
     replica = world_over(tmp_path, roots, name="replica"); hold_shipped(replica)
     with pytest.raises(EpochImportRefused) as caught:
@@ -986,6 +1026,25 @@ def test_a_raw_written_snapshot_retraction_naming_nothing_retained_is_reported_f
     report = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
     assert ("retraction-target-invalid", node.id) in [(f.code, f.ref) for f in report.findings]
     assert not [f for f in corpus_check(ReadView.opened_at(roots[ALPHA]), BASE) if f.ref == node.id]
+```
+
+Also in `test_world_audit.py`:
+
+```python
+def test_an_unreadable_retained_inventory_is_a_finding_and_the_audit_returns(tmp_path):
+    from fixtures_cut4 import raw_write
+    from test_snapshot_retraction import S, snapshot_retraction
+    from test_world_receipts import published_world
+    from beliefs.audit import NO_EVIDENCE, audit_world
+    world, _b, roots, published = published_world(tmp_path, (ALPHA,))
+    (world.config.world_root / "epochs" / "stray").write_text("not a carrier", encoding="utf-8")
+    clean = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)      # no snapshot arm: no new finding
+    assert "retained-epochs-unreadable" not in [f.code for f in clean.findings]
+    node = snapshot_retraction(S)
+    raw_write(roots[ALPHA], node)
+    report = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+    codes_ = [f.code for f in report.findings]
+    assert "retained-epochs-unreadable" in codes_ and ("retraction-target-invalid", node.id) not in [(f.code, f.ref) for f in report.findings]
 ```
 
 Use this module's existing `codes`/`inventory` helpers and `WorldAudit`'s findings attribute name as they are (`grep -n "findings" python/tests/test_world_audit.py | head`).
@@ -1013,21 +1072,19 @@ New functions:
 def _snapshot_standing(world: registry.World, receipt: epoch._ReceiptCarrier) -> derive.ReceiptOutcome | None:
     """Slice 2 §7.1: the producer subject's live standing, decided before availability.
 
-    Every named corpus is opened live and folded **inside its own capture
-    hold** — `ReadView.iter_stored` reads the store lazily, so a fold after the
-    hold would read outside it — and the per-corpus answers are unioned, which
-    is the fold's own rule. The world lock is never held here. An absent or
-    unreadable corpus returns ``None`` so the availability phase reports it in
-    its own words. `RetractionUnreadable` propagates, as `CaptureDrift` does: a
-    raw-written retraction the write boundary would have refused leaves no
-    coherent standing to report on.
+    Every named corpus is captured under its own hold — state, records,
+    state again, `CaptureDrift` if they differ, exactly `_standing`'s
+    discipline — and the fold runs outside every lock over those captured
+    records through `_CapturedCheckView`, whose resolution and enumeration
+    are the same capture. The world lock is never held here. An absent or
+    unreadable corpus returns ``None`` so the availability phase reports it
+    in its own words. `RetractionUnreadable` propagates, as `CaptureDrift`
+    does: a raw-written retraction the write boundary would have refused
+    leaves no coherent standing to report on.
     """
-    from beliefs.corpus import snapshot_standing
+    from beliefs.corpus import _CapturedCheckView, snapshot_standing
 
-    identity = cast(str, receipt.subject_identity)
-    retracted: set[str] = set()
-    upheld: list[str] = []
-    named: list[str] = []
+    captured: dict[str, _CapturedCheckView] = {}
     for corpus_id, _state in cast(Sequence[tuple[str, str]], receipt.corpus_states):
         try:
             carriers = registry._carrier_roots(world.config, corpus_id)
@@ -1037,20 +1094,28 @@ def _snapshot_standing(world: registry.World, receipt: epoch._ReceiptCarrier) ->
             return None
         with _operation_lock_for(carriers[0]).capture():
             try:
+                before = registry.corpus_state_identity(carriers[0])
                 view = ReadView.opened_at(carriers[0])
                 view._require_base_pin()
+                records = tuple(view.iter_stored())
+                after = registry.corpus_state_identity(carriers[0])
             except (CorpusStateMalformed, ContractMismatch):
                 return None
-            partial = snapshot_standing({corpus_id: view}, derive.BELIEF_INPUT_KIND)
-        named.append(corpus_id)
-        retracted |= partial.retracted
-        upheld.extend(ref for ref, resolution in partial.history.get(identity, ()) if resolution == "upheld")
-    if identity not in retracted:
+        if before != after:
+            raise CaptureDrift(
+                f"{corpus_id}: {carriers[0]}: the corpus state moved inside a standing hold "
+                f"({before} -> {after}); no standing is reported from a corpus that did not hold still"
+            )
+        captured[corpus_id] = _CapturedCheckView(records)
+    standing = snapshot_standing(captured, derive.BELIEF_INPUT_KIND)
+    identity = cast(str, receipt.subject_identity)
+    if identity not in standing.retracted:
         return None
+    upheld = sorted(ref for ref, resolution in standing.history[identity] if resolution == "upheld")
     return derive.ReceiptOutcome(
         derive.BELIEF_INPUT_KIND,
         "retracted",
-        f"retraction(s) {', '.join(sorted(upheld))} in {', '.join(sorted(named))} stand against this subject",
+        f"retraction(s) {', '.join(upheld)} in {', '.join(sorted(captured))} stand against this subject",
     )
 
 
@@ -1075,7 +1140,7 @@ def reported_receipt(
         )
 ```
 
-Imports: `Finding` from `beliefs.corpus` (already imported there? `read.py:90` imports `ReadView, _operation_lock_for` — add `Finding`), `CorpusStateMalformed`, `ContractMismatch`, `ManifestMalformed`, `RetractionUnreadable` from `beliefs.errors`. Add `"reported_receipt"` to `__all__` (`:122` region) and to `world/__init__.py`'s re-exports beside `validate_receipt`.
+Imports: `Finding` from `beliefs.corpus` (`read.py:90` imports `ReadView, _operation_lock_for` — add `Finding`), `CorpusStateMalformed`, `ContractMismatch`, `ManifestMalformed`, `RetractionUnreadable` from `beliefs.errors`; `CaptureDrift` is already imported for `_standing`. Add `"reported_receipt"` to `__all__` (`:122` region) and to `world/__init__.py`'s re-exports beside `validate_receipt`.
 
 - [ ] **Step 5: Import**
 
@@ -1124,11 +1189,11 @@ Imports: `Finding` from `beliefs.corpus` (already imported there? `read.py:90` i
 `audit.py::_world_findings` (`:777`): `outcome, unreadable = reported_receipt(world, published, kind)` and append `unreadable` when not `None` (import `reported_receipt` beside `validate_receipt`; drop `validate_receipt` from the import if unused). Then, before the receipt loop, the snapshot-arm resolution (§7.4):
 
 ```python
-    from beliefs.corpus import CorpusWriter, _validated_retraction_target
+    from beliefs.corpus import _validated_retraction_target
+    from beliefs.errors import EpochMalformed
     from beliefs.world.epoch import RetainedSnapshots
 
-    resolver = RetainedSnapshots(world)
-    retained = resolver.retained("producer")
+    snapshot_arms: list[tuple[str, Node]] = []
     for corpus_id, _state in published.coverage:
         if corpus_id in view.absent() or corpus_id in excluded:
             continue
@@ -1139,9 +1204,28 @@ Imports: `Finding` from `beliefs.corpus` (already imported there? `read.py:90` i
                 target = _validated_retraction_target(node)
             except ScienceError:
                 continue  # shape faults are corpus_check's
-            if target["arm"] != "snapshot":
-                continue
-            faults = []
+            if target["arm"] == "snapshot":
+                snapshot_arms.append((corpus_id, node))
+    retained: Mapping[str, tuple[str, ...]] | None = None
+    if snapshot_arms:  # the retained inventory is read only when something names it
+        try:
+            retained = RetainedSnapshots(world).retained("producer")
+        except EpochMalformed as caught:
+            findings.append(
+                Finding(
+                    "error",
+                    "retained-epochs-unreadable",
+                    published.packaging_identity,
+                    str(caught),
+                    f"{published.packaging_identity}: the retained epochs do not read whole, so "
+                    f"{len(snapshot_arms)} snapshot-arm retraction(s) cannot be resolved here: {caught}",
+                )
+            )
+    for corpus_id, node in snapshot_arms:
+        if retained is None:
+            break
+        target = _validated_retraction_target(node)
+        faults = []
             if target["subject_identity"] not in retained:
                 faults.append(f"no retained epoch carries producer snapshot {target['subject_identity']}")
             elif corpus_id not in retained[target["subject_identity"]]:
@@ -1149,9 +1233,11 @@ Imports: `Finding` from `beliefs.corpus` (already imported there? `read.py:90` i
             successor = node.facets[stored.RETRACTION_FACET].get("successor")
             if successor is not None and successor not in retained:
                 faults.append(f"successor {successor} is not a retained producer snapshot")
-            for fault in faults:
-                findings.append(Finding("error", "retraction-target-invalid", node.id, "target", f"{node.id}: {fault}"))
+        for fault in faults:
+            findings.append(Finding("error", "retraction-target-invalid", node.id, "target", f"{node.id}: {fault}"))
 ```
+
+(De-indent the `if target["subject_identity"] not in retained` … `successor` block one level to sit in this loop.) The world audit already returns a report over a world whose `epochs/` holds a stray entry (`audit_epochs`'s `_retained` collects unreadable carriers as findings); this keeps that true.
 
 - [ ] **Step 7: Run; the rule-identity check**
 
@@ -1176,14 +1262,14 @@ git commit -m "feat(correction): a retracted producer snapshot is refused at imp
 
 **Interfaces:**
 - Consumes: `snapshot_standing`, `SnapshotStanding` (Task 3); `ProducerSnapshotRetracted` (Task 1).
-- Produces: `WorldReadView.snapshot_standing() -> SnapshotStanding`; `gather`'s refusals and the history in `EvaluationInputs.retractions.found`. Task 7 consumes.
+- Produces: `WorldReadView.snapshot_standing() -> SnapshotStanding` (computed at open); `gather`'s refusals and the history in `EvaluationInputs.retractions.found`. Task 7 consumes.
 
 - [ ] **Step 1: The failing tests**
 
 Append to `test_world_standing.py` (its helpers `writer_at`, `evaluation`, `split_evaluation_world`, `world_kwargs`, `make_absent` are at the top):
 
 ```python
-from test_snapshot_retraction import snapshot_retraction
+from test_snapshot_retraction import broken_counter, snapshot_retraction
 from test_local_standing import retracts as counter_of
 from beliefs.closure import RETRACTION_OVERTURNED
 from beliefs.errors import CorpusDamaged, ProducerSnapshotRetracted, RetractionUnreadable
@@ -1194,7 +1280,7 @@ def _retract_snapshot(world, roots, published, profile, *, corpus=ALPHA):
     identity = published.receipts["producer-receipt.yaml"].subject_identity
     writer = writer_at(roots[corpus], profile)
     writer._snapshot_resolver = RetainedSnapshots(world)   # writer_at has no port parameter; bind it
-    return identity, writer, writer.operations.retract(snapshot_retraction(identity))
+    return identity, writer, writer.retract(snapshot_retraction(identity))
 
 
 class TestTheSnapshotTarget:
@@ -1210,7 +1296,7 @@ class TestTheSnapshotTarget:
         profile = profile_with()
         _view, baseline, _answer = evaluation(world, published, profile)
         _identity, writer, r = _retract_snapshot(world, roots, published, profile)
-        c = writer.operations.retract(counter_of(r, "counter"))
+        c = writer.retract(counter_of(r, "counter"))
         view, inputs, _answer = evaluation(world, published, profile)
         assert (r.id, RETRACTION_OVERTURNED) in inputs.retractions.found and (c.id, RETRACTION_UPHELD) in inputs.retractions.found
         assert ("retraction", r.id) in inputs.read_trace and ("retraction", c.id) in inputs.read_trace
@@ -1232,7 +1318,7 @@ class TestTheSnapshotTarget:
         from test_world_view import damage
         world, roots, published = split_evaluation_world(tmp_path)
         profile = profile_with()
-        damage(roots[BETA], "construction")
+        damage(roots[BETA], "parse-error")
         view = open_world_view(world, published, on_damage="report")
         kwargs = world_kwargs(view, profile)
         with pytest.raises(CorpusDamaged) as caught:
@@ -1249,7 +1335,7 @@ class TestTheSnapshotTarget:
         assert rebuilt.receipts["producer-receipt.yaml"].subject_identity == identity
         with pytest.raises(ProducerSnapshotRetracted):
             evaluation(world, rebuilt, profile)
-        writer.operations.retract(counter_of(r, "counter"))
+        writer.retract(counter_of(r, "counter"))
         rebuilt2 = publish(world, (ALPHA, BETA), hold_shipped(world))
         _v, over_rebuilt, _a = evaluation(world, rebuilt2, profile)
         _v, over_old, _a = evaluation(world, published, profile)
@@ -1263,7 +1349,7 @@ class TestTheSnapshotTarget:
         narrow = publish(world, (ALPHA,), hold_shipped(world))          # a different identity
         old_identity = narrow.receipts["producer-receipt.yaml"].subject_identity
         writer = writer_at(roots[ALPHA], profile); writer._snapshot_resolver = RetainedSnapshots(world)
-        writer.operations.retract(snapshot_retraction(old_identity))
+        writer.retract(snapshot_retraction(old_identity))
         later = publish(world, (ALPHA, BETA), hold_shipped(world))       # captures that retraction
         _v, inputs, _a = evaluation(world, later, profile)
         assert inputs.retractions.found == baseline.retractions.found
@@ -1273,9 +1359,7 @@ class TestTheSnapshotTarget:
         world, roots, published = split_evaluation_world(tmp_path)
         profile = profile_with()
         _identity, _writer, r = _retract_snapshot(world, roots, published, profile)
-        broken = counter_of(r, "counter")
-        broken.facets[stored.RETRACTION_FACET]["target"]["content_identity"] = "0" * 64
-        stored.stamp_semantic_identity(broken)
+        broken = broken_counter(r)
         raw_write(roots[ALPHA], broken)
         with pytest.raises(RetractionUnreadable) as caught:
             evaluation(world, published, profile)
@@ -1290,18 +1374,30 @@ class TestTheSnapshotTarget:
 
 - [ ] **Step 3: The view**
 
-`view.py`: add field `_snapshot_standing: SnapshotStanding | None` (import `SnapshotStanding, snapshot_standing` from `beliefs.corpus`), set `view._snapshot_standing = None` in `_opened`, and after `producer_snapshot_identity`:
+`view.py`: add fields `_captured_views: Mapping[str, _CapturedCheckView]` and `_snapshot_standing: SnapshotStanding | None` (import `SnapshotStanding, _CapturedCheckView, snapshot_standing` from `beliefs.corpus`) and a `captured_views` keyword on `_opened`; set `view._snapshot_standing = None` there. In `open_world_view`, after the per-corpus capture loop — the records in `all_captured[corpus_id]` for every `corpus_id in live` were enumerated inside that corpus's hold with the drift check, so a view over them is the same coherent capture:
+
+```python
+    captured_views = {corpus_id: _CapturedCheckView(all_captured[corpus_id]) for corpus_id in live}
+```
+
+passed as `captured_views=captured_views`. Damaged corpora are not in `live` (decision 7 refuses them in `gather`). The method folds on first call and caches:
 
 ```python
     def snapshot_standing(self) -> SnapshotStanding:
-        """The live fold over the present covered corpora (slice 2 §8). Reads
-        through the corpus views, not the epoch's address map: a post-build
-        record has no epoch address, and `resolve` would answer None for a
-        counter-retraction's target and break the fold."""
+        """The live fold over the present covered corpora, over the same
+        captured records this view serves (slice 2 §8) — never over `_live`:
+        a `ReadView` resolves through the index built at its open and
+        enumerates the store as it is now, and the two disagree after a
+        write; never through the epoch's address map: a post-build record
+        has no epoch address. Folded on the first read, not at the open, so
+        a report-mode reader that never asks (`audit_world`) is not refused
+        by a raw-written chain member; `gather` asks, and is."""
         if self._snapshot_standing is None:
-            self._snapshot_standing = snapshot_standing(self._live)
+            self._snapshot_standing = snapshot_standing(self._captured_views)
         return self._snapshot_standing
 ```
+
+`RetractionUnreadable` therefore surfaces from `gather` (Task 5's `test_a_broken_counter_retraction_refuses_the_read` asserts it through `evaluation(...)`) and never from `open_world_view`, so `audit_world`'s report-mode open is untouched (BI-8's "the reports return").
 
 - [ ] **Step 4: `gather`**
 
@@ -1419,7 +1515,7 @@ One test per unit over the durable world (`test_world_view_acceptance.durable_wo
 - `test_c8c_the_query_reports_retracted_and_the_successor_unchecked` — build `new` under `(ALPHA,)`; assert `snapshot_state(new) == "checked"` **before** the retraction; retract old with `successor=new`; assert old `retracted`, new `unchecked` with the receipt `unresolvable` and "no longer stands at the state" in its detail.
 - `test_c8d_mounting_writes_nothing_and_validates_nothing` — a fresh corpus root holding a snapshot-arm retraction (raw-written, since it is unmounted) and the ALPHA root a retracted snapshot covers: `monkeypatch.setattr(read, "validate_receipt", counting)`; `world.admit(root, provenance=...)` for each (use the provenance `test_world_receipts.world_over` uses — `grep -n "provenance=" python/tests/test_world_receipts.py`); `inventory(world_root / "epochs")` byte-identical, `counting.calls == 0`.
 - `test_c9a_a_computation_bound_to_the_old_snapshot_refuses` — Task 5's first test over the durable world with the narrowing route.
-- `test_c9b_bound_to_the_new_snapshot_proceeds_and_the_digest_moves` — `gather` over `open_world_view(world, new)` with `S'`; `inputs.closure()["producer_snapshot"] == S'`; `answer.belief_input_digest != pre-narrowing digest over old` (gather old *before* retracting).
+- `test_c9b_bound_to_the_new_snapshot_proceeds_and_the_digest_moves` — `gather` over `open_world_view(world, new)` with `S'`; `inputs.closure().projection["producer_snapshot"] == S'`; `answer.belief_input_digest != pre-narrowing digest over old` (gather old *before* retracting).
 - `test_c9c_the_old_epoch_is_byte_unchanged` — `read.open_epoch(world, old.packaging_identity).members == old.members` and each `receipts[m].document` equal before and after; the retracted carrier's directory inventory identical.
 - `test_c9d_nothing_resolves_through_the_retraction_to_its_successor` — the two `ProducerSnapshotMismatch` negatives of spec §9 step 4.
 - `test_bi1_a_snapshot_retraction_outside_the_targets_coverage_is_refused_at_authoring` — narrow `new` covers ALPHA only; a writer over BETA with the port refuses `RetractionTargetUnresolvable` naming BETA when retracting `S'`; the same retraction through ALPHA's writer is admitted.
@@ -1454,9 +1550,9 @@ One test per unit over the durable world (`test_world_view_acceptance.durable_wo
 | BI-6 | `audit.py` | `        for node in view.captured_records(corpus_id):      # unmapped post-build records included (§7.4)` | `        for node in ():` |
 | BI-7 | `evaluation.py` | `        found=tuple(sorted({*((ref, recorded) for ref, recorded in enumeration.found if ref in taken), *history})),` | `        found=tuple(sorted((ref, recorded) for ref, recorded in enumeration.found if ref in taken)),` |
 | BI-8 | `corpus.py` | `                CorpusWriter._resolve_retraction_target(nodes[ref], view)\n            except ScienceError as caught:\n                raise RetractionUnreadable(ref, str(caught)) from caught` | `                pass\n            except ScienceError as caught:\n                raise RetractionUnreadable(ref, str(caught)) from caught` |
-| BI-9 | `evaluation.py` | the same `key = ...` line as BI-5 | `key = f"producer-snapshot:{target['subject_identity']}" ...` **and** `scope` gains `f"producer-snapshot:{bound}"` — distinct from BI-5's `after` (which adds every retained identity); BI-9's check is the rebuilt epoch's duplicated pair |
+| BI-9 | `evaluation.py` | `        history = snapshot_standing.history.get(bound, ())` | `        history = () if any(ref in {r for r, _ in snapshot_standing.history.get(bound, ())} for ref, _ in view.retraction_enumeration().found) else snapshot_standing.history.get(bound, ())` — "prefer the captured enumeration over the live fold": on the rebuilt epoch (which captured the pair) the history is dropped and `found` no longer equals `old`'s; on `old` nothing changes. A duplicate-producing sabotage cannot fail BI-9 because `scoped.found` is assembled as a set |
 
-Every `before` must occur exactly once in its module and the mutated module must `ast.parse`; where a `before` collides with another arm's (BI-5 and BI-9 share a line), widen one of them with its preceding line so each is unique. `python/tests/acceptance/n2_arms_cut34.py` re-exports the five names.
+Every `before` must occur exactly once in its module and the mutated module must `ast.parse`; no two arms share a `before`. `python/tests/acceptance/n2_arms_cut34.py` re-exports the five names.
 
 - [ ] **Step 3: The guard and the runner**
 
@@ -1512,7 +1608,7 @@ git commit -m "docs(cut): discharge conformance cut 34; correction-remainder sli
 
 **Spec coverage.** Decision 1 → Tasks 3, 4 (`_snapshot_standing` before availability; the per-corpus fold), 5; decision 2 → Task 1 (`SNAPSHOT_SUBJECT_KINDS`, both validators); decision 3 → Task 2 (`_resolve_snapshot_target`'s coverage clause; the port); decision 4 → Task 4 (the phase's position; `retracted` producer-only); decision 5 → Task 4 (`_reduce`, no finding); decision 6 → Task 5 (`ProducerSnapshotRetracted`); decision 7 → Task 5 (damage refuses, absence answers) and Task 4 (fall-through to availability); decision 8 → Tasks 3 (history chains), 5 (the four sites, `scoped`); decision 9 → Task 1 (no edges; successor text) and Task 2 (successor checks); decision 10 → Task 8 (the dated notes); decision 11 → Tasks 1 (`_retraction_target`), 4 Step 7, 6. §3 → Task 1; §4 → Task 2; §5 → Task 3; §6 → Task 1; §7.1–7.3 → Task 4; §7.4 → Task 4 Step 6; §8 → Task 5; §9, §10 → Task 7 (C9, C8-d); §11.1 → Tasks 1–5; §11.2–11.4 → Task 7; §11.5 → Task 5 (the pinned line) and Task 7 Step 2; §12 → the file map and Task 1 Step 6; §13 → Task 6; §14 → Task 8; §15, §16 → Tasks 0, 8.
 
-**Planning correction, recorded in spec §17.** Spec §7.1 says the views are collected, each hold released, and the fold run "outside every lock". `ReadView.iter_stored` reads the store lazily (`corpus.py:340`), so that fold would read outside the hold; Task 4 folds each corpus inside its own capture hold and unions the per-corpus answers — the fold's own per-corpus-then-union rule — and still holds the world lock nowhere. The same holds for `WorldReadView.snapshot_standing()` (Task 5): `_live` views are read after the open's holds are released, exactly as every other live read through `corpus_view` is today; the view's drift discipline (a state change under a later read is that read's `CaptureDrift`, not this fold's) is unchanged.
+**Planning corrections, recorded in spec §17.** (a) Spec §7.1 said the views are collected, each hold released, and the fold run outside every lock. `ReadView.iter_stored` reads the store lazily while `ReadView.resolve` reads the index built at open (`corpus.py:267-340`), so a fold over released `ReadView`s could enumerate records its resolver does not know. Task 4 captures each corpus's records under its own hold with `_standing`'s before/after state comparison (`CaptureDrift` on a move) and folds outside every lock over `_CapturedCheckView`s of those records; Task 5 computes the view's standing at `open_world_view` over the records the open captured, in the same coherent capture, rather than lazily over `_live`. (b) Spec §7.4 had `audit_world` read the retained inventory unconditionally; `RetainedSnapshots.retained` raises `EpochMalformed` on an unreadable carrier where today's audit returns a report, so Task 4 reads it only when a snapshot-arm retraction is present and reports an unreadable inventory as `retained-epochs-unreadable` instead of raising.
 
 **Placeholder scan.** the step ids are filed and named in Task 0 Step 3; `<git log -1 …>` and "read it at freeze" in Task 7 name values read from the tree at that step, as slice 1's plan did. Task 2 Step 1's `seeded_view_and_target` names a helper to be read from `test_local_standing.py` — the assertion is fixed, the helper name is not.
 

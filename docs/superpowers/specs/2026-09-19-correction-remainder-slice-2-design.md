@@ -438,12 +438,15 @@ if standing is not None:
 `_snapshot_standing` opens each named corpus live: `registry._carrier_roots`
 as the availability phase does (a malformed manifest or a carrier count
 other than one → `None`, falling through to availability, which reports it
-in its own words); under `_operation_lock_for(carrier).capture()`,
-`ReadView.opened_at(carrier)` with `_require_base_pin()`
+in its own words); under `_operation_lock_for(carrier).capture()`, the
+state, then `ReadView.opened_at(carrier)` with `_require_base_pin()`
 (`CorpusStateMalformed` or `ContractMismatch` → `None`, same fall-through;
-an unreadable corpus cannot say what it holds); the views are collected, the
-hold released per corpus, and `snapshot_standing(views).retracted` folded outside
-every lock. `RetractionUnreadable` from the fold **propagates** out of
+an unreadable corpus cannot say what it holds), the records enumerated,
+the state again — `CaptureDrift` if it moved, `_standing`'s own discipline;
+the captured records are wrapped in `_CapturedCheckView` (whose resolver
+and enumeration are one capture — a `ReadView` resolves through the index
+built at its open and enumerates the store as it is now) and
+`snapshot_standing(captured).retracted` is folded outside every lock. `RetractionUnreadable` from the fold **propagates** out of
 `validate_receipt`, as `CaptureDrift` does today: a raw-written retraction
 the write boundary would have refused is a raw edit, and there is no
 coherent standing to report an outcome on. The alternative — `unresolvable`
@@ -512,12 +515,17 @@ reduction reads the substituted outcome as it reads any `unresolvable`.
 ### 7.4 `audit_world` — the raw-write disposition
 
 `corpus_check` cannot resolve a snapshot arm (§4). `audit_world`, which
-has the world, resolves every snapshot-arm retraction in
+has the world, resolves every snapshot-arm retraction it finds in
 `view.captured_records(corpus_id)` for every present covered corpus —
 **not** `view.iter_stored()`, which yields the epoch-mapped records only
 and would miss exactly the post-build raw write this check exists for
 (the corpus-level checks there already read `captured_records` through
-`_CapturedCheckView`) — through `RetainedSnapshots(world)`: an identity no retained epoch carries, or a
+`_CapturedCheckView`) — through `RetainedSnapshots(world)`, read **only
+when at least one such retraction is present**, and an inventory that does
+not read whole (`EpochMalformed`) is one `error` finding
+`retained-epochs-unreadable` on the epoch, not an exception: the audit
+returns a report over a stray entry in `epochs/` today and keeps doing so.
+Per retraction: an identity no retained epoch carries, or a
 writing corpus outside the identity's coverage, or a `successor` that is
 not retained, is reported as `retraction-target-invalid` with the writer's
 own message — the disposition correction-lifecycle §3 gives a raw-written
@@ -533,14 +541,19 @@ retained-ness, and its docstring says why.
 def snapshot_standing(self) -> SnapshotStanding
 ```
 
-— `corpus.snapshot_standing(self._live)` computed once and cached on the
-view. `_live` holds the present, readable covered corpora's `ReadView`s
-opened at `open_world_view` under each corpus's capture hold; the records a
-post-epoch retraction lives in are the "unmapped" ones `DriftReport` names,
-and the open reports rather than refuses that drift, so the fold sees them.
-The fold reads through the corpus views, not through the epoch's address
-map: an unmapped record has no epoch address, and `WorldReadView.resolve`
-would answer `None` for a counter-retraction's target and break the fold.
+— folded on the first call and cached, over the records `open_world_view`
+captured for each present, readable covered corpus inside that corpus's
+hold (`_CapturedCheckView(all_captured[corpus_id])`, carried on the view).
+The records a post-epoch retraction lives in are the "unmapped" ones
+`DriftReport` names, and the open reports rather than refuses that drift,
+so the fold sees them. Not over `_live` — a `ReadView` resolves through
+the index built at its open and enumerates the store as it is now, and the
+two disagree after a write — and not through the epoch's address map: an
+unmapped record has no epoch address, and `WorldReadView.resolve` would
+answer `None` for a counter-retraction's target and break the fold. On
+first call rather than at the open so that `RetractionUnreadable`
+surfaces from `gather`, which asks, and never from `audit_world`'s
+report-mode open, which does not (§7.3: the reports return).
 
 `gather`, in the `if world:` block after the mismatch check, with `absent`
 declared before it:
@@ -958,7 +971,12 @@ that retirement would change") is read at the cut and closed or re-noted.
   its report.
 - 2026-09-19 — approved for implementation planning at `435e254`; the
   §7.3 grep instruction corrected (import keeps its direct call).
-- 2026-09-19 — planning correction to §7.1: `ReadView.iter_stored` reads
-  the store lazily, so the fold runs per corpus **inside** that corpus's
-  capture hold and the answers are unioned (the fold's own rule); the
-  world lock is still never held across it.
+- 2026-09-19 — plan review, six findings, all confirmed; three reach this
+  document. §7.1: `ReadView.iter_stored` reads the store while `resolve`
+  reads the index built at open, so each corpus is captured under its hold
+  with the before/after state comparison and the fold runs outside every
+  lock over `_CapturedCheckView`s of the captured records. §8: the view's
+  standing is folded on first call over the open's own captured records,
+  not over `_live`, so the audit's report-mode open is never refused by it. §7.4: the retained inventory is read only when a
+  snapshot-arm retraction is present, and an unreadable inventory is the
+  finding `retained-epochs-unreadable`, never an exception out of the audit.
