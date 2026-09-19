@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: design/correction-remainder
 created: 2026-09-19T13:18:54Z
-updated: 2026-09-19T15:16:00Z
+updated: 2026-09-19T15:30:28Z
 started: 2026-09-19T14:48:03Z
 completed: 2026-09-19T15:16:00Z
 depends: []
@@ -28,3 +28,4 @@ step: "Task 4: The recomputation sites — `validate_receipt`, import, the audit
   provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-19T15:16:00Z (design/correction-remainder): retracted before availability; import refuses retracted-snapshot and unreadable-standing; reports return through reported_receipt; audit_world resolves the arm over captured_records
   provenance: {"harness_session":"claude-code:5746c255-b5ab-4ad7-b0a0-9cc8c5ba320f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T15:30:28Z (design/correction-remainder): re-targeted cut16/18/27/33 arms moved by the retract rewrite and validate_receipt/import_epoch; READ_ONLY gains snapshot_standing's set receivers

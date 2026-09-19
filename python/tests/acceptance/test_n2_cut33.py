@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -43,6 +44,50 @@ from n2_arms_cut33 import CO_CITED, CUT33_ARMS, DECLARATION_UNITS, UNIT_CHECKS, 
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+# Correction remainder slice 2, 2026-09-19: retract's write boundary now
+# branches on snapshot_arm before the post-refuse re-resolution and the final
+# write; the pinned guard/return moved under `if not snapshot_arm:` (BI-1,
+# BI-2, commit 6090cf4). C7-c still asserts that retraction writes one record
+# without rewriting its dataset basis; the sabotage still inserts a route-arm
+# basis rewrite immediately before the final write.
+_LIVE_SABOTAGES = {
+    "C7-c": Sabotage(
+        module="corpus.py",
+        before=(
+            "            self._refuse(record, document_validated=True)\n"
+            "            if not snapshot_arm:\n"
+            "                try:\n"
+            "                    self._view.get(target_ref)\n"
+            "                except RefError as caught:\n"
+            "                    raise RelocationTargetMissing(\n"
+            '                        f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "\n'
+            '                        "or deletion removed it (world-changing families §3.6)"\n'
+            "                    ) from caught\n"
+            "            return self._corpus.add(record)\n"
+        ),
+        after=(
+            "            self._refuse(record, document_validated=True)\n"
+            "            if not snapshot_arm:\n"
+            "                try:\n"
+            "                    self._view.get(target_ref)\n"
+            "                except RefError as caught:\n"
+            "                    raise RelocationTargetMissing(\n"
+            '                        f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "\n'
+            '                        "or deletion removed it (world-changing families §3.6)"\n'
+            "                    ) from caught\n"
+            '            if target["arm"] == "route":\n'
+            "                rewritten = self._view.get(target_ref).model_copy(deep=True)\n"
+            "                basis = rewritten.facets[stored.LINEAGE_BASIS_FACET]\n"
+            '                basis["routes"] = [route for route in basis["routes"] if route.get("identity") != target["route_identity"]]\n'
+            "                self._corpus.add(stored.stamp_semantic_identity(rewritten))\n"
+            "            return self._corpus.add(record)\n"
+        ),
+    ),
+}
+CUT33_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT33_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

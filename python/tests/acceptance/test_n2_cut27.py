@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -37,6 +38,83 @@ from n2_arms_cut27 import CO_CITED, CUT27_ARMS, DECLARATION_UNITS, UNIT_CHECKS, 
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+# Correction remainder slice 2, 2026-09-19: `validate_receipt` gains a
+# producer-snapshot standing check between the malformed-fault decision and
+# the rule/corpus availability lookup (commit 848a24a). W8a-a still asserts
+# that malformedness is decided before rule or corpus availability; the
+# sabotage still moves the fault decision past the availability lookup, now
+# around the new standing check, which stays where the kernel put it.
+_LIVE_SABOTAGES = {
+    "W8a-a": Sabotage(
+        module="world/read.py",
+        before=(
+            "    fault = _contract_fault(kind, member, receipt, published)\n"
+            '    if fault is not None:\n'
+            '        return derive.ReceiptOutcome(kind, "malformed", fault)\n'
+            "    if kind == derive.BELIEF_INPUT_KIND:\n"
+            "        standing = _snapshot_standing(world, receipt)\n"
+            "        if standing is not None:\n"
+            "            return standing\n"
+            "    # Past this point the five identity members are present and well formed,\n"
+            "    # so the reads below can name them without re-checking that they exist.\n"
+            "    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n"
+            "    binding = rules.RuleBinding(\n"
+            "        cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity)\n"
+            "    )\n"
+            "    with registry._locked_barrier(world) as world_root:\n"
+            "        try:\n"
+            "            held = rules._locked_resolve_rule_binding(world_root, binding)\n"
+            "        except RuleNotHeld as caught:\n"
+            "            return derive.ReceiptOutcome(\n"
+            "                kind,\n"
+            '                "unresolvable",\n'
+            '                f"the exact pair this receipt names is not held here: {caught}",\n'
+            "            )\n"
+        ),
+        after=(
+            "    if kind == derive.BELIEF_INPUT_KIND:\n"
+            "        standing = _snapshot_standing(world, receipt)\n"
+            "        if standing is not None:\n"
+            "            return standing\n"
+            "    # Past this point the five identity members are present and well formed,\n"
+            "    # so the reads below can name them without re-checking that they exist.\n"
+            "    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n"
+            "    binding = rules.RuleBinding(\n"
+            "        cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity)\n"
+            "    )\n"
+            "    with registry._locked_barrier(world) as world_root:\n"
+            "        try:\n"
+            "            held = rules._locked_resolve_rule_binding(world_root, binding)\n"
+            "        except RuleNotHeld as caught:\n"
+            "            return derive.ReceiptOutcome(\n"
+            "                kind,\n"
+            '                "unresolvable",\n'
+            '                f"the exact pair this receipt names is not held here: {caught}",\n'
+            "            )\n"
+            "    fault = _contract_fault(kind, member, receipt, published)\n"
+            '    if fault is not None:\n'
+            '        return derive.ReceiptOutcome(kind, "malformed", fault)\n'
+        ),
+    ),
+    # Correction remainder slice 2, 2026-09-19: import_epoch's decisions tuple
+    # gains a `retracted-snapshot` entry between `malformed-receipt` and
+    # `refuted-receipt` (commit 848a24a). R23-a still asserts that a
+    # consistent omission refuted by reconstruction is refused at import; the
+    # sabotage still drops the `refuted-receipt` decision, now from the
+    # three-entry tuple.
+    "R23-a": Sabotage(
+        module="world/importing.py",
+        before=(
+            '(("malformed-receipt", "malformed"), ("retracted-snapshot", "retracted"), '
+            '("refuted-receipt", "refuted"))'
+        ),
+        after='(("malformed-receipt", "malformed"), ("retracted-snapshot", "retracted"))',
+    ),
+}
+CUT27_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT27_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
