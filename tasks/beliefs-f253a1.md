@@ -1,17 +1,19 @@
 ---
 id: beliefs-f253a1
 title: Test + CI iteration cost audit
-status: doing
+status: done
 priority: 2
 size: m
 complexity: low
 process: direct
 owner: main
 created: 2026-09-04T21:44:54Z
-updated: 2026-09-13T17:59:37Z
+updated: 2026-09-19T12:08:19Z
 started: 2026-09-12T10:07:24Z
+completed: 2026-09-19T12:08:19Z
 depends: [ops-31f038]
 tags: [testing]
+model: "claude-opus-5[1m]"
 ---
 
 Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-suite wall time, and roughly how often agent full-suite runs fail here. 2. Add a fast or affected-only test target for the inner loop and point AGENTS.md at it; keep the full suite for commit and CI. 3. Use a quiet reporter so test output does not flood agent context. 4. Fix suite hygiene: sleeps, real network, unshared fixtures. Record the before and after numbers in a note on this task.
@@ -38,3 +40,13 @@ Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-s
 - 2026-09-12T10:11:14Z (main): parked (waiting on agent): step 4 on or after 2026-09-19: tt-report --since 7 --project beliefs for the after-week; compare hook-pre-commit (now split with hook-pre-commit-docs), test (hand-run full suites, 23 codex runs before), test-fast, hook-pre-push and fast/full against the 2026-09-12 baseline note, then tasks done with before/after
 - 2026-09-12T16:26:55Z (main): Complexity low: Remaining work is the dated after-week tt-report comparison against the recorded baseline (on or after 2026-09-19); hooks, recipes and guidance are already present. The metrics and completion check are specified; no new gate design remains.
 - 2026-09-13T17:59:37Z (main): Process direct: the remaining after-week metrics comparison is already specified in the 2026-09-12 notes and is due on or after 2026-09-19; metadata-only correction for process_missing, with the existing park and work status preserved.
+- 2026-09-19T12:06:13Z (main): resumed
+  provenance: {"harness_session":"claude-code:b628b215-8628-4ce3-ab65-43b0297318c5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T12:06:13Z (main): claimed by claude (Opus 5), pid 1431059
+- 2026-09-19T12:08:11Z (main): after-week 2026-09-19 (tt-report --since 7 --project beliefs; runs 09-12 10:07Z through 09-17 10:09Z, 5.06 active days vs the baseline's 4.96, 433 runs vs 413): hook-pre-commit 138 runs median 22.5s 0.81h (was 215 runs, 20.5s, 1.31h); hook-pre-commit-docs 160 runs median 0.1s, 0.00h — 160 commits that would each have paid ~20s, about 0.9h avoided, more than the whole pre-commit reduction; hook-pre-push 17 runs median 1149.8s fail 0.29, 5.09h (was 10 runs, 1029.1s, 2.93h); test 18 runs median 1133.7s fail 0.22, 5.68h, 11 codex/7 claude (was 24 runs, 1063.0s, 7.13h, 23 codex); test-fast 27 runs median 179.9s fail 0.52, 1.35h (was 10 runs, 178.0s, 0.52h); check 35 runs 0.24h (was 88, 0.46h); fast/full by agents 1.80 (was 0.33); bypasses 25 (was 12). Total recorded 13.24h, 2.62h per active day (was 12.88h, 2.60h) — flat.
+- 2026-09-19T12:08:11Z (main): reading: the two things step 3 aimed at moved. Hand-run full suites fell from 7.13h to 5.68h and from 2.4x the pre-push hook to 1.1x; codex's share fell 23 to 11 runs; the inner loop flipped from 0.33 to 1.80 fast runs per full run and its 52 percent failure rate is red caught before the gate. Fixed costs fell (pre-commit -38 percent, check -48 percent) while total stayed flat because the variable terms grew: pushes 10 to 17 (5.09h, 5 red), and the suite grew from ~3700 to ~4950 fast-loop tests, lifting the full gate's median 1063 to 1134s (+7 percent) with no change to the recipes. Commits 261 vs 209, of which 139 (53 percent, was 81/209, 39 percent) touched only tasks/, docs/, AGENTS.md or README.md — the docs hook's share rose, so ops-3dbbe6 (lift it into the template) is borne out.
+- 2026-09-19T12:08:11Z (main): bypasses: all 25 are TypeScript — 19 'npm test' and 6 'npx vitest run tests/declarations.test.ts', every one claude, none pytest. Since 09-05 no python test has run outside the wrapper. AGENTS.md names 'npm test' as the standalone command, so the ts inner loop has no recipe to point agents at; filed as beliefs idea below rather than changed here. Caveat carried from 2026-09-07: pre-audit beliefs had no hooks, so every hook hour above is new cost against the pre-09-07 state, not a reduction of an older gate; the before/after is against the instrumented baseline week.
+- 2026-09-19T12:08:19Z (main): done
+  provenance: {"harness_session":"claude-code:b628b215-8628-4ce3-ab65-43b0297318c5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-19T12:08:19Z (main): before/after recorded: hand-run full suites 7.13h→5.68h (2.4x→1.1x the pre-push hook), fast/full 0.33→1.80, pre-commit 1.31h→0.81h plus 160 docs-only commits at 0.1s; total flat at ~2.6h/day as pushes rose 10→17 and the suite grew 7 percent; ts bypasses filed as beliefs-872a2a
+  provenance: {"harness_session":"claude-code:b628b215-8628-4ce3-ab65-43b0297318c5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
