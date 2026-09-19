@@ -958,3 +958,7 @@ that retirement would change") is read at the cut and closed or re-noted.
   its report.
 - 2026-09-19 — approved for implementation planning at `435e254`; the
   §7.3 grep instruction corrected (import keeps its direct call).
+- 2026-09-19 — planning correction to §7.1: `ReadView.iter_stored` reads
+  the store lazily, so the fold runs per corpus **inside** that corpus's
+  capture hold and the answers are unioned (the fold's own rule); the
+  world lock is still never held across it.
