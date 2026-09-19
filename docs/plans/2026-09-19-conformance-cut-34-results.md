@@ -65,24 +65,36 @@ uncollected; the sabotage suite passed **10 passed in 37.09s** with
 | BI-9 | resolved | sound | boundary invariant |
 
 **Staleness evidence.** Refactoring in Task 2 (the write-boundary resolver
-port) and Task 4 (the recomputation sites) moved five pinned `before`
-strings out from under four earlier live guards without a plan step naming
-the re-target: cut 16's `boundary-reresolution-a` and cut 18's
+port), Task 4 (the recomputation sites) and Task 5 (the evaluator's world
+read) moved **six** pinned `before` strings out from under four earlier
+live guards (all six land in `test_n2_cut16.py`, `test_n2_cut18.py`,
+`test_n2_cut27.py`, or `test_n2_cut33.py`; `test_n2_cut33.py` carries two
+of the six, `C7-c` and `BI-3`). Task 2's and Task 4's rewrites moved five,
+none with a plan
+step naming the re-target: cut 16's `boundary-reresolution-a` and cut 18's
 `boundary-reresolution-after-delete-a` (both `corpus.py`'s `retract`, moved
 by Task 2's rewrite), cut 33's `C7-c` (the same rewrite), and cut 27's
 `W8a-a` and `R23-a` (`world/read.py` and `world/importing.py`, moved by
-Task 4). A separate AST effect check, `test_pin_recheck_inventory`, also
-began reading `snapshot_standing`'s `retracted.add`/`members.add`/`nxt.add`
-calls as unlisted effects. Task 4b re-targeted all five pins in the live
-`_LIVE_SABOTAGES` tables (`test_n2_cut16.py`, `test_n2_cut18.py`,
-`test_n2_cut27.py` — which, with `test_n2_cut33.py`, gained the table for
-the first time — and `test_n2_cut33.py`) and added the three set-receiver
-names to `test_pin_recheck_inventory.py`'s `READ_ONLY` list. Every re-target
-was verified against the frozen declaration's own property before and after
-the move: no frozen `n2_arms_cut*.py` file changed, and each retargeted
-`after` still fails the same check the frozen arm requires. The final
-staleness/freeze set and the retargeted guards passed alongside the full
-suite reported in §1's pre-push gate.
+Task 4); Task 4b re-targeted these five in the live `_LIVE_SABOTAGES`
+tables (`test_n2_cut16.py`, `test_n2_cut18.py`, `test_n2_cut27.py` — which,
+with `test_n2_cut33.py`, gained the table for the first time — and
+`test_n2_cut33.py`), commit `e85f703`. Separately, Task 5's history union
+in `gather`'s scope loop (`evaluation.py`'s
+`found=tuple(sorted({*(...), *history}))`) moved cut 33's own `BI-3` arm
+("the epoch enumeration is scoped to the proposition inputs"); Task 5
+re-targeted it in the same commit that moved it, `81104e1`, in
+`test_n2_cut33.py`'s `_LIVE_SABOTAGES`, dropping exactly the same
+`if ref in taken` filter the frozen sabotage drops and leaving the history
+union (and everything else on the line) intact. A separate AST effect
+check, `test_pin_recheck_inventory`, also began reading
+`snapshot_standing`'s `retracted.add`/`members.add`/`nxt.add` calls as
+unlisted effects; Task 4b added the three set-receiver names to
+`test_pin_recheck_inventory.py`'s `READ_ONLY` list. Every re-target across
+both commits was verified against the frozen declaration's own property
+before and after the move: no frozen `n2_arms_cut*.py` file changed, and
+each retargeted `after` still fails the same check the frozen arm requires.
+The final staleness/freeze set and the retargeted guards passed alongside
+the full suite reported in §1's pre-push gate.
 
 The full repository gate ran on the discharge commit with the certified
 exports:
@@ -167,13 +179,18 @@ limitations stand as frozen.
   31–33 edited frozen-adjacent modules the same way, most recently
   `63b3eb5` in slice 1) — the frozen cut-23 *document* is untouched, only
   its live acceptance module.
-- **Five pins the plan named no re-target step for were moved by Tasks 2
-  and 4's refactors and re-targeted in the live guards** (§1's staleness
+- **Six pins the plan named no re-target step for were moved by Tasks 2, 4
+  and 5's refactors and re-targeted in the live guards** (§1's staleness
   evidence): cut 16's `boundary-reresolution-a`, cut 18's
   `boundary-reresolution-after-delete-a`, cut 33's `C7-c`, and cut 27's
-  `W8a-a` and `R23-a` — the last two giving `test_n2_cut27.py` a
+  `W8a-a` and `R23-a`, moved by Tasks 2 and 4 and re-targeted together by
+  Task 4b (`e85f703`) — the last two giving `test_n2_cut27.py` a
   `_LIVE_SABOTAGES` table for the first time, alongside `test_n2_cut33.py`.
-  Frozen `n2_arms_cut*.py` declarations stay untouched.
+  Separately, cut 33's `BI-3` (`evaluation.py`'s `scoped.found` line) was
+  moved by Task 5's history union in `gather`'s scope loop and re-targeted
+  by Task 5 in the same commit, `81104e1`, dropping exactly the frozen
+  sabotage's `if ref in taken` filter and nothing else. Frozen
+  `n2_arms_cut*.py` declarations stay untouched.
 - **`test_pin_recheck_inventory.READ_ONLY` gained `snapshot_standing`'s
   three set-receiver names** (`retracted.add`, `members.add`, `nxt.add`),
   the check's own "keep receiver names explicit" convention, so the AST
@@ -349,6 +366,16 @@ Every `Ruling:` entry from the execution ledger, in chronological order:
   `n2_arms_cut*.py` files do not. Cost if wrong: a re-target that asserts a
   weaker check than the frozen arm — closed by verifying each `after` still
   fails the same check post-move.
+- **Re-target cut 33's sixth moved pin, `BI-3`, in the same commit as the
+  Task 5 change that moves it (`81104e1`), rather than deferring it to
+  Task 4b's separate re-target pass.** Task 5's history union in `gather`'s
+  scope loop moves the same `scoped.found` line the frozen `BI-3` sabotage
+  pins; the drop-`if-ref-in-taken`-only shape of the frozen sabotage is
+  preserved exactly, only its position in the line moves. Cost if wrong: a
+  re-target that asserts a weaker check than the frozen arm — closed the
+  same way as the five-pin re-target, by verifying the `after` still fails
+  the check the frozen arm requires. Found at Task 8's review and recorded
+  here rather than reopening Task 5's commit.
 - **Accept the five re-assertions in `test_world_standing.py` /
   `test_world_view.py` as decision 7's mandated consequence.** A reviewer
   confirmed the re-assertion against decision 7's own text; no contract
