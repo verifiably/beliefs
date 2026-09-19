@@ -1525,7 +1525,7 @@ One test per unit over the durable world (`test_world_view_acceptance.durable_wo
 - `test_bi5_an_older_snapshots_retraction_is_out_of_the_closure` — Task 5's test.
 - `test_bi6_a_raw_written_snapshot_retraction_is_reported_by_audit_world_from_captured_records` — Task 4's `test_world_audit` test, epoch built first.
 - `test_bi7_history_is_in_the_digest` — Task 5's counter-retraction test: the pair in `found`, both in `read_trace`, digest differs from the never-retracted digest over the same epoch.
-- `test_bi8_an_unreadable_counter_retraction_refuses_rather_than_restores` — `gather` → `RetractionUnreadable` naming it; `import_epoch` → `unreadable-standing`, no directory; `snapshot_state` verdict `unchecked` with "cannot be decided"; `audit_epochs` **and** `audit_world` return, each with exactly one `retraction-unreadable` finding naming it, and `audit_world`'s other findings equal the readable-chain run's.
+- `test_bi8_an_unreadable_counter_retraction_refuses_rather_than_restores` — `gather` → `RetractionUnreadable` naming it; `import_epoch` → `unreadable-standing`, no directory; `snapshot_state` verdict `unchecked` with "cannot be decided"; `audit_epochs` **and** `audit_world` return; each carries exactly one `retraction-unreadable` finding naming the broken counter, and `audit_world` also carries `retraction-target-invalid` for it (the corpus-level pass resolves every node-arm target — the same record, two diagnostics: one about the chain it breaks, one about the record itself); every `audit_world` finding whose `ref` is not the broken counter equals the readable-chain run's.
 - `test_bi9_a_rebuild_restores_nothing_and_duplicates_nothing` — Task 5's rebuild test.
 
 - [ ] **Step 2: The declaration file**

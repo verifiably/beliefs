@@ -774,9 +774,12 @@ the certified tuple through the durable writer, one check per clause:
   "unreadable-standing"` and no directory; `snapshot_state(S)` returns a
   verdict whose `receipts` carry `unresolvable` with the cause in the
   detail and whose `state` is `unchecked`; `audit_epochs` and `audit_world`
-  each **return** their report, with one `retraction-unreadable` error
-  finding naming the counter-retraction, and `audit_world`'s report is
-  otherwise the one a readable chain produces;
+  each **return** their report, each with one `retraction-unreadable` error
+  finding naming the counter-retraction; `audit_world` also reports it as
+  `retraction-target-invalid` (the corpus-level pass resolves every
+  node-arm target, so the record that breaks the chain is also a finding
+  about itself); every other `audit_world` finding — those whose `ref` is
+  not the counter-retraction — equals the readable-chain run's;
 - **BI-9** a rebuild restores nothing and duplicates nothing: after the
   retraction, `build_epoch` under `old`'s coverage yields the identity `S`
   and `gather` bound to it refuses; after the counter-retraction, a further
@@ -980,3 +983,6 @@ that retirement would change") is read at the cut and closed or re-noted.
   not over `_live`, so the audit's report-mode open is never refused by it. §7.4: the retained inventory is read only when a
   snapshot-arm retraction is present, and an unreadable inventory is the
   finding `retained-epochs-unreadable`, never an exception out of the audit.
+- 2026-09-19 — plan review, second pass: BI-8's `audit_world` comparison
+  excludes the broken counter's own `retraction-target-invalid` finding,
+  which the corpus-level pass legitimately produces.
