@@ -78,6 +78,7 @@ adoption-ledger row 4's holdings-prerequisite remainder.
    > `url` arm, the network boundary and the acquisition orchestration
    > (item 2) are built; cut 35 closes H4, G9, R10, T5, T1 and T4. Typed
    > retrieval grants (item 3) remain deferred.
+
 2. **Acquisition orchestration** — the act-report design reads act termini;
    no acquisition-level state is built here.
 3. **Typed retrieval grants** (holdings design §7 item 8).

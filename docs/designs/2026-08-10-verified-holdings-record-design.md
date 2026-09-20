@@ -238,6 +238,7 @@ each per canonical location:
    > one unsettles nothing (cut 35's BI-7). "Intent-free" therefore reads
    > "no *mutating* intent, nothing unsettled" — the semantics this section
    > argued for — not "no intent appended" (url-retrieval design decision 2).
+
 2. **A managed mutation.** A boundary-mediated store write, move, or
    deletion, run
    under the intent discipline (below), whose observation records the
@@ -497,15 +498,15 @@ unmatched *re-check* intent is a look that never became a finding — no
 mutation behind it, nothing unsettled, the act's failure (H4), not the
 record's. A `url` re-check needs no intent: no boundary-mediated act mutates
 a URL, so no URL location is ever unsettled, and remote evidence is
-time-stamped data, not a race.
+time-stamped data, not a race. The log amendments this requires — the intent
+union, the §6 qualification reduction, `fulfills` construction, `L7`, and the
+§9 ownership split — are tabled in §8.
 
 > **Amended 2026-09-20 (URL retrieval, cut 35):** built with a `re-check`
 > intent nonetheless (decision 2 of the url-retrieval design; the note at §3
 > item 1): the intent carries the registration, and the argument here — no
 > URL location is ever unsettled — holds exactly because the kind is
-> `re-check`, which the reducer never counts as a blocking reason. The log amendments this requires — the intent
-union, the §6 qualification reduction, `fulfills` construction, `L7`, and the
-§9 ownership split — are tabled in §8.
+> `re-check`, which the reducer never counts as a blocking reason.
 
 **The forgery bound, stated at the strength it has.** A hand-forged
 observation — a record written to look like an act's output — stands until an

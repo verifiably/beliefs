@@ -106,12 +106,19 @@ the discharge commit (`8 passed in 0.60s`), identical to the tree's
 baseline before the lane opened. Task 8 created files only and moved no
 pin.
 
-The full repository gate (`just hook-pre-push`) was started on the discharge
-commit `d525b7d` with the certified exports as a detached run and had not
-finished when this record was written (its log stood at the Python suite's
-first quarter, with `ruff`, `pyright` — `0 errors, 0 warnings, 0
-informations` — `tsc --noEmit` and Biome already green). Pre-push gate:
-recorded at merge (§6). `just check` passed on every commit of the lane
+The full repository gate (`just hook-pre-push`) ran on the branch with the
+certified exports, started at the discharge commit `d525b7d` and finishing
+after the results commit `c1de7e2` (which changes documentation and the
+accounting tool only). It exited **0**; `ruff`, `pyright` (`0 errors, 0
+warnings, 0 informations`), `tsc --noEmit` and Biome passed, and the serial
+Python suite and the TypeScript suite reported:
+
+```text
+5212 passed, 1 skipped in 1196.49s (0:19:56)
+      Tests  155 passed (155)
+```
+
+`just check` passed on every commit of the lane
 through the pre-commit hook; `tasks check` reported zero errors and zero
 warnings throughout. `just test-fast` on the tree after Task 6 reported
 `5171 passed, 1 skipped in 186.75s`; the one Python skip is the intentional
@@ -128,9 +135,11 @@ key and the materialization classification. **H4, G9, R10, T5, T1 and T4
 close in full.** **T2 stays partial** on the `audit` and `re-check`
 operation kinds, which no boundary opens (decision 12): `acquisition` is
 read to success, through root-selection and intent-append failure, and
-through the second fulfillment; `run-attempt`, `import`, `move`,
-`consolidate` and `corpus-write` were read by cuts 3, 5, 16 and 18
-(decision 12). **T7 stays
+through the second fulfillment; `run-attempt`, `import`, `move` and
+`consolidate` were read by cuts 3, 5, 16 and 18 (decision 12), and
+`corpus-write` — qualified by its own registration, minting no act-report —
+adds no arm, as cut 19 settled
+(`2026-09-05-conformance-cut-19-results.md`). **T7 stays
 partial** on its cross-root case, owned by `cross-root-publication` (tier
 3); the same-root case is read in full.
 
@@ -344,9 +353,10 @@ limitation of the code or its tests as they stand, none reopens a row.
   wrong seam; the timeout is per operation, not wall clock (a docstring
   sentence). Resolved at review: hop 0's spelling refuses bytes outside
   0x21–0x7E through `_canonical_url`.
-- **Task 4**: `look` is defined before `ActContext`; no `look` test with a
-  valid `expected=` digest (Task 5's acquisition tests cover the
-  expectation path).
+- **Task 4**: the report's GREEN blocks lacked summary lines (a doubled
+  `-q`, re-run and corrected in the fix round); `look` is defined before
+  `ActContext`; no `look` test with a valid `expected=` digest (Task 5's
+  acquisition tests cover the expectation path).
 - **Task 5**: `test_a_stop_mints_nothing_and_the_hold_enters_before_the_root_lock`
   is misnamed (no stop) and proves hold-with-root-free only, not
   root-inside-hold; `..._reads_unfinished` never asserts `UNFINISHED`;
