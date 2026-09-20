@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: url-retrieval
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-20T09:31:58Z
+updated: 2026-09-20T09:37:06Z
 started: 2026-09-20T01:29:45Z
 depends: []
 tags: [migration, acquisition, act-report]
@@ -43,4 +43,9 @@ Uncertainty: Canonicalization and network discipline are banked, but the concret
   provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-20T09:31:58Z (url-retrieval): 2026-09-20: second review's blocker applied — write wraps exactly the store_write call as StoreWriteRefused; acquire catches only that; intent, publication and session failures propagate; BI-11 added (27 units)
 - 2026-09-20T09:31:58Z (url-retrieval): parked (waiting on user, review): third review of the slice design (decision 10, §6, BI-11); on approval, write the implementation plan (writing-plans) in .worktrees/url-retrieval, then freeze cut 35
+  provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-20T09:37:06Z (url-retrieval): resumed
+  provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-20T09:37:06Z (url-retrieval): 2026-09-20: third review's blocker applied — StoreWriteRefused only for applied==0 with a ProjectApprovalRefused, PreconditionRefused or PendingUnresolved cause (store_refusal); unexpected engine failures propagate; BI-11 negative and second sabotage arm; §5 corrected
+- 2026-09-20T09:37:06Z (url-retrieval): parked (waiting on user, review): fourth review of the slice design (decision 10 cause set, BI-11); on approval, write the implementation plan (writing-plans) in .worktrees/url-retrieval, then freeze cut 35
   provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
