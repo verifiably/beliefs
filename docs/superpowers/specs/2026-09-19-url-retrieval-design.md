@@ -1090,3 +1090,60 @@ world-read lane's next slice is designed), and a store-less look route
   for implementation planning. One test detail applied: BI-11a's
   publication-failure fixture carries `applied=0` and an allowed cause, so
   the widened-catch sabotage cannot survive on the predicate alone.
+- 2026-09-20 — planning, at Task 0: eighteen corrections found while
+  planning implementation, recorded here rather than reopening review.
+  (a) §6's `acquire` calls to `_append_operation_intent` and
+  `_publish_operation_report` use the writer's own port; under the
+  session the ledgered port is a separate object
+  (`ScopedWriter.operation_port()`), so both members gain a `port=`
+  override and the session route passes it (Task 5 Step 4, Task 6 Step
+  3). (b) §11.1's session-route test cannot run over the routes module's
+  `FakeSeam`, which publishes nothing to disk, while the close checks
+  every published observation resolves; the session test runs over the
+  certified volume with the production seam (Task 6). (c) §11.3's T2-d
+  sabotage named `acquire.py`; a second fulfillment's refusal is the
+  engine's, so the arm sabotages the defect mapping's
+  `duplicate-fulfillment` member instead (Task 8). (d)
+  `AcquisitionOutcome.entries` is the report's entries, the
+  declaration-pin entry included. (e) §6 step 4 resolves the looks' refs
+  through `writer.read_view`; those publications go through the holdings
+  seam and never set the writer's `unresolved`, so the close rebuilds the
+  view (`_reconstruct`) under its lock before resolving anything (Task
+  5). (f) §6/§8 left the close's lock order implicit; the session takes
+  session-then-root everywhere, so `acquire` gains `hold`, entered before
+  the root lock, and the route passes `_closing_hold` (Tasks 5, 6). (g)
+  decision 6's rule extends to transport failures: a certificate error's
+  text names the redirected host, so a failure after the request began is
+  named by a fixed category (`timeout`, `tls`, `connection`, `protocol`),
+  `HTTPException` included, and every exceptional exit unlinks the
+  scratch file (Task 3). (h) decision 1's profile is read strictly: the
+  trailing slash after a final dot-segment is kept, an IPv6 host keeps
+  its brackets (its literal is not compressed — a limitation beside
+  IDNA), and port `0` is refused (Task 1). (i) decision 7's ceiling
+  bounds each read by the remaining allowance plus one, and
+  `timeout_seconds` is finite (Task 3). (j) decision 8's scratch
+  exclusion is `look`'s own, before its intent, not only `acquire`'s
+  (Task 4). (k) §6 step 1's "validated as a value" covers the dataset's
+  request-only metadata: `domain_facets` at the request, and the
+  dataset's shape through `_refuse_dataset_shape` before the intent (Task
+  5). (l) §4's "keeps its own copies of nothing": the survey's
+  `NetworkProbe.fetch` is an adapter over `retrieve`, and a refused hop
+  reads `retrieval-failed` there too (Task 6). (m) §11.2's in-process TLS
+  server is a committed test certificate plus `LocalTlsServer`/`tls_seam`;
+  the unit and acceptance suites run their success, truncation, redirect,
+  ceiling and certificate-failure cases through it (Tasks 3, 8). (n)
+  three checks read differently from §11.2/§11.3: T4-a's added report
+  comes from an unpinnable acquisition, since a second look publishes an
+  identity-bearing observation; BI-2's refused hops are stopped outcomes,
+  never exceptions; BI-1's arm sabotages default-port elision, since
+  `urlsplit` lowercases scheme and host itself (Task 8). (o) decision 6's
+  category set gains `malformed`: a server-supplied `Location` is
+  validated before `urljoin`/`urlsplit` touch it, because their own
+  errors name the host (Task 3). (p) decision 8's authority keeps an
+  IPv6 literal's brackets on the wire, not only at construction; the test
+  certificate carries the IP SAN so the case runs over the local server
+  (Task 3). (q) decision 1's dot-segment removal is RFC 3986 §5.2.4
+  verbatim, not a segment filter: `/a//.` is `/a//` (Task 1). (r)
+  decision 8's "deletes its own file" covers record construction:
+  `look`'s cleanup spans from `Retrieved` to the caller's ownership (Task
+  4).
