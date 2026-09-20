@@ -8,11 +8,12 @@ complexity: high
 process: planned
 owner: url-retrieval
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-20T09:40:19Z
+updated: 2026-09-20T10:11:04Z
 started: 2026-09-20T01:29:45Z
 depends: []
 tags: [migration, acquisition, act-report]
 spec: docs/superpowers/specs/2026-09-19-url-retrieval-design.md
+plan: docs/superpowers/plans/2026-09-20-url-retrieval.md
 ---
 
 Outcome: Beliefs acquires datasets through canonical URL locators under the banked network discipline and closes the act-report remainder with the new acquisition operation surface.
