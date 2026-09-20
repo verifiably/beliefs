@@ -293,9 +293,10 @@ anything but the bytes. Every one of those facts lands on a decision below.
     in `except Exception`, so an engine-side `RuntimeError` also arrives as
     `ExecutionError`. A routine refusal is an `ExecutionError` whose
     `applied` is `0` **and** whose `__cause__` is exactly one of the closed
-    set `ProjectApprovalRefused` (the root is not writable, or its lifecycle
-    refuses), `PreconditionRefused` (a precondition the spec declared did
-    not hold), or `PendingUnresolved` (the root's pending gate) — the three
+    set `ProjectApprovalRefused` (the root is not writable by project
+    approval), `PreconditionRefused` (a precondition the spec declared did
+    not hold, including a read-only replica's lifecycle refusal), or
+    `PendingUnresolved` (the root's pending gate) — the three
     the seam documents as raised before any project mutation or refusing
     cleanly with restoration proven. Every other `ExecutionError` from the
     store call propagates as itself: `SpecValidationError` (an
@@ -865,7 +866,7 @@ certificate the seam's context trusts; one check per declaration unit:
 | BI-8 | — | no lock across the request |
 | BI-9 | — | the successor rule: the old binding's receipt still validates where held; the new fixture reduces |
 | BI-10 | — | a URL re-check intent and its fulfilling observation decode through `intents/evidence.py` and the generated helper; the reduction matches them and `reconcile` reports nothing |
-| BI-11 | — | the materialization classification: a production-seam store refusal (a read-only replica, `ProjectApprovalRefused` cause) on the first and on the last resource each returns a stopped outcome with no dataset; a publication failure after a committed materialization propagates `ExecutionError` and the operation reads unfinished; a terminal session failure propagates and is never a stop; **negative:** an unexpected engine failure (`ExecutionError` with `applied=None` from a `RuntimeError` cause) propagates and the operation reads unfinished, never a stop |
+| BI-11 | — | the materialization classification: a production-seam store refusal (a read-only replica, `PreconditionRefused` cause) on the first and on the last resource each returns a stopped outcome with no dataset; a publication failure after a committed materialization propagates `ExecutionError` and the operation reads unfinished; a terminal session failure propagates and is never a stop; **negative:** an unexpected engine failure (`ExecutionError` with `applied=None` from a `RuntimeError` cause) propagates and the operation reads unfinished, never a stop |
 
 Twenty-seven units: sixteen against rows, eleven boundary invariants.
 
@@ -1147,3 +1148,8 @@ world-read lane's next slice is designed), and a store-less look route
   decision 8's "deletes its own file" covers record construction:
   `look`'s cleanup spans from `Retrieved` to the caller's ownership (Task
   4).
+- 2026-09-20 — Task 4: a read-only replica refuses `store_write` with cause
+  `PreconditionRefused`, not `ProjectApprovalRefused` (`LifecycleState.READ_ONLY`
+  does not exist; `READ_ONLY_SERVICEABLE` is the replica's state). BI-11 row
+  and §5's cause parenthetical corrected; the frozen cut-35 §3 still carries
+  the original row, superseded here.
