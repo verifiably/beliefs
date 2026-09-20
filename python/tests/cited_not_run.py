@@ -143,6 +143,10 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
                 "moved in url-retrieval Task 1, when the named deferral J3 pinned was deleted "
                 "and url_locator became the real UrlLocator under the banked canonical profile"
             ),
+            "L7u2[17]": (
+                "moved in url-retrieval Task 4, when write's store_write call moved inside a "
+                "try/except that classifies a routine store refusal by phase and cause"
+            ),
         },
     ),
 }

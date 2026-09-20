@@ -10,24 +10,38 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from atoms.chain.errors import ChainStateInvalid, PendingUnresolved
+from atoms.core.errors import (
+    CapabilityUnavailable,
+    PreconditionRefused,
+    ProjectApprovalRefused,
+    SpecValidationError,
+    TransactionHalted,
+)
 from authority import ACTOR, FULL, narrowed
+from holdings_transport_fixtures import Scripted, scripted_seam
 from nodes.core.errors import ExecutionError
 from profiles import BASE
 
 from beliefs import root as science_root
-from beliefs.errors import MalformedRecord, PermitExceeded, PermitFact, StoreIdMismatch
+from beliefs.errors import MalformedRecord, PermitExceeded, PermitFact, StoreIdMismatch, StoreWriteRefused
 from beliefs.holdings.boundary import (
     ActContext,
     InconclusiveAttempt,
+    InconclusiveLook,
+    PublishedLook,
     PublishedObservation,
     delete,
     intent_payload,
+    look,
     move,
     recheck,
+    store_refusal,
     write,
 )
-from beliefs.holdings.records import Absent, Found, StoreLocator
+from beliefs.holdings.records import Absent, Found, StoreLocator, url_locator
 from beliefs.holdings.seam import FileStateView, ReadUnestablishedView, StoreOutcomeView
+from beliefs.holdings.transport import RetrievalBounds
 from beliefs.root import (
     LifecycleState,
     holdings_seam,
@@ -604,3 +618,156 @@ def test_a_mixed_store_move_refuses_before_mutating(certified_work):
 
 def test_boundary_never_hashes_payloads_it_did_not_observe():
     assert "sha256(" not in (Path(__file__).parents[1] / "src/beliefs/holdings/boundary.py").read_text()
+
+
+BOUNDS = RetrievalBounds(timeout_seconds=5.0, max_bytes=1 << 20, max_redirects=3)
+DATA = url_locator("https://example.org/data")
+
+
+def _intents(root):
+    view = science_root._log_seam().inspect_registered(root)
+    assert isinstance(view, WellFormedView)
+    return [entry for entry in view.entries if isinstance(entry, IntentEntryView)]
+
+
+def test_intent_payload_spells_the_url_arm():
+    payload = json.loads(intent_payload(location=DATA, act_kind="re-check", event_token="t", actor=ACTOR))
+    assert payload["location"] == {"type": "url", "url": "https://example.org/data"}
+
+
+def test_a_url_look_appends_a_recheck_intent_and_publishes_found_fulfilling_it(certified_work, tmp_path):
+    ctx, _ = context(certified_work)
+    seam, log = scripted_seam({"/data": Scripted(200, {"Content-Length": "7"}, (b"payload",))})
+    result = look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=tmp_path / "scratch")
+    assert isinstance(result, PublishedLook)
+    assert result.record.outcome == Found("sha256:" + sha256(b"payload").hexdigest())
+    assert result.ref == f"holdings-observation:{result.record.identity()}"
+    assert result.retrieved.path.read_bytes() == b"payload"
+    (intent,) = _intents(ctx.observer_root)
+    assert json.loads(intent.payload)["kind"] == "re-check"
+    assert json.loads(intent.payload)["location"] == {"type": "url", "url": "https://example.org/data"}
+    assert json.loads(intent.payload)["event_token"] == result.record.event_token
+    assert len(log.requests) == 1
+    result.retrieved.path.unlink()
+
+
+def test_an_inconclusive_url_look_mints_nothing_and_leaves_the_standing_observation(certified_work, tmp_path):
+    ctx, _ = context(certified_work)
+    seam, _ = scripted_seam({"/data": Scripted(200, {"Content-Length": "7"}, (b"payload",))})
+    standing = look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=tmp_path / "s")
+    assert isinstance(standing, PublishedLook)
+    standing.retrieved.path.unlink()
+    identity = standing.record.identity()
+    failing, _ = scripted_seam({"/data": Scripted(404, {}, (b"",))})
+    result = look(ctx, DATA, bounds=BOUNDS, seam=failing, scratch=tmp_path / "s", standing=(standing.record,))
+    assert result == InconclusiveLook("retrieval-failed", "status 404")
+    assert standing.record.identity() == identity
+    assert len(list((ctx.observer_root / "holdings-observation").iterdir())) == 1
+    assert len(_intents(ctx.observer_root)) == 2
+    untested, _ = scripted_seam({}, unpinnable=True)
+    assert look(ctx, DATA, bounds=BOUNDS, seam=untested, scratch=tmp_path / "s") == InconclusiveLook("byte-locator-untested", "unpinnable")
+
+
+def test_a_url_look_that_established_found_but_cannot_publish_raises(certified_work, tmp_path):
+    ctx, _ = context(certified_work)
+
+    def raise_publish(_root, _plan, _fulfills):
+        raise ExecutionError("cannot publish", index=None, applied=0)
+
+    ctx = replace(ctx, seam=replace(ctx.seam, publish_fulfilling=raise_publish))
+    seam, _ = scripted_seam({"/data": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+    with pytest.raises(ExecutionError, match="cannot publish"):
+        look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=tmp_path / "s")
+    assert not (ctx.observer_root / "holdings-observation").exists()
+    assert len(_intents(ctx.observer_root)) == 1
+    assert list((tmp_path / "s").iterdir()) == []  # the retrieved file never reached a caller who could delete it
+
+
+def test_a_url_look_refuses_a_scratch_root_under_either_root_before_any_intent(certified_work):
+    ctx, _ = context(certified_work)
+    seam, log = scripted_seam({"/data": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+    for scratch in (ctx.observer_root, ctx.observer_root / "scratch", ctx.store_root, ctx.store_root / "deep" / "er"):
+        with pytest.raises(MalformedRecord, match="scratch root"):
+            look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=scratch)
+    assert _intents(ctx.observer_root) == [] and log.requests == []
+
+
+def test_a_url_look_whose_record_refuses_to_construct_leaves_no_scratch(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    seam, _ = scripted_seam({"/data": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+    foreign = write(ctx, StoreLocator(store_id, "elsewhere.bin"), b"y").record  # a standing observation of another location
+    with pytest.raises(MalformedRecord):
+        look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=tmp_path / "s", standing=(foreign,))
+    assert list((tmp_path / "s").iterdir()) == []
+    assert len(_intents(ctx.observer_root)) == 2  # the write's, and the look's unmatched re-check
+
+
+def test_a_url_look_with_a_non_sha256_expectation_refuses_before_the_intent(certified_work, tmp_path):
+    ctx, _ = context(certified_work)
+    seam, log = scripted_seam({})
+    with pytest.raises(MalformedRecord):
+        look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=tmp_path / "s", expected="md5:" + "ab" * 16)
+    assert _intents(ctx.observer_root) == [] and log.requests == []
+
+
+@pytest.mark.parametrize(
+    "cause,applied,routine",
+    [
+        (ProjectApprovalRefused("root not writable"), 0, True),
+        (PreconditionRefused("precondition"), 0, True),
+        (PendingUnresolved("pending"), 0, True),
+        (SpecValidationError("spec"), 0, False),
+        (CapabilityUnavailable("capability"), 0, False),
+        (ChainStateInvalid("chain"), None, False),
+        (TransactionHalted("halted"), None, False),
+        (RuntimeError("internal"), None, False),
+        (ProjectApprovalRefused("wrong applied"), None, False),
+        (None, 0, False),
+    ],
+)
+def test_store_refusal_is_true_for_exactly_the_routine_causes(cause, applied, routine):
+    error = ExecutionError("mapped", index=None, applied=applied)
+    error.__cause__ = cause
+    assert store_refusal(error) is routine
+
+
+def test_write_wraps_a_routine_store_refusal_and_nothing_else(certified_work):
+    ctx, store_id = context(certified_work)
+
+    def refusing(_root, _path, _content):
+        raise ExecutionError("refused", index=None, applied=0) from ProjectApprovalRefused("read-only")
+
+    with pytest.raises(StoreWriteRefused) as caught:
+        write(replace(ctx, seam=replace(ctx.seam, store_write=refusing)), StoreLocator(store_id, "held.bin"), b"x")
+    assert caught.value.location == f"store:{store_id}:held.bin"
+    assert isinstance(caught.value.__cause__, ExecutionError)
+
+    def internal(_root, _path, _content):
+        raise ExecutionError("internal", index=None, applied=None) from RuntimeError("boom")
+
+    with pytest.raises(ExecutionError, match="internal"):
+        write(replace(ctx, seam=replace(ctx.seam, store_write=internal)), StoreLocator(store_id, "held.bin"), b"x")
+
+    def refusing_publish(_root, _plan, _fulfills):
+        raise ExecutionError("publish", index=None, applied=0) from PreconditionRefused("shape")
+
+    with pytest.raises(ExecutionError, match="publish"):
+        write(replace(ctx, seam=replace(ctx.seam, publish_fulfilling=refusing_publish)), StoreLocator(store_id, "held2.bin"), b"x")
+
+
+def test_write_against_a_read_only_replica_raises_store_write_refused_from_the_production_seam(certified_work):
+    ctx, store_id = context(certified_work)
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
+    replica = certified_work / "replica"
+    replicate_root(ctx.store_root, replica, authority=FULL)
+    assert read_lifecycle_state(replica) in (
+        LifecycleState.METADATA_LESS, LifecycleState.READ_ONLY_UNSERVICEABLE, LifecycleState.READ_ONLY_SERVICEABLE,
+    )
+    with pytest.raises(StoreWriteRefused) as caught:
+        write(replace(ctx, store_root=replica), StoreLocator(store_id, "held.bin"), b"other")
+    cause = caught.value.__cause__
+    assert isinstance(cause, ExecutionError) and cause.applied == 0
+    # `replicate_root` produces `READ_ONLY_UNSERVICEABLE`, refused by the engine
+    # with `PreconditionRefused` (not `ProjectApprovalRefused` as elsewhere in
+    # this design); it is still in the routine set (decision 10).
+    assert isinstance(cause.__cause__, PreconditionRefused)

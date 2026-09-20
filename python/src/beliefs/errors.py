@@ -1458,3 +1458,16 @@ class BundleMemberHeld(ImportRefused):
 
 class AcquisitionBoundaryRefused(WriteRefused):
     """A declaration cannot coexist with a producer or lineage basis."""
+
+
+class StoreWriteRefused(ScienceError):
+    """The store transaction of a managed `write` was a routine engine refusal
+    (url-retrieval design decision 10): `applied == 0` and a
+    `ProjectApprovalRefused`, `PreconditionRefused` or `PendingUnresolved`
+    cause. Raised for that phase only; the intent append and the publication
+    raise as themselves."""
+
+    def __init__(self, location: str, detail: str) -> None:
+        super().__init__(f"{location}: the store refused the write: {detail}")
+        self.location = location
+        self.detail = detail

@@ -1,13 +1,12 @@
 """Captured bytes to qualification evidence (spec §3.1)."""
 
-import json
-
 import pytest
 from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_to_markdown
 
 from beliefs import stored
 from beliefs.errors import RecordUndecodable
+from beliefs.holdings.boundary import intent_payload
 from beliefs.holdings.records import Found, StoreLocator, holdings_observation, url_locator
 from beliefs.intents import evidence, shapes
 from beliefs.intents.evidence import decode_node
@@ -119,17 +118,9 @@ def test_a_url_observation_decodes_to_url_evidence():
 
 
 def test_a_url_intent_decodes_through_the_shared_shape_and_matches_its_observation():
-    payload = json.dumps(
-        {
-            "actor": "actor:a",
-            "domain": "science.holdings-intent.v1",
-            "event_token": "tok",
-            "kind": "re-check",
-            "location": {"type": "url", "url": "https://example.org/data"},
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
+    payload = intent_payload(
+        location=url_locator("https://example.org/data"), act_kind="re-check", event_token="tok", actor="actor:a"
+    )
     row = {"digest": "1" * 64, "entry": {"payload": payload.hex()}}
     decoded = decode_holdings_intent(row)
     assert decoded == {
