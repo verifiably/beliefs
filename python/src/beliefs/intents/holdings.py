@@ -23,12 +23,32 @@ def _store_path(value):
     return all(component and component not in (".", "..") and not component.startswith(".#~") for component in value.split("/"))
 
 
+def _url(value):
+    if not isinstance(value, str) or not value or not value.isascii() or "#" in value:
+        return False
+    if any(character.isspace() or ord(character) < 0x21 or ord(character) > 0x7E for character in value):
+        return False
+    scheme, separator, rest = value.partition("://")
+    if separator != "://" or scheme not in ("http", "https"):
+        return False
+    authority = rest.split("/", 1)[0].split("?", 1)[0]
+    return bool(authority) and "@" not in authority
+
+
 def _location(value):
-    if not isinstance(value, dict) or set(value) != {"relative_path", "store_id", "type"}:
+    if not isinstance(value, dict) or "type" not in value:
         return None
-    if value["type"] != "store" or not _lower_hex(value["store_id"], 32) or not _store_path(value["relative_path"]):
-        return None
-    return "store:" + value["store_id"] + ":" + value["relative_path"]
+    if value["type"] == "store":
+        if set(value) != {"relative_path", "store_id", "type"}:
+            return None
+        if not _lower_hex(value["store_id"], 32) or not _store_path(value["relative_path"]):
+            return None
+        return "store:" + value["store_id"] + ":" + value["relative_path"]
+    if value["type"] == "url":
+        if set(value) != {"type", "url"} or not _url(value["url"]):
+            return None
+        return "url:" + value["url"]
+    return None
 
 
 def decode_holdings_intent(row):

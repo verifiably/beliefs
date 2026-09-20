@@ -1,12 +1,14 @@
 """Captured bytes to qualification evidence (spec §3.1)."""
 
+import json
+
 import pytest
 from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_to_markdown
 
 from beliefs import stored
 from beliefs.errors import RecordUndecodable
-from beliefs.holdings.records import Found, StoreLocator, holdings_observation
+from beliefs.holdings.records import Found, StoreLocator, holdings_observation, url_locator
 from beliefs.intents import evidence, shapes
 from beliefs.intents.evidence import decode_node
 from beliefs.intents.holdings import decode_holdings_intent
@@ -104,6 +106,49 @@ def test_holdings_observation_decodes_location_and_token(
     )
     assert intent is not None and intent["location"] == expected
     assert decoded == shapes.ObservationEvidence(expected, facet["event_token"])
+
+
+def test_a_url_observation_decodes_to_url_evidence():
+    record = holdings_observation(
+        location=url_locator("https://example.org/data"), outcome=Found("sha256:" + "ab" * 32),
+        observer="o", instrument="i", event_token="tok", observed_at="2026-09-20T00:00:00Z",
+    )
+    node = stored.holdings_observation_node(record)
+    decoded = evidence.decode_record(f"holdings-observation/{record.identity()}.md", node_to_markdown(node).encode())
+    assert decoded == shapes.ObservationEvidence("url:https://example.org/data", "tok")
+
+
+def test_a_url_intent_decodes_through_the_shared_shape_and_matches_its_observation():
+    payload = json.dumps(
+        {
+            "actor": "actor:a",
+            "domain": "science.holdings-intent.v1",
+            "event_token": "tok",
+            "kind": "re-check",
+            "location": {"type": "url", "url": "https://example.org/data"},
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    row = {"digest": "1" * 64, "entry": {"payload": payload.hex()}}
+    decoded = decode_holdings_intent(row)
+    assert decoded == {
+        "digest": "1" * 64,
+        "actor": "actor:a",
+        "event_token": "tok",
+        "kind": "re-check",
+        "location": "url:https://example.org/data",
+    }
+    gate = shapes.decode_intent("1" * 64, payload)
+    assert type(gate) is shapes.DecodedIntent
+    assert gate.shape == "holdings"
+    assert (
+        shapes.mismatch(
+            gate,
+            shapes.ObservationEvidence("url:https://example.org/data", "tok"),
+        )
+        is None
+    )
 
 
 def test_a_record_under_the_wrong_path_or_name_is_undecodable(
