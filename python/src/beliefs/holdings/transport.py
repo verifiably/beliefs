@@ -265,7 +265,7 @@ def retrieve(locator: UrlLocator, bounds: RetrievalBounds, seam: UrlSeam, scratc
                 return Failed(f"status {response.status}")
             encoding = response.getheader("Content-Encoding")
             if encoding is not None and encoding.strip().lower() != "identity":
-                return Failed(f"content-encoding {encoding.strip().lower()} is not identity")
+                return Failed("content-encoding is not identity")
             return _stream(response, response.getheader("Content-Length"), bounds, scratch)
         finally:
             connection.close()

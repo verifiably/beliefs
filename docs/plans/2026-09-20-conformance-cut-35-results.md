@@ -314,6 +314,21 @@ plus two the tree's layout forced:
 - **T2-b's store-less half runs off the certified volume** (a `tmp_path`
   session with no bound store); its port-less half runs on it.
 
+**Final review, following cut 34's pattern.** Two changes landed after the
+final whole-branch review rather than in the task that touched the code:
+
+- **The content-encoding reason became a fixed phrase.** The plan's line
+  1466 mandated echoing the header value (`f"content-encoding
+  {encoding.strip().lower()} is not identity"`); the final review found
+  that a server-controlled header value reaching a durable `RetrievalFailed`
+  reason violates decision 6's "never bytes or host" principle (spec §4),
+  which the plan's own text overlooked. The reason is now the fixed
+  `"content-encoding is not identity"`.
+- **`test_recent_cut_acceptance.py` gained the cut-35 row after the final
+  review.** The plan omitted the row, as cut 34's plan omitted its own row
+  (§7 of the cut-34 results record); the fix follows the shape `f4c2cef`
+  used for cut 33 and `c77b2aa` for cut 34.
+
 **Planning corrections recorded before implementation.** Eighteen
 corrections (a)–(r) found while writing the plan are recorded in spec §17
 at `5417455`; the plan's Task 0 brief had omitted the recording step and it
@@ -345,14 +360,16 @@ limitation of the code or its tests as they stand, none reopens a row.
   looser than `_canonical_url`, so a non-canonical `url` key never matches
   an observation and the strict gate is the codec — a spec-note candidate
   (§7's limitation 9 covers the consequence).
-- **Task 3**: `content-encoding <value> is not identity` echoes a server
-  header value into a reason (plan-mandated); `int(declared_length)`
-  accepts `+4`/`-1`/underscore spellings (only the fake reaches it);
-  `ip_address()` sits outside the `try` in `preflight`; the TLS fixture's
-  `handle_error` swallows every handler exception and its comment names the
-  wrong seam; the timeout is per operation, not wall clock (a docstring
-  sentence). Resolved at review: hop 0's spelling refuses bytes outside
-  0x21–0x7E through `_canonical_url`.
+- **Task 3**: `int(declared_length)` accepts `+4`/`-1`/underscore
+  spellings (only the fake reaches it); `ip_address()` sits outside the
+  `try` in `preflight`; the TLS fixture's `handle_error` swallows every
+  handler exception and its comment names the wrong seam; the timeout is
+  per operation, not wall clock (a docstring sentence). Fixed at this
+  commit, after the final review: the content-encoding reason echoed a
+  server header value (plan-mandated at line 1466); it is now the fixed
+  phrase `"content-encoding is not identity"` (§3.2). Resolved at review:
+  hop 0's spelling refuses bytes outside 0x21–0x7E through
+  `_canonical_url`.
 - **Task 4**: the report's GREEN blocks lacked summary lines (a doubled
   `-q`, re-run and corrected in the fix round); `look` is defined before
   `ActContext`; no `look` test with a valid `expected=` digest (Task 5's
@@ -495,3 +512,6 @@ Every `Ruling:` entry from the execution ledger, in chronological order:
   sha-pinned and every arm sound; the recording is the deliverable. Cost if
   wrong: none against the evidence; a reader comparing §5 to the
   declaration without this table would think seven arms mis-sited.
+- **Final review: both Importants fixed on the branch before merge**
+  — because neither touches a frozen file — costs if wrong: a focused
+  re-run.

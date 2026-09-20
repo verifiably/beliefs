@@ -204,7 +204,7 @@ def test_a_redirect_without_a_location_is_failed(tmp_path):
     [
         (Scripted(404, {}, (b"",)), "status 404"),
         (Scripted(500, {}, (b"",)), "status 500"),
-        (Scripted(200, {"Content-Length": "4", "Content-Encoding": "gzip"}, (b"abcd",)), "content-encoding gzip is not identity"),
+        (Scripted(200, {"Content-Length": "4", "Content-Encoding": "gzip"}, (b"abcd",)), "content-encoding is not identity"),
         (Scripted(200, {"Content-Length": "8"}, (b"abcd",)), "body shorter than content-length 8"),
         (Scripted(200, {"Content-Length": "2"}, (b"abcd",)), "body longer than content-length 2"),
         (Scripted(200, {}, (b"ab",), raise_on_read=TimeoutError("timed out")), "transport failure: timeout"),
