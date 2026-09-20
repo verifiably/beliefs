@@ -177,15 +177,16 @@ anything but the bytes. Every one of those facts lands on a decision below.
    `expected` is exactly that channel; refusing would discard an
    established finding, which H4 forbids.
 
-5. **The cooperative stop.** After the first look that established nothing
-   — a preflight refusal, a transport failure, a bound exceeded, a
-   non-200 status — the remaining resources' looks are **skipped**: no
-   intent appended, no request issued, and each records
-   `byte-locator-untested` with reason `skipped-after-stop`, distinct from
-   a preflight refusal's reason (T5's two-reasons arm). The dataset cannot
-   mint without every resource, so continuing would spend requests to
-   establish findings the operation cannot use; a caller who wants them
-   runs a second acquisition. *Rejected:* looking at every resource
+5. **The cooperative stop.** After the first resource that did not
+   complete — a look that established nothing (a preflight refusal, a
+   transport failure, a bound exceeded, a non-200 status, a refused hop) or
+   a materialization the store refused (decision 10) — the remaining
+   resources are **skipped**: no intent appended, no request issued, and
+   each records `byte-locator-untested` with reason `skipped-after-stop`,
+   distinct from a preflight refusal's reason (T5's two-reasons arm). The
+   dataset cannot mint without every resource, so continuing would spend
+   requests to establish findings the operation cannot use; a caller who
+   wants them runs a second acquisition. *Rejected:* looking at every resource
    regardless — more evidence per run, but it makes the skip arm
    unconstructible and the pilot's per-record budget harder to hold.
 
@@ -194,19 +195,28 @@ anything but the bytes. Every one of those facts lands on a decision below.
    message.** The presigned object-store URL a repository redirects to
    carries a signature in its query: bytes the holdings design says
    structure cannot classify, and which the caller — who authored only the
-   declared URL — never had the chance to keep credential-free. So the
+   declared URL — never had the chance to keep credential-free. The same
+   holds for a **token-bearing hostname**, which the holdings design names
+   beside the signed query as structure cannot classify. So the
    observation's location is the **declared canonical URL**, the entry's
-   subject is the same, and a hop is named by its **ordinal and host**
-   only, never its bytes: a refused hop reads `byte-locator-untested` with
-   reason `redirect hop 2 to host.example refused: non-public address`; a
-   redirect chain longer than `max_redirects` reads `retrieval-failed`
-   with the bound named. Preflight per hop: scheme `https` (an `http`
-   locator or hop is refused here, not at construction); the host resolves
-   to at least one address and every address is global (`ipaddress
-   .is_global`); a `Location` is joined against the hop it came from before
-   it is revalidated. *Rejected:* recording the final resolved URL as a
-   second location — it names an access grant, not a location, and would
-   put the grant into immutable content.
+   subject is the same, and a hop is named by its **ordinal and a fixed
+   refusal category** only — never its bytes, never its host: the
+   categories are the closed set `scheme`, `no-host`, `unresolvable`,
+   `non-public-address`, `unpinnable`, and a refused hop reads
+   `retrieval-failed` with reason `redirect hop 2 refused: non-public-
+   address`. It is `retrieval-failed`, not `byte-locator-untested`, because
+   the declared URL's request **began** — T5 reserves `byte-locator-
+   untested` for a locator act where no request or dereference began, and
+   only the declared URL's own preflight and the post-stop skip are that
+   (decision 5). A redirect chain longer than `max_redirects` reads
+   `retrieval-failed` with the bound named. Preflight per hop: scheme
+   `https` (an `http` locator or hop is refused here, not at construction);
+   the host resolves to at least one address and every address is global
+   (`ipaddress.is_global`); a `Location` is joined against the hop it came
+   from before it is revalidated, in memory only. *Rejected:* recording the
+   final resolved URL as a second location — it names an access grant, not
+   a location, and would put the grant into immutable content. *Rejected:*
+   naming the refused hop's host — a hostname can carry the grant.
 
 7. **The retrieval bounds are explicit inputs of every look and are
    recorded on every locator entry.** `RetrievalBounds(timeout_seconds,
@@ -214,15 +224,24 @@ anything but the bytes. Every one of those facts lands on a decision below.
    boundary has no default. Each `LocatorEntry.instrument_inputs` carries
    the three as string pairs in a fixed order, beside whatever outcome
    they caused. The timeout bounds the connect and every read; the ceiling
-   is streaming — the stream ends at the first byte past `max_bytes`, the
-   partial body is never hashed, and the entry reads `retrieval-failed`
-   naming the ceiling. *Rejected:* kernel defaults — the ramp records that
+   is streaming — the hash is updated as chunks arrive, the stream ends at
+   the first byte past `max_bytes`, and the running hash is **discarded,
+   never finalized**: an incomplete body — over the ceiling, short or long
+   against `Content-Length`, or cut by a transport failure — yields a
+   `Failed` that carries no digest, mints nothing, and leaves no scratch
+   file; the entry reads `retrieval-failed` naming the ceiling or the
+   cause. *Rejected:* kernel defaults — the ramp records that
    its own 512 MB ceiling misreported its three largest resources and
    forbids promoting an instrument choice into the profile.
 
 8. **The bytes on the wire are the resource's bytes, or the look fails.**
-   The request sends `Accept-Encoding: identity` and `Host`, follows the
-   ramp's `GET`; a response whose `Content-Encoding` is present and not
+   The request is the ramp's `GET`, and it transmits the canonical locator
+   **faithfully**: the request target is the canonical path and query
+   byte-exact — an empty `?` included — and the `Host` header is the
+   canonical authority, the host plus `:port` whenever the port is not the
+   scheme's default; the survey instrument dropped an empty query and
+   omitted the port, and the kernel does neither. It sends
+   `Accept-Encoding: identity`; a response whose `Content-Encoding` is present and not
    `identity` is `retrieval-failed` (the hashed stream would not be the
    resource), as is a body shorter or longer than a declared
    `Content-Length`, a status other than `200` (a `404` included — the
@@ -260,12 +279,21 @@ anything but the bytes. Every one of those facts lands on a decision below.
     verification makes a destination whose post-state differs from the
     written bytes uncommittable, so a `found(D'')` with `expected = D` at
     the store location is unconstructible from this path; a refused or
-    failed store transaction raises, mints no observation, leaves the
-    location unsettled under its unmatched mutating intent (H2), and the
-    operation **closes** with the resource's `ManagedMutationEntry`
-    absent and the look's entry present — the store leg's story is the
-    record layer's, and the report never restates what the chain proves
-    (act-report §2.2). An existing file at the destination is replaced
+    failed store transaction raises out of `write`, mints no observation
+    and leaves the location unsettled under its unmatched mutating intent
+    (H2). `acquire` catches that `ScienceError` and treats it as a **stop**
+    (decision 5): the resource's `ManagedMutationEntry` is absent and its
+    look's entry present — the store leg's story is the record layer's, and
+    the report never restates what the chain proves (act-report §2.2) —
+    every later resource is skipped, the operation **closes**, no dataset
+    mints, and the outcome's `stop` names the resource, the phase
+    `materialize` and the refusal's class and message (§6). A stop forbids
+    the mint whatever its phase: the request asked for materialized bytes,
+    and a dataset minted without them would read `held` on the URL
+    observation alone while the caller learns of the missing copy only from
+    the report. Any other exception propagates unchanged: it is not a
+    refusal, and the operation stays unfinished under its intent (§4's
+    raise rule). An existing file at the destination is replaced
     (the seam's `ReplaceFile` effect), the prior observation superseded
     only if the caller supplied it as standing. *Rejected:* a kernel-chosen
     content-addressed layout — the store's namespace is the caller's
@@ -380,8 +408,8 @@ url_seam() -> UrlSeam                        # production: system resolver + pin
 
 retrieve(locator: UrlLocator, bounds, seam, scratch: Path) -> Retrieved | NotAttempted | Failed
   Retrieved(digest: str, size: int, path: Path)   # scratch file, caller deletes
-  NotAttempted(reason: str)                       # -> byte-locator-untested
-  Failed(reason: str)                             # -> retrieval-failed
+  NotAttempted(reason: str)                       # -> byte-locator-untested: the declared URL's own preflight
+  Failed(reason: str)                             # -> retrieval-failed: everything after the first request, refused hops included; no digest
 ```
 
 The three-way result is the **phase** the look classifies from (world-index
@@ -395,7 +423,9 @@ and filing no entry — the durable unmatched re-check intent marks the
 attempt (world-index holdings §4.1 item 3, unchanged).
 
 Preflight per hop (decision 6); the connection (decision 9); the request
-and the body (decision 8); the scratch root (decision 8). The survey
+target, the `Host` authority and the body (decision 8); the scratch root
+(decision 8). A `Failed` never carries a digest: the running hash of an
+incomplete body is dropped with the scratch file (decision 7). The survey
 instrument keeps its own copies of nothing: it imports the kernel's
 transport and its tests move with the code, so the ramp's instrument and
 the kernel's boundary cannot drift apart.
@@ -437,8 +467,10 @@ them.
 ResourceRequest(name, url: UrlLocator, expected: str | None, materialize: StoreLocator | None)
 AcquisitionRequest(title, locator: str, resources: tuple[ResourceRequest, ...],
                    bounds: RetrievalBounds, domain_facets: Mapping | None = None)
+Stop(resource: str, phase: "look" | "materialize", reason: str)
 AcquisitionOutcome(report: ActReport, report_ref: str, dataset: Node | None,
-                   entries: tuple[Entry, ...])
+                   entries: tuple[Entry, ...], stop: Stop | None)
+                   # stop is None iff every resource completed; dataset is None whenever stop is set
 
 acquire(ctx: ActContext, writer: CorpusWriter, request, *, seam: UrlSeam, scratch: Path,
         standing: Mapping[str, tuple[HoldingsObservation, ...]] = {}) -> AcquisitionOutcome
@@ -465,15 +497,14 @@ spans the holdings boundary and the corpus writer and belongs to neither.
    PublishedObservation(ref), instrument_inputs=bounds)`; then, if
    `materialize`: `write(ctx, destination, bytes, expected=look digest,
    standing=standing.get(store key))` → `ManagedMutationEntry(subject=store
-   canonical, PublishedObservation(ref))`; a store refusal propagates after
-   the scratch file is deleted, the operation **still closes** at step 4
-   with the entries so far — the failed leg has its unmatched mutating
-   intent (decision 10) — and the outcome carries the raised error beside
-   the report. On `InconclusiveLook`, the entry's outcome is
-   `ByteLocatorUntested(reason)` or `RetrievalFailed(reason)`, and every
-   later resource gets `ByteLocatorUntested("skipped-after-stop")` with no
-   intent and no request.
-4. **Close**. `mint = all looks found and all expectations equal`. If
+   canonical, PublishedObservation(ref))`; a `ScienceError` out of `write`
+   is a stop with phase `materialize` (decision 10): the scratch file is
+   deleted, no mutation entry is filed, and the operation goes to step 4.
+   On `InconclusiveLook`, the entry's outcome is `ByteLocatorUntested(
+   reason)` or `RetrievalFailed(reason)` and it is a stop with phase `look`.
+   After a stop, every later resource gets `ByteLocatorUntested(
+   "skipped-after-stop")` with no intent and no request.
+4. **Close**. `mint = stop is None and all expectations equal`. If
    `mint`: `address = dataset_address(declaration)`; if the writer's view
    already resolves `address` → no dataset (decision 11); else the dataset
    node is built by `stored.dataset_node(title, resources=[(name, digest)],
@@ -518,13 +549,28 @@ a URL input is cut 3's standing arm, cited.
   (unchanged: the facet is the record's own).
 - `holdings/boundary.intent_payload(location: Locator, ...)` encodes
   `{"type": "url", "url": ...}` for the second arm.
-- `holdings/qualify._location` accepts `{"type": "url", "url": <str>}` and
-  returns `"url:" + url`; it validates the value is a non-empty ASCII
-  string with no fragment and no userinfo — the pure rule cannot import
-  the constructor, so it re-states the two refusals the walk depends on
-  and trusts construction for the rest (a non-canonical spelling raw-
-  written into an intent is a location no act will ever fulfill, and the
-  reducer's answer for it is `unmatched`, which is true).
+- `intents/holdings.py` is the **shared source** of the holdings-intent
+  shape; `holdings/qualify.py` is generated from it by
+  `python/tools/regen_holdings_interior.py` and is never hand-edited
+  (`test_intents_holdings.py` pins the header and the bytes). The change
+  lands in the source and is regenerated: `_location` accepts `{"type":
+  "url", "url": <str>}` and returns `"url:" + url`; it validates the value
+  is a non-empty ASCII string with no fragment and no userinfo — the pure
+  rule cannot import the constructor, so it re-states the two refusals the
+  walk depends on and trusts construction for the rest (a non-canonical
+  spelling raw-written into an intent is a location no act will ever
+  fulfill, and the reducer's answer for it is `unmatched`, which is true).
+  `decode_holdings_intent` therefore decodes a URL intent for the
+  reduction, `intents/shapes.decode_intent`, and the session's
+  `reconcile`; without the source change every URL intent would decode as
+  `malformed`.
+- `intents/evidence.py` builds `ObservationEvidence`'s location key from
+  the record — `value.location.canonical()` — instead of the store fields
+  it spells today, so a URL observation decodes to `url:<canonical>`
+  evidence rather than raising `AttributeError` inside the reduction. Its
+  key and the intent's `_location` key are one spelling, pinned by a test
+  that decodes a URL intent and its fulfilling observation and asserts the
+  reduction matches them.
 - `holdings/rules_v1/holdings.py` derives the location key from the
   `type` (`store:` + id + path, or `url:` + url); every walk, coalescing
   and blocking rule is location-generic already. A new fixture
@@ -643,15 +689,22 @@ unknown `type` and a wrong key set.
 with the reason; a validated address that cannot be pinned issues no
 request (the seam's request counter is zero); the pinned connection dials
 the address and validates the name (the survey test moved); a relative
-`Location` is joined before revalidation; a refused hop names ordinal and
-host and never the hop's bytes (the hop carries `X-Amz-Signature=…`; assert
-the string is absent from the reason); too many redirects is `Failed`
-naming the bound; a non-identity `Content-Encoding`, a short body against
-`Content-Length`, a `404`, a `500`, a redirect without `Location`, and a
-timeout are each `Failed`; the ceiling ends the stream at `max_bytes + 1`
-and hashes nothing; a complete `200` body is `Retrieved` with the sha256
-of the bytes and the scratch path; the scratch root refuses either root
-or a descendant; the look's file is deleted on every path.
+`Location` is joined before revalidation; a refused hop is `Failed` with
+its ordinal and category and never the hop's bytes or host — one case
+with a signed query (`X-Amz-Signature=…`) and one with a token-bearing
+hostname (`https://tok3n-9f2a.example.net/…`), asserting neither the
+query, the token nor the host occurs in the reason or in any exception
+text; too many redirects is `Failed` naming the bound; a non-identity
+`Content-Encoding`, a short and a long body against `Content-Length`, a
+`404`, a `500`, a redirect without `Location`, and a timeout are each
+`Failed` **carrying no digest**; the ceiling ends the stream at `max_bytes
++ 1` and the `Failed` carries no digest and leaves no scratch file; the
+request as the in-process server receives it for
+`https://example.org:8443/data?` has target `/data?` and `Host:
+example.org:8443`, and for `https://example.org/a/./b/` has target
+`/a/b/` and `Host: example.org`; a complete `200` body is `Retrieved` with
+the sha256 of the bytes and the scratch path; the scratch root refuses
+either root or a descendant; the look's file is deleted on every path.
 
 `python/tests/test_holdings_boundary.py` (extended): `look` appends a
 `re-check` intent naming the URL location, publishes `found` fulfilling
@@ -665,18 +718,24 @@ intent before every holdings intent, one report, the dataset at its
 derived address with `retrieval` naming the report, the report's three
 entries in order, `completion` `closed`; two resources with the second
 failing — first entry `PublishedObservation`, second `RetrievalFailed`, no
-dataset, closed; three resources with the first refused at preflight —
-entries `ByteLocatorUntested(reason)`, `ByteLocatorUntested(
-"skipped-after-stop")` twice, exactly one request issued, exactly one
-holdings intent; an expectation mismatch — observation `found(D')` with
+dataset, closed, `stop.phase == "look"`; three resources with the first
+refused at preflight — entries `ByteLocatorUntested(reason)`,
+`ByteLocatorUntested("skipped-after-stop")` twice, **zero** requests
+issued, exactly one holdings intent (the first resource's re-check
+intent precedes its preflight); an expectation mismatch — observation `found(D')` with
 `expected = D`, no dataset, `dataset_observations` reports the mismatch;
 an existing address — no second dataset, observation and report
 published; every pre-intent refusal (wrong root, no port, store-less
 materialization, malformed request, scratch under a root) leaves the
 chain and the corpus byte-identical and issues no request; a store
-refusal after a successful look closes with the mutation entry absent and
-the error carried; no lock held across the request (the seam's `connect`
-acquires `_operation_lock_for(root)` non-blocking and succeeds).
+refusal on the **first** of two resources closes with that resource's
+mutation entry absent, the second resource skipped, no dataset,
+`stop == Stop(name, "materialize", reason)` and the outcome returned, not
+raised; a store refusal on the **last** resource closes the same way with
+every earlier resource's entries intact and no dataset; a non-refusal
+exception out of `write` propagates and the operation reads unfinished;
+no lock held across the request (the seam's `connect` acquires
+`_operation_lock_for(root)` non-blocking and succeeds).
 
 `python/tests/test_holdings_reduce.py` and `test_holdings_stored.py`
 (extended): the `url` fixture reduces; a mixed coverage's active set
@@ -688,9 +747,18 @@ world holding the old one leaves the old receipt `validated`.
 refuses a non-acquisition intent; the entry order is identity-bearing
 across the three entry kinds.
 
-`python/tests/test_session_routes.py` (extended): `acquire` through a
-session ledgers every commit; a store-less session refuses before the
-intent.
+`python/tests/test_intent_evidence.py` and `test_intents_holdings.py`
+(extended): a URL observation decodes to `ObservationEvidence("url:…",
+token)`; a URL re-check intent decodes through `decode_holdings_intent`
+and `shapes.decode_intent`; the generated `qualify.py` still equals the
+header plus the source bytes.
+
+`python/tests/test_session_routes.py` and `test_session_reconcile.py`
+(extended): `acquire` through a session ledgers every commit; a
+store-less session refuses before the intent; `reconcile` over a session
+whose chain holds a URL re-check intent and its fulfilling observation
+reports nothing, and over one whose URL intent is unfulfilled reports the
+same interrupted-act finding a store re-check would.
 
 `python/tests/test_admission_survey.py`: the transport tests move to
 `test_holdings_transport.py`; the instrument's remaining tests import the
@@ -706,7 +774,7 @@ certificate the seam's context trusts; one check per declaration unit:
 | unit | row | what it reads |
 |---|---|---|
 | H4-a | H4 | an established remote `found` publishes; a publication failure after `Retrieved` raises and the chain carries the unmatched re-check intent, no transient report |
-| H4-b | H4 | timeout, ceiling, `404`, `500`, refused hop, unpinnable context: each mints nothing, never `absent`, and the standing URL observation's identity is unchanged |
+| H4-b | H4 | timeout, ceiling, `404`, `500`, refused hop, unpinnable context: each mints nothing, never `absent`, carries no digest, and the standing URL observation's identity is unchanged |
 | G9-a | G9 | `found` at a URL, no store copy → `held` via `dataset_observations` and `admission_state`; the URL then fails → still `held` |
 | R10-a | R10 | the minted dataset's facet carries `locator`, `attested_by` = actor, `retrieval` → an `acquisition` report whose entry references the observation; `validity_refusal` is `None` |
 | T5-a | T5 | a `Failed` retrieval spells `retrieval-failed`; the sabotage classifying it untested fails |
@@ -722,16 +790,17 @@ certificate the seam's context trusts; one check per declaration unit:
 | T4-a | T4 | reports added and removed: reducer outputs byte-identical; an unmatched acquisition intent blocks nothing |
 | T4-b | T4 | deleting a referenced URL observation moves the active set; the report is byte-unchanged and `cite` resolves |
 | BI-1 | — | the canonicalization table through the durable path: two spellings of one URL are one location in the reducer |
-| BI-2 | — | a presigned hop: its query bytes occur in no published record, no entry, no reason and no exception text |
+| BI-2 | — | a presigned hop and a token-bearing-hostname hop: the query, the token and the host occur in no published record, no entry, no reason and no exception text; the entry reads `retrieval-failed` with ordinal and category |
 | BI-3 | — | the pinned connection dials the validated address with name validation; an unpinnable context issues no request |
-| BI-4 | — | the ceiling ends the stream; the partial body is not hashed; the bound is named on the entry |
+| BI-4 | — | the ceiling ends the stream; no digest is finalized or published for the partial body; the bound is named on the entry |
 | BI-5 | — | an expectation mismatch: `found(D')` with `expected = D`, no dataset, the adapter reports `mismatch` |
 | BI-6 | — | an already-held address: no second dataset, observation and report published, the old `retrieval` unchanged |
 | BI-7 | — | a crash between the URL look's intent and its publication: the reducer reports no blocked entry for the URL location |
 | BI-8 | — | no lock across the request |
 | BI-9 | — | the successor rule: the old binding's receipt still validates where held; the new fixture reduces |
+| BI-10 | — | a URL re-check intent and its fulfilling observation decode through `intents/evidence.py` and the generated helper; the reduction matches them and `reconcile` reports nothing; a store refusal on the first and on the last resource each returns a stopped outcome with no dataset |
 
-Twenty-five units: sixteen against rows, nine boundary invariants.
+Twenty-six units: sixteen against rows, ten boundary invariants.
 
 ### 11.3 N2 sabotages
 
@@ -758,14 +827,15 @@ module is `ast.parse`d.
 | T4-a | `holdings/rules_v1/holdings.py` | an unmatched `acquisition` operation intent adds an `unsettled` reason | T4-a |
 | T4-b | `holdings/rules_v1/holdings.py` | a head referenced by a report's entry is retained after deletion (the rule reads reports) | T4-b |
 | BI-1 | `holdings/records.py` | host case is preserved | BI-1 |
-| BI-2 | `holdings/transport.py` | the refused-hop reason carries the hop URL | BI-2 |
+| BI-2 | `holdings/transport.py` | the refused-hop reason carries the hop's host | BI-2 |
 | BI-3 | `holdings/transport.py` | `connect` dials the host name, not the pinned address | BI-3 |
-| BI-4 | `holdings/transport.py` | the ceiling check moves after the hash update | BI-4 |
+| BI-4 | `holdings/transport.py` | the ceiling returns `Retrieved` with the running hash's digest | BI-4 |
 | BI-5 | `holdings/acquire.py` | a mismatch still mints the dataset from the found digest | BI-5 |
 | BI-6 | `holdings/acquire.py` | an existing address is revised to the new report | BI-6 |
 | BI-7 | `holdings/boundary.py` | the URL look's intent kind becomes `write` | BI-7 |
 | BI-8 | `holdings/acquire.py` | `retrieve` runs under `_operation_lock_for(root)` | BI-8 |
-| BI-9 | `holdings/qualify.py` | `_location` returns `None` for the `url` arm | BI-9 |
+| BI-9 | `holdings/qualify.py` | `_location` returns `None` for the `url` arm (the generated copy is what the rule bundle reads) | BI-9 |
+| BI-10 | `intents/evidence.py` | the location key reverts to the store fields | BI-10 |
 
 Both directions are required: the check passes on the real tree and fails
 under sabotage.
@@ -778,7 +848,9 @@ worktree and branch for a cut numbered 35–39 (none at 2026-09-19: `main`,
 `.worktrees/nodes`, every ref of `git branch -a`). The runner
 `python/tools/cut35_acceptance.py` names `"cut34_acceptance.py"` in
 `PREFIX_RUNNERS` (rule 5) and carries `PHASE_MODULES =
-("test_url_retrieval_acceptance.py", "test_n2_cut35.py")`. Frozen by dated
+("test_url_retrieval_acceptance.py", "test_n2_cut35.py")`. Declaration
+units: H4-a–b, G9-a, R10-a, T5-a–c, T7-a–b, T1-a, T2-a–d, T4-a–b,
+BI-1–BI-10 — twenty-six. Frozen by dated
 commit after review clears; invalidated frozen evidence is pinned and
 cited, never edited. The results record states six rows closed (H4, G9,
 R10, T5, T1, T4), two partial (T2, T7), **183 of 216**.
@@ -807,7 +879,8 @@ R10, T5, T1, T4), two partial (T2, T7), **183 of 216**.
 `errors.py` (`AcquisitionRefused`; `UrlLocatorDeferred` removed),
 `python/tests/test_designs_corpus.py`, the ledger, the roadmap and the
 guide index, as every lane. Beyond those: `holdings/records.py`,
-`holdings/boundary.py`, `holdings/qualify.py`,
+`holdings/boundary.py`, `intents/holdings.py` (the source) and
+`holdings/qualify.py` (regenerated from it), `intents/evidence.py`,
 `holdings/rules_v1/holdings.py` and its fixtures, `holdings/transport.py`
 (new), `holdings/acquire.py` (new), `boundary.py`
 (`_mint_acquisition_report`), `corpus.py` (`_publish_operation_report`'s
@@ -852,7 +925,12 @@ decodes no holdings record.
 - Holdings record design §3: dated notes at "a URL look is intent-free" and
   "a `url` re-check needs no intent" (decision 2), and at §2's `url` row
   recording the two-scheme construction rule (decision 1) and the hop rule
-  (decision 6).
+  (decision 6: a hop is named by ordinal and category, never bytes or host,
+  and a refused hop is `retrieval-failed`).
+- Admission ramp §4: a dated note that "a hop refused at preflight ends the
+  attempt as `byte-locator-untested` with the hop named" is superseded at
+  the kernel by decision 6 — the instrument's own vocabulary was written
+  before T5 reserved the word.
 - Act-report design §2.2 and §3.1: a dated note naming the `acquisition`
   operation as built, its entry sequence, and decision 11's no-pin case.
 - Admission ramp §4: a dated note that the instrument now runs on the
@@ -902,3 +980,21 @@ world-read lane's next slice is designed), and a store-less look route
 ## 17. Review log
 
 - 2026-09-19 — drafted against `main` at `728a178`.
+- 2026-09-20 — first review, six findings, all confirmed against the
+  tree. Changed: `holdings/qualify.py` is generated from
+  `intents/holdings.py` and `intents/evidence.py` spells a store-only
+  location key — both named in §7 and §12, the evidence key built from the
+  record's `canonical()`, reconciliation covered (BI-10); a refused hop is
+  named by ordinal and a fixed category, never its host, because a
+  hostname can carry the grant (decision 6), tested with a token-bearing
+  hostname beside the signed query (BI-2); a refused hop is
+  `retrieval-failed`, since the declared URL's request began (decision 6,
+  §4); the request target and `Host` transmit the canonical locator
+  faithfully — empty `?` and non-default port included — and the actual
+  request is tested (decision 8); a materialization refusal is a stop with
+  a defined return contract — `AcquisitionOutcome.stop`, remaining
+  resources skipped, no mint, no raise past a closed report — tested on
+  the first and the last resource (decisions 5, 10, §6); an incomplete
+  body yields no finalized or published digest rather than "is never
+  hashed" (decision 7, §4, BI-4); the preflight-refusal test issues zero
+  requests while keeping its one holdings intent (§11.1).
