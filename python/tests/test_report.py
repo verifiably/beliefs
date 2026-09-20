@@ -21,9 +21,12 @@ from beliefs.report import (
     ActReport,
     AssessmentRunIntent,
     ByteLocatorUntested,
+    DeclarationPinEntry,
     LocatorEntry,
     ManagedMutationEntry,
     OperationIntent,
+    PinnedDeclaration,
+    PublishedObservation,
     RecordImportEntry,
     Registration,
     SubjectEvaluationEntry,
@@ -125,6 +128,24 @@ def test_the_two_relocation_operation_kinds_are_admitted():
     assert "move" in report_values.OPERATION_KINDS
     assert "consolidate" in report_values.OPERATION_KINDS
     assert "delete" not in report_values.OPERATION_KINDS
+
+
+def test_an_acquisition_report_requires_an_acquisition_intent_and_keeps_entry_order():
+    from beliefs.boundary import _mint_acquisition_report
+
+    entries = (
+        LocatorEntry("url:https://example.org/a", PublishedObservation("holdings-observation:" + "a" * 64), (("timeout_seconds", "5.0"),)),
+        ManagedMutationEntry("store:" + "d" * 32 + ":a.bin", PublishedObservation("holdings-observation:" + "b" * 64)),
+        DeclarationPinEntry("dataset:sha256:" + "c" * 64, PinnedDeclaration("dataset:sha256:" + "c" * 64)),
+    )
+    intent = OperationIntent("acquisition", "tok", "actor:a")
+    fields = {"observer": "o", "instrument": "i", "opened_at": "2026-09-20T00:00:00Z", "closed_at": "2026-09-20T00:00:01Z"}
+    report = _mint_acquisition_report(intent, entries=entries, **fields)
+    assert report.operation == "acquisition" and report.entries == entries
+    permuted = _mint_acquisition_report(intent, entries=(entries[1], entries[0], entries[2]), **fields)
+    assert permuted.identity() != report.identity()
+    with pytest.raises(MalformedRecord):
+        _mint_acquisition_report(OperationIntent("import", "tok", "actor:a"), entries=entries, **fields)
 
 
 # --- T3 ----------------------------------------------------------------------

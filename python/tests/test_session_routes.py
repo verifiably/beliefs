@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 import pytest
+from authority import FULL
 from fixtures_cut3 import run_assessment
+from holdings_transport_fixtures import Scripted, scripted_seam
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.write_plan import CreateOp, DeleteOp
+from profiles import BASE, pins_for
 from test_boundary import _assessment
 from test_operation_writes import proposition
 from test_session_writer import DIGEST, make_session
@@ -19,12 +22,16 @@ from test_session_writer import DIGEST, make_session
 from beliefs.boundary import RunRefused
 from beliefs.corpus import _operation_lock_for
 from beliefs.errors import SessionProtocolError
+from beliefs.holdings.acquire import AcquisitionRequest, ResourceRequest
 from beliefs.holdings.boundary import ActContext, recheck, write
-from beliefs.holdings.records import StoreLocator
+from beliefs.holdings.records import StoreLocator, url_locator
 from beliefs.holdings.seam import FileStateView, PathObservedView, StoreActSeam, StoreOutcomeView
+from beliefs.holdings.transport import RetrievalBounds
 from beliefs.permit import RequiredCapabilities
-from beliefs.session import open_ledger_reader
+from beliefs.root import init_corpus_root, init_store_root, open_corpus
+from beliefs.session import open_attended_session, open_ledger_reader
 from beliefs.session.routes import plan_records
+from beliefs.world.registry import WorldConfig
 
 RUNS = RequiredCapabilities.for_kinds({"run", "act-report"}, {"run": "run", "act-report": "run"})
 INTENT = "1" * 64
@@ -257,7 +264,11 @@ class FakeSeam:
         def unused(*_):
             raise AssertionError("not reached")
 
-        return StoreActSeam(corpus_lock, append_intent, publish_fulfilling, read_path, store_write, unused, unused, store_genesis)
+        # This fake never raises `ExecutionError`, so the predicate is never reached.
+        return StoreActSeam(
+            corpus_lock, append_intent, publish_fulfilling, read_path, store_write, unused, unused, store_genesis,
+            lambda _caught: False,
+        )
 
 
 BOTH = RequiredCapabilities.for_kinds({"holdings-observation", "proposition"}, {})
@@ -381,3 +392,98 @@ def test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete(tmp_path
     assert not a.is_alive() and not b.is_alive(), "deadlock: the lock order is not session then corpus"
     assert failures == []
     assert ("B", "held-by-another") in lock.attempts
+
+
+# --- the session acquisition route (url-retrieval design §8) -----------------------
+
+ACQUIRES = RequiredCapabilities.for_kinds({"holdings-observation", "dataset", "act-report"}, {"act-report": "corpus-write"})
+
+
+def _acquisition_request():
+    return AcquisitionRequest(
+        title="t", locator="url:https://example.org/dataset",
+        resources=(ResourceRequest("a", url_locator("https://example.org/a")),),
+        bounds=RetrievalBounds(5.0, 1 << 20, 3),
+    )
+
+
+def _durable_session(certified_work):
+    corpus_root, store_root = certified_work / "corpus", certified_work / "store"
+    init_corpus_root(corpus_root, authority=FULL)
+    open_corpus(corpus_root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
+    init_store_root(store_root, authority=FULL)
+    config = WorldConfig(certified_work / "world", "a" * 32, (corpus_root,))
+    return open_attended_session(config, certified_work / "ops", profile=BASE, store_root=store_root)
+
+
+def test_acquire_through_a_session_ledgers_every_commit(certified_work, tmp_path):
+    session = _durable_session(certified_work)
+    session.claim_invocation("A", "acquire", DIGEST)
+    scoped = session.scoped(ACQUIRES, "A")
+    transport, log = scripted_seam({"/a": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+    outcome = scoped.acquire(_acquisition_request(), instrument="inst", scratch=tmp_path / "scratch", seam=transport)
+    assert outcome.dataset is not None and len(log.requests) == 1
+    session.close_invocation("A", {"done": []})
+    session.close()
+    acts = open_ledger_reader(session.operations_root, session.session_id).acts()
+    assert len(acts) == 2  # the look's fulfilling publication and the closing transaction
+    assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.dataset.id}
+
+
+ACQUIRES_AND_ADDS = RequiredCapabilities.for_kinds(
+    {"holdings-observation", "dataset", "act-report", "proposition"}, {"act-report": "corpus-write"}
+)
+
+
+def test_the_close_takes_the_session_lock_before_the_root_lock_and_a_concurrent_act_completes(certified_work, tmp_path, monkeypatch):
+    """Session, then root, is the only order `_act` takes; the close takes the same
+    one, and holds neither around the request — so an act on another thread
+    completes while the acquisition is open, and the close never waits on a
+    thread that waits on it."""
+    from beliefs import corpus as corpus_module
+
+    session = _durable_session(certified_work)
+    session.claim_invocation("A", "acquire", DIGEST)
+    scoped = session.scoped(ACQUIRES_AND_ADDS, "A")
+    owned: list[bool] = []
+    real_enter = corpus_module._SettlingHold.__enter__
+
+    def probing(self):
+        owned.append(session._lock._is_owned())  # type: ignore[attr-defined]
+        return real_enter(self)
+
+    monkeypatch.setattr(corpus_module._SettlingHold, "__enter__", probing)
+    transport, _ = scripted_seam({"/a": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+    opened, added = threading.Event(), threading.Event()
+
+    def gated_connect(approved, timeout):
+        opened.set()  # the operation intent is open and the request is about to go out
+        assert added.wait(30), "the concurrent add did not complete while the request was open"
+        return transport.connect(approved, timeout)
+
+    def add_while_open():
+        assert opened.wait(30)
+        scoped.add(proposition("p"))
+        added.set()
+
+    partner = threading.Thread(target=add_while_open, daemon=True)
+    partner.start()
+    outcome = scoped.acquire(
+        _acquisition_request(), instrument="inst", scratch=tmp_path / "scratch", seam=replace(transport, connect=gated_connect)
+    )
+    partner.join(30)
+    assert not partner.is_alive() and outcome.dataset is not None
+    assert owned and all(owned)  # every root-lock entry under the session saw the session lock owned first
+    session.close_invocation("A", {"done": []})
+    session.close()
+    assert len(open_ledger_reader(session.operations_root, session.session_id).acts()) == 3  # the add, the look, the close
+
+
+def test_acquire_on_a_store_less_session_refuses_before_any_intent(tmp_path):
+    session, ports = make_session(tmp_path)
+    session.claim_invocation("A", "acquire", DIGEST)
+    scoped = session.scoped(ACQUIRES, "A")
+    transport, log = scripted_seam({})
+    with pytest.raises(SessionProtocolError, match="no store"):
+        scoped.acquire(_acquisition_request(), instrument="inst", scratch=tmp_path / "scratch", seam=transport)
+    assert ports[-1].calls == [] and log.requests == []

@@ -31,7 +31,7 @@ OTHER_LOCATION = f"store:{STORE}:other.bin"
 def observation(
     ref: str,
     *,
-    location: str = LOCATION,
+    location: str | dict[str, Any] = LOCATION,
     finding: str = "found",
     digest: str = "sha256:" + "1" * 64,
     expected: str | None = None,
@@ -39,13 +39,17 @@ def observation(
     observed_at: str = "2026-01-01T00:00:00Z",
     supersedes: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    store, store_id, relative_path = location.split(":", 2)
+    if isinstance(location, dict):
+        location_facet = dict(location)
+    else:
+        store, store_id, relative_path = location.split(":", 2)
+        location_facet = {"type": store, "store_id": store_id, "relative_path": relative_path}
     outcome: dict[str, Any] = {"finding": finding}
     if finding == "found":
         outcome["digest"] = digest
     facet: dict[str, Any] = {
         "kind": "holdings-observation",
-        "location": {"type": store, "store_id": store_id, "relative_path": relative_path},
+        "location": location_facet,
         "outcome": outcome,
         "observer": "observer",
         "instrument": "instrument",
@@ -190,6 +194,7 @@ def test_the_bundle_installs_through_the_fixture_bound_admission(tmp_path):
         "holdings.blocked.yaml",
         "holdings.empty.yaml",
         "holdings.unresolved.yaml",
+        "holdings.url.yaml",
     ]
 
 
@@ -500,6 +505,20 @@ def test_payloads_that_do_not_select_the_holdings_domain_are_ignored(payload):
     row = {"digest": "1" * 64, "entry": {"kind": "intent", "payload": payload}}
 
     assert invoke(capture(corpus(chain=[row]))) == {"active": [], "blocked": []}
+
+
+def test_the_url_fixture_ships_and_reduces():
+    names = [name for name, _ in holdings_rule_bundle().fixtures]
+    assert "holdings.url.yaml" in names
+
+
+def test_a_mixed_coverage_keys_url_and_store_heads_by_their_canonical_forms():
+    url_record = observation(REF_A, location={"type": "url", "url": "https://example.org/data"})
+    store_record = observation(REF_B)
+    result = invoke(capture(corpus(records=[url_record, store_record])))
+    assert sorted(head["location"] for head in result["active"]) == sorted(
+        ["url:https://example.org/data", LOCATION]
+    )
 
 
 def test_the_bundle_concatenates_the_helper_source():

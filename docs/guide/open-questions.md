@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-09-16
+updated: 2026-09-20
 sources:
   - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
@@ -263,11 +263,15 @@ implementation**: a guarantee row awaiting code is work, not a question.
   an opened operation — or the pre-intent refusal record of a rejected
   run request — the operation intent's three-valued completion reading
   (unfinished, indeterminate, closed), and the durable home of a look's
-  non-report. Four things stay open, deliberately: cross-root publication
+  non-report. Three things stay open, deliberately: cross-root publication
   of a dataset's provenance reference and its acquiring report (refused
   today); a compaction protocol that must preserve intent-qualification
-  resolvability and fulfillment evidence (the rule today is retain); new
-  operation kinds (the enum is closed at five); the agentic surface —
-  audit scheduling and liveness, kernel sub-problem 6.
+  resolvability and fulfillment evidence (the rule today is retain); the
+  agentic surface — audit scheduling and liveness, kernel sub-problem 6.
+  The operation-kind enum is no longer closed at five: cut 16 added `move`
+  and `consolidate`, cut 19 `corpus-write`, and cut 35 built the
+  `acquisition` boundary the enum had named since 2026-08-11. What remains
+  unbuilt of the enum is not a question but work: the `audit` and
+  `re-check` wrappers, `act-report-remainder`'s remainder on the roadmap.
   ([act-report design](../designs/2026-08-11-act-report-design.md),
   [what stays open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open))

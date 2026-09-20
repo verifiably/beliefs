@@ -1619,6 +1619,23 @@ def _store_genesis(root: Path) -> bytes:
     return _read_head(root).genesis_payload
 
 
+_STORE_ROUTINE_REFUSALS = (ProjectApprovalRefused, PreconditionRefused, PendingUnresolved)
+
+
+def _store_refusal(caught: Exception) -> bool:
+    """A routine engine refusal of the store transaction (url-retrieval design
+    decision 10): raised before any mutation or refusing cleanly, `applied ==
+    0`, and a cause in the closed set. `_mapped_submit` wraps every exception
+    as `ExecutionError`, so neither the class nor the phase alone says a
+    refusal happened. This predicate is the composition root's own — the only
+    module that may name `atoms`'s exception types — and reaches the holdings
+    boundary through `StoreActSeam.store_refusal`, whose signature is the
+    stdlib-only `Callable[[Exception], bool]`; every caller passes an
+    `ExecutionError`, and the `isinstance` guard keeps that an assumption this
+    function checks rather than merely relies on."""
+    return isinstance(caught, ExecutionError) and caught.applied == 0 and type(caught.__cause__) in _STORE_ROUTINE_REFUSALS
+
+
 @contextmanager
 def _holdings_corpus_lock(root: Path) -> Iterator[None]:
     with _operation_lock_for(root):
@@ -1634,6 +1651,7 @@ _HOLDINGS_SEAM = StoreActSeam(
     store_delete=_store_delete,
     store_move=_store_move,
     store_genesis=_store_genesis,
+    store_refusal=_store_refusal,
 )
 
 

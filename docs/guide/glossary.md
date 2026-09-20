@@ -2,7 +2,7 @@
 title: Glossary
 status: living
 created: 2026-08-08
-updated: 2026-09-16
+updated: 2026-09-20
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -35,7 +35,12 @@ context and the linked design references for normative detail.
   minted no run — or the refusal record of a run request rejected before
   an operation can open. Inert by type; its entries record each member
   act's subject, explicit instrument inputs, and outcome in that act
-  kind's own vocabulary, citable as (act-report ref, entry index).
+  kind's own vocabulary, citable as (act-report ref, entry index). The
+  operations that open one today are `import`, `move`, `consolidate`,
+  `run-attempt` and, since cut 35, `acquisition` — one intent, per resource
+  a URL look and an optional managed materialization, and a closing report
+  published in the same registered transaction as the dataset it mints;
+  `audit` and `re-check` have no opening boundary yet.
   ([act-report design](../designs/2026-08-11-act-report-design.md))
 - **Address** — A canonical lookup key, `kind:<basis-digest>`, distinct from
   label, location, and historical continuity. ([identity](identity-world-and-change.md#identity-is-not-one-field))
@@ -177,10 +182,13 @@ context and the linked design references for normative detail.
   2026-08-10.
   ([foundations](foundations.md#the-epistemic-invariant))
 - **Holdings observation** — A world record of what one act found at one
-  canonical location: `found` with an algorithm-qualified digest, or
-  `absent` where a completed dereference answered. Act-minted, append-only,
-  revised only by supersession, never expired by age; heldness is derived
-  from the active observations under a declared coverage.
+  canonical location — a `store` locator (store identity, relative path) or,
+  since cut 35, a `url` locator under the banked canonicalization profile:
+  `found` with an algorithm-qualified digest, or `absent` where a completed
+  dereference answered (a `store` answer only; a URL never mints `absent`).
+  Act-minted, append-only, revised only by supersession, never expired by
+  age; heldness is derived from the active observations under a declared
+  coverage.
   ([holdings design](../designs/2026-08-10-verified-holdings-record-design.md))
 - **Identifier correction** — An attributed source-identity event that replaces
   one canonical identifier map with another for the same work. It preserves the

@@ -36,6 +36,14 @@ _LIVE_SABOTAGES = {
         before="        authority = scoped_authority(required, self.actor)\n",
         after="        authority = Authority(self._ceiling, self.actor)\n",
     ),
+    "J11b": Sabotage(
+        # Task 6's `_closing_hold` re-checks currency with the same call and
+        # indentation as `_act`'s (§13 item 18 for each); the following line,
+        # unique to `_act`, disambiguates the two sites.
+        "session/writer.py",
+        before="            self._session._require_current(self._invocation)\n            commit = perform()\n",
+        after="            pass\n            commit = perform()\n",
+    ),
 }
 CUT19_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT19_ARMS

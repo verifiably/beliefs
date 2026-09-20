@@ -2256,14 +2256,16 @@ class CorpusWriter:
             )
             return manifest
 
-    def _append_operation_intent(self, kind: str, token: str, intent_actor: str) -> str:
+    def _append_operation_intent(
+        self, kind: str, token: str, intent_actor: str, *, port: OperationPort | None = None
+    ) -> str:
         self._require_pins_agree()
         self.authority.require("corpus-write", ("act-report",))
         if intent_actor != self.authority.actor:
             raise ActorMismatch(
                 f"the operation intent names actor {intent_actor!r}, not the bound {self.authority.actor!r}"
             )
-        operation_port = self._operation_port
+        operation_port = self._operation_port if port is None else port
         assert operation_port is not None
         digest = operation_port.append_intent(_encode_operation_intent(kind, token, self.authority.actor))
         if (
@@ -2284,15 +2286,22 @@ class CorpusWriter:
         intent_digest: str,
         *,
         operation: CreateOp | None = None,
+        operations: Sequence[CreateOp] | None = None,
+        port: OperationPort | None = None,
     ) -> report_values.ActReport:
+        """One transaction fulfilling the operation intent: the report alone,
+        or `operations` — an acquisition's dataset beside its report
+        (url-retrieval design §6 step 4)."""
         self._require_pins_agree()
         self.authority.require("corpus-write", ("act-report",))
-        operation_port = self._operation_port
+        operation_port = self._operation_port if port is None else port
         assert operation_port is not None
-        if operation is None:
-            operation = self._create_op(stored.act_report_node(report))
+        if operations is not None:
+            plan = list(operations)
+        else:
+            plan = [self._create_op(stored.act_report_node(report)) if operation is None else operation]
         self._state.unresolved = True
-        operation_port.execute_fulfilling([operation], intent_digest)
+        operation_port.execute_fulfilling(plan, intent_digest)
         self._reconstruct()
         return report
 
@@ -3038,6 +3047,33 @@ class CorpusWriter:
         except MalformedRecord as caught:
             raise ValidationRefused(str(caught)) from caught
 
+    def _refuse_dataset_shape(self, node: Node) -> None:
+        """The request-only half of a dataset's validation, run before an
+        acquisition opens its intent (url-retrieval design §6 step 1): family,
+        document, registry membership and every facet payload's shape. Nothing
+        here reads the view — the report the record will name does not exist
+        yet — so `attested_by`, bearer and validity are the close's."""
+        self._refuse_family_kinds(node)
+        self._refuse_invalid(node)
+        self._refuse_facet_shapes(node)
+
+    def _refuse_acquired_dataset(self, node: Node, report: Node) -> None:
+        """Validate a dataset the acquisition mints beside its report
+        (url-retrieval design §6 step 4): the report is an arriving member of the
+        same transaction, so `retrieval` resolves through the overlay exactly as
+        an import's members resolve through theirs. The attester is the bound
+        actor — `provenance` is not set."""
+        self._refuse_family_kinds(node)
+        union_index = Index.build(self._view.iter_stored())
+        try:
+            union_index.assert_addable(report)
+            union_index.upsert(report)
+            union_index.assert_addable(node)
+        except CollisionError as caught:
+            raise CollisionRefused(str(caught)) from caught
+        self._refuse(node, view=_ImportView(self._view, (report,), union_index))
+        self._refuse_foreign_closure_actor(node)
+
     def _import_report(
         self,
         intent: OperationIntent,
@@ -3218,9 +3254,8 @@ class CorpusWriter:
         self._refuse_rendering(node)
         self._refuse_collision(node)
 
-    def _refuse_facets(self, node: Node, *, view: ReadView | _ImportView | None = None, provenance: bool = False) -> None:
-        """§5.2: registry, payload, bearer, actor, and acquisition validity.
-        Provenance preserves the attestation of an arriving record."""
+    def _refuse_facet_shapes(self, node: Node) -> None:
+        """§5.2's view-free half: registry membership and every facet payload's shape."""
         try:
             self._profile.validate_document(node)
         except UnknownKindError as caught:
@@ -3232,6 +3267,11 @@ class CorpusWriter:
             facet = self._profile.facets.get(key)
             if facet is not None:
                 validate_payload(facet, payload, where=node.id)
+
+    def _refuse_facets(self, node: Node, *, view: ReadView | _ImportView | None = None, provenance: bool = False) -> None:
+        """§5.2: registry, payload, bearer, actor, and acquisition validity.
+        Provenance preserves the attestation of an arriving record."""
+        self._refuse_facet_shapes(node)
 
         reading = self._view if view is None else view
         reason = bearer_refusal(reading, node)

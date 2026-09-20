@@ -137,6 +137,25 @@ an operation may span two corpus roots under one `event_token` and one
 `opened_at`/`closed_at`, minting one intent and one terminal report **per
 touched root**; T2 is read root-locally over such an operation.)*
 
+> **Amended 2026-09-20 (URL retrieval, conformance cut 35 —
+> `../superpowers/specs/2026-09-19-url-retrieval-design.md`):** the locator
+> act's vocabulary is built as written. `byte-locator-untested` is spelled
+> for a preflight refusal (`NotAttempted`, with the transport's refusal
+> category as reason) and for the deliberate skip after a cooperative stop
+> (`SKIPPED_AFTER_STOP`), reasons distinct; `retrieval-failed` for every
+> attempt that began — a timeout, the byte ceiling (the bound named), a
+> status, a transport failure by fixed category (`timeout`, `tls`,
+> `connection`, `protocol`), and a **refused redirect hop**, named by its
+> ordinal and refusal category only (`scheme`, `no-host`, `unresolvable`,
+> `non-public-address`, `unpinnable`, `malformed`), since the request had
+> begun. The
+> classification is read from the transport's phase value, never from a
+> message. The `acquisition` operation's report carries, in order, one
+> locator-act entry per resource, a managed-mutation entry for each
+> materialization that committed, and — only when every resource was found
+> and no stop occurred — one declaration-pin entry for the dataset it mints;
+> an already-held address mints no dataset and pins nothing (decision 11).
+
 **A finding is an entry outcome, not a separate structure.** Its citation is
 the pair **(act-report ref, entry index)** into the canonical sequence — the
 index **zero-based and unsigned**, index 0 naming the first entry; one entry
@@ -225,6 +244,24 @@ proves nothing.
 Intent-before-first-act is what makes chain position mean *the operation
 began before its acts* — the same argument holdings §3 makes for
 intent-before-read, one grain up.
+
+> **Amended 2026-09-20 (URL retrieval, cut 35):** the `acquisition`
+> operation is built on exactly these four steps (`holdings/acquire.py`,
+> `acquire`; the session route `ScopedWriter.acquire`): the observer root is
+> fixed and the request validated as a value before anything; one
+> `acquisition` intent is appended, and a port-less writer or a port that
+> refuses the append leaves no request, no intent and no record (cut 35's
+> T2-b, T2-c); per resource a URL look and an optional managed
+> materialization run with nothing held across the request; and the close
+> — under the session hold and then the root lock, the view rebuilt before
+> any ref resolves — publishes the report and the dataset it mints in **one
+> registered transaction**, the report's `fulfills` constructed from the
+> boundary's own intent. A routine store refusal during a materialization is
+> a cooperative **stop**: the later resources are skipped, the report still
+> closes the operation, and no dataset is minted; any other failure
+> propagates and leaves the operation unfinished. With it, five of the
+> enum's eight kinds open through a boundary; `audit` and `re-check` still
+> have none (`act-report-remainder`, `beliefs-86b150`).
 
 ### 3.2 Run attempts
 

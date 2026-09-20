@@ -97,6 +97,24 @@ Canonical facet:
 | `observed_at` | when the act ran, in **one canonical encoding**: exactly `YYYY-MM-DDTHH:MM:SSZ` — RFC 3339 UTC, whole seconds, **no fractional digits, no offset form** — so one instant has one byte form under the facet hash, and two conforming implementations cannot mint different identities for one act. **Recorded as data, never read by a derivation** (§4). It carries no uniqueness: distinctness of acts is `event_token`'s job, never the clock's |
 | `supersedes` | zero or more identities of prior holdings observations, **every one for the same canonical location**. Constructing a record naming a predecessor at a different location is refused — the per-location discipline is by construction, not convention. The plural form is what lets a later act resolve a fork: concurrent observers cannot name each other, so one location can grow parallel heads, and the resolving re-check supersedes every head it replaces (§4). **Canonical representation, because `science.identity.v1` refuses sets:** the facet encodes `supersedes` as a **deduplicated sequence sorted by canonical reference bytes** before hashing — one predecessor set, one identity; anything else would mint one fork-resolution under several addresses, or none |
 
+> **Amended 2026-09-20 (URL retrieval, conformance cut 35 —
+> `../superpowers/specs/2026-09-19-url-retrieval-design.md`):** the `url`
+> row above is built as the second arm of the locator union
+> (`holdings/records.py`, `UrlLocator`, `url_locator`), under exactly this
+> profile read strictly: only `http` and `https` construct; the trailing
+> slash after a final dot-segment is kept and dot-segment removal is RFC 3986
+> §5.2.4 verbatim (`/a//.` is `/a//`); `%2E` is decoded before dot-segment
+> removal; an IPv6 host keeps its brackets and its literal is not
+> compressed; port `0` and a non-ASCII host refuse at construction (IDNA is a
+> profile amendment, `beliefs-1af7a7`); a spelling with bytes outside
+> `0x21`–`0x7E` refuses. Two additions the profile did not state: **a
+> redirect hop is named by ordinal and category only** — never by its bytes
+> or its host — and a hop refused at preflight ends the attempt as
+> `retrieval-failed`, since the request began (decision 6 there); and the
+> caller-obligation clause on credential-free authoring stands unchanged,
+> the hop rule closing only the server-chosen half. `absent` remains
+> unmintable at a `url` location, refused by construction.
+
 **The `store identity` a `store` locator names is not left undesigned — it
 reuses the one lifecycle contract the corpus already has for exactly this.**
 The tamper-evident log design gave the world root a `world_id`: minted once
@@ -211,6 +229,16 @@ each per canonical location:
    established neither finding reports and mints nothing (below). A
    store-dereferencing look appends its intent before it reads (below); a
    URL look is intent-free.
+
+   > **Amended 2026-09-20 (URL retrieval, cut 35):** the built URL look
+   > (`holdings/boundary.py`, `look`) appends a **`re-check`** holdings
+   > intent at its canonical location before it dereferences, so that its
+   > publication registers as a fulfillment under the log's ordinary
+   > discipline; the intent is a `re-check`, not a mutation, so an unmatched
+   > one unsettles nothing (cut 35's BI-7). "Intent-free" therefore reads
+   > "no *mutating* intent, nothing unsettled" — the semantics this section
+   > argued for — not "no intent appended" (url-retrieval design decision 2).
+
 2. **A managed mutation.** A boundary-mediated store write, move, or
    deletion, run
    under the intent discipline (below), whose observation records the
@@ -473,6 +501,12 @@ a URL, so no URL location is ever unsettled, and remote evidence is
 time-stamped data, not a race. The log amendments this requires — the intent
 union, the §6 qualification reduction, `fulfills` construction, `L7`, and the
 §9 ownership split — are tabled in §8.
+
+> **Amended 2026-09-20 (URL retrieval, cut 35):** built with a `re-check`
+> intent nonetheless (decision 2 of the url-retrieval design; the note at §3
+> item 1): the intent carries the registration, and the argument here — no
+> URL location is ever unsettled — holds exactly because the kind is
+> `re-check`, which the reducer never counts as a blocking reason.
 
 **The forgery bound, stated at the strength it has.** A hand-forged
 observation — a record written to look like an act's output — stands until an

@@ -16,6 +16,7 @@ from beliefs.holdings.records import (
     Found,
     StoreLocator,
     holdings_observation,
+    url_locator,
 )
 from beliefs.world import epoch
 
@@ -101,3 +102,33 @@ def test_a_decoded_malformed_facet_refuses():
 
     with pytest.raises(MalformedRecord):
         stored.holdings_observation_value(malformed)
+
+
+def test_a_url_observation_round_trips_through_the_stored_codec():
+    record = holdings_observation(
+        location=url_locator("https://example.org/data"), outcome=Found("sha256:" + "ab" * 32),
+        observer="o", instrument="i", event_token="t", observed_at="2026-09-20T00:00:00Z",
+    )
+    node = stored.holdings_observation_node(record)
+    assert stored.holdings_observation_value(node) == record
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        {"type": "url"},
+        {"type": "url", "url": "https://example.org/", "store_id": "a" * 32},
+        {"type": "s3", "url": "https://example.org/"},
+        {"type": "url", "url": "https://EXAMPLE.org/"},
+    ],
+)
+def test_the_codec_refuses_a_location_outside_the_two_arms(location):
+    record = holdings_observation(
+        location=url_locator("https://example.org/data"), outcome=Found("sha256:" + "ab" * 32),
+        observer="o", instrument="i", event_token="t", observed_at="2026-09-20T00:00:00Z",
+    )
+    node = stored.holdings_observation_node(record)
+    facet = dict(node.facets["holdings-observation"])
+    facet["location"] = location
+    with pytest.raises(MalformedRecord):
+        stored.holdings_observation_value(node.model_copy(update={"facets": {"holdings-observation": facet}}))

@@ -83,6 +83,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "holdings/boundary.py:_publish": "holdings",
     "holdings/boundary.py:_publish_record": "holdings",
     "holdings/boundary.py:recheck": "holdings",
+    "holdings/boundary.py:look": "holdings",
     "holdings/boundary.py:_append": "holdings",
     "holdings/boundary.py:write": "holdings",
     "holdings/boundary.py:delete": "holdings",

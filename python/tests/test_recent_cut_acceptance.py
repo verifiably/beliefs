@@ -11,6 +11,7 @@ import cut23_acceptance as cut23
 import cut24_acceptance as cut24
 import cut33_acceptance as cut33
 import cut34_acceptance as cut34
+import cut35_acceptance as cut35
 import pytest
 
 from beliefs import root
@@ -18,8 +19,14 @@ from beliefs import root
 
 @pytest.mark.parametrize(
     ("runner", "cut", "accounting"),
-    ((cut23, 23, (25, 8, 8)), (cut24, 24, (20, 5, 5)), (cut33, 33, (11, 11, 3)), (cut34, 34, (17, 17, 2))),
-    ids=("cut23", "cut24", "cut33", "cut34"),
+    (
+        (cut23, 23, (25, 8, 8)),
+        (cut24, 24, (20, 5, 5)),
+        (cut33, 33, (11, 11, 3)),
+        (cut34, 34, (17, 17, 2)),
+        (cut35, 35, (28, 27, 8)),
+    ),
+    ids=("cut23", "cut24", "cut33", "cut34", "cut35"),
 )
 def test_recent_runner_preserves_commands_environment_and_cleanup(
     runner, cut: int, accounting: tuple[int, int, int], tmp_path: Path, monkeypatch, capsys
@@ -64,6 +71,8 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
         assert "guarantee rows exercised: 3 (2 newly closed: C7, C3; C10 remains partial)" in output
     if cut == 34:
         assert "guarantee rows exercised: 2 (2 newly closed: C8, C9; the mutation lane has no open boundary)" in output
+    if cut == 35:
+        assert "guarantee rows exercised: 8 (6 newly closed: H4, G9, R10, T5, T1, T4; T2 and T7 partial)" in output
 
 
 @pytest.mark.parametrize(("runner", "cut"), ((cut23, 23), (cut24, 24)), ids=("cut23", "cut24"))

@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,7 +39,10 @@ from beliefs.session.ledger import (
 
 if TYPE_CHECKING:
     from beliefs.corpus import ReadView
+    from beliefs.holdings.acquire import AcquisitionOutcome, AcquisitionRequest
     from beliefs.holdings.boundary import ActContext
+    from beliefs.holdings.records import HoldingsObservation
+    from beliefs.holdings.transport import UrlSeam
     from beliefs.world.view import WorldReadView
 
 __all__ = [
@@ -343,6 +347,38 @@ class ScopedWriter:
             seam=ledgered_seam(session, self._invocation, session._holdings_seam),
             profile=session.profile,
         )
+
+    def acquire(
+        self,
+        request: AcquisitionRequest,
+        *,
+        instrument: str,
+        scratch: Path,
+        seam: UrlSeam | None = None,
+        standing: Mapping[str, tuple[HoldingsObservation, ...]] | None = None,
+    ) -> AcquisitionOutcome:
+        """This invocation's acquisition route (url-retrieval design §8): the
+        holdings context supplies the ledgered store seam, `operation_port()` the
+        ledgered operation port, and no lock of this facade is held across the
+        request (decision 15)."""
+        from beliefs.holdings.acquire import acquire as run_acquisition
+        from beliefs.holdings.transport import url_seam
+
+        ctx = self.holdings_context(instrument=instrument)
+        return run_acquisition(
+            ctx, self._writer, request, seam=url_seam() if seam is None else seam, scratch=scratch,
+            standing=standing, port=self.operation_port(), hold=self._closing_hold,
+        )
+
+    @contextmanager
+    def _closing_hold(self) -> Iterator[None]:
+        """The acquisition's close under this session's lock, taken before the
+        root lock exactly as `_act` takes it, currency re-checked on entry (§13
+        item 18). The ledgered port's `execute_fulfilling` re-enters the same
+        `RLock` inside."""
+        with self._session._lock:
+            self._session._require_current(self._invocation)
+            yield
 
     def _act(self, perform: Callable[[], OperationCommit]) -> Node | None:
         """One act: currency, the commit and the `act` line as one atomic step.

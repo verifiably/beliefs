@@ -3,6 +3,12 @@
 """Reduce captured holdings evidence to active and blocked projections."""
 
 
+def _location_key(location):
+    if location["type"] == "url":
+        return "url:" + location["url"]
+    return location["type"] + ":" + location["store_id"] + ":" + location["relative_path"]
+
+
 def _observation(row):
     document = json.loads(row["canonical"])
     if document.get("kind") != "holdings-observation":
@@ -15,7 +21,7 @@ def _observation(row):
     return {
         "ref": ref,
         "path": "holdings-observation/" + ref.replace(":", "__") + ".md",
-        "location": location["type"] + ":" + location["store_id"] + ":" + location["relative_path"],
+        "location": _location_key(location),
         "outcome": dict(facet["outcome"]),
         "expected": facet.get("expected"),
         "event_token": facet["event_token"],

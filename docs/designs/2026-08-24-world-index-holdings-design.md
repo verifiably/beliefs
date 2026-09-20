@@ -72,6 +72,13 @@ adoption-ledger row 4's holdings-prerequisite remainder.
    Constructing a `url` locator refuses with a named error; no
    canonicalization code ships untested by any act. The deferral is declared
    in cut 10's labeled set.
+
+   > **Closed 2026-09-20 (URL retrieval, conformance cut 35 —
+   > `../superpowers/specs/2026-09-19-url-retrieval-design.md`):** the
+   > `url` arm, the network boundary and the acquisition orchestration
+   > (item 2) are built; cut 35 closes H4, G9, R10, T5, T1 and T4. Typed
+   > retrieval grants (item 3) remain deferred.
+
 2. **Acquisition orchestration** — the act-report design reads act termini;
    no acquisition-level state is built here.
 3. **Typed retrieval grants** (holdings design §7 item 8).
@@ -221,6 +228,18 @@ repairs.
   form is the accepted spelling and equality is byte equality. A `url`
   construction refuses with a named deferral error; the refusal is a
   declared arm of cut 10's labeled set, not silence.
+
+  > **Amended 2026-09-20 (URL retrieval, cut 35):** the union has its second
+  > arm, `UrlLocator(url)`, constructed through `url_locator(spelling)` under
+  > the holdings design §2 profile; `Locator = StoreLocator | UrlLocator`
+  > everywhere the first arm was spelled — the record, the stored codec
+  > (`holdings_observation_value` decodes exactly the `{type, store_id,
+  > relative_path}` and `{type, url}` shapes), the intent shape, the evidence
+  > key and the reducer's location key. `UrlLocatorDeferred` is deleted, and
+  > cut 10's J3 pin over it is registered stale in `cited_not_run.py`.
+  > Supersession never crosses the arms (`url:` and `store:` canonical
+  > prefixes never collide), and a `url` location refuses `absent` by
+  > construction.
 - **Per-location supersession by construction:** the constructor takes the
   predecessor **records** being superseded — the acts have them in hand,
   having resolved the heads they replace — validates every one names the
@@ -519,7 +538,11 @@ cross-cut listing cannot read it as L7's closure.
 refusal is the labeled behavior), acquisition orchestration, recency, typed
 grants, the general L7 reduction and G4. **Dated correction 2026-08-28:** the
 general L7 reduction closed with cut 11; G4 remains with the separately named
-successor-admission slice.
+successor-admission slice. **Dated correction 2026-09-20:** the `url` arm and
+acquisition orchestration closed with cut 35
+(`../plans/2026-09-20-conformance-cut-35-results.md`), which reads H4's
+remote arm and G9's URL arm — the two rows this cut left partial — in
+full; recency and typed grants remain deferred.
 
 **Evidence discipline, as established:** count claims quote pytest's own
 summary line under `pipefail`, never a doubled `-q`, never a collect-only

@@ -8,16 +8,19 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.write_plan import CreateOp
 
 from beliefs import stored
-from beliefs.errors import MalformedRecord, StoreIdMismatch
+from beliefs.errors import MalformedRecord, StoreIdMismatch, StoreWriteRefused
 from beliefs.holdings.records import (
     Absent,
     Found,
     HoldingsObservation,
+    Locator,
     StoreLocator,
+    UrlLocator,
     holdings_observation,
     require_canonical_digest,
 )
@@ -30,6 +33,15 @@ from beliefs.holdings.seam import (
     StoreActSeam,
     StoreOutcomeView,
 )
+from beliefs.holdings.transport import (
+    Failed,
+    NotAttempted,
+    RetrievalBounds,
+    Retrieved,
+    UrlSeam,
+    refuse_scratch_root,
+    retrieve,
+)
 from beliefs.permit import Authority, require_actor
 from beliefs.profile import ProfileSpec
 from beliefs.world.anchors import parse_store_genesis
@@ -38,15 +50,20 @@ HOLDINGS_INTENT_DOMAIN = "science.holdings-intent.v1"
 ACT_KINDS = ("re-check", "write", "delete", "move-source", "move-destination")
 
 
-def intent_payload(*, location: StoreLocator, act_kind: str, event_token: str, actor: str) -> bytes:
+def intent_payload(*, location: Locator, act_kind: str, event_token: str, actor: str) -> bytes:
     if act_kind not in ACT_KINDS:
         raise MalformedRecord(f"holdings intent kind {act_kind!r} is not admitted")
     if not isinstance(event_token, str) or not event_token:
         raise MalformedRecord("a holdings intent event_token must be a non-empty string")
     require_actor(actor)
+    location_facet = (
+        {"type": "url", "url": location.url}
+        if isinstance(location, UrlLocator)
+        else {"relative_path": location.relative_path, "store_id": location.store_id, "type": "store"}
+    )
     return json.dumps(
         {"actor": actor, "domain": HOLDINGS_INTENT_DOMAIN, "event_token": event_token, "kind": act_kind,
-         "location": {"relative_path": location.relative_path, "store_id": location.store_id, "type": "store"}},
+         "location": location_facet},
         sort_keys=True, separators=(",", ":"),
     ).encode("utf-8")
 
@@ -64,6 +81,60 @@ class InconclusiveAttempt:
 
 
 ActResult = PublishedObservation | InconclusiveAttempt
+
+
+@dataclass(frozen=True)
+class PublishedLook:
+    record: HoldingsObservation
+    ref: str
+    retrieved: Retrieved
+
+
+@dataclass(frozen=True)
+class InconclusiveLook:
+    report: str
+    reason: str
+
+
+def look(
+    ctx: ActContext,
+    location: UrlLocator,
+    *,
+    bounds: RetrievalBounds,
+    seam: UrlSeam,
+    scratch: Path,
+    expected: str | None = None,
+    standing: tuple[HoldingsObservation, ...] = (),
+) -> PublishedLook | InconclusiveLook:
+    """The URL pure look (url-retrieval design §5): a `re-check` intent for the
+    registration, the request with nothing held, then a published `found` or an
+    inconclusive attempt that mints nothing. The caller deletes `retrieved.path`
+    on a `PublishedLook`; every other exit leaves no file."""
+    ctx.authority.require("holdings", ("holdings-observation",))
+    if type(location) is not UrlLocator:
+        raise MalformedRecord("a URL look takes a UrlLocator")
+    if expected is not None:
+        require_canonical_digest(expected, "a holdings observation's expected digest")
+        if expected.split(":", 1)[0] != "sha256":
+            raise MalformedRecord("a found observation's expected digest must use the found digest's algorithm")
+    refuse_scratch_root(scratch, (ctx.observer_root, ctx.store_root))
+    token, intent = _append(ctx, location, "re-check")
+    result = retrieve(location, bounds, seam, scratch)
+    if isinstance(result, NotAttempted):
+        return InconclusiveLook("byte-locator-untested", result.reason)
+    if isinstance(result, Failed):
+        return InconclusiveLook("retrieval-failed", result.reason)
+    try:  # from `Retrieved` to the caller's ownership: construction refusals included
+        record = holdings_observation(
+            location=location, outcome=Found(result.digest), expected=expected, observer=ctx.observer,
+            instrument=ctx.instrument, event_token=token,
+            observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), supersedes=standing,
+        )
+        published = _publish_record(ctx, record, intent)
+    except BaseException:
+        result.path.unlink(missing_ok=True)  # ownership never reached the caller
+        raise
+    return PublishedLook(published.record, f"holdings-observation:{record.identity()}", result)
 
 
 @dataclass(frozen=True)
@@ -140,7 +211,7 @@ def _bind(ctx: ActContext, location: StoreLocator) -> None:
         raise StoreIdMismatch(f"store root names {store_id}, not {location.store_id}")
 
 
-def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:
+def _append(ctx: ActContext, location: Locator, kind: str) -> tuple[str, str]:
     ctx.authority.require("holdings", ("holdings-observation",))
     token = secrets.token_hex(16)
     from beliefs.corpus import require_pins_agree
@@ -162,7 +233,13 @@ def write(ctx: ActContext, location: StoreLocator, content: bytes, *, expected: 
             raise MalformedRecord("a found observation's expected digest must use the found digest's algorithm")
     token, intent = _append(ctx, location, "write")
     _bind(ctx, location)
-    state = _final(ctx.seam.store_write(ctx.store_root, location.relative_path, content), location.relative_path)
+    try:
+        outcome = ctx.seam.store_write(ctx.store_root, location.relative_path, content)
+    except ExecutionError as caught:
+        if ctx.seam.store_refusal(caught):
+            raise StoreWriteRefused(location.canonical(), str(caught)) from caught
+        raise
+    state = _final(outcome, location.relative_path)
     if not isinstance(state, FileStateView):
         raise TypeError(f"store write did not establish a file at {location.relative_path!r}")
     record = holdings_observation(location=location, outcome=Found(state.content_hash), expected=expected,

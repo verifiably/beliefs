@@ -22,13 +22,14 @@ one:
 from __future__ import annotations
 
 import importlib.util
-import ssl
 import sys
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
+from holdings_transport_fixtures import Scripted, scripted_seam
 
 # `tools/` is not a package and deliberately is not on the import path — nothing
 # in `src/` may depend on it. Load it by file instead, registering it in
@@ -54,16 +55,10 @@ CHECK_UNCHECKED = _MODULE.CHECK_UNCHECKED
 PACKAGE_ABSENT = _MODULE.PACKAGE_ABSENT
 PACKAGE_PRESENT = _MODULE.PACKAGE_PRESENT
 PACKAGE_UNPARSEABLE = _MODULE.PACKAGE_UNPARSEABLE
-Approved = _MODULE.Approved
 NetworkProbe = _MODULE.NetworkProbe
-PinnedHTTPSConnection = _MODULE.PinnedHTTPSConnection
-pinned_connection = _MODULE.pinned_connection
 PathRefusal = _MODULE.PathRefusal
 ProbeOutcome = _MODULE.ProbeOutcome
-Refused = _MODULE.Refused
-PinningUnavailable = _MODULE.PinningUnavailable
 byte_locator = _MODULE.byte_locator
-preflight = _MODULE.preflight
 render_report = _MODULE.render_report
 resolve_declared_path = _MODULE.resolve_declared_path
 survey = _MODULE.survey
@@ -565,44 +560,7 @@ def test_an_escaping_path_is_untested_rather_than_read(roots: tuple[Path, Path, 
 
 
 # ---------------------------------------------------------------------------
-# Preflight
-# ---------------------------------------------------------------------------
-
-
-def test_an_unapproved_scheme_is_refused_at_preflight() -> None:
-    decision = preflight("http://example.org/a.bin", lambda _h, _p: ["93.184.216.34"])
-    assert isinstance(decision, Refused)
-    assert "scheme http" in decision.reason
-
-
-def test_a_private_destination_is_refused_at_preflight() -> None:
-    decision = preflight("https://internal.example/a.bin", lambda _h, _p: ["10.0.0.5"])
-    assert isinstance(decision, Refused)
-    assert "non-public" in decision.reason
-
-
-def test_loopback_and_link_local_are_refused() -> None:
-    for address in ("127.0.0.1", "169.254.1.1", "::1"):
-        decision = preflight("https://host.example/a.bin", lambda _h, _p, a=address: [a])
-        assert isinstance(decision, Refused), address
-
-
-def test_one_private_address_among_several_refuses_the_whole_locator() -> None:
-    """Checking only the address that happens to be chosen would leave the others
-    reachable through ordinary resolution ordering."""
-    decision = preflight("https://host.example/a.bin", lambda _h, _p: ["93.184.216.34", "10.0.0.5"])
-    assert isinstance(decision, Refused)
-
-
-def test_an_approved_locator_carries_the_validated_address() -> None:
-    decision = preflight("https://host.example/dir/a.bin?v=1", lambda _h, _p: ["93.184.216.34"])
-    assert isinstance(decision, Approved)
-    assert (decision.host, decision.port, decision.address) == ("host.example", 443, "93.184.216.34")
-    assert decision.path == "/dir/a.bin?v=1"
-
-
-# ---------------------------------------------------------------------------
-# Probing: preflight refusal, retrieval failure, and the fail-closed arm
+# Probing: retrieval failure, and the adapter over the kernel transport
 # ---------------------------------------------------------------------------
 
 
@@ -706,101 +664,25 @@ def test_a_url_valued_declared_path_is_the_resource_s_byte_locator() -> None:
     assert byte_locator({"source": {"type": "local", "ref": "/build/x"}}, url) == url
 
 
-def test_the_pinned_connection_dials_the_validated_address_and_validates_the_name(
-    monkeypatch: Any,
-) -> None:
-    """The whole point of pinning, asserted against the real connection code.
-
-    Connecting to the validated address is worthless if the TLS handshake then
-    validates against that address instead of the name, and validating the name
-    is worthless if the socket dials whatever a second resolution returns. Both
-    halves are checked here, on `PinnedHTTPSConnection.connect` itself.
-    """
-    dialled: list[tuple[str, int]] = []
-    wrapped: list[str] = []
-    sentinel = object()
-
-    class FakeContext:
-        check_hostname = True
-        verify_mode = ssl.CERT_REQUIRED
-
-        def wrap_socket(self, sock: Any, *, server_hostname: str) -> Any:
-            assert sock is sentinel
-            wrapped.append(server_hostname)
-            return sentinel
-
-    monkeypatch.setattr(
-        _MODULE.socket, "create_connection", lambda address, timeout: dialled.append(address) or sentinel
-    )
-
-    connection = PinnedHTTPSConnection("host.example", "93.184.216.34", 443, 5.0, FakeContext())
-    connection.connect()
-
-    assert dialled == [("93.184.216.34", 443)], "the socket must dial the address preflight validated"
-    assert wrapped == ["host.example"], "TLS must still validate the certificate against the name"
+def test_the_probe_maps_the_kernel_result_to_the_instrument_vocabulary(tmp_path: Path) -> None:
+    seam, log = scripted_seam({"/data": Scripted(200, {"Content-Length": "7"}, (b"payload",))})
+    probe = NetworkProbe(tmp_path / "scratch", resolver=seam.resolve, connect=seam.connect)
+    outcome = probe.fetch("https://example.org/data")
+    assert outcome == ProbeOutcome(BYTES_RETRIEVED, digest=sha256(b"payload").hexdigest(), size=7)
+    assert list((tmp_path / "scratch").iterdir()) == []  # the probe deletes the kernel's scratch file
+    assert len(log.requests) == 1
+    failing, _ = scripted_seam({"/data": Scripted(500, {}, (b"",))})
+    assert NetworkProbe(tmp_path / "scratch", resolver=failing.resolve, connect=failing.connect).fetch("https://example.org/data") == ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="status 500")
+    untested, _ = scripted_seam({}, unpinnable=True)
+    assert NetworkProbe(tmp_path / "scratch", resolver=untested.resolve, connect=untested.connect).fetch("https://example.org/data") == ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="unpinnable")
+    assert NetworkProbe(tmp_path / "scratch", resolver=seam.resolve, connect=seam.connect).fetch("https://user@example.org/data") == ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="malformed url")
 
 
-@pytest.mark.parametrize(
-    "check_hostname,verify_mode",
-    [(False, ssl.CERT_REQUIRED), (True, ssl.CERT_NONE), (False, ssl.CERT_NONE)],
-)
-def test_a_context_that_would_skip_validation_refuses_to_pin(
-    monkeypatch: Any, check_hostname: bool, verify_mode: Any
-) -> None:
-    """Fail closed at construction. A context that would drop either half of the
-    guarantee is not a connection to make; it is a locator to leave untested."""
-
-    class Lax:
-        pass
-
-    context = Lax()
-    context.check_hostname = check_hostname  # type: ignore[attr-defined]
-    context.verify_mode = verify_mode  # type: ignore[attr-defined]
-    monkeypatch.setattr(_MODULE.ssl, "create_default_context", lambda: context)
-
-    approved = Approved(host="host.example", port=443, path="/a.bin", address="93.184.216.34")
-    with pytest.raises(PinningUnavailable):
-        pinned_connection(approved, 5.0)
-
-
-def test_a_validated_address_that_cannot_be_pinned_issues_no_request(monkeypatch: Any, tmp_path: Path) -> None:
-    """Required case 6, and the assertion that matters is the second one.
-
-    A test checking only the reported value would pass against an implementation
-    that fetched anyway, which is exactly the failure being guarded. The refusal
-    is injected through the connection seam, so the probe's own request path runs.
-    """
-    dialled: list[Any] = []
-
-    def refuse_to_pin(approved: Any, timeout: float) -> Any:
-        raise PinningUnavailable("cannot pin the validated address with hostname validation intact")
-
-    def forbidden(*args: Any, **kwargs: Any) -> None:
-        dialled.append(args)
-        raise AssertionError("a socket was opened after pinning was unavailable")
-
-    monkeypatch.setattr(_MODULE.socket, "create_connection", forbidden)
-
-    probe = NetworkProbe(tmp_path / "scratch", resolver=lambda _h, _p: ["93.184.216.34"], connect=refuse_to_pin)
-    outcome = probe.fetch("https://host.example/a.bin")
-
-    assert outcome.byte_observation == BYTES_LOCATOR_UNTESTED
-    assert "pin the validated address" in (outcome.reason or "")
-    assert dialled == []
-
-
-def test_a_refused_redirect_hop_ends_the_attempt_as_untested(tmp_path: Path) -> None:
-    """The first URL's approval says nothing about where it lands."""
-    probe = NetworkProbe(
-        tmp_path / "scratch",
-        resolver=lambda _h, _p: ["93.184.216.34"],
-        connect=lambda approved, timeout: _RedirectingConnection("http://a.example/two"),
-    )
-    outcome = probe.fetch("https://a.example/one")
-
-    assert outcome.byte_observation == BYTES_LOCATOR_UNTESTED
-    assert "scheme http is not approved" in (outcome.reason or "")
-    assert "redirect hop" in (outcome.reason or "")
+def test_a_refused_redirect_hop_is_retrieval_failed_by_ordinal_and_category(tmp_path: Path) -> None:
+    seam, _ = scripted_seam({"/data": Scripted(302, {"Location": "https://tok3n-9f2a.example.net/data?X-Amz-Signature=abc"})})
+    resolver = lambda host, _port: ["10.1.1.1"] if host != "example.org" else seam.resolve(host, 0)
+    outcome = NetworkProbe(tmp_path / "scratch", resolver=resolver, connect=seam.connect).fetch("https://example.org/data")
+    assert outcome == ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="redirect hop 1 refused: non-public-address")
 
 
 # ---------------------------------------------------------------------------
@@ -876,45 +758,3 @@ def test_the_report_renders_from_the_artifact(roots: tuple[Path, Path, Path]) ->
     assert "Mismatches: 0" in render_report(artifact)
 
 
-class _RedirectingConnection:
-    """A connection that answers every request with one relative redirect."""
-
-    def __init__(self, location: str) -> None:
-        self._location = location
-
-    def request(self, method: str, path: str, headers: dict[str, str]) -> None:
-        del method, path, headers
-
-    def getresponse(self) -> Any:
-        return _Response(302, {"Location": self._location})
-
-    def close(self) -> None:
-        pass
-
-
-class _Response:
-    def __init__(self, status: int, headers: dict[str, str]) -> None:
-        self.status = status
-        self._headers = headers
-
-    def getheader(self, name: str) -> str | None:
-        return self._headers.get(name)
-
-
-def test_a_relative_redirect_is_resolved_before_it_is_revalidated(tmp_path: Path) -> None:
-    """A bare `Location: /two` is not a URL. Revalidating it unjoined would test
-    a string with no scheme and no host, so every relative redirect would look
-    like an unapproved locator rather than being followed to its real target."""
-    probe = NetworkProbe(
-        tmp_path / "scratch",
-        resolver=lambda _h, _p: ["93.184.216.34"],
-        connect=lambda approved, timeout: _RedirectingConnection("/two"),
-        max_redirects=1,
-    )
-
-    outcome = probe.fetch("https://a.example/one")
-
-    # Joined against its origin the hop is https://a.example/two, which clears
-    # preflight and is followed until the redirect budget runs out.
-    assert outcome.byte_observation == BYTES_RETRIEVAL_FAILED
-    assert outcome.reason == "too many redirects"

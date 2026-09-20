@@ -854,15 +854,6 @@ class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 
 
-class UrlLocatorDeferred(RecordError):
-    """A ``url`` locator was constructed before the URL slice exists.
-
-    The holdings design defers the whole URL retrieval boundary (spec §1 item
-    1); constructing the locator refuses with this name — a declared behavior
-    of conformance cut 10's labeled set, never silence.
-    """
-
-
 class OutcomeRefused(RecordError):
     """An entry outcome outside its act kind's reserved vocabulary — the sharp
     case being `byte-locator-untested` on a non-locator entry. No
@@ -1467,3 +1458,23 @@ class BundleMemberHeld(ImportRefused):
 
 class AcquisitionBoundaryRefused(WriteRefused):
     """A declaration cannot coexist with a producer or lineage basis."""
+
+
+class AcquisitionRefused(WriteRefused):
+    """An acquisition request refused before its intent — the wrong root, no
+    operation port, a store-less materialization, a malformed request — or at
+    its close, when the report would name an observation no act published
+    (url-retrieval design §6 steps 1 and 4)."""
+
+
+class StoreWriteRefused(ScienceError):
+    """The store transaction of a managed `write` was a routine engine refusal
+    (url-retrieval design decision 10): `applied == 0` and a
+    `ProjectApprovalRefused`, `PreconditionRefused` or `PendingUnresolved`
+    cause. Raised for that phase only; the intent append and the publication
+    raise as themselves."""
+
+    def __init__(self, location: str, detail: str) -> None:
+        super().__init__(f"{location}: the store refused the write: {detail}")
+        self.location = location
+        self.detail = detail

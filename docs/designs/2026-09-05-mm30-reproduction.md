@@ -938,3 +938,104 @@ this addendum measures is that the kernel gained an arm and a standing fold
 while the reproduction's one supplied member — the literal
 `producer_snapshot_identity` — and its answer stayed exactly where §12 left
 them.
+
+## 14. Addendum — URL retrieval, 2026-09-20
+
+Re-run under the url-retrieval slice
+(`../superpowers/specs/2026-09-19-url-retrieval-design.md`), from the
+worktree `url-retrieval`, at head `c72b24a`. No contract succeeded, so
+nothing under `.work/reproduction/mm30` was recreated or moved aside: the
+corpus is read in place, exactly as at §13. `MM30_PREDECESSOR` again had to
+be set explicitly to
+`/mnt/ssd/Dropbox/proto/projects/cancer/cancer-types/multiple-myeloma`, the
+same defect §13 recorded for the declared default.
+
+### 14.1 What changed in the kernel this slice
+
+The slice adds the `url` locator, the two-arm holdings-observation record
+and codec, the `url` arm in the intent shape, the evidence key and the
+reducer, the transport, the URL pure look, the acquisition operation, and
+the session route that carries it. None of this is reached by the mm30
+driver: `grep -n derive_holdings python/tools/reproduction/*.py` is empty,
+so the reducer is never invoked here and no rule identity is read through
+it. The `url` arm and the `acquisition` operation are exercised by the
+acceptance module alone — Task 8 of this slice, not yet landed — not by this
+corpus, exactly as §13.1 held for the snapshot arm.
+
+Every stored holdings observation in mm30's corpus is a `store` location.
+Read through the widened two-arm codec (`beliefs.stored.holdings_observation_value`
+over each node in `corpus/holdings-observation/`, decoded via
+`nodes.core.frontmatter.node_from_markdown`) all five nodes decode without
+error, every decoded `location_facet()["type"]` reads `"store"`, and every
+decoded facet is byte-identical to the stored one (`facet == stored_facet`
+for all five). The verification snippet and its output:
+
+```python
+import os
+from pathlib import Path
+from nodes.core.frontmatter import node_from_markdown
+from beliefs.stored import holdings_observation_value
+
+corpus_dir = Path(os.environ["SCIENCE_MM30_ROOT"]) / "corpus" / "holdings-observation"
+files = sorted(corpus_dir.glob("*.md"))
+count = 0
+non_store = []
+mismatched = []
+for f in files:
+    node = node_from_markdown(f.read_text())
+    obs = holdings_observation_value(node)
+    facet = obs.location_facet()
+    stored_facet = node.facets["holdings-observation"]["location"]
+    count += 1
+    if facet.get("type") != "store":
+        non_store.append(f.name)
+    if facet != stored_facet:
+        mismatched.append(f.name)
+
+print("holdings-observation files:", len(files))
+print("decoded:", count)
+print("non-store locations:", non_store)
+print("facet mismatches:", mismatched)
+```
+
+```
+holdings-observation files: 5
+decoded: 5
+non-store locations: []
+facet mismatches: []
+```
+
+### 14.2 What the re-run reached
+
+`reproduction.rederive`, 2026-09-20, in a fresh process: `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}`, equal to
+the recorded step-8 answer (`rederived_equal: true`) — the same payload §12.2
+and §13.2 quoted, unchanged by this slice. The corpus holds no retraction of
+any arm, so the derived enumeration is still `found=()`,
+`coverage=(8b5d0c802677ee445e2b9d91ebf5d6a7,)`. `state.json` was rewritten
+with byte-identical content: `assessment_identity_derived`,
+`assessment_identity_stored`, `claim_identity`, `composite_identity`,
+`corpus_check_findings`, `audit_findings`, `rederived_belief` and
+`rederived_equal` all equal to the pre-run values (a full-file diff against
+the pre-run copy is empty); only `findings.jsonl` gained the run's own log
+lines. No pinned digest moved: this re-run is the transition decision 11 (of
+slice 2) predicted extended one slice further — a slice that adds a new
+holdings locator arm, its codec, and its acquisition path without touching
+any derivation rule or implementation identity the mm30 corpus's answer
+depends on, and without changing how any of its existing `store`
+observations decode.
+
+### 14.3 What this addendum does not claim
+
+That the mm30 corpus acquires anything by URL, or that a `url` holdings
+observation exists in it: none does, and minting one is the dogfood's work,
+not the reproduction's, exactly as §12.3 and §13.3 held for the other arms.
+That the `url` arm, the acquisition operation, or the session route it rides
+are read anywhere in this run: the driver never invokes the reducer and
+never constructs a `UrlLocator`, so `look`, `acquire`, and the transport are
+never called on this corpus's behalf. The transition this addendum measures
+is that the kernel gained a second holdings locator, a second-arm codec, and
+an acquisition path while the reproduction's supplied member and its answer
+stayed exactly where §13 left them, and every one of the corpus's own
+stored observations kept decoding, byte-identical, as the `store` locator
+they always were.

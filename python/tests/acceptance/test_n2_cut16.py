@@ -29,6 +29,15 @@ import beliefs.root as science_root
 
 # Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at b0882d3.
 _LIVE_SABOTAGES = {
+    # URL retrieval, 2026-09-20 (Task 5): `_publish_operation_report` now
+    # builds a `plan` — the report alone, or an acquisition's dataset beside
+    # it — before the one fulfilling execution. The arm still asserts that the
+    # report's transaction fulfills the operation intent.
+    "T2a": Sabotage(
+        module="corpus.py",
+        before="        operation_port.execute_fulfilling(plan, intent_digest)\n",
+        after="        operation_port.execute(plan)\n",
+    ),
     # Correction remainder slice 2, 2026-09-19: retract's write boundary now
     # branches on snapshot_arm before re-resolving; the node/route re-check
     # moved under `if not snapshot_arm:` (BI-1, BI-2, commit 6090cf4). The arm
