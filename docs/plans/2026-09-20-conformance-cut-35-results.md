@@ -471,7 +471,19 @@ the boundary now has its own task.
 
 ## 6. Main integration
 
-Filled at merge.
+The controller completed the final whole-branch review, took the final fix
+wave at `b9c13df` (the content-encoding refusal made a fixed phrase; the
+recent-runner test's cut-35 row; the deferred-polish idea `beliefs-27d500`),
+and completed a scoped re-review with both findings addressed. The reviewed
+branch was merged locally into `main` with `--no-ff` on 2026-09-20 at
+`61e8705`. Nothing was pushed.
+
+`just gate` on the merged commit exited **0**. Ruff, Pyright (`0 errors, 0
+warnings, 0 informations`), TypeScript typecheck and Biome passed; task
+validation reported zero errors and zero warnings; the Python suite read
+`5213 passed, 1 skipped in 1220.87s (0:20:20)` and the TypeScript suite
+`Tests  155 passed (155)`. The execution ledger is committed beside this
+record as `2026-09-20-url-retrieval-execution-ledger.md`.
 
 ## 7. Execution rulings
 
