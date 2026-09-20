@@ -413,6 +413,20 @@ def _holdings(act: str):
         ctx, store_id = _context(authority, work), _STATE[work]["store_id"]
         if act == "recheck":
             return boundary.recheck(ctx, StoreLocator(store_id, "held.bin"))
+        if act == "look":
+            from holdings_transport_fixtures import Scripted, scripted_seam
+
+            from beliefs.holdings.records import url_locator
+            from beliefs.holdings.transport import RetrievalBounds
+
+            seam, _ = scripted_seam({"/data": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+            bounds = RetrievalBounds(timeout_seconds=5.0, max_bytes=1 << 20, max_redirects=3)
+            result = boundary.look(
+                ctx, url_locator("https://example.org/data"), bounds=bounds, seam=seam, scratch=work / "scratch"
+            )
+            if isinstance(result, boundary.PublishedLook):
+                result.retrieved.path.unlink()
+            return result
         if act == "write":
             return boundary.write(ctx, StoreLocator(store_id, "written.bin"), b"bytes")
         if act == "delete":
@@ -667,6 +681,7 @@ CASES = (
     Case("boundary.py:execute_assessment_run", "run", ("run", "act-report"), False, _nothing, _run("assessment"), _run_probe),
     Case("boundary.py:execute_production_run", "run", ("run", "act-report"), False, _nothing, _run("production"), _run_probe),
     Case("holdings/boundary.py:recheck", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("recheck"), _holdings_probe),
+    Case("holdings/boundary.py:look", "holdings", ("holdings-observation",), True, _prepare_holdings(), _holdings("look"), _holdings_probe),
     Case("holdings/boundary.py:write", "holdings", ("holdings-observation",), True, _prepare_holdings(), _holdings("write"), _holdings_probe),
     Case("holdings/boundary.py:delete", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("delete"), _holdings_probe),
     Case("holdings/boundary.py:move", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("move"), _holdings_probe),

@@ -484,9 +484,19 @@ RAW_WRITE_ALLOWLIST = {
     # output root, with inventoried operations so this table weighs it
     # (run-confinement design §6.2, §10).
     "probe.py": {"touch", "unlink"},
+    # A URL look's or an acquisition's retrieved file, under a scratch root
+    # `refuse_scratch_root` proves is neither a corpus nor a store root:
+    # deleted when ownership never reached the caller (url-retrieval design
+    # decision 8, §5, §6).
+    "holdings/boundary.py": {"unlink"},
+    "holdings/acquire.py": {"unlink"},
+    # The streamed body's own scratch file: removed on a failed or incomplete
+    # retrieval, before `Retrieved` ever hands it past this module (decision
+    # 7, §4).
+    "holdings/transport.py": {"unlink"},
 }
-"""The four surfaces Science writes with its own hands, all stated. None is
-a registered surface; a fifth entry appearing here would be a claim to weigh,
+"""The seven surfaces Science writes with its own hands, all stated. None is
+a registered surface; an eighth entry appearing here would be a claim to weigh,
 which is why the allowlist is compared for equality and never for containment.
 """
 
@@ -572,7 +582,10 @@ def test_no_cooperative_mutation_path_skips_registration():
         assert named == RAW_WRITE_ALLOWLIST.get(relative(module), set()), (
             f"{relative(module)} writes bytes itself: {sorted(named)}"
         )
-    assert set(RAW_WRITE_ALLOWLIST) == {"adapter.py", "boundary.py", "confinement.py", "probe.py"}
+    assert set(RAW_WRITE_ALLOWLIST) == {
+        "adapter.py", "boundary.py", "confinement.py", "probe.py",
+        "holdings/boundary.py", "holdings/acquire.py", "holdings/transport.py",
+    }
 
 
 def test_science_fingerprints_only_through_the_engine_read_commands():

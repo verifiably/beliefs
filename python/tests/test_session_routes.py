@@ -257,7 +257,11 @@ class FakeSeam:
         def unused(*_):
             raise AssertionError("not reached")
 
-        return StoreActSeam(corpus_lock, append_intent, publish_fulfilling, read_path, store_write, unused, unused, store_genesis)
+        # This fake never raises `ExecutionError`, so the predicate is never reached.
+        return StoreActSeam(
+            corpus_lock, append_intent, publish_fulfilling, read_path, store_write, unused, unused, store_genesis,
+            lambda _caught: False,
+        )
 
 
 BOTH = RequiredCapabilities.for_kinds({"holdings-observation", "proposition"}, {})

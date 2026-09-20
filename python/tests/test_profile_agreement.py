@@ -236,7 +236,9 @@ def holdings_context(tmp_path):
                        store_write=lambda _root, path, _bytes: StoreOutcomeView("tx", ((path, state),)),
                        store_delete=lambda *_: StoreOutcomeView("unused", ()),
                        store_move=lambda *_: StoreOutcomeView("unused", ()),
-                       store_genesis=lambda _: b'{"domain":"science.store-root.v1","store_id":"11111111111111111111111111111111"}')
+                       store_genesis=lambda _: b'{"domain":"science.store-root.v1","store_id":"11111111111111111111111111111111"}',
+                       # This fake never raises `ExecutionError`, so the predicate is never reached.
+                       store_refusal=lambda _caught: False)
     ctx = ActContext(tmp_path / "corpus", tmp_path / "store", "o", "i", FULL, seam, WITH_BIOLOGY)
     return ctx, intents, published
 

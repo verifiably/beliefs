@@ -36,7 +36,6 @@ from beliefs.holdings.boundary import (
     look,
     move,
     recheck,
-    store_refusal,
     write,
 )
 from beliefs.holdings.records import Absent, Found, StoreLocator, url_locator
@@ -728,7 +727,7 @@ def test_a_url_look_with_a_non_sha256_expectation_refuses_before_the_intent(cert
 def test_store_refusal_is_true_for_exactly_the_routine_causes(cause, applied, routine):
     error = ExecutionError("mapped", index=None, applied=applied)
     error.__cause__ = cause
-    assert store_refusal(error) is routine
+    assert holdings_seam().store_refusal(error) is routine
 
 
 def test_write_wraps_a_routine_store_refusal_and_nothing_else(certified_work):

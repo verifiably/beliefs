@@ -66,3 +66,7 @@ class StoreActSeam:
     store_delete: Callable[[Path, str], StoreOutcomeView]
     store_move: Callable[[Path, str, str], StoreOutcomeView]
     store_genesis: Callable[[Path], bytes]
+    store_refusal: Callable[[Exception], bool]
+    """`True` for a routine engine refusal of `store_write` — the predicate
+    lives in the composition root, which alone may name the engine's own
+    exception types (url-retrieval design decision 10)."""

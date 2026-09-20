@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from atoms.chain.errors import PendingUnresolved
-from atoms.core.errors import PreconditionRefused, ProjectApprovalRefused
 from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.write_plan import CreateOp
@@ -83,16 +81,6 @@ class InconclusiveAttempt:
 
 
 ActResult = PublishedObservation | InconclusiveAttempt
-
-_ROUTINE_REFUSALS = (ProjectApprovalRefused, PreconditionRefused, PendingUnresolved)
-
-
-def store_refusal(caught: ExecutionError) -> bool:
-    """A routine engine refusal of the store transaction (decision 10): raised
-    before any mutation or refusing cleanly, `applied == 0`, and a cause in the
-    closed set. `_mapped_submit` wraps every exception as `ExecutionError`, so
-    neither the class nor the phase alone says a refusal happened."""
-    return caught.applied == 0 and type(caught.__cause__) in _ROUTINE_REFUSALS
 
 
 @dataclass(frozen=True)
@@ -248,7 +236,7 @@ def write(ctx: ActContext, location: StoreLocator, content: bytes, *, expected: 
     try:
         outcome = ctx.seam.store_write(ctx.store_root, location.relative_path, content)
     except ExecutionError as caught:
-        if store_refusal(caught):
+        if ctx.seam.store_refusal(caught):
             raise StoreWriteRefused(location.canonical(), str(caught)) from caught
         raise
     state = _final(outcome, location.relative_path)
