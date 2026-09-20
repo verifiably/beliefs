@@ -285,9 +285,27 @@ anything but the bytes. Every one of those facts lands on a decision below.
     .ExecutionError`, which is not a `ScienceError`; and the same type is
     raised by the intent append and by the observation's publication, so
     neither the exception's class nor its base says which phase failed.
-    `write` therefore wraps **exactly the `seam.store_write` call** and
-    re-raises an `ExecutionError` from it as `StoreWriteRefused(ScienceError)`,
-    carrying the location and the engine's message, with the cause chained.
+    `write` therefore wraps **exactly the `seam.store_write` call**, and
+    re-raises an `ExecutionError` from it as `StoreWriteRefused(ScienceError)`
+    — carrying the location and the engine's message, with the cause
+    chained — **only when the error is a routine refusal**, which neither
+    the phase nor the class establishes on its own: `_mapped_submit` ends
+    in `except Exception`, so an engine-side `RuntimeError` also arrives as
+    `ExecutionError`. A routine refusal is an `ExecutionError` whose
+    `applied` is `0` **and** whose `__cause__` is exactly one of the closed
+    set `ProjectApprovalRefused` (the root is not writable, or its lifecycle
+    refuses), `PreconditionRefused` (a precondition the spec declared did
+    not hold), or `PendingUnresolved` (the root's pending gate) — the three
+    the seam documents as raised before any project mutation or refusing
+    cleanly with restoration proven. Every other `ExecutionError` from the
+    store call propagates as itself: `SpecValidationError` (an
+    adapter-built spec, a programming error), `CapabilityUnavailable` (the
+    host, fail-closed, never a waiver), `MetadataStoreInvalid`,
+    `ChainStateInvalid`, `TransactionHalted`, `ProtocolError`, any other
+    `AtomsError`, and the catch-all's `applied=None` wrap of an arbitrary
+    exception. The classifier lives beside the seam's mapping in
+    `holdings/boundary.py` as one function, `store_refusal(caught) ->
+    bool`, so the closed set is spelled once and tested by type.
     Nothing else in `write` is wrapped: an `ExecutionError` from `_append`
     (the intent) or from `_publish_record` (the observation, after a
     committed store transaction) propagates as itself — an established
@@ -315,7 +333,10 @@ anything but the bytes. Every one of those facts lands on a decision below.
     `ExecutionError` around the whole of `write` — a publication failure
     after a committed materialization would read as a stop, and the chain's
     unmatched intent would then disagree with a report that says the
-    operator survived and knew. An existing file at the destination is replaced
+    operator survived and knew. *Rejected:* wrapping every `ExecutionError`
+    from the store call — an internal error inside the engine would close
+    the acquisition as if the store had refused, and a closed report would
+    stand where an unfinished operation is the truth. An existing file at the destination is replaced
     (the seam's `ReplaceFile` effect), the prior observation superseded
     only if the caller supplied it as standing. *Rejected:* a kernel-chosen
     content-addressed layout — the store's namespace is the caller's
@@ -478,8 +499,9 @@ LookResult = PublishedLook(record, ref, retrieved: Retrieved)
    deleted by the caller of `look` — the acquisition — when the resource
    is done; a standalone `look` caller owns the same duty.
 
-`recheck`, `write`, `delete` and `move` are unchanged; `_bind` still binds
-a `StoreLocator`. `ActContext` gains nothing: the scratch root and the seam
+`recheck`, `delete` and `move` are unchanged; `write` gains decision 10's
+phase-and-cause classification around its store call and nothing else;
+`_bind` still binds a `StoreLocator`. `ActContext` gains nothing: the scratch root and the seam
 are `look`'s own parameters, because a store-only context has no use for
 them.
 
@@ -766,7 +788,15 @@ propagates as `ExecutionError`, the operation reads unfinished, and the
 store location is unsettled under its unmatched intent; a session closed
 between the look and the write (`SessionProtocolError` from the guard)
 propagates, and a ledger that cannot be written (`SessionLedgerFailed`)
-propagates — neither is a stop;
+propagates — neither is a stop; an **unexpected engine failure** — a seam
+whose `store_write` raises `ExecutionError(applied=None)` from a
+`RuntimeError` cause, the catch-all's shape — propagates as
+`ExecutionError` and the operation reads unfinished; `store_refusal` is
+true for exactly `ProjectApprovalRefused`, `PreconditionRefused` and
+`PendingUnresolved` causes with `applied == 0` and false for
+`SpecValidationError`, `CapabilityUnavailable`, `ChainStateInvalid`,
+`TransactionHalted`, a `RuntimeError` cause, a `None` cause and
+`applied=None`;
 no lock held across the request (the seam's `connect` acquires
 `_operation_lock_for(root)` non-blocking and succeeds).
 
@@ -832,7 +862,7 @@ certificate the seam's context trusts; one check per declaration unit:
 | BI-8 | — | no lock across the request |
 | BI-9 | — | the successor rule: the old binding's receipt still validates where held; the new fixture reduces |
 | BI-10 | — | a URL re-check intent and its fulfilling observation decode through `intents/evidence.py` and the generated helper; the reduction matches them and `reconcile` reports nothing |
-| BI-11 | — | the materialization classification: a production-seam store refusal on the first and on the last resource each returns a stopped outcome with no dataset; a publication failure after a committed materialization propagates `ExecutionError` and the operation reads unfinished; a terminal session failure propagates and is never a stop |
+| BI-11 | — | the materialization classification: a production-seam store refusal (a read-only replica, `ProjectApprovalRefused` cause) on the first and on the last resource each returns a stopped outcome with no dataset; a publication failure after a committed materialization propagates `ExecutionError` and the operation reads unfinished; a terminal session failure propagates and is never a stop; **negative:** an unexpected engine failure (`ExecutionError` with `applied=None` from a `RuntimeError` cause) propagates and the operation reads unfinished, never a stop |
 
 Twenty-seven units: sixteen against rows, eleven boundary invariants.
 
@@ -870,7 +900,8 @@ module is `ast.parse`d.
 | BI-8 | `holdings/acquire.py` | `retrieve` runs under `_operation_lock_for(root)` | BI-8 |
 | BI-9 | `holdings/qualify.py` | `_location` returns `None` for the `url` arm (the generated copy is what the rule bundle reads) | BI-9 |
 | BI-10 | `intents/evidence.py` | the location key reverts to the store fields | BI-10 |
-| BI-11 | `holdings/boundary.py` | the `StoreWriteRefused` wrap widens from the `store_write` call to the whole of `write` | BI-11 (the publication failure reads as a stop) |
+| BI-11a | `holdings/boundary.py` | the `StoreWriteRefused` wrap widens from the `store_write` call to the whole of `write` | BI-11 (the publication failure reads as a stop) |
+| BI-11b | `holdings/boundary.py` | `store_refusal` returns `True` for every `ExecutionError` | BI-11 (the unexpected engine failure reads as a stop) |
 
 Both directions are required: the check passes on the real tree and fails
 under sabotage.
@@ -1042,3 +1073,13 @@ world-read lane's next slice is designed), and a store-less look route
   failures propagate as themselves (decision 10, §6); BI-11 reads the
   classification with a production-seam refusal, a publication failure
   after a committed materialization, and a terminal session failure.
+- 2026-09-20 — third review, one blocker, confirmed: `_mapped_submit` ends
+  in `except Exception`, so an engine-side `RuntimeError` arrives as
+  `ExecutionError(applied=None)` and the phase alone cannot tell a refusal
+  from an internal failure. Changed: `StoreWriteRefused` is raised only
+  for a routine refusal — `applied == 0` and a cause in the closed set
+  `ProjectApprovalRefused`, `PreconditionRefused`, `PendingUnresolved` —
+  spelled once in `store_refusal`; every other `ExecutionError` propagates
+  (decision 10); BI-11 gains the unexpected-failure negative and a second
+  sabotage arm (§11.1, §11.2, §11.3); §5 no longer lists `write` as
+  unchanged.
