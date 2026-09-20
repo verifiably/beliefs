@@ -1,7 +1,7 @@
 # URL retrieval — the `url` locator, the network boundary and the acquisition operation
 
 **Date:** 2026-09-19
-**Status:** draft, under review
+**Status:** approved for implementation planning 2026-09-20 at `395b550` after four reviews; implementation not yet started
 **Boundary:** `url-retrieval` (`beliefs-d13fe8`), tier 1 off the path, row 1 after cut 34; carries `act-report-remainder` (T1, T2, T4) as the roadmap's ride-along
 **Lane:** `acquisition`, worktree `.worktrees/url-retrieval`, branch `url-retrieval`
 **Sources:** `../../designs/2026-08-10-verified-holdings-record-design.md` (§2 the `url` locator profile, §3 the two act shapes, the dereference boundary and the network discipline, §4, §5, §6 H1–H4, §7 items 4 and 8),
@@ -785,7 +785,10 @@ so the `StoreWriteRefused` wraps a real `ExecutionError` from
 `run_transaction`, not a fake; a publication failure **after** a
 committed materialization (`publish_fulfilling` raising `ExecutionError`)
 propagates as `ExecutionError`, the operation reads unfinished, and the
-store location is unsettled under its unmatched intent; a session closed
+store location is unsettled under its unmatched intent — that failure is
+raised with `applied=0` from a `PreconditionRefused` cause, the shape the
+predicate accepts, so the check fails a wrap widened past the store call
+and passes only because of the phase; a session closed
 between the look and the write (`SessionProtocolError` from the guard)
 propagates, and a ledger that cannot be written (`SessionLedgerFailed`)
 propagates — neither is a stop; an **unexpected engine failure** — a seam
@@ -900,7 +903,7 @@ module is `ast.parse`d.
 | BI-8 | `holdings/acquire.py` | `retrieve` runs under `_operation_lock_for(root)` | BI-8 |
 | BI-9 | `holdings/qualify.py` | `_location` returns `None` for the `url` arm (the generated copy is what the rule bundle reads) | BI-9 |
 | BI-10 | `intents/evidence.py` | the location key reverts to the store fields | BI-10 |
-| BI-11a | `holdings/boundary.py` | the `StoreWriteRefused` wrap widens from the `store_write` call to the whole of `write` | BI-11 (the publication failure reads as a stop) |
+| BI-11a | `holdings/boundary.py` | the `StoreWriteRefused` wrap widens from the `store_write` call to the whole of `write` | BI-11 (the publication failure reads as a stop; its fixture raises `ExecutionError(applied=0)` from a `PreconditionRefused` cause, so only the phase, not the predicate, keeps it out) |
 | BI-11b | `holdings/boundary.py` | `store_refusal` returns `True` for every `ExecutionError` | BI-11 (the unexpected engine failure reads as a stop) |
 
 Both directions are required: the check passes on the real tree and fails
@@ -1083,3 +1086,7 @@ world-read lane's next slice is designed), and a store-less look route
   (decision 10); BI-11 gains the unexpected-failure negative and a second
   sabotage arm (§11.1, §11.2, §11.3); §5 no longer lists `write` as
   unchanged.
+- 2026-09-20 — fourth review at `395b550`: no remaining blockers, approved
+  for implementation planning. One test detail applied: BI-11a's
+  publication-failure fixture carries `applied=0` and an allowed cause, so
+  the widened-catch sabotage cannot survive on the predicate alone.
