@@ -16,13 +16,13 @@
 - Frozen declarations (`n2_arms_cut*.py`) and frozen cut bodies (§§2–7 of every cut document) stay byte-exact; a pinned line a change moves is re-targeted in the live guard's `_LIVE_SABOTAGES`, never in the frozen file (spec §11.5). After every task that touches `holdings/records.py`, `holdings/boundary.py`, `holdings/rules_v1/holdings.py` or `holdings/qualify.py`, run `cd python && uv run --frozen pytest tests/test_arm_staleness.py tests/acceptance/test_n2_cut10.py -q -k "not sabotage and not findings"` and re-target any cut-10 pin the change moved.
 - `holdings/qualify.py` is **generated**: edit `intents/holdings.py`, then `cd python && uv run --frozen python tools/regen_holdings_interior.py` (spec §7). Never hand-edit the generated file.
 - The `url` canonical form is decision 1's, exactly; `http` and `https` only; fragment and userinfo refused; a `url` observation never spells `Absent` (spec §3).
-- A refused redirect hop is `retrieval-failed` named by ordinal and a fixed category, never bytes or host; `byte-locator-untested` only for the declared URL's own preflight and the post-stop skip (decisions 5, 6). No hop URL enters any record, entry, reason or exception text.
+- A refused redirect hop is `retrieval-failed` named by ordinal and a fixed category, never bytes or host; `byte-locator-untested` only for the declared URL's own preflight and the post-stop skip (decisions 5, 6). No hop URL enters any record, entry, reason or exception text: a server-supplied `Location` is validated (ASCII printable, splittable, port in range) **before** `urljoin` or `urlsplit` touch it, and one that fails is the sixth category, `malformed`.
 - The request target is the canonical path and query byte-exact (empty `?` kept); `Host` is the canonical authority with a non-default port (decision 8). An incomplete body yields no finalized digest (decision 7).
 - `StoreWriteRefused` only for an `ExecutionError` from the `store_write` call with `applied == 0` and a cause in `{ProjectApprovalRefused, PreconditionRefused, PendingUnresolved}`; everything else propagates (decision 10). `acquire` catches exactly `StoreWriteRefused`.
 - No lock is held across a network request (decision 15). No test reaches the network (decision 9).
 - **Lock order at the close is session, then root** — `ScopedWriter._act`'s only order. `acquire` enters the caller's `hold` before `writer._operation`, and neither is entered around the request. Under the closing lock the writer's view is rebuilt (`writer._reconstruct()`) before any ref or address resolves: holdings publications go through the holdings seam, past the writer's cached index, and `_SettlingHold` rebuilds only when `unresolved` is set.
 - A transport failure is named by a fixed category — `timeout`, `tls`, `connection`, `protocol` — never by the exception's text (a certificate error names the redirected host). `http.client.HTTPException` is a `Failed`, not an escape. Every exceptional exit unlinks the scratch file; `look` unlinks its retrieved file when publication fails.
-- The canonical path keeps the trailing slash RFC 3986 §5.2.4 leaves after a final `.` or `..` segment (`/a/.` → `/a/`, `/a/b/..` → `/a/`); an IPv6 host keeps its brackets; port `0` is refused at construction.
+- Dot-segment removal is RFC 3986 §5.2.4's algorithm literally (`/a/.` → `/a/`, `/a/b/..` → `/a/`, `/a//.` → `/a//`, `/a///..` → `/a//`, `/a/..` → `/`): an existing empty segment is distinct from the slash a removed dot-segment leaves. An IPv6 host keeps its brackets at construction **and** in the transmitted `Host`; port `0` is refused at construction.
 - Each read is bounded by the remaining allowance plus one byte, so the ceiling is exceeded by exactly one byte before refusal; `timeout_seconds` is finite.
 - `look` refuses a scratch root under either root before its intent; `acquire` validates the request's dataset shape (title, locator, domain facets) through the writer before its intent.
 - Unit tests run over the scripted fake **and** the in-process TLS server (`python/tests/holdings_transport_fixtures.py`); the acceptance module runs its success, truncation, redirect and ceiling cases through that server, the seam's context trusting the committed test certificate with `check_hostname` and `CERT_REQUIRED` intact.
@@ -44,7 +44,7 @@
 | `python/src/beliefs/holdings/rules_v1/holdings.py`, `rules_v1/fixtures/holdings.url.yaml` | the reducer's location key; the url fixture (Task 2) |
 | `python/src/beliefs/holdings/transport.py` (new) | `RetrievalBounds`, `UrlSeam`, `url_seam`, `preflight`, `PinnedHTTPSConnection`, `retrieve`, `refuse_scratch_root` (Task 3) |
 | `python/tests/holdings_transport_fixtures.py` (new) | `Scripted`, `ScriptedConnection`, `scripted_seam` — the scripted fake; `Served`, `LocalTlsServer`, `tls_seam` — the in-process TLS server (Task 3) |
-| `python/tests/fixtures/tls/server.pem`, `python/tests/fixtures/tls/server.key` (new) | the test certificate the local server presents and the test seam's context trusts: SANs `example.org`, `mirror.example.org`, `localhost`; a hundred years (Task 3) |
+| `python/tests/fixtures/tls/server.pem`, `python/tests/fixtures/tls/server.key` (new) | the test certificate the local server presents and the test seam's context trusts: SANs `example.org`, `mirror.example.org`, `localhost`, `IP:2606:4700:4700::1111`; a hundred years (Task 3) |
 | `python/src/beliefs/holdings/boundary.py` | `intent_payload` over `Locator`; `look`; `store_refusal`; `write`'s wrap (Task 4) |
 | `python/src/beliefs/boundary.py` | `_mint_acquisition_report` (Task 5) |
 | `python/src/beliefs/corpus.py` | `_append_operation_intent(port=)`, `_publish_operation_report(operations=, port=)`, `_refuse_acquired_dataset`, `_refuse_dataset_shape` (`_refuse_facets`' shape half factored out) (Task 5) |
@@ -139,6 +139,10 @@ CANONICAL = [
     ("https://example.org/a/b/..", "https://example.org/a/"),
     ("https://example.org/a/b/", "https://example.org/a/b/"),
     ("https://example.org/..", "https://example.org/"),
+    ("https://example.org/a/..", "https://example.org/"),
+    ("https://example.org/a//.", "https://example.org/a//"),
+    ("https://example.org/a///..", "https://example.org/a//"),
+    ("https://example.org/a//..", "https://example.org/a/"),
     ("https://[2001:DB8::1]:8443/x", "https://[2001:db8::1]:8443/x"),
     ("https://[2001:db8::1]:443/x", "https://[2001:db8::1]/x"),
 ]
@@ -256,6 +260,37 @@ _UNRESERVED = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012
 _HEX = frozenset("0123456789abcdefABCDEF")
 
 
+def _remove_dot_segments(path: str) -> str:
+    """RFC 3986 §5.2.4, step for step, so an existing empty segment survives
+    (`/a//.` is `/a//`) and a removed final dot-segment leaves exactly the
+    slash the algorithm leaves (`/a/..` is `/`)."""
+    remaining, output = path, ""
+    while remaining:
+        if remaining.startswith("../"):
+            remaining = remaining[3:]
+        elif remaining.startswith("./"):
+            remaining = remaining[2:]
+        elif remaining.startswith("/./"):
+            remaining = remaining[2:]
+        elif remaining == "/.":
+            remaining = "/"
+        elif remaining.startswith("/../"):
+            remaining = remaining[3:]
+            output = output[: output.rfind("/")] if "/" in output else ""
+        elif remaining == "/..":
+            remaining = "/"
+            output = output[: output.rfind("/")] if "/" in output else ""
+        elif remaining in (".", ".."):
+            remaining = ""
+        else:
+            start = 1 if remaining.startswith("/") else 0
+            end = remaining.find("/", start)
+            end = len(remaining) if end == -1 else end
+            output += remaining[:end]
+            remaining = remaining[end:]
+    return output
+
+
 def _normalized_path(path: str) -> str:
     """Percent-encoding normalized (uppercase hex, unreserved decoded), then
     dot-segments removed (RFC 3986 §5.2.4); the path component only."""
@@ -273,23 +308,7 @@ def _normalized_path(path: str) -> str:
         decoded = chr(int(pair, 16))
         out.append(decoded if decoded in _UNRESERVED else "%" + pair.upper())
         index += 3
-    segments: list[str] = []
-    directory = False  # RFC 3986 §5.2.4: a final `.` or `..` leaves the trailing slash
-    for segment in "".join(out).split("/")[1:]:
-        if segment == ".":
-            directory = True
-            continue
-        if segment == "..":
-            if segments:
-                segments.pop()
-            directory = True
-            continue
-        segments.append(segment)
-        directory = False
-    normalized = "/" + "/".join(segments)
-    if directory and not normalized.endswith("/"):
-        normalized += "/"
-    return normalized
+    return _remove_dot_segments("".join(out))
 
 
 def _canonical_url(spelling: str) -> str:
@@ -613,7 +632,7 @@ First the certificate, generated once and committed (the key is a test-only secr
 ```bash
 mkdir -p python/tests/fixtures/tls && cd python/tests/fixtures/tls
 openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.pem -days 36500 \
-  -subj "/CN=example.org" -addext "subjectAltName=DNS:example.org,DNS:mirror.example.org,DNS:localhost"
+  -subj "/CN=example.org" -addext "subjectAltName=DNS:example.org,DNS:mirror.example.org,DNS:localhost,IP:2606:4700:4700::1111"
 ```
 
 Then `python/tests/holdings_transport_fixtures.py`:
@@ -900,6 +919,14 @@ def test_preflight_approves_with_the_faithful_target_and_authority():
     approved = preflight("https://example.org:8443/data?", lambda _h, _p: [PUBLIC])
     assert approved == Approved(host="example.org", port=8443, target="/data?", authority="example.org:8443", address=PUBLIC)
     assert preflight("https://example.org/a/b/", lambda _h, _p: [PUBLIC]).authority == "example.org"
+    literal = preflight("https://[2606:4700:4700::1111]:8443/x", lambda _h, _p: [PUBLIC])
+    assert literal == Approved(host="2606:4700:4700::1111", port=8443, target="/x", authority="[2606:4700:4700::1111]:8443", address=PUBLIC)
+    assert preflight("https://[2606:4700:4700::1111]/x", lambda _h, _p: [PUBLIC]).authority == "[2606:4700:4700::1111]"
+
+
+@pytest.mark.parametrize("url", ["https://[tok3n-9f2a.example.net]/data", "https://example.org:99999/data"])
+def test_preflight_refuses_an_unsplittable_url_as_malformed_without_its_bytes(url):
+    assert preflight(url, lambda _h, _p: [PUBLIC]) == transport.Refused("malformed")
 
 
 # --- the request as sent -----------------------------------------------------
@@ -914,6 +941,9 @@ def test_the_request_transmits_the_canonical_locator_faithfully(tmp_path):
     assert headers["Accept-Encoding"] == "identity"
     result, log = fetch({"/a/b/": ok(b"x")}, url_locator("https://example.org/a/./b/"), tmp_path=tmp_path)
     assert log.requests[0][1] == "/a/b/" and log.requests[0][2]["Host"] == "example.org"
+    result, log = fetch({"/x": ok(b"6")}, url_locator("https://[2606:4700:4700::1111]:8443/x"), tmp_path=tmp_path)
+    assert log.requests[0][2]["Host"] == "[2606:4700:4700::1111]:8443"
+    assert log.dialled == [("2606:4700:4700::1111", PUBLIC, 8443)]
 
 
 # --- the pinned connection ---------------------------------------------------
@@ -977,6 +1007,23 @@ def test_a_refused_hop_is_failed_by_ordinal_and_category_and_never_by_its_bytes(
     assert result == Failed("redirect hop 1 refused: non-public-address")
     for secret in ("X-Amz-Signature", "deadbeefcafe", "AKIA", "tok3n-9f2a", "s3.example", "example.net"):
         assert secret not in result.reason
+    assert len(log.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "hop",
+    [
+        "https://[tok3n-9f2a.example.net]/data",  # `urlsplit` raises naming the host
+        "https://tok3n-9f2a.example.net:99999/data",  # `.port` raises
+        "https://tok3n-9f2a.example.net/d\u00e4ta",  # `putrequest` would raise naming the target
+        "https://tok3n-9f2a.example.net/da ta",
+        "/moved\r\nX-Injected: tok3n",
+    ],
+)
+def test_a_malformed_hop_is_refused_as_malformed_and_never_by_its_bytes(tmp_path, hop):
+    result, log = fetch({"/data": Scripted(302, {"Location": hop})}, tmp_path=tmp_path)
+    assert result == Failed("redirect hop 1 refused: malformed")
+    assert "tok3n" not in result.reason and "example.net" not in result.reason
     assert len(log.requests) == 1
 
 
@@ -1092,6 +1139,16 @@ def test_over_tls_a_complete_body_is_retrieved_and_the_request_arrives_faithfull
     result.path.unlink()
 
 
+def test_over_tls_an_ipv6_authority_arrives_bracketed_in_host(tmp_path):
+    with LocalTlsServer({"/x": Served(body=b"6")}) as server:
+        seam, log = tls_seam(server)
+        result = retrieve(url_locator("https://[2606:4700:4700::1111]:8443/x"), BOUNDS, seam, tmp_path)
+    assert isinstance(result, Retrieved)  # the certificate carries the IP SAN; validation ran against the literal
+    assert log.requests[0][2]["Host"] == "[2606:4700:4700::1111]:8443"
+    assert log.dialled == [("2606:4700:4700::1111", PUBLIC, 8443)]
+    result.path.unlink()
+
+
 def test_over_tls_a_truncated_chunked_body_is_a_protocol_failure_with_no_scratch(tmp_path):
     with LocalTlsServer({"/data": Served(body=b"partial", truncate_chunked=True)}) as server:
         seam, _ = tls_seam(server)
@@ -1189,8 +1246,9 @@ __all__ = [
 
 CHUNK = 1024 * 1024
 REDIRECTS = (301, 302, 303, 307, 308)
-REFUSAL_CATEGORIES = ("scheme", "no-host", "unresolvable", "non-public-address", "unpinnable")
-"""The closed set a refused hop is named by (decision 6); never a host, never bytes."""
+REFUSAL_CATEGORIES = ("scheme", "no-host", "unresolvable", "non-public-address", "unpinnable", "malformed")
+"""The closed set a refused hop is named by (decision 6); never a host, never bytes. `malformed`
+is a server-supplied hop this transport will not split, resolve or send."""
 TRANSPORT_CATEGORIES = ("timeout", "tls", "connection", "protocol")
 """The closed set a failure after the request began is named by; never the exception's text,
 which for a certificate error carries the redirected host."""
@@ -1320,9 +1378,28 @@ def url_seam() -> UrlSeam:
     return UrlSeam(resolve=system_resolver, connect=pinned_connection)
 
 
+def _join_hop(current: str, location: str) -> str | None:
+    """The next hop, or `None` for server-supplied bytes this transport will not
+    split, resolve or send: non-ASCII, whitespace or a control byte, an
+    authority `urlsplit` refuses, a port out of range. Nothing of the bytes is
+    reported — `urlsplit`'s own errors name the host."""
+    if any(not (0x21 <= ord(character) <= 0x7E) for character in location):
+        return None
+    try:
+        joined = urljoin(current, location)
+        urlsplit(joined).port
+    except ValueError:
+        return None
+    return joined
+
+
 def preflight(url: str, resolver: Resolver) -> Approved | Refused:
     """Decide whether a hop may be requested at all; every refusal is a fixed category."""
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+        parts.port
+    except ValueError:
+        return Refused("malformed")
     if parts.scheme != "https":
         return Refused("scheme")
     if not parts.hostname:
@@ -1337,7 +1414,8 @@ def preflight(url: str, resolver: Resolver) -> Approved | Refused:
     if any(not ipaddress.ip_address(address).is_global for address in addresses):
         return Refused("non-public-address")
     target = (parts.path or "/") + ("?" + parts.query if "?" in url.split("#", 1)[0] else "")
-    authority = parts.hostname if port == 443 else f"{parts.hostname}:{port}"
+    literal = f"[{parts.hostname}]" if parts.netloc.rpartition("@")[2].startswith("[") else parts.hostname
+    authority = literal if port == 443 else f"{literal}:{port}"  # `hostname` strips the brackets; the wire keeps them
     return Approved(host=parts.hostname, port=port, target=target, authority=authority, address=addresses[0])
 
 
@@ -1376,7 +1454,10 @@ def retrieve(locator: UrlLocator, bounds: RetrievalBounds, seam: UrlSeam, scratc
                 location = response.getheader("Location")
                 if not location:
                     return Failed("redirect without a location")
-                current = urljoin(current, location)
+                joined = _join_hop(current, location)
+                if joined is None:
+                    return Failed(f"redirect hop {hop + 1} refused: malformed")
+                current = joined
                 continue
             if response.status != 200:
                 return Failed(f"status {response.status}")
@@ -1532,6 +1613,16 @@ def test_a_url_look_refuses_a_scratch_root_under_either_root_before_any_intent(c
         with pytest.raises(MalformedRecord, match="scratch root"):
             look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=scratch)
     assert _intents(ctx.observer_root) == [] and log.requests == []
+
+
+def test_a_url_look_whose_record_refuses_to_construct_leaves_no_scratch(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    seam, _ = scripted_seam({"/data": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+    foreign = write(ctx, StoreLocator(store_id, "elsewhere.bin"), b"y").record  # a standing observation of another location
+    with pytest.raises(MalformedRecord):
+        look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=tmp_path / "s", standing=(foreign,))
+    assert list((tmp_path / "s").iterdir()) == []
+    assert len(_intents(ctx.observer_root)) == 2  # the write's, and the look's unmatched re-check
 
 
 def test_a_url_look_with_a_non_sha256_expectation_refuses_before_the_intent(certified_work, tmp_path):
@@ -1698,12 +1789,12 @@ def look(
         return InconclusiveLook("byte-locator-untested", result.reason)
     if isinstance(result, Failed):
         return InconclusiveLook("retrieval-failed", result.reason)
-    record = holdings_observation(
-        location=location, outcome=Found(result.digest), expected=expected, observer=ctx.observer,
-        instrument=ctx.instrument, event_token=token,
-        observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), supersedes=standing,
-    )
-    try:
+    try:  # from `Retrieved` to the caller's ownership: construction refusals included
+        record = holdings_observation(
+            location=location, outcome=Found(result.digest), expected=expected, observer=ctx.observer,
+            instrument=ctx.instrument, event_token=token,
+            observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), supersedes=standing,
+        )
         published = _publish_record(ctx, record, intent)
     except BaseException:
         result.path.unlink(missing_ok=True)  # ownership never reached the caller
@@ -2886,7 +2977,7 @@ git commit -m "docs(cut): discharge conformance cut 35; URL retrieval closes H4,
 
 **Spec coverage.** Decision 1 → Task 1; decision 2 → Task 4 (`look`'s `re-check` intent), Task 2 (`_location`'s url arm); decision 3 → Task 5 (`AcquisitionRequest`, the four steps, the overlay validation); decision 4 → Task 5 (`mint = stop is None and expectations_hold`); decision 5 → Task 5 (the stop and `SKIPPED_AFTER_STOP`); decision 6 → Task 3 (`preflight` categories, `Failed(f"redirect hop … refused: …")`); decision 7 → Task 3 (`RetrievalBounds`, `_stream_into` dropping the hash), Task 5 (`instrument_inputs` on every entry); decision 8 → Task 3 (`target`, `authority`, `Accept-Encoding`, the body rules, `refuse_scratch_root`); decision 9 → Task 3 (`UrlSeam`, `url_seam`, the fixtures); decision 10 → Task 4 (`store_refusal`, the wrap), Task 5 (`except StoreWriteRefused`); decision 11 → Task 5 (`held`); decision 12 → Task 9 (the new task and the ledger row); decision 13 → Task 8 (T2-d); decision 14 → Task 2 (the fixture and the reducer key), Task 8 (BI-9); decision 15 → Task 5 (locks only inside the acts and the close), Task 6 (no `_act` wrap); decision 16 → Task 1 (the deletion and the J3 re-target). §3 → Task 1; §4 → Task 3; §5 → Task 4; §6 → Task 5; §7 → Task 2; §8 → Task 6; §9 → Task 8; §11.1 → Tasks 1–6; §11.2–11.4 → Task 8; §11.5 → Task 1 Step 6 and the global constraint; §12 → the file map; §13 → Task 9's ideas; §14 → Task 9; §15 → Task 7; §16 → Task 0 Step 3 and Task 9.
 
-**Planning corrections, to record in spec §17 at Task 0.** (a) Spec §6 has `acquire` call `writer._append_operation_intent` and `_publish_operation_report`, which use the writer's own port; under the session the ledgered port is a separate object (`ScopedWriter.operation_port()`), so both members gain a `port=` override and the session route passes it (Task 5 Step 4, Task 6 Step 3). (b) Spec §11.1's session-route test cannot run over the routes module's `FakeSeam`, which publishes nothing to disk, while the close checks every published observation resolves; the session test runs over the certified volume with the production seam (Task 6). (c) Spec §11.3's T2-d sabotage named `acquire.py`; a second fulfillment's refusal is the engine's, so the arm sabotages the defect mapping's `duplicate-fulfillment` member instead (Task 8). (d) `AcquisitionOutcome.entries` is the report's entries, the declaration-pin entry included. (e) Spec §6 step 4 resolves the looks' refs through `writer.read_view`; those publications go through the holdings seam and never set the writer's `unresolved`, so the close rebuilds the view (`_reconstruct`) under its lock before resolving anything (Task 5). (f) Spec §6/§8 left the close's lock order implicit; the session takes session-then-root everywhere, so `acquire` gains `hold`, entered before the root lock, and the route passes `_closing_hold` (Tasks 5, 6). (g) Decision 6's rule extends to transport failures: a certificate error's text names the redirected host, so a failure after the request began is named by a fixed category (`timeout`, `tls`, `connection`, `protocol`), `HTTPException` included, and every exceptional exit unlinks the scratch file (Task 3). (h) Decision 1's profile is read strictly: the trailing slash after a final dot-segment is kept, an IPv6 host keeps its brackets (its literal is not compressed — a limitation beside IDNA), and port `0` is refused (Task 1). (i) Decision 7's ceiling bounds each read by the remaining allowance plus one, and `timeout_seconds` is finite (Task 3). (j) Decision 8's scratch exclusion is `look`'s own, before its intent, not only `acquire`'s (Task 4). (k) §6 step 1's "validated as a value" covers the dataset's request-only metadata: `domain_facets` at the request, and the dataset's shape through `_refuse_dataset_shape` before the intent (Task 5). (l) §4's "keeps its own copies of nothing": the survey's `NetworkProbe.fetch` is an adapter over `retrieve`, and a refused hop reads `retrieval-failed` there too (Task 6). (m) §11.2's in-process TLS server is a committed test certificate plus `LocalTlsServer`/`tls_seam`; the unit and acceptance suites run their success, truncation, redirect, ceiling and certificate-failure cases through it (Tasks 3, 8). (n) Three checks read differently from §11.2/§11.3: T4-a's added report comes from an unpinnable acquisition, since a second look publishes an identity-bearing observation; BI-2's refused hops are stopped outcomes, never exceptions; BI-1's arm sabotages default-port elision, since `urlsplit` lowercases scheme and host itself (Task 8).
+**Planning corrections, to record in spec §17 at Task 0.** (a) Spec §6 has `acquire` call `writer._append_operation_intent` and `_publish_operation_report`, which use the writer's own port; under the session the ledgered port is a separate object (`ScopedWriter.operation_port()`), so both members gain a `port=` override and the session route passes it (Task 5 Step 4, Task 6 Step 3). (b) Spec §11.1's session-route test cannot run over the routes module's `FakeSeam`, which publishes nothing to disk, while the close checks every published observation resolves; the session test runs over the certified volume with the production seam (Task 6). (c) Spec §11.3's T2-d sabotage named `acquire.py`; a second fulfillment's refusal is the engine's, so the arm sabotages the defect mapping's `duplicate-fulfillment` member instead (Task 8). (d) `AcquisitionOutcome.entries` is the report's entries, the declaration-pin entry included. (e) Spec §6 step 4 resolves the looks' refs through `writer.read_view`; those publications go through the holdings seam and never set the writer's `unresolved`, so the close rebuilds the view (`_reconstruct`) under its lock before resolving anything (Task 5). (f) Spec §6/§8 left the close's lock order implicit; the session takes session-then-root everywhere, so `acquire` gains `hold`, entered before the root lock, and the route passes `_closing_hold` (Tasks 5, 6). (g) Decision 6's rule extends to transport failures: a certificate error's text names the redirected host, so a failure after the request began is named by a fixed category (`timeout`, `tls`, `connection`, `protocol`), `HTTPException` included, and every exceptional exit unlinks the scratch file (Task 3). (h) Decision 1's profile is read strictly: the trailing slash after a final dot-segment is kept, an IPv6 host keeps its brackets (its literal is not compressed — a limitation beside IDNA), and port `0` is refused (Task 1). (i) Decision 7's ceiling bounds each read by the remaining allowance plus one, and `timeout_seconds` is finite (Task 3). (j) Decision 8's scratch exclusion is `look`'s own, before its intent, not only `acquire`'s (Task 4). (k) §6 step 1's "validated as a value" covers the dataset's request-only metadata: `domain_facets` at the request, and the dataset's shape through `_refuse_dataset_shape` before the intent (Task 5). (l) §4's "keeps its own copies of nothing": the survey's `NetworkProbe.fetch` is an adapter over `retrieve`, and a refused hop reads `retrieval-failed` there too (Task 6). (m) §11.2's in-process TLS server is a committed test certificate plus `LocalTlsServer`/`tls_seam`; the unit and acceptance suites run their success, truncation, redirect, ceiling and certificate-failure cases through it (Tasks 3, 8). (n) Three checks read differently from §11.2/§11.3: T4-a's added report comes from an unpinnable acquisition, since a second look publishes an identity-bearing observation; BI-2's refused hops are stopped outcomes, never exceptions; BI-1's arm sabotages default-port elision, since `urlsplit` lowercases scheme and host itself (Task 8). (o) Decision 6's category set gains `malformed`: a server-supplied `Location` is validated before `urljoin`/`urlsplit` touch it, because their own errors name the host (Task 3). (p) Decision 8's authority keeps an IPv6 literal's brackets on the wire, not only at construction; the test certificate carries the IP SAN so the case runs over the local server (Task 3). (q) Decision 1's dot-segment removal is RFC 3986 §5.2.4 verbatim, not a segment filter: `/a//.` is `/a//` (Task 1). (r) Decision 8's "deletes its own file" covers record construction: `look`'s cleanup spans from `Retrieved` to the caller's ownership (Task 4).
 
 **Placeholder scan.** `<taskN-id>` is filled at the planning commit (Task 0 Step 3). "Read at freeze" appears for three sabotage sites whose exact bytes are the tree's at the freeze (T1-a, T2-d, T4-b) — the behavior of each `after` is fixed above; the implementer copies the bytes and records the choice (Task 9 Step 2). Task 5's `registrations_of`/`report_of` helpers are named with their shape; Task 6's `ACQUIRES` capability is spelled with the reference to `RUNS`.
 
