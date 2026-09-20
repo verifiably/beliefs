@@ -278,22 +278,44 @@ anything but the bytes. Every one of those facts lands on a decision below.
     verified final surface — never the stream's digest (H1). Atoms' commit
     verification makes a destination whose post-state differs from the
     written bytes uncommittable, so a `found(D'')` with `expected = D` at
-    the store location is unconstructible from this path; a refused or
-    failed store transaction raises out of `write`, mints no observation
-    and leaves the location unsettled under its unmatched mutating intent
-    (H2). `acquire` catches that `ScienceError` and treats it as a **stop**
-    (decision 5): the resource's `ManagedMutationEntry` is absent and its
-    look's entry present — the store leg's story is the record layer's, and
-    the report never restates what the chain proves (act-report §2.2) —
-    every later resource is skipped, the operation **closes**, no dataset
-    mints, and the outcome's `stop` names the resource, the phase
-    `materialize` and the refusal's class and message (§6). A stop forbids
-    the mint whatever its phase: the request asked for materialized bytes,
-    and a dataset minted without them would read `held` on the URL
-    observation alone while the caller learns of the missing copy only from
-    the report. Any other exception propagates unchanged: it is not a
-    refusal, and the operation stays unfinished under its intent (§4's
-    raise rule). An existing file at the destination is replaced
+    the store location is unconstructible from this path. **A store
+    refusal is classified inside `write`, by phase.** The production seam
+    maps every engine refusal — approval, spec validation, precondition,
+    capability, pending, halted, protocol — to `nodes.core.errors
+    .ExecutionError`, which is not a `ScienceError`; and the same type is
+    raised by the intent append and by the observation's publication, so
+    neither the exception's class nor its base says which phase failed.
+    `write` therefore wraps **exactly the `seam.store_write` call** and
+    re-raises an `ExecutionError` from it as `StoreWriteRefused(ScienceError)`,
+    carrying the location and the engine's message, with the cause chained.
+    Nothing else in `write` is wrapped: an `ExecutionError` from `_append`
+    (the intent) or from `_publish_record` (the observation, after a
+    committed store transaction) propagates as itself — an established
+    post-state that cannot be recorded fails loudly (H4) and leaves the
+    location unsettled under its unmatched mutating intent (H2) — and a
+    `SessionProtocolError` or `SessionLedgerFailed` from the ledgered
+    seam's guard propagates as itself from whichever phase raised it,
+    because a session that is no longer current or a ledger that cannot be
+    written is terminal, not a refusal. `delete` and `move` are unchanged:
+    no caller of theirs has a stop to make. `acquire` catches exactly
+    `StoreWriteRefused` and treats it as a **stop** (decision 5): the
+    resource's `ManagedMutationEntry` is absent and its look's entry
+    present — the store leg's story is the record layer's, and the report
+    never restates what the chain proves (act-report §2.2) — every later
+    resource is skipped, the operation **closes**, no dataset mints, and
+    the outcome's `stop` names the resource, the phase `materialize` and
+    the refusal's message (§6). A stop forbids the mint whatever its phase:
+    the request asked for materialized bytes, and a dataset minted without
+    them would read `held` on the URL observation alone while the caller
+    learns of the missing copy only from the report. Every other exception
+    propagates unchanged and the operation stays unfinished under its
+    intent (§4's raise rule). *Rejected:* catching `ScienceError` in
+    `acquire` — it would miss every real refusal (an `ExecutionError`) and
+    swallow the two terminal session failures. *Rejected:* catching
+    `ExecutionError` around the whole of `write` — a publication failure
+    after a committed materialization would read as a stop, and the chain's
+    unmatched intent would then disagree with a report that says the
+    operator survived and knew. An existing file at the destination is replaced
     (the seam's `ReplaceFile` effect), the prior observation superseded
     only if the caller supplied it as standing. *Rejected:* a kernel-chosen
     content-addressed layout — the store's namespace is the caller's
@@ -497,9 +519,11 @@ spans the holdings boundary and the corpus writer and belongs to neither.
    PublishedObservation(ref), instrument_inputs=bounds)`; then, if
    `materialize`: `write(ctx, destination, bytes, expected=look digest,
    standing=standing.get(store key))` → `ManagedMutationEntry(subject=store
-   canonical, PublishedObservation(ref))`; a `ScienceError` out of `write`
-   is a stop with phase `materialize` (decision 10): the scratch file is
-   deleted, no mutation entry is filed, and the operation goes to step 4.
+   canonical, PublishedObservation(ref))`; a `StoreWriteRefused` out of
+   `write` — and only that — is a stop with phase `materialize` (decision
+   10): the scratch file is deleted, no mutation entry is filed, and the
+   operation goes to step 4; any other exception propagates after the
+   scratch file is deleted.
    On `InconclusiveLook`, the entry's outcome is `ByteLocatorUntested(
    reason)` or `RetrievalFailed(reason)` and it is a stop with phase `look`.
    After a stop, every later resource gets `ByteLocatorUntested(
@@ -732,8 +756,17 @@ refusal on the **first** of two resources closes with that resource's
 mutation entry absent, the second resource skipped, no dataset,
 `stop == Stop(name, "materialize", reason)` and the outcome returned, not
 raised; a store refusal on the **last** resource closes the same way with
-every earlier resource's entries intact and no dataset; a non-refusal
-exception out of `write` propagates and the operation reads unfinished;
+every earlier resource's entries intact and no dataset; the refusal is
+provoked through the **production seam** — a store root the engine
+refuses to mutate (a read-only replica, cut 10's lifecycle machinery),
+so the `StoreWriteRefused` wraps a real `ExecutionError` from
+`run_transaction`, not a fake; a publication failure **after** a
+committed materialization (`publish_fulfilling` raising `ExecutionError`)
+propagates as `ExecutionError`, the operation reads unfinished, and the
+store location is unsettled under its unmatched intent; a session closed
+between the look and the write (`SessionProtocolError` from the guard)
+propagates, and a ledger that cannot be written (`SessionLedgerFailed`)
+propagates — neither is a stop;
 no lock held across the request (the seam's `connect` acquires
 `_operation_lock_for(root)` non-blocking and succeeds).
 
@@ -798,9 +831,10 @@ certificate the seam's context trusts; one check per declaration unit:
 | BI-7 | — | a crash between the URL look's intent and its publication: the reducer reports no blocked entry for the URL location |
 | BI-8 | — | no lock across the request |
 | BI-9 | — | the successor rule: the old binding's receipt still validates where held; the new fixture reduces |
-| BI-10 | — | a URL re-check intent and its fulfilling observation decode through `intents/evidence.py` and the generated helper; the reduction matches them and `reconcile` reports nothing; a store refusal on the first and on the last resource each returns a stopped outcome with no dataset |
+| BI-10 | — | a URL re-check intent and its fulfilling observation decode through `intents/evidence.py` and the generated helper; the reduction matches them and `reconcile` reports nothing |
+| BI-11 | — | the materialization classification: a production-seam store refusal on the first and on the last resource each returns a stopped outcome with no dataset; a publication failure after a committed materialization propagates `ExecutionError` and the operation reads unfinished; a terminal session failure propagates and is never a stop |
 
-Twenty-six units: sixteen against rows, ten boundary invariants.
+Twenty-seven units: sixteen against rows, eleven boundary invariants.
 
 ### 11.3 N2 sabotages
 
@@ -836,6 +870,7 @@ module is `ast.parse`d.
 | BI-8 | `holdings/acquire.py` | `retrieve` runs under `_operation_lock_for(root)` | BI-8 |
 | BI-9 | `holdings/qualify.py` | `_location` returns `None` for the `url` arm (the generated copy is what the rule bundle reads) | BI-9 |
 | BI-10 | `intents/evidence.py` | the location key reverts to the store fields | BI-10 |
+| BI-11 | `holdings/boundary.py` | the `StoreWriteRefused` wrap widens from the `store_write` call to the whole of `write` | BI-11 (the publication failure reads as a stop) |
 
 Both directions are required: the check passes on the real tree and fails
 under sabotage.
@@ -850,7 +885,7 @@ worktree and branch for a cut numbered 35–39 (none at 2026-09-19: `main`,
 `PREFIX_RUNNERS` (rule 5) and carries `PHASE_MODULES =
 ("test_url_retrieval_acceptance.py", "test_n2_cut35.py")`. Declaration
 units: H4-a–b, G9-a, R10-a, T5-a–c, T7-a–b, T1-a, T2-a–d, T4-a–b,
-BI-1–BI-10 — twenty-six. Frozen by dated
+BI-1–BI-11 — twenty-seven. Frozen by dated
 commit after review clears; invalidated frozen evidence is pinned and
 cited, never edited. The results record states six rows closed (H4, G9,
 R10, T5, T1, T4), two partial (T2, T7), **183 of 216**.
@@ -876,7 +911,7 @@ R10, T5, T1, T4), two partial (T2, T7), **183 of 216**.
 
 ## 12. Shared files, under roadmap concurrency rule 3
 
-`errors.py` (`AcquisitionRefused`; `UrlLocatorDeferred` removed),
+`errors.py` (`AcquisitionRefused`, `StoreWriteRefused`; `UrlLocatorDeferred` removed),
 `python/tests/test_designs_corpus.py`, the ledger, the roadmap and the
 guide index, as every lane. Beyond those: `holdings/records.py`,
 `holdings/boundary.py`, `intents/holdings.py` (the source) and
@@ -998,3 +1033,12 @@ world-read lane's next slice is designed), and a store-less look route
   body yields no finalized or published digest rather than "is never
   hashed" (decision 7, §4, BI-4); the preflight-refusal test issues zero
   requests while keeping its one holdings intent (§11.1).
+- 2026-09-20 — second review, one blocker, confirmed: the production seam
+  maps every engine refusal to `nodes.core.errors.ExecutionError`, not a
+  `ScienceError`, and the same type comes from the intent append and the
+  publication. Changed: `write` classifies by phase — exactly the
+  `store_write` call is wrapped as `StoreWriteRefused(ScienceError)`,
+  `acquire` catches exactly that, and intent, publication and session
+  failures propagate as themselves (decision 10, §6); BI-11 reads the
+  classification with a production-seam refusal, a publication failure
+  after a committed materialization, and a terminal session failure.
