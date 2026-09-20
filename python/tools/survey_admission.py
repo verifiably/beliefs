@@ -44,21 +44,29 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import ipaddress
 import json
 import re
-import socket
-import ssl
 import sys
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from http.client import HTTPSConnection
 from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
 import yaml
+
+from beliefs.errors import MalformedRecord
+from beliefs.holdings.records import url_locator
+from beliefs.holdings.transport import (
+    Failed,
+    NotAttempted,
+    RetrievalBounds,
+    UrlSeam,
+    pinned_connection,
+    retrieve,
+    system_resolver,
+)
 
 FRONTMATTER = "---"
 
@@ -102,14 +110,6 @@ PACKAGE_UNPARSEABLE = "unparseable"
 # ---------------------------------------------------------------------------
 # Observations
 # ---------------------------------------------------------------------------
-
-
-class MalformedRecord(Exception):
-    """A record the instrument could read but could not make sense of.
-
-    Distinct from a YAML error: the bytes parsed, and the shape is wrong. Both
-    reach the failure list; neither is ever skipped.
-    """
 
 
 @dataclass(frozen=True)
@@ -271,64 +271,8 @@ def resolve_declared_path(root: Path, dataset: str, declared: str) -> Path | Pat
 
 
 # ---------------------------------------------------------------------------
-# Probing — preflight, then a pinned fetch
+# Probing — the kernel's URL transport, read into the survey's vocabulary
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class Approved:
-    """A locator that cleared preflight, with the address that was validated."""
-
-    host: str
-    port: int
-    path: str
-    address: str
-
-
-@dataclass(frozen=True)
-class Refused:
-    reason: str
-
-
-Resolver = Callable[[str, int], list[str]]
-
-
-def system_resolver(host: str, port: int) -> list[str]:
-    infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
-    return [str(info[4][0]) for info in infos]
-
-
-def preflight(url: str, resolver: Resolver = system_resolver) -> Approved | Refused:
-    """Decide whether a locator may be fetched at all, before any request.
-
-    Every refusal here is `byte-locator-untested`: nothing was attempted, so
-    nothing was learned about the resource.
-    """
-    parts = urlsplit(url)
-    if parts.scheme not in APPROVED_SCHEMES:
-        return Refused(f"scheme {parts.scheme or '(none)'} is not approved")
-    if not parts.hostname:
-        return Refused("locator names no host")
-
-    port = parts.port or 443
-    try:
-        addresses = resolver(parts.hostname, port)
-    except OSError as exc:
-        return Refused(f"host does not resolve: {exc}")
-    if not addresses:
-        return Refused("host resolves to no address")
-
-    for address in addresses:
-        if not ipaddress.ip_address(address).is_global:
-            return Refused(f"host resolves to non-public address {address}")
-
-    path = parts.path or "/"
-    if parts.query:
-        path = f"{path}?{parts.query}"
-    # The first validated address is the one pinned. Every address resolved for
-    # the host was checked above, so choosing among them cannot smuggle one past
-    # the check.
-    return Approved(host=parts.hostname, port=port, path=path, address=addresses[0])
 
 
 @dataclass(frozen=True)
@@ -343,135 +287,40 @@ class Probe(Protocol):
     def fetch(self, url: str) -> ProbeOutcome: ...
 
 
-#: How a probe obtains a connection to an approved address. Injected so the
-#: pinning behaviour is exercised directly and the fail-closed arm is reachable
-#: without reaching into the probe's internals.
-ConnectionFactory = Callable[["Approved", float], HTTPSConnection]
-
-
-class PinnedHTTPSConnection(HTTPSConnection):
-    """Connects to a validated address while validating the certificate's hostname.
-
-    Resolving a name, checking the result, and then letting the client resolve it
-    again leaves the check decorative — the second answer can differ from the
-    first, which is the whole of the rebinding attack. This connects to the
-    address preflight validated and keeps `self.host` as the name, so SNI and
-    certificate verification still run against the name.
-    """
-
-    def __init__(self, host: str, address: str, port: int, timeout: float, context: ssl.SSLContext) -> None:
-        super().__init__(host, port=port, timeout=timeout, context=context)
-        self._address = address
-        self._pinned_context = context
-
-    def connect(self) -> None:
-        sock = socket.create_connection((self._address, self.port), self.timeout)
-        self.sock = self._pinned_context.wrap_socket(sock, server_hostname=self.host)
-
-
 class NetworkProbe:
-    """Fetches to the scratch root, hashes, and deletes only its own files.
-
-    Fails closed: if the validated address cannot be connected to while hostname
-    and certificate validation are preserved, no request is issued and the
-    locator is reported untested. A disclosed hole is still a hole.
-    """
+    """Adapts the kernel's URL transport (`beliefs.holdings.transport`) to the
+    survey's `ProbeOutcome` vocabulary. The instrument keeps its own copies of
+    nothing: preflight, pinning and the transport walk all live in the kernel."""
 
     def __init__(
         self,
         scratch: Path,
         *,
-        resolver: Resolver = system_resolver,
+        resolver=system_resolver,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         max_bytes: int = DEFAULT_MAX_BYTES,
         max_redirects: int = 5,
-        connect: ConnectionFactory | None = None,
+        connect=None,
     ) -> None:
         self._scratch = scratch
-        self._resolver = resolver
-        self._timeout = timeout
-        self._max_bytes = max_bytes
-        self._max_redirects = max_redirects
-        self._connect = connect or pinned_connection
+        self._bounds = RetrievalBounds(timeout, max_bytes, max_redirects)
+        self._seam = UrlSeam(resolve=resolver, connect=connect or pinned_connection)
 
     def fetch(self, url: str) -> ProbeOutcome:
-        seen = 0
-        current = url
-        while True:
-            decision = preflight(current, self._resolver)
-            if isinstance(decision, Refused):
-                where = "" if current == url else f" (redirect hop {current})"
-                return ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason=decision.reason + where)
-
-            try:
-                response, location = self._request(decision)
-            except PinningUnavailable as exc:
-                return ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason=str(exc))
-            except OSError as exc:
-                return ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason=f"transport failure: {exc}")
-
-            if location is not None:
-                seen += 1
-                if seen > self._max_redirects:
-                    return ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="too many redirects")
-                # A Location may be relative. Joining it against the URL it came
-                # from is what makes the next preflight examine the real target.
-                current = urljoin(current, location)
-                continue
-            return response
-
-    def _request(self, approved: Approved) -> tuple[ProbeOutcome, str | None]:
-        connection = self._connect(approved, self._timeout)
+        """The kernel's retrieval, read into the survey's vocabulary: the kernel's
+        phase is the survey's byte observation, and its reasons are already free of
+        every hop's bytes."""
         try:
-            connection.request("GET", approved.path, headers={"Host": approved.host})
-            response = connection.getresponse()
-            if response.status in (301, 302, 303, 307, 308):
-                location = response.getheader("Location")
-                if not location:
-                    return ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="redirect without a location"), None
-                return ProbeOutcome(BYTES_RETRIEVAL_FAILED), location
-            if response.status != 200:
-                return ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason=f"status {response.status}"), None
-            return self._stream(response), None
-        finally:
-            connection.close()
-
-    def _stream(self, response: Any) -> ProbeOutcome:
-        self._scratch.mkdir(parents=True, exist_ok=True)
-        target = self._scratch / f"probe-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%f')}"
-        hasher = hashlib.sha256()
-        size = 0
-        try:
-            with target.open("wb") as handle:
-                while chunk := response.read(CHUNK):
-                    size += len(chunk)
-                    if size > self._max_bytes:
-                        return ProbeOutcome(
-                            BYTES_RETRIEVAL_FAILED,
-                            reason=f"exceeded the {self._max_bytes}-byte streaming ceiling",
-                        )
-                    hasher.update(chunk)
-                    handle.write(chunk)
-        finally:
-            target.unlink(missing_ok=True)
-        return ProbeOutcome(BYTES_RETRIEVED, digest=hasher.hexdigest(), size=size)
-
-
-class PinningUnavailable(RuntimeError):
-    """Raised when the validated address cannot be used with validation intact.
-
-    The caller reports the locator untested and issues no request. Probing while
-    announcing the check as unenforced would keep the exposure and merely
-    document it.
-    """
-
-
-def pinned_connection(approved: Approved, timeout: float) -> HTTPSConnection:
-    """Build a connection to the validated address that still validates the name."""
-    context = ssl.create_default_context()
-    if not context.check_hostname or context.verify_mode != ssl.CERT_REQUIRED:
-        raise PinningUnavailable("cannot pin the validated address with hostname validation intact")
-    return PinnedHTTPSConnection(approved.host, approved.address, approved.port, timeout, context)
+            locator = url_locator(url)
+        except MalformedRecord:
+            return ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="malformed url")
+        result = retrieve(locator, self._bounds, self._seam, self._scratch)
+        if isinstance(result, NotAttempted):
+            return ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason=result.reason)
+        if isinstance(result, Failed):
+            return ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason=result.reason)
+        result.path.unlink()
+        return ProbeOutcome(BYTES_RETRIEVED, digest=result.digest.partition(":")[2], size=result.size)
 
 
 # ---------------------------------------------------------------------------
