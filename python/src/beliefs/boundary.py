@@ -99,6 +99,7 @@ from beliefs.report import (
     ActReport,
     AssessmentRunIntent,
     Consolidated,
+    Entry,
     ImportedRecords,
     Moved,
     OperationIntent,
@@ -300,6 +301,32 @@ def _mint_relocation_report(
         opened_at=opened_at,
         closed_at=closed_at,
         entries=(RecordMutationEntry(subject=subject, corpus=corpus, outcome=outcome),),
+    )
+
+
+def _mint_acquisition_report(
+    intent: OperationIntent,
+    *,
+    observer: str,
+    instrument: str,
+    opened_at: str,
+    closed_at: str,
+    entries: tuple[Entry, ...],
+) -> ActReport:
+    """The acquisition operation's terminal record (url-retrieval design §6):
+    per resource a locator entry and, where materialized, a mutation entry, in
+    request order; then the declaration pin when a dataset minted."""
+    if type(intent) is not OperationIntent or intent.kind != "acquisition":
+        raise MalformedRecord("an acquisition report requires an acquisition operation intent")
+    return _mint_report(
+        operation="acquisition",
+        event_token=intent.event_token,
+        actor=intent.actor,
+        observer=observer,
+        instrument=instrument,
+        opened_at=opened_at,
+        closed_at=closed_at,
+        entries=entries,
     )
 
 

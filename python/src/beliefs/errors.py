@@ -1460,6 +1460,13 @@ class AcquisitionBoundaryRefused(WriteRefused):
     """A declaration cannot coexist with a producer or lineage basis."""
 
 
+class AcquisitionRefused(WriteRefused):
+    """An acquisition request refused before its intent — the wrong root, no
+    operation port, a store-less materialization, a malformed request — or at
+    its close, when the report would name an observation no act published
+    (url-retrieval design §6 steps 1 and 4)."""
+
+
 class StoreWriteRefused(ScienceError):
     """The store transaction of a managed `write` was a routine engine refusal
     (url-retrieval design decision 10): `applied == 0` and a
