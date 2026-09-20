@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
-from typing import NoReturn, final
+from typing import final
+from urllib.parse import urlsplit
 
-from beliefs.errors import LoneSurrogate, MalformedRecord, UrlLocatorDeferred
+from beliefs.errors import LoneSurrogate, MalformedRecord
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 
@@ -20,8 +22,10 @@ __all__ = [
     "Absent",
     "Found",
     "HoldingsObservation",
+    "Locator",
     "Outcome",
     "StoreLocator",
+    "UrlLocator",
     "holdings_observation",
     "require_canonical_digest",
     "require_store_relative_path",
@@ -89,8 +93,117 @@ class StoreLocator:
         return f"store:{self.store_id}:{self.relative_path}"
 
 
-def url_locator(url: str) -> NoReturn:
-    raise UrlLocatorDeferred(f"url locator {url!r} is deferred until the URL slice exists")
+_DEFAULT_PORTS = MappingProxyType({"https": 443, "http": 80})
+_UNRESERVED = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+_HEX = frozenset("0123456789abcdefABCDEF")
+
+
+def _remove_dot_segments(path: str) -> str:
+    """RFC 3986 §5.2.4, step for step, so an existing empty segment survives
+    (`/a//.` is `/a//`) and a removed final dot-segment leaves exactly the
+    slash the algorithm leaves (`/a/..` is `/`)."""
+    remaining, output = path, ""
+    while remaining:
+        if remaining.startswith("../"):
+            remaining = remaining[3:]
+        elif remaining.startswith(("./", "/./")):
+            remaining = remaining[2:]
+        elif remaining == "/.":
+            remaining = "/"
+        elif remaining.startswith("/../"):
+            remaining = remaining[3:]
+            output = output[: output.rfind("/")] if "/" in output else ""
+        elif remaining == "/..":
+            remaining = "/"
+            output = output[: output.rfind("/")] if "/" in output else ""
+        elif remaining in (".", ".."):
+            remaining = ""
+        else:
+            start = 1 if remaining.startswith("/") else 0
+            end = remaining.find("/", start)
+            end = len(remaining) if end == -1 else end
+            output += remaining[:end]
+            remaining = remaining[end:]
+    return output
+
+
+def _normalized_path(path: str) -> str:
+    """Percent-encoding normalized (uppercase hex, unreserved decoded), then
+    dot-segments removed (RFC 3986 §5.2.4); the path component only."""
+    out: list[str] = []
+    index = 0
+    while index < len(path):
+        character = path[index]
+        if character != "%":
+            out.append(character)
+            index += 1
+            continue
+        pair = path[index + 1 : index + 3]
+        if len(pair) != 2 or any(digit not in _HEX for digit in pair):
+            raise MalformedRecord(f"url path {path!r} carries a malformed percent-encoding")
+        decoded = chr(int(pair, 16))
+        out.append(decoded if decoded in _UNRESERVED else "%" + pair.upper())
+        index += 3
+    return _remove_dot_segments("".join(out))
+
+
+def _canonical_url(spelling: str) -> str:
+    if not isinstance(spelling, str) or not spelling:
+        raise MalformedRecord("a url locator is a non-empty string")
+    if any(not (0x21 <= ord(character) <= 0x7E) for character in spelling):
+        raise MalformedRecord(f"url {spelling!r} carries a non-ASCII, whitespace or control byte")
+    if "#" in spelling:
+        raise MalformedRecord(f"url {spelling!r} carries a fragment; a fragment never names a location")
+    try:
+        parts = urlsplit(spelling)
+    except ValueError as caught:  # an unbalanced IPv6 bracket
+        raise MalformedRecord(f"url {spelling!r} does not split: {caught}") from caught
+    scheme = parts.scheme.lower()
+    if scheme not in _DEFAULT_PORTS:
+        raise MalformedRecord(f"url {spelling!r}: scheme {parts.scheme!r} is outside http and https")
+    if "@" in parts.netloc:
+        raise MalformedRecord(f"url {spelling!r} carries userinfo; a credential never enters a location")
+    host = parts.hostname
+    if not host:
+        raise MalformedRecord(f"url {spelling!r} names no host")
+    if parts.netloc.startswith("["):
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError as caught:
+            raise MalformedRecord(f"url {spelling!r}: a bracketed host is an IPv6 literal") from caught
+        host = f"[{host}]"  # `hostname` strips the brackets; the authority keeps them
+    try:
+        port = parts.port
+    except ValueError as caught:
+        raise MalformedRecord(f"url {spelling!r} carries a malformed port") from caught
+    if port == 0:
+        raise MalformedRecord(f"url {spelling!r} names port 0; no service listens there and nothing repairs it")
+    authority = host if port in (None, _DEFAULT_PORTS[scheme]) else f"{host}:{port}"
+    path = _normalized_path(parts.path or "/")
+    query = "?" + parts.query if "?" in spelling else ""
+    return f"{scheme}://{authority}{path}{query}"
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class UrlLocator:
+    url: str
+
+    def __post_init__(self) -> None:
+        if _canonical_url(self.url) != self.url:
+            raise MalformedRecord(f"url locator {self.url!r} is not the canonical spelling; construct it with url_locator")
+
+    def canonical(self) -> str:
+        return f"url:{self.url}"
+
+
+def url_locator(spelling: str) -> UrlLocator:
+    """Canonicalize under holdings §2's exact profile, or refuse."""
+    return UrlLocator(_canonical_url(spelling))
+
+
+Locator = StoreLocator | UrlLocator
 
 
 @sealed
@@ -117,7 +230,7 @@ Outcome = Found | Absent
 @final
 @dataclass(frozen=True)
 class HoldingsObservation:
-    location: StoreLocator
+    location: Locator
     outcome: Outcome
     expected: str | None
     observer: str
@@ -127,10 +240,12 @@ class HoldingsObservation:
     supersedes: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.location, StoreLocator):
-            raise MalformedRecord("a holdings observation names a StoreLocator")
+        if not isinstance(self.location, (StoreLocator, UrlLocator)):
+            raise MalformedRecord("a holdings observation names a store or url locator")
         if not isinstance(self.outcome, (Found, Absent)):
             raise MalformedRecord("a holdings observation outcome is Found or Absent")
+        if isinstance(self.location, UrlLocator) and isinstance(self.outcome, Absent):
+            raise MalformedRecord("a url location never establishes absent; only a store dereference can")
         if self.expected is not None:
             require_canonical_digest(self.expected, "a holdings observation's expected digest")
             if isinstance(self.outcome, Found) and self.expected.split(":", 1)[0] != self.outcome.digest.split(":", 1)[0]:
@@ -159,7 +274,7 @@ class HoldingsObservation:
     def facet(self) -> dict[str, object]:
         doc: dict[str, object] = {
             "kind": HOLDINGS_OBSERVATION_KIND,
-            "location": {"type": "store", "store_id": self.location.store_id, "relative_path": self.location.relative_path},
+            "location": self.location_facet(),
             "outcome": {"finding": "found", "digest": self.outcome.digest}
             if isinstance(self.outcome, Found)
             else {"finding": "absent"},
@@ -176,10 +291,15 @@ class HoldingsObservation:
     def identity(self) -> str:
         return v1.digest(HOLDINGS_OBSERVATION_DOMAIN, self.facet())
 
+    def location_facet(self) -> dict[str, str]:
+        if isinstance(self.location, UrlLocator):
+            return {"type": "url", "url": self.location.url}
+        return {"type": "store", "store_id": self.location.store_id, "relative_path": self.location.relative_path}
+
 
 def holdings_observation(
     *,
-    location: StoreLocator,
+    location: Locator,
     outcome: Outcome,
     expected: str | None = None,
     observer: str,
@@ -188,8 +308,8 @@ def holdings_observation(
     observed_at: str,
     supersedes: tuple[HoldingsObservation, ...] = (),
 ) -> HoldingsObservation:
-    if not isinstance(location, StoreLocator):
-        raise MalformedRecord("a holdings observation names a StoreLocator")
+    if not isinstance(location, (StoreLocator, UrlLocator)):
+        raise MalformedRecord("a holdings observation names a store or url locator")
     if not isinstance(supersedes, tuple) or not all(isinstance(predecessor, HoldingsObservation) for predecessor in supersedes):
         raise MalformedRecord("holdings observation predecessors are HoldingsObservation values")
     if any(predecessor.location.canonical() != location.canonical() for predecessor in supersedes):

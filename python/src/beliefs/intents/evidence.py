@@ -105,7 +105,7 @@ def decode_record(path: str, payload: bytes) -> RecordEvidence:
                 f"{path}: the observation id disagrees with its identity"
             )
         return ObservationEvidence(
-            f"store:{value.location.store_id}:{value.location.relative_path}",
+            value.location.canonical(),
             value.event_token,
         )
     return InertRecord()

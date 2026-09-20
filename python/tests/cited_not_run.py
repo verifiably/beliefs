@@ -139,6 +139,10 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
         stale_arms={
             "H4u1[12]": "moved at 67750d6, when holdings acts began requiring the holdings permit",
             "J8[27]": "moved at 67750d6, when holdings acts began requiring the holdings permit",
+            "J3[22]": (
+                "moved in url-retrieval Task 1, when the named deferral J3 pinned was deleted "
+                "and url_locator became the real UrlLocator under the banked canonical profile"
+            ),
         },
     ),
 }

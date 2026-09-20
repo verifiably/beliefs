@@ -5,12 +5,13 @@ import pytest
 from atoms.core.errors import SpecValidationError
 from atoms.core.paths import require_rel_path
 
-from beliefs.errors import MalformedRecord, UrlLocatorDeferred
+from beliefs.errors import MalformedRecord
 from beliefs.holdings.records import (
     Absent,
     Found,
     HoldingsObservation,
     StoreLocator,
+    UrlLocator,
     holdings_observation,
     require_store_relative_path,
     url_locator,
@@ -66,9 +67,93 @@ def test_the_path_grammar_agrees_with_the_engine(path: str):
     assert accepted(lambda: require_store_relative_path(path)) == accepted(lambda: require_rel_path("path", path))
 
 
-def test_url_locator_refuses_with_the_named_deferral():
-    with pytest.raises(UrlLocatorDeferred):
-        url_locator("https://example.test/payload")
+CANONICAL = [
+    # (spelling, canonical): one row per profile clause of decision 1
+    ("HTTPS://Example.ORG/data", "https://example.org/data"),
+    ("https://example.org:443/data", "https://example.org/data"),
+    ("http://example.org:80/data", "http://example.org/data"),
+    ("https://example.org:8443/data", "https://example.org:8443/data"),
+    ("https://example.org", "https://example.org/"),
+    ("https://example.org/a/./b/../c", "https://example.org/a/c"),
+    ("https://example.org/a/%7e/%2f/%41", "https://example.org/a/~/%2F/A"),
+    ("https://example.org/p?b=%2f&a", "https://example.org/p?b=%2f&a"),
+    ("https://example.org/p?", "https://example.org/p?"),
+    ("https://example.org/p?B=1", "https://example.org/p?B=1"),
+    ("https://example.org/a/.", "https://example.org/a/"),
+    ("https://example.org/a/b/..", "https://example.org/a/"),
+    ("https://example.org/a/b/", "https://example.org/a/b/"),
+    ("https://example.org/..", "https://example.org/"),
+    ("https://example.org/a/..", "https://example.org/"),
+    ("https://example.org/a//.", "https://example.org/a//"),
+    ("https://example.org/a///..", "https://example.org/a//"),
+    ("https://example.org/a//..", "https://example.org/a/"),
+    ("https://[2001:DB8::1]:8443/x", "https://[2001:db8::1]:8443/x"),
+    ("https://[2001:db8::1]:443/x", "https://[2001:db8::1]/x"),
+]
+
+
+@pytest.mark.parametrize("spelling,canonical", CANONICAL)
+def test_url_locator_canonicalizes_under_the_banked_profile(spelling: str, canonical: str):
+    locator = url_locator(spelling)
+    assert locator.url == canonical
+    assert locator.canonical() == "url:" + canonical
+    assert url_locator(canonical) == locator
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        "https://example.org/p#frag",
+        "https://example.org/p#",
+        "https://user@example.org/p",
+        "https://user:pw@example.org/p",
+        "ftp://example.org/p",
+        "https:///p",
+        "https://exämple.org/p",
+        "https://example.org/a b",
+        "https://example.org/a\tb",
+        "https://example.org/%zz",
+        "https://example.org/%4",
+        "https://example.org:0/p",
+        "https://[2001:db8::1/p",
+        "https://[example.org]/p",
+        "",
+        "example.org/p",
+    ],
+)
+def test_url_locator_refuses_rather_than_repairs(spelling: str):
+    with pytest.raises(MalformedRecord):
+        url_locator(spelling)
+
+
+def test_a_trailing_dot_segment_names_the_directory_and_not_its_parent():
+    assert url_locator("https://example.org/a/.") == url_locator("https://example.org/a/")
+    assert url_locator("https://example.org/a/.") != url_locator("https://example.org/a")
+    assert url_locator("https://example.org/a/b/..") != url_locator("https://example.org/a")
+
+
+def test_a_url_locator_is_constructed_canonical_or_refused():
+    assert UrlLocator("https://example.org/") == url_locator("https://EXAMPLE.org")
+    with pytest.raises(MalformedRecord):
+        UrlLocator("https://EXAMPLE.org/")
+
+
+def test_a_url_observation_carries_the_url_arm_in_its_facet_and_identity():
+    record = observation(location=url_locator("https://example.org/data"))
+    assert record.facet()["location"] == {"type": "url", "url": "https://example.org/data"}
+    other = observation(location=url_locator("https://example.org/other"))
+    assert record.identity() != other.identity()
+
+
+def test_a_url_observation_never_spells_absent():
+    with pytest.raises(MalformedRecord):
+        observation(location=url_locator("https://example.org/data"), outcome=Absent())
+
+
+def test_supersession_never_crosses_the_url_and_store_arms():
+    store = observation()
+    with pytest.raises(MalformedRecord):
+        observation(location=url_locator("https://example.org/data"), supersedes=(store,))
 
 
 @pytest.mark.parametrize("digest", ["sha256:" + "AB" * 32, "sha256", "ab" * 32, "SHA256:" + "ab" * 32])

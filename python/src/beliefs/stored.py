@@ -86,6 +86,7 @@ from beliefs.holdings.records import (
     Found,
     HoldingsObservation,
     StoreLocator,
+    UrlLocator,
 )
 from beliefs.identity import v1
 from beliefs.permit import require_actor
@@ -829,10 +830,14 @@ def holdings_observation_value(node: Node) -> HoldingsObservation:
     try:
         location = facet["location"]
         outcome = facet["outcome"]
-        if not isinstance(location, dict) or set(location) != {"type", "store_id", "relative_path"}:
-            raise MalformedRecord("a holdings observation location is a store locator")
-        if location["type"] != "store":
-            raise MalformedRecord("a holdings observation location is a store locator")
+        if not isinstance(location, dict) or not isinstance(location.get("type"), str):
+            raise MalformedRecord("a holdings observation location is a store or url locator")
+        if location["type"] == "store" and set(location) == {"type", "store_id", "relative_path"}:
+            decoded_location: StoreLocator | UrlLocator = StoreLocator(location["store_id"], location["relative_path"])
+        elif location["type"] == "url" and set(location) == {"type", "url"}:
+            decoded_location = UrlLocator(location["url"])
+        else:
+            raise MalformedRecord("a holdings observation location is a store or url locator")
         if not isinstance(outcome, dict):
             raise MalformedRecord("a holdings observation outcome is a finding")
         if outcome.get("finding") == "found" and set(outcome) == {"finding", "digest"}:
@@ -842,7 +847,7 @@ def holdings_observation_value(node: Node) -> HoldingsObservation:
         else:
             raise MalformedRecord("a holdings observation outcome is a finding")
         value = HoldingsObservation(
-            location=StoreLocator(location["store_id"], location["relative_path"]),
+            location=decoded_location,
             outcome=finding,
             expected=facet.get("expected"),
             observer=facet["observer"],

@@ -854,15 +854,6 @@ class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 
 
-class UrlLocatorDeferred(RecordError):
-    """A ``url`` locator was constructed before the URL slice exists.
-
-    The holdings design defers the whole URL retrieval boundary (spec §1 item
-    1); constructing the locator refuses with this name — a declared behavior
-    of conformance cut 10's labeled set, never silence.
-    """
-
-
 class OutcomeRefused(RecordError):
     """An entry outcome outside its act kind's reserved vocabulary — the sharp
     case being `byte-locator-untested` on a non-locator entry. No
