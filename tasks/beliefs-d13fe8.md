@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: url-retrieval
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-20T10:48:22Z
+updated: 2026-09-20T10:53:59Z
 started: 2026-09-20T01:29:45Z
 depends: []
 tags: [migration, acquisition, act-report]
@@ -58,3 +58,6 @@ Uncertainty: Canonicalization and network discipline are banked, but the concret
   provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-20T10:37:01Z (url-retrieval): plan revised after review 1 (11 findings, all confirmed against the tree): close takes session then root via a hold and rebuilds the view; transport failures by fixed category, HTTPException classified, scratch cleaned; canonical trailing slash, IPv6 brackets, port 0 refused; bounded reads, finite timeout; look's scratch exclusion; dataset shape before the intent; survey as adapter only; in-process TLS server with a committed test cert; T4-a/BI-2/BI-1 corrected
 - 2026-09-20T10:48:22Z (url-retrieval): plan revised after review 2 (4 findings, confirmed): server-supplied hops validated before urljoin/urlsplit under a sixth category 'malformed'; IPv6 brackets kept in the transmitted Host with an IP SAN on the test cert; dot-segment removal is RFC 3986 §5.2.4 verbatim (/a//. is /a//); look's scratch cleanup spans record construction
+- 2026-09-20T10:53:59Z (url-retrieval): 2026-09-20: implementation plan approved at 69c0d64 after two reviews (15 findings applied, all confirmed against the tree); eighteen planning corrections (a)-(r) queued for spec §17 at Task 0; execution not started — paused at the user's request
+- 2026-09-20T10:53:59Z (url-retrieval): parked (waiting on user, approval): execute Task 0 (freeze cut 35; record corrections (a)-(r) in spec §17) onward in .worktrees/url-retrieval via subagent-driven development, one foreground implementer per task
+  provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
