@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: url-retrieval
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-20T01:49:37Z
+updated: 2026-09-20T09:25:54Z
 started: 2026-09-20T01:29:45Z
 depends: []
 tags: [migration, acquisition, act-report]
@@ -33,4 +33,9 @@ Uncertainty: Canonicalization and network discipline are banked, but the concret
 - 2026-09-20T01:29:45Z (url-retrieval): claimed by claude-code/claude-fable-5-1, pid 3578147, worktree .worktrees/url-retrieval (branch url-retrieval)
 - 2026-09-20T01:49:37Z (url-retrieval): 2026-09-19: slice design drafted at 53bfd7a-amended (docs/superpowers/specs/2026-09-19-url-retrieval-design.md), 16 decisions, 25 declaration units for cut 35; two scope findings: T2 stays partial on the unbuilt audit and re-check operation kinds (decision 12), and the URL look appends a re-check holdings intent for its registration (decision 2, a dated note on holdings §3)
 - 2026-09-20T01:49:37Z (url-retrieval): parked (waiting on user, review): review the slice design; on approval, write the implementation plan (writing-plans) in .worktrees/url-retrieval, then freeze cut 35
+  provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-20T09:20:26Z (url-retrieval): resumed
+  provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-20T09:25:54Z (url-retrieval): 2026-09-20: first review's six findings applied (spec §17): shared intent source and evidence key (BI-10), hop named by ordinal and category only, refused hop is retrieval-failed, faithful request target and Host, materialization refusal is a stop with AcquisitionOutcome.stop, incomplete body yields no finalized digest; 26 declaration units
+- 2026-09-20T09:25:54Z (url-retrieval): parked (waiting on user, review): second review of the revised slice design; on approval, write the implementation plan (writing-plans) in .worktrees/url-retrieval, then freeze cut 35
   provenance: {"harness_session":"claude-code:6a1a6f7e-3a7e-43a0-bf2d-b496d4a671f1","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
