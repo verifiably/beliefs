@@ -376,6 +376,24 @@ Five properties are load-bearing.
    the first URL's approval says nothing about where it lands; a hop refused at
    preflight ends the attempt as `byte-locator-untested` with the hop named.
 
+   > **Amended 2026-09-20 (URL retrieval, conformance cut 35 —
+   > `../superpowers/specs/2026-09-19-url-retrieval-design.md`):** the
+   > sentence above is superseded at the kernel. The instrument's vocabulary
+   > was written before the act-report design reserved
+   > `byte-locator-untested` for a locator act **for which no request
+   > began**; a redirect hop arrives only after the first request was made,
+   > so a hop refused at preflight is **`retrieval-failed`**, and the hop is
+   > named by its **ordinal and refusal category only** — never by its bytes
+   > or its host, which may carry a token (decision 6 there). The instrument
+   > itself now runs on the kernel's transport (`NetworkProbe.fetch` is an
+   > adapter over `beliefs.holdings.transport.retrieve`, keeping copies of
+   > nothing), so it reports a refused hop the same way. Everything else in
+   > this item — the approved scheme set, the non-public-address refusal, the
+   > pinned resolution and fail-closed request, the timeout and the streaming
+   > ceiling with no partial body hashed — is the kernel's boundary now,
+   > with the timeout, ceiling and redirect bound recorded as explicit
+   > instrument inputs on every entry.
+
    **The validated address is the one connected to, and the check fails closed.**
    Resolving a name, checking the result, and then letting the client resolve it
    again leaves the check decorative — the second answer can differ from the
@@ -907,6 +925,18 @@ now the acquisition operation intent's **unmatched** state under the three-value
 completion reading — unfinished, indeterminate, closed.)*
 That question closes on this argument, and it closes on semantics, exactly as it
 required — the observed frequency of zero decides nothing.
+
+> **Amended 2026-09-20 (URL retrieval, cut 35):** under cut 29, every
+> dataset id derives from its content identity, so a record "declared with a
+> locator and no digest" is not a record this kernel can hold — the ramp's
+> eleven have no stored declaration to pin. What they are is the
+> **acquisition request** (`AcquisitionRequest`, a value: the locators, the
+> optional expected digests, the bounds), and the **pin is the mint**: the
+> `acquisition` operation looks, materializes where asked, and mints the
+> dataset — its id derived from the digests it found — in the same
+> transaction as its closing report, whose empirical-observation facet names
+> the report through `retrieval`. An expectation that does not match what
+> was found mints nothing and reports `mismatch`.
 
 **The repair is an authoring act, and it is not the refusal §4 names.** Recording
 the digest of bytes retrieved from a **declared** locator is the acquirer pinning

@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-17
+updated: 2026-09-20
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -57,6 +57,7 @@ sources:
   - ../plans/2026-09-16-conformance-cut-32-results.md
   - ../plans/2026-09-16-conformance-cut-33-results.md
   - ../plans/2026-09-19-conformance-cut-34-results.md
+  - ../plans/2026-09-20-conformance-cut-35-results.md
 ---
 
 # Contracts and adoption
@@ -252,13 +253,20 @@ Cut 34 discharges correction-remainder slice 2 and closes the boundary: the
 retraction target gains a third arm, the semantic snapshot, read live from
 the corpora its own coverage names and reported or refused at import, audit,
 diagnostic query, and the world read; C8 and C9 close over 17 declaration
-units, and the mutation lane has no further open boundary. The corpus now
-has **177 of 216 rows closed, 39 open**
+units, and the mutation lane has no further open boundary
 (`../designs/2026-09-19-conformance-cut-34.md`;
 `../plans/2026-09-19-conformance-cut-34-results.md`).
-Cut 35 is frozen and not yet discharged: URL retrieval and the acquisition
-operation (H4, G9, R10, T5, T1, T4; T2 and T7 partial;
-`../designs/2026-09-20-conformance-cut-35.md`).
+Cut 35 discharges URL retrieval and closes the boundary: the `url` locator
+under the banked canonicalization profile, the network discipline as the
+kernel's URL dereference boundary behind an injectable transport seam, and
+the `acquisition` operation — one intent, per resource a URL look and an
+optional managed materialization, one act-report published in the same
+registered transaction as the dataset it mints. H4, G9, R10, T5, T1 and T4
+close over 27 declaration units and eleven boundary invariants; T2 stays
+partial on the `audit` and `re-check` operation kinds and T7 on its
+cross-root case. The corpus now has **183 of 216 rows closed, 33 open**
+(`../designs/2026-09-20-conformance-cut-35.md`;
+`../plans/2026-09-20-conformance-cut-35-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -292,4 +300,5 @@ questions under
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
 - [Cut 12 discharge results](../plans/2026-08-29-conformance-cut-12-results.md)
-- [Cut 34 discharge results, the newest results record](../plans/2026-09-19-conformance-cut-34-results.md)
+- [Cut 34 discharge results](../plans/2026-09-19-conformance-cut-34-results.md)
+- [Cut 35 discharge results, the newest results record](../plans/2026-09-20-conformance-cut-35-results.md)

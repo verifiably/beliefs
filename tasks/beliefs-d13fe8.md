@@ -1,17 +1,19 @@
 ---
 id: beliefs-d13fe8
 title: Deliver URL acquisition and act-report coverage
-status: doing
+status: done
 priority: 2
 size: l
 complexity: high
 process: planned
 owner: url-retrieval
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-20T11:00:54Z
+updated: 2026-09-20T15:26:02Z
 started: 2026-09-20T01:29:45Z
+completed: 2026-09-20T15:26:02Z
 depends: []
 tags: [migration, acquisition, act-report]
+model: "claude-opus-5[1m]"
 spec: docs/superpowers/specs/2026-09-19-url-retrieval-design.md
 plan: docs/superpowers/plans/2026-09-20-url-retrieval.md
 ---
@@ -64,3 +66,7 @@ Uncertainty: Canonicalization and network discipline are banked, but the concret
 - 2026-09-20T11:00:54Z (url-retrieval): resumed
   provenance: {"harness_session":"claude-code:f39d52d3-e04c-48ec-97a5-63b3f36d108e","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-20T11:00:54Z (url-retrieval): claimed by claude-code controller (subagent-driven), pid 52972
+- 2026-09-20T15:26:02Z (url-retrieval): done
+  provenance: {"harness_session":"claude-code:f39d52d3-e04c-48ec-97a5-63b3f36d108e","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-20T15:26:02Z (url-retrieval): URL retrieval discharged at cut 35: the url locator, the transport, the acquisition operation; H4, G9, R10, T5, T1, T4 closed; T2 and T7 partial; results docs/plans/2026-09-20-conformance-cut-35-results.md
+  provenance: {"harness_session":"claude-code:f39d52d3-e04c-48ec-97a5-63b3f36d108e","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

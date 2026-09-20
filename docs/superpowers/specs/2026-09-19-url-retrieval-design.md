@@ -1,7 +1,7 @@
 # URL retrieval — the `url` locator, the network boundary and the acquisition operation
 
 **Date:** 2026-09-19
-**Status:** approved for implementation planning 2026-09-20 at `395b550` after four reviews; implementation not yet started
+**Status:** discharged at conformance cut 35 on 2026-09-20; results: `../../plans/2026-09-20-conformance-cut-35-results.md`
 **Boundary:** `url-retrieval` (`beliefs-d13fe8`), tier 1 off the path, row 1 after cut 34; carries `act-report-remainder` (T1, T2, T4) as the roadmap's ride-along
 **Lane:** `acquisition`, worktree `.worktrees/url-retrieval`, branch `url-retrieval`
 **Sources:** `../../designs/2026-08-10-verified-holdings-record-design.md` (§2 the `url` locator profile, §3 the two act shapes, the dereference boundary and the network discipline, §4, §5, §6 H1–H4, §7 items 4 and 8),

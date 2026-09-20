@@ -46,13 +46,13 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-19** for cut 34's correction-remainder slice 2 discharge,
-which closes the boundary.
+**Updated 2026-09-20** for cut 35's URL-retrieval discharge, which closes
+the boundary.
 
-**Implemented through conformance cut 34.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 35.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–34 record discharge in their dated results records, most recently
-`../plans/2026-09-19-conformance-cut-34-results.md`.
+and cuts 26–35 record discharge in their dated results records, most recently
+`../plans/2026-09-20-conformance-cut-35-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -238,7 +238,26 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   cut 34, and the correction lifecycle's mutation lane has no further open
   boundary. Nine boundary-invariant declaration units at cut 34, five at
   cut 33, hold the read seam.
-  The corpus has **177 of 216 rows closed**; the mutation lane is closed.
+- **URL retrieval and the acquisition operation** — the `url` locator under
+  the banked canonicalization profile is the second arm of the holdings
+  locator union everywhere the first is spelled (the record, the stored
+  codec, the intent shape, the evidence key, the reducer's location key);
+  the survey instrument's network discipline lives in the kernel as the
+  URL dereference boundary of a pure look, behind an injectable transport
+  seam with the timeout, byte ceiling and redirect bound as recorded
+  instrument inputs, a hop named only by ordinal and category, and a
+  pinned connection to the validated address; and the `acquisition`
+  operation opens one intent, runs per resource a URL look and an optional
+  managed materialization into the session's store with a cooperative stop
+  on a routine store refusal, and closes through one act-report published
+  in the same registered transaction as the dataset it mints, whose
+  empirical-observation facet names the report through `retrieval`. The
+  session carries it as a ledgered route, and the survey instrument runs on
+  the kernel transport. H4, G9, R10, T5, T1 and T4 close at cut 35; T2 is
+  partial on the `audit` and `re-check` operation kinds, and T7 on its
+  cross-root case. Eleven boundary-invariant declaration units hold the
+  locator, transport, look, close, reducer and materialization seams.
+  The corpus has **183 of 216 rows closed**; the `acquisition` lane is closed.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -252,11 +271,10 @@ not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
-| `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
-| `act-report-remainder` | T1, T2, T4 | `2026-08-11-act-report-design.md` | the T table in full |
+| `act-report-remainder` | T2's `audit` and `re-check` operation kinds — the reporting wrapper over the read-only audit evaluator and over holdings re-checks (act-report design §4), neither of which opens an operation intent today | `2026-08-11-act-report-design.md` §4; `beliefs-86b150` | the T table in full |
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3), landed 2026-09-11 as the writable-source `read_preimage` command (`atoms-38887b`); `beliefs-a7df71` owns source-root selection, held-copy matching and the classification boundary | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
@@ -267,12 +285,22 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-19-conformance-cut-34-results.md`) discharges
+(`../plans/2026-09-20-conformance-cut-35-results.md`) discharges URL
+retrieval: the `url` locator, the transport and the `acquisition` operation
+land; H4, G9, R10, T5, T1 and T4 close, and the boundary closes with them —
+`url-retrieval` leaves this table and the roadmap's boundary index in the
+same commit, and the `acquisition` lane closes with no open boundary. T2
+stays partial on the `audit` and `re-check` operation kinds, so
+`act-report-remainder` stays in this table carrying exactly that remainder,
+now an off-path boundary of its own (`beliefs-86b150`) rather than a
+ride-along; T7 stays partial on its cross-root case, unchanged, with
+`cross-root-publication`. The preceding record
+(`../plans/2026-09-19-conformance-cut-34-results.md`) discharged
 correction-remainder slice 2: the retraction target gains its third arm, the
 semantic snapshot, read live from the corpora its own coverage names; C8 and
-C9 close, and the boundary closes with them — `correction-remainder` leaves
+C9 close, and the boundary closes with them — `correction-remainder` left
 this table and the roadmap's boundary index in the same commit, and the
-`mutation` lane closes with no open boundary. The preceding record
+`mutation` lane closed with no open boundary. The record before that
 (`../plans/2026-09-16-conformance-cut-33-results.md`) discharged
 correction-remainder slice 1: C7 and C3 close, C10's audit arm is read, and
 standing reaches the evaluator through five boundary invariants; C10's

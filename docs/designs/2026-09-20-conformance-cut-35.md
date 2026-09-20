@@ -1,6 +1,6 @@
 # Conformance cut 35 — URL retrieval and the acquisition operation
 
-**Status:** frozen 2026-09-20, before implementation; H4, G9, R10, T5, T1, T4 are open, T2 and T7 partial.
+**Status:** discharged 2026-09-20 on the certified volume; results: `../plans/2026-09-20-conformance-cut-35-results.md`
 **Design:** `../superpowers/specs/2026-09-19-url-retrieval-design.md`, approved for implementation planning 2026-09-20 at `395b550` after four reviews; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-20-url-retrieval.md`.
 **Numbered after** cut 34 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 35–39 at freeze; cut 34 is the highest discharged runner.

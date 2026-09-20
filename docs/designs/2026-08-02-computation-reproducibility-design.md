@@ -1072,6 +1072,25 @@ depends on.
 > and the report publish in the **same registered transaction, in the same root**
 > (T7); cross-root publication is refused.
 
+> **Amended 2026-09-20 (URL retrieval, conformance cut 35 —
+> `../superpowers/specs/2026-09-19-url-retrieval-design.md` §6):** the
+> provenance record's members map onto three records the `acquisition`
+> operation publishes, and no fourth object exists. The **locator**, the
+> **resulting content identity** and the **reference to the acquiring
+> act-report** are the dataset's empirical-observation facet (`locator`,
+> `attested_by` = the actor, `retrieval` → the report), and the dataset's
+> id is that content identity (cut 29). The **retrieval observation** —
+> when, by whom, what the source reported — is the `holdings-observation`
+> the URL look minted at the canonical `url` location (`found` with the
+> digest, `observer`, `instrument`, `observed_at`), which the report's
+> locator-act entry references. The fetch procedure's **code identity**,
+> **environment identity** and **parameters** are the report's
+> `instrument` and each entry's recorded instrument inputs — the timeout,
+> byte ceiling and redirect bound — since the kernel's transport is the
+> only fetch procedure an acquisition runs; a fetch run by hand outside the
+> boundary mints no report and no dataset (§4 of the act-report design).
+> R10 closes at cut 35 on this reading.
+
 This is deliberately most of a recipe, and deliberately not one. It preserves the
 useful execution record without asserting that the acquisition is reproducible —
 re-running it next year may return different bytes, because the *source* changed

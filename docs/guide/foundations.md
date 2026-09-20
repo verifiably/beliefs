@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-09-16
+updated: 2026-09-20
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -18,6 +18,7 @@ sources:
   - ../designs/2026-08-10-verified-holdings-record-design.md
   - ../designs/2026-08-11-act-report-design.md
   - ../designs/2026-08-24-world-index-holdings-design.md
+  - ../designs/2026-09-20-conformance-cut-35.md
   - ../designs/2026-08-31-coordination-and-view-kinds-design.md
   - ../designs/2026-09-12-composite-claims-design.md
 ---
@@ -52,10 +53,13 @@ by content identity. Held does not mean raw, public, inside Git, or present in
 this checkout. A normalized or access-controlled dataset can be held; an
 accession alone is not. Since 2026-08-10, heldness is derived: an artifact is
 held under a declared coverage when an active **holdings observation** — a
-world record minted by an act that dereferenced and hashed — matches its
+world record minted by an act that dereferenced and hashed, at a `store`
+location or, since cut 35, a canonical `url` — matches its
 declared digest. The record is superseded, never expired; no age or clock
 participates in the derivation. The executable derivation and its receipt are
-specified by the [store-side holdings design](../designs/2026-08-24-world-index-holdings-design.md).
+specified by the [store-side holdings design](../designs/2026-08-24-world-index-holdings-design.md);
+the `url` arm and the `acquisition` operation that mints a dataset from it by
+the [url-retrieval cut](../designs/2026-09-20-conformance-cut-35.md).
 
 A dataset that records **which bytes it is** without those bytes being in hand is
 **declared**: a real world entity, addressable and referenceable, and never
