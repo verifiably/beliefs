@@ -20,6 +20,12 @@
 - The request target is the canonical path and query byte-exact (empty `?` kept); `Host` is the canonical authority with a non-default port (decision 8). An incomplete body yields no finalized digest (decision 7).
 - `StoreWriteRefused` only for an `ExecutionError` from the `store_write` call with `applied == 0` and a cause in `{ProjectApprovalRefused, PreconditionRefused, PendingUnresolved}`; everything else propagates (decision 10). `acquire` catches exactly `StoreWriteRefused`.
 - No lock is held across a network request (decision 15). No test reaches the network (decision 9).
+- **Lock order at the close is session, then root** — `ScopedWriter._act`'s only order. `acquire` enters the caller's `hold` before `writer._operation`, and neither is entered around the request. Under the closing lock the writer's view is rebuilt (`writer._reconstruct()`) before any ref or address resolves: holdings publications go through the holdings seam, past the writer's cached index, and `_SettlingHold` rebuilds only when `unresolved` is set.
+- A transport failure is named by a fixed category — `timeout`, `tls`, `connection`, `protocol` — never by the exception's text (a certificate error names the redirected host). `http.client.HTTPException` is a `Failed`, not an escape. Every exceptional exit unlinks the scratch file; `look` unlinks its retrieved file when publication fails.
+- The canonical path keeps the trailing slash RFC 3986 §5.2.4 leaves after a final `.` or `..` segment (`/a/.` → `/a/`, `/a/b/..` → `/a/`); an IPv6 host keeps its brackets; port `0` is refused at construction.
+- Each read is bounded by the remaining allowance plus one byte, so the ceiling is exceeded by exactly one byte before refusal; `timeout_seconds` is finite.
+- `look` refuses a scratch root under either root before its intent; `acquire` validates the request's dataset shape (title, locator, domain facets) through the writer before its intent.
+- Unit tests run over the scripted fake **and** the in-process TLS server (`python/tests/holdings_transport_fixtures.py`); the acceptance module runs its success, truncation, redirect and ceiling cases through that server, the seam's context trusting the committed test certificate with `check_hostname` and `CERT_REQUIRED` intact.
 - Both `CONTRACT.yaml` copies are unchanged and their identities equal before and after (§12 — Task 1 verifies). No TypeScript changes.
 - `science.belief.v1`'s answers over every existing fixture are unchanged; P1–P9 green at every commit.
 - Conventional commits, no attribution trailers. `tasks check` before every commit; the pre-commit hook runs `just hook-pre-commit` (~20 s). `just test-fast` while working; never the full suite after every edit (AGENTS.md). Every commit message names the row(s) or invariant(s) it serves.
@@ -37,13 +43,14 @@
 | `python/src/beliefs/intents/evidence.py` | the location key from `canonical()` (Task 2) |
 | `python/src/beliefs/holdings/rules_v1/holdings.py`, `rules_v1/fixtures/holdings.url.yaml` | the reducer's location key; the url fixture (Task 2) |
 | `python/src/beliefs/holdings/transport.py` (new) | `RetrievalBounds`, `UrlSeam`, `url_seam`, `preflight`, `PinnedHTTPSConnection`, `retrieve`, `refuse_scratch_root` (Task 3) |
-| `python/tests/holdings_transport_fixtures.py` (new) | `ScriptedConnection`, `scripted_seam` — the fake transport every test injects (Task 3) |
+| `python/tests/holdings_transport_fixtures.py` (new) | `Scripted`, `ScriptedConnection`, `scripted_seam` — the scripted fake; `Served`, `LocalTlsServer`, `tls_seam` — the in-process TLS server (Task 3) |
+| `python/tests/fixtures/tls/server.pem`, `python/tests/fixtures/tls/server.key` (new) | the test certificate the local server presents and the test seam's context trusts: SANs `example.org`, `mirror.example.org`, `localhost`; a hundred years (Task 3) |
 | `python/src/beliefs/holdings/boundary.py` | `intent_payload` over `Locator`; `look`; `store_refusal`; `write`'s wrap (Task 4) |
 | `python/src/beliefs/boundary.py` | `_mint_acquisition_report` (Task 5) |
-| `python/src/beliefs/corpus.py` | `_append_operation_intent(port=)`, `_publish_operation_report(operations=, port=)`, `_refuse_acquired_dataset` (Task 5) |
+| `python/src/beliefs/corpus.py` | `_append_operation_intent(port=)`, `_publish_operation_report(operations=, port=)`, `_refuse_acquired_dataset`, `_refuse_dataset_shape` (`_refuse_facets`' shape half factored out) (Task 5) |
 | `python/src/beliefs/holdings/acquire.py` (new) | `ResourceRequest`, `AcquisitionRequest`, `Stop`, `AcquisitionOutcome`, `acquire` (Task 5) |
-| `python/src/beliefs/session/writer.py` | `ScopedWriter.acquire` (Task 6) |
-| `python/tools/survey_admission.py` | imports the kernel transport (Task 6) |
+| `python/src/beliefs/session/writer.py` | `ScopedWriter.acquire`, `ScopedWriter._closing_hold` (Task 6) |
+| `python/tools/survey_admission.py` | imports the kernel transport; `NetworkProbe.fetch` is an adapter over `retrieve` to the `ProbeOutcome` vocabulary (Task 6) |
 | `python/tests/test_holdings_records.py`, `test_holdings_stored.py`, `test_intents_holdings.py`, `test_intent_evidence.py`, `test_holdings_reduce.py`, `test_holdings_transport.py` (new), `test_holdings_boundary.py`, `test_holdings_acquire.py` (new), `test_report.py`, `test_session_routes.py`, `test_admission_survey.py`, `acceptance/test_n2_cut10.py` | unit coverage and the cut-10 re-target (Tasks 1–6) |
 | `python/tests/acceptance/test_url_retrieval_acceptance.py`, `python/tests/n2_arms_cut35.py`, `python/tests/acceptance/n2_arms_cut35.py`, `python/tests/acceptance/test_n2_cut35.py`, `python/tools/cut35_acceptance.py` | the twenty-seven declaration units, the sabotages, the guard, the runner (Task 8) |
 | `docs/designs/2026-09-20-conformance-cut-35.md`, `docs/plans/2026-09-20-conformance-cut-35-results.md`, the ledger, the roadmap, the guide, `README.md`, the holdings, act-report, admission-ramp, computation and world-index-holdings designs (dated notes), the reproduction record §14 | freeze, discharge, amendments (Tasks 0, 7, 9) |
@@ -89,7 +96,7 @@ Filed at the planning commit so `tasks check` links every heading: `beliefs-d13f
 
 - [ ] **Step 4: Write and freeze the cut document**
 
-`docs/designs/2026-09-20-conformance-cut-35.md` on cut 34's shape (`docs/designs/2026-09-19-conformance-cut-34.md`): `**Status:**` "frozen 2026-09-20, before implementation; H4, G9, R10, T5, T1, T4 are open, T2 and T7 partial"; `**Design:**` the spec path with its approval commit; `**Plan:**` this document; `**Numbered after** cut 34 under roadmap concurrency rule 1`; §1 what this cut is (spec §1 condensed: the URL arm deferred at cut 10, no boundary opens an `acquisition`, the rows read and the two named remainders); §2 the boundary — the file map's surfaces; §3 selection — the twenty-seven units, single-homed, quoting the row texts byte-exact from the holdings design §6 (H4), the admission ramp §6.3 (G9), computation §7.3 (R10) and the act-report design §5 (T1, T2, T4, T5, T7) at freeze, then spec §11.2's unit table verbatim; §4 accounting — "**27 declaration units**, sixteen against rows and eleven boundary invariants; H4, G9, R10, T5, T1 and T4 close; T2 stays partial on the `audit` and `re-check` operation kinds; T7 stays partial on its cross-root case"; §5 N2 and acceptance obligations — spec §11.3's table verbatim, `PREFIX_RUNNERS = ("cut34_acceptance.py",)`, `PHASE_MODULES = ("test_url_retrieval_acceptance.py", "test_n2_cut35.py")`; §6 second reader — three things to check: that BI-2's assertions read every published byte of the observer root and the exception text, not only the entry; that T5-a's classification is read from the transport's phase value and never from a message; that BI-11's production refusal is a real `ExecutionError` from `run_transaction` with a `ProjectApprovalRefused` cause; §7 limitations — spec §13 restated. Then `cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py -q` green (the newest *results* record is cut 34's, so a frozen 35 passes).
+`docs/designs/2026-09-20-conformance-cut-35.md` on cut 34's shape (`docs/designs/2026-09-19-conformance-cut-34.md`): `**Status:**` "frozen 2026-09-20, before implementation; H4, G9, R10, T5, T1, T4 are open, T2 and T7 partial"; `**Design:**` the spec path with its approval commit; `**Plan:**` this document; `**Numbered after** cut 34 under roadmap concurrency rule 1`; §1 what this cut is (spec §1 condensed: the URL arm deferred at cut 10, no boundary opens an `acquisition`, the rows read and the two named remainders); §2 the boundary — the file map's surfaces; §3 selection — the twenty-seven units, single-homed, quoting the row texts byte-exact from the holdings design §6 (H4), the admission ramp §6.3 (G9), computation §7.3 (R10) and the act-report design §5 (T1, T2, T4, T5, T7) at freeze, then spec §11.2's unit table verbatim; §4 accounting — "**27 declaration units**, sixteen against rows and eleven boundary invariants; H4, G9, R10, T5, T1 and T4 close; T2 stays partial on the `audit` and `re-check` operation kinds; T7 stays partial on its cross-root case"; §5 N2 and acceptance obligations — spec §11.3's table verbatim, `PREFIX_RUNNERS = ("cut34_acceptance.py",)`, `PHASE_MODULES = ("test_url_retrieval_acceptance.py", "test_n2_cut35.py")`; §6 second reader — four things to check: that the close's lock order is session then root and the view is rebuilt under it before any ref resolves; that BI-2's assertions read every published byte of the observer root and the exception text, not only the entry; that T5-a's classification is read from the transport's phase value and never from a message; that BI-11's production refusal is a real `ExecutionError` from `run_transaction` with a `ProjectApprovalRefused` cause; §7 limitations — spec §13 restated. Then `cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py -q` green (the newest *results* record is cut 34's, so a frozen 35 passes).
 
 ```bash
 tasks done beliefs-4b4317 "cut 35 frozen"
@@ -128,6 +135,12 @@ CANONICAL = [
     ("https://example.org/p?b=%2f&a", "https://example.org/p?b=%2f&a"),
     ("https://example.org/p?", "https://example.org/p?"),
     ("https://example.org/p?B=1", "https://example.org/p?B=1"),
+    ("https://example.org/a/.", "https://example.org/a/"),
+    ("https://example.org/a/b/..", "https://example.org/a/"),
+    ("https://example.org/a/b/", "https://example.org/a/b/"),
+    ("https://example.org/..", "https://example.org/"),
+    ("https://[2001:DB8::1]:8443/x", "https://[2001:db8::1]:8443/x"),
+    ("https://[2001:db8::1]:443/x", "https://[2001:db8::1]/x"),
 ]
 
 
@@ -153,6 +166,9 @@ def test_url_locator_canonicalizes_under_the_banked_profile(spelling: str, canon
         "https://example.org/a\tb",
         "https://example.org/%zz",
         "https://example.org/%4",
+        "https://example.org:0/p",
+        "https://[2001:db8::1/p",
+        "https://[example.org]/p",
         "",
         "example.org/p",
     ],
@@ -160,6 +176,12 @@ def test_url_locator_canonicalizes_under_the_banked_profile(spelling: str, canon
 def test_url_locator_refuses_rather_than_repairs(spelling: str):
     with pytest.raises(MalformedRecord):
         url_locator(spelling)
+
+
+def test_a_trailing_dot_segment_names_the_directory_and_not_its_parent():
+    assert url_locator("https://example.org/a/.") == url_locator("https://example.org/a/")
+    assert url_locator("https://example.org/a/.") != url_locator("https://example.org/a")
+    assert url_locator("https://example.org/a/b/..") != url_locator("https://example.org/a")
 
 
 def test_a_url_locator_is_constructed_canonical_or_refused():
@@ -226,7 +248,7 @@ Expected: FAIL — `url_locator` raises `UrlLocatorDeferred`; `UrlLocator` is no
 
 - [ ] **Step 3: The locator**
 
-In `python/src/beliefs/holdings/records.py`, replace `url_locator` and extend the union. Add to the imports `from urllib.parse import urlsplit`; drop `NoReturn` and `UrlLocatorDeferred`; add `"UrlLocator"` and `"Locator"` to `__all__`.
+In `python/src/beliefs/holdings/records.py`, replace `url_locator` and extend the union. Add to the imports `import ipaddress` and `from urllib.parse import urlsplit`; drop `NoReturn` and `UrlLocatorDeferred`; add `"UrlLocator"` and `"Locator"` to `__all__`.
 
 ```python
 _DEFAULT_PORTS = MappingProxyType({"https": 443, "http": 80})
@@ -252,15 +274,22 @@ def _normalized_path(path: str) -> str:
         out.append(decoded if decoded in _UNRESERVED else "%" + pair.upper())
         index += 3
     segments: list[str] = []
+    directory = False  # RFC 3986 §5.2.4: a final `.` or `..` leaves the trailing slash
     for segment in "".join(out).split("/")[1:]:
         if segment == ".":
+            directory = True
             continue
         if segment == "..":
             if segments:
                 segments.pop()
+            directory = True
             continue
         segments.append(segment)
-    return "/" + "/".join(segments)
+        directory = False
+    normalized = "/" + "/".join(segments)
+    if directory and not normalized.endswith("/"):
+        normalized += "/"
+    return normalized
 
 
 def _canonical_url(spelling: str) -> str:
@@ -270,7 +299,10 @@ def _canonical_url(spelling: str) -> str:
         raise MalformedRecord(f"url {spelling!r} carries a non-ASCII, whitespace or control byte")
     if "#" in spelling:
         raise MalformedRecord(f"url {spelling!r} carries a fragment; a fragment never names a location")
-    parts = urlsplit(spelling)
+    try:
+        parts = urlsplit(spelling)
+    except ValueError as caught:  # an unbalanced IPv6 bracket
+        raise MalformedRecord(f"url {spelling!r} does not split: {caught}") from caught
     scheme = parts.scheme.lower()
     if scheme not in _DEFAULT_PORTS:
         raise MalformedRecord(f"url {spelling!r}: scheme {parts.scheme!r} is outside http and https")
@@ -279,10 +311,18 @@ def _canonical_url(spelling: str) -> str:
     host = parts.hostname
     if not host:
         raise MalformedRecord(f"url {spelling!r} names no host")
+    if parts.netloc.startswith("["):
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError as caught:
+            raise MalformedRecord(f"url {spelling!r}: a bracketed host is an IPv6 literal") from caught
+        host = f"[{host}]"  # `hostname` strips the brackets; the authority keeps them
     try:
         port = parts.port
     except ValueError as caught:
         raise MalformedRecord(f"url {spelling!r} carries a malformed port") from caught
+    if port == 0:
+        raise MalformedRecord(f"url {spelling!r} names port 0; no service listens there and nothing repairs it")
     authority = host if port in (None, _DEFAULT_PORTS[scheme]) else f"{host}:{port}"
     path = _normalized_path(parts.path or "/")
     query = "?" + parts.query if "?" in spelling else ""
@@ -562,47 +602,75 @@ git commit -m "feat(holdings): url locations in the intent shape, the evidence k
 
 **Interfaces:**
 - Consumes: `UrlLocator` (Task 1).
-- Produces: `RetrievalBounds(timeout_seconds: float, max_bytes: int, max_redirects: int)`; `UrlSeam(resolve, connect)`; `url_seam() -> UrlSeam`; `Approved(host, port, target, authority, address)`; `preflight(url: str, resolver) -> Approved | Refused`; `REFUSAL_CATEGORIES`; `retrieve(locator, bounds, seam, scratch) -> Retrieved | NotAttempted | Failed`; `refuse_scratch_root(scratch, roots)`; `PinnedHTTPSConnection`, `pinned_connection`, `PinningUnavailable`, `system_resolver`. Test fixtures: `ScriptedConnection`, `scripted_seam(script, *, log) -> UrlSeam`. Tasks 4, 5, 6 and 8 consume these.
+- Produces: `RetrievalBounds(timeout_seconds: float, max_bytes: int, max_redirects: int)`; `UrlSeam(resolve, connect)`; `url_seam() -> UrlSeam`; `Approved(host, port, target, authority, address)`; `preflight(url: str, resolver) -> Approved | Refused`; `REFUSAL_CATEGORIES`; `retrieve(locator, bounds, seam, scratch) -> Retrieved | NotAttempted | Failed`; `refuse_scratch_root(scratch, roots)`; `PinnedHTTPSConnection`, `pinned_connection`, `PinningUnavailable`, `system_resolver`; `TRANSPORT_CATEGORIES = ("timeout", "tls", "connection", "protocol")`. Test fixtures: `Scripted`, `RequestLog`, `ScriptedConnection`, `scripted_seam(script, *, log=None, unpinnable=False) -> (UrlSeam, RequestLog)`; `Served`, `LocalTlsServer(script)` (a context manager with `.port` and `.log`), `tls_seam(server) -> (UrlSeam, RequestLog)`; the certificate files under `python/tests/fixtures/tls/`. Tasks 4, 5, 6 and 8 consume these.
 
 - [ ] **Step 1: The fixtures module**
 
 `python/tests/holdings_transport_fixtures.py`:
 
+First the certificate, generated once and committed (the key is a test-only secret for a name no resolver answers; every test seam's resolver answers `PUBLIC` and the connection dials loopback):
+
+```bash
+mkdir -p python/tests/fixtures/tls && cd python/tests/fixtures/tls
+openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.pem -days 36500 \
+  -subj "/CN=example.org" -addext "subjectAltName=DNS:example.org,DNS:mirror.example.org,DNS:localhost"
+```
+
+Then `python/tests/holdings_transport_fixtures.py`:
+
 ```python
-"""A scripted transport: every test injects it; no test reaches the network."""
+"""Two injected transports: a scripted fake, and an in-process TLS server on a
+loopback port presenting the committed test certificate. No test reaches the
+network: every seam's resolver answers a fixed global address and its
+connection dials the fake or the loopback server."""
 
 from __future__ import annotations
 
+import ssl
+import threading
 from dataclasses import dataclass, field
+from http.client import HTTPSConnection
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
-from beliefs.holdings.transport import Approved, PinningUnavailable, UrlSeam
+from beliefs.holdings.transport import Approved, PinnedHTTPSConnection, PinningUnavailable, UrlSeam
 
 PUBLIC = "93.184.216.34"
+TLS_DIR = Path(__file__).parent / "fixtures" / "tls"
+CERT = TLS_DIR / "server.pem"
+KEY = TLS_DIR / "server.key"
 
 
 @dataclass
 class Scripted:
-    """One response: status, headers, body chunks (or an OSError to raise)."""
+    """One scripted response: status, headers, body chunks; or the exception
+    the request or a read raises (`OSError`, `HTTPException`, or anything else
+    to prove an unexpected failure propagates)."""
 
     status: int = 200
     headers: dict[str, str] = field(default_factory=dict)
     chunks: tuple[bytes, ...] = (b"",)
-    raise_on_read: OSError | None = None
+    raise_on_read: BaseException | None = None
+    raise_on_request: BaseException | None = None
 
 
 @dataclass
 class RequestLog:
     requests: list[tuple[str, str, dict[str, str]]] = field(default_factory=list)
     dialled: list[tuple[str, str, int]] = field(default_factory=list)
+    reads: list[int] = field(default_factory=list)
+    """Every `read(size)` the transport asked for, in order."""
 
 
 class _Response:
-    def __init__(self, scripted: Scripted) -> None:
+    def __init__(self, scripted: Scripted, log: RequestLog) -> None:
         self.status = scripted.status
         self._headers = scripted.headers
-        self._chunks = list(scripted.chunks)
+        self._pending = b"".join(scripted.chunks)
+        self._boundaries = [len(chunk) for chunk in scripted.chunks]
         self._raise = scripted.raise_on_read
+        self._log = log
 
     def getheader(self, name: str) -> str | None:
         for key, value in self._headers.items():
@@ -611,10 +679,20 @@ class _Response:
         return None
 
     def read(self, size: int) -> bytes:
-        del size
+        """Honours `size` like `HTTPResponse.read(amt)`: at most `size` bytes,
+        and never past the current scripted chunk, so a test can shape reads."""
+        self._log.reads.append(size)
         if self._raise is not None:
             raise self._raise
-        return self._chunks.pop(0) if self._chunks else b""
+        if not self._pending:
+            return b""
+        limit = min(size, self._boundaries[0]) if self._boundaries and self._boundaries[0] else size
+        out, self._pending = self._pending[:limit], self._pending[limit:]
+        if self._boundaries:
+            self._boundaries[0] -= len(out)
+            if self._boundaries[0] <= 0:
+                self._boundaries.pop(0)
+        return out
 
 
 class ScriptedConnection:
@@ -629,9 +707,12 @@ class ScriptedConnection:
     def request(self, method: str, target: str, headers: dict[str, str]) -> None:
         self._log.requests.append((method, target, dict(headers)))
         self._target = target
+        scripted = self._script[target]
+        if scripted.raise_on_request is not None:
+            raise scripted.raise_on_request
 
     def getresponse(self) -> Any:
-        return _Response(self._script[self._target])
+        return _Response(self._script[self._target], self._log)
 
     def close(self) -> None:
         pass
@@ -647,7 +728,105 @@ def scripted_seam(script: dict[str, Scripted], *, log: RequestLog | None = None,
         return ScriptedConnection(approved, script, log)
 
     return UrlSeam(resolve=lambda _host, _port: [PUBLIC], connect=connect), log
+
+
+# --- the in-process TLS server -----------------------------------------------
+
+
+@dataclass
+class Served:
+    """One response the local server sends. `truncate_chunked` announces a
+    chunked body, sends part of one chunk and closes: the client's read raises
+    `http.client.IncompleteRead`. A `Content-Length` that disagrees with the
+    body is sent as written and the connection closed after the body."""
+
+    status: int = 200
+    headers: dict[str, str] = field(default_factory=dict)
+    body: bytes = b""
+    truncate_chunked: bool = False
+
+
+class LocalTlsServer:
+    """An HTTPS server on `127.0.0.1:<free port>` presenting `CERT`; it records
+    every request it parses into `self.log` exactly as received."""
+
+    def __init__(self, script: dict[str, Served]) -> None:
+        self.log = RequestLog()
+        log = self.log
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *_args: Any) -> None:
+                pass
+
+            def do_GET(self) -> None:
+                log.requests.append(("GET", self.path, {key: value for key, value in self.headers.items()}))
+                served = script.get(self.path)
+                if served is None:
+                    self.send_response(404)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                self.send_response(served.status)
+                if served.truncate_chunked:
+                    self.send_header("Transfer-Encoding", "chunked")
+                    self.end_headers()
+                    self.wfile.write(f"{len(served.body) + 16:x}\r\n".encode() + served.body)
+                    self.wfile.flush()
+                    self.close_connection = True
+                    return
+                for key, value in served.headers.items():
+                    self.send_header(key, value)
+                declared = served.headers.get("Content-Length")
+                if declared is None:
+                    self.send_header("Content-Length", str(len(served.body)))
+                elif declared != str(len(served.body)):
+                    self.close_connection = True
+                self.end_headers()
+                self.wfile.write(served.body)
+
+        class Server(ThreadingHTTPServer):
+            daemon_threads = True
+
+            def handle_error(self, request: Any, client_address: Any) -> None:
+                pass  # a client that rejects the certificate is a test's expected outcome
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(str(CERT), str(KEY))
+        self._server = Server(("127.0.0.1", 0), Handler)
+        self._server.socket = context.wrap_socket(self._server.socket, server_side=True)
+        self.port: int = self._server.server_address[1]
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+
+    def __enter__(self) -> LocalTlsServer:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+        self._thread.join(5)
+
+
+def tls_seam(server: LocalTlsServer) -> tuple[UrlSeam, RequestLog]:
+    """The production pinned connection over the local server: the resolver
+    answers a global address for every name, the connection dials loopback on
+    the server's port with `server_hostname` the approved name, and the context
+    trusts `CERT` with `check_hostname` and `CERT_REQUIRED` intact — a name the
+    certificate does not carry fails the handshake."""
+    context = ssl.create_default_context(cafile=str(CERT))
+    assert context.check_hostname and context.verify_mode == ssl.CERT_REQUIRED
+    log = server.log
+
+    def connect(approved: Approved, timeout: float) -> HTTPSConnection:
+        log.dialled.append((approved.host, approved.address, approved.port))
+        return PinnedHTTPSConnection(approved.host, "127.0.0.1", server.port, timeout, context)
+
+    return UrlSeam(resolve=lambda _host, _port: [PUBLIC], connect=connect), log
 ```
+
+`PinnedHTTPSConnection`'s `port` is the port it dials (`self.port` in `connect`); the `Host` header is the one `retrieve` sends explicitly, so the server sees the canonical authority while the socket goes to its own port.
 
 - [ ] **Step 2: The failing tests**
 
@@ -660,11 +839,13 @@ from __future__ import annotations
 
 import socket
 import ssl
+from hashlib import sha256
+from http.client import BadStatusLine, IncompleteRead
 from pathlib import Path
 from typing import Any
 
 import pytest
-from holdings_transport_fixtures import PUBLIC, RequestLog, Scripted, scripted_seam
+from holdings_transport_fixtures import PUBLIC, LocalTlsServer, RequestLog, Scripted, Served, scripted_seam, tls_seam
 
 from beliefs.errors import MalformedRecord
 from beliefs.holdings import transport
@@ -822,7 +1003,7 @@ def test_a_redirect_without_a_location_is_failed(tmp_path):
         (Scripted(200, {"Content-Length": "4", "Content-Encoding": "gzip"}, (b"abcd",)), "content-encoding gzip is not identity"),
         (Scripted(200, {"Content-Length": "8"}, (b"abcd",)), "body shorter than content-length 8"),
         (Scripted(200, {"Content-Length": "2"}, (b"abcd",)), "body longer than content-length 2"),
-        (Scripted(200, {}, (b"ab",), raise_on_read=socket.timeout("timed out")), "transport failure: timed out"),
+        (Scripted(200, {}, (b"ab",), raise_on_read=socket.timeout("timed out")), "transport failure: timeout"),
     ],
 )
 def test_an_incomplete_or_wrong_body_is_failed_carrying_no_digest(tmp_path, scripted, reason):
@@ -834,14 +1015,53 @@ def test_an_incomplete_or_wrong_body_is_failed_carrying_no_digest(tmp_path, scri
 
 def test_the_ceiling_ends_the_stream_and_finalizes_no_digest(tmp_path):
     body = b"x" * 65
-    result, _ = fetch({"/data": Scripted(200, {}, (body[:32], body[32:]))}, tmp_path=tmp_path)
+    result, log = fetch({"/data": Scripted(200, {}, (body[:32], body[32:]))}, tmp_path=tmp_path)
     assert result == Failed("exceeded the 64-byte streaming ceiling")
+    assert log.reads == [65, 33]  # each read asks for the remaining allowance plus one
     assert list(tmp_path.iterdir()) == []
 
 
-def test_a_complete_body_is_retrieved_with_its_digest_and_scratch_path(tmp_path):
-    from hashlib import sha256
+def test_each_read_is_bounded_by_the_remaining_allowance_plus_one(tmp_path):
+    result, log = fetch({"/data": Scripted(200, {}, (b"y" * 1000,))}, tmp_path=tmp_path)
+    assert result == Failed("exceeded the 64-byte streaming ceiling")
+    assert log.reads == [65]  # one read of 65 bytes, never 1 MiB against a 64-byte ceiling
 
+
+@pytest.mark.parametrize(
+    "raised,category",
+    [
+        (socket.timeout("timed out"), "timeout"),
+        (TimeoutError("timed out"), "timeout"),
+        (ssl.SSLCertVerificationError("hostname 'tok3n-9f2a.example.net' doesn't match"), "tls"),
+        (ssl.SSLError(1, "tlsv1 alert"), "tls"),
+        (ConnectionResetError("peer reset"), "connection"),
+        (IncompleteRead(b"ab", 6), "protocol"),
+        (BadStatusLine("garbage"), "protocol"),
+    ],
+)
+def test_a_transport_failure_is_failed_by_category_and_leaves_no_scratch(tmp_path, raised, category):
+    result, _ = fetch({"/data": Scripted(200, {}, (b"ab",), raise_on_read=raised)}, tmp_path=tmp_path)
+    assert result == Failed(f"transport failure: {category}")
+    assert list(tmp_path.iterdir()) == []
+    result, log = fetch({"/data": Scripted(raise_on_request=raised)}, tmp_path=tmp_path)
+    assert result == Failed(f"transport failure: {category}")
+    assert "tok3n" not in result.reason and "example.net" not in result.reason and "peer" not in result.reason
+    assert len(log.requests) == 1
+
+
+def test_a_programming_failure_mid_stream_raises_and_leaves_no_scratch(tmp_path):
+    with pytest.raises(RuntimeError, match="boom"):
+        fetch({"/data": Scripted(200, {}, (b"ab",), raise_on_read=RuntimeError("boom"))}, tmp_path=tmp_path)
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("timeout", [float("inf"), float("nan"), 0, -1.0, True])
+def test_bounds_refuse_a_non_finite_or_non_positive_timeout(timeout):
+    with pytest.raises(MalformedRecord):
+        RetrievalBounds(timeout_seconds=timeout, max_bytes=1, max_redirects=0)
+
+
+def test_a_complete_body_is_retrieved_with_its_digest_and_scratch_path(tmp_path):
     result, _ = fetch({"/data": ok(b"payload")}, tmp_path=tmp_path)
     assert isinstance(result, Retrieved)
     assert result.digest == "sha256:" + sha256(b"payload").hexdigest()
@@ -855,6 +1075,58 @@ def test_the_scratch_root_refuses_the_roots_and_their_descendants(tmp_path):
         with pytest.raises(MalformedRecord):
             refuse_scratch_root(scratch, (tmp_path / "observer", tmp_path / "store"))
     refuse_scratch_root(tmp_path / "scratch", (tmp_path / "observer", tmp_path / "store"))
+
+
+# --- the in-process TLS server: real framing, real reads, real validation ------
+
+
+def test_over_tls_a_complete_body_is_retrieved_and_the_request_arrives_faithfully(tmp_path):
+    with LocalTlsServer({"/data?": Served(body=b"payload")}) as server:
+        seam, log = tls_seam(server)
+        result = retrieve(url_locator("https://example.org:8443/data?"), BOUNDS, seam, tmp_path)
+    assert isinstance(result, Retrieved)
+    assert result.digest == "sha256:" + sha256(b"payload").hexdigest() and result.size == 7
+    ((method, target, headers),) = log.requests
+    assert (method, target, headers["Host"], headers["Accept-Encoding"]) == ("GET", "/data?", "example.org:8443", "identity")
+    assert log.dialled == [("example.org", PUBLIC, 8443)]
+    result.path.unlink()
+
+
+def test_over_tls_a_truncated_chunked_body_is_a_protocol_failure_with_no_scratch(tmp_path):
+    with LocalTlsServer({"/data": Served(body=b"partial", truncate_chunked=True)}) as server:
+        seam, _ = tls_seam(server)
+        result = retrieve(DATA, BOUNDS, seam, tmp_path)
+    assert result == Failed("transport failure: protocol")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_over_tls_a_redirect_is_followed_and_each_hop_revalidated(tmp_path):
+    script = {"/data": Served(302, {"Location": "https://mirror.example.org/moved"}), "/moved": Served(body=b"moved")}
+    with LocalTlsServer(script) as server:
+        seam, log = tls_seam(server)
+        result = retrieve(DATA, BOUNDS, seam, tmp_path)
+    assert isinstance(result, Retrieved) and result.size == 5
+    assert [(target, headers["Host"]) for _m, target, headers in log.requests] == [("/data", "example.org"), ("/moved", "mirror.example.org")]
+    assert [host for host, _a, _p in log.dialled] == ["example.org", "mirror.example.org"]
+    result.path.unlink()
+
+
+def test_over_tls_the_ceiling_ends_the_stream_one_byte_past_the_bound(tmp_path):
+    with LocalTlsServer({"/data": Served(body=b"z" * 4096)}) as server:
+        seam, _ = tls_seam(server)
+        result = retrieve(DATA, BOUNDS, seam, tmp_path)
+    assert result == Failed("exceeded the 64-byte streaming ceiling")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_over_tls_a_certificate_failure_after_a_credential_bearing_redirect_names_only_its_category(tmp_path):
+    with LocalTlsServer({"/data": Served(302, {"Location": TOKEN_HOST_HOP})}) as server:
+        seam, log = tls_seam(server)
+        result = retrieve(DATA, BOUNDS, seam, tmp_path)
+    assert result == Failed("transport failure: tls")
+    assert "tok3n-9f2a" not in result.reason and "example.net" not in result.reason
+    assert len(log.requests) == 1  # the second hop's handshake never completed, so the server parsed no request
+    assert [host for host, _a, _p in log.dialled] == ["example.org", "tok3n-9f2a.example.net"]
 ```
 
 - [ ] **Step 3: Run them to verify they fail**
@@ -880,12 +1152,13 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import math
 import socket
 import ssl
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from http.client import HTTPSConnection
+from http.client import HTTPException, HTTPSConnection
 from pathlib import Path
 from typing import Any, final
 from urllib.parse import urljoin, urlsplit
@@ -896,6 +1169,7 @@ from beliefs.sealed import sealed
 
 __all__ = [
     "REFUSAL_CATEGORIES",
+    "TRANSPORT_CATEGORIES",
     "Approved",
     "Failed",
     "NotAttempted",
@@ -917,6 +1191,9 @@ CHUNK = 1024 * 1024
 REDIRECTS = (301, 302, 303, 307, 308)
 REFUSAL_CATEGORIES = ("scheme", "no-host", "unresolvable", "non-public-address", "unpinnable")
 """The closed set a refused hop is named by (decision 6); never a host, never bytes."""
+TRANSPORT_CATEGORIES = ("timeout", "tls", "connection", "protocol")
+"""The closed set a failure after the request began is named by; never the exception's text,
+which for a certificate error carries the redirected host."""
 
 Resolver = Callable[[str, int], list[str]]
 ConnectionFactory = Callable[["Approved", float], HTTPSConnection]
@@ -931,8 +1208,13 @@ class RetrievalBounds:
     max_redirects: int
 
     def __post_init__(self) -> None:
-        if not isinstance(self.timeout_seconds, (int, float)) or isinstance(self.timeout_seconds, bool) or self.timeout_seconds <= 0:
-            raise MalformedRecord("timeout_seconds must be a positive number")
+        if (
+            not isinstance(self.timeout_seconds, (int, float))
+            or isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise MalformedRecord("timeout_seconds must be a finite positive number")
         for name in ("max_bytes", "max_redirects"):
             value = getattr(self, name)
             if type(value) is not int or value < 0:
@@ -995,6 +1277,19 @@ class PinningUnavailable(RuntimeError):
     """The validated address cannot be used with name validation intact; no request is issued."""
 
 
+def _transport_category(caught: OSError | HTTPException) -> str:
+    """The fixed name a failure after the request began is reported by. Order
+    matters: `socket.timeout` is a `TimeoutError` is an `OSError`; `ssl.SSLError`
+    is an `OSError`; `RemoteDisconnected` is both an `OSError` and an `HTTPException`."""
+    if isinstance(caught, TimeoutError):
+        return "timeout"
+    if isinstance(caught, ssl.SSLError):
+        return "tls"
+    if isinstance(caught, OSError):
+        return "connection"
+    return "protocol"
+
+
 def system_resolver(host: str, port: int) -> list[str]:
     infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
     return [str(info[4][0]) for info in infos]
@@ -1033,7 +1328,7 @@ def preflight(url: str, resolver: Resolver) -> Approved | Refused:
     if not parts.hostname:
         return Refused("no-host")
     try:
-        port = parts.port or 443
+        port = 443 if parts.port is None else parts.port  # an explicit port is sent as given, `0` included
         addresses = resolver(parts.hostname, port)
     except (OSError, ValueError):
         return Refused("unresolvable")
@@ -1075,8 +1370,8 @@ def retrieve(locator: UrlLocator, bounds: RetrievalBounds, seam: UrlSeam, scratc
                     "GET", decision.target, headers={"Host": decision.authority, "Accept-Encoding": "identity"}
                 )
                 response = connection.getresponse()
-            except OSError as caught:
-                return Failed(f"transport failure: {caught}")
+            except (OSError, HTTPException) as caught:
+                return Failed(f"transport failure: {_transport_category(caught)}")
             if response.status in REDIRECTS:
                 location = response.getheader("Location")
                 if not location:
@@ -1097,7 +1392,11 @@ def retrieve(locator: UrlLocator, bounds: RetrievalBounds, seam: UrlSeam, scratc
 def _stream(response: Any, declared_length: str | None, bounds: RetrievalBounds, scratch: Path) -> Retrieved | Failed:
     scratch.mkdir(parents=True, exist_ok=True)
     target = scratch / f"retrieve-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%f')}-{id(response)}"
-    outcome = _stream_into(response, declared_length, bounds, target)
+    try:
+        outcome = _stream_into(response, declared_length, bounds, target)
+    except BaseException:
+        target.unlink(missing_ok=True)  # an unexpected failure propagates, and leaves no scratch file behind
+        raise
     if isinstance(outcome, Failed):
         target.unlink(missing_ok=True)
     return outcome
@@ -1109,9 +1408,9 @@ def _stream_into(response: Any, declared_length: str | None, bounds: RetrievalBo
     with target.open("wb") as handle:
         while True:
             try:
-                chunk = response.read(CHUNK)
-            except OSError as caught:
-                return Failed(f"transport failure: {caught}")
+                chunk = response.read(min(CHUNK, bounds.max_bytes - size + 1))  # never past the ceiling plus one
+            except (OSError, HTTPException) as caught:
+                return Failed(f"transport failure: {_transport_category(caught)}")
             if not chunk:
                 break
             size += len(chunk)
@@ -1155,7 +1454,7 @@ git commit -m "feat(holdings): the URL transport seam — BI-2, BI-3, BI-4"
 - Test: `python/tests/test_holdings_boundary.py`, `python/tests/test_intent_evidence.py` (swap the hand-built payload for `intent_payload`)
 
 **Interfaces:**
-- Consumes: `UrlLocator`, `Locator` (Task 1); `RetrievalBounds`, `UrlSeam`, `retrieve`, `Retrieved`, `NotAttempted`, `Failed` (Task 3); `scripted_seam` (Task 3 fixtures).
+- Consumes: `UrlLocator`, `Locator` (Task 1); `RetrievalBounds`, `UrlSeam`, `retrieve`, `Retrieved`, `NotAttempted`, `Failed`, `refuse_scratch_root` (Task 3); `scripted_seam` (Task 3 fixtures).
 - Produces: `intent_payload(*, location: Locator, act_kind, event_token, actor) -> bytes`; `look(ctx, location: UrlLocator, *, bounds, seam, scratch, expected=None, standing=()) -> PublishedLook | InconclusiveLook`; `PublishedLook(record, ref, retrieved)`; `InconclusiveLook(report, reason)`; `store_refusal(caught: ExecutionError) -> bool`; `errors.StoreWriteRefused(location: str, detail: str)`. Task 5 consumes all of these.
 
 - [ ] **Step 1: The failing tests**
@@ -1223,6 +1522,16 @@ def test_a_url_look_that_established_found_but_cannot_publish_raises(certified_w
         look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=tmp_path / "s")
     assert not (ctx.observer_root / "holdings-observation").exists()
     assert len(_intents(ctx.observer_root)) == 1
+    assert list((tmp_path / "s").iterdir()) == []  # the retrieved file never reached a caller who could delete it
+
+
+def test_a_url_look_refuses_a_scratch_root_under_either_root_before_any_intent(certified_work):
+    ctx, _ = context(certified_work)
+    seam, log = scripted_seam({"/data": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+    for scratch in (ctx.observer_root, ctx.observer_root / "scratch", ctx.store_root, ctx.store_root / "deep" / "er"):
+        with pytest.raises(MalformedRecord, match="scratch root"):
+            look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=scratch)
+    assert _intents(ctx.observer_root) == [] and log.requests == []
 
 
 def test_a_url_look_with_a_non_sha256_expectation_refuses_before_the_intent(certified_work, tmp_path):
@@ -1320,7 +1629,7 @@ class StoreWriteRefused(ScienceError):
 
 In `python/src/beliefs/holdings/boundary.py`:
 
-Imports: `from atoms.chain.errors import PendingUnresolved` and `from atoms.core.errors import PreconditionRefused, ProjectApprovalRefused` (the modules `root.py` uses); `from nodes.core.errors import ExecutionError`; `from beliefs.errors import MalformedRecord, StoreIdMismatch, StoreWriteRefused`; `from beliefs.holdings.records import (Absent, Found, HoldingsObservation, Locator, StoreLocator, UrlLocator, holdings_observation, require_canonical_digest)`; `from beliefs.holdings.transport import Failed, NotAttempted, Retrieved, RetrievalBounds, UrlSeam, retrieve`.
+Imports: `from atoms.chain.errors import PendingUnresolved` and `from atoms.core.errors import PreconditionRefused, ProjectApprovalRefused` (the modules `root.py` uses); `from nodes.core.errors import ExecutionError`; `from beliefs.errors import MalformedRecord, StoreIdMismatch, StoreWriteRefused`; `from beliefs.holdings.records import (Absent, Found, HoldingsObservation, Locator, StoreLocator, UrlLocator, holdings_observation, require_canonical_digest)`; `from beliefs.holdings.transport import Failed, NotAttempted, Retrieved, RetrievalBounds, UrlSeam, refuse_scratch_root, retrieve`.
 
 `intent_payload` takes `location: Locator` and encodes:
 
@@ -1373,7 +1682,8 @@ def look(
 ) -> PublishedLook | InconclusiveLook:
     """The URL pure look (url-retrieval design §5): a `re-check` intent for the
     registration, the request with nothing held, then a published `found` or an
-    inconclusive attempt that mints nothing. The caller deletes `retrieved.path`."""
+    inconclusive attempt that mints nothing. The caller deletes `retrieved.path`
+    on a `PublishedLook`; every other exit leaves no file."""
     ctx.authority.require("holdings", ("holdings-observation",))
     if type(location) is not UrlLocator:
         raise MalformedRecord("a URL look takes a UrlLocator")
@@ -1381,6 +1691,7 @@ def look(
         require_canonical_digest(expected, "a holdings observation's expected digest")
         if expected.split(":", 1)[0] != "sha256":
             raise MalformedRecord("a found observation's expected digest must use the found digest's algorithm")
+    refuse_scratch_root(scratch, (ctx.observer_root, ctx.store_root))
     token, intent = _append(ctx, location, "re-check")
     result = retrieve(location, bounds, seam, scratch)
     if isinstance(result, NotAttempted):
@@ -1392,7 +1703,11 @@ def look(
         instrument=ctx.instrument, event_token=token,
         observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), supersedes=standing,
     )
-    published = _publish_record(ctx, record, intent)
+    try:
+        published = _publish_record(ctx, record, intent)
+    except BaseException:
+        result.path.unlink(missing_ok=True)  # ownership never reached the caller
+        raise
     return PublishedLook(published.record, f"holdings-observation:{record.identity()}", result)
 ```
 
@@ -1434,7 +1749,7 @@ git commit -m "feat(holdings): the URL look and the store-refusal classifier —
 
 **Interfaces:**
 - Consumes: Tasks 1–4's names; `CorpusWriter._create_op`, `_refuse`, `_operation`, `read_view`, `root`; `_ImportView`, `Index`; `stored.dataset_node`, `stored.act_report_node`; `dataset_address`, `DatasetDeclaration`, `ResourceDeclaration`.
-- Produces: `acquire.ResourceRequest(name, url, expected=None, materialize=None)`; `acquire.AcquisitionRequest(title, locator, resources, bounds, domain_facets=None)`; `acquire.Stop(resource, phase, reason)`; `acquire.AcquisitionOutcome(report, report_ref, dataset, entries, stop)`; `acquire.acquire(ctx, writer, request, *, seam, scratch, standing=None, port=None) -> AcquisitionOutcome`; `acquire.SKIPPED_AFTER_STOP = "skipped-after-stop"`; `boundary._mint_acquisition_report(intent, *, observer, instrument, opened_at, closed_at, entries)`; `CorpusWriter._append_operation_intent(kind, token, actor, *, port=None)`; `CorpusWriter._publish_operation_report(report, intent_digest, *, operation=None, operations=None, port=None)`; `CorpusWriter._refuse_acquired_dataset(node, report)`; `errors.AcquisitionRefused(WriteRefused)`. Tasks 6 and 8 consume these.
+- Produces: `acquire.ResourceRequest(name, url, expected=None, materialize=None)`; `acquire.AcquisitionRequest(title, locator, resources, bounds, domain_facets=None)`; `acquire.Stop(resource, phase, reason)`; `acquire.AcquisitionOutcome(report, report_ref, dataset, entries, stop)`; `acquire.acquire(ctx, writer, request, *, seam, scratch, standing=None, port=None, hold=None) -> AcquisitionOutcome` (`hold: Callable[[], AbstractContextManager[object]] | None`, entered before the root lock at the close); `acquire.SKIPPED_AFTER_STOP = "skipped-after-stop"`; `boundary._mint_acquisition_report(intent, *, observer, instrument, opened_at, closed_at, entries)`; `CorpusWriter._append_operation_intent(kind, token, actor, *, port=None)`; `CorpusWriter._publish_operation_report(report, intent_digest, *, operation=None, operations=None, port=None)`; `CorpusWriter._refuse_acquired_dataset(node, report)`; `CorpusWriter._refuse_dataset_shape(node)`; `errors.AcquisitionRefused(WriteRefused)`. Tasks 6 and 8 consume these.
 
 - [ ] **Step 1: The failing tests**
 
@@ -1531,6 +1846,7 @@ def chain(root):
 def test_the_happy_path_mints_the_dataset_beside_its_report_in_one_transaction(acquisition):
     ctx, store_id, writer, scratch = acquisition
     seam, log = scripted_seam({"/a": ok(A)})
+    assert not writer.read_view.holds("holdings-observation:" + "0" * 64)  # the index is built and cached before the looks publish past it
     outcome = acquire(ctx, writer, request(resource("a", "a", store_id=store_id)), seam=seam, scratch=scratch)
     assert outcome.stop is None and outcome.dataset is not None
     address = dataset_address(DatasetDeclaration((ResourceDeclaration("a", digest(A)),)))
@@ -1610,7 +1926,7 @@ def test_an_already_held_address_mints_no_second_dataset(acquisition):
 
 @pytest.mark.parametrize(
     "spoil",
-    ["wrong-root", "no-port", "store-less-materialize", "scratch-under-root", "foreign-store"],
+    ["wrong-root", "no-port", "store-less-materialize", "scratch-under-root", "foreign-store", "malformed-facet"],
 )
 def test_every_pre_intent_refusal_leaves_the_chain_and_corpus_untouched_and_issues_no_request(acquisition, certified_work, spoil):
     ctx, store_id, writer, scratch = acquisition
@@ -1632,11 +1948,38 @@ def test_every_pre_intent_refusal_leaves_the_chain_and_corpus_untouched_and_issu
         kwargs["scratch"] = ctx.observer_root / "scratch"
     elif spoil == "foreign-store":
         req = request(replace(resource("a", "a"), materialize=StoreLocator("f" * 32, "x.bin")))
-    with pytest.raises((AcquisitionRefused, MalformedRecord, ExecutionError, FileNotFoundError)):
+    elif spoil == "malformed-facet":
+        req = AcquisitionRequest(
+            title="t", locator="url:https://example.org/dataset/1", resources=(resource("a", "a"),), bounds=BOUNDS,
+            domain_facets={"ns/x": {"k": object()}},  # namespaced, so the request accepts it; the profile's payload validation does not
+        )
+    with pytest.raises((AcquisitionRefused, MalformedRecord, ValidationRefused, ExecutionError, FileNotFoundError)):
         acquire(ctx, writer, req, **kwargs)
     assert chain(ctx.observer_root) == before
     assert log.requests == []
+    assert not any(node.kind in ("act-report", "dataset", "holdings-observation") for node in writer.read_view.iter_stored())
+
+
+def test_the_request_refuses_an_unnamespaced_domain_facet_as_a_value():
+    with pytest.raises(MalformedRecord, match="namespaced"):
+        AcquisitionRequest(
+            title="t", locator="url:https://example.org/d", resources=(resource("a", "a"),), bounds=BOUNDS,
+            domain_facets={"unnamespaced": {"k": 1}},
+        )
+
+
+def test_a_registered_domain_facet_lands_on_the_minted_dataset(acquisition):
+    ctx, store_id, writer, scratch = acquisition
+    seam, _ = scripted_seam({"/a": ok(A)})
+    facets = REGISTERED_DOMAIN_FACETS  # a facet the base profile registers; read one off `grep -rn "domain_facets=" python/tests/test_stored*.py python/tests/test_corpus*.py`
+    req = AcquisitionRequest(title="t", locator="url:https://example.org/d", resources=(resource("a", "a"),), bounds=BOUNDS, domain_facets=facets)
+    outcome = acquire(ctx, writer, req, seam=seam, scratch=scratch)
+    assert outcome.dataset is not None
+    for key, payload in facets.items():
+        assert outcome.dataset.facets[key] == dict(payload)
 ```
+
+(`ValidationRefused` and `FacetPayloadRefused` are the writer's refusal types for a payload the profile rejects; if the profile refuses the `object()` payload under `FacetPayloadRefused` or at `stored.dataset_node` under a `pydantic` error, add that type to the tuple — the assertion that matters is the untouched chain, the empty request log and the empty corpus. `REGISTERED_DOMAIN_FACETS` is a module constant the implementer fills from an existing test that adds a dataset with `domain_facets`; if none exists, the positive case passes `domain_facets=None` and asserts the facet set is exactly `{"dataset", "empirical-observation"}`.)
 
 (For `store-less-materialize`, `store_genesis` over a missing root raises: the plan accepts the engine's own error type there and asserts only that nothing was appended and no request issued; read what `ctx.seam.store_genesis` raises for an absent root and narrow the `raises` tuple to that type and `AcquisitionRefused`.)
 
@@ -1755,6 +2098,25 @@ def test_a_report_naming_an_observation_no_act_published_refuses_at_the_close(ac
     assert not any(node.kind == "act-report" for node in writer.read_view.iter_stored())
 ```
 
+```python
+def test_the_close_rebuilds_the_writers_view_before_it_resolves_the_looks_observations(acquisition, monkeypatch):
+    """The looks publish through the holdings seam, past the writer's cached index;
+    without `_reconstruct` under the closing lock the close refuses its own observations."""
+    ctx, store_id, writer, scratch = acquisition
+    seam, _ = scripted_seam({"/a": ok(A)})
+    rebuilt: list[int] = []
+    real = type(writer)._reconstruct
+
+    def counting(self):
+        rebuilt.append(1)
+        return real(self)
+
+    monkeypatch.setattr(type(writer), "_reconstruct", counting)
+    writer.read_view  # cache the index
+    outcome = acquire(ctx, writer, request(resource("a", "a")), seam=seam, scratch=scratch)
+    assert outcome.dataset is not None and rebuilt  # the close rebuilt at least once before resolving
+```
+
 (`_operation_lock_for(root)` may hand out an `RLock` re-entrant to the calling thread — the probe runs on the calling thread, so `acquire(blocking=False)` succeeds if **no other** thread holds it and also if this thread holds it; to make the check meaningful, run the probe on a helper thread: `threading.Thread(target=lambda: seen.append(lock.acquire(blocking=False)))`, join it, release from that thread if acquired. Write the probe that way.)
 
 - [ ] **Step 2: Run them to verify they fail**
@@ -1814,6 +2176,16 @@ class AcquisitionRefused(WriteRefused):
 Beside `_refuse_malformed_act_report`:
 
 ```python
+    def _refuse_dataset_shape(self, node: Node) -> None:
+        """The request-only half of a dataset's validation, run before an
+        acquisition opens its intent (url-retrieval design §6 step 1): family,
+        document, registry membership and every facet payload's shape. Nothing
+        here reads the view — the report the record will name does not exist
+        yet — so `attested_by`, bearer and validity are the close's."""
+        self._refuse_family_kinds(node)
+        self._refuse_invalid(node)
+        self._refuse_facet_shapes(node)
+
     def _refuse_acquired_dataset(self, node: Node, report: Node) -> None:
         """Validate a dataset the acquisition mints beside its report
         (url-retrieval design §6 step 4): the report is an arriving member of the
@@ -1832,7 +2204,7 @@ Beside `_refuse_malformed_act_report`:
         self._refuse_foreign_closure_actor(node)
 ```
 
-(`CollisionError`/`CollisionRefused` are the names `_validate_import_bundle` already uses.)
+(`CollisionError`/`CollisionRefused` are the names `_validate_import_bundle` already uses.) Factor the first half of `_refuse_facets` (line 3221: the `validate_document` try/except and the `validate_payload` loop, everything before `reading = ...`) into `_refuse_facet_shapes(self, node)` and have `_refuse_facets` call it; its behaviour is unchanged (`tests/test_corpus*.py` green).
 
 - [ ] **Step 5: The operation**
 
@@ -1887,6 +2259,9 @@ __all__ = ["SKIPPED_AFTER_STOP", "AcquisitionOutcome", "AcquisitionRequest", "Re
 SKIPPED_AFTER_STOP = "skipped-after-stop"
 LOCATOR_SCHEMES = ("accession", "url", "instrument")
 """The empirical-observation facet's declared schemes (CONTRACT.yaml); the profile validates again at the write."""
+PROBE_DIGEST = "sha256:" + "0" * 64
+PROBE_REPORT = "act-report:" + "0" * 64
+"""Placeholders the pre-intent shape check builds the dataset with; the shape check resolves neither."""
 
 
 @sealed
@@ -1934,6 +2309,14 @@ class AcquisitionRequest:
             raise MalformedRecord("resource names are unique within one request")
         if type(self.bounds) is not RetrievalBounds:
             raise MalformedRecord("an acquisition request carries RetrievalBounds")
+        if self.domain_facets is not None and (
+            not isinstance(self.domain_facets, Mapping)
+            or any(
+                type(key) is not str or "/" not in key or not isinstance(payload, Mapping) or any(type(k) is not str for k in payload)
+                for key, payload in self.domain_facets.items()
+            )
+        ):
+            raise MalformedRecord("domain_facets maps namespaced `<namespace>/<name>` keys to mappings with string keys")
 
 
 @sealed
@@ -1969,7 +2352,11 @@ def acquire(
     scratch: Path,
     standing: Mapping[str, tuple[HoldingsObservation, ...]] | None = None,
     port: OperationPort | None = None,
+    hold: Callable[[], AbstractContextManager[object]] | None = None,
 ) -> AcquisitionOutcome:
+    """`hold` is the caller's outer lock for the close — the session route passes
+    the one `ScopedWriter._act` takes first — entered before the root lock and
+    never around a request (decision 15; the session's session-then-root order)."""
     standing = {} if standing is None else standing
     if type(request) is not AcquisitionRequest:
         raise MalformedRecord("acquire takes an AcquisitionRequest")
@@ -1986,6 +2373,14 @@ def acquire(
         for resource in request.resources:
             if resource.materialize is not None and resource.materialize.store_id != store_id:
                 raise AcquisitionRefused(f"{resource.name}: its destination names store {resource.materialize.store_id}, not the bound {store_id}")
+    writer._refuse_dataset_shape(  # the request-only metadata, before any effect: title, locator, domain facets
+        stored.dataset_node(
+            title=request.title,
+            resources=[{"name": r.name, "digest": r.expected or PROBE_DIGEST} for r in request.resources],
+            empirical_observation={"locator": request.locator, "attested_by": ctx.actor, "retrieval": PROBE_REPORT},
+            domain_facets=request.domain_facets,
+        )
+    )
     # 2. Open.
     intent = OperationIntent("acquisition", secrets.token_hex(16), ctx.actor)
     opened_at = _now()
@@ -2039,8 +2434,9 @@ def acquire(
         assert address is not None  # every resource found and pinned sha256
     closed_at = _now()
     dataset: Node | None = None
-    with writer._operation:
-        writer._require_pins_agree()
+    outer = nullcontext() if hold is None else hold()
+    with outer, writer._operation:  # session (the caller's hold), then root: `_act`'s order
+        writer._reconstruct()  # the looks published through the holdings seam, past this writer's cached index
         for ref in sorted(published):
             if writer.read_view.resolve(ref) is None:
                 raise AcquisitionRefused(f"{ref}: the report would reference an observation no act published")
@@ -2067,7 +2463,7 @@ def acquire(
     return AcquisitionOutcome(report, report_node.id, dataset, report_entries, stop)
 ```
 
-Notes for the implementer: `writer._operation` is the `_SettlingHold` `add` uses (`with self._operation:`), and `_publish_operation_report` runs `_reconstruct` afterwards so `writer.read_view` sees the transaction. The look and the write take the corpus lock only inside `_append` and `_publish_record`, so nothing is held across `retrieve`. `parse_store_genesis` is what `boundary._bind` uses. If `stored.dataset_node` refuses `domain_facets=None`, pass `{}`.
+Notes for the implementer: imports `from collections.abc import Callable, Mapping` and `from contextlib import AbstractContextManager, nullcontext`. `writer._operation` is the `_SettlingHold` `add` uses (`with self._operation:`); its `__enter__` settles only when `unresolved` is set, and the looks' publications never set it (they go through `ctx.seam.publish_fulfilling`, a different port), so the close calls `writer._reconstruct()` itself — the same call `test_audit.py` makes after an out-of-band write — before resolving any ref or the address; `_publish_operation_report` runs `_reconstruct` again afterwards so `writer.read_view` sees the transaction. The look and the write take the corpus lock only inside `_append` and `_publish_record`, so nothing is held across `retrieve`; `hold` and `writer._operation` are entered at the close only. `parse_store_genesis` is what `boundary._bind` uses. If `stored.dataset_node` refuses `domain_facets=None`, pass `{}`. If the profile's payload validation of `empirical-observation` pattern-checks `retrieval` more tightly than `act-report:<64 hex>`, shape `PROBE_REPORT` to pass it; the shape check never resolves the ref.
 
 - [ ] **Step 6: Run the tests and the lint**
 
@@ -2092,7 +2488,7 @@ git commit -m "feat(holdings): the acquisition operation — R10, T2, T5, T7, BI
 
 **Interfaces:**
 - Consumes: `acquire`, `AcquisitionRequest`, `AcquisitionOutcome` (Task 5); `url_seam`, `UrlSeam`, `Approved`, `preflight`, `PinnedHTTPSConnection`, `pinned_connection`, `PinningUnavailable`, `system_resolver` (Task 3).
-- Produces: `ScopedWriter.acquire(request, *, instrument, scratch, seam=None, standing=None) -> AcquisitionOutcome`; `survey_admission` importing the kernel transport.
+- Produces: `ScopedWriter.acquire(request, *, instrument, scratch, seam=None, standing=None) -> AcquisitionOutcome`; `ScopedWriter._closing_hold() -> AbstractContextManager[None]`; `survey_admission` importing the kernel transport, `NetworkProbe.fetch` an adapter over `retrieve`.
 
 - [ ] **Step 1: The failing tests**
 
@@ -2133,6 +2529,55 @@ def test_acquire_through_a_session_ledgers_every_commit(certified_work, tmp_path
     assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.dataset.id}
 
 
+ACQUIRES_AND_ADDS = RequiredCapabilities.for_kinds(
+    {"holdings-observation", "dataset", "act-report", "proposition"}, {"act-report": "corpus-write"}
+)
+
+
+def test_the_close_takes_the_session_lock_before_the_root_lock_and_a_concurrent_act_completes(certified_work, tmp_path, monkeypatch):
+    """Session, then root, is the only order `_act` takes; the close takes the same
+    one, and holds neither around the request — so an act on another thread
+    completes while the acquisition is open, and the close never waits on a
+    thread that waits on it."""
+    from beliefs import corpus as corpus_module
+
+    session = _durable_session(certified_work)
+    session.claim_invocation("A", "acquire", DIGEST)
+    scoped = session.scoped(ACQUIRES_AND_ADDS, "A")
+    owned: list[bool] = []
+    real_enter = corpus_module._SettlingHold.__enter__
+
+    def probing(self):
+        owned.append(session._lock._is_owned())
+        return real_enter(self)
+
+    monkeypatch.setattr(corpus_module._SettlingHold, "__enter__", probing)
+    transport, _ = scripted_seam({"/a": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+    opened, added = threading.Event(), threading.Event()
+
+    def gated_connect(approved, timeout):
+        opened.set()  # the operation intent is open and the request is about to go out
+        assert added.wait(30), "the concurrent add did not complete while the request was open"
+        return transport.connect(approved, timeout)
+
+    def add_while_open():
+        assert opened.wait(30)
+        scoped.add(proposition("p"))
+        added.set()
+
+    partner = threading.Thread(target=add_while_open, daemon=True)
+    partner.start()
+    outcome = scoped.acquire(
+        _acquisition_request(), instrument="inst", scratch=tmp_path / "scratch", seam=replace(transport, connect=gated_connect)
+    )
+    partner.join(30)
+    assert not partner.is_alive() and outcome.dataset is not None
+    assert owned and all(owned)  # every root-lock entry under the session saw the session lock owned first
+    session.close_invocation("A", {"done": []})
+    session.close()
+    assert len(open_ledger_reader(session.operations_root, session.session_id).acts()) == 3  # the add, the look, the close
+
+
 def test_acquire_on_a_store_less_session_refuses_before_any_intent(tmp_path):
     session, ports = make_session(tmp_path)
     session.claim_invocation("A", "acquire", DIGEST)
@@ -2143,7 +2588,7 @@ def test_acquire_on_a_store_less_session_refuses_before_any_intent(tmp_path):
     assert ports[-1].calls == [] and log.requests == []
 ```
 
-(`RequiredCapabilities.for_kinds`' second argument maps a kind to the family that mints it where the default is not `corpus-write`; read `test_session_routes.RUNS` for the shape and `permit.KIND_ACTS` for `act-report`. `DIGEST`, `make_session` and `open_ledger_reader` are the module's existing imports.)
+(`RequiredCapabilities.for_kinds`' second argument maps a kind to the family that mints it where the default is not `corpus-write`; read `test_session_routes.RUNS` for the shape and `permit.KIND_ACTS` for `act-report`. `DIGEST`, `make_session`, `open_ledger_reader`, `proposition` and `threading` are the module's existing names — `test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete` is the two-thread precedent; add `from dataclasses import replace`. `RLock._is_owned` is CPython's and is what the ownership probe reads.)
 
 `python/tests/test_session_reconcile.py`, beside `holdings_intent`:
 
@@ -2167,7 +2612,31 @@ def test_an_unfulfilled_url_recheck_intent_reads_as_a_store_one_does():
 
 (import `url_locator` beside `StoreLocator`.) Add `url_intent` to the `parametrize` lists that run `run_intent` and `holdings_intent` through the session-unknown and actor cases.
 
-`python/tests/test_admission_survey.py`: delete `test_the_pinned_connection_dials_the_validated_address_and_validates_the_name`, `test_a_context_that_would_skip_validation_refuses_to_pin` and `test_a_validated_address_that_cannot_be_pinned_issues_no_request` (they moved to `test_holdings_transport.py` in Task 3); update `_RedirectingConnection.request` and every fake `Approved(...)` to the kernel's field set (`host, port, target, authority, address`); keep `test_a_refused_redirect_hop_ends_the_attempt_as_untested` but assert the instrument's own vocabulary (`BYTES_LOCATOR_UNTESTED`) still comes back — the instrument maps the kernel's `Refused(category)` to its own reason string.
+`python/tests/test_admission_survey.py`: delete the five transport tests — `test_the_pinned_connection_dials_the_validated_address_and_validates_the_name`, `test_a_context_that_would_skip_validation_refuses_to_pin`, `test_a_validated_address_that_cannot_be_pinned_issues_no_request`, `test_a_refused_redirect_hop_ends_the_attempt_as_untested`, `test_a_relative_redirect_is_resolved_before_it_is_revalidated` — and `_RedirectingConnection` (the behaviour they read lives in `test_holdings_transport.py` since Task 3, and a refused hop is now `retrieval-failed`). Add the adapter's tests (import `Scripted`, `scripted_seam` from `holdings_transport_fixtures`):
+
+```python
+def test_the_probe_maps_the_kernel_result_to_the_instrument_vocabulary(tmp_path: Path) -> None:
+    seam, log = scripted_seam({"/data": Scripted(200, {"Content-Length": "7"}, (b"payload",))})
+    probe = NetworkProbe(tmp_path / "scratch", resolver=seam.resolve, connect=seam.connect)
+    outcome = probe.fetch("https://example.org/data")
+    assert outcome == ProbeOutcome(BYTES_RETRIEVED, digest=sha256(b"payload").hexdigest(), size=7)
+    assert list((tmp_path / "scratch").iterdir()) == []  # the probe deletes the kernel's scratch file
+    assert len(log.requests) == 1
+    failing, _ = scripted_seam({"/data": Scripted(500, {}, (b"",))})
+    assert NetworkProbe(tmp_path / "scratch", resolver=failing.resolve, connect=failing.connect).fetch("https://example.org/data") == ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="status 500")
+    untested, _ = scripted_seam({}, unpinnable=True)
+    assert NetworkProbe(tmp_path / "scratch", resolver=untested.resolve, connect=untested.connect).fetch("https://example.org/data") == ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="unpinnable")
+    assert NetworkProbe(tmp_path / "scratch", resolver=seam.resolve, connect=seam.connect).fetch("https://user@example.org/data") == ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="malformed url")
+
+
+def test_a_refused_redirect_hop_is_retrieval_failed_by_ordinal_and_category(tmp_path: Path) -> None:
+    seam, _ = scripted_seam({"/data": Scripted(302, {"Location": "https://tok3n-9f2a.example.net/data?X-Amz-Signature=abc"})})
+    resolver = lambda host, _port: ["10.1.1.1"] if host != "example.org" else seam.resolve(host, 0)  # noqa: E731
+    outcome = NetworkProbe(tmp_path / "scratch", resolver=resolver, connect=seam.connect).fetch("https://example.org/data")
+    assert outcome == ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="redirect hop 1 refused: non-public-address")
+```
+
+(`ProbeOutcome.digest` stays bare hex — `qualify(outcome.digest)` prefixes it at the comparison; the adapter strips the kernel's `sha256:`.)
 
 - [ ] **Step 2: Run them to verify they fail**
 
@@ -2198,15 +2667,50 @@ Expected: FAIL — `ScopedWriter` has no attribute `acquire`.
         ctx = self.holdings_context(instrument=instrument)
         return run_acquisition(
             ctx, self._writer, request, seam=url_seam() if seam is None else seam, scratch=scratch,
-            standing=standing, port=self.operation_port(),
+            standing=standing, port=self.operation_port(), hold=self._closing_hold,
         )
+
+    @contextmanager
+    def _closing_hold(self) -> Iterator[None]:
+        """The acquisition's close under this session's lock, taken before the
+        root lock exactly as `_act` takes it, currency re-checked on entry (§13
+        item 18). The ledgered port's `execute_fulfilling` re-enters the same
+        `RLock` inside."""
+        with self._session._lock:
+            self._session._require_current(self._invocation)
+            yield
 ```
 
 (type-only imports of `AcquisitionRequest`, `AcquisitionOutcome`, `UrlSeam`, `HoldingsObservation`, `Mapping`, `Path` under `TYPE_CHECKING` as the module does for `ActContext`.) `holdings_context` raises `SessionProtocolError` for a store-less session before any intent, which is T2-b's session arm.
 
 - [ ] **Step 4: The instrument**
 
-In `python/tools/survey_admission.py` delete `Approved`, `Refused`, `Resolver`, `system_resolver`, `preflight`, `ConnectionFactory`, `PinnedHTTPSConnection`, `PinningUnavailable` and `pinned_connection` (lines 255–480's transport half) and import them from `beliefs.holdings.transport`; `NetworkProbe.fetch` keeps its loop and its `ProbeOutcome` vocabulary, translating `Refused(category)` to `ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason=f"{category}{where}")`; `_request` sends `approved.target` and `headers={"Host": approved.authority, "Accept-Encoding": "identity"}`. Run `uv run --frozen pytest tests/test_admission_survey.py -q`.
+In `python/tools/survey_admission.py` delete `Approved`, `Refused`, `Resolver`, `system_resolver`, `preflight`, `ConnectionFactory`, `PinnedHTTPSConnection`, `PinningUnavailable`, `pinned_connection`, `NetworkProbe._request` and the streaming body of `NetworkProbe.fetch` (lines 255–480's transport half and the loop) — the instrument keeps its own copies of nothing (spec §4). Import `RetrievalBounds`, `UrlSeam`, `Failed`, `NotAttempted`, `pinned_connection`, `system_resolver`, `retrieve` from `beliefs.holdings.transport` and `url_locator` from `beliefs.holdings.records`. `NetworkProbe` keeps its constructor signature and the `ProbeOutcome` vocabulary and becomes the adapter:
+
+```python
+    def __init__(self, scratch, *, resolver=system_resolver, timeout=DEFAULT_TIMEOUT_SECONDS, max_bytes=DEFAULT_MAX_BYTES, max_redirects=5, connect=None) -> None:
+        self._scratch = scratch
+        self._bounds = RetrievalBounds(timeout, max_bytes, max_redirects)
+        self._seam = UrlSeam(resolve=resolver, connect=connect or pinned_connection)
+
+    def fetch(self, url: str) -> ProbeOutcome:
+        """The kernel's retrieval, read into the survey's vocabulary: the kernel's
+        phase is the survey's byte observation, and its reasons are already free of
+        every hop's bytes."""
+        try:
+            locator = url_locator(url)
+        except MalformedRecord:
+            return ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="malformed url")
+        result = retrieve(locator, self._bounds, self._seam, self._scratch)
+        if isinstance(result, NotAttempted):
+            return ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason=result.reason)
+        if isinstance(result, Failed):
+            return ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason=result.reason)
+        result.path.unlink()
+        return ProbeOutcome(BYTES_RETRIEVED, digest=result.digest.partition(":")[2], size=result.size)
+```
+
+(keep the parameter annotations the module already spells.) Run `uv run --frozen pytest tests/test_admission_survey.py -q`.
 
 - [ ] **Step 5: Run the tests**
 
@@ -2258,10 +2762,10 @@ git commit -m "docs(reproduction): re-run under URL retrieval; nothing moves"
 
 - [ ] **Step 1: The acceptance module**
 
-One test per unit over the certified volume, named exactly as `UNIT_CHECKS` names it (Step 2). Fixtures at the top of the module: `certified_work` (the shared conftest fixture; on the cut-35 root it reads `SCIENCE_CUT10_ROOT`, which the runner exports); `observer(certified_work)` = Task 5's `acquisition` fixture shape (a registered observer root with a manifest, a store root, the production seam, `open_corpus`); `session(certified_work)` = Task 6's `_durable_session`; `transport(script, **kw)` = `scripted_seam`; `chain(root)`, `intents(root)` from Task 4/5's tests; `read_only_store(ctx, certified_work)` from Task 5. Each test is the Task 1–6 unit test re-composed over the durable roots:
+One test per unit over the certified volume, named exactly as `UNIT_CHECKS` names it (Step 2). Fixtures at the top of the module: `certified_work` (the shared conftest fixture; on the cut-35 root it reads `SCIENCE_CUT10_ROOT`, which the runner exports); `observer(certified_work)` = Task 5's `acquisition` fixture shape (a registered observer root with a manifest, a store root, the production seam, `open_corpus`); `session(certified_work)` = Task 6's `_durable_session`; `transport(script, **kw)` = `scripted_seam`; `served(script)` = `LocalTlsServer(script)` entered for the test and `tls_seam` over it (spec §11.2: the acceptance seam is the production pinned connection over the in-process TLS server, its context trusting the committed certificate; the scripted fake is used only where a behaviour cannot be provoked over real framing — the unpinnable context, the raised exception classes); `chain(root)`, `intents(root)` from Task 4/5's tests; `read_only_store(ctx, certified_work)` from Task 5. Each test is the Task 1–6 unit test re-composed over the durable roots:
 
-- `test_h4a_an_established_remote_found_publishes_or_the_look_raises` — Task 4's publication-failure test through the durable session's context (`replace(ctx, seam=replace(ctx.seam, publish_fulfilling=raise_publish))`): `ExecutionError` propagates, no observation directory, the chain carries the unmatched re-check intent and no registration for it, and no act-report.
-- `test_h4b_an_inconclusive_remote_attempt_mints_nothing_and_never_absent` — a standing URL `found`; then, in turn, a timeout (`raise_on_read=socket.timeout(...)`), the ceiling (`max_bytes=4` against a 5-byte body), a `404`, a `500`, a refused hop (a resolver answering `10.0.0.1` for the hop's host), an unpinnable seam: each `InconclusiveLook`, `hasattr(result, "digest")` false, the observation directory still holds exactly one record whose identity is the standing one, and no observation anywhere spells `absent` (`stored.holdings_observation_value` over every stored holdings record).
+- `test_h4a_an_established_remote_found_publishes_or_the_look_raises` — first the positive half over the TLS server (`served({"/data": Served(body=b"payload")})`): the look publishes `Found(sha256 of the bytes)` and the server's log carries the faithful request; then Task 4's publication-failure test through the durable session's context (`replace(ctx, seam=replace(ctx.seam, publish_fulfilling=raise_publish))`): `ExecutionError` propagates, no observation directory, the chain carries the unmatched re-check intent and no registration for it, and no act-report.
+- `test_h4b_an_inconclusive_remote_attempt_mints_nothing_and_never_absent` — a standing URL `found` over the TLS server; then, in turn, a timeout (scripted, `raise_on_read=socket.timeout(...)`), a truncated chunked body over the TLS server (`Served(body=b"partial", truncate_chunked=True)` → `retrieval-failed`, `transport failure: protocol`), the ceiling over the TLS server (`max_bytes=4` against a 5-byte body), a `404` and a `500` over the TLS server, a refused hop (a resolver answering `10.0.0.1` for the hop's host), an unpinnable seam: each `InconclusiveLook`, `hasattr(result, "digest")` false, the observation directory still holds exactly one record whose identity is the standing one, and no observation anywhere spells `absent` (`stored.holdings_observation_value` over every stored holdings record).
 - `test_g9a_a_url_location_holds_without_a_store_copy` — `acquire` one resource without `materialize`; `dataset_observations(declaration, active, blocked)` over `derive_holdings(world, {corpus_id}, binding, ...)`'s outputs (`test_holdings_receipt.admitted_world`'s shape over the observer root, the shipped bundle installed) is a `DatasetAnswer` whose `admission_state` is `Held`; then a re-look through a failing seam (`500`) leaves the reduction's active set byte-identical and the answer `Held`.
 - `test_r10a_the_acquisition_records_dataset_provenance` — after a materialized acquisition: the dataset's facet equals `{"locator": request.locator, "attested_by": actor, "retrieval": report_ref}`; the report's entries reference the two observations; `validity_refusal(writer.read_view, dataset, BASE) is None`; the run boundary's refusal of a URL input is cut 3's arm (`n2_arms_cut3.py` R10) and is cited, not re-run.
 - `test_t5a_a_began_request_never_spells_untested` — a `500` after the request began: the entry's outcome is `RetrievalFailed("status 500")` and the module-level assertion `type(entry.outcome) is not ByteLocatorUntested`; the frozen row's "attempt it on a locator act whose request began; assert refusal" is the sabotage direction (T5-a's arm makes `look` classify `Failed` as untested and this test fails).
@@ -2274,16 +2778,16 @@ One test per unit over the certified volume, named exactly as `UNIT_CHECKS` name
 - `test_t2b_root_selection_failure_begins_no_act` — Task 6's store-less session and Task 5's port-less writer: chain unchanged, no request, no record.
 - `test_t2c_intent_append_failure_begins_no_act` — a writer whose port's `append_intent` raises `ExecutionError("refused", index=None, applied=0)` (wrap the durable port in a small refusing proxy passed as `port=`): the error propagates, no request issued, chain and corpus unchanged.
 - `test_t2d_a_second_fulfillment_is_refused_and_a_raw_one_is_malformed` — after the happy path, `writer._publish_operation_report(outcome.report, intent_digest, operations=(writer._create_op(some_other_node),))` with the same `intent_digest` raises `ExecutionError` whose message carries "already fulfills" (the coordinator's rule, `commands.py:316`); then, over a copy of the root, append a raw settlement/registration pair fulfilling the same intent with the chain codec `test_world_log_codecs.py` uses to write entries, and `science_root._log_seam().inspect_registered(copy)` is `MalformedView` with `defect.kind == "duplicate-fulfillment"`.
-- `test_t4a_reports_leave_the_projection_unchanged_and_an_unfinished_operation_blocks_nothing` — reduce (`derive_holdings`) before and after a second acquisition that materializes nothing and adds a report: the `active` and `blocked` outputs are byte-identical (`output_digest`), the receipt's coverage state differs; then append an `acquisition` operation intent through the port with no fulfillment and reduce again: `blocked == []`.
+- `test_t4a_reports_leave_the_projection_unchanged_and_an_unfinished_operation_blocks_nothing` — fixed holdings evidence (one acquisition's observations), then reports added and removed around it: reduce (`derive_holdings`); run a second acquisition through an **unpinnable** seam (it adds one act-report and one unmatched re-check intent and publishes no observation — a second look that published would add an identity-bearing observation and move the active set, which is H4's business, not T4's); reduce: the `active` and `blocked` outputs are byte-identical (`output_digest`), the receipt's coverage state differs; `writer.delete(that report's ref)` and reduce: still byte-identical; then append an `acquisition` operation intent through the port with no fulfillment and reduce again: `blocked == []`.
 - `test_t4b_deleting_a_referenced_observation_moves_the_active_set_and_not_the_report` — `writer.delete(observation ref)` after a URL acquisition: the active set loses the head, the report's bytes (`node_to_markdown`) are unchanged and `cite(report, 0)` resolves.
 - `test_bi1_two_spellings_of_one_url_are_one_location` — two looks at `https://EXAMPLE.org:443/a/./b` and `https://example.org/a/b` through the same script: one location key in the reduction with two heads coalesced as agreeing (both in `active`, same `location`).
-- `test_bi2_no_hop_bytes_enter_any_record_or_reason` — the signed-query hop and the token-host hop (Task 3's two cases) through `acquire`: for each secret string, assert it occurs in no file under the observer root (`rglob("*")`, read as bytes), in no entry's `subject` or `reason`, and in no exception text (wrap the run in `pytest.raises` where the hop refuses).
+- `test_bi2_no_hop_bytes_enter_any_record_or_reason` — three hops through `acquire`, each a **stopped outcome, not an exception** (a refused hop is `Failed`, the look `InconclusiveLook`, the operation `Stop(resource, "look", reason)` and a closed report): the signed-query hop and the token-host hop refused at preflight (Task 3's two cases, a resolver answering `10.1.1.1` for the hop's host), and the token-host hop approved at preflight but refused by certificate validation over the TLS server (`served({"/a": Served(302, {"Location": TOKEN_HOST_HOP})})` → `Stop("a", "look", "transport failure: tls")`). For each run, `outcome.stop is not None`, the entry reads `RetrievalFailed(...)` naming the ordinal and category (or the transport category), and for each secret string — the signature, the credential, the token, both hosts — assert it occurs in no file under the observer root (`rglob("*")`, read as bytes), under the scratch root, in no entry's `subject` or `reason`, in `outcome.stop.reason`, and in the report's `node_to_markdown` bytes.
 - `test_bi3_the_pinned_connection_dials_the_validated_address` — Task 3's two pinning tests over the production `pinned_connection` with `create_connection` monkeypatched (no socket opens); and `acquire` with an unpinnable seam issues zero requests.
-- `test_bi4_the_ceiling_finalizes_no_digest` — `acquire` with `max_bytes` below the body: the entry reads `RetrievalFailed("exceeded the N-byte streaming ceiling")`, no observation minted, scratch empty.
+- `test_bi4_the_ceiling_finalizes_no_digest` — `acquire` over the TLS server with `max_bytes` below the body: the entry reads `RetrievalFailed("exceeded the N-byte streaming ceiling")`, no observation minted, scratch empty; the server's log shows one request.
 - `test_bi5_an_expectation_mismatch_mints_no_dataset_and_reports_mismatch` — Task 5's expectation test over the reduction: `dataset_observations` over the real `derive_holdings` outputs, `admission_state` reports a `mismatch` finding.
 - `test_bi6_an_already_held_address_mints_no_second_dataset` — Task 5's test.
 - `test_bi7_the_url_looks_intent_blocks_nothing` — a look whose `publish_fulfilling` raises after `Retrieved` (the re-check intent unmatched); reduce: `blocked == []` and the reduction's qualification reads the intent `unmatched` (read it off the rule's output shape or the `unsettled` absence).
-- `test_bi8_no_lock_is_held_across_the_request` — Task 5's helper-thread probe.
+- `test_bi8_no_lock_is_held_across_the_request` — Task 5's helper-thread probe, and Task 6's session-route check: the concurrent `add` completes while the request is open, and every `_SettlingHold.__enter__` during the route saw the session lock owned.
 - `test_bi9_the_successor_rule_keeps_old_receipts_validatable` — install the shipped bundle; derive a receipt; `validate_holdings_receipt` → `validated`; assert the binding's `rule_identity` and `implementation_identity` differ from the pair `docs/plans/2026-08-24-conformance-cut-10-results.md` records (grep it; if it records none, assert they differ from `git show 3873d16:python/src/beliefs/holdings/rules_v1/holdings.py`'s bundle identity computed in-test); a receipt minted under the **old** bundle (installed from those bytes as a second `RuleBundle`) still validates in the same world.
 - `test_bi10_url_intents_and_observations_decode_and_reconcile` — over the durable session after `acquire`: `reconcile_sessions` over its ledger and chain yields no finding; `decode_intent` over the chain's re-check intent is a `DecodedIntent` of shape `holdings` with the `url:` key; `evidence.decode_record` (the evidence module's entry point) over the observation file yields `ObservationEvidence("url:…", token)`.
 - `test_bi11_the_materialization_classification` — Task 5's two `_read_only_store` tests (first and last resource), the publication-failure-after-materialization test with `ExecutionError(applied=0) from PreconditionRefused`, the `SessionProtocolError` test, and the `RuntimeError`-cause negative — all five in one test function, each assertion block labeled.
@@ -2294,7 +2798,7 @@ One test per unit over the certified volume, named exactly as `UNIT_CHECKS` name
 
 | arm | module | `before` (as Tasks 1–6 write it) | `after` |
 |---|---|---|---|
-| H4-a | `holdings/boundary.py` | `    published = _publish_record(ctx, record, intent)\n    return PublishedLook(published.record, f"holdings-observation:{record.identity()}", result)` | `    try:\n        published = _publish_record(ctx, record, intent)\n    except ExecutionError as caught:\n        return InconclusiveLook("retrieval-failed", str(caught))\n    return PublishedLook(published.record, f"holdings-observation:{record.identity()}", result)` |
+| H4-a | `holdings/boundary.py` | `    except BaseException:\n        result.path.unlink(missing_ok=True)  # ownership never reached the caller\n        raise` | `    except BaseException as caught:\n        result.path.unlink(missing_ok=True)  # ownership never reached the caller\n        if isinstance(caught, ExecutionError):\n            return InconclusiveLook("retrieval-failed", str(caught))\n        raise` — an established `found` whose publication failed reads as an inconclusive attempt instead of raising |
 | H4-b | `holdings/boundary.py` | `    if isinstance(result, NotAttempted):\n        return InconclusiveLook("byte-locator-untested", result.reason)` | `    if isinstance(result, NotAttempted):\n        _publish_record(ctx, holdings_observation(location=location, outcome=Found("sha256:" + "0" * 64), expected=expected, observer=ctx.observer, instrument=ctx.instrument, event_token=token, observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), supersedes=standing), intent)\n        return InconclusiveLook("byte-locator-untested", result.reason)` — a non-answer laundered into a finding (the unpinnable case in the check); "exactly one record, the standing one" fails |
 | G9-a | `holdings/adapter.py` | `        if (found := _joined(member, declared)) is not None` | `        if not cast(str, member["location"]).startswith("url:") and (found := _joined(member, declared)) is not None` |
 | R10-a | `holdings/acquire.py` | `                empirical_observation={"locator": request.locator, "attested_by": ctx.actor, "retrieval": report_node.id},` | `                empirical_observation={"locator": request.locator, "attested_by": ctx.actor},` |
@@ -2310,7 +2814,7 @@ One test per unit over the certified volume, named exactly as `UNIT_CHECKS` name
 | T2-d | the module holding the closed defect mapping (`grep -n '"duplicate-fulfillment"' python/src/beliefs/root.py python/src/beliefs/world/logmodel.py` at freeze) | the mapping member for the engine's second-fulfillment defect | mapped to `"fulfills-invalid"`; the check asserts `defect.kind == "duplicate-fulfillment"`. The coordinator's refusal of a second `execute_fulfilling` is the engine's rule and is read, not sabotaged |
 | T4-a | `holdings/qualify.py` | `    if not isinstance(value, dict) or value.get("domain") != HOLDINGS_INTENT_DOMAIN:\n        return None` | `    if not isinstance(value, dict) or value.get("domain") != HOLDINGS_INTENT_DOMAIN:\n        return {"digest": row["digest"], "actor": "x", "event_token": str((value or {}).get("event_token", "")) if isinstance(value, dict) else "", "kind": "write", "location": "url:https://sabotage.example/"}` — an `acquisition` operation intent reads as an unmatched write and blocks a location |
 | T4-b | `corpus.py` | the first statement of `CorpusWriter._delete_locked` (read it at freeze) | preceded by a scan: `        for other in self._view.iter_stored():\n            facet = other.facets.get("act-report")\n            if isinstance(facet, dict) and any(node_id in str(entry) for entry in facet.get("entries", ())):\n                raise WriteRefused(f"{node_id}: referenced by {other.id}")` — the report confers protection; the check's `delete` refuses |
-| BI-1 | `holdings/records.py` | `    scheme = parts.scheme.lower()` | `    scheme = parts.scheme` |
+| BI-1 | `holdings/records.py` | `    authority = host if port in (None, _DEFAULT_PORTS[scheme]) else f"{host}:{port}"` | `    authority = host if port is None else f"{host}:{port}"` — the default port is kept, so `https://EXAMPLE.org:443/a/./b` and `https://example.org/a/b` are two locations in the reducer (spec §11.3 named host case; `urlsplit` already lowercases both scheme and host, so neither is a mutation) |
 | BI-2 | `holdings/transport.py` | `            return Failed(f"redirect hop {hop} refused: {decision.category}")` | `            return Failed(f"redirect hop {hop} to {urlsplit(current).hostname} refused: {decision.category}")` |
 | BI-3 | `holdings/transport.py` | `        sock = socket.create_connection((self._address, self.port), self.timeout)` | `        sock = socket.create_connection((self.host, self.port), self.timeout)` |
 | BI-4 | `holdings/transport.py` | `            if size > bounds.max_bytes:\n                return Failed(f"exceeded the {bounds.max_bytes}-byte streaming ceiling")` | `            if size > bounds.max_bytes:\n                return Retrieved(digest=f"sha256:{hasher.hexdigest()}", size=size, path=target)` |
@@ -2382,8 +2886,8 @@ git commit -m "docs(cut): discharge conformance cut 35; URL retrieval closes H4,
 
 **Spec coverage.** Decision 1 → Task 1; decision 2 → Task 4 (`look`'s `re-check` intent), Task 2 (`_location`'s url arm); decision 3 → Task 5 (`AcquisitionRequest`, the four steps, the overlay validation); decision 4 → Task 5 (`mint = stop is None and expectations_hold`); decision 5 → Task 5 (the stop and `SKIPPED_AFTER_STOP`); decision 6 → Task 3 (`preflight` categories, `Failed(f"redirect hop … refused: …")`); decision 7 → Task 3 (`RetrievalBounds`, `_stream_into` dropping the hash), Task 5 (`instrument_inputs` on every entry); decision 8 → Task 3 (`target`, `authority`, `Accept-Encoding`, the body rules, `refuse_scratch_root`); decision 9 → Task 3 (`UrlSeam`, `url_seam`, the fixtures); decision 10 → Task 4 (`store_refusal`, the wrap), Task 5 (`except StoreWriteRefused`); decision 11 → Task 5 (`held`); decision 12 → Task 9 (the new task and the ledger row); decision 13 → Task 8 (T2-d); decision 14 → Task 2 (the fixture and the reducer key), Task 8 (BI-9); decision 15 → Task 5 (locks only inside the acts and the close), Task 6 (no `_act` wrap); decision 16 → Task 1 (the deletion and the J3 re-target). §3 → Task 1; §4 → Task 3; §5 → Task 4; §6 → Task 5; §7 → Task 2; §8 → Task 6; §9 → Task 8; §11.1 → Tasks 1–6; §11.2–11.4 → Task 8; §11.5 → Task 1 Step 6 and the global constraint; §12 → the file map; §13 → Task 9's ideas; §14 → Task 9; §15 → Task 7; §16 → Task 0 Step 3 and Task 9.
 
-**Planning corrections, to record in spec §17 at Task 0.** (a) Spec §6 has `acquire` call `writer._append_operation_intent` and `_publish_operation_report`, which use the writer's own port; under the session the ledgered port is a separate object (`ScopedWriter.operation_port()`), so both members gain a `port=` override and the session route passes it (Task 5 Step 4, Task 6 Step 3). (b) Spec §11.1's session-route test cannot run over the routes module's `FakeSeam`, which publishes nothing to disk, while the close checks every published observation resolves; the session test runs over the certified volume with the production seam (Task 6). (c) Spec §11.3's T2-d sabotage named `acquire.py`; a second fulfillment's refusal is the engine's, so the arm sabotages the defect mapping's `duplicate-fulfillment` member instead (Task 8). (d) `AcquisitionOutcome.entries` is the report's entries, the declaration-pin entry included.
+**Planning corrections, to record in spec §17 at Task 0.** (a) Spec §6 has `acquire` call `writer._append_operation_intent` and `_publish_operation_report`, which use the writer's own port; under the session the ledgered port is a separate object (`ScopedWriter.operation_port()`), so both members gain a `port=` override and the session route passes it (Task 5 Step 4, Task 6 Step 3). (b) Spec §11.1's session-route test cannot run over the routes module's `FakeSeam`, which publishes nothing to disk, while the close checks every published observation resolves; the session test runs over the certified volume with the production seam (Task 6). (c) Spec §11.3's T2-d sabotage named `acquire.py`; a second fulfillment's refusal is the engine's, so the arm sabotages the defect mapping's `duplicate-fulfillment` member instead (Task 8). (d) `AcquisitionOutcome.entries` is the report's entries, the declaration-pin entry included. (e) Spec §6 step 4 resolves the looks' refs through `writer.read_view`; those publications go through the holdings seam and never set the writer's `unresolved`, so the close rebuilds the view (`_reconstruct`) under its lock before resolving anything (Task 5). (f) Spec §6/§8 left the close's lock order implicit; the session takes session-then-root everywhere, so `acquire` gains `hold`, entered before the root lock, and the route passes `_closing_hold` (Tasks 5, 6). (g) Decision 6's rule extends to transport failures: a certificate error's text names the redirected host, so a failure after the request began is named by a fixed category (`timeout`, `tls`, `connection`, `protocol`), `HTTPException` included, and every exceptional exit unlinks the scratch file (Task 3). (h) Decision 1's profile is read strictly: the trailing slash after a final dot-segment is kept, an IPv6 host keeps its brackets (its literal is not compressed — a limitation beside IDNA), and port `0` is refused (Task 1). (i) Decision 7's ceiling bounds each read by the remaining allowance plus one, and `timeout_seconds` is finite (Task 3). (j) Decision 8's scratch exclusion is `look`'s own, before its intent, not only `acquire`'s (Task 4). (k) §6 step 1's "validated as a value" covers the dataset's request-only metadata: `domain_facets` at the request, and the dataset's shape through `_refuse_dataset_shape` before the intent (Task 5). (l) §4's "keeps its own copies of nothing": the survey's `NetworkProbe.fetch` is an adapter over `retrieve`, and a refused hop reads `retrieval-failed` there too (Task 6). (m) §11.2's in-process TLS server is a committed test certificate plus `LocalTlsServer`/`tls_seam`; the unit and acceptance suites run their success, truncation, redirect, ceiling and certificate-failure cases through it (Tasks 3, 8). (n) Three checks read differently from §11.2/§11.3: T4-a's added report comes from an unpinnable acquisition, since a second look publishes an identity-bearing observation; BI-2's refused hops are stopped outcomes, never exceptions; BI-1's arm sabotages default-port elision, since `urlsplit` lowercases scheme and host itself (Task 8).
 
 **Placeholder scan.** `<taskN-id>` is filled at the planning commit (Task 0 Step 3). "Read at freeze" appears for three sabotage sites whose exact bytes are the tree's at the freeze (T1-a, T2-d, T4-b) — the behavior of each `after` is fixed above; the implementer copies the bytes and records the choice (Task 9 Step 2). Task 5's `registrations_of`/`report_of` helpers are named with their shape; Task 6's `ACQUIRES` capability is spelled with the reference to `RUNS`.
 
-**Type consistency.** `UrlLocator(url)`, `url_locator(spelling)`, `Locator` (Tasks 1, 2, 4, 5); `RetrievalBounds(timeout_seconds, max_bytes, max_redirects)` with `.instrument_inputs()` (Tasks 3, 5, 8); `Approved(host, port, target, authority, address)` (Tasks 3, 6); `retrieve(locator, bounds, seam, scratch) -> Retrieved(digest, size, path) | NotAttempted(reason) | Failed(reason)` (Tasks 3, 4); `look(ctx, location, *, bounds, seam, scratch, expected=None, standing=()) -> PublishedLook(record, ref, retrieved) | InconclusiveLook(report, reason)` (Tasks 4, 5, 8); `store_refusal(caught) -> bool`; `StoreWriteRefused(location, detail)` (Tasks 4, 5); `ResourceRequest(name, url, expected=None, materialize=None)`, `AcquisitionRequest(title, locator, resources, bounds, domain_facets=None)`, `Stop(resource, phase, reason)`, `AcquisitionOutcome(report, report_ref, dataset, entries, stop)`, `acquire(ctx, writer, request, *, seam, scratch, standing=None, port=None)` (Tasks 5, 6, 8); `_mint_acquisition_report(intent, *, observer, instrument, opened_at, closed_at, entries)` (Tasks 5, 8); `CorpusWriter._append_operation_intent(kind, token, actor, *, port=None)`, `_publish_operation_report(report, digest, *, operation=None, operations=None, port=None)`, `_refuse_acquired_dataset(node, report)` (Tasks 5, 6, 8); `ScopedWriter.acquire(request, *, instrument, scratch, seam=None, standing=None)` (Tasks 6, 8); `scripted_seam(script, *, log=None, unpinnable=False) -> (UrlSeam, RequestLog)` (Tasks 3–6, 8).
+**Type consistency.** `UrlLocator(url)`, `url_locator(spelling)`, `Locator` (Tasks 1, 2, 4, 5); `RetrievalBounds(timeout_seconds, max_bytes, max_redirects)` with `.instrument_inputs()` (Tasks 3, 5, 8); `Approved(host, port, target, authority, address)` (Tasks 3, 6); `retrieve(locator, bounds, seam, scratch) -> Retrieved(digest, size, path) | NotAttempted(reason) | Failed(reason)` (Tasks 3, 4); `look(ctx, location, *, bounds, seam, scratch, expected=None, standing=()) -> PublishedLook(record, ref, retrieved) | InconclusiveLook(report, reason)` (Tasks 4, 5, 8); `store_refusal(caught) -> bool`; `StoreWriteRefused(location, detail)` (Tasks 4, 5); `ResourceRequest(name, url, expected=None, materialize=None)`, `AcquisitionRequest(title, locator, resources, bounds, domain_facets=None)`, `Stop(resource, phase, reason)`, `AcquisitionOutcome(report, report_ref, dataset, entries, stop)`, `acquire(ctx, writer, request, *, seam, scratch, standing=None, port=None, hold=None)` (Tasks 5, 6, 8); `CorpusWriter._refuse_dataset_shape(node)` (Task 5); `ScopedWriter._closing_hold()` (Task 6); `_mint_acquisition_report(intent, *, observer, instrument, opened_at, closed_at, entries)` (Tasks 5, 8); `CorpusWriter._append_operation_intent(kind, token, actor, *, port=None)`, `_publish_operation_report(report, digest, *, operation=None, operations=None, port=None)`, `_refuse_acquired_dataset(node, report)` (Tasks 5, 6, 8); `ScopedWriter.acquire(request, *, instrument, scratch, seam=None, standing=None)` (Tasks 6, 8); `scripted_seam(script, *, log=None, unpinnable=False) -> (UrlSeam, RequestLog)`, `Scripted(status, headers, chunks, raise_on_read=None, raise_on_request=None)`, `RequestLog(requests, dialled, reads)`, `Served(status, headers, body, truncate_chunked=False)`, `LocalTlsServer(script)` with `.port`/`.log`, `tls_seam(server) -> (UrlSeam, RequestLog)` (Tasks 3–6, 8); `TRANSPORT_CATEGORIES` (Tasks 3, 8).
