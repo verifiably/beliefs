@@ -1150,6 +1150,274 @@ class TestTheOrderedCutsPredicate:
         assert "sequence" not in code + rest
 
 
+# --- the event-level relation (cut 36) -----------------------------------------
+
+from beliefs.errors import (  # grouped with the section it serves
+    BuildHold,
+    EpochMalformed,
+    EventCorpusUnknown,
+    EventCorpusUnresolvable,
+    EventUnknown,
+)
+from beliefs.world.events import Event
+
+
+class ScriptedHeads(MovingWorldHead):
+    """`MovingWorldHead`, plus a scripted `(genesis, tip)` per corpus root, so a
+    build's `anchors.yaml` names entries of the corpus views the arm fabricates."""
+
+    def __init__(self, target: Path) -> None:
+        super().__init__(target)
+        self.corpus: dict[Path, tuple[str, str]] = {}
+
+    def __call__(self, target: Path) -> tuple[str, str]:
+        scripted = self.corpus.get(Path(target).resolve())
+        if scripted is not None:
+            return scripted
+        return super().__call__(target)
+
+
+def intent_entry(label: str) -> logmodel.IntentEntryView:
+    return logmodel.IntentEntryView(digest=digest(label), payload=b"{}")
+
+
+A_GENESIS = genesis_entry(b"a", label="a-genesis")
+A_INTENT = intent_entry("a-intent")
+A_REG = registration(digest("a-reg"), "a-tx", (("spec.md", ABSENT),), (("spec.md", state("spec.md")),))
+A_SETTLED = settlement(digest("a-settled"), A_REG.digest, "a-tx", committed=True)
+A_LATER = intent_entry("a-later")
+A_VIEW = chain(A_GENESIS, A_INTENT, A_REG, A_SETTLED, A_LATER)
+B_GENESIS = genesis_entry(b"b", label="b-genesis")
+B_INTENT = intent_entry("b-intent")
+B_VIEW = chain(B_GENESIS, B_INTENT)
+A = Event  # readability below: A(ALPHA, ...) / B(BETA, ...)
+SECOND_REGISTRATION = digest("registration-2")
+SECOND_SETTLEMENT = digest("settlement-2")
+
+
+class Relation:
+    """A world with two admitted corpora, real epochs, and stubbed chains.
+
+    `e1` captures A after the spec freeze and B before the intent; `e2` is
+    built from `e1`'s settlement and captures B after the intent. The world
+    chain published both.
+    """
+
+    def __init__(self, tmp_path: Path) -> None:
+        self.heads = ScriptedHeads(tmp_path / "world")
+        self.world, _recorder, self.bindings, self.roots = admitted_world(
+            tmp_path, (ALPHA, BETA), chain_head=self.heads
+        )
+        self.alpha, self.beta = self.roots[ALPHA].resolve(), self.roots[BETA].resolve()
+        self.inspections, self.captures = Inspections(), Captures()
+        self.inspections.set(self.alpha, A_VIEW)
+        self.inspections.set(self.beta, B_VIEW)
+
+    def build(self, *, world_tip: str, a_head: str, b_head: str, coverage: tuple[str, ...] = (ALPHA, BETA)) -> str:
+        self.heads.tip = world_tip
+        self.heads.corpus[self.alpha] = (A_GENESIS.digest, a_head)
+        self.heads.corpus[self.beta] = (B_GENESIS.digest, b_head)
+        return publish(self.world, coverage, self.bindings).packaging_identity
+
+    def world_chain(self, *published: str) -> logmodel.WellFormedView:
+        """The world chain that published `published` in order, each settled."""
+        genesis = logmodel.GenesisEntryView(
+            digest=WORLD_GENESIS, payload=science_root._world_genesis_payload(WORLD_ID), baseline=()
+        )
+        entries: list[logmodel.EntryView] = []
+        for index, identity in enumerate(published, start=1):
+            entries.append(publication(digest(f"registration-{index}"), f"tx-{index}", identity))
+            entries.append(settlement(digest(f"settlement-{index}"), digest(f"registration-{index}"), f"tx-{index}", committed=True))
+        return chain(genesis, *entries)
+
+    def order(self, a: Event, b: Event, *, world_view: logmodel.ChainView | None = None) -> str:
+        self.inspections.set(self.world.config.world_root, world_view if world_view is not None else self.world_chain())
+        return verify._event_order(self.world.config, a, b, seam=make_seam(self.inspections, self.captures))
+
+
+def l8_pair(tmp_path: Path) -> tuple[Relation, Event, Event, str, str]:
+    """The L8 positive: freeze in A, E1, intent in B, E2 from E1's settlement."""
+    relation = Relation(tmp_path)
+    e1 = relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest)
+    e2 = relation.build(world_tip=FIRST_SETTLEMENT, a_head=A_LATER.digest, b_head=B_INTENT.digest)
+    return relation, A(ALPHA, A_REG.digest), A(BETA, B_INTENT.digest), e1, e2
+
+
+class TestTheEventLevelRelation:
+    def test_the_l8_positive_orders_and_is_antisymmetric(self, tmp_path):
+        relation, a, b, e1, e2 = l8_pair(tmp_path)
+        view = relation.world_chain(e1, e2)
+        assert relation.order(a, b, world_view=view) == "a-precedes-b"
+        assert relation.order(b, a, world_view=view) == "b-precedes-a"
+
+    def test_both_first_appearing_in_one_cut_is_unordered(self, tmp_path):
+        relation = Relation(tmp_path)
+        e1 = relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_INTENT.digest)
+        e2 = relation.build(world_tip=FIRST_SETTLEMENT, a_head=A_LATER.digest, b_head=B_INTENT.digest)
+        view = relation.world_chain(e1, e2)
+        a, b = A(ALPHA, A_REG.digest), A(BETA, B_INTENT.digest)
+        assert relation.order(a, b, world_view=view) == "unordered"
+        assert relation.order(b, a, world_view=view) == "unordered"
+
+    def test_a_second_cut_not_ordered_after_the_first_witnesses_nothing(self, tmp_path):
+        relation, a, b, e1, e2 = l8_pair(tmp_path)
+        # The chain published e2 first: e1's settlement is after e2's recorded head.
+        assert relation.order(a, b, world_view=relation.world_chain(e2, e1)) == "unordered"
+
+    def test_a_cut_missing_one_corpus_establishes_nothing(self, tmp_path):
+        relation = Relation(tmp_path)
+        e1 = relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest, coverage=(ALPHA,))
+        e2 = relation.build(world_tip=FIRST_SETTLEMENT, a_head=A_LATER.digest, b_head=B_INTENT.digest)
+        a, b = A(ALPHA, A_REG.digest), A(BETA, B_INTENT.digest)
+        assert relation.order(a, b, world_view=relation.world_chain(e1, e2)) == "unordered"
+
+    def test_a_genesis_mismatch_and_an_unplaceable_head_establish_nothing(self, tmp_path):
+        relation, a, b, e1, e2 = l8_pair(tmp_path)
+        view = relation.world_chain(e1, e2)
+        replaced = chain(genesis_entry(b"a2", label="a-genesis-2"), A_INTENT, A_REG, A_SETTLED, A_LATER)
+        relation.inspections.set(relation.alpha, replaced)
+        assert relation.order(a, b, world_view=view) == "unordered"
+        truncated = chain(A_GENESIS, A_INTENT, A_REG, A_SETTLED)  # e2's A head (A_LATER) is gone
+        relation.inspections.set(relation.alpha, truncated)
+        assert relation.order(a, b, world_view=view) == "unordered"
+
+    def test_a_malformed_corpus_chain_or_world_chain_is_unordered(self, tmp_path):
+        relation, a, b, e1, e2 = l8_pair(tmp_path)
+        defect = logmodel.DefectView(kind="cycle", subject=None, detail="fabricated")
+        relation.inspections.set(relation.alpha, logmodel.MalformedView(defect=defect))
+        assert relation.order(a, b, world_view=relation.world_chain(e1, e2)) == "unordered"
+        relation.inspections.set(relation.alpha, A_VIEW)
+        assert relation.order(a, b, world_view=logmodel.MalformedView(defect=defect)) == "unordered"
+
+    def test_a_malformed_first_chain_answers_before_the_second_lock_is_taken(self, tmp_path):
+        """Spec §4.3 step 2 (review round 3, P2 7): with A malformed and B under
+        a capture hold, the answer is `unordered`, never `BuildHold`."""
+        relation, a, b, e1, e2 = l8_pair(tmp_path)
+        defect = logmodel.DefectView(kind="cycle", subject=None, detail="fabricated")
+        relation.inspections.set(relation.alpha, logmodel.MalformedView(defect=defect))
+        with _operation_lock_for(relation.beta).capture():
+            assert relation.order(a, b, world_view=relation.world_chain(e1, e2)) == "unordered"
+        assert relation.beta not in relation.inspections.roots
+
+    def test_the_double_witness_is_unordered(self, tmp_path):
+        """Spec §4.3: e1 witnesses a before b, e3 (built from the same world
+        head) witnesses b before a; e2 and e4 follow each. Neither direction."""
+        relation = Relation(tmp_path)
+        e3 = relation.build(world_tip=WORLD_GENESIS, a_head=A_INTENT.digest, b_head=B_INTENT.digest)
+        e1 = relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest)
+        e2 = relation.build(world_tip=SECOND_SETTLEMENT, a_head=A_LATER.digest, b_head=B_INTENT.digest)
+        e4 = relation.build(world_tip=digest("settlement-3"), a_head=A_LATER.digest, b_head=B_INTENT.digest)
+        view = relation.world_chain(e3, e1, e2, e4)
+        a, b = A(ALPHA, A_REG.digest), A(BETA, B_INTENT.digest)
+        assert relation.order(a, b, world_view=view) == "unordered"
+        assert relation.order(b, a, world_view=view) == "unordered"
+
+    def test_same_chain_orders_by_ancestry_and_equal_moments_are_unordered(self, tmp_path):
+        relation = Relation(tmp_path)
+        assert relation.order(A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest)) == "a-precedes-b"
+        assert relation.order(A(ALPHA, A_LATER.digest), A(ALPHA, A_INTENT.digest)) == "b-precedes-a"
+        assert relation.order(A(ALPHA, A_REG.digest), A(ALPHA, A_SETTLED.digest)) == "unordered"
+        assert relation.order(A(ALPHA, A_REG.digest), A(ALPHA, A_REG.digest)) == "unordered"
+        assert relation.order(A(ALPHA, A_GENESIS.digest), A(ALPHA, A_INTENT.digest)) == "a-precedes-b"
+
+    def test_no_moment_is_unordered(self, tmp_path):
+        relation = Relation(tmp_path)
+        pending = registration(digest("a-pending"), "a-tx-2", (("x.md", ABSENT),), (("x.md", state("x.md")),))
+        rolled = registration(digest("a-rolled-reg"), "a-tx-3", (("y.md", ABSENT),), (("y.md", state("y.md")),))
+        rolled_back = settlement(digest("a-rolled"), rolled.digest, "a-tx-3", committed=False)
+        relation.inspections.set(relation.alpha, chain(A_GENESIS, A_INTENT, pending, rolled, rolled_back))
+        assert relation.order(A(ALPHA, A_INTENT.digest), A(ALPHA, pending.digest)) == "unordered"
+        assert relation.order(A(ALPHA, A_INTENT.digest), A(ALPHA, rolled.digest)) == "unordered"
+        assert relation.order(A(ALPHA, A_INTENT.digest), A(ALPHA, rolled_back.digest)) == "unordered"
+
+    def test_same_chain_opens_no_epoch_and_ignores_the_world_view(self, tmp_path, monkeypatch):
+        relation = Relation(tmp_path)
+        relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest)
+        opened: list[str] = []
+        original = epoch._locked_open_epoch
+        monkeypatch.setattr(epoch, "_locked_open_epoch", lambda root, identity: opened.append(identity) or original(root, identity))
+        defect = logmodel.DefectView(kind="cycle", subject=None, detail="fabricated")
+        assert relation.order(A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), world_view=logmodel.MalformedView(defect=defect)) == "a-precedes-b"
+        assert opened == []
+        assert relation.order(A(ALPHA, A_INTENT.digest), A(BETA, B_INTENT.digest)) == "unordered"
+        assert opened  # the cross-chain question opened the retained epoch
+
+    def test_the_world_inspection_precedes_the_registry_scan_on_both_paths(self, tmp_path, monkeypatch):
+        relation = Relation(tmp_path)
+        relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest)
+        order: list[str] = []
+        relation.inspections.probe = lambda root: order.append(f"inspect:{root.name}")
+        original = registry._scan_registry
+        monkeypatch.setattr(registry, "_scan_registry", lambda root: order.append("scan") or original(root))
+        relation.order(A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest))
+        assert order[:2] == ["inspect:world", "scan"]
+        order.clear()
+        relation.order(A(ALPHA, A_INTENT.digest), A(BETA, B_INTENT.digest))
+        assert order[:2] == ["inspect:world", "scan"]
+
+    def test_the_world_chain_is_inspected_once_and_the_world_lock_is_released_before_corpus_locks(self, tmp_path):
+        relation, a, b, e1, e2 = l8_pair(tmp_path)
+        relation.inspections.roots.clear()
+        world_lock = registry._world_lock_for(relation.world.config.world_root)
+        held_during_corpus: list[bool] = []
+        corpus_roots: list[Path] = []
+
+        def probe(root: Path) -> None:
+            if root != relation.world.config.world_root:
+                corpus_roots.append(root)
+                held_during_corpus.append(world_lock.acquire(blocking=False) is False)
+                if not held_during_corpus[-1]:
+                    world_lock.release()
+
+        relation.inspections.probe = probe
+        assert relation.order(a, b, world_view=relation.world_chain(e1, e2)) == "a-precedes-b"
+        assert relation.inspections.roots.count(relation.world.config.world_root) == 1
+        assert held_during_corpus == [False, False]  # the world lock was free at each corpus inspection
+        assert corpus_roots == sorted((relation.alpha, relation.beta), key=lambda root: {relation.alpha: ALPHA, relation.beta: BETA}[root])
+
+    def test_refusals_are_caller_input_facts(self, tmp_path):
+        relation = Relation(tmp_path)
+        with pytest.raises(EventCorpusUnknown):
+            relation.order(A("0" * 32, A_INTENT.digest), A(ALPHA, A_LATER.digest))
+        with pytest.raises(EventUnknown):
+            relation.order(A(ALPHA, digest("never")), A(ALPHA, A_LATER.digest))
+        twin = corpus_at(tmp_path / "twin", ALPHA)
+        two_carriers = registry.WorldConfig(
+            relation.world.config.world_root, relation.world.config.world_id, (*relation.world.config.corpus_roots, twin)
+        )
+        relation.inspections.set(relation.world.config.world_root, relation.world_chain())
+        with pytest.raises(EventCorpusUnresolvable):
+            verify._event_order(two_carriers, A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), seam=make_seam(relation.inspections, relation.captures))
+        repeated = registry.WorldConfig(
+            relation.world.config.world_root, relation.world.config.world_id, (*relation.world.config.corpus_roots, relation.alpha)
+        )
+        assert verify._event_order(repeated, A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), seam=make_seam(relation.inspections, relation.captures)) == "a-precedes-b"
+        none = registry.WorldConfig(relation.world.config.world_root, relation.world.config.world_id, (relation.beta,))
+        with pytest.raises(EventCorpusUnresolvable):
+            verify._event_order(none, A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), seam=make_seam(relation.inspections, relation.captures))
+
+    def test_a_terminal_corpus_still_answers(self, tmp_path):
+        relation = Relation(tmp_path)
+        relation.world.retire(ALPHA)
+        assert relation.order(A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest)) == "a-precedes-b"
+
+    def test_the_reads_own_refusals_propagate(self, tmp_path, monkeypatch):
+        relation, a, b, e1, e2 = l8_pair(tmp_path)
+        view = relation.world_chain(e1, e2)
+        monkeypatch.setattr(epoch, "_locked_open_epoch", lambda root, identity: (_ for _ in ()).throw(EpochMalformed(identity)))
+        with pytest.raises(EpochMalformed):
+            relation.order(a, b, world_view=view)
+        monkeypatch.undo()
+        lock = _operation_lock_for(relation.beta)
+        with lock.capture(), pytest.raises(BuildHold):
+            relation.order(a, b, world_view=view)
+
+    def test_sequence_numbers_are_read_by_nothing(self):
+        for core in (verify._ordered_by_descent, verify._witnessed, verify._event_order):
+            code, _docstring, rest = inspect.getsource(core).split('"""', 2)
+            assert "sequence" not in code + rest, core.__name__
+
+
 # --- the public wrappers ---------------------------------------------------------
 
 
@@ -1209,6 +1477,21 @@ class TestThePublicWrappers:
             parameters = inspect.signature(core).parameters
             assert parameters["seam"].kind is inspect.Parameter.KEYWORD_ONLY
             assert parameters["seam"].default is inspect.Parameter.empty
+
+    def test_event_order_is_a_wrapper_with_the_seam_injected(self, monkeypatch, tmp_path):
+        seen: list[object] = []
+        monkeypatch.setattr(
+            science_root,
+            "_event_order",
+            lambda config, a, b, *, seam: seen.append((config, a, b, seam)) or "unordered",
+        )
+        config = config_for(tmp_path, corpus_root(tmp_path))
+        a, b = Event(ALPHA, "1" * 64), Event(ALPHA, "2" * 64)
+        assert science_root.event_order(config, a, b) == "unordered"
+        assert seen == [(config, a, b, science_root._log_seam())]
+        assert list(inspect.signature(science_root.event_order).parameters) == ["config", "a", "b"]
+        assert {"event_order", "Event", "Order"} <= set(science_root.__all__)
+        assert inspect.signature(verify._event_order).parameters["seam"].kind is inspect.Parameter.KEYWORD_ONLY
 
 
 # --- one evaluator, two boundaries (§4.1) ----------------------------------------
