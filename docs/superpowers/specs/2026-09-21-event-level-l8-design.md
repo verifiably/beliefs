@@ -1,7 +1,7 @@
 # Event-level L8 — the presence/exclusion relation across captured corpus heads
 
 **Date:** 2026-09-21
-**Status:** draft, for review; freezes as conformance cut 36 after review clears
+**Status:** discharged at conformance cut 36 on 2026-09-21; results: ../../plans/2026-09-21-conformance-cut-36-results.md
 **Boundary:** `event-level-l8` (`beliefs-b34652`), the `world-read` lane's head, tier 1 off the path; `log-remainder` rides with it
 **Lane:** `world-read`, worktree `.worktrees/event-level-l8`
 **Sources:** `../../designs/2026-08-03-tamper-evident-log-design.md` (§3.3's granularity, §7, L1, L4, L8, L10, limitation 4),

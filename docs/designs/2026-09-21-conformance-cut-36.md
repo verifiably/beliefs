@@ -1,6 +1,6 @@
 # Conformance cut 36 — event-level L8
 
-**Status:** frozen 2026-09-21, before implementation; L8, L4 and L10 are open
+**Status:** discharged 2026-09-21 on the certified volume; results: ../plans/2026-09-21-conformance-cut-36-results.md
 **Design:** `../superpowers/specs/2026-09-21-event-level-l8-design.md`, approved for implementation planning 2026-09-21 at `a61c119` after two reviews; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-21-event-level-l8.md`.
 **Numbered after** cut 35 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 36–39 at freeze; cut 35 is the highest discharged runner.

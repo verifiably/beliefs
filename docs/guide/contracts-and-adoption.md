@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-20
+updated: 2026-09-21
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -59,6 +59,7 @@ sources:
   - ../plans/2026-09-16-conformance-cut-33-results.md
   - ../plans/2026-09-19-conformance-cut-34-results.md
   - ../plans/2026-09-20-conformance-cut-35-results.md
+  - ../plans/2026-09-21-conformance-cut-36-results.md
 ---
 
 # Contracts and adoption
@@ -205,7 +206,7 @@ W8b is measured and not selected. Its build defect is repaired by
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 
-Thirty-one conformance cuts have been frozen and discharged, each frozen before
+Thirty-two conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -265,12 +266,19 @@ optional managed materialization, one act-report published in the same
 registered transaction as the dataset it mints. H4, G9, R10, T5, T1 and T4
 close over 27 declaration units and eleven boundary invariants; T2 stays
 partial on the `audit` and `re-check` operation kinds and T7 on its
-cross-root case. The corpus now has **183 of 216 rows closed, 33 open**
+cross-root case
 (`../designs/2026-09-20-conformance-cut-35.md`;
 `../plans/2026-09-20-conformance-cut-35-results.md`).
-Cut 36 is frozen and not yet discharged: event-level L8, with L4 and L10 as
-relabels and L1 re-homed to `persistence-cut`
-(`../designs/2026-09-21-conformance-cut-36.md`).
+Cut 36 discharges event-level L8 and closes the boundary: an event is
+`(corpus_id, entry_digest)` with at most one moment, a cut speaks about a
+chain only with a placeable anchor under the live genesis, and the relation
+is witness-asymmetric over ordered cuts — the double witness answers
+`unordered`. L8 closes over 16 declaration units and three boundary
+invariants; L4 and L10 close as relabels citing cuts 8, 9 and 10; L1 stays
+partial on its persistence arms, re-homed to `persistence-cut`. The corpus
+now has **186 of 216 rows closed, 30 open**
+(`../designs/2026-09-21-conformance-cut-36.md`;
+`../plans/2026-09-21-conformance-cut-36-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -305,4 +313,5 @@ questions under
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
 - [Cut 12 discharge results](../plans/2026-08-29-conformance-cut-12-results.md)
 - [Cut 34 discharge results](../plans/2026-09-19-conformance-cut-34-results.md)
-- [Cut 35 discharge results, the newest results record](../plans/2026-09-20-conformance-cut-35-results.md)
+- [Cut 35 discharge results](../plans/2026-09-20-conformance-cut-35-results.md)
+- [Cut 36 discharge results, the newest results record](../plans/2026-09-21-conformance-cut-36-results.md)

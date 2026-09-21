@@ -506,6 +506,14 @@ predicate **only** — the event-level relation (presence/exclusion
 reasoning across both captured corpus heads) is deferred, and L8 is
 **partial**.
 
+> **Amended 2026-09-21 (cut 36).** The event-level relation is built at
+> cut 36 as `_event_order` (`root.event_order`), and `_ordered_by_descent`
+> is this predicate's pure half: `_epochs_ordered` keeps its signature and
+> contract and calls it over an already-read world view, and the relation
+> asks it every candidate pair over one inspection. L8 closes there
+> (`../superpowers/specs/2026-09-21-event-level-l8-design.md`;
+> `../plans/2026-09-21-conformance-cut-36-results.md`).
+
 > **Amended 2026-08-23 (execution ruling R33).** The signature first read
 > `epochs_ordered(world, e1, e2)`. The predicate takes the world
 > **configuration**, for the audit act's own reason (§6.1): it must answer
@@ -600,7 +608,9 @@ authority; the two places this expectation was refined are noted below**:
    banking, and its Science consumption is recorded as row 5's named
    remainder. Row 5 stays **partial** while the preimage resolver, event-level
    L8, and G4 under the successor-admission slice are outstanding; intent
-   qualification closed 2026-08-28.
+   qualification closed 2026-08-28. *(Event-level L8 closed 2026-09-21 at
+   cut 36; row 5 stays partial for the preimage resolver and L1's
+   persistence arms, the latter `persistence-cut`'s.)*
 5. **The refuse-don't-arrest narrowing** (§6.2) is dated against the log
    design §3's letter.
 6. **The empty-baseline amendment** (§1.3) leaves L6 wholly unread —
@@ -611,7 +621,12 @@ authority; the two places this expectation was refined are noted below**:
    registered store namespace, and cut 9's L6 units read both arms:
    `2026-08-23-world-index-root-lifecycle-design.md` §5.)*
 7. **Event-level cross-chain order** is deferred; §7's predicate is the
-   whole of L8 built here.
+   whole of L8 built here. *(Closed 2026-09-21 — cut 36 built the event
+   domain, the witness predicate with coverage and placeability explicit,
+   and the witness-asymmetric relation over §7's predicate factored pure;
+   L8 closes in full and L4 and L10 close as relabels:
+   `../superpowers/specs/2026-09-21-event-level-l8-design.md`, results at
+   `../plans/2026-09-21-conformance-cut-36-results.md`.)*
 8. **Verification cost** is measurement-gated; no Merkle overlay is built
    speculatively (log design §12).
 9. **The holder protocol** remains open (log design §12); nothing here

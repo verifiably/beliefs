@@ -105,7 +105,7 @@ design written 2026-08-02 through 2026-09-21. Read them in this order:
 | `2026-09-16-conformance-cut-33.md` | the discharged correction-remainder slice 1 cut: C7 and C3 closed, C10's audit arm read, and five read-boundary invariants; 11 declaration units, the cut 32 runner as prefix |
 | `2026-09-19-conformance-cut-34.md` | the discharged correction-remainder slice 2 cut: C8 and C9 closed, the snapshot target, 17 declaration units, nine boundary invariants, the cut 33 runner as prefix; the boundary closes |
 | `2026-09-20-conformance-cut-35.md` | the discharged url-retrieval cut: the `url` locator, the transport and the `acquisition` operation; H4, G9, R10, T5, T1 and T4 closed, T2 and T7 partial, 27 declaration units, eleven boundary invariants, the cut 34 runner as prefix; the boundary closes |
-| `2026-09-21-conformance-cut-36.md` | the frozen event-level-l8 cut: L8 closed, L4 and L10 relabelled, L1 re-homed, 16 declaration units, three boundary invariants, the cut 35 runner as prefix |
+| `2026-09-21-conformance-cut-36.md` | the discharged event-level-l8 cut: the event domain, the witness predicate and the witness-asymmetric relation; L8 closed, L4 and L10 relabelled, L1 re-homed to `persistence-cut`, 16 declaration units, three boundary invariants, the cut 35 runner as prefix; the boundary closes |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -113,7 +113,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 35** is implemented and discharged. What
+Every conformance cut through **cut 36** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -177,10 +177,13 @@ URL retrieval lands the `url` locator as the second arm of the holdings
 locator union, the network discipline as the kernel's dereference boundary
 behind a transport seam, and the `acquisition` operation whose closing
 act-report publishes with the dataset it mints; the acquisition lane has no
-further open boundary.
-The latest discharged boundary is cut 35
-([cut](docs/designs/2026-09-20-conformance-cut-35.md),
-[results](docs/plans/2026-09-20-conformance-cut-35-results.md)).
+further open boundary. The event-level relation orders events across corpus
+chains through world-ancestry-ordered cuts, witness-asymmetric, with
+coverage and placeability explicit and a same-chain pair ordered by
+ancestry alone.
+The latest discharged boundary is cut 36
+([cut](docs/designs/2026-09-21-conformance-cut-36.md),
+[results](docs/plans/2026-09-21-conformance-cut-36-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **216 rows** across **twenty frozen
