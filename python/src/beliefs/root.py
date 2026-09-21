@@ -1796,7 +1796,7 @@ def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
     descends from the settlement that committed E1's publication; a missing or
     rolled-back publication is `unordered`. Epoch sequence numbers are read by
     nothing. This is the log design §7's predicate only — the event-level
-    relation is deferred and L8 is partial.
+    relation is `event_order` (cut 36).
     """
     return _epochs_ordered(config, e1, e2, seam=_log_seam())
 

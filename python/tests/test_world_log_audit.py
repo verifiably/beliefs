@@ -1190,7 +1190,7 @@ A_VIEW = chain(A_GENESIS, A_INTENT, A_REG, A_SETTLED, A_LATER)
 B_GENESIS = genesis_entry(b"b", label="b-genesis")
 B_INTENT = intent_entry("b-intent")
 B_VIEW = chain(B_GENESIS, B_INTENT)
-A = Event  # readability below: A(ALPHA, ...) / B(BETA, ...)
+A = Event  # readability below: every construction is A(ALPHA, ...) or A(BETA, ...)
 SECOND_REGISTRATION = digest("registration-2")
 SECOND_SETTLEMENT = digest("settlement-2")
 
@@ -1301,7 +1301,8 @@ class TestTheEventLevelRelation:
 
     def test_the_double_witness_is_unordered(self, tmp_path):
         """Spec §4.3: e1 witnesses a before b, e3 (built from the same world
-        head) witnesses b before a; e2 and e4 follow each. Neither direction."""
+        head) witnesses b before a; e4 is built from e2's settlement, so it
+        follows e2, and through it, both e1 and e3. Neither direction."""
         relation = Relation(tmp_path)
         e3 = relation.build(world_tip=WORLD_GENESIS, a_head=A_INTENT.digest, b_head=B_INTENT.digest)
         e1 = relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest)
@@ -1411,6 +1412,36 @@ class TestTheEventLevelRelation:
         lock = _operation_lock_for(relation.beta)
         with lock.capture(), pytest.raises(BuildHold):
             relation.order(a, b, world_view=view)
+
+    def test_a_refused_inspection_propagates_untranslated(self, tmp_path):
+        """Spec §8.1 decision D9: `LogEvidenceRefused` is one of the reads'
+        own refusals too, alongside `EpochMalformed` and `BuildHold` above —
+        untranslated, for the world root's inspection (the cross-chain
+        question `l8_pair` asks) and for a corpus root's."""
+        relation, a, b, e1, e2 = l8_pair(tmp_path)
+        view = relation.world_chain(e1, e2)
+
+        world_refusal = LogEvidenceRefused("inspect", "ChainStateInvalid", "world chain contradiction")
+
+        def refuse_world(root: Path) -> None:
+            if root == relation.world.config.world_root:
+                raise world_refusal
+
+        relation.inspections.probe = refuse_world
+        with pytest.raises(LogEvidenceRefused) as caught:
+            relation.order(a, b, world_view=view)
+        assert caught.value is world_refusal
+
+        corpus_refusal = LogEvidenceRefused("inspect", "TransactionHalted", "corpus chain halted")
+
+        def refuse_corpus(root: Path) -> None:
+            if root == relation.alpha:
+                raise corpus_refusal
+
+        relation.inspections.probe = refuse_corpus
+        with pytest.raises(LogEvidenceRefused) as caught:
+            relation.order(a, b, world_view=view)
+        assert caught.value is corpus_refusal
 
     def test_sequence_numbers_are_read_by_nothing(self):
         for core in (verify._ordered_by_descent, verify._witnessed, verify._event_order):
