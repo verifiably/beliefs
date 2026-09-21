@@ -57,6 +57,8 @@ from beliefs.errors import (
     CorpusRootRefused,
     EpochMalformed,
     EpochUnknown,
+    EventCorpusUnknown,
+    EventCorpusUnresolvable,
     MalformedRecord,
     ManifestMalformed,
     ManifestMissing,
@@ -65,6 +67,7 @@ from beliefs.errors import (
     WorldUninitialized,
 )
 from beliefs.stored import verification_value
+from beliefs.world.events import Event, Order, Placement, contains, excludes, moment, place
 from beliefs.world.logmodel import (
     AbsentView,
     ChainHead,
@@ -81,7 +84,8 @@ from beliefs.world.records import capture_records
 if TYPE_CHECKING:  # pragma: no cover - the cycle below is real at run time
     from beliefs.intents.reduce import IntentQualification
     from beliefs.world.anchors import HeadArtifact, LogHeadRecord, Subject
-    from beliefs.world.registry import AdmissionRecord, ReplicaOf, World, WorldConfig
+    from beliefs.world.epoch import Epoch
+    from beliefs.world.registry import AdmissionRecord, RegistryView, ReplicaOf, World, WorldConfig
 
 __all__ = [
     "CHAIN_ABSENT",
@@ -91,6 +95,7 @@ __all__ = [
     "LogSeam",
     "ObserverCarrier",
     "ObserverSet",
+    "Order",
     "Ordering",
     "PresentedIdentity",
     "PresentedManifest",
@@ -1907,7 +1912,7 @@ def _epochs_ordered(config: WorldConfig, e1: str, e2: str, *, seam: LogSeam) -> 
     and assumes the hold; no `World` method is called under the lock (R12).
 
     This is the log design §7's predicate **only**; the event-level relation is
-    deferred and L8 is partial (§10.7).
+    `_event_order` (cut 36).
     """
     from beliefs.world import epoch
 
@@ -1918,7 +1923,21 @@ def _epochs_ordered(config: WorldConfig, e1: str, e2: str, *, seam: LogSeam) -> 
         built_from = epoch._locked_open_epoch(config.world_root, second).world_anchor.head_digest
     if type(view) is not WellFormedView:
         return "unordered"
-    settlement = _publication_settlement(view, first, seam.absent_state)
+    return _ordered_by_descent(view, first, built_from, seam.absent_state)
+
+
+def _ordered_by_descent(view: WellFormedView, e1: str, built_from: str, absent_state: object) -> Ordering:
+    """The pure half of `_epochs_ordered`, over one already-inspected world view.
+
+    Ordered **iff** `built_from` — the world head an epoch recorded at
+    preflight — is at or after the settlement that committed `e1`'s
+    publication. Descent includes the settlement itself (R29). `unordered`
+    where `e1` has no committed publication in this view or `built_from` is no
+    entry of it. The event-level relation (`_event_order`) asks this of one
+    captured view for every candidate pair, so no pair is judged against a
+    different observation of the chain (spec decision 7).
+    """
+    settlement = _publication_settlement(view, e1, absent_state)
     positions = {entry.digest: index for index, entry in enumerate(view.entries)}
     if settlement is None or built_from not in positions:
         return "unordered"
@@ -1982,3 +2001,155 @@ def _publishes(entry: RegisteredEntryView, witness: str, absent_state: object) -
         and witness in initial
         and initial[witness] == absent_state
     )
+
+
+# --- the event-level relation (cut 36) ---------------------------------------
+
+
+def _event_order(config: WorldConfig, a: Event, b: Event, *, seam: LogSeam) -> Order:
+    """Does `a` precede `b`, `b` precede `a`, or neither — at the granularity
+    the log design §7 states.
+
+    Same chain: by ancestry, after both moments resolve. Cross chain: by the
+    witness predicate `_witnessed` over the world's retained epochs, and
+    **witness-asymmetrically** — `a-precedes-b` exactly when `W(a, b)` holds
+    and `W(b, a)` does not. Two overlapping builds can witness both
+    directions; that is §7's build-window residual, and the answer is then
+    `unordered`, never a positive claim (spec decision 5).
+
+    **Reads, in lock order.** Under the world lock: inspect the world chain
+    *first* — the inspection completes recovery, and recovery can rewrite the
+    registry files the scan reads next — then scan the registry and resolve
+    each corpus's carrier, and, for a cross-chain question only, open every
+    retained epoch. A same-chain question opens no epoch and never consults
+    the world view's classification, so a malformed world chain or retained
+    epoch cannot defeat corpus ancestry (decision 4). Then, with the world lock
+    released, each corpus chain is inspected once under its own operation
+    lock, in sorted `corpus_id` order and never nested. The world chain is
+    inspected exactly once per call, and every ordered-cuts question is asked
+    of that one view through `_ordered_by_descent` (decision 7).
+
+    **Refusals are the caller's facts; `unordered` is the evidence's.** An
+    unadmitted corpus, an unresolvable carrier and a digest absent from a
+    well-formed chain refuse. A malformed chain, an unplaceable or mismatched
+    anchor, a pending or rolled-back moment, and the absence of a witness
+    answer `unordered`. `EpochMalformed`, `BuildHold` and `LogEvidenceRefused`
+    from the reads propagate untranslated: the relation refused to judge.
+    """
+    from beliefs.world import epoch, registry
+
+    if type(a) is not Event or type(b) is not Event:
+        raise TypeError("event_order takes two Event values")
+    cross_chain = a.corpus_id != b.corpus_id
+    with seam.world_lock(config.world_root):
+        world_view = seam.inspect_registered(config.world_root)
+        registry_view = registry._scan_registry(config.world_root)
+        carriers = {
+            corpus_id: _event_carrier(config, registry_view, corpus_id)
+            for corpus_id in sorted({a.corpus_id, b.corpus_id})
+        }
+        epochs: tuple[Epoch, ...] = ()
+        if cross_chain:
+            epochs = tuple(
+                epoch._locked_open_epoch(config.world_root, identity)
+                for identity in epoch._retained_identities_locked(config.world_root)
+            )
+    views: dict[str, WellFormedView] = {}
+    for corpus_id in sorted(carriers):
+        with seam.corpus_lock(carriers[corpus_id]):
+            view = seam.inspect_registered(carriers[corpus_id])
+        if type(view) is not WellFormedView:
+            # Spec §4.3 step 2: the first chain that can place nothing answers
+            # at once — the other corpus's lock is never taken for it.
+            return "unordered"
+        views[corpus_id] = view
+    view_a = views[a.corpus_id]
+    view_b = views[b.corpus_id]
+    moment_a = moment(view_a, a.digest)
+    moment_b = moment(view_b, b.digest)
+    if moment_a is None or moment_b is None:
+        return "unordered"
+    if not cross_chain:
+        if moment_a == moment_b:
+            return "unordered"
+        return "a-precedes-b" if moment_a < moment_b else "b-precedes-a"
+    if type(world_view) is not WellFormedView:
+        return "unordered"
+    first = _Placed(a.corpus_id, view_a, moment_a)
+    second = _Placed(b.corpus_id, view_b, moment_b)
+    w_ab = _witnessed(world_view, epochs, seam.absent_state, first, second)
+    w_ba = _witnessed(world_view, epochs, seam.absent_state, second, first)
+    if w_ab and not w_ba:
+        return "a-precedes-b"
+    if w_ba and not w_ab:
+        return "b-precedes-a"
+    return "unordered"
+
+
+@dataclass(frozen=True)
+class _Placed:
+    """One event, resolved: its corpus, its inspected chain, its moment."""
+
+    corpus_id: str
+    view: WellFormedView
+    moment: int
+
+
+def _witnessed(
+    world_view: WellFormedView,
+    epochs: tuple[Epoch, ...],
+    absent_state: object,
+    first: _Placed,
+    second: _Placed,
+) -> bool:
+    """`W(first, second)`: some ordered pair of retained epochs E1, E2 has E1
+    containing `first` and excluding `second`, E2 containing `second`, and
+    both cuts placing both chains (spec §4.2, decision 6). E2 orders after E1
+    by `_ordered_by_descent` over the one captured world view."""
+    for e1 in epochs:
+        on_first = _placement(first.view, e1, first.corpus_id)
+        on_second = _placement(second.view, e1, second.corpus_id)
+        if on_first is None or on_second is None:
+            continue
+        if not (contains(on_first, first.moment) and excludes(on_second, second.moment)):
+            continue
+        for e2 in epochs:
+            if e2.packaging_identity == e1.packaging_identity:
+                continue
+            built_from = e2.world_anchor.head_digest
+            if _ordered_by_descent(world_view, e1.packaging_identity, built_from, absent_state) != "ordered":
+                continue
+            later_first = _placement(first.view, e2, first.corpus_id)
+            later_second = _placement(second.view, e2, second.corpus_id)
+            if later_first is None or later_second is None:
+                continue
+            if contains(later_second, second.moment):
+                return True
+    return False
+
+
+def _placement(view: WellFormedView, epoch_: Epoch, corpus_id: str) -> Placement | None:
+    """The cut's placement of this chain, or `None` where the epoch carries no
+    anchor for the corpus — the coverage half of decision 6; `place` decides
+    the genesis and head halves."""
+    for anchor in epoch_.anchors:
+        if anchor.subject == corpus_id:
+            return place(view, genesis_digest=anchor.genesis_digest, head_digest=anchor.head_digest)
+    return None
+
+
+def _event_carrier(config: WorldConfig, registry_view: RegistryView, corpus_id: str) -> Path:
+    """The one configured root whose manifest claims `corpus_id`, for an
+    admitted corpus — terminal status permitted, since a retired corpus's
+    chain still carries its events (decision 8)."""
+    from beliefs.world import registry
+
+    if not any(record.corpus_id == corpus_id for record in registry_view.admissions):
+        raise EventCorpusUnknown(f"{corpus_id}: this world has not admitted that corpus")
+    roots = registry._carrier_roots(config, corpus_id)
+    if len(roots) != 1:
+        detail = ",".join(sorted(str(root) for root in roots)) or "none"
+        raise EventCorpusUnresolvable(
+            f"{corpus_id}: exactly one configured carrier root is required; carriers={detail}"
+        )
+    return roots[0]

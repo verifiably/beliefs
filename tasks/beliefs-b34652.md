@@ -1,26 +1,27 @@
 ---
 id: beliefs-b34652
 title: Deliver event-level L8 and the log remainder
-status: doing
+status: done
 priority: 2
 size: l
 complexity: high
 process: planned
 owner: main
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-21T09:32:08Z
+updated: 2026-09-21T16:25:29Z
 started: 2026-09-21T09:32:07Z
+completed: 2026-09-21T16:25:29Z
 depends: [beliefs-d248ba]
 tags: [migration, world-read, log]
+spec: docs/superpowers/specs/2026-09-21-event-level-l8-design.md
+plan: docs/superpowers/plans/2026-09-21-event-level-l8.md
 ---
 
-Outcome: Beliefs extends the world-read lane with the event-level relation required by L8 and closes the assigned L1, L4, and L10 log remainder.
+Outcome: Beliefs extends the world-read lane with the event-level relation required by L8 and closes the assigned L4 and L10 log remainder as relabels; L1's persistence arms are re-homed to persistence-cut (beliefs-3ea822).
 
-Acceptance evidence: After world resolution lands, freeze and implement the event-level successor to ordered cuts; add positive, divergence, corruption, and relabel evidence; discharge L8 and the ride-along rows; update the adoption ledger and roadmap; and pass the complete gates.
+Acceptance evidence: freeze cut 36 (docs/designs/2026-09-21-conformance-cut-36.md); build the event domain, the witness predicate and the witness-asymmetric relation (spec docs/superpowers/specs/2026-09-21-event-level-l8-design.md); discharge L8 in full and L4 and L10 as relabels on the certified volume; update the adoption ledger and roadmap, re-homing L1; pass the complete gates.
 
-Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `event-level-l8` and `log-remainder`; `docs/designs/2026-08-03-tamper-evident-log-design.md`; and `docs/designs/2026-08-22-log-verification-design.md`.
-
-Uncertainty: The ordered-cuts predicate exists, but the event-level relation's design and cut plan do not.
+Sources: docs/plans/2026-08-29-implementation-roadmap.md event-level-l8 and log-remainder; docs/designs/2026-08-03-tamper-evident-log-design.md §7; docs/designs/2026-08-22-log-verification-design.md §7, §10.7.
 
 ## Notes
 
@@ -29,3 +30,8 @@ Uncertainty: The ordered-cuts predicate exists, but the event-level relation's d
 - 2026-09-21T09:32:08Z (main): started
   provenance: {"harness_session":"claude-code:51515f65-ae75-4a25-83a1-28526d417cd6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-21T09:32:08Z (main): claimed by claude-code/opus, pid 3174647
+- 2026-09-21T09:53:53Z (event-level-l8): Spec drafted for review: L8 in full (event domain, witness predicate W, witness-asymmetric relation), L4/L10 relabels, L1 re-homed to persistence-cut (beliefs-3ea822) and left partial; cut 36 claimed.
+- 2026-09-21T16:25:29Z (event-level-l8): done
+  provenance: {"harness_session":"claude-code:51515f65-ae75-4a25-83a1-28526d417cd6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-21T16:25:29Z (event-level-l8): cut 36 discharged: event-level L8 in full, L4 and L10 relabelled, L1 re-homed to persistence-cut
+  provenance: {"harness_session":"claude-code:51515f65-ae75-4a25-83a1-28526d417cd6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

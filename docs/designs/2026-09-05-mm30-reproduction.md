@@ -1039,3 +1039,56 @@ an acquisition path while the reproduction's supplied member and its answer
 stayed exactly where §13 left them, and every one of the corpus's own
 stored observations kept decoding, byte-identical, as the `store` locator
 they always were.
+
+## 15. Addendum — event-level L8, 2026-09-21
+
+Re-run under event-level L8
+(`../superpowers/specs/2026-09-21-event-level-l8-design.md`; cut 36), from
+the worktree `event-level-l8`, at head `7cb5151`. No contract succeeded, so
+nothing under `.work/reproduction/mm30` was recreated or moved aside: the
+corpus is read in place, exactly as at §14. `MM30_PREDECESSOR` again had to
+be set explicitly to
+`/mnt/ssd/Dropbox/proto/projects/cancer/cancer-types/multiple-myeloma`, the
+same defect §13 and §14 recorded for the declared default.
+
+### 15.1 What changed in the kernel this slice
+
+The slice adds `beliefs.world.events` (the event domain — moments and
+placements), factors `verify._ordered_by_descent` out of the ordered-cuts
+descent previously inlined in `_epochs_ordered`, and adds
+`verify._event_order`, `_witnessed`, `_placement`, and `_event_carrier`,
+`root.event_order`, and three caller-input refusals
+(`EventCorpusUnknown`, `EventCorpusUnresolvable`, `EventUnknown`). None of
+this is reached by the mm30 driver: `grep -n 'event_order\|_epochs_ordered'
+python/tools/reproduction/*.py` is empty, so the relation is read by no
+driver step. mm30's world has one corpus chain and its epochs order no
+cross-chain pair, so the relation is exercised only by the acceptance
+module — `python/tests/acceptance/test_event_order_acceptance.py` — not by
+this corpus, exactly as §13.1 and §14.1 held for the snapshot and URL arms.
+
+### 15.2 What the re-run reached
+
+`reproduction.rederive`, 2026-09-21, in a fresh process: `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}`, equal to
+the recorded step-8 answer (`rederived_equal: true`) — the same payload §12.2,
+§13.2, and §14.2 quoted, unchanged by this slice. `state.json` was rewritten
+with byte-identical content (a full-file diff against the pre-run copy is
+empty); only `findings.jsonl` gained the run's own log lines. No pinned
+digest moved: this re-run is the transition decision 11 (of slice 2)
+predicted extended two slices further — a slice that adds an event domain
+and an event-level ordering relation over captured corpus heads without
+touching any derivation rule or implementation identity the mm30 corpus's
+answer depends on.
+
+### 15.3 What this addendum does not claim
+
+That mm30's world holds a cross-chain event pair, or that one is minted
+here: it does not, and minting one is the dogfood's work, not the
+reproduction's, exactly as §12.3, §13.3, and §14.3 held for the other arms.
+That `_event_order`, `_witnessed`, `_placement`, or `_event_carrier` are
+read anywhere in this run: the driver never calls `root.event_order`, so the
+witness predicate is never evaluated and no event carrier is ever resolved
+on this corpus's behalf. The transition this addendum measures is that the
+kernel gained an event domain and an event-level relation over corpus heads
+while the reproduction's supplied member and its answer stayed exactly
+where §14 left them.

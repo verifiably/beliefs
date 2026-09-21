@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-09-20
+updated: 2026-09-21
 sources:
   - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
@@ -189,6 +189,13 @@ implementation**: a guarantee row awaiting code is work, not a question.
   the ledger's measurement gate. A Merkle overlay is the known upgrade path and
   is deliberately not built on speculation.
   ([log question](../designs/2026-08-03-tamper-evident-log-design.md#12-open-questions))
+- **Capture-order sharpening of the event-level relation** — the build
+  captures serially in sorted `corpus_id` order, so E1's A-head containing
+  `a` and B-head excluding `b` implies `a` before `b` in real time exactly
+  when `A < B`; using it would order the double witness (spec §11.2). Not
+  built; a design amendment to the log design §7 when a consumer needs it.
+  ([event-level L8 design](../superpowers/specs/2026-09-21-event-level-l8-design.md#11-limitations-and-open-questions-this-slice-files),
+  [log design §7](../designs/2026-08-03-tamper-evident-log-design.md#7-ordering-across-chains))
 ## Computation and reproducibility
 
 - **Artifact lifetime.** Held code, environments, inputs, and outputs accumulate;

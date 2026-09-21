@@ -166,6 +166,7 @@ from beliefs.world.anchors import (
     _require_world_genesis,
     parse_store_genesis,
 )
+from beliefs.world.events import Event, Order
 from beliefs.world.logmodel import (
     AbsentView,
     ChainHead,
@@ -190,6 +191,7 @@ from beliefs.world.verify import (
     _admit_arrival,
     _audit_log,
     _epochs_ordered,
+    _event_order,
     _restore_root,
     registered_surface_paths,
 )
@@ -210,7 +212,9 @@ __all__ = [
     "DestinationOverride",
     "DurableExecutor",
     "DurableOperationPort",
+    "Event",
     "LifecycleState",
+    "Order",
     "RootOperationId",
     "RootOperationInvalid",
     "RootOperationMismatch",
@@ -222,6 +226,7 @@ __all__ = [
     "durable_executor_factory",
     "durable_operation_port",
     "epochs_ordered",
+    "event_order",
     "export_head_artifact",
     "fork_corpus",
     "fork_store",
@@ -1791,9 +1796,21 @@ def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
     descends from the settlement that committed E1's publication; a missing or
     rolled-back publication is `unordered`. Epoch sequence numbers are read by
     nothing. This is the log design §7's predicate only — the event-level
-    relation is deferred and L8 is partial.
+    relation is `event_order` (cut 36).
     """
     return _epochs_ordered(config, e1, e2, seam=_log_seam())
+
+
+def event_order(config: WorldConfig, a: Event, b: Event) -> Order:
+    """Whether `a` precedes `b`, `b` precedes `a`, or neither — the event-level
+    relation of the log design §7, over captured corpus heads.
+
+    Same chain by ancestry; across chains only through world-ancestry-ordered
+    cuts, witness-asymmetrically (`a-precedes-b` iff `W(a, b)` and not
+    `W(b, a)`), `unordered` the default answer. Epoch sequence numbers are read
+    by nothing. Cut 36; spec `2026-09-21-event-level-l8-design.md`.
+    """
+    return _event_order(config, a, b, seam=_log_seam())
 
 
 def durable_operation_port(root: Path, authority: Authority, *, profile: ProfileSpec) -> DurableOperationPort:

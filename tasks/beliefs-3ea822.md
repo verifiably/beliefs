@@ -6,7 +6,7 @@ priority: 3
 size: l
 complexity: high
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-21T15:28:32Z
 depends: [atoms-f5779f]
 tags: [migration, cross-repo, durability]
 ---
@@ -22,3 +22,5 @@ Uncertainty: The current publication path exists, but its cross-repository persi
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity high: Cut 7 explicitly leaves X2 power-fail evidence open and atoms-f5779f still has no cross-repository harness design or certified hardware scope. Composing consumer publication stages with the sole Atoms recovery authority requires substantial design and certification judgment.
+- 2026-09-21T11:54:12Z (event-level-l8): Gains L1's remaining arms from log-remainder at cut 36 (spec 2026-09-21-event-level-l8-design §2 decision 12, §10): kill the executor between entry durability and apply at every stage → entry present, pending; recovery settles it and the surface matches; crash after entry durability but before the transaction record stores the entry digest → no second registration; cut persistence at every stage of the settlement sequence for BOTH terminal arms (a committing and a rolling-back transaction) → one registration, one settlement, the binding backfilled, and neither outcome returned nor the lease released before the settlement is durable. L1 stays partial until this task reads them.
+- 2026-09-21T15:28:32Z (event-level-l8): L1's arms formally re-homed here at cut 36 (results record §2; ledger persistence-cut row; roadmap Appendix B).
