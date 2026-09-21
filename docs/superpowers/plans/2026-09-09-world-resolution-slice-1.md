@@ -69,8 +69,8 @@ These corrections follow spec §§4.1 and 5.3; historical snippets remain below.
 - [ ] **Step 1: Confirm the number is free**
 
 ```bash
-git -C /mnt/ssd/Dropbox/beliefs worktree list
-for wt in $(git -C /mnt/ssd/Dropbox/beliefs worktree list --porcelain | awk '/^worktree /{print $2}'); do ls "$wt/docs/designs" | grep -c "conformance-cut-23" ; done
+git -C ~/d/beliefs worktree list
+for wt in $(git -C ~/d/beliefs worktree list --porcelain | awk '/^worktree /{print $2}'); do ls "$wt/docs/designs" | grep -c "conformance-cut-23" ; done
 ```
 Expected: every count is `0`. If not, the number is taken; use the next free one everywhere below.
 

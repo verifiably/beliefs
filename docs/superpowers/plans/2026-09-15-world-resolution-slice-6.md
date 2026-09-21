@@ -53,7 +53,7 @@
 - [ ] **Step 1: Claim the cut number under concurrency rule 1 — scan every worktree**
 
 ```bash
-cd /mnt/ssd/Dropbox/beliefs
+cd ~/d/beliefs
 for w in $(git worktree list --porcelain | sed -n 's/^worktree //p'); do
   git -C "$w" ls-files docs/designs | grep -o 'conformance-cut-[0-9]*' ; done | sort -t- -k3 -n | uniq | tail -1
 ```
@@ -1001,7 +1001,7 @@ If the durable writers append the operation intent through a port whose fulfilme
 The module needs the certified tuple. Run with the roots cut 29's record exports (its §1), substituting `cut30`:
 
 ```bash
-cd /mnt/ssd/Dropbox/beliefs
+cd ~/d/beliefs
 MAIN_CHECKOUT="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
 export SCIENCE_CUT4_ROOT="$MAIN_CHECKOUT/.cut30-acceptance/world-resolution-slice-6"
 export SCIENCE_CUT7_ROOT="$SCIENCE_CUT4_ROOT" SCIENCE_CUT10_ROOT="$SCIENCE_CUT4_ROOT" SCIENCE_CUT29_ROOT="$SCIENCE_CUT4_ROOT" SCIENCE_CUT30_ROOT="$SCIENCE_CUT4_ROOT"
@@ -1283,7 +1283,7 @@ git -C $W commit -m "test(cut30): guard pinning the freeze and the declaration"
 Run from the worktree root: `just check` then `just test-fast`. Expected: clean. Then the certified run, exactly as cut 29's record §1 with `29 → 30` and `world-resolution-slice-5 → world-resolution-slice-6`, keeping every transcript:
 
 ```bash
-cd /mnt/ssd/Dropbox/beliefs/.worktrees/world-resolution-slice-6
+cd ~/d/beliefs/.worktrees/world-resolution-slice-6
 MAIN_CHECKOUT="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
 for v in 4 7 10 29 30; do export SCIENCE_CUT${v}_ROOT="$MAIN_CHECKOUT/.cut30-acceptance/world-resolution-slice-6"; done
 mkdir -p "$MAIN_CHECKOUT/.cut30-acceptance" docs/plans/2026-09-15-conformance-cut-30-run
@@ -1328,7 +1328,7 @@ git -C $W commit -m "docs(cut30): discharge conformance cut 30 and close world-r
 Request review with `superpowers:requesting-code-review` over the whole branch; take every finding as its own commit. Then:
 
 ```bash
-cd /mnt/ssd/Dropbox/beliefs && git merge --no-ff design/world-resolution-slice-6 -m "merge: world resolution slice 6 — conformance cut 30"
+cd ~/d/beliefs && git merge --no-ff design/world-resolution-slice-6 -m "merge: world resolution slice 6 — conformance cut 30"
 ```
 Run `just gate` on merged `main` with the five `SCIENCE_CUT*_ROOT` exports of Step 1; record the pass counts, transcript (`main-gate.log`, redacted, digested) and merge hash in the results record's §6; commit that as `docs(cut30): record merged-main verification` on `main`.
 

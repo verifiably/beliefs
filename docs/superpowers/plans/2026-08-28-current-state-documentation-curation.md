@@ -36,7 +36,7 @@
 - [ ] **Step 1: Run the ancestry and surface checks**
 
 ```bash
-cd /mnt/ssd/Dropbox/science/.worktrees/current-state-curation
+cd ~/d/science/.worktrees/current-state-curation
 for c in e4d7186 4933d92 2140805 567ebb4 83744e7 10cc84b 7a9fec8 35be6ff 806444e 1f39b0d; do
   printf "%s " $c; git merge-base --is-ancestor $c HEAD && echo ancestor || echo NOT-ANCESTOR
 done

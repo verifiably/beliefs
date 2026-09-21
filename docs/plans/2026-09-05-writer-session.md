@@ -76,7 +76,7 @@ PY
 
 **Files:**
 - Modify: `docs/designs/2026-09-05-writer-session-design.md` (append §13 after §12), `docs/designs/2026-09-05-conformance-cut-19.md` (append §8 after §7; §2–§7 untouched)
-- Modify (science repo): `/mnt/ssd/Dropbox/science/docs/plans/2026-08-31-command-framework.md` (Task 12 *Consumes* block), `/mnt/ssd/Dropbox/science/docs/specs/2026-08-31-command-framework-design.md` (§4.2, §5.1)
+- Modify (science repo): `~/d/science/docs/plans/2026-08-31-command-framework.md` (Task 12 *Consumes* block), `~/d/science/docs/specs/2026-08-31-command-framework-design.md` (§4.2, §5.1)
 - Tasks: children of `beliefs-afbbff`
 
 **Interfaces:**
@@ -254,7 +254,7 @@ mechanism admits, listed in the plan's Task 11.
 
 - [ ] **Step 3: File the science change requests**
 
-In `/mnt/ssd/Dropbox/science/docs/plans/2026-08-31-command-framework.md`, Task 12's *Consumes* block, replace the `scoped` and `open_attended_session` bullets and append two notes:
+In `~/d/science/docs/plans/2026-08-31-command-framework.md`, Task 12's *Consumes* block, replace the `scoped` and `open_attended_session` bullets and append two notes:
 
 ```markdown
   - `beliefs.session.open_attended_session(world_config, operations_root, *, coordination: ProfileSpec | None = None) -> WriterSession` — **changed 2026-09-05 by the beliefs writer-session design §3.1, decision 12**: the launcher supplies the compiled coordination profile for coordination-class commands; without it those commands refuse `CoordinationUnavailable` at the act
@@ -289,7 +289,7 @@ And in §5.1 after the `open_attended_session` bullet:
 Commit in the science repo:
 
 ```bash
-cd /mnt/ssd/Dropbox/science && git add docs && git commit -m "docs(command-framework): take the beliefs writer-session change requests
+cd ~/d/science && git add docs && git commit -m "docs(command-framework): take the beliefs writer-session change requests
 
 scoped(required, invocation_id) binds the writer to its invocation;
 open_attended_session takes the coordination profile by keyword; two notes

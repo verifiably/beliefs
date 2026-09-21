@@ -69,7 +69,7 @@
 
 - [ ] **Step 1: Confirm the baseline and the lane**
 
-Run `git -C /mnt/ssd/Dropbox/beliefs log --oneline -1`; `main` is at `728a178` or a descendant touching none of `holdings/`, `intents/`, `corpus.py`, `stored.py`, `boundary.py`, `session/writer.py`, `errors.py`. If it moved, `git merge --ff-only main` in the worktree (or rebase), re-read spec §1's baseline claims against the tree and record any drift in spec §17. `tasks prime` inside the worktree: `beliefs-d13fe8` is `doing`, owned by this branch; the roadmap's lane table shows no open kernel lane.
+Run `git -C ~/d/beliefs log --oneline -1`; `main` is at `728a178` or a descendant touching none of `holdings/`, `intents/`, `corpus.py`, `stored.py`, `boundary.py`, `session/writer.py`, `errors.py`. If it moved, `git merge --ff-only main` in the worktree (or rebase), re-read spec §1's baseline claims against the tree and record any drift in spec §17. `tasks prime` inside the worktree: `beliefs-d13fe8` is `doing`, owned by this branch; the roadmap's lane table shows no open kernel lane.
 
 - [ ] **Step 2: Claim the cut number**
 
@@ -2828,7 +2828,7 @@ git commit -m "feat(session): the acquisition route, and the survey instrument o
 
 - [ ] **Step 1: Run**
 
-From `python/`, with `SCIENCE_MM30_ROOT=/mnt/ssd/Dropbox/beliefs/.work/reproduction/mm30` (the main checkout's; the driver resolves the main checkout through the worktree's real path, `beliefs-51ffdf`): run the driver as cut 34's Task 6 did (`sed -n '/### Task 6/,/### Task 7/p' docs/superpowers/plans/2026-09-19-correction-remainder-slice-2.md` for the exact command and the `state.json` fields read). Nothing is recreated or moved aside: no contract succeeded; every stored holdings observation in mm30's corpus is a `store` location and decodes under the widened codec; the reducer is not invoked by the driver (`grep -n derive_holdings python/tools/reproduction/*.py` is empty), so no rule identity is read there.
+From `python/`, with `SCIENCE_MM30_ROOT=~/d/beliefs/.work/reproduction/mm30` (the main checkout's; the driver resolves the main checkout through the worktree's real path, `beliefs-51ffdf`): run the driver as cut 34's Task 6 did (`sed -n '/### Task 6/,/### Task 7/p' docs/superpowers/plans/2026-09-19-correction-remainder-slice-2.md` for the exact command and the `state.json` fields read). Nothing is recreated or moved aside: no contract succeeded; every stored holdings observation in mm30's corpus is a `store` location and decodes under the widened codec; the reducer is not invoked by the driver (`grep -n derive_holdings python/tools/reproduction/*.py` is empty), so no rule identity is read there.
 
 - [ ] **Step 2: Record**
 
@@ -2926,7 +2926,7 @@ Every `before` must occur exactly once in its module and the mutated module must
 
 - [ ] **Step 4: Freeze the declaration, discharge, commit**
 
-Pin `CUT35_DECLARATION_SHA256`; `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut35.py -q -k "not sabotage"`; then on the certified volume `SCIENCE_CUT35_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut35 uv run --frozen python tools/cut35_acceptance.py` (the runner exports the prefix chain's roots itself), then `just hook-pre-push`. Record both summary lines. Every arm `sound`, the baseline `resolved`, no `stale`.
+Pin `CUT35_DECLARATION_SHA256`; `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut35.py -q -k "not sabotage"`; then on the certified volume `SCIENCE_CUT35_ROOT=~/d/beliefs/.work/acceptance/cut35 uv run --frozen python tools/cut35_acceptance.py` (the runner exports the prefix chain's roots itself), then `just hook-pre-push`. Record both summary lines. Every arm `sound`, the baseline `resolved`, no `stale`.
 
 ```bash
 tasks check

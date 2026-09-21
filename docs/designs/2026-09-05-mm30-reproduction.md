@@ -336,7 +336,7 @@ can tell instrument from kernel.
   status changes on this record. The measurements are reachability facts
   about one path over one record.
 - **One proposition, one dataset, one host.** `concept:disease-stage affects
-  protein:PHF19` over GSE179929 on the host `titan`, whose bubblewrap
+  protein:PHF19` over GSE179929 on the reproduction workstation, whose bubblewrap
   reached `clean-environment`. Another host, another target or a paired
   analysis may reach a different row of `derive_scope` or a different
   outcome; the `inconclusive` here is a two-group unpaired comparison at
@@ -883,7 +883,7 @@ cut 34), from the worktree `design/correction-remainder`, at head `24f901c`.
 No contract succeeded, so nothing under `.work/reproduction/mm30` was
 recreated or moved aside: the corpus is read in place, exactly as at §12.
 `MM30_PREDECESSOR` had to be set explicitly to
-`/mnt/ssd/Dropbox/proto/projects/cancer/cancer-types/multiple-myeloma` — the
+`~/d/proto/projects/cancer/cancer-types/multiple-myeloma` — the
 declared default (`~/d/cancer/cancer-types/multiple-myeloma`) resolves two
 path segments short of it on this host (the real predecessor carries
 `proto/projects` ahead of `cancer/cancer-types/multiple-myeloma`) and
@@ -947,7 +947,7 @@ worktree `url-retrieval`, at head `c72b24a`. No contract succeeded, so
 nothing under `.work/reproduction/mm30` was recreated or moved aside: the
 corpus is read in place, exactly as at §13. `MM30_PREDECESSOR` again had to
 be set explicitly to
-`/mnt/ssd/Dropbox/proto/projects/cancer/cancer-types/multiple-myeloma`, the
+`~/d/proto/projects/cancer/cancer-types/multiple-myeloma`, the
 same defect §13 recorded for the declared default.
 
 ### 14.1 What changed in the kernel this slice
@@ -1048,7 +1048,7 @@ the worktree `event-level-l8`, at head `7cb5151`. No contract succeeded, so
 nothing under `.work/reproduction/mm30` was recreated or moved aside: the
 corpus is read in place, exactly as at §14. `MM30_PREDECESSOR` again had to
 be set explicitly to
-`/mnt/ssd/Dropbox/proto/projects/cancer/cancer-types/multiple-myeloma`, the
+`~/d/proto/projects/cancer/cancer-types/multiple-myeloma`, the
 same defect §13 and §14 recorded for the declared default.
 
 ### 15.1 What changed in the kernel this slice

@@ -22,7 +22,7 @@
 - Sealed value types (`AssessmentVerification`, `DatasetProductionVerification`, `ComparisonReport`, `FrozenSpec`, `StoredVerification`) get no public constructor; restoration goes through the module's private mint. **[R3]**
 - A raw-write fixture the audit must *recompute* recomputes its semantic stamp first; an unstamped edit is `semantic-hash-stale`, which the audit skips as malformed and exercises nothing.
 - The `domain` lane's cut 20 is undischarged on its branch. `tools/cut21_acceptance.py` names `cut20_acceptance.py` as prefix and cannot run end to end until that lane merges (Task 12). Every portable test and the durable module run now.
-- No `/home/keith` or `/mnt/ssd/Dropbox` paths in code or docs.
+- No absolute home or sync-root paths in code or docs.
 - Sections §2–§7 of the cut document are frozen; a deviation from them is dated in the results record (Task 12 step 6), never edited in. Two are known at plan time and listed there.
 
 ---

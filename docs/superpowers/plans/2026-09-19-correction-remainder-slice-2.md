@@ -55,7 +55,7 @@
 
 - [ ] **Step 1: Confirm the baseline and the lane**
 
-Run `git -C /mnt/ssd/Dropbox/beliefs log --oneline -1`; `main` is at `1958ec5` or a descendant touching none of `stored.py`, `corpus.py`, `evaluation.py`, `world/{derive,epoch,read,view,audit,importing}.py`, `audit.py`, `session/__init__.py`. If it moved, `git merge --ff-only main` in the worktree (or rebase), re-read spec §1's baseline claims against the tree and record any drift in spec §17. `tasks prime` inside the worktree: `beliefs-aa27da` and `beliefs-d79ca4` are `doing`, owned by this branch; the roadmap's lane table shows `mutation` as the only open kernel lane.
+Run `git -C ~/d/beliefs log --oneline -1`; `main` is at `1958ec5` or a descendant touching none of `stored.py`, `corpus.py`, `evaluation.py`, `world/{derive,epoch,read,view,audit,importing}.py`, `audit.py`, `session/__init__.py`. If it moved, `git merge --ff-only main` in the worktree (or rebase), re-read spec §1's baseline claims against the tree and record any drift in spec §17. `tasks prime` inside the worktree: `beliefs-aa27da` and `beliefs-d79ca4` are `doing`, owned by this branch; the roadmap's lane table shows `mutation` as the only open kernel lane.
 
 - [ ] **Step 2: Claim the cut number**
 
@@ -1483,7 +1483,7 @@ git commit -m "feat(correction): the world read refuses a retracted producer sna
 
 - [ ] **Step 1: Run**
 
-From `python/`, with `SCIENCE_MM30_ROOT=/mnt/ssd/Dropbox/beliefs/.work/reproduction/mm30` (the main checkout's, memory `worktree-on-work-root-needs-cut-root-exports`; the driver resolves the main checkout through the worktree's real path, `beliefs-51ffdf`): run the driver as cut 33's Task 6 did (`sed -n '/### Task 6/,/### Task 7/p' docs/superpowers/plans/2026-09-16-correction-remainder-slice-1.md` for the exact command and the `state.json` fields read). Nothing is recreated or moved aside: no contract succeeded; the retraction enumeration is derived as at cut 33 and mm30's corpus holds no snapshot-arm retraction.
+From `python/`, with `SCIENCE_MM30_ROOT=~/d/beliefs/.work/reproduction/mm30` (the main checkout's, memory `worktree-on-work-root-needs-cut-root-exports`; the driver resolves the main checkout through the worktree's real path, `beliefs-51ffdf`): run the driver as cut 33's Task 6 did (`sed -n '/### Task 6/,/### Task 7/p' docs/superpowers/plans/2026-09-16-correction-remainder-slice-1.md` for the exact command and the `state.json` fields read). Nothing is recreated or moved aside: no contract succeeded; the retraction enumeration is derived as at cut 33 and mm30's corpus holds no snapshot-arm retraction.
 
 - [ ] **Step 2: Record**
 
@@ -1560,7 +1560,7 @@ Every `before` must occur exactly once in its module and the mutated module must
 
 - [ ] **Step 4: Freeze the declaration, discharge, commit**
 
-Pin `CUT34_DECLARATION_SHA256`; `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut34.py -q -k "not sabotage"`; then on the certified volume `SCIENCE_CUT34_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut34 uv run --frozen python tools/cut34_acceptance.py` (the runner exports the prefix chain's roots itself), then `just hook-pre-push`. Record both summary lines. Every arm `sound`, the baseline `resolved`, no `stale`.
+Pin `CUT34_DECLARATION_SHA256`; `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut34.py -q -k "not sabotage"`; then on the certified volume `SCIENCE_CUT34_ROOT=~/d/beliefs/.work/acceptance/cut34 uv run --frozen python tools/cut34_acceptance.py` (the runner exports the prefix chain's roots itself), then `just hook-pre-push`. Record both summary lines. Every arm `sound`, the baseline `resolved`, no `stale`.
 
 ```bash
 tasks check

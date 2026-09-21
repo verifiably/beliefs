@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Baseline is `main` at `acf4692`.** Work in the worktree `.worktrees/event-level-l8` (branch `event-level-l8`); every path below is relative to the repository root, and paths shown to the user carry the worktree prefix. Exports for a worktree on `WORK_ROOT`: `SCIENCE_MM30_ROOT` and every `SCIENCE_CUT*_ROOT` name the **main checkout's** `.work/…` (memory `worktree-on-work-root-needs-cut-root-exports`; ~190 `CapabilityUnavailable` failures are a missing export, not a regression). The main checkout is `/mnt/ssd/Dropbox/beliefs`.
+- **Baseline is `main` at `acf4692`.** Work in the worktree `.worktrees/event-level-l8` (branch `event-level-l8`); every path below is relative to the repository root, and paths shown to the user carry the worktree prefix. Exports for a worktree on `WORK_ROOT`: `SCIENCE_MM30_ROOT` and every `SCIENCE_CUT*_ROOT` name the **main checkout's** `.work/…` (memory `worktree-on-work-root-needs-cut-root-exports`; ~190 `CapabilityUnavailable` failures are a missing export, not a regression). The main checkout is `~/d/beliefs`.
 - AGENTS.md, Cut plans, verbatim: **`root.py` is the one `atoms` importer** (`test_capability_boundary.py`,
   `TestTheCompositionRootIsTheOneAtomsImporter`). A classification over engine
   cause types, a predicate over engine exceptions, or any other engine-typed
@@ -27,7 +27,7 @@
   declared-arm, declaration-unit and guarantee-row counts, and the cut's
   guarantee-rows-exercised line. Cuts 33, 34 and 35 landed theirs at `f4c2cef`,
   `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. — Here that is Task 5, Step 4, with `(cut36, 36, (18, 16, 3))`.
-- **The worktree's sibling dependencies resolve through WORK_ROOT links.** `python/pyproject.toml` pins `verifiably-atoms` and `verifiably-nodes` as editable paths `../../atoms/python` and `../../nodes/python`, which from `.worktrees/event-level-l8/python` resolve under `/mnt/ssd3/work/beliefs/.worktrees/`. The links `.worktrees/atoms → /mnt/ssd/Dropbox/atoms` and `.worktrees/nodes → /mnt/ssd/Dropbox/nodes` exist (created 2026-09-21); `cd python && uv run --frozen python -c "import atoms, nodes, beliefs"` prints nothing on success. A `Distribution not found at: file:///mnt/ssd3/work/beliefs/.worktrees/atoms/python` is a missing link, not a dependency change.
+- **The worktree's sibling dependencies resolve through WORK_ROOT links.** `python/pyproject.toml` pins `verifiably-atoms` and `verifiably-nodes` as editable paths `../../atoms/python` and `../../nodes/python`, which from `.worktrees/event-level-l8/python` resolve under `$WORK_ROOT/beliefs/.worktrees/`. The links `.worktrees/atoms → ~/d/atoms` and `.worktrees/nodes → ~/d/nodes` exist (created 2026-09-21); `cd python && uv run --frozen python -c "import atoms, nodes, beliefs"` prints nothing on success. A `Distribution not found at: file://$WORK_ROOT/beliefs/.worktrees/atoms/python` is a missing link, not a dependency change.
 - **Frozen declarations and frozen cut bodies stay byte-exact.** Cut 8's guard is cited-not-run (`cited_not_run.py`, R15): cut 36 chains **cut 35's** runner (`PREFIX_RUNNERS = ("cut35_acceptance.py",)`), cites cut 8's two L8 units, and never runs or re-targets `test_n2_cut8.py`. The staleness gate is `tests/test_arm_staleness.py::test_every_arm_a_live_guard_audits_applies_exactly_once` (zero stale live arms) plus `tests/test_frozen_guards.py`; a line the refactor moves in a **live** guard's pin is re-targeted in that guard's `_LIVE_SABOTAGES`; a line it moves in a cited guard's declaration is recorded in `cited_not_run.py`'s `stale_arms` with the commit, never repaired. Task 2 verifies that `_publication_settlement`'s `if type(entry) is SettledEntryView and entry.committed and entry.registration in publications:` line and `_epochs_ordered`'s `first = _packaging_identity(e1)\n    second = _packaging_identity(e2)` lines are untouched — they are cut 8's two L8 pins.
 - **Decisions the code must honour verbatim** (spec §2): a registration's moment is its committed settlement, a rolled-back or pending one has none (D2); equal moments are `unordered` (D3); a same-chain question opens no epoch and ignores the world view's classification (D4); `a-precedes-b` iff `W(a,b) and not W(b,a)` (D5); a cut speaks about a chain only with an anchor whose genesis equals the live genesis and whose head places, and both witness cuts cover both corpora (D6); the world chain is inspected **exactly once** per call and every ordered-cuts question is asked of that one view through `_ordered_by_descent` (D7); `EventCorpusUnknown` / `EventCorpusUnresolvable` / `EventUnknown` are the refusals and terminal corpora stay queryable (D8); `EpochMalformed`, `BuildHold`, `LogEvidenceRefused` propagate untranslated (D9); world lock first, `inspect_registered` on the world root **before** the registry scan, released before any corpus lock, corpus locks sorted and never nested (D10).
 - **Lock discipline is the audit's**: `seam.world_lock(root)` around the world reads, `with seam.corpus_lock(carrier):` (the writer-style hold) around each corpus inspection. No `World` method under the world lock (R12).
@@ -66,7 +66,7 @@
 - [ ] **Step 1: Confirm cut 36 is unclaimed**
 
 ```bash
-cd /mnt/ssd/Dropbox/beliefs
+cd ~/d/beliefs
 for b in $(git for-each-ref --format='%(refname:short)' refs/heads); do git ls-tree -r --name-only $b docs/designs | grep -q "conformance-cut-3[6-9]" && echo "claimed on $b"; done; echo scan done
 git worktree list
 ```
@@ -1019,7 +1019,7 @@ Expected: all pass; ruff and pyright clean. If `test_capability_boundary.py` fla
 - [ ] **Step 6: `just test-fast`**
 
 ```bash
-cd /mnt/ssd/Dropbox/beliefs/.worktrees/event-level-l8 && just test-fast 2>&1 | tail -5
+cd ~/d/beliefs/.worktrees/event-level-l8 && just test-fast 2>&1 | tail -5
 ```
 Expected: green summary line. Record the count.
 
@@ -1601,12 +1601,12 @@ def test_bi3_the_genesis_clause_alone_decides_a_placement_durably(world):
 - [ ] **Step 4: Run on the certified volume, L8-a first**
 
 ```bash
-cd python && SCIENCE_CUT4_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut36-dev uv run --frozen pytest tests/acceptance/test_event_order_acceptance.py -q -p no:cacheprovider -k l8a
+cd python && SCIENCE_CUT4_ROOT=~/d/beliefs/.work/acceptance/cut36-dev uv run --frozen pytest tests/acceptance/test_event_order_acceptance.py -q -p no:cacheprovider -k l8a
 ```
 L8-a first because `run_intent` is the one construction that crosses the run boundary over the durable port: if `run_assessment` raises from the report publication rather than returning `RunMinted | RunRefused`, record the exception in the results record §3.2 and read the intent as the fixture does (it is appended before the run). Then the whole module:
 
 ```bash
-cd python && SCIENCE_CUT4_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut36-dev uv run --frozen pytest tests/acceptance/test_event_order_acceptance.py -q -p no:cacheprovider
+cd python && SCIENCE_CUT4_ROOT=~/d/beliefs/.work/acceptance/cut36-dev uv run --frozen pytest tests/acceptance/test_event_order_acceptance.py -q -p no:cacheprovider
 ```
 Expected: 16 passed. A `CapabilityUnavailable` block is the missing export or an uncertified kernel (memory `run-the-suite-with-the-project-venv`), not a regression.
 
@@ -1673,15 +1673,15 @@ Homing: `L8-a1`/`L8-a2` → `L8-a`; `L8-j1`/`L8-j2` → `L8-j`; every other arm 
 
 ```bash
 cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py tests/test_frozen_guards.py -q
-cd python && SCIENCE_CUT4_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut36-dev uv run --frozen pytest tests/acceptance/test_n2_cut36.py -q -p no:cacheprovider -k "not fails_under_its_own_sabotage"
+cd python && SCIENCE_CUT4_ROOT=~/d/beliefs/.work/acceptance/cut36-dev uv run --frozen pytest tests/acceptance/test_n2_cut36.py -q -p no:cacheprovider -k "not fails_under_its_own_sabotage"
 ```
 Expected: green. Then the full N2 audit and the chained runner, detached (memory `long-gates-need-setsid-nohup`; the chain cut 35 → 17 is long):
 
 ```bash
-cd /mnt/ssd/Dropbox/beliefs/.worktrees/event-level-l8/python
-export SCIENCE_MM30_ROOT=/mnt/ssd/Dropbox/beliefs/.work/reproduction/mm30
-for n in $(seq 4 36); do export SCIENCE_CUT${n}_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut$n; done
-setsid nohup uv run --frozen python tools/cut36_acceptance.py > /mnt/ssd/Dropbox/beliefs/.work/acceptance/cut36-runner.log 2>&1 &
+cd ~/d/beliefs/.worktrees/event-level-l8/python
+export SCIENCE_MM30_ROOT=~/d/beliefs/.work/reproduction/mm30
+for n in $(seq 4 36); do export SCIENCE_CUT${n}_ROOT=~/d/beliefs/.work/acceptance/cut$n; done
+setsid nohup uv run --frozen python tools/cut36_acceptance.py > ~/d/beliefs/.work/acceptance/cut36-runner.log 2>&1 &
 ```
 Read the log when it exits; expected tail: three `[cut36 phase n/3]` lines, `declared arms: 18 (= 16 declaration units; 3 guarantee rows)`, the rows-exercised line, exit 0. Every arm `sound`; every check `resolved`. A `stale` verdict means a `before` no longer matches — fix the declaration (Step 1), never the source.
 
@@ -1757,10 +1757,10 @@ git commit -m "docs(cut36): results record, re-rank at cut 36, L1 re-homed to pe
 - [ ] **Step 2: The gate**, detached:
 
 ```bash
-cd /mnt/ssd/Dropbox/beliefs/.worktrees/event-level-l8
-export SCIENCE_MM30_ROOT=/mnt/ssd/Dropbox/beliefs/.work/reproduction/mm30
-for n in $(seq 4 36); do export SCIENCE_CUT${n}_ROOT=/mnt/ssd/Dropbox/beliefs/.work/acceptance/cut$n; done
-setsid nohup just gate > /mnt/ssd/Dropbox/beliefs/.work/acceptance/cut36-gate.log 2>&1 &
+cd ~/d/beliefs/.worktrees/event-level-l8
+export SCIENCE_MM30_ROOT=~/d/beliefs/.work/reproduction/mm30
+for n in $(seq 4 36); do export SCIENCE_CUT${n}_ROOT=~/d/beliefs/.work/acceptance/cut$n; done
+setsid nohup just gate > ~/d/beliefs/.work/acceptance/cut36-gate.log 2>&1 &
 ```
 Read the log at exit; expected the pytest summary line with zero failures (memory `pytest-count-claims-need-the-summary-line`) and the TypeScript suite green.
 
@@ -1770,7 +1770,7 @@ Read the log at exit; expected the pytest summary line with zero failures (memor
 tasks done beliefs-77e2fc "final review, gate green, merged"
 tasks done beliefs-b34652 "cut 36 discharged: event-level L8 in full, L4 and L10 relabelled, L1 re-homed to persistence-cut"
 tasks check && git add tasks && git commit -m "chore(tasks): close beliefs-b34652 — cut 36 discharged"
-cd /mnt/ssd/Dropbox/beliefs && git merge --no-ff event-level-l8 -m "merge: event-level L8 — conformance cut 36"
+cd ~/d/beliefs && git merge --no-ff event-level-l8 -m "merge: event-level L8 — conformance cut 36"
 ```
 Then fill the results record's §6 (main integration: the merge commit, `just check` on merged `main`) in a `docs(cut36): record merged-main verification` commit, and remove the worktree (`git worktree unlock` then `git worktree remove .worktrees/event-level-l8`).
 

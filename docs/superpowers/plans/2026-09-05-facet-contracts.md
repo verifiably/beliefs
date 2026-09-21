@@ -20,7 +20,7 @@
 - `ProfileSpec`, `BaseContract`, `DomainContract` stay parsed/compiled, never authored (the `_MINT` token pattern); do not add public constructors.
 - The normative base contract stays at `contracts/science/CONTRACT.yaml`; the packaged copy is held byte-identical by a test (design §4.2).
 - Do not create a real biology domain: fixture contracts live under `fixtures/contracts/` or `python/tests/` and are named as fixtures (design §3.2, D limitation 5).
-- No `/home/keith` or `/mnt/ssd/Dropbox` paths in code or docs.
+- No absolute home or sync-root paths in code or docs.
 - The worktree is `.worktrees/domain-boundary` on `feat/domain-boundary`; run everything from it.
 
 ---
