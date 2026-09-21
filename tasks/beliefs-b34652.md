@@ -8,10 +8,11 @@ complexity: high
 process: planned
 owner: main
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-21T09:32:08Z
+updated: 2026-09-21T09:53:53Z
 started: 2026-09-21T09:32:07Z
 depends: [beliefs-d248ba]
 tags: [migration, world-read, log]
+spec: docs/superpowers/specs/2026-09-21-event-level-l8-design.md
 ---
 
 Outcome: Beliefs extends the world-read lane with the event-level relation required by L8 and closes the assigned L1, L4, and L10 log remainder.
@@ -29,3 +30,4 @@ Uncertainty: The ordered-cuts predicate exists, but the event-level relation's d
 - 2026-09-21T09:32:08Z (main): started
   provenance: {"harness_session":"claude-code:51515f65-ae75-4a25-83a1-28526d417cd6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-21T09:32:08Z (main): claimed by claude-code/opus, pid 3174647
+- 2026-09-21T09:53:53Z (event-level-l8): Spec drafted for review: L8 in full (event domain, witness predicate W, witness-asymmetric relation), L4/L10 relabels, L1 re-homed to persistence-cut (beliefs-3ea822) and left partial; cut 36 claimed.
