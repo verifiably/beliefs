@@ -630,3 +630,11 @@ and record or re-target whatever moved.
   `entries[0]`, so the stand-in first proposed was a state the seam cannot
   produce; the packaging-identity argument is corrected to "binds the
   declared anchor bytes, proves no agreement with a chain" (§8.2 case 4).
+- **2026-09-21, final whole-branch review (two Important, both taken; one
+  drift noted):** the tree's `place` takes `genesis_digest` and
+  `head_digest` keywords with the anchor lookup in `verify._placement`
+  (§3 wrote `place(view, anchor)`), and `_witnessed` skips `E1 == E2` with
+  a `continue` rather than asserting it (§4.2); both are the reviewed
+  plan's choices and the acceptance module reads them. `root.epochs_ordered`'s
+  docstring now names `event_order`; the unit class gained the
+  `LogEvidenceRefused` propagation case §8.1 lists.

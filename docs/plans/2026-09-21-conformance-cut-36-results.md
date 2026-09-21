@@ -238,6 +238,28 @@ one site with distinct `before` strings.
 **Reviews.** Every task review (0–6) approved with no Critical or Important
 findings; no fix rounds were needed. The minor findings are §3.3's.
 
+**Final review, following cut 35's pattern** (2026-09-21). Two Important
+findings, both taken, landed after the final whole-branch review rather
+than in the task that touched the code:
+
+- **`root.py`'s `epochs_ordered` docstring named `event_order`.** The
+  stale sentence §3.3 recorded as a Task 3 limitation — "the event-level
+  relation is deferred and L8 is partial" — is now "the event-level
+  relation is `event_order` (cut 36)".
+- **`TestTheEventLevelRelation` gained
+  `test_a_refused_inspection_propagates_untranslated`.** Spec §8.1
+  decision D9's `LogEvidenceRefused` propagation was untested:
+  `test_the_reads_own_refusals_propagate` covered only `EpochMalformed`
+  and `BuildHold`. The new arm drives the `Inspections` double's `probe`
+  hook to raise `LogEvidenceRefused` for the world root's inspection (the
+  cross-chain question `l8_pair` asks) and for a corpus root's, and
+  asserts the relation re-raises the same instance.
+
+Both landed at `fff26ec`, alongside the two test-prose nits §3.3
+also recorded (the double-witness docstring's "e2 and e4 follow each" and
+the `A = Event` alias comment's non-existent `B`); the spec's §12 gained
+the matching review-log entry in this same pass.
+
 ### 3.3 Limitations found at review
 
 Review findings the lane deferred rather than fixed, by task, each a
@@ -249,7 +271,8 @@ limitation of the code or its tests as they stand; none reopens a row.
   event-level relation is deferred and L8 is partial — to be amended
   before merge; the double-witness unit test's docstring says "e2 and e4
   follow each" while e4 follows e2's settlement; an `A = Event` alias
-  comment mentions a non-existent `B` alias.
+  comment mentions a non-existent `B` alias. Fixed after the final
+  review: all three (§3.2).
 - **Task 4**: L8-j checks the carrier-malformed and world-malformed states
   separately (carrier moved out before the world chain is rewritten), not
   simultaneously as spec §8.2 case 6 reads — both L8-j sabotages are still
