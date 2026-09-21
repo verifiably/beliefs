@@ -1177,7 +1177,11 @@ def world(work_directory):
         init_corpus_root(path, authority=FULL)
         writer = open_corpus(path, authority=FULL, profile=TESTING_PROFILE)
         manifest = writer.adopt_manifest(profile=pins_for(TESTING_PROFILE))
-        target = writer.add(stored.proposition_node("target", title="target", claim=project_claim(TESTING_CLAIM)))
+        # Distinct per corpus: two corpora carrying one `proposition:target` address
+        # would refuse every build covering both with `AddressMapConflict` (W8b).
+        target = writer.add(
+            stored.proposition_node(f"target-{manifest.corpus_id}", title="target", claim=project_claim(TESTING_CLAIM))
+        )
         return manifest.corpus_id, path, writer, target.id
 
     class Built:
@@ -1305,19 +1309,21 @@ def overlapping_builds(world) -> tuple[Event, Event, str, str, str, str]:
             outcome["error"] = caught
 
     epoch._root_state_for = gated  # restored in the finally
+    thread = threading.Thread(target=build_e3, name="cut36-e3")
     try:
-        thread = threading.Thread(target=build_e3, name="cut36-e3")
         thread.start()
         assert reached_b.wait(60), "E3 never reached B's capture"
         a = world.freeze()          # after E3's A capture, before E1's
         e1 = world.build()          # preflight at h0: nothing is published yet
         b = world.intent()          # after E1's B capture, before E3's
+    finally:
+        # Whatever failed above, the gated thread is released and joined
+        # before the fixture tears the roots down under it.
         release_b.set()
         thread.join(120)
-        assert not thread.is_alive() and "error" not in outcome, outcome.get("error")
-        e3 = str(outcome["e3"])
-    finally:
         epoch._root_state_for = original
+    assert not thread.is_alive() and "error" not in outcome, outcome.get("error")
+    e3 = str(outcome["e3"])
     e2 = world.build()
     e4 = world.build()
     # The schedule's own obligations, asserted rather than assumed.
@@ -1500,7 +1506,7 @@ def test_l4a_a_deleted_chain_refutes_against_its_registry_anchor_bound_by_corpus
     records = anchor_heads(world.world, frozenset({world.a, world.b}))
     assert {record.subject for record in records} == {anchors.CorpusSubject(world.a), anchors.CorpusSubject(world.b)}
     shutil.rmtree(chain_dir(world.alpha))
-    observers = verify.ObserverSet(tuple(verify.RegistryCarrier(record) for record in records))
+    observers = verify.ObserverSet(tuple(verify.RegistryCarrier.from_record(record) for record in records))
     report = audit_log(world.config, anchors.CorpusSubject(world.a), world.alpha, observers, actor="alice")
     assert report.outcome == "refuted"
     assert report.observer_bound and all(world.a in label for label in report.observer_bound)  # bound to A's subject, never B's
@@ -1780,4 +1786,5 @@ Then fill the results record's §6 (main integration: the merge commit, `just ch
 
 ## Plan review log
 
+- **2026-09-21, round 2 (one P1, two P2; all taken):** the target proposition's id is `target-<corpus_id>`, distinct per corpus, since one `proposition:target` address in two covered corpora refuses every build with `AddressMapConflict`; L4-a constructs carriers through `RegistryCarrier.from_record`; the overlapping schedule releases and joins the E3 thread in its `finally` before the gate is restored, so a failure in E1's build never leaves the thread parked over roots the fixture is about to remove. The reviewer ran all sixteen extracted cases green on the certified volume with the first two substitutions applied in memory, and L8-b and L8-e failed under their intended sabotages.
 - **2026-09-21, round 1 (two P1, five P2, three notes; all taken):** the acceptance fixture now stores a real frozen analysis spec through `writer.operations.add` (a registration) and appends a real assessment-run intent through `execute_assessment_run` over B's durable port, operation intents standing in elsewhere; L8-b gained the discriminating claim (a witnessed pair with two later cuts holding both stays ordered); L8-g invalidates every witness by truncating behind every cut's A head while keeping the queried event; L8-j moves the damaged carrier out of `epochs/` before damaging the world chain; the overlapping schedule is written in full, gated at `epoch._root_state_for` on the E3 thread with the recorded heads and placements asserted; L4-a and L10-a have executable bodies (`replicate_root(source, dest, *, authority)`, `admit_arrival` without `actor`); L8-e has its own arm at `_placement`, eighteen arms over sixteen units; the corpus loop answers `unordered` on the first non-well-formed view before the second lock is taken, with the mixed-fault unit case pinned; the two AGENTS.md paragraphs are verbatim; the WORK_ROOT sibling links are recorded; Task 8 closes its own child before the parent; the L8 amendment distinguishes a registration's settlement moment from an intent's or genesis's own position. Mechanics the fixture relies on were probed on the certified volume before the revision (the note under Task 4's Interfaces).
