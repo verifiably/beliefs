@@ -8,11 +8,12 @@ complexity: high
 process: planned
 owner: main
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-21T09:53:53Z
+updated: 2026-09-21T10:54:18Z
 started: 2026-09-21T09:32:07Z
 depends: [beliefs-d248ba]
 tags: [migration, world-read, log]
 spec: docs/superpowers/specs/2026-09-21-event-level-l8-design.md
+plan: docs/superpowers/plans/2026-09-21-event-level-l8.md
 ---
 
 Outcome: Beliefs extends the world-read lane with the event-level relation required by L8 and closes the assigned L1, L4, and L10 log remainder.
