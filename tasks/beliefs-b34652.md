@@ -1,12 +1,15 @@
 ---
 id: beliefs-b34652
 title: Deliver event-level L8 and the log remainder
-status: todo
+status: doing
 priority: 2
 size: l
 complexity: high
+process: planned
+owner: main
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-21T09:32:08Z
+started: 2026-09-21T09:32:07Z
 depends: [beliefs-d248ba]
 tags: [migration, world-read, log]
 ---
@@ -22,3 +25,7 @@ Uncertainty: The ordered-cuts predicate exists, but the event-level relation's d
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity high: Log design section 7 defines event order via presence/exclusion across ordered cuts, while root.epochs_ordered implements only the cut predicate. The event relation and its coverage, corruption, divergence and refusal semantics still need a concrete design and conformance selection.
+- 2026-09-21T09:32:07Z (main): Process planned: the event-level relation's design and cut plan do not exist (log design §7 defines event order; root.epochs_ordered implements only the cut predicate). Slice design → cut plan → freeze, in .worktrees/event-level-l8 as the world-read lane's worktree (roadmap rule 4).
+- 2026-09-21T09:32:08Z (main): started
+  provenance: {"harness_session":"claude-code:51515f65-ae75-4a25-83a1-28526d417cd6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-21T09:32:08Z (main): claimed by claude-code/opus, pid 3174647
