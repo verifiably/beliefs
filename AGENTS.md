@@ -28,3 +28,25 @@
 ## Design documents
 
 - Design specs live in `docs/superpowers/specs/` and implementation plans in `docs/superpowers/plans/`, and both are committed: every frozen conformance-cut document cites its slice's design by that path, and the results record cites the plan. A slice's spec and plan enter the tree with the lane's first commit.
+
+## Cut plans
+
+Every conformance-cut plan's Global Constraints carry the two tested obligations
+below verbatim, beside the lane's own. Cuts 34 and 35 both omitted them and paid
+in fix rounds after the final review (cut-34 results §7; cut-35 results §3.2 and
+`docs/plans/2026-09-20-url-retrieval-execution-ledger.md`, Task 4 reopened).
+
+- **`root.py` is the one `atoms` importer** (`test_capability_boundary.py`,
+  `TestTheCompositionRootIsTheOneAtomsImporter`). A classification over engine
+  cause types, a predicate over engine exceptions, or any other engine-typed
+  behaviour lives in `root.py` and reaches its boundary through a seam callable
+  (cut 35's `StoreActSeam.store_refusal`, `b065711`), never as an import in the
+  boundary module. Every new caller of a write primitive joins
+  `WRITE_ENTRY_POINTS` in `test_permit_boundary.py` and gains a `Case` in
+  `test_permit_entry_points.py`'s `CASES`; the inventory is closed in both
+  directions.
+- **Every discharged cut adds its row to `test_recent_cut_acceptance.py`**: the
+  runner import, its `(runner, cut, accounting)` parametrization entry with the
+  declared-arm, declaration-unit and guarantee-row counts, and the cut's
+  guarantee-rows-exercised line. Cuts 33, 34 and 35 landed theirs at `f4c2cef`,
+  `c77b2aa` and after cut 35's final review; the plan's runner task owns the row.
