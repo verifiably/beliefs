@@ -77,11 +77,13 @@ L1's remainder to `persistence-cut`, and builds no consumer.
    makes the pair `unordered`.
 3. **Equal moments are unordered.** The same event twice, or a registration
    and its own settlement, name one moment; nothing precedes itself.
-4. **Same-chain pairs are ordered by ancestry and read no epoch.** A
-   same-chain question resolves its carrier, inspects that one chain, and
-   compares moments by position. Neither the world chain nor any retained
-   epoch is read, so a malformed retained epoch — or a malformed world
-   chain — cannot prevent an answer one chain establishes on its own.
+4. **Same-chain pairs are ordered by ancestry and open no epoch.** A
+   same-chain question inspects the world chain (for recovery, decision
+   10), resolves its carrier, inspects that one corpus chain, and compares
+   moments by position. The world inspection's classification is not
+   consulted and no retained epoch is opened, so a malformed world chain
+   or a malformed retained epoch cannot defeat an answer corpus ancestry
+   establishes on its own.
 5. **Cross-chain order is the witness predicate, and the relation is
    witness-asymmetric.** `W(a, b)` holds when some ordered pair of retained
    epochs witnesses `a` before `b` (§4). The relation answers
@@ -110,7 +112,9 @@ L1's remainder to `persistence-cut`, and builds no consumer.
    corpus the world has not admitted refuses `EventCorpusUnknown`; an
    admitted corpus with zero or several configured carrier roots refuses
    `EventCorpusUnresolvable`; a digest absent from a **well-formed** chain
-   refuses `EventUnknown`. A **terminal** (retired or departed) corpus is
+   refuses `EventUnknown` — including a digest a valid-prefix truncation
+   removed, since the truncated chain is still well-formed and the caller
+   named an entry it does not carry. A **terminal** (retired or departed) corpus is
    still queryable when its carrier resolves: the relation is about the
    past, and a status event is an append that deletes nothing (log design
    §8). A malformed or absent corpus chain, an unplaceable or mismatched
@@ -127,12 +131,16 @@ L1's remainder to `persistence-cut`, and builds no consumer.
    capture with `BuildHold`; `BuildContended` is the capture hold's own
    refusal and the relation takes no capture hold.)
 10. **Lock order is the audit's: the world lock first, released before any
-    corpus lock.** Under the world lock: resolve carriers off a fresh
-    registry scan and, for a cross-chain question only, inspect the world
-    chain and enumerate and open the retained epochs. Then, per corpus in
-    sorted `corpus_id` order and never nested, under that corpus's
-    operation lock: inspect the chain once. No `World` method is called
-    under the world lock (R12).
+    corpus lock; recovery before resolution.** Under the world lock, on
+    both paths: `inspect_registered` on the world root **first**, because
+    it completes recovery and recovery can rewrite the registry files a
+    scan reads (`_preflight` reads the chain before
+    `_locked_resolve_coverage` for the same reason); then a fresh registry
+    scan and carrier resolution; then, for a cross-chain question only,
+    enumerate and open the retained epochs. Then, per corpus in sorted
+    `corpus_id` order and never nested, under that corpus's operation lock:
+    inspect the chain once. No `World` method is called under the world
+    lock (R12).
 11. **The composition root exports the relation; the core takes the seam.**
     `root.event_order(config, a, b)` wraps
     `verify._event_order(config, a, b, *, seam)` exactly as
@@ -228,9 +236,10 @@ Exactly the tail of today's `_epochs_ordered` after its lock block:
 `_publication_settlement(view, e1, absent_state)`, the positions map, and
 the `>=` comparison including the settlement (R29). `_epochs_ordered` keeps
 its signature, its docstring's contract, its lock block and its
-`EpochUnknown` refusals, and returns this helper's answer; the cut-8
-acceptance units and `test_world_log_audit.py`'s predicate tests hold it
-byte-for-byte in behaviour (§8.5).
+`EpochUnknown` refusals, and returns this helper's answer;
+`test_world_log_audit.py`'s predicate tests hold it byte-for-byte in
+behaviour, and cut 36's guard carries the R29 sabotage that cut 8's cited
+guard can no longer run (§8.3, §8.5).
 
 ### 4.2 `W(a, b)` over one observation
 
@@ -258,14 +267,16 @@ def _event_order(config: WorldConfig, a: Event, b: Event, *, seam: LogSeam) -> O
 
 In order:
 
-1. **Under the world lock:** a fresh `_scan_registry`, and for each of
-   `{a.corpus_id, b.corpus_id}` the admission check (`EventCorpusUnknown`)
-   and the carrier check (`EventCorpusUnresolvable`), terminal status
-   permitted (decision 8). For a **cross-chain** question, additionally
-   `seam.inspect_registered(config.world_root)` (recovery completes first,
-   the pinned order) and the retained identities with their opened epochs
-   (`EpochMalformed` propagates). A same-chain question reads nothing else
-   here. Release.
+1. **Under the world lock:** `seam.inspect_registered(config.world_root)`
+   first — recovery completes here, and the registry files scanned next
+   are the files recovery left (`LogEvidenceRefused` propagates). Then a
+   fresh `_scan_registry`, and for each of `{a.corpus_id, b.corpus_id}`
+   the admission check (`EventCorpusUnknown`) and the carrier check
+   (`EventCorpusUnresolvable`), terminal status permitted (decision 8).
+   For a **cross-chain** question, additionally the retained identities
+   with their opened epochs (`EpochMalformed` propagates). A same-chain
+   question opens no epoch and does not consult the world view's
+   classification. Release.
 2. **Per corpus, sorted, under `seam.corpus_lock(carrier)`:**
    `seam.inspect_registered(carrier)` once (`BuildHold` and
    `LogEvidenceRefused` propagate). A view that is not `WellFormedView`
@@ -281,11 +292,18 @@ In order:
    `b-precedes-a` iff `w_ba and not w_ab`, else `unordered`.
 
 Whether the question is same-chain is known from its arguments before any
-read, so step 1's world read is skipped rather than discarded: decision
-4's independence is from the world's *readability*, not only from the
-epochs' content. A retained epoch whose carrier is malformed refuses a
-cross-chain question at step 1 and is never opened for a same-chain one;
-§8.2's independence case is built on exactly that.
+read. The world inspection is taken on both paths for recovery's sake, and
+what decision 4 guarantees is exactly that a malformed world chain, or a
+malformed retained epoch, does not defeat corpus ancestry: the same-chain
+path reads the world view's classification nowhere and opens no epoch.
+§8.2's independence case is built on both.
+
+**Valid-prefix truncation** of a corpus chain (L3's refuted arm) leaves a
+well-formed chain, so the contract splits it in two: an event the
+truncation removed refuses `EventUnknown` (the caller named an entry the
+chain does not carry), and two retained events whose cut's captured head
+now lies beyond the tip answer `unordered` (the head is unplaceable, so
+the cut establishes nothing). Both are tested (§8.1, §8.2).
 
 **The double witness is realizable**, and the fixture demonstrates it
 (decision 5). With corpora `A < B` in sorted order and builds capturing
@@ -335,8 +353,9 @@ Three classes, each a caller-input fact (decision 8):
   cannot say which chain it would read (`CoverageUnresolvable`'s reasoning,
   without the build's liveness clause).
 - `EventUnknown(ScienceError)` — the digest names no entry of the corpus's
-  well-formed chain. Raised only over a `WellFormedView`: a truncated or
-  malformed chain answers `unordered` before any digest is looked up.
+  well-formed chain, a valid-prefix truncation's removed entries included.
+  Raised only over a `WellFormedView`: a malformed chain answers
+  `unordered` before any digest is looked up.
 
 `CoverageUnknown` and `CoverageUnresolvable` are not reused: their
 docstrings state the build's contract, and a relation query is not a
@@ -389,8 +408,16 @@ seams (the existing `Inspections`/`Captures` doubles):
   E1; a cut missing one corpus's anchor; a genesis mismatch; an unplaceable
   head; a malformed corpus chain; a malformed world chain; the double
   witness over fabricated views (the real schedule is §8.2's);
-- same chain reads no epoch and no world chain: the seam's world inspection
-  is never called and no epoch is opened for a same-chain question;
+- same chain opens no epoch and ignores the world view: a same-chain
+  question answers over a `MalformedView` world chain and with a retained
+  carrier the scan would refuse, and the epoch opener is never called;
+- recovery before resolution: the world inspection precedes the registry
+  scan on both paths (a probe that rewrites the registry inside the
+  inspection double, observed by the resolution);
+- valid-prefix truncation: a removed event → `EventUnknown`; two retained
+  events with an unplaceable captured head → `unordered`;
+- `place` with a placeable head and a mismatched declared genesis →
+  `None` (the isolated genesis comparison, decision 6);
 - the refusals: `EventCorpusUnknown`, `EventCorpusUnresolvable` (zero and
   two carriers), `EventUnknown`, and the propagation of `EpochMalformed`,
   `BuildHold` and `LogEvidenceRefused` untranslated;
@@ -418,22 +445,37 @@ B, epochs built with `build_epoch`. Cases:
    is not emitted).
 3. Coverage: E1 built covering A only → `unordered` for the pair, while a
    later pair of covering cuts orders it.
-4. Genesis mismatch: after E1, replace A's chain with a self-consistent
-   chain under a different fork genesis presenting the same subject (cut
-   9's L4u2 fixture), commit a fresh `a` there, build E2 → `unordered`:
-   E1's anchor for A no longer places, so E1 establishes neither presence
-   nor exclusion. (Verification refutes the replacement; the relation only
-   declines to order over it.)
+4. Genesis mismatch, two checks. **Replacement:** after E1, replace A's
+   chain with a self-consistent chain under a different fork genesis
+   presenting the same subject (cut 9's L4u2 fixture), commit a fresh `a`
+   there, build E2 → `unordered` — E1's anchor for A neither matches the
+   genesis nor places its head. **Isolated:** no real chain can present a
+   placeable head under another genesis (the packaging identity digests
+   `anchors.yaml`, and head digests chain from the genesis), so the
+   genesis comparison alone is checked through a **stand-in inspection**
+   in cut 8's L8u1 shape: real epochs a real build published, the seam
+   double handing the relation a corpus view whose entries are the live
+   chain's and whose genesis digest differs — `unordered`, and the check
+   asserts the head **is** placeable so that only decision 6's genesis
+   clause decides. The genesis sabotage (§8.3) is bound to this check and
+   to no other.
 5. Equal moments: `(A, registration digest)` against `(A, its settlement
    digest)` → `unordered`; the same event twice → `unordered`.
 6. Same-chain independence: two events in A while the world retains an
    epoch whose carrier is malformed (a member removed after publication)
-   → ordered by ancestry; the same question across chains → `EpochMalformed`.
+   **and** the world chain is malformed (an interior entry rewritten, L3's
+   arm) → ordered by ancestry; the same question across chains →
+   `EpochMalformed` with the carrier alone, `unordered` with the world
+   chain alone.
+6a. Valid-prefix truncation of A behind E1's captured head: the removed
+   event → `EventUnknown`; two retained events against B → `unordered`.
 7. The double witness, by §4.3's schedule → `unordered`.
 8. Refusals: an unadmitted id → `EventCorpusUnknown`; an admitted id whose
-   carrier configuration is removed, and one configured twice →
-   `EventCorpusUnresolvable`; a digest of another chain → `EventUnknown`;
-   a corpus lock held by a capture → `BuildHold`.
+   carrier configuration is removed, and one claimed by **two distinct
+   configured roots** → `EventCorpusUnresolvable` (one root configured
+   twice is one carrier — `_carrier_roots` deduplicates resolved paths —
+   and stays resolvable, asserted); a digest of another chain →
+   `EventUnknown`; a corpus lock held by a capture → `BuildHold`.
 9. Sequence numbers: no epoch member, no `Epoch` attribute and no line of
    the relation's source names one (cut 8's L8u2 shape, extended).
 10. `_epochs_ordered` through the composition root over the same worlds
@@ -451,7 +493,9 @@ discipline:
 - `moment` returns the registration's own position (a pending registration
   gains a moment);
 - `moment` returns a rolled-back settlement's position;
-- `place` ignores the genesis digest;
+- `place` ignores the genesis digest — bound to case 4's isolated
+  stand-in check, the one check the replacement fixture cannot stand in
+  for (§8.2);
 - `place` accepts a head absent from the chain as the chain's tip;
 - `_witnessed` drops the E1-on-B exclusion clause;
 - `_witnessed` reads `E1`'s own world anchor instead of `E2`'s;
@@ -462,37 +506,48 @@ discipline:
 - `_event_order` maps `EpochMalformed` to `unordered`;
 - `_event_order` reuses `_epochs_ordered` per pair (the world chain is
   inspected more than once);
-- `_ordered_by_descent` compares strictly (R29 regresses; the cut-8 unit
-  catches it);
+- `_ordered_by_descent` compares strictly (R29 regresses; caught by the
+  L8 positive, whose E2 was built the instant E1 published);
 - an L4 and an L10 sabotage each re-run one prior clause's site (the
   relabel's live guard).
 
-The staleness probe's baseline is the tree's own output, and cuts 5, 6, 8
-and 10 carry known stale arms (memory
-`staleness-probe-baseline-is-the-trees-output`): the gate is "identical to
-baseline", never `stale: []`.
+The staleness gate is `test_arm_staleness.py`'s: **every arm a live guard
+audits applies exactly once** — zero stale live arms, after any
+`_LIVE_SABOTAGES` re-targeting. Cited-not-run guards (cuts 4, 8 and 10
+among them) keep their historical staleness recorded in
+`cited_not_run.py`, never repaired, and are not part of that gate.
 
 ### 8.4 The cut
 
 Conformance cut 36, `docs/designs/2026-09-21-conformance-cut-36.md`, frozen
-before implementation after this spec's review. Rows: **L8** in full
-(every arm of the row, cut 8's two units cited and re-run through the
-chained cut-8 runner, and the event-level units above); **L4** and **L10**
-close as relabels (decision 13); **L1** is not read, and its re-homing is
-stated in §3.2 (rows not read) so the results record can carry it. Runner
-`cut36_acceptance.py` chains cut 8's runner in `PREFIX_RUNNERS` (so the
-L-row units cut 8 certified run on the same volume), and
+before implementation after this spec's review. Rows: **L8** in full —
+cut 8's two units (the ordered-cuts predicate, the sequence-number
+negative) **cited** to its standing record, never re-run, since
+`test_n2_cut8.py` is cited-not-run by ruling R15 (`cited_not_run.py`), and
+the event-level units above selected; **L4** and **L10** close as relabels
+(decision 13); **L1** is not read, and its re-homing is stated in §3.2
+(rows not read) so the results record can carry it. Runner
+`cut36_acceptance.py` chains **cut 35's** runner in `PREFIX_RUNNERS` — the
+live certified chain continues, never re-roots — with phase modules
+`test_event_order_acceptance.py` and `test_n2_cut36.py`; the focused L8
+checks and every sabotage §8.3 names live in cut 36's own guard.
 `test_recent_cut_acceptance.py` gains the cut-36 row with its accounting
 triple and guarantee-rows-exercised line (AGENTS.md, Cut plans).
 
 ### 8.5 Frozen evidence and live tests
 
-Cut 8's `n2_arms_cut8.py` and cut 9's and 10's declarations stay
-byte-exact; a pinned line decision 7 moves (the tail of `_epochs_ordered`
-into `_ordered_by_descent`) is re-targeted in the live guard's
-`_LIVE_SABOTAGES`, never in the frozen file. After the refactor task, run
-`tests/test_arm_staleness.py` and `tests/acceptance/test_n2_cut8.py -k "not sabotage and not findings"`
-and re-target whatever moved.
+Every frozen declaration stays byte-exact. Cut 8's `n2_arms_cut8.py`
+declares two L8 arms against `_epochs_ordered`; the tail decision 7 moves
+into `_ordered_by_descent` may leave one of them stale, and because cut 8
+is cited-not-run that staleness is **recorded** in `cited_not_run.py`'s
+`stale_arms` with the moving commit, never re-targeted and never repaired
+(its guard is not in the staleness gate, and the pinned command would be
+refused at collection — `addopts` ignores `tests/acceptance`, and the
+module is not on the live chain). A pinned line in a **live** guard's
+declaration (cuts 17–35) that the refactor moves is re-targeted in that
+guard's `_LIVE_SABOTAGES`. After the refactor task, run
+`cd python && uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py -q`
+and record or re-target whatever moved.
 
 ## 9. Documentation amendments
 
@@ -542,4 +597,29 @@ and re-target whatever moved.
 
 ## 12. Review log
 
-(filled at review)
+- **2026-09-21, outline review (six tightenings, all taken):** coverage
+  and exclusion explicit (decision 6); the witness predicate separated
+  from the witness-asymmetric relation, with the double witness realizable
+  (decision 5, §4.3); the event domain completed with equal-moment and
+  genesis rules (decisions 2–3); same-chain ordering independent of
+  epochs and a pure ordered-cuts helper (decisions 4, 7); the refusal
+  contract completed with terminal corpora queryable (decisions 8–9);
+  L1's task ownership transferred with its documentation (decision 12,
+  §10). One correction to the review's own list: the corpus hold is the
+  writer-style hold, so the preserved refusal is `BuildHold`, not
+  `BuildContended`.
+- **2026-09-21, spec review (two blockers, three corrections, all
+  taken):** P1 — cut 8's guard is cited-not-run (R15), so cut 36 chains
+  cut 35, cites cut 8's frozen evidence, and carries the focused L8 checks
+  and sabotages itself; the staleness rule restated as zero stale live
+  arms with historical staleness recorded (§8.3–§8.5). P2 — the world
+  inspection precedes the registry scan on both paths so resolution reads
+  the registry recovery left; the same-chain path opens no epoch and
+  ignores the world view's classification (decisions 4, 10; §4.3). P3 —
+  valid-prefix truncation splits into `EventUnknown` for a removed event
+  and `unordered` for retained events under an unplaceable head (decision
+  8, §4.3, §5). P4 — `EventCorpusUnresolvable`'s fixture is two distinct
+  roots claiming one id; a root configured twice is one carrier (§8.2).
+  P5 — the genesis sabotage is bound to a stand-in check with a placeable
+  head and a mismatched declared genesis, since no real chain can present
+  one (§8.2 case 4, §8.3).
