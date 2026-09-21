@@ -122,6 +122,29 @@ class EpochUnknown(ScienceError):
     inventing one to point at would be worse than saying so."""
 
 
+class EventCorpusUnknown(ScienceError):
+    """An event names a `corpus_id` this world has never admitted. Presence on a
+    configured root is the corpus's own claim, not the world's, and a relation
+    that ordered events of an unadmitted corpus would be answering about a
+    chain the world never granted membership to."""
+
+
+class EventCorpusUnresolvable(ScienceError):
+    """An event's corpus is admitted but has no presently configured carrier
+    root, or more than one. Both are the same failure — the relation cannot say
+    which chain it would read — and neither is repairable by choosing. A root
+    configured twice is one carrier; two distinct roots claiming one id are
+    two. A terminal (retired or departed) corpus is not this refusal: its chain
+    still carries its events."""
+
+
+class EventUnknown(ScienceError):
+    """An event's digest names no entry of its corpus's well-formed chain — a
+    digest that was never there, or one a valid-prefix truncation removed.
+    Raised only over a well-formed view: a malformed chain answers `unordered`
+    before any digest is looked up, because it can place nothing."""
+
+
 class EpochImportRefused(ScienceError):
     """An epoch carrier was not admitted into ``epochs/``."""
 
