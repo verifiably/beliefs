@@ -449,16 +449,18 @@ B, epochs built with `build_epoch`. Cases:
    chain with a self-consistent chain under a different fork genesis
    presenting the same subject (cut 9's L4u2 fixture), commit a fresh `a`
    there, build E2 → `unordered` — E1's anchor for A neither matches the
-   genesis nor places its head. **Isolated:** no real chain can present a
-   placeable head under another genesis (the packaging identity digests
-   `anchors.yaml`, and head digests chain from the genesis), so the
-   genesis comparison alone is checked through a **stand-in inspection**
-   in cut 8's L8u1 shape: real epochs a real build published, the seam
-   double handing the relation a corpus view whose entries are the live
-   chain's and whose genesis digest differs — `unordered`, and the check
-   asserts the head **is** placeable so that only decision 6's genesis
-   clause decides. The genesis sabotage (§8.3) is bound to this check and
-   to no other.
+   genesis nor places its head. **Isolated:** a `WellFormedView`'s
+   `genesis` is `entries[0]`, the same object, so no inspected chain —
+   real or stand-in — can carry live entries under another genesis; and
+   an epoch's packaging identity binds the anchor bytes it declares
+   without proving they agree with any chain. The genesis comparison is
+   therefore isolated on the **anchor's** side: a genuine well-formed
+   view, an anchor with the same subject and a reachable head, and only
+   `anchor.genesis_digest` replaced → `place(...) is None`, asserted
+   beside `place` of the unaltered anchor being non-`None` so that the
+   genesis clause alone decides. This is §8.1's isolated `place` check,
+   carried in the acceptance module over a real chain; the genesis
+   sabotage (§8.3) is bound to it and to no other.
 5. Equal moments: `(A, registration digest)` against `(A, its settlement
    digest)` → `unordered`; the same event twice → `unordered`.
 6. Same-chain independence: two events in A while the world retains an
@@ -493,9 +495,9 @@ discipline:
 - `moment` returns the registration's own position (a pending registration
   gains a moment);
 - `moment` returns a rolled-back settlement's position;
-- `place` ignores the genesis digest — bound to case 4's isolated
-  stand-in check, the one check the replacement fixture cannot stand in
-  for (§8.2);
+- `place` ignores the genesis digest — bound to case 4's isolated `place`
+  check over a replaced `anchor.genesis_digest`, the one check the
+  replacement fixture cannot stand in for (§8.2);
 - `place` accepts a head absent from the chain as the chain's tip;
 - `_witnessed` drops the E1-on-B exclusion clause;
 - `_witnessed` reads `E1`'s own world anchor instead of `E2`'s;
@@ -620,6 +622,11 @@ and record or re-target whatever moved.
   and `unordered` for retained events under an unplaceable head (decision
   8, §4.3, §5). P4 — `EventCorpusUnresolvable`'s fixture is two distinct
   roots claiming one id; a root configured twice is one carrier (§8.2).
-  P5 — the genesis sabotage is bound to a stand-in check with a placeable
-  head and a mismatched declared genesis, since no real chain can present
-  one (§8.2 case 4, §8.3).
+  P5 — the genesis sabotage is bound to an isolated `place` check with a
+  placeable head and a mismatched declared genesis (§8.2 case 4, §8.3).
+- **2026-09-21, spec review round 2 (one P2, taken):** the isolated
+  genesis check alters the **anchor's** declared genesis over a genuine
+  well-formed view, not the inspected chain — `WellFormedView.genesis` is
+  `entries[0]`, so the stand-in first proposed was a state the seam cannot
+  produce; the packaging-identity argument is corrected to "binds the
+  declared anchor bytes, proves no agreement with a chain" (§8.2 case 4).
