@@ -347,7 +347,30 @@ a design amendment to the log design §7 when a consumer needs it.
 
 ## 6. Main integration
 
-Filled at merge.
+The controller completed the final whole-branch review, took the final fix
+wave at `fff26ec` (the `epochs_ordered` docstring names `event_order`; the
+`LogEvidenceRefused` propagation case spec §8.1 lists) and `248d6cb` (the
+spec's §12 drift note; this record's §3.2 entry), and completed a scoped
+re-review with every finding addressed. `just gate` on the branch head
+`248d6cb` exited **0** (the Python suite `5251 passed, 1 skipped in 1409.08s
+(0:23:29)`, the TypeScript suite `155 passed`). The lane's tasks were closed
+and the execution ledger committed at `a4cb033`
+(`2026-09-21-event-level-l8-execution-ledger.md`). The reviewed branch was
+merged locally into `main` with `--no-ff` on 2026-09-21 at `eebf6d0`.
+Nothing was pushed.
+
+On the merged commit, the `check` recipe's commands passed against the
+tracked tooling: the tracked `tools/ops-check` (version 4) exit 0, Ruff
+`All checks passed!`, Pyright `0 errors, 0 warnings, 0 informations`, the
+TypeScript typecheck and Biome, and `tasks check` with zero errors and zero
+warnings. `just check` itself did not run clean on this host at merge time:
+the main checkout's working tree carried an uncommitted `tools/ops-check`
+version 5 (ops `ops-0c42b9`, filed here as `beliefs-08ff74` before this
+merge), whose new machine-layout rule flags absolute checkout paths in 25
+tracked files, among them this lane's plan, its execution ledger and the
+reproduction record's §15 (the same host paths §13 and §14 already carry).
+That is `beliefs-08ff74`'s scrub, not a finding against the cut; the lane's
+files are noted on that task.
 
 ## 7. Execution rulings
 
