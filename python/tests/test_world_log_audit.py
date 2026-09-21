@@ -1015,6 +1015,27 @@ def ordered(config: registry.WorldConfig, first: str, second: str, view: logmode
 
 
 class TestTheOrderedCutsPredicate:
+    def test_ordered_by_descent_is_the_pure_half_and_the_predicate_calls_it(self, tmp_path, monkeypatch):
+        """Spec decision 7: the relation asks the pure helper of one captured
+        view; `_epochs_ordered` keeps its contract and routes through it."""
+        sequence = Sequence(tmp_path)
+        view = world_chain(sequence.first)
+        assert verify._ordered_by_descent(view, sequence.first, FIRST_SETTLEMENT, ABSENT) == "ordered"
+        assert verify._ordered_by_descent(view, sequence.first, WORLD_GENESIS, ABSENT) == "unordered"
+        assert verify._ordered_by_descent(world_chain(sequence.first, committed=False), sequence.first, FIRST_SETTLEMENT, ABSENT) == "unordered"
+        assert verify._ordered_by_descent(view, sequence.first, digest("not-in-the-chain"), ABSENT) == "unordered"
+
+        seen: list[tuple[str, str]] = []
+        original = verify._ordered_by_descent
+
+        def spy(view_, e1, built_from, absent_state):
+            seen.append((e1, built_from))
+            return original(view_, e1, built_from, absent_state)
+
+        monkeypatch.setattr(verify, "_ordered_by_descent", spy)
+        assert ordered(sequence.config, sequence.first, sequence.second, view) == "ordered"
+        assert seen == [(sequence.first, FIRST_SETTLEMENT)]
+
     def test_epochs_ordered_by_descent_and_unordered_without_settled_publication(self, tmp_path):
         sequence = Sequence(tmp_path)
         assert sequence.recorded_head(sequence.first) == WORLD_GENESIS

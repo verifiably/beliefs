@@ -1907,7 +1907,7 @@ def _epochs_ordered(config: WorldConfig, e1: str, e2: str, *, seam: LogSeam) -> 
     and assumes the hold; no `World` method is called under the lock (R12).
 
     This is the log design §7's predicate **only**; the event-level relation is
-    deferred and L8 is partial (§10.7).
+    `_event_order` (cut 36).
     """
     from beliefs.world import epoch
 
@@ -1918,7 +1918,21 @@ def _epochs_ordered(config: WorldConfig, e1: str, e2: str, *, seam: LogSeam) -> 
         built_from = epoch._locked_open_epoch(config.world_root, second).world_anchor.head_digest
     if type(view) is not WellFormedView:
         return "unordered"
-    settlement = _publication_settlement(view, first, seam.absent_state)
+    return _ordered_by_descent(view, first, built_from, seam.absent_state)
+
+
+def _ordered_by_descent(view: WellFormedView, e1: str, built_from: str, absent_state: object) -> Ordering:
+    """The pure half of `_epochs_ordered`, over one already-inspected world view.
+
+    Ordered **iff** `built_from` — the world head an epoch recorded at
+    preflight — is at or after the settlement that committed `e1`'s
+    publication. Descent includes the settlement itself (R29). `unordered`
+    where `e1` has no committed publication in this view or `built_from` is no
+    entry of it. The event-level relation (`_event_order`) asks this of one
+    captured view for every candidate pair, so no pair is judged against a
+    different observation of the chain (spec decision 7).
+    """
+    settlement = _publication_settlement(view, e1, absent_state)
     positions = {entry.digest: index for index, entry in enumerate(view.entries)}
     if settlement is None or built_from not in positions:
         return "unordered"
