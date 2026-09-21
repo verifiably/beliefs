@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Seventy-two documents in `docs/designs/`: the banked redesigns, review
+Seventy-three documents in `docs/designs/`: the banked redesigns, review
 disposition, adoption ledger, measurements, rulings, and contributor-guide
-design written 2026-08-02 through 2026-09-20. Read them in this order:
+design written 2026-08-02 through 2026-09-21. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -105,6 +105,7 @@ design written 2026-08-02 through 2026-09-20. Read them in this order:
 | `2026-09-16-conformance-cut-33.md` | the discharged correction-remainder slice 1 cut: C7 and C3 closed, C10's audit arm read, and five read-boundary invariants; 11 declaration units, the cut 32 runner as prefix |
 | `2026-09-19-conformance-cut-34.md` | the discharged correction-remainder slice 2 cut: C8 and C9 closed, the snapshot target, 17 declaration units, nine boundary invariants, the cut 33 runner as prefix; the boundary closes |
 | `2026-09-20-conformance-cut-35.md` | the discharged url-retrieval cut: the `url` locator, the transport and the `acquisition` operation; H4, G9, R10, T5, T1 and T4 closed, T2 and T7 partial, 27 declaration units, eleven boundary invariants, the cut 34 runner as prefix; the boundary closes |
+| `2026-09-21-conformance-cut-36.md` | the frozen event-level-l8 cut: L8 closed, L4 and L10 relabelled, L1 re-homed, 16 declaration units, three boundary invariants, the cut 35 runner as prefix |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and

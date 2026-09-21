@@ -48,6 +48,7 @@ sources:
   - ../designs/2026-09-16-conformance-cut-33.md
   - ../designs/2026-09-19-conformance-cut-34.md
   - ../designs/2026-09-20-conformance-cut-35.md
+  - ../designs/2026-09-21-conformance-cut-36.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -267,6 +268,9 @@ partial on the `audit` and `re-check` operation kinds and T7 on its
 cross-root case. The corpus now has **183 of 216 rows closed, 33 open**
 (`../designs/2026-09-20-conformance-cut-35.md`;
 `../plans/2026-09-20-conformance-cut-35-results.md`).
+Cut 36 is frozen and not yet discharged: event-level L8, with L4 and L10 as
+relabels and L1 re-homed to `persistence-cut`
+(`../designs/2026-09-21-conformance-cut-36.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
