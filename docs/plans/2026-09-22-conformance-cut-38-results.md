@@ -155,8 +155,9 @@ nothing to freeze.
 ### 3.1 Frozen evidence and corrections
 
 Cut 38's body remains byte-exact to its freeze: `git diff` over
-`docs/designs/2026-09-22-conformance-cut-38.md` between `21ef347` and the
-discharge head is empty, and only `**Status:**` changes at discharge. Its
+`docs/designs/2026-09-22-conformance-cut-38.md` between `21ef347` and
+`b4d71dd`, the head the cut ran at, is empty; this record's own commit then
+changes the `**Status:**` line and nothing else. Its
 declaration remains at the SHA-256 above. No prior frozen declaration or
 cut body differs from the pre-lane tree, and the staleness probe
 re-targets nothing: cut 37's live guard stays chained as the highest live
@@ -183,9 +184,10 @@ than from the plan's illustrative text. Three arms — T2-f, T2-g3 and T2-j
 — carry `before` spans wider than the plan's literal prose bound, because
 a sabotage is one contiguous replacement and each of those rows' `after`
 moves a line past an anchor outside the stated bound. Each span occurs
-exactly once, the review re-derived all fourteen as minimal for their
-stated `after`, and line-multiset diffs prove T2-e, T2-g3 and T2-j are
-pure reorderings that delete no guard. Structural masking is impossible
+exactly once; the review re-derived each of those three as the minimal
+contiguous span that makes its `after` expressible, checked all fourteen
+arms for module, span and occurrence count, and proved by line-multiset
+diff that T2-e, T2-g3 and T2-j are pure reorderings that delete no guard. Structural masking is impossible
 regardless: the N2 harness copies the package per arm and applies exactly
 one.
 
@@ -213,10 +215,11 @@ Task-level deviations, each gate-forced and each reviewed:
 - **Task 7**'s first commit was rejected by the pre-commit documentation
   hook for a literal absolute host path in the §17 draft; the addendum was
   re-spelled descriptively, as §16 does, and committed clean.
-- **Task 1** added `root` to eight port-shaped test doubles rather than the
-  five the plan named: `LedgeredPort` and two local `Port` classes in
-  `test_corpus_write.py` were flagged by pyright. The review confirmed both
-  extra edits were forced, not scope creep.
+- **Task 1** added `root` at eight sites rather than the five fakes the
+  plan named: two local `Port` classes in `test_corpus_write.py` that
+  pyright flagged, and `LedgeredPort`, which is not a fake at all but
+  production code in `session/routes.py`. The review confirmed both extra
+  test edits were pyright-forced, not scope creep.
 
 **One departure from the spec's own wording.** Spec decision 12 says the
 reproduction exercises neither operation, and the §17 draft transcribed it
@@ -232,8 +235,8 @@ repository gate run.
 
 ### 3.3 Review findings and limitations
 
-Every task was reviewed against the spec before the next began. Two
-findings were Important and both were fixed in their own commits:
+Every task was reviewed against the spec before the next began. Three
+findings were Important, fixed in two commits:
 
 - Task 4's `# type: ignore[union-attr]` at `test_session_routes.py`
   stood in for an assertion. It was replaced at `a60f82d` by
@@ -264,9 +267,15 @@ Limitations found or confirmed at review, none of which reopens T2:
    today (spec §12.4). `result.detail` appears nowhere in `recheck.py`.
 5. **The reproduction exercises neither operation** (spec §12.5, §4).
 
-Narrower limitations the reviews recorded, so this record does not
-overclaim:
+Narrower limitations the reviews recorded across Tasks 1–7, so this record
+does not overclaim:
 
+- The shared `closed()` helper the acceptance module inherits from cut 35
+  proves that a fulfilling registration exists and that the report
+  qualifies, but does not read the chain's final-state path back to the
+  report. **This record's "closes through one report" and "`closed`" are
+  scoped to that**: the tie between the chain's final state and the report
+  is made by T2-h alone.
 - BI-2's sabotage releases the caller's hold as well as the root lock,
   because they are one `with` statement, while the frozen §5 row names
   only the root lock. Inseparable without splitting the statement.
@@ -292,6 +301,27 @@ overclaim:
   frozen row says are "not compared". The comparison is labelled and
   true — the identities differ, as T8 requires — but it is literally the
   excluded comparison.
+- T2-g's `wrong-root` arm checks that the foreign writer has no act-report
+  but not that the foreign root's chain is unchanged, as T2-i does.
+- The audit's unit-level pre-intent parametrization omits a
+  mismatched-authority or mismatched-profile port, an empty observer, an
+  unencodable instrument and an unencodable actor; authority and profile
+  have a second home in Task 1's own tests, and the acceptance units read
+  the rest.
+- Four port-shaped doubles still lack `root` — `_Port` in
+  `test_permit_entry_points.py`, `KilledAfterAppend` in
+  `test_run_persistence.py` and `CancelledBeforePublication` in
+  `acceptance/test_intent_boundary_acceptance.py`. None is passed as
+  `port=` to a primitive, so pyright is clean today; a future caller that
+  passes one would have to add it.
+- `fixtures_cut3.py`'s `MemoryPort.root` is a relative placeholder
+  resolving against the process cwd — harmless while that port is only
+  ever a writer's own, and never compared by `_require_bound_port`.
+- The port refusal messages for authority and profile name neither side,
+  unlike the root message beside them.
+- The port binding has no test for a same-root-different-spelling port
+  (which would prove `resolve()` earns its place), an equal-but-distinct
+  `Authority`, or a port-less writer handed a valid supplied port.
 - `audit_operation.py`'s `_now()` duplicates `holdings/acquire.py`'s byte
   for byte, deliberately, to avoid a cross-wrapper import. Hoist it if a
   third operation module arrives.
@@ -429,10 +459,11 @@ that follows the merge.
   returning.** The first Task 1 dispatch parked on a background wait and
   ended its turn with the work uncommitted; it was resumed with a
   foreground-only instruction, and every later dispatch carried the rule.
-  The two detached runs this lane needed — the cut runner and the
-  repository gate — went through the reaping wrapper and were polled from
-  the foreground. The cut runner's process group was confirmed gone and
-  the session's scope left nothing running.
+  The one detached run this lane has made — Task 6's cut runner — went
+  through the reaping wrapper and was polled from the foreground; its
+  process group was confirmed gone and the session's scope left nothing
+  running. The repository gate is the lane's other detached run; it has not
+  run yet, and §6 records it.
 - **The results record is `docs/plans/2026-09-22-conformance-cut-38-results.md`.**
   Spec §9.4 spells it under `docs/superpowers/plans/`; that is a typo, not
   a decision. Every prior results record lives in `docs/plans/`, the

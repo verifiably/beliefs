@@ -222,7 +222,8 @@ so a real verification can reach `clean-environment`
 R20, and R21 across the full workflow surface and reads R23's local
 basis/composition disagreement without reopening replay cardinality. The
 relocation cut is discharged as cut 16: W5 reads in full, G3 and D7 close,
-W16, C3, R23, M3 and T2 remain partial on their named remainders, and T8 is
+W16, C3, R23, M3 and T2 remained partial there on their named remainders,
+T2 until it closes at cut 38, and T8 is
 re-read against `move` and `consolidate`. The write-permits cut is discharged
 as cut 17: E1–E8 close, every write entry point requires its permit before any
 effect, and no caller supplies an actor. The deletion cut is discharged as
@@ -268,9 +269,9 @@ kernel's URL dereference boundary behind an injectable transport seam, and
 the `acquisition` operation — one intent, per resource a URL look and an
 optional managed materialization, one act-report published in the same
 registered transaction as the dataset it mints. H4, G9, R10, T5, T1 and T4
-close over 27 declaration units and eleven boundary invariants; T2 stays
-partial on the `audit` and `re-check` operation kinds and T7 on its
-cross-root case
+close over 27 declaration units and eleven boundary invariants; T2 stayed
+partial there on the `audit` and `re-check` operation kinds and closes at
+cut 38, and T7 remains partial on its cross-root case
 (`../designs/2026-09-20-conformance-cut-35.md`;
 `../plans/2026-09-20-conformance-cut-35-results.md`).
 Cut 36 discharges event-level L8 and closes the boundary: an event is

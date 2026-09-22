@@ -105,8 +105,9 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   `consolidate`, one shared operation token with root-local intents and reports,
   contract agreement, tagged lineage-basis reconciliation, target
   re-resolution, and sorted deduplicated locking. W5 reads in full; G3 and D7
-  close; W16, C3, R23, M3, and T2 remain partial exactly as the results record
-  states; T8 is a closed-row re-read (cut 16).
+  close; W16, C3, R23, M3 and T2 remained partial at cut 16 exactly as the
+  results record states, T2 until it closes at cut 38; T8 is a closed-row
+  re-read (cut 16).
 - **Write permits** — closed act families and governed-kind routes,
   `Authority(permit, actor)` bound once at every construction seam, checks
   before effects across the closed 37-definition inventory, and no

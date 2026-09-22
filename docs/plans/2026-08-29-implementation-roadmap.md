@@ -71,8 +71,9 @@ instrument inputs and a hop named only by ordinal and category; and the
 `acquisition` operation opens one intent, looks per resource with an
 optional managed materialization and a cooperative stop, and closes through
 one act-report published in the same registered transaction as the dataset
-it mints. H4, G9, R10, T5, T1 and T4 close in full; T2 stays partial on the
-`audit` and `re-check` operation kinds and T7 on its cross-root case. This
+it mints. H4, G9, R10, T5, T1 and T4 close in full; T2 stayed partial there
+on the `audit` and `re-check` operation kinds and closes at cut 38, and T7
+remains partial on its cross-root case. This
 is the **fourth** off-path lane opened under rule 6, and it **re-ranks
 nothing on the path**: mm30's data is held locally, so the first belief
 acquires nothing. `url-retrieval` leaves the ledger's `Current state` table
