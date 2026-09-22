@@ -1525,6 +1525,15 @@ class AuditRefused(WriteRefused):
     (act-report-remainder design §3 step 1)."""
 
 
+class RecheckRefused(WriteRefused):
+    """A re-check operation refused before its intent — duplicate locations, a
+    foreign store, the wrong root, no operation port, an observer or
+    instrument the observation would refuse, a `standing` set at another
+    location or for an unrequested one (act-report-remainder design §4 step 1,
+    decision 14) — or at its close, when the report would name an observation
+    no act published."""
+
+
 class StoreWriteRefused(ScienceError):
     """The store transaction of a managed `write` was a routine engine refusal
     (url-retrieval design decision 10): `applied == 0` and a

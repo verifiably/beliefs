@@ -101,6 +101,7 @@ from beliefs.report import (
     Consolidated,
     Entry,
     ImportedRecords,
+    LocatorEntry,
     Moved,
     OperationIntent,
     RecordImportEntry,
@@ -349,6 +350,33 @@ def _mint_audit_report(
         raise MalformedRecord("an audit report carries subject-evaluation entries only")
     return _mint_report(
         operation="audit",
+        event_token=intent.event_token,
+        actor=intent.actor,
+        observer=observer,
+        instrument=instrument,
+        opened_at=opened_at,
+        closed_at=closed_at,
+        entries=entries,
+    )
+
+
+def _mint_recheck_report(
+    intent: OperationIntent,
+    *,
+    observer: str,
+    instrument: str,
+    opened_at: str,
+    closed_at: str,
+    entries: tuple[Entry, ...],
+) -> ActReport:
+    """The re-check operation's terminal record (act-report-remainder design
+    §4): one locator entry per requested location, in request order."""
+    if type(intent) is not OperationIntent or intent.kind != "re-check":
+        raise MalformedRecord("a re-check report requires a re-check operation intent")
+    if type(entries) is not tuple or any(type(entry) is not LocatorEntry for entry in entries):
+        raise MalformedRecord("a re-check report carries locator entries only")
+    return _mint_report(
+        operation="re-check",
         event_token=intent.event_token,
         actor=intent.actor,
         observer=observer,
