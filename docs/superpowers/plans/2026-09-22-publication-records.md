@@ -28,7 +28,7 @@
   declared-arm, declaration-unit and guarantee-row counts, and the cut's
   guarantee-rows-exercised line. Cuts 33, 34 and 35 landed theirs at `f4c2cef`,
   `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. — Here that is Task 8, Step 4, with `(cut39, 39, (13, 13, 5))` — or `(cut39, 39, (12, 12, 5))` if Task 0 Step 3 finds no durable rollback and W17-p-f is declared unrun (the row count stays 5; W17 is then read partial).
-- **Frozen declarations and frozen cut bodies stay byte-exact.** Cut 39 chains **cut 38's** runner (`PREFIX_RUNNERS = ("cut38_acceptance.py",)`) and re-targets nothing unless Task 1's staleness run says otherwise: `coordination.py`, `corpus.py`, `permit.py`, `report.py`, `stored.py` and `intents/shapes.py` are pinned by earlier live arms (cuts 14, 19, 35, 38), so every edit in those files must leave each pinned `before` string occurring exactly once. Tasks 1, 2, 3 and 5 end by running `tests/test_arm_staleness.py`; a stale prior arm means an edit moved a pinned line — restore the line's spelling and place the new code beside it, never edit a prior declaration (memory `staleness-probe-baseline-is-the-trees-output`).
+- **Frozen declarations and frozen cut bodies stay byte-exact.** Cut 39 chains **cut 38's** runner (`PREFIX_RUNNERS = ("cut38_acceptance.py",)`) and re-targets nothing unless Task 1's staleness run says otherwise: `coordination.py`, `corpus.py`, `permit.py`, `report.py`, `stored.py` and `intents/shapes.py` are pinned by earlier live arms (cuts 14, 19, 35, 38), so every edit in those files must leave each pinned `before` string occurring exactly once. **One exception, planned:** cut 17's live arm E4c pins `        raise ValueError("publish is not an act family")` in `permit.py`, the line decision 7 deletes; Task 1 re-targets it in `test_n2_cut17.py`'s `_LIVE_SABOTAGES` (new `before`, frozen `after` kept) and rewrites its check's body under the cited name, and the results record states it. Tasks 1, 2, 3 and 5 end by running `tests/test_arm_staleness.py`; a stale prior arm means an edit moved a pinned line — restore the line's spelling and place the new code beside it, never edit a prior declaration (memory `staleness-probe-baseline-is-the-trees-output`).
 - **Decisions the code must honour verbatim** (spec §2): two slices, this one owning every record and every source-root write (1); the contract ships as `v1` (the fixture, same content identity) and `v2` (`lineage: {successor: <v1 identity>}`, adding the two kinds and `composite`/`composes`), `shipped_coordination()` returning v2 (2); the publish intent is the domain-tagged `science.publish-intent.v1` carrying the pinned view, the destination, `binding_tips`, `marker_tips`, and one anchor per mount other than the written root, captured under the written root's lock (3); presence at a position is the chain's inventory at each root's bound — committed registrations only, every inventoried file present, content-matched and well-formed, removals and rewrites `history-violated`, unaccounted files classified by a chain re-read (4, §6); the marker's `published_from`, `destination`, `selection` and `supersedes_markers` and the binding's bound `(corpus_id, marker, artifact)` are facet fields, a marker carries no relations, a binding exactly its `supersedes` to `binding_tips` (5); deterministic identity by the factory only, `mint_coordination` and `revise_coordination` refusing both kinds with `KindNotMintedHere` (6); a `publish` act family, `KIND_ACTS` mapping both kinds to `{"publish"}`, `RequiredCapabilities.coordination()` keeping the eight ordinary kinds, `publishes()` returning `publish` over `publication-binding` plus `corpus-write` over `act-report`, admitted through a closed `KERNEL_REQUIREMENTS` while every ordinary route naming `publish` still refuses (7); the act-report amendment banks one entry kind, `publication-binding`, with `bound`, `predecessor-not-standing` and `evidence-refused` (8); the destination is the closed `local`/`remote` union, canonical (9); `publish` opens only through its domain intent — `OperationIntent("publish", …)` raises and a domainless `publish` triple decodes `malformed` (10); `predecessor-not-standing` is the detection of a broken single-writer obligation, reached in the arm by an injected second writer (11).
 - **Detached runs go through a reaping wrapper** (Processes rule): the cut runner and the gate outlive a turn, so each is launched by `~/d/beliefs/.work/acceptance/detached.sh` (exists; `test -x` it, and if missing recreate it from `docs/superpowers/plans/2026-09-21-l13-preimage.md`'s Global Constraints). Launch: `setsid nohup ~/d/beliefs/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`. The end-of-turn report that leaves it running names the process-group id (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session` has listed what the session's scope left. After exit, check the process group is gone before reporting nothing left.
 - Conventional commits, no attribution trailers. `tasks check` before every commit; the pre-commit hook runs `just hook-pre-commit` (~20 s). `just test-fast` while working; never the full suite after every edit (AGENTS.md). Every commit message names the row or invariant it serves. Run every `pytest` from `python/` with `uv run --frozen`. No TypeScript changes; both `CONTRACT.yaml` copies of the base contract unchanged.
@@ -110,8 +110,10 @@ _counter = count()
 
 
 @pytest.fixture()
-def durable_root(work_directory):
-    root = work_directory / f"engine-order-{os.getpid()}-{next(_counter)}"
+def durable_root(certified_work):
+    """`certified_work` (tests/conftest.py:133) is the certified volume for the
+    portable tree; `work_directory` exists only under tests/acceptance/."""
+    root = certified_work / f"engine-order-{os.getpid()}-{next(_counter)}"
     try:
         init_corpus_root(root, authority=FULL)
         open_corpus(root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
@@ -165,28 +167,66 @@ def test_an_effect_failure_after_registration_rolls_back_durably(durable_root, m
 ```bash
 cd python && uv run --frozen pytest tests/test_publication_engine_order.py -q
 ```
-Expected: 2 passed. If the first fails with `seen == [False]`, the engine does not append before its effects and the spec's re-read classification is unsound: stop, `tasks note` the finding, and park the task `--reason decision`; nothing later is built on an unpinned order.
+Expected (after Step 3 adds two more): 4 passed. If the first fails with `seen == [False]`, the engine does not append before its effects and the spec's re-read classification is unsound: stop, `tasks note` the finding, and park the task `--reason decision`; nothing later is built on an unpinned order.
 
 - [ ] **Step 3: Settle `ROLLBACK_MEANS`.** The second test above is the durable means W17-p-f needs (spec §11.2): monkeypatching `atoms.coordinator.execute.create_file.apply` to raise after registration leaves a `RegisteredEntryView` and a `SettledEntryView(committed=False)` in the chain and no file — `atoms`' own caught-rollback technique (`tests/test_coordinator_run.py:173`). If it passes, `ROLLBACK_MEANS = "patched create effect"`, and W17-p-f is declared. If it fails on the certified volume, W17-p-f is declared **unrun**, the accounting in Global Constraints and Task 8 takes its `(12, 12, 5)` form, and the results record reads W17 **partial** (memory `cut-classification-any-unrun-arm-is-partial`). Add one probe to the same module, which Task 6's retry and Task 7's W17-p-f depend on — whether a second fulfilling registration for the same intent is admitted after a rolled-back one:
 
 ```python
 def test_a_rolled_back_fulfilment_leaves_the_intent_open_for_a_retry(durable_root, monkeypatch):
+    """Probed through `execute_fulfilling_guarded`, the call the binding door
+    makes. `execute_fulfilling` would misreport: its `_registration_for`
+    (root.py:1062-1076) raises unless exactly one registration fulfils the
+    intent, and after a rollback and a retry there are two. The engine itself
+    refuses only a prior *committed* fulfilment (`atoms`
+    `coordinator/commands.py` `_require_admissible_fulfills`, line 314)."""
     writer = open_corpus(durable_root, authority=FULL, profile=BASE)
     port = writer._operation_port
     digest = writer._append_operation_intent("audit", "f" * 32, FULL.actor)
+    plan = [CreateOp(path="probe/c.md", content=b"one\n")]
 
     def failing(*args, **kwargs):
         raise RuntimeError("cut after registration")
 
     monkeypatch.setattr(engine_execute.create_file, "apply", failing)
     with pytest.raises(Exception):
-        port.execute_fulfilling([CreateOp(path="probe/c.md", content=b"one\n")], digest)
+        port.execute_fulfilling_guarded(plan, digest, guard=lambda _view: None, fallback=lambda _reason: plan)
     monkeypatch.undo()
-    port.execute_fulfilling([CreateOp(path="probe/c.md", content=b"one\n")], digest)
+    before = _fulfilling(durable_root, digest)
+    assert [committed for _, committed in before] == [False]
+    retry_refused = None
+    try:
+        port.execute_fulfilling_guarded(plan, digest, guard=lambda _view: None, fallback=lambda _reason: plan)
+    except Exception as caught:  # recorded, not swallowed: the verdict below reads it
+        retry_refused = caught
+    after = _fulfilling(durable_root, digest)
+    if retry_refused is not None:
+        # "refused" only when the engine appended nothing for the retry
+        assert after == before, f"the retry failed after registering: {retry_refused!r}"
+        pytest.fail(f"RETRY_AFTER_ROLLBACK = fresh intent: {retry_refused!r}")
+    assert [committed for _, committed in after] == [False, True]
     assert (durable_root / "probe/c.md").read_bytes() == b"one\n"
+
+
+def _fulfilling(root: Path, digest: str) -> list[tuple[str, bool | None]]:
+    """Every registration fulfilling `digest`, in chain order, with its settlement."""
+    view = log_seam().inspect_registered(root)
+    assert type(view) is WellFormedView
+    settled = {e.registration: e.committed for e in view.entries if type(e) is SettledEntryView}
+    return [(e.digest, settled.get(e.digest)) for e in view.entries if type(e) is RegisteredEntryView and e.fulfills == digest]
+
+
+def test_a_live_registered_root_reads_well_formed_detached(durable_root):
+    """The judgment reads every mounted root but the written one with the
+    read-only detached inspector (spec §6, planning note): no recovery runs,
+    so nothing is appended to a root this process does not lock."""
+    writer = open_corpus(durable_root, authority=FULL, profile=BASE)
+    writer._operation_port.execute([CreateOp(path="probe/d.md", content=b"d\n")])
+    registered, detached = log_seam().inspect_registered(durable_root), log_seam().inspect_detached(durable_root)
+    assert type(detached) is WellFormedView
+    assert [e.digest for e in detached.entries] == [e.digest for e in registered.entries]
 ```
 
-If this third test fails with the engine refusing the second fulfilment, record `RETRY_AFTER_ROLLBACK = "fresh intent"`: Task 7's W17-p-f then commits its retry as a fresh publish rather than a second `_bind_publication` under the same intent, and its "present once" assertion is about that publish's binding. Otherwise `RETRY_AFTER_ROLLBACK = "same intent"`. Write both verdicts into the cut document's §5 (Step 5) and into a `tasks note`.
+If the third test fails with `RETRY_AFTER_ROLLBACK = fresh intent` — the engine refused the retry before registering anything — record that: Task 7's W17-p-f then commits its retry as a fresh publish rather than a second `_bind_publication` under the same intent, and its "present once" assertion is about that publish's binding. If it passes, `RETRY_AFTER_ROLLBACK = "same intent"`. Any other failure (the retry registered and then failed) is a finding: note it and park `--reason decision`. If the fourth test fails, the detached inspector cannot serve live roots: park `--reason decision` before Task 5, since the judgment's read of unlocked roots then needs a design choice (nested locks, or recovery effects the spec must state). Write both verdicts into the cut document's §5 (Step 5) and into a `tasks note`.
 
 - [ ] **Step 4: Bank the Y table** — `docs/designs/2026-09-22-publication-design.md`:
 
@@ -244,7 +284,48 @@ intent-position judgment over the chain's inventory
 ```
 and add the cut-39 path to the cut list. `python/tests/test_designs_corpus.py`: add the number word(s) the new designs count needs beside the last entry.
 
-In the spec, under §16's review log, add: "- 2026-09-22 — at planning, two gaps resolved: `completion` admits `PublishIntent` (its type check refused anything but `OperationIntent` and `AssessmentRunIntent`, so §5's 'completion itself is unchanged' and §8's inclusion of `completion` were wrong), and the Y table's owner is `../../designs/2026-09-22-publication-design.md`, since `TABLE_OWNERS` resolves under `docs/designs/`. The doors live in `beliefs/publication_doors.py`; `standing_at` takes the address's kind explicitly." and change §5's sentence "`completion` itself is unchanged." to "`completion` admits a `PublishIntent` beside the two intents it reads today (planning note, §16)." and delete "and `completion`" from §8's first sentence.
+In the spec, under §16's review log, add this planning note (every interface the plan fixes where the spec named another, or named none):
+
+```markdown
+- 2026-09-22 — at planning (plan `../plans/2026-09-22-publication-records.md`, two review rounds):
+  - `completion` admits `PublishIntent`: its type check refused anything but
+    `OperationIntent` and `AssessmentRunIntent`, so §5's "completion itself is
+    unchanged" and §8's inclusion of `completion` were wrong.
+  - The Y table's owner is `../../designs/2026-09-22-publication-design.md`,
+    since `TABLE_OWNERS` resolves under `docs/designs/`.
+  - §6's signature becomes `standing_at(mounts, address, kind, *, written,
+    position, anchors, seam)`: the resolver contributes only its mount map
+    (`CoordinationResolver.mounted()`, root → corpus id), the address's kind is
+    explicit, and the seam argument is `seam`, not `moments`. `MomentSeam`'s
+    members are `inspect_written`, `inspect_other`, `absent_state`, `is_file`
+    and `file_matches`; the inventory, the byte match and the re-read
+    classification are pure functions in `coordination.py` over them
+    (`bounds`, `inventory`, `present_records`), not seam members.
+  - The written root is read with the registered inspector (its recovery runs
+    under the lock this process holds); every other mounted root with the
+    read-only detached inspector, since the registered one runs the engine's
+    recovery, which can append to a root this process does not lock, and taking
+    that root's lock inside the written root's would nest. A pending
+    registration a detached read sees is not committed and so not present; a
+    torn read is `chain-malformed` and refuses.
+  - `Destination` lives in `beliefs/intents/publish.py` beside `PublishIntent`,
+    so the intent codec and the records import one definition without a cycle;
+    `Anchor` lives in `coordination.py`.
+  - §3's content rule is `publication.publication_content_malformed`, applied by
+    the factories, by `standing_at`, and by `corpus_check`, whose coordination
+    branch reports a malformed stored marker or binding as
+    `coordination-facet-malformed`. The resolver's live tip rule (cut 14's) is
+    not widened.
+  - The doors live in `beliefs/publication_doors.py`. A publish report's
+    observer is the intent's actor and its instrument the fixed string
+    `beliefs.publish` (`PUBLISH_INSTRUMENT`); both enter the report's identity.
+  - Step 0 refuses before its intent with `PublicationRefused` (a new
+    `WriteRefused`), reasons `view-unresolved`, `divergent-view` (with its
+    tips), and each `PositionRefused` reason; a writer whose mounted
+    coordination contract does not declare `publication-binding` refuses
+    `ValidationRefused`.
+```
+and change §5's sentence "`completion` itself is unchanged." to "`completion` admits a `PublishIntent` beside the two intents it reads today (planning note, §16)." and delete "and `completion`" from §8's first sentence.
 
 The plan's step children exist (filed with the plan: `beliefs-ff3c13` Task 0, `beliefs-7085c4` Task 1, `beliefs-ba621b` Task 2, `beliefs-3ae33c` Task 3, `beliefs-cce5e6` Task 4, `beliefs-ec5974` Task 5, `beliefs-eae370` Task 6, `beliefs-4857f1` Task 7, `beliefs-5b44e2` Task 8, `beliefs-d9ed0e` Task 9, `beliefs-d477a1` Task 10, `beliefs-fc5063` Task 11, each depending on its predecessor). `tasks start` each before its task and `tasks done` it in the task's commit.
 
@@ -252,6 +333,7 @@ The plan's step children exist (filed with the plan: `beliefs-ff3c13` Task 0, `b
 
 ```bash
 cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py tests/test_publication_engine_order.py -q
+# test_publication_engine_order.py: 4 passed
 cd .. && tasks note beliefs-d7d7d1 "Cut 39 frozen: 13 units (W17-p-a..f, Y1-a, Y1-b, Y2-a, Y3-a, Y4-a..c); ROLLBACK_MEANS=<verdict>; RETRY_AFTER_ROLLBACK=<verdict>; chains cut 38."
 tasks check && git add docs README.md python/tests/test_designs_corpus.py python/tests/test_publication_engine_order.py tasks
 git commit -m "docs(cut): freeze conformance cut 39, publication records; bank the Y table"
@@ -266,7 +348,7 @@ Record the full commit hash: Task 8's guard pins it as `CUT39_FREEZE_COMMIT`, an
 **Files:**
 - Create: `python/src/beliefs/contracts/coordination/v1/CONTRACT.yaml`, `python/src/beliefs/contracts/coordination/v2/CONTRACT.yaml`
 - Modify: `python/src/beliefs/profile.py`, `python/src/beliefs/coordination.py:26-27`, `python/src/beliefs/permit.py:30-60,150-196`, `python/src/beliefs/corpus.py` (`mint_coordination`, `revise_coordination`), `python/src/beliefs/errors.py`, `python/tests/coordination_fixtures.py:20-78`
-- Test: `python/tests/test_coordination_contract.py`, `python/tests/test_permit.py`, `python/tests/test_coordination_write.py`
+- Test: `python/tests/test_coordination_contract.py`, `python/tests/test_permit.py`, `python/tests/test_coordination_write.py`, `python/tests/acceptance/test_n2_cut17.py` (E4c's live re-target)
 
 **Interfaces:**
 - Produces: `beliefs.profile.shipped_coordination(version: int = 2) -> CoordinationContract`; `beliefs.coordination.ORDINARY_COORDINATION_KINDS: tuple[str, ...]` (the eight), `PUBLICATION_KINDS = ("publication", "publication-binding")`, `COORDINATION_KINDS = (*ORDINARY_COORDINATION_KINDS, *PUBLICATION_KINDS)`; `beliefs.permit.ACT_FAMILIES` with `"publish"`, `KERNEL_REQUIREMENTS: frozenset[WritePermit]`, `RequiredCapabilities.publishes() -> RequiredCapabilities`; `beliefs.errors.KindNotMintedHere(WriteRefused)`; `coordination_fixtures.coordination_profile(base_contract, *, document=None, version=1)`.
@@ -289,7 +371,7 @@ assert shipped.content_identity == fixture.content_identity
 print(shipped.content_identity)
 EOF
 ```
-Keep the printed identity: v2's `lineage` names it.
+The printed identity must be `c440b93fe673240e51361a7ad837a8c27a1d385ed6ea7bebbfc6993eb0d84b8f` (computed at planning from the fixture); v2's `lineage` names it.
 
 - [ ] **Step 2: Write the v2 file** — v1's text with `version: 2`, `lineage: {successor: <v1 identity>}`, `description: Project coordination records; version 2 adds the publication kinds (publication-records design §3)`, `composite` appended to `query_vocabulary.kinds`, `composes` appended to `query_vocabulary.relations`, and two kinds appended to `kinds`:
 
@@ -308,10 +390,14 @@ Keep the printed identity: v2's `lineage` names it.
 from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination
 
 
-def test_the_shipped_v1_is_the_former_fixture():
-    from coordination_fixtures import COORDINATION_DOCUMENT, coordination_contract
+V1_IDENTITY = "c440b93fe673240e51361a7ad837a8c27a1d385ed6ea7bebbfc6993eb0d84b8f"
+"""The former fixture's content identity, computed at planning (2026-09-22) from
+`coordination_fixtures.COORDINATION_DOCUMENT` before the fixture was moved into
+the package; pinned as a literal because the fixture now loads the shipped file."""
 
-    assert shipped_coordination(1).content_identity == coordination_contract(COORDINATION_DOCUMENT).content_identity
+
+def test_the_shipped_v1_is_the_former_fixture():
+    assert shipped_coordination(1).content_identity == V1_IDENTITY
 
 
 def test_v2_succeeds_v1_and_adds_exactly_the_publication_kinds_and_the_composite_vocabulary():
@@ -320,7 +406,7 @@ def test_v2_succeeds_v1_and_adds_exactly_the_publication_kinds_and_the_composite
     assert set(v2.kinds) - set(v1.kinds) == {"publication", "publication-binding"}
     assert set(v2.query_kinds) - set(v1.query_kinds) == {"composite"}
     assert set(v2.query_relations) - set(v1.query_relations) == {"composes"}
-    assert shipped_coordination() is v2
+    assert shipped_coordination() is v2 is shipped_coordination(2)
 
 
 def test_v2_compiles_over_the_shipped_base():
@@ -372,7 +458,64 @@ def test_the_coordination_requirement_excludes_the_publication_kinds():
     assert len(kinds) == 8
 ```
 
-The existing test at `test_permit.py:178` (every declaration requirement is command-reachable) gains `if required.permit in KERNEL_REQUIREMENTS: continue` at the top of its loop body, and the `ACT_FAMILIES` assertion (if one spells the set) gains `"publish"`; `COMMAND_REACHABLE_FAMILIES == {"corpus-write", "run", "holdings"}` at line 44 stays.
+Existing `test_permit.py` tests this task breaks, each updated here (names kept unless noted; only `test_publishes_is_refused_while_publish_is_not_a_family` is cited by an arm — cut 17's E4c):
+
+- `:32-36` `test_the_routes_are_the_banked_ones` — the loop becomes `for kind in ORDINARY_COORDINATION_KINDS: assert KIND_ACTS[kind] == {"corpus-write"}` followed by `for kind in PUBLICATION_KINDS: assert KIND_ACTS[kind] == {"publish"}` (import both from `beliefs.coordination`).
+- `:42-44` `test_the_families_are_the_six_and_three_are_command_reachable` — renamed `test_the_families_are_the_seven_and_three_are_command_reachable` (no arm cites it: `grep -rn 'families_are_the_six' python/tests` is empty but for the definition), asserting `ACT_FAMILIES == {"corpus-write", "run", "holdings", "registry", "epoch", "lifecycle", "publish"}`; the `COMMAND_REACHABLE_FAMILIES` line stays.
+- `:58-62` `test_an_unknown_kind_or_family_is_refused` and `:107-109` `test_an_unknown_family_is_a_caller_error_not_a_refusal` — `"publish"` is now a family; both use `"unicorn-family"` in its place.
+- `:139-142` `test_coordination_requires_the_coordination_kinds_over_corpus_write` — `required.kinds == frozenset(ORDINARY_COORDINATION_KINDS)`.
+- `:168-170` `test_publishes_is_refused_while_publish_is_not_a_family` — rewritten in place under its old name (the arm cites the name): its body becomes
+
+```python
+    def test_publishes_is_refused_while_publish_is_not_a_family(self):
+        # Since cut 39 `publish` is a family and publishes() is the kernel requirement;
+        # the name is cut 17's E4c check, re-targeted there (test_n2_cut17.py _LIVE_SABOTAGES).
+        assert RequiredCapabilities.publishes().permit == WritePermit(
+            frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"})
+        )
+```
+- `:172-178` `test_a_requirement_never_names_a_non_command_family` — unchanged: none of its three requirements names `publish`.
+- `:181-188` `test_full_covers_every_constructible_requirement` — `for_kinds(list(KIND_ACTS), …)` now raises (the publication kinds route only to `publish`); it becomes `RequiredCapabilities.for_kinds([kind for kind in KIND_ACTS if kind not in PUBLICATION_KINDS], {"run": "run", "act-report": "run"})`, and `RequiredCapabilities.publishes()` joins the tuple.
+
+**Cut 17's E4c is re-targeted, not restored.** Arm E4c (`tests/acceptance/n2_arms_cut17.py:142-151`) pins `        raise ValueError("publish is not an act family")`, a line decision 7 deletes; cut 17's guard is live (`tests/acceptance/test_n2_cut17.py` carries `_LIVE_SABOTAGES`, and `tests/cited_not_run.py` does not list it), so the staleness rule's "restore the spelling" cannot apply. Add to `test_n2_cut17.py`'s `_LIVE_SABOTAGES`, with a comment line `# Cut 39 (publication records): E4c re-targeted; publishes() is the kernel requirement.`:
+
+```python
+    "E4c": Sabotage(
+        module="permit.py",
+        before="        return cls(_PUBLICATION_PERMIT)",
+        after="        return cls(WritePermit(frozenset(), frozenset()))",
+    ),
+```
+The frozen `after` is kept; under it `publishes()` returns the empty permit and the rewritten check above fails, so the arm stays sound. The frozen declaration `n2_arms_cut17.py` is not edited. Task 10's results record states the re-target (§3, evidence).
+
+Add the v2 query-vocabulary test the spec's §11.1 names (in `test_coordination_write.py`):
+
+```python
+COMPOSITE_QUERY = {
+    "version": "science.view-query.v1",
+    "clauses": [
+        {
+            "all": [
+                {"kinds": ["composite"]},
+                {"closure": {"anchor": "composite:c1", "predicates": ["composes"], "direction": "out"}},
+            ]
+        }
+    ],
+}
+
+
+@pytest.mark.parametrize("version, admitted", [(2, True), (1, False)])
+def test_composite_and_composes_are_spellable_only_under_v2(tmp_path, base_contract, version, admitted):
+    writer, _resolver = writer_with_resolver(tmp_path, coordination_profile(base_contract, version=version))
+    project = writer.mint_coordination("project", content=content_for("project"))
+    address = coordination_revision(project).address
+    content = content_for("question", query=COMPOSITE_QUERY)
+    if admitted:
+        assert writer.mint_coordination("question", project=address, content=content).kind == "question"
+    else:
+        with pytest.raises(ValidationRefused, match="outside the coordination contract vocabulary"):
+            writer.mint_coordination("question", project=address, content=content)
+```
 
 Append to `python/tests/test_coordination_write.py`:
 
@@ -403,18 +546,24 @@ Expected: failures naming `shipped_coordination`, `KERNEL_REQUIREMENTS`, `KindNo
 `profile.py`, beside `shipped_domain_contract`:
 
 ```python
-@cache
 def shipped_coordination(version: int = 2) -> CoordinationContract:
     """The coordination contract carried by this package (publication-records
-    design decision 2): version 1, and version 2 parsed as its successor."""
+    design decision 2): version 1, and version 2 parsed as its successor. The
+    default is normalised before the cache, so `shipped_coordination()` and
+    `shipped_coordination(2)` are one object."""
+    if version not in (1, 2):
+        raise ProfileError(f"this package ships coordination contract versions 1 and 2, not {version!r}")
+    return _shipped_coordination(version)
+
+
+@cache
+def _shipped_coordination(version: int) -> CoordinationContract:
     from beliefs.contract.coordination import parse_coordination_contract
     from beliefs.contract.document import parse_document
 
-    if version not in (1, 2):
-        raise ProfileError(f"this package ships coordination contract versions 1 and 2, not {version!r}")
     source = f"beliefs/contracts/coordination/v{version}/CONTRACT.yaml"
     text = resources.files("beliefs").joinpath(f"contracts/coordination/v{version}/CONTRACT.yaml").read_text(encoding="utf-8")
-    predecessor = None if version == 1 else shipped_coordination(1)
+    predecessor = None if version == 1 else _shipped_coordination(1)
     return parse_coordination_contract(parse_document(text, source=source), source=source, predecessor=predecessor)
 ```
 
@@ -508,15 +657,16 @@ def coordination_profile(base_contract, *, document=None, version=1):
 
 ```bash
 cd python && uv run --frozen pytest tests/test_coordination_contract.py tests/test_permit.py tests/test_coordination_write.py tests/test_coordination.py tests/test_permit_boundary.py tests/test_permit_entry_points.py tests/test_capability_boundary.py tests/test_arm_staleness.py -q
+cd python && SCIENCE_CUT4_ROOT=~/d/beliefs/.work/acceptance/cut39-dev uv run --frozen pytest tests/acceptance/test_n2_cut17.py -q -p no:cacheprovider -k "E4c"
 just test-fast
 ```
-Expected: all green. A `test_permit_entry_points.py` failure over `KIND_ACTS`' key set means a kind list was missed; a stale prior arm means a pinned line in `coordination.py`, `permit.py` or `corpus.py` moved — restore its spelling.
+Expected: all green, including cut 17's E4c `sound` against its re-targeted `before`. A `test_permit_entry_points.py` failure over `KIND_ACTS`' key set means a kind list was missed; any other stale prior arm means a pinned line in `coordination.py`, `permit.py` or `corpus.py` moved — restore its spelling (E4c is the one line decision 7 removes, and its re-target is above).
 
 - [ ] **Step 7: Commit**
 
 ```bash
 tasks check && git add python/src/beliefs/contracts/coordination python/src/beliefs/profile.py python/src/beliefs/coordination.py python/src/beliefs/permit.py python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests tasks
-git commit -m "feat(coordination): ship contract v1 and v2, the publication kinds and the publish family — Y1"
+git commit -m "feat(coordination): ship contract v1 and v2, the publication kinds and the publish family — Y1; re-target cut 17's E4c"
 ```
 
 ---
@@ -1113,6 +1263,7 @@ git commit -m "feat(intents): the evidence-bearing publish intent — Y3, W17"
 
 **Files:**
 - Create: `python/src/beliefs/publication.py`, `python/tests/test_publication.py`
+- Modify: `python/src/beliefs/corpus.py:1459` (`corpus_check` applies the content rule), `python/tests/test_coordination_write.py`
 
 **Interfaces:**
 - Consumes: Task 1's `PUBLICATION_KINDS`; Task 3's `Destination`, `PublishIntent`.
@@ -1422,14 +1573,50 @@ The pair list must be strictly ascending with no duplicates, and the marker bran
 
 `_node` builds predecessor stubs only to hand `_coordination_node` their ids; it reads nothing else from them. If the executor finds `_coordination_node` reading more than `node.id` from a predecessor (`sed -n '/def _coordination_node/,/return node/p' src/beliefs/corpus.py`), pass the ids through a small local helper that builds the same `Relation` list instead.
 
-- [ ] **Step 4: Run** `tests/test_publication.py` and `just test-fast`; expected green.
+- [ ] **Step 4: `corpus_check` applies the rule** (spec §3 puts the rule "beside `_validated_coordination_content`"; the audit is where a stored record meets it). In `corpus.py`'s `corpus_check`, the coordination branch's test (`corpus.py:1459`, 12-space indent — distinct from the resolver's pinned `if coordination_facet_malformed(node):\n                    continue` at 16 spaces, cut 14's arm) becomes
 
-- [ ] **Step 5: Correct the spec's `published_from` row** — in §3's table, `` `{world_id, epoch, view, view_revision}`: 32-hex, 64-hex, canonical `coord:` address, 32-hex `` becomes `` `{world_id, epoch, view}`: 32-hex, 64-hex, canonical `coord:` address pinned to the view revision ``, and §4's `marker_record` signature drops `view_revision`; add a §16 line: "at planning (Task 4): the view revision is the pin on `published_from.view` and the intent's `view`, so no separate argument or field carries it."
+```python
+            if coordination_facet_malformed(node) or _publication_content_malformed(node):
+```
+with, at module level beside `_coordination_reference`:
 
-- [ ] **Step 6: Commit**
+```python
+def _publication_content_malformed(node: Node) -> bool:
+    """The publication kinds' closed content rule (publication-records design §3), for the audit."""
+    if node.kind not in PUBLICATION_KINDS:
+        return False
+    from beliefs.publication import publication_content_malformed
+
+    return publication_content_malformed(node)
+```
+A malformed stored marker or binding then reports `coordination-facet-malformed` and is excluded from the audit's coordination revisions, exactly as a malformed facet is. Test, in `test_coordination_write.py`:
+
+```python
+def test_the_audit_applies_the_publication_content_rule(tmp_path, base_contract):
+    from test_publish_intent import intent
+
+    from beliefs.publication import binding_record
+
+    profile = coordination_profile(base_contract, version=2)
+    writer, _resolver = writer_with_resolver(tmp_path, profile)
+    good = binding_record(intent(), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64)
+    bad = binding_record(intent(event_token="7" * 32), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64)
+    bad.facets["coordination"]["artifact"] = "not-hex"
+    raw_add(tmp_path, good, bad)
+    codes = {(f.code, f.ref) for f in corpus_check(writer.read_view, profile)}
+    assert ("coordination-facet-malformed", bad.id) in codes
+    assert ("coordination-facet-malformed", good.id) not in codes
+```
+(`corpus_check`'s exact signature: `grep -n '^def corpus_check' src/beliefs/corpus.py`; call it as the existing `test_coordination_write.py` tests do.) The resolver's `_revisions` keeps reading only `coordination_facet_malformed`: the live tip rule is cut 14's and this slice does not widen it; the judgment (`standing_at`) applies the content rule itself (Task 5).
+
+- [ ] **Step 5: Run** `tests/test_publication.py`, `tests/test_coordination_write.py`, `tests/test_arm_staleness.py` and `just test-fast`; expected green.
+
+- [ ] **Step 6: Correct the spec's `published_from` row** — in §3's table, `` `{world_id, epoch, view, view_revision}`: 32-hex, 64-hex, canonical `coord:` address, 32-hex `` becomes `` `{world_id, epoch, view}`: 32-hex, 64-hex, canonical `coord:` address pinned to the view revision ``, and §4's `marker_record` signature drops `view_revision`; add a §16 line: "at planning (Task 4): the view revision is the pin on `published_from.view` and the intent's `view`, so no separate argument or field carries it."
+
+- [ ] **Step 7: Commit**
 
 ```bash
-tasks check && git add python/src/beliefs/publication.py python/tests/test_publication.py docs/superpowers/specs/2026-09-22-publication-records-design.md tasks
+tasks check && git add python/src/beliefs/publication.py python/src/beliefs/corpus.py python/tests/test_publication.py python/tests/test_coordination_write.py docs/superpowers/specs/2026-09-22-publication-records-design.md tasks
 git commit -m "feat(publication): deterministic marker and binding records, two addresses, self-contained marker check — Y2"
 ```
 
@@ -1443,6 +1630,8 @@ git commit -m "feat(publication): deterministic marker and binding records, two 
 
 **Interfaces:**
 - Consumes: Task 3's `Anchor`; Task 4's `publication_content_malformed`; `world/events.place`; `world/logmodel` views.
+
+**Why two inspectors.** `inspect_registered` runs the engine's recovery (`atoms` `coordinator/commands.py` `inspect_chain`: "resolve and inspect again: `resolve` can append a registration"), so reading another mounted root with it can append to that root's chain; cut 36's `event_order` avoids the effect by inspecting each corpus under its own operation lock, never nested. The judgment runs *inside* the written root's lock (the step-0 door and `execute_fulfilling_guarded`'s guard), so taking another root's lock would nest. The written root is therefore read registered (its recovery runs under the lock this process holds), and every other root detached (`root.py` `_inspect_detached`, a read-only scan: no metadata root, no recovery, pending left unresolved). A pending registration a detached read sees is not committed and is not in the inventory — the rule already reads it as not present — and a torn read during another process's append is a malformed chain, which refuses (`chain-malformed`): fail closed. Task 0's fourth test pins that a detached read of a live registered root is well-formed and equal to the registered read.
 - Produces:
 
 ```python
@@ -1456,7 +1645,8 @@ class PositionRefused:
 
 @dataclass(frozen=True)
 class MomentSeam:
-    inspect: Callable[[Path], ChainView]
+    inspect_written: Callable[[Path], ChainView]   # registered: the root this process locks and writes
+    inspect_other: Callable[[Path], ChainView]     # detached: read-only, no recovery, for roots it does not lock
     absent_state: object
     is_file: Callable[[object], bool]
     file_matches: Callable[[object, bytes], bool]
@@ -1467,6 +1657,7 @@ class ChainBound:
     corpus_id: str
     view: WellFormedView
     head: int
+    written: bool          # which inspector re-reads it
 
 def bounds(mounts: Mapping[Path, str], *, written: Path, position: str, anchors: Sequence[Anchor], seam: MomentSeam) -> tuple[ChainBound, ...] | PositionRefused
 def inventory(bound: ChainBound, prefix: str, seam: MomentSeam) -> dict[str, object] | PositionRefused
@@ -1488,7 +1679,7 @@ from nodes.core.frontmatter import node_to_markdown
 from beliefs.coordination import Anchor, MomentSeam, PositionRefused, standing_at
 from beliefs.publication import binding_address, binding_record
 from test_publish_intent import intent
-from test_world_events import genesis, registered, settlement, digest  # the builders that file defines
+from test_world_log_audit import chain, digest, genesis_entry, registration, settlement  # the chain-view builders test_world_events also imports
 
 ABSENT = ("absent",)
 
@@ -1500,19 +1691,18 @@ def file_state(data: bytes) -> tuple[str, bytes]:
 SEAM_BASE = dict(absent_state=ABSENT, is_file=lambda s: s[0] == "file", file_matches=lambda s, data: s == ("file", data))
 
 
-def chain(*entries):
-    """A WellFormedView over `entries` (genesis first)."""
-    from beliefs.world.logmodel import WellFormedView
-
-    return WellFormedView(genesis=entries[0], entries=tuple(entries), tip=entries[-1].digest, pending=())
-
-
 def creation(tx: str, path: str, data: bytes, *, committed: bool = True):
-    reg = registered(digest(f"reg-{tx}"), tx, initial=((path, ABSENT),), final=((path, file_state(data)),))
+    """One create of `path` with `data`: `registration(entry_digest, txid, initial, final)` and its settlement."""
+    reg = registration(digest(f"reg-{tx}"), tx, ((path, ABSENT),), ((path, file_state(data)),))
     return reg, settlement(digest(f"set-{tx}"), reg.digest, tx, committed=committed)
+
+
+def seam_over(views: dict) -> MomentSeam:
+    """Both inspectors answer from one fabricated view per root."""
+    return MomentSeam(inspect_written=views.__getitem__, inspect_other=views.__getitem__, **SEAM_BASE)
 ```
 
-Then one test per row of spec §6's tables and each §11.1 bullet for `standing_at`: a first publication (empty inventory) → `()`; A then B superseding A, both committed before the bound → tips `(B,)`; B's file deleted → `revision-missing`; B's bytes replaced → `revision-mismatch`; B's bytes not a revision → `revision-malformed`; a committed registration moving B's path to `ABSENT` → `history-violated`; B's registration rolled back → tips `(A,)`, no refusal; B committed after the written root's position → tips `(A,)`; an other-root anchor whose head is before B's settlement → tips `(A,)`; an anchor naming another genesis → `anchor-unplaced`; a mount whose `inspect` answers `AbsentView()` → `chain-absent`, `MalformedView(...)` → `chain-malformed`; a mount set with an extra corpus → `mounts-changed`; a file at the address no registration creates → `unregistered-revision`; a file whose only creating registration is rolled back → not present, no refusal; the rolled-back-then-retried creation (two registrations, one rolled back, one committed) → present once. Build the revision bytes with `node_to_markdown(binding_record(intent(...), ...)).encode()` so each file is a real binding revision at `binding_address(VIEW, HERE)`; the fake root directory is `tmp_path / <name>`, and the test writes the bytes at the relative path the registration names.
+`chain(head, *rest)` takes the genesis first (`genesis_entry(payload, label=...)`); the fake seam answers `inspect_written` and `inspect_other` from one dict of views, so a test that needs the two to differ (a re-read that sees a registration the first read did not) passes a two-view `inspect_written`. Then one test per row of spec §6's tables and each §11.1 bullet for `standing_at`: a first publication (empty inventory) → `()`; A then B superseding A, both committed before the bound → tips `(B,)`; B's file deleted → `revision-missing`; B's bytes replaced → `revision-mismatch`; B's bytes not a revision → `revision-malformed`; a committed registration moving B's path to `ABSENT` → `history-violated`; B's registration rolled back → tips `(A,)`, no refusal; B committed after the written root's position → tips `(A,)`; an other-root anchor whose head is before B's settlement → tips `(A,)`; an anchor naming another genesis → `anchor-unplaced`; a mount whose `inspect` answers `AbsentView()` → `chain-absent`, `MalformedView(...)` → `chain-malformed`; a mount set with an extra corpus → `mounts-changed`; a file at the address no registration creates → `unregistered-revision`; a file whose only creating registration is rolled back → not present, no refusal; the rolled-back-then-retried creation (two registrations, one rolled back, one committed) → present once. Build the revision bytes with `node_to_markdown(binding_record(intent(...), ...)).encode()` so each file is a real binding revision at `binding_address(VIEW, HERE)`; the fake root directory is `tmp_path / <name>`, and the test writes the bytes at the relative path the registration names.
 
 - [ ] **Step 2: Run to see them fail.**
 
@@ -1530,7 +1720,7 @@ def bounds(
         return PositionRefused("mounts-changed", "the mounted corpora are not the written root plus the anchored ones")
     found: list[ChainBound] = []
     for root, corpus_id in mounts.items():
-        view = seam.inspect(root)
+        view = (seam.inspect_written if root == written else seam.inspect_other)(root)
         if type(view) is AbsentView:
             return PositionRefused("chain-absent", str(root))
         if type(view) is MalformedView:
@@ -1539,13 +1729,13 @@ def bounds(
             heads = [index for index, entry in enumerate(view.entries) if entry.digest == position]
             if len(heads) != 1:
                 return PositionRefused("anchor-unplaced", f"{root}: the position {position} is no entry of the chain")
-            found.append(ChainBound(root, corpus_id, view, heads[0]))
+            found.append(ChainBound(root, corpus_id, view, heads[0], True))
             continue
         anchor = by_corpus[corpus_id]
         placement = place(view, genesis_digest=anchor.genesis, head_digest=anchor.head)
         if placement is None:
             return PositionRefused("anchor-unplaced", f"{root}: the anchor does not place in the live chain")
-        found.append(ChainBound(root, corpus_id, view, placement.head))
+        found.append(ChainBound(root, corpus_id, view, placement.head, False))
     return tuple(found)
 
 
@@ -1606,7 +1796,7 @@ def present_records(bound: ChainBound, prefix: str, seam: MomentSeam) -> tuple[t
     ) if (bound.root / directory).is_dir() else []
     unaccounted = [path for path in listed if path not in expected]
     if unaccounted:
-        reread = seam.inspect(bound.root)
+        reread = (seam.inspect_written if bound.written else seam.inspect_other)(bound.root)
         if type(reread) is not WellFormedView:
             return PositionRefused("chain-malformed", f"{bound.root}: the re-read is not well-formed")
         created = _created_anywhere(reread, seam)
@@ -1679,7 +1869,8 @@ def _file_matches(state: object, data: bytes) -> bool:
 
 
 _MOMENT_SEAM = MomentSeam(
-    inspect=_inspect_registered,
+    inspect_written=_inspect_registered,
+    inspect_other=_inspect_detached,
     absent_state=ABSENT,
     is_file=_is_file_state,
     file_matches=_file_matches,
@@ -1693,7 +1884,7 @@ def moment_seam() -> MomentSeam:
 ```
 (`FileState` from `atoms.core.fingerprint`, which `root.py` already imports from; `sha256` from `hashlib`; `_file_state` at `root.py:1094` spells the same `"sha256:"` prefix — use it: `state == _file_state(data)` would also compare mode and length, which a created file carries as `CREATED_FILE_MODE`; compare `content_hash` alone, since the mode is the engine's and the bytes are what the judgment reads.)
 
-Add to `test_standing_at.py` one certified-volume test through `moment_seam()` over a real root: mint a binding through a raw `CorpusWriter._corpus.add`-free route is not available before Task 6, so this test uses an ordinary coordination kind (`task`) at an address, minted through `open_corpus(...).mint_coordination` and `revise_coordination` on a `durable_coordination_roots`-style pair, and asserts `standing_at(resolver.mounted(), address, "task", …)` equals the resolver's own `tips(address)` at the current tip (the judgment agrees with the live rule when nothing moved). The acceptance module (Task 7) exercises the binding kind durably.
+Add to `test_standing_at.py` one certified-volume test through `moment_seam()` over a real root: minting a binding needs Task 6's door, so this test uses an ordinary coordination kind (`task`) at an address, minted through `open_corpus(...).mint_coordination` and `revise_coordination` on two roots created under the `certified_work` fixture (`tests/conftest.py:133`; `work_directory` exists only under `tests/acceptance/`) the way `tests/acceptance/conftest.py`'s `durable_coordination_roots` creates its pair (`init_corpus_root`, `adopt_manifest(profile=pins_for(profile))`, cleanup of the root and `metadata_root_for(root)`), and asserts `standing_at(resolver.mounted(), address, "task", …)` equals the resolver's own `tips(address)` at the current tip (the judgment agrees with the live rule when nothing moved). The acceptance module (Task 7) exercises the binding kind durably.
 
 - [ ] **Step 4: Run** — `tests/test_standing_at.py`, `tests/test_capability_boundary.py` (no `atoms` import outside `root.py`), `tests/test_arm_staleness.py`, `just test-fast`. Expected green.
 
@@ -1747,7 +1938,82 @@ The observer is the intent's actor and the instrument `PUBLISH_INSTRUMENT` — t
   - every pre-intent refusal appends nothing: a v1-pinned writer (`ValidationRefused`, "`publication-binding` is not declared by the mounted coordination contract"), a view that does not resolve (`PublicationRefused("view-unresolved")`), a divergent view (`PublicationRefused("divergent-view", tips=…)`), an authority without `publish` (`PermitExceeded`), a `PositionRefused` from the judgment (`PublicationRefused(<reason>)`);
   - the intent's bytes: `decode_publish_intent` of the appended payload equals `opened.intent`; anchors in `corpus_id` order; `binding_tips` empty for a first publication;
   - `_append_operation_intent(payload=…)` refuses a payload whose kind, token or actor disagrees with the arguments (`MalformedRecord`), and appends exactly the given bytes otherwise;
-  - `_bind_publication` refuses an authority without `publish` before any effect.
+  - `_bind_publication` refuses an authority without `publish` before any effect;
+  - the orphan fold (spec §11.1), over Task 5's fake chain builders (`creation`, `seam_over`) with intent entries whose payloads are `encode_publish_intent(...)` values and fulfilling registrations (`RegisteredEntryView(..., fulfills=<intent digest>)`) that create `act-report/<digest>.md` files holding `node_to_markdown(stored.act_report_node(report))` bytes, one test per case of `marker_tips_at`:
+
+```python
+@pytest.mark.parametrize(
+    "reports, expected",
+    [
+        # (outcome of each publish in chain order, the intent's marker_tips) -> the orphans the fold returns
+        ([("evidence-refused", True, ())], {("1" * 32, "a" * 32)}),                            # remote reveal, refused: an orphan
+        ([("predecessor-not-standing", True, ())], {("1" * 32, "a" * 32)}),                    # any refusal reason
+        ([("evidence-refused", False, ())], set()),                                           # local reveal: never an orphan
+        ([("evidence-refused", True, ()), ("bound", False, (("1" * 32, "a" * 32),))], set()),  # retired by a bound publish carrying it
+        ([("evidence-refused", True, ()), ("evidence-refused", True, (("1" * 32, "a" * 32),))], {("1" * 32, "b" * 32)}),  # retired by a shared refusal; the second is itself an orphan
+        ([("evidence-refused", True, ()), ("evidence-refused", False, (("1" * 32, "a" * 32),))], {("1" * 32, "a" * 32)}),  # a local refusal retires nothing
+    ],
+    ids=["remote-refusal", "any-reason", "local-refusal", "retired-by-bound", "retired-by-shared-refusal", "not-retired-by-local"],
+)
+def test_the_orphan_fold(tmp_path, reports, expected):
+    root, view = _fold_chain(tmp_path, reports)
+    folded = marker_tips_at(
+        {root: "9" * 32}, VIEW, HERE, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}), binding_tips=()
+    )
+    assert set(folded) == expected
+
+
+def test_a_report_that_matches_but_does_not_decode_refuses(tmp_path):
+    root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())], corrupt=b"not a node\n")
+    folded = marker_tips_at({root: "9" * 32}, VIEW, HERE, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}), binding_tips=())
+    assert type(folded) is PositionRefused and folded.reason == "revision-malformed"
+
+
+def test_a_lost_report_refuses(tmp_path):
+    root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())])
+    for report in (root / "act-report").iterdir():
+        report.unlink()
+    folded = marker_tips_at({root: "9" * 32}, VIEW, HERE, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}), binding_tips=())
+    assert type(folded) is PositionRefused and folded.reason == "revision-missing"
+```
+with the fixture helper, above the tests (imports: `from nodes.core.paths import path_for_node_id`, `from nodes.core.frontmatter import node_to_markdown`, `from beliefs import boundary, stored`, the three outcome classes and `PublicationBindingEntry` from `beliefs.report`, `IntentEntryView` and `RegisteredEntryView` from `beliefs.world.logmodel`, `encode_publish_intent` and `Destination` from `beliefs.intents.publish`, and Task 5's `ABSENT`, `file_state`, `seam_over` plus `chain`, `digest`, `genesis_entry`, `settlement` from `test_standing_at` / `test_world_log_audit`):
+
+```python
+VIEW = CoordinationAddress("a" * 32, "b" * 32, "c" * 32)
+HERE = Destination.local("/srv/published/mm30")
+
+
+def _fold_chain(tmp_path, rows, *, corrupt: bytes | None = None):
+    """One written root: per row, a publish intent, the report its committed
+    fulfilment created, and that report's file. The k-th publish's marker uid
+    is "ab"[k] * 32 and its corpus_id "1" * 32 (the parametrized cases' pairs)."""
+    root = (tmp_path / "written").resolve()
+    (root / "act-report").mkdir(parents=True)
+    entries = [genesis_entry(b"g", label="fold-genesis")]
+    for k, (kind, remote, carried) in enumerate(rows):
+        marker = "ab"[k] * 32
+        value = intent(event_token=str(k) * 32, binding_tips=(), marker_tips=tuple(carried))
+        opened = IntentEntryView(digest=digest(f"fold-intent-{k}"), payload=encode_publish_intent(value))
+        outcome = {
+            "bound": BindingBound("c" * 32, "1" * 32, marker),
+            "evidence-refused": BindingEvidenceRefused("1" * 32, marker, remote, "mounts-changed"),
+            "predecessor-not-standing": BindingPredecessorNotStanding("1" * 32, marker, remote, ()),
+        }[kind]
+        report = boundary._mint_publish_report(
+            value, observer=value.actor, instrument="beliefs.publish", opened_at=value.at, closed_at=value.at,
+            entry=PublicationBindingEntry("coord:" + "a" * 32 + "/" + "d" * 32, outcome),
+        )
+        node = stored.act_report_node(report)
+        path = path_for_node_id(node.id)
+        data = corrupt if corrupt is not None else node_to_markdown(node).encode("utf-8")
+        (root / path).write_bytes(data)
+        created = RegisteredEntryView(
+            digest=digest(f"fold-reg-{k}"), txid=f"fold-{k}", initial=((path, ABSENT),), final=((path, file_state(data)),),
+            fulfills=opened.digest,
+        )
+        entries += [opened, created, settlement(digest(f"fold-set-{k}"), created.digest, f"fold-{k}", committed=True)]
+    return root, chain(*entries)
+```
 
 - [ ] **Step 2: Run to see them fail.**
 
@@ -1825,7 +2091,6 @@ from beliefs.coordination import (
 from beliefs.corpus import CoordinationResolver, CorpusWriter
 from beliefs.errors import MalformedRecord, PublicationRefused, ValidationRefused
 from beliefs.intents.publish import Destination, PublishIntent, decode_publish_intent, encode_publish_intent
-from beliefs.permit import RequiredCapabilities
 from beliefs.publication import BINDING_KIND, binding_address, binding_record
 from beliefs.report import (
     ActReport,
@@ -1850,14 +2115,6 @@ class OpenedPublication:
 class BindingOutcome:
     report: ActReport
     binding: Node | None
-
-
-def _require(writer: CorpusWriter) -> None:
-    """The publication requirement (decision 7), checked before any effect."""
-    permit = RequiredCapabilities.publishes().permit
-    for family, kinds in (("publish", ("publication-binding",)), ("corpus-write", ("act-report",))):
-        assert family in permit.act_families and set(kinds) <= permit.kinds
-        writer.authority.require(family, kinds)
 
 
 def _reports_at(bound, view: CoordinationAddress, destination: Destination, seam: MomentSeam):
@@ -1887,9 +2144,15 @@ def _reports_at(bound, view: CoordinationAddress, destination: Destination, seam
             yield intent, records
             continue
         ((_, data),) = records
-        facet = stored.act_report_facet(node_from_bytes(data))
-        (row,) = facet["entries"]
-        yield intent, row["outcome"]
+        try:
+            facet = stored.act_report_facet(node_from_bytes(data))
+        except (MalformedRecord, ValueError) as caught:
+            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]}: {caught}")
+            continue
+        if facet["operation"] != "publish" or len(facet["entries"]) != 1 or facet["entries"][0]["kind"] != "publication-binding":
+            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report")
+            continue
+        yield intent, facet["entries"][0]["outcome"]
 
 
 def marker_tips_at(
@@ -1917,7 +2180,7 @@ def marker_tips_at(
     }
     return tuple(sorted(bound_markers | (orphans - retired)))
 ```
-`present_records(bound, paths[0], seam)` treats the report's exact path as its own prefix: the inventory replays that one path, the file must be present and match, and the directory listing under `act-report/` with that stem finds only it. A report is create-only at a digest-named path (`stored.act_report_node`), so this is the same evidence rule as a revision's.
+Bytes that match their registration but do not decode as one publish report refuse `revision-malformed` (spec §6's three-reason rule for a report as for a revision); `node_from_bytes`' exception set is checked at implementation (`grep -n 'raise' "$(uv run --frozen python -c "import nodes, os; print(os.path.dirname(nodes.__file__))")/core/frontmatter.py"`) and the `except` names exactly it plus `MalformedRecord`. `present_records(bound, paths[0], seam)` treats the report's exact path as its own prefix: the inventory replays that one path, the file must be present and match, and the directory listing under `act-report/` with that stem finds only it. A report is create-only at a digest-named path (`stored.act_report_node`), so this is the same evidence rule as a revision's.
 
 ```python
 def _judge(writer, resolver, opened: OpenedPublication, seam: MomentSeam):
@@ -1939,7 +2202,8 @@ def _open_publication(
     writer: CorpusWriter, resolver: CoordinationResolver, *, view: CoordinationAddress, destination: Destination,
     clock: Callable[[], str], seam: MomentSeam, port: OperationPort | None = None,
 ) -> OpenedPublication:
-    _require(writer)
+    writer.authority.require("publish", ("publication-binding",))
+    writer.authority.require("corpus-write", ("act-report",))
     profile = resolver.profile(writer.root)
     if profile is None or BINDING_KIND not in profile.coordination_kinds:
         raise ValidationRefused("publication-binding is not declared by the mounted coordination contract")
@@ -1955,14 +2219,14 @@ def _open_publication(
         for root, corpus_id in mounts.items():
             if root == written:
                 continue
-            chain = seam.inspect(root)
+            chain = seam.inspect_other(root)
             if type(chain) is AbsentView:
                 raise PublicationRefused("chain-absent")
             if type(chain) is not WellFormedView:
                 raise PublicationRefused("chain-malformed")
             anchors.append(Anchor(corpus_id, chain.genesis.digest, chain.tip))
         anchors.sort(key=lambda anchor: anchor.corpus_id)
-        own = seam.inspect(written)
+        own = seam.inspect_written(written)
         if type(own) is not WellFormedView:
             raise PublicationRefused("chain-absent" if type(own) is AbsentView else "chain-malformed")
         address = binding_address(view, destination)
@@ -1991,7 +2255,8 @@ def _bind_publication(
     corpus_id: str, marker: str, artifact: str, remotely_revealed: bool,
     clock: Callable[[], str], seam: MomentSeam, port: OperationPort | None = None,
 ) -> BindingOutcome:
-    _require(writer)
+    writer.authority.require("publish", ("publication-binding",))
+    writer.authority.require("corpus-write", ("act-report",))
     operation_port = writer._require_bound_port(port)
     intent = opened.intent
     subject = str(binding_address(intent.view, intent.destination))
@@ -2034,12 +2299,21 @@ def _bind_publication(
         return BindingOutcome(success, binding)
     return BindingOutcome(report_of(judged["outcome"]), None)
 ```
-`execute_fulfilling_guarded` runs the guard under the written root's lock (`root.py:1039`); the guard reads other roots through the seam without their locks, bounded by the intent's anchors, which is the point of the anchors.
+`execute_fulfilling_guarded` runs the guard under the written root's lock (`root.py:1039`); the guard reads other roots through the seam's detached inspector without their locks, bounded by the intent's anchors, which is the point of the anchors.
 
-`test_permit_boundary.py` `WRITE_ENTRY_POINTS` gains `"publication_doors.py:_bind_publication": "publish",`. `test_permit_entry_points.py` gains a `Case`:
+The two `authority.require` calls are the first statements of both doors, inline and top-level: `test_permit_boundary.py`'s `requires_before_writing` (line ~290) accepts only a top-level `*.require("<family>", …)` expression statement as the check, so a helper call would read as "no require statement". The pair is exactly `RequiredCapabilities.publishes()`'s permit (decision 7); Task 1's test holds that permit, and these lines are its use.
+
+`test_permit_boundary.py` `WRITE_ENTRY_POINTS` gains `"publication_doors.py:_bind_publication": "publish",`. `test_permit_entry_points.py`'s `Case` gains a trailing field with a default, so every existing positional construction stays valid:
 
 ```python
-    Case("publication_doors.py:_bind_publication", "publish", ("publication-binding", "act-report"), False, _prepare_publication, _bind_publication, _corpus_probe),
+    extra_families: tuple[str, ...] = ()
+    """Families beyond `family` the exact requirement holds — the publish doors
+    also require `corpus-write` over `act-report` (decision 7)."""
+```
+and every `narrowed(kinds=case.kinds, families=(case.family,))` in the module (`grep -n 'families=(case.family,)' tests/test_permit_entry_points.py`; `test_e1_the_exact_requirement_is_accepted` at line ~752 is one) becomes `narrowed(kinds=case.kinds, families=(case.family, *case.extra_families))`. The tests that remove the case's own family or a kind (`lacking(...)`) are unchanged: without `publish` the door refuses at its first statement. The `Case`, on the certified volume (`needs_volume=True`: `moment_seam()` reads real chains, which `tmp_path` cannot carry):
+
+```python
+    Case("publication_doors.py:_bind_publication", "publish", ("publication-binding", "act-report"), True, _prepare_publication, _bind_publication, _corpus_probe, ("corpus-write",)),
 ```
 with `_prepare_publication` building a v2-profiled writer and resolver over `work / "corpus"` on `_prepare_corpus(port=True)`'s shape and opening a publication (`_open_publication` with a fixed clock and `moment_seam()` — the entry-point cases run on the certified volume like `_append_operation_intent`'s), and `_bind_publication` calling the door with fixed `corpus_id`, `marker`, `artifact` and `remotely_revealed=False`. Read `_prepare_corpus` and `_append_operation_intent`'s case first (`sed -n 240,330p tests/test_permit_entry_points.py`) and follow their state-dictionary pattern exactly.
 
@@ -2073,6 +2347,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from contextlib import contextmanager
 from itertools import count
 from pathlib import Path
 from types import SimpleNamespace
@@ -2090,7 +2365,7 @@ from beliefs.corpus import CoordinationResolver
 from beliefs.errors import ImportRefused, KindNotMintedHere, PublicationRefused, ValidationRefused
 from beliefs.intents.publish import Destination, decode_publish_intent
 from beliefs.publication import BINDING_KIND, binding_address, binding_record, binding_uid, marker_record
-from beliefs.publication_doors import _bind_publication, _open_publication
+from beliefs.publication_doors import _bind_publication, _open_publication, marker_tips_at
 from beliefs.report import BindingBound, BindingEvidenceRefused, BindingPredecessorNotStanding
 from beliefs.root import init_corpus_root, metadata_root_for, moment_seam, open_corpus
 
@@ -2110,17 +2385,18 @@ class Clock:
         return f"2026-09-22T00:00:{self.n:02d}Z"
 
 
-@pytest.fixture()
-def pair(work_directory, base_contract, monkeypatch):
-    """Two v2-mounted roots whose path order is the reverse of their corpus-id order."""
+@contextmanager
+def mounted(work_directory, base_contract, monkeypatch, ids: tuple[str, ...]):
+    """v2-mounted roots `-a`, `-b`, `-c`, … in path order, whose manifests carry
+    `ids` in that order (adopt_manifest mints the corpus id with
+    `secrets.token_hex(16)`, corpus.py:2254, as `test_w12…` fixes minted ids)."""
     profile = coordination_profile(base_contract, version=2)
     stem = f"publication-{os.getpid()}-{next(_counter)}"
-    roots = (work_directory / f"{stem}-a", work_directory / f"{stem}-b")
-    ids = iter(("f" * 32, "0" * 32))
+    roots = tuple((work_directory / f"{stem}-{letter}").resolve() for letter in "abcdefgh"[: len(ids)])
     try:
-        for root in roots:
+        for root, corpus_id in zip(roots, ids):
             init_corpus_root(root, authority=FULL)
-            monkeypatch.setattr("beliefs.corpus.secrets", SimpleNamespace(token_hex=lambda _: next(ids)))
+            monkeypatch.setattr("beliefs.corpus.secrets", SimpleNamespace(token_hex=lambda _, value=corpus_id: value))
             open_corpus(root, authority=FULL, profile=profile).adopt_manifest(profile=pins_for(profile))
             monkeypatch.undo()
         resolver = CoordinationResolver(dict.fromkeys(roots, profile))
@@ -2134,6 +2410,13 @@ def pair(work_directory, base_contract, monkeypatch):
             shutil.rmtree(metadata_root_for(root), ignore_errors=True)
 
 
+@pytest.fixture()
+def pair(work_directory, base_contract, monkeypatch):
+    """Two roots whose path order (-a, -b) is the reverse of their corpus-id order."""
+    with mounted(work_directory, base_contract, monkeypatch, ("f" * 32, "0" * 32)) as roots:
+        yield roots
+
+
 def publish(pair, side: int = 0, *, destination=LOCAL, remotely_revealed=False, resolver=None, clock=None, port=None):
     """Steps 0 and 8 back to back: the slice's whole source-root write."""
     resolver = resolver or pair.resolver
@@ -2142,7 +2425,7 @@ def publish(pair, side: int = 0, *, destination=LOCAL, remotely_revealed=False, 
     opened = _open_publication(writer, resolver, view=pair.view, destination=destination, clock=clock, seam=moment_seam(), port=port)
     outcome = _bind_publication(
         writer, resolver, opened, corpus_id="1" * 32, marker=opened.intent.event_token, artifact="2" * 64,
-        remotely_revealed=remotely_revealed, clock=clock, seam=moment_seam(),
+        remotely_revealed=remotely_revealed, clock=clock, seam=moment_seam(), port=port,
     )
     return opened, outcome
 
@@ -2213,20 +2496,35 @@ def test_w17_p_c_a_revision_past_its_anchor_is_not_present_durably(pair):
     assert later.binding.uid in reopened.intent.binding_tips
 
 
-def test_w17_p_d_mount_order_moves_neither_anchors_nor_tips_durably(pair):
-    publish(pair)
-    forward = CoordinationResolver(dict(zip(pair.roots, (pair.profile,) * 2)))
-    backward = CoordinationResolver(dict(zip(reversed(pair.roots), (pair.profile,) * 2)))
-    first = _open_publication(pair.writers[0], forward, view=pair.view, destination=LOCAL, clock=Clock(), seam=moment_seam())
-    second = _open_publication(pair.writers[0], backward, view=pair.view, destination=LOCAL, clock=Clock(), seam=moment_seam())
-    assert (first.intent.binding_tips, first.intent.marker_tips) == (second.intent.binding_tips, second.intent.marker_tips)
-    assert [a.corpus_id for a in first.intent.anchors] == sorted(a.corpus_id for a in first.intent.anchors)
-    assert [a.corpus_id for a in first.intent.anchors] == ["0" * 32]          # the other root, whose path sorts last
-    assert first.intent.anchors[0].corpus_id == second.intent.anchors[0].corpus_id
+def test_w17_p_d_mount_order_moves_neither_anchors_nor_tips_durably(work_directory, base_contract, monkeypatch):
+    """Three roots: the written `-a`, then `-b` and `-c`, whose ids ("8"*32, "0"*32)
+    run opposite to their path order. `CoordinationResolver` sorts its own mounts
+    by path, so mount order is varied where the judgment takes it: the mapping
+    handed to `bounds`, `standing_at` and `marker_tips_at`."""
+    with mounted(work_directory, base_contract, monkeypatch, ("f" * 32, "8" * 32, "0" * 32)) as three:
+        publish(three, side=1)
+        publish(three, side=2)
+        opened = _open_publication(three.writers[0], three.resolver, view=three.view, destination=LOCAL, clock=Clock(), seam=moment_seam())
+        assert [a.corpus_id for a in opened.intent.anchors] == ["0" * 32, "8" * 32]   # corpus-id order, not path order
+        forward = dict(three.resolver.mounted())
+        backward = dict(reversed(list(forward.items())))
+        address = binding_address(three.view, LOCAL)
+        judged = [
+            standing_at(mounts, address, BINDING_KIND, written=three.roots[0], position=opened.digest,
+                        anchors=opened.intent.anchors, seam=moment_seam())
+            for mounts in (forward, backward)
+        ]
+        assert [sorted(r.node.uid for r in tips) for tips in judged] == [list(opened.intent.binding_tips)] * 2
+        folded = [
+            marker_tips_at(mounts, three.view, LOCAL, written=three.roots[0], position=opened.digest,
+                           anchors=opened.intent.anchors, seam=moment_seam(), binding_tips=tips)
+            for mounts, tips in zip((forward, backward), judged)
+        ]
+        assert folded == [opened.intent.marker_tips] * 2
 ```
 (`_payload_at(root, digest)` returns the `IntentEntryView.payload` at that digest from `log_seam().inspect_registered(root)`.)
 
-W17-p-d's anchor order is by `corpus_id`: with ids `"f"*32` (path `-a`) and `"0"*32` (path `-b`), writing from `-a` anchors only `-b`. To make the sort observable, add a third root to this one test (mint it with id `"8"*32` under a path `-0` that sorts first), so the anchors are `("0"*32, "8"*32)` while the path order is `(-0, -b)` → ids `("8"*32, "0"*32)`; assert the intent carries `("0"*32, "8"*32)`.
+(W17-p-d imports `marker_tips_at` from `beliefs.publication_doors` beside the two doors.)
 
 ```python
 @pytest.mark.parametrize("damage", ["missing", "mismatch", "unregistered"])
@@ -2292,6 +2590,8 @@ def test_y1_a_version_and_door_refusals_durably(work_directory, base_contract, p
     for kind in ("publication", "publication-binding"):
         with pytest.raises(KindNotMintedHere):
             writer.mint_coordination(kind, project=pair.view, content={})
+        with pytest.raises(KindNotMintedHere):                                # spec §11.3's sabotaged door
+            writer.revise_coordination(kind, binding_address(pair.view, LOCAL), predecessors=("0" * 32,), content={})
     _, outcome = publish(pair)
     with pytest.raises(Exception):                        # the ordinary add refuses coordination kinds (_refuse_family_kinds)
         writer.add(outcome.binding)
@@ -2300,11 +2600,47 @@ def test_y1_a_version_and_door_refusals_durably(work_directory, base_contract, p
 ```
 Replace `pytest.raises(Exception)` for `add` with the exact type `_refuse_family_kinds` raises (`sed -n '/def _refuse_family_kinds/,/^    def /p' src/beliefs/corpus.py`).
 
+Y1-b follows `test_coordination_acceptance.py`'s `test_w18i_coordination_moves_epoch_identity_not_world_maps_or_belief_input` over a v2 world (imports it adds: `yaml`; `dataclasses.replace`; `test_belief.scenario as belief_scenario`; `test_n2_cut7.shipped_bindings`; `beliefs.belief.Belief, evaluate`; `beliefs.consulted.CorpusPins`; `beliefs.world.derive, epoch, load_manifest`; `beliefs.world.registry.Fresh, WorldConfig` and `beliefs.root.init_world_root, open_world` — the names `tests/acceptance/conftest.py`'s `durable_coordination_world` uses):
+
 ```python
-def test_y1_b_publication_records_are_inert_to_the_world_and_to_belief_durably(...):
-    ...
+_WORLD_MEMBERS = ("address-map.yaml", "producers-map.yaml", "retraction-discovery-map.yaml", "coreference-map.yaml", "producer-snapshot.yaml")
+
+
+def test_y1_b_publication_records_are_inert_to_the_world_and_to_belief_durably(work_directory, base_contract, pair):
+    corpus_root = pair.roots[0]
+    world_root = work_directory / f"publication-world-{os.getpid()}-{next(_counter)}"
+    config = WorldConfig(world_root, "e" * 32, (corpus_root,))
+    try:
+        init_world_root(config, authority=FULL)
+        world = open_world(config, authority=FULL)
+        world.admit(corpus_root, provenance=Fresh())
+        bindings = shipped_bindings(world)
+        corpus_id = load_manifest(corpus_root).corpus_id
+        before = epoch.build_epoch(world, coverage=frozenset({corpus_id}), bindings=bindings)
+        _, outcome = publish(pair)
+        marker = marker_record(decode_publish_intent(_payload_at(corpus_root, _intent_digest(corpus_root, outcome))),
+                               world_id="e" * 32, epoch=before.packaging_identity, selection=("proposition:p1",))
+        raw_add(corpus_root, marker)
+        after = epoch.build_epoch(world, coverage=frozenset({corpus_id}), bindings=bindings)
+        assert before.packaging_identity != after.packaging_identity
+        for member in _WORLD_MEMBERS:
+            assert before.members[member] == after.members[member]
+        snapshots = [
+            derive.producer_snapshot(yaml.safe_load(value.members["producer-snapshot.yaml"])).identity() for value in (before, after)
+        ]
+        ordinary = belief_scenario()
+        pin = ordinary["context"].pins["c1"]
+        pinned = {"c1": CorpusPins(pin.science_contract, {**pin.domains, "coordination": "coordination:" + pair.profile.activated_contracts["coordination"]})}
+        answers = [
+            evaluate(**{**ordinary, "context": replace(ordinary["context"], producer_snapshot_identity=snapshot, pins=pinned)})
+            for snapshot in snapshots
+        ]
+        assert all(isinstance(answer, Belief) for answer in answers)
+        assert answers[0].belief_input_digest == answers[1].belief_input_digest
+    finally:
+        shutil.rmtree(world_root, ignore_errors=True)
 ```
-Write Y1-b on `test_coordination_acceptance.py`'s W18 exclusion test's shape: the same belief scenario over a v2-profiled root; record the world-index maps and the answer's `belief_input_digest`; commit a binding through `publish(...)` and raw-add a `marker_record(...)`; assert the maps and the digest are unchanged.
+(`_intent_digest(root, outcome)` returns the digest of the publish intent whose `event_token` is `outcome.report.event_token`, from the root's `IntentEntryView`s; `before.packaging_identity` is 64-hex, which `published_from.epoch` requires. If `raw_add` of a marker into a root the engine registered leaves a file no registration covers, the epoch build may report it — that is the point of adding it raw: a governed marker is the second slice's, and the arm asserts only that the maps and the belief input do not move.)
 
 ```python
 def test_y2_a_the_committed_binding_is_the_factory_of_its_decoded_intent_durably(pair):
@@ -2330,12 +2666,43 @@ def test_y3_a_the_audit_reads_publish_intents_by_their_domain_durably(pair):
 (`_reduced(root)` returns `{row.digest: row.reading}` and the findings from `reduce_chain` over the root's chain and records — the URL-retrieval module's `reduce` helper; adjust the attribute names to `IntentQualification`'s fields.)
 
 ```python
+class _CountingPort:
+    """Forwards to the writer's durable port and counts fulfilling submissions."""
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+        self.guarded = 0
+
+    root = property(lambda self: self._inner.root)
+    profile = property(lambda self: self._inner.profile)
+    authority = property(lambda self: self._inner.authority)
+
+    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+        self.guarded += 1
+        return self._inner.execute_fulfilling_guarded(plan, fulfills, guard=guard, fallback=fallback)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
 def test_y4_a_one_fulfilling_submission_each_way_and_no_binding_on_refusal_durably(pair):
-    counted = _CountingPort(pair.writers[0]._operation_port)
-    _, success = publish(pair, port=None)                 # through the writer's own port, counted by patching it:
-    ...
+    writer = pair.writers[0]
+    success_port = _CountingPort(writer._operation_port)
+    _, success = publish(pair, port=success_port)
+    assert success_port.guarded == 1 and success.binding is not None
+    assert (pair.roots[0] / writer._relative_path(success.binding)).is_file()
+
+    refusal_port = _CountingPort(writer._operation_port)
+    opened = _open_publication(writer, pair.resolver, view=pair.view, destination=LOCAL, clock=Clock(), seam=moment_seam(), port=refusal_port)
+    one_root = CoordinationResolver({pair.roots[0]: pair.profile})     # the intent anchored two roots: mounts-changed
+    refused = _bind_publication(writer, one_root, opened, corpus_id="1" * 32, marker=opened.intent.event_token,
+                                artifact="2" * 64, remotely_revealed=False, clock=Clock(), seam=moment_seam(), port=refusal_port)
+    assert refusal_port.guarded == 1 and refused.binding is None
+    (entry,) = refused.report.entries
+    assert type(entry.outcome) is BindingEvidenceRefused and entry.outcome.reason == "mounts-changed"
+    uid = binding_uid(opened.intent.event_token)
+    assert not any(path.name.endswith(f".{uid}.md") for path in (pair.roots[0] / BINDING_KIND).iterdir())
 ```
-Write Y4-a with `_CountingPort`, a forwarding wrapper counting `execute_fulfilling_guarded` calls, passed as `port=` to both doors: one success (count 1, binding on disk) and one refusal produced by binding with a resolver that mounts only the written root (`mounts-changed`: the intent anchored two) — count 1, the report's outcome `BindingEvidenceRefused`, and no binding file for that intent's uid.
 
 ```python
 def test_y4_b_a_remotely_revealed_refusal_is_an_orphan_until_a_shared_publish_retires_it_durably(pair):
@@ -2371,7 +2738,7 @@ def test_y4_c_a_lost_refusal_report_refuses_rather_than_dropping_the_orphan_dura
 ```bash
 cd python && SCIENCE_CUT4_ROOT=~/d/beliefs/.work/acceptance/cut39-dev uv run --frozen pytest tests/acceptance/test_publication_records_acceptance.py -q -p no:cacheprovider
 ```
-Expected: 13 passed (plus W17-p-e's three parametrized cases counted as one unit). Every failure here is a finding against Tasks 1–6, not a test to loosen: fix the source, or record the finding in the results record §7 and park if it needs a design change (`--reason decision`).
+Expected: 15 passed — thirteen units, W17-p-e parametrized three ways (14 passed if W17-p-f is declared unrun). Every failure here is a finding against Tasks 1–6, not a test to loosen: fix the source, or record the finding in the results record §7 and park if it needs a design change (`--reason decision`).
 
 - [ ] **Step 3: Commit**
 
@@ -2396,16 +2763,16 @@ git commit -m "test(cut39): the publication-records acceptance module — W17, Y
 
 | arm | module | before (the site) | after |
 |---|---|---|---|
-| W17-p-a | `publication_doors.py` | the guard's `tips, markers = _judge(writer, resolver, opened, seam)` line | `tips, markers = tuple(SimpleNamespace(node=SimpleNamespace(uid=uid, facets={})) for uid in intent.binding_tips), intent.marker_tips` (trust the intent) |
-| W17-p-b | `publication_doors.py` | `_judge`'s `standing_at(…, position=opened.digest, …)` call | the same call with `position=seam.inspect(written).tip` (judged at commit) |
+| W17-p-a | `publication_doors.py` | `        tips, markers = _judge(writer, resolver, opened, seam)` (the guard's first line) | `        if True:\n            return None  # the intent's tips trusted, nothing recomputed\n        tips, markers = _judge(writer, resolver, opened, seam)` — parses, names nothing new |
+| W17-p-b | `publication_doors.py` | `_judge`'s `standing_at(…, position=opened.digest, …)` call | the same call with `position=seam.inspect_written(written).tip` (judged at commit) |
 | W17-p-c | `coordination.py` | `bounds`' `found.append(ChainBound(root, corpus_id, view, placement.head))` | `found.append(ChainBound(root, corpus_id, view, len(view.entries) - 1))` |
 | W17-p-d | `publication_doors.py` | `anchors.sort(key=lambda anchor: anchor.corpus_id)` | `pass  # anchors left in mount-path order` |
 | W17-p-e | `coordination.py` | `standing_at`'s `records = present_records(bound, prefix, seam)` and the two lines after it | the resolver's live read: `records = tuple((p.relative_to(bound.root).as_posix(), p.read_bytes()) for p in sorted((bound.root / kind).glob(f"{address.project}.{address.local}.*.md")))` |
 | W17-p-f | `coordination.py` | `_committed_in_order`'s `if type(entry) is SettledEntryView and entry.committed and entry.registration in registrations:` | the same line without `and entry.committed` |
-| Y1-a | `corpus.py` | `revise_coordination`'s two-line `KindNotMintedHere` guard, and `mint_coordination`'s | both removed (one arm; spell `before` over `mint_coordination`'s and let the check's second door assertion see `revise_coordination`'s) — if one `before` cannot cover both sites, remove `mint_coordination`'s only |
+| Y1-a | `corpus.py` | `revise_coordination`'s guard with the lines that make it unique (the two guard lines are identical in both doors): `        if kind in PUBLICATION_KINDS:\n            raise KindNotMintedHere(f"{kind!r} is minted only by the publish doors")\n        self._authority.require("corpus-write", (kind,))\n        with self._operation:\n            self._require_pins_agree()\n            validated = self._validated_coordination_content(kind, content)\n            if not isinstance(address, CoordinationAddress) or address.revision is not None:` | the same text without its first two lines — spec §11.3's door; Y1-a's `revise_coordination` assertion then sees `ValidationRefused`, not `KindNotMintedHere` |
 | Y1-b | `permit.py` or `corpus.py` | the site that keeps coordination kinds out of the world-index maps (`grep -n 'COORDINATION_KINDS\|WORLD_KINDS' src/beliefs/world/*.py src/beliefs/corpus.py`; choose the one Y1-b's assertion reaches) | that membership test widened to admit `publication-binding` |
-| Y2-a | `publication.py` | `binding_record`'s `"at": intent.at,` | `"at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),` |
-| Y3-a | `intents/shapes.py` | the three-line `if sniffed["domain"] == PUBLISH_INTENT_DOMAIN:` dispatch head | removed, so a publish payload falls to `intent-domain-unrecognized` |
+| Y2-a | `publication_doors.py` | `    binding = binding_record(intent, corpus_id=corpus_id, marker=marker, artifact=artifact)` | `    binding = binding_record(__import__("dataclasses").replace(intent, at=clock()), corpus_id=corpus_id, marker=marker, artifact=artifact)` — the door reads the clock into the record; Y2-a's clock advances on every read, so the committed bytes differ from the factory over the decoded intent (the factory's own `"at": intent.at,` occurs in both factories and is not a unique `before`, and a wall clock at one-second resolution would often agree) |
+| Y3-a | `intents/shapes.py` | `        if sniffed["domain"] == PUBLISH_INTENT_DOMAIN:` | `        if False:` — the branch's body stays and parses; a publish payload falls to `intent-domain-unrecognized` |
 | Y4-a | `publication_doors.py` | `fallback`'s `return [writer._create_op(stored.act_report_node(report_of(judged["outcome"])))]` | `return [*plan, writer._create_op(stored.act_report_node(report_of(judged["outcome"])))]` |
 | Y4-b | `publication_doors.py` | `if outcome["type"] != "bound" and outcome.get("remotely_revealed") is True:` | `if outcome["type"] == "predecessor-not-standing" and outcome.get("remotely_revealed") is True:` |
 | Y4-c | `publication_doors.py` | `_reports_at`'s `if type(records) is PositionRefused:\n            yield intent, records\n            continue` | `if type(records) is PositionRefused:\n            continue` |
@@ -2477,7 +2844,7 @@ git commit -m "docs(reproduction): re-run under publication records; nothing mov
 - Create: `docs/plans/<date>-conformance-cut-39-results.md`
 - Modify: the cut document (`**Status:**` only), the spec (`**Status:**`), the ledger, the roadmap, `python/tools/roadmap_status.py`, `docs/designs/2026-08-31-coordination-and-view-kinds-design.md`, `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`, `docs/designs/2026-08-11-act-report-design.md`, `docs/designs/2026-09-22-publication-design.md` (status line), `docs/guide/foundations.md`, `docs/guide/open-questions.md`, `docs/guide/contracts-and-adoption.md`, `README.md`, tasks
 
-- [ ] **Step 1: The results record** on cut 38's shape (`docs/plans/2026-09-22-conformance-cut-38-results.md`): §1 what ran (both summary lines verbatim from the runner log; the per-unit table); §2 accounting (W17 closed — or partial with W17-p-f unrun; Y1–Y4 closed; **193 of 220**, or 192); §3 evidence — the planning notes the spec carries (§16), deviations from the plan, every "read at freeze" choice, `ROLLBACK_MEANS` and `RETRY_AFTER_ROLLBACK`, the inventories checked in both directions (`WRITE_ENTRY_POINTS` gained `publication_doors.py:_bind_publication` with its `Case`; no other caller of a primitive), the corrections the cut document carries; §4 the reproduction (§18); §5 `## Remaining boundary` — must name `publish`'s remainder (the second slice, `beliefs-328507`: the request record, the selection snapshot, staging, export, reveal, the recovery table, transport, arrival) and L1 under `persistence-cut`; §6 main integration (filled at merge); §7 execution rulings.
+- [ ] **Step 1: The results record** on cut 38's shape (`docs/plans/2026-09-22-conformance-cut-38-results.md`): §1 what ran (both summary lines verbatim from the runner log; the per-unit table); §2 accounting (W17 closed — or partial with W17-p-f unrun; Y1–Y4 closed; **193 of 220**, or 192); §3 evidence — the planning notes the spec carries (§16), deviations from the plan, every "read at freeze" choice, `ROLLBACK_MEANS` and `RETRY_AFTER_ROLLBACK`, cut 17's E4c re-targeted in `test_n2_cut17.py`'s `_LIVE_SABOTAGES` (its pinned `raise ValueError("publish is not an act family")` removed by decision 7; `before` now `        return cls(_PUBLICATION_PERMIT)`, frozen `after` kept, check body rewritten under its cited name), the inventories checked in both directions (`WRITE_ENTRY_POINTS` gained `publication_doors.py:_bind_publication` with its `Case`; no other caller of a primitive), the corrections the cut document carries; §4 the reproduction (§18); §5 `## Remaining boundary` — must name `publish`'s remainder (the second slice, `beliefs-328507`: the request record, the selection snapshot, staging, export, reveal, the recovery table, transport, arrival) and L1 under `persistence-cut`; §6 main integration (filled at merge); §7 execution rulings.
 
 - [ ] **Step 2: `roadmap_status.py`** — add `39: ("conformance-cut-39-results §2", "W17, Y1, Y2, Y3, Y4", ""),` after the cut-38 entry (with W17-p-f unrun: `"Y1, Y2, Y3, Y4", "W17"`). Regenerate Appendix A: `cd python && uv run --frozen python tools/roadmap_status.py`; expected `Closed 193 of 220; open 27.` (or `192 … 28`).
 
@@ -2539,8 +2906,28 @@ cd ~/d/beliefs && git merge --no-ff design/publish -m "merge: publication record
 
 **Placeholders.** Every code step carries its body. Four places defer a spelling to the tree by instruction, each with the grep that settles it: the N2 `before` strings (as cut 38's plan did), `_refuse_family_kinds`' exception type, the entry-point `Case`'s prepare helper, and Y1-b's belief scenario (cut 14's W18 test is the template). Three listings that a first draft shortened (the marker pairs' ordering, the chain-view identity checks in `_open_publication`, W17-p-a's first assertion) were written out in full at self-review.
 
-**Type consistency.** `Anchor(corpus_id, genesis, head)`; `Destination(type, locator)`, `.local`, `.remote`, `.projection`, `.from_projection`; `PublishIntent(kind, event_token, actor, at, view, destination, binding_tips, marker_tips, anchors)`; `encode_publish_intent(intent) -> bytes`, `decode_publish_intent(payload) -> PublishIntent`; `binding_address`/`marker_address(view, destination) -> CoordinationAddress`; `binding_uid`/`marker_uid(event_token) -> str`; `binding_record(intent, *, corpus_id, marker, artifact) -> Node`; `marker_record(intent, *, world_id, epoch, selection) -> Node`; `publication_content_malformed(node) -> bool`; `marker_consistent(node) -> bool`; `MomentSeam(inspect, absent_state, is_file, file_matches)`; `PositionRefused(reason, detail)`; `ChainBound(root, corpus_id, view, head)`; `bounds(mounts, *, written, position, anchors, seam)`; `inventory(bound, prefix, seam)`; `present_records(bound, prefix, seam)`; `standing_at(mounts, address, kind, *, written, position, anchors, seam)`; `CoordinationResolver.mounted() -> Mapping[Path, str]`; `moment_seam() -> MomentSeam`; `OpenedPublication(intent, digest)`; `BindingOutcome(report, binding)`; `_open_publication(writer, resolver, *, view, destination, clock, seam, port=None)`; `_bind_publication(writer, resolver, opened, *, corpus_id, marker, artifact, remotely_revealed, clock, seam, port=None)`; `marker_tips_at(mounts, view, destination, *, written, position, anchors, seam, binding_tips)`; `PublicationBindingEntry(subject, outcome)`; `BindingBound(binding, corpus_id, marker)`; `BindingPredecessorNotStanding(corpus_id, marker, remotely_revealed, tips)`; `BindingEvidenceRefused(corpus_id, marker, remotely_revealed, reason)`; `boundary._mint_publish_report(intent, *, observer, instrument, opened_at, closed_at, entry)`; `KindNotMintedHere`, `PublicationRefused(reason, *, tips=())` under `WriteRefused`; `shipped_coordination(version=2)`; `KERNEL_REQUIREMENTS`; `RequiredCapabilities.publishes()`. The spec's `standing_at(resolver, address, *, …, moments)` became `standing_at(mounts, address, kind, *, …, seam)` — the resolver contributes only its mount map, and the kind is explicit (recorded in the spec's planning note, Task 0 Step 6).
+**Type consistency.** `Anchor(corpus_id, genesis, head)`; `Destination(type, locator)`, `.local`, `.remote`, `.projection`, `.from_projection`; `PublishIntent(kind, event_token, actor, at, view, destination, binding_tips, marker_tips, anchors)`; `encode_publish_intent(intent) -> bytes`, `decode_publish_intent(payload) -> PublishIntent`; `binding_address`/`marker_address(view, destination) -> CoordinationAddress`; `binding_uid`/`marker_uid(event_token) -> str`; `binding_record(intent, *, corpus_id, marker, artifact) -> Node`; `marker_record(intent, *, world_id, epoch, selection) -> Node`; `publication_content_malformed(node) -> bool`; `marker_consistent(node) -> bool`; `MomentSeam(inspect_written, inspect_other, absent_state, is_file, file_matches)`; `PositionRefused(reason, detail)`; `ChainBound(root, corpus_id, view, head, written)`; `bounds(mounts, *, written, position, anchors, seam)`; `inventory(bound, prefix, seam)`; `present_records(bound, prefix, seam)`; `standing_at(mounts, address, kind, *, written, position, anchors, seam)`; `CoordinationResolver.mounted() -> Mapping[Path, str]`; `moment_seam() -> MomentSeam`; `OpenedPublication(intent, digest)`; `BindingOutcome(report, binding)`; `_open_publication(writer, resolver, *, view, destination, clock, seam, port=None)`; `_bind_publication(writer, resolver, opened, *, corpus_id, marker, artifact, remotely_revealed, clock, seam, port=None)`; `marker_tips_at(mounts, view, destination, *, written, position, anchors, seam, binding_tips)`; `PublicationBindingEntry(subject, outcome)`; `BindingBound(binding, corpus_id, marker)`; `BindingPredecessorNotStanding(corpus_id, marker, remotely_revealed, tips)`; `BindingEvidenceRefused(corpus_id, marker, remotely_revealed, reason)`; `boundary._mint_publish_report(intent, *, observer, instrument, opened_at, closed_at, entry)`; `KindNotMintedHere`, `PublicationRefused(reason, *, tips=())` under `WriteRefused`; `shipped_coordination(version=2)`; `KERNEL_REQUIREMENTS`; `RequiredCapabilities.publishes()`. The spec's `standing_at(resolver, address, *, …, moments)` became `standing_at(mounts, address, kind, *, …, seam)` — the resolver contributes only its mount map, and the kind is explicit — and every other interface the plan fixes is listed in the spec's planning note (Task 0 Step 6). `Case` gains `extra_families: tuple[str, ...] = ()`; `mounted(work_directory, base_contract, monkeypatch, ids)` is Task 7's root-set context manager.
 
 ## Plan review log
 
 - 2026-09-22 — drafted. Found at planning and resolved: `completion` refused a `PublishIntent` (the spec said it was unchanged); the Y table needs an owner under `docs/designs/` (`TABLE_OWNERS`), banked as `2026-09-22-publication-design.md` at the freeze; `marker_record` loses `view_revision` (the view pin carries it); the engine's write-ahead order (`atoms` `coordinator/execute.py:171` then `:183`) and a durable rollback (`create_file.apply` patched, atoms' own technique) are pinned in Task 0 before anything relies on them.
+- 2026-09-22 — review round 1, fifteen findings, each verified against the code; all taken, three in a form other than the one proposed (reasons inline):
+  1. Cut 17's live E4c pins the line decision 7 deletes — re-targeted in `test_n2_cut17.py`'s `_LIVE_SABOTAGES` with the frozen `after`, its check rewritten under the cited name (Task 1, Global Constraints, Task 10).
+  2. The `_bind_publication` `Case` gains `extra_families=("corpus-write",)`, which every `narrowed(…, families=(case.family,))` in `test_permit_entry_points.py` now spreads, and `needs_volume=True` (Task 6).
+  3. Both doors open with two inline top-level `authority.require` statements; `requires_before_writing` accepts nothing else (Task 6).
+  4. `certified_work` replaces `work_directory` outside `tests/acceptance/` (Task 0, Task 5).
+  5. The retry probe uses `execute_fulfilling_guarded` (the door's call; `execute_fulfilling`'s `_registration_for` raises on two fulfilling registrations) and counts "refused" only when nothing was registered (Task 0 Step 3). Confirmed against `atoms` `_require_admissible_fulfills`: only a prior committed fulfilment is refused.
+  6. The six `test_permit.py` tests Task 1 breaks are each updated in Task 1.
+  7. `shipped_coordination` normalises its default before the cache; the v1 test pins the literal identity `c440b93f…`, computed at planning from the fixture.
+  8. Y2-a's sabotage moves to the door (`binding_record(replace(intent, at=clock()), …)`), killed by the advancing clock.
+  9. Y1-a sabotages `revise_coordination` as the spec says, with a unique `before`, and the test calls it.
+  10. W17-p-d is written out over three roots whose ids run against their paths, varying mount order in the mapping handed to `bounds`/`standing_at`/`marker_tips_at` (the resolver sorts its own).
+  11. Task 5 imports `chain, digest, genesis_entry, registration, settlement` from `test_world_log_audit`.
+  12. `_reports_at` refuses `revision-malformed` on bytes that match but do not decode as one publish report; the orphan-fold unit tests (spec §11.1: with and without retirement, local and remote reveals, a malformed and a lost report) are written in Task 6.
+  13. Y3-a's `after` is `if False:`. **W17-p-a differs from the proposal:** its `after` short-circuits the guard (`if True:` / `return None` above the recompute), which parses and names nothing new, because the spec's sabotage is "the guard trusts the intent"; an `elif False:` on the not-standing branch would still recompute and refuse as `tips-disagree`, a different defect.
+  14. The spec's planning note now records every interface the plan fixes (Task 0 Step 6). **The content rule moved rather than being stated as a gap:** `corpus_check`'s coordination branch applies it (Task 4 Step 4), at a line no live arm pins (cut 14's pin is the resolver's 16-space `continue` form). The v2 `composite`/`composes` view-query test is in Task 1.
+  15. **Other roots are read detached rather than locked:** `inspect_registered` runs recovery, which can append to a root the process does not lock, and cut 36's per-root-lock pattern would nest inside the written root's lock; `MomentSeam` carries `inspect_written` (registered) and `inspect_other` (detached), Task 0 pins that a detached read of a live root is well-formed, and the spec's note states it. Task 7's count is 15 (14 with W17-p-f unrun).
+
+  While applying the round, two first-draft stubs outside the findings were written out: Y1-b's body (on `test_w18i`'s shape over a v2 world) and Y4-a's body with its `_CountingPort`; the `publish` helper now passes `port` to both doors.
+
+  The declared accounting is unchanged: 13 arms, 13 units, 5 rows.
