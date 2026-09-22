@@ -25,7 +25,9 @@ groups a set of re-checks under one terminal record. Cut 35 discharged T2
 for `acquisition` and left it partial on exactly these two kinds
 (`../../designs/2026-09-20-conformance-cut-35.md` §7 item 7).
 
-This slice builds the two wrappers and closes T2, and with it the T table.
+This slice builds the two wrappers and closes T2. The T table is then full
+but for T7's cross-root case, which the ledger assigns to
+`cross-root-publication` (tier 3) and which this slice does not touch.
 It changes no evaluator, no act, no contract and no stored codec: the
 `subject-evaluation` entry kind with its `evaluation-finding` outcome and the
 `pure-look` entry kind with its three outcomes have been spellable, storable
@@ -114,7 +116,8 @@ decision, not the prose around it.
    that depends on any location, which is the whole reason the acquisition
    stops (its decision 10). **Rejected:** the acquisition's stop. **Rejected:**
    a stop on a `StoreIdMismatch`, which cannot occur after the pre-intent
-   check in §4 step 1 moves the store-genesis comparison before the intent.
+   check in §4 step 1 moves the store-genesis comparison before the intent
+   (decision 14 moves the rest of the act's late checks there too).
 
 6. **The re-check's acts run outside the root lock; only its close takes
    it.** `recheck` takes the corpus lock itself for its intent append and
@@ -124,8 +127,8 @@ decision, not the prose around it.
    reason.
 
 7. **Both operations open exactly as §3.1 orders.** Every check that can
-   refuse runs before the intent (root, port, authority, request validity,
-   store genesis); the intent is appended before the first act; a refusal
+   refuse runs before the intent (root, port and its binding, authority,
+   request validity, store genesis, observer and instrument, `standing`); the intent is appended before the first act; a refusal
    at any check or a failure of the append leaves no read, no holdings
    intent, no observation and no record; the close publishes the report as
    one registered transaction fulfilling the intent from the boundary's own
@@ -183,6 +186,46 @@ decision, not the prose around it.
     the acceptance module. A driver step that audits through the wrapper is
     filed as an idea (§13).
 
+13. **A port override is bound to the writer's root, authority and profile,
+    and the primitives check it.** `OperationPort` gains a `root: Path`
+    property — `DurableOperationPort` already carries `root` as an attribute
+    and `LedgeredPort` forwards its inner port's — and
+    `CorpusWriter._append_operation_intent` and
+    `CorpusWriter._publish_operation_report` refuse (`ActorMismatch`'s
+    sibling, `PortMismatch`, under `WriteRefused`) a `port` whose `root`
+    does not resolve to `self.root`, whose `authority` is not equal to
+    `self.authority` (a frozen dataclass; `root.py` hands both the same
+    object), or whose `profile.compiled_identity` is not `self.profile`'s,
+    before appending or executing anything. Without it, root B's port with root A's writer audits A while
+    the intent and report land in B — the observer-corpus rule (decision 2)
+    and the chain-position claim (decision 4) both fail silently. The check
+    lives in the two primitives so `acquire` and every later operation get
+    it, not only these two; the review found the gap here, and cut 35's
+    acquisition shares it. Twenty-one test fakes that implement the protocol
+    gain a `root` (the pyright count from the spike on 2026-09-22), each
+    set to the writer's root they already serve. **Rejected:** checking
+    `authority` and `profile` only, which the protocol already exposes — the
+    root is the claim that matters and the protocol has to carry it.
+    **Rejected:** verifying by effect after the append (reconstruct, look
+    for the intent in the writer's chain), which leaves an orphan intent in
+    the foreign root.
+
+14. **The re-check validates every input the acts would refuse late,
+    before the operation intent.** `holdings_observation` rejects an empty
+    or non-encodable `observer` or `instrument` and a predecessor whose
+    canonical location is not the observation's — at construction, after
+    `recheck`'s holdings intent and store read. `ActContext` checks neither
+    field. So the operation's step 1 checks `ctx.observer` and
+    `ctx.instrument` by the observation's own rule (non-empty, encodes as
+    identity text) and, for every requested location, that each member of
+    its `standing` set is a `HoldingsObservation` at that canonical
+    location; a `standing` key naming no requested location is refused too,
+    since it can only be a caller's mistake. Any of these refuses with
+    `RecheckRefused` and no intent of either grain exists. The audit has no
+    analogue: it constructs no observation, and its metadata check is
+    already pre-intent (§3 step 1). The per-act `recheck` keeps its late
+    checks; they are unreachable from the operation.
+
 ## 3. The audit operation — `beliefs/audit_operation.py`
 
 ```python
@@ -218,7 +261,10 @@ Steps, in this order and no other:
    check, for the import's reason: a report that cannot be stored must be
    refused before it has an intent to fulfil). A `port` of `None` with a
    writer whose `_operation_port` is `None` is `AuditRefused("this corpus
-   has no operation port; audit is a boundary operation")`.
+   has no operation port; audit is a boundary operation")`; a supplied port
+   is bound to this writer or the primitives refuse it (decision 13), and
+   the wrapper makes that check itself here too, so the refusal is
+   pre-hold.
 2. **Enter the hold.** `hold()` if given, then `writer._operation`. Every
    later step runs inside both.
 3. **Open.** `OperationIntent("audit", secrets.token_hex(16), actor)`,
@@ -279,6 +325,10 @@ supersedes, as `acquire` takes it. Steps:
    location's `store_id` must equal it, or `RecheckRefused` naming the first
    that does not — the comparison `recheck` makes after its read, moved
    before the intent so that no location can refuse mid-operation.
+   `ctx.observer` and `ctx.instrument` are non-empty and encode as identity
+   text, and every `standing` entry is a `HoldingsObservation` at a
+   requested canonical location, or `RecheckRefused` (decision 14). A
+   supplied port is bound to this writer (decision 13).
 2. **Open.** `OperationIntent("re-check", token, ctx.actor)`, `opened_at`,
    `intent_digest = writer._append_operation_intent(...)`.
 3. **Acts, in request order, nothing held across them.** For each
@@ -323,25 +373,32 @@ across the evaluator read — a read of the writer's own index, no I/O
 outside the root — and the docstring says so. A store-less session can
 `audit` and cannot `recheck` (`holdings_context` refuses, as today).
 
-## 6. `boundary.py`, `errors.py`
+## 6. `boundary.py`, `errors.py`, `runrecord.py`, `corpus.py`
 
 - `_mint_audit_report(intent, *, observer, instrument, opened_at, closed_at, entries)`:
   `intent.kind == "audit"` and every entry a `SubjectEvaluationEntry`, or
   `MalformedRecord`.
 - `_mint_recheck_report(...)`: `intent.kind == "re-check"` and every entry a
   `LocatorEntry`, or `MalformedRecord`.
-- `AuditRefused(WriteRefused)` and `RecheckRefused(WriteRefused)`, beside
-  `AcquisitionRefused`, with `errors.py`'s catalogue entries and
-  `test_errors_*` parity where the existing refusal has it.
+- `AuditRefused(WriteRefused)`, `RecheckRefused(WriteRefused)` and
+  `PortMismatch(WriteRefused)`, beside `AcquisitionRefused` and
+  `ActorMismatch`, with `errors.py`'s catalogue entries and `test_errors_*`
+  parity where the existing refusals have it.
+- `runrecord.py`: `OperationPort.root`. `session/routes.py`:
+  `LedgeredPort.root` forwards. `corpus.py`: the two primitives' binding
+  check (decision 13), one private `_require_bound_port` shared by both.
 
 ## 7. What does not change
 
 `audit.py`, `world/audit.py`, `holdings/boundary.py`, `report.py`,
 `stored.py`, both `CONTRACT.yaml` copies, the TypeScript parity artifact,
 `intents/shapes.py`, `completion`, and the reproduction driver. The
-operation-kind enum stays at eight. No design guarantee outside T2 changes
-its evidence; T3, T4, T5 and T6 are read by the acceptance module only where
-the new kinds give them a new instance (§9.2).
+operation-kind enum stays at eight. `_append_operation_intent` and
+`_publish_operation_report` change only by the binding check of decision
+13, ahead of every effect. No design guarantee outside T2 changes its
+evidence; T5 and T6 are read by the acceptance module where the new kinds
+give them a new instance, and T3 and T4 by plain acceptance tests that
+declare no unit (§9.2).
 
 ## 8. Shared files, under roadmap concurrency rule 3
 
@@ -349,15 +406,17 @@ Rewritten by every lane and therefore by this one: `errors.py`, the ledger,
 the roadmap, `docs/guide/open-questions.md` (the act-report paragraph's
 "what remains unbuilt" sentence), `python/tests/test_designs_corpus.py` where
 the new spec, plan and cut documents register. Named beyond those:
-`session/writer.py` and `boundary.py` (both in the `acquisition` lane's
-column, which closed at cut 35, and in no open lane's), `README.md` (the
-cut count). No file in `world/verify.py` or `root.py` — cut 37's rewrites —
+`session/writer.py`, `session/routes.py`, `boundary.py`, `corpus.py` and
+`runrecord.py` (the first four in the `acquisition` lane's column, which
+closed at cut 35, `corpus.py` in this lane's own, and none in an open
+lane's), the test modules whose port fakes gain `root` (§9.1), `README.md`
+(the cut count). No file in `world/verify.py` or `root.py` — cut 37's rewrites —
 is touched, so the shared-surface note on `beliefs-86b150` resolves with
 nothing to resolve toward. No other lane is open.
 
 ## 9. Testing and the cut
 
-### 9.1 Unit — `test_audit_operation.py`, `test_holdings_recheck.py` (new), `test_session_writer.py`, `test_report.py`
+### 9.1 Unit — `test_audit_operation.py`, `test_holdings_recheck.py` (new), `test_session_writer.py`, `test_operation_port.py`, `test_corpus_write.py`
 
 Portable, over a fake operation port (the `RefusingPort` / recording-port
 shape `test_holdings_acquire.py` uses) and a certified-tuple-free writer:
@@ -367,11 +426,13 @@ shape `test_holdings_acquire.py` uses) and a certified-tuple-free writer:
   one event list), one report published fulfilling that intent, `completion`
   reads `closed`; entries equal the findings mapped per decision 3, in
   order; a clean corpus yields an empty `entries`;
-- `_finding_payload` excludes `message` and is stable under a reworded
-  message; two findings differing only in detail give two entries;
-- every pre-intent refusal (no port, actor/observer/instrument
-  unencodable, authority lacking `act-report`, evidence of the wrong type)
-  appends nothing, invokes the evaluator zero times, publishes nothing;
+- `_finding_payload` excludes `message`: two findings equal but for
+  `message` give equal entries and one report identity; two findings
+  differing in `detail` give two entries;
+- every pre-intent refusal (no port, a port bound to another root,
+  authority or profile, actor/observer/instrument unencodable, authority
+  lacking `act-report`, evidence of the wrong type) appends nothing,
+  invokes the evaluator zero times, publishes nothing;
 - an evaluator exception after the intent propagates, the intent stays
   unmatched, `completion` reads `unfinished`;
 - the hold enters before the root lock and spans the evaluator call;
@@ -379,19 +440,30 @@ shape `test_holdings_acquire.py` uses) and a certified-tuple-free writer:
   their observations in chain order, then the report; entries per decision
   5; an inconclusive location is an entry with `reason` only and the
   operation still closes; duplicate spellings, a foreign `store_id`, a
-  writer on another root, a port-less writer each refuse pre-intent with no
-  holdings intent appended; a `standing` head is superseded by the new
-  observation; the close rebuilds the view before resolving; a published
-  ref the view cannot resolve refuses at the close;
+  writer on another root, a port-less writer, a foreign-root port, an empty
+  or non-encodable observer or instrument, a `standing` predecessor at
+  another location and a `standing` key naming no requested location each
+  refuse pre-intent with no intent of either grain appended; a `standing`
+  head is superseded by the new observation; the close rebuilds the view
+  before resolving; a published ref the view cannot resolve refuses at the
+  close;
 - `_mint_audit_report` and `_mint_recheck_report` refuse the wrong intent
   kind and the wrong entry kind;
+- the primitives: `_append_operation_intent` and
+  `_publish_operation_report` refuse a port whose root, authority or
+  profile is not the writer's, before any effect on either root
+  (`test_corpus_write.py`); `LedgeredPort.root` is its inner port's
+  (`test_operation_port.py` or `test_session_routes.py`, whichever holds
+  the port's forwarding tests today); the fakes in the modules the spike
+  named gain `root`;
 - the session routes ledger an `act` line per committed transaction and
   refuse after the invocation closes.
 
 ### 9.2 Acceptance — `test_act_report_remainder_acceptance.py` (new)
 
 On the certified tuple, one arm per declaration unit, each ending
-`_durably`:
+`_durably`. Twelve units over three guarantee rows (T2, T5, T6) and three
+boundary invariants:
 
 | unit | row | assertion |
 |---|---|---|
@@ -399,26 +471,46 @@ On the certified tuple, one arm per declaration unit, each ending
 | T2-f | T2 | re-check to success over two locations: one operation intent, two holdings intents each fulfilled by its observation, one report, `closed`; the operation intent precedes every holdings intent in the chain |
 | T2-g | T2 | root selection (another root's writer), a port-less writer and a refusing port each begin no act for both kinds: no read, no holdings intent, no observation, no record |
 | T2-h | T2 | a second `execute_fulfilling` on an audit intent is refused by the coordinator, and a raw second fulfilment reads `MalformedView` `duplicate-fulfillment` (cut 35's T2-d, for the new kind) |
-| T3-e | T3 | deleting the published audit report moves the operation `closed → indeterminate`, never unfinished |
-| T4-e | T4 | the audit report and the re-check report leave the belief digest, admission and the coverage projection byte-unchanged; an unfinished audit blocks nothing |
+| T2-i | T2 | a port bound to another root, with the writer's authority and profile, is refused by both operations before any intent: both roots' chains are unchanged |
+| T2-j | T2 | an empty instrument, a non-encodable observer, a predecessor at another location and a `standing` key for an unrequested location each refuse the re-check before the operation intent, with no holdings intent appended and no store read (the seam records zero reads) |
 | T5-d | T5 | an inconclusive re-check location spells `byte-locator-untested` for a not-attempted read and `retrieval-failed` for an unestablished one, reasons distinct, and neither outcome constructs an observation |
-| T6-d | T6 | `cite(report, i)` resolves each finding entry; permuting two entries moves the identity; index out of range refuses |
+| T6-d | T6 | `cite(report, i)` resolves the i-th finding in the evaluator's order; permuting two entries moves the identity; index out of range refuses |
+| T6-e | T6 | two audits over corpora whose findings differ only in `message` mint entries and reports of equal identity; two whose findings differ in `detail` do not |
 | BI-1 | — | `audit.py` and `world/audit.py` define no `WRITE_ENTRY_POINTS` member and reach no write primitive; the wrappers reach the log only through inventoried callers |
 | BI-2 | — | the audit's evaluator read runs under the root lock after the intent: a write raced against an open audit lands after the report's registration |
 | BI-3 | — | the session routes: an audit and a re-check through `ScopedWriter` each write one `act` line per committed transaction, and the report's observer is the session actor |
 
+Plain acceptance tests, declaring no unit and claiming no row: deleting
+the published audit report moves its operation `closed → indeterminate`,
+never unfinished (T3's rule, already closed); the two reports leave the
+belief digest, admission and the coverage projection byte-unchanged and an
+unfinished audit blocks nothing (T4's rule, already closed).
+
 ### 9.3 N2 sabotages — `n2_arms_cut38.py`
 
-One arm per unit, each a source-level sabotage the unit's check must
-catch: the evaluator read moved before the append (T2-e); the port check
-moved after the first act (T2-g); the append failure caught and the acts
-proceeding (T2-g); the close publishing twice under one intent, swallowing
-the refusal (T2-h); `message` admitted into the payload (T6-d, via the
-identity assertion); the store-genesis check moved after the intent (T2-g);
-an inconclusive location dropped from the entries (T5-d); the root lock
-released before the evaluator call (BI-2); the session route bypassing
-`operation_port()` (BI-3). The staleness probe re-targets nothing: cut 37's
-live guard stays chained as the highest live runner.
+Every declaration unit carries at least one sabotage the unit's check must
+catch; fourteen arms over twelve units:
+
+| arm | unit | sabotage |
+|---|---|---|
+| T2-e | T2-e | the evaluator read moved before the intent append |
+| T2-f | T2-f | the operation intent appended after the first `recheck` act |
+| T2-g1 | T2-g | the port check moved after the first act |
+| T2-g2 | T2-g | the append failure caught and the acts proceeding |
+| T2-g3 | T2-g | the store-genesis check moved after the intent |
+| T2-h | T2-h | the close publishing twice under one intent, swallowing the refusal |
+| T2-i | T2-i | `_require_bound_port`'s root comparison removed from `_append_operation_intent` |
+| T2-j | T2-j | the observer/instrument/`standing` validation moved after the intent |
+| T5-d | T5-d | an inconclusive location dropped from the entries |
+| T6-d | T6-d | the entries built in reverse evaluator order |
+| T6-e | T6-e | `message` admitted into the payload |
+| BI-1 | BI-1 | a write-primitive attribute call inserted into `audit_corpus` |
+| BI-2 | BI-2 | the root lock released before the evaluator call |
+| BI-3 | BI-3 | the session route bypassing `operation_port()` for the writer's raw port |
+
+Declared accounting: 14 arms, 12 units, 3 rows. The staleness probe
+re-targets nothing: cut 37's live guard stays chained as the highest live
+runner.
 
 ### 9.4 The cut
 
@@ -443,7 +535,9 @@ the cut doc is superseded by citation, never edited.
   35's, stating the two operations as built and that every kind but
   `corpus-write` now opens through a boundary and closes through a report.
 - Ledger: T2 closes; `act-report-remainder` leaves `Current state`; the T
-  table reads full.
+  table reads full but for T7's cross-root case, which stays with
+  `cross-root-publication`; the row's "unblocks: the T table in full" is
+  corrected to say so.
 - Roadmap: re-ranked at cut 38; `act-report-remainder` leaves the index and
   off-path row 1; `publish` moves from tier 2 to tier 1 off the path (its
   world-read prerequisite is discharged; the criterion needs no publish),
@@ -483,4 +577,11 @@ adds it.
 
 ## 14. Review log
 
-- 2026-09-22 — drafted; awaiting the user's review.
+- 2026-09-22 — drafted.
+- 2026-09-22 — first review, four findings, all taken: a port override is
+  now bound to the writer's root, authority and profile and checked in the
+  primitives (decision 13, `OperationPort.root`); the re-check validates
+  observer, instrument and every `standing` set before the operation intent
+  (decision 14); the mutation mapping is complete — every unit has a
+  sabotage, T2-i, T2-j and T6-e added, T3-e and T4-e demoted to plain tests
+  (§9); the T table stays open on T7's cross-root case (§1, §10).
