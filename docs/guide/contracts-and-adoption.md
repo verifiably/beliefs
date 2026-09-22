@@ -50,6 +50,7 @@ sources:
   - ../designs/2026-09-20-conformance-cut-35.md
   - ../designs/2026-09-21-conformance-cut-36.md
   - ../designs/2026-09-21-conformance-cut-37.md
+  - ../designs/2026-09-22-conformance-cut-38.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -288,6 +289,10 @@ L1 under `persistence-cut`. The corpus now has **187 of 216 rows closed,
 29 open**
 (`../designs/2026-09-21-conformance-cut-37.md`;
 `../plans/2026-09-21-conformance-cut-37-results.md`).
+Cut 38 is frozen and not yet discharged: the act-report remainder — the
+`audit` and `re-check` operations open through the boundary and close
+through one act-report each; a supplied operation port is bound to its
+writer (`../designs/2026-09-22-conformance-cut-38.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
