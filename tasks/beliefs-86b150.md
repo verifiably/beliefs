@@ -1,15 +1,16 @@
 ---
 id: beliefs-86b150
 title: "Open the audit and re-check operation kinds: T2's remainder"
-status: doing
+status: done
 priority: 3
 size: m
 complexity: mid
 process: planned
 owner: design/act-report-remainder
 created: 2026-09-20T15:17:59Z
-updated: 2026-09-22T15:13:23Z
+updated: 2026-09-22T16:51:07Z
 started: 2026-09-22T09:28:05Z
+completed: 2026-09-22T16:51:07Z
 depends: []
 tags: [migration, act-report]
 agent: "claude-code/claude-opus-5[1m]"
@@ -28,3 +29,7 @@ act-report-remainder after cut 35: T2 reads every built operation kind; audit an
 - 2026-09-22T09:28:05Z (design/act-report-remainder): claimed by claude-code/claude-opus-5[1m], pid 2978931; worktree .worktrees/act-report-remainder, branch design/act-report-remainder
 - 2026-09-22T11:15:38Z (design/act-report-remainder): Cut 38 frozen (docs/designs/2026-09-22-conformance-cut-38.md): 12 units, 14 arms; chains cut 37; no prior live arm re-targeted.
 - 2026-09-22T15:13:23Z (design/act-report-remainder): Correction (cut 38, spec decision 1): the wrappers do not land on audit.py, world/audit.py or holdings/boundary.py — they consume them. Cut 38 built two new modules (beliefs/audit_operation.py, beliefs/holdings/recheck.py) and edited none of the three; the branch diff proves it.
+- 2026-09-22T16:51:07Z (design/act-report-remainder): done
+  provenance: {"harness_session":"claude-code:e3bb4fad-dbb8-4cbb-ae35-ad1dcc990c68","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-22T16:51:07Z (design/act-report-remainder): cut 38 discharged: T2 in full — the audit and re-check operations open through the boundary; every supplied port bound to its writer
+  provenance: {"harness_session":"claude-code:e3bb4fad-dbb8-4cbb-ae35-ad1dcc990c68","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
