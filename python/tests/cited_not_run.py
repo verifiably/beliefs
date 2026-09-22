@@ -117,7 +117,11 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
             ),
         },
         stale_arms={
+            "L2u1[1]": "moved at ef07763, when cut 37 split committed-removal inventory from replay: the committed-set anchor occurs twice",
             "L2u5[5]": "moved at d958c64, when durable operation-port mutations were serialized",
+            "L13u1[38]": "moved at ef07763, when cut 37 built the digest match: the policy pass iterates committed_removals",
+            "L13u2[39]": "moved at ef07763, when cut 37 built the digest match: `resolved = held.get(path)` is gone",
+            "L13u3[40]": "moved at ef07763, when cut 37 built the digest match: `resolved = held.get(path)` is gone",
             "L12u5[37]": "moved at c7817ba, when evaluated qualification replaced intents_unevaluated",
             "D6[48]": "moved at 8e14f8a, when store subjects went through anchor, export and audit",
             "D10[52]": "moved at 588fc9e, when restore_root took one held boundary",

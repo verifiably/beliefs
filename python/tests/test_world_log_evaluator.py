@@ -722,7 +722,7 @@ class TestReplay:
             CorpusSubject(CORPUS_ID), view, observers(record_carrier(E1)), disk=()
         )
         assert report.outcome == "validated"
-        assert codes(report) == ["record-removed"]
+        assert codes(report) == ["record-removed", "removal-unclassified"]
 
     def test_the_validated_exit_states_the_unanchored_tail(self) -> None:
         report = evaluate(CorpusSubject(CORPUS_ID), corpus_chain(), observers(record_carrier(E1)))

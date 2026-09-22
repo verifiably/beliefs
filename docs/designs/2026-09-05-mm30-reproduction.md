@@ -1092,3 +1092,65 @@ on this corpus's behalf. The transition this addendum measures is that the
 kernel gained an event domain and an event-level relation over corpus heads
 while the reproduction's supplied member and its answer stayed exactly
 where §14 left them.
+
+## 16. Addendum — the L13 preimage resolver, 2026-09-21
+
+Re-run under the L13 preimage resolver
+(`../superpowers/specs/2026-09-21-l13-preimage-design.md`; cut 37), from the
+worktree `l13-preimage`, at head `2223f95`. No contract succeeded, so nothing
+under `.work/reproduction/mm30` was recreated or moved aside: the corpus was
+read in place, exactly as at §15. The symlinked root spelling
+`~/d/beliefs/.work/reproduction/mm30` refused the certified-volume preflight
+with `OSError: [Errno 40] Too many levels of symbolic links`; the same root's
+canonical path, formed from `$(readlink -f ~/d/beliefs)`, passed.
+`MM30_PREDECESSOR` again had to be set explicitly to the predecessor's
+canonical path.
+
+### 16.1 What changed in the kernel this slice
+
+The slice changes removal classification from a path match to an exact match
+on the removed state's digest, across either a caller-held copy or the
+surviving preimage bytes. `LogSeam.read_preimage` supplies those bytes to the
+audit, which reads them under its hold after both captures. Absence is now the
+explicit `removal-unclassified` finding. Corrupt local history refuses as
+`LogEvidenceRefused("preimage", "MetadataStoreInvalid", ...)`; `PreimageMismatch`
+is reserved for returned bytes whose re-hash contradicts the declared removal
+digest.
+
+The plan's prescribed broad source check was not empty. It found the existing
+step-9 audit call and its two renderings:
+
+```text
+python/tools/reproduction/close.py:57:        report = science_root.audit_log(world.config(), subject, paths.CORPUS_ROOT, observers, actor=AUTHORITY.actor)
+python/tools/reproduction/close.py:88:                f"audit_log[{shape}]: {line}",
+python/tools/reproduction/close.py:96:        print(f"audit_log[{shape}]: {report}")
+```
+
+That call predates this slice. The narrower check of `rederive.py` for
+`audit_log`, `log_audits`, `committed_removals`, or `read_preimage` is empty:
+the command re-run here imports `close.evidence_for` but does not execute the
+step-9 log audit. A detached inspection of the established corpus reported
+`committed_removals: 0`, so its historical log audit also has no removed state
+whose preimage could be read or classified. The preimage arm is exercised by
+`python/tests/acceptance/test_l13_preimage_acceptance.py`, not by this corpus.
+
+### 16.2 What the re-run reached
+
+Before the run, `state.json` held `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}` and
+`rederived_equal: true`. `reproduction.rederive`, in a fresh detached process,
+printed the same 10a payload —
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}` — and
+the rewritten file held the same payload with `rederived_equal: true`. A
+full-file diff against the pre-run copy was empty; both files had SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`.
+Only the detached run log recorded this invocation.
+
+### 16.3 What this addendum does not claim
+
+That mm30 supplied a removal for the new resolver, or that this re-run read a
+surviving preimage: the established corpus has no committed removals. The
+transition measured here is narrower — the kernel gained digest-matched
+classification over held and surviving bytes, explicit absence, and corrupt
+history refusal while the reproduction's stored state and re-derived answer
+remained byte-for-byte where §15 left them.

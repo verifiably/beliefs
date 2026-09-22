@@ -284,6 +284,11 @@ class LogEvidenceRefused(ScienceError):
     exactly those three — nothing else, and ``ProtocolError`` and setup errors
     keep their own contracts — preserving the engine exception as ``__cause__``.
 
+    The preimage phase (l13-preimage spec §4) adds corrupt local history
+    (``MetadataStoreInvalid``), and translates the same ``ChainStateInvalid``
+    and ``TransactionHalted``. Its ``PreconditionRefused`` is availability
+    evidence and is not translated here.
+
     **It is a refusal to judge, not a judgment.** It produces no report, it is
     not an arrival refusal, and it sits outside the evaluator's precedence and
     the arrival-cause ranking: the act did not decide that the evidence was
@@ -293,14 +298,31 @@ class LogEvidenceRefused(ScienceError):
 
     def __init__(
         self,
-        phase: Literal["inspect", "capture"],
-        engine_error: Literal["ChainStateInvalid", "TransactionHalted", "PreconditionRefused"],
+        phase: Literal["inspect", "capture", "preimage"],
+        engine_error: Literal[
+            "ChainStateInvalid",
+            "TransactionHalted",
+            "PreconditionRefused",
+            "MetadataStoreInvalid",
+        ],
         detail: str,
     ) -> None:
         super().__init__(f"{phase}: the engine refused with {engine_error}: {detail}")
         self.phase = phase
         self.engine_error = engine_error
         self.detail = detail
+
+
+class PreimageMismatch(ScienceError):
+    """The engine's preimage for a committed removal does not hash to the
+    digest the inspected chain declares for it.
+
+    Both are read under one hold — the chain by the registered inspection,
+    the bytes by `read_preimage` against the same root — so a disagreement is
+    a contradiction between two evidence sources the act itself obtained,
+    never a judgment about the removal. Like `LogEvidenceRefused` it produces
+    no report, is no outcome and is no arrival cause (spec §6).
+    """
 
 
 class AdmissionEvidenceRefused(ScienceError):

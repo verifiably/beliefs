@@ -24,16 +24,15 @@ from nodes.core.errors import PlanRefusedError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.ids import KIND_RE, SLUG_RE
 from nodes.core.node import Node
-from nodes.core.store import Store
 from nodes.core.write_plan import CreateOp
 from test_world_log_codecs import (
     CUT8_CORPUS_ID,
     Chain,
+    _record_state,
     capture_at,
     four_state_classes,
     inspected,
     populated_corpus,
-    removed_record,
     rewritten_tail,
     rolled_back_creation,
     settled_corpus,
@@ -42,6 +41,7 @@ from test_world_log_codecs import MANIFEST as MANIFEST_PATH
 from test_world_log_codecs import RECORD as RECORD_PATH
 
 from beliefs import root as science_root
+from beliefs.errors import PreimageMismatch
 from beliefs.world import verify
 from beliefs.world.anchors import AnchorActOrigin, CorpusSubject, LogHeadRecord
 from beliefs.world.epoch import CURRENT_POINTER, EPOCH_MEMBERS
@@ -153,6 +153,74 @@ def verification_bytes(slug: str, verdict: str) -> bytes:
 
 def held(*payloads: bytes) -> dict[str, bytes]:
     return {f"sha256:{hashlib.sha256(payload).hexdigest()}": payload for payload in payloads}
+
+
+# --- the seam's codec over the opaque stand-ins ----------------------------
+
+FAILED_V1 = verification_bytes("v1", "failed")
+"""What `RECORD`'s bytes are, as far as the codec below is concerned: the
+removed state's declared digest is this payload's, so a held copy or a
+preimage of exactly these bytes resolves and any other bytes do not."""
+
+
+def opaque_facts(state: object) -> tuple[tuple[str, str], ...]:
+    """The seam's `state_facts` over the inert stand-ins, by identity.
+
+    Replay may hand a state to the seam's codec and read the codec's answer;
+    it may not read the state itself (`Opaque` still raises on every
+    attribute). `ABSENT` renders absent; `RECORD` renders as the file whose
+    bytes are `FAILED_V1`; every other state is a file with no digest a test
+    holds bytes for.
+    """
+    if state is ABSENT:
+        return (("kind", "absent"),)
+    if state is RECORD:
+        return (
+            ("kind", "file"),
+            ("content_hash", hashlib.sha256(FAILED_V1).hexdigest()),
+            ("mode", "0o644"),
+            ("byte_len", str(len(FAILED_V1))),
+        )
+    label = state.__dict__["_label"]
+    return (
+        ("kind", "file"),
+        ("content_hash", hashlib.sha256(label.encode()).hexdigest()),
+        ("mode", "0o644"),
+        ("byte_len", "0"),
+    )
+
+
+SYMLINKED = Opaque("verification/v1.md@symlink")
+
+
+def symlink_facts(state: object) -> tuple[tuple[str, str], ...]:
+    if state is SYMLINKED:
+        return (("kind", "symlink"), ("target", "elsewhere"))
+    return opaque_facts(state)
+
+
+PRODUCTION_FACTS = science_root._log_seam().state_facts
+"""For the chains fabricated over real engine states (`removed_record` and
+its siblings): the codec the composition root wires."""
+
+
+def removed_verification(base: Path) -> tuple[Chain, bytes]:
+    """`removed_record`'s shape over bytes that *are* a failing verification:
+    the manifest committed, the record created, then removed — so the removed
+    state's digest is `FAILED_V1`'s and a copy of those bytes resolves."""
+    chain = settled_corpus(base)
+    chain.anchor = chain.tip
+    record = _record_state(chain.root, FAILED_V1)
+    chain.transaction("tx-2", ((RECORD_PATH, ENGINE_ABSENT),), ((RECORD_PATH, record),))
+    (chain.root / RECORD_PATH).unlink()
+    chain.transaction("tx-3", ((RECORD_PATH, record),), ((RECORD_PATH, ENGINE_ABSENT),))
+    chain.paths = (MANIFEST_PATH, RECORD_PATH)
+    return chain, FAILED_V1
+
+
+def removals_txid(view) -> str:
+    (removal,) = verify.committed_removals(view, ENGINE_ABSENT)
+    return removal.txid
 
 
 # --- the projection ------------------------------------------------------
@@ -281,25 +349,17 @@ def test_no_declared_layout_name_can_begin_with_a_dot():
         assert pattern.fullmatch(".") is None, pattern.pattern
 
 
-def test_the_record_path_rule_is_the_substrates_own(tmp_path):
-    # A layout change in `nodes` must fail here rather than quietly leaving
-    # every held copy unresolved.
-    node_id = "verification:a-b.c:d"
-
-    assert verify._record_path(node_id) == Store(tmp_path).path_for(node_id).relative_to(tmp_path).as_posix()
-
-
 # --- replay --------------------------------------------------------------
 
 
 def test_a_committed_history_validates_against_the_disk_it_produced():
-    result = verify.replay(CREATED, MATCHING_DISK, ABSENT, None)
+    result = verify.replay(CREATED, MATCHING_DISK, ABSENT, None, state_facts=opaque_facts)
 
     assert result == verify.ReplayResult(refuted=False, disagreements=(), findings=())
 
 
 def test_a_raw_delete_refutes():
-    result = verify.replay(CREATED, (("corpus.yaml", MANIFEST),), ABSENT, None)
+    result = verify.replay(CREATED, (("corpus.yaml", MANIFEST),), ABSENT, None, state_facts=opaque_facts)
 
     assert result.refuted
     assert result.disagreements == ("head:verification/v1.md",)
@@ -308,7 +368,7 @@ def test_a_raw_delete_refutes():
 def test_a_raw_create_refutes():
     disk = MATCHING_DISK + (("verification/v2.md", OTHER),)
 
-    result = verify.replay(CREATED, disk, ABSENT, None)
+    result = verify.replay(CREATED, disk, ABSENT, None, state_facts=opaque_facts)
 
     assert result.refuted
     assert result.disagreements == ("head:verification/v2.md",)
@@ -321,7 +381,7 @@ def test_a_rolled_back_creation_is_no_transition():
         settlement("b" * 64, "tx-2", committed=False),
     )
 
-    result = verify.replay(view, (("corpus.yaml", MANIFEST),), ABSENT, None)
+    result = verify.replay(view, (("corpus.yaml", MANIFEST),), ABSENT, None, state_facts=opaque_facts)
 
     assert result == verify.ReplayResult(refuted=False, disagreements=(), findings=())
 
@@ -332,7 +392,7 @@ def test_an_unsettled_registration_is_no_transition():
         registration("c" * 64, "tx-3", (("verification/v2.md", ABSENT),), (("verification/v2.md", OTHER),)),
     )
 
-    result = verify.replay(view, (("corpus.yaml", MANIFEST),), ABSENT, None)
+    result = verify.replay(view, (("corpus.yaml", MANIFEST),), ABSENT, None, state_facts=opaque_facts)
 
     assert result == verify.ReplayResult(refuted=False, disagreements=(), findings=())
 
@@ -344,7 +404,7 @@ def test_an_initial_fingerprint_disagreement_refutes():
         settlement("d" * 64, "tx-4", committed=True),
     )
 
-    result = verify.replay(view, (("corpus.yaml", RECORD),), ABSENT, None)
+    result = verify.replay(view, (("corpus.yaml", RECORD),), ABSENT, None, state_facts=opaque_facts)
 
     assert result.refuted
     assert result.disagreements == ("initial:corpus.yaml@tx-4",)
@@ -362,22 +422,27 @@ def test_a_disagreement_does_not_truncate_the_removal_inventory():
         settlement("e" * 64, "tx-5", committed=True),
     )
 
-    result = verify.replay(view, SURVIVING_DISK, ABSENT, None)
+    result = verify.replay(view, SURVIVING_DISK, ABSENT, None, state_facts=opaque_facts)
 
     assert result.refuted
     # The head comparison is skipped — every `head:` entry past a divergence
     # would be a consequence of it — and the first disagreement is the report.
     assert result.disagreements == ("initial:corpus.yaml@tx-4",)
     assert [(finding.code, finding.ref) for finding in result.findings] == [
-        ("record-removed", "verification/v1.md")
+        ("record-removed", "verification/v1.md"),
+        ("removal-unclassified", "verification/v1.md"),
     ]
 
 
 def test_the_baseline_is_replayed_from_the_genesis():
     view = chain(genesis(("corpus.yaml", MANIFEST)))
 
-    assert not verify.replay(view, (("corpus.yaml", MANIFEST),), ABSENT, None).refuted
-    assert verify.replay(view, (("corpus.yaml", RECORD),), ABSENT, None).disagreements == ("head:corpus.yaml",)
+    assert not verify.replay(
+        view, (("corpus.yaml", MANIFEST),), ABSENT, None, state_facts=opaque_facts
+    ).refuted
+    assert verify.replay(
+        view, (("corpus.yaml", RECORD),), ABSENT, None, state_facts=opaque_facts
+    ).disagreements == ("head:corpus.yaml",)
 
 
 # --- the policy pass -----------------------------------------------------
@@ -389,91 +454,214 @@ REMOVED = chain(
     settlement("e" * 64, "tx-5", committed=True),
 )
 SURVIVING_DISK: tuple[tuple[str, object], ...] = (("corpus.yaml", MANIFEST),)
+REMOVED_DIGEST = f"sha256:{hashlib.sha256(FAILED_V1).hexdigest()}"
+
+
+def replayed(
+    view=REMOVED,
+    disk=SURVIVING_DISK,
+    history=None,
+    *,
+    preimages=verify.NO_PREIMAGES,
+    state_facts=opaque_facts,
+):
+    return verify.replay(view, disk, ABSENT, history, state_facts=state_facts, preimages=preimages)
+
+
+def test_committed_removals_are_the_declared_absent_finals_of_committed_transitions_in_chain_order():
+    rolled = chain(
+        genesis(("corpus.yaml", MANIFEST), ("verification/v1.md", RECORD), ("verification/v2.md", OTHER)),
+        registration("e" * 64, "tx-5", (("verification/v1.md", RECORD),), (("verification/v1.md", ABSENT),)),
+        settlement("e" * 64, "tx-5", committed=False),
+        registration("f" * 64, "tx-6", (("verification/v2.md", OTHER),), (("verification/v2.md", ABSENT),)),
+        settlement("f" * 64, "tx-6", committed=True),
+        registration("d" * 64, "tx-7", (("verification/v1.md", RECORD),), (("verification/v1.md", ABSENT),)),
+    )
+    assert verify.committed_removals(rolled, ABSENT) == (
+        verify.Removal(txid="tx-6", path="verification/v2.md", state=OTHER),
+    )
+    # A replacement and a creation are not removals.
+    assert verify.committed_removals(CREATED, ABSENT) == ()
+
+
+def test_removed_digest_is_the_file_content_hash_in_history_key_form_and_none_otherwise():
+    assert verify.removed_digest(RECORD, opaque_facts) == REMOVED_DIGEST
+    assert verify.removed_digest(SYMLINKED, symlink_facts) is None
+    assert verify.removed_digest(ABSENT, opaque_facts) is None
 
 
 def test_a_committed_removal_is_a_finding_even_with_no_history():
-    result = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, None)
+    result = replayed()
 
     assert not result.refuted
-    assert len(result.findings) == 1
+    codes = [finding.code for finding in result.findings]
+    assert codes == ["record-removed", "removal-unclassified"]
     finding = result.findings[0]
-    assert (finding.code, finding.ref, finding.detail) == ("record-removed", "verification/v1.md", "txid=tx-5")
+    assert (finding.severity, finding.ref, finding.detail) == ("warning", "verification/v1.md", "txid=tx-5")
+    assert finding.message == "a committed transaction removed a registered-surface record"
+    absent = result.findings[1]
+    assert absent.severity == "warning"
+    assert absent.ref == "verification/v1.md"
+    assert absent.detail == f"txid=tx-5 digest={REMOVED_DIGEST} preimage=not-consulted"
+    assert "the classification is absent" in absent.message
 
 
-def test_a_held_failing_verification_classifies_the_removal_and_names_its_digest():
-    payload = verification_bytes("v1", "failed")
-    history = held(payload)
-    digest = next(iter(history))
-
-    result = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, history)
+def test_a_held_copy_resolves_by_the_removed_digest_and_classifies_the_removed_bytes():
+    result = replayed(history=held(FAILED_V1))
 
     codes = [finding.code for finding in result.findings]
     assert codes == ["record-removed", "failing-verification-removed"]
     classified = result.findings[1]
     assert classified.severity == "error"
     assert classified.ref == "verification/v1.md"
-    assert classified.detail == f"txid=tx-5 digest={digest}"
+    assert classified.detail == f"txid=tx-5 digest={REMOVED_DIGEST} source=held-copy"
+    assert classified.message.startswith("the removed record's bytes, resolved by digest")
+    assert "held copy" not in classified.message
 
 
-def test_a_held_passing_verification_classifies_the_removal_without_calling_it_failing():
-    payload = verification_bytes("v1", "passed")
-    history = held(payload)
-    digest = next(iter(history))
+def test_a_held_copy_of_another_version_of_the_same_record_resolves_nothing():
+    # Same id, so the same claimed path — the R16 misclassification, reversed.
+    other_version = verification_bytes("v1", "passed")
 
-    result = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, history)
+    result = replayed(history=held(other_version))
 
-    codes = [finding.code for finding in result.findings]
-    assert codes == ["record-removed", "removal-classified"]
-    assert result.findings[1].detail == f"txid=tx-5 digest={digest} kind=verification verdict=passed"
+    assert [finding.code for finding in result.findings] == ["record-removed", "removal-unclassified"]
+    assert result.findings[1].detail == f"txid=tx-5 digest={REMOVED_DIGEST} preimage=not-consulted"
+    assert hashlib.sha256(other_version).hexdigest() not in result.findings[1].detail
 
 
-def test_a_held_verification_whose_facet_does_not_validate_says_so(tmp_path):
-    node = Node(
+def test_two_held_copies_resolve_from_the_matching_one_alone():
+    result = replayed(history=held(FAILED_V1, verification_bytes("v1", "passed")))
+
+    assert [finding.code for finding in result.findings] == ["record-removed", "failing-verification-removed"]
+    assert f"digest={REMOVED_DIGEST}" in result.findings[1].detail
+
+
+def test_a_preimage_resolves_and_is_named_as_the_source():
+    preimages = {("tx-5", "verification/v1.md"): verify.PreimageRead(FAILED_V1)}
+
+    result = replayed(preimages=preimages)
+
+    assert [finding.code for finding in result.findings] == ["record-removed", "failing-verification-removed"]
+    assert result.findings[1].detail == f"txid=tx-5 digest={REMOVED_DIGEST} source=preimage"
+
+
+def test_a_preimage_and_a_held_copy_together_classify_once_from_the_preimage():
+    preimages = {("tx-5", "verification/v1.md"): verify.PreimageRead(FAILED_V1)}
+
+    result = replayed(history=held(FAILED_V1), preimages=preimages)
+
+    assert [finding.code for finding in result.findings] == ["record-removed", "failing-verification-removed"]
+    assert result.findings[1].detail.endswith("source=preimage")
+
+
+def test_a_preimage_that_does_not_hash_to_the_declared_digest_refuses_before_any_finding():
+    preimages = {("tx-5", "verification/v1.md"): verify.PreimageRead(verification_bytes("v1", "passed"))}
+
+    with pytest.raises(PreimageMismatch, match="tx-5"):
+        replayed(preimages=preimages)
+
+
+def test_an_unavailable_preimage_is_the_absence_finding_with_the_engine_reason():
+    preimages = {
+        ("tx-5", "verification/v1.md"): verify.PreimageUnavailable(
+            "root lifecycle state read-only-serviceable does not grant writability"
+        )
+    }
+
+    result = replayed(preimages=preimages)
+
+    assert [finding.code for finding in result.findings] == ["record-removed", "removal-unclassified"]
+    absent = result.findings[1]
+    assert absent.detail == f"txid=tx-5 digest={REMOVED_DIGEST} preimage=refused"
+    assert "read-only-serviceable does not grant writability" in absent.message
+
+
+def test_an_unavailable_preimage_still_resolves_through_a_held_copy():
+    preimages = {("tx-5", "verification/v1.md"): verify.PreimageUnavailable("refused")}
+
+    result = replayed(history=held(FAILED_V1), preimages=preimages)
+
+    assert [finding.code for finding in result.findings] == ["record-removed", "failing-verification-removed"]
+    assert result.findings[1].detail.endswith("source=held-copy")
+
+
+def test_a_removed_pre_state_that_is_not_a_file_has_no_digest_and_is_not_classified():
+    view = chain(
+        genesis(("corpus.yaml", MANIFEST), ("verification/v1.md", SYMLINKED)),
+        registration(
+            "e" * 64,
+            "tx-5",
+            (("verification/v1.md", SYMLINKED),),
+            (("verification/v1.md", ABSENT),),
+        ),
+        settlement("e" * 64, "tx-5", committed=True),
+    )
+
+    result = replayed(view, history=held(FAILED_V1), state_facts=symlink_facts)
+
+    assert [finding.code for finding in result.findings] == ["record-removed", "removal-unclassified"]
+    assert result.findings[1].detail == "txid=tx-5 digest=none preimage=not-consulted"
+
+
+@pytest.mark.parametrize("source", ["preimage", "held-copy"])
+def test_the_classification_table_over_both_channels(source):
+    def resolved(payload: bytes):
+        digest = f"sha256:{hashlib.sha256(payload).hexdigest()}"
+        facts = lambda state: (
+            (
+                ("kind", "file"),
+                ("content_hash", digest.removeprefix("sha256:")),
+                ("mode", "0o644"),
+                ("byte_len", str(len(payload))),
+            )
+            if state is RECORD
+            else opaque_facts(state)
+        )
+        if source == "preimage":
+            return (
+                replayed(
+                    preimages={("tx-5", "verification/v1.md"): verify.PreimageRead(payload)},
+                    state_facts=facts,
+                ),
+                digest,
+            )
+        return replayed(history={digest: payload}, state_facts=facts), digest
+
+    passing, digest = resolved(verification_bytes("v1", "passed"))
+    assert passing.findings[1].code == "removal-classified"
+    assert passing.findings[1].detail == (
+        f"txid=tx-5 digest={digest} source={source} kind=verification verdict=passed"
+    )
+
+    unreadable = Node(
         id="verification:v1",
         uid="0" * 32,
         kind="verification",
         title="a held copy",
         facets={"verification": {"assessment": "assessment:a1", "scope": "invented", "verdict": "failed"}},
     )
-    history = held(node_to_markdown(node).encode("utf-8"))
-    digest = next(iter(history))
+    result, digest = resolved(node_to_markdown(unreadable).encode("utf-8"))
+    assert result.findings[1].detail == (
+        f"txid=tx-5 digest={digest} source={source} kind=verification verdict=unreadable"
+    )
+    assert "no verdict is read" in result.findings[1].message
 
-    result = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, history)
+    discussion = Node(id="discussion:v1", uid="0" * 32, kind="discussion", title="not a verification", facets={})
+    result, digest = resolved(node_to_markdown(discussion).encode("utf-8"))
+    assert result.findings[1].detail == f"txid=tx-5 digest={digest} source={source} kind=discussion"
+    assert result.findings[1].severity == "warning"
 
-    codes = [finding.code for finding in result.findings]
-    assert codes == ["record-removed", "removal-classified"]
-    classified = result.findings[1]
-    assert classified.detail == f"txid=tx-5 digest={digest} kind=verification verdict=unreadable"
-    assert "no verdict is read" in classified.message
+    result, digest = resolved(b"\x00not a record\n")
+    assert result.findings[1].detail == f"txid=tx-5 digest={digest} source={source} kind=none"
+    assert "not a Science record" in result.findings[1].message
 
-
-def test_a_classification_speaks_about_the_held_copy_and_not_the_removed_bytes():
-    # Path matching cannot establish that the *removed* record was not a
-    # failing verification: the copy in hand may be another version of it.
-    passing = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, held(verification_bytes("v1", "passed")))
-    failing = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, held(verification_bytes("v1", "failed")))
-
-    for result in (passing, failing):
-        assert result.findings[1].message.startswith("a held copy filed under this digest claims the removed path")
-    assert "the removed record" not in passing.findings[1].message
-
-
-def test_history_naming_another_record_leaves_the_classification_absent():
-    result = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, held(verification_bytes("v9", "failed")))
-
-    assert [finding.code for finding in result.findings] == ["record-removed"]
-
-
-def test_two_held_copies_of_one_path_do_not_resolve():
-    history = held(verification_bytes("v1", "failed"), verification_bytes("v1", "passed"))
-
-    result = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, history)
-
-    assert [finding.code for finding in result.findings] == ["record-removed"]
+    for result in (passing,):
+        assert "held copy" not in result.findings[1].message
 
 
 def test_a_creation_is_not_a_removal():
-    assert verify.replay(CREATED, MATCHING_DISK, ABSENT, held(verification_bytes("v1", "failed"))).findings == ()
+    assert replayed(CREATED, MATCHING_DISK, held(FAILED_V1)).findings == ()
 
 
 # --- the history input ---------------------------------------------------
@@ -513,7 +701,13 @@ def test_a_history_value_that_is_not_bytes_refuses():
 
 def test_replay_refuses_a_corrupt_history_rather_than_naming_a_digest_it_never_checked():
     with pytest.raises(ValueError):
-        verify.replay(REMOVED, SURVIVING_DISK, ABSENT, {"sha256:nope": b"a record"})
+        verify.replay(
+            REMOVED,
+            SURVIVING_DISK,
+            ABSENT,
+            {"sha256:nope": b"a record"},
+            state_facts=opaque_facts,
+        )
 
 
 # --- cut 8's declarations, over chains the engine itself calls well formed ---
@@ -586,7 +780,7 @@ def test_rolled_back_creation_absence_is_not_refuted(tmp_path):
     disk = cut8_disk(chain)
     assert dict(disk)[RECORD_PATH] == ENGINE_ABSENT
 
-    result = verify.replay(view, disk, ENGINE_ABSENT, None)
+    result = verify.replay(view, disk, ENGINE_ABSENT, None, state_facts=PRODUCTION_FACTS)
     report = cut8_judge(chain, cut8_anchor(chain, chain.tip))
 
     assert result == verify.ReplayResult(refuted=False, disagreements=(), findings=())
@@ -614,7 +808,7 @@ def test_committed_creation_raw_deleted_is_refuted(tmp_path):
 
     (chain.root / RECORD_PATH).unlink()
     disk = cut8_disk(chain)
-    result = verify.replay(view, disk, ENGINE_ABSENT, None)
+    result = verify.replay(view, disk, ENGINE_ABSENT, None, state_facts=PRODUCTION_FACTS)
     report = cut8_judge(chain, cut8_anchor(chain, chain.tip))
 
     assert result.refuted
@@ -696,11 +890,13 @@ def test_all_four_state_classes_round_trip(tmp_path):
 
     (created,) = [entry for entry in view.entries if type(entry) is RegisteredEntryView]
     assert created.final == disk
-    assert verify.replay(view, disk, ENGINE_ABSENT, None) == verify.ReplayResult(False, (), ())
+    assert verify.replay(view, disk, ENGINE_ABSENT, None, state_facts=PRODUCTION_FACTS) == verify.ReplayResult(
+        False, (), ()
+    )
 
     for index, (path, _state) in enumerate(disk):
         rotated = disk[:index] + ((path, disk[(index + 1) % len(disk)][1]),) + disk[index + 1 :]
-        result = verify.replay(view, rotated, ENGINE_ABSENT, None)
+        result = verify.replay(view, rotated, ENGINE_ABSENT, None, state_facts=PRODUCTION_FACTS)
         assert result.refuted, path
         assert result.disagreements == (f"head:{path}",)
 
@@ -708,7 +904,7 @@ def test_all_four_state_classes_round_trip(tmp_path):
     (chain.root / "link").symlink_to("d")
     (chain.root / "f.txt").chmod(0o755)
     moved = cut8_disk(chain)
-    result = verify.replay(view, moved, ENGINE_ABSENT, None)
+    result = verify.replay(view, moved, ENGINE_ABSENT, None, state_facts=PRODUCTION_FACTS)
     assert result.refuted
     assert set(result.disagreements) == {"head:link", "head:f.txt"}
 
@@ -749,11 +945,10 @@ def test_log_appends_are_not_recursively_registered(tmp_path):
 
 
 def test_cooperative_verification_removal_is_in_timeline_with_finding(tmp_path):
-    """L13u1. A log-visible removal of a verification via a cooperative act is
-    **in the replayed timeline** *and* draws the policy finding naming the
-    deleted record. Occurrence is not authorization, so the removal is a
-    finding beside a verdict that does not refute."""
-    chain = removed_record(tmp_path)
+    """L13u1 (cut 8, superseded by cut 37's L13-a). A log-visible removal of a
+    verification via a cooperative act is **in the replayed timeline** *and*
+    draws the policy finding naming the deleted record."""
+    chain, _removed_bytes = removed_verification(tmp_path)
     view = cut8_view(chain)
     disk = cut8_disk(chain)
     assert not (chain.root / RECORD_PATH).exists()
@@ -764,75 +959,56 @@ def test_cooperative_verification_removal_is_in_timeline_with_finding(tmp_path):
         if type(entry) is RegisteredEntryView and dict(entry.final).get(RECORD_PATH) == ENGINE_ABSENT
     ]
     assert len(removals) == 1
-    settlements = [
-        entry
-        for entry in view.entries
-        if type(entry) is SettledEntryView and entry.registration == removals[0].digest
-    ]
-    assert [entry.committed for entry in settlements] == [True]
 
-    result = verify.replay(view, disk, ENGINE_ABSENT, None)
+    result = verify.replay(view, disk, ENGINE_ABSENT, None, state_facts=PRODUCTION_FACTS)
 
     assert not result.refuted
-    assert [(finding.code, finding.ref, finding.detail) for finding in result.findings] == [
+    assert [(finding.code, finding.ref, finding.detail) for finding in result.findings[:1]] == [
         ("record-removed", RECORD_PATH, f"txid={removals[0].txid}")
     ]
     assert result.findings[0].severity == "warning"
+    assert result.findings[1].code == "removal-unclassified"
 
 
 def test_failing_classification_resolves_through_history_naming_digest(tmp_path):
-    """L13u2. Where the supplied `history` bytes resolve, the removal is
-    classified as a *failing* verification's and the finding names the matched
-    digest.
-
-    **R16, stated here because L13 is partial for it:** the match is by *path*,
-    not by digest — the seam exposes no state→digest accessor, so the pass
-    decodes the held bytes, derives the path the copy's identity claims, and
-    matches the removed path. The finding therefore speaks about the held copy
-    and never about the removed bytes, and a held copy of another version of the
-    same record could misclassify a removal in either direction.
-    """
-    chain = removed_record(tmp_path)
+    """L13u2 (cut 8, superseded by cut 37's L13-b/L13-c). Where the supplied
+    `history` bytes resolve **by the removed state's digest**, the removal is
+    classified as a *failing* verification's and the finding names that digest.
+    R16's path match is gone: the copy that resolves is the copy of the removed
+    bytes, and the finding speaks about them."""
+    chain, removed_bytes = removed_verification(tmp_path)
     view = cut8_view(chain)
     disk = cut8_disk(chain)
-    history = held(verification_bytes("v1", "failed"))
+    history = held(removed_bytes)
     digest = next(iter(history))
 
-    result = verify.replay(view, disk, ENGINE_ABSENT, history)
+    result = verify.replay(view, disk, ENGINE_ABSENT, history, state_facts=PRODUCTION_FACTS)
 
     codes = [finding.code for finding in result.findings]
     assert codes == ["record-removed", "failing-verification-removed"]
     classified = result.findings[1]
     assert classified.severity == "error"
     assert classified.ref == RECORD_PATH
-    assert classified.detail.endswith(f"digest={digest}")
-    assert classified.message.startswith("a held copy filed under this digest claims the removed path")
-    assert "the removed record" not in classified.message
+    assert classified.detail == f"txid={removals_txid(view)} digest={digest} source=held-copy"
+    assert classified.message.startswith("the removed record's bytes, resolved by digest")
 
 
 def test_without_history_deletion_detected_classification_absent(tmp_path):
-    """L13u3. With no copy held the deletion is **still detected** and the
-    semantic classification is honestly **absent** — never guessed from the
-    entry, which retains a state digest and not a verdict.
-
-    The two other ways the evidence fails to resolve are the same answer: a
-    history naming another record, and two copies claiming one path (R16's
-    weakened match refuses to choose between them).
-    """
-    chain = removed_record(tmp_path)
+    """L13u3 (cut 8, superseded by cut 37's L13-d). With no copy held the
+    deletion is **still detected** and the classification is honestly
+    **absent** — stated by `removal-unclassified`, never guessed from a copy of
+    another record or another version."""
+    chain, _removed_bytes = removed_verification(tmp_path)
     view = cut8_view(chain)
     disk = cut8_disk(chain)
 
-    for history in (
-        None,
-        held(verification_bytes("v9", "failed")),
-        held(verification_bytes("v1", "failed"), verification_bytes("v1", "passed")),
-    ):
-        result = verify.replay(view, disk, ENGINE_ABSENT, history)
+    for history in (None, held(verification_bytes("v9", "failed")), held(verification_bytes("v1", "passed"))):
+        result = verify.replay(view, disk, ENGINE_ABSENT, history, state_facts=PRODUCTION_FACTS)
 
         assert not result.refuted
-        assert [finding.code for finding in result.findings] == ["record-removed"]
-        assert result.findings[0].ref == RECORD_PATH
+        assert [finding.code for finding in result.findings] == ["record-removed", "removal-unclassified"]
+        assert result.findings[1].ref == RECORD_PATH
+        assert result.findings[1].detail.endswith("preimage=not-consulted")
 
 
 # --- D9: history evidence is validated ---------------------------------------
@@ -860,18 +1036,21 @@ def test_history_validation_refusals_and_digest_named_findings(tmp_path, key):
     with pytest.raises(ValueError):
         verify.validate_history({f"sha256:{hashlib.sha256(b'one').hexdigest()}": b"another"})
 
-    chain = removed_record(tmp_path)
+    chain, removed_bytes = removed_verification(tmp_path)
     view = cut8_view(chain)
     disk = cut8_disk(chain)
 
     # The refusal reaches the act itself, before any digest is named.
     with pytest.raises(ValueError):
-        verify.replay(view, disk, ENGINE_ABSENT, {key: b"a record"})
+        verify.replay(view, disk, ENGINE_ABSENT, {key: b"a record"}, state_facts=PRODUCTION_FACTS)
 
     # And every classification that *is* produced names the digest it matched.
-    for verdict, code in (("failed", "failing-verification-removed"), ("passed", "removal-classified")):
-        history = held(verification_bytes("v1", verdict))
+    for payload, code in ((removed_bytes, "failing-verification-removed"), (verification_bytes("v1", "passed"), "removal-unclassified")):
+        history = held(payload)
         matched = next(iter(history))
-        result = verify.replay(view, disk, ENGINE_ABSENT, history)
+        result = verify.replay(view, disk, ENGINE_ABSENT, history, state_facts=PRODUCTION_FACTS)
         assert [finding.code for finding in result.findings] == ["record-removed", code]
-        assert f"digest={matched}" in result.findings[1].detail
+        if code == "failing-verification-removed":
+            assert f"digest={matched}" in result.findings[1].detail
+        else:
+            assert result.findings[1].detail.endswith("preimage=not-consulted")
