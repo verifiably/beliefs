@@ -161,7 +161,7 @@ Record the full commit hash: Task 6's guard pins it as `CUT38_FREEZE_COMMIT`, an
 **Interfaces:**
 - Produces: `OperationPort.root: Path` (a property on the protocol); `CorpusWriter._require_bound_port(port: OperationPort | None) -> OperationPort` — returns the writer's own port for `None`, the supplied port when bound, raises `PortMismatch` otherwise; `PortMismatch(WriteRefused)`. Tasks 2 and 3 call `writer._require_bound_port(port)` in their preflights.
 
-- [ ] **Step 1: Write the failing tests** — `python/tests/test_operation_port_binding.py`:
+- [ ] **Step 1: Write the failing tests** — `python/tests/test_operation_port_binding.py`, portable (spec §9.1): the recording port of `tests/test_operation_writes.py` over `tmp_path`, no engine:
 
 ```python
 """A supplied operation port is bound to its writer (act-report-remainder design decision 13)."""
@@ -172,22 +172,12 @@ import secrets
 
 import pytest
 from authority import FULL, narrowed
-from profiles import BASE, WITH_BIOLOGY, pins_for
-from test_holdings_acquire import chain
+from profiles import WITH_BIOLOGY
+from test_operation_writes import RecordingPort, writer_over
 
-from beliefs import root as science_root
+from beliefs import boundary as boundary_values
 from beliefs.errors import PortMismatch
 from beliefs.report import LocatorEntry, OperationIntent, RetrievalFailed
-from beliefs import boundary as boundary_values
-from beliefs.root import init_corpus_root, open_corpus
-
-
-def _writer(certified_work, name: str):
-    root = certified_work / name
-    init_corpus_root(root, authority=FULL)
-    writer = open_corpus(root, authority=FULL, profile=BASE)
-    writer.adopt_manifest(profile=pins_for(BASE))
-    return writer
 
 
 def _report(writer, token: str):
@@ -199,50 +189,52 @@ def _report(writer, token: str):
     )
 
 
-def test_none_returns_the_writers_own_port(certified_work):
-    writer = _writer(certified_work, "a")
-    assert writer._require_bound_port(None) is writer._operation_port
+class BiologyPort(RecordingPort):
+    def __init__(self, authority, root) -> None:
+        super().__init__(authority, root)
+        self.profile = WITH_BIOLOGY
 
 
-def test_the_writers_own_port_and_a_fresh_port_on_the_same_root_are_bound(certified_work):
-    writer = _writer(certified_work, "a")
-    fresh = science_root.durable_operation_port(writer.root, FULL, profile=BASE)
-    assert writer._require_bound_port(writer._operation_port) is writer._operation_port
+def test_none_returns_the_writers_own_port(tmp_path):
+    writer, port = writer_over(tmp_path)
+    assert writer._require_bound_port(None) is port
+
+
+def test_a_fresh_port_on_the_same_root_authority_and_profile_is_bound(tmp_path):
+    writer, port = writer_over(tmp_path)
+    fresh = RecordingPort(FULL, tmp_path)
+    assert writer._require_bound_port(port) is port
     assert writer._require_bound_port(fresh) is fresh
 
 
-@pytest.mark.parametrize(
-    "spoil",
-    ["root", "authority", "profile"],
-)
-def test_a_port_bound_elsewhere_refuses_before_either_primitive_touches_a_chain(certified_work, spoil):
-    writer = _writer(certified_work, "a")
-    other = _writer(certified_work, "b")
+@pytest.mark.parametrize("spoil", ["root", "authority", "profile"])
+def test_a_port_bound_elsewhere_refuses_before_either_primitive_touches_a_port(tmp_path, spoil):
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    writer, own = writer_over(tmp_path / "a")
     if spoil == "root":
-        port = other._operation_port
+        port = RecordingPort(FULL, tmp_path / "b")
     elif spoil == "authority":
-        port = science_root.durable_operation_port(writer.root, narrowed(kinds=("act-report",), families=("corpus-write",)), profile=BASE)
+        port = RecordingPort(narrowed(kinds=("act-report",), families=("corpus-write",)), tmp_path / "a")
     else:
-        port = science_root.durable_operation_port(writer.root, FULL, profile=WITH_BIOLOGY)
-    before = (chain(writer.root), chain(other.root))
+        port = BiologyPort(FULL, tmp_path / "a")
     token = secrets.token_hex(16)
     with pytest.raises(PortMismatch):
         writer._append_operation_intent("acquisition", token, writer.authority.actor, port=port)
     with pytest.raises(PortMismatch):
         writer._publish_operation_report(_report(writer, token), "0" * 64, port=port)
-    assert (chain(writer.root), chain(other.root)) == before
+    assert own.calls == [] and port.calls == []
     assert not any(node.kind == "act-report" for node in writer.read_view.iter_stored())
-    assert not any(node.kind == "act-report" for node in other.read_view.iter_stored())
 ```
 
-And in `python/tests/test_session_routes.py`, beside `test_acquire_through_a_session_ledgers_every_commit`:
+And in `python/tests/test_session_routes.py`, beside the portable `_holdings` helper (it uses `make_session`, which builds `RecordingPort`s):
 
 ```python
-def test_the_ledgered_port_forwards_its_inner_ports_root(certified_work):
-    session = _durable_session(certified_work)
+def test_the_ledgered_port_forwards_its_inner_ports_root(tmp_path):
+    session, ports = make_session(tmp_path)
     session.claim_invocation("A", "audit", DIGEST)
-    scoped = session.scoped(ACQUIRES, "A")
-    assert scoped.operation_port().root == scoped._writer._operation_port.root
+    scoped = session.scoped(BOTH, "A")
+    assert scoped.operation_port().root == ports[-1].root
     session.close_invocation("A", {"done": []})
     session.close()
 ```
@@ -250,10 +242,9 @@ def test_the_ledgered_port_forwards_its_inner_ports_root(certified_work):
 - [ ] **Step 2: Run them to verify they fail**
 
 ```bash
-cd python && export SCIENCE_CUT4_ROOT=~/d/beliefs/.cut4-acceptance SCIENCE_CUT10_ROOT=~/d/beliefs/.lifecycle-wrappers-test
-uv run --frozen pytest tests/test_operation_port_binding.py tests/test_session_routes.py::test_the_ledgered_port_forwards_its_inner_ports_root -q -p no:cacheprovider
+cd python && uv run --frozen pytest tests/test_operation_port_binding.py tests/test_session_routes.py::test_the_ledgered_port_forwards_its_inner_ports_root -q -p no:cacheprovider
 ```
-Expected: FAIL — `ImportError: cannot import name 'PortMismatch'`, then `AttributeError: 'CorpusWriter' object has no attribute '_require_bound_port'` and `'LedgeredPort' object has no attribute 'root'`.
+Expected: FAIL — `ImportError: cannot import name 'PortMismatch'`, then `AttributeError: 'CorpusWriter' object has no attribute '_require_bound_port'` and `'LedgeredPort' object has no attribute 'root'`. No `SCIENCE_CUT*` export is needed: these run on `tmp_path`.
 
 - [ ] **Step 3: The protocol and the ledgered port**
 
@@ -327,7 +318,7 @@ with
 ```
 and make the identical replacement in `_publish_operation_report`. Both keep `self._require_pins_agree()` and `self.authority.require("corpus-write", ("act-report",))` ahead of it, so `test_every_entry_point_requires_before_it_writes` still sees the authority check first.
 
-- [ ] **Step 5: The fakes gain `root`** — one line each; a placeholder root on a value-width fake is never compared (the helper compares a supplied port only, and these fakes are the writers' own):
+- [ ] **Step 5: The fakes gain `root`** — one line each; a placeholder root on a value-width fake is never compared (the helper compares a supplied port only, and these fakes are the writers' own). `test_operation_writes.py`'s `RecordingPort` already carries `root` and needs nothing:
 
 - `python/tests/fixtures_cut3.py`, `class MemoryPort`: after `authority = FULL`, add `root = Path("memory-port")` (`Path` is imported at line 6).
 - `python/tests/test_import_bundle.py`, `class FakePort.__init__`: after `self.authority = authority`, add `self.root = Path(root)`; add `from pathlib import Path` to the imports if absent.
@@ -383,10 +374,10 @@ git commit -m "feat(report): bind a supplied operation port to its writer — T2
 - Consumes: `CorpusWriter._require_bound_port` (Task 1); `audit_corpus(view, *, evidence, profile) -> tuple[Finding, ...]`; `CorpusWriter._append_operation_intent(kind, token, actor, *, port=None) -> str`; `CorpusWriter._publish_operation_report(report, intent_digest, *, port=None) -> ActReport`; `writer._operation` (the settling hold); `writer._reconstruct()`; `writer.read_view`; `writer.profile`; `writer.authority`.
 - Produces: `audit(writer, *, observer, instrument, evidence, port=None, hold=None) -> AuditOutcome`; `AuditOutcome(report, report_ref, findings, entries)`; `_finding_payload(finding) -> str`; `boundary._mint_audit_report(intent, *, observer, instrument, opened_at, closed_at, entries) -> ActReport`; `AuditRefused(WriteRefused)`. Task 4's session route and Task 5's acceptance call `audit`; Task 6's sabotages pin its lines.
 
-- [ ] **Step 1: Write the failing tests** — `python/tests/test_audit_operation.py`:
+- [ ] **Step 1: Write the failing tests** — `python/tests/test_audit_operation.py`, portable (spec §9.1): `writer_over(tmp_path)` gives a writer whose `RecordingPort` records every port call in order and applies fulfilling plans through `DefaultExecutor`, so the report lands on disk and the writer's rebuilt view sees it; the chain is the port's call list.
 
 ```python
-"""The audit operation (act-report-remainder design §3)."""
+"""The audit operation (act-report-remainder design §3) — portable, over the recording port."""
 
 from __future__ import annotations
 
@@ -397,27 +388,17 @@ from dataclasses import replace
 import pytest
 from authority import FULL, narrowed
 from fixtures_cut4 import raw_write
-from profiles import BASE, WITH_BIOLOGY, pins_for
-from test_holdings_acquire import chain, registrations_of
-from test_holdings_boundary import context
+from nodes.core.write_plan import DefaultExecutor
+from profiles import BASE
+from test_operation_writes import RecordingPort, intents_of, writer_over
 from test_read_side import observed_dataset
 
-from beliefs import audit_operation, boundary as boundary_values, root as science_root, stored
+from beliefs import audit_operation, boundary as boundary_values, stored
 from beliefs.audit import NO_EVIDENCE
 from beliefs.audit_operation import AuditOutcome, _finding_payload, audit
 from beliefs.corpus import CorpusWriter, Finding, _operation_lock_for
 from beliefs.errors import AuditRefused, BuildContended, MalformedRecord, PermitExceeded, PortMismatch
-from beliefs.report import CLOSED, UNFINISHED, EvaluationFinding, OperationIntent, SubjectEvaluationEntry, completion
-from beliefs.root import durable_executor_factory, open_corpus
-from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView
-
-
-@pytest.fixture()
-def writer(certified_work):
-    ctx, _ = context(certified_work)
-    writer = open_corpus(ctx.observer_root, authority=FULL, profile=BASE)
-    writer.adopt_manifest(profile=pins_for(BASE))
-    return writer
+from beliefs.report import CLOSED, UNFINISHED, EvaluationFinding, OperationIntent, Registration, SubjectEvaluationEntry, completion
 
 
 def stale_dataset(writer) -> str:
@@ -429,29 +410,50 @@ def stale_dataset(writer) -> str:
     return node.id
 
 
-def intents(root):
-    return [e for e in chain(root) if isinstance(e, IntentEntryView)]
+class Ordered(RecordingPort):
+    """The recording port with each call's *completion* logged to a shared list."""
+
+    def __init__(self, authority, root, events: list[str]) -> None:
+        super().__init__(authority, root)
+        self.events = events
+
+    def append_intent(self, payload):
+        digest = super().append_intent(payload)
+        self.events.append("appended")
+        return digest
+
+    def execute_fulfilling(self, plan, fulfills):
+        digest = super().execute_fulfilling(plan, fulfills)
+        self.events.append("closed")
+        return digest
 
 
 def run(writer, **kwargs) -> AuditOutcome:
     return audit(writer, observer="observer", instrument="instrument", evidence=NO_EVIDENCE, **kwargs)
 
 
-def test_a_clean_corpus_closes_through_one_report_with_no_entries(writer):
+def fulfilling(port: RecordingPort) -> list[tuple[tuple, str]]:
+    return [payload for kind, payload in port.calls if kind == "execute_fulfilling"]
+
+
+def test_a_clean_corpus_closes_through_one_report_with_no_entries(tmp_path):
+    writer, port = writer_over(tmp_path)
     outcome = run(writer)
     assert outcome.findings == () and outcome.entries == ()
     assert outcome.report.operation == "audit" and outcome.report.entries == ()
     assert writer.read_view.holds(outcome.report_ref)
-    (intent,) = intents(writer.root)
-    assert json.loads(intent.payload)["kind"] == "audit"
-    registrations = registrations_of(chain(writer.root), intent.digest, outcome.report_ref)
-    assert len(registrations) == 1
-    value = OperationIntent("audit", json.loads(intent.payload)["event_token"], writer.authority.actor)
-    assert completion(value, registrations, {outcome.report_ref: outcome.report}) == CLOSED
-    assert stored.act_report_facet(writer.read_view.get(outcome.report_ref))["event_token"] == value.event_token
+    (intent,) = intents_of(port)
+    assert intent == OperationIntent("audit", outcome.report.event_token, FULL.actor)
+    assert [kind for kind, _ in port.calls] == ["append_intent", "execute_fulfilling"]
+    ((plan, fulfills),) = fulfilling(port)
+    assert fulfills == "1" * 60 + "0001"  # the digest the append returned
+    assert len(plan) == 1 and plan[0].path == f"act-report/{outcome.report.identity()}.md"
+    assert completion(intent, (Registration(intent.event_token, outcome.report_ref),), {outcome.report_ref: outcome.report}) == CLOSED
+    assert stored.act_report_facet(writer.read_view.get(outcome.report_ref))["event_token"] == intent.event_token
 
 
-def test_findings_become_entries_in_the_evaluators_order_with_no_message(writer):
+def test_findings_become_entries_in_the_evaluators_order_with_no_message(tmp_path):
+    writer, _ = writer_over(tmp_path)
     ref = stale_dataset(writer)
     outcome = run(writer)
     assert [f.code for f in outcome.findings] == ["semantic-hash-stale"]
@@ -469,41 +471,18 @@ def test_the_payload_is_invariant_under_a_reworded_message_and_moves_with_detail
     assert _finding_payload(finding) != _finding_payload(replace(finding, detail="e"))
 
 
-def test_the_evaluator_runs_after_the_append_returns_and_before_the_close(writer, monkeypatch):
+def test_the_evaluator_runs_after_the_append_completes_and_before_the_close(tmp_path, monkeypatch):
+    writer, _ = writer_over(tmp_path)
     events: list[str] = []
-    inner_port = writer._operation_port
-
-    class Recording:
-        root = inner_port.root
-        profile = inner_port.profile
-        authority = inner_port.authority
-
-        def append_intent(self, payload):
-            events.append("append")
-            return inner_port.append_intent(payload)
-
-        def preflight(self, plan):
-            inner_port.preflight(plan)
-
-        def execute(self, plan):
-            inner_port.execute(plan)
-
-        def execute_fulfilling(self, plan, fulfills):
-            events.append("close")
-            return inner_port.execute_fulfilling(plan, fulfills)
-
-        def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
-            return inner_port.execute_fulfilling_guarded(plan, fulfills, guard=guard, fallback=fallback)
-
     real = audit_operation.audit_corpus
 
     def evaluator(view, *, evidence, profile):
-        events.append("evaluate")
+        events.append("evaluated")
         return real(view, evidence=evidence, profile=profile)
 
     monkeypatch.setattr(audit_operation, "audit_corpus", evaluator)
-    run(writer, port=Recording())
-    assert events == ["append", "evaluate", "close"]
+    run(writer, port=Ordered(FULL, tmp_path, events))
+    assert events == ["appended", "evaluated", "closed"]
 
 
 @pytest.mark.parametrize(
@@ -517,43 +496,46 @@ def test_the_evaluator_runs_after_the_append_returns_and_before_the_close(writer
         ("evidence-type", MalformedRecord),
     ],
 )
-def test_every_pre_intent_refusal_appends_nothing_and_runs_the_evaluator_zero_times(writer, certified_work, spoil, refusal, monkeypatch):
+def test_every_pre_intent_refusal_appends_nothing_and_runs_the_evaluator_zero_times(tmp_path, spoil, refusal, monkeypatch):
     calls: list[object] = []
     monkeypatch.setattr(audit_operation, "audit_corpus", lambda *a, **k: calls.append(a) or ())
-    before = chain(writer.root)
+    writer, port = writer_over(tmp_path)
+    ports = [port]
     kwargs = {"observer": "observer", "instrument": "instrument", "evidence": NO_EVIDENCE}
     if spoil == "no-port":
-        writer = CorpusWriter(writer.root, durable_executor_factory(), authority=FULL, profile=BASE)
+        writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE)
     elif spoil == "foreign-root-port":
-        other = certified_work / "other"
-        science_root.init_corpus_root(other, authority=FULL)
-        kwargs["port"] = open_corpus(other, authority=FULL, profile=BASE)._operation_port
+        (tmp_path / "other").mkdir()
+        kwargs["port"] = RecordingPort(FULL, tmp_path / "other")
+        ports.append(kwargs["port"])
     elif spoil == "empty-instrument":
         kwargs["instrument"] = ""
     elif spoil == "unencodable-observer":
         kwargs["observer"] = "\udcff"
     elif spoil == "no-act-report-permit":
-        writer = open_corpus(writer.root, authority=narrowed(kinds=("proposition",), families=("corpus-write",)), profile=BASE)
+        writer, port = writer_over(tmp_path, narrowed(kinds=("proposition",), families=("corpus-write",)))
+        ports = [port]
     elif spoil == "evidence-type":
         kwargs["evidence"] = {}
     with pytest.raises(refusal):
         audit(writer, **kwargs)
-    assert chain(writer.root) == before
+    assert all(p.calls == [] for p in ports)
     assert calls == []
     assert not any(node.kind == "act-report" for node in writer.read_view.iter_stored())
 
 
-def test_an_evaluator_failure_after_the_intent_propagates_and_reads_unfinished(writer, monkeypatch):
+def test_an_evaluator_failure_after_the_intent_propagates_and_reads_unfinished(tmp_path, monkeypatch):
+    writer, port = writer_over(tmp_path)
+
     def failing(view, *, evidence, profile):
         raise RuntimeError("carrier failure")
 
     monkeypatch.setattr(audit_operation, "audit_corpus", failing)
     with pytest.raises(RuntimeError, match="carrier failure"):
         run(writer)
-    (intent,) = intents(writer.root)
-    token = json.loads(intent.payload)["event_token"]
-    assert registrations_of(chain(writer.root), intent.digest, "act-report:" + "0" * 64) == ()
-    assert completion(OperationIntent("audit", token, writer.authority.actor), (), {}) == UNFINISHED
+    assert [kind for kind, _ in port.calls] == ["append_intent"]
+    (intent,) = intents_of(port)
+    assert completion(intent, (), {}) == UNFINISHED
     assert not any(node.kind == "act-report" for node in writer.read_view.iter_stored())
 
 
@@ -573,9 +555,10 @@ def _held(lock) -> bool:
     return seen == [True]
 
 
-def test_the_hold_enters_before_the_root_lock_and_spans_the_evaluator(writer, monkeypatch):
+def test_the_hold_enters_before_the_root_lock_and_spans_the_evaluator(tmp_path, monkeypatch):
+    writer, _ = writer_over(tmp_path)
     events: list[str] = []
-    lock = _operation_lock_for(writer.root)
+    lock = _operation_lock_for(tmp_path)
 
     class Hold:
         def __enter__(self):
@@ -611,6 +594,8 @@ def test_the_mint_helper_refuses_the_wrong_intent_kind_and_the_wrong_entry_kind(
     report = boundary_values._mint_audit_report(OperationIntent("audit", "t", "alice"), observer="o", instrument="i", opened_at=now, closed_at=now, entries=(entry,))
     assert report.operation == "audit" and report.entries == (entry,)
 ```
+
+`writer_over(tmp_path, authority)` takes the authority as its second positional argument (`test_operation_writes.py` line 87); `RecordingPort._digest("1")` returns `"1" * 60 + "0001"` for the first append. `stale_dataset`, `Ordered` and `_held` are imported by Task 3's and Task 5's modules, so keep them module-level.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -774,7 +759,7 @@ def audit(
 ```bash
 cd python && uv run --frozen pytest tests/test_audit_operation.py -q -p no:cacheprovider
 ```
-Expected: all pass. If `test_the_hold_enters_before_the_root_lock_and_spans_the_evaluator` reports `evaluate:free`, the root lock the probe captures is not the one `writer._operation` takes — check that `_operation_lock_for(writer.root)` and `writer._state.lock` are the same object (`test_holdings_acquire.py`'s hold test relies on it) before touching the wrapper.
+Expected: all pass, with no `SCIENCE_CUT*` export — every test runs on `tmp_path`. If `test_the_hold_enters_before_the_root_lock_and_spans_the_evaluator` reports `evaluate:free`, the root lock the probe captures is not the one `writer._operation` takes — `_root_state_for(root, …)` and `_operation_lock_for(root)` are both keyed by the root, so check that the writer was opened on exactly `tmp_path` before touching the wrapper.
 
 - [ ] **Step 6: The inventories and the evaluator's read-only standing**
 
@@ -803,110 +788,140 @@ git commit -m "feat(report): the audit operation — one intent, the evaluator u
 - Consumes: `holdings/boundary.py`'s `recheck(ctx, location, *, standing=()) -> PublishedObservation | InconclusiveAttempt` (the act; `PublishedObservation.record: HoldingsObservation`, `InconclusiveAttempt.report: str, reason: str, detail: str`), `ActContext` (`observer_root`, `store_root`, `observer`, `instrument`, `authority`, `seam`, `profile`, `.actor`); `parse_store_genesis(ctx.seam.store_genesis(root)) -> (store_id, …)`; Task 1's `_require_bound_port`; the writer primitives as in Task 2.
 - Produces: `recheck_locations(ctx, writer, locations, *, standing=None, port=None, hold=None) -> RecheckOutcome`; `RecheckOutcome(report, report_ref, entries, results)`; `boundary._mint_recheck_report(intent, *, observer, instrument, opened_at, closed_at, entries) -> ActReport`; `RecheckRefused(WriteRefused)`.
 
-- [ ] **Step 1: Write the failing tests** — `python/tests/test_holdings_recheck.py`:
+- [ ] **Step 1: Write the failing tests** — `python/tests/test_holdings_recheck.py`, portable (spec §9.1): the writer and its recording port, and a store seam whose publications land on disk through `DefaultExecutor`, whose reads are scripted per path, and whose every call joins one event list with the port's:
 
 ```python
-"""The re-check operation (act-report-remainder design §4)."""
+"""The re-check operation (act-report-remainder design §4) — portable, over a recording port and a scripted store seam."""
 
 from __future__ import annotations
 
 import json
-import threading
-from dataclasses import replace
+from contextlib import contextmanager
+from dataclasses import dataclass, field, replace
+from hashlib import sha256
+from pathlib import Path
 
 import pytest
 from authority import FULL, narrowed
-from profiles import BASE, pins_for
-from test_holdings_acquire import chain, registrations_of
-from test_holdings_boundary import context
+from nodes.core.write_plan import DefaultExecutor
+from profiles import BASE
+from test_audit_operation import Ordered, _held
+from test_operation_writes import RecordingPort, intents_of, writer_over
 
-from beliefs import boundary as boundary_values, root as science_root, stored
+from beliefs import boundary as boundary_values, stored
 from beliefs.corpus import CorpusWriter, _operation_lock_for
-from beliefs.errors import BuildContended, MalformedRecord, PermitExceeded, PortMismatch, RecheckRefused
-from beliefs.holdings.boundary import InconclusiveAttempt, write
+from beliefs.errors import MalformedRecord, PermitExceeded, PortMismatch, RecheckRefused
+from beliefs.holdings.boundary import ActContext, InconclusiveAttempt
 from beliefs.holdings.records import Found, StoreLocator, holdings_observation
 from beliefs.holdings.recheck import RecheckOutcome, recheck_locations
-from beliefs.holdings.seam import ReadNotAttemptedView, ReadUnestablishedView
-from beliefs.report import CLOSED, ByteLocatorUntested, LocatorEntry, OperationIntent, PublishedObservation, RetrievalFailed, completion
-from beliefs.root import durable_executor_factory, open_corpus
-from beliefs.world.logmodel import IntentEntryView
+from beliefs.holdings.seam import FileStateView, PathObservedView, ReadNotAttemptedView, ReadUnestablishedView, StoreActSeam
+from beliefs.report import CLOSED, ByteLocatorUntested, LocatorEntry, OperationIntent, PublishedObservation, Registration, RetrievalFailed, completion
+
+STORE_ID = "1" * 32
+GENESIS = b'{"domain":"science.store-root.v1","store_id":"' + STORE_ID.encode() + b'"}'
+FOUND = PathObservedView(FileStateView("sha256:" + "a" * 64))
 
 
-@pytest.fixture()
-def observer(certified_work):
-    ctx, store_id = context(certified_work)
-    writer = open_corpus(ctx.observer_root, authority=FULL, profile=BASE)
-    writer.adopt_manifest(profile=pins_for(BASE))
-    return ctx, store_id, writer
+@dataclass
+class ScriptedStore:
+    """A store seam over the observer root's plain executor: holdings intents counted, publications on disk, reads scripted per path."""
+
+    root: Path
+    views: dict[str, object] = field(default_factory=dict)
+    events: list[str] = field(default_factory=list)
+    intents: list[bytes] = field(default_factory=list)
+    reads: list[str] = field(default_factory=list)
+
+    def build(self) -> StoreActSeam:
+        executor = DefaultExecutor(self.root)
+
+        @contextmanager
+        def corpus_lock(root):
+            with _operation_lock_for(root):
+                yield
+
+        def append_intent(_root, payload):
+            self.intents.append(payload)
+            self.events.append("holdings-intent")
+            return sha256(payload).hexdigest()
+
+        def publish_fulfilling(_root, plan, _intent):
+            executor.execute(list(plan))
+            self.events.append("published")
+            return "2" * 64
+
+        def read_path(_root, path):
+            self.reads.append(path)
+            self.events.append("read")
+            return self.views.get(path, FOUND)
+
+        def unused(*_):
+            raise AssertionError("not reached")
+
+        return StoreActSeam(corpus_lock, append_intent, publish_fulfilling, read_path, unused, unused, unused, lambda _root: GENESIS, lambda _caught: False)
 
 
-def intents(root):
-    return [json.loads(e.payload) for e in chain(root) if isinstance(e, IntentEntryView)]
+def portable(tmp_path, views=None):
+    observer_root, store_root = tmp_path / "observer", tmp_path / "store"
+    observer_root.mkdir()
+    store_root.mkdir()
+    seam = ScriptedStore(observer_root, {} if views is None else views)
+    ctx = ActContext(observer_root, store_root, "observer", "instrument", FULL, seam.build(), profile=BASE)
+    port = Ordered(FULL, observer_root, seam.events)
+    writer = CorpusWriter(observer_root, DefaultExecutor, authority=FULL, operation_port=port, profile=BASE)
+    return ctx, seam, writer, port
 
 
-def held(ctx, store_id, name: str, body: bytes) -> StoreLocator:
-    """A store file with one standing observation, written through the managed boundary."""
-    location = StoreLocator(store_id, name)
-    write(ctx, location, body)
-    return location
+def location(name: str) -> StoreLocator:
+    return StoreLocator(STORE_ID, name)
 
 
-def test_two_locations_close_through_one_report_after_one_operation_intent(observer):
-    ctx, store_id, writer = observer
-    a, b = held(ctx, store_id, "a.bin", b"alpha"), held(ctx, store_id, "b.bin", b"beta")
-    before = len(intents(ctx.observer_root))
+def test_two_locations_close_through_one_report_after_one_operation_intent(tmp_path):
+    ctx, seam, writer, port = portable(tmp_path)
+    a, b = location("a.bin"), location("b.bin")
     outcome = recheck_locations(ctx, writer, (a, b))
     assert isinstance(outcome, RecheckOutcome)
-    kinds = [i["kind"] for i in intents(ctx.observer_root)[before:]]
-    assert kinds == ["re-check", "re-check", "re-check"]  # the operation intent, then one holdings intent per location
-    assert "location" not in intents(ctx.observer_root)[before]  # the operation intent names no location
+    assert seam.events == ["appended", "holdings-intent", "read", "published", "holdings-intent", "read", "published", "closed"]
+    (intent,) = intents_of(port)
+    assert intent == OperationIntent("re-check", outcome.report.event_token, FULL.actor)
+    assert len(seam.intents) == 2 and all(json.loads(i)["kind"] == "re-check" for i in seam.intents)
     assert [e.subject for e in outcome.entries] == [a.canonical(), b.canonical()]
     assert all(type(e) is LocatorEntry and type(e.outcome) is PublishedObservation and e.instrument_inputs == () for e in outcome.entries)
     for entry in outcome.entries:
         assert writer.read_view.holds(entry.outcome.ref)
-    operation = [e for e in chain(ctx.observer_root) if isinstance(e, IntentEntryView)][before]
-    registrations = registrations_of(chain(ctx.observer_root), operation.digest, outcome.report_ref)
-    assert len(registrations) == 1
-    value = OperationIntent("re-check", json.loads(operation.payload)["event_token"], ctx.actor)
-    assert completion(value, registrations, {outcome.report_ref: outcome.report}) == CLOSED
+    assert writer.read_view.holds(outcome.report_ref)
+    ((plan, fulfills),) = [payload for kind, payload in port.calls if kind == "execute_fulfilling"]
+    assert fulfills == "1" * 60 + "0001"
+    assert completion(intent, (Registration(intent.event_token, outcome.report_ref),), {outcome.report_ref: outcome.report}) == CLOSED
     assert outcome.report.entries == outcome.entries
 
 
-def test_an_inconclusive_location_is_an_entry_with_the_reason_only_and_the_operation_still_closes(observer):
-    ctx, store_id, writer = observer
-    a = held(ctx, store_id, "a.bin", b"alpha")
-    b = StoreLocator(store_id, "missing/never-written.bin")
-    inner = ctx.seam.read_path
-
-    def reading(root, path):
-        if path == b.relative_path:
-            return ReadNotAttemptedView(reason="lease-refused", lifecycle_state=None, detail="/secret/path must not enter the record")
-        return inner(root, path)
-
-    ctx = replace(ctx, seam=replace(ctx.seam, read_path=reading))
+def test_an_inconclusive_location_is_an_entry_with_the_reason_only_and_the_operation_still_closes(tmp_path):
+    views = {"b.bin": ReadNotAttemptedView(reason="lease-refused", lifecycle_state=None, detail="/secret/path must not enter the record")}
+    ctx, seam, writer, _ = portable(tmp_path, views)
+    a, b = location("a.bin"), location("b.bin")
     outcome = recheck_locations(ctx, writer, (a, b))
     assert type(outcome.entries[0].outcome) is PublishedObservation
     assert outcome.entries[1] == LocatorEntry(b.canonical(), ByteLocatorUntested("lease-refused"))
     assert isinstance(outcome.results[1], InconclusiveAttempt)
     assert "/secret/path" not in json.dumps(stored.act_report_facet(writer.read_view.get(outcome.report_ref)))
-    assert writer.read_view.holds(outcome.report_ref)
+    assert seam.events[-1] == "closed"
 
 
-def test_an_unestablished_read_spells_retrieval_failed(observer):
-    ctx, store_id, writer = observer
-    a = StoreLocator(store_id, "a.bin")
-    ctx = replace(ctx, seam=replace(ctx.seam, read_path=lambda root, path: ReadUnestablishedView(reason="io-error", detail="d")))
+def test_an_unestablished_read_spells_retrieval_failed(tmp_path):
+    ctx, _, writer, _ = portable(tmp_path, {"a.bin": ReadUnestablishedView(reason="io-error", detail="d")})
+    a = location("a.bin")
     outcome = recheck_locations(ctx, writer, (a,))
     assert outcome.entries == (LocatorEntry(a.canonical(), RetrievalFailed("io-error")),)
 
 
-def test_a_standing_head_is_superseded_by_the_new_observation(observer):
-    ctx, store_id, writer = observer
-    a = held(ctx, store_id, "a.bin", b"alpha")
-    head = next(stored.holdings_observation_value(n) for n in writer.read_view.iter_stored() if n.kind == "holdings-observation")
-    outcome = recheck_locations(ctx, writer, (a,), standing={a.canonical(): (head,)})
-    writer._reconstruct()
-    new = stored.holdings_observation_value(writer.read_view.get(outcome.entries[0].outcome.ref))
+def test_a_standing_head_is_superseded_by_the_new_observation(tmp_path):
+    ctx, _, writer, _ = portable(tmp_path)
+    a = location("a.bin")
+    first = recheck_locations(ctx, writer, (a,))
+    head = stored.holdings_observation_value(writer.read_view.get(first.entries[0].outcome.ref))
+    second = recheck_locations(ctx, writer, (a,), standing={a.canonical(): (head,)})
+    new = stored.holdings_observation_value(writer.read_view.get(second.entries[0].outcome.ref))
     assert new.supersedes == (head.identity(),)
 
 
@@ -927,73 +942,54 @@ def test_a_standing_head_is_superseded_by_the_new_observation(observer):
         ("no-holdings-permit", PermitExceeded),
     ],
 )
-def test_every_pre_intent_refusal_appends_no_intent_of_either_grain_and_reads_nothing(observer, certified_work, spoil, refusal):
-    ctx, store_id, writer = observer
-    a = held(ctx, store_id, "a.bin", b"alpha")
-    reads: list[str] = []
-    inner = ctx.seam.read_path
-    ctx = replace(ctx, seam=replace(ctx.seam, read_path=lambda root, path: reads.append(path) or inner(root, path)))
+def test_every_pre_intent_refusal_appends_no_intent_of_either_grain_and_reads_nothing(tmp_path, spoil, refusal):
+    ctx, seam, writer, port = portable(tmp_path)
+    a = location("a.bin")
     locations: object = (a,)
     kwargs: dict = {}
+    ports = [port]
     if spoil == "not-a-tuple":
         locations = [a]
     elif spoil == "empty":
         locations = ()
     elif spoil == "duplicate":
-        locations = (a, StoreLocator(store_id, "a.bin"))
+        locations = (a, StoreLocator(STORE_ID, "a.bin"))
     elif spoil == "foreign-store":
         locations = (a, StoreLocator("f" * 32, "x.bin"))
     elif spoil == "wrong-root":
-        other = certified_work / "other"
-        science_root.init_corpus_root(other, authority=FULL)
-        writer = open_corpus(other, authority=FULL, profile=BASE)
+        (tmp_path / "other").mkdir()
+        writer, other_port = writer_over(tmp_path / "other")
+        ports.append(other_port)
     elif spoil == "no-port":
-        writer = CorpusWriter(ctx.observer_root, durable_executor_factory(), authority=FULL, profile=BASE)
+        writer = CorpusWriter(ctx.observer_root, DefaultExecutor, authority=FULL, profile=BASE)
     elif spoil == "foreign-root-port":
-        other = certified_work / "other"
-        science_root.init_corpus_root(other, authority=FULL)
-        kwargs["port"] = open_corpus(other, authority=FULL, profile=BASE)._operation_port
+        (tmp_path / "other").mkdir()
+        kwargs["port"] = RecordingPort(FULL, tmp_path / "other")
+        ports.append(kwargs["port"])
     elif spoil == "empty-instrument":
         ctx = replace(ctx, instrument="")
     elif spoil == "unencodable-observer":
         ctx = replace(ctx, observer="\udcff")
     elif spoil == "standing-elsewhere":
         elsewhere = holdings_observation(
-            location=StoreLocator(store_id, "b.bin"), outcome=Found("sha256:" + "0" * 64), observer="o", instrument="i",
+            location=location("b.bin"), outcome=Found("sha256:" + "0" * 64), observer="o", instrument="i",
             event_token="t", observed_at="2026-09-22T00:00:00Z",
         )
         kwargs["standing"] = {a.canonical(): (elsewhere,)}
     elif spoil == "standing-unrequested":
-        kwargs["standing"] = {StoreLocator(store_id, "b.bin").canonical(): ()}
+        kwargs["standing"] = {location("b.bin").canonical(): ()}
     elif spoil == "no-holdings-permit":
         ctx = replace(ctx, authority=narrowed(kinds=("act-report",), families=("corpus-write",)))
-    before = chain(ctx.observer_root)
     with pytest.raises(refusal):
         recheck_locations(ctx, writer, locations, **kwargs)  # type: ignore[arg-type]
-    assert chain(ctx.observer_root) == before
-    assert reads == []
+    assert all(p.calls == [] for p in ports)
+    assert seam.intents == [] and seam.reads == [] and seam.events == []
     assert not any(node.kind == "act-report" for node in writer.read_view.iter_stored())
 
 
-def _held(lock) -> bool:
-    seen: list[bool] = []
-
-    def probe() -> None:
-        try:
-            with lock.capture():
-                seen.append(False)
-        except BuildContended:
-            seen.append(True)
-
-    thread = threading.Thread(target=probe)
-    thread.start()
-    thread.join(5)
-    return seen == [True]
-
-
-def test_no_lock_is_held_across_the_acts_and_the_hold_enters_before_the_root_lock_at_the_close(observer):
-    ctx, store_id, writer = observer
-    a = held(ctx, store_id, "a.bin", b"alpha")
+def test_no_lock_is_held_across_the_acts_and_the_hold_enters_before_the_root_lock_at_the_close(tmp_path):
+    ctx, seam, writer, _ = portable(tmp_path)
+    a = location("a.bin")
     events: list[str] = []
     lock = _operation_lock_for(ctx.observer_root)
     inner = ctx.seam.read_path
@@ -1015,19 +1011,19 @@ def test_no_lock_is_held_across_the_acts_and_the_hold_enters_before_the_root_loc
     assert events == ["read:free", "hold-enter:free", "hold-exit:free"]
 
 
-def test_the_close_rebuilds_the_view_and_refuses_a_ref_no_act_published(observer, monkeypatch):
-    ctx, store_id, writer = observer
-    a = held(ctx, store_id, "a.bin", b"alpha")
+def test_the_close_rebuilds_the_view_and_refuses_a_ref_no_act_published(tmp_path, monkeypatch):
+    ctx, _, writer, port = portable(tmp_path)
     monkeypatch.setattr(writer, "_reconstruct", lambda: None)  # the act published past this writer's cached index
     with pytest.raises(RecheckRefused, match="no act published"):
-        recheck_locations(ctx, writer, (a,))
+        recheck_locations(ctx, writer, (location("a.bin"),))
+    assert [kind for kind, _ in port.calls] == ["append_intent"]  # the intent stands; nothing fulfilled it
 
 
 def test_the_mint_helper_refuses_the_wrong_intent_kind_and_the_wrong_entry_kind():
     from beliefs.report import EvaluationFinding, SubjectEvaluationEntry
 
     now = "2026-09-22T00:00:00Z"
-    entry = LocatorEntry("store:" + "a" * 32 + "/x.bin", RetrievalFailed("x"))
+    entry = LocatorEntry(location("x.bin").canonical(), RetrievalFailed("x"))
     with pytest.raises(MalformedRecord, match="re-check operation intent"):
         boundary_values._mint_recheck_report(OperationIntent("audit", "t", "alice"), observer="o", instrument="i", opened_at=now, closed_at=now, entries=(entry,))
     with pytest.raises(MalformedRecord, match="locator entries only"):
@@ -1039,7 +1035,7 @@ def test_the_mint_helper_refuses_the_wrong_intent_kind_and_the_wrong_entry_kind(
     assert report.operation == "re-check" and report.entries == (entry,)
 ```
 
-Fixture facts, verified 2026-09-22: `ReadNotAttemptedView(reason, lifecycle_state, detail)` and `ReadUnestablishedView(reason, detail)` (`holdings/seam.py` lines 38–47); `stored.holdings_observation_value(node)` decodes a stored observation (`stored.py` line 826) and `HoldingsObservation.supersedes` is the sorted tuple of predecessor identities (`records.py` line 325). `Finding` is a frozen dataclass (`corpus.py` line 196), so `dataclasses.replace` works on it. The `StoreLocator.canonical()` spelling for the mint test's entry subject is whatever `StoreLocator(store_id, "x.bin").canonical()` returns — a `LocatorEntry` subject is only required to be a string, so the literal above is fine as written.
+Fixture facts, verified 2026-09-22: `ReadNotAttemptedView(reason, lifecycle_state, detail)` and `ReadUnestablishedView(reason, detail)` (`holdings/seam.py` lines 38–47); `stored.holdings_observation_value(node)` decodes a stored observation (`stored.py` line 826) and `HoldingsObservation.supersedes` is the sorted tuple of predecessor identities (`records.py` line 325); `StoreActSeam`'s nine positional fields are `corpus_lock, append_intent, publish_fulfilling, read_path, store_write, store_delete, store_move, store_genesis, store_refusal` (`seam.py` line 60), and `parse_store_genesis` reads the `GENESIS` bytes above (`test_session_routes.py`'s `FakeSeam` supplies the same); `require_pins_agree` returns on a manifest-less root (`corpus.py` line 1719), so no `adopt_manifest` is needed; `_operation_lock_for(root)` is process-local and keyed by root, so the scripted seam's `corpus_lock` and the writer's `_operation` are one lock on `tmp_path` exactly as on a durable root.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -1238,7 +1234,7 @@ def recheck_locations(
 ```bash
 cd python && uv run --frozen pytest tests/test_holdings_recheck.py tests/test_holdings_boundary.py tests/test_holdings_acquire.py -q -p no:cacheprovider
 ```
-Expected: all pass. If `test_two_locations_…` sees `kinds == ["re-check", "re-check", "re-check"]` fail because the operation intent payload spells `"kind": "re-check"` identically to the holdings intents, that is expected — the test distinguishes them by the absent `location` key on the first; if `intent_payload` puts the location elsewhere, read it from the decoded intent (`intents/shapes.py`) instead.
+Expected: `test_holdings_recheck.py` all pass with no `SCIENCE_CUT*` export; the other two modules unchanged (they need the certified exports as before).
 
 - [ ] **Step 6: The inventories**
 
@@ -1438,7 +1434,7 @@ from atoms.chain.model import SettledEntry  # the raw-chain forgery, as cut 35's
 from nodes.core.errors import ExecutionError
 
 from beliefs import audit_operation, boundary as boundary_values, root as science_root, stored
-from beliefs.audit import NO_EVIDENCE
+from beliefs.audit import NO_EVIDENCE, audit_corpus
 from beliefs.audit_operation import audit
 from beliefs.corpus import CorpusWriter, Finding
 from beliefs.errors import AuditRefused, PortMismatch, RecheckRefused
@@ -1530,20 +1526,28 @@ def test_t2e_an_audit_closes_through_exactly_one_report_after_its_intent_and_the
     inner = writer._operation_port
 
     class Recording(CountingPort):
+        """Each call's *completion* is logged after the durable port returns."""
+
         def append_intent(self, payload):
-            events.append("append")
-            return super().append_intent(payload)
+            digest = super().append_intent(payload)
+            events.append("appended")
+            return digest
 
         def execute_fulfilling(self, plan, fulfills):
-            events.append("close")
-            return super().execute_fulfilling(plan, fulfills)
+            digest = super().execute_fulfilling(plan, fulfills)
+            events.append("closed")
+            return digest
 
     real = audit_operation.audit_corpus
-    monkeypatch.setattr(audit_operation, "audit_corpus", lambda view, *, evidence, profile: events.append("evaluate") or real(view, evidence=evidence, profile=profile))
+    monkeypatch.setattr(audit_operation, "audit_corpus", lambda view, *, evidence, profile: events.append("evaluated") or real(view, evidence=evidence, profile=profile))
     outcome = run_audit(writer, port=Recording(inner))
-    assert events == ["append", "evaluate", "close"]
+    assert events == ["appended", "evaluated", "closed"]
     entry = operation_intent(ctx.observer_root, "audit")
-    positions = [i for i, e in enumerate(chain(ctx.observer_root)) if e is entry or (isinstance(e, RegisteredEntryView) and e.fulfills == entry.digest)]
+    entries = chain(ctx.observer_root)  # one captured read; every read constructs fresh entry objects, so compare digests
+    positions = [
+        i for i, e in enumerate(entries)
+        if (isinstance(e, IntentEntryView) and e.digest == entry.digest) or (isinstance(e, RegisteredEntryView) and e.fulfills == entry.digest)
+    ]
     assert len(positions) == 2 and positions[0] < positions[1]
     assert len(registrations_of(chain(ctx.observer_root), entry.digest, outcome.report_ref)) == 1
     assert closed(ctx.observer_root, "audit", outcome.report_ref, outcome.report)
@@ -1816,20 +1820,36 @@ def test_deleting_the_published_audit_report_moves_the_operation_closed_to_indet
 
 
 def test_the_two_reports_leave_the_projection_unchanged_and_an_unfinished_audit_blocks_nothing(observer, certified_work):
+    """T4's rule for the new kinds: over a fixed set of observations, adding and
+    removing the two reports moves neither reducer output nor the corpus's
+    audit findings; an unmatched audit intent blocks nothing. The re-check's
+    own observation is part of the fixed set — it is taken before the
+    baseline, never compared across."""
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a = held(ctx, store_id, "a.bin", b"alpha")
+    rechecked = recheck_locations(ctx, writer, (a,))  # the observation set is now fixed
     world, binding = world_over(certified_work, ctx.observer_root)
-    active, blocked, _ = reduce(world, writer.corpus_id, binding)
-    digests = (output_digest(active), output_digest(blocked))
-    run_audit(writer)
-    recheck_locations(ctx, writer, (a,))
+
+    def snapshot():
+        active, blocked, _ = reduce(world, writer.corpus_id, binding)
+        findings = tuple((f.code, f.ref) for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile))
+        return output_digest(active), output_digest(blocked), blocked == [], findings
+
+    os.unlink(writer.root / writer._relative_path(writer.read_view.get(rechecked.report_ref)))
+    writer._reconstruct()
+    baseline = snapshot()  # observations fixed, no report present
+    audited = run_audit(writer)
+    with_audit_report = snapshot()
+    os.unlink(writer.root / writer._relative_path(writer.read_view.get(audited.report_ref)))
+    writer._reconstruct()
+    reports_removed = snapshot()
     writer._append_operation_intent("audit", secrets.token_hex(16), ctx.actor)  # an unfinished audit
-    after_active, after_blocked, _ = reduce(world, writer.corpus_id, binding)
-    assert after_blocked == [] and output_digest(after_blocked) == digests[1]
-    assert len(after_active) == len(active)  # the re-check superseded nothing it did not name; one active observation per location
+    with_unmatched_intent = snapshot()
+    assert with_audit_report == baseline == reports_removed == with_unmatched_intent
+    assert baseline[2]  # nothing blocked, before and after
 ```
 
-Two fixture facts to confirm before running, adjusting the test where they differ: `output_digest` is importable from `test_url_retrieval_acceptance` (`grep -n "^def output_digest\|^from .* import .*output_digest" tests/acceptance/test_url_retrieval_acceptance.py`); `Chain`, `SettledEntry`, `ChainOutcome`, `state_at` are imported there from a fixtures module — copy that import line rather than the re-export. The `re-check` re-check of `a` in the T4 plain test publishes a second observation at the same location without `standing`; if the reducer then reports two active observations, pass `standing={a.canonical(): (head,)}` with `head` read as `test_holdings_recheck.py`'s `test_a_standing_head_is_superseded…` does, and assert `len(after_active) == 1`.
+Import facts, verified 2026-09-22: `output_digest` lives in `beliefs.holdings.receipt` (`test_url_retrieval_acceptance.py` line 66); `Chain`, `ChainOutcome`, `state_at` come from `tests/test_world_log_codecs.py` and `SettledEntry` from `atoms.chain.model` (lines 46 and 31 there) — the module above imports them the same way. The T4 plain test unlinks the re-check's report with `os.unlink` because no ordinary API deletes a report (`DeletionKindExcluded`, families design §3.0 — cut 35's T4-a does the same); the re-check's observation stays, as part of the fixed set.
 
 - [ ] **Step 2: Run on the certified volume**
 
@@ -1864,7 +1884,7 @@ git commit -m "test(cut38): acceptance module — twelve units over real roots; 
 |---|---|---|---|
 | T2-e | `audit_operation.py` | `        intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)\n        # 4. Act: the read after the intent, so the chain position names the state judged.\n        writer._reconstruct()\n        findings = audit_corpus(writer.read_view, evidence=evidence, profile=writer.profile)` | the same four lines with the `_reconstruct` and `findings =` lines moved above the `intent_digest =` line |
 | T2-f | `holdings/recheck.py` | `    intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)\n    # 3. Acts, in request order, nothing held across them.` | `    intent_digest = None  # appended after the first act\n    # 3. Acts, in request order, nothing held across them.` plus, inside the loop before `results.append(result)`: `        if intent_digest is None:\n            intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)` — spell `before`/`after` over the loop's first two lines so both edits are one arm |
-| T2-g1 | `holdings/recheck.py` | `    if port is None and writer._operation_port is None:\n        raise RecheckRefused("this corpus has no operation port; re-check is a boundary operation")\n    writer._require_bound_port(port)` | `    writer._require_bound_port(port) if port is not None else None` (the port check dropped: a port-less writer reaches the append's own `assert`) |
+| T2-g1 | `holdings/recheck.py` | `    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n        raise RecheckRefused("the writer's root is not the act context's observer root; a re-check publishes in one root")` | `    pass  # the one-root check dropped: the intent lands in the writer's root while the acts publish in the observer's` — under T2-g's `wrong-root` arm the operation intent goes to the other root and the re-check act then runs in the observer root (a holdings intent, a read, an observation), which is exactly the act-before-refusal the unit forbids |
 | T2-g2 | `audit_operation.py` | `        intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)` | `        try:\n            intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)\n        except Exception:\n            intent_digest = "0" * 64  # the append failure swallowed; the acts proceed` |
 | T2-g3 | `holdings/recheck.py` | `    store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))\n    for location in locations:\n        if location.store_id != store_id:\n            raise RecheckRefused(f"{location.canonical()}: names store {location.store_id}, not the bound {store_id}")\n    # 2. Open.` | `    # 2. Open.` followed by the four removed lines placed **after** the `intent_digest =` line (the store-genesis check moved after the intent) |
 | T2-h | `audit_operation.py` | `        writer._publish_operation_report(report, intent_digest, port=port)\n    return AuditOutcome(` | `        writer._publish_operation_report(report, intent_digest, port=port)\n        try:\n            writer._publish_operation_report(report, intent_digest, port=port)\n        except Exception:\n            pass  # a second close, its refusal swallowed\n    return AuditOutcome(` |
@@ -1879,7 +1899,7 @@ git commit -m "test(cut38): acceptance module — twelve units over real roots; 
 
 Where a `before` above is described rather than spelled (T2-f, T2-g3, T2-j), spell it at declaration time from the tree so that `source.count(before) == 1`, and make the `after` a syntactically valid replacement — run `python -c "import ast; ast.parse(open(p).read())"` over each sabotaged text through `n2_arms.py`'s own sabotage helper before pinning. Homing: `T2-g1`–`T2-g3` → `T2-g`; every other arm → its own unit. The guard's `homed` assertion is `{unit: {"T2-g": 3}.get(unit, 1) for unit in DECLARATION_UNITS}`.
 
-- [ ] **Step 2: The guard** — `python/tests/acceptance/test_n2_cut38.py`: copy `test_n2_cut37.py`, then: import `CUT37_ARMS` and add it to `PRIOR_ARMS`; add `"python/tests/n2_arms_cut37.py": "2223f95"` to `FROZEN_PRIOR_CUT_FILES` (verify with `git log -1 --format=%h -- python/tests/n2_arms_cut37.py`); `FROZEN_CUT = … "2026-09-22-conformance-cut-38.md"`; `CUT38_FREEZE_COMMIT` and `CUT38_FROZEN_SHA256` from Task 0 Step 6; `FROZEN_DECLARATION = "python/tests/n2_arms_cut38.py"` and `CUT38_DECLARATION_SHA256 = sha256sum` of it once final; the inventory test asserts the twelve units and `len(CUT38_ARMS) == 14`; `test_every_acceptance_test_the_arms_name_exists` reads `test_act_report_remainder_acceptance.py` and asserts `len(names) == len(DECLARATION_UNITS)` over the unit-cited functions (the two plain tests are not units; filter by the `test_t*`/`test_bi*` prefixes the units use); the freeze test asserts `"**12 declaration units**" in current` and `'("cut37_acceptance.py",)' in current`.
+- [ ] **Step 2: The guard** — `python/tests/acceptance/test_n2_cut38.py`: copy `test_n2_cut37.py`, then: import `CUT37_ARMS` and add it to `PRIOR_ARMS`; add `"python/tests/n2_arms_cut37.py": "2223f95"` to `FROZEN_PRIOR_CUT_FILES` (verify with `git log -1 --format=%h -- python/tests/n2_arms_cut37.py`); `FROZEN_CUT = … "2026-09-22-conformance-cut-38.md"`; `CUT38_FREEZE_COMMIT` and `CUT38_FROZEN_SHA256` from Task 0 Step 6; `FROZEN_DECLARATION = "python/tests/n2_arms_cut38.py"` and `CUT38_DECLARATION_SHA256 = sha256sum` of it once final; the inventory test asserts the twelve units and `len(CUT38_ARMS) == 14`; `test_every_acceptance_test_the_arms_name_exists` parses `test_act_report_remainder_acceptance.py` with `ast`, collects every `def test_*` name, and asserts that the set of function names `UNIT_CHECKS` cites (`check.rsplit("::", 1)[1]` per value) is a subset of it and has exactly `len(DECLARATION_UNITS)` members — never a prefix filter, since the plain `test_the_two_reports_…` also begins with `test_t`; the freeze test asserts `"**12 declaration units**" in current` and `'("cut37_acceptance.py",)' in current`.
 
 - [ ] **Step 3: The runner** — `python/tools/cut38_acceptance.py`: cut 37's with `cut=38`, `DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut38"`, `PREFIX_RUNNERS = ("cut37_acceptance.py",)`, `PHASE_MODULES = ("test_act_report_remainder_acceptance.py", "test_n2_cut38.py")`, `declared_accounting` asserting `rows == {"T2", "T5", "T6"}`, and on success:
 
@@ -2038,4 +2058,14 @@ Then fill the results record's §6 (main integration: the merge commit, `just ch
 
 ## Plan review log
 
-- 2026-09-22 — drafted; awaiting the user's review.
+- 2026-09-22 — drafted.
+- 2026-09-22 — first review, six findings, all taken: Tasks 1–3's unit tests
+  are portable over `test_operation_writes.py`'s `RecordingPort` and a
+  scripted store seam (spec §9.1), certified storage kept for Task 5;
+  both recording ports log a call's completion after the inner port
+  returns; T2-e compares intent digests over one captured chain read;
+  T2-g1 drops the one-root check, so the wrong-root arm really runs an
+  act before the refusal; the T4 plain test fixes the observation set
+  before its baseline and compares reducer outputs and audit findings
+  across report addition and removal; the guard selects `UNIT_CHECKS`'
+  exact function names.
