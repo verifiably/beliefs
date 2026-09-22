@@ -49,10 +49,13 @@ populates a staging corpus. This slice takes 1–5 and builds §6.1's step 0
 root is written — as internal doors with no public route. The second slice
 (cut 40, planned after this one discharges) builds the act between them:
 the request record and the durable create-only write, the selection snapshot
-that answers item 6, staging, head export, replication, restore, the
-transport seam, the recovery table, and marker-required arrival.
+that answers item 6, the step-0 refusals that precede the intent
+(`pins-disagree`, `empty-selection`, `closure-incomplete` with its composite
+amendment) and the retry's `request-corrupt`, staging, head export,
+replication, restore, the transport seam, the recovery table,
+marker-required arrival, and the recipient's `divergent-publication`.
 
-It closes **W17 in full** and opens and closes the publication-record rows
+It closes **W17 in full** (unless W17-p-e's durable means is not found, §11.2) and opens and closes the publication-record rows
 Y1–Y4 (§10). It is **off the path**: the success criterion publishes
 nothing. It amends one oracle before `contract-cut` freezes — the coordination
 contract, which §4.1 and the coordination design §5.1 assign to this
@@ -127,19 +130,27 @@ Each decision names what it rejects.
 
 6. **Deterministic identity by a factory, not by a parameter on the family
    doors.** `beliefs/publication.py` mints both records from the decoded
-   intent and nothing else; the ordinary `mint_coordination` and
-   `revise_coordination` refuse both kinds (`KindNotMintedHere`, the
-   `EXCLUDED_MUTATION_KINDS` pattern). **Rejected:** an `uid=` parameter on
-   `revise_coordination`. It would let any caller mint a revision whose
+   intent and nothing else; `mint_coordination` and `revise_coordination`
+   refuse both kinds with a new `KindNotMintedHere` (`errors.py`), and every
+   other ordinary door already refuses them once they join
+   `COORDINATION_KINDS`, since `EXCLUDED_MUTATION_KINDS` and
+   `_refuse_family_kinds` are built from it. **Rejected:** a `uid=` parameter
+   on `revise_coordination`. It would let any caller mint a revision whose
    identity claims a publish that never happened.
 
-7. **A `publish` act family.** `ACT_FAMILIES` gains `publish`; `KIND_ACTS`
-   maps `publication` and `publication-binding` to `{"publish"}` alone, and
-   the step-0 and step-8 doors require it. It is not command-reachable
-   (`COMMAND_REACHABLE_FAMILIES` is unchanged): `science`'s write classes
-   reach it by `science`'s own design. **Rejected:** minting both kinds under
-   `corpus-write`. A session permitted to write tasks could then mint a
-   binding.
+7. **A `publish` act family.** `ACT_FAMILIES` and the `ActFamily` literal
+   gain `publish`; `KIND_ACTS` maps `publication` and `publication-binding`
+   to `{"publish"}` alone. `RequiredCapabilities.coordination()` keeps its
+   permit to the eight ordinary kinds (it is built from `_COORDINATION_KINDS`
+   today, so the two new kinds are excluded from it explicitly), and
+   `RequiredCapabilities.publishes()`, which raises today, returns the
+   `publish` family over `publication-binding` together with `corpus-write`
+   over `act-report` — the intent door needs the second because
+   `_append_operation_intent` requires it. `publish` is not
+   command-reachable (`COMMAND_REACHABLE_FAMILIES` is unchanged): `science`'s
+   write classes reach it by `science`'s own design. **Rejected:** minting
+   both kinds under `corpus-write`. A session permitted to write tasks could
+   then mint a binding.
 
 8. **The act-report amendment banks only what this slice emits.** `publish`
    joins `OPERATION_KINDS`, with one entry kind, `publication-binding`, and
@@ -152,9 +163,35 @@ Each decision names what it rejects.
 9. **The destination is a closed union.** `local` carries an absolute,
    normalized POSIX directory path; `remote` carries a URL under cut 35's
    canonicalization profile (`holdings` `url` locator). Its canonical `v1`
-   encoding is what the binding address and the request identity digest.
+   encoding is what the addresses and the request identity digest.
    **Rejected:** an opaque string. Two spellings of one directory would be
    two bindings, and two sibling histories for one destination.
+
+10. **`publish` opens only through its domain intent.** Adding `publish` to
+    `OPERATION_KINDS` would otherwise make `OperationIntent("publish", …)`
+    constructible and let the domainless `{kind, event_token, actor}`
+    branch of `decode_intent` decode a bare publish triple. Both refuse
+    `publish` explicitly: the constructor raises `MalformedRecord`, and the
+    domainless branch decodes a `publish` triple as `malformed`, so an
+    evidence-free publish intent is an audit finding, never an operation.
+    **Rejected:** a separate kind set for domain intents. The report's
+    `operation` field and `stored.act_report_facet` read `OPERATION_KINDS`,
+    and one closed set is what T1's report shape names.
+
+11. **`predecessor-not-standing` detects a broken single-writer
+    obligation.** In one process, step 0 reads the tips and appends the
+    intent under one lock, so the tips it freezes are standing at the
+    intent's position by construction, and the binding door's recomputation
+    finds them standing. The recomputation still runs, because the lock is
+    in-process (`OperationLock`): a second process writing the same root
+    — the violation of the obligation the ledger records for the
+    composition root (row 4), which the layer design §6.1 step 0 names —
+    can commit a supersession between the tip read and the append, and the
+    recomputation is what turns that into a refusal rather than a binding
+    over a superseded tip. The acceptance arm injects exactly that second
+    writer (§11.2). **Rejected:** calling the outcome an ordinary race. Under
+    the obligation it cannot occur, and a design that claims otherwise would
+    have an arm with no reachable path.
 
 ## 3. The coordination contract, version 2 — `beliefs/contracts/coordination/`
 
@@ -172,8 +209,8 @@ Version 2 is version 1 plus:
 vocabulary. The hard-coded kind lists move with the contract:
 `coordination.COORDINATION_KINDS` and `permit._COORDINATION_KINDS` gain the
 two kinds (the test that holds `KIND_ACTS`' key set to `stored.WORLD_KINDS ∪
-COORDINATION_KINDS` keeps them honest), and `corpus.EXCLUDED_MUTATION_KINDS`
-and `_refuse_family_kinds` refuse them on every ordinary door.
+COORDINATION_KINDS` keeps them honest); `EXCLUDED_MUTATION_KINDS` and
+`_refuse_family_kinds` need no edit, being built from `COORDINATION_KINDS`.
 `_validated_coordination_content` gains a closed rule per kind:
 
 | field | `publication` | `publication-binding` |
@@ -184,15 +221,15 @@ and `_refuse_family_kinds` refuse them on every ordinary door.
 | `selection` | non-empty list of record ids, strictly ascending | — |
 | `supersedes_markers` | list of `[corpus_id, marker uid]`, strictly ascending, possibly empty | — |
 | `view` | — | canonical `coord:` address, unpinned |
-| `destination` | — | the §2 decision 9 union, canonical |
+| `destination` | — | the decision 9 union, canonical |
 | `corpus_id`, `marker` | — | 32-hex each |
 | `artifact` | — | 64-hex head-artifact content identity |
 
 A marker carries **no relations**; a binding carries exactly its
 `supersedes` relations to `binding_tips`. Neither is a belief input: both
 are coordination role, excluded from world-index maps and
-`belief_input_digest` by cut 14's existing rule, which the acceptance module
-reads once for each (Y1).
+`belief_input_digest` by `WORLD_KINDS` membership, cut 14's existing rule,
+which the acceptance module reads once for each (Y1).
 
 ## 4. The records and their factory — `beliefs/publication.py`
 
@@ -203,29 +240,32 @@ class Destination:          # decision 9
     locator: str
 
 def binding_address(view: CoordinationAddress, destination: Destination) -> CoordinationAddress
+def marker_address(view: CoordinationAddress, destination: Destination) -> CoordinationAddress
 def marker_record(intent: PublishIntent, *, world_id, epoch, view_revision, selection) -> Node
 def binding_record(intent: PublishIntent, *, corpus_id, marker, artifact) -> Node
-def marker_consistent(node: Node) -> bool
+def marker_consistent(node: Node, destination: Destination) -> bool
 ```
 
-- **The binding address** is `(view.project, local)` with `local =
-  digest("science.publication-binding-address.v1", [view.project,
-  view.local, destination])[:32]`. Every publish of one view to one
-  destination shares it, so step 0 finds the tips without a lookup table, and
-  the first publication is simply a revision with no predecessors.
+- **Two addresses per `(view, destination)`.** Both are `(view.project,
+  local)`; the binding's local is `digest("science.publication-binding-address.v1",
+  [view.project, view.local, destination])[:32]` and the marker's is the same
+  under `science.publication-address.v1`. The resolver gathers revisions by
+  address alone (`CoordinationResolver._at_address`) and the coordination
+  design §4.3 fixes an address's kind at genesis, so sharing one address
+  would let a marker held in a mounted destination corpus become a binding
+  tip. Every publish of one view to one destination shares each address, so
+  step 0 finds the tips without a lookup table, and a first publication is
+  simply a revision with no predecessors.
 - **Identities.** A record's uid is `digest(<domain>, event_token)[:32]`
   with `science.publication.v1` for the marker and
   `science.publication-binding.v1` for the binding; the id follows
-  `coordination_revision`'s form from the address and the uid. The marker's
-  address is the binding address, so one address carries both kinds'
-  histories, which the continuity rule (coordination design §4.3) keeps
-  apart by kind.
+  `coordination_revision`'s form from the address and the uid.
 - **Content.** `author` is the intent's actor and `at` the intent's `at`
   (§5): the factory reads no clock and draws no randomness, so every byte
   is a function of the intent and the named arguments. `marker_record`'s
   `supersedes_markers` is the intent's `marker_tips`; `binding_record`'s
   relations are the intent's `binding_tips`.
-- **`marker_consistent`** recomputes the uid, the id and the address from
+- **`marker_consistent`** recomputes the uid, the address and the id from
   the marker's own `event_token`, `published_from.view` and the destination
   its caller supplies, and answers `False` on any difference. Arrival calls
   it in the second slice; here it is a pure function with a unit table
@@ -248,9 +288,12 @@ def marker_consistent(node: Node) -> bool
 decoder and `shapes.decode_intent` dispatches to it on the domain, beside
 the holdings branch. A malformed payload under the domain decodes as
 `malformed` for audit, exactly as a malformed holdings intent does.
-`shapes.mismatch` qualifies it by a `ReportEvidence` whose operation is
-`publish` and whose token matches: `completion` needs no new branch, only
-the domain dispatch and `publish` in `OPERATION_KINDS`.
+`DecodedIntent.shape` gains `publish`, and `shapes.mismatch` gains a
+`PublishIntent` branch ahead of the holdings fall-through (which today
+answers any non-`OperationIntent` value's `ReportEvidence` with
+`wrong-purpose`): it qualifies by a `ReportEvidence` whose operation is
+`publish` and whose token matches, `wrong-kind` and `wrong-token`
+otherwise. `completion` itself is unchanged.
 
 The written root is identified by the chain the intent sits in, so it needs
 no anchor: its position is the intent entry itself. The `view` is pinned so
@@ -267,101 +310,128 @@ def standing_at(
 ```
 
 For each mounted root the judgment takes a **bound**: the written root's
-bound is the position of the entry `position` (the intent's digest); every
-other root's bound is `events.place(view, anchor)`'s head. A revision at
-`address` held in root *R* is **present at the position** iff
-`moments.created(R, relative_path, bytes)` names a registration whose
-`moment` is at or before *R*'s bound. `standing_at` returns
-`standing_tips` over the present revisions — the family's one tip rule,
-unchanged, over a filtered set.
+bound is the index of the entry `position` (the intent's digest); every
+other root's bound is `events.place(view, anchor)`'s head. Presence is
+decided per revision held in root *R* by `moments.created(R, relative_path,
+bytes)`, which answers one of four values:
 
-`MomentSeam.created` lives in `root.py` beside the log seam: it reads the
-root's well-formed chain and returns the moment of the committed
-registration whose `initial` holds the path `ABSENT` and whose `final`
-holds a `FileState` with the bytes' content hash, or `None`. Two such
-registrations cannot exist for a create-only path in a well-formed chain;
-if they do, the seam raises rather than choosing.
+| seam answer | meaning | judgment |
+|---|---|---|
+| `Committed(moment)` | exactly one committed registration moved the path from `ABSENT` to a `FileState` with the bytes' content hash | present iff `moment` ≤ *R*'s bound |
+| `Unsettled` | the only such registrations are pending or rolled back — a write in flight in an unlocked root, or an unrecovered crash | not present; no refusal |
+| `Unregistered` | no registration at all creates the path with these bytes | `PositionRefused(unregistered-revision)` |
+| `Ambiguous` | two or more committed registrations do — a raw delete and a deterministic re-mint | `PositionRefused(registration-ambiguous)` |
 
-It refuses, as a value, when the evidence does not bind:
+Only committed registrations count, so a rolled-back step-8 transaction
+followed by its retry — two registrations for one path and hash, one of
+them rolled back — is `Committed`. `standing_at` returns `standing_tips`
+over the present revisions — the family's one tip rule, unchanged, over a
+filtered set. `MomentSeam` lives in `root.py` beside the log seam: the
+`FileState` comparison is engine-typed, and the seam is a callable its
+consumers receive, so `root.py` stays the one `atoms` importer.
+
+The remaining refusals, all values:
 
 | `PositionRefused` reason | when |
 |---|---|
 | `mounts-changed` | the resolver's mounted corpus ids differ from the written root plus the anchors' |
 | `anchor-unplaced` | `place` answers `None`: another genesis, or a head no longer in the chain |
+| `chain-absent` | a mounted root has no chain (`AbsentView`) |
 | `chain-malformed` | a mounted root's chain is not well-formed |
-| `unregistered-revision` | a revision is held in a root whose chain has no creating registration for it at any position — a raw write, never admitted as present |
+
+A root whose files predate its genesis — `init_corpus_root` registers an
+empty baseline even over a populated directory — answers `Unregistered`
+for every pre-existing revision and refuses. No publishing root is created
+that way; the refusal is the honest reading if one is.
 
 **Step 0, the intent door** — `_open_publication(writer, resolver, *, view,
-destination, clock)`, under the written root's `writer._operation`:
-resolve `view` to its one tip (`divergent-view` refuses); capture every other
-mount's anchor from its current head — those roots are not locked and may
-advance, which is why the anchor, not the live read, bounds them; compute `binding_tips` by
-`standing_at` with the written root bounded at its current tip, and
-`marker_tips` as the markers those tips bind plus the standing orphans
-(below); build the `PublishIntent`; append it through
-`_append_operation_intent`'s port, extended to take a pre-encoded payload.
-The written root's lock admits no entry between its tip and the append, and
-the other roots are bounded by their anchors, so the frozen tips are exactly
-`standing_at` recomputed at the intent's own position — which is what the
-binding door checks.
+destination, clock)`, under the written root's `writer._operation`, after
+`authority.require` for `RequiredCapabilities.publishes()`: resolve `view`
+to its one tip (`divergent-view` refuses); capture every other mount's
+anchor from its current head — those roots are not locked and may advance,
+which is why the anchor, not the live read, bounds them; compute
+`binding_tips` by `standing_at` with the written root bounded at its
+current tip, and `marker_tips` (below); build the `PublishIntent`; append it
+through `_append_operation_intent`'s port, extended to take a pre-encoded
+payload. In one process the lock admits no entry between the tip read and
+the append, so the frozen tips equal `standing_at` recomputed at the
+intent's own position; across processes that holds only under the
+single-writer obligation (decision 11), which is why the binding door
+recomputes.
 
-**Standing orphans** are the `(corpus_id, marker)` pairs of every `publish`
-refusal report at this binding address whose outcome is
-`predecessor-not-standing` with `remotely_revealed: true` (§7), present at
-the position by the same registration-moment rule, minus every pair named in
-the `marker_tips` of an intent that some present `Bound` report at the
-address fulfills. Markers live in destination corpora, which the source's
-resolver need not mount, so retirement is read where the source holds it:
-a bound publish's marker is a byte-function of its intent (§4), so it
-supersedes exactly that intent's `marker_tips`. Orphans are derived, never
-stored.
+**`marker_tips`** is one projection read at the position: the markers the
+present `binding_tips` revisions bind, plus the **standing orphans**. An
+orphan is the `(corpus_id, marker)` pair of a publish attempt at this
+`(view, destination)` whose marker was **remotely revealed** and never
+bound: every `publish` refusal report whose outcome carries
+`remotely_revealed: true` (§7), whatever its refusal reason. An orphan is
+**retired** once any publish whose marker was shared — a `Bound` report, or
+a refusal carrying `remotely_revealed: true` — fulfils an intent whose
+`marker_tips` names the pair: that attempt's marker is a byte-function of its
+intent (§4), so it supersedes exactly those pairs, and it has reached some
+recipient. A locally revealed refusal's marker was never shared and neither
+creates nor retires an orphan (layer design §6.1 step 8). Markers live in
+destination corpora, which the resolver need not mount, so everything is
+read where the source holds it: the reports, and the intents they fulfil,
+from **every mounted root's chain within its bound** — a project that moved
+corpora keeps its earlier publish reports in the root it moved from.
+Orphans are derived, never stored.
 
 **Step 8, the binding door** — `_bind_publication(writer, resolver, intent,
 *, corpus_id, marker, artifact, remotely_revealed)`, through
-`execute_fulfilling_guarded`: the guard recomputes `standing_at` for the
-binding address at the intent's position, and
+`execute_fulfilling_guarded`. The guard recomputes, at the intent's
+position, both `standing_at` for the binding address and the whole
+`marker_tips` projection, and
 
 - a `PositionRefused` → the refusal report alone, outcome
   `evidence-refused` with the reason;
-- a recomputed tip set that does not contain every `binding_tips` member →
-  the refusal report alone, outcome `predecessor-not-standing`, carrying
-  `corpus_id`, `marker` and `remotely_revealed`;
-- a recomputed set unequal to `binding_tips` otherwise → `evidence-refused`,
-  `tips-disagree`: the intent froze a set its own position does not yield;
+- a recomputed binding-tip set that does not contain every `binding_tips`
+  member → the refusal report alone, outcome `predecessor-not-standing`;
+- a recomputed binding-tip set or `marker_tips` unequal to the intent's
+  otherwise → `evidence-refused`, `tips-disagree`: the intent froze a
+  reading its own position does not yield;
 - otherwise → the binding revision and the success report in one fulfilling
   transaction, outcome `bound`.
 
-A predecessor superseded *after* the intent's position is still present and
-standing at it, so the attempt commits and two tips stand — the lawful
-sibling state of the coordination design §4.3. The at-commit general rule is
-not applied to this kind: the binding door is its only door. The second
-slice calls both doors; this slice's tests call them directly.
+Every refusal carries `corpus_id`, `marker` and `remotely_revealed`, so a
+remotely revealed attempt refused for any reason is an orphan the next
+publish supersedes. A predecessor superseded *after* the intent's position
+is still present and standing at it, so the attempt commits and two tips
+stand — the lawful sibling state of the coordination design §4.3. The
+at-commit general rule is not applied to this kind: the binding door is its
+only door. The second slice calls both doors; this slice's tests call them
+directly.
 
 ## 7. The act-report amendment
 
-`OPERATION_KINDS` gains `publish` (nine kinds). One entry kind,
-`PublicationBindingEntry(address, event_token, outcome)`, with three outcomes:
+`OPERATION_KINDS` gains `publish` (nine kinds; decision 10 keeps it out of
+the domainless intent). One entry kind, `publication-binding`, in the stored
+form every entry takes, `{kind, subject, outcome}`: `subject` is the binding
+address's canonical `coord:` string, and the operation's `event_token` is
+the report's own, not repeated. Three outcomes:
 
 | outcome | fields |
 |---|---|
-| `Bound` | `binding` (the revision uid), `corpus_id`, `marker` |
-| `PredecessorNotStanding` | `corpus_id`, `marker`, `remotely_revealed: bool`, `tips` (the recomputed set) |
-| `EvidenceRefused` | `reason`: one of §6's four, or `tips-disagree` |
+| `bound` | `binding` (the revision uid), `corpus_id`, `marker` |
+| `predecessor-not-standing` | `corpus_id`, `marker`, `remotely_revealed`, `tips` (the recomputed set, ascending) |
+| `evidence-refused` | `corpus_id`, `marker`, `remotely_revealed`, `reason`: one of §6's six, or `tips-disagree` |
 
 They join `_ALLOWED_OUTCOMES`, `_ENTRY_KINDS`, `_OUTCOME_TYPES`, the stored
-mirror `stored._REPORT_ENTRY_OUTCOMES` and `act_report_facet`'s kind check.
-A `publish` report carries exactly one such entry in this slice. The act-report
-design gains an "Amended 2026-09-22 (publication records, cut 39)" note in
-§2 and §6 item 3.
+mirror `stored._REPORT_ENTRY_OUTCOMES` (which gains validators for a boolean
+and for a list of hex strings) and `act_report_facet`'s kind check. A
+`publish` report carries exactly one such entry in this slice. The
+act-report design gains an "Amended 2026-09-22 (publication records, cut
+39)" note in §2 and §6 item 3.
 
 ## 8. What does not change
 
-`OperationIntent`, its decoder branch, and every other kind's intent bytes;
-`standing_tips`; the general at-commit rule and both ordinary family doors
-for the eight existing kinds; `World.admit`, `admit_arrival`, and every
-lifecycle function in `root.py`; the base contract and both `CONTRACT.yaml`
-copies; the TypeScript parity artifact; the reproduction driver. No stored
-record of an existing kind changes a byte.
+Every existing kind's intent bytes, and `completion`; `standing_tips`; the
+general at-commit rule and both ordinary family doors for the eight existing
+kinds; `World.admit`, `admit_arrival`, and every lifecycle function in
+`root.py`; the base contract and both `CONTRACT.yaml` copies; the TypeScript
+parity artifact; the reproduction driver. No stored record of an existing
+kind changes a byte. `OperationIntent` and the domainless decoder branch
+change only by decision 10's refusal of `publish`.
 
 ## 9. Shared files, under roadmap concurrency rule 3
 
@@ -369,8 +439,9 @@ Rewritten by every lane: `errors.py`, the ledger, the roadmap,
 `docs/guide/open-questions.md`, `python/tests/test_designs_corpus.py`.
 Named beyond those: `coordination.py`, `corpus.py`, `permit.py`,
 `profile.py` (the shipped-coordination loader), `report.py`, `stored.py`,
-`intents/shapes.py`, `root.py` (the moment seam), and
-`python/tests/coordination_fixtures.py`. No other kernel lane is open.
+`intents/shapes.py`, `root.py` (the moment seam),
+`python/tests/coordination_fixtures.py`, `test_permit_boundary.py` and
+`test_permit_entry_points.py`. No other kernel lane is open.
 
 ## 10. Guarantee rows
 
@@ -381,11 +452,11 @@ a constructed chain prefix" is superseded by citation, not edited.
 
 | row | guarantee |
 |---|---|
-| **W17-p** | the binding revision's predecessors are judged at the intent's position by §6: superseded before the position → `predecessor-not-standing`, report alone; superseded between intent and commit → commits, two tips; a revision past its root's anchor is not present; swapping the resolver's mount order changes nothing |
+| **W17-p** | the binding revision's predecessors are judged at the intent's position by §6: a tip superseded before the position (reachable only by a second writer, decision 11) → `predecessor-not-standing`, report alone; superseded between intent and commit → commits, two tips; a revision past its root's anchor, or unsettled, is not present; the resolver's mount order does not move the anchors or the tips |
 | **Y1** | version 2 declares `publication` and `publication-binding`; a version-1 pin authorizes neither; every ordinary door (`add`, `import_bundle`, `mint_coordination`, `revise_coordination`) refuses both; neither enters a world-index map or moves a `belief_input_digest` |
-| **Y2** | both records are byte-functions of the intent and the named arguments: two mints from one intent are byte-equal; `marker_consistent` refuses a marker whose uid, id or address disagrees with its own `event_token`, view and destination |
-| **Y3** | the publish intent decodes by its domain, qualifies only by a `publish` report with its token, and a malformed payload under the domain is an audit finding; every other kind's intent is byte-unchanged |
-| **Y4** | step 8 is all-or-nothing: a binding revision never exists without its success report, a refusal writes its report alone, and every `PositionRefused` reason refuses with no binding; standing orphans enter the next intent's `marker_tips` and leave it once a publish carrying them binds |
+| **Y2** | both records are byte-functions of the intent and the named arguments; `marker_consistent` refuses a marker whose uid, address or id disagrees with its own `event_token`, view and destination |
+| **Y3** | the publish intent decodes by its domain and qualifies only by a `publish` report with its token; a malformed payload under the domain, and a bare domainless `publish` triple, are audit findings; every other kind's intent is byte-unchanged |
+| **Y4** | step 8 is all-or-nothing: a binding revision never exists without its success report, a refusal writes its report alone, and every `PositionRefused` reason refuses with no binding; a remotely revealed attempt refused for any reason is an orphan in the next intent's `marker_tips`, retired once a shared publish carrying it closes |
 
 ## 11. Testing and the cut
 
@@ -398,66 +469,100 @@ a constructed chain prefix" is superseded by citation, not edited.
 - the content rules: each field of §3's table accepted and each malformed
   form refused, one row per field;
 - the factory: byte-equality under one intent, identity recomputation,
-  `marker_consistent`'s refusal table, `binding_address` over two spellings
-  of one local directory;
+  `marker_consistent`'s refusal table, the two addresses distinct for one
+  `(view, destination)`, and one address for two spellings of one local
+  directory;
 - the intent: round-trip, strict ordering, every malformed field, dispatch
-  in `decode_intent`, `mismatch` against wrong-kind and wrong-token reports;
-- `standing_at` over a fake `MomentSeam`: the four refusals, the
-  anchored-past exclusion, the between-intent-and-commit sibling, and the
-  orphan fold.
+  in `decode_intent`, a domainless `publish` triple decoding `malformed`,
+  `OperationIntent("publish", …)` refused, `mismatch` against wrong-kind and
+  wrong-token reports;
+- permits: `coordination()` excludes both kinds; `publishes()` names the
+  `publish` family over `publication-binding` and `corpus-write` over
+  `act-report`;
+- `standing_at` over a fake `MomentSeam`: each of the four seam answers,
+  each refusal, the anchored-past exclusion, the between-intent-and-commit
+  sibling, and the orphan fold with and without retirement, local and
+  remote reveals.
 
 ### 11.2 Acceptance — `test_publication_records_acceptance.py` (new)
 
-On the certified tuple, over two mounted roots, one arm per declaration
-unit, each ending `_durably`. The plan's Task 0 freezes the unit list;
-this spec fixes the rows and the arms each must hold:
+On the certified tuple, over two mounted roots whose path order is the
+reverse of their `corpus_id` order, one arm per declaration unit, each
+ending `_durably`. The plan's Task 0 freezes the unit list; this spec fixes
+the rows and the arms each must hold:
 
 | unit | row | assertion |
 |---|---|---|
-| W17-p-a | W17 | a tip superseded in the written root before the intent → `predecessor-not-standing`, report alone, `completion` closed, no binding |
-| W17-p-b | W17 | the same supersession committed after the intent → binding commits; `resolve` answers `divergent-view` naming both tips; one repair revision restores one tip |
-| W17-p-c | W17 | a revision written in the *other* root after its anchor is not present at the position; the same revision before the anchor is |
-| W17-p-d | W17 | the mount order swapped yields the same `binding_tips`, `marker_tips` and anchors |
+| W17-p-a | W17 | a port wrapper standing in for a second writer commits a supersession of the tip between step 0's tip read and its `append_intent`: the binding door refuses `predecessor-not-standing`, report alone, `completion` closed, no binding |
+| W17-p-b | W17 | the same supersession committed after the intent: the binding commits; `resolve` answers `divergent-view` naming both tips; one repair revision restores one tip |
+| W17-p-c | W17 | a revision written in the other root after its anchor is not present at the position; the same revision before the anchor is |
+| W17-p-d | W17 | two resolvers over the same roots in both mount orders freeze the same `binding_tips`, `marker_tips` and anchors, and the anchors are in `corpus_id` order |
+| W17-p-e | W17 | a registration left unsettled or rolled back in the other root is `Unsettled`: not present, and the judgment does not refuse. No harness in the tree leaves one durably today (L1's kill-at-stage harness is `persistence-cut`'s); the plan's Task 0 establishes a durable means — a transaction the executor rolls back, or a fault-injected executor over the durable backend — or the arm is declared unrun and W17 is reported **partial**, not closed |
 | Y1-a | Y1 | a v1-pinned root refuses both kinds; a v2-pinned root's ordinary doors refuse both |
 | Y1-b | Y1 | a binding and a marker leave the world-index maps and a belief answer's `belief_input_digest` unchanged |
-| Y2-a | Y2 | the binding the door commits is byte-equal to `binding_record` called on the intent decoded back from the chain, and to a second such call |
+| Y2-a | Y2 | under a fake clock that advances on every read, the binding the door commits is byte-equal to `binding_record` called on the intent decoded back from the chain |
 | Y3-a | Y3 | the audit reads a publish intent with its report as fulfilled, without as unfinished, and a malformed domain payload as a finding |
-| Y4-a | Y4 | a refusing guard's fallback and a success each submit exactly one fulfilling execution (the counting port of cut 38's T2-h) |
-| Y4-b | Y4 | a remotely revealed refusal's pair appears in the next intent's `marker_tips`; once that publish binds, the intent after it does not carry the pair |
+| Y4-a | Y4 | a refusing guard's fallback and a success each submit exactly one fulfilling execution (the counting port of cut 38's T2-h), and the refusal leaves no binding revision on disk |
+| Y4-b | Y4 | a remotely revealed `evidence-refused` attempt's pair appears in the next intent's `marker_tips`; once that publish binds, the intent after it does not carry the pair; a locally revealed refusal's pair never appears |
 | Y4-c | Y4 | a raw-written binding revision with no creating registration → `unregistered-revision`, no binding |
 
 ### 11.3 N2 sabotages — `n2_arms_cut39.py`
 
-At least one sabotage per unit: the position bound replaced by the root's
-current tip (W17-p-a, -c); the guard reading at commit instead of at the
-position (W17-p-b); the anchors sorted by root path (W17-p-d); a door's
-kind refusal removed (Y1-a); the coordination exclusion dropped for one kind
-(Y1-b); the clock read in the factory (Y2-a); the domain dispatch removed
-(Y3-a); the fallback written beside the plan (Y4-a); the orphan fold's
-retirement removed (Y4-b); the seam answering "present" for a missing
-registration (Y4-c). The plan fixes the declared accounting.
+One sabotage per unit, each chosen so the unit's check sees it:
+
+| unit | sabotage |
+|---|---|
+| W17-p-a | the guard trusts the intent's `binding_tips` instead of recomputing |
+| W17-p-b | the guard bounds the written root at its current tip, so the post-intent supersession refuses |
+| W17-p-c | the other roots' bound ignores the anchor and reads their current heads |
+| W17-p-d | the anchors ordered by mount path instead of `corpus_id` |
+| W17-p-e | `Unsettled` mapped to `unregistered-revision` |
+| Y1-a | `revise_coordination`'s `KindNotMintedHere` check removed |
+| Y1-b | the coordination exclusion dropped for `publication-binding` |
+| Y2-a | the factory reads the clock for `at` |
+| Y3-a | the domain dispatch removed from `decode_intent` |
+| Y4-a | the fallback plan written beside the success plan instead of in its place |
+| Y4-b | the fold counts only `predecessor-not-standing` refusals as orphans |
+| Y4-c | the seam answering `Committed` at the bound for a missing registration |
+
+The plan fixes the declared accounting (12 arms, 12 units, 5 rows as drafted
+here: W17, Y1–Y4).
 
 ### 11.4 The cut
 
-`docs/designs/<freeze date>-conformance-cut-39.md`, dated by the commit that freezes it after review;
-`tools/cut39_acceptance.py` with `PREFIX_RUNNERS = ("cut38_acceptance.py",)`
-and `PHASE_MODULES = ("test_publication_records_acceptance.py",
-"test_n2_cut39.py")`; the `test_recent_cut_acceptance.py` row with the
-declared arm, unit and guarantee-row counts and the guarantee-rows-exercised
-line; the results record. `root.py` stays the one `atoms` importer: the
-`FileState` comparison is the moment seam's, reached through a seam
-callable. The intent door writes only through `_append_operation_intent`
-and the binding door only through the port's fulfilling execution; if the
-plan finds either calling a write primitive directly, it joins
-`WRITE_ENTRY_POINTS` and gains a `Case` in `test_permit_entry_points.py`.
+`docs/designs/<freeze date>-conformance-cut-39.md`, dated by the commit that
+freezes it after review; `tools/cut39_acceptance.py` with
+`PREFIX_RUNNERS = ("cut38_acceptance.py",)` and `PHASE_MODULES =
+("test_publication_records_acceptance.py", "test_n2_cut39.py")`; the
+`test_recent_cut_acceptance.py` row with the declared arm, unit and
+guarantee-row counts and the guarantee-rows-exercised line; the results
+record. `root.py` stays the one `atoms` importer: the `FileState`
+comparison is the moment seam's, reached through a seam callable.
+`_bind_publication` calls `execute_fulfilling_guarded`, an inventoried write
+primitive, so it joins `WRITE_ENTRY_POINTS` under the `publish` family and
+gains a `Case` in `test_permit_entry_points.py`'s `CASES`; the intent door
+writes only through `_append_operation_intent`, already inventoried.
 
 ## 12. Documentation amendments
 
 - Coordination design: a note beside §11.6 recording that the evidence
-  shape landed here, and that W17-p replaces the constructed-prefix arm.
-- Layer design §6.1 step 0: a note that the tips are frozen by `standing_at`
-  at the intent's position with anchors (decision 3), not "from the chain
-  prefix" alone; §4.1's two-rule text cites this slice.
+  shape landed here, that W17-p replaces the constructed-prefix arm, and
+  that `predecessor-not-standing` is reachable only across processes
+  (decision 11).
+- Layer design §6.1, notes at the sentences they qualify:
+  - step 0: the tips are frozen by `standing_at` at the intent's position
+    with anchors (decision 3), not "from the chain prefix" alone; and the
+    intent now carries the view, destination and tips, so "the view,
+    destination and request identity cannot be reconstructed from it" is
+    narrowed to what it still lacks — the pins, the epoch and the staging
+    identities — and an intent with no request record is still never
+    resumed;
+  - the marker's "relations are the selection" and its `supersedes` become
+    facet fields (decision 5), and the marker and binding hold separate
+    addresses (§4);
+  - step 8: every refusal carries the orphan fields, and an orphan is
+    retired by a shared publish's intent (§6);
+  - §4.1's two-rule text cites this slice.
 - Act-report design §2 and §6 item 3: the `publish` kind and its one entry.
 - Ledger: the Y table (Y1–Y4 open, then closed at the results record); W17
   closes; `publish` stays in Current state with the second slice's
@@ -468,11 +573,12 @@ plan finds either calling a write primitive directly, it joins
 
 ## 13. Task linkage
 
-`beliefs-1a5157` stays the lane task. This slice files a child carrying
-`--spec publication-records`, and the plan's `### Task N:` headings become
-that child's children. The second slice is filed as a planned sibling
-depending on this one. beliefs-c80d8c (the `composite`/`composes` query
-amendment) closes with this slice's results record.
+`beliefs-1a5157` stays the lane task. This slice is its child
+`beliefs-d7d7d1`, carrying `--spec publication-records`; the plan's
+`### Task N:` headings become that child's children. The second slice is
+`beliefs-328507`, planned, depending on this one. beliefs-c80d8c (the
+`composite`/`composes` query amendment) closes with this slice's results
+record.
 
 ## 14. Limitations
 
@@ -482,9 +588,11 @@ amendment) closes with this slice's results record.
    a staging corpus is the second slice's step 2.
 3. **The moment seam reads whole chains.** Placement cost is linear in
    chain length per mounted root per judgment; no index is built.
-4. **Anchors bind only mounted roots.** A binding revision held in a root the
-   resolver does not mount is invisible to the judgment, exactly as it is to
-   the at-commit rule today.
+4. **Anchors bind only mounted roots.** A binding revision or publish report
+   held in a root the resolver does not mount is invisible to the judgment,
+   exactly as it is to the at-commit rule today.
+5. **A root populated before its genesis refuses** (`unregistered-revision`,
+   §6), rather than trusting files no registration covers.
 
 ## 15. Open questions this slice files
 
@@ -494,3 +602,18 @@ for transports are the second slice's by decision 1.
 ## 16. Review log
 
 - 2026-09-22 — drafted.
+- 2026-09-22 — first review, twelve findings, all taken: the moment seam
+  answers four values, so an unsettled write in an unlocked root is not
+  present rather than a refusal, and two committed registrations refuse as
+  a value (§6); every step-8 refusal carries the orphan fields and an orphan
+  is retired by any shared publish's intent (§6, §7); the marker holds its
+  own address (§4); `predecessor-not-standing` is stated as the detection of
+  a broken single-writer obligation, with an injected second writer as its
+  arm (decision 11, §11.2); every unit has a sabotage its check sees
+  (§11.3); `publish` opens only through its domain intent and `mismatch`
+  gains its branch (decision 10, §5); the permit gaps are closed (decision
+  7); `_bind_publication` joins `WRITE_ENTRY_POINTS` (§11.4); `marker_tips`
+  is recomputed by the guard; the fold reads every mounted root, and
+  `chain-absent` joins the refusals (§6); the entry takes the stored
+  `{kind, subject, outcome}` form (§7); the second slice's remaining step-0
+  refusals and the layer design's stale sentences are named (§1, §12).
