@@ -1,15 +1,16 @@
 ---
 id: beliefs-a7df71
 title: Close L13 through a public preimage seam
-status: doing
+status: done
 priority: 3
 size: m
 complexity: high
 process: planned
 owner: design/l13-preimage
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-22T06:16:47Z
+updated: 2026-09-22T09:18:31Z
 started: 2026-09-22T00:12:25Z
+completed: 2026-09-22T09:18:31Z
 depends: [atoms-38887b]
 tags: [migration, cross-repo, log]
 spec: docs/superpowers/specs/2026-09-21-l13-preimage-design.md
@@ -45,4 +46,10 @@ Uncertainty: The Atoms seam is delivered and writable-only, so nothing outside t
   provenance: {"harness_session":"codex:01a0c6e5-2757-7613-baea-904797ce0e78","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-22T02:25:32Z (design/l13-preimage): Cut 37 frozen (docs/designs/2026-09-21-conformance-cut-37.md): 11 units, 15 arms; chains cut 36; cut 8's L13u1–u3 recorded stale at Task 1.
 - 2026-09-22T06:16:47Z (design/l13-preimage): parked (waiting on user, approval): choose integration for the reviewed, gate-green design/l13-preimage branch
+  provenance: {"harness_session":"codex:01a0c6e5-2757-7613-baea-904797ce0e78","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-22T09:18:30Z (design/l13-preimage): resumed
+  provenance: {"harness_session":"codex:01a0c6e5-2757-7613-baea-904797ce0e78","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-22T09:18:31Z (design/l13-preimage): done
+  provenance: {"harness_session":"codex:01a0c6e5-2757-7613-baea-904797ce0e78","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-22T09:18:31Z (design/l13-preimage): cut 37 discharged: L13 in full — digest-matched classification over held copies and surviving preimages, absence stated, corruption refused
   provenance: {"harness_session":"codex:01a0c6e5-2757-7613-baea-904797ce0e78","harness_session_source":"CODEX_SESSION_ID"}
