@@ -1112,8 +1112,10 @@ The slice changes removal classification from a path match to an exact match
 on the removed state's digest, across either a caller-held copy or the
 surviving preimage bytes. `LogSeam.read_preimage` supplies those bytes to the
 audit, which reads them under its hold after both captures. Absence is now the
-explicit `removal-unclassified` finding, and corrupt local history refuses as
-`PreimageMismatch`.
+explicit `removal-unclassified` finding. Corrupt local history refuses as
+`LogEvidenceRefused("preimage", "MetadataStoreInvalid", ...)`; `PreimageMismatch`
+is reserved for returned bytes whose re-hash contradicts the declared removal
+digest.
 
 The plan's prescribed broad source check was not empty. It found the existing
 step-9 audit call and its two renderings:

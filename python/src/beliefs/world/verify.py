@@ -172,8 +172,9 @@ class LogSeam:
     state_facts: Callable[[object], tuple[tuple[str, str], ...]] = _unwired_state_facts
     """The engine's canonical facts for one opaque path state.
 
-    Replay keeps the state opaque. Mechanical projection alone asks the
-    composition root to re-encode it through the engine-owned codec."""
+    Replay keeps the state opaque. Mechanical projection and removal
+    resolution ask the composition root to re-encode it through the
+    engine-owned codec; removal resolution does so through `_file_facts`."""
     read_preimage: Callable[[Path, str, str, int], PreimageEvidence] = _unwired_read_preimage
     """One settled transaction's file preimage on this root, `(root, txid,
     path, max_bytes)` → the engine's owned bytes or its availability refusal

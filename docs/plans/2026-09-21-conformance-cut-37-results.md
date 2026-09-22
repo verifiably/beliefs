@@ -168,6 +168,14 @@ the certified roots after two preliminary launch refusals (§7). Task 5
 corrected the proposed empty broad grep to the actual driver evidence
 (§4 and §7).
 
+**Final review.** Two Minor documentation findings were corrected: §16 of
+the reproduction record now distinguishes corrupt-history
+`LogEvidenceRefused("preimage", "MetadataStoreInvalid", ...)` from
+`PreimageMismatch` for returned bytes that fail the declared-digest re-hash;
+the `state_facts` seam docstring now names removal resolution through
+`_file_facts` alongside mechanical projection. The review is clean, with no
+outstanding findings.
+
 ### 3.3 Review findings and limitations
 
 Task 3's initial BI-1 recorded only the surface capture and first/last
