@@ -441,11 +441,14 @@ tip as `test_deletion_acceptance.py`'s `_audit_log` does. Cases:
    the message carrying the engine's lifecycle refusal; the
    arrival's report → `preimage=not-consulted`. With `history` holding the
    removed bytes, both classify `source=held-copy`.
-4. **Corrupt local history.** On a writable root after a removal, truncate
-   the indexed preimage leaf under the metadata root; the audit →
-   `LogEvidenceRefused` with `phase == "preimage"` and `engine_error ==
-   "MetadataStoreInvalid"`, no report; the root's project files are
-   untouched.
+4. **Corrupt local history.** On a writable root after a removal, unlink
+   the indexed preimage leaf under the metadata root (`blobs/sha256/<hex>`);
+   the audit → `LogEvidenceRefused` with `phase == "preimage"` and
+   `engine_error == "MetadataStoreInvalid"`, no report; the root's project
+   files are untouched. A *truncated* leaf is not this case: the registered
+   inspection's own store checks find it first and raise the engine's raw
+   `MetadataStoreInvalid` before any read (plan review, 2026-09-21), so only
+   the missing leaf reaches the reader's translation.
 5. **Not a verification.** Delete a record of another kind `delete`
    admits (cut 18's fixtures delete assessments and producers) →
    `removal-classified kind=<kind>` at `warning`, `source=preimage`. The
@@ -584,3 +587,7 @@ first and the held copy second, so the assertion holds unchanged.
   copies are not counted (decision 7, §3.4, §9.1, §9.2 cases 2–3). Digest
   matching, the `atoms` exception mapping and the frozen-evidence handling
   were confirmed against the code.
+- **2026-09-21, plan review (one correction to §9.2):** case 4 unlinks the
+  leaf rather than truncating it — the registered inspection raises raw
+  `MetadataStoreInvalid` over a truncated leaf before the reader runs
+  (reproduced on the certified volume by the reviewer).
