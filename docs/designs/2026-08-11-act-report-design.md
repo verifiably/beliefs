@@ -263,6 +263,29 @@ intent-before-read, one grain up.
 > enum's eight kinds open through a boundary; `audit` and `re-check` still
 > have none (`act-report-remainder`, `beliefs-86b150`).
 
+> **Amended 2026-09-22 (the act-report remainder, conformance cut 38 —
+> `../superpowers/specs/2026-09-22-act-report-remainder-design.md`):** the
+> `audit` and `re-check` operations are built on exactly these four steps.
+> The audit (`audit_operation.py`, `audit`; the session route
+> `ScopedWriter.audit`) fixes the observer root as the writer's own, checks
+> port, authority and metadata before anything, appends one `audit` intent,
+> runs `audit_corpus` over the writer's own view, and closes through one
+> report carrying one subject-evaluation entry per finding in the
+> evaluator's order — the whole operation under the caller's hold and the
+> root lock, so the state judged is the state at the intent's chain
+> position; a clean audit's report has no entries. The re-check
+> (`holdings/recheck.py`, `recheck_locations`; `ScopedWriter.recheck`)
+> validates every location, the store genesis, the observer, the instrument
+> and every standing set before the intent, appends one `re-check` intent,
+> runs the per-location `recheck` act as built with nothing held across the
+> acts, and closes through one report carrying one locator entry per
+> location — `published-observation`, or `byte-locator-untested` /
+> `retrieval-failed` with the attempt's reason — with no cooperative stop,
+> since the close mints nothing. A supplied operation port is bound to its
+> writer's root, authority and profile or refused before any intent
+> (`PortMismatch`). With it, every kind but `corpus-write` opens through a
+> boundary and closes through a report; T2 closes.
+
 ### 3.2 Run attempts
 
 **An assessment run opens nothing new.** The boundary appends the
@@ -393,7 +416,7 @@ fail.
 | # | Guarantee | Mutation test |
 |---|---|---|
 | **T1** | Only the boundary mints an act-report | Attempt to author one through every construction path — direct authoring, and any API taking report fields as input; assert no such path exists. Explicitly import another observer's report and assert it enters **structurally validated, not operation-authenticated, attributed, and inert** — nothing derivable exists to recompute, and no validation state is written. **Negative:** raw-write a self-consistent report; assert it is not detected on read, and that an audit detects it **only with the tamper log implemented and a valid anchored observer set** — otherwise the raw write remains undetectable, and the design text claims no more |
-| **T2** | One started operation, one intent, one terminal record — and no act precedes the intent | Run each operation kind to success; assert exactly one qualifying fulfillment: the `run` where one is minted, the act-report otherwise. **Positive:** a post-intent attempt that mints no run closes through **exactly one** qualifying act-report. Attempt a second fulfilling registration on one intent → **malformed**, the log's rule as built. Make root selection fail, then the intent append fail; assert in each case **no act began** — no request issued, no lease taken, **no record minted** (an `event_token` generated in memory and carried by no intent and no record is not a mint). **Negative (a):** a missing-spec run request refuses **pre-intent**; assert a surviving boundary publishes an *unfulfilling* act-report, that it fulfills nothing, and that a crash there leaves no trace. **Negative (b):** a complete non-conforming execution mints a **run**, never an act-report. **Negative (c):** a dataset-production attempt opens the **operation intent** — assert the assessment-run intent cannot be spelled without a `spec_identity` |
+| **T2** | One started operation, one intent, one terminal record — and no act precedes the intent | Run each operation kind to success; assert exactly one qualifying fulfillment: the `run` where one is minted, the act-report otherwise. **Positive:** a post-intent attempt that mints no run closes through **exactly one** qualifying act-report. Attempt a second fulfilling registration on one intent → **malformed**, the log's rule as built. Make root selection fail, then the intent append fail; assert in each case **no act began** — no request issued, no lease taken, **no record minted** (an `event_token` generated in memory and carried by no intent and no record is not a mint). **Negative (a):** a missing-spec run request refuses **pre-intent**; assert a surviving boundary publishes an *unfulfilling* act-report, that it fulfills nothing, and that a crash there leaves no trace. **Negative (b):** a complete non-conforming execution mints a **run**, never an act-report. **Negative (c):** a dataset-production attempt opens the **operation intent** — assert the assessment-run intent cannot be spelled without a `spec_identity` *(closed 2026-09-22 at cut 38 (`../plans/2026-09-22-conformance-cut-38-results.md`): the `audit` and `re-check` operations open through the boundary — one operation intent before any act, one act-report closing each, and every supplied operation port bound to its writer's root, authority and profile; every kind but `corpus-write`, reportless by design, now opens through a boundary and closes through a report; `../superpowers/specs/2026-09-22-act-report-remainder-design.md`)* |
 | **T3** | Completion is three-valued and derived, never stored | Build all three states: an unmatched intent reads **unfinished**; an unreadable fulfillment pointer reads **indeterminate**, never collapsed into unfinished; a fulfilled intent reads **closed**. Assert no status field is spellable on any record — report, intent payload, or run. Assert deleting a published report moves its operation **closed → indeterminate**, not unfinished — the retention cost of §4, made checkable |
 | **T4** | The report layer is inert by type | Add and remove reports and entries; assert the belief digest, admission, eligibility, and the coverage projection are byte-unchanged. Assert an **unfinished operation blocks nothing**: a location with no unmatched holdings intent projects normally while its operation's intent stands unmatched. **Negative:** delete an observation a report references; assert exactly the record-layer consequences occur — the active set and projection move as the holdings design says — while the report is unchanged and confers no protection |
 | **T5** | Outcome vocabularies are reserved per act kind | Attempt `byte-locator-untested` on a managed-mutation, record-import, and subject-evaluation entry; assert each is unspellable. Attempt it on a locator act whose request **began**; assert refusal — that is `retrieval-failed`'s territory. Assert a preflight refusal and a deliberate post-stop skip both spell `byte-locator-untested` with distinct reasons. Assert no entry outcome constructs an observation — reports reference products and never mint them |

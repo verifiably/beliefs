@@ -107,7 +107,7 @@ design written 2026-08-02 through 2026-09-22. Read them in this order:
 | `2026-09-20-conformance-cut-35.md` | the discharged url-retrieval cut: the `url` locator, the transport and the `acquisition` operation; H4, G9, R10, T5, T1 and T4 closed, T2 and T7 partial, 27 declaration units, eleven boundary invariants, the cut 34 runner as prefix; the boundary closes |
 | `2026-09-21-conformance-cut-36.md` | the discharged event-level-l8 cut: the event domain, the witness predicate and the witness-asymmetric relation; L8 closed, L4 and L10 relabelled, L1 re-homed to `persistence-cut`, 16 declaration units, three boundary invariants, the cut 35 runner as prefix; the boundary closes |
 | `2026-09-21-conformance-cut-37.md` | the discharged l13-preimage cut: the digest match over held copies and surviving preimages, the stated absence, the corruption refusal; L13 closed, 11 declaration units, three boundary invariants, the cut 36 runner as prefix; the boundary closes |
-| `2026-09-22-conformance-cut-38.md` | the frozen act-report-remainder cut: the `audit` and `re-check` operations through the boundary, every supplied port bound to its writer; T2 read in full, 12 declaration units, three boundary invariants, the cut 37 runner as prefix |
+| `2026-09-22-conformance-cut-38.md` | the discharged act-report-remainder cut: the `audit` and `re-check` operations through the boundary, every supplied port bound to its writer; T2 closed in full, 12 declaration units, three boundary invariants, the cut 37 runner as prefix; the boundary closes |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -115,7 +115,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 37** is implemented and discharged. What
+Every conformance cut through **cut 38** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -184,10 +184,15 @@ chains through world-ancestry-ordered cuts, witness-asymmetric, with
 coverage and placeability explicit and a same-chain pair ordered by
 ancestry alone. The L13 resolver classifies removals by the removed state's
 digest from held copies or surviving preimages, states unavailable evidence,
-and refuses corrupt history; the boundary closes at cut 37.
-The latest discharged boundary is cut 37
-([cut](docs/designs/2026-09-21-conformance-cut-37.md),
-[results](docs/plans/2026-09-21-conformance-cut-37-results.md)).
+and refuses corrupt history; the boundary closes at cut 37. The `audit`
+and `re-check` operations each open through the boundary with one operation
+intent before any act and close through one act-report, and every supplied
+operation port is bound to its writer, so every operation kind but
+`corpus-write` — reportless by design — now opens through a boundary and
+closes through a report; the boundary closes at cut 38.
+The latest discharged boundary is cut 38
+([cut](docs/designs/2026-09-22-conformance-cut-38.md),
+[results](docs/plans/2026-09-22-conformance-cut-38-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **216 rows** across **twenty frozen

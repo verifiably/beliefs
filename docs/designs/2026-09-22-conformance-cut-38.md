@@ -1,6 +1,6 @@
 # Conformance cut 38 — the act-report remainder
 
-**Status:** frozen 2026-09-22, before implementation; T2 is open
+**Status:** discharged 2026-09-22 on the certified volume; results: ../plans/2026-09-22-conformance-cut-38-results.md
 **Design:** `../superpowers/specs/2026-09-22-act-report-remainder-design.md`, approved for implementation planning 2026-09-22 at `f43e236` after two reviews; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-22-act-report-remainder.md`.
 **Numbered after** cut 37 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 38–39 at freeze; cut 37 is the highest discharged runner.

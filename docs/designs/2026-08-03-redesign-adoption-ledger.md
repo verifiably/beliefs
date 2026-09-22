@@ -46,13 +46,14 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-21** for cut 37's L13 preimage resolver discharge, which
-closes the boundary; row 5 stays partial for L1's persistence arms alone.
+**Updated 2026-09-22** for cut 38's act-report remainder discharge, which
+closes the boundary; T2 closes in full and the T table stays partial on T7's
+cross-root case alone. Row 5 stays partial for L1's persistence arms alone.
 
-**Implemented through conformance cut 37.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 38.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–37 record discharge in their dated results records, most recently
-`../plans/2026-09-21-conformance-cut-37-results.md`.
+and cuts 26–38 record discharge in their dated results records, most recently
+`../plans/2026-09-22-conformance-cut-38-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -253,8 +254,9 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   in the same registered transaction as the dataset it mints, whose
   empirical-observation facet names the report through `retrieval`. The
   session carries it as a ledgered route, and the survey instrument runs on
-  the kernel transport. H4, G9, R10, T5, T1 and T4 close at cut 35; T2 is
-  partial on the `audit` and `re-check` operation kinds, and T7 on its
+  the kernel transport. H4, G9, R10, T5, T1 and T4 close at cut 35; T2 was
+  left partial there on the `audit` and `re-check` operation kinds and
+  closes at cut 38, and T7 remains partial on its
   cross-root case. Eleven boundary-invariant declaration units hold the
   locator, transport, look, close, reducer and materialization seams.
   The corpus had **183 of 216 rows closed** at cut 35; the `acquisition`
@@ -279,7 +281,7 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   boundary-invariant declaration units hold recovery before resolution, the
   one world inspection under the audit's lock order, and the isolated
   genesis clause of placement.
-  The `world-read` lane's head is `act-report-remainder`.
+  The `world-read` lane's head is `publish`.
 - The **L13 preimage resolver**, built 2026-09-21 at cut 37
   (`../plans/2026-09-21-conformance-cut-37-results.md`): classification
   matches the removed state's digest through `state_facts`, from a held
@@ -287,8 +289,28 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   `LogSeam.read_preimage` under the audit hold. Absence is stated as
   `removal-unclassified`; corrupt local history refuses the act; a
   contradictory preimage refuses `PreimageMismatch`. L13 closes in full,
-  and `l13-preimage` leaves the boundary table. The corpus has **187 of 216
-  rows closed, 29 open**; row 5 remains partial for L1 under `persistence-cut`.
+  and `l13-preimage` leaves the boundary table. The corpus had **187 of 216
+  rows closed, 29 open** at cut 37; row 5 remains partial for L1 under
+  `persistence-cut`.
+- **The `audit` and `re-check` operations, and the bound operation port**,
+  built 2026-09-22 at cut 38
+  (`../plans/2026-09-22-conformance-cut-38-results.md`): the audit fixes the
+  observer root as the writer's own, appends one `audit` intent before any
+  read, runs the corpus evaluator under the caller's hold and the root lock,
+  and closes through one act-report carrying one subject-evaluation entry per
+  finding in the evaluator's order — a clean audit's report has no entries.
+  The re-check validates every location, the store genesis, the observer, the
+  instrument and every standing set before the intent, appends one `re-check`
+  intent, runs the per-location re-check acts with nothing held across them,
+  and closes through one report carrying one locator entry per location —
+  a published observation, or `byte-locator-untested` / `retrieval-failed`
+  with the attempt's reason. A supplied operation port is bound to its
+  writer's root, authority and profile or refused before any intent. With
+  them, **every operation kind but `corpus-write`** — reportless by design —
+  opens through a boundary and closes through a report: **T2 closes in
+  full**, the T table stays partial on T7's cross-root case alone, and
+  `act-report-remainder` leaves the boundary table. The corpus has **188 of
+  216 rows closed, 28 open**.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -303,7 +325,6 @@ not listed.
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
-| `act-report-remainder` | T2's `audit` and `re-check` operation kinds — the reporting wrapper over the read-only audit evaluator and over holdings re-checks (act-report design §4), neither of which opens an operation intent today | `2026-08-11-act-report-design.md` §4; `beliefs-86b150` | the T table in full |
 | `persistence-cut` | X2's persistence-cut arm; L1's kill-at-stage and settlement-persistence arms (both terminal outcomes) | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns; L1's arms re-homed here at cut 36 (`beliefs-3ea822`) | X2 in full; row 5's L1 read in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
@@ -313,25 +334,36 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-21-conformance-cut-37-results.md`) discharges the L13
-preimage resolver: digest-matched classification over held copies and
-surviving preimages, stated absence and corruption refusal close L13.
-`l13-preimage` leaves this table and the roadmap index; **187 of 216** rows
-are closed, 29 open. The preceding record
+(`../plans/2026-09-22-conformance-cut-38-results.md`) discharges the
+act-report remainder at cut 38: the `audit` and `re-check` operations each
+open through the boundary with one operation intent before any act and close
+through one act-report, and every supplied operation port is bound to its
+writer's root, authority and profile. T2 closes in full, so every operation
+kind but `corpus-write` — reportless by design — opens through a boundary and
+closes through a report; the T table stays partial on T7's cross-root case
+alone, which remains with `cross-root-publication`. `act-report-remainder`
+leaves this table and the roadmap index; **188 of 216** rows are closed, 28
+open. With it the `world-read` lane's head becomes `publish`. The preceding
+record (`../plans/2026-09-21-conformance-cut-37-results.md`) discharged the
+L13 preimage resolver: digest-matched classification over held copies and
+surviving preimages, stated absence and corruption refusal closed L13, and
+`l13-preimage` left this table and the roadmap index at **187 of 216** rows
+closed. The record before that
 (`../plans/2026-09-21-conformance-cut-36-results.md`) discharged event-level
 L8: the event domain, the witness predicate and the witness-asymmetric
 relation land; L8 closes, L4 and L10 close as relabels, and the boundary
 closes with them — `event-level-l8` and its ride-along `log-remainder` leave
 this table and the roadmap's boundary index in the same commit, and
-`act-report-remainder` becomes the `world-read` lane's head. L1 stays
+`act-report-remainder` became the `world-read` lane's head, which it stayed
+until cut 38 discharged it. L1 stays
 partial on its persistence arms — kill the executor between entry
 durability and apply at every stage; crash after entry durability but
 before the transaction record stores the entry digest; cut persistence at
 every stage of the settlement sequence for both terminal arms — re-homed
 from `log-remainder` to `persistence-cut` (`beliefs-3ea822`), whose harness
-they are, behind `atoms-f5779f`. T2 stays partial on the `audit` and
+they are, behind `atoms-f5779f`. T2 stayed partial there on the `audit` and
 `re-check` operation kinds with `act-report-remainder`, and T7 on its
-cross-root case with `cross-root-publication`, both unchanged. The
+cross-root case with `cross-root-publication`, both unchanged at cut 36. The
 capture-order sharpening of the relation is filed in `../guide/open-questions.md`,
 not built. The preceding record
 (`../plans/2026-09-20-conformance-cut-35-results.md`) discharged URL

@@ -7,7 +7,7 @@ kinds (`../../designs/2026-08-03-redesign-adoption-ledger.md`, Current state)
 **Task:** `beliefs-86b150`
 **Lane:** `world-read`, its head since cut 36 (roadmap §Lanes)
 **Cut:** 38, off the path (roadmap tier 1, off-path row 1)
-**Status:** draft for review, 2026-09-22
+**Status:** discharged at conformance cut 38 on 2026-09-22; results: ../../plans/2026-09-22-conformance-cut-38-results.md
 
 ## 1. What this slice is
 
