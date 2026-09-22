@@ -112,7 +112,8 @@ closes through one report carrying one locator entry per location. A
 supplied operation port is bound to its writer's root, authority and
 profile or refused with `PortMismatch` before any intent. With these,
 **every operation kind but `corpus-write` — reportless by design — opens
-through a boundary and closes through a report.**
+through a boundary and closes through exactly one terminal record: the `run`
+where one is minted, the act-report otherwise.**
 
 **The T table stays partial on T7 alone**, on its cross-root case, owned
 by `cross-root-publication` (`beliefs-256f17`, tier 3). Cut 38 reads no
@@ -175,6 +176,20 @@ the correction as a note. Second, the ledger row's *unblocks* column read
 T7's cross-root case"**, which is what closing T2 achieves and what the
 spec §1 states. Neither correction changes a declared width, a unit or an
 arm.
+
+**A third correction, from the final whole-branch review.** The frozen cut
+document's §1 says every operation kind opens through a boundary and closes
+through exactly one act-report, and counts `run-attempt` among the six kinds
+that already do; the current-facing statements this lane wrote carried the
+same unqualified phrasing. `run-attempt` closes through the **`run`** where
+one is minted — the boundary publishes the run's own plan as the fulfilling
+record — and through an act-report only on the refusal path. T2's own row
+states the rule the lane should have used: "the `run` where one is minted,
+the act-report otherwise". Every current-facing statement of the claim on
+this branch is qualified in those terms; the frozen §1 stays byte-exact and
+is **superseded by citation here**. The correction changes no declared
+width, no unit and no arm: T2's positive arm already reads a post-intent
+attempt that mints no run, and negative (b) already reads the minted run.
 
 ### 3.2 Deviations and read-at-freeze choices
 
@@ -354,7 +369,8 @@ and 50 again after the review fix.
 
 `act-report-remainder` closes in full at cut 38, and T2 with it: every
 operation kind but `corpus-write`, reportless by design, now opens through
-a boundary and closes through a report.
+a boundary and closes through exactly one terminal record — the `run` where
+one is minted, the act-report otherwise.
 
 **T7** remains partial on its cross-root case — cross-root publication of
 a dataset's provenance reference and its acquiring report, refused

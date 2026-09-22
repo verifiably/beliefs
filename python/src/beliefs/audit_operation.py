@@ -4,8 +4,9 @@ One operation intent, then `audit_corpus` over the writer's own view, then
 one act-report carrying one subject-evaluation entry per finding — every
 step under the caller's hold and the root lock, so the state the evaluator
 judged is the state at the intent's chain position (decision 4). The
-evaluator stays read-only (`audit.py` is not imported by anything that
-writes); this wrapper reports.
+evaluator stays read-only: `audit.py` and `world/audit.py` define no
+`WRITE_ENTRY_POINTS` member and reach no write primitive (BI-1); this
+wrapper reports.
 """
 
 from __future__ import annotations

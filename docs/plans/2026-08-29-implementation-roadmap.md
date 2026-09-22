@@ -128,8 +128,9 @@ one act-report carrying one entry per finding in the evaluator's order; the
 intent and one report carrying one entry per location; and every supplied
 operation port is bound to its writer's root, authority and profile or refused
 before any intent. T2 closes in full — every operation kind but `corpus-write`,
-reportless by design, now opens through a boundary and closes through a
-report — and the T table stays partial on T7's cross-root case alone, which
+reportless by design, now opens through a boundary and closes through exactly
+one terminal record, the `run` where one is minted and the act-report
+otherwise — and the T table stays partial on T7's cross-root case alone, which
 remains with `cross-root-publication`. This is the **seventh** off-path lane
 opened under rule 6, and it **re-ranks nothing on the path**: the first belief
 audits nothing it must report and re-checks no holding. `act-report-remainder`

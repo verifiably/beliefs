@@ -189,7 +189,8 @@ and `re-check` operations each open through the boundary with one operation
 intent before any act and close through one act-report, and every supplied
 operation port is bound to its writer, so every operation kind but
 `corpus-write` — reportless by design — now opens through a boundary and
-closes through a report; the boundary closes at cut 38.
+closes through exactly one terminal record: the `run` where one is minted,
+the act-report otherwise; the boundary closes at cut 38.
 The latest discharged boundary is cut 38
 ([cut](docs/designs/2026-09-22-conformance-cut-38.md),
 [results](docs/plans/2026-09-22-conformance-cut-38-results.md)).

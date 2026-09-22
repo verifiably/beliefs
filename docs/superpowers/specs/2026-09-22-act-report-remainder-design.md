@@ -541,7 +541,8 @@ the cut doc is superseded by citation, never edited.
 
 - Act-report design §3.1: an "Amended 2026-09-22 (cut 38)" note beside cut
   35's, stating the two operations as built and that every kind but
-  `corpus-write` now opens through a boundary and closes through a report.
+  `corpus-write` now opens through a boundary and closes through exactly one
+  terminal record — the `run` where one is minted, the act-report otherwise.
 - Ledger: T2 closes; `act-report-remainder` leaves `Current state`; the T
   table reads full but for T7's cross-root case, which stays with
   `cross-root-publication`; the row's "unblocks: the T table in full" is

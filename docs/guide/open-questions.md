@@ -280,10 +280,11 @@ implementation**: a guarantee row awaiting code is work, not a question.
   `acquisition` boundary the enum had named since 2026-08-11. Cut 38
   (2026-09-22) built the `audit` and `re-check` operations; every kind but
   `corpus-write`, reportless by design, now opens through a boundary and
-  closes through a report. One question the slice files: a world-scope audit
-  operation — one report per touched root under one token (§2.2's composite
-  shape), or one report whose entries name their corpus — either an
-  act-report design amendment
+  closes through exactly one terminal record — the `run` where one is
+  minted, the act-report otherwise. One question the slice files: a
+  world-scope audit operation — one report per touched root under one token
+  (§2.2's composite shape), or one report whose entries name their corpus —
+  either an act-report design amendment
   (`../superpowers/specs/2026-09-22-act-report-remainder-design.md` §13).
   ([act-report design](../designs/2026-08-11-act-report-design.md),
   [what stays open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open))

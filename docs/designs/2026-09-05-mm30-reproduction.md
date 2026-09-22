@@ -1174,8 +1174,8 @@ Cut 38 added two operations — `beliefs/audit_operation.py`'s `audit` and
 `beliefs/holdings/recheck.py`'s re-check — routed through the session as
 `ScopedWriter.audit` and `ScopedWriter.recheck`, and a bound-port check
 (`OperationPort.root`, `PortMismatch`) enforced in the two write
-primitives. `audit.py` and `holdings/boundary.py` are unchanged (decision
-1). Neither operation is reached by the mm30 driver:
+primitives. `audit.py`, `world/audit.py` and `holdings/boundary.py` are
+unchanged (decision 1). Neither operation is reached by the mm30 driver:
 
 ```
 $ grep -n 'audit_operation\|recheck_locations\|ScopedWriter.audit\|scoped.recheck' python/tools/reproduction/*.py

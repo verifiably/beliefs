@@ -308,7 +308,8 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   with the attempt's reason. A supplied operation port is bound to its
   writer's root, authority and profile or refused before any intent. With
   them, **every operation kind but `corpus-write`** — reportless by design —
-  opens through a boundary and closes through a report: **T2 closes in
+  opens through a boundary and closes through exactly one terminal record —
+  the `run` where one is minted, the act-report otherwise: **T2 closes in
   full**, the T table stays partial on T7's cross-root case alone, and
   `act-report-remainder` leaves the boundary table. The corpus has **188 of
   216 rows closed, 28 open**.
@@ -341,7 +342,8 @@ open through the boundary with one operation intent before any act and close
 through one act-report, and every supplied operation port is bound to its
 writer's root, authority and profile. T2 closes in full, so every operation
 kind but `corpus-write` — reportless by design — opens through a boundary and
-closes through a report; the T table stays partial on T7's cross-root case
+closes through exactly one terminal record, the `run` where one is minted and
+the act-report otherwise; the T table stays partial on T7's cross-root case
 alone, which remains with `cross-root-publication`. `act-report-remainder`
 leaves this table and the roadmap index; **188 of 216** rows are closed, 28
 open. With it the `world-read` lane's head becomes `publish`. The preceding

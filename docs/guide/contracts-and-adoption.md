@@ -297,9 +297,10 @@ and each closes through one act-report, and a supplied operation port is bound
 to its writer's root, authority and profile or refused before any intent.
 Fourteen arms over twelve declaration units (including three boundary
 invariants) close T2 in full, so every operation kind but `corpus-write`,
-reportless by design, now opens through a boundary and closes through a
-report; the T table stays partial on T7's cross-root case alone. The corpus
-now has **188 of 216 rows closed, 28 open**
+reportless by design, now opens through a boundary and closes through
+exactly one terminal record: the `run` where one is minted, the act-report
+otherwise; the T table stays partial on T7's cross-root case alone. The
+corpus now has **188 of 216 rows closed, 28 open**
 (`../designs/2026-09-22-conformance-cut-38.md`;
 `../plans/2026-09-22-conformance-cut-38-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
