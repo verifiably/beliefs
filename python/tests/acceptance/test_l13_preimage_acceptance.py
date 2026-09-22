@@ -330,12 +330,13 @@ def test_l13h_preimage_gc_appears_in_no_chain_and_a_read_appends_nothing_durably
 
 
 def _probing_seam(monkeypatch, root: Path, observed: list[tuple[str, str]]):
-    """The production seam with `read_preimage` wrapped to observe the writer
-    hold on `root`'s real operation lock at the moment of each read."""
+    """Production reads with both capture completions and preimage reads
+    observed against `root`'s real operation lock."""
     from beliefs.corpus import _operation_lock_for
     from beliefs.errors import BuildContended
 
     production = science_root._log_seam()
+    production_capture_records = verify.capture_records
     held = _operation_lock_for(root)
 
     def read(target: Path, txid: str, path: str, max_bytes: int):
@@ -345,8 +346,14 @@ def _probing_seam(monkeypatch, root: Path, observed: list[tuple[str, str]]):
         return production.read_preimage(target, txid, path, max_bytes)
 
     def capture(target: Path, paths):
-        observed.append(("capture", str(held._holder)))
-        return production.capture(target, paths)
+        result = production.capture(target, paths)
+        observed.append(("surface-capture", str(held._holder)))
+        return result
+
+    def capture_records(target: Path, kind):
+        result = production_capture_records(target, kind)
+        observed.append(("record-capture", str(held._holder)))
+        return result
 
     seam = verify.LogSeam(
         inspect_registered=production.inspect_registered,
@@ -361,12 +368,13 @@ def _probing_seam(monkeypatch, root: Path, observed: list[tuple[str, str]]):
         read_preimage=read,
     )
     monkeypatch.setattr(science_root, "_LOG_SEAM", seam)
+    monkeypatch.setattr(verify, "capture_records", capture_records)
     return seam
 
 
 def test_bi1_the_reads_are_inside_the_hold_after_the_captures_with_the_chains_arguments_durably(lane, monkeypatch):
     """BI-1. One read per committed removal with a file pre-state, made under
-    the writer hold after the capture, with the chain's txid, path and
+    the writer hold after both captures complete, with the chain's txid, path and
     byte_len; arrival and restore make none."""
     source = _corpus(lane, seed=True)
     observed: list[tuple[str, str]] = []
@@ -380,8 +388,12 @@ def test_bi1_the_reads_are_inside_the_hold_after_the_captures_with_the_chains_ar
 
     monkeypatch.setattr(science_root, "_LOG_SEAM", replace(seam, read_preimage=recording))
     _audit(lane, source)
-    assert observed[0][0] == "capture" and observed[-1] == ("preimage", "writer")
-    assert all(holder == "writer" for _, holder in observed)
+    assert observed == [
+        ("surface-capture", "writer"),
+        ("record-capture", "writer"),
+        ("preimage", "writer"),
+        ("preimage", "writer"),
+    ]
     view = science_root._log_seam().inspect_registered(source)
     assert type(view) is WellFormedView
     expected = [
