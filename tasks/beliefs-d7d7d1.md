@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-22T22:46:33Z
+updated: 2026-09-22T22:55:00Z
 started: 2026-09-22T22:08:29Z
 depends: []
 parent: beliefs-1a5157
@@ -27,3 +27,6 @@ Slice 1 of publish: ship coordination contract v1+v2 (publication, publication-b
 - 2026-09-22T22:19:16Z (design/publish): parked (waiting on user, review): User reviews docs/superpowers/specs/2026-09-22-publication-records-design.md in .worktrees/publish; on approval write the plan (writing-plans), freezing cut 39's unit list in Task 0.
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-22T22:46:33Z (design/publish): User review: #1/#3 already fixed at e7d9c31; #2 (presence from chain inventory, bytes required, history-violated, re-read classification) and #4 (marker carries destination) taken at e7fb05d. W17-p-f needs a durable rollback; Task 0 finds one or W17 reports partial.
+- 2026-09-22T22:55:00Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-22T22:55:00Z (design/publish): Spec approved by user after re-review (601e22f); writing the plan.

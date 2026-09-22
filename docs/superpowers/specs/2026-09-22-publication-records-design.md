@@ -8,7 +8,7 @@ Current state)
 **Task:** `beliefs-1a5157` (lane task); this slice's child is filed with the spec
 **Lane:** `world-read`, its head since cut 38 (roadmap §Lanes)
 **Cut:** 39, off the path (roadmap tier 1, off-path row 1)
-**Status:** draft, 2026-09-22
+**Status:** approved 2026-09-22 after two user reviews; plan next
 
 ## 1. What this slice is
 
