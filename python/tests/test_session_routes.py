@@ -28,6 +28,7 @@ from beliefs.holdings.records import StoreLocator, url_locator
 from beliefs.holdings.seam import FileStateView, PathObservedView, StoreActSeam, StoreOutcomeView
 from beliefs.holdings.transport import RetrievalBounds
 from beliefs.permit import RequiredCapabilities
+from beliefs.report import PublishedObservation
 from beliefs.root import init_corpus_root, init_store_root, open_corpus
 from beliefs.session import open_attended_session, open_ledger_reader
 from beliefs.session.routes import plan_records
@@ -471,7 +472,8 @@ def test_recheck_through_a_session_ledgers_every_commit(certified_work):
     session.close()
     acts = open_ledger_reader(session.operations_root, session.session_id).acts()
     assert len(acts) == 3  # the write's publication, the re-check's publication, the closing transaction
-    assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.entries[0].outcome.ref}  # type: ignore[union-attr]
+    assert isinstance(outcome.entries[0].outcome, PublishedObservation)
+    assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.entries[0].outcome.ref}
 
 
 def test_a_store_less_session_audits_and_cannot_recheck(certified_work):
