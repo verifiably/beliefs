@@ -108,6 +108,7 @@ from beliefs.report import (
     Registration,
     RunAttemptEntry,
     RunRefusal,
+    SubjectEvaluationEntry,
     _mint_report,
 )
 from beliefs.runrecord import OperationPort, publication_plan
@@ -320,6 +321,34 @@ def _mint_acquisition_report(
         raise MalformedRecord("an acquisition report requires an acquisition operation intent")
     return _mint_report(
         operation="acquisition",
+        event_token=intent.event_token,
+        actor=intent.actor,
+        observer=observer,
+        instrument=instrument,
+        opened_at=opened_at,
+        closed_at=closed_at,
+        entries=entries,
+    )
+
+
+def _mint_audit_report(
+    intent: OperationIntent,
+    *,
+    observer: str,
+    instrument: str,
+    opened_at: str,
+    closed_at: str,
+    entries: tuple[Entry, ...],
+) -> ActReport:
+    """The audit operation's terminal record (act-report-remainder design §3):
+    one subject-evaluation entry per finding, in the evaluator's order; a
+    clean audit's entries are empty."""
+    if type(intent) is not OperationIntent or intent.kind != "audit":
+        raise MalformedRecord("an audit report requires an audit operation intent")
+    if type(entries) is not tuple or any(type(entry) is not SubjectEvaluationEntry for entry in entries):
+        raise MalformedRecord("an audit report carries subject-evaluation entries only")
+    return _mint_report(
+        operation="audit",
         event_token=intent.event_token,
         actor=intent.actor,
         observer=observer,

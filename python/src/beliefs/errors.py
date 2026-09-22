@@ -1519,6 +1519,12 @@ class AcquisitionRefused(WriteRefused):
     (url-retrieval design §6 steps 1 and 4)."""
 
 
+class AuditRefused(WriteRefused):
+    """An audit operation refused before its intent — no operation port, an
+    observer or instrument that is empty or not canonically encodable
+    (act-report-remainder design §3 step 1)."""
+
+
 class StoreWriteRefused(ScienceError):
     """The store transaction of a managed `write` was a routine engine refusal
     (url-retrieval design decision 10): `applied == 0` and a
