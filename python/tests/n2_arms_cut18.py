@@ -56,8 +56,8 @@ CUT18_ARMS = (
         asserts="the managed removal of a held failing verification classifies at error severity",
         sabotage=Sabotage(
             module="world/verify.py",
-            before='    if held.verdict == "failed":\n',
-            after='    if held.verdict == "passed":\n',
+            before='    if verdict == "failed":\n',
+            after='    if verdict == "passed":\n',
         ),
         checks=(_G8_C6,),
     ),
