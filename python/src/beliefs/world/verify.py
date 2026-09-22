@@ -625,7 +625,7 @@ def _classification(removal: Removal, digest: str, source: str, payload: bytes) 
             message="the removed record's bytes, resolved by digest, are not a verification",
         )
     try:
-        verdict = verification_value(node).verdict
+        held = verification_value(node)
     except MalformedRecord:
         return Finding(
             severity="warning",
@@ -635,7 +635,7 @@ def _classification(removal: Removal, digest: str, source: str, payload: bytes) 
             message="the removed record's bytes, resolved by digest, are a verification whose facet does not "
             "validate, so no verdict is read from them",
         )
-    if verdict == "failed":
+    if held.verdict == "failed":
         return Finding(
             severity="error",
             code="failing-verification-removed",
@@ -648,7 +648,7 @@ def _classification(removal: Removal, digest: str, source: str, payload: bytes) 
         severity="warning",
         code="removal-classified",
         ref=removal.path,
-        detail=f"{detail} kind=verification verdict={verdict}",
+        detail=f"{detail} kind=verification verdict={held.verdict}",
         message="the removed record's bytes, resolved by digest, are a verification carrying no failing verdict",
     )
 
