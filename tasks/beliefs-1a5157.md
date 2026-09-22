@@ -1,15 +1,19 @@
 ---
 id: beliefs-1a5157
 title: Implement the Beliefs publish act and governed records
-status: todo
+status: doing
 priority: 2
 size: xl
 complexity: high
+process: planned
+owner: main
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-22T21:54:36Z
+started: 2026-09-22T21:54:25Z
 depends: [beliefs-b34652, beliefs-1f7400]
 tags: [migration, publication, coordination]
 ---
+
 
 Outcome: Beliefs publishes an immutable selected view through a recoverable governed act, with publication marker and binding revisions, exact retry, terminal reporting, and recipient admission refusal.
 
@@ -17,8 +21,12 @@ Acceptance evidence: After coordination/view delivery and the world-read lane, b
 
 Sources: `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` §§4.1 and 6 and §8 item 5; `docs/designs/2026-08-11-act-report-design.md`; and the root-lifecycle and log-verification designs.
 
-Uncertainty: Destination-specific remote transport remains for Science, while this task owns only the Beliefs act and records. Coordination/view delivery is complete at cut 14 (beliefs-1f7400); the world-read lane remains unfinished. W17’s publication-binding intent-position arm belongs here.
+Uncertainty: Destination-specific remote transport remains for Science, while this task owns only the Beliefs act and records. Coordination/view delivery is complete at cut 14 (beliefs-1f7400); the world-read lane discharged its last boundary at cut 38, which moved publish to tier 1 off the path as that lane's head. W17’s publication-binding intent-position arm belongs here.
 
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity high: The user/autonomy design section 6 fixes the recovery protocol, but implementing exact-prefix resumption, intent-position binding, source reports, reveal/orphan handling and recipient refusal crosses interacting durability and governance boundaries. Contract amendments and a concrete cut remain.
+- 2026-09-22T21:54:25Z (main): Process planned: xl/high, crosses durability and governance boundaries and needs contract amendments plus a slice design, plan and conformance cut; body refreshed for cut 38.
+- 2026-09-22T21:54:25Z (main): started
+  provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-22T21:54:25Z (main): claimed by claude-code/claude-opus-5-5, pid 1928635
