@@ -146,11 +146,33 @@ Each decision names what it rejects.
    `RequiredCapabilities.publishes()`, which raises today, returns the
    `publish` family over `publication-binding` together with `corpus-write`
    over `act-report` — the intent door needs the second because
-   `_append_operation_intent` requires it. `publish` is not
-   command-reachable (`COMMAND_REACHABLE_FAMILIES` is unchanged): `science`'s
-   write classes reach it by `science`'s own design. **Rejected:** minting
-   both kinds under `corpus-write`. A session permitted to write tasks could
-   then mint a binding.
+   `_append_operation_intent` requires it.
+
+   `publish` is **not command-reachable** (`COMMAND_REACHABLE_FAMILIES` is
+   unchanged): `science`'s write classes reach it by `science`'s own design.
+   Since `RequiredCapabilities.__post_init__` refuses any family outside that
+   set, the requirement's admissible families and command-route validation
+   are separated by one closed exception, not by widening the set:
+   `permit.py` gains `KERNEL_REQUIREMENTS`, a frozenset holding exactly the
+   one publication permit above, and `__post_init__` admits a permit whose
+   families are command-reachable **or** that equals a member of
+   `KERNEL_REQUIREMENTS`, and refuses everything else as today. So
+   `publishes()` constructs, and every ordinary declaration route that names
+   `publish` still refuses — `for_kinds(["publication-binding"], …)`, whose
+   permit is `{publication-binding}` over `{publish}` and not the kernel
+   one; a direct `RequiredCapabilities(WritePermit(…, {"publish"}))`; and the
+   kernel permit widened by one kind. `test_permit.py`'s invariant that every
+   declaration requirement is command-reachable excludes exactly
+   `KERNEL_REQUIREMENTS`.
+
+   **Rejected:** minting both kinds under `corpus-write`. A session permitted
+   to write tasks could then mint a binding. **Also rejected:** adding
+   `publish` to `COMMAND_REACHABLE_FAMILIES`. Every command declaration could
+   then name it. **And:** having the doors call `authority.require` without a
+   `RequiredCapabilities`. It would work, but `publishes()` exists to be the
+   requirement the second slice's act and `science`'s eventual route both
+   cite, and it would go on raising a false reason (`publish is not an act
+   family`).
 
 8. **The act-report amendment banks only what this slice emits.** `publish`
    joins `OPERATION_KINDS`, with one entry kind, `publication-binding`, and
@@ -480,8 +502,8 @@ Rewritten by every lane: `errors.py`, the ledger, the roadmap,
 Named beyond those: `coordination.py`, `corpus.py`, `permit.py`,
 `profile.py` (the shipped-coordination loader), `report.py`, `stored.py`,
 `intents/shapes.py`, `root.py` (the moment seam),
-`python/tests/coordination_fixtures.py`, `test_permit_boundary.py` and
-`test_permit_entry_points.py`. No other kernel lane is open.
+`python/tests/coordination_fixtures.py`, `test_permit.py`,
+`test_permit_boundary.py` and `test_permit_entry_points.py`. No other kernel lane is open.
 
 ## 10. Guarantee rows
 
@@ -516,9 +538,13 @@ a constructed chain prefix" is superseded by citation, not edited.
   in `decode_intent`, a domainless `publish` triple decoding `malformed`,
   `OperationIntent("publish", …)` refused, `mismatch` against wrong-kind and
   wrong-token reports;
-- permits: `coordination()` excludes both kinds; `publishes()` names the
-  `publish` family over `publication-binding` and `corpus-write` over
-  `act-report`;
+- permits: `coordination()` excludes both kinds; `publishes()` constructs
+  and names exactly the `publish` family over `publication-binding` and
+  `corpus-write` over `act-report`, and `scoped_authority` binds it; each
+  ordinary route naming `publish` refuses with `a requirement names only
+  command-reachable families` — `for_kinds(["publication-binding"], …)`,
+  direct construction over `{publish}`, and the kernel permit plus one
+  kind; `KERNEL_REQUIREMENTS` holds exactly one permit;
 - `standing_at` over a fake `MomentSeam`: the inventory's replay (create,
   pending, rolled back, retry after rollback, removal → `history-violated`),
   each refusal, the anchored-past exclusion, the between-intent-and-commit
@@ -674,3 +700,9 @@ for transports are the second slice's by decision 1.
   the orphan fold reads publish reports by the same rule (§6, Y4-c); and
   the marker carries its canonical destination, so `marker_consistent`
   needs nothing a recipient cannot hold (§3, §4).
+- 2026-09-22 — user re-review: the four findings resolved; one more, taken:
+  `RequiredCapabilities.__post_init__` refuses non-command-reachable
+  families, so `publishes()` could not construct. A closed
+  `KERNEL_REQUIREMENTS` exception admits exactly the publication permit
+  while every ordinary route naming `publish` still refuses, with unit
+  checks for both outcomes (decision 7, §11.1).
