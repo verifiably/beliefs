@@ -288,7 +288,7 @@ def test_the_scoped_writer_exposes_the_nine_methods_the_routes_and_its_invocatio
     public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
     assert public == {
         "add", "retract", "attest_coreference", "correct_identifier", "supersede", "revise", "delete", "mint_coordination", "revise_coordination",
-        "invocation_id", "actor", "store_id", "operation_port", "holdings_context", "acquire",
+        "invocation_id", "actor", "store_id", "operation_port", "holdings_context", "acquire", "audit", "recheck",
     }
 
 

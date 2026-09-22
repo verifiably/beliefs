@@ -439,6 +439,72 @@ def test_acquire_through_a_session_ledgers_every_commit(certified_work, tmp_path
     assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.dataset.id}
 
 
+AUDITS = RequiredCapabilities.for_kinds({"act-report"}, {"act-report": "corpus-write"})
+RECHECKS = RequiredCapabilities.for_kinds({"holdings-observation", "act-report"}, {"act-report": "corpus-write"})
+
+
+def test_audit_through_a_session_ledgers_its_one_commit_and_names_the_session_actor(certified_work):
+    from beliefs.audit import NO_EVIDENCE
+
+    session = _durable_session(certified_work)
+    session.claim_invocation("A", "audit", DIGEST)
+    scoped = session.scoped(AUDITS, "A")
+    outcome = scoped.audit(instrument="inst", evidence=NO_EVIDENCE)
+    assert outcome.report.observer == session.actor and outcome.report.actor == session.actor
+    session.close_invocation("A", {"done": []})
+    session.close()
+    acts = open_ledger_reader(session.operations_root, session.session_id).acts()
+    assert len(acts) == 1
+    assert {pair[1] for act in acts for pair in act.record_ids} == {outcome.report_ref}
+
+
+def test_recheck_through_a_session_ledgers_every_commit(certified_work):
+    session = _durable_session(certified_work)
+    session.claim_invocation("A", "recheck", DIGEST)
+    scoped = session.scoped(RECHECKS, "A")
+    ctx = scoped.holdings_context(instrument="inst")
+    location = StoreLocator(scoped.store_id, "a.bin")
+    write(ctx, location, b"alpha")
+    outcome = scoped.recheck((location,), instrument="inst")
+    assert outcome.report.observer == session.actor
+    session.close_invocation("A", {"done": []})
+    session.close()
+    acts = open_ledger_reader(session.operations_root, session.session_id).acts()
+    assert len(acts) == 3  # the write's publication, the re-check's publication, the closing transaction
+    assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.entries[0].outcome.ref}  # type: ignore[union-attr]
+
+
+def test_a_store_less_session_audits_and_cannot_recheck(certified_work):
+    from beliefs.audit import NO_EVIDENCE
+
+    corpus_root = certified_work / "corpus"
+    init_corpus_root(corpus_root, authority=FULL)
+    open_corpus(corpus_root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
+    config = WorldConfig(certified_work / "world", "a" * 32, (corpus_root,))
+    session = open_attended_session(config, certified_work / "ops", profile=BASE)
+    session.claim_invocation("A", "audit", DIGEST)
+    scoped = session.scoped(RECHECKS, "A")
+    assert scoped.audit(instrument="inst", evidence=NO_EVIDENCE).entries == ()
+    with pytest.raises(SessionProtocolError, match="no store root"):
+        scoped.recheck((StoreLocator("a" * 32, "a.bin"),), instrument="inst")
+    session.close_invocation("A", {"done": []})
+    session.close()
+
+
+def test_the_routes_refuse_after_the_invocation_closes(certified_work):
+    from beliefs.audit import NO_EVIDENCE
+
+    session = _durable_session(certified_work)
+    session.claim_invocation("A", "audit", DIGEST)
+    scoped = session.scoped(RECHECKS, "A")
+    session.close_invocation("A", {"done": []})
+    with pytest.raises(SessionProtocolError):
+        scoped.audit(instrument="inst", evidence=NO_EVIDENCE)
+    with pytest.raises(SessionProtocolError):
+        scoped.recheck((StoreLocator(scoped.store_id, "a.bin"),), instrument="inst")
+    session.close()
+
+
 ACQUIRES_AND_ADDS = RequiredCapabilities.for_kinds(
     {"holdings-observation", "dataset", "act-report", "proposition"}, {"act-report": "corpus-write"}
 )
