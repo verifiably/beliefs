@@ -114,7 +114,7 @@ decision, not the prose around it.
    that depends on any location, which is the whole reason the acquisition
    stops (its decision 10). **Rejected:** the acquisition's stop. **Rejected:**
    a stop on a `StoreIdMismatch`, which cannot occur after the pre-intent
-   check in §5 step 1 moves the store-genesis comparison before the intent.
+   check in §4 step 1 moves the store-genesis comparison before the intent.
 
 6. **The re-check's acts run outside the root lock; only its close takes
    it.** `recheck` takes the corpus lock itself for its intent append and
