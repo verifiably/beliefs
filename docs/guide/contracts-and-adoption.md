@@ -49,6 +49,7 @@ sources:
   - ../designs/2026-09-19-conformance-cut-34.md
   - ../designs/2026-09-20-conformance-cut-35.md
   - ../designs/2026-09-21-conformance-cut-36.md
+  - ../designs/2026-09-21-conformance-cut-37.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -279,6 +280,10 @@ partial on its persistence arms, re-homed to `persistence-cut`. The corpus
 now has **186 of 216 rows closed, 30 open**
 (`../designs/2026-09-21-conformance-cut-36.md`;
 `../plans/2026-09-21-conformance-cut-36-results.md`).
+Cut 37 is frozen and not yet discharged: the L13 preimage resolver — the
+digest match over held copies and surviving preimage bytes, absence stated,
+corrupt local history refused
+(`../designs/2026-09-21-conformance-cut-37.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
