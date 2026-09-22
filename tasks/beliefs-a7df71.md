@@ -8,11 +8,12 @@ complexity: high
 process: planned
 owner: design/l13-preimage
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-22T00:43:02Z
+updated: 2026-09-22T01:25:20Z
 started: 2026-09-22T00:12:25Z
 depends: [atoms-38887b]
 tags: [migration, cross-repo, log]
 spec: docs/superpowers/specs/2026-09-21-l13-preimage-design.md
+plan: docs/superpowers/plans/2026-09-21-l13-preimage.md
 ---
 
 Outcome: Beliefs strengthens L13 from path evidence to held-copy byte matching through the narrow public Atoms preimage reader.
