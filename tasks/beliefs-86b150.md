@@ -5,8 +5,9 @@ status: todo
 priority: 3
 size: m
 complexity: mid
+process: planned
 created: 2026-09-20T15:17:59Z
-updated: 2026-09-22T02:25:32Z
+updated: 2026-09-22T09:27:52Z
 depends: []
 tags: [migration, act-report]
 agent: "claude-code/claude-opus-5[1m]"
@@ -17,3 +18,4 @@ act-report-remainder after cut 35: T2 reads every built operation kind; audit an
 ## Notes
 
 - 2026-09-22T02:25:32Z (design/l13-preimage): Shared-surface note (l13-preimage spec §8): cut 37 rewrites world/verify.py (the policy pass, _audit_log, LogSeam) and root.py (_read_preimage, _LOG_SEAM); a later act-report-remainder merge resolves toward it.
+- 2026-09-22T09:27:52Z (main): Process planned: a conformance cut (38) needs its slice design and plan before code, per AGENTS.md Cut plans; opened as the world-read lane's head, rule 6 (no on-path lane startable, no other kernel lane open).
