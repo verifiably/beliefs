@@ -55,7 +55,7 @@ amendment) and the retry's `request-corrupt`, staging, head export,
 replication, restore, the transport seam, the recovery table,
 marker-required arrival, and the recipient's `divergent-publication`.
 
-It closes **W17 in full** (unless W17-p-e's durable means is not found, §11.2) and opens and closes the publication-record rows
+It closes **W17 in full** (unless W17-p-f's rollback cannot be produced durably, §11.2) and opens and closes the publication-record rows
 Y1–Y4 (§10). It is **off the path**: the success criterion publishes
 nothing. It amends one oracle before `contract-cut` freezes — the coordination
 contract, which §4.1 and the coordination design §5.1 assign to this
@@ -200,7 +200,8 @@ Version 2 is version 1 plus:
 - `query_vocabulary.kinds` gains `composite`; `query_vocabulary.relations`
   gains `composes` (the coordination design §5.1 note of 2026-09-16);
 - `kinds.publication`: `fields: [name, body, author, at, event_token,
-  published_from, selection, supersedes_markers]`, `query_versions: []`;
+  published_from, destination, selection, supersedes_markers]`,
+  `query_versions: []`;
 - `kinds.publication-binding`: `fields: [name, body, author, at,
   event_token, view, destination, corpus_id, marker, artifact]`,
   `query_versions: []`.
@@ -221,7 +222,7 @@ COORDINATION_KINDS` keeps them honest); `EXCLUDED_MUTATION_KINDS` and
 | `selection` | non-empty list of record ids, strictly ascending | — |
 | `supersedes_markers` | list of `[corpus_id, marker uid]`, strictly ascending, possibly empty | — |
 | `view` | — | canonical `coord:` address, unpinned |
-| `destination` | — | the decision 9 union, canonical |
+| `destination` | the decision 9 union, canonical | the decision 9 union, canonical |
 | `corpus_id`, `marker` | — | 32-hex each |
 | `artifact` | — | 64-hex head-artifact content identity |
 
@@ -243,7 +244,7 @@ def binding_address(view: CoordinationAddress, destination: Destination) -> Coor
 def marker_address(view: CoordinationAddress, destination: Destination) -> CoordinationAddress
 def marker_record(intent: PublishIntent, *, world_id, epoch, view_revision, selection) -> Node
 def binding_record(intent: PublishIntent, *, corpus_id, marker, artifact) -> Node
-def marker_consistent(node: Node, destination: Destination) -> bool
+def marker_consistent(node: Node) -> bool
 ```
 
 - **Two addresses per `(view, destination)`.** Both are `(view.project,
@@ -266,8 +267,12 @@ def marker_consistent(node: Node, destination: Destination) -> bool
   `supersedes_markers` is the intent's `marker_tips`; `binding_record`'s
   relations are the intent's `binding_tips`.
 - **`marker_consistent`** recomputes the uid, the address and the id from
-  the marker's own `event_token`, `published_from.view` and the destination
-  its caller supplies, and answers `False` on any difference. Arrival calls
+  the marker's own `event_token`, `published_from.view` and `destination`,
+  and answers `False` on any difference. The check is self-contained: a
+  recipient holds the marker, not the publisher's destination — its copy
+  sits wherever its own `restore_root` put it — so the marker carries the
+  canonical destination it was published to, and a marker whose carried
+  destination disagrees with its address fails. Arrival calls
   it in the second slice; here it is a pure function with a unit table
   (Y2).
 
@@ -311,24 +316,53 @@ def standing_at(
 
 For each mounted root the judgment takes a **bound**: the written root's
 bound is the index of the entry `position` (the intent's digest); every
-other root's bound is `events.place(view, anchor)`'s head. Presence is
-decided per revision held in root *R* by `moments.created(R, relative_path,
-bytes)`, which answers one of four values:
+other root's bound is `events.place(view, anchor)`'s head.
 
-| seam answer | meaning | judgment |
-|---|---|---|
-| `Committed(moment)` | exactly one committed registration moved the path from `ABSENT` to a `FileState` with the bytes' content hash | present iff `moment` ≤ *R*'s bound |
-| `Unsettled` | the only such registrations are pending or rolled back — a write in flight in an unlocked root, or an unrecovered crash | not present; no refusal |
-| `Unregistered` | no registration at all creates the path with these bytes | `PositionRefused(unregistered-revision)` |
-| `Ambiguous` | two or more committed registrations do — a raw delete and a deterministic re-mint | `PositionRefused(registration-ambiguous)` |
+**The chain, not the directory, says which revisions exist.** A first
+reading that decided presence per file found on disk had a hole: if B
+superseded A before the bound and B's file later vanished or went
+malformed, the resolver would omit B and declare A standing. So the
+judgment starts from the chain. For each root *R* and the address, the
+seam's `inventory(R, address, bound)` replays *R*'s committed registrations
+up to the bound and returns every path under the address's path prefix —
+`{kind}/{project}.{local}.` followed by a 32-hex uid and `.md`, which is
+`nodes`' `path_for_node_id` over the coordination id form — whose state
+after the last committed registration touching it is a `FileState`, with
+that state as the expected content. Pending and rolled-back registrations
+move nothing, so a write in flight in an unlocked root, an unrecovered
+crash, and a rolled-back step-8 attempt followed by its retry are all read
+correctly by construction. The judgment then reads each inventoried path's
+current bytes and requires, per revision:
 
-Only committed registrations count, so a rolled-back step-8 transaction
-followed by its retry — two registrations for one path and hash, one of
-them rolled back — is `Committed`. `standing_at` returns `standing_tips`
-over the present revisions — the family's one tip rule, unchanged, over a
-filtered set. `MomentSeam` lives in `root.py` beside the log seam: the
-`FileState` comparison is engine-typed, and the seam is a callable its
-consumers receive, so `root.py` stays the one `atoms` importer.
+| check | refusal |
+|---|---|
+| the file exists | `revision-missing` |
+| the seam's `matches(expected, bytes)` — the `FileState` content hash is engine-typed | `revision-mismatch` |
+| the bytes decode as a coordination revision at the address, of the address's kind | `revision-malformed` |
+
+The **present revisions are exactly the inventory**, and `standing_at`
+returns `standing_tips` over them — the family's one tip rule, unchanged,
+over a chain-derived set. A committed registration before the bound that
+moves an address path from a `FileState` to `ABSENT` or to another
+`FileState` is a removal or rewrite of an immutable record, which no door
+performs: `history-violated`, rather than a silently shrunken inventory.
+
+**A file the chain does not account for.** Files at the address outside the
+inventory are classified, never ignored silently. After listing them the
+judgment re-reads *R*'s chain: a listed file created by a registration that
+is pending, rolled back, or committed after the bound is not present and
+not a refusal; a listed file no registration in the re-read creates is
+`unregistered-revision`. The re-read is what makes this exact: the engine
+admits a registration before its effects run (`atoms`
+`coordinator/commands.py` `run_transaction`, write-ahead), so a file seen
+on disk has its registration in any later read of the chain, and a write
+that becomes visible during the listing and then rolls back is classified
+by its rolled-back registration, not by the file's presence. The plan's
+Task 0 pins the write-ahead order with a test before anything relies on it.
+
+`MomentSeam` — `inventory`, `matches`, and the re-read classification —
+lives in `root.py` beside the log seam, reached by its consumers as
+callables, so `root.py` stays the one `atoms` importer.
 
 The remaining refusals, all values:
 
@@ -340,9 +374,10 @@ The remaining refusals, all values:
 | `chain-malformed` | a mounted root's chain is not well-formed |
 
 A root whose files predate its genesis — `init_corpus_root` registers an
-empty baseline even over a populated directory — answers `Unregistered`
-for every pre-existing revision and refuses. No publishing root is created
-that way; the refusal is the honest reading if one is.
+empty baseline even over a populated directory — answers
+`unregistered-revision` for every pre-existing revision at the address and
+refuses. No publishing root is created that way; the refusal is the honest
+reading if one is.
 
 **Step 0, the intent door** — `_open_publication(writer, resolver, *, view,
 destination, clock)`, under the written root's `writer._operation`, after
@@ -372,10 +407,15 @@ intent (§4), so it supersedes exactly those pairs, and it has reached some
 recipient. A locally revealed refusal's marker was never shared and neither
 creates nor retires an orphan (layer design §6.1 step 8). Markers live in
 destination corpora, which the resolver need not mount, so everything is
-read where the source holds it: the reports, and the intents they fulfil,
-from **every mounted root's chain within its bound** — a project that moved
-corpora keeps its earlier publish reports in the root it moved from.
-Orphans are derived, never stored.
+read where the source holds it, and by the same chain-first rule: in
+**every mounted root, within its bound**, the publish intents for this
+`(view, destination)` are decoded from the chain, each one's committed
+fulfilling registration names the report path it created, and that report's
+bytes are read and matched against the registration exactly as a revision's
+are — a missing, mismatched or malformed report refuses with the same three
+reasons, so a lost refusal report can never silently drop an orphan. A
+project that moved corpora keeps its earlier publish reports in the root it
+moved from. Orphans are derived, never stored.
 
 **Step 8, the binding door** — `_bind_publication(writer, resolver, intent,
 *, corpus_id, marker, artifact, remotely_revealed)`, through
@@ -414,7 +454,7 @@ the report's own, not repeated. Three outcomes:
 |---|---|
 | `bound` | `binding` (the revision uid), `corpus_id`, `marker` |
 | `predecessor-not-standing` | `corpus_id`, `marker`, `remotely_revealed`, `tips` (the recomputed set, ascending) |
-| `evidence-refused` | `corpus_id`, `marker`, `remotely_revealed`, `reason`: one of §6's six, or `tips-disagree` |
+| `evidence-refused` | `corpus_id`, `marker`, `remotely_revealed`, `reason`: one of §6's nine, or `tips-disagree` |
 
 They join `_ALLOWED_OUTCOMES`, `_ENTRY_KINDS`, `_OUTCOME_TYPES`, the stored
 mirror `stored._REPORT_ENTRY_OUTCOMES` (which gains validators for a boolean
@@ -452,7 +492,7 @@ a constructed chain prefix" is superseded by citation, not edited.
 
 | row | guarantee |
 |---|---|
-| **W17-p** | the binding revision's predecessors are judged at the intent's position by §6: a tip superseded before the position (reachable only by a second writer, decision 11) → `predecessor-not-standing`, report alone; superseded between intent and commit → commits, two tips; a revision past its root's anchor, or unsettled, is not present; the resolver's mount order does not move the anchors or the tips |
+| **W17-p** | the binding revision's predecessors are judged at the intent's position by §6: a tip superseded before the position (reachable only by a second writer, decision 11) → `predecessor-not-standing`, report alone; superseded between intent and commit → commits, two tips; the present revisions are the chain's inventory at each root's bound — a revision past its anchor, or unsettled, is absent from it, and an inventoried revision whose file is missing, mismatched or malformed refuses; the resolver's mount order does not move the anchors or the tips |
 | **Y1** | version 2 declares `publication` and `publication-binding`; a version-1 pin authorizes neither; every ordinary door (`add`, `import_bundle`, `mint_coordination`, `revise_coordination`) refuses both; neither enters a world-index map or moves a `belief_input_digest` |
 | **Y2** | both records are byte-functions of the intent and the named arguments; `marker_consistent` refuses a marker whose uid, address or id disagrees with its own `event_token`, view and destination |
 | **Y3** | the publish intent decodes by its domain and qualifies only by a `publish` report with its token; a malformed payload under the domain, and a bare domainless `publish` triple, are audit findings; every other kind's intent is byte-unchanged |
@@ -479,7 +519,8 @@ a constructed chain prefix" is superseded by citation, not edited.
 - permits: `coordination()` excludes both kinds; `publishes()` names the
   `publish` family over `publication-binding` and `corpus-write` over
   `act-report`;
-- `standing_at` over a fake `MomentSeam`: each of the four seam answers,
+- `standing_at` over a fake `MomentSeam`: the inventory's replay (create,
+  pending, rolled back, retry after rollback, removal → `history-violated`),
   each refusal, the anchored-past exclusion, the between-intent-and-commit
   sibling, and the orphan fold with and without retirement, local and
   remote reveals.
@@ -497,14 +538,15 @@ the rows and the arms each must hold:
 | W17-p-b | W17 | the same supersession committed after the intent: the binding commits; `resolve` answers `divergent-view` naming both tips; one repair revision restores one tip |
 | W17-p-c | W17 | a revision written in the other root after its anchor is not present at the position; the same revision before the anchor is |
 | W17-p-d | W17 | two resolvers over the same roots in both mount orders freeze the same `binding_tips`, `marker_tips` and anchors, and the anchors are in `corpus_id` order |
-| W17-p-e | W17 | a registration left unsettled or rolled back in the other root is `Unsettled`: not present, and the judgment does not refuse. No harness in the tree leaves one durably today (L1's kill-at-stage harness is `persistence-cut`'s); the plan's Task 0 establishes a durable means — a transaction the executor rolls back, or a fault-injected executor over the durable backend — or the arm is declared unrun and W17 is reported **partial**, not closed |
+| W17-p-e | W17 | B supersedes A before the intent; B's file is then deleted → `revision-missing`, and overwritten with other bytes → `revision-mismatch` — never a binding over A; a raw-written revision at the address with no registration → `unregistered-revision` |
+| W17-p-f | W17 | a transaction in the other root that fails and rolls back after its registration: its file, if left, is classified by the rolled-back registration — not present, no refusal — and a retry that commits is present once, not ambiguous. The plan's Task 0 establishes a durable way to make the engine register and then roll back a transaction (an effect-time precondition failure, for one); if the engine offers none short of `persistence-cut`'s kill-at-stage harness, this arm is declared unrun and W17 is reported **partial**, not closed |
 | Y1-a | Y1 | a v1-pinned root refuses both kinds; a v2-pinned root's ordinary doors refuse both |
 | Y1-b | Y1 | a binding and a marker leave the world-index maps and a belief answer's `belief_input_digest` unchanged |
 | Y2-a | Y2 | under a fake clock that advances on every read, the binding the door commits is byte-equal to `binding_record` called on the intent decoded back from the chain |
 | Y3-a | Y3 | the audit reads a publish intent with its report as fulfilled, without as unfinished, and a malformed domain payload as a finding |
 | Y4-a | Y4 | a refusing guard's fallback and a success each submit exactly one fulfilling execution (the counting port of cut 38's T2-h), and the refusal leaves no binding revision on disk |
 | Y4-b | Y4 | a remotely revealed `evidence-refused` attempt's pair appears in the next intent's `marker_tips`; once that publish binds, the intent after it does not carry the pair; a locally revealed refusal's pair never appears |
-| Y4-c | Y4 | a raw-written binding revision with no creating registration → `unregistered-revision`, no binding |
+| Y4-c | Y4 | a remotely revealed refusal report's file deleted → the next intent door refuses `revision-missing` rather than dropping the orphan |
 
 ### 11.3 N2 sabotages — `n2_arms_cut39.py`
 
@@ -516,16 +558,17 @@ One sabotage per unit, each chosen so the unit's check sees it:
 | W17-p-b | the guard bounds the written root at its current tip, so the post-intent supersession refuses |
 | W17-p-c | the other roots' bound ignores the anchor and reads their current heads |
 | W17-p-d | the anchors ordered by mount path instead of `corpus_id` |
-| W17-p-e | `Unsettled` mapped to `unregistered-revision` |
+| W17-p-e | the present set taken from the resolver's live read instead of the chain's inventory |
+| W17-p-f | rolled-back registrations counted in the inventory's replay |
 | Y1-a | `revise_coordination`'s `KindNotMintedHere` check removed |
 | Y1-b | the coordination exclusion dropped for `publication-binding` |
 | Y2-a | the factory reads the clock for `at` |
 | Y3-a | the domain dispatch removed from `decode_intent` |
 | Y4-a | the fallback plan written beside the success plan instead of in its place |
 | Y4-b | the fold counts only `predecessor-not-standing` refusals as orphans |
-| Y4-c | the seam answering `Committed` at the bound for a missing registration |
+| Y4-c | the fold skipping a publish intent whose report file is missing |
 
-The plan fixes the declared accounting (12 arms, 12 units, 5 rows as drafted
+The plan fixes the declared accounting (13 arms, 13 units, 5 rows as drafted
 here: W17, Y1–Y4).
 
 ### 11.4 The cut
@@ -593,6 +636,9 @@ record.
    exactly as it is to the at-commit rule today.
 5. **A root populated before its genesis refuses** (`unregistered-revision`,
    §6), rather than trusting files no registration covers.
+6. **The judgment reads every inventoried revision's bytes** at the address
+   in every mounted root, and every publish report for the
+   `(view, destination)`; it is exact and not cheap.
 
 ## 15. Open questions this slice files
 
@@ -617,3 +663,14 @@ for transports are the second slice's by decision 1.
   `chain-absent` joins the refusals (§6); the entry takes the stored
   `{kind, subject, outcome}` form (§7); the second slice's remaining step-0
   refusals and the layer design's stale sentences are named (§1, §12).
+- 2026-09-22 — user review, four findings. Two were already taken at the
+  first review (the marker's own address; orphan fields on every refusal).
+  Two are new and taken: presence is now the chain's inventory at each
+  root's bound, with every inventoried revision's bytes required present
+  and matching, removals refused as `history-violated`, and files the chain
+  does not account for classified by a chain re-read under the engine's
+  write-ahead order — so a vanished or corrupted superseding revision
+  refuses instead of resurrecting its predecessor (§6, W17-p-e, W17-p-f);
+  the orphan fold reads publish reports by the same rule (§6, Y4-c); and
+  the marker carries its canonical destination, so `marker_consistent`
+  needs nothing a recipient cannot hold (§3, §4).
