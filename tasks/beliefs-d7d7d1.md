@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-22T22:08:29Z
+updated: 2026-09-22T22:19:16Z
 started: 2026-09-22T22:08:29Z
 depends: []
 parent: beliefs-1a5157
@@ -22,4 +22,7 @@ Slice 1 of publish: ship coordination contract v1+v2 (publication, publication-b
 ## Notes
 
 - 2026-09-22T22:08:29Z (design/publish): started
+  provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-22T22:19:16Z (design/publish): First independent review: 12 findings, all folded in at e7d9c31 (moment seam 4 answers, orphan fields on every refusal, separate marker address, predecessor-not-standing as single-writer detection, sabotage per unit, permit/WRITE_ENTRY_POINTS gaps).
+- 2026-09-22T22:19:16Z (design/publish): parked (waiting on user, review): User reviews docs/superpowers/specs/2026-09-22-publication-records-design.md in .worktrees/publish; on approval write the plan (writing-plans), freezing cut 39's unit list in Task 0.
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
