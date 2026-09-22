@@ -186,8 +186,12 @@ one is minted — the boundary publishes the run's own plan as the fulfilling
 record — and through an act-report only on the refusal path. T2's own row
 states the rule the lane should have used: "the `run` where one is minted,
 the act-report otherwise". Every current-facing statement of the claim on
-this branch is qualified in those terms; the frozen §1 stays byte-exact and
-is **superseded by citation here**. The correction changes no declared
+this branch is qualified in those terms, the slice design's §1 and §10
+included. Two places keep the unqualified wording and neither is a
+current-facing claim: the frozen cut document's §1, which stays byte-exact
+and is **superseded by citation here**, and the implementation plan's
+executed Step 4 checklist, which quotes verbatim the strings that step
+wrote and is historical evidence. The correction changes no declared
 width, no unit and no arm: T2's positive arm already reads a post-intent
 attempt that mints no run, and negative (b) already reads the minted run.
 

@@ -13,9 +13,11 @@ kinds (`../../designs/2026-08-03-redesign-adoption-ledger.md`, Current state)
 
 The act-report design names a closed enum of operation kinds and requires
 that every one of them open through a boundary that appends one operation
-intent before any act and closes through exactly one act-report (§3.1,
-guarantee T2). Six of the eight kinds open that way today: `import` (cut 3),
-`move` and `consolidate` (cut 16), `run-attempt` (cut 3), `corpus-write`
+intent before any act and closes through exactly one terminal record — the
+`run` where one is minted, the act-report otherwise (§3.1, guarantee T2).
+Six of the eight kinds open that way today: `import` (cut 3), `move` and
+`consolidate` (cut 16), `run-attempt` (cut 3, closing through the `run` it
+mints and through an act-report only when it refuses), `corpus-write`
 (cut 19, registration-qualified and reportless by design) and `acquisition`
 (cut 35). Two do not: **`audit`** — the evaluator `audit_corpus` runs
 read-only and its findings are returned to the caller and recorded nowhere
