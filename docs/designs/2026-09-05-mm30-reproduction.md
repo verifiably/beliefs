@@ -1154,3 +1154,68 @@ transition measured here is narrower — the kernel gained digest-matched
 classification over held and surviving bytes, explicit absence, and corrupt
 history refusal while the reproduction's stored state and re-derived answer
 remained byte-for-byte where §15 left them.
+
+## 17. Addendum — the act-report remainder, 2026-09-22
+
+Re-run under the act-report remainder
+(`../superpowers/specs/2026-09-22-act-report-remainder-design.md`; cut 38),
+from the worktree `act-report-remainder`, at head `b4d71dd`. No contract
+succeeded, so nothing under `.work/reproduction/mm30` was recreated or
+moved aside: the corpus was read in place, exactly as at §16.
+`SCIENCE_MM30_ROOT` was set to the certified volume's canonical path,
+formed from `$(readlink -f ~/d/beliefs)`. `MM30_PREDECESSOR` again had to
+be set explicitly, to the predecessor's canonical path, since the
+driver's default does not exist under this account. `reproduction.preflight`
+printed `ok` without a host-load refusal.
+
+### 17.1 What changed in the kernel this slice
+
+Cut 38 added two operations — `beliefs/audit_operation.py`'s `audit` and
+`beliefs/holdings/recheck.py`'s re-check — routed through the session as
+`ScopedWriter.audit` and `ScopedWriter.recheck`, and a bound-port check
+(`OperationPort.root`, `PortMismatch`) enforced in the two write
+primitives. `audit.py` and `holdings/boundary.py` are unchanged (decision
+1). Neither operation is reached by the mm30 driver:
+
+```
+$ grep -n 'audit_operation\|recheck_locations\|ScopedWriter.audit\|scoped.recheck' python/tools/reproduction/*.py
+$
+```
+
+— empty. Step 9 (`python/tools/reproduction/close.py`) still calls the
+bare evaluator by its own contract:
+
+```
+"""Step 9: corpus_check, the semantic audit, log verification. Writes nothing.
+```
+
+The driver mints no `audit` or `recheck` report and re-checks no holding.
+
+### 17.2 What the re-run reached
+
+Before the run, `state.json` held `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}` and
+`rederived_equal: true` — unchanged from §16.2. A copy was taken first
+(SHA-256 `1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`).
+`reproduction.rederive`, run in the foreground, printed the same 10a
+payload — `{"kind":"NoBelief","reason":"no-directional-outcome","detail":""}` —
+with `"equal": true`. The rewritten `state.json` held the same
+`rederived_belief` payload with `rederived_equal: true`. A full-file diff
+against the pre-run copy was empty, and both files carried SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1` — the
+same digest §16.2 recorded. The two new operations are exercised only by
+`python/tests/acceptance/test_act_report_remainder_acceptance.py`; nothing
+in the reproduction driver or corpus calls either.
+
+### 17.3 What this addendum does not claim
+
+That mm30 audited through `ScopedWriter.audit`, or that this re-run
+re-checked a holding through `ScopedWriter.recheck`: the established
+corpus was not touched by either operation, and decision 12 is why —
+routing step 9 through the wrapper would mint a report into the
+reproduction corpus, a change to the measured artifact that the
+reproduction lane does not make from a kernel lane (roadmap rule 6). The
+transition measured here is narrower still than §16's: the kernel gained
+two new operations and a port-binding check while the reproduction's
+stored state and re-derived answer remained byte-for-byte where §16 left
+them.
