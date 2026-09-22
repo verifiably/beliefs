@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import ClassVar
 
 import pytest
@@ -53,6 +54,7 @@ class Recorder:
 class FakePort:
     profile = BASE
     authority = FULL
+    root = Path("fake-port")
     intents: ClassVar[list[bytes]] = []
     executed: ClassVar[list[WritePlan]] = []
     fulfilling: ClassVar[list[tuple[WritePlan, str]]] = []

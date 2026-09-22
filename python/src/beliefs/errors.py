@@ -1460,6 +1460,13 @@ class ActorMismatch(WriteRefused):
     Not a permit refusal: the permit may well cover the kind."""
 
 
+class PortMismatch(WriteRefused):
+    """A supplied operation port is bound to another root, authority or
+    profile than the writer's (act-report-remainder design decision 13). A
+    foreign root's port would carry the intent and the report into another
+    chain while this writer's corpus is what the operation reads."""
+
+
 class PlanRefused(WriteRefused):
     """The operation seam's preflight refused the plan — shape, a reserved
     leaf, or the record ceiling — before any intent (writer-session design
@@ -1510,6 +1517,21 @@ class AcquisitionRefused(WriteRefused):
     operation port, a store-less materialization, a malformed request — or at
     its close, when the report would name an observation no act published
     (url-retrieval design §6 steps 1 and 4)."""
+
+
+class AuditRefused(WriteRefused):
+    """An audit operation refused before its intent — no operation port, an
+    observer or instrument that is empty or not canonically encodable
+    (act-report-remainder design §3 step 1)."""
+
+
+class RecheckRefused(WriteRefused):
+    """A re-check operation refused before its intent — duplicate locations, a
+    foreign store, the wrong root, no operation port, an observer or
+    instrument the observation would refuse, a `standing` set at another
+    location or for an unrequested one (act-report-remainder design §4 step 1,
+    decision 14) — or at its close, when the report would name an observation
+    no act published."""
 
 
 class StoreWriteRefused(ScienceError):

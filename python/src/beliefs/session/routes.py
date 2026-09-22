@@ -44,6 +44,10 @@ class LedgeredPort:
         self._inner = inner
 
     @property
+    def root(self) -> Path:
+        return self._inner.root
+
+    @property
     def profile(self) -> ProfileSpec:
         return self._inner.profile
 

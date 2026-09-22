@@ -101,6 +101,7 @@ from beliefs.errors import (
     ManifestMissing,
     OperationPortMissing,
     PlanRefused,
+    PortMismatch,
     PredecessorMismatch,
     PredecessorNotStanding,
     ProjectNotResolvable,
@@ -2256,6 +2257,23 @@ class CorpusWriter:
             )
             return manifest
 
+    def _require_bound_port(self, port: OperationPort | None) -> OperationPort:
+        """The port an operation runs on: this writer's own for `None`, or a
+        supplied one bound to the same root, authority and profile
+        (act-report-remainder design decision 13). The writer's own port is
+        bound at construction (`root.py`'s `open_corpus` hands both one root,
+        authority and profile), so only a supplied port is compared."""
+        if port is None:
+            assert self._operation_port is not None
+            return self._operation_port
+        if Path(port.root).resolve() != Path(self.root).resolve():
+            raise PortMismatch(f"the operation port is bound to {port.root}, not this writer's root {self.root}")
+        if port.authority != self.authority:
+            raise PortMismatch("the operation port binds another authority than this writer's")
+        if port.profile.compiled_identity != self.profile.compiled_identity:
+            raise PortMismatch("the operation port binds another profile than this writer's")
+        return port
+
     def _append_operation_intent(
         self, kind: str, token: str, intent_actor: str, *, port: OperationPort | None = None
     ) -> str:
@@ -2265,8 +2283,7 @@ class CorpusWriter:
             raise ActorMismatch(
                 f"the operation intent names actor {intent_actor!r}, not the bound {self.authority.actor!r}"
             )
-        operation_port = self._operation_port if port is None else port
-        assert operation_port is not None
+        operation_port = self._require_bound_port(port)
         digest = operation_port.append_intent(_encode_operation_intent(kind, token, self.authority.actor))
         if (
             type(digest) is not str
@@ -2294,8 +2311,7 @@ class CorpusWriter:
         (url-retrieval design §6 step 4)."""
         self._require_pins_agree()
         self.authority.require("corpus-write", ("act-report",))
-        operation_port = self._operation_port if port is None else port
-        assert operation_port is not None
+        operation_port = self._require_bound_port(port)
         if operations is not None:
             plan = list(operations)
         else:

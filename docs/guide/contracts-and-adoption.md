@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-21
+updated: 2026-09-22
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -50,6 +50,7 @@ sources:
   - ../designs/2026-09-20-conformance-cut-35.md
   - ../designs/2026-09-21-conformance-cut-36.md
   - ../designs/2026-09-21-conformance-cut-37.md
+  - ../designs/2026-09-22-conformance-cut-38.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -62,6 +63,7 @@ sources:
   - ../plans/2026-09-20-conformance-cut-35-results.md
   - ../plans/2026-09-21-conformance-cut-36-results.md
   - ../plans/2026-09-21-conformance-cut-37-results.md
+  - ../plans/2026-09-22-conformance-cut-38-results.md
 ---
 
 # Contracts and adoption
@@ -208,7 +210,7 @@ W8b is measured and not selected. Its build defect is repaired by
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 
-Thirty-three conformance cuts have been frozen and discharged, each frozen before
+Thirty-four conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -220,7 +222,8 @@ so a real verification can reach `clean-environment`
 R20, and R21 across the full workflow surface and reads R23's local
 basis/composition disagreement without reopening replay cardinality. The
 relocation cut is discharged as cut 16: W5 reads in full, G3 and D7 close,
-W16, C3, R23, M3 and T2 remain partial on their named remainders, and T8 is
+W16, C3, R23, M3 and T2 remained partial there on their named remainders,
+T2 until it closes at cut 38, and T8 is
 re-read against `move` and `consolidate`. The write-permits cut is discharged
 as cut 17: E1–E8 close, every write entry point requires its permit before any
 effect, and no caller supplies an actor. The deletion cut is discharged as
@@ -266,9 +269,9 @@ kernel's URL dereference boundary behind an injectable transport seam, and
 the `acquisition` operation — one intent, per resource a URL look and an
 optional managed materialization, one act-report published in the same
 registered transaction as the dataset it mints. H4, G9, R10, T5, T1 and T4
-close over 27 declaration units and eleven boundary invariants; T2 stays
-partial on the `audit` and `re-check` operation kinds and T7 on its
-cross-root case
+close over 27 declaration units and eleven boundary invariants; T2 stayed
+partial there on the `audit` and `re-check` operation kinds and closes at
+cut 38, and T7 remains partial on its cross-root case
 (`../designs/2026-09-20-conformance-cut-35.md`;
 `../plans/2026-09-20-conformance-cut-35-results.md`).
 Cut 36 discharges event-level L8 and closes the boundary: an event is
@@ -284,10 +287,22 @@ Cut 37 discharges the L13 preimage resolver and closes the boundary: the
 digest match over held copies and surviving preimage bytes, absence stated,
 corrupt local history refused. Fifteen arms over eleven declaration units
 (including three boundary invariants) close L13; row 5 stays partial for
-L1 under `persistence-cut`. The corpus now has **187 of 216 rows closed,
-29 open**
+L1 under `persistence-cut`. That left the corpus at **187 of 216 rows
+closed, 29 open**
 (`../designs/2026-09-21-conformance-cut-37.md`;
 `../plans/2026-09-21-conformance-cut-37-results.md`).
+Cut 38 discharges the act-report remainder: the `audit` and `re-check`
+operations open through the boundary — one operation intent before any act —
+and each closes through one act-report, and a supplied operation port is bound
+to its writer's root, authority and profile or refused before any intent.
+Fourteen arms over twelve declaration units (including three boundary
+invariants) close T2 in full, so every operation kind but `corpus-write`,
+reportless by design, now opens through a boundary and closes through
+exactly one terminal record: the `run` where one is minted, the act-report
+otherwise; the T table stays partial on T7's cross-root case alone. The
+corpus now has **188 of 216 rows closed, 28 open**
+(`../designs/2026-09-22-conformance-cut-38.md`;
+`../plans/2026-09-22-conformance-cut-38-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -324,4 +339,5 @@ questions under
 - [Cut 34 discharge results](../plans/2026-09-19-conformance-cut-34-results.md)
 - [Cut 35 discharge results](../plans/2026-09-20-conformance-cut-35-results.md)
 - [Cut 36 discharge results](../plans/2026-09-21-conformance-cut-36-results.md)
-- [Cut 37 discharge results, the newest results record](../plans/2026-09-21-conformance-cut-37-results.md)
+- [Cut 37 discharge results](../plans/2026-09-21-conformance-cut-37-results.md)
+- [Cut 38 discharge results, the newest results record](../plans/2026-09-22-conformance-cut-38-results.md)

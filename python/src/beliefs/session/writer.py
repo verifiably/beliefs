@@ -38,10 +38,13 @@ from beliefs.session.ledger import (
 )
 
 if TYPE_CHECKING:
+    from beliefs.audit_operation import AuditOutcome
     from beliefs.corpus import ReadView
+    from beliefs.evidence import DerivationEvidence
     from beliefs.holdings.acquire import AcquisitionOutcome, AcquisitionRequest
     from beliefs.holdings.boundary import ActContext
-    from beliefs.holdings.records import HoldingsObservation
+    from beliefs.holdings.recheck import RecheckOutcome
+    from beliefs.holdings.records import HoldingsObservation, StoreLocator
     from beliefs.holdings.transport import UrlSeam
     from beliefs.world.view import WorldReadView
 
@@ -368,6 +371,36 @@ class ScopedWriter:
         return run_acquisition(
             ctx, self._writer, request, seam=url_seam() if seam is None else seam, scratch=scratch,
             standing=standing, port=self.operation_port(), hold=self._closing_hold,
+        )
+
+    def audit(self, *, instrument: str, evidence: DerivationEvidence) -> AuditOutcome:
+        """This invocation's audit route (act-report-remainder design §5): the
+        ledgered operation port, and this session's lock taken before the root
+        lock across the whole operation — the evaluator reads the writer's own
+        index and does no I/O outside the root (decision 4)."""
+        from beliefs.audit_operation import audit as run_audit
+
+        return run_audit(
+            self._writer, observer=self._session.actor, instrument=instrument, evidence=evidence,
+            port=self.operation_port(), hold=self._closing_hold,
+        )
+
+    def recheck(
+        self,
+        locations: tuple[StoreLocator, ...],
+        *,
+        instrument: str,
+        standing: Mapping[str, tuple[HoldingsObservation, ...]] | None = None,
+    ) -> RecheckOutcome:
+        """This invocation's re-check route (act-report-remainder design §5):
+        the holdings context supplies the ledgered store seam, `operation_port()`
+        the ledgered operation port, and no lock of this facade is held across
+        an act (decision 6)."""
+        from beliefs.holdings.recheck import recheck_locations
+
+        ctx = self.holdings_context(instrument=instrument)
+        return recheck_locations(
+            ctx, self._writer, locations, standing=standing, port=self.operation_port(), hold=self._closing_hold,
         )
 
     @contextmanager

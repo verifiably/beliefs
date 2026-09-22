@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from decimal import Decimal
+from pathlib import Path
 from typing import ClassVar
 
 import pytest
@@ -43,6 +44,7 @@ class FakePort:
     def __init__(self, root, authority=FULL):
         self._inner = DefaultExecutor(root)
         self.authority = authority
+        self.root = Path(root)
 
     def append_intent(self, payload: bytes) -> str:
         FakePort.intents.append(payload)

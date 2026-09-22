@@ -230,6 +230,7 @@ class _HashingOperationPort:
     def __init__(self, root: Path, authority=FULL):
         self._inner = DefaultExecutor(root)
         self.authority = authority
+        self.root = Path(root)
         self.intents: list[_IntentRecord] = []
         self.executed: list[list[object]] = []
         self.fulfilling: list[tuple[list[object], str]] = []

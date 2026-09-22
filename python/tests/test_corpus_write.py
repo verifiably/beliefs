@@ -145,6 +145,7 @@ class TestE2AuthorityBindsOnceAtConstruction:
         class Port:
             profile = BASE
             authority = narrowed(kinds=("proposition",), families=("corpus-write",))
+            root = tmp_path
 
             def append_intent(self, payload):
                 raise AssertionError("never reached")
@@ -168,6 +169,7 @@ class TestE2AuthorityBindsOnceAtConstruction:
         class Port:
             profile = BASE
             authority = FULL
+            root = tmp_path
 
             def append_intent(self, payload):
                 raise AssertionError("never reached")
