@@ -1198,14 +1198,25 @@ Before the run, `state.json` held `rederived_belief` =
 `rederived_equal: true` — unchanged from §16.2. A copy was taken first
 (SHA-256 `1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`).
 `reproduction.rederive`, run in the foreground, printed the same 10a
-payload — `{"kind":"NoBelief","reason":"no-directional-outcome","detail":""}` —
-with `"equal": true`. The rewritten `state.json` held the same
-`rederived_belief` payload with `rederived_equal: true`. A full-file diff
-against the pre-run copy was empty, and both files carried SHA-256
+payload — `{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}`
+in this document's established (alphabetical) transcription; the raw
+stdout renders the same dataclass in field-declaration order,
+`{"kind": "NoBelief", "reason": "no-directional-outcome", "detail": ""}`
+(`belief.py`'s `NoBelief` declares `reason` then `detail`, with `kind`
+prepended by the encoder, while `state.save` writes `state.json` with
+`json.dumps(..., sort_keys=True)`; the two orderings are the same payload,
+not a discrepancy) — with `"equal": true`. The rewritten `state.json` held
+the same `rederived_belief` payload with `rederived_equal: true`. A
+full-file diff against the pre-run copy was empty, and both files carried
+SHA-256
 `1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1` — the
-same digest §16.2 recorded. The two new operations are exercised only by
-`python/tests/acceptance/test_act_report_remainder_acceptance.py`; nothing
-in the reproduction driver or corpus calls either.
+same digest §16.2 recorded. Neither the driver nor its corpus reaches
+either new operation (§17.1's empty grep); the acceptance module,
+`python/tests/acceptance/test_act_report_remainder_acceptance.py`, is
+where the certified-tuple guarantee rows for both are discharged — the
+unit and session-route tests that call `audit`, `recheck_locations`,
+`scoped.audit` and `scoped.recheck` directly are not part of this
+reproduction's evidence.
 
 ### 17.3 What this addendum does not claim
 
