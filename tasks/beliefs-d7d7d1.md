@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-22T23:11:57Z
+updated: 2026-09-22T23:39:54Z
 started: 2026-09-22T22:08:29Z
 depends: []
 parent: beliefs-1a5157
@@ -31,3 +31,6 @@ Slice 1 of publish: ship coordination contract v1+v2 (publication, publication-b
 - 2026-09-22T22:55:00Z (design/publish): resumed
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-22T22:55:00Z (design/publish): Spec approved by user after re-review (601e22f); writing the plan.
+- 2026-09-22T23:39:54Z (design/publish): Plan written (dd8b275), reviewed once (15 findings, all applied at acac917).
+- 2026-09-22T23:39:54Z (design/publish): parked (waiting on user, review): User reviews docs/superpowers/plans/2026-09-22-publication-records.md; on approval execute Task 0 (beliefs-ff3c13) via subagent-driven development.
+  provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
