@@ -1,6 +1,6 @@
 # Conformance cut 37 — the L13 preimage resolver
 
-**Status:** frozen 2026-09-21, before implementation; L13 is open
+**Status:** discharged 2026-09-21 on the certified volume; results: ../plans/2026-09-21-conformance-cut-37-results.md
 **Design:** `../superpowers/specs/2026-09-21-l13-preimage-design.md`, approved for implementation planning 2026-09-21 at `c3565d4` after one review; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-21-l13-preimage.md`.
 **Numbered after** cut 36 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 37–39 at freeze; cut 36 is the highest discharged runner.

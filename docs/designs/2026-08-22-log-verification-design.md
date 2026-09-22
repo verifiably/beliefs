@@ -381,6 +381,13 @@ partial for **two** reasons, not one.
 > Stating both reasons wherever the first is stated is part of the
 > amendment. The digest match returns with the preimage resolver.
 
+> **Amended 2026-09-21 (cut 37).** Both partialities close:
+> `LogSeam.state_facts` renders the removed state's digest, so the match is
+> by digest; `LogSeam.read_preimage` supplies the surviving bytes on the
+> writable root, read by the audit under its hold. A held copy resolves iff
+> its digest is the removed state's; every finding speaks about the removed
+> bytes; absence is `removal-unclassified`.
+
 ## 6. The two boundaries and the mismatch rule
 
 ### 6.1 Audit
@@ -611,6 +618,11 @@ authority; the two places this expectation was refined are noted below**:
    qualification closed 2026-08-28. *(Event-level L8 closed 2026-09-21 at
    cut 36; row 5 stays partial for the preimage resolver and L1's
    persistence arms, the latter `persistence-cut`'s.)*
+   *(Closed 2026-09-21 — cut 37 built the digest match over held copies and
+   surviving preimages through the audit, with stated absence and corruption
+   refusal; L13 closes in full and row 5 stays partial for L1 under
+   `persistence-cut`: `../superpowers/specs/2026-09-21-l13-preimage-design.md`,
+   results at `../plans/2026-09-21-conformance-cut-37-results.md`.)*
 5. **The refuse-don't-arrest narrowing** (§6.2) is dated against the log
    design §3's letter.
 6. **The empty-baseline amendment** (§1.3) leaves L6 wholly unread —

@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 36, against the ledger's Current state (2026-09-21)
+**Ranked at:** cut 37, against the ledger's Current state (2026-09-21)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -38,7 +38,7 @@ criterion cannot be met without are **on the path**, in dependency order;
 the rest are **off the path**, in breadth order. Whether a boundary is on the
 path is measured where it can be, by the reproduction lane (§Lanes).
 
-**Cut 31 (2026-09-16) discharges estimand typing and closes the boundary** — the estimand, its applicability, and the estimate and uncertainty the rule yields are typed; Q1–Q10 close in full. `estimand-typing` entered the ledger's `Current state` and the boundary index below at that record and closed in the same commit, so neither carries an open row for it. It was the first lane opened off the dogfood path under rule 6, after cut 30 closed `world-resolution` and left tier 1 with no on-path boundary; rule 6 continues to admit off-path lanes, in breadth order. `l13-preimage` is tier 1 off the path: its one prerequisite outside its own work, the `atoms` writable-source preimage seam, landed 2026-09-11 (`atoms-38887b`), so what remains — source-root selection, held-copy matching and the classification boundary — is the boundary's own slice design.
+**Cut 31 (2026-09-16) discharges estimand typing and closes the boundary** — the estimand, its applicability, and the estimate and uncertainty the rule yields are typed; Q1–Q10 close in full. `estimand-typing` entered the ledger's `Current state` and the boundary index below at that record and closed in the same commit, so neither carries an open row for it. It was the first lane opened off the dogfood path under rule 6, after cut 30 closed `world-resolution` and left tier 1 with no on-path boundary; rule 6 continues to admit off-path lanes, in breadth order. `l13-preimage` became tier 1 off the path when its `atoms` writable-source preimage seam landed 2026-09-11 (`atoms-38887b`); cut 37 discharges its consumer boundary below.
 
 **Cut 32 (2026-09-16) discharges composite claims and closes the boundary** — the `composite` kind records the structure a set of claims is drawn against, its reading is derived through the traced evaluator and stored nowhere, and it is inert to belief; U1–U10 close in full. `composite-claims` entered the ledger's `Current state` and the boundary index below at that record and closed in the same commit, so neither carries an open row for it. It is the **second** lane opened off the dogfood path under rule 6, serialized after cut 31's discharge under rule 5, and it **re-ranks nothing on the path**: a composite's reading is never a belief, so no boundary moves onto or off the path and tier 1's on-path state stays *No boundary*. Two off-path consequences are recorded rather than ranked: the coordination-contract amendment that would let a view name a composite is sub-project 5's road, and `contract-cut` carries one more amended oracle.
 
@@ -107,8 +107,18 @@ and every later off-path row renumbers up by one; the ride-along table is
 empty. The capture-order sharpening that would order the double witness is
 filed in `../guide/open-questions.md`, not built.
 
-The current accounting is 186 of 216 rows closed, with 30 open. The prior
-single-corpus mm30 measurement has no remaining on-path boundary; a second corpus may place one here. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state; cut 32 re-ran it again under a further successor and composed and read the `h1-prognosis` fragment from the recreated corpus, which measures structure rather than the on-path question; cut 33 re-derived the same `NoBelief` answer with the empty retraction enumeration derived rather than supplied; cut 34 read the same corpus in place (no contract succeeded to move it aside) and re-derived the same answer, with the new arm exercised only by the acceptance module, not by mm30's corpus; cut 35 read it in place once more and re-derived the same answer with `state.json` byte-identical, its five stored holdings observations all `store` locations decoding unchanged through the widened codec — the `url` arm and the `acquisition` operation are exercised only by the acceptance module; cut 36 read it in place again and re-derived the same answer with `state.json` byte-identical — the event-level relation is read by no driver step, and mm30's single corpus chain orders no cross-chain pair. None of these later measurements re-ranks the path.
+**Cut 37 (2026-09-21) discharges the L13 preimage resolver and closes the boundary** —
+the removed state's digest matches both held copies and surviving preimages;
+the audit reads the writable source root's preimage under its hold, absence
+is stated as `removal-unclassified`, and corrupt local history refuses the
+act. L13 closes in full. This is the **sixth** off-path lane opened under
+rule 6, and it **re-ranks nothing on the path**: mm30's corpus removes
+nothing. `l13-preimage` leaves the ledger's table and this boundary index;
+off-path row 1 is discharged and later rows renumber. The `cross-repo`
+lane keeps `persistence-cut`, including L1's persistence arms.
+
+The current accounting is 187 of 216 rows closed, with 29 open. The prior
+single-corpus mm30 measurement has no remaining on-path boundary; a second corpus may place one here. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state; cut 32 re-ran it again under a further successor and composed and read the `h1-prognosis` fragment from the recreated corpus, which measures structure rather than the on-path question; cut 33 re-derived the same `NoBelief` answer with the empty retraction enumeration derived rather than supplied; cut 34 read the same corpus in place (no contract succeeded to move it aside) and re-derived the same answer, with the new arm exercised only by the acceptance module, not by mm30's corpus; cut 35 read it in place once more and re-derived the same answer with `state.json` byte-identical, its five stored holdings observations all `store` locations decoding unchanged through the widened codec — the `url` arm and the `acquisition` operation are exercised only by the acceptance module; cut 36 read it in place again and re-derived the same answer with `state.json` byte-identical — the event-level relation is read by no driver step, and mm30's single corpus chain orders no cross-chain pair. Cut 37 read it in place again and re-derived the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing. None of these later measurements re-ranks the path.
 
 ## Boundary index
 
@@ -130,7 +140,6 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 |---|---|---|---|
 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | 1, the join — the base contract now carries the estimand grammar (cut 31) and the composite grammar, the `composite` kind, the `composes` signature and `supersedes`' `same_kind` declaration (cut 32): two more oracles amended before the freeze | [beliefs-eacbe2](../../tasks/beliefs-eacbe2.md) |
 | `act-report-remainder` | T2's `audit` and `re-check` operation kinds | 1, off the path | [beliefs-86b150](../../tasks/beliefs-86b150.md) |
-| `l13-preimage` | L13 | 1, off the path | [beliefs-a7df71](../../tasks/beliefs-a7df71.md) |
 | `persistence-cut` | X2; L1's persistence arms (re-homed at cut 36) | 2 | [beliefs-3ea822](../../tasks/beliefs-3ea822.md) |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | 3 | [beliefs-84d7b0](../../tasks/beliefs-84d7b0.md) |
 | `weighted-belief` | S6 (h) | 3 | [beliefs-638318](../../tasks/beliefs-638318.md) |
@@ -151,9 +160,8 @@ In breadth order. Each opens only when no on-path lane is startable
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `l13-preimage` | L13 | row 5 in full; the held-copy match strengthened from path to bytes | the `atoms` seam landed 2026-09-11 (`atoms-38887b`, writable-source `read_preimage`); `beliefs-a7df71` owns source-root selection, matching held history to the inspected chain, and the classification and refusal semantics, replicas without local history included. Off the path: the first belief classifies no removal |
-| 2 | `act-report-remainder` | T2's `audit` and `re-check` operation kinds | the T table in full; a durable, citable home for audit findings | the act-report design §4 names the shape: a boundary wrapper that opens an operation intent, runs the read-only evaluator (or the holdings re-checks) and records its findings as entry outcomes under one terminal report; the evaluator itself acquires no write. Lands on `audit.py`, `world/audit.py` and `holdings/boundary.py`, the `world-read` lane's column. Off the path: the first belief audits nothing it must report |
-| 3 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
+| 1 | `act-report-remainder` | T2's `audit` and `re-check` operation kinds | the T table in full; a durable, citable home for audit findings | the act-report design §4 names the shape: a boundary wrapper that opens an operation intent, runs the read-only evaluator (or the holdings re-checks) and records its findings as entry outcomes under one terminal report; the evaluator itself acquires no write. Lands on `audit.py`, `world/audit.py` and `holdings/boundary.py`, the `world-read` lane's column. Off the path: the first belief audits nothing it must report |
+| 2 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
@@ -182,8 +190,8 @@ boundary sits in the lane of its prerequisite and waits there.
 | `world-read` | `act-report-remainder` → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py`, `world/audit.py`, `holdings/boundary.py` as each slice names | off the path at its head; event-level L8 discharged at cut 36 (with `log-remainder`); world-resolution discharged at cuts 23–25 and 27–30; `act-report-remainder` re-homed here at cut 35, since the `audit` and `re-check` wrappers land on the audit surface |
 | `mutation` | none — `correction-remainder` closed at cut 34 | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | closed 2026-09-19 at cut 34 |
 | `acquisition` | none — `url-retrieval` closed at cut 35; its ride-along `act-report-remainder` re-homed to `world-read` with T2's remainder | `holdings/`, `report.py`, `corpus.py`, `session/writer.py`, `intents/`, `stored.py`; the overlap with `world-read` on `corpus.py` and `stored.py` was named at the freeze under rule 3 (spec §12) | closed 2026-09-20 at cut 35 |
-| `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus is the seed of the dogfood's world. Cut 31 re-ran it under the successor contracts into a recreated corpus at `.work/reproduction/mm30` (the 2026-09-05 corpus state moved aside, never deleted, to `.work/reproduction/mm30.cut22`) and appended §10; cut 32 moved the cut-31 state aside to `.work/reproduction/mm30.cut31`, composed and read the `h1-prognosis` fragment twice, and appended §11; cut 33 read that corpus in place and appended §12, deriving the same empty enumeration the driver had supplied; cut 34 read the same corpus in place again (no contract succeeded, so nothing moved aside) and appended §13, reaching the same `NoBelief` answer with no digest moved — the new `snapshot` retraction arm is exercised only by the acceptance module, not by mm30's corpus, which retracts nothing; cut 35 read it in place again and appended §14, the same answer with `state.json` byte-identical and every stored holdings observation a `store` location decoding unchanged through the widened codec; cut 36 read it in place again and appended §15, the same answer with `state.json` byte-identical and the event-level relation read by no driver step. These re-runs measure transitions, not the on-path question, and re-rank nothing |
-| `cross-repo` | `l13-preimage`, `persistence-cut`, in any order (`nodes-remainder` closed 2026-09-12 at `nodes` `b0c37b8`) | the `atoms` and `nodes` repositories, each behind its own design gate | `l13-preimage`'s seam landed 2026-09-11 (`atoms-38887b`), so it is startable under rule 6; `persistence-cut` waits on `atoms-f5779f` |
+| `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus is the seed of the dogfood's world. Cut 31 re-ran it under the successor contracts into a recreated corpus at `.work/reproduction/mm30` (the 2026-09-05 corpus state moved aside, never deleted, to `.work/reproduction/mm30.cut22`) and appended §10; cut 32 moved the cut-31 state aside to `.work/reproduction/mm30.cut31`, composed and read the `h1-prognosis` fragment twice, and appended §11; cut 33 read that corpus in place and appended §12, deriving the same empty enumeration the driver had supplied; cut 34 read the same corpus in place again (no contract succeeded, so nothing moved aside) and appended §13, reaching the same `NoBelief` answer with no digest moved — the new `snapshot` retraction arm is exercised only by the acceptance module, not by mm30's corpus, which retracts nothing; cut 35 read it in place again and appended §14, the same answer with `state.json` byte-identical and every stored holdings observation a `store` location decoding unchanged through the widened codec; cut 36 read it in place again and appended §15, the same answer with `state.json` byte-identical and the event-level relation read by no driver step; cut 37 read it in place again and appended §16, the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing. These re-runs measure transitions, not the on-path question, and re-rank nothing |
+| `cross-repo` | `persistence-cut` | the `atoms` and `nodes` repositories, each behind its own design gate | waits on `atoms-f5779f`; `l13-preimage` discharged at cut 37; `nodes-remainder` closed 2026-09-12 at `nodes` `b0c37b8` |
 
 `publish` follows the complete `world-read` lane, as the user and autonomy
 layer design §8 item 5 requires. Its coordination/view prerequisite is already
@@ -191,7 +199,7 @@ discharged at cut 14; its publication-binding revision and act-report amendments
 must land before `contract-cut` freezes.
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
-that amends an oracle has merged, for the reason tier 1's row 3 gives. Tier 3
+that amends an oracle has merged, for the reason tier 1's row 2 gives. Tier 3
 boundaries are in no lane either; a design answer moves one into the lane of
 the surface it lands on.
 
@@ -258,12 +266,11 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 36
+## Appendix A — live status of every guarantee row at cut 37
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
-(spec §3.1); a row is closed only when no later source reopens it. Cut 36
-closes L8 in full and L4 and L10 as relabels — the boundary and its
-ride-along close with them — reads no row in part, and reopens nothing. L1
+(spec §3.1); a row is closed only when no later source reopens it. Cut 37
+closes L13 in full, reads no row in part, and reopens nothing. L1
 remains partial on its persistence arms, last read at cut 8 and owned by
 `persistence-cut`; W8 remains partial on its ambiguous-search-term
 conflict; R23 and W8a remain partial only on their `contract-cut` clauses;
@@ -280,7 +287,7 @@ operation kinds and T7 on its cross-root case.
 | C | — | C10 (cut 33) | — |
 | X | — | X2 (cut 7), X12 (cut 24) | — |
 | N | N1, N3, N4, N5, N6, N7, N8, N9, N10 | N2 (cut 4) | — |
-| L | — | L1 (cut 8), L2 (cut 9), L7 (cut 12), L13 (cut 8) | — |
+| L | — | L1 (cut 8), L2 (cut 9), L7 (cut 12) | — |
 | D | — | — | — |
 | M | M12 | M3 (cut 24) | — |
 | P | — | P1 (cut 2) | — |
@@ -294,7 +301,7 @@ operation kinds and T7 on its cross-root case.
 | Q | — | — | — |
 | U | — | — | — |
 
-Closed 186 of 216; open 30.
+Closed 187 of 216; open 29.
 
 ## Appendix B — classification of every open row
 
@@ -318,7 +325,6 @@ Each open row, its remainder as the last cut states it, and where it goes
 | L1 | the persistence arms cut 8 §3.1 names — kill the executor between entry durability and apply at every stage; crash after entry durability but before the transaction record stores the entry digest; cut persistence at every stage of the settlement sequence for both terminal arms (cut 36 results §2, re-homed) | `persistence-cut` — tier 2 |
 | L2 | u5's `register_root` arm, no Science mapping (cut 8 results §1.1) | limitation |
 | L7 | u1's non-ancestor spelling (cut 8 results §1.1) → limitation; every other arm read by cuts 10–12 | limitation only — ranked nowhere |
-| L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3); cut 18 closes nothing here — removal classification stays a path match | `l13-preimage` — tier 1, off the path since the `atoms` seam landed 2026-09-11 |
 | M3 | the coreference-attestation arm is read at cut 24; the concrete-cycle arms needing "a spellable controlled identity construction … a circular fixed point" (cut 5) remain a limitation unless a construction is found. The equal-basis replica arm is read by cut 16; the raw-written-cycle classification and admission-order negative are closed by cut 18 | limitation only — ranked nowhere |
 | M12 | the extraction path (cut 3 §5; kernel limitation 3) | `extraction-path` — tier 3 |
 | P1 | the resolver half of the negative, 5b §6's deterministic resolution (cut 4 §5) | `contract-cut` |
@@ -328,7 +334,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 One boundary carried no guarantee row and entered on the ledger's own
 statements: `nodes-remainder` (row 3: reserved-path contract, recoverable
 construction, digest-id hazards); it left on 2026-09-12 when `nodes` merged
-its 2.0 remainder (`b0c37b8`). Nine others did carry rows and are gone:
+its 2.0 remainder (`b0c37b8`). Ten others did carry rows and are gone:
 `writer-session`, which carried J1–J11 and left when cut 19 closed every row
 of it; `verification-publication`, which entered on cut 13 §2's own named
 exclusion, acquired the `V` table at its freeze, and left when cut 21 closed
@@ -348,7 +354,8 @@ and left with the `acquisition` lane — its ride-along `act-report-remainder`
 closed T1 and T4 there and stays, re-homed, with T2's two operation kinds;
 and `event-level-l8`, which carried L8, closed it at cut 36 and left with
 its ride-along `log-remainder`, whose L4 and L10 closed there as relabels
-and whose L1 moved to `persistence-cut`. None classifies a new open row
+and whose L1 moved to `persistence-cut`; and `l13-preimage`, which closed
+L13 at cut 37 while row 5 stayed partial for L1 alone. None classifies a new open row
 here: cut 32's
 eighteen limitations are banked as limitations, and the two findings it
 records against other boundaries — the coordination-contract amendment on

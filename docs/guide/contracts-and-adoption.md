@@ -61,6 +61,7 @@ sources:
   - ../plans/2026-09-19-conformance-cut-34-results.md
   - ../plans/2026-09-20-conformance-cut-35-results.md
   - ../plans/2026-09-21-conformance-cut-36-results.md
+  - ../plans/2026-09-21-conformance-cut-37-results.md
 ---
 
 # Contracts and adoption
@@ -207,7 +208,7 @@ W8b is measured and not selected. Its build defect is repaired by
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 
-Thirty-two conformance cuts have been frozen and discharged, each frozen before
+Thirty-three conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -276,14 +277,17 @@ chain only with a placeable anchor under the live genesis, and the relation
 is witness-asymmetric over ordered cuts — the double witness answers
 `unordered`. L8 closes over 16 declaration units and three boundary
 invariants; L4 and L10 close as relabels citing cuts 8, 9 and 10; L1 stays
-partial on its persistence arms, re-homed to `persistence-cut`. The corpus
-now has **186 of 216 rows closed, 30 open**
+partial on its persistence arms, re-homed to `persistence-cut`
 (`../designs/2026-09-21-conformance-cut-36.md`;
 `../plans/2026-09-21-conformance-cut-36-results.md`).
-Cut 37 is frozen and not yet discharged: the L13 preimage resolver — the
+Cut 37 discharges the L13 preimage resolver and closes the boundary: the
 digest match over held copies and surviving preimage bytes, absence stated,
-corrupt local history refused
-(`../designs/2026-09-21-conformance-cut-37.md`).
+corrupt local history refused. Fifteen arms over eleven declaration units
+(including three boundary invariants) close L13; row 5 stays partial for
+L1 under `persistence-cut`. The corpus now has **187 of 216 rows closed,
+29 open**
+(`../designs/2026-09-21-conformance-cut-37.md`;
+`../plans/2026-09-21-conformance-cut-37-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -319,4 +323,5 @@ questions under
 - [Cut 12 discharge results](../plans/2026-08-29-conformance-cut-12-results.md)
 - [Cut 34 discharge results](../plans/2026-09-19-conformance-cut-34-results.md)
 - [Cut 35 discharge results](../plans/2026-09-20-conformance-cut-35-results.md)
-- [Cut 36 discharge results, the newest results record](../plans/2026-09-21-conformance-cut-36-results.md)
+- [Cut 36 discharge results](../plans/2026-09-21-conformance-cut-36-results.md)
+- [Cut 37 discharge results, the newest results record](../plans/2026-09-21-conformance-cut-37-results.md)

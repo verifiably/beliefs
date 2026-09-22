@@ -1,7 +1,7 @@
 # L13 preimage resolver — digest-matched classification of a removed verification
 
 **Date:** 2026-09-21
-**Status:** draft, for review before the cut freezes
+**Status:** discharged at conformance cut 37 on 2026-09-21; results: ../../plans/2026-09-21-conformance-cut-37-results.md
 **Boundary:** `l13-preimage` (`beliefs-a7df71`), tier 1 off the path, row 1 after cut 36
 **Lane:** `cross-repo`, worktree `.worktrees/l13-preimage`
 **Sources:** `../../designs/2026-08-03-tamper-evident-log-design.md` (§2 ruling 4, §8, §9, L13),
@@ -577,6 +577,13 @@ first and the held copy second, so the assertion holds unchanged.
    boundary needs it.
 
 ## 13. Review log
+
+- **2026-09-21, implementation correction to §9.2:** the acceptance
+  fixtures author their removals through the durable executor exposed by
+  `root`, rather than `CorpusWriter.delete`. The real committed chain and
+  surviving preimages are the evidence this cut reads; cut 18's durable
+  managed-delete check covers `delete`'s chain shape and the executor is
+  the path it runs on. The declared acceptance width is unchanged.
 
 - **2026-09-21, spec review (one P2, taken):** `held=present` was defined
   three ways — a copy under another digest (§3.4), absent for another
