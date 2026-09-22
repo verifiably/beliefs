@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: main
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-22T21:54:36Z
+updated: 2026-09-22T22:08:29Z
 started: 2026-09-22T21:54:25Z
 depends: [beliefs-b34652, beliefs-1f7400]
 tags: [migration, publication, coordination]
@@ -30,3 +30,4 @@ Uncertainty: Destination-specific remote transport remains for Science, while th
 - 2026-09-22T21:54:25Z (main): started
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-22T21:54:25Z (main): claimed by claude-code/claude-opus-5-5, pid 1928635
+- 2026-09-22T22:08:29Z (design/publish): Split into two slices: beliefs-d7d7d1 (records/evidence, cut 39) and beliefs-328507 (the act, cut 40).
