@@ -303,6 +303,18 @@ class LogEvidenceRefused(ScienceError):
         self.detail = detail
 
 
+class PreimageMismatch(ScienceError):
+    """The engine's preimage for a committed removal does not hash to the
+    digest the inspected chain declares for it.
+
+    Both are read under one hold — the chain by the registered inspection,
+    the bytes by `read_preimage` against the same root — so a disagreement is
+    a contradiction between two evidence sources the act itself obtained,
+    never a judgment about the removal. Like `LogEvidenceRefused` it produces
+    no report, is no outcome and is no arrival cause (spec §6).
+    """
+
+
 class AdmissionEvidenceRefused(ScienceError):
     """The successor-admission act refused to judge: evidence it must read
     is unreadable, incoherent, or unresolved. Names the offending record

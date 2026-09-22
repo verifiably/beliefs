@@ -45,8 +45,6 @@ from typing import TYPE_CHECKING, Literal, TypeAlias, cast
 
 from nodes.core.errors import NodesError
 from nodes.core.frontmatter import node_from_markdown
-from nodes.core.ids import NodeId
-from nodes.core.node import Node
 from yaml import YAMLError
 
 from beliefs.corpus import Finding, OperationLock
@@ -63,6 +61,7 @@ from beliefs.errors import (
     ManifestMalformed,
     ManifestMissing,
     ObserverCarrierInvalid,
+    PreimageMismatch,
     SubjectMismatch,
     WorldUninitialized,
 )
@@ -89,6 +88,7 @@ if TYPE_CHECKING:  # pragma: no cover - the cycle below is real at run time
 
 __all__ = [
     "CHAIN_ABSENT",
+    "NO_PREIMAGES",
     "ArtifactCarrier",
     "EpochCarrier",
     "LogReport",
@@ -97,15 +97,22 @@ __all__ = [
     "ObserverSet",
     "Order",
     "Ordering",
+    "PreimageEvidence",
+    "PreimageRead",
+    "PreimageUnavailable",
+    "Preimages",
     "PresentedIdentity",
     "PresentedManifest",
     "PresentedWorldIds",
     "Provenance",
     "RegistryCarrier",
+    "Removal",
     "ReplayResult",
     "RootKind",
+    "committed_removals",
     "evaluate_log",
     "registered_surface_paths",
+    "removed_digest",
     "replay",
     "validate_history",
 ]
@@ -341,7 +348,91 @@ def validate_history(history: Mapping[str, bytes]) -> None:
             raise ValueError(f"{key}: the held bytes hash to sha256:{actual}")
 
 
-# --- replay (design §5.2) and the policy pass (design §5.3) -----------------
+# --- committed removals and their evidence (l13-preimage spec §3) -----------
+
+
+@dataclass(frozen=True, slots=True)
+class Removal:
+    """One committed removal the chain declares.
+
+    `state` is the transition's **declared** pre-state — the timeline's own
+    claim about what it removed — never the accumulated surface, which past a
+    divergence is no longer evidence of it. It stays opaque here: the only
+    thing done with it is to hand it to the seam's codec.
+    """
+
+    txid: str
+    path: str
+    state: object
+
+
+def committed_removals(view: WellFormedView, absent_state: object) -> tuple[Removal, ...]:
+    """Every committed transition's removals, in chain order.
+
+    A removal is a `final` pair stating `absent_state` for a path whose
+    declared `initial` state is not absent. A rolled-back registration, and
+    one nothing has settled, is no transition at all. The audit reads
+    preimages for exactly this set and the policy pass classifies exactly this
+    set, so the two name one inventory (spec §3.1).
+    """
+    committed = {
+        entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed
+    }
+    removals: list[Removal] = []
+    for entry in view.entries:
+        if type(entry) is not RegisteredEntryView or entry.digest not in committed:
+            continue
+        declared = dict(entry.initial)
+        for path, state in entry.final:
+            if state == absent_state and declared.get(path, absent_state) != absent_state:
+                removals.append(Removal(txid=entry.txid, path=path, state=declared[path]))
+    return tuple(removals)
+
+
+def _file_facts(
+    state: object, state_facts: Callable[[object], tuple[tuple[str, str], ...]]
+) -> tuple[str, int] | None:
+    """`(digest, byte_len)` of a file state as the seam's codec renders it, or
+    `None` for any other kind. The one place the policy pass touches a state's
+    facts, and it touches them through the engine-owned codec."""
+    facts = dict(state_facts(state))
+    if facts.get("kind") != "file":
+        return None
+    return f"sha256:{facts['content_hash']}", int(facts["byte_len"])
+
+
+def removed_digest(
+    state: object, state_facts: Callable[[object], tuple[tuple[str, str], ...]]
+) -> str | None:
+    """The content digest a removed file state declares, in `history`'s key
+    form, or `None` for a pre-state that is not a file (spec §3.2)."""
+    facts = _file_facts(state, state_facts)
+    return None if facts is None else facts[0]
+
+
+@dataclass(frozen=True, slots=True)
+class PreimageRead:
+    """The engine's owned, verified bytes for one `(txid, path)`."""
+
+    payload: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class PreimageUnavailable:
+    """The engine declined to produce the bytes, for a reason that is evidence
+    about availability rather than integrity — its `PreconditionRefused` text."""
+
+    reason: str
+
+
+PreimageEvidence: TypeAlias = PreimageRead | PreimageUnavailable
+Preimages: TypeAlias = Mapping[tuple[str, str], PreimageEvidence]
+NO_PREIMAGES: Preimages = MappingProxyType({})
+"""The evidence a caller that consulted no preimage supplies: arrival, restore,
+and every evaluator caller but the audit."""
+
+
+# --- replay (design §5.2) and the policy pass (design §5.3, spec §3.3–3.4) --
 
 
 @dataclass(frozen=True, slots=True)
@@ -367,6 +458,9 @@ def replay(
     disk: tuple[tuple[str, object], ...],
     absent_state: object,
     history: Mapping[str, bytes] | None,
+    *,
+    state_facts: Callable[[object], tuple[tuple[str, str], ...]],
+    preimages: Preimages = NO_PREIMAGES,
 ) -> ReplayResult:
     """Replay `view` from its genesis baseline and compare the result to `disk`.
 
@@ -382,29 +476,37 @@ def replay(
     is caught, and a path the timeline produced that the disk has lost
     disagrees the same way.
 
-    Every state here is the engine's own, carried opaquely: the only operation
-    performed on one is `==`. Nothing is interpreted, and nothing is
-    re-encoded — that is what keeps one summary model a mechanism.
+    Every state here is the engine's own, carried opaquely: the only
+    operations performed on one are `==` and, for a removed pre-state, the
+    seam's own codec `state_facts`. Nothing is interpreted by this module and
+    nothing is re-encoded — that is what keeps one summary model a mechanism.
 
     An initial-fingerprint disagreement is reported at the entry where the
     timeline stopped agreeing with itself, and it **skips the head
     comparison**: past that point the accumulated surface is no longer what
     the timeline claims, and comparing it against the disk would report
     consequences of the first disagreement as further evidence. The **policy
-    pass still runs to the end of the chain**, because a removal is the
+    pass still runs over the whole chain**, because a removal is the
     timeline's own claim about its transition and an inventory truncated at
     the first disagreement would be a silently short one.
+
+    `preimages` is the audit's evidence, keyed by the removing `(txid, path)`;
+    `history` is the caller's. Both resolve by the removed state's digest
+    (spec §3.3), and `state_facts` is required because a replay that could
+    not render that digest would silently regress to no classification.
     """
     if history is not None:
         validate_history(history)
-    held = _held_records(history)
+    held: Mapping[str, bytes] = history if history is not None else {}
+    findings: list[Finding] = []
+    for removal in committed_removals(view, absent_state):
+        findings.extend(_removal_findings(removal, held, preimages, state_facts))
+
     modeled: dict[str, object] = dict(view.genesis.baseline)
     committed = {
         entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed
     }
-    findings: list[Finding] = []
     diverged: tuple[str, ...] = ()
-
     for entry in view.entries:
         if type(entry) is not RegisteredEntryView or entry.digest not in committed:
             continue
@@ -414,13 +516,7 @@ def replay(
                 for path, state in entry.initial
                 if modeled.get(path, absent_state) != state
             )
-        # The transition's *declared* pre-state, not the accumulated one: what
-        # a transition removed is the timeline's claim about itself, and past a
-        # divergence the accumulation is no longer evidence of it.
-        declared = dict(entry.initial)
         for path, state in entry.final:
-            if state == absent_state and declared.get(path, absent_state) != absent_state:
-                findings.extend(_removal_findings(path, entry.txid, held))
             modeled[path] = state
 
     if diverged:
@@ -434,140 +530,113 @@ def replay(
     return ReplayResult(refuted=bool(disagreements), disagreements=disagreements, findings=tuple(findings))
 
 
-@dataclass(frozen=True, slots=True)
-class _HeldRecord:
-    """One held copy, as the policy pass reads it.
-
-    `verdict` is a held verification's verdict and `None` for every other
-    kind; `verdict_unreadable` is true for exactly one case — a held
-    verification whose facet does not validate — which is a different fact
-    from "not a verification" and is worded as its own classification.
-    """
-
-    digest: str
-    kind: str
-    verdict: str | None
-    verdict_unreadable: bool
-
-
-def _removal_findings(path: str, txid: str, held: Mapping[str, _HeldRecord]) -> tuple[Finding, ...]:
-    """One committed removal's findings: the removal, and its classification
-    where the caller's held bytes resolve the removed record.
+def _removal_findings(
+    removal: Removal,
+    held: Mapping[str, bytes],
+    preimages: Preimages,
+    state_facts: Callable[[object], tuple[tuple[str, str], ...]],
+) -> tuple[Finding, ...]:
+    """One committed removal's findings: the removal, then exactly one of a
+    classification or the stated absence (spec §3.3's order, §3.4's table).
 
     Logged is not permitted (log design §8): the removal finding is emitted
     for every committed removal of a claimed path, including one a legitimate
     act made, because the judgment it supports is the consumer contract's and
     not this design's. Classification is the separate claim, and it is made
-    only from evidence the caller actually holds.
-
-    **Every classification speaks about the held copy, never about the removed
-    bytes.** The match is by claimed path (see `_held_records`), so a copy that
-    claims the path may be a different version of the record than the one the
-    transition removed; a finding that said "the removed record is not a
-    failing verification" would be asserting exactly what the missing digest
-    match would have had to establish.
+    only from bytes that hash to the digest the chain declares — the
+    preimage first, the held copy otherwise — so every classification speaks
+    about the removed bytes.
     """
-    removal = Finding(
+    removed = Finding(
         severity="warning",
         code="record-removed",
-        ref=path,
-        detail=f"txid={txid}",
+        ref=removal.path,
+        detail=f"txid={removal.txid}",
         message="a committed transaction removed a registered-surface record",
     )
-    resolved = held.get(path)
-    if resolved is None:
-        return (removal,)
-    return (removal, _classification(path, txid, resolved))
+    digest = removed_digest(removal.state, state_facts)
+    if digest is None:
+        return (removed, _unclassified(removal, "none", "not-consulted", None))
+    evidence = preimages.get((removal.txid, removal.path))
+    if type(evidence) is PreimageRead:
+        actual = f"sha256:{hashlib.sha256(evidence.payload).hexdigest()}"
+        if actual != digest:
+            raise PreimageMismatch(
+                f"{removal.path}: the engine's preimage for txid={removal.txid} hashes to {actual}, "
+                f"but the inspected chain declares {digest} for the removed state"
+            )
+        return (removed, _classification(removal, digest, "preimage", evidence.payload))
+    if digest in held:
+        return (removed, _classification(removal, digest, "held-copy", held[digest]))
+    if type(evidence) is PreimageUnavailable:
+        return (removed, _unclassified(removal, digest, "refused", evidence.reason))
+    return (removed, _unclassified(removal, digest, "not-consulted", None))
 
 
-def _classification(path: str, txid: str, held: _HeldRecord) -> Finding:
-    """What the one held copy claiming `path` says about the removal."""
-    detail = f"txid={txid} digest={held.digest} kind={held.kind}"
-    if held.kind != "verification":
+def _unclassified(removal: Removal, digest: str, consulted: str, reason: str | None) -> Finding:
+    """The classification stated absent, with why (spec §2 decision 7). No
+    `held=` token: this finding's existence says nothing was held under the
+    removed digest, and copies under other digests support no removal."""
+    message = "no historical content resolves the removed bytes; the classification is absent"
+    if reason is not None:
+        message = f"{message} (the engine declined the preimage: {reason})"
+    return Finding(
+        severity="warning",
+        code="removal-unclassified",
+        ref=removal.path,
+        detail=f"txid={removal.txid} digest={digest} preimage={consulted}",
+        message=message,
+    )
+
+
+def _classification(removal: Removal, digest: str, source: str, payload: bytes) -> Finding:
+    """What the removed bytes, resolved by digest through `source`, are."""
+    detail = f"txid={removal.txid} digest={digest} source={source}"
+    try:
+        node = node_from_markdown(payload.decode("utf-8"))
+    except (NodesError, ValueError, YAMLError):
         return Finding(
             severity="warning",
             code="removal-classified",
-            ref=path,
-            detail=detail,
-            message="a held copy filed under this digest claims the removed path and is not a verification",
+            ref=removal.path,
+            detail=f"{detail} kind=none",
+            message="the removed bytes, resolved by digest, are not a Science record",
         )
-    if held.verdict_unreadable:
+    if node.kind != "verification":
         return Finding(
             severity="warning",
             code="removal-classified",
-            ref=path,
-            detail=f"{detail} verdict=unreadable",
-            message="a held copy filed under this digest claims the removed path, and its verification facet does "
-            "not validate, so no verdict is read from it",
+            ref=removal.path,
+            detail=f"{detail} kind={node.kind}",
+            message="the removed record's bytes, resolved by digest, are not a verification",
         )
-    if held.verdict == "failed":
+    try:
+        verdict = verification_value(node).verdict
+    except MalformedRecord:
+        return Finding(
+            severity="warning",
+            code="removal-classified",
+            ref=removal.path,
+            detail=f"{detail} kind=verification verdict=unreadable",
+            message="the removed record's bytes, resolved by digest, are a verification whose facet does not "
+            "validate, so no verdict is read from them",
+        )
+    if verdict == "failed":
         return Finding(
             severity="error",
             code="failing-verification-removed",
-            ref=path,
-            detail=f"txid={txid} digest={held.digest}",
-            message="a held copy filed under this digest claims the removed path and carries a failing verdict, "
-            "which the kernel's immutability rules keep",
+            ref=removal.path,
+            detail=detail,
+            message="the removed record's bytes, resolved by digest, are a verification carrying a failing "
+            "verdict, which the kernel's immutability rules keep",
         )
     return Finding(
         severity="warning",
         code="removal-classified",
-        ref=path,
-        detail=f"{detail} verdict={held.verdict}",
-        message="a held copy filed under this digest claims the removed path and carries no failing verdict",
+        ref=removal.path,
+        detail=f"{detail} kind=verification verdict={verdict}",
+        message="the removed record's bytes, resolved by digest, are a verification carrying no failing verdict",
     )
-
-
-def _held_records(history: Mapping[str, bytes] | None) -> dict[str, _HeldRecord]:
-    """The caller's held copies, indexed by the corpus path each one claims.
-
-    **What this resolution is, and is not.** A chain entry retains a path's
-    state, and a state is opaque above the composition root, so this slice
-    cannot match a held copy to the removed state by digest: the resolver that
-    could is the named `atoms` preimage seam (spec §10.4), and until it exists
-    the match is by the path the held record's own identity claims. The
-    finding names the digest the copy was filed under so a reader can check
-    the claim; a possessed copy is caller-attested evidence either way. Two
-    copies claiming one path resolve nothing — which of them was removed is
-    exactly the question the digest match would have answered.
-
-    Bytes that are not a Science record are not a resolution and not a
-    corruption: a history may hold any blob, and `validate_history` has
-    already refused the pairs that are actually corrupt.
-    """
-    if history is None:
-        return {}
-    claimed: dict[str, list[_HeldRecord]] = {}
-    for digest, payload in history.items():
-        try:
-            node = node_from_markdown(payload.decode("utf-8"))
-            path = _record_path(node.id)
-        except (NodesError, ValueError, YAMLError):
-            continue
-        claimed.setdefault(path, []).append(_held_record(digest, node))
-    return {path: copies[0] for path, copies in claimed.items() if len(copies) == 1}
-
-
-def _record_path(node_id: str) -> str:
-    """The corpus-relative path a record id claims.
-
-    `nodes`' own layout rule (`nodes.core.store.Store.path_for`), read off the
-    id rather than through a `Store`, which is a writable handle a module that
-    mints nothing has no business holding.
-    """
-    parsed = NodeId.parse(node_id)
-    return f"{parsed.kind}/{parsed.slug.replace(':', '__')}{RECORD_SUFFIX}"
-
-
-def _held_record(digest: str, node: Node) -> _HeldRecord:
-    """One decoded held copy, with its verdict read where there is one to read."""
-    if node.kind != "verification":
-        return _HeldRecord(digest=digest, kind=node.kind, verdict=None, verdict_unreadable=False)
-    try:
-        verdict = verification_value(node).verdict
-    except MalformedRecord:
-        return _HeldRecord(digest=digest, kind=node.kind, verdict=None, verdict_unreadable=True)
-    return _HeldRecord(digest=digest, kind=node.kind, verdict=verdict, verdict_unreadable=False)
 
 
 # --- the observer carriers (design §4.1) ------------------------------------
@@ -930,6 +999,7 @@ def evaluate_log(
     absent_state: object,
     state_facts: Callable[[object], tuple[tuple[str, str], ...]],
     history: Mapping[str, bytes] | None = None,
+    preimages: Preimages = NO_PREIMAGES,
 ) -> LogReport:
     """§4's one read-only judgment surface: four steps, four outcomes.
 
@@ -964,6 +1034,9 @@ def evaluate_log(
        reached, never inferred from disk.
     4. **Replay.** Any disagreement refutes; otherwise `validated`, with the
        unanchored tail stated.
+
+       `preimages` is the audit's evidence for the policy pass (spec §3.3);
+       every other caller supplies none.
 
     **Subject-mismatch findings** (§6.3) compare the presented identity and the
     genesis against the selected subject. They are findings in every outcome —
@@ -1071,7 +1144,7 @@ def evaluate_log(
         )
 
     # Step 4 — replay.
-    result = replay(view, disk, absent_state, history)
+    result = replay(view, disk, absent_state, history, state_facts=state_facts, preimages=preimages)
     findings.extend(result.findings)
     findings.extend(_disagreement_finding(disagreement) for disagreement in result.disagreements)
     return _report(
