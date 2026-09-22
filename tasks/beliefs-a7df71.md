@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/l13-preimage
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-22T00:28:31Z
+updated: 2026-09-22T00:43:02Z
 started: 2026-09-22T00:12:25Z
 depends: [atoms-38887b]
 tags: [migration, cross-repo, log]
@@ -32,3 +32,7 @@ Uncertainty: The Atoms seam is delivered and writable-only, so nothing outside t
 - 2026-09-22T00:12:25Z (design/l13-preimage): started
   provenance: {"harness_session":"claude-code:d086e462-1230-46b7-9dda-e4f7bef8146f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-22T00:12:25Z (design/l13-preimage): claimed by claude-code/claude-opus-5[1m], pid 1533210, session d086e462-1230-46b7-9dda-e4f7bef8146f; next: brainstorm the l13-preimage slice design
+- 2026-09-22T00:28:39Z (design/l13-preimage): parked (waiting on user, review): review docs/superpowers/specs/2026-09-21-l13-preimage-design.md; on approval, writing-plans for cut 37 in .worktrees/l13-preimage
+  provenance: {"harness_session":"claude-code:d086e462-1230-46b7-9dda-e4f7bef8146f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-22T00:43:02Z (design/l13-preimage): resumed
+  provenance: {"harness_session":"claude-code:d086e462-1230-46b7-9dda-e4f7bef8146f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

@@ -137,9 +137,12 @@ builds no consumer.
    engine's words.
 7. **Absence is stated, not silent.** A committed removal nothing resolves
    draws `removal-unclassified` beside `record-removed`, naming the digest
-   the resolution would have needed, whether the preimage was consulted and
-   what the engine said, and whether a held copy under that digest was
-   supplied. Cut 8's L13u3 read "honestly absent" as *no classification
+   the resolution would have needed and whether the preimage was consulted
+   and what the engine said. The finding itself states that no held copy
+   under that digest was supplied — a copy under it would have classified —
+   and copies supplied under other digests are not counted: they support no
+   removal, and counting them would mislead a reader about which one they
+   support. Cut 8's L13u3 read "honestly absent" as *no classification
    finding*; this slice reads it as *a finding that says the classification
    is absent and why*, so an operator can tell a root that retains no
    history from a caller who held no copy. `record-removed` itself is
@@ -245,7 +248,7 @@ of the following, `ref=path` in every case:
 | `removal-classified` | `warning` | `… kind=verification verdict=unreadable` | a verification whose facet does not validate |
 | `removal-classified` | `warning` | `… kind=<k>` | a record of another kind |
 | `removal-classified` | `warning` | `… kind=none` | bytes that are not a Science record (`NodesError`, `ValueError`, `YAMLError` at decode) |
-| `removal-unclassified` | `warning` | `txid=<t> digest=<d\|none> preimage=<refused\|not-consulted> held=<present\|absent>` | nothing resolved |
+| `removal-unclassified` | `warning` | `txid=<t> digest=<d\|none> preimage=<refused\|not-consulted>` | nothing resolved: no preimage bytes and no held copy under `<d>` |
 
 Messages speak about **the removed bytes** ("the removed record's bytes,
 resolved by digest, …"); the phrase "a held copy filed under this digest
@@ -253,10 +256,10 @@ claims the removed path" leaves the module. The `removal-unclassified`
 message carries the engine's reason verbatim when `preimage=refused`, so
 the detail grammar stays `key=value` tokens and the free text stays in the
 message, which is normative for nothing. `preimage=resolved` never
-appears on an unclassified removal — a resolved read classifies — so the
-unclassified token set is `{refused, not-consulted} × {present, absent}`,
-and `held=present` there means a copy was supplied under a digest that is
-not the removed one.
+appears on an unclassified removal — a resolved read classifies — and the
+detail carries no `held=` token: the finding's existence is the statement
+that `history` held nothing under the removed digest, and copies under
+other digests are unrelated evidence (decision 7).
 
 ## 4. The seam — `LogSeam.read_preimage` and `root.py`
 
@@ -380,7 +383,8 @@ the production `state_facts`:
 - the held copy resolves by digest: the copy of the removed bytes →
   `failing-verification-removed` with `source=held-copy` and the removed
   digest; a copy of **another version** of the same record (same id, other
-  verdict) → `removal-unclassified` with `held=absent`; two copies, one
+  verdict) → `removal-unclassified`, the other-version copy named
+  nowhere; two copies, one
   matching → classified from the matching one alone (the R16 reversal, in
   both directions).
 - the preimage resolves: `PreimageRead` of the removed bytes →
@@ -427,13 +431,14 @@ tip as `test_deletion_acceptance.py`'s `_audit_log` does. Cases:
    `passed`, never stored. On the writable root the removal classifies
    from the preimage (`source=preimage`, `verdict=failed`) and the copy is
    not named; on the restored copy (case 3's) the same `history` yields
-   `removal-unclassified held=present` — a copy of another version of the
-   record resolves nothing, in the direction R16 said it could misclassify.
+   `removal-unclassified` naming the removed digest only — a copy of
+   another version of the record resolves nothing and is named nowhere, in
+   the direction R16 said it could misclassify.
 3. **No local history.** `replicate_root` then `restore_root` the source
    after case 1 (`read-only-serviceable`; registered inspection), and admit
    a raw copy through `admit_arrival` (detached): the audit of the restored
-   copy → `record-removed` and `removal-unclassified preimage=refused
-   held=absent`, the message carrying the engine's lifecycle refusal; the
+   copy → `record-removed` and `removal-unclassified preimage=refused`,
+   the message carrying the engine's lifecycle refusal; the
    arrival's report → `preimage=not-consulted`. With `history` holding the
    removed bytes, both classify `source=held-copy`.
 4. **Corrupt local history.** On a writable root after a removal, truncate
@@ -570,4 +575,12 @@ first and the held copy second, so the assertion holds unchanged.
 
 ## 13. Review log
 
-- *(empty until the spec review)*
+- **2026-09-21, spec review (one P2, taken):** `held=present` was defined
+  three ways — a copy under another digest (§3.4), absent for another
+  version of the record (§9.1), present for the same case (§9.2). Presence
+  is now defined by the exact removed digest, which makes the token
+  unreachable on an unclassified removal, so it is dropped: the finding
+  states that nothing was held under the removed digest, and unrelated
+  copies are not counted (decision 7, §3.4, §9.1, §9.2 cases 2–3). Digest
+  matching, the `atoms` exception mapping and the frozen-evidence handling
+  were confirmed against the code.
