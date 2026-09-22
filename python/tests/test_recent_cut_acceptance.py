@@ -14,6 +14,7 @@ import cut34_acceptance as cut34
 import cut35_acceptance as cut35
 import cut36_acceptance as cut36
 import cut37_acceptance as cut37
+import cut38_acceptance as cut38
 import pytest
 
 from beliefs import root
@@ -29,8 +30,9 @@ from beliefs import root
         (cut35, 35, (28, 27, 8)),
         (cut36, 36, (18, 16, 3)),
         (cut37, 37, (15, 11, 1)),
+        (cut38, 38, (14, 12, 3)),
     ),
-    ids=("cut23", "cut24", "cut33", "cut34", "cut35", "cut36", "cut37"),
+    ids=("cut23", "cut24", "cut33", "cut34", "cut35", "cut36", "cut37", "cut38"),
 )
 def test_recent_runner_preserves_commands_environment_and_cleanup(
     runner, cut: int, accounting: tuple[int, int, int], tmp_path: Path, monkeypatch, capsys
@@ -81,6 +83,10 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
         assert "guarantee rows exercised: 3 (3 newly closed: L8, L4, L10; L1 re-homed to persistence-cut, partial)" in output
     if cut == 37:
         assert "guarantee rows exercised: 1 (1 newly closed: L13; row 5 partial for L1 under persistence-cut)" in output
+    if cut == 38:
+        assert (
+            "guarantee rows exercised: 3 (1 newly closed: T2; T5 and T6 re-read for the new kinds; T7 partial under cross-root-publication)" in output
+        )
 
 
 @pytest.mark.parametrize(("runner", "cut"), ((cut23, 23), (cut24, 24)), ids=("cut23", "cut24"))
