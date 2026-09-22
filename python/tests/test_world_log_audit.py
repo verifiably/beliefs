@@ -158,6 +158,48 @@ class Captures:
         return tuple((path, self.overrides.get(path, state(path))) for path in paths)
 
 
+class Preimages:
+    """The seam's `read_preimage`, answering from a table per `(txid, path)`
+    and recording every request with the lock state it was made under."""
+
+    def __init__(self) -> None:
+        self.evidence: dict[tuple[str, str], verify.PreimageEvidence] = {}
+        self.calls: list[tuple[Path, str, str, int]] = []
+        self.probe: object = None
+
+    def set(self, txid: str, path: str, evidence: verify.PreimageEvidence) -> None:
+        self.evidence[(txid, path)] = evidence
+
+    def __call__(
+        self, root: Path, txid: str, path: str, max_bytes: int
+    ) -> verify.PreimageEvidence:
+        self.calls.append((Path(root).resolve(), txid, path, max_bytes))
+        if callable(self.probe):
+            self.probe(Path(root).resolve())
+        return self.evidence.get(
+            (txid, path),
+            verify.PreimageUnavailable("this arm set no preimage for that removal"),
+        )
+
+
+FACT_BYTES: dict[str, bytes] = {}
+"""What a fabricated path's state 'is', for arms that hold or read its bytes."""
+
+
+def opaque_facts(value: object) -> tuple[tuple[str, str], ...]:
+    """Encode this module's inert states as absent or regular-file facts."""
+    if value is ABSENT:
+        return (("kind", "absent"),)
+    label = cast(str, value.__dict__["_label"])
+    payload = FACT_BYTES.get(label, label.encode())
+    return (
+        ("kind", "file"),
+        ("content_hash", hashlib.sha256(payload).hexdigest()),
+        ("mode", "0o644"),
+        ("byte_len", str(len(payload))),
+    )
+
+
 def unreached_detached(root: Path) -> logmodel.ChainView:
     raise AssertionError(f"{root}: audit consumes registered mode, never detached (§2.1)")
 
@@ -167,7 +209,12 @@ def unreached_head(root: Path) -> logmodel.ChainHead:
 
 
 def make_seam(
-    inspections: Inspections, captures: Captures, *, detached: Inspections | None = None
+    inspections: Inspections,
+    captures: Captures,
+    *,
+    detached: Inspections | None = None,
+    preimages: Preimages | None = None,
+    state_facts=opaque_facts,
 ) -> verify.LogSeam:
     """A seam over the production locks, with inspection and capture stubbed.
 
@@ -193,6 +240,8 @@ def make_seam(
         # Audit never reads it; the arrival arms that reuse this seam model
         # arriving copies, whose state keeps the detached inspection selected.
         lifecycle_state=lambda _root: "metadata-less",
+        state_facts=state_facts,
+        read_preimage=preimages if preimages is not None else Preimages(),
     )
 
 
@@ -323,6 +372,7 @@ def audit(
     observers: tuple[verify.ObserverCarrier, ...] = (),
     actor: str = "alice",
     history: Mapping[str, bytes] | None = None,
+    preimages: Preimages | None = None,
 ) -> verify.LogReport:
     return verify._audit_log(
         config,
@@ -331,7 +381,7 @@ def audit(
         verify.ObserverSet(observers),
         actor=actor,
         history=history,
-        seam=make_seam(inspections, captures),
+        seam=make_seam(inspections, captures, preimages=preimages),
     )
 
 
@@ -707,6 +757,7 @@ class TestTheAuditAct:
         root = corpus_root(tmp_path)
         removed = "verification/v1.md"
         payload = held_verification("v1", "failed")
+        FACT_BYTES[removed] = payload
         history = {f"sha256:{hashlib.sha256(payload).hexdigest()}": payload}
         created = registration(
             digest("create"),
@@ -738,6 +789,8 @@ class TestTheAuditAct:
             "record-removed",
             "failing-verification-removed",
         ]
+        assert report.findings[1].detail.endswith("source=held-copy")
+        del FACT_BYTES[removed]
 
     def test_a_corrupt_history_refuses_before_the_root_is_read_at_all(self, tmp_path):
         # §5.3: corrupt evidence is never silently ignored — and the pairs are
@@ -781,6 +834,8 @@ class TestTheAuditAct:
             absent_state,
             state_facts,
             history=None,
+            *,
+            preimages=verify.NO_PREIMAGES,
         ):
             seen.append(
                 (
@@ -792,6 +847,7 @@ class TestTheAuditAct:
                     absent_state,
                     state_facts,
                     history,
+                    preimages,
                 )
             )
             return evaluate(
@@ -804,6 +860,7 @@ class TestTheAuditAct:
                 absent_state,
                 state_facts,
                 history,
+                preimages=preimages,
             )
 
         monkeypatch.setattr(verify, "evaluate_log", recording)
@@ -811,7 +868,7 @@ class TestTheAuditAct:
         report = audit(config_for(tmp_path, root), anchors.CorpusSubject(ALPHA), root, inspections, captures)
 
         assert len(seen) == 1
-        subject, chain_view, disk, records, presented, absent_state, state_facts, history = seen[0]
+        subject, chain_view, disk, records, presented, absent_state, state_facts, history, preimages = seen[0]
         assert (subject, chain_view, presented) == (
             anchors.CorpusSubject(ALPHA),
             view,
@@ -821,7 +878,284 @@ class TestTheAuditAct:
         assert records == ()
         assert state_facts is make_seam(inspections, captures).state_facts
         assert (absent_state, history) == (ABSENT, None)
+        assert preimages == {}
         assert report.outcome == "unresolvable"
+
+
+# --- the audit's owned preimage reads (l13-preimage spec §5) ------------------
+
+
+class TestThePreimageReads:
+    """Reads stay inside the hold, after captures, and name chain removals."""
+
+    def _removed(self, tmp_path):
+        root = corpus_root(tmp_path)
+        removed = "verification/v1.md"
+        payload = held_verification("v1", "failed")
+        FACT_BYTES[removed] = payload
+        created = registration(
+            digest("create"),
+            "tx-0",
+            (("corpus.yaml", ABSENT), (removed, ABSENT)),
+            (("corpus.yaml", state("corpus.yaml")), (removed, state(removed))),
+        )
+        view = chain(
+            genesis_entry(science_root.GENESIS_PAYLOAD, label="preimage-genesis"),
+            created,
+            settlement(digest("settle-0"), created.digest, "tx-0", committed=True),
+            registration(
+                digest("r"), "tx-1", ((removed, state(removed)),), ((removed, ABSENT),)
+            ),
+            settlement(digest("s"), digest("r"), "tx-1", committed=True),
+        )
+        return root, removed, payload, view
+
+    def test_one_read_per_committed_removal_with_the_chains_txid_path_and_byte_len(
+        self, tmp_path
+    ):
+        root, removed, payload, view = self._removed(tmp_path)
+        inspections, captures, preimages = Inspections(), Captures(), Preimages()
+        inspections.set(root, view)
+        preimages.set("tx-1", removed, verify.PreimageRead(payload))
+
+        report = audit(
+            config_for(tmp_path, root),
+            anchors.CorpusSubject(ALPHA),
+            root,
+            inspections,
+            captures,
+            observers=(corpus_anchor(view),),
+            preimages=preimages,
+        )
+
+        assert preimages.calls == [(root.resolve(), "tx-1", removed, len(payload))]
+        assert [finding.code for finding in report.findings] == [
+            "record-removed",
+            "failing-verification-removed",
+        ]
+        assert report.findings[1].detail.endswith("source=preimage")
+        del FACT_BYTES[removed]
+
+    def test_the_reads_are_made_under_the_writer_hold_after_the_captures(
+        self, tmp_path, monkeypatch
+    ):
+        root, removed, payload, view = self._removed(tmp_path)
+        inspections, captures, preimages = Inspections(), Captures(), Preimages()
+        inspections.set(root, view)
+        preimages.set("tx-1", removed, verify.PreimageRead(payload))
+        held = _operation_lock_for(root)
+        observed: list[tuple[str, str]] = []
+
+        def probe(label: str):
+            def record(_root: Path) -> None:
+                with pytest.raises(BuildContended), held.capture():
+                    pass
+                observed.append((label, str(held._holder)))
+
+            return record
+
+        inspections.probe = probe("inspect")
+        captures.probe = probe("disk")
+        preimages.probe = probe("preimage")
+        real_records = verify.capture_records
+
+        def capture_records(target: Path, kind: verify.RootKind):
+            probe("records")(target)
+            return real_records(target, kind)
+
+        monkeypatch.setattr(verify, "capture_records", capture_records)
+
+        audit(
+            config_for(tmp_path, root),
+            anchors.CorpusSubject(ALPHA),
+            root,
+            inspections,
+            captures,
+            observers=(corpus_anchor(view),),
+            preimages=preimages,
+        )
+
+        assert observed == [
+            ("inspect", "writer"),
+            ("disk", "writer"),
+            ("records", "writer"),
+            ("preimage", "writer"),
+        ]
+        assert held._holder is None
+        del FACT_BYTES[removed]
+
+    def test_no_read_for_a_malformed_or_absent_view_and_reads_for_a_pending_one(
+        self, tmp_path
+    ):
+        root, removed, _payload, view = self._removed(tmp_path)
+        inspections, captures, preimages = Inspections(), Captures(), Preimages()
+        for bad in (
+            logmodel.MalformedView(logmodel.DefectView("cycle", "x", "")),
+            logmodel.AbsentView(),
+        ):
+            inspections.set(root, bad)
+            audit(
+                config_for(tmp_path, root),
+                anchors.CorpusSubject(ALPHA),
+                root,
+                inspections,
+                captures,
+                preimages=preimages,
+            )
+            assert preimages.calls == []
+        pending = logmodel.WellFormedView(
+            genesis=view.genesis,
+            entries=view.entries,
+            tip=view.tip,
+            pending=(("tx-9", digest("p")),),
+        )
+        inspections.set(root, pending)
+        report = audit(
+            config_for(tmp_path, root),
+            anchors.CorpusSubject(ALPHA),
+            root,
+            inspections,
+            captures,
+            observers=(corpus_anchor(view),),
+            preimages=preimages,
+        )
+        assert report.outcome == "unresolvable"
+        assert [call[1:3] for call in preimages.calls] == [("tx-1", removed)]
+        del FACT_BYTES[removed]
+
+    def test_no_read_for_a_removal_whose_pre_state_is_not_a_file(self, tmp_path):
+        root = corpus_root(tmp_path)
+        removed = "verification/link.md"
+        link = Opaque(f"{removed}@symlink")
+
+        def facts(value: object):
+            if value is link:
+                return (("kind", "symlink"), ("target", "elsewhere"))
+            return opaque_facts(value)
+
+        created = registration(
+            digest("create-link"),
+            "tx-0",
+            (("corpus.yaml", ABSENT), (removed, ABSENT)),
+            (("corpus.yaml", state("corpus.yaml")), (removed, link)),
+        )
+        view = chain(
+            genesis_entry(science_root.GENESIS_PAYLOAD, label="link-genesis"),
+            created,
+            settlement(digest("settle-link"), created.digest, "tx-0", committed=True),
+            registration(digest("r"), "tx-1", ((removed, link),), ((removed, ABSENT),)),
+            settlement(digest("s"), digest("r"), "tx-1", committed=True),
+        )
+        inspections, captures, preimages = Inspections(), Captures(), Preimages()
+        inspections.set(root, view)
+
+        report = verify._audit_log(
+            config_for(tmp_path, root),
+            anchors.CorpusSubject(ALPHA),
+            root,
+            verify.ObserverSet((corpus_anchor(view),)),
+            actor="alice",
+            seam=make_seam(
+                inspections, captures, preimages=preimages, state_facts=facts
+            ),
+        )
+
+        assert preimages.calls == []
+        assert [finding.code for finding in report.findings][-1] == "removal-unclassified"
+        assert report.findings[-1].detail.endswith("digest=none preimage=not-consulted")
+
+    def test_a_preimage_refusal_propagates_untranslated_and_no_report_is_made(
+        self, tmp_path
+    ):
+        root, removed, _payload, view = self._removed(tmp_path)
+        inspections, captures = Inspections(), Captures()
+        inspections.set(root, view)
+
+        def refusing(_root: Path, _txid: str, _path: str, _max_bytes: int):
+            raise LogEvidenceRefused("preimage", "MetadataStoreInvalid", "leaf hash mismatch")
+
+        with pytest.raises(LogEvidenceRefused) as caught:
+            verify._audit_log(
+                config_for(tmp_path, root),
+                anchors.CorpusSubject(ALPHA),
+                root,
+                verify.ObserverSet((corpus_anchor(view),)),
+                actor="alice",
+                seam=make_seam(
+                    inspections, captures, preimages=cast(Preimages, refusing)
+                ),
+            )
+        assert caught.value.phase == "preimage"
+        assert caught.value.engine_error == "MetadataStoreInvalid"
+        assert _operation_lock_for(root)._holder is None
+        del FACT_BYTES[removed]
+
+    def test_the_wrapper_maps_the_engine_exceptions_and_passes_the_rest(self, monkeypatch):
+        from atoms.chain.errors import ChainStateInvalid
+        from atoms.core.errors import PreconditionRefused, ProtocolError, TransactionHalted
+        from atoms.store.errors import MetadataStoreInvalid
+
+        def raising(error):
+            def read(*_args, **_kwargs):
+                raise error
+
+            return read
+
+        monkeypatch.setattr(science_root, "read_preimage", lambda *a, **k: b"bytes")
+        assert science_root._read_preimage(Path("/r"), "t", "p", 5) == verify.PreimageRead(
+            b"bytes"
+        )
+        monkeypatch.setattr(
+            science_root,
+            "read_preimage",
+            raising(
+                PreconditionRefused(
+                    "root lifecycle state read-only-serviceable does not grant writability"
+                )
+            ),
+        )
+        assert science_root._read_preimage(
+            Path("/r"), "t", "p", 5
+        ) == verify.PreimageUnavailable(
+            "root lifecycle state read-only-serviceable does not grant writability"
+        )
+        for error, name in (
+            (MetadataStoreInvalid("leaf"), "MetadataStoreInvalid"),
+            (ChainStateInvalid("bind"), "ChainStateInvalid"),
+            (TransactionHalted("halt"), "TransactionHalted"),
+        ):
+            monkeypatch.setattr(science_root, "read_preimage", raising(error))
+            with pytest.raises(LogEvidenceRefused) as caught:
+                science_root._read_preimage(Path("/r"), "t", "p", 5)
+            assert (caught.value.phase, caught.value.engine_error) == ("preimage", name)
+            assert caught.value.__cause__ is error
+        monkeypatch.setattr(
+            science_root, "read_preimage", raising(ProtocolError("wrong type"))
+        )
+        with pytest.raises(ProtocolError):
+            science_root._read_preimage(Path("/r"), "t", "p", 5)
+
+    def test_the_production_seam_wires_the_reader_and_the_wrapper_passes_the_chain_arguments(
+        self, monkeypatch
+    ):
+        seen: list[tuple] = []
+
+        def read(backend, project_root, metadata_root, storage, txid, path, *, max_bytes):
+            seen.append((project_root, metadata_root, txid, path, max_bytes))
+            return b""
+
+        monkeypatch.setattr(science_root, "read_preimage", read)
+        assert science_root._log_seam().read_preimage is science_root._read_preimage
+        science_root._read_preimage(Path("/some/root"), "tx", "verification/v.md", 0)
+        assert seen == [
+            (
+                "/some/root",
+                str(science_root.metadata_root_for(Path("/some/root"))),
+                "tx",
+                "verification/v.md",
+                0,
+            )
+        ]
 
 
 # --- the world genesis↔mirror agreement, as audit reports it (§6.3) -------------
@@ -1580,6 +1914,8 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
         absent_state,
         state_facts,
         history=None,
+        *,
+        preimages=verify.NO_PREIMAGES,
     ):
         seen.append((subject, chain_view))
         return evaluate(
@@ -1592,6 +1928,7 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
             absent_state,
             state_facts,
             history,
+            preimages=preimages,
         )
 
     monkeypatch.setattr(verify, "evaluate_log", recording)

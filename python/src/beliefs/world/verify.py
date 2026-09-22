@@ -131,6 +131,15 @@ def _unwired_state_facts(state: object) -> tuple[tuple[str, str], ...]:
     )
 
 
+def _unwired_read_preimage(
+    root: Path, txid: str, path: str, max_bytes: int
+) -> PreimageEvidence:
+    raise AssertionError(
+        f"{root}: this seam wires no preimage reader; the audit is the one consumer and the "
+        "composition root wires one explicitly"
+    )
+
+
 @dataclass(frozen=True)
 class LogSeam:
     """One root's worth of engine capability, as callables over `Path`.
@@ -165,6 +174,11 @@ class LogSeam:
 
     Replay keeps the state opaque. Mechanical projection alone asks the
     composition root to re-encode it through the engine-owned codec."""
+    read_preimage: Callable[[Path, str, str, int], PreimageEvidence] = _unwired_read_preimage
+    """One settled transaction's file preimage on this root, `(root, txid,
+    path, max_bytes)` → the engine's owned bytes or its availability refusal
+    as evidence; its integrity refusals arrive as `LogEvidenceRefused`
+    (l13-preimage spec §4). The audit is the one caller (§5)."""
 
 
 @dataclass(frozen=True)
@@ -1584,7 +1598,10 @@ def _audit_log(
     settled transaction's finals to disk; a manifest or mirror read *before*
     that is a pre-recovery claim standing beside a post-recovery surface, and
     the report would then state a subject mismatch about bytes the act's own
-    inspection had already replaced. **Evaluation is outside the hold**: the
+    inspection had already replaced. **Then the preimage reads, still inside
+    the hold** (l13-preimage spec §5): one per committed removal the inspected
+    view declares, so the bytes and the chain that names them are one view.
+    Arrival and restore make none. **Evaluation is outside the hold**: the
     evaluator is pure over values already captured, and the hold exists to make
     those reads one view rather than to serialize the judgment.
 
@@ -1612,6 +1629,11 @@ def _audit_log(
         view, disk, records, presented = _assemble_evaluation_inputs(
             seam, root_kind, root, config
         )
+        preimages = (
+            _read_preimages(seam, root, view)
+            if type(view) is WellFormedView
+            else NO_PREIMAGES
+        )
     return evaluate_log(
         subject,
         view,
@@ -1622,6 +1644,7 @@ def _audit_log(
         seam.absent_state,
         seam.state_facts,
         history,
+        preimages=preimages,
     )
 
 
@@ -1647,6 +1670,28 @@ def _assemble_evaluation_inputs(
     disk = seam.capture(root, registered_surface_paths(root, kind))
     records = capture_records(root, kind)
     return view, disk, records, presented
+
+
+def _read_preimages(seam: LogSeam, root: Path, view: WellFormedView) -> Preimages:
+    """The audit's preimage reads (spec §5): one per committed removal whose
+    declared pre-state is a file, in chain order, with the chain's own `txid`,
+    `path` and `byte_len` — never a caller's — made under the caller's hold.
+
+    A removal whose pre-state is not a file has no digest to match and is not
+    read. A `LogEvidenceRefused` from the seam propagates: the act refused to
+    judge (§6.4). A refusal that is evidence about availability arrives as a
+    `PreimageUnavailable` value and is carried to the policy pass.
+    """
+    evidence: dict[tuple[str, str], PreimageEvidence] = {}
+    for removal in committed_removals(view, seam.absent_state):
+        facts = _file_facts(removal.state, seam.state_facts)
+        if facts is None:
+            continue
+        _digest, byte_len = facts
+        evidence[(removal.txid, removal.path)] = seam.read_preimage(
+            root, removal.txid, removal.path, byte_len
+        )
+    return MappingProxyType(evidence)
 
 
 def _restore_subject_agrees(

@@ -284,6 +284,11 @@ class LogEvidenceRefused(ScienceError):
     exactly those three — nothing else, and ``ProtocolError`` and setup errors
     keep their own contracts — preserving the engine exception as ``__cause__``.
 
+    The preimage phase (l13-preimage spec §4) adds corrupt local history
+    (``MetadataStoreInvalid``), and translates the same ``ChainStateInvalid``
+    and ``TransactionHalted``. Its ``PreconditionRefused`` is availability
+    evidence and is not translated here.
+
     **It is a refusal to judge, not a judgment.** It produces no report, it is
     not an arrival refusal, and it sits outside the evaluator's precedence and
     the arrival-cause ranking: the act did not decide that the evidence was
@@ -293,8 +298,13 @@ class LogEvidenceRefused(ScienceError):
 
     def __init__(
         self,
-        phase: Literal["inspect", "capture"],
-        engine_error: Literal["ChainStateInvalid", "TransactionHalted", "PreconditionRefused"],
+        phase: Literal["inspect", "capture", "preimage"],
+        engine_error: Literal[
+            "ChainStateInvalid",
+            "TransactionHalted",
+            "PreconditionRefused",
+            "MetadataStoreInvalid",
+        ],
         detail: str,
     ) -> None:
         super().__init__(f"{phase}: the engine refused with {engine_error}: {detail}")

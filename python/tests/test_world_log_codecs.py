@@ -485,6 +485,22 @@ def test_an_unwired_state_facts_seam_refuses_loudly():
         seam.state_facts(object())
 
 
+def test_an_unwired_read_preimage_seam_refuses_loudly():
+    production = science_root._log_seam()
+    seam = verify.LogSeam(
+        inspect_registered=production.inspect_registered,
+        inspect_detached=production.inspect_detached,
+        capture=production.capture,
+        read_head=production.read_head,
+        absent_state=production.absent_state,
+        world_lock=production.world_lock,
+        corpus_lock=production.corpus_lock,
+    )
+
+    with pytest.raises(AssertionError, match="wires no preimage reader"):
+        seam.read_preimage(Path("/r"), "tx", "p", 1)
+
+
 def test_the_well_formed_chain_converts_entry_by_entry(tmp_path):
     root, captured, digests = populated_root(tmp_path)
 

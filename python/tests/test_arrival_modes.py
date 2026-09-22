@@ -89,6 +89,10 @@ def _recording_seam(monkeypatch) -> list[str]:
         calls.append("detached")
         return production.inspect_detached(root)
 
+    def recording_read(root: Path, txid: str, path: str, max_bytes: int):
+        calls.append("preimage")
+        return production.read_preimage(root, txid, path, max_bytes)
+
     recording = verify.LogSeam(
         inspect_registered=registered,
         inspect_detached=detached,
@@ -98,6 +102,8 @@ def _recording_seam(monkeypatch) -> list[str]:
         world_lock=production.world_lock,
         corpus_lock=production.corpus_lock,
         lifecycle_state=production.lifecycle_state,
+        state_facts=production.state_facts,
+        read_preimage=recording_read,
     )
     monkeypatch.setattr(science_root, "_LOG_SEAM", recording)
     return calls
@@ -138,6 +144,7 @@ def test_arrival_registered_mode_on_serviceable(certified_work, monkeypatch):
     replica = certified_work / "replica"
     replicate_root(parent, replica, authority=FULL)
     genesis, head = science_root.chain_head_reader()(parent)
+    calls = _recording_seam(monkeypatch)
     restore_root(
         replica,
         anchors.CorpusSubject(PARENT_ID),
@@ -154,15 +161,16 @@ def test_arrival_registered_mode_on_serviceable(certified_work, monkeypatch):
             )
         ),
      authority=FULL)
+    assert "preimage" not in calls
     assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_SERVICEABLE
 
     world = _world_over(certified_work, "world", replica)
-    calls = _recording_seam(monkeypatch)
     record, _report = _arrive(world, replica)
 
     assert record.corpus_id == PARENT_ID
     assert "registered" in calls
     assert "detached" not in calls
+    assert "preimage" not in calls
 
 
 def test_arrival_detached_on_unserviceable_metadata_less_and_mismatched(
@@ -194,6 +202,7 @@ def test_arrival_detached_on_unserviceable_metadata_less_and_mismatched(
         calls = _recording_seam(monkeypatch)
         _arrive(world, root)
         assert calls and "registered" not in calls
+        assert "preimage" not in calls
         monkeypatch.undo()
 
 

@@ -64,6 +64,7 @@ from atoms.coordinator.commands import (
     inspect_chain_detached,
     read_chain,
     read_path_state,
+    read_preimage,
     register_root,
     run_transaction,
 )
@@ -188,6 +189,9 @@ from beliefs.world.verify import (
     LogSeam,
     ObserverSet,
     Ordering,
+    PreimageEvidence,
+    PreimageRead,
+    PreimageUnavailable,
     _admit_arrival,
     _audit_log,
     _epochs_ordered,
@@ -1591,6 +1595,38 @@ def _inspect_detached(root: Path) -> ChainView:
     return _chain_view(inspection)
 
 
+def _read_preimage(root: Path, txid: str, path: str, max_bytes: int) -> PreimageEvidence:
+    """The seam's preimage read (l13-preimage spec §4): the engine's owned
+    bytes, its availability refusal as evidence, its integrity refusals as
+    `LogEvidenceRefused`.
+
+    Exactly four engine exceptions are caught. `PreconditionRefused` — a
+    non-writable root, a non-file pre-state, history not retained — is what
+    the absence finding records; the other three are the §6.4 states and
+    corrupt local history, none of which is judged. `ProtocolError` and the
+    setup errors keep their own contracts, as `_inspect_escapes` rules.
+    """
+    try:
+        payload = read_preimage(
+            _PRODUCTION_BACKEND,
+            str(root),
+            str(metadata_root_for(root)),
+            PRODUCTION_STORAGE,
+            txid,
+            path,
+            max_bytes=max_bytes,
+        )
+    except PreconditionRefused as caught:
+        return PreimageUnavailable(str(caught))
+    except MetadataStoreInvalid as caught:
+        raise LogEvidenceRefused("preimage", "MetadataStoreInvalid", str(caught)) from caught
+    except ChainStateInvalid as caught:
+        raise LogEvidenceRefused("preimage", "ChainStateInvalid", str(caught)) from caught
+    except TransactionHalted as caught:
+        raise LogEvidenceRefused("preimage", "TransactionHalted", str(caught)) from caught
+    return PreimageRead(payload)
+
+
 def _capture(root: Path, paths: tuple[str, ...]) -> tuple[tuple[str, object], ...]:
     """State exactly the named paths, the engine's values passed through.
 
@@ -1691,6 +1727,7 @@ _LOG_SEAM = LogSeam(
     corpus_lock=_operation_lock_for,
     lifecycle_state=_lifecycle_state_value,
     state_facts=_state_facts,
+    read_preimage=_read_preimage,
 )
 
 
