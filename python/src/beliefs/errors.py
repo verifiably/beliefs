@@ -1460,6 +1460,13 @@ class ActorMismatch(WriteRefused):
     Not a permit refusal: the permit may well cover the kind."""
 
 
+class PortMismatch(WriteRefused):
+    """A supplied operation port is bound to another root, authority or
+    profile than the writer's (act-report-remainder design decision 13). A
+    foreign root's port would carry the intent and the report into another
+    chain while this writer's corpus is what the operation reads."""
+
+
 class PlanRefused(WriteRefused):
     """The operation seam's preflight refused the plan — shape, a reserved
     leaf, or the record ceiling — before any intent (writer-session design

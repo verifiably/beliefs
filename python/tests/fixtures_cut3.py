@@ -478,6 +478,7 @@ class MemoryPort:
     """The shared no-I/O port for value-width unit tests."""
 
     authority = FULL
+    root = Path("memory-port")
 
     def append_intent(self, payload: bytes) -> str:
         return sha256(payload).hexdigest()

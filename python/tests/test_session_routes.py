@@ -281,6 +281,15 @@ def _holdings(tmp_path: Path, seam: FakeSeam, scope: RequiredCapabilities = HOLD
     return session, writer, writer.holdings_context(instrument="test"), ports[-1]
 
 
+def test_the_ledgered_port_forwards_its_inner_ports_root(tmp_path):
+    session, ports = make_session(tmp_path)
+    session.claim_invocation("A", "audit", DIGEST)
+    scoped = session.scoped(BOTH, "A")
+    assert scoped.operation_port().root == ports[-1].root
+    session.close_invocation("A", {"done": []})
+    session.close()
+
+
 def _published_pair(seam: FakeSeam) -> tuple[str, str]:
     from nodes.core.frontmatter import node_from_markdown
     ((op,),) = seam.published

@@ -543,6 +543,10 @@ class RefusingPort:
     def authority(self):
         return self._inner.authority
 
+    @property
+    def root(self):
+        return self._inner.root
+
     def append_intent(self, payload: bytes) -> str:
         raise ExecutionError("refused", index=None, applied=0)
 

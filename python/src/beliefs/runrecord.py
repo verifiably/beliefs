@@ -12,6 +12,7 @@ import re
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn, Protocol, cast, final
 
 from nodes.core.frontmatter import node_to_markdown
@@ -92,6 +93,13 @@ def bare_address(ref: str) -> str:
 
 
 class OperationPort(Protocol):
+    @property
+    def root(self) -> Path:
+        """The corpus root this port appends to and commits in. A writer
+        refuses a supplied port whose root is not its own
+        (`CorpusWriter._require_bound_port`)."""
+        ...
+
     @property
     def profile(self) -> ProfileSpec: ...
 
