@@ -484,11 +484,15 @@ boundary invariants:
 | BI-2 | — | the audit's evaluator read runs under the root lock after the intent: a write raced against an open audit lands after the report's registration |
 | BI-3 | — | the session routes: an audit and a re-check through `ScopedWriter` each write one `act` line per committed transaction, and the report's observer is the session actor |
 
-Plain acceptance tests, declaring no unit and claiming no row: deleting
-the published audit report moves its operation `closed → indeterminate`,
-never unfinished (T3's rule, already closed); the two reports leave the
-belief digest, admission and the coverage projection byte-unchanged and an
-unfinished audit blocks nothing (T4's rule, already closed).
+Plain acceptance tests, declaring no unit and claiming no row (T3's and
+T4's rules, both already closed, read where the new kinds give them an
+instance): deleting the published audit report moves its operation
+`closed → indeterminate`, never unfinished; over a fixed observation set,
+with both reports present, then one, then none, then an unmatched audit
+intent, the holdings reducer outputs and the corpus's audit findings never
+move and nothing blocks; and over a belief-bearing corpus the two reports
+leave the answer, its `belief_input_digest` and its traced admission
+byte-unchanged, added and removed.
 
 ### 9.3 N2 sabotages — `n2_arms_cut38.py`
 
@@ -499,7 +503,7 @@ catch; fourteen arms over twelve units:
 |---|---|---|
 | T2-e | T2-e | the evaluator read moved before the intent append |
 | T2-f | T2-f | the operation intent appended after the first `recheck` act |
-| T2-g1 | T2-g | the port check moved after the first act |
+| T2-g1 | T2-g | the re-check's one-root check dropped, so the wrong-root arm appends the operation intent in one root and then runs a member act in the other |
 | T2-g2 | T2-g | the append failure caught and the acts proceeding |
 | T2-g3 | T2-g | the store-genesis check moved after the intent |
 | T2-h | T2-h | the close publishing twice under one intent, swallowing the refusal — caught by the submission count, not by the coordinator's refusal |
@@ -598,3 +602,12 @@ adds it.
 - 2026-09-22 — at planning: T2-g gains the foreign-store arm, so T2-g3's
   sabotage (the store-genesis check moved after the intent) has a check
   that sees it; the plan's self-review found the gap.
+- 2026-09-22 — at planning, second review: T2-g1's sabotage becomes the
+  dropped one-root check, since removing the wrapper's port check alone
+  still refuses before any act (the primitive's own binding check catches
+  it) and would be detected only by the exception type; the plan's
+  declaration table and this one now agree, which is what Task 0 freezes
+  from. T3's and T4's plain tests are stated in §9.2 below: T4 snapshots
+  with both reports present before deleting either, and reads the belief
+  answer, its digest and its traced admission over a belief-bearing
+  corpus, not only the holdings projection.

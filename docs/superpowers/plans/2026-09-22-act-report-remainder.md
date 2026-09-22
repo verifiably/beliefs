@@ -52,7 +52,7 @@
 | `python/tests/test_holdings_recheck.py` (new) | the re-check operation over a durable root and store (Task 3) |
 | `python/src/beliefs/session/writer.py` | `ScopedWriter.audit`, `ScopedWriter.recheck` (Task 4) |
 | `python/tests/test_session_routes.py` | the two routes (Task 4) |
-| `python/tests/acceptance/test_act_report_remainder_acceptance.py` (new) | the twelve declaration units and two plain tests over real roots (Task 5) |
+| `python/tests/acceptance/test_act_report_remainder_acceptance.py` (new) | the twelve declaration units and two plain tests (T3's reading, T4's projection and belief arms) over real roots (Task 5) |
 | `python/tests/n2_arms_cut38.py` (new), `python/tests/acceptance/n2_arms_cut38.py` (new shim), `python/tests/acceptance/test_n2_cut38.py` (new), `python/tools/cut38_acceptance.py` (new), `python/tests/test_recent_cut_acceptance.py` | declarations, guard, runner, the recent-cut row (Task 6) |
 | `docs/designs/2026-09-22-conformance-cut-38.md` (new), `README.md`, `docs/guide/contracts-and-adoption.md`, `python/tests/test_designs_corpus.py` | the freeze (Task 0) |
 | `docs/designs/2026-09-05-mm30-reproduction.md` | §17 (Task 7) |
@@ -1422,10 +1422,11 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
-from profiles import BASE
 from test_audit_operation import stale_dataset
 from test_holdings_acquire import chain, registrations_of
 from test_operation_writes import proposition
+from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
+from profiles import BASE, pins_for
 from test_permit_boundary import WRITE_ENTRY_POINTS, modules, parsed, primitive_callers, relative
 from test_session_routes import _durable_session, DIGEST, AUDITS, RECHECKS
 from test_url_retrieval_acceptance import intents, kinds, observer, reduce, registrations, world_over
@@ -1436,15 +1437,18 @@ from nodes.core.errors import ExecutionError
 from beliefs import audit_operation, boundary as boundary_values, root as science_root, stored
 from beliefs.audit import NO_EVIDENCE, audit_corpus
 from beliefs.audit_operation import audit
+from beliefs.belief import Belief
 from beliefs.corpus import CorpusWriter, Finding
+from beliefs.evaluation import evaluate_over_traced
 from beliefs.errors import AuditRefused, PortMismatch, RecheckRefused
 from beliefs.holdings.boundary import write
-from beliefs.holdings.receipt import output_digest
+from beliefs.holdings.receipt import output_digest  # noqa: F401 — re-exported for the plain tests below
 from beliefs.holdings.records import StoreLocator
 from beliefs.holdings.recheck import recheck_locations
 from beliefs.holdings.seam import ReadNotAttemptedView, ReadUnestablishedView
 from beliefs.report import CLOSED, INDETERMINATE, ByteLocatorUntested, LocatorEntry, OperationIntent, Registration, RetrievalFailed, cite, completion
-from beliefs.root import durable_executor_factory, init_corpus_root, open_corpus
+from beliefs.holdings.boundary import ActContext
+from beliefs.root import durable_executor_factory, init_corpus_root, init_store_root, open_corpus
 from beliefs.session import open_ledger_reader
 from beliefs.world.logmodel import IntentEntryView, MalformedView, RegisteredEntryView
 
@@ -1819,15 +1823,15 @@ def test_deleting_the_published_audit_report_moves_the_operation_closed_to_indet
     assert completion(value, registrations_, {}) == INDETERMINATE
 
 
-def test_the_two_reports_leave_the_projection_unchanged_and_an_unfinished_audit_blocks_nothing(observer, certified_work):
-    """T4's rule for the new kinds: over a fixed set of observations, adding and
-    removing the two reports moves neither reducer output nor the corpus's
-    audit findings; an unmatched audit intent blocks nothing. The re-check's
-    own observation is part of the fixed set — it is taken before the
-    baseline, never compared across."""
+def test_the_two_reports_leave_the_holdings_projection_unchanged_and_an_unfinished_audit_blocks_nothing(observer, certified_work):
+    """T4's projection arm for the new kinds: over a fixed set of observations, both
+    reports present, then one, then none, then an unmatched audit intent — the
+    reducer outputs and the corpus's audit findings never move. The re-check's own
+    observation is part of the fixed set, taken before the first snapshot."""
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a = held(ctx, store_id, "a.bin", b"alpha")
     rechecked = recheck_locations(ctx, writer, (a,))  # the observation set is now fixed
+    audited = run_audit(writer)
     world, binding = world_over(certified_work, ctx.observer_root)
 
     def snapshot():
@@ -1835,21 +1839,56 @@ def test_the_two_reports_leave_the_projection_unchanged_and_an_unfinished_audit_
         findings = tuple((f.code, f.ref) for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile))
         return output_digest(active), output_digest(blocked), blocked == [], findings
 
-    os.unlink(writer.root / writer._relative_path(writer.read_view.get(rechecked.report_ref)))
-    writer._reconstruct()
-    baseline = snapshot()  # observations fixed, no report present
-    audited = run_audit(writer)
-    with_audit_report = snapshot()
-    os.unlink(writer.root / writer._relative_path(writer.read_view.get(audited.report_ref)))
-    writer._reconstruct()
-    reports_removed = snapshot()
+    def unlink(ref: str) -> None:
+        # No ordinary API deletes a report (`DeletionKindExcluded`, families design §3.0); cut 35's T4-a unlinks likewise.
+        os.unlink(writer.root / writer._relative_path(writer.read_view.get(ref)))
+        writer._reconstruct()
+
+    both_reports = snapshot()
+    unlink(rechecked.report_ref)
+    one_report = snapshot()
+    unlink(audited.report_ref)
+    no_reports = snapshot()
     writer._append_operation_intent("audit", secrets.token_hex(16), ctx.actor)  # an unfinished audit
-    with_unmatched_intent = snapshot()
-    assert with_audit_report == baseline == reports_removed == with_unmatched_intent
-    assert baseline[2]  # nothing blocked, before and after
+    unmatched_intent = snapshot()
+    assert both_reports == one_report == no_reports == unmatched_intent
+    assert both_reports[2]  # nothing blocked, throughout
+
+
+def test_the_two_reports_leave_the_belief_answer_and_its_admission_byte_unchanged(certified_work, tmp_path):
+    """T4's belief arm for the new kinds, over a belief-bearing corpus: the audit's
+    report and a re-check's report are added and removed while the answer, its
+    `belief_input_digest` and its traced admission stay identical."""
+    belief_root, store_root = certified_work / "belief", certified_work / "belief-store"
+    init_corpus_root(belief_root, authority=FULL)
+    store_id = init_store_root(store_root, authority=FULL)
+    profile = profile_with()
+    writer = open_corpus(belief_root, authority=FULL, profile=profile)
+    writer.adopt_manifest(profile=pins_for(profile))
+    view = seed(writer)
+    kwargs = over_kwargs(kwargs_for(view, profile))
+    ctx = ActContext(belief_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=profile)
+
+    def answer():
+        return evaluate_over_traced(writer.read_view, PROPOSITION_REF, **kwargs)  # (answer, admission)
+
+    before, before_admission = answer()
+    assert isinstance(before, Belief), before  # an unadmitted scenario would satisfy T4 vacuously
+    audited = run_audit(writer)
+    location = held(ctx, store_id, "a.bin", b"alpha")
+    rechecked = recheck_locations(ctx, writer, (location,))
+    with_reports, with_admission = answer()
+    assert (with_reports, with_admission) == (before, before_admission)
+    assert with_reports.belief_input_digest == before.belief_input_digest
+    for ref in (audited.report_ref, rechecked.report_ref):
+        os.unlink(writer.root / writer._relative_path(writer.read_view.get(ref)))
+    writer._reconstruct()
+    after, after_admission = answer()
+    assert (after, after_admission) == (before, before_admission)
+    assert after.belief_input_digest == before.belief_input_digest
 ```
 
-Import facts, verified 2026-09-22: `output_digest` lives in `beliefs.holdings.receipt` (`test_url_retrieval_acceptance.py` line 66); `Chain`, `ChainOutcome`, `state_at` come from `tests/test_world_log_codecs.py` and `SettledEntry` from `atoms.chain.model` (lines 46 and 31 there) — the module above imports them the same way. The T4 plain test unlinks the re-check's report with `os.unlink` because no ordinary API deletes a report (`DeletionKindExcluded`, families design §3.0 — cut 35's T4-a does the same); the re-check's observation stays, as part of the fixed set.
+Import facts, verified 2026-09-22: `output_digest` lives in `beliefs.holdings.receipt` (`test_url_retrieval_acceptance.py` line 66); `Chain`, `ChainOutcome`, `state_at` come from `tests/test_world_log_codecs.py` and `SettledEntry` from `atoms.chain.model` (lines 46 and 31 there) — the module above imports them the same way. `evaluate_over_traced(view, proposition, *, availability, context, profile, resolution, binding)` returns `(answer, admission)` (`evaluation.py` line 532). The belief-bearing corpus was probed on the certified volume on 2026-09-22 before this plan was revised: `init_corpus_root` → `open_corpus(root, authority=FULL, profile=profile_with())` → `adopt_manifest(profile=pins_for(profile_with()))` → `domain_facet_fixtures.seed(writer)` → `evaluate_over(writer.read_view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, profile)))` returned `Belief(value=2, belief_input_digest="ae9b6321…")`. The profile is `profile_with()`, not `BASE`: the seeded assessments carry a typed estimand against `testing/affects`.
 
 - [ ] **Step 2: Run on the certified volume**
 
@@ -1857,7 +1896,8 @@ Import facts, verified 2026-09-22: `output_digest` lives in `beliefs.holdings.re
 cd python && export SCIENCE_CUT4_ROOT=~/d/beliefs/.cut4-acceptance SCIENCE_CUT10_ROOT=~/d/beliefs/.lifecycle-wrappers-test
 uv run --frozen pytest tests/acceptance/test_act_report_remainder_acceptance.py -q -p no:cacheprovider
 ```
-Expected: 12 unit functions (two parametrized: T2-g ×4, T2-j ×4) and the two plain tests green. BI-2 is the one to watch: if the evaluator's `thread.join(0.5)` returns with the racer already done, the root lock was not held across the read — that is a wrapper defect (decision 4), not a test to loosen.
+Expected: 12 unit functions (two parametrized: T2-g ×4, T2-j ×4) and the two plain tests green.
+The belief plain test builds its own corpus under `profile_with()`; the other eleven use the `observer` fixture's `BASE` root. BI-2 is the one to watch: if the evaluator's `thread.join(0.5)` returns with the racer already done, the root lock was not held across the read — that is a wrapper defect (decision 4), not a test to loosen.
 
 - [ ] **Step 3: Commit**
 
@@ -2069,3 +2109,10 @@ Then fill the results record's §6 (main integration: the merge commit, `just ch
   before its baseline and compares reducer outputs and audit findings
   across report addition and removal; the guard selects `UNIT_CHECKS`'
   exact function names.
+- 2026-09-22 — second review, two findings, both taken: T4 snapshots with
+  both reports present before deleting either, and gains a second plain
+  test over a belief-bearing corpus (`domain_facet_fixtures.seed` under
+  `profile_with()`, probed on the certified volume) comparing the answer,
+  its `belief_input_digest` and its traced admission across report
+  addition and removal; the spec's T2-g1 sabotage row is synchronized with
+  this plan's, since Task 0 freezes from the spec's table.
