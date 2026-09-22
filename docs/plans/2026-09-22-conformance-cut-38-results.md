@@ -396,10 +396,41 @@ publish. `contract-cut` remains the off-path join.
 
 ## 6. Main integration
 
-*Filled at merge.* The whole-branch review, the detached repository gate
-and the `--no-ff` merge into `main` belong to this section and are
-recorded here in the `docs(cut38): record merged-main verification` commit
-that follows the merge.
+**The whole-branch review.** Dispatched over `a71a3f4..2e7b5f8` against the
+spec's fourteen decisions, the plan's Global Constraints and the cut
+document's §5 table. No Critical findings. One Important: the claim that
+every operation kind but `corpus-write` "closes through a report" is false
+for `run-attempt`, which closes through the **`run`** where one is minted.
+It was fixed across twelve current-facing sites in two commits, `d292655`
+and `19d23b7` — §3.1's third correction records the frozen cut document's
+own unqualified §1, superseded by citation rather than edited. The review
+also triaged the execution ledger's deferred minors: none blocks the merge.
+
+**The repository gate**, detached through the reaping wrapper and polled
+from the foreground, was run **twice**. The first run covered `d292655`.
+Two documentation commits then landed, so it was re-run against the exact
+integrated head `19d23b7`, since a green run is evidence only about the
+tree it ran on:
+
+```
+5315 passed, 1 skipped in 1357.98s (0:22:37)
+All checks passed!                      # ruff
+0 errors, 0 warnings, 0 informations    # pyright
+Test Files  7 passed (7)
+Tests  155 passed (155)
+```
+
+The single skip is `python/tests/test_composite.py:119` — "the fixture's
+`affects` admits causal only; the layer arm is exercised by the biology
+fixture in `test_composite_boundary`" — a documented conditional skip that
+predates this lane. It is **not** a capability waiver:
+`VERIFIABLY_UNCERTIFIED_HOST` was unset, so AGENTS.md's fail-closed rule
+was in force and a `CapabilityUnavailable` would have failed the run.
+
+**The merge.** `git merge --no-ff design/act-report-remainder` at
+**`8d70c82`**, over 22 commits from the `a71a3f4` baseline. `just check` on
+merged `main` exits **0**: ruff, pyright, `tsc` and `biome` all clean, and
+`tasks check` reports zero errors and zero warnings.
 
 ## 7. Execution rulings
 
