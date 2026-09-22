@@ -473,7 +473,7 @@ boundary invariants:
 |---|---|---|
 | T2-e | T2 | audit to success: one intent, one qualifying report, `closed`; the intent's chain position precedes the report's registration and the evaluator ran between the two |
 | T2-f | T2 | re-check to success over two locations: one operation intent, two holdings intents each fulfilled by its observation, one report, `closed`; the operation intent precedes every holdings intent in the chain |
-| T2-g | T2 | root selection (another root's writer), a port-less writer and a refusing port each begin no act for both kinds: no read, no holdings intent, no observation, no record |
+| T2-g | T2 | root selection (another root's writer), a port-less writer, a refusing port and a foreign store each begin no act for both kinds: no read, no holdings intent, no observation, no record — the audit, which selects no root and names no store, reads the port-less writer under those two arms |
 | T2-h | T2 | an audit and a re-check each submit **exactly one** fulfilling execution (a counting port over the durable one records every `execute_fulfilling` call); a second `execute_fulfilling` on the audit intent by the test is refused by the coordinator, and a raw second fulfilment reads `MalformedView` `duplicate-fulfillment` (cut 35's T2-d, for the new kind, with the count added because a swallowed second close is invisible to the other two assertions) |
 | T2-i | T2 | a port bound to another root, with the writer's authority and profile, is refused by both operations before any intent: both roots' chains are unchanged |
 | T2-j | T2 | an empty instrument, a non-encodable observer, a predecessor at another location and a `standing` key for an unrequested location each refuse the re-check before the operation intent, with no holdings intent appended and no store read (the seam records zero reads) |
@@ -595,3 +595,6 @@ adds it.
   spelled once in `_require_bound_port`, which both preflights call, so
   T2-i's sabotage kills every check; T2-h counts fulfilling submissions,
   since a swallowed second close leaves one fulfilment.
+- 2026-09-22 — at planning: T2-g gains the foreign-store arm, so T2-g3's
+  sabotage (the store-genesis check moved after the intent) has a check
+  that sees it; the plan's self-review found the gap.

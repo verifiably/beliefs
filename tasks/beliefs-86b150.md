@@ -8,12 +8,13 @@ complexity: mid
 process: planned
 owner: design/act-report-remainder
 created: 2026-09-20T15:17:59Z
-updated: 2026-09-22T09:36:36Z
+updated: 2026-09-22T10:26:01Z
 started: 2026-09-22T09:28:05Z
 depends: []
 tags: [migration, act-report]
 agent: "claude-code/claude-opus-5[1m]"
 spec: docs/superpowers/specs/2026-09-22-act-report-remainder-design.md
+plan: docs/superpowers/plans/2026-09-22-act-report-remainder.md
 ---
 
 act-report-remainder after cut 35: T2 reads every built operation kind; audit and re-check have no boundary that opens an intent and mints a report (act-report design §4's wrapper). Surface: audit.py, world/audit.py, holdings/boundary.py — the world-read lane's column. Off the path.
