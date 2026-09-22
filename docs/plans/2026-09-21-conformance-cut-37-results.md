@@ -239,10 +239,21 @@ neither T2 nor T7. The `cross-repo` lane retains `persistence-cut`;
 
 ## 6. Main integration
 
-Pending Task 7's final whole-branch review, repository gate and integration.
-The discharge above is certified branch evidence; it does not claim a
-merge or push. The controller fills this section with the observed gate
-and integration result when those steps complete.
+The final whole-branch review found no Critical or Important issue. Its two
+Minor documentation findings were corrected at `99c7dcd`: mm30 §16 now
+distinguishes corrupt-history `LogEvidenceRefused` from returned-byte
+`PreimageMismatch`, and `LogSeam.state_facts` names removal resolution as a
+consumer. The scoped re-review found no breakage.
+
+The detached repository gate then exited 0: Python reported **5,266 passed,
+1 skipped** in 1,213.78 seconds, and TypeScript reported **155 passed** in
+seven files. The wrapper removed its pid file, process group `2531288` was
+gone, and `host-load --section session` reported nothing left running.
+
+Local `main` was current with its upstream and merged
+`design/l13-preimage` with merge commit `b8d864e`. `just check` on the merged
+tree exited 0: Ruff, Pyright, TypeScript typecheck, Biome and `tasks check`
+were green. No push was made.
 
 ## 7. Execution rulings
 
