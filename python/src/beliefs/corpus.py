@@ -1680,6 +1680,12 @@ class CoordinationResolver:
     def profile(self, root: Path) -> ProfileSpec | None:
         return self._mounts.get(Path(root).resolve())
 
+    def mounted(self) -> Mapping[Path, str]:
+        """Each mounted root and its corpus id, in the resolver's path order (publication-records design §6)."""
+        from beliefs.world import load_manifest
+
+        return MappingProxyType({root: load_manifest(root).corpus_id for root in self._mounts})
+
     def _revisions(self) -> tuple[CoordinationRevision, ...]:
         by_uid: dict[str, CoordinationRevision] = {}
         for root, profile in self._mounts.items():
