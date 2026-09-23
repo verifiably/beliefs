@@ -156,6 +156,21 @@ def marker_tips_at(
     return tuple(sorted(bound_markers | (orphans - retired)))
 
 
+def _require_the_opened_intent(view: object, opened: OpenedPublication) -> None:
+    """The entry at `opened.digest` on the written root's chain is an intent
+    whose payload is `opened.intent`'s encoding, byte for byte. `OpenedPublication`
+    is a plain value: a guard that judged a value its position does not hold
+    would commit a binding no intent recorded. A chain that is not well formed
+    is `standing_at`'s to refuse as evidence."""
+    if type(view) is not WellFormedView:
+        return
+    held = [entry for entry in view.entries if entry.digest == opened.digest]
+    if len(held) != 1 or type(held[0]) is not IntentEntryView:
+        raise MalformedRecord(f"the position {opened.digest} is no intent entry of the written chain")
+    if held[0].payload != encode_publish_intent(opened.intent):
+        raise MalformedRecord(f"the intent at {opened.digest} is not the opened publication's intent")
+
+
 def _judge(
     writer: CorpusWriter, resolver: CoordinationResolver, opened: OpenedPublication, seam: MomentSeam
 ) -> tuple[tuple[CoordinationRevision, ...] | PositionRefused, tuple[tuple[str, str], ...] | PositionRefused | None]:
@@ -168,6 +183,8 @@ def _judge(
     written = Path(writer.root).resolve()
     address = binding_address(intent.view, intent.destination)
     try:
+        # checked in the guard, before registration: a mismatch writes nothing
+        _require_the_opened_intent(seam.inspect_written(written), opened)
         tips = standing_at(mounts, address, BINDING_KIND, written=written, position=opened.digest, anchors=intent.anchors, seam=seam)
         if type(tips) is PositionRefused:
             return tips, None
@@ -196,7 +213,10 @@ def _open_publication(
     writer.authority.require("publish", ("publication-binding",))
     writer.authority.require("corpus-write", ("act-report",))
     profile = resolver.profile(writer.root)
-    if profile is None or BINDING_KIND not in profile.coordination_kinds:
+    if profile is None:
+        # the written root is not mounted: refused up front, not later inside `bounds`
+        raise PublicationRefused("mounts-changed")
+    if BINDING_KIND not in profile.coordination_kinds:
         raise ValidationRefused("publication-binding is not declared by the mounted coordination contract")
     with writer._operation:
         resolved = resolver.resolve(view.unpinned())

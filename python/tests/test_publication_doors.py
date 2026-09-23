@@ -342,6 +342,18 @@ def test_an_unreadable_chain_refuses_before_the_intent(tmp_path, inspector, answ
     assert doors.port.calls == []
 
 
+def test_a_written_root_that_is_not_mounted_refuses_mounts_changed_before_the_intent(tmp_path):
+    """The written root absent from the resolver's mounts refuses up front,
+    not as a contract refusal and not later inside `bounds`."""
+    doors = Doors(tmp_path, others={"a-other": "e" * 32})
+    (other,) = doors.others
+    doors.resolver = CoordinationResolver({other: doors.profile})
+    with pytest.raises(PublicationRefused) as caught:
+        doors.open()
+    assert caught.value.reason == "mounts-changed"
+    assert doors.port.calls == []
+
+
 # step 0: the intent's bytes
 
 
@@ -462,10 +474,19 @@ def _refused_alone(doors, opened, outcome, expected) -> None:
     assert doors.files("publication-binding") == []
 
 
+def _tampered(doors, opened, **changes) -> OpenedPublication:
+    """The fake chain's appended intent rewritten in place, so the position
+    holds the changed intent the door is handed (the guard checks they agree)."""
+    value = replace(opened.intent, **changes)
+    (index,) = [k for k, entry in enumerate(doors.port.entries) if entry.digest == opened.digest]
+    doors.port.entries[index] = IntentEntryView(digest=opened.digest, payload=encode_publish_intent(value))
+    return OpenedPublication(value, opened.digest)
+
+
 def test_a_binding_tip_the_position_does_not_hold_is_predecessor_not_standing(tmp_path):
     doors = Doors(tmp_path)
     opened = doors.open()
-    stale = OpenedPublication(replace(opened.intent, binding_tips=("3" * 32,)), opened.digest)
+    stale = _tampered(doors, opened, binding_tips=("3" * 32,))
     outcome = doors.bind(stale, remotely_revealed=True)
     _refused_alone(doors, stale, outcome, BindingPredecessorNotStanding("1" * 32, "2" * 32, True, ()))
 
@@ -473,9 +494,31 @@ def test_a_binding_tip_the_position_does_not_hold_is_predecessor_not_standing(tm
 def test_marker_tips_the_position_does_not_yield_are_tips_disagree(tmp_path):
     doors = Doors(tmp_path)
     opened = doors.open()
-    frozen = OpenedPublication(replace(opened.intent, marker_tips=(("1" * 32, "4" * 32),)), opened.digest)
+    frozen = _tampered(doors, opened, marker_tips=(("1" * 32, "4" * 32),))
     outcome = doors.bind(frozen)
     _refused_alone(doors, frozen, outcome, BindingEvidenceRefused("1" * 32, "2" * 32, False, "tips-disagree"))
+
+
+@pytest.mark.parametrize(
+    "mismatch",
+    [
+        lambda doors, opened: OpenedPublication(replace(opened.intent, binding_tips=("3" * 32,)), opened.digest),
+        lambda doors, opened: OpenedPublication(opened.intent, digest("no-such-entry")),
+        lambda doors, opened: OpenedPublication(opened.intent, doors.port.entries[0].digest),
+    ],
+    ids=["another-intent-at-the-position", "a-position-the-chain-lacks", "a-position-that-is-no-intent"],
+)
+def test_an_opened_publication_its_position_does_not_hold_is_malformed_and_writes_nothing(tmp_path, mismatch):
+    """`OpenedPublication` is a plain value: the guard requires the written
+    chain's intent entry at its digest to be its intent, byte for byte, before
+    registration — a mismatch raises and nothing is written."""
+    doors = Doors(tmp_path)
+    opened = doors.open()
+    calls = list(doors.port.calls)
+    with pytest.raises(MalformedRecord):
+        doors.bind(mismatch(doors, opened))
+    assert doors.port.calls == calls
+    assert doors.files("act-report") == [] and doors.files("publication-binding") == []
 
 
 @pytest.mark.parametrize("inspector", ["written", "other"])
