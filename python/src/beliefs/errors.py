@@ -1147,6 +1147,15 @@ class KindNotMintedHere(WriteRefused):
     (publication-records design decision 6)."""
 
 
+class PublicationRefused(WriteRefused):
+    """A publish door refused before its intent (publication-records design §6)."""
+
+    def __init__(self, reason: str, *, tips: tuple[str, ...] = ()) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.tips = tips
+
+
 class PredecessorNotStanding(WriteRefused):
     """A supplied predecessor is absent or superseded at the commit check."""
 

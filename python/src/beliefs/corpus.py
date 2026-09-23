@@ -2296,7 +2296,7 @@ class CorpusWriter:
         return port
 
     def _append_operation_intent(
-        self, kind: str, token: str, intent_actor: str, *, port: OperationPort | None = None
+        self, kind: str, token: str, intent_actor: str, *, port: OperationPort | None = None, payload: bytes | None = None
     ) -> str:
         self._require_pins_agree()
         self.authority.require("corpus-write", ("act-report",))
@@ -2305,7 +2305,28 @@ class CorpusWriter:
                 f"the operation intent names actor {intent_actor!r}, not the bound {self.authority.actor!r}"
             )
         operation_port = self._require_bound_port(port)
+        if payload is not None:
+            # its own branch: the operation-intent line below is pinned by a live arm (cut 35's T2-c)
+            return self._checked_intent_digest(
+                operation_port.append_intent(self._checked_domain_intent(kind, token, payload))
+            )
         digest = operation_port.append_intent(_encode_operation_intent(kind, token, self.authority.actor))
+        return self._checked_intent_digest(digest)
+
+    def _checked_domain_intent(self, kind: str, token: str, payload: bytes) -> bytes:
+        """A pre-encoded domain intent (publication-records design §6 step 0): its
+        kind, token and actor must be the ones this append is called with."""
+        from beliefs.intents.publish import decode_publish_intent
+
+        if kind != "publish":
+            raise MalformedRecord("only the publish intent is pre-encoded")
+        decoded = decode_publish_intent(payload)
+        if (decoded.kind, decoded.event_token, decoded.actor) != (kind, token, self.authority.actor):
+            raise MalformedRecord("the pre-encoded intent disagrees with its kind, token or actor")
+        return payload
+
+    @staticmethod
+    def _checked_intent_digest(digest: object) -> str:
         if (
             type(digest) is not str
             or len(digest) != 64

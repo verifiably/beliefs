@@ -35,6 +35,9 @@ class Case:
     prepare: Callable[[Path, object], None]   # (work, request): setup effects under a full authority
     act: Callable[[Authority, Path], object]
     probe: Callable[[Path], object]
+    extra_families: tuple[str, ...] = ()
+    """Families beyond `family` the exact requirement holds — the publish doors
+    also require `corpus-write` over `act-report` (decision 7)."""
 
     @property
     def id(self) -> str:
@@ -659,6 +662,59 @@ def _mint_source(writer):
     return writer.add(stored.source_node(title="source", identifiers={"doi": "10.1234/original"}))
 
 
+# --- publish family, certified volume -------------------------------------------------
+
+_PUBLICATION_AT = "2026-09-23T00:00:00Z"
+
+
+def _publication_writer(authority: Authority, work: Path) -> CorpusWriter:
+    state = _STATE[work]
+    return science_root.open_corpus(
+        state["root"], authority=authority, profile=state["profile"], coordination_resolver=state["resolver"]
+    )
+
+
+def _prepare_publication(work: Path, _request) -> None:
+    """A v2-profiled registered corpus with one project, and a publication opened
+    on it under a full authority (`moment_seam()` reads the real chain), so `act`
+    performs exactly the step-8 door."""
+    from coordination_fixtures import content_for, coordination_profile
+
+    from beliefs.coordination import coordination_revision
+    from beliefs.corpus import CoordinationResolver
+    from beliefs.intents.publish import Destination
+    from beliefs.publication_doors import _open_publication
+
+    profile = coordination_profile(None, version=2)
+    root = (work / "corpus").resolve()
+    science_root.init_corpus_root(root, authority=lacking())
+    science_root.open_corpus(root, authority=lacking(), profile=profile).adopt_manifest(profile=pins_for(profile))
+    resolver = CoordinationResolver({root: profile})
+    _STATE[work] = {"root": root, "profile": profile, "resolver": resolver}
+    writer = _publication_writer(lacking(), work)
+    project = writer.mint_coordination("project", content=content_for("project"))
+    _STATE[work]["opened"] = _open_publication(
+        writer, resolver, view=coordination_revision(project).address, destination=Destination.local("/srv/published/entry"),
+        clock=lambda: _PUBLICATION_AT, seam=science_root.moment_seam(),
+    )
+    _reset_recorder()
+
+
+def _bind_publication(authority, work):
+    from beliefs.publication_doors import _bind_publication as bind
+
+    state = _STATE[work]
+    return bind(
+        _publication_writer(authority, work), state["resolver"], state["opened"], corpus_id="1" * 32, marker="2" * 32,
+        artifact="9" * 64, remotely_revealed=False, clock=lambda: _PUBLICATION_AT, seam=science_root.moment_seam(),
+    )
+
+
+def _publication_probe(work: Path):
+    """The corpus tree and the written root's chain length: a refused door leaves both."""
+    return (_corpus_probe(work), _chain(_STATE[work]["root"]))
+
+
 CASES = (
     Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _prepare_corpus(), _add, _corpus_probe),
     Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_corpus(_mint_eligible), _retract, _corpus_probe),
@@ -704,6 +760,7 @@ CASES = (
     _lifecycle_case("restore_root.grant", "restore_root"),
     _lifecycle_case("fork_corpus", "fork_corpus"),
     _lifecycle_case("fork_store", "fork_store"),
+    Case("publication_doors.py:_bind_publication", "publish", ("publication-binding", "act-report"), True, _prepare_publication, _bind_publication, _publication_probe, ("corpus-write",)),
 )
 
 
@@ -749,7 +806,7 @@ def test_e1_each_emitted_kind_is_refused_by_name_with_no_effect(case, tmp_path, 
 def test_e1_the_exact_requirement_is_accepted(case, tmp_path, request):
     work = _work(case, tmp_path, request, "-exact")
     case.prepare(work, request)
-    authority = narrowed(kinds=case.kinds, families=(case.family,))
+    authority = narrowed(kinds=case.kinds, families=(case.family, *case.extra_families))
     if case.key == "root.py:migrate_root_to_lifecycle_v3":
         from atoms.core.errors import PreconditionRefused  # the engine's own refusal, past the permit
 

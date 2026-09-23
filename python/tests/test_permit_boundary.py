@@ -104,6 +104,8 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "root.py:restore_root.grant": "lifecycle",
     "root.py:fork_corpus": "lifecycle",
     "root.py:fork_store": "lifecycle",
+    # 2026-09-23 cut 39: the step-8 binding door commits through the guarded fulfilment.
+    "publication_doors.py:_bind_publication": "publish",
 }
 
 SEAM_MODULES = (
