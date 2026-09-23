@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-22T23:39:54Z
+updated: 2026-09-23T08:45:49Z
 started: 2026-09-22T21:54:25Z
 depends: [beliefs-b34652, beliefs-1f7400]
 tags: [migration, publication, coordination]
@@ -36,4 +36,6 @@ Uncertainty: Destination-specific remote transport remains for Science, while th
 - 2026-09-22T22:55:00Z (design/publish): resumed
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-22T23:39:54Z (design/publish): parked (waiting on user, review): Slice 1 plan awaiting user review.
+  provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-23T08:45:49Z (design/publish): resumed
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
