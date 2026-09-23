@@ -12,13 +12,16 @@ import dataclasses
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TypeAlias, final
+from typing import TYPE_CHECKING, TypeAlias, final
 
 from beliefs.errors import CitationRefused, MalformedRecord, OutcomeRefused
 from beliefs.identity import v1
 from beliefs.permit import require_actor
 from beliefs.recipe import RunClosure
 from beliefs.sealed import sealed
+
+if TYPE_CHECKING:
+    from beliefs.intents.publish import PublishIntent
 
 __all__ = [
     "ACT_REPORT_DOMAIN",
@@ -602,11 +605,13 @@ class Registration:
         _require_str(self.pointer, "registration pointer")
 
 
-Intent: TypeAlias = OperationIntent | AssessmentRunIntent
+Intent: TypeAlias = "OperationIntent | AssessmentRunIntent | PublishIntent"
 
 
 def completion(intent: Intent, registrations: tuple[Registration, ...], held: Mapping[str, object]) -> str:
-    if type(intent) not in (OperationIntent, AssessmentRunIntent):
+    from beliefs.intents.publish import PublishIntent
+
+    if type(intent) not in (OperationIntent, AssessmentRunIntent, PublishIntent):
         raise MalformedRecord("completion requires an operation intent")
     if type(registrations) is not tuple or any(
         type(registration) is not Registration for registration in registrations
@@ -622,7 +627,11 @@ def completion(intent: Intent, registrations: tuple[Registration, ...], held: Ma
 
     decoded = shapes.DecodedIntent(
         "held",
-        "assessment-run" if type(intent) is AssessmentRunIntent else "operation",
+        "assessment-run"
+        if type(intent) is AssessmentRunIntent
+        else "publish"
+        if type(intent) is PublishIntent
+        else "operation",
         intent,
     )
     unresolved = False

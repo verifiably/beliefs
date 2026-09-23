@@ -17,6 +17,7 @@ __all__ = [
     "ORDINARY_COORDINATION_KINDS",
     "PUBLICATION_KINDS",
     "VIEW_KINDS",
+    "Anchor",
     "CoordinationAddress",
     "CoordinationRefused",
     "CoordinationRevision",
@@ -32,6 +33,7 @@ PUBLICATION_KINDS = ("publication", "publication-binding")
 COORDINATION_KINDS = (*ORDINARY_COORDINATION_KINDS, *PUBLICATION_KINDS)
 _ADDRESS = re.compile(r"coord:([0-9a-f]{32})(?:/([0-9a-f]{32}))?(?:@([0-9a-f]{32}))?")
 _HEX = re.compile(r"[0-9a-f]{32}")
+_ENTRY_DIGEST = re.compile(r"[0-9a-f]{64}")
 _RFC3339 = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})")
 
 
@@ -99,6 +101,26 @@ class CoordinationRevision:
     node: Node
     address: CoordinationAddress
     predecessors: tuple[str, ...]
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Anchor:
+    """One mounted root's head at a publish intent (publication-records design decision 3)."""
+
+    corpus_id: str
+    genesis: str
+    head: str
+
+    def __post_init__(self) -> None:
+        # type first: `re.fullmatch` on a non-string raises TypeError, not MalformedRecord
+        if type(self.corpus_id) is not str or _HEX.fullmatch(self.corpus_id) is None:
+            raise MalformedRecord("anchor corpus_id must be 32 lowercase hexadecimal characters")
+        for name in ("genesis", "head"):
+            value = getattr(self, name)
+            if type(value) is not str or _ENTRY_DIGEST.fullmatch(value) is None:
+                raise MalformedRecord(f"anchor {name} must be a 64-lowercase-hex entry digest")
 
 
 def coordination_revision(node: Node) -> CoordinationRevision:
