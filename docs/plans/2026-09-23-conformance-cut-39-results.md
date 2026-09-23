@@ -356,6 +356,41 @@ table keys on.
 **Final review.** Recorded at §6 when the whole-branch review and the
 repository gate run.
 
+**Post-discharge fixes.** The whole-branch review after discharge at
+`4cb09d8` found two Important findings and four minors, fixed in one
+dispatch (Ruling 11). None edits the frozen declaration: every cut-39
+`before` still occurs exactly once, no `before` pinned in `permit.py`,
+`publication_doors.py`, `profile.py` or `corpus.py` by any earlier cut moved,
+and `test_n2_cut39.py` passes all ten, sabotage audit included.
+
+- **I-1, `bc6565f`** — decision 7's exception was admitted by permit
+  equality, so `RequiredCapabilities.for_kinds(["publication-binding",
+  "act-report"], {"act-report": "corpus-write"})`, reachable from science's
+  `mints:` write class, built the kernel requirement. `for_kinds` now refuses
+  any family outside `COMMAND_REACHABLE_FAMILIES` before constructing, and
+  `__post_init__` admits the kernel permit only while `publishes()` runs.
+  `test_every_ordinary_route_naming_publish_still_refuses` gains the
+  `for_kinds-exact` and `direct-exact` cases.
+- **I-2, `e21fb3d`** — nothing checked that the intent entry at
+  `opened.digest` decodes to `opened.intent`. The guard now requires the
+  written chain's entry there to be an intent whose payload is
+  `encode_publish_intent(opened.intent)`, raising `MalformedRecord` before
+  registration otherwise, so nothing is written. The two mismatched-pair
+  unit tests now tamper with the chain's appended intent.
+- **m-4, `e21fb3d`** — step 0 refuses `mounts-changed` up front when the
+  written root is not mounted. The check sits at the profile lookup, not
+  inside the lock: an unmounted root has no profile, so the lock was never
+  reached and the door answered with a contract refusal.
+- **m-1, `392373b`** — `shipped_coordination(True)` passed `True in (1, 2)`
+  and `@cache` conflated it with `1`; a non-int version is a `ProfileError`.
+- **m-3, `1bbb259`** — the ordinary family doors told a publication kind to
+  enter through the coordination family door, which refuses it; they now
+  name the publish doors. Same exception type; cut 14's pinned branch is
+  untouched.
+- **m-2, `7692b3a`** — the coordination-and-view-kinds design's cut-14
+  sentence leaving "only W17 intent-position" open gains a dated
+  parenthetical recording W17's closure at cut 39.
+
 ### 3.3 Review findings and limitations
 
 Every task was reviewed against the spec before the next began. Task 0's
@@ -378,6 +413,15 @@ erring toward refusal; a committed registration whose pre- and post-state
 are the same file over an inventoried path reads `history-violated`, which
 no door produces; `standing_at` does not apply `coordination_facet_malformed`
 to ordinary kinds, since it serves only the publication doors.
+
+Recorded at the final review (Ruling 12): an exception raised before any
+effect at step 8 — a non-bool reveal, a pin disagreement, an unbound port,
+malformed binding arguments, a mismatched `OpenedPublication`, a guard
+exception other than `LogEvidenceRefused`, or a `LogEvidenceRefused` on the
+written root whose fallback cannot write — leaves the intent unfinished
+rather than orphaned. Recovering a remotely revealed marker from an
+unfinished intent belongs to the second slice's recovery table
+(`beliefs-328507`).
 
 ## 4. Reproduction measurement
 
@@ -460,6 +504,11 @@ integrated head, and the `--no-ff` merge.
   environmental failures without it). The exports are load-bearing:
   without them the runner would write its roots onto the uncertified work
   volume (`beliefs-51ffdf`).
+- **Ruling 11 — one fix dispatch after the final review** for I-1, I-2 and
+  the four minors, then `test_n2_cut39.py` and the gate re-run (§3.2).
+- **Ruling 12 — an exception before any effect leaves the intent
+  unfinished, not an orphan.** Recorded as a limitation (§3.3) and as a note
+  on `beliefs-328507`, whose recovery table must cover it.
 - **Every implementer ran in the foreground and committed before
   returning.** The one detached run this lane has made — the chained cut
   runner — went through the reaping wrapper; its process group was
