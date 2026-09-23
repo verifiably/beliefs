@@ -1,6 +1,7 @@
 # Publication — the guarantee table
 
-**Status:** banked 2026-09-22 with conformance cut 39's freeze; the Y table's
+**Status:** banked 2026-09-22 with conformance cut 39's freeze; Y1–Y4 closed at cut 39
+(2026-09-23, `../plans/2026-09-23-conformance-cut-39-results.md`); the Y table's
 owner (`python/tests/test_designs_corpus.py` `TABLE_OWNERS`). Y1–Y4 are the
 publication-records slice's (`../superpowers/specs/2026-09-22-publication-records-design.md`
 §10); the publish act's slice appends its own rows here.

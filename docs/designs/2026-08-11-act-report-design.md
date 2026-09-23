@@ -69,6 +69,8 @@ discipline of the holdings design §7):
 
 > `acquisition` | `audit` | `import` | `re-check` | `run-attempt`
 
+> **Amended 2026-09-23 (publication records, cut 39):** the operation-kind enum gains `publish` (nine), which opens only through its domain intent `science.publish-intent.v1`; its one entry kind is `publication-binding`, with outcomes `bound`, `predecessor-not-standing` and `evidence-refused`, every refusal carrying `corpus_id`, `marker` and `remotely_revealed`. The lifecycle entries arrive with the publish act.
+
 ### 2.1 The facet
 
 - **`operation`** — the kind, from the enum above.
@@ -463,6 +465,8 @@ fail.
    artifact-lifetime question, inherited not ruled.
 3. **New operation kinds** arrive by amendment; the enum is closed today at
    the five of §2.
+
+   > **Amended 2026-09-23 (publication records, cut 39):** the operation-kind enum gains `publish` (nine), which opens only through its domain intent `science.publish-intent.v1`; its one entry kind is `publication-binding`, with outcomes `bound`, `predecessor-not-standing` and `evidence-refused`, every refusal carrying `corpus_id`, `marker` and `remotely_revealed`. The lifecycle entries arrive with the publish act.
 4. **The agentic surface** (kernel sub-problem 6): audit scheduling,
    liveness, the divergence table — untouched.
 5. **The engine.** The operation intent reuses the log's existing

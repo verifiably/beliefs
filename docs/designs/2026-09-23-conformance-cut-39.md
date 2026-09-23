@@ -1,6 +1,6 @@
 # Conformance cut 39 — publication records
 
-**Status:** frozen 2026-09-23, before implementation; W17 and Y1–Y4 are open
+**Status:** discharged 2026-09-23 on the certified volume; results: ../plans/2026-09-23-conformance-cut-39-results.md
 **Design:** `../superpowers/specs/2026-09-22-publication-records-design.md`, approved 2026-09-22 at `cb19908` after two user reviews; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-22-publication-records.md`.
 **Numbered after** cut 38 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 39 or above at freeze; cut 38 is the highest discharged runner.

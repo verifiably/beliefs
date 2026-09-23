@@ -1,7 +1,7 @@
 # User and autonomy layers — design
 
 **Date:** 2026-08-29
-**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories. Sub-project 1 delivered 2026-09-02: `../../designs/2026-08-31-coordination-and-view-kinds-design.md` elaborates §4.1–§4.2, adds W17/W18, and is implemented through conformance cut 14, with only W17 intent-position deferred to `publish`
+**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories. Sub-project 1 delivered 2026-09-02: `../../designs/2026-08-31-coordination-and-view-kinds-design.md` elaborates §4.1–§4.2, adds W17/W18, and is implemented through conformance cut 14, with only W17 intent-position deferred to `publish`. Sub-project 5's first slice, publication records (`2026-09-22-publication-records-design.md`), discharged at conformance cut 39 on 2026-09-23 and closed W17 (`../../plans/2026-09-23-conformance-cut-39-results.md`); the publish act itself is its second slice
 **Scope:** the division of the stack above the epistemic kernel into a daily
 surface and an autonomy layer, the rename that makes the division nameable,
 and the sub-projects that build it. It selects no cut scope and freezes no
@@ -215,6 +215,14 @@ the revision is minted:
   valid, and the result is two standing tips — the sibling state below,
   not a violation of it. A future operation that mints revisions inherits
   this rule with its own intent kind, by amendment.
+
+  > **Amended 2026-09-23 (publication records, conformance cut 39 —
+  > `2026-09-22-publication-records-design.md` §6; `../../plans/2026-09-23-conformance-cut-39-results.md`):** both rules are built. The intent-position rule's
+  > evidence is the publish intent's frozen tips and anchors, and "a pure
+  > function of the chain prefix" is read as the chain's inventory at each
+  > mounted root's bound — the written root's at the intent, every other
+  > root's at the anchor the intent carries (§11 below; the coordination
+  > design's §11.6 note). W17 closes.
 
 The current revision of an address is its **one standing tip**: the
 single revision no other revision supersedes.
@@ -468,6 +476,16 @@ missing identities listed; the user widens the view or drops the record.
    identity cannot be reconstructed from it — and since no side effect
    occurred, the honest rule is to begin a new attempt under a new token.
 
+   > **Amended 2026-09-23 (publication records, conformance cut 39 —
+   > `2026-09-22-publication-records-design.md` decision 3, §5, §6):** the tips are frozen by `standing_at` at the
+   > intent's position, with one anchor per mounted root other than the
+   > written root bounding that root's reading — not "from the chain prefix"
+   > alone. The intent is `science.publish-intent.v1`, which carries the
+   > pinned view, the destination and both tip sets besides `(kind,
+   > event_token, actor)`; what it still cannot reconstruct is the request's
+   > pins, its epoch and its staging identities, so an intent with no request
+   > record is still never resumed.
+
    **The destination pins.** A destination corpus carries exactly one
    `CorpusPins = (science_contract, domains)`, and a selection may span
    several source corpora. The pins are derived at step 0 from the
@@ -533,6 +551,17 @@ missing identities listed; the user widens the view or drops the record.
    and `uid` from the marker's own `event_token` and refuse a marker
    whose identity does not match its attribution. The factory is
    sub-project 5's, beside the contract amendment that declares the kind.
+
+   > **Amended 2026-09-23 (publication records, conformance cut 39 —
+   > `2026-09-22-publication-records-design.md` decision 5, §3, §4):** the marker's "relations are the selection"
+   > and its `supersedes` pairs are **facet fields** — `selection`,
+   > `published_from` and `supersedes_markers` — declared by the coordination
+   > contract's version 2; a marker carries no relations. The marker also
+   > carries its canonical `destination`, so `marker_consistent` recomputes
+   > its uid, address and id from the marker alone. The marker and the
+   > binding hold **separate addresses** per `(view, destination)`, under
+   > two digest domains, so a marker held in a mounted destination corpus
+   > can never become a binding tip.
 
    **The durable create-only write.** The rules-store idempotency
    discipline runs under the world lock (log-verification design §3.1);
@@ -709,6 +738,17 @@ missing identities listed; the user widens the view or drops the record.
    publish act-reports at a log position, never stored, so it is
    recomputable like every other tip set. A retry never re-reads the
    binding to decide what to supersede.
+
+   > **Amended 2026-09-23 (publication records, conformance cut 39 —
+   > `2026-09-22-publication-records-design.md` §6, §7):** **every** step-8 refusal — `predecessor-not-standing`
+   > and each `evidence-refused` reason — carries the orphan fields
+   > `corpus_id`, `marker` and `remotely_revealed`, so a remotely revealed
+   > attempt refused for any reason is an orphan. An orphan is **retired**
+   > once any publish whose marker was shared — a bound report, or a refusal
+   > carrying `remotely_revealed: true` — fulfils an intent whose
+   > `marker_tips` names it; the fold reads publish reports in every mounted
+   > root by the chain-first rule, so a lost refusal report refuses rather
+   > than silently dropping its orphan.
 9. Discard the staging corpus and the staging world.
 
 **Done** means exactly: **this attempt's binding revision exists** in
@@ -935,7 +975,7 @@ column says so.
 | # | sub-project | repository | depends on | starts |
 |---|---|---|---|---|
 | 0 | **Rename and seed** — `science` → `beliefs`; ledger §5 ruling; glossary; create `science` and `autonomy` with a README pointing here | kernel, new | nothing | now, between lane merges |
-| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips; the general at-commit rule under the root lock; the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | delivered 2026-09-02 by cut 14; W17 intent-position remains with item 5 | complete |
+| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips; the general at-commit rule under the root lock; the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | delivered 2026-09-02 by cut 14; W17 intent-position remained with item 5 until cut 39 closed it (2026-09-23) | complete |
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — shipped HGNC-bound molecular-entity sort, gene-axis facet and three protein→protein operators; mm30's concept vocabulary and cross-typed operators live in its corpus-local contract; GO, HP, EFO and MONDO remain unmeasured | `beliefs/domains/biology` and the mm30 corpus | the `domain-boundary` lane | complete at cut 22 |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
@@ -953,7 +993,8 @@ computed belief — every step a governed record.
 **What this adds to the ledger.** Item 3 is delivered at cut 22;
 `domain-boundary` retains D1's cross-repository negative.
 Item 1's `coordination-addressing` boundary left the live ledger when cut 14
-discharged; `publish` retains W17 intent-position.
+discharged; `publish` retains W17 intent-position. *(Amended 2026-09-23:
+cut 39 closed W17; `publish` retains its second slice.)*
 
 ## 9. Verification posture shared by the three repositories
 

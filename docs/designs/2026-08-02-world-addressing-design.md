@@ -1532,6 +1532,13 @@ coordination-and-view-kinds design §11.6 leaves that evidence with `publish`,
 its first operational consumer; W17 therefore remains partial only on that
 clause.
 
+> **Amended 2026-09-23 (publication records, conformance cut 39 —
+> `../plans/2026-09-23-conformance-cut-39-results.md`):** W17 closes in full.
+> The intent-position arm is judged over the chain's inventory at the publish
+> intent's position, with one anchor per mounted root other than the written
+> root; the six W17-p units read it (coordination-and-view-kinds design §11.6's
+> note). The row above stays frozen.
+
 W1/W2 are the same mechanism observed on the two halves of §1.1, which is why
 both are needed: a rule that only ever merges and a rule that only ever splits
 each pass one of them. W10's negative half is the same pattern applied to the

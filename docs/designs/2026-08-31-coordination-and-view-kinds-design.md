@@ -6,6 +6,8 @@
 existed; §9 and the W17/W18 row texts remain frozen. Cut 14 discharges W11,
 W12, and W18 in full, W13's two-project negative, and W17's ordinary revision
 family. W17 remains partial only on intent-position, owned by `publish`.
+*(Amended 2026-09-23: W17's intent-position arm closed at conformance cut 39,
+`../plans/2026-09-23-conformance-cut-39-results.md`; see the note under §11.6.)*
 **Scope:** the tier-3 `coordination-addressing` answer, per the user and
 autonomy layer design (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`) §4.1,
 §4.2 and §8 item 1: the view query language `science.view-query.v1`; opaque
@@ -503,6 +505,12 @@ compilation (D4).
 > list and `composes` to the `relations` list. It is not the composite lane's:
 > that lane filed the row (its limitation 12) and did not wait on it, and
 > nothing in it depends on either predicate.
+>
+> **Amended 2026-09-23 (publication records, conformance cut 39):** the
+> amendment landed as version 2 of the shipped coordination contract
+> (`beliefs/contracts/coordination/v2/CONTRACT.yaml`), whose query vocabulary
+> adds `composite` and `composes`; a root pinning version 2 can spell both
+> predicates, and a version-1 pin still cannot.
 
 
 It has its own parser with a closed field set; a hand-built contract
@@ -1060,6 +1068,8 @@ This changes the current cut disposition without rewriting frozen §9: W17
 closes here for the ordinary revision family and remains partial on the
 intent-position clause until the publish cut. W11, W12 and W18 still close;
 W13 remains partial exactly as frozen.
+
+> **Amended 2026-09-23 (publication records, conformance cut 39 — `../superpowers/specs/2026-09-22-publication-records-design.md`):** the intent-position rule's evidence landed with `publish`. The intent carries the frozen tips and one anchor per mounted root other than the written root, and presence at the position is the chain's inventory at each root's bound (committed registrations only; every inventoried revision read and matched; removals refused; unaccounted files classified by a chain re-read under the engine's write-ahead order). W17-p replaces the constructed-prefix arm, and W17 closes. `predecessor-not-standing` is reachable only across processes — the detection of a broken single-writer obligation (ledger row 4).
 
 ### 11.7 Verification and discharge
 

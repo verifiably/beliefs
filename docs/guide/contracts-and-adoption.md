@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-22
+updated: 2026-09-23
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -66,6 +66,7 @@ sources:
   - ../plans/2026-09-21-conformance-cut-36-results.md
   - ../plans/2026-09-21-conformance-cut-37-results.md
   - ../plans/2026-09-22-conformance-cut-38-results.md
+  - ../plans/2026-09-23-conformance-cut-39-results.md
 ---
 
 # Contracts and adoption
@@ -213,7 +214,7 @@ W8b is measured and not selected. Its build defect is repaired by
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 
-Thirty-four conformance cuts have been frozen and discharged, each frozen before
+Thirty-five conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -306,13 +307,18 @@ otherwise; the T table stays partial on T7's cross-root case alone. That
 left the corpus at **188 of 216 rows closed, 28 open**
 (`../designs/2026-09-22-conformance-cut-38.md`;
 `../plans/2026-09-22-conformance-cut-38-results.md`).
-Cut 39 is frozen and not yet discharged: publication records — the
-coordination contract's v2 amendment declaring `publication` and
-`publication-binding`, the evidence-bearing publish intent, and the
-intent-position judgment over the chain's inventory
-(`../designs/2026-09-23-conformance-cut-39.md`). Its freeze banks the
-publication table, Y1–Y4 (`../designs/2026-09-22-publication-design.md`), so
-the corpus now has **188 of 220 rows closed, 32 open**.
+Cut 39's freeze banked the publication table, Y1–Y4
+(`../designs/2026-09-22-publication-design.md`), taking the corpus to 188 of
+220 rows closed. Cut 39 discharges publication records: the coordination
+contract's v2 amendment declaring `publication` and `publication-binding`
+and adding `composite` and `composes` to the query vocabulary, the two
+kinds' deterministic records, the `publish` operation kind and act family,
+the evidence-bearing publish intent, and the intent-position judgment over
+the chain's inventory. Fourteen arms over thirteen declaration units close
+W17 in full and Y1–Y4; `publish` stays open with its second slice, the act
+itself. The corpus now has **193 of 220 rows closed, 27 open**
+(`../designs/2026-09-23-conformance-cut-39.md`;
+`../plans/2026-09-23-conformance-cut-39-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -350,4 +356,5 @@ questions under
 - [Cut 35 discharge results](../plans/2026-09-20-conformance-cut-35-results.md)
 - [Cut 36 discharge results](../plans/2026-09-21-conformance-cut-36-results.md)
 - [Cut 37 discharge results](../plans/2026-09-21-conformance-cut-37-results.md)
-- [Cut 38 discharge results, the newest results record](../plans/2026-09-22-conformance-cut-38-results.md)
+- [Cut 38 discharge results](../plans/2026-09-22-conformance-cut-38-results.md)
+- [Cut 39 discharge results, the newest results record](../plans/2026-09-23-conformance-cut-39-results.md)

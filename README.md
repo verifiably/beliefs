@@ -109,7 +109,7 @@ design written 2026-08-02 through 2026-09-23. Read them in this order:
 | `2026-09-21-conformance-cut-37.md` | the discharged l13-preimage cut: the digest match over held copies and surviving preimages, the stated absence, the corruption refusal; L13 closed, 11 declaration units, three boundary invariants, the cut 36 runner as prefix; the boundary closes |
 | `2026-09-22-conformance-cut-38.md` | the discharged act-report-remainder cut: the `audit` and `re-check` operations through the boundary, every supplied port bound to its writer; T2 closed in full, 12 declaration units, three boundary invariants, the cut 37 runner as prefix; the boundary closes |
 | `2026-09-22-publication-design.md` | the publication guarantee table (Y): Y1–Y4 from the publication-records slice; the publish act appends its own |
-| `2026-09-23-conformance-cut-39.md` | the frozen publication-records cut: the coordination contract's v2 amendment, the publish intent and the intent-position judgment; W17 and Y1–Y4 read, 13 declaration units, the cut 38 runner as prefix |
+| `2026-09-23-conformance-cut-39.md` | the discharged publication-records cut: the coordination contract's v2 amendment, the publish intent and the intent-position judgment; W17 and Y1–Y4 closed in full, 13 declaration units, the cut 38 runner as prefix; `publish` stays open with its second slice |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -117,7 +117,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 38** is implemented and discharged. What
+Every conformance cut through **cut 39** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -192,10 +192,16 @@ intent before any act and close through one act-report, and every supplied
 operation port is bound to its writer, so every operation kind but
 `corpus-write` — reportless by design — now opens through a boundary and
 closes through exactly one terminal record: the `run` where one is minted,
-the act-report otherwise; the boundary closes at cut 38.
-The latest discharged boundary is cut 38
-([cut](docs/designs/2026-09-22-conformance-cut-38.md),
-[results](docs/plans/2026-09-22-conformance-cut-38-results.md)).
+the act-report otherwise; the boundary closes at cut 38. The coordination
+contract ships as two versions, the second declaring the `publication` and
+`publication-binding` kinds, whose records are byte-functions of the publish
+intent; `publish` opens only through its evidence-bearing intent, and a
+binding's predecessors are judged at the intent's position over each
+mounted root's chain inventory; `publish` itself stays open with its second
+slice.
+The latest discharged boundary is cut 39
+([cut](docs/designs/2026-09-23-conformance-cut-39.md),
+[results](docs/plans/2026-09-23-conformance-cut-39-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **220 rows** across **twenty-one frozen
