@@ -801,6 +801,19 @@ def _root_state_for(root: Path, executor_factory: Callable[[Path], WritePlanExec
         return state
 
 
+def mark_root_unresolved(root: Path) -> None:
+    """Mark a root's shared writer state unresolved before an effect made
+    outside every writer's executors — the durable operation port's intents and
+    commits (beliefs-40e593). The state's index is current only for writes routed
+    through it, so the next write hold recovers and rebuilds (§4.3) instead of
+    judging against an index that never saw the commit. A root no writer has
+    opened in this process has no state to mark."""
+    with _ROOT_STATES_LOCK:
+        state = _ROOT_STATES.get(str(Path(root).resolve()))
+    if state is not None:
+        state.unresolved = True
+
+
 CONSTRUCTION_CODES = frozenset({"parse-error", "path-mismatch", "uid-collision", "id-collision"})
 """The construction findings adopted from ``nodes`` collecting mode."""
 

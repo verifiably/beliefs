@@ -130,7 +130,13 @@ from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, validate_plan
 
 from beliefs.coordination import MomentSeam
-from beliefs.corpus import CoordinationResolver, CorpusWriter, _operation_lock_for, require_pins_agree
+from beliefs.corpus import (
+    CoordinationResolver,
+    CorpusWriter,
+    _operation_lock_for,
+    mark_root_unresolved,
+    require_pins_agree,
+)
 from beliefs.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch, WorldUninitialized
 from beliefs.holdings.seam import (
     AbsentStateView,
@@ -987,6 +993,7 @@ class DurableOperationPort:
     def append_intent(self, payload: bytes) -> str:
         with _operation_lock_for(self.root):
             require_pins_agree(self.root, self._profile)
+            mark_root_unresolved(self.root)  # an open intent is state a settle must recover
             try:
                 return append_intent(
                     self._backend,
@@ -1022,6 +1029,7 @@ class DurableOperationPort:
     def _execute(self, plan: WritePlan) -> None:
         require_pins_agree(self.root, self._profile)
         _refuse_over_ceiling(plan)
+        mark_root_unresolved(self.root)  # the commit bypasses the root state's executors
         DurableExecutor(
             self.root,
             backend=self._backend,
@@ -1050,6 +1058,7 @@ class DurableOperationPort:
     def _execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
         require_pins_agree(self.root, self._profile)
         _refuse_over_ceiling(plan)
+        mark_root_unresolved(self.root)  # the commit bypasses the root state's executors
         DurableExecutor(
             self.root,
             backend=self._backend,

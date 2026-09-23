@@ -254,6 +254,29 @@ def test_corpus_writer_reenters_its_durable_ports_shared_lock(certified_work) ->
     assert writer.read_view.holds(node.id)
 
 
+def test_a_port_commit_outside_every_writer_reaches_the_roots_shared_state(certified_work) -> None:
+    """beliefs-40e593: a run minted through the port (as `execute_assessment_run`
+    mints one through a session's scoped writer) must be visible to the next
+    state-dependent read of every writer on the root. The root's shared state
+    is cached for the process, so the port marks it unresolved and the next
+    write hold recovers and rebuilds it (§4.3) rather than reading stale."""
+    init_corpus_root(certified_work, authority=FULL)
+    writer = open_corpus(certified_work, authority=FULL, profile=BASE)
+    # A write through the writer settles the state: from here its index is
+    # current only for what reaches it through the root's own executors.
+    writer.add(stored.proposition_node("settled", title="settled", claim={"operator": "affects"}))
+    node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    assert not writer.read_view.holds(node.id)
+
+    port = writer._operation_port
+    assert port is not None  # open_corpus wires the durable port
+    port.execute([writer._create_op(node)])
+
+    with writer._operation:
+        assert writer._view.holds(node.id)
+    assert open_corpus(certified_work, authority=FULL, profile=BASE).read_view.holds(node.id)
+
+
 def test_execute_refuses_a_malformed_plan_before_any_write(certified_work) -> None:
     port = _registered_port(certified_work)
     with pytest.raises(PlanRefusedError):
