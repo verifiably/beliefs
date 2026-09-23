@@ -27,7 +27,7 @@
   runner import, its `(runner, cut, accounting)` parametrization entry with the
   declared-arm, declaration-unit and guarantee-row counts, and the cut's
   guarantee-rows-exercised line. Cuts 33, 34 and 35 landed theirs at `f4c2cef`,
-  `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. — Here that is Task 8, Step 4, with `(cut39, 39, (13, 13, 5))` — or `(cut39, 39, (12, 12, 5))` if Task 0 Step 3 finds no durable rollback and W17-p-f is declared unrun (the row count stays 5; W17 is then read partial).
+  `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. — Here that is Task 8, Step 4, with `(cut39, 39, (14, 13, 5))` — or `(cut39, 39, (13, 12, 5))` if Task 0 Step 3 finds no durable rollback and W17-p-f is declared unrun (the row count stays 5; W17 is then read partial).
 - **Frozen declarations and frozen cut bodies stay byte-exact.** Cut 39 chains **cut 38's** runner (`PREFIX_RUNNERS = ("cut38_acceptance.py",)`) and re-targets nothing unless Task 1's staleness run says otherwise: `coordination.py`, `corpus.py`, `permit.py`, `report.py`, `stored.py` and `intents/shapes.py` are pinned by earlier live arms (cuts 14, 19, 35, 38), so every edit in those files must leave each pinned `before` string occurring exactly once. **One exception, planned:** cut 17's live arm E4c pins `        raise ValueError("publish is not an act family")` in `permit.py`, the line decision 7 deletes; Task 1 re-targets it in `test_n2_cut17.py`'s `_LIVE_SABOTAGES` (new `before`, frozen `after` kept) and rewrites its check's body under the cited name, and the results record states it. Tasks 1, 2, 3 and 5 end by running `tests/test_arm_staleness.py`; a stale prior arm means an edit moved a pinned line — restore the line's spelling and place the new code beside it, never edit a prior declaration (memory `staleness-probe-baseline-is-the-trees-output`).
 - **Decisions the code must honour verbatim** (spec §2): two slices, this one owning every record and every source-root write (1); the contract ships as `v1` (the fixture, same content identity) and `v2` (`lineage: {successor: <v1 identity>}`, adding the two kinds and `composite`/`composes`), `shipped_coordination()` returning v2 (2); the publish intent is the domain-tagged `science.publish-intent.v1` carrying the pinned view, the destination, `binding_tips`, `marker_tips`, and one anchor per mount other than the written root, captured under the written root's lock (3); presence at a position is the chain's inventory at each root's bound — committed registrations only, every inventoried file present, content-matched and well-formed, removals and rewrites `history-violated`, unaccounted files classified by a chain re-read (4, §6); the marker's `published_from`, `destination`, `selection` and `supersedes_markers` and the binding's bound `(corpus_id, marker, artifact)` are facet fields, a marker carries no relations, a binding exactly its `supersedes` to `binding_tips` (5); deterministic identity by the factory only, `mint_coordination` and `revise_coordination` refusing both kinds with `KindNotMintedHere` (6); a `publish` act family, `KIND_ACTS` mapping both kinds to `{"publish"}`, `RequiredCapabilities.coordination()` keeping the eight ordinary kinds, `publishes()` returning `publish` over `publication-binding` plus `corpus-write` over `act-report`, admitted through a closed `KERNEL_REQUIREMENTS` while every ordinary route naming `publish` still refuses (7); the act-report amendment banks one entry kind, `publication-binding`, with `bound`, `predecessor-not-standing` and `evidence-refused` (8); the destination is the closed `local`/`remote` union, canonical (9); `publish` opens only through its domain intent — `OperationIntent("publish", …)` raises and a domainless `publish` triple decodes `malformed` (10); `predecessor-not-standing` is the detection of a broken single-writer obligation, reached in the arm by an injected second writer (11).
 - **Detached runs go through a reaping wrapper** (Processes rule): the cut runner and the gate outlive a turn, so each is launched by `~/d/beliefs/.work/acceptance/detached.sh` (exists; `test -x` it, and if missing recreate it from `docs/superpowers/plans/2026-09-21-l13-preimage.md`'s Global Constraints). Launch: `setsid nohup ~/d/beliefs/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`. The end-of-turn report that leaves it running names the process-group id (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session` has listed what the session's scope left. After exit, check the process group is gone before reporting nothing left.
@@ -324,6 +324,26 @@ In the spec, under §16's review log, add this planning note (every interface th
     tips), and each `PositionRefused` reason; a writer whose mounted
     coordination contract does not declare `publication-binding` refuses
     `ValidationRefused`.
+  - (User review of the plan.) A creation is an ABSENT → file transition on
+    the registration's *own* `initial`; the replay's prior state is not
+    evidence of it. A first committed registration of an address path whose
+    `initial` is already a file is `history-violated` (§6's rule: it moves the
+    path from a `FileState`), and an unaccounted file whose only registrations
+    rewrite it is `unregistered-revision`. §11.2's W17-p-e gains a `rewritten`
+    case (an unregistered file rewritten through the engine) and §11.3 a
+    second arm homed to it, W17-p-e2 (`_creates` reduced to "any file
+    post-state"): 14 arms, 13 units, 5 rows.
+  - (User review of the plan.) The orphan fold qualifies each fulfilling
+    report against its intent through `shapes.mismatch` before folding it; a
+    report that decodes but does not qualify refuses with a new reason,
+    `report-unqualified`, added to §6's refusal table and to §7's
+    `evidence-refused` reasons (now `report-unqualified` beside §6's other
+    nine, plus `tips-disagree`).
+  - (User review of the plan.) The stored mirror decodes a publication-binding
+    outcome through the typed constructors (`report.binding_outcome_from_facet`),
+    so both enforce one rule set.
+  - (User review of the plan.) §3's `selection` members are world record ids:
+    `nodes`' `NodeId.parse` grammar over a kind in `stored.WORLD_KINDS`.
 ```
 and change §5's sentence "`completion` itself is unchanged." to "`completion` admits a `PublishIntent` beside the two intents it reads today (planning note, §16)." and delete "and `completion`" from §8's first sentence.
 
@@ -736,16 +756,31 @@ def test_publish_is_in_the_closed_set_but_never_an_operation_intent():
 def test_the_evidence_refusal_reasons_are_closed():
     assert EVIDENCE_REFUSAL_REASONS == (
         "mounts-changed", "anchor-unplaced", "chain-absent", "chain-malformed", "revision-missing",
-        "revision-mismatch", "revision-malformed", "history-violated", "unregistered-revision", "tips-disagree",
+        "revision-mismatch", "revision-malformed", "history-violated", "unregistered-revision",
+        "report-unqualified", "tips-disagree",
     )
     with pytest.raises(MalformedRecord):
         BindingEvidenceRefused("e" * 32, "f" * 32, False, "other")
 
 
-@pytest.mark.parametrize("field, value", [("remotely_revealed", "yes"), ("tips", ["not-hex"])])
-def test_the_stored_mirror_refuses_a_malformed_publish_outcome(field, value):
-    report = publish_report(BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,)))
-    node = stored.act_report_node(report)
+@pytest.mark.parametrize(
+    "outcome, field, value",
+    [
+        (BindingBound("d" * 32, "e" * 32, "f" * 32), "binding", "not-hex"),
+        (BindingBound("d" * 32, "e" * 32, "f" * 32), "corpus_id", "E" * 32),
+        (BindingBound("d" * 32, "e" * 32, "f" * 32), "marker", "f" * 31),
+        (BindingEvidenceRefused("e" * 32, "f" * 32, False, "mounts-changed"), "reason", "other"),
+        (BindingEvidenceRefused("e" * 32, "f" * 32, False, "mounts-changed"), "remotely_revealed", "yes"),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32)), "tips", ["2" * 32, "1" * 32]),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32)), "tips", ["1" * 32, "1" * 32]),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,)), "tips", ["not-hex"]),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,)), "extra", "x"),
+    ],
+    ids=["binding-hex", "corpus-hex", "marker-hex", "reason", "revealed-bool", "tips-order", "tips-duplicate", "tips-hex", "extra-field"],
+)
+def test_the_stored_mirror_refuses_what_the_constructors_refuse(outcome, field, value):
+    """User review, finding 3: each closed rule, through the stored path."""
+    node = stored.act_report_node(publish_report(outcome))
     node.facets["act-report"]["entries"][0]["outcome"][field] = value
     with pytest.raises(MalformedRecord):
         stored.act_report_facet(node)
@@ -777,7 +812,8 @@ Beside the other outcomes:
 ```python
 EVIDENCE_REFUSAL_REASONS = (
     "mounts-changed", "anchor-unplaced", "chain-absent", "chain-malformed", "revision-missing",
-    "revision-mismatch", "revision-malformed", "history-violated", "unregistered-revision", "tips-disagree",
+    "revision-mismatch", "revision-malformed", "history-violated", "unregistered-revision",
+    "report-unqualified", "tips-disagree",
 )
 _HEX32 = re.compile(r"[0-9a-f]{32}")
 
@@ -851,35 +887,45 @@ class PublicationBindingEntry:
 ```
 (`import re` at the top.) Extend `Outcome`, `Entry`, `_ALLOWED_OUTCOMES` (`PublicationBindingEntry: (BindingBound, BindingPredecessorNotStanding, BindingEvidenceRefused)`), `_ENTRY_KINDS` (`"publication-binding"`), `_OUTCOME_TYPES` (`"bound"`, `"predecessor-not-standing"`, `"evidence-refused"`), and `__all__`. `_outcome_facet` already turns a tuple into a list and leaves a bool as a bool.
 
-`stored.py` `_REPORT_ENTRY_OUTCOMES` gains
+**One rule set, shared (user review, finding 3).** The stored mirror does not re-spell the publish outcome rules; it decodes through the typed constructors, which are the rules. In `report.py`, after the three outcome classes:
 
 ```python
-    "publication-binding": {
-        "bound": ("binding", "corpus_id", "marker"),
-        "predecessor-not-standing": ("corpus_id", "marker", "remotely_revealed", "tips"),
-        "evidence-refused": ("corpus_id", "marker", "remotely_revealed", "reason"),
-    },
+_BINDING_OUTCOMES: dict[str, type] = {
+    "bound": BindingBound,
+    "predecessor-not-standing": BindingPredecessorNotStanding,
+    "evidence-refused": BindingEvidenceRefused,
+}
+
+
+def binding_outcome_from_facet(outcome: object) -> BindingBound | BindingPredecessorNotStanding | BindingEvidenceRefused:
+    """The stored form of a publication-binding outcome, decoded through the
+    typed constructors — so the stored mirror and the values share one rule set
+    (32 lowercase hex, the closed reason set, strictly ascending unique tips, a
+    bool `remotely_revealed`). Raises `MalformedRecord` on anything else."""
+    if not isinstance(outcome, dict) or type(outcome.get("type")) is not str or outcome["type"] not in _BINDING_OUTCOMES:
+        raise MalformedRecord("a publication-binding outcome names one of its three types")
+    kind = _BINDING_OUTCOMES[outcome["type"]]
+    names = {field.name for field in dataclasses.fields(kind)}
+    if set(outcome) != {"type", *names}:
+        raise MalformedRecord(f"a {outcome['type']} outcome carries exactly {sorted(names)}")
+    values = {name: outcome[name] for name in names}
+    if "tips" in values:
+        if type(values["tips"]) is not list:
+            raise MalformedRecord("tips are a list in the stored form")
+        values["tips"] = tuple(values["tips"])
+    return kind(**values)
 ```
-and `_valid_report_entry`'s field loop becomes
+(`import dataclasses` at the top of `report.py`; `binding_outcome_from_facet` joins `__all__`.) In `stored.py`, `_REPORT_ENTRY_OUTCOMES` gains `"publication-binding": {"bound": (), "predecessor-not-standing": (), "evidence-refused": ()},` — the kind and its three types, so the table still names every entry kind; their fields are the constructors' — and `_valid_report_entry` gains, immediately **before** its `outcomes = _REPORT_ENTRY_OUTCOMES.get(kind)` line (so every existing line stays byte-identical for pinned arms; `tests/test_arm_staleness.py` checks):
 
 ```python
-    for field in fields:
-        value = outcome[field]
-        if field == "remotely_revealed":
-            if type(value) is not bool:
-                return False
-        elif field == "tips":
-            if not isinstance(value, list) or any(
-                type(member) is not str or re.fullmatch(r"[0-9a-f]{32}", member) is None for member in value
-            ):
-                return False
-        elif outcome_type == "imported-records" or field == "retired_uids":
-            if not isinstance(value, list) or any(type(member) is not str for member in value):
-                return False
-        elif type(value) is not str:
+    if kind == "publication-binding":
+        try:
+            report_values.binding_outcome_from_facet(entry.get("outcome"))
+        except MalformedRecord:
             return False
+        return True
 ```
-(place the two new branches *before* the existing `if`, so its lines stay byte-identical for any pinned arm; check with `tests/test_arm_staleness.py`).
+The generic field loop is untouched.
 
 `intents/shapes.py`, the domainless branch at line 127:
 
@@ -1278,6 +1324,7 @@ import pytest
 from nodes.core.frontmatter import node_to_markdown
 
 from beliefs.coordination import CoordinationAddress, coordination_revision
+from beliefs.errors import MalformedRecord
 from beliefs.intents.publish import Destination
 from beliefs.publication import (
     binding_address,
@@ -1354,10 +1401,21 @@ def test_every_binding_field_rule_refuses(field, value):
     assert publication_content_malformed(node)
 
 
+def test_an_invalid_record_id_is_refused_by_the_factory_the_rule_and_the_check():
+    """User review, finding 4: `selection` members are world record ids, not any sorted strings."""
+    with pytest.raises(MalformedRecord):
+        marker_record(intent(), world_id="7" * 32, epoch="6" * 64, selection=("not a record id",))
+    with pytest.raises(MalformedRecord):
+        marker_record(intent(), world_id="7" * 32, epoch="6" * 64, selection=("task:" + "a" * 32,))   # a coordination kind
+    marker = marker_record(intent(), world_id="7" * 32, epoch="6" * 64, selection=("proposition:p1",))
+    marker.facets["coordination"]["selection"] = ["not a record id"]
+    assert publication_content_malformed(marker) and not marker_consistent(marker)
+
+
 @pytest.mark.parametrize(
     "field, value",
     [
-        ("selection", []), ("selection", ["b", "a"]), ("supersedes_markers", [["b" * 32, "c" * 32], ["a" * 32, "c" * 32]]),
+        ("selection", []), ("selection", ["proposition:b", "proposition:a"]), ("selection", ["b"]), ("supersedes_markers", [["b" * 32, "c" * 32], ["a" * 32, "c" * 32]]),
         ("published_from", {"world_id": "7" * 32}),
     ],
 )
@@ -1366,7 +1424,7 @@ def test_every_marker_field_rule_refuses(field, value):
     node.facets["coordination"][field] = value
     assert publication_content_malformed(node)
 ```
-(`Node.model_copy` is pydantic's; if `nodes`' `Node` is not a pydantic model, rebuild the node with `Node(**{**node.__dict__, "title": value})` — `grep -n 'class Node' $(uv run --frozen python -c "import nodes, os; print(os.path.dirname(nodes.__file__))")/core/node.py` settles it.)
+(`Node.model_copy` is pydantic's; if `nodes`' `Node` is not a pydantic model, rebuild the node with `Node(**{**node.__dict__, "title": value})` — `grep -n 'class Node' $(uv run --frozen python -c "import nodes.core, os; print(os.path.dirname(nodes.core.__file__))")/node.py` settles it.)
 
 - [ ] **Step 2: Run to see them fail.**
 
@@ -1383,6 +1441,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from nodes.core.errors import IdError
+from nodes.core.ids import NodeId
 from nodes.core.node import Node
 
 from beliefs import stored
@@ -1491,13 +1551,22 @@ def marker_record(intent: PublishIntent, *, world_id: str, epoch: str, selection
 `published_from` carries `view` pinned (the spec's `view_revision` is the pin, §4 note above), so its closed shape is `{world_id, epoch, view}`; the spec's table row "`{world_id, epoch, view, view_revision}`" is corrected in Step 5 below.
 
 ```python
-def _ascending_strings(value: object, pattern: re.Pattern[str] | None, *, nonempty: bool) -> bool:
-    return (
-        type(value) is list
-        and (bool(value) or not nonempty)
-        and all(type(member) is str and (pattern is None or pattern.fullmatch(member)) for member in value)
-        and value == sorted(set(value))
-    )
+def _world_record_id(value: object) -> bool:
+    """A record id the publication can select: `nodes`' own id grammar
+    (`NodeId.parse`, `kind:slug`) over a world kind — a publication selects
+    world records, never coordination ones (spec §3, "record ids")."""
+    if type(value) is not str:
+        return False
+    try:
+        parsed = NodeId.parse(value)
+    except IdError:
+        return False
+    return parsed.kind in stored.WORLD_KINDS
+
+
+def _selection(value: object) -> bool:
+    """Non-empty, strictly ascending, every member a world record id."""
+    return type(value) is list and bool(value) and all(_world_record_id(member) for member in value) and value == sorted(set(value))
 
 
 def publication_content_malformed(node: Node) -> bool:
@@ -1544,7 +1613,7 @@ def publication_content_malformed(node: Node) -> bool:
         view.revision is None
         or type(source["world_id"]) is not str or _HEX32.fullmatch(source["world_id"]) is None
         or type(source["epoch"]) is not str or _HEX64.fullmatch(source["epoch"]) is None
-        or not _ascending_strings(facet["selection"], None, nonempty=True)
+        or not _selection(facet["selection"])
         or type(pairs) is not list
         or any(type(p) is not list or len(p) != 2 or any(type(m) is not str or _HEX32.fullmatch(m) is None for m in p) for p in pairs)
         or [list(p) for p in sorted({tuple(p) for p in pairs})] != pairs
@@ -1636,7 +1705,8 @@ git commit -m "feat(publication): deterministic marker and binding records, two 
 
 ```python
 PositionRefusalReason = Literal["mounts-changed", "anchor-unplaced", "chain-absent", "chain-malformed",
-    "revision-missing", "revision-mismatch", "revision-malformed", "history-violated", "unregistered-revision"]
+    "revision-missing", "revision-mismatch", "revision-malformed", "history-violated", "unregistered-revision",
+    "report-unqualified"]
 
 @dataclass(frozen=True)
 class PositionRefused:
@@ -1702,6 +1772,28 @@ def seam_over(views: dict) -> MomentSeam:
     return MomentSeam(inspect_written=views.__getitem__, inspect_other=views.__getitem__, **SEAM_BASE)
 ```
 
+**The pre-state classification (user review, finding 1).** A first committed registration of an address path whose own `initial` is already a file is `history-violated`, not `unregistered-revision`: spec §6 defines `history-violated` as a committed registration before the bound that moves an address path "from a `FileState` to `ABSENT` or to another `FileState`", which that registration does; `unregistered-revision` is the rule for files the chain does not account for (outside the inventory), and this path is inside it — the chain *does* speak about it, and what it says is a rewrite. An unaccounted file whose only registrations rewrite it is `unregistered-revision` (`_created_anywhere` counts creations only). Two unit tests pin both:
+
+```python
+def test_a_first_committed_rewrite_of_an_unregistered_file_is_history_violated(tmp_path):
+    root = (tmp_path / "w").resolve()
+    path, data = _binding_file(root)                       # a real binding revision's bytes at its address path
+    rewrite = registration(digest("reg-rw"), "rw", ((path, file_state(b"older\n")),), ((path, file_state(data)),))
+    view = chain(genesis_entry(b"g", label="rw-genesis"), rewrite, settlement(digest("set-rw"), rewrite.digest, "rw", committed=True))
+    judged = standing_at({root: "9" * 32}, ADDRESS, BINDING_KIND, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}))
+    assert type(judged) is PositionRefused and judged.reason == "history-violated"
+
+
+def test_an_unaccounted_file_whose_only_registration_rewrites_it_is_unregistered(tmp_path):
+    root = (tmp_path / "w").resolve()
+    path, data = _binding_file(root)
+    rewrite = registration(digest("reg-rw"), "rw", ((path, file_state(b"older\n")),), ((path, file_state(data)),))
+    view = chain(genesis_entry(b"g", label="rw-genesis"), rewrite)   # never settled: outside the inventory
+    judged = standing_at({root: "9" * 32}, ADDRESS, BINDING_KIND, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}))
+    assert type(judged) is PositionRefused and judged.reason == "unregistered-revision"
+```
+(`_binding_file(root)` writes `node_to_markdown(binding_record(intent(), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64))` at its `path_for_node_id` path under `root` and returns `(path, bytes)`; `ADDRESS = binding_address(intent().view, intent().destination)`.)
+
 `chain(head, *rest)` takes the genesis first (`genesis_entry(payload, label=...)`); the fake seam answers `inspect_written` and `inspect_other` from one dict of views, so a test that needs the two to differ (a re-read that sees a registration the first read did not) passes a two-view `inspect_written`. Then one test per row of spec §6's tables and each §11.1 bullet for `standing_at`: a first publication (empty inventory) → `()`; A then B superseding A, both committed before the bound → tips `(B,)`; B's file deleted → `revision-missing`; B's bytes replaced → `revision-mismatch`; B's bytes not a revision → `revision-malformed`; a committed registration moving B's path to `ABSENT` → `history-violated`; B's registration rolled back → tips `(A,)`, no refusal; B committed after the written root's position → tips `(A,)`; an other-root anchor whose head is before B's settlement → tips `(A,)`; an anchor naming another genesis → `anchor-unplaced`; a mount whose `inspect` answers `AbsentView()` → `chain-absent`, `MalformedView(...)` → `chain-malformed`; a mount set with an extra corpus → `mounts-changed`; a file at the address no registration creates → `unregistered-revision`; a file whose only creating registration is rolled back → not present, no refusal; the rolled-back-then-retried creation (two registrations, one rolled back, one committed) → present once. Build the revision bytes with `node_to_markdown(binding_record(intent(...), ...)).encode()` so each file is a real binding revision at `binding_address(VIEW, HERE)`; the fake root directory is `tmp_path / <name>`, and the test writes the bytes at the relative path the registration names.
 
 - [ ] **Step 2: Run to see them fail.**
@@ -1749,29 +1841,50 @@ def _committed_in_order(view: WellFormedView, head: int) -> list[RegisteredEntry
     return ordered
 
 
+def _creates(registration: RegisteredEntryView, path: str, seam: MomentSeam) -> bool:
+    """An actual creation: the registration's own `initial` holds the path ABSENT
+    and its `final` a file. The replay's prior state is not evidence of the
+    registration's pre-state; the registration's `initial` is."""
+    initial = dict(registration.initial)
+    final = dict(registration.final)
+    return initial.get(path, seam.absent_state) == seam.absent_state and seam.is_file(final[path])
+
+
 def inventory(bound: ChainBound, prefix: str, seam: MomentSeam) -> dict[str, object] | PositionRefused:
-    """Replay the committed registrations up to the bound over paths under `prefix` (spec §6)."""
+    """Replay the committed registrations up to the bound over paths under `prefix` (spec §6).
+
+    Only an ABSENT → file transition (on the registration's own `initial`) enters
+    the inventory. Any other committed transition of an address path — a file
+    rewritten, removed, or a file that was already present when its first
+    committed registration touched it — is `history-violated`: the registration
+    itself records an act on an immutable record that no door performs, whether
+    or not the record's creation was ever registered."""
     state: dict[str, object] = {}
     for registration in _committed_in_order(bound.view, bound.head):
+        initial = dict(registration.initial)
         for path, post in registration.final:
             if not path.startswith(prefix):
                 continue
+            pre = initial.get(path, seam.absent_state)
             prior = state.get(path, seam.absent_state)
-            if prior == seam.absent_state and post == seam.absent_state:
+            if pre == seam.absent_state and post == seam.absent_state and prior == seam.absent_state:
                 continue
-            if prior != seam.absent_state or not seam.is_file(post):
-                return PositionRefused("history-violated", f"{bound.root}: {path} was removed or rewritten")
+            if prior != seam.absent_state or not _creates(registration, path, seam):
+                return PositionRefused("history-violated", f"{bound.root}: {path} was not created by this registration")
             state[path] = post
     return state
 
 
 def _created_anywhere(view: WellFormedView, seam: MomentSeam) -> dict[str, list[tuple[object, bool | None]]]:
+    """Every registration, settled or not, that *creates* a path (ABSENT → file on
+    its own `initial`). A registration that rewrites a present file creates nothing,
+    so an unaccounted file whose only registrations rewrite it is unregistered."""
     settled = {entry.registration: entry.committed for entry in view.entries if type(entry) is SettledEntryView}
     created: dict[str, list[tuple[object, bool | None]]] = {}
     for entry in view.entries:
         if type(entry) is RegisteredEntryView:
             for path, post in entry.final:
-                if seam.is_file(post):
+                if _creates(entry, path, seam):
                     created.setdefault(path, []).append((post, settled.get(entry.digest)))
     return created
 
@@ -1845,7 +1958,7 @@ def standing_at(
             by_uid[node.uid] = revision
     return standing_tips(tuple(by_uid.values()))
 ```
-If `node_from_bytes`' exceptions are a closed set (`grep -n 'raise' $(uv run --frozen python -c "import nodes, os; print(os.path.dirname(nodes.__file__))")/core/frontmatter.py`), catch exactly those plus `MalformedRecord` instead of `Exception`, per the core rule against defensive catches.
+If `node_from_bytes`' exceptions are a closed set (`grep -n 'raise' $(uv run --frozen python -c "import nodes.core, os; print(os.path.dirname(nodes.core.__file__))")/frontmatter.py`), catch exactly those plus `MalformedRecord` instead of `Exception`, per the core rule against defensive catches.
 
 `corpus.py` `CoordinationResolver`:
 
@@ -1969,6 +2082,13 @@ def test_a_report_that_matches_but_does_not_decode_refuses(tmp_path):
     assert type(folded) is PositionRefused and folded.reason == "revision-malformed"
 
 
+def test_a_report_that_does_not_qualify_its_intent_refuses(tmp_path):
+    """User review, finding 2: a fulfilling report with another event token never folds."""
+    root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())], report_token="e" * 32)
+    folded = marker_tips_at({root: "9" * 32}, VIEW, HERE, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}), binding_tips=())
+    assert type(folded) is PositionRefused and folded.reason == "report-unqualified"
+
+
 def test_a_lost_report_refuses(tmp_path):
     root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())])
     for report in (root / "act-report").iterdir():
@@ -1976,14 +2096,14 @@ def test_a_lost_report_refuses(tmp_path):
     folded = marker_tips_at({root: "9" * 32}, VIEW, HERE, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}), binding_tips=())
     assert type(folded) is PositionRefused and folded.reason == "revision-missing"
 ```
-with the fixture helper, above the tests (imports: `from nodes.core.paths import path_for_node_id`, `from nodes.core.frontmatter import node_to_markdown`, `from beliefs import boundary, stored`, the three outcome classes and `PublicationBindingEntry` from `beliefs.report`, `IntentEntryView` and `RegisteredEntryView` from `beliefs.world.logmodel`, `encode_publish_intent` and `Destination` from `beliefs.intents.publish`, and Task 5's `ABSENT`, `file_state`, `seam_over` plus `chain`, `digest`, `genesis_entry`, `settlement` from `test_standing_at` / `test_world_log_audit`):
+with the fixture helper, above the tests (imports: `from dataclasses import replace`, `from nodes.core.paths import path_for_node_id`, `from nodes.core.frontmatter import node_to_markdown`, `from beliefs import boundary, stored`, the three outcome classes and `PublicationBindingEntry` from `beliefs.report`, `IntentEntryView` and `RegisteredEntryView` from `beliefs.world.logmodel`, `encode_publish_intent` and `Destination` from `beliefs.intents.publish`, and Task 5's `ABSENT`, `file_state`, `seam_over` plus `chain`, `digest`, `genesis_entry`, `settlement` from `test_standing_at` / `test_world_log_audit`):
 
 ```python
 VIEW = CoordinationAddress("a" * 32, "b" * 32, "c" * 32)
 HERE = Destination.local("/srv/published/mm30")
 
 
-def _fold_chain(tmp_path, rows, *, corrupt: bytes | None = None):
+def _fold_chain(tmp_path, rows, *, corrupt: bytes | None = None, report_token: str | None = None):
     """One written root: per row, a publish intent, the report its committed
     fulfilment created, and that report's file. The k-th publish's marker uid
     is "ab"[k] * 32 and its corpus_id "1" * 32 (the parametrized cases' pairs)."""
@@ -2000,7 +2120,8 @@ def _fold_chain(tmp_path, rows, *, corrupt: bytes | None = None):
             "predecessor-not-standing": BindingPredecessorNotStanding("1" * 32, marker, remote, ()),
         }[kind]
         report = boundary._mint_publish_report(
-            value, observer=value.actor, instrument="beliefs.publish", opened_at=value.at, closed_at=value.at,
+            value if report_token is None else replace(value, event_token=report_token),
+            observer=value.actor, instrument="beliefs.publish", opened_at=value.at, closed_at=value.at,
             entry=PublicationBindingEntry("coord:" + "a" * 32 + "/" + "d" * 32, outcome),
         )
         node = stored.act_report_node(report)
@@ -2090,6 +2211,7 @@ from beliefs.coordination import (
 )
 from beliefs.corpus import CoordinationResolver, CorpusWriter
 from beliefs.errors import MalformedRecord, PublicationRefused, ValidationRefused
+from beliefs.intents import shapes
 from beliefs.intents.publish import Destination, PublishIntent, decode_publish_intent, encode_publish_intent
 from beliefs.publication import BINDING_KIND, binding_address, binding_record
 from beliefs.report import (
@@ -2149,7 +2271,16 @@ def _reports_at(bound, view: CoordinationAddress, destination: Destination, seam
         except (MalformedRecord, ValueError) as caught:
             yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]}: {caught}")
             continue
-        if facet["operation"] != "publish" or len(facet["entries"]) != 1 or facet["entries"][0]["kind"] != "publication-binding":
+        qualifies = shapes.mismatch(
+            shapes.DecodedIntent(entry.digest, "publish", intent),
+            shapes.ReportEvidence(facet["operation"], facet["event_token"]),
+        )
+        if qualifies is not None:
+            # the audit's own qualification (Task 3's publish branch): a fulfilling report
+            # of the wrong kind or token never folds — it refuses (user review, finding 2)
+            yield intent, PositionRefused("report-unqualified", f"{bound.root}: {paths[0]}: {qualifies} for intent {entry.digest}")
+            continue
+        if len(facet["entries"]) != 1 or facet["entries"][0]["kind"] != "publication-binding":
             yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report")
             continue
         yield intent, facet["entries"][0]["outcome"]
@@ -2180,7 +2311,7 @@ def marker_tips_at(
     }
     return tuple(sorted(bound_markers | (orphans - retired)))
 ```
-Bytes that match their registration but do not decode as one publish report refuse `revision-malformed` (spec §6's three-reason rule for a report as for a revision); `node_from_bytes`' exception set is checked at implementation (`grep -n 'raise' "$(uv run --frozen python -c "import nodes, os; print(os.path.dirname(nodes.__file__))")/core/frontmatter.py"`) and the `except` names exactly it plus `MalformedRecord`. `present_records(bound, paths[0], seam)` treats the report's exact path as its own prefix: the inventory replays that one path, the file must be present and match, and the directory listing under `act-report/` with that stem finds only it. A report is create-only at a digest-named path (`stored.act_report_node`), so this is the same evidence rule as a revision's.
+**Why a new reason for an unqualified report (user review, finding 2).** A fulfilling report that decodes but does not qualify its intent (`shapes.mismatch` answers `wrong-kind` or `wrong-token`) is not malformed — its bytes are a well-formed act-report — so `revision-malformed` would misname it; it is evidence the audit itself rejects for this intent, so it refuses with the new reason `report-unqualified`, which joins `PositionRefusalReason` (Task 5), `EVIDENCE_REFUSAL_REASONS` (Task 2, so a binding refusal can carry it) and the spec's §6 table and §7 list through Task 0's planning note. The qualification runs before any outcome folds, so a wrong-token report can neither introduce nor retire an orphan. Bytes that match their registration but do not decode as one publish report refuse `revision-malformed` (spec §6's three-reason rule for a report as for a revision); `node_from_bytes`' exception set is checked at implementation (`grep -n 'raise' "$(uv run --frozen python -c "import nodes.core, os; print(os.path.dirname(nodes.core.__file__))")/frontmatter.py"`) and the `except` names exactly it plus `MalformedRecord`. `present_records(bound, paths[0], seam)` treats the report's exact path as its own prefix: the inventory replays that one path, the file must be present and match, and the directory listing under `act-report/` with that stem finds only it. A report is create-only at a digest-named path (`stored.act_report_node`), so this is the same evidence rule as a revision's.
 
 ```python
 def _judge(writer, resolver, opened: OpenedPublication, seam: MomentSeam):
@@ -2527,7 +2658,7 @@ def test_w17_p_d_mount_order_moves_neither_anchors_nor_tips_durably(work_directo
 (W17-p-d imports `marker_tips_at` from `beliefs.publication_doors` beside the two doors.)
 
 ```python
-@pytest.mark.parametrize("damage", ["missing", "mismatch", "unregistered"])
+@pytest.mark.parametrize("damage", ["missing", "mismatch", "unregistered", "rewritten"])
 def test_w17_p_e_the_chain_not_the_directory_says_which_revisions_exist_durably(pair, damage):
     publish(pair)                                         # A
     _, second = publish(pair)                             # B supersedes A
@@ -2538,15 +2669,27 @@ def test_w17_p_e_the_chain_not_the_directory_says_which_revisions_exist_durably(
     elif damage == "mismatch":
         path.write_bytes(path.read_bytes() + b"\n")
         expected = "revision-mismatch"
-    else:
+    elif damage == "unregistered":
         stray = binding_record(_intent_like(second), corpus_id="3" * 32, marker="4" * 32, artifact="5" * 64)
         raw_add(pair.roots[0], stray)
         expected = "unregistered-revision"
+    else:
+        # user review, finding 1: a file no registration created, then rewritten *through
+        # the engine* — a committed registration whose own `initial` is already a file.
+        stray = binding_record(_intent_like(second), corpus_id="3" * 32, marker="4" * 32, artifact="5" * 64)
+        raw_add(pair.roots[0], stray)
+        stray_path = pair.writers[0]._relative_path(stray)
+        old = (pair.roots[0] / stray_path).read_bytes()
+        rewritten = binding_record(_intent_like(second), corpus_id="6" * 32, marker="4" * 32, artifact="5" * 64)
+        pair.writers[0]._operation_port.execute(
+            [ReplaceOp(path=stray_path, content=node_to_markdown(rewritten).encode("utf-8"), expected_digest=sha256(old).hexdigest())]
+        )
+        expected = "history-violated"
     with pytest.raises(PublicationRefused) as refused:
         _open_publication(pair.writers[0], pair.resolver, view=pair.view, destination=LOCAL, clock=Clock(), seam=moment_seam())
     assert refused.value.reason == expected
 ```
-(`_intent_like(outcome)` decodes the intent the outcome closed and returns it with a different `event_token` — `dataclasses.replace(intent, event_token="7" * 32)` — so the stray is a valid binding revision at the address that no registration created. The file may need `chmod u+w` before the rewrite: the engine creates records with `CREATED_FILE_MODE`; restore nothing — the fixture's roots are discarded.)
+(`ReplaceOp` from `nodes.core.write_plan`, `sha256` from `hashlib`. If the engine refuses the `ReplaceOp` over a file its chain never registered, the `rewritten` case cannot be produced durably: drop it and W17-p-e2, keep Task 5's unit test, and record the verdict in the results record §7; the accounting then returns to 13 arms.) (`_intent_like(outcome)` decodes the intent the outcome closed and returns it with a different `event_token` — `dataclasses.replace(intent, event_token="7" * 32)` — so the stray is a valid binding revision at the address that no registration created. The file may need `chmod u+w` before the rewrite: the engine creates records with `CREATED_FILE_MODE`; restore nothing — the fixture's roots are discarded.)
 
 ```python
 def test_w17_p_f_a_rolled_back_creation_is_absent_and_its_retry_present_once_durably(pair, monkeypatch):
@@ -2738,7 +2881,7 @@ def test_y4_c_a_lost_refusal_report_refuses_rather_than_dropping_the_orphan_dura
 ```bash
 cd python && SCIENCE_CUT4_ROOT=~/d/beliefs/.work/acceptance/cut39-dev uv run --frozen pytest tests/acceptance/test_publication_records_acceptance.py -q -p no:cacheprovider
 ```
-Expected: 15 passed — thirteen units, W17-p-e parametrized three ways (14 passed if W17-p-f is declared unrun). Every failure here is a finding against Tasks 1–6, not a test to loosen: fix the source, or record the finding in the results record §7 and park if it needs a design change (`--reason decision`).
+Expected: 16 passed — thirteen units, W17-p-e parametrized four ways (15 passed if W17-p-f is declared unrun). Every failure here is a finding against Tasks 1–6, not a test to loosen: fix the source, or record the finding in the results record §7 and park if it needs a design change (`--reason decision`).
 
 - [ ] **Step 3: Commit**
 
@@ -2757,17 +2900,18 @@ git commit -m "test(cut39): the publication-records acceptance module — W17, Y
 
 **Interfaces:**
 - Consumes: Task 0's freeze commit and body digest; Task 7's test names.
-- Produces: `CUT39_ARMS` (13), `DECLARATION_UNITS` (13), `UNIT_CHECKS`, `unit_of`, `CO_CITED = ()`; the runner's `main`, `PREFIX_RUNNERS`, `PHASE_MODULES`, `TOOLS`, `ACCEPTANCE`, `PYTHON_ROOT`, `declared_accounting`.
+- Produces: `CUT39_ARMS` (14), `DECLARATION_UNITS` (13), `UNIT_CHECKS`, `unit_of`, `CO_CITED = ()`; the runner's `main`, `PREFIX_RUNNERS`, `PHASE_MODULES`, `TOOLS`, `ACCEPTANCE`, `PYTHON_ROOT`, `declared_accounting`.
 
-- [ ] **Step 1: The declaration** — `python/tests/n2_arms_cut39.py` on cut 38's shape (`sed -n 1,80p tests/n2_arms_cut38.py`). `DECLARATION_UNITS = ("W17-p-a", "W17-p-b", "W17-p-c", "W17-p-d", "W17-p-e", "W17-p-f", "Y1-a", "Y1-b", "Y2-a", "Y3-a", "Y4-a", "Y4-b", "Y4-c")` (drop `W17-p-f` if unrun); `_MODULE = "acceptance/test_publication_records_acceptance.py"`; `UNIT_CHECKS` maps each unit to its Task 7 function; `unit_of` is the identity (one arm per unit). Every `before` is copied **from the tree** after Task 7 (`grep -n` the site, copy the exact lines) and checked with `source.count(before) == 1`. The arms, one per unit (spec §11.3):
+- [ ] **Step 1: The declaration** — `python/tests/n2_arms_cut39.py` on cut 38's shape (`sed -n 1,80p tests/n2_arms_cut38.py`). `DECLARATION_UNITS = ("W17-p-a", "W17-p-b", "W17-p-c", "W17-p-d", "W17-p-e", "W17-p-f", "Y1-a", "Y1-b", "Y2-a", "Y3-a", "Y4-a", "Y4-b", "Y4-c")` (drop `W17-p-f` if unrun); `_MODULE = "acceptance/test_publication_records_acceptance.py"`; `UNIT_CHECKS` maps each unit to its Task 7 function; `unit_of` strips the trailing `2` from `W17-p-e2`, homing it to `W17-p-e`; every other arm is its own unit. Every `before` is copied **from the tree** after Task 7 (`grep -n` the site, copy the exact lines) and checked with `source.count(before) == 1`. The arms, one per unit plus W17-p-e2 (spec §11.3, and the user review's finding 1):
 
 | arm | module | before (the site) | after |
 |---|---|---|---|
 | W17-p-a | `publication_doors.py` | `        tips, markers = _judge(writer, resolver, opened, seam)` (the guard's first line) | `        if True:\n            return None  # the intent's tips trusted, nothing recomputed\n        tips, markers = _judge(writer, resolver, opened, seam)` — parses, names nothing new |
 | W17-p-b | `publication_doors.py` | `_judge`'s `standing_at(…, position=opened.digest, …)` call | the same call with `position=seam.inspect_written(written).tip` (judged at commit) |
-| W17-p-c | `coordination.py` | `bounds`' `found.append(ChainBound(root, corpus_id, view, placement.head))` | `found.append(ChainBound(root, corpus_id, view, len(view.entries) - 1))` |
+| W17-p-c | `coordination.py` | `        found.append(ChainBound(root, corpus_id, view, placement.head, False))` (Task 5's `bounds`, other roots) | `        found.append(ChainBound(root, corpus_id, view, len(view.entries) - 1, False))` — only the head expression changes; `written` stays `False` |
 | W17-p-d | `publication_doors.py` | `anchors.sort(key=lambda anchor: anchor.corpus_id)` | `pass  # anchors left in mount-path order` |
-| W17-p-e | `coordination.py` | `standing_at`'s `records = present_records(bound, prefix, seam)` and the two lines after it | the resolver's live read: `records = tuple((p.relative_to(bound.root).as_posix(), p.read_bytes()) for p in sorted((bound.root / kind).glob(f"{address.project}.{address.local}.*.md")))` |
+| W17-p-e | `coordination.py` | `        records = present_records(bound, prefix, seam)` (`standing_at`'s one line; `_reports_at` spells `present_records(bound, paths[0], seam)`, so it is unique) | the resolver's live read, same indentation, the refusal check below left as it is: `records = tuple((p.relative_to(bound.root).as_posix(), p.read_bytes()) for p in sorted((bound.root / kind).glob(f"{address.project}.{address.local}.*.md")))` |
+| W17-p-e2 | `coordination.py` | `    return initial.get(path, seam.absent_state) == seam.absent_state and seam.is_file(final[path])` (`_creates`) | `    return seam.is_file(final[path])` — any file post-state counts as a creation again; W17-p-e's `rewritten` case then admits the rewritten file as present instead of refusing `history-violated` |
 | W17-p-f | `coordination.py` | `_committed_in_order`'s `if type(entry) is SettledEntryView and entry.committed and entry.registration in registrations:` | the same line without `and entry.committed` |
 | Y1-a | `corpus.py` | `revise_coordination`'s guard with the lines that make it unique (the two guard lines are identical in both doors): `        if kind in PUBLICATION_KINDS:\n            raise KindNotMintedHere(f"{kind!r} is minted only by the publish doors")\n        self._authority.require("corpus-write", (kind,))\n        with self._operation:\n            self._require_pins_agree()\n            validated = self._validated_coordination_content(kind, content)\n            if not isinstance(address, CoordinationAddress) or address.revision is not None:` | the same text without its first two lines — spec §11.3's door; Y1-a's `revise_coordination` assertion then sees `ValidationRefused`, not `KindNotMintedHere` |
 | Y1-b | `permit.py` or `corpus.py` | the site that keeps coordination kinds out of the world-index maps (`grep -n 'COORDINATION_KINDS\|WORLD_KINDS' src/beliefs/world/*.py src/beliefs/corpus.py`; choose the one Y1-b's assertion reaches) | that membership test widened to admit `publication-binding` |
@@ -2777,9 +2921,9 @@ git commit -m "test(cut39): the publication-records acceptance module — W17, Y
 | Y4-b | `publication_doors.py` | `if outcome["type"] != "bound" and outcome.get("remotely_revealed") is True:` | `if outcome["type"] == "predecessor-not-standing" and outcome.get("remotely_revealed") is True:` |
 | Y4-c | `publication_doors.py` | `_reports_at`'s `if type(records) is PositionRefused:\n            yield intent, records\n            continue` | `if type(records) is PositionRefused:\n            continue` |
 
-Where a `before` is described rather than spelled, spell it at declaration time from the tree so that `source.count(before) == 1`, and make each `after` syntactically valid — run `python -c "import ast; ast.parse(open(p).read())"` over each sabotaged text through `n2_arms.py`'s own sabotage helper before pinning (the staleness probe's parse check, `beliefs-1b0827`, is not in the shared harness yet). The guard's `homed` assertion is `{unit: 1 for unit in DECLARATION_UNITS}`.
+Where a `before` is described rather than spelled, spell it at declaration time from the tree so that `source.count(before) == 1`, and make each `after` syntactically valid — run `python -c "import ast; ast.parse(open(p).read())"` over each sabotaged text through `n2_arms.py`'s own sabotage helper before pinning (the staleness probe's parse check, `beliefs-1b0827`, is not in the shared harness yet). The guard's `homed` assertion is `{unit: {"W17-p-e": 2}.get(unit, 1) for unit in DECLARATION_UNITS}`.
 
-- [ ] **Step 2: The guard** — `python/tests/acceptance/test_n2_cut39.py`: copy `test_n2_cut38.py`, then: import `CUT38_ARMS` and add it to `PRIOR_ARMS`; add `"python/tests/n2_arms_cut38.py": "<sha>"` to `FROZEN_PRIOR_CUT_FILES` (`git log -1 --format=%h -- python/tests/n2_arms_cut38.py`); `FROZEN_CUT` → the cut-39 document; `CUT39_FREEZE_COMMIT` and `CUT39_FROZEN_SHA256` from Task 0 Step 7; `FROZEN_DECLARATION = "python/tests/n2_arms_cut39.py"` and `CUT39_DECLARATION_SHA256 = sha256sum` of it once final; the inventory test asserts the thirteen units and `len(CUT39_ARMS) == 13`; `test_every_acceptance_test_the_arms_name_exists` parses the acceptance module with `ast`, collects every `def test_*`, and asserts that the set of function names `UNIT_CHECKS` cites is a subset with exactly `len(DECLARATION_UNITS)` members; the freeze test asserts `"**13 declaration units**" in current` and `'("cut38_acceptance.py",)' in current`.
+- [ ] **Step 2: The guard** — `python/tests/acceptance/test_n2_cut39.py`: copy `test_n2_cut38.py`, then: import `CUT38_ARMS` and add it to `PRIOR_ARMS`; add `"python/tests/n2_arms_cut38.py": "<sha>"` to `FROZEN_PRIOR_CUT_FILES` (`git log -1 --format=%h -- python/tests/n2_arms_cut38.py`); `FROZEN_CUT` → the cut-39 document; `CUT39_FREEZE_COMMIT` and `CUT39_FROZEN_SHA256` from Task 0 Step 7; `FROZEN_DECLARATION = "python/tests/n2_arms_cut39.py"` and `CUT39_DECLARATION_SHA256 = sha256sum` of it once final; the inventory test asserts the thirteen units and `len(CUT39_ARMS) == 14`; `test_every_acceptance_test_the_arms_name_exists` parses the acceptance module with `ast`, collects every `def test_*`, and asserts that the set of function names `UNIT_CHECKS` cites is a subset with exactly `len(DECLARATION_UNITS)` members; the freeze test asserts `"**13 declaration units**" in current` and `'("cut38_acceptance.py",)' in current`.
 
 - [ ] **Step 3: The runner** — `python/tools/cut39_acceptance.py`: cut 38's with `cut=39`, `DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut39"`, `PREFIX_RUNNERS = ("cut38_acceptance.py",)`, `PHASE_MODULES = ("test_publication_records_acceptance.py", "test_n2_cut39.py")`, `declared_accounting` asserting `rows == {"W17", "Y1", "Y2", "Y3", "Y4"}`, and on success:
 
@@ -2788,7 +2932,7 @@ Where a `before` is described rather than spelled, spell it at declaration time 
 ```
 (with W17-p-f unrun: `"guarantee rows exercised: 5 (4 newly closed: Y1, Y2, Y3, Y4; W17 partial on its rollback arm)"`).
 
-- [ ] **Step 4: The recent-cut row** — `python/tests/test_recent_cut_acceptance.py`: `import cut39_acceptance as cut39`; add `(cut39, 39, (13, 13, 5))` and id `"cut39"` to the parametrization; add
+- [ ] **Step 4: The recent-cut row** — `python/tests/test_recent_cut_acceptance.py`: `import cut39_acceptance as cut39`; add `(cut39, 39, (14, 13, 5))` (or `(13, 12, 5)` with W17-p-f unrun) and id `"cut39"` to the parametrization; add
 
 ```python
     if cut == 39:
@@ -2810,7 +2954,7 @@ for n in $(seq 4 39); do export SCIENCE_CUT${n}_ROOT=~/d/beliefs/.work/acceptanc
 setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut39-runner.log uv run --frozen python tools/cut39_acceptance.py > /dev/null 2>&1 &
 sleep 2; echo "runner process group $(cat ~/d/beliefs/.work/acceptance/cut39-runner.log.pid)"
 ```
-If the turn ends before the wrapper does, report that process-group id and `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut39-runner.log.pid)"` as the stop. Read the log when it exits; expected tail: three `[cut39 phase n/3]` lines, `declared arms: 13 (= 13 declaration units; 5 guarantee rows)`, the rows-exercised line, exit 0. Every arm `sound`; every check `resolved`. A `stale` verdict means a `before` no longer matches — fix the declaration, never the source.
+If the turn ends before the wrapper does, report that process-group id and `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut39-runner.log.pid)"` as the stop. Read the log when it exits; expected tail: three `[cut39 phase n/3]` lines, `declared arms: 14 (= 13 declaration units; 5 guarantee rows)`, the rows-exercised line, exit 0. Every arm `sound`; every check `resolved`. A `stale` verdict means a `before` no longer matches — fix the declaration, never the source.
 
 - [ ] **Step 6: Commit**
 
@@ -2931,3 +3075,13 @@ cd ~/d/beliefs && git merge --no-ff design/publish -m "merge: publication record
   While applying the round, two first-draft stubs outside the findings were written out: Y1-b's body (on `test_w18i`'s shape over a v2 world) and Y4-a's body with its `_CountingPort`; the `publish` helper now passes `port` to both doors.
 
   The declared accounting is unchanged: 13 arms, 13 units, 5 rows.
+- 2026-09-22 — user review, five findings, each verified against the code (the user had run findings 1–4 against the current types); all taken:
+  1. **A rewrite could pass as a creation.** `inventory` and `_created_anywhere` now require an ABSENT → file transition on the registration's own `initial` (`_creates`, Task 5). Classification: a first committed registration whose `initial` is already a file is `history-violated` — spec §6's rule reads the registration's transition (it moves the path from a `FileState`), and `unregistered-revision` is the rule for files the chain does not account for, while this path is one the chain speaks about; an unaccounted file whose only registrations rewrite it is `unregistered-revision`. Two unit tests pin both (Task 5). A new arm is warranted — the defect is reachable durably and W17-p-e's check can see it — so W17-p-e gains a `rewritten` case (an unregistered file rewritten through the engine's `ReplaceOp`) and a second arm, W17-p-e2, sabotages `_creates` to "any file post-state"; if the engine refuses the `ReplaceOp`, the case and arm drop and the accounting returns to 13 arms.
+  2. **The fold trusted an unqualified report.** `_reports_at` applies `shapes.mismatch` (Task 3's publish branch) before folding; a fulfilling report that decodes but does not qualify refuses with the new reason `report-unqualified` — not `revision-malformed`, since its bytes are a well-formed report and the defect is its relation to the intent. The reason joins `PositionRefusalReason`, `EVIDENCE_REFUSAL_REASONS` and (through Task 0's planning note) the spec's §6 and §7; a unit test builds a report with another event token.
+  3. **The stored mirror was weaker than the constructors.** `report.binding_outcome_from_facet` decodes the stored outcome through the typed constructors, and `stored._valid_report_entry` delegates to it for `publication-binding` — one rule set; the generic field loop is untouched. Nine stored-path tests, one per rule.
+  4. **Selections accepted any sorted strings.** `selection` members must parse with `nodes`' `NodeId.parse` and name a world kind (`stored.WORLD_KINDS`) — `view_query._world_address` checks the kind and a non-empty local part only, so `NodeId.parse` is the stricter existing parser. Tests: the factory refuses a non-id and a coordination-kind id; the content rule and `marker_consistent` refuse a mutated selection.
+  5. **W17-p-c's snippets dropped `ChainBound.written`.** `before` is now Task 5's line as written, `found.append(ChainBound(root, corpus_id, view, placement.head, False))`, and `after` changes only the head expression.
+
+  Other sabotage pairs checked against their tasks' code for the same drift: W17-p-e's `before` said "and the two lines after it" while its `after` replaced one line — now the single line, unique in `standing_at`. W17-p-a, W17-p-b, W17-p-d, W17-p-f, Y1-a, Y2-a, Y3-a, Y4-a, Y4-b and Y4-c match their tasks' code (every name their `after` uses is in scope at the site). Also fixed: the import-derived `nodes` path the round-0 hook fix introduced used `nodes.__file__`, which is `None` for the namespace package; it is `nodes.core.__file__` now.
+
+  Declared accounting: 14 arms, 13 declaration units, 5 rows — `(14, 13, 5)`, or `(13, 12, 5)` with W17-p-f unrun.
