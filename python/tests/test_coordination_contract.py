@@ -8,6 +8,7 @@ from beliefs.contract.coordination import (
     load_coordination_contract,
 )
 from beliefs.errors import MalformedContract, SuccessionViolation
+from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination
 
 
 def successor(predecessor, **changes):
@@ -123,3 +124,35 @@ def test_succession_refuses_every_redefinition(change):
         document["query_vocabulary"]["relations"].pop()
     with pytest.raises(SuccessionViolation):
         coordination_contract(document, genesis)
+
+
+V1_IDENTITY = "c440b93fe673240e51361a7ad837a8c27a1d385ed6ea7bebbfc6993eb0d84b8f"
+"""The former fixture's content identity, computed at planning (2026-09-22) from
+`coordination_fixtures.COORDINATION_DOCUMENT` before the fixture was moved into
+the package; pinned as a literal because the fixture now loads the shipped file."""
+
+
+def test_the_shipped_v1_is_the_former_fixture():
+    assert shipped_coordination(1).content_identity == V1_IDENTITY
+
+
+def test_v2_succeeds_v1_and_adds_exactly_the_publication_kinds_and_the_composite_vocabulary():
+    v1, v2 = shipped_coordination(1), shipped_coordination(2)
+    assert v2.predecessor == v1.content_identity and v2.version == 2
+    assert set(v2.kinds) - set(v1.kinds) == {"publication", "publication-binding"}
+    assert set(v2.query_kinds) - set(v1.query_kinds) == {"composite"}
+    assert set(v2.query_relations) - set(v1.query_relations) == {"composes"}
+    assert shipped_coordination() is v2 is shipped_coordination(2)
+
+
+def test_v2_compiles_over_the_shipped_base():
+    profile = compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(2))
+    assert {"publication", "publication-binding"} <= set(profile.coordination_kinds)
+    assert "composite" in profile.coordination_query_kinds and "composes" in profile.coordination_query_relations
+
+
+def test_an_unknown_version_is_refused():
+    from beliefs.errors import ProfileError
+
+    with pytest.raises(ProfileError):
+        shipped_coordination(3)

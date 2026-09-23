@@ -62,6 +62,7 @@ from beliefs.acquisition import bearer_refusal, validity_refusal
 from beliefs.consulted import CorpusPins
 from beliefs.coordination import (
     COORDINATION_KINDS,
+    PUBLICATION_KINDS,
     CoordinationAddress,
     CoordinationRefused,
     CoordinationRevision,
@@ -94,6 +95,7 @@ from beliefs.errors import (
     IdentifierMalformed,
     IdentityError,
     ImportRefused,
+    KindNotMintedHere,
     LoneSurrogate,
     MalformedRecord,
     ManifestAlreadyPresent,
@@ -2018,6 +2020,8 @@ class CorpusWriter:
         project: CoordinationAddress | None = None,
         content: Mapping[str, object],
     ) -> Node:
+        if kind in PUBLICATION_KINDS:
+            raise KindNotMintedHere(f"{kind!r} is minted only by the publish doors")
         self._authority.require("corpus-write", (kind,))
         with self._operation:
             self._require_pins_agree()
@@ -2054,6 +2058,8 @@ class CorpusWriter:
         predecessors: Sequence[str],
         content: Mapping[str, object],
     ) -> Node:
+        if kind in PUBLICATION_KINDS:
+            raise KindNotMintedHere(f"{kind!r} is minted only by the publish doors")
         self._authority.require("corpus-write", (kind,))
         with self._operation:
             self._require_pins_agree()

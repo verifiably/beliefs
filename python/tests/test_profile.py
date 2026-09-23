@@ -214,6 +214,7 @@ class TestNoSecondAuthoredOperatorArtifact:
             "compile_profile",
             "shipped_base",
             "shipped_base_contract",
+            "shipped_coordination",
             "shipped_domain_contract",
         ]
 

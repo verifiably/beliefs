@@ -1141,6 +1141,12 @@ class PredecessorMismatch(WriteRefused):
     """A predecessor stands but belongs to another kind or coordination address."""
 
 
+class KindNotMintedHere(WriteRefused):
+    """A kind the ordinary coordination doors never mint: `publication` and
+    `publication-binding` are minted only by the publish doors
+    (publication-records design decision 6)."""
+
+
 class PredecessorNotStanding(WriteRefused):
     """A supplied predecessor is absent or superseded at the commit check."""
 

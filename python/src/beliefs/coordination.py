@@ -14,6 +14,8 @@ from beliefs.sealed import sealed
 
 __all__ = [
     "COORDINATION_KINDS",
+    "ORDINARY_COORDINATION_KINDS",
+    "PUBLICATION_KINDS",
     "VIEW_KINDS",
     "CoordinationAddress",
     "CoordinationRefused",
@@ -24,7 +26,10 @@ __all__ = [
 ]
 
 VIEW_KINDS = ("project", "question", "hypothesis", "topic", "theme")
-COORDINATION_KINDS = (*VIEW_KINDS, "task", "decision", "note")
+ORDINARY_COORDINATION_KINDS = (*VIEW_KINDS, "task", "decision", "note")
+PUBLICATION_KINDS = ("publication", "publication-binding")
+"""Minted only by the publish doors (publication-records design decision 6)."""
+COORDINATION_KINDS = (*ORDINARY_COORDINATION_KINDS, *PUBLICATION_KINDS)
 _ADDRESS = re.compile(r"coord:([0-9a-f]{32})(?:/([0-9a-f]{32}))?(?:@([0-9a-f]{32}))?")
 _HEX = re.compile(r"[0-9a-f]{32}")
 _RFC3339 = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})")

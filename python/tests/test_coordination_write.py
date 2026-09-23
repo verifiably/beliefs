@@ -246,13 +246,14 @@ def test_an_earlier_contract_version_authorizes_nothing_added_later(tmp_path, ba
     genesis = coordination_contract()
     document = deepcopy(COORDINATION_DOCUMENT)
     document.update(version=2, lineage={"successor": genesis.content_identity})
-    document["kinds"]["publication"] = {
+    # Not `publication`: since cut 39 that kind is real and refused at the door (KindNotMintedHere).
+    document["kinds"]["milestone"] = {
         "fields": ["name", "body", "author", "at"],
         "query_versions": [],
     }
     amended = coordination_contract(document, genesis)
     old_profile = compile_profile(base_contract, [], coordination=genesis)
-    assert "publication" in compile_profile(base_contract, [], coordination=amended).coordination_kinds
+    assert "milestone" in compile_profile(base_contract, [], coordination=amended).coordination_kinds
     mounted_root(tmp_path, old_profile)
     writer = CorpusWriter(
         tmp_path,
@@ -263,7 +264,7 @@ def test_an_earlier_contract_version_authorizes_nothing_added_later(tmp_path, ba
     project = writer.mint_coordination("project", content=content_for("project"))
     with pytest.raises(ValidationRefused, match="not declared"):
         writer.mint_coordination(
-            "publication",
+            "milestone",
             project=coordination_revision(project).address,
             content=content_for("decision"),
         )
@@ -479,3 +480,43 @@ def test_w17e_an_already_minted_revision_pair_refuses_before_plan(
     with pytest.raises(RecordAlreadyMinted):
         writer.mint_coordination("project", content=content_for("project"))
     assert len(Recorder.plans) == 1
+
+
+COMPOSITE_QUERY = {
+    "version": "science.view-query.v1",
+    "clauses": [
+        {
+            "all": [
+                {"kinds": ["composite"]},
+                {"closure": {"anchor": "composite:c1", "predicates": ["composes"], "direction": "out"}},
+            ]
+        }
+    ],
+}
+
+
+@pytest.mark.parametrize("version, admitted", [(2, True), (1, False)])
+def test_composite_and_composes_are_spellable_only_under_v2(tmp_path, base_contract, version, admitted):
+    writer, _resolver = writer_with_resolver(tmp_path, coordination_profile(base_contract, version=version))
+    project = writer.mint_coordination("project", content=content_for("project"))
+    address = coordination_revision(project).address
+    content = content_for("question", query=COMPOSITE_QUERY)
+    if admitted:
+        assert writer.mint_coordination("question", project=address, content=content).kind == "question"
+    else:
+        with pytest.raises(ValidationRefused, match="outside the coordination contract vocabulary"):
+            writer.mint_coordination("question", project=address, content=content)
+
+
+@pytest.mark.parametrize("kind", ["publication", "publication-binding"])
+def test_the_family_doors_refuse_the_publication_kinds(tmp_path, base_contract, kind):
+    from beliefs.errors import KindNotMintedHere
+
+    profile = coordination_profile(base_contract, version=2)
+    writer, _resolver = writer_with_resolver(tmp_path, profile)
+    project = writer.mint_coordination("project", content=content_for("project"))
+    address = coordination_revision(project).address
+    with pytest.raises(KindNotMintedHere):
+        writer.mint_coordination(kind, project=address, content={})
+    with pytest.raises(KindNotMintedHere):
+        writer.revise_coordination(kind, CoordinationAddress(address.project, A), predecessors=(B,), content={})
