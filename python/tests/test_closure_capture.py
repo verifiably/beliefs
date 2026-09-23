@@ -341,6 +341,34 @@ def test_an_import_only_pth_names_a_module_that_must_be_a_closure_member(tmp_pat
     assert walker.rows[f"{SANDBOX_SITE}/_shim.py"][0] == "file"
 
 
+def test_an_import_pth_may_name_a_module_compiled_into_the_interpreter(tmp_path):
+    """coverage >= 7.10's a1_coverage.pth is `import sys; exec(...)`: `sys`
+    has no file to carry, so it is no refusal (beliefs-76fe0e)."""
+    import sys
+
+    assert "sys" in sys.builtin_module_names
+    walker, purelib = _site(tmp_path)
+    (purelib / "a1_coverage.pth").write_text("import sys; exec('import os')\n")
+    walker.add_pth(purelib)
+    assert walker.rows[f"{SANDBOX_SITE}/a1_coverage.pth"][0] == "file"
+
+
+def test_an_import_pth_may_name_a_stdlib_module_only_when_the_closure_carries_it(tmp_path):
+    """A standard-library module is a closure member when the stdlib walk laid
+    its file out; one the walk did not carry is still refused."""
+    import textwrap
+
+    walker, purelib = _site(tmp_path)
+    (purelib / "_wrap.pth").write_text("import textwrap\n")
+    with pytest.raises(ClosureUnsupported, match="not a closure member"):
+        walker.add_pth(purelib)
+    stdlib = Path(textwrap.__file__).resolve().parent
+    walker.register(stdlib, "/science/python/lib")
+    walker.add(Path(textwrap.__file__).resolve())
+    walker.add_pth(purelib)
+    assert walker.rows[f"{SANDBOX_SITE}/_wrap.pth"][0] == "file"
+
+
 def test_k7_a_symlink_escaping_the_closure_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     (purelib / "escape").symlink_to("../../outside")

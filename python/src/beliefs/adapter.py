@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import importlib.metadata
+import importlib.util
 import json
 import os
 import posixpath
@@ -390,7 +391,25 @@ class _Closure:
                     if candidate.is_file():
                         self.add(candidate)
                         continue
+                    if self._carries_stdlib_module(module):
+                        continue
                     raise ClosureUnsupported(f"{pth.name} imports {module!r}, which is not a closure member")
+
+    def _carries_stdlib_module(self, module: str) -> bool:
+        """A standard-library import is a closure member when it has no file
+        (compiled into the interpreter, as coverage's `a1_coverage.pth` imports
+        `sys`) or when the stdlib walk already laid its file out. Nothing is
+        added here: a stdlib module the walk excluded stays a refusal."""
+        if module in sys.builtin_module_names:
+            return True
+        if module not in sys.stdlib_module_names:
+            return False
+        spec = importlib.util.find_spec(module)
+        if spec is None or spec.origin is None:
+            return False
+        if spec.origin in ("built-in", "frozen"):
+            return True
+        return Path(os.path.realpath(spec.origin)) in set(self.plan.values())
 
     def add_native(self, *, listing: Callable[[Path], Mapping[str, Path]]) -> None:
         """The loader's own resolution for every loadable ELF under the
