@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-23T11:39:55Z
+updated: 2026-09-23T17:32:16Z
 started: 2026-09-22T21:54:25Z
 depends: [beliefs-b34652, beliefs-1f7400]
 tags: [migration, publication, coordination]
@@ -40,3 +40,5 @@ Uncertainty: Destination-specific remote transport remains for Science, while th
 - 2026-09-23T08:45:49Z (design/publish): resumed
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-23T11:39:55Z (main): From the science projects design (science docs/specs/2026-09-23-projects-corpora-and-workspaces-design.md §8): (1) whether dataset holdings travel is a property of the destination kind, not the selection: private directory and git remote carry records only, a Zenodo deposit carries holdings, a commons inbox defers to the commons world's policy; each destination kind should state it. (2) Deferral recorded: the coordination trail (question, hypothesis, decision) is not selectable by any view (view_query.py rejects non-world kinds and coord: addresses), so publishing it needs a publish-contract amendment; not requested now.
+- 2026-09-23T17:32:16Z (main): parked (waiting on agent, session): Slice 2 (beliefs-328507, cut 40): brainstorm its spec in .worktrees/publish after rebasing design/publish on main; the recovery table must cover unfinished intents (see its note).
+  provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
