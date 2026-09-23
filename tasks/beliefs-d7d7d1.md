@@ -1,15 +1,16 @@
 ---
 id: beliefs-d7d7d1
 title: "Publication records: coordination amendment, publish intent and the intent-position rule (cut 39)"
-status: doing
+status: done
 priority: 2
 size: l
 complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-23T16:43:16Z
+updated: 2026-09-23T17:29:23Z
 started: 2026-09-22T22:08:29Z
+completed: 2026-09-23T17:29:23Z
 depends: []
 parent: beliefs-1a5157
 tags: [publication, coordination]
@@ -42,4 +43,8 @@ Slice 1 of publish: ship coordination contract v1+v2 (publication, publication-b
 - 2026-09-23T09:11:43Z (design/publish): Cut 39 frozen: ROLLBACK_MEANS=patched create effect; REPLACE_UNREGISTERED=accepted; RETRY_AFTER_ROLLBACK=same intent; accounting row 14/13/5, W17 closes, Task 7 passes 16; chains cut 38.
 - 2026-09-23T09:19:33Z (design/publish): Cut 39 re-frozen after review fix round 1: CUT39_FREEZE_COMMIT=8e81e1ac72ac9838bc863d07b93e2cdbfa31ad8c, CUT39_FROZEN_SHA256=b92c7a2052e97d2ccc75fbb7fbb07b5d53d90ecc99904be666c61d9dd9dd7a43 (supersedes 15fd610); verdicts and row 14/13/5 unchanged.
 - 2026-09-23T16:43:16Z (design/publish): parked (waiting on user): Waits on the held merge (beliefs-fc5063); then close with the cut 39 discharge line.
+  provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-23T17:29:23Z (design/publish): done
+  provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-23T17:29:23Z (design/publish): cut 39 discharged: W17 and Y1–Y4 — the coordination contract's v2 amendment, the publish intent and the intent-position judgment over the chain's inventory
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
