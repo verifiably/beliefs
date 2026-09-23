@@ -27,7 +27,17 @@
   runner import, its `(runner, cut, accounting)` parametrization entry with the
   declared-arm, declaration-unit and guarantee-row counts, and the cut's
   guarantee-rows-exercised line. Cuts 33, 34 and 35 landed theirs at `f4c2cef`,
-  `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. — Here that is Task 8, Step 4, with `(cut39, 39, (14, 13, 5))` — or `(cut39, 39, (13, 12, 5))` if Task 0 Step 3 finds no durable rollback and W17-p-f is declared unrun (the row count stays 5; W17 is then read partial).
+  `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. — Here that is Task 8, Step 4, with the `(arms, units, rows)` of the **frozen accounting row** below.
+- **The accounting is conditional on two engine facts, settled in Task 0 before the cut document freezes, and the cut document freezes exactly one row** (user review 2):
+
+  | `REPLACE_UNREGISTERED` (the engine accepts a `ReplaceOp` over an unregistered file) | `ROLLBACK_MEANS` (a durable rolled-back registration) | arms / units / rows | recent-cut row | W17 | Task 7 passes |
+  |---|---|---|---|---|---|
+  | accepted | available | 14 / 13 / 5 | `(cut39, 39, (14, 13, 5))` | closes | 16 |
+  | refused | available | 13 / 13 / 5 | `(cut39, 39, (13, 13, 5))` | closes | 15 |
+  | accepted | unrun | 13 / 12 / 5 | `(cut39, 39, (13, 12, 5))` | **partial** | 15 |
+  | refused | unrun | 12 / 12 / 5 | `(cut39, 39, (12, 12, 5))` | **partial** | 14 |
+
+  `REPLACE_UNREGISTERED` decides W17-p-e's `rewritten` case and its second arm W17-p-e2 (not a unit: W17-p-e's other three cases stand either way). `ROLLBACK_MEANS` decides the unit W17-p-f and its one arm. W17 is partial whenever rollback is unrun, whatever the replace case shows. The rows count 5 in every row: W17 is read either way. Task 7's pass count is eleven single-test units, plus W17-p-e's cases (four, or three), plus W17-p-f (one, or none). Every later mention of the accounting — Task 7's expected count, Task 8's `homed` map, `unit_of`, `declared_accounting`, the rows-exercised line and the recent-cut row, and Task 10's results record and `roadmap_status.py` entry — reads the frozen row, and none restates a count of its own.
 - **Frozen declarations and frozen cut bodies stay byte-exact.** Cut 39 chains **cut 38's** runner (`PREFIX_RUNNERS = ("cut38_acceptance.py",)`) and re-targets nothing unless Task 1's staleness run says otherwise: `coordination.py`, `corpus.py`, `permit.py`, `report.py`, `stored.py` and `intents/shapes.py` are pinned by earlier live arms (cuts 14, 19, 35, 38), so every edit in those files must leave each pinned `before` string occurring exactly once. **One exception, planned:** cut 17's live arm E4c pins `        raise ValueError("publish is not an act family")` in `permit.py`, the line decision 7 deletes; Task 1 re-targets it in `test_n2_cut17.py`'s `_LIVE_SABOTAGES` (new `before`, frozen `after` kept) and rewrites its check's body under the cited name, and the results record states it. Tasks 1, 2, 3 and 5 end by running `tests/test_arm_staleness.py`; a stale prior arm means an edit moved a pinned line — restore the line's spelling and place the new code beside it, never edit a prior declaration (memory `staleness-probe-baseline-is-the-trees-output`).
 - **Decisions the code must honour verbatim** (spec §2): two slices, this one owning every record and every source-root write (1); the contract ships as `v1` (the fixture, same content identity) and `v2` (`lineage: {successor: <v1 identity>}`, adding the two kinds and `composite`/`composes`), `shipped_coordination()` returning v2 (2); the publish intent is the domain-tagged `science.publish-intent.v1` carrying the pinned view, the destination, `binding_tips`, `marker_tips`, and one anchor per mount other than the written root, captured under the written root's lock (3); presence at a position is the chain's inventory at each root's bound — committed registrations only, every inventoried file present, content-matched and well-formed, removals and rewrites `history-violated`, unaccounted files classified by a chain re-read (4, §6); the marker's `published_from`, `destination`, `selection` and `supersedes_markers` and the binding's bound `(corpus_id, marker, artifact)` are facet fields, a marker carries no relations, a binding exactly its `supersedes` to `binding_tips` (5); deterministic identity by the factory only, `mint_coordination` and `revise_coordination` refusing both kinds with `KindNotMintedHere` (6); a `publish` act family, `KIND_ACTS` mapping both kinds to `{"publish"}`, `RequiredCapabilities.coordination()` keeping the eight ordinary kinds, `publishes()` returning `publish` over `publication-binding` plus `corpus-write` over `act-report`, admitted through a closed `KERNEL_REQUIREMENTS` while every ordinary route naming `publish` still refuses (7); the act-report amendment banks one entry kind, `publication-binding`, with `bound`, `predecessor-not-standing` and `evidence-refused` (8); the destination is the closed `local`/`remote` union, canonical (9); `publish` opens only through its domain intent — `OperationIntent("publish", …)` raises and a domainless `publish` triple decodes `malformed` (10); `predecessor-not-standing` is the detection of a broken single-writer obligation, reached in the arm by an injected second writer (11).
 - **Detached runs go through a reaping wrapper** (Processes rule): the cut runner and the gate outlive a turn, so each is launched by `~/d/beliefs/.work/acceptance/detached.sh` (exists; `test -x` it, and if missing recreate it from `docs/superpowers/plans/2026-09-21-l13-preimage.md`'s Global Constraints). Launch: `setsid nohup ~/d/beliefs/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`. The end-of-turn report that leaves it running names the process-group id (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session` has listed what the session's scope left. After exit, check the process group is gone before reporting nothing left.
@@ -71,7 +81,7 @@
 - Modify: `python/tests/test_designs_corpus.py` (`GUARANTEE_TABLES`, `TABLE_OWNERS`, the number-word table), `README.md` (the designs count and table row, the row total and table count), `docs/guide/contracts-and-adoption.md`, the ledger (`Current state`: Y1–Y4 open under `publish`), the roadmap's accounting paragraph and Appendix A (via `python/tools/roadmap_status.py`), the spec (planning note), tasks through the CLI
 
 **Interfaces:**
-- Produces: the frozen §§2–7 the guard pins (Task 8 reads its freeze commit and body digest); the unit inventory every later task builds against; `ROLLBACK_MEANS` — the verdict of Step 3 that Task 7's W17-p-f uses or declares unrun.
+- Produces: the frozen §§2–7 the guard pins (Task 8 reads its freeze commit and body digest); the unit inventory every later task builds against; `ROLLBACK_MEANS` and `REPLACE_UNREGISTERED` — Step 3's two verdicts, which select the one accounting row (Global Constraints) the cut document freezes.
 
 - [ ] **Step 1: Confirm cut 39 is unclaimed**
 
@@ -169,7 +179,7 @@ cd python && uv run --frozen pytest tests/test_publication_engine_order.py -q
 ```
 Expected (after Step 3 adds two more): 4 passed. If the first fails with `seen == [False]`, the engine does not append before its effects and the spec's re-read classification is unsound: stop, `tasks note` the finding, and park the task `--reason decision`; nothing later is built on an unpinned order.
 
-- [ ] **Step 3: Settle `ROLLBACK_MEANS`.** The second test above is the durable means W17-p-f needs (spec §11.2): monkeypatching `atoms.coordinator.execute.create_file.apply` to raise after registration leaves a `RegisteredEntryView` and a `SettledEntryView(committed=False)` in the chain and no file — `atoms`' own caught-rollback technique (`tests/test_coordinator_run.py:173`). If it passes, `ROLLBACK_MEANS = "patched create effect"`, and W17-p-f is declared. If it fails on the certified volume, W17-p-f is declared **unrun**, the accounting in Global Constraints and Task 8 takes its `(12, 12, 5)` form, and the results record reads W17 **partial** (memory `cut-classification-any-unrun-arm-is-partial`). Add one probe to the same module, which Task 6's retry and Task 7's W17-p-f depend on — whether a second fulfilling registration for the same intent is admitted after a rolled-back one:
+- [ ] **Step 3: Settle `ROLLBACK_MEANS`.** The second test above is the durable means W17-p-f needs (spec §11.2): monkeypatching `atoms.coordinator.execute.create_file.apply` to raise after registration leaves a `RegisteredEntryView` and a `SettledEntryView(committed=False)` in the chain and no file — `atoms`' own caught-rollback technique (`tests/test_coordinator_run.py:173`). If it passes, `ROLLBACK_MEANS = "patched create effect"`, and W17-p-f is declared. If it fails on the certified volume, `ROLLBACK_MEANS = "unrun"`: W17-p-f is declared **unrun**, the frozen accounting row is one whose rollback column reads unrun (Global Constraints), and the results record reads W17 **partial** (memory `cut-classification-any-unrun-arm-is-partial`). Add one probe to the same module, which Task 6's retry and Task 7's W17-p-f depend on — whether a second fulfilling registration for the same intent is admitted after a rolled-back one:
 
 ```python
 def test_a_rolled_back_fulfilment_leaves_the_intent_open_for_a_retry(durable_root, monkeypatch):
@@ -226,7 +236,25 @@ def test_a_live_registered_root_reads_well_formed_detached(durable_root):
     assert [e.digest for e in detached.entries] == [e.digest for e in registered.entries]
 ```
 
-If the third test fails with `RETRY_AFTER_ROLLBACK = fresh intent` — the engine refused the retry before registering anything — record that: Task 7's W17-p-f then commits its retry as a fresh publish rather than a second `_bind_publication` under the same intent, and its "present once" assertion is about that publish's binding. If it passes, `RETRY_AFTER_ROLLBACK = "same intent"`. Any other failure (the retry registered and then failed) is a finding: note it and park `--reason decision`. If the fourth test fails, the detached inspector cannot serve live roots: park `--reason decision` before Task 5, since the judgment's read of unlocked roots then needs a design choice (nested locks, or recovery effects the spec must state). Write both verdicts into the cut document's §5 (Step 5) and into a `tasks note`.
+If the third test fails with `RETRY_AFTER_ROLLBACK = fresh intent` — the engine refused the retry before registering anything — record that: Task 7's W17-p-f then commits its retry as a fresh publish rather than a second `_bind_publication` under the same intent, and its "present once" assertion is about that publish's binding. If it passes, `RETRY_AFTER_ROLLBACK = "same intent"`. Any other failure (the retry registered and then failed) is a finding: note it and park `--reason decision`. If the fourth test fails, the detached inspector cannot serve live roots: park `--reason decision` before Task 5, since the judgment's read of unlocked roots then needs a design choice (nested locks, or recovery effects the spec must state). Then settle `REPLACE_UNREGISTERED` (user review 2) — whether the engine accepts a `ReplaceOp` over a file its chain never registered, which W17-p-e's `rewritten` case and arm W17-p-e2 need:
+
+```python
+def test_the_engine_rewrites_a_file_it_never_registered(durable_root):
+    """REPLACE_UNREGISTERED: accepted iff this passes. The rewrite must commit a
+    registration whose own `initial` is already a file."""
+    path = durable_root / "probe" / "e.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"raw\n")                                  # no registration creates it
+    port = open_corpus(durable_root, authority=FULL, profile=BASE)._operation_port
+    port.execute([ReplaceOp(path="probe/e.md", content=b"rewritten\n", expected_digest=sha256(b"raw\n").hexdigest())])
+    view = log_seam().inspect_registered(durable_root)
+    (entry,) = [e for e in view.entries if type(e) is RegisteredEntryView and any(p == "probe/e.md" for p, _ in e.final)]
+    assert dict(entry.initial)["probe/e.md"] != log_seam().absent_state   # the pre-state is a file
+    assert path.read_bytes() == b"rewritten\n"
+```
+(`ReplaceOp` from `nodes.core.write_plan`, `sha256` from `hashlib`.) If it passes, `REPLACE_UNREGISTERED = "accepted"`; if the engine refuses (the `execute` raises and the chain gained no committed registration for the path), `REPLACE_UNREGISTERED = "refused"`, and W17-p-e's `rewritten` case and arm W17-p-e2 are not declared (Task 5's unit tests for the classification stand either way). Any other failure is a finding: note it and park `--reason decision`.
+
+The two verdicts select exactly one row of Global Constraints' accounting table. Write both verdicts and the selected row — arms, units, rows, the recent-cut tuple, W17's status and Task 7's pass count — into the cut document's §4 and §5 (Step 5) and into a `tasks note`. Nothing after the freeze re-derives the row.
 
 - [ ] **Step 4: Bank the Y table** — `docs/designs/2026-09-22-publication-design.md`:
 
@@ -262,7 +290,7 @@ followed by the four Y rows copied byte-for-byte from the spec's §10 table (`gr
 **Numbered after** cut 38 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 39 or above at freeze; cut 38 is the highest discharged runner.
 ```
 
-§1 what the cut is (spec §1, condensed: the coordination contract ships as v1 and v2; the two kinds, their deterministic records and content rules; the `publish` kind, family and evidence-bearing intent; the intent-position judgment over the chain's inventory; the two internal doors; W17 closes and Y1–Y4 open and close; off the path). §2 the boundary: every file in this plan's file map from Task 1 to Task 8, and "Frozen declarations and cut bodies through cut 38 remain byte-exact." §3 selection: the W17 row from the world-addressing design (`grep -n '^| \*\*W17\*\*' docs/designs/2026-08-02-world-addressing-design.md`, whole line), the four Y rows from Step 4's table, then the unit table copied from spec §11.2 (thirteen rows, W17-p-a through Y4-c, the assertion column verbatim). §3.2 rows not read: "W17's ordinary-family arms were closed by cut 14 and are not re-read; the frozen cut-14 text's 'pure function of a constructed chain prefix' is superseded by citation (coordination design §11.6 and this cut's W17-p units), not edited." §4 accounting: "**13 declaration units** (or 12 with W17-p-f unrun, Task 0 Step 3) over five rows; W17 closes (partial if W17-p-f is unrun) and Y1–Y4 close. 188 of 220 → 193 of 220." §5 N2 and acceptance obligations: the sabotage table from spec §11.3 with a `module` column (Task 8 Step 1 fills the module per arm), `ROLLBACK_MEANS` and `RETRY_AFTER_ROLLBACK` from Step 3, "`PREFIX_RUNNERS = ("cut38_acceptance.py",)`" and "`PHASE_MODULES = ("test_publication_records_acceptance.py", "test_n2_cut39.py")`". §6 second reader: check that W17-p-a's second writer commits its supersession between the step-0 tip read and `append_intent` (a port wrapper, not a thread) and that the refusal comes from the guard's recomputation; that W17-p-c's anchor is the one the intent carries, read back from the chain; that W17-p-e's refusals are raised by the inventory, not by the resolver's live read; that Y2-a's clock advances on every read; that Y4-a counts `execute_fulfilling_guarded` calls on a wrapper over the durable port. §7 limitations: spec §14 items 1–6.
+§1 what the cut is (spec §1, condensed: the coordination contract ships as v1 and v2; the two kinds, their deterministic records and content rules; the `publish` kind, family and evidence-bearing intent; the intent-position judgment over the chain's inventory; the two internal doors; W17 closes and Y1–Y4 open and close; off the path). §2 the boundary: every file in this plan's file map from Task 1 to Task 8, and "Frozen declarations and cut bodies through cut 38 remain byte-exact." §3 selection: the W17 row from the world-addressing design (`grep -n '^| \*\*W17\*\*' docs/designs/2026-08-02-world-addressing-design.md`, whole line), the four Y rows from Step 4's table, then the unit table copied from spec §11.2 (thirteen rows, W17-p-a through Y4-c, the assertion column verbatim). §3.2 rows not read: "W17's ordinary-family arms were closed by cut 14 and are not re-read; the frozen cut-14 text's 'pure function of a constructed chain prefix' is superseded by citation (coordination design §11.6 and this cut's W17-p units), not edited." §4 accounting: the one row of Global Constraints' table that Step 3's verdicts select, stated whole — for the first row: "**14 arms, 13 declaration units**, five rows; W17 closes and Y1–Y4 close; recent-cut row `(14, 13, 5)`; Task 7 passes 16; 188 of 220 → 193 of 220" — and for an unrun rollback, W17 **partial** and 192 of 220. The freeze test (Task 8 Step 2) asserts the frozen phrase.  §5 N2 and acceptance obligations: the sabotage table from spec §11.3 with a `module` column (Task 8 Step 1 fills the module per arm), `ROLLBACK_MEANS` and `RETRY_AFTER_ROLLBACK` from Step 3, "`PREFIX_RUNNERS = ("cut38_acceptance.py",)`" and "`PHASE_MODULES = ("test_publication_records_acceptance.py", "test_n2_cut39.py")`". §6 second reader: check that W17-p-a's second writer commits its supersession between the step-0 tip read and `append_intent` (a port wrapper, not a thread) and that the refusal comes from the guard's recomputation; that W17-p-c's anchor is the one the intent carries, read back from the chain; that W17-p-e's refusals are raised by the inventory, not by the resolver's live read; that Y2-a's clock advances on every read; that Y4-a counts `execute_fulfilling_guarded` calls on a wrapper over the durable port. §7 limitations: spec §14 items 1–6.
 
 - [ ] **Step 6: README, guide, the number word, the planning note in the spec**
 
@@ -351,10 +379,12 @@ The plan's step children exist (filed with the plan: `beliefs-ff3c13` Task 0, `b
 
 - [ ] **Step 7: Verify and commit the freeze**
 
+Before freezing, confirm the cut document's §4 names exactly one row and that it is the row `REPLACE_UNREGISTERED` and `ROLLBACK_MEANS` select.
+
 ```bash
 cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py tests/test_publication_engine_order.py -q
-# test_publication_engine_order.py: 4 passed
-cd .. && tasks note beliefs-d7d7d1 "Cut 39 frozen: 13 units (W17-p-a..f, Y1-a, Y1-b, Y2-a, Y3-a, Y4-a..c); ROLLBACK_MEANS=<verdict>; RETRY_AFTER_ROLLBACK=<verdict>; chains cut 38."
+# test_publication_engine_order.py: 5 passed (a refused REPLACE_UNREGISTERED or unrun ROLLBACK_MEANS is recorded, then that probe is marked `xfail(strict=True, reason=<verdict>)` so the module stays green and the verdict stays visible)
+cd .. && tasks note beliefs-d7d7d1 "Cut 39 frozen: ROLLBACK_MEANS=<verdict>; REPLACE_UNREGISTERED=<verdict>; RETRY_AFTER_ROLLBACK=<verdict>; accounting row <arms>/<units>/5, W17 <closes|partial>, Task 7 passes <n>; chains cut 38."
 tasks check && git add docs README.md python/tests/test_designs_corpus.py python/tests/test_publication_engine_order.py tasks
 git commit -m "docs(cut): freeze conformance cut 39, publication records; bank the Y table"
 git rev-parse HEAD
@@ -707,6 +737,8 @@ import pytest
 
 from beliefs import stored
 from beliefs.errors import MalformedRecord
+import re
+
 from beliefs.report import (
     EVIDENCE_REFUSAL_REASONS,
     OPERATION_KINDS,
@@ -753,6 +785,13 @@ def test_publish_is_in_the_closed_set_but_never_an_operation_intent():
         OperationIntent("publish", "c" * 32, "actor")
 
 
+@pytest.mark.parametrize("tips", [({},), ("1" * 32, 1)], ids=["mapping-member", "mixed-str-int"])
+def test_malformed_tips_raise_malformed_record_not_type_error(tips):
+    """User review 2: members are validated before they are sorted or hashed."""
+    with pytest.raises(MalformedRecord):
+        BindingPredecessorNotStanding("e" * 32, "f" * 32, True, tips)
+
+
 def test_the_evidence_refusal_reasons_are_closed():
     assert EVIDENCE_REFUSAL_REASONS == (
         "mounts-changed", "anchor-unplaced", "chain-absent", "chain-malformed", "revision-missing",
@@ -763,27 +802,48 @@ def test_the_evidence_refusal_reasons_are_closed():
         BindingEvidenceRefused("e" * 32, "f" * 32, False, "other")
 
 
+def reidentified(node):
+    """The stored act-report with its content address recomputed after a facet edit —
+    exactly the digest `stored.act_report_facet` checks (`v1.digest(ACT_REPORT_DOMAIN,
+    facet)` → `act-report:<digest>`), so a mutated record is refused by the rule the
+    test targets and never by a stale address (user review 2)."""
+    from beliefs.identity import v1
+    from beliefs.report import ACT_REPORT_DOMAIN
+
+    facet = node.facets["act-report"]
+    return node.model_copy(update={"id": f"act-report:{v1.digest(ACT_REPORT_DOMAIN, facet)}"})
+
+
+def test_a_reidentified_unmutated_publish_report_is_accepted():
+    """The control: re-identification alone changes nothing the check refuses."""
+    node = stored.act_report_node(publish_report(BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32))))
+    assert reidentified(node).id == node.id
+    assert stored.act_report_facet(reidentified(node))["operation"] == "publish"
+
+
 @pytest.mark.parametrize(
-    "outcome, field, value",
+    "outcome, field, value, rule",
     [
-        (BindingBound("d" * 32, "e" * 32, "f" * 32), "binding", "not-hex"),
-        (BindingBound("d" * 32, "e" * 32, "f" * 32), "corpus_id", "E" * 32),
-        (BindingBound("d" * 32, "e" * 32, "f" * 32), "marker", "f" * 31),
-        (BindingEvidenceRefused("e" * 32, "f" * 32, False, "mounts-changed"), "reason", "other"),
-        (BindingEvidenceRefused("e" * 32, "f" * 32, False, "mounts-changed"), "remotely_revealed", "yes"),
-        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32)), "tips", ["2" * 32, "1" * 32]),
-        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32)), "tips", ["1" * 32, "1" * 32]),
-        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,)), "tips", ["not-hex"]),
-        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,)), "extra", "x"),
+        (BindingBound("d" * 32, "e" * 32, "f" * 32), "binding", "not-hex", "bound binding must be 32 lowercase hexadecimal"),
+        (BindingBound("d" * 32, "e" * 32, "f" * 32), "corpus_id", "E" * 32, "bound corpus_id must be 32 lowercase hexadecimal"),
+        (BindingBound("d" * 32, "e" * 32, "f" * 32), "marker", "f" * 31, "bound marker must be 32 lowercase hexadecimal"),
+        (BindingEvidenceRefused("e" * 32, "f" * 32, False, "mounts-changed"), "reason", "other", "evidence refusal reason 'other' is outside"),
+        (BindingEvidenceRefused("e" * 32, "f" * 32, False, "mounts-changed"), "remotely_revealed", "yes", "remotely_revealed must be a bool"),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32)), "tips", ["2" * 32, "1" * 32], "tips must be strictly ascending and unique"),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32)), "tips", ["1" * 32, "1" * 32], "tips must be strictly ascending and unique"),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,)), "tips", ["not-hex"], "refusal tip must be 32 lowercase hexadecimal"),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,)), "tips", [{}], "refusal tip must be 32 lowercase hexadecimal"),
+        (BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,)), "extra", "x", "outcome carries exactly"),
     ],
-    ids=["binding-hex", "corpus-hex", "marker-hex", "reason", "revealed-bool", "tips-order", "tips-duplicate", "tips-hex", "extra-field"],
+    ids=["binding-hex", "corpus-hex", "marker-hex", "reason", "revealed-bool", "tips-order", "tips-duplicate", "tips-hex", "tips-mapping", "extra-field"],
 )
-def test_the_stored_mirror_refuses_what_the_constructors_refuse(outcome, field, value):
-    """User review, finding 3: each closed rule, through the stored path."""
+def test_the_stored_mirror_refuses_what_the_constructors_refuse(outcome, field, value, rule):
+    """User review, finding 3, and user review 2: each closed rule through the
+    stored path, on a re-identified record, the refusal naming its rule."""
     node = stored.act_report_node(publish_report(outcome))
     node.facets["act-report"]["entries"][0]["outcome"][field] = value
-    with pytest.raises(MalformedRecord):
-        stored.act_report_facet(node)
+    with pytest.raises(MalformedRecord, match=re.escape(rule)):
+        stored.act_report_facet(reidentified(node))
 ```
 
 In the intent-shape module:
@@ -850,10 +910,14 @@ class BindingPredecessorNotStanding:
         _require_hex32(self.marker, "refusal marker")
         if type(self.remotely_revealed) is not bool:
             raise MalformedRecord("remotely_revealed must be a bool")
-        if type(self.tips) is not tuple or list(self.tips) != sorted(set(self.tips)):
-            raise MalformedRecord("tips must be a strictly ascending tuple")
+        # validate the container, then every member, and only then compare them:
+        # sorting or hashing unvalidated members raises TypeError, not MalformedRecord
+        if type(self.tips) is not tuple:
+            raise MalformedRecord("tips must be a tuple")
         for tip in self.tips:
             _require_hex32(tip, "refusal tip")
+        if list(self.tips) != sorted(set(self.tips)):
+            raise MalformedRecord("tips must be strictly ascending and unique")
 
 
 @sealed
@@ -925,7 +989,17 @@ def binding_outcome_from_facet(outcome: object) -> BindingBound | BindingPredece
             return False
         return True
 ```
-The generic field loop is untouched.
+The generic field loop is untouched. So that a refusal names the rule it breaks (user review 2), `act_report_facet` also decodes each `publication-binding` entry's outcome through the constructors and re-raises their message, inserted immediately **before** its `if any(not _valid_report_entry(entry) for entry in facet["entries"]):` line (a new block, no existing line moved):
+
+```python
+    for entry in facet["entries"]:
+        if isinstance(entry, dict) and entry.get("kind") == "publication-binding":
+            try:
+                report_values.binding_outcome_from_facet(entry.get("outcome"))
+            except MalformedRecord as caught:
+                raise MalformedRecord(f"{node.id}: malformed act-report entry: {caught}") from caught
+```
+The entry checks run before the identity check in `act_report_facet`, but a test that mutates a facet must still re-identify it (Step 1's `reidentified`): with entry validation removed, only a re-identified record shows that the rule, and not the stale address, refused it.
 
 `intents/shapes.py`, the domainless branch at line 127:
 
@@ -1025,6 +1099,31 @@ def test_every_malformed_field_is_refused(changes):
         intent(**changes)
 
 
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"binding_tips": ({},)},
+        {"binding_tips": ("1" * 32, 1)},
+        {"marker_tips": (({}, "f" * 32),)},
+        {"marker_tips": (("e" * 32, "f" * 32), ("a" * 32, 1))},
+        {"anchors": (Anchor("0" * 32, "9" * 64, "8" * 64), {})},
+    ],
+    ids=["binding-mapping", "binding-mixed", "marker-mapping", "marker-mixed", "anchor-mapping"],
+)
+def test_malformed_collection_members_raise_malformed_record_not_type_error(changes):
+    """User review 2: every caller-supplied collection is validated member by member before ordering."""
+    with pytest.raises(MalformedRecord):
+        intent(**changes)
+
+
+@pytest.mark.parametrize("field, member", [("anchors", 1), ("anchors", {"corpus_id": 1, "genesis": "9" * 64, "head": "8" * 64}), ("binding_tips", {})])
+def test_the_decoder_refuses_malformed_members_with_malformed_record(field, member):
+    payload = v1.decode(encode_publish_intent(intent()))
+    payload[field] = [member]
+    with pytest.raises(MalformedRecord):
+        decode_publish_intent(v1.encode(payload))
+
+
 def test_destinations_are_canonical():
     assert Destination.local("/srv/published/../published/mm30/") == Destination.local("/srv/published/mm30")
     with pytest.raises(MalformedRecord):
@@ -1076,10 +1175,12 @@ class Anchor:
     head: str
 
     def __post_init__(self) -> None:
-        if _HEX.fullmatch(self.corpus_id) is None:
+        # type first: `re.fullmatch` on a non-string raises TypeError, not MalformedRecord
+        if type(self.corpus_id) is not str or _HEX.fullmatch(self.corpus_id) is None:
             raise MalformedRecord("anchor corpus_id must be 32 lowercase hexadecimal characters")
         for name in ("genesis", "head"):
-            if re.fullmatch(r"[0-9a-f]{64}", getattr(self, name)) is None:
+            value = getattr(self, name)
+            if type(value) is not str or re.fullmatch(r"[0-9a-f]{64}", value) is None:
                 raise MalformedRecord(f"anchor {name} must be a 64-lowercase-hex entry digest")
 ```
 
@@ -1240,6 +1341,13 @@ def decode_publish_intent(payload: bytes) -> PublishIntent:
         raise MalformedRecord("a publish intent payload is not canonical text") from caught
     if not isinstance(value, dict) or set(value) != _FIELDS or value["domain"] != PUBLISH_INTENT_DOMAIN:
         raise MalformedRecord("a publish intent carries exactly its closed field set under its domain")
+    # every collection is checked for its container type before it is converted:
+    # `tuple()` over a string or mapping would silently reshape it
+    for name in ("binding_tips", "marker_tips", "anchors"):
+        if type(value[name]) is not list:
+            raise MalformedRecord(f"a publish intent's {name} is a list")
+    if any(type(pair) is not list for pair in value["marker_tips"]) or any(type(a) is not dict for a in value["anchors"]):
+        raise MalformedRecord("marker tips are lists and anchors are mappings")
     try:
         intent = PublishIntent(
             kind=value["kind"],
@@ -1399,6 +1507,21 @@ def test_every_binding_field_rule_refuses(field, value):
     else:
         node.facets["coordination"][field] = value
     assert publication_content_malformed(node)
+
+
+@pytest.mark.parametrize("selection", [[{}], ["proposition:p1", 1]], ids=["mapping-member", "mixed-str-int"])
+def test_malformed_selection_members_are_malformed_not_type_errors(selection):
+    """User review 2: `_selection` validates each member before comparing orders."""
+    marker = marker_record(intent(), world_id="7" * 32, epoch="6" * 64, selection=("proposition:p1",))
+    marker.facets["coordination"]["selection"] = selection
+    assert publication_content_malformed(marker)
+
+
+@pytest.mark.parametrize("pairs", [[{}], [["e" * 32, "f" * 32], ["a" * 32, 1]]], ids=["mapping-member", "mixed-str-int"])
+def test_malformed_supersedes_markers_are_malformed_not_type_errors(pairs):
+    marker = marker_record(intent(), world_id="7" * 32, epoch="6" * 64, selection=("proposition:p1",))
+    marker.facets["coordination"]["supersedes_markers"] = pairs
+    assert publication_content_malformed(marker)
 
 
 def test_an_invalid_record_id_is_refused_by_the_factory_the_rule_and_the_check():
@@ -2466,7 +2589,7 @@ git commit -m "feat(publication): the step-0 intent door, the step-8 binding doo
 
 **Interfaces:**
 - Consumes: Tasks 1–6; `tests/acceptance/conftest.py`'s `work_directory`; `coordination_fixtures.content_for`, `raw_add`; `test_url_retrieval_acceptance.py`'s `intents` and `reduce` helpers (`sed -n 25,120p tests/acceptance/test_url_retrieval_acceptance.py`); `test_coordination_acceptance.py`'s W18 exclusion test for Y1-b's belief scenario (`grep -n 'belief_input_digest' tests/acceptance/test_coordination_acceptance.py`); Task 0's `ROLLBACK_MEANS` and `RETRY_AFTER_ROLLBACK`.
-- Produces: thirteen test functions (twelve if W17-p-f is unrun) whose names Task 8's `UNIT_CHECKS` cites.
+- Produces: one test function per declaration unit of the frozen accounting row (thirteen, or twelve without W17-p-f) whose names Task 8's `UNIT_CHECKS` cites.
 
 - [ ] **Step 1: Write the module.** Header, fixture and helpers:
 
@@ -2689,7 +2812,7 @@ def test_w17_p_e_the_chain_not_the_directory_says_which_revisions_exist_durably(
         _open_publication(pair.writers[0], pair.resolver, view=pair.view, destination=LOCAL, clock=Clock(), seam=moment_seam())
     assert refused.value.reason == expected
 ```
-(`ReplaceOp` from `nodes.core.write_plan`, `sha256` from `hashlib`. If the engine refuses the `ReplaceOp` over a file its chain never registered, the `rewritten` case cannot be produced durably: drop it and W17-p-e2, keep Task 5's unit test, and record the verdict in the results record §7; the accounting then returns to 13 arms.) (`_intent_like(outcome)` decodes the intent the outcome closed and returns it with a different `event_token` — `dataclasses.replace(intent, event_token="7" * 32)` — so the stray is a valid binding revision at the address that no registration created. The file may need `chmod u+w` before the rewrite: the engine creates records with `CREATED_FILE_MODE`; restore nothing — the fixture's roots are discarded.)
+(`ReplaceOp` from `nodes.core.write_plan`, `sha256` from `hashlib`. The `rewritten` case exists only when the frozen row has `REPLACE_UNREGISTERED = "accepted"`; otherwise the parametrization is `["missing", "mismatch", "unregistered"]` and W17-p-e2 is not declared.) (`_intent_like(outcome)` decodes the intent the outcome closed and returns it with a different `event_token` — `dataclasses.replace(intent, event_token="7" * 32)` — so the stray is a valid binding revision at the address that no registration created. The file may need `chmod u+w` before the rewrite: the engine creates records with `CREATED_FILE_MODE`; restore nothing — the fixture's roots are discarded.)
 
 ```python
 def test_w17_p_f_a_rolled_back_creation_is_absent_and_its_retry_present_once_durably(pair, monkeypatch):
@@ -2712,7 +2835,7 @@ def test_w17_p_f_a_rolled_back_creation_is_absent_and_its_retry_present_once_dur
     again = _open_publication(pair.writers[0], pair.resolver, view=pair.view, destination=LOCAL, clock=Clock(), seam=moment_seam())
     assert again.intent.binding_tips == (retried.binding.uid,)
 ```
-If Task 0 recorded `RETRY_AFTER_ROLLBACK = "fresh intent"`, replace the `retried = …` call with `_, retried = publish(pair, side=1)`. If `ROLLBACK_MEANS` is unrun, delete this test and W17-p-f from Task 8's declaration. Between the rollback and the retry, the arm also writes the would-be binding bytes raw at their path (`node_to_markdown(binding_record(opened.intent, …))` via `path.write_bytes`) and asserts the judgment from side 0 neither refuses nor counts it (classified by the rolled-back registration), then unlinks it before the retry — the "its file, if left" clause of spec §11.2.
+If Task 0 recorded `RETRY_AFTER_ROLLBACK = "fresh intent"`, replace the `retried = …` call with `_, retried = publish(pair, side=1)`. If `ROLLBACK_MEANS` is unrun (the frozen row says so), delete this test and W17-p-f from Task 8's declaration. Between the rollback and the retry, the arm also writes the would-be binding bytes raw at their path (`node_to_markdown(binding_record(opened.intent, …))` via `path.write_bytes`) and asserts the judgment from side 0 neither refuses nor counts it (classified by the rolled-back registration), then unlinks it before the retry — the "its file, if left" clause of spec §11.2.
 
 ```python
 def test_y1_a_version_and_door_refusals_durably(work_directory, base_contract, pair):
@@ -2881,7 +3004,7 @@ def test_y4_c_a_lost_refusal_report_refuses_rather_than_dropping_the_orphan_dura
 ```bash
 cd python && SCIENCE_CUT4_ROOT=~/d/beliefs/.work/acceptance/cut39-dev uv run --frozen pytest tests/acceptance/test_publication_records_acceptance.py -q -p no:cacheprovider
 ```
-Expected: 16 passed — thirteen units, W17-p-e parametrized four ways (15 passed if W17-p-f is declared unrun). Every failure here is a finding against Tasks 1–6, not a test to loosen: fix the source, or record the finding in the results record §7 and park if it needs a design change (`--reason decision`).
+Expected: the frozen row's Task 7 count (Global Constraints) — 16, 15, 15 or 14 passed. Every failure here is a finding against Tasks 1–6, not a test to loosen: fix the source, or record the finding in the results record §7 and park if it needs a design change (`--reason decision`).
 
 - [ ] **Step 3: Commit**
 
@@ -2902,7 +3025,7 @@ git commit -m "test(cut39): the publication-records acceptance module — W17, Y
 - Consumes: Task 0's freeze commit and body digest; Task 7's test names.
 - Produces: `CUT39_ARMS` (14), `DECLARATION_UNITS` (13), `UNIT_CHECKS`, `unit_of`, `CO_CITED = ()`; the runner's `main`, `PREFIX_RUNNERS`, `PHASE_MODULES`, `TOOLS`, `ACCEPTANCE`, `PYTHON_ROOT`, `declared_accounting`.
 
-- [ ] **Step 1: The declaration** — `python/tests/n2_arms_cut39.py` on cut 38's shape (`sed -n 1,80p tests/n2_arms_cut38.py`). `DECLARATION_UNITS = ("W17-p-a", "W17-p-b", "W17-p-c", "W17-p-d", "W17-p-e", "W17-p-f", "Y1-a", "Y1-b", "Y2-a", "Y3-a", "Y4-a", "Y4-b", "Y4-c")` (drop `W17-p-f` if unrun); `_MODULE = "acceptance/test_publication_records_acceptance.py"`; `UNIT_CHECKS` maps each unit to its Task 7 function; `unit_of` strips the trailing `2` from `W17-p-e2`, homing it to `W17-p-e`; every other arm is its own unit. Every `before` is copied **from the tree** after Task 7 (`grep -n` the site, copy the exact lines) and checked with `source.count(before) == 1`. The arms, one per unit plus W17-p-e2 (spec §11.3, and the user review's finding 1):
+- [ ] **Step 1: The declaration** — `python/tests/n2_arms_cut39.py` on cut 38's shape (`sed -n 1,80p tests/n2_arms_cut38.py`). `DECLARATION_UNITS = ("W17-p-a", "W17-p-b", "W17-p-c", "W17-p-d", "W17-p-e", "W17-p-f", "Y1-a", "Y1-b", "Y2-a", "Y3-a", "Y4-a", "Y4-b", "Y4-c")` (drop `W17-p-f` if unrun); `_MODULE = "acceptance/test_publication_records_acceptance.py"`; `UNIT_CHECKS` maps each unit to its Task 7 function; `unit_of` strips the trailing `2` from `W17-p-e2`, homing it to `W17-p-e` (W17-p-e2 is declared only when the frozen row has `REPLACE_UNREGISTERED = "accepted"`); every other arm is its own unit. `W17-p-f` is in `DECLARATION_UNITS` and has its arm only when the frozen row has rollback available. Every `before` is copied **from the tree** after Task 7 (`grep -n` the site, copy the exact lines) and checked with `source.count(before) == 1`. The arms, one per unit plus W17-p-e2 (spec §11.3, and the user review's finding 1):
 
 | arm | module | before (the site) | after |
 |---|---|---|---|
@@ -2921,18 +3044,18 @@ git commit -m "test(cut39): the publication-records acceptance module — W17, Y
 | Y4-b | `publication_doors.py` | `if outcome["type"] != "bound" and outcome.get("remotely_revealed") is True:` | `if outcome["type"] == "predecessor-not-standing" and outcome.get("remotely_revealed") is True:` |
 | Y4-c | `publication_doors.py` | `_reports_at`'s `if type(records) is PositionRefused:\n            yield intent, records\n            continue` | `if type(records) is PositionRefused:\n            continue` |
 
-Where a `before` is described rather than spelled, spell it at declaration time from the tree so that `source.count(before) == 1`, and make each `after` syntactically valid — run `python -c "import ast; ast.parse(open(p).read())"` over each sabotaged text through `n2_arms.py`'s own sabotage helper before pinning (the staleness probe's parse check, `beliefs-1b0827`, is not in the shared harness yet). The guard's `homed` assertion is `{unit: {"W17-p-e": 2}.get(unit, 1) for unit in DECLARATION_UNITS}`.
+Where a `before` is described rather than spelled, spell it at declaration time from the tree so that `source.count(before) == 1`, and make each `after` syntactically valid — run `python -c "import ast; ast.parse(open(p).read())"` over each sabotaged text through `n2_arms.py`'s own sabotage helper before pinning (the staleness probe's parse check, `beliefs-1b0827`, is not in the shared harness yet). The guard's `homed` assertion is `{unit: {"W17-p-e": 2 if REPLACE_UNREGISTERED == "accepted" else 1}.get(unit, 1) for unit in DECLARATION_UNITS}`, with `REPLACE_UNREGISTERED` a module constant of `n2_arms_cut39.py` spelled as Task 0 recorded it (and `ROLLBACK_MEANS` beside it); the inventory test asserts `len(CUT39_ARMS)` and `len(DECLARATION_UNITS)` equal the frozen row's arms and units.
 
-- [ ] **Step 2: The guard** — `python/tests/acceptance/test_n2_cut39.py`: copy `test_n2_cut38.py`, then: import `CUT38_ARMS` and add it to `PRIOR_ARMS`; add `"python/tests/n2_arms_cut38.py": "<sha>"` to `FROZEN_PRIOR_CUT_FILES` (`git log -1 --format=%h -- python/tests/n2_arms_cut38.py`); `FROZEN_CUT` → the cut-39 document; `CUT39_FREEZE_COMMIT` and `CUT39_FROZEN_SHA256` from Task 0 Step 7; `FROZEN_DECLARATION = "python/tests/n2_arms_cut39.py"` and `CUT39_DECLARATION_SHA256 = sha256sum` of it once final; the inventory test asserts the thirteen units and `len(CUT39_ARMS) == 14`; `test_every_acceptance_test_the_arms_name_exists` parses the acceptance module with `ast`, collects every `def test_*`, and asserts that the set of function names `UNIT_CHECKS` cites is a subset with exactly `len(DECLARATION_UNITS)` members; the freeze test asserts `"**13 declaration units**" in current` and `'("cut38_acceptance.py",)' in current`.
+- [ ] **Step 2: The guard** — `python/tests/acceptance/test_n2_cut39.py`: copy `test_n2_cut38.py`, then: import `CUT38_ARMS` and add it to `PRIOR_ARMS`; add `"python/tests/n2_arms_cut38.py": "<sha>"` to `FROZEN_PRIOR_CUT_FILES` (`git log -1 --format=%h -- python/tests/n2_arms_cut38.py`); `FROZEN_CUT` → the cut-39 document; `CUT39_FREEZE_COMMIT` and `CUT39_FROZEN_SHA256` from Task 0 Step 7; `FROZEN_DECLARATION = "python/tests/n2_arms_cut39.py"` and `CUT39_DECLARATION_SHA256 = sha256sum` of it once final; the inventory test asserts the frozen row's units and arms (`len(DECLARATION_UNITS)`, `len(CUT39_ARMS)`); `test_every_acceptance_test_the_arms_name_exists` parses the acceptance module with `ast`, collects every `def test_*`, and asserts that the set of function names `UNIT_CHECKS` cites is a subset with exactly `len(DECLARATION_UNITS)` members; the freeze test asserts `"**13 declaration units**" in current` and `'("cut38_acceptance.py",)' in current`.
 
-- [ ] **Step 3: The runner** — `python/tools/cut39_acceptance.py`: cut 38's with `cut=39`, `DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut39"`, `PREFIX_RUNNERS = ("cut38_acceptance.py",)`, `PHASE_MODULES = ("test_publication_records_acceptance.py", "test_n2_cut39.py")`, `declared_accounting` asserting `rows == {"W17", "Y1", "Y2", "Y3", "Y4"}`, and on success:
+- [ ] **Step 3: The runner** — `python/tools/cut39_acceptance.py`: cut 38's with `cut=39`, `DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut39"`, `PREFIX_RUNNERS = ("cut38_acceptance.py",)`, `PHASE_MODULES = ("test_publication_records_acceptance.py", "test_n2_cut39.py")`, `declared_accounting` asserting `rows == {"W17", "Y1", "Y2", "Y3", "Y4"}` and `(arms, units) ==` the frozen row's, read from `n2_arms_cut39`'s two constants through one table in the runner (the four rows of Global Constraints, keyed by `(REPLACE_UNREGISTERED, ROLLBACK_MEANS != "unrun")`), and on success:
 
 ```python
         print("guarantee rows exercised: 5 (5 newly closed: W17, Y1, Y2, Y3, Y4)", flush=True)
 ```
-(with W17-p-f unrun: `"guarantee rows exercised: 5 (4 newly closed: Y1, Y2, Y3, Y4; W17 partial on its rollback arm)"`).
+(with rollback unrun, whatever the replace case: `"guarantee rows exercised: 5 (4 newly closed: Y1, Y2, Y3, Y4; W17 partial on its rollback arm)"`).
 
-- [ ] **Step 4: The recent-cut row** — `python/tests/test_recent_cut_acceptance.py`: `import cut39_acceptance as cut39`; add `(cut39, 39, (14, 13, 5))` (or `(13, 12, 5)` with W17-p-f unrun) and id `"cut39"` to the parametrization; add
+- [ ] **Step 4: The recent-cut row** — `python/tests/test_recent_cut_acceptance.py`: `import cut39_acceptance as cut39`; add `(cut39, 39, <the frozen row's (arms, units, 5)>)` — one of `(14, 13, 5)`, `(13, 13, 5)`, `(13, 12, 5)`, `(12, 12, 5)` — and id `"cut39"` to the parametrization, and the rows-exercised line that row implies; add
 
 ```python
     if cut == 39:
@@ -2954,7 +3077,7 @@ for n in $(seq 4 39); do export SCIENCE_CUT${n}_ROOT=~/d/beliefs/.work/acceptanc
 setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut39-runner.log uv run --frozen python tools/cut39_acceptance.py > /dev/null 2>&1 &
 sleep 2; echo "runner process group $(cat ~/d/beliefs/.work/acceptance/cut39-runner.log.pid)"
 ```
-If the turn ends before the wrapper does, report that process-group id and `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut39-runner.log.pid)"` as the stop. Read the log when it exits; expected tail: three `[cut39 phase n/3]` lines, `declared arms: 14 (= 13 declaration units; 5 guarantee rows)`, the rows-exercised line, exit 0. Every arm `sound`; every check `resolved`. A `stale` verdict means a `before` no longer matches — fix the declaration, never the source.
+If the turn ends before the wrapper does, report that process-group id and `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut39-runner.log.pid)"` as the stop. Read the log when it exits; expected tail: three `[cut39 phase n/3]` lines, `declared arms: <arms> (= <units> declaration units; 5 guarantee rows)` with the frozen row's numbers, the rows-exercised line, exit 0. Every arm `sound`; every check `resolved`. A `stale` verdict means a `before` no longer matches — fix the declaration, never the source.
 
 - [ ] **Step 6: Commit**
 
@@ -2988,9 +3111,9 @@ git commit -m "docs(reproduction): re-run under publication records; nothing mov
 - Create: `docs/plans/<date>-conformance-cut-39-results.md`
 - Modify: the cut document (`**Status:**` only), the spec (`**Status:**`), the ledger, the roadmap, `python/tools/roadmap_status.py`, `docs/designs/2026-08-31-coordination-and-view-kinds-design.md`, `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`, `docs/designs/2026-08-11-act-report-design.md`, `docs/designs/2026-09-22-publication-design.md` (status line), `docs/guide/foundations.md`, `docs/guide/open-questions.md`, `docs/guide/contracts-and-adoption.md`, `README.md`, tasks
 
-- [ ] **Step 1: The results record** on cut 38's shape (`docs/plans/2026-09-22-conformance-cut-38-results.md`): §1 what ran (both summary lines verbatim from the runner log; the per-unit table); §2 accounting (W17 closed — or partial with W17-p-f unrun; Y1–Y4 closed; **193 of 220**, or 192); §3 evidence — the planning notes the spec carries (§16), deviations from the plan, every "read at freeze" choice, `ROLLBACK_MEANS` and `RETRY_AFTER_ROLLBACK`, cut 17's E4c re-targeted in `test_n2_cut17.py`'s `_LIVE_SABOTAGES` (its pinned `raise ValueError("publish is not an act family")` removed by decision 7; `before` now `        return cls(_PUBLICATION_PERMIT)`, frozen `after` kept, check body rewritten under its cited name), the inventories checked in both directions (`WRITE_ENTRY_POINTS` gained `publication_doors.py:_bind_publication` with its `Case`; no other caller of a primitive), the corrections the cut document carries; §4 the reproduction (§18); §5 `## Remaining boundary` — must name `publish`'s remainder (the second slice, `beliefs-328507`: the request record, the selection snapshot, staging, export, reveal, the recovery table, transport, arrival) and L1 under `persistence-cut`; §6 main integration (filled at merge); §7 execution rulings.
+- [ ] **Step 1: The results record** on cut 38's shape (`docs/plans/2026-09-22-conformance-cut-38-results.md`): §1 what ran (both summary lines verbatim from the runner log; the per-unit table); §2 accounting — the frozen row, restated with both verdicts (`REPLACE_UNREGISTERED`, `ROLLBACK_MEANS`): arms, units, 5 rows; Y1–Y4 closed; W17 closed, or **partial** whenever rollback was unrun whatever the replace case showed; **193 of 220**, or 192 with W17 partial; §3 evidence — the planning notes the spec carries (§16), deviations from the plan, every "read at freeze" choice, `ROLLBACK_MEANS` and `RETRY_AFTER_ROLLBACK`, cut 17's E4c re-targeted in `test_n2_cut17.py`'s `_LIVE_SABOTAGES` (its pinned `raise ValueError("publish is not an act family")` removed by decision 7; `before` now `        return cls(_PUBLICATION_PERMIT)`, frozen `after` kept, check body rewritten under its cited name), the inventories checked in both directions (`WRITE_ENTRY_POINTS` gained `publication_doors.py:_bind_publication` with its `Case`; no other caller of a primitive), the corrections the cut document carries; §4 the reproduction (§18); §5 `## Remaining boundary` — must name `publish`'s remainder (the second slice, `beliefs-328507`: the request record, the selection snapshot, staging, export, reveal, the recovery table, transport, arrival) and L1 under `persistence-cut`; §6 main integration (filled at merge); §7 execution rulings.
 
-- [ ] **Step 2: `roadmap_status.py`** — add `39: ("conformance-cut-39-results §2", "W17, Y1, Y2, Y3, Y4", ""),` after the cut-38 entry (with W17-p-f unrun: `"Y1, Y2, Y3, Y4", "W17"`). Regenerate Appendix A: `cd python && uv run --frozen python tools/roadmap_status.py`; expected `Closed 193 of 220; open 27.` (or `192 … 28`).
+- [ ] **Step 2: `roadmap_status.py`** — add `39: ("conformance-cut-39-results §2", "W17, Y1, Y2, Y3, Y4", ""),` after the cut-38 entry (with rollback unrun, per the frozen row: `"Y1, Y2, Y3, Y4", "W17"`). Regenerate Appendix A: `cd python && uv run --frozen python tools/roadmap_status.py`; expected `Closed 193 of 220; open 27.` (or `192 … 28`).
 
 - [ ] **Step 3: Ledger and roadmap.** The ledger's `Current state`: a built bullet for the shipped coordination contract v1/v2, the publication kinds, the publish intent and the intent-position judgment; W17's text gains "closed <date> at cut 39 (`../plans/<date>-conformance-cut-39-results.md`): the intent-position arm judged over the chain's inventory"; Y1–Y4 closed; `publish` stays in the table with its remainder (the second slice); the summary names cut 39; the totals. The roadmap, rewritten whole: `**Ranked at:** cut 39, against the ledger's Current state (<date>)`; a `**Cut 39 (<date>) discharges publication records**` paragraph after cut 38's (the contract's v2 amendment and `composite`/`composes`; the two kinds and their deterministic records; the `publish` kind and family; the evidence-bearing intent and the chain-inventory judgment; W17 and Y1–Y4 close; the **eighth** off-path lane under rule 6, re-ranking nothing on the path — the first belief publishes nothing; `publish` stays off-path row 1 with its remainder, the second slice); the boundary index's `publish` row: rows "the governed publication act and its records' remaining rows (the second slice)"; the "current accounting" paragraph and one more sentence in the reproduction list ("cut 39 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's manifest pins no coordination contract"); Appendix A pasted; Appendix B updated. Then:
 
@@ -3085,3 +3208,7 @@ cd ~/d/beliefs && git merge --no-ff design/publish -m "merge: publication record
   Other sabotage pairs checked against their tasks' code for the same drift: W17-p-e's `before` said "and the two lines after it" while its `after` replaced one line — now the single line, unique in `standing_at`. W17-p-a, W17-p-b, W17-p-d, W17-p-f, Y1-a, Y2-a, Y3-a, Y4-a, Y4-b and Y4-c match their tasks' code (every name their `after` uses is in scope at the site). Also fixed: the import-derived `nodes` path the round-0 hook fix introduced used `nodes.__file__`, which is `None` for the namespace package; it is `nodes.core.__file__` now.
 
   Declared accounting: 14 arms, 13 declaration units, 5 rows — `(14, 13, 5)`, or `(13, 12, 5)` with W17-p-f unrun.
+- 2026-09-22 — user review 2, three points, each verified against the code; all taken:
+  1. **Sort-before-validate raised `TypeError`.** `BindingPredecessorNotStanding` ran `sorted(set(self.tips))` before checking members (`sorted(set(({},)))` raises "unhashable type: 'dict'", and a str/int mix raises on `<`). The constructor now checks the tuple, then each member's hex form, then order and uniqueness. The grep for the same pattern found two more sites: `Anchor.__post_init__` called `re.fullmatch` on a field before checking it was a string (`TypeError: expected string`) — type checks first now; and `decode_publish_intent` converted `binding_tips`, `marker_tips` and `anchors` with `tuple()` before checking their container types — list/dict checks first now. The other collections already validate before ordering (`PublishIntent`'s `binding_tips`, `marker_tips` and `anchors` checks run member tests before `_strictly_ascending`; `_selection` and the `supersedes_markers` rule short-circuit on the member tests first) and gain tests asserting it. Tests for `[{}]` and a str/int mix: the outcome constructor, the stored path, the intent (all three collections), the decoder, and the marker's `selection` and `supersedes_markers`.
+  2. **The stored-path tests could pass on a stale address.** Each mutated record is re-identified with the digest `act_report_facet` checks (`reidentified`), a control test shows an unmutated re-identified record is accepted, and each refusal is matched against its rule's message — `act_report_facet` re-raises the constructor's message for a `publication-binding` entry, from a new block placed before its existing entry check.
+  3. **The accounting is one table, settled before the freeze.** Global Constraints carries the four-row table (replace case × rollback); Task 0 Step 3 probes `REPLACE_UNREGISTERED` beside `ROLLBACK_MEANS` on the certified volume, and the cut document freezes exactly one row; Task 7's pass count, Task 8's `homed` map, `unit_of`, `declared_accounting`, the rows-exercised line and the recent-cut row, and Task 10's results record and `roadmap_status.py` entry all read the frozen row. W17 is partial whenever rollback is unrun, whatever the replace case shows.
