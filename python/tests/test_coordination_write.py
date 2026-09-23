@@ -520,3 +520,20 @@ def test_the_family_doors_refuse_the_publication_kinds(tmp_path, base_contract, 
         writer.mint_coordination(kind, project=address, content={})
     with pytest.raises(KindNotMintedHere):
         writer.revise_coordination(kind, CoordinationAddress(address.project, A), predecessors=(B,), content={})
+
+
+def test_the_audit_applies_the_publication_content_rule(tmp_path, base_contract):
+    """Publication-records design §3: a stored marker or binding outside its closed rule is malformed at the audit."""
+    from test_publish_intent import intent
+
+    from beliefs.publication import binding_record
+
+    profile = coordination_profile(base_contract, version=2)
+    writer, _resolver = writer_with_resolver(tmp_path, profile)
+    good = binding_record(intent(), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64)
+    bad = binding_record(intent(event_token="7" * 32), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64)
+    bad.facets["coordination"]["artifact"] = "not-hex"
+    raw_add(tmp_path, good, bad)
+    codes = {(f.code, f.ref) for f in corpus_check(writer.read_view, profile)}
+    assert ("coordination-facet-malformed", bad.id) in codes
+    assert ("coordination-facet-malformed", good.id) not in codes

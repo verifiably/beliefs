@@ -184,6 +184,15 @@ _COORDINATION_AT = re.compile(
 )
 
 
+def _publication_content_malformed(node: Node) -> bool:
+    """The publication kinds' closed content rule (publication-records design §3), for the audit."""
+    if node.kind not in PUBLICATION_KINDS:
+        return False
+    from beliefs.publication import publication_content_malformed
+
+    return publication_content_malformed(node)
+
+
 def _coordination_reference(value: object) -> str:
     if type(value) is not str:
         raise ValidationRefused("a coordination reference is a string")
@@ -1458,7 +1467,7 @@ def _record_findings(
             continue
         coordination_valid = True
         if not withhold_coordination and stored.COORDINATION_FACET in node.facets:
-            if coordination_facet_malformed(node):
+            if coordination_facet_malformed(node) or _publication_content_malformed(node):
                 findings.append(
                     Finding(
                         severity="error",

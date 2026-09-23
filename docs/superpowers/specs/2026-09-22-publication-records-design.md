@@ -240,7 +240,7 @@ COORDINATION_KINDS` keeps them honest); `EXCLUDED_MUTATION_KINDS` and
 |---|---|---|
 | `name`, `body` | the literal strings `publication`, `""` | `publication-binding`, `""` |
 | `event_token` | 32 lowercase hex | 32 lowercase hex |
-| `published_from` | `{world_id, epoch, view, view_revision}`: 32-hex, 64-hex, canonical `coord:` address, 32-hex | — |
+| `published_from` | `{world_id, epoch, view}`: 32-hex, 64-hex, canonical `coord:` address pinned to the view revision | — |
 | `selection` | non-empty list of record ids, strictly ascending | — |
 | `supersedes_markers` | list of `[corpus_id, marker uid]`, strictly ascending, possibly empty | — |
 | `view` | — | canonical `coord:` address, unpinned |
@@ -264,7 +264,7 @@ class Destination:          # decision 9
 
 def binding_address(view: CoordinationAddress, destination: Destination) -> CoordinationAddress
 def marker_address(view: CoordinationAddress, destination: Destination) -> CoordinationAddress
-def marker_record(intent: PublishIntent, *, world_id, epoch, view_revision, selection) -> Node
+def marker_record(intent: PublishIntent, *, world_id, epoch, selection) -> Node
 def binding_record(intent: PublishIntent, *, corpus_id, marker, artifact) -> Node
 def marker_consistent(node: Node) -> bool
 ```
@@ -763,3 +763,5 @@ for transports are the second slice's by decision 1.
     so both enforce one rule set.
   - (User review of the plan.) §3's `selection` members are world record ids:
     `nodes`' `NodeId.parse` grammar over a kind in `stored.WORLD_KINDS`.
+  - At planning (Task 4): the view revision is the pin on `published_from.view`
+    and the intent's `view`, so no separate argument or field carries it.
