@@ -117,6 +117,12 @@ def test_an_invalid_record_id_is_refused_by_the_factory_the_rule_and_the_check()
     assert publication_content_malformed(marker) and not marker_consistent(marker)
 
 
+@pytest.mark.parametrize("selection", [None, ["proposition:p1"], "proposition:p1"])
+def test_a_selection_that_is_not_a_tuple_is_malformed_not_a_type_error(selection):
+    with pytest.raises(MalformedRecord):
+        marker_record(intent(), world_id="7" * 32, epoch="6" * 64, selection=selection)
+
+
 @pytest.mark.parametrize(
     "field, value",
     [

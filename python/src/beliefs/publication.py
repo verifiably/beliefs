@@ -107,6 +107,8 @@ def binding_record(intent: PublishIntent, *, corpus_id: str, marker: str, artifa
 def marker_record(intent: PublishIntent, *, world_id: str, epoch: str, selection: tuple[str, ...]) -> Node:
     if type(intent) is not PublishIntent:
         raise MalformedRecord("a marker record derives from a PublishIntent")
+    if type(selection) is not tuple:  # before `list(...)`: None raises TypeError, a list or str would pass through
+        raise MalformedRecord("a marker's selection is a tuple of world record ids")
     address = marker_address(intent.view, intent.destination)
     facet: dict[str, object] = {
         "author": intent.actor,
