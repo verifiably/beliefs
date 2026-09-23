@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-09-20
+updated: 2026-09-23
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -21,6 +21,8 @@ sources:
   - ../designs/2026-09-20-conformance-cut-35.md
   - ../designs/2026-08-31-coordination-and-view-kinds-design.md
   - ../designs/2026-09-12-composite-claims-design.md
+  - ../superpowers/specs/2026-09-22-publication-records-design.md
+  - ../plans/2026-09-23-conformance-cut-39-results.md
 ---
 
 # Foundations
@@ -154,7 +156,12 @@ design](../designs/2026-08-31-coordination-and-view-kinds-design.md)
 specifies all of this and is implemented through conformance cut 14. Its 2026-09-02
 §11 amendment leaves W17's intent-position evidence with `publish`, the first
 operation that can define an honest multi-root proof shape; cut 14 covers the
-ordinary revision family and builds no caller-asserted substitute.
+ordinary revision family and builds no caller-asserted substitute. Cut 39
+supplied that evidence: the publish intent carries its frozen tips and one
+anchor per other mounted root, and presence at the intent's position is each
+root's chain inventory at its bound, never the directory — so W17 closes
+([publication-records design](../superpowers/specs/2026-09-22-publication-records-design.md);
+[cut 39 results](../plans/2026-09-23-conformance-cut-39-results.md)).
 
 ### Ownership follows the nature of the rule
 

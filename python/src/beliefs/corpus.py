@@ -62,6 +62,7 @@ from beliefs.acquisition import bearer_refusal, validity_refusal
 from beliefs.consulted import CorpusPins
 from beliefs.coordination import (
     COORDINATION_KINDS,
+    PUBLICATION_KINDS,
     CoordinationAddress,
     CoordinationRefused,
     CoordinationRevision,
@@ -94,6 +95,7 @@ from beliefs.errors import (
     IdentifierMalformed,
     IdentityError,
     ImportRefused,
+    KindNotMintedHere,
     LoneSurrogate,
     MalformedRecord,
     ManifestAlreadyPresent,
@@ -180,6 +182,15 @@ that profile names."""
 _COORDINATION_AT = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})"
 )
+
+
+def _publication_content_malformed(node: Node) -> bool:
+    """The publication kinds' closed content rule (publication-records design §3), for the audit."""
+    if node.kind not in PUBLICATION_KINDS:
+        return False
+    from beliefs.publication import publication_content_malformed
+
+    return publication_content_malformed(node)
 
 
 def _coordination_reference(value: object) -> str:
@@ -1456,7 +1467,7 @@ def _record_findings(
             continue
         coordination_valid = True
         if not withhold_coordination and stored.COORDINATION_FACET in node.facets:
-            if coordination_facet_malformed(node):
+            if coordination_facet_malformed(node) or _publication_content_malformed(node):
                 findings.append(
                     Finding(
                         severity="error",
@@ -1668,6 +1679,12 @@ class CoordinationResolver:
 
     def profile(self, root: Path) -> ProfileSpec | None:
         return self._mounts.get(Path(root).resolve())
+
+    def mounted(self) -> Mapping[Path, str]:
+        """Each mounted root and its corpus id, in the resolver's path order (publication-records design §6)."""
+        from beliefs.world import load_manifest
+
+        return MappingProxyType({root: load_manifest(root).corpus_id for root in self._mounts})
 
     def _revisions(self) -> tuple[CoordinationRevision, ...]:
         by_uid: dict[str, CoordinationRevision] = {}
@@ -2018,6 +2035,8 @@ class CorpusWriter:
         project: CoordinationAddress | None = None,
         content: Mapping[str, object],
     ) -> Node:
+        if kind in PUBLICATION_KINDS:
+            raise KindNotMintedHere(f"{kind!r} is minted only by the publish doors")
         self._authority.require("corpus-write", (kind,))
         with self._operation:
             self._require_pins_agree()
@@ -2054,6 +2073,8 @@ class CorpusWriter:
         predecessors: Sequence[str],
         content: Mapping[str, object],
     ) -> Node:
+        if kind in PUBLICATION_KINDS:
+            raise KindNotMintedHere(f"{kind!r} is minted only by the publish doors")
         self._authority.require("corpus-write", (kind,))
         with self._operation:
             self._require_pins_agree()
@@ -2275,7 +2296,7 @@ class CorpusWriter:
         return port
 
     def _append_operation_intent(
-        self, kind: str, token: str, intent_actor: str, *, port: OperationPort | None = None
+        self, kind: str, token: str, intent_actor: str, *, port: OperationPort | None = None, payload: bytes | None = None
     ) -> str:
         self._require_pins_agree()
         self.authority.require("corpus-write", ("act-report",))
@@ -2284,7 +2305,28 @@ class CorpusWriter:
                 f"the operation intent names actor {intent_actor!r}, not the bound {self.authority.actor!r}"
             )
         operation_port = self._require_bound_port(port)
+        if payload is not None:
+            # its own branch: the operation-intent line below is pinned by a live arm (cut 35's T2-c)
+            return self._checked_intent_digest(
+                operation_port.append_intent(self._checked_domain_intent(kind, token, payload))
+            )
         digest = operation_port.append_intent(_encode_operation_intent(kind, token, self.authority.actor))
+        return self._checked_intent_digest(digest)
+
+    def _checked_domain_intent(self, kind: str, token: str, payload: bytes) -> bytes:
+        """A pre-encoded domain intent (publication-records design §6 step 0): its
+        kind, token and actor must be the ones this append is called with."""
+        from beliefs.intents.publish import decode_publish_intent
+
+        if kind != "publish":
+            raise MalformedRecord("only the publish intent is pre-encoded")
+        decoded = decode_publish_intent(payload)
+        if (decoded.kind, decoded.event_token, decoded.actor) != (kind, token, self.authority.actor):
+            raise MalformedRecord("the pre-encoded intent disagrees with its kind, token or actor")
+        return payload
+
+    @staticmethod
+    def _checked_intent_digest(digest: object) -> str:
         if (
             type(digest) is not str
             or len(digest) != 64
@@ -3220,6 +3262,8 @@ class CorpusWriter:
             )
 
     def _refuse_family_kinds(self, node: Node, *, admitted_kind: str | None = None) -> None:
+        if node.kind in PUBLICATION_KINDS:
+            raise CoordinationKindUnsupported(f"{node.kind!r} is minted only by the publish doors")
         if node.kind in COORDINATION_KINDS:
             raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
         profile = self._coordination_resolver.profile(self._corpus.store.root) if self._coordination_resolver is not None else None

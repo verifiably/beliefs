@@ -66,6 +66,7 @@ __all__ = [
     "compile_profile",
     "shipped_base",
     "shipped_base_contract",
+    "shipped_coordination",
     "shipped_domain_contract",
 ]
 
@@ -85,6 +86,34 @@ def shipped_base_contract() -> BaseContract:
     source = "beliefs/contracts/science/CONTRACT.yaml"
     text = resources.files("beliefs").joinpath("contracts/science/CONTRACT.yaml").read_text(encoding="utf-8")
     return parse_base_contract(parse_document(text, source=source), source=source)
+
+
+def shipped_coordination(version: int = 2) -> CoordinationContract:
+    """The coordination contract carried by this package (publication-records
+    design decision 2): version 1, and version 2 parsed as its successor. The
+    default is normalised before the cache, so `shipped_coordination()` and
+    `shipped_coordination(2)` are one object."""
+    if type(version) is not int:
+        # `True in (1, 2)` holds and `@cache` would conflate True with 1
+        raise ProfileError(f"a coordination contract version is an exact int, not {version!r}")
+    if version not in (1, 2):
+        raise ProfileError(f"this package ships coordination contract versions 1 and 2, not {version!r}")
+    return _shipped_coordination(version)
+
+
+@cache
+def _shipped_coordination(version: int) -> CoordinationContract:
+    from beliefs.contract.coordination import parse_coordination_contract
+    from beliefs.contract.document import parse_document
+
+    source = f"beliefs/contracts/coordination/v{version}/CONTRACT.yaml"
+    text = (
+        resources.files("beliefs")
+        .joinpath(f"contracts/coordination/v{version}/CONTRACT.yaml")
+        .read_text(encoding="utf-8")
+    )
+    predecessor = None if version == 1 else _shipped_coordination(1)
+    return parse_coordination_contract(parse_document(text, source=source), source=source, predecessor=predecessor)
 
 
 @cache

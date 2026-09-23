@@ -129,6 +129,7 @@ from atoms.store.errors import MetadataStoreInvalid
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, validate_plan
 
+from beliefs.coordination import MomentSeam
 from beliefs.corpus import CoordinationResolver, CorpusWriter, _operation_lock_for, require_pins_agree
 from beliefs.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch, WorldUninitialized
 from beliefs.holdings.seam import (
@@ -242,6 +243,7 @@ __all__ = [
     "log_seam",
     "metadata_root_for",
     "migrate_root_to_lifecycle_v3",
+    "moment_seam",
     "open_corpus",
     "open_world",
     "open_world_read",
@@ -1744,6 +1746,36 @@ def _log_seam() -> LogSeam:
 def log_seam() -> LogSeam:
     """The production log seam, exposed for the session composition (§13 item 1)."""
     return _log_seam()
+
+
+def _is_file_state(state: object) -> bool:
+    return type(state) is FileState
+
+
+def _file_matches(state: object, data: bytes) -> bool:
+    """The bytes are what the judgment reads; the mode and length are the
+    engine's (a created file carries `CREATED_FILE_MODE`), so only the content
+    hash — `_file_state`'s `"sha256:"` spelling — is compared."""
+    return type(state) is FileState and state.content_hash == "sha256:" + sha256(data).hexdigest()
+
+
+_MOMENT_SEAM = MomentSeam(
+    # The written root is read registered: its recovery runs under the lock this
+    # process holds. Every other root is read detached — `inspect_registered`
+    # can append to a chain through recovery, and taking that root's lock would
+    # nest inside the written root's (publication-records design §6).
+    inspect_written=_inspect_registered,
+    inspect_other=_inspect_detached,
+    absent_state=ABSENT,
+    is_file=_is_file_state,
+    file_matches=_file_matches,
+)
+
+
+def moment_seam() -> MomentSeam:
+    """The production seam of the intent-position judgment (publication-records
+    design §6): the engine's `FileState` comparison and `ABSENT`, as callables."""
+    return _MOMENT_SEAM
 
 
 def anchor_heads(

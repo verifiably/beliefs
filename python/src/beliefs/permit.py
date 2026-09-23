@@ -7,8 +7,10 @@ so every seam can import it without a cycle.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import wraps
 from types import MappingProxyType
 from typing import Literal
 
@@ -18,6 +20,7 @@ from beliefs.identity import v1
 __all__ = [
     "ACT_FAMILIES",
     "COMMAND_REACHABLE_FAMILIES",
+    "KERNEL_REQUIREMENTS",
     "KIND_ACTS",
     "ActFamily",
     "Authority",
@@ -28,18 +31,19 @@ __all__ = [
     "scoped_authority",
 ]
 
-ActFamily = Literal["corpus-write", "run", "holdings", "registry", "epoch", "lifecycle"]
+ActFamily = Literal["corpus-write", "run", "holdings", "registry", "epoch", "lifecycle", "publish"]
 
 ACT_FAMILIES: frozenset[str] = frozenset(
-    {"corpus-write", "run", "holdings", "registry", "epoch", "lifecycle"}
+    {"corpus-write", "run", "holdings", "registry", "epoch", "lifecycle", "publish"}
 )
-"""The closed enumeration. `publish` arrives by sub-project 5's amendment."""
+"""The closed enumeration. `publish` is not command-reachable (publication-records design decision 7)."""
 
 COMMAND_REACHABLE_FAMILIES: frozenset[str] = frozenset({"corpus-write", "run", "holdings"})
 """Command-framework §4.4 as data: the families a write class may map to."""
 
 _CORPUS_WRITE = frozenset({"corpus-write"})
-_COORDINATION_KINDS = ("project", "question", "hypothesis", "topic", "theme", "task", "decision", "note")
+_ORDINARY_COORDINATION_KINDS = ("project", "question", "hypothesis", "topic", "theme", "task", "decision", "note")
+_COORDINATION_KINDS = (*_ORDINARY_COORDINATION_KINDS, "publication", "publication-binding")
 
 KIND_ACTS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
@@ -57,7 +61,9 @@ KIND_ACTS: Mapping[str, frozenset[str]] = MappingProxyType(
         "coreference-attestation": _CORPUS_WRITE,
         "act-report": frozenset({"corpus-write", "run"}),
         "composite": _CORPUS_WRITE,
-        **{kind: _CORPUS_WRITE for kind in _COORDINATION_KINDS},
+        **{kind: _CORPUS_WRITE for kind in _ORDINARY_COORDINATION_KINDS},
+        "publication": frozenset({"publish"}),
+        "publication-binding": frozenset({"publish"}),
     }
 )
 """Every mintable kind to the families admissible as its minting route —
@@ -110,6 +116,35 @@ class WritePermit:
         return PermitSummary(tuple(sorted(self.kinds)), tuple(sorted(self.act_families)), self.ungoverned)
 
 
+_PUBLICATION_PERMIT = WritePermit(
+    frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"})
+)
+KERNEL_REQUIREMENTS: frozenset[WritePermit] = frozenset({_PUBLICATION_PERMIT})
+"""The one closed exception to command reachability (decision 7): the
+publication requirement the publish doors cite. Every other permit naming a
+non-command-reachable family is refused, exactly as before."""
+
+_MINTING_KERNEL_REQUIREMENT: ContextVar[bool] = ContextVar("_MINTING_KERNEL_REQUIREMENT", default=False)
+"""Set only while `RequiredCapabilities.publishes()` runs: the kernel exception
+is admitted by the route that constructs it, never by permit equality alone
+(decision 7) — an ordinary declaration that happens to compile to the same
+permit still refuses."""
+
+
+def _mints_the_kernel_requirement(
+    build: Callable[[type[RequiredCapabilities]], RequiredCapabilities],
+) -> Callable[[type[RequiredCapabilities]], RequiredCapabilities]:
+    @wraps(build)
+    def minting(cls: type[RequiredCapabilities]) -> RequiredCapabilities:
+        token = _MINTING_KERNEL_REQUIREMENT.set(True)
+        try:
+            return build(cls)
+        finally:
+            _MINTING_KERNEL_REQUIREMENT.reset(token)
+
+    return minting
+
+
 @dataclass(frozen=True)
 class Authority:
     """A permit and an actor, bound once at a construction seam (§3.4)."""
@@ -155,7 +190,8 @@ class RequiredCapabilities:
     def __post_init__(self) -> None:
         if type(self.permit) is not WritePermit:
             raise TypeError("a requirement carries a WritePermit")
-        if not self.permit.act_families <= COMMAND_REACHABLE_FAMILIES:
+        kernel = _MINTING_KERNEL_REQUIREMENT.get() and self.permit in KERNEL_REQUIREMENTS
+        if not self.permit.act_families <= COMMAND_REACHABLE_FAMILIES and not kernel:
             raise ValueError("a requirement names only command-reachable families")
         if self.permit.ungoverned:
             raise ValueError("a requirement never claims ungoverned kinds; a declaration names governed ones")
@@ -166,7 +202,7 @@ class RequiredCapabilities:
 
     @classmethod
     def coordination(cls) -> RequiredCapabilities:
-        return cls(WritePermit(frozenset(_COORDINATION_KINDS), _CORPUS_WRITE))
+        return cls(WritePermit(frozenset(_ORDINARY_COORDINATION_KINDS), _CORPUS_WRITE))
 
     @classmethod
     def for_kinds(cls, kinds: Iterable[str], routes: Mapping[str, str]) -> RequiredCapabilities:
@@ -189,11 +225,16 @@ class RequiredCapabilities:
             else:
                 raise ValueError(f"{kind!r} admits more than one route; the declaration must select one")
             families.add(route)
+        if not families <= COMMAND_REACHABLE_FAMILIES:
+            # decision 7: an ordinary declaration naming `publish` refuses, even
+            # one that compiles to the kernel requirement's exact permit
+            raise ValueError("a requirement names only command-reachable families")
         return cls(WritePermit(declared, frozenset(families)))
 
     @classmethod
+    @_mints_the_kernel_requirement
     def publishes(cls) -> RequiredCapabilities:
-        raise ValueError("publish is not an act family")
+        return cls(_PUBLICATION_PERMIT)
 
 
 def scoped_authority(required: RequiredCapabilities, actor: str) -> Authority:

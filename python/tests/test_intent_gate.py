@@ -218,3 +218,12 @@ def test_matching_requirements_per_shape() -> None:
         == "wrong-token"
     )
     assert shapes.mismatch(held, shapes.InertRecord()) == "wrong-purpose"
+
+
+def test_a_domainless_publish_triple_is_malformed_not_an_operation():
+    """Decision 10 (publication-records design §2): `publish` opens only through
+    its domain intent, so the domainless triple naming it is malformed."""
+    payload = v1.encode({"kind": "publish", "event_token": "c" * 32, "actor": "actor"})
+    decoded = shapes.decode_intent("0" * 64, payload)
+    assert type(decoded) is shapes.Unrecognized
+    assert decoded.code == "intent-payload-malformed" and decoded.detail == "operation"

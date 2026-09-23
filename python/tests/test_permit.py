@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import pytest
 
-from beliefs.coordination import COORDINATION_KINDS
+from beliefs.coordination import COORDINATION_KINDS, ORDINARY_COORDINATION_KINDS, PUBLICATION_KINDS
 from beliefs.errors import ActorMismatch, PermitExceeded, PermitFact, PermitSummary, WriteRefused
 from beliefs.permit import (
     ACT_FAMILIES,
     COMMAND_REACHABLE_FAMILIES,
+    KERNEL_REQUIREMENTS,
     KIND_ACTS,
     READ_ONLY,
     Authority,
@@ -15,6 +16,7 @@ from beliefs.permit import (
     WritePermit,
     permit_covers,
     require_actor,
+    scoped_authority,
 )
 from beliefs.stored import WORLD_KINDS
 
@@ -32,15 +34,17 @@ class TestE4KindActsIsClosedAndComplete:
         assert KIND_ACTS["dataset"] == {"corpus-write"}
         assert KIND_ACTS["act-report"] == {"corpus-write", "run"}
         assert KIND_ACTS["holdings-observation"] == {"holdings"}
-        for kind in COORDINATION_KINDS:
+        for kind in ORDINARY_COORDINATION_KINDS:
             assert KIND_ACTS[kind] == {"corpus-write"}
+        for kind in PUBLICATION_KINDS:
+            assert KIND_ACTS[kind] == {"publish"}
 
     def test_the_mapping_is_read_only(self):
         with pytest.raises(TypeError):
             KIND_ACTS["proposition"] = frozenset()  # type: ignore[index]
 
-    def test_the_families_are_the_six_and_three_are_command_reachable(self):
-        assert ACT_FAMILIES == {"corpus-write", "run", "holdings", "registry", "epoch", "lifecycle"}
+    def test_the_families_are_the_seven_and_three_are_command_reachable(self):
+        assert ACT_FAMILIES == {"corpus-write", "run", "holdings", "registry", "epoch", "lifecycle", "publish"}
         assert COMMAND_REACHABLE_FAMILIES == {"corpus-write", "run", "holdings"}
 
 
@@ -60,7 +64,7 @@ class TestWritePermitConstruction:
         with pytest.raises(ValueError, match="kind"):
             WritePermit(frozenset({"unicorn"}), frozenset())
         with pytest.raises(ValueError, match="family"):
-            WritePermit(frozenset(), frozenset({"publish"}))
+            WritePermit(frozenset(), frozenset({"unicorn-family"}))
 
     def test_only_exact_frozensets_of_strings_construct(self):
         with pytest.raises(TypeError):
@@ -106,7 +110,7 @@ class TestE1AuthorityRequire:
 
     def test_an_unknown_family_is_a_caller_error_not_a_refusal(self):
         with pytest.raises(ValueError):
-            Authority(WritePermit.full(), "a").require("publish")
+            Authority(WritePermit.full(), "a").require("unicorn-family")
 
     def test_an_ungoverned_kind_needs_the_flag_and_the_corpus_write_family(self):
         governed_only = Authority(WritePermit(frozenset(), frozenset({"corpus-write", "run"})), "a")
@@ -138,7 +142,7 @@ class TestE4RequirementConstruction:
 
     def test_coordination_requires_the_coordination_kinds_over_corpus_write(self):
         required = RequiredCapabilities.coordination().permit
-        assert required.kinds == frozenset(COORDINATION_KINDS)
+        assert required.kinds == frozenset(ORDINARY_COORDINATION_KINDS)
         assert required.act_families == {"corpus-write"}
 
     def test_a_single_route_kind_derives_its_route(self):
@@ -166,8 +170,11 @@ class TestE4RequirementConstruction:
             RequiredCapabilities.for_kinds(["proposition"], {"run": "run"})
 
     def test_publishes_is_refused_while_publish_is_not_a_family(self):
-        with pytest.raises(ValueError, match="publish is not an act family"):
-            RequiredCapabilities.publishes()
+        # Since cut 39 `publish` is a family and publishes() is the kernel requirement;
+        # the name is cut 17's E4c check, re-targeted there (test_n2_cut17.py _LIVE_SABOTAGES).
+        assert RequiredCapabilities.publishes().permit == WritePermit(
+            frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"})
+        )
 
     def test_a_requirement_never_names_a_non_command_family(self):
         for required in (
@@ -184,7 +191,10 @@ class TestE5Coverage:
         for required in (
             RequiredCapabilities.none(),
             RequiredCapabilities.coordination(),
-            RequiredCapabilities.for_kinds(list(KIND_ACTS), {"run": "run", "act-report": "run"}),
+            RequiredCapabilities.for_kinds(
+                [kind for kind in KIND_ACTS if kind not in PUBLICATION_KINDS], {"run": "run", "act-report": "run"}
+            ),
+            RequiredCapabilities.publishes(),
         ):
             assert permit_covers(full, required)
 
@@ -226,3 +236,41 @@ class TestReadOnly:
     def test_read_only_is_covered_only_by_the_empty_requirement(self):
         assert permit_covers(READ_ONLY.permit, RequiredCapabilities.none())
         assert not permit_covers(READ_ONLY.permit, RequiredCapabilities.coordination())
+
+
+def test_publishes_constructs_exactly_the_kernel_requirement():
+    required = RequiredCapabilities.publishes()
+    assert required.permit == WritePermit(
+        frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"})
+    )
+    assert KERNEL_REQUIREMENTS == frozenset({required.permit})
+    assert scoped_authority(required, "publisher").permit == required.permit
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: RequiredCapabilities.for_kinds(["publication-binding"], {}),
+        lambda: RequiredCapabilities(WritePermit(frozenset({"publication-binding"}), frozenset({"publish"}))),
+        lambda: RequiredCapabilities(
+            WritePermit(frozenset({"publication-binding", "act-report", "task"}), frozenset({"publish", "corpus-write"}))
+        ),
+        # the kernel requirement's exact permit, reached through an ordinary route
+        # (science's `mints:` write class compiles through `for_kinds`): decision 7
+        # admits it only from `publishes()`, never by permit equality
+        lambda: RequiredCapabilities.for_kinds(["publication-binding", "act-report"], {"act-report": "corpus-write"}),
+        lambda: RequiredCapabilities(
+            WritePermit(frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"}))
+        ),
+    ],
+    ids=["for_kinds", "direct", "widened", "for_kinds-exact", "direct-exact"],
+)
+def test_every_ordinary_route_naming_publish_still_refuses(build):
+    with pytest.raises(ValueError, match="a requirement names only command-reachable families"):
+        build()
+
+
+def test_the_coordination_requirement_excludes_the_publication_kinds():
+    kinds = RequiredCapabilities.coordination().permit.kinds
+    assert not kinds & {"publication", "publication-binding"}
+    assert len(kinds) == 8

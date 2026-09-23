@@ -1,7 +1,8 @@
 from collections.abc import Callable
 from copy import deepcopy
+from importlib import resources
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from authority import FULL
 from nodes.core.corpus import Corpus
@@ -12,70 +13,19 @@ from profiles import pins_for
 
 from beliefs import stored
 from beliefs.contract.coordination import parse_coordination_contract
+from beliefs.contract.document import parse_document
 from beliefs.corpus import CorpusWriter
 from beliefs.profile import compile_profile, shipped_base_contract
 
 AT = "2026-09-02T12:00:00Z"
 EMPTY_QUERY = {"version": "science.view-query.v1", "clauses": []}
 
-COORDINATION_DOCUMENT = {
-    "contract": "coordination",
-    "version": 1,
-    "lineage": "genesis",
-    "description": "Project coordination records",
-    "address_root": "project",
-    "query_vocabulary": {
-        "kinds": [
-            "proposition",
-            "source-assertion",
-            "assessment",
-            "analysis-spec",
-            "run",
-            "verification",
-            "dataset",
-            "source",
-            "holdings-observation",
-            "retraction",
-            "instrument-certification",
-            "coreference-attestation",
-            "act-report",
-        ],
-        "relations": [
-            "assesses",
-            "observes",
-            "reads",
-            "transforms",
-            "produces",
-            "produced_by",
-            "executes",
-            "targets",
-            "verifies",
-            "member_of",
-            "grounded-in",
-        ],
-    },
-    "kinds": {
-        **{
-            kind: {
-                "fields": ["name", "body", "author", "at", "query"],
-                "query_versions": ["science.view-query.v1"],
-            }
-            for kind in ("project", "question", "hypothesis", "topic", "theme")
-        },
-        "task": {
-            "fields": ["name", "body", "author", "at", "status", "depends"],
-            "query_versions": [],
-        },
-        "decision": {
-            "fields": ["name", "body", "author", "at"],
-            "query_versions": [],
-        },
-        "note": {
-            "fields": ["name", "body", "author", "at", "about"],
-            "query_versions": [],
-        },
-    },
-}
+_SHIPPED_V1 = parse_document(
+    resources.files("beliefs").joinpath("contracts/coordination/v1/CONTRACT.yaml").read_text(encoding="utf-8"),
+    source="beliefs/contracts/coordination/v1/CONTRACT.yaml",
+)
+assert isinstance(_SHIPPED_V1, dict), "the shipped v1 coordination contract is a mapping"
+COORDINATION_DOCUMENT: dict[str, Any] = _SHIPPED_V1
 
 
 def coordination_contract(document=None, predecessor=None):
@@ -86,7 +36,12 @@ def coordination_contract(document=None, predecessor=None):
     )
 
 
-def coordination_profile(base_contract, *, document=None):
+def coordination_profile(base_contract, *, document=None, version=1):
+    if version == 2:
+        assert document is None, "a v2 profile is the shipped contract"
+        from beliefs.profile import shipped_coordination
+
+        return compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(2))
     return compile_profile(shipped_base_contract(), [], coordination=coordination_contract(document))
 
 

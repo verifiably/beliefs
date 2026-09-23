@@ -9,6 +9,7 @@ from collections.abc import Mapping, Sequence
 
 from beliefs.corpus import Finding
 from beliefs.intents import shapes
+from beliefs.intents.publish import PublishIntent
 from beliefs.report import AssessmentRunIntent, OperationIntent
 from beliefs.session.ledger import LedgerEmpty, LedgerEvidence, LedgerMissing, LedgerReader, LedgerUnreadable
 from beliefs.world.logmodel import (
@@ -48,7 +49,7 @@ def _session_of(decoded: shapes.DecodedIntent | shapes.Unrecognized) -> str | No
     if type(decoded) is not shapes.DecodedIntent:
         return None
     value = decoded.value
-    if isinstance(value, (OperationIntent, AssessmentRunIntent)):
+    if isinstance(value, (OperationIntent, AssessmentRunIntent, PublishIntent)):
         actor: object = value.actor
     else:
         actor = value.get("actor")

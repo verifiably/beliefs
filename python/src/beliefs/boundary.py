@@ -76,6 +76,7 @@ from beliefs.errors import (
     TargetUnresolvable,
 )
 from beliefs.identity import v1
+from beliefs.intents.publish import PublishIntent
 from beliefs.recipe import (
     CONFINED_POLICY,
     BoundaryPolicy,
@@ -104,6 +105,7 @@ from beliefs.report import (
     LocatorEntry,
     Moved,
     OperationIntent,
+    PublicationBindingEntry,
     RecordImportEntry,
     RecordMutationEntry,
     Registration,
@@ -357,6 +359,33 @@ def _mint_audit_report(
         opened_at=opened_at,
         closed_at=closed_at,
         entries=entries,
+    )
+
+
+def _mint_publish_report(
+    intent: PublishIntent,
+    *,
+    observer: str,
+    instrument: str,
+    opened_at: str,
+    closed_at: str,
+    entry: PublicationBindingEntry,
+) -> ActReport:
+    """The publish report: exactly one publication-binding entry (publication-records
+    design §7), closing the domain-tagged publish intent and nothing else."""
+    if type(intent) is not PublishIntent:
+        raise MalformedRecord("a publish report closes a publish intent")
+    if type(entry) is not PublicationBindingEntry:
+        raise MalformedRecord("a publish report carries one publication-binding entry")
+    return _mint_report(
+        operation="publish",
+        event_token=intent.event_token,
+        actor=intent.actor,
+        observer=observer,
+        instrument=instrument,
+        opened_at=opened_at,
+        closed_at=closed_at,
+        entries=(entry,),
     )
 
 

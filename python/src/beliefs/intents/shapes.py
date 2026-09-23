@@ -10,6 +10,7 @@ from typing import Literal, final
 from beliefs.errors import CanonicalTextRefused, MalformedRecord
 from beliefs.identity import v1
 from beliefs.intents import holdings as holdings_shape
+from beliefs.intents.publish import PUBLISH_INTENT_DOMAIN, PublishIntent, decode_publish_intent
 from beliefs.report import OPERATION_KINDS, AssessmentRunIntent, OperationIntent
 from beliefs.sealed import sealed
 
@@ -41,8 +42,8 @@ REASON_PRIORITY = (
 @dataclass(frozen=True)
 class DecodedIntent:
     digest: str
-    shape: Literal["assessment-run", "operation", "holdings"]
-    value: AssessmentRunIntent | OperationIntent | Mapping[str, str]
+    shape: Literal["assessment-run", "operation", "holdings", "publish"]
+    value: AssessmentRunIntent | OperationIntent | PublishIntent | Mapping[str, str]
 
 
 @sealed
@@ -106,6 +107,11 @@ def decode_intent(digest: str, payload: bytes) -> DecodedIntent | Unrecognized:
                 return _malformed(digest, "holdings")
             assert decoded is not None
             return DecodedIntent(digest, "holdings", decoded)
+        if sniffed["domain"] == PUBLISH_INTENT_DOMAIN:
+            try:
+                return DecodedIntent(digest, "publish", decode_publish_intent(payload))
+            except MalformedRecord:
+                return _malformed(digest, "publish")
         return Unrecognized(
             digest,
             "intent-domain-unrecognized",
@@ -128,6 +134,9 @@ def decode_intent(digest: str, payload: bytes) -> DecodedIntent | Unrecognized:
             "warning",
             "domainless-unrecognized",
         )
+    if set(value) == {"kind", "event_token", "actor"} and value.get("kind") == "publish":
+        # decision 10: publish opens only through science.publish-intent.v1
+        return _malformed(digest, "operation")
     if set(value) == {"kind", "event_token", "actor"} and value.get("kind") in OPERATION_KINDS:
         try:
             _require_fields(value, ("kind", "event_token", "actor"))
@@ -197,6 +206,12 @@ def mismatch(intent: DecodedIntent, evidence: object) -> str | None:
             return "wrong-purpose"
         if type(evidence) is ReportEvidence:
             if evidence.operation != value.kind:
+                return "wrong-kind"
+            return None if evidence.event_token == value.event_token else "wrong-token"
+        return "wrong-purpose"
+    if type(value) is PublishIntent:
+        if type(evidence) is ReportEvidence:
+            if evidence.operation != "publish":
                 return "wrong-kind"
             return None if evidence.event_token == value.event_token else "wrong-token"
         return "wrong-purpose"

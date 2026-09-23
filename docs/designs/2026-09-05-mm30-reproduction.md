@@ -1230,3 +1230,113 @@ transition measured here is narrower still than §16's: the kernel gained
 two new operations and a port-binding check while the reproduction's
 stored state and re-derived answer remained byte-for-byte where §16 left
 them.
+
+## 18. Addendum — publication records, 2026-09-23
+
+Re-run under publication records
+(`../superpowers/specs/2026-09-22-publication-records-design.md`; cut 39),
+from the worktree `publish`, at head `b036e8e`. No contract succeeded, so
+nothing under `.work/reproduction/mm30` was recreated or moved aside: the
+corpus was read in place, exactly as at §17. `SCIENCE_MM30_ROOT` was set to
+the certified volume's canonical path, formed from `$(readlink -f
+~/d/beliefs)`. `MM30_PREDECESSOR` again had to be set explicitly, to the
+predecessor's canonical path, since the driver's default does not exist
+under this account. `reproduction.preflight` printed `ok` without a
+host-load refusal.
+
+### 18.1 What changed in the kernel this slice
+
+Cut 39 amends the coordination contract from `v1` (the fixture, unchanged
+content identity) to `v2` (`lineage: {successor: <v1 identity>}`), which
+adds two new kinds, `publication` and `publication-binding`, and the
+`composite`/`composes` relation; `shipped_coordination()` now returns `v2`.
+It adds a `publish` act family, the evidence-bearing `PublishIntent`
+(carrying the pinned view, the destination, `binding_tips`, `marker_tips`,
+and one anchor per mount other than the written root), and the
+intent-position judgment — `standing_at`, reading each mounted root's chain
+inventory to classify presence, absence, `history-violated` and
+`unregistered-revision` — behind two new internal doors in
+`beliefs/publication_doors.py`. None of this is reached by the mm30 driver:
+
+```
+$ grep -n 'publication\|publish\|coordination' python/tools/reproduction/*.py
+python/tools/reproduction/rederive.py:6:binding. 10b's: the corpus (verification record, two run publications,
+python/tools/reproduction/rederive.py:39:    two run publications and the spec record; recomputes only through
+python/tools/reproduction/rederive.py:46:            "corpus": ["verification record (basis, comparison report, scope, verdict read)", "two run publications", "analysis-spec record"],
+python/tools/reproduction/rederive.py:72:            contract_identity="none-consulted", epoch="none-published", certification=certification,
+python/tools/reproduction/rederive.py:210:            filed="verification-publication (write-path lane)",
+python/tools/reproduction/spec.py:126:    """The kernel's own builder (verification-publication design §7)."""
+python/tools/reproduction/run.py:156:        epoch="none-published",
+python/tools/reproduction/belief.py:23:from beliefs.verify import AssessmentVerification, admission_record, build_verification, publication_node
+python/tools/reproduction/belief.py:48:        producer_snapshot_identity="no-epoch-published",  # supplied: this exercise builds no epoch (record §3)
+python/tools/reproduction/belief.py:118:        epoch="none-published",
+python/tools/reproduction/belief.py:128:    minted = writer.add(publication_node(verification, assessment_ref=st["assessment_ref"]))
+python/tools/reproduction/hold.py:3:The dataset record's id is its content address: the run publication names
+python/tools/reproduction/hold.py:57:    published = write(ctx, StoreLocator(st["store_id"], relative), content, expected=digest)
+python/tools/reproduction/hold.py:83:        holdings_observation_ref=f"holdings-observation:{published.record.identity()}",
+```
+
+— every hit is the driver's own pre-existing "run publication" /
+"verification-publication" vocabulary (`beliefs.verify`'s `publication_node`,
+minted by step 8 as part of this reproduction's established evidence chain
+since before this slice), not cut 39's new kind or intent. A narrower grep
+for the slice's own symbols is empty:
+
+```
+$ grep -n 'PublishIntent\|publication-binding\|publication_doors\|shipped_coordination\|coordination\.py\|KindNotMintedHere\|mint_coordination\|revise_coordination' python/tools/reproduction/*.py
+$
+```
+
+mm30's own manifest pins no coordination contract at all — its profile
+names only the domains and the science contract:
+
+```
+corpus_id: 8b5d0c802677ee445e2b9d91ebf5d6a7
+manifest_version: 2
+profile:
+  domains:
+    biology: biology:24bcec4370cfcff3077414798c02525814d4aeaaf84430ab378838df7345d53b
+    mm30: mm30:4af7c4212d482ae60f429526ff5a8a6d4c335f70351a2687cd2062ffdedf437c
+  science_contract: science:52a4399342235225fbf23526050cf64ff0436d9b72bc54e30fc0c2cb7193b220
+```
+
+The driver mints no publication marker or binding and calls neither door.
+
+### 18.2 What the re-run reached
+
+Before the run, `state.json` held `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}` and
+`rederived_equal: true` — unchanged from §17.2. A copy was taken first
+(SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`).
+`reproduction.rederive`, run in the foreground, printed the same 10a
+payload — `{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}`
+in this document's established (alphabetical) transcription; the raw
+stdout renders the same dataclass in field-declaration order,
+`{"kind": "NoBelief", "reason": "no-directional-outcome", "detail": ""}`
+— with `"equal": true`. The rewritten `state.json` held the same
+`rederived_belief` payload with `rederived_equal: true`. A full-file diff
+against the pre-run copy was empty, and both files carried SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1` — the
+same digest §17.2 recorded. Neither the driver nor its corpus reaches the
+coordination contract's v2 amendment, the publish intent, or the
+intent-position judgment (§18.1's greps); the acceptance modules
+`python/tests/acceptance/test_publication_records_acceptance.py` and
+`python/tests/acceptance/test_n2_cut39.py` are where the certified-tuple
+guarantee rows for W17 and Y1–Y4 are discharged — this reproduction's
+evidence exercises none of them.
+
+`cd python && uv run --frozen pytest tests/test_reproduction_driver.py
+tests/test_designs_corpus.py`: 50 passed.
+
+### 18.3 What this addendum does not claim
+
+That mm30 publishes anything: no marker or binding was minted, no
+destination was named, and no chain was read through `standing_at`. The
+success criterion this reproduction lane measures against needs no publish
+— mm30's own corpus stands on `science_contract` and its two domains alone,
+and cut 39's coordination amendment is additive machinery the driver never
+opens. The transition measured here is narrower again than §17's: the
+kernel gained a contract version, two kinds, an act family and an
+intent-position judgment while the reproduction's stored state and
+re-derived answer remained byte-for-byte where §17 left them.

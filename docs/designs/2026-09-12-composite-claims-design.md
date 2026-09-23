@@ -1008,6 +1008,9 @@ merged rather than beside it.
 12. **`closure` from a composite anchor and a `kinds: [composite]`
     predicate both wait on the coordination-contract amendment** (§5):
     version 1's literal `kinds` and `relations` lists carry neither.
+    *(Amended 2026-09-23: the amendment landed at conformance cut 39 as the
+    coordination contract's version 2, which adds `composite` and
+    `composes` to the query vocabulary; a version-2 pin spells both.)*
 13. **The identification column depends on estimand typing**, and the lane
     was sequenced after it rather than shipping the column blank.
     Discharged: cut 31 landed 2026-09-16 before this lane opened; the number

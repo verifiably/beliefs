@@ -35,7 +35,7 @@ __all__ = [
 @dataclass(frozen=True, slots=True)
 class IntentQualification:
     digest: str
-    shape: Literal["assessment-run", "operation", "holdings"] | None
+    shape: Literal["assessment-run", "operation", "holdings", "publish"] | None
     status: Literal[
         "matched",
         "unresolvable",

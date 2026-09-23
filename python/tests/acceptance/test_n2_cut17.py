@@ -48,6 +48,12 @@ _LIVE_SABOTAGES = {
         before="        ctx.seam.publish_fulfilling(ctx.observer_root, plan, intent)",
         after="        pass  # established finding silently dropped",
     ),
+    # Cut 39 (publication records): E4c re-targeted; publishes() is the kernel requirement.
+    "E4c": Sabotage(
+        module="permit.py",
+        before="        return cls(_PUBLICATION_PERMIT)",
+        after="        return cls(WritePermit(frozenset(), frozenset()))",
+    ),
 }
 CUT17_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT17_ARMS

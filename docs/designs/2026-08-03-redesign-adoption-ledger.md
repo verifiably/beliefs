@@ -46,14 +46,15 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-22** for cut 38's act-report remainder discharge, which
-closes the boundary; T2 closes in full and the T table stays partial on T7's
-cross-root case alone. Row 5 stays partial for L1's persistence arms alone.
+**Updated 2026-09-23** for cut 39's publication-records discharge: W17
+closes in full and Y1–Y4 close, and `publish` stays open with its second
+slice. The T table stays partial on T7's cross-root case alone, and row 5
+stays partial for L1's persistence arms alone.
 
-**Implemented through conformance cut 38.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 39.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–38 record discharge in their dated results records, most recently
-`../plans/2026-09-22-conformance-cut-38-results.md`.
+and cuts 26–39 record discharge in their dated results records, most recently
+`../plans/2026-09-23-conformance-cut-39-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -100,7 +101,10 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   local addressing, dedicated mint/revision family, multi-corpus tip resolver,
   and world-inert packaging behavior. W11, W12, and W18 are closed; W13's
   two-project negative is read; W17 is closed for the ordinary revision family
-  and remains partial only on intent-position, owned by `publish` (cut 14).
+  and remains partial only on intent-position, owned by `publish` (cut 14)
+  *(W17 closed 2026-09-23 at cut 39
+  (`../plans/2026-09-23-conformance-cut-39-results.md`): the intent-position
+  arm judged over the chain's inventory)*.
 - **Two-root relocation** — public destination-first `move` and two-record
   `consolidate`, one shared operation token with root-local intents and reports,
   contract agreement, tagged lineage-basis reconciliation, target
@@ -311,8 +315,34 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   opens through a boundary and closes through exactly one terminal record —
   the `run` where one is minted, the act-report otherwise: **T2 closes in
   full**, the T table stays partial on T7's cross-root case alone, and
-  `act-report-remainder` leaves the boundary table. The corpus has **188 of
-  216 rows closed, 28 open**.
+  `act-report-remainder` leaves the boundary table. The corpus had **188 of
+  216 rows closed, 28 open** at cut 38.
+- **The publication table (Y)**, banked 2026-09-22 with conformance cut 39's
+  freeze (`2026-09-22-publication-design.md`,
+  `2026-09-23-conformance-cut-39.md`): Y1–Y4 were open under `publish` from
+  the freeze to the discharge, beside W17's intent-position remainder, with
+  the corpus at **188 of 220 rows closed, 32 open**.
+- **The shipped coordination contract, the publication kinds, the publish
+  intent and the intent-position judgment**, built 2026-09-23 at cut 39
+  (`../plans/2026-09-23-conformance-cut-39-results.md`): the coordination
+  contract ships as `v1`, the former test fixture under the same content
+  identity, and `v2`, its successor, which declares `publication` and
+  `publication-binding` and adds `composite` and `composes` to the query
+  vocabulary; both kinds carry deterministic records — byte-functions of the
+  publish intent and named arguments, minted only by the factory, refused by
+  every ordinary door, and inert to the world index and to belief; `publish`
+  is an operation kind and an act family, opening only through its domain
+  intent `science.publish-intent.v1`, which carries the pinned view, the
+  destination, the frozen binding and marker tips, and one anchor per mounted
+  root other than the written one; and the intent-position judgment decides
+  presence at the intent's position from each root's chain inventory —
+  committed registrations only, every inventoried revision read and matched,
+  removals refused, unaccounted files classified by a chain re-read under the
+  engine's write-ahead order. Two internal doors write the source root, the
+  step-0 intent and the step-8 binding commit, with no public route. **W17
+  closes in full and Y1–Y4 close.** `publish` stays in the table with its
+  remainder, the second slice (`beliefs-328507`). The corpus has **193 of
+  220 rows closed, 27 open**.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -332,11 +362,20 @@ not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
-| `publish` | W17’s publication-binding intent-position arm; governed publication act, marker and binding records | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication; follows the complete world-read lane and precedes the final contract cut |
+| `publish` | the governed publication act — the second slice (`beliefs-328507`): the request record, the selection snapshot, staging, export, reveal, the recovery table, transport and arrival, with the rows it appends to the Y table; W17 and Y1–Y4 closed at cut 39 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication; follows the complete world-read lane and precedes the final contract cut |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-22-conformance-cut-38-results.md`) discharges the
+(`../plans/2026-09-23-conformance-cut-39-results.md`) discharges publication
+records at cut 39: the coordination contract's v2 amendment, the two
+publication kinds and their deterministic records, the `publish` kind and
+family, the evidence-bearing publish intent, and the intent-position judgment
+over the chain's inventory. W17 closes in full and Y1–Y4 close; `publish`
+stays in this table and the roadmap index with its second slice, and the
+corpus has **193 of 220** rows closed, 27 open. L1 stays partial on its
+persistence arms under `persistence-cut`, and T7 on its cross-root case under
+`cross-root-publication`. The preceding record
+(`../plans/2026-09-22-conformance-cut-38-results.md`) discharged the
 act-report remainder at cut 38: the `audit` and `re-check` operations each
 open through the boundary with one operation intent before any act and close
 through one act-report, and every supplied operation port is bound to its
@@ -345,9 +384,9 @@ kind but `corpus-write` — reportless by design — opens through a boundary an
 closes through exactly one terminal record, the `run` where one is minted and
 the act-report otherwise; the T table stays partial on T7's cross-root case
 alone, which remains with `cross-root-publication`. `act-report-remainder`
-leaves this table and the roadmap index; **188 of 216** rows are closed, 28
-open. With it the `world-read` lane's head becomes `publish`. The preceding
-record (`../plans/2026-09-21-conformance-cut-37-results.md`) discharged the
+leaves this table and the roadmap index; **188 of 216** rows were closed, 28
+open, at cut 38. With it the `world-read` lane's head becomes `publish`. The record before that
+(`../plans/2026-09-21-conformance-cut-37-results.md`) discharged the
 L13 preimage resolver: digest-matched classification over held copies and
 surviving preimages, stated absence and corruption refusal closed L13, and
 `l13-preimage` left this table and the roadmap index at **187 of 216** rows
@@ -407,8 +446,8 @@ merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 `nodes-ce28b8`), so row 3 carries no live work and the contract-cut join
 (`beliefs-eacbe2`) no longer waits on `nodes`. Every boundary's tracker entry is named in the
 roadmap's [Boundary index](../plans/2026-08-29-implementation-roadmap.md#boundary-index).
-`publish` remains open under the layer design and cut 14's W17 remainder;
-its omission from this table did not discharge it.
+`publish` remains open under the layer design; cut 39 closed cut 14's W17
+remainder, and the second slice is what remains.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the

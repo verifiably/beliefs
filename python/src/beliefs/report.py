@@ -8,9 +8,11 @@ report; this slice supplies only that ordinary-API bound (cut 3 §9 item 2).
 
 from __future__ import annotations
 
+import dataclasses
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TypeAlias, final
+from typing import TYPE_CHECKING, TypeAlias, final
 
 from beliefs.errors import CitationRefused, MalformedRecord, OutcomeRefused
 from beliefs.identity import v1
@@ -18,14 +20,21 @@ from beliefs.permit import require_actor
 from beliefs.recipe import RunClosure
 from beliefs.sealed import sealed
 
+if TYPE_CHECKING:
+    from beliefs.intents.publish import PublishIntent
+
 __all__ = [
     "ACT_REPORT_DOMAIN",
     "CLOSED",
+    "EVIDENCE_REFUSAL_REASONS",
     "INDETERMINATE",
     "OPERATION_KINDS",
     "UNFINISHED",
     "ActReport",
     "AssessmentRunIntent",
+    "BindingBound",
+    "BindingEvidenceRefused",
+    "BindingPredecessorNotStanding",
     "ByteLocatorUntested",
     "Consolidated",
     "DeclarationPinEntry",
@@ -37,6 +46,7 @@ __all__ = [
     "Moved",
     "OperationIntent",
     "PinnedDeclaration",
+    "PublicationBindingEntry",
     "PublishedObservation",
     "RecordImportEntry",
     "RecordMutationEntry",
@@ -45,12 +55,18 @@ __all__ = [
     "RunAttemptEntry",
     "RunRefusal",
     "SubjectEvaluationEntry",
+    "binding_outcome_from_facet",
     "cite",
     "completion",
 ]
 
 ACT_REPORT_DOMAIN = "science.act-report.v1"
-OPERATION_KINDS = ("acquisition", "audit", "consolidate", "corpus-write", "import", "move", "re-check", "run-attempt")
+# The kinds a domainless `OperationIntent` opens; `publish` joins the closed set
+# only beside them, because it opens through its domain intent alone
+# (publication-records design, decision 10). The literal below is cut 19 J1e's
+# pinned sabotage `before`: keep it byte-exact on one line, and derive beside it.
+_DOMAINLESS_OPERATION_KINDS = ("acquisition", "audit", "consolidate", "corpus-write", "import", "move", "re-check", "run-attempt")
+OPERATION_KINDS: tuple[str, ...] = tuple(sorted((*_DOMAINLESS_OPERATION_KINDS, "publish")))
 UNFINISHED = "unfinished"
 INDETERMINATE = "indeterminate"
 CLOSED = "closed"
@@ -87,6 +103,8 @@ class OperationIntent:
         require_actor(self.actor)
         if self.kind not in OPERATION_KINDS:
             raise MalformedRecord(f"operation kind {self.kind!r} is outside the closed set {OPERATION_KINDS}")
+        if self.kind == "publish":
+            raise MalformedRecord("publish opens only through its domain intent, science.publish-intent.v1")
 
 
 @sealed
@@ -214,6 +232,110 @@ class Consolidated:
         _require_strings(self.retired_uids, "consolidated retired uids")
 
 
+EVIDENCE_REFUSAL_REASONS = (
+    "mounts-changed",
+    "anchor-unplaced",
+    "chain-absent",
+    "chain-malformed",
+    "revision-missing",
+    "revision-mismatch",
+    "revision-malformed",
+    "history-violated",
+    "unregistered-revision",
+    "report-unqualified",
+    "tips-disagree",
+)
+_HEX32 = re.compile(r"[0-9a-f]{32}")
+
+
+def _require_hex32(value: object, where: str) -> None:
+    if type(value) is not str or _HEX32.fullmatch(value) is None:
+        raise MalformedRecord(f"{where} must be 32 lowercase hexadecimal characters")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class BindingBound:
+    binding: str
+    corpus_id: str
+    marker: str
+
+    def __post_init__(self) -> None:
+        for name in ("binding", "corpus_id", "marker"):
+            _require_hex32(getattr(self, name), f"bound {name}")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class BindingPredecessorNotStanding:
+    corpus_id: str
+    marker: str
+    remotely_revealed: bool
+    tips: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "refusal corpus id")
+        _require_hex32(self.marker, "refusal marker")
+        if type(self.remotely_revealed) is not bool:
+            raise MalformedRecord("remotely_revealed must be a bool")
+        # validate the container, then every member, and only then compare them:
+        # sorting or hashing unvalidated members raises TypeError, not MalformedRecord
+        if type(self.tips) is not tuple:
+            raise MalformedRecord("tips must be a tuple")
+        for tip in self.tips:
+            _require_hex32(tip, "refusal tip")
+        if list(self.tips) != sorted(set(self.tips)):
+            raise MalformedRecord("tips must be strictly ascending and unique")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class BindingEvidenceRefused:
+    corpus_id: str
+    marker: str
+    remotely_revealed: bool
+    reason: str
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "refusal corpus id")
+        _require_hex32(self.marker, "refusal marker")
+        if type(self.remotely_revealed) is not bool:
+            raise MalformedRecord("remotely_revealed must be a bool")
+        if self.reason not in EVIDENCE_REFUSAL_REASONS:
+            raise MalformedRecord(f"evidence refusal reason {self.reason!r} is outside {EVIDENCE_REFUSAL_REASONS}")
+
+
+_BINDING_OUTCOMES: dict[str, type[BindingBound | BindingPredecessorNotStanding | BindingEvidenceRefused]] = {
+    "bound": BindingBound,
+    "predecessor-not-standing": BindingPredecessorNotStanding,
+    "evidence-refused": BindingEvidenceRefused,
+}
+
+
+def binding_outcome_from_facet(
+    outcome: object,
+) -> BindingBound | BindingPredecessorNotStanding | BindingEvidenceRefused:
+    """The stored form of a publication-binding outcome, decoded through the
+    typed constructors — so the stored mirror and the values share one rule set
+    (32 lowercase hex, the closed reason set, strictly ascending unique tips, a
+    bool `remotely_revealed`). Raises `MalformedRecord` on anything else."""
+    if not isinstance(outcome, dict) or type(outcome.get("type")) is not str or outcome["type"] not in _BINDING_OUTCOMES:
+        raise MalformedRecord("a publication-binding outcome names one of its three types")
+    kind = _BINDING_OUTCOMES[outcome["type"]]
+    names = {field.name for field in dataclasses.fields(kind)}
+    if set(outcome) != {"type", *names}:
+        raise MalformedRecord(f"a {outcome['type']} outcome carries exactly {sorted(names)}")
+    values = {name: outcome[name] for name in names}
+    if "tips" in values:
+        if type(values["tips"]) is not list:
+            raise MalformedRecord("tips are a list in the stored form")
+        values["tips"] = tuple(values["tips"])
+    return kind(**values)
+
+
 Outcome: TypeAlias = (
     PublishedObservation
     | ByteLocatorUntested
@@ -224,6 +346,9 @@ Outcome: TypeAlias = (
     | RunRefusal
     | Moved
     | Consolidated
+    | BindingBound
+    | BindingPredecessorNotStanding
+    | BindingEvidenceRefused
 )
 
 
@@ -321,6 +446,18 @@ class RecordMutationEntry:
         _require_outcome(self, self.outcome)
 
 
+@sealed
+@final
+@dataclass(frozen=True)
+class PublicationBindingEntry:
+    subject: str
+    outcome: BindingBound | BindingPredecessorNotStanding | BindingEvidenceRefused
+
+    def __post_init__(self) -> None:
+        _require_str(self.subject, "publication binding entry subject")
+        _require_outcome(self, self.outcome)
+
+
 Entry: TypeAlias = (
     LocatorEntry
     | ManagedMutationEntry
@@ -329,6 +466,7 @@ Entry: TypeAlias = (
     | RecordImportEntry
     | RecordMutationEntry
     | RunAttemptEntry
+    | PublicationBindingEntry
 )
 
 _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
@@ -339,6 +477,7 @@ _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
     RecordImportEntry: (ImportedRecords,),
     RecordMutationEntry: (Moved, Consolidated),
     RunAttemptEntry: (RunRefusal,),
+    PublicationBindingEntry: (BindingBound, BindingPredecessorNotStanding, BindingEvidenceRefused),
 }
 _ENTRY_KINDS: dict[type[object], str] = {
     LocatorEntry: "pure-look",
@@ -348,6 +487,7 @@ _ENTRY_KINDS: dict[type[object], str] = {
     RecordImportEntry: "record-import",
     RecordMutationEntry: "record-mutation",
     RunAttemptEntry: "run-attempt",
+    PublicationBindingEntry: "publication-binding",
 }
 _OUTCOME_TYPES: dict[type[object], str] = {
     PublishedObservation: "published-observation",
@@ -359,6 +499,9 @@ _OUTCOME_TYPES: dict[type[object], str] = {
     RunRefusal: "run-refusal",
     Moved: "moved",
     Consolidated: "consolidated",
+    BindingBound: "bound",
+    BindingPredecessorNotStanding: "predecessor-not-standing",
+    BindingEvidenceRefused: "evidence-refused",
 }
 
 
@@ -463,11 +606,13 @@ class Registration:
         _require_str(self.pointer, "registration pointer")
 
 
-Intent: TypeAlias = OperationIntent | AssessmentRunIntent
+Intent: TypeAlias = "OperationIntent | AssessmentRunIntent | PublishIntent"
 
 
 def completion(intent: Intent, registrations: tuple[Registration, ...], held: Mapping[str, object]) -> str:
-    if type(intent) not in (OperationIntent, AssessmentRunIntent):
+    from beliefs.intents.publish import PublishIntent
+
+    if type(intent) not in (OperationIntent, AssessmentRunIntent, PublishIntent):
         raise MalformedRecord("completion requires an operation intent")
     if type(registrations) is not tuple or any(
         type(registration) is not Registration for registration in registrations
@@ -483,7 +628,11 @@ def completion(intent: Intent, registrations: tuple[Registration, ...], held: Ma
 
     decoded = shapes.DecodedIntent(
         "held",
-        "assessment-run" if type(intent) is AssessmentRunIntent else "operation",
+        "assessment-run"
+        if type(intent) is AssessmentRunIntent
+        else "publish"
+        if type(intent) is PublishIntent
+        else "operation",
         intent,
     )
     unresolved = False
