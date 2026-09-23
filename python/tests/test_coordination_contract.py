@@ -156,3 +156,10 @@ def test_an_unknown_version_is_refused():
 
     with pytest.raises(ProfileError):
         shipped_coordination(3)
+
+
+def test_a_bool_version_is_refused_not_conflated_with_one():
+    from beliefs.errors import ProfileError
+
+    with pytest.raises(ProfileError, match="exact int"):
+        shipped_coordination(True)

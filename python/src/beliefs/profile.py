@@ -93,6 +93,9 @@ def shipped_coordination(version: int = 2) -> CoordinationContract:
     design decision 2): version 1, and version 2 parsed as its successor. The
     default is normalised before the cache, so `shipped_coordination()` and
     `shipped_coordination(2)` are one object."""
+    if type(version) is not int:
+        # `True in (1, 2)` holds and `@cache` would conflate True with 1
+        raise ProfileError(f"a coordination contract version is an exact int, not {version!r}")
     if version not in (1, 2):
         raise ProfileError(f"this package ships coordination contract versions 1 and 2, not {version!r}")
     return _shipped_coordination(version)
