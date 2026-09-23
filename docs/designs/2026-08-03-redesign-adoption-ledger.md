@@ -350,8 +350,8 @@ kind but `corpus-write` — reportless by design — opens through a boundary an
 closes through exactly one terminal record, the `run` where one is minted and
 the act-report otherwise; the T table stays partial on T7's cross-root case
 alone, which remains with `cross-root-publication`. `act-report-remainder`
-leaves this table and the roadmap index; **188 of 216** rows are closed, 28
-open. With it the `world-read` lane's head becomes `publish`. The preceding
+leaves this table and the roadmap index; **188 of 216** rows were closed, 28
+open, at cut 38. With it the `world-read` lane's head becomes `publish`. The preceding
 record (`../plans/2026-09-21-conformance-cut-37-results.md`) discharged the
 L13 preimage resolver: digest-matched classification over held copies and
 surviving preimages, stated absence and corruption refusal closed L13, and

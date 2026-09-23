@@ -46,7 +46,9 @@ The surfaces on which a sabotage may land are:
   `profile.py`, `coordination.py`, `permit.py`, `corpus.py`, `errors.py`,
   `report.py`, `stored.py`, `boundary.py`, `intents/shapes.py`,
   `intents/reduce.py`, `intents/publish.py` (new), `publication.py` (new),
-  `publication_doors.py` (new), `root.py` (the moment seam);
+  `publication_doors.py` (new), `root.py` (the moment seam),
+  `world/epoch.py` (the capture's `stored.WORLD_KINDS` membership test,
+  Y1-b's site);
 - the test modules `python/tests/coordination_fixtures.py`,
   `test_coordination_contract.py`, `test_permit.py`,
   `test_coordination_write.py`, the act-report and intent-shape unit
@@ -134,7 +136,7 @@ closes and Y1–Y4 close; recent-cut row `(14, 13, 5)`; Task 7 passes 16;
 | W17-p-e2 | `coordination.py` | `_creates` reduced to "any file post-state": a rewrite counts as a creation again, so the `rewritten` case admits the rewritten file as present instead of refusing `history-violated` | W17-p-e |
 | W17-p-f | `coordination.py` | rolled-back registrations counted in the inventory's replay | W17-p-f |
 | Y1-a | `corpus.py` | `revise_coordination`'s `KindNotMintedHere` check removed | Y1-a |
-| Y1-b | `permit.py` or `corpus.py`, the site Y1-b's assertion reaches (Task 8) | the coordination exclusion dropped for `publication-binding` | Y1-b |
+| Y1-b | `world/epoch.py` | the coordination exclusion dropped for `publication-binding` | Y1-b |
 | Y2-a | `publication_doors.py` | the factory reads the clock for `at` | Y2-a |
 | Y3-a | `intents/shapes.py` | the domain dispatch removed from `decode_intent` | Y3-a |
 | Y4-a | `publication_doors.py` | the fallback plan written beside the success plan instead of in its place | Y4-a |

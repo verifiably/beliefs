@@ -300,8 +300,8 @@ remains partial on its persistence arms, last read at cut 8 and owned by
 conflict; R23 and W8a remain partial only on their `contract-cut` clauses;
 C10 remains partial only on its `instrument-certification` eligibility arm,
 owned by `contract-cut`; T7 remains partial on its cross-root case, the T
-table's last open row, owned by `cross-root-publication`. Cut 39's freeze banks the Y table;
-Y1–Y4 stay never selected until its discharge.
+table's last open row, owned by `cross-root-publication`. Cut 39's freeze
+banks the Y table, whose rows Y1–Y4 stay never selected until its discharge.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|

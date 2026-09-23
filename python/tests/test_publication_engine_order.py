@@ -46,12 +46,6 @@ def _port(writer: CorpusWriter) -> OperationPort:
     return port
 
 
-def _registrations(root: Path) -> list[RegisteredEntryView]:
-    view = log_seam().inspect_registered(root)
-    assert type(view) is WellFormedView
-    return [entry for entry in view.entries if type(entry) is RegisteredEntryView]
-
-
 def _registrations_unlocked(root: Path) -> list[RegisteredEntryView]:
     """The registrations the chain holds, read without the project lock the
     running lease already holds: the detached inspector is a read-only scan."""
@@ -65,8 +59,8 @@ def test_a_registration_is_in_the_chain_before_its_create_effect_runs(durable_ro
     apply = create_file.apply
 
     def observing(*args, **kwargs):
-        # Read the chain file directly: the lease holds the project lock, so the
-        # observation is of the durable entries already appended, not of a new inspection.
+        # A detached inspection: a read-only scan that takes no lock (the lease holds
+        # the project lock) and runs no recovery, so it sees only entries already appended.
         seen.append(
             any(path == "probe/a.md" for entry in _registrations_unlocked(durable_root) for path, _ in entry.final)
         )
@@ -87,13 +81,18 @@ def test_an_effect_failure_after_registration_rolls_back_durably(durable_root, m
     with pytest.raises(ExecutionError, match="cut after registration"):
         port.execute([CreateOp(path="probe/b.md", content=b"probe\n")])
     monkeypatch.undo()
-    view = log_seam().inspect_registered(durable_root)
-    assert type(view) is WellFormedView
-    (registration,) = [
-        e for e in view.entries if type(e) is RegisteredEntryView and any(p == "probe/b.md" for p, _ in e.final)
-    ]
-    (settlement,) = [e for e in view.entries if type(e) is SettledEntryView and e.registration == registration.digest]
-    assert settlement.committed is False
+    # Detached first: no recovery runs, so the rolled-back settlement read here was
+    # written by the failing execution itself, not by a recovery at read time.
+    for view in (log_seam().inspect_detached(durable_root), log_seam().inspect_registered(durable_root)):
+        assert type(view) is WellFormedView
+        assert view.pending == ()
+        (registration,) = [
+            e for e in view.entries if type(e) is RegisteredEntryView and any(p == "probe/b.md" for p, _ in e.final)
+        ]
+        (settlement,) = [
+            e for e in view.entries if type(e) is SettledEntryView and e.registration == registration.digest
+        ]
+        assert settlement.committed is False
     assert not (durable_root / "probe/b.md").exists()
 
 
@@ -170,4 +169,6 @@ def test_the_engine_rewrites_a_file_it_never_registered(durable_root):
         e for e in view.entries if type(e) is RegisteredEntryView and any(p == "probe/e.md" for p, _ in e.final)
     ]
     assert dict(entry.initial)["probe/e.md"] != log_seam().absent_state  # the pre-state is a file
+    (settlement,) = [e for e in view.entries if type(e) is SettledEntryView and e.registration == entry.digest]
+    assert settlement.committed is True
     assert path.read_bytes() == b"rewritten\n"

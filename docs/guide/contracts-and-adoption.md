@@ -140,12 +140,13 @@ records are reproduced through the new typed boundaries.
 Conformance cut 1 was frozen before implementation. It selected eleven of 126
 then-banked guarantee rows—six wholly and five only at named assertion arms—and
 classified the other 115 by the subsystem that would unblock them. The corpus
-has since grown to 216 rows across twenty frozen tables (the README keeps the
+has since grown to 220 rows across twenty-one frozen tables (the README keeps the
 count): the belief policy's P1–P9 banked the day the cut was drawn, the admission ramp appended G9 on 2026-08-09
 while narrowing W3's dataset arm, the verified-holdings record design banked
 H1–H4 on 2026-08-10, the act-report design banked T1–T8 on 2026-08-11, the coordination-and-view-kinds design banked W17–W18 on 2026-08-31, and
 later designs banked their tables through Q (estimand typing, cut 31) and U
-(composite claims, cut 32). The
+(composite claims, cut 32), and the publication-records slice banked Y1–Y4
+on 2026-09-22 with cut 39's freeze. The
 cut's stop rule was the last fully designed seam: typed claim construction,
 projection, identity, decode, and cross-language parity, with no persistence
 boundary and no belief computation.
