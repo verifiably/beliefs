@@ -23,7 +23,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, final
+from typing import TYPE_CHECKING, final
 
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import CreateOp, WritePlan
@@ -76,6 +76,7 @@ from beliefs.errors import (
     TargetUnresolvable,
 )
 from beliefs.identity import v1
+from beliefs.intents.publish import PublishIntent
 from beliefs.recipe import (
     CONFINED_POLICY,
     BoundaryPolicy,
@@ -362,7 +363,7 @@ def _mint_audit_report(
 
 
 def _mint_publish_report(
-    intent: Any,
+    intent: PublishIntent,
     *,
     observer: str,
     instrument: str,
@@ -371,9 +372,8 @@ def _mint_publish_report(
     entry: PublicationBindingEntry,
 ) -> ActReport:
     """The publish report: exactly one publication-binding entry (publication-records
-    design §7). `intent` is the domain-tagged publish intent; the attribute check keeps
-    this seam independent of its type."""
-    if getattr(intent, "kind", None) != "publish":
+    design §7), closing the domain-tagged publish intent and nothing else."""
+    if type(intent) is not PublishIntent:
         raise MalformedRecord("a publish report closes a publish intent")
     if type(entry) is not PublicationBindingEntry:
         raise MalformedRecord("a publish report carries one publication-binding entry")

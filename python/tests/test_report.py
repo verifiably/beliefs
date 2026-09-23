@@ -366,6 +366,12 @@ def test_malformed_tips_raise_malformed_record_not_type_error(tips):
         BindingPredecessorNotStanding("e" * 32, "f" * 32, True, tips)
 
 
+def test_list_tips_are_refused_as_not_a_tuple():
+    """The container is checked before its members: a list is refused by its rule."""
+    with pytest.raises(MalformedRecord, match="tips must be a tuple"):
+        BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ["1" * 32])  # type: ignore[arg-type]
+
+
 def test_the_evidence_refusal_reasons_are_closed():
     assert EVIDENCE_REFUSAL_REASONS == (
         "mounts-changed",
@@ -448,13 +454,29 @@ def test_the_publish_report_seam_mints_one_binding_entry_for_a_publish_intent_on
     from types import SimpleNamespace
 
     from beliefs.boundary import _mint_publish_report
+    from beliefs.coordination import CoordinationAddress
+    from beliefs.intents.publish import Destination, PublishIntent
 
     entry = PublicationBindingEntry(SUBJECT, _BOUND)
     times = {"observer": "actor", "instrument": "beliefs.publish", "opened_at": "t0", "closed_at": "t1"}
-    intent = SimpleNamespace(kind="publish", event_token="c" * 32, actor="actor")
+    intent = PublishIntent(
+        kind="publish",
+        event_token="c" * 32,
+        actor="actor",
+        at="2026-09-22T00:00:00Z",
+        view=CoordinationAddress("a" * 32, "b" * 32, "c" * 32),
+        destination=Destination.local("/srv/published/mm30"),
+        binding_tips=(),
+        marker_tips=(),
+        anchors=(),
+    )
     report = _mint_publish_report(intent, entry=entry, **times)
     assert (report.operation, report.event_token, report.entries) == ("publish", "c" * 32, (entry,))
     with pytest.raises(MalformedRecord, match="closes a publish intent"):
-        _mint_publish_report(OperationIntent("audit", "c" * 32, "actor"), entry=entry, **times)
+        _mint_publish_report(OperationIntent("audit", "c" * 32, "actor"), entry=entry, **times)  # type: ignore[arg-type]
+    # the check is the type, not a duck-typed kind attribute
+    look_alike = SimpleNamespace(kind="publish", event_token="c" * 32, actor="actor")
+    with pytest.raises(MalformedRecord, match="closes a publish intent"):
+        _mint_publish_report(look_alike, entry=entry, **times)  # type: ignore[arg-type]
     with pytest.raises(MalformedRecord, match="one publication-binding entry"):
         _mint_publish_report(intent, entry=(entry,), **times)  # type: ignore[arg-type]

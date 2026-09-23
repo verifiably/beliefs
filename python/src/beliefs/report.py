@@ -63,7 +63,8 @@ __all__ = [
 ACT_REPORT_DOMAIN = "science.act-report.v1"
 # The kinds a domainless `OperationIntent` opens; `publish` joins the closed set
 # only beside them, because it opens through its domain intent alone
-# (publication-records design, decision 10).
+# (publication-records design, decision 10). The literal below is cut 19 J1e's
+# pinned sabotage `before`: keep it byte-exact on one line, and derive beside it.
 _DOMAINLESS_OPERATION_KINDS = ("acquisition", "audit", "consolidate", "corpus-write", "import", "move", "re-check", "run-attempt")
 OPERATION_KINDS: tuple[str, ...] = tuple(sorted((*_DOMAINLESS_OPERATION_KINDS, "publish")))
 UNFINISHED = "unfinished"
