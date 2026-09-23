@@ -5,6 +5,7 @@ and preflight-versus-post-stop distinctions (the acquisition operation), and
 T5's no-observation negative (the persistence seam) — cut 3 §4.2."""
 
 import dataclasses
+import re
 from collections import defaultdict
 
 import pytest
@@ -12,24 +13,34 @@ from closure_fixtures import make_closure, sample_report
 from fixtures_cut3 import report
 
 from beliefs import report as report_values
+from beliefs import stored
 from beliefs.errors import CitationRefused, MalformedRecord, OutcomeRefused
+from beliefs.identity import v1
 from beliefs.recipe import RunClosure
 from beliefs.report import (
+    ACT_REPORT_DOMAIN,
     CLOSED,
+    EVIDENCE_REFUSAL_REASONS,
     INDETERMINATE,
+    OPERATION_KINDS,
     UNFINISHED,
     ActReport,
     AssessmentRunIntent,
+    BindingBound,
+    BindingEvidenceRefused,
+    BindingPredecessorNotStanding,
     ByteLocatorUntested,
     DeclarationPinEntry,
     LocatorEntry,
     ManagedMutationEntry,
     OperationIntent,
     PinnedDeclaration,
+    PublicationBindingEntry,
     PublishedObservation,
     RecordImportEntry,
     Registration,
     SubjectEvaluationEntry,
+    _mint_report,
     cite,
     completion,
 )
@@ -305,3 +316,145 @@ def test_a_corpus_write_intent_with_no_registration_reads_unfinished():
     intent = OperationIntent(kind="corpus-write", event_token="tok-9", actor="session:" + "a" * 32)
     assert completion(intent, registrations=(), held={}) == UNFINISHED
     assert completion(intent, (Registration(intent_token="other", pointer="x"),), held={}) == UNFINISHED
+
+
+# --- publish (publication-records design §7, decisions 8 and 10) -------------
+SUBJECT = "coord:" + "a" * 32 + "/" + "b" * 32
+
+
+def publish_report(outcome):
+    return _mint_report(
+        operation="publish",
+        event_token="c" * 32,
+        actor="actor",
+        observer="actor",
+        instrument="beliefs.publish",
+        opened_at="2026-09-22T00:00:00Z",
+        closed_at="2026-09-22T00:00:01Z",
+        entries=(PublicationBindingEntry(SUBJECT, outcome),),
+    )
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        BindingBound("d" * 32, "e" * 32, "f" * 32),
+        BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32)),
+        BindingEvidenceRefused("e" * 32, "f" * 32, False, "mounts-changed"),
+    ],
+    ids=["bound", "predecessor-not-standing", "evidence-refused"],
+)
+def test_each_publish_outcome_round_trips_through_the_stored_mirror(outcome):
+    report = publish_report(outcome)
+    node = stored.act_report_node(report)
+    facet = stored.act_report_facet(node)
+    (entry,) = facet["entries"]
+    assert entry["kind"] == "publication-binding" and entry["subject"] == SUBJECT
+    assert set(entry) == {"kind", "subject", "outcome"}
+
+
+def test_publish_is_in_the_closed_set_but_never_an_operation_intent():
+    assert "publish" in OPERATION_KINDS and len(OPERATION_KINDS) == 9
+    with pytest.raises(MalformedRecord, match="opens only through its domain intent"):
+        OperationIntent("publish", "c" * 32, "actor")
+
+
+@pytest.mark.parametrize("tips", [({},), ("1" * 32, 1)], ids=["mapping-member", "mixed-str-int"])
+def test_malformed_tips_raise_malformed_record_not_type_error(tips):
+    """User review 2: members are validated before they are sorted or hashed."""
+    with pytest.raises(MalformedRecord):
+        BindingPredecessorNotStanding("e" * 32, "f" * 32, True, tips)
+
+
+def test_the_evidence_refusal_reasons_are_closed():
+    assert EVIDENCE_REFUSAL_REASONS == (
+        "mounts-changed",
+        "anchor-unplaced",
+        "chain-absent",
+        "chain-malformed",
+        "revision-missing",
+        "revision-mismatch",
+        "revision-malformed",
+        "history-violated",
+        "unregistered-revision",
+        "report-unqualified",
+        "tips-disagree",
+    )
+    with pytest.raises(MalformedRecord):
+        BindingEvidenceRefused("e" * 32, "f" * 32, False, "other")
+
+
+def reidentified(node):
+    """The stored act-report with its content address recomputed after a facet edit —
+    exactly the digest `stored.act_report_facet` checks (`v1.digest(ACT_REPORT_DOMAIN,
+    facet)` → `act-report:<digest>`), so a mutated record is refused by the rule the
+    test targets and never by a stale address (user review 2)."""
+    facet = node.facets["act-report"]
+    return node.model_copy(update={"id": f"act-report:{v1.digest(ACT_REPORT_DOMAIN, facet)}"})
+
+
+def test_a_reidentified_unmutated_publish_report_is_accepted():
+    """The control: re-identification alone changes nothing the check refuses."""
+    node = stored.act_report_node(
+        publish_report(BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32)))
+    )
+    assert reidentified(node).id == node.id
+    assert stored.act_report_facet(reidentified(node))["operation"] == "publish"
+
+
+_BOUND = BindingBound("d" * 32, "e" * 32, "f" * 32)
+_REFUSED = BindingEvidenceRefused("e" * 32, "f" * 32, False, "mounts-changed")
+_TWO_TIPS = BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32, "2" * 32))
+_ONE_TIP = BindingPredecessorNotStanding("e" * 32, "f" * 32, True, ("1" * 32,))
+
+
+@pytest.mark.parametrize(
+    "outcome, field, value, rule",
+    [
+        (_BOUND, "binding", "not-hex", "bound binding must be 32 lowercase hexadecimal"),
+        (_BOUND, "corpus_id", "E" * 32, "bound corpus_id must be 32 lowercase hexadecimal"),
+        (_BOUND, "marker", "f" * 31, "bound marker must be 32 lowercase hexadecimal"),
+        (_REFUSED, "reason", "other", "evidence refusal reason 'other' is outside"),
+        (_REFUSED, "remotely_revealed", "yes", "remotely_revealed must be a bool"),
+        (_TWO_TIPS, "tips", ["2" * 32, "1" * 32], "tips must be strictly ascending and unique"),
+        (_TWO_TIPS, "tips", ["1" * 32, "1" * 32], "tips must be strictly ascending and unique"),
+        (_ONE_TIP, "tips", ["not-hex"], "refusal tip must be 32 lowercase hexadecimal"),
+        (_ONE_TIP, "tips", [{}], "refusal tip must be 32 lowercase hexadecimal"),
+        (_ONE_TIP, "extra", "x", "outcome carries exactly"),
+    ],
+    ids=[
+        "binding-hex",
+        "corpus-hex",
+        "marker-hex",
+        "reason",
+        "revealed-bool",
+        "tips-order",
+        "tips-duplicate",
+        "tips-hex",
+        "tips-mapping",
+        "extra-field",
+    ],
+)
+def test_the_stored_mirror_refuses_what_the_constructors_refuse(outcome, field, value, rule):
+    """User review, finding 3, and user review 2: each closed rule through the
+    stored path, on a re-identified record, the refusal naming its rule."""
+    node = stored.act_report_node(publish_report(outcome))
+    node.facets["act-report"]["entries"][0]["outcome"][field] = value
+    with pytest.raises(MalformedRecord, match=re.escape(rule)):
+        stored.act_report_facet(reidentified(node))
+
+
+def test_the_publish_report_seam_mints_one_binding_entry_for_a_publish_intent_only():
+    from types import SimpleNamespace
+
+    from beliefs.boundary import _mint_publish_report
+
+    entry = PublicationBindingEntry(SUBJECT, _BOUND)
+    times = {"observer": "actor", "instrument": "beliefs.publish", "opened_at": "t0", "closed_at": "t1"}
+    intent = SimpleNamespace(kind="publish", event_token="c" * 32, actor="actor")
+    report = _mint_publish_report(intent, entry=entry, **times)
+    assert (report.operation, report.event_token, report.entries) == ("publish", "c" * 32, (entry,))
+    with pytest.raises(MalformedRecord, match="closes a publish intent"):
+        _mint_publish_report(OperationIntent("audit", "c" * 32, "actor"), entry=entry, **times)
+    with pytest.raises(MalformedRecord, match="one publication-binding entry"):
+        _mint_publish_report(intent, entry=(entry,), **times)  # type: ignore[arg-type]

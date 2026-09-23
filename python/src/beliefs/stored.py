@@ -885,6 +885,9 @@ _REPORT_ENTRY_OUTCOMES: dict[str, dict[str, tuple[str, ...]]] = {
         ),
     },
     "run-attempt": {"run-refusal": ("missing_member",)},
+    # the kind and its three types; their fields are the typed constructors'
+    # (`report.binding_outcome_from_facet`), so the rules are spelled once
+    "publication-binding": {"bound": (), "predecessor-not-standing": (), "evidence-refused": ()},
 }
 
 
@@ -916,6 +919,12 @@ def _valid_report_entry(entry: object) -> bool:
             for pair in inputs
         ):
             return False
+    if kind == "publication-binding":
+        try:
+            report_values.binding_outcome_from_facet(entry.get("outcome"))
+        except MalformedRecord:
+            return False
+        return True
     outcomes = _REPORT_ENTRY_OUTCOMES.get(kind)
     outcome = entry.get("outcome")
     if outcomes is None or not isinstance(outcome, dict):
@@ -961,6 +970,12 @@ def act_report_facet(node: Node) -> Mapping[str, Any]:
         or node.relations
     ):
         raise MalformedRecord(f"{node.id}: malformed act-report facet")
+    for entry in facet["entries"]:
+        if isinstance(entry, dict) and entry.get("kind") == "publication-binding":
+            try:
+                report_values.binding_outcome_from_facet(entry.get("outcome"))
+            except MalformedRecord as caught:
+                raise MalformedRecord(f"{node.id}: malformed act-report entry: {caught}") from caught
     if any(not _valid_report_entry(entry) for entry in facet["entries"]):
         raise MalformedRecord(f"{node.id}: malformed act-report entry")
     try:

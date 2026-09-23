@@ -128,6 +128,9 @@ def decode_intent(digest: str, payload: bytes) -> DecodedIntent | Unrecognized:
             "warning",
             "domainless-unrecognized",
         )
+    if set(value) == {"kind", "event_token", "actor"} and value.get("kind") == "publish":
+        # decision 10: publish opens only through science.publish-intent.v1
+        return _malformed(digest, "operation")
     if set(value) == {"kind", "event_token", "actor"} and value.get("kind") in OPERATION_KINDS:
         try:
             _require_fields(value, ("kind", "event_token", "actor"))
