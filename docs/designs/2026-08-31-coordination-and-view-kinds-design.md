@@ -641,7 +641,7 @@ rows say nothing about tips or authorization:
 Before discharge the roadmap carried these rows under
 `coordination-addressing`. Cut 14 removes that completed boundary; Appendix A
 now records W11, W12, and W18 full, W13 and W17 partial, and Appendix B leaves
-only W17 intent-position with `publish`.
+only W17 intent-position with `publish`. (W17 closed at cut 39, 2026-09-23.)
 
 ## 8. Limitations
 
