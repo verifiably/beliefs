@@ -255,8 +255,15 @@ def test_publishes_constructs_exactly_the_kernel_requirement():
         lambda: RequiredCapabilities(
             WritePermit(frozenset({"publication-binding", "act-report", "task"}), frozenset({"publish", "corpus-write"}))
         ),
+        # the kernel requirement's exact permit, reached through an ordinary route
+        # (science's `mints:` write class compiles through `for_kinds`): decision 7
+        # admits it only from `publishes()`, never by permit equality
+        lambda: RequiredCapabilities.for_kinds(["publication-binding", "act-report"], {"act-report": "corpus-write"}),
+        lambda: RequiredCapabilities(
+            WritePermit(frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"}))
+        ),
     ],
-    ids=["for_kinds", "direct", "widened"],
+    ids=["for_kinds", "direct", "widened", "for_kinds-exact", "direct-exact"],
 )
 def test_every_ordinary_route_naming_publish_still_refuses(build):
     with pytest.raises(ValueError, match="a requirement names only command-reachable families"):

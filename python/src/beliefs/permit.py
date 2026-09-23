@@ -7,8 +7,10 @@ so every seam can import it without a cycle.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import wraps
 from types import MappingProxyType
 from typing import Literal
 
@@ -122,6 +124,26 @@ KERNEL_REQUIREMENTS: frozenset[WritePermit] = frozenset({_PUBLICATION_PERMIT})
 publication requirement the publish doors cite. Every other permit naming a
 non-command-reachable family is refused, exactly as before."""
 
+_MINTING_KERNEL_REQUIREMENT: ContextVar[bool] = ContextVar("_MINTING_KERNEL_REQUIREMENT", default=False)
+"""Set only while `RequiredCapabilities.publishes()` runs: the kernel exception
+is admitted by the route that constructs it, never by permit equality alone
+(decision 7) — an ordinary declaration that happens to compile to the same
+permit still refuses."""
+
+
+def _mints_the_kernel_requirement(
+    build: Callable[[type[RequiredCapabilities]], RequiredCapabilities],
+) -> Callable[[type[RequiredCapabilities]], RequiredCapabilities]:
+    @wraps(build)
+    def minting(cls: type[RequiredCapabilities]) -> RequiredCapabilities:
+        token = _MINTING_KERNEL_REQUIREMENT.set(True)
+        try:
+            return build(cls)
+        finally:
+            _MINTING_KERNEL_REQUIREMENT.reset(token)
+
+    return minting
+
 
 @dataclass(frozen=True)
 class Authority:
@@ -168,7 +190,8 @@ class RequiredCapabilities:
     def __post_init__(self) -> None:
         if type(self.permit) is not WritePermit:
             raise TypeError("a requirement carries a WritePermit")
-        if not self.permit.act_families <= COMMAND_REACHABLE_FAMILIES and self.permit not in KERNEL_REQUIREMENTS:
+        kernel = _MINTING_KERNEL_REQUIREMENT.get() and self.permit in KERNEL_REQUIREMENTS
+        if not self.permit.act_families <= COMMAND_REACHABLE_FAMILIES and not kernel:
             raise ValueError("a requirement names only command-reachable families")
         if self.permit.ungoverned:
             raise ValueError("a requirement never claims ungoverned kinds; a declaration names governed ones")
@@ -202,9 +225,14 @@ class RequiredCapabilities:
             else:
                 raise ValueError(f"{kind!r} admits more than one route; the declaration must select one")
             families.add(route)
+        if not families <= COMMAND_REACHABLE_FAMILIES:
+            # decision 7: an ordinary declaration naming `publish` refuses, even
+            # one that compiles to the kernel requirement's exact permit
+            raise ValueError("a requirement names only command-reachable families")
         return cls(WritePermit(declared, frozenset(families)))
 
     @classmethod
+    @_mints_the_kernel_requirement
     def publishes(cls) -> RequiredCapabilities:
         return cls(_PUBLICATION_PERMIT)
 
