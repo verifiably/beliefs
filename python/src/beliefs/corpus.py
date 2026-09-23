@@ -3262,6 +3262,8 @@ class CorpusWriter:
             )
 
     def _refuse_family_kinds(self, node: Node, *, admitted_kind: str | None = None) -> None:
+        if node.kind in PUBLICATION_KINDS:
+            raise CoordinationKindUnsupported(f"{node.kind!r} is minted only by the publish doors")
         if node.kind in COORDINATION_KINDS:
             raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
         profile = self._coordination_resolver.profile(self._corpus.store.root) if self._coordination_resolver is not None else None

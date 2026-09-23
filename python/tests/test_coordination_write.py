@@ -457,6 +457,16 @@ def test_every_ordinary_family_door_refuses_coordination_kinds(tmp_path, door):
             writer.retract(node)
 
 
+@pytest.mark.parametrize("door", ["add", "revise"])
+@pytest.mark.parametrize("kind", ["publication", "publication-binding"])
+def test_the_ordinary_family_doors_name_the_publish_doors_for_the_publication_kinds(tmp_path, door, kind):
+    """Not "the coordination family door", which refuses them too since cut 39."""
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE)
+    node = Node(id=f"{kind}:old", kind=kind, title="old")
+    with pytest.raises(CoordinationKindUnsupported, match="is minted only by the publish doors"):
+        writer.add(node) if door == "add" else writer.revise(node)
+
+
 @pytest.mark.parametrize("kind", stored.WORLD_KINDS)
 def test_the_coordination_door_refuses_every_world_kind(tmp_path, base_contract, kind):
     profile = coordination_profile(base_contract)
