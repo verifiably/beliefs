@@ -466,8 +466,28 @@ cut 36 re-homed them. Cut 39 reads no L1 arm.
 
 ## 6. Main integration
 
-Filled at merge: the whole-branch review, the repository gate on the exact
-integrated head, and the `--no-ff` merge.
+**The whole-branch review.** Dispatched over `2b875a7..15389a7` against the
+spec's decisions, the plan's Global Constraints and the cut document's §5
+table. No Critical findings. Two Important: `RequiredCapabilities.for_kinds`
+could rebuild the kernel publication permit, so a `science` `mints:` write
+class reached `publish` (decision 7); and step 8 did not check that the
+intent it was handed is the intent entry at `opened.digest`. Four Minor. All
+six were fixed in one wave (`bc6565f..7e5f936`, listed in §3.2), the cut-39
+guard re-ran with its full sabotage audit (10 passed), and a scoped
+re-review found every finding addressed.
+
+**The gate on the exact integrated head.** `just gate` at `7e5f936` on the
+certified volume: `All checks passed!`; `5525 passed, 1 skipped in 1220.00s
+(0:20:20)`; TypeScript `Test Files 7 passed (7)`, `Tests 155 passed (155)`
+(log `.work/acceptance/cut39-gate-final.log`). An earlier run at `15389a7`,
+before the fix wave, was also green (`5514 passed, 1 skipped`).
+
+**The merge.** `bed6b9a` (`merge: publication records — conformance cut 39`),
+`--no-ff` into `main` at `0b55f64`. One conflict, in the task record
+`tasks/beliefs-1a5157.md`, where `main` carried a note from another session;
+resolved by keeping both sides' notes in time order. `just check` on the
+merged `main` passed (ruff `All checks passed!`, pyright `0 errors, 0
+warnings, 0 informations`, biome, tsc, `tasks check`).
 
 ## 7. Execution rulings
 
