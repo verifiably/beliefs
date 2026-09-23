@@ -41,7 +41,7 @@ from beliefs.report import (
     BindingPredecessorNotStanding,
     PublicationBindingEntry,
 )
-from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView
+from beliefs.world.logmodel import AbsentView, DefectView, IntentEntryView, MalformedView, RegisteredEntryView
 from beliefs.world.registry import CorpusManifest, manifest_bytes
 
 VIEW = CoordinationAddress("a" * 32, "b" * 32, "c" * 32)
@@ -131,6 +131,28 @@ def test_a_lost_report_refuses(tmp_path):
     folded = _fold(root, view)
     assert type(folded) is PositionRefused and folded.reason == "revision-missing"
 
+
+def test_an_intent_with_two_committed_fulfilments_refuses(tmp_path):
+    """One intent, one committed fulfilment: the fold never picks one of two —
+    here the later one is a well-formed local refusal that would hide the orphan."""
+    root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())])
+    opened = view.entries[1]
+    assert type(opened) is IntentEntryView
+    value = decode_publish_intent(opened.payload)
+    report = boundary._mint_publish_report(
+        value, observer=value.actor, instrument="beliefs.publish", opened_at=value.at, closed_at="2026-09-22T00:00:01Z",
+        entry=PublicationBindingEntry("coord:" + "a" * 32 + "/" + "d" * 32, BindingEvidenceRefused("1" * 32, "a" * 32, False, "mounts-changed")),
+    )
+    node = stored.act_report_node(report)
+    second, data = path_for_node_id(node.id), node_to_markdown(node).encode("utf-8")
+    (root / second).write_bytes(data)
+    again = RegisteredEntryView(
+        digest=digest("fold-reg-again"), txid="fold-again", initial=((second, ABSENT),), final=((second, file_state(data)),),
+        fulfills=opened.digest,
+    )
+    doubled = chain(view.genesis, *view.entries[1:], again, settlement(digest("fold-set-again"), again.digest, "fold-again", committed=True))
+    folded = _fold(root, doubled)
+    assert type(folded) is PositionRefused and folded.reason == "revision-malformed"
 
 def test_an_intent_for_another_destination_does_not_fold(tmp_path):
     root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())])
@@ -307,6 +329,19 @@ def test_an_engine_refusal_to_inspect_at_step_0_propagates_before_the_intent(tmp
     assert doors.port.calls == []
 
 
+_MALFORMED = MalformedView(DefectView("cycle", digest("x"), "a cycle"))
+
+
+@pytest.mark.parametrize("inspector", ["written", "other"])
+@pytest.mark.parametrize("answer, reason", [(AbsentView(), "chain-absent"), (_MALFORMED, "chain-malformed")], ids=["absent", "malformed"])
+def test_an_unreadable_chain_refuses_before_the_intent(tmp_path, inspector, answer, reason):
+    doors = Doors(tmp_path, others={"a-other": "e" * 32})
+    with pytest.raises(PublicationRefused) as caught:
+        doors.open(seam=doors.seam(**{inspector: lambda _path: answer}))
+    assert caught.value.reason == reason
+    assert doors.port.calls == []
+
+
 # step 0: the intent's bytes
 
 
@@ -367,6 +402,16 @@ def test_the_binding_door_refuses_an_authority_without_publish_before_any_effect
     calls = list(doors.port.calls)
     with pytest.raises(PermitExceeded):
         doors.bind(opened, lacking(families=("publish",)))
+    assert doors.port.calls == calls
+    assert doors.files("act-report") == [] and doors.files("publication-binding") == []
+
+
+def test_the_binding_door_refuses_a_non_bool_reveal_before_any_effect(tmp_path):
+    doors = Doors(tmp_path)
+    opened = doors.open()
+    calls = list(doors.port.calls)
+    with pytest.raises(MalformedRecord):
+        doors.bind(opened, remotely_revealed=1)  # pyright: ignore[reportArgumentType]
     assert doors.port.calls == calls
     assert doors.files("act-report") == [] and doors.files("publication-binding") == []
 

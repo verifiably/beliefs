@@ -71,7 +71,10 @@ def _reports_at(
     report its committed fulfilment created, read and matched (spec §6)."""
     entries = bound.view.entries[: bound.head + 1]
     committed = {e.registration for e in entries if type(e) is SettledEntryView and e.committed}
-    fulfilment = {e.fulfills: e for e in entries if type(e) is RegisteredEntryView and e.fulfills is not None and e.digest in committed}
+    fulfilments: dict[str, list[RegisteredEntryView]] = {}
+    for e in entries:
+        if type(e) is RegisteredEntryView and e.fulfills is not None and e.digest in committed:
+            fulfilments.setdefault(e.fulfills, []).append(e)
     for entry in entries:
         if type(entry) is not IntentEntryView:
             continue
@@ -81,9 +84,14 @@ def _reports_at(
             continue  # another shape's intent, or a malformed one: the audit's to report, not the fold's
         if intent.view.unpinned() != view.unpinned() or intent.destination != destination:
             continue
-        registration = fulfilment.get(entry.digest)
-        if registration is None:
+        found = fulfilments.get(entry.digest, [])
+        if not found:
             continue
+        if len(found) != 1:
+            # one intent, one committed fulfilment: a second is a chain no door writes
+            yield intent, PositionRefused("revision-malformed", f"{bound.root}: intent {entry.digest} has {len(found)} committed fulfilments")
+            continue
+        registration = found[0]
         paths = [path for path, post in registration.final if path.startswith("act-report/") and seam.is_file(post)]
         if len(paths) != 1:
             yield intent, PositionRefused("revision-malformed", f"{bound.root}: a publish fulfilment creates {len(paths)} reports")
@@ -256,6 +264,9 @@ def _bind_publication(
     intent's position refuses, the refusal report alone in its place."""
     writer.authority.require("publish", ("publication-binding",))
     writer.authority.require("corpus-write", ("act-report",))
+    if type(remotely_revealed) is not bool:
+        raise MalformedRecord("remotely_revealed must be a bool")
+    writer._require_pins_agree()
     operation_port = writer._require_bound_port(port)
     intent = opened.intent
     subject = str(binding_address(intent.view, intent.destination))
