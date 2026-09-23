@@ -237,6 +237,7 @@ PositionRefusalReason = Literal[
 ]
 
 
+@sealed
 @final
 @dataclass(frozen=True)
 class PositionRefused:
@@ -246,6 +247,7 @@ class PositionRefused:
     detail: str
 
 
+@sealed
 @final
 @dataclass(frozen=True)
 class MomentSeam:
@@ -260,6 +262,7 @@ class MomentSeam:
     file_matches: Callable[[object, bytes], bool]
 
 
+@sealed
 @final
 @dataclass(frozen=True)
 class ChainBound:
@@ -378,7 +381,7 @@ def present_records(bound: ChainBound, prefix: str, seam: MomentSeam) -> tuple[t
     classified by a re-read of the chain (spec §6): a file some registration in
     the re-read creates — pending, rolled back, or committed after the bound —
     is not present and not a refusal; any other is `unregistered-revision`."""
-    from beliefs.world.logmodel import WellFormedView
+    from beliefs.world.logmodel import AbsentView, MalformedView, WellFormedView
 
     expected = inventory(bound, prefix, seam)
     if type(expected) is PositionRefused:
@@ -401,8 +404,12 @@ def present_records(bound: ChainBound, prefix: str, seam: MomentSeam) -> tuple[t
     unaccounted = [path for path in listed if path not in expected]
     if unaccounted:
         reread = (seam.inspect_written if bound.written else seam.inspect_other)(bound.root)
-        if type(reread) is not WellFormedView:
-            return PositionRefused("chain-malformed", f"{bound.root}: the re-read is not well-formed")
+        if type(reread) is AbsentView:
+            return PositionRefused("chain-absent", f"{bound.root}: the re-read found no chain")
+        if type(reread) is MalformedView:
+            return PositionRefused("chain-malformed", f"{bound.root}: the re-read is {reread.defect.kind}")
+        if type(reread) is not WellFormedView:  # the union is closed; an inspector answering anything else is a defect
+            raise TypeError(f"{bound.root}: the inspector answered {type(reread).__name__}, not a chain view")
         created = _created_anywhere(reread, seam)
         for path in unaccounted:
             if path not in created:

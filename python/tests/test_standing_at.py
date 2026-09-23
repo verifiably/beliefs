@@ -216,6 +216,16 @@ def test_a_committed_rewrite_of_an_inventoried_path_is_history_violated(tmp_path
     assert refused(judge(root, view), "history-violated")
 
 
+def test_a_committed_same_bytes_rewrite_of_an_inventoried_path_is_history_violated(tmp_path):
+    """Pre-state equal to post-state is still a registration over a create-only
+    record that no door performs: it reads `history-violated`, fail closed."""
+    root = fake_root(tmp_path)
+    (_, _, reg_a, set_a), (path_b, data_b, reg_b, set_b) = a_then_b(root)
+    same = registration(digest("reg-same"), "same", ((path_b, file_state(data_b)),), ((path_b, file_state(data_b)),))
+    view = chain(GENESIS, reg_a, set_a, reg_b, set_b, same, settlement(digest("set-same"), same.digest, "same", committed=True))
+    assert refused(judge(root, view), "history-violated")
+
+
 def test_a_first_committed_rewrite_of_an_unregistered_file_is_history_violated(tmp_path):
     root = fake_root(tmp_path)
     path, data = _binding_file(root)  # a real binding revision's bytes at its address path
@@ -254,12 +264,28 @@ def test_a_file_whose_registration_only_the_re_read_sees_is_classified_by_it(tmp
     assert uids(judge(root, first, seam=seam)) == (revision_a().uid,)
 
 
-def test_a_re_read_that_is_not_well_formed_refuses(tmp_path):
+@pytest.mark.parametrize(
+    ("reread", "reason"),
+    [
+        pytest.param(AbsentView(), "chain-absent", id="absent"),
+        pytest.param(MalformedView(DefectView("cycle", digest("x"), "a cycle")), "chain-malformed", id="malformed"),
+    ],
+)
+def test_a_re_read_that_is_not_well_formed_refuses_as_bounds_does(tmp_path, reread, reason):
     root = fake_root(tmp_path)
     place_file(root, revision_a())
-    reads = iter((chain(GENESIS), AbsentView()))
+    reads = iter((chain(GENESIS), reread))
     seam = fake_seam(lambda _root: next(reads), lambda _root: pytest.fail("no other root"))
-    assert refused(judge(root, chain(GENESIS), seam=seam), "chain-malformed")
+    assert refused(judge(root, chain(GENESIS), seam=seam), reason)
+
+
+def test_a_re_read_outside_the_chain_view_union_is_a_type_error(tmp_path):
+    root = fake_root(tmp_path)
+    place_file(root, revision_a())
+    reads = iter((chain(GENESIS), object()))
+    seam = fake_seam(lambda _root: next(reads), lambda _root: pytest.fail("no other root"))  # pyright: ignore[reportArgumentType]
+    with pytest.raises(TypeError):
+        judge(root, chain(GENESIS), seam=seam)
 
 
 # --- bounds: positions, anchors, mounts, chains --------------------------------
@@ -440,3 +466,17 @@ def test_the_judgment_agrees_with_the_live_tip_rule_when_nothing_moved(coordinat
         seam=seam,
     )
     assert uids(before) == (task.uid,)
+    # the revised file's bytes overwritten: the engine's content hash no longer matches
+    revised_file = right / path_for_node_id(revised.id)
+    revised_file.chmod(0o644)  # the engine creates records read-only
+    revised_file.write_bytes(revised_file.read_bytes() + b"\n")
+    mismatched = standing_at(
+        mounted,
+        address,
+        "task",
+        written=left,
+        position=written_view.tip,
+        anchors=(Anchor(mounted[right], other_view.genesis.digest, other_view.tip),),
+        seam=seam,
+    )
+    assert refused(mismatched, "revision-mismatch")
