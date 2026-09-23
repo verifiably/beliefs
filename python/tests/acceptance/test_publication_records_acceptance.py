@@ -340,7 +340,10 @@ def test_w17_p_d_mount_order_moves_neither_anchors_nor_tips_durably(work_directo
     """Three roots: the written `-a`, then `-b` and `-c`, whose ids ("8"*32, "0"*32)
     run opposite to their path order. `CoordinationResolver` sorts its own mounts
     by path, so mount order is varied where the judgment takes it: the mapping
-    handed to `standing_at` and `marker_tips_at`."""
+    handed to `standing_at` and `marker_tips_at`. A second intent opened through a
+    resolver built from the reversed mapping freezes the same anchors and tips;
+    because the resolver re-sorts its mounts by path, that comparison passes by
+    construction today and pins it against a resolver that stops sorting."""
     with mounted(work_directory, base_contract, monkeypatch, ("f" * 32, "8" * 32, "0" * 32)) as three:
         publish(three, side=1)
         publish(three, side=2)
@@ -349,6 +352,11 @@ def test_w17_p_d_mount_order_moves_neither_anchors_nor_tips_durably(work_directo
         forward = dict(three.resolver.mounted())
         assert list(forward.values()) == ["f" * 32, "8" * 32, "0" * 32]
         backward = dict(reversed(list(forward.items())))
+        reversed_resolver = CoordinationResolver({root: three.profile for root in backward})
+        reopened = open_at(three, resolver=reversed_resolver)
+        assert reopened.intent.anchors == opened.intent.anchors  # the other roots did not move between the two
+        assert reopened.intent.binding_tips == opened.intent.binding_tips
+        assert reopened.intent.marker_tips == opened.intent.marker_tips
         address = binding_address(three.view, LOCAL)
         judged = [
             standing_at(
@@ -478,7 +486,7 @@ def test_y1_a_version_and_door_refusals_durably(work_directory, base_contract, p
         resolver = CoordinationResolver({root: v1_profile})
         writer = open_corpus(root, authority=FULL, coordination_resolver=resolver, profile=v1_profile)
         project = writer.mint_coordination("project", content=content_for("project"))
-        with pytest.raises(ValidationRefused):
+        with pytest.raises(ValidationRefused, match="publication-binding is not declared"):
             _open_publication(
                 writer,
                 resolver,
@@ -496,20 +504,21 @@ def test_y1_a_version_and_door_refusals_durably(work_directory, base_contract, p
             writer.mint_coordination(kind, project=pair.view, content={})
         with pytest.raises(KindNotMintedHere):  # spec §11.3's sabotaged door
             writer.revise_coordination(kind, binding_address(pair.view, LOCAL), predecessors=("0" * 32,), content={})
-    _, outcome = publish(pair)
-    assert outcome.binding is not None
-    with pytest.raises(
-        CoordinationKindUnsupported
-    ):  # the ordinary add refuses coordination kinds (_refuse_family_kinds)
-        writer.add(outcome.binding)
-    with pytest.raises(ImportRefused):
-        writer.import_bundle(
-            [outcome.binding],
-            observer="o",
-            instrument="i",
-            opened_at="2026-09-22T00:00:00Z",
-            closed_at="2026-09-22T00:00:01Z",
-        )
+    opened, outcome = publish(pair)
+    decoded = decode_publish_intent(_payload_at(pair.roots[0], opened.digest))
+    marker = marker_record(decoded, world_id="e" * 32, epoch="0" * 64, selection=("proposition:p1",))
+    for record in (bound(outcome), marker):
+        # the ordinary add refuses coordination kinds (_refuse_family_kinds)
+        with pytest.raises(CoordinationKindUnsupported):
+            writer.add(record)
+        with pytest.raises(ImportRefused):
+            writer.import_bundle(
+                [record],
+                observer="o",
+                instrument="i",
+                opened_at="2026-09-22T00:00:00Z",
+                closed_at="2026-09-22T00:00:01Z",
+            )
 
 
 _WORLD_MEMBERS = (
@@ -597,9 +606,6 @@ def test_y2_a_the_committed_binding_is_the_factory_of_its_decoded_intent_durably
     assert outcome.binding is not None
     on_disk = (pair.roots[0] / pair.writers[0]._relative_path(outcome.binding)).read_bytes()
     assert on_disk == node_to_markdown(rebuilt).encode("utf-8")
-    assert on_disk == node_to_markdown(
-        binding_record(decoded, corpus_id=CORPUS_ID, marker=opened.intent.event_token, artifact=ARTIFACT)
-    ).encode("utf-8")
 
 
 # --- Y3: the audit reads publish intents by their domain ----------------------------
@@ -667,9 +673,9 @@ def test_y4_b_a_remotely_revealed_refusal_is_an_orphan_until_a_shared_publish_re
     refused = bind(pair, opened, resolver=one_root, remotely_revealed=True)
     assert type(refused.report.entries[0].outcome) is BindingEvidenceRefused
     orphan = (CORPUS_ID, opened.intent.event_token)
-    carrying, bound = publish(pair, destination=REMOTE)
+    carrying, carried = publish(pair, destination=REMOTE)
     assert orphan in carrying.intent.marker_tips
-    assert type(bound.report.entries[0].outcome) is BindingBound
+    assert type(carried.report.entries[0].outcome) is BindingBound
     after = open_at(pair, destination=REMOTE)
     assert orphan not in after.intent.marker_tips
     local = open_at(pair)
