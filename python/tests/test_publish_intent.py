@@ -166,6 +166,13 @@ def test_destinations_are_canonical():
     assert Destination.remote("HTTPS://Example.org/a").locator == Destination.remote("https://example.org/a").locator
 
 
+@pytest.mark.parametrize("locator", ["/a\ud800", "/a\x00b"], ids=["lone-surrogate", "nul"])
+def test_a_local_locator_outside_canonical_text_is_refused_at_construction(locator):
+    """Task 3 review minor: a local locator is encodable canonical text with no NUL."""
+    with pytest.raises(MalformedRecord):
+        Destination("local", locator)
+
+
 @pytest.mark.parametrize(
     "value",
     [

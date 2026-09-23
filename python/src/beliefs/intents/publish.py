@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Literal, final
 
 from beliefs.coordination import Anchor, CoordinationAddress
-from beliefs.errors import CanonicalTextRefused, MalformedRecord
+from beliefs.errors import CanonicalTextRefused, IdentityError, MalformedRecord
 from beliefs.holdings.records import url_locator
 from beliefs.identity import v1
 from beliefs.permit import require_actor
@@ -46,6 +46,12 @@ class Destination:
                 raise MalformedRecord(
                     f"a local destination is an absolute, normalized POSIX path, not {self.locator!r}"
                 )
+            if "\x00" in self.locator:
+                raise MalformedRecord("a local destination's locator carries no NUL")
+            try:
+                v1.encode(self.locator)
+            except IdentityError as caught:
+                raise MalformedRecord(f"a local destination's locator is not canonical text: {caught}") from caught
         elif self.type == "remote":
             canonical = url_locator(self.locator).url
             if canonical != self.locator:
