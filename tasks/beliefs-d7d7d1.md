@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-23T08:45:49Z
+updated: 2026-09-23T09:11:43Z
 started: 2026-09-22T22:08:29Z
 depends: []
 parent: beliefs-1a5157
@@ -39,3 +39,4 @@ Slice 1 of publish: ship coordination contract v1+v2 (publication, publication-b
 - 2026-09-23T08:45:49Z (design/publish): resumed
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-23T08:45:49Z (design/publish): User approved the plan after review 3 (fix at 192ae53); executing via subagent-driven development, controller claude-code session 9a178026.
+- 2026-09-23T09:11:43Z (design/publish): Cut 39 frozen: ROLLBACK_MEANS=patched create effect; REPLACE_UNREGISTERED=accepted; RETRY_AFTER_ROLLBACK=same intent; accounting row 14/13/5, W17 closes, Task 7 passes 16; chains cut 38.

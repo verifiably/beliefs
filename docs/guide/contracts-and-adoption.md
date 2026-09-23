@@ -51,6 +51,8 @@ sources:
   - ../designs/2026-09-21-conformance-cut-36.md
   - ../designs/2026-09-21-conformance-cut-37.md
   - ../designs/2026-09-22-conformance-cut-38.md
+  - ../designs/2026-09-22-publication-design.md
+  - ../designs/2026-09-23-conformance-cut-39.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -299,10 +301,17 @@ Fourteen arms over twelve declaration units (including three boundary
 invariants) close T2 in full, so every operation kind but `corpus-write`,
 reportless by design, now opens through a boundary and closes through
 exactly one terminal record: the `run` where one is minted, the act-report
-otherwise; the T table stays partial on T7's cross-root case alone. The
-corpus now has **188 of 216 rows closed, 28 open**
+otherwise; the T table stays partial on T7's cross-root case alone. That
+left the corpus at **188 of 216 rows closed, 28 open**
 (`../designs/2026-09-22-conformance-cut-38.md`;
 `../plans/2026-09-22-conformance-cut-38-results.md`).
+Cut 39 is frozen and not yet discharged: publication records — the
+coordination contract's v2 amendment declaring `publication` and
+`publication-binding`, the evidence-bearing publish intent, and the
+intent-position judgment over the chain's inventory
+(`../designs/2026-09-23-conformance-cut-39.md`). Its freeze banks the
+publication table, Y1–Y4 (`../designs/2026-09-22-publication-design.md`), so
+the corpus now has **188 of 220 rows closed, 32 open**.
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)

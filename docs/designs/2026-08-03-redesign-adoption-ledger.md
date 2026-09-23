@@ -311,8 +311,13 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   opens through a boundary and closes through exactly one terminal record —
   the `run` where one is minted, the act-report otherwise: **T2 closes in
   full**, the T table stays partial on T7's cross-root case alone, and
-  `act-report-remainder` leaves the boundary table. The corpus has **188 of
-  216 rows closed, 28 open**.
+  `act-report-remainder` leaves the boundary table. The corpus had **188 of
+  216 rows closed, 28 open** at cut 38.
+- **The publication table (Y)**, banked 2026-09-22 with conformance cut 39's
+  freeze (`2026-09-22-publication-design.md`,
+  `2026-09-23-conformance-cut-39.md`): Y1–Y4 are open under `publish`, beside
+  W17's intent-position remainder. The corpus has **188 of 220 rows closed,
+  32 open**.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -332,7 +337,7 @@ not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
-| `publish` | W17’s publication-binding intent-position arm; governed publication act, marker and binding records | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication; follows the complete world-read lane and precedes the final contract cut |
+| `publish` | W17’s publication-binding intent-position arm; Y1–Y4, the publication records (`2026-09-22-publication-design.md`, banked with cut 39's freeze); governed publication act, marker and binding records | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication; follows the complete world-read lane and precedes the final contract cut |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record

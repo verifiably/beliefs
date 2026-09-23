@@ -320,7 +320,7 @@ the holdings branch. A malformed payload under the domain decodes as
 answers any non-`OperationIntent` value's `ReportEvidence` with
 `wrong-purpose`): it qualifies by a `ReportEvidence` whose operation is
 `publish` and whose token matches, `wrong-kind` and `wrong-token`
-otherwise. `completion` itself is unchanged.
+otherwise. `completion` admits a `PublishIntent` beside the two intents it reads today (planning note, §16).
 
 The written root is identified by the chain the intent sits in, so it needs
 no anchor: its position is the intent entry itself. The `view` is pinned so
@@ -487,7 +487,7 @@ act-report design gains an "Amended 2026-09-22 (publication records, cut
 
 ## 8. What does not change
 
-Every existing kind's intent bytes, and `completion`; `standing_tips`; the
+Every existing kind's intent bytes; `standing_tips`; the
 general at-commit rule and both ordinary family doors for the eight existing
 kinds; `World.admit`, `admit_arrival`, and every lifecycle function in
 `root.py`; the base contract and both `CONTRACT.yaml` copies; the TypeScript
@@ -706,3 +706,60 @@ for transports are the second slice's by decision 1.
   `KERNEL_REQUIREMENTS` exception admits exactly the publication permit
   while every ordinary route naming `publish` still refuses, with unit
   checks for both outcomes (decision 7, §11.1).
+- 2026-09-22 — at planning (plan `../plans/2026-09-22-publication-records.md`, two review rounds):
+  - `completion` admits `PublishIntent`: its type check refused anything but
+    `OperationIntent` and `AssessmentRunIntent`, so §5's "completion itself is
+    unchanged" and §8's inclusion of `completion` were wrong.
+  - The Y table's owner is `../../designs/2026-09-22-publication-design.md`,
+    since `TABLE_OWNERS` resolves under `docs/designs/`.
+  - §6's signature becomes `standing_at(mounts, address, kind, *, written,
+    position, anchors, seam)`: the resolver contributes only its mount map
+    (`CoordinationResolver.mounted()`, root → corpus id), the address's kind is
+    explicit, and the seam argument is `seam`, not `moments`. `MomentSeam`'s
+    members are `inspect_written`, `inspect_other`, `absent_state`, `is_file`
+    and `file_matches`; the inventory, the byte match and the re-read
+    classification are pure functions in `coordination.py` over them
+    (`bounds`, `inventory`, `present_records`), not seam members.
+  - The written root is read with the registered inspector (its recovery runs
+    under the lock this process holds); every other mounted root with the
+    read-only detached inspector, since the registered one runs the engine's
+    recovery, which can append to a root this process does not lock, and taking
+    that root's lock inside the written root's would nest. A pending
+    registration a detached read sees is not committed and so not present; a
+    torn read is `chain-malformed` and refuses.
+  - `Destination` lives in `beliefs/intents/publish.py` beside `PublishIntent`,
+    so the intent codec and the records import one definition without a cycle;
+    `Anchor` lives in `coordination.py`.
+  - §3's content rule is `publication.publication_content_malformed`, applied by
+    the factories, by `standing_at`, and by `corpus_check`, whose coordination
+    branch reports a malformed stored marker or binding as
+    `coordination-facet-malformed`. The resolver's live tip rule (cut 14's) is
+    not widened.
+  - The doors live in `beliefs/publication_doors.py`. A publish report's
+    observer is the intent's actor and its instrument the fixed string
+    `beliefs.publish` (`PUBLISH_INSTRUMENT`); both enter the report's identity.
+  - Step 0 refuses before its intent with `PublicationRefused` (a new
+    `WriteRefused`), reasons `view-unresolved`, `divergent-view` (with its
+    tips), and each `PositionRefused` reason; a writer whose mounted
+    coordination contract does not declare `publication-binding` refuses
+    `ValidationRefused`.
+  - (User review of the plan.) A creation is an ABSENT → file transition on
+    the registration's *own* `initial`; the replay's prior state is not
+    evidence of it. A first committed registration of an address path whose
+    `initial` is already a file is `history-violated` (§6's rule: it moves the
+    path from a `FileState`), and an unaccounted file whose only registrations
+    rewrite it is `unregistered-revision`. §11.2's W17-p-e gains a `rewritten`
+    case (an unregistered file rewritten through the engine) and §11.3 a
+    second arm homed to it, W17-p-e2 (`_creates` reduced to "any file
+    post-state"): 14 arms, 13 units, 5 rows.
+  - (User review of the plan.) The orphan fold qualifies each fulfilling
+    report against its intent through `shapes.mismatch` before folding it; a
+    report that decodes but does not qualify refuses with a new reason,
+    `report-unqualified`, added to §6's refusal table and to §7's
+    `evidence-refused` reasons (now `report-unqualified` beside §6's other
+    nine, plus `tips-disagree`).
+  - (User review of the plan.) The stored mirror decodes a publication-binding
+    outcome through the typed constructors (`report.binding_outcome_from_facet`),
+    so both enforce one rule set.
+  - (User review of the plan.) §3's `selection` members are world record ids:
+    `nodes`' `NodeId.parse` grammar over a kind in `stored.WORLD_KINDS`.

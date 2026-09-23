@@ -140,7 +140,8 @@ boundary, **`publish` moves from tier 2 to tier 1 off the path** — its
 `world-read` prerequisite is discharged and the success criterion needs no
 publish — and becomes the `world-read` lane's head.
 
-The current accounting is 188 of 216 rows closed, with 28 open. The prior
+The current accounting is 188 of 220 rows closed, with 32 open: cut 39's
+freeze banks the publication table, Y1–Y4, open under `publish`. The prior
 single-corpus mm30 measurement has no remaining on-path boundary; a second corpus may place one here. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state; cut 32 re-ran it again under a further successor and composed and read the `h1-prognosis` fragment from the recreated corpus, which measures structure rather than the on-path question; cut 33 re-derived the same `NoBelief` answer with the empty retraction enumeration derived rather than supplied; cut 34 read the same corpus in place (no contract succeeded to move it aside) and re-derived the same answer, with the new arm exercised only by the acceptance module, not by mm30's corpus; cut 35 read it in place once more and re-derived the same answer with `state.json` byte-identical, its five stored holdings observations all `store` locations decoding unchanged through the widened codec — the `url` arm and the `acquisition` operation are exercised only by the acceptance module; cut 36 read it in place again and re-derived the same answer with `state.json` byte-identical — the event-level relation is read by no driver step, and mm30's single corpus chain orders no cross-chain pair. Cut 37 read it in place again and re-derived the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing; cut 38 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver audits through the bare evaluator and re-checks no holding. None of these later measurements re-ranks the path.
 
 ## Boundary index
@@ -167,7 +168,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 | `weighted-belief` | S6 (h) | 3 | [beliefs-638318](../../tasks/beliefs-638318.md) |
 | `extraction-path` | M12 | 3 | [beliefs-9e1f60](../../tasks/beliefs-9e1f60.md) |
 | `cross-root-publication` | T7's cross-root case | 3 | [beliefs-256f17](../../tasks/beliefs-256f17.md) |
-| `publish` | W17’s publication-binding intent-position arm; governed publication act and records | 1, off the path | [beliefs-1a5157](../../tasks/beliefs-1a5157.md) |
+| `publish` | W17’s publication-binding intent-position arm; Y1–Y4 (cut 39, frozen); governed publication act and records | 1, off the path | [beliefs-1a5157](../../tasks/beliefs-1a5157.md) |
 
 ## Tier 1 — buildable now
 
@@ -299,7 +300,8 @@ remains partial on its persistence arms, last read at cut 8 and owned by
 conflict; R23 and W8a remain partial only on their `contract-cut` clauses;
 C10 remains partial only on its `instrument-certification` eligibility arm,
 owned by `contract-cut`; T7 remains partial on its cross-root case, the T
-table's last open row, owned by `cross-root-publication`.
+table's last open row, owned by `cross-root-publication`. Cut 39's freeze banks the Y table;
+Y1–Y4 stay never selected until its discharge.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
@@ -323,8 +325,9 @@ table's last open row, owned by `cross-root-publication`.
 | B | — | — | — |
 | Q | — | — | — |
 | U | — | — | — |
+| Y | Y1, Y2, Y3, Y4 | — | — |
 
-Closed 188 of 216; open 28.
+Closed 188 of 220; open 32.
 
 ## Appendix B — classification of every open row
 
@@ -337,6 +340,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | W8 | the ambiguous-search-term conflict, W9's arm restated (cut 29 results §2) | `authority-labels` — tier 3 |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11); W8's ambiguous-search-term conflict joins them at cut 28 | `authority-labels` — tier 3 |
 | W17 | intent-position evidence over the publication-binding revision family (cut 14 results §1) | `publish`; the ordinary coordination revision family is closed |
+| Y1–Y4 | the publication records, the publish intent and step 8's all-or-nothing binding, banked at cut 39's freeze (`../designs/2026-09-22-publication-design.md`) | `publish` — tier 1, off the path; cut 39 |
 | W8a | only certification omission-refutes remains after cut 27 reads the import-boundary and audit arms | `contract-cut` — the `instrument-certification` kind |
 | R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); the explicit-import recomputation and raw-written-under-audit arms are closed by cut 18 | `contract-cut` |
 | R23 | only the rules-store clauses remain after cut 27 reads producer snapshots and receipts, cross-corpus divergence and explicit import; all earlier clauses retain their prior closure | `contract-cut` |
