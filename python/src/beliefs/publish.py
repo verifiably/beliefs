@@ -13,6 +13,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Protocol
 
+from nodes.core.errors import CollisionError, PlacementError
+from nodes.core.errors import ValidationError as NodesValidationError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
 
@@ -268,9 +270,15 @@ def _expected_marker(a: _Attempt) -> Node:
 
 
 def _population(staging: CorpusWriter, corpus_id: str, snapshot: Snapshot, marker: Node) -> _Population | StagingCorrupt:
-    """Spec §5's classification: a true prefix, complete, or corrupt."""
+    """Spec §5's classification: a true prefix, complete, or corrupt. A staging
+    store `nodes` refuses to read — bytes that do not parse, a record off its
+    mapped path, a duplicate uid — is neither a prefix nor complete: `bytes`,
+    naming no record, since none can be read to name (Y7)."""
     root = Path(staging.root)
-    present = {node.id: (root / staging._relative_path(node)).read_bytes() for node in ReadView.opened_at(root).iter_stored()}
+    try:
+        present = {node.id: (root / staging._relative_path(node)).read_bytes() for node in ReadView.opened_at(root).iter_stored()}
+    except (NodesValidationError, PlacementError, CollisionError):
+        return StagingCorrupt(corpus_id, "bytes", ())
     order = [record_id for record_id, _ in snapshot.records]
     extras = sorted(set(present) - set(order) - {marker.id})
     if extras:

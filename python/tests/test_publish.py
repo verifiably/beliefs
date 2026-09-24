@@ -111,6 +111,26 @@ def test_a_marker_unequal_to_the_expected_one_is_corrupt(staging):
     assert _population(writer, corpus_id, snapshot, marker) == StagingCorrupt(corpus_id, "marker", (marker.id,))
 
 
+@pytest.mark.parametrize(
+    ("relative", "content"),
+    [
+        ("run/zz.md", b"not a record at all\n"),  # frontmatter missing
+        ("zz.md", b"\xff\xfegarbage"),  # not UTF-8, outside any kind directory
+        ("run/misfiled.md", None),  # a snapshot record off its mapped path
+    ],
+    ids=["garbage", "not-utf8", "misfiled"],
+)
+def test_an_unreadable_staging_file_is_corrupt_bytes(staging, relative, content):
+    """Spec §5, Y7: a staging store `nodes` refuses to read is a terminal
+    `staging-corrupt`, never a raw exception that leaves the attempt unfinished."""
+    writer, corpus_id, snapshot, marker, _ = staging
+    writer._stage_record(snapshot.records[0][1])
+    path = writer.root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(snapshot.records[1][1].encode("utf-8") if content is None else content)
+    assert _population(writer, corpus_id, snapshot, marker) == StagingCorrupt(corpus_id, "bytes", ())
+
+
 class _View:
     """`get` over a dict: the captured records the pre-intent check compares against."""
 

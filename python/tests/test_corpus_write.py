@@ -1336,6 +1336,36 @@ def test_stage_marker_writes_only_a_consistent_marker(tmp_path):
         writer._stage_marker(forged)
 
 
+@pytest.mark.parametrize(
+    ("extra", "reason"),
+    [
+        ({stored.DISPLAY_FACET: {"statement": "s"}}, "malformed display facet"),
+        ({stored.SEMANTIC_IDENTITY_FACET: {"hash": "0" * 64}}, "has no semantic-identity domain"),
+    ],
+    ids=["display-facet", "governed-stamp"],
+)
+def test_stage_marker_runs_the_display_facet_and_governed_stamp_guards(tmp_path, monkeypatch, extra, reason):
+    """Spec §5: both staging doors run the display-facet and governed-stamp guards.
+    A marker carrying either facet is refused; the closed content rule and the
+    facet-payload check refuse it first, so with those disarmed the guard itself
+    is what refuses, under `_stage_record`'s message shape."""
+    from test_publish_intent import intent
+
+    from beliefs import publication
+
+    marker = marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",))
+    carrying = marker.model_copy(update={"facets": {**marker.facets, **extra}})
+    with pytest.raises(ValidationRefused):
+        _staging_writer(tmp_path / "armed")._stage_marker(carrying)
+    monkeypatch.setattr(publication, "publication_content_malformed", lambda node: False)
+    monkeypatch.setattr(publication, "marker_consistent", lambda node: True)
+    monkeypatch.setattr(CorpusWriter, "_refuse_facet_shapes", lambda self, node: None)
+    writer = _staging_writer(tmp_path / "disarmed")
+    with pytest.raises(ValidationRefused, match=reason):
+        writer._stage_marker(carrying)
+    assert not (writer.root / "publication").exists()
+
+
 def test_stage_record_refuses_a_facet_the_staging_profile_does_not_declare(tmp_path):
     """Finding 3: an unactivated domain's facet is refused, as `add` refuses it."""
     writer = _staging_writer(tmp_path)

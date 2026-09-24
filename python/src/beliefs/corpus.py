@@ -2317,16 +2317,23 @@ class CorpusWriter:
 
     def _stage_marker(self, node: Node) -> Node:
         """Publish-act-local §5: the factory's marker, written last into a staging
-        corpus. Only a well-formed, self-consistent marker is written."""
+        corpus. Only a well-formed, self-consistent marker is written, under the
+        same record-local guards as `_stage_record` — facet payloads, display
+        facet, governed stamp, rendering, collision. The marker's closed content
+        rule refuses any facet beside its coordination one first; the display
+        and stamp guards stand behind it, as the spec requires on both doors."""
         self._authority.require("publish", ("publication",))
         from beliefs.publication import MARKER_KIND, marker_consistent, publication_content_malformed
 
         with self._operation:
             self._require_pins_agree()
             if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node):
-                raise ValidationRefused(f"{getattr(node, 'id', node)}: a staged marker is a consistent publication record")
+                raise ValidationRefused(f"{node.id}: a staged marker is a consistent publication record")
             self._refuse_invalid(node)
             self._refuse_facet_shapes(node)  # a profile without coordination v2 does not declare `publication` (finding 3)
+            if stored.display_facet_malformed(node):
+                raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
+            self._refuse_governed_stamp(node)
             self._refuse_already_minted(node)
             self._refuse_rendering(node)
             self._refuse_collision(node)
