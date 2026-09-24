@@ -1,15 +1,16 @@
 ---
 id: beliefs-328507
 title: "The publish act, local: request, snapshot, staging, export, reveal, recovery and arrival (cut 40)"
-status: doing
+status: done
 priority: 2
 size: xl
 complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-24T10:35:36Z
+updated: 2026-09-24T16:07:11Z
 started: 2026-09-24T02:25:52Z
+completed: 2026-09-24T16:07:11Z
 depends: [beliefs-d7d7d1]
 parent: beliefs-1a5157
 tags: [publication]
@@ -38,3 +39,7 @@ Slice 2 of publish: layer design 6.1 steps 0 (request record, durable create-onl
   provenance: {"harness_session":"claude-code:c93cd81e-dbd2-4766-8217-506a58a55a62","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-24T10:28:43Z (design/publish): Plan approved by the user; executing subagent-driven. Claimed by claude-code (opus-5-5) controller, pid 315348.
 - 2026-09-24T10:35:36Z (design/publish): Cut 40 frozen: INIT_RETRY, ADMIT_RETRY, EXPORT_STABLE, REPLICATE_RETRY, REPLICATE_AFTER_RESTORE, READ_SERVICEABLE = holds (all six); FOREIGN_REPLICA = atoms.coordinator.lifecycle.RootOperationMismatch (also for a restored, serviceable occupant); accounting 15/15/6; chains cut 39.
+- 2026-09-24T16:07:11Z (design/publish): done
+  provenance: {"harness_session":"claude-code:c93cd81e-dbd2-4766-8217-506a58a55a62","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T16:07:11Z (design/publish): cut 40 discharged: Y5–Y10 — the local publish act, its resumption and marker-required arrival
+  provenance: {"harness_session":"claude-code:c93cd81e-dbd2-4766-8217-506a58a55a62","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
