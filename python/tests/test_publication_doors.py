@@ -532,3 +532,85 @@ def test_an_engine_refusal_to_inspect_at_step_8_is_an_evidence_refusal_that_keep
     seam = doors.seam(**{inspector: _raises_log_evidence})
     outcome = doors.bind(opened, remotely_revealed=True, seam=seam)
     _refused_alone(doors, opened, outcome, BindingEvidenceRefused("1" * 32, "2" * 32, True, "chain-malformed"))
+
+
+# --- publish-act-local §7: the fold reads the ordered sequence (Y9-e's unit) -----
+
+
+def _sequence_chain(tmp_path, sequences):
+    """One written root; per item, a publish intent and a committed fulfilment
+    whose report carries `entries` (built by the callable from the marker)."""
+    from beliefs.boundary import _mint_publish_refusal
+    from beliefs.report import PublicationBindingEntry as Binding
+
+    root = (tmp_path / "written").resolve()
+    (root / "act-report").mkdir(parents=True)
+    entries = [genesis_entry(b"g", label="seq-genesis")]
+    for k, build in enumerate(sequences):
+        value = intent(event_token=str(k) * 32, binding_tips=(), marker_tips=())
+        opened = IntentEntryView(digest=digest(f"seq-intent-{k}"), payload=encode_publish_intent(value))
+        body = build("ab"[k] * 32)
+        times = {"observer": value.actor, "instrument": "beliefs.publish", "opened_at": value.at, "closed_at": value.at}
+        if type(body[-1]) is Binding:
+            report = boundary._mint_publish_report(value, entry=body[-1], lifecycle=body[:-1], **times)
+        else:
+            report = _mint_publish_refusal(value, entries=body, **times)
+        node = stored.act_report_node(report)
+        path = path_for_node_id(node.id)
+        data = node_to_markdown(node).encode("utf-8")
+        (root / path).write_bytes(data)
+        created = RegisteredEntryView(
+            digest=digest(f"seq-reg-{k}"), txid=f"seq-{k}", initial=((path, ABSENT),), final=((path, file_state(data)),),
+            fulfills=opened.digest,
+        )
+        entries += [opened, created, settlement(digest(f"seq-set-{k}"), created.digest, f"seq-{k}", committed=True)]
+    return root, chain(*entries)
+
+
+def _subject():
+    return "coord:" + "a" * 32 + "/" + "d" * 32
+
+
+def _full(marker):
+    from beliefs.report import (
+        Exported,
+        PublicationExportEntry,
+        PublicationRevealEntry,
+        PublicationStagingEntry,
+        Revealed,
+        Staged,
+    )
+
+    s = _subject()
+    return (
+        PublicationStagingEntry(s, Staged("1" * 32, 2)),
+        PublicationExportEntry(s, Exported("1" * 32, "f" * 64)),
+        PublicationRevealEntry(s, Revealed("1" * 32)),
+        PublicationBindingEntry(s, BindingBound("c" * 32, "1" * 32, marker)),
+    )
+
+
+def _staging_corrupt(_marker):
+    from beliefs.report import PublicationStagingEntry, StagingCorrupt
+
+    return (PublicationStagingEntry(_subject(), StagingCorrupt("1" * 32, "extra", ("dataset:x",))),)
+
+
+def test_a_full_success_report_folds_as_its_binding(tmp_path):
+    root, view = _sequence_chain(tmp_path, [_full])
+    assert _fold(root, view) == ()          # bound, not remote: no orphan; no binding tips passed
+
+
+def test_a_pre_binding_refusal_folds_to_nothing_and_does_not_refuse(tmp_path):
+    root, view = _sequence_chain(tmp_path, [_staging_corrupt, _full])
+    assert _fold(root, view) == ()
+
+
+def test_the_fold_yields_pre_binding_for_a_refusal_before_the_binding(tmp_path):
+    from beliefs.coordination import ChainBound
+    from beliefs.publication_doors import PreBinding, _reports_at
+
+    root, view = _sequence_chain(tmp_path, [_staging_corrupt])
+    bound = ChainBound(root, "9" * 32, view, len(view.entries) - 1, True)
+    ((_, outcome),) = list(_reports_at(bound, VIEW, HERE, seam_over({root: view})))
+    assert outcome == PreBinding("staging-corrupt")

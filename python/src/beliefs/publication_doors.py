@@ -8,6 +8,7 @@ import secrets
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from nodes.core.errors import ValidationError as NodesValidationError
 from nodes.core.frontmatter import node_from_bytes
@@ -37,6 +38,7 @@ from beliefs.report import (
     BindingEvidenceRefused,
     BindingPredecessorNotStanding,
     PublicationBindingEntry,
+    publish_entries_from_facet,
 )
 from beliefs.runrecord import OperationPort
 from beliefs.world.logmodel import AbsentView, IntentEntryView, RegisteredEntryView, SettledEntryView, WellFormedView
@@ -45,6 +47,7 @@ __all__ = [
     "PUBLISH_INSTRUMENT",
     "BindingOutcome",
     "OpenedPublication",
+    "PreBinding",
     "marker_tips_at",
 ]
 
@@ -64,9 +67,19 @@ class BindingOutcome:
     binding: Node | None  # present iff the outcome is BindingBound
 
 
+@final
+@dataclass(frozen=True)
+class PreBinding:
+    """A publish report that ends before its binding entry (publish-act-local §7):
+    nothing was revealed remotely, so it neither creates nor retires an orphan,
+    and it binds no marker."""
+
+    outcome: str  # the last entry's outcome type
+
+
 def _reports_at(
     bound: ChainBound, view: CoordinationAddress, destination: Destination, seam: MomentSeam
-) -> Iterator[tuple[PublishIntent, Mapping[str, object] | PositionRefused]]:
+) -> Iterator[tuple[PublishIntent, Mapping[str, object] | PositionRefused | PreBinding]]:
     """Every publish intent for (view, destination) within the bound, with the
     report its committed fulfilment created, read and matched (spec §6)."""
     entries = bound.view.entries[: bound.head + 1]
@@ -115,10 +128,15 @@ def _reports_at(
             # or token never folds — it refuses (user review, finding 2)
             yield intent, PositionRefused("report-unqualified", f"{bound.root}: {paths[0]}: {qualifies} for intent {entry.digest}")
             continue
-        if len(facet["entries"]) != 1 or facet["entries"][0]["kind"] != "publication-binding":
-            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report")
+        try:
+            entries = publish_entries_from_facet(facet["entries"])
+        except MalformedRecord as caught:
+            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report: {caught}")
             continue
-        yield intent, facet["entries"][0]["outcome"]
+        if type(entries[-1]) is not PublicationBindingEntry:
+            yield intent, PreBinding(str(facet["entries"][-1]["outcome"]["type"]))
+            continue
+        yield intent, facet["entries"][-1]["outcome"]
 
 
 def marker_tips_at(
@@ -144,6 +162,8 @@ def marker_tips_at(
         for intent, outcome in _reports_at(bound, view, destination, seam):
             if type(outcome) is PositionRefused:
                 return outcome
+            if type(outcome) is PreBinding:
+                continue  # refused before its binding: no marker bound, no orphan, nothing retired
             shared = outcome["type"] == "bound" or outcome.get("remotely_revealed") is True
             if outcome["type"] != "bound" and outcome.get("remotely_revealed") is True:
                 orphans.add((str(outcome["corpus_id"]), str(outcome["marker"])))

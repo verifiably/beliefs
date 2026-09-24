@@ -888,6 +888,11 @@ _REPORT_ENTRY_OUTCOMES: dict[str, dict[str, tuple[str, ...]]] = {
     # the kind and its three types; their fields are the typed constructors'
     # (`report.binding_outcome_from_facet`), so the rules are spelled once
     "publication-binding": {"bound": (), "predecessor-not-standing": (), "evidence-refused": ()},
+    # the lifecycle kinds' fields are their typed constructors' too
+    "publication-request": {"request-corrupt": ()},
+    "publication-staging": {"staged": (), "staging-corrupt": ()},
+    "publication-export": {"exported": (), "export-collision": ()},
+    "publication-reveal": {"revealed": (), "reveal-refused": ()},
 }
 
 
@@ -922,6 +927,12 @@ def _valid_report_entry(entry: object) -> bool:
     if kind == "publication-binding":
         try:
             report_values.binding_outcome_from_facet(entry.get("outcome"))
+        except MalformedRecord:
+            return False
+        return True
+    if kind in ("publication-request", "publication-staging", "publication-export", "publication-reveal"):
+        try:
+            report_values.lifecycle_outcome_from_facet(kind, entry.get("outcome"))
         except MalformedRecord:
             return False
         return True
@@ -978,6 +989,11 @@ def act_report_facet(node: Node) -> Mapping[str, Any]:
                 raise MalformedRecord(f"{node.id}: malformed act-report entry: {caught}") from caught
     if any(not _valid_report_entry(entry) for entry in facet["entries"]):
         raise MalformedRecord(f"{node.id}: malformed act-report entry")
+    if facet["operation"] == "publish":
+        try:
+            report_values.publish_entries_from_facet(facet["entries"])
+        except MalformedRecord as caught:
+            raise MalformedRecord(f"{node.id}: malformed publish report: {caught}") from caught
     try:
         expected = v1.digest(report_values.ACT_REPORT_DOMAIN, facet)
     except IdentityError as caught:
