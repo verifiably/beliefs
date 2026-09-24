@@ -1151,10 +1151,28 @@ class KindNotMintedHere(WriteRefused):
 class PublicationRefused(WriteRefused):
     """A publish door refused before its intent (publication-records design §6)."""
 
-    def __init__(self, reason: str, *, tips: tuple[str, ...] = ()) -> None:
-        super().__init__(reason)
+    def __init__(
+        self, reason: str, *, tips: tuple[str, ...] = (), refs: tuple[str, ...] = (), corpus_ids: tuple[str, ...] = (), field: str = ""
+    ) -> None:
+        detail = ", ".join(part for part in (",".join(refs), ",".join(corpus_ids), field) if part)
+        super().__init__(f"{reason}: {detail}" if detail else reason)
         self.reason = reason
         self.tips = tips
+        self.refs = refs
+        self.corpus_ids = corpus_ids
+        self.field = field
+
+
+class PublicationArrivalRefused(WriteRefused):
+    """A publication's arrival refused before any write (publish-act-local design §10).
+    Not `ArrivalRefused`, verified arrival's `(cause, report, detail)` refusal,
+    which `admit_arrival` raises and which passes through `admit_publication`
+    unchanged."""
+
+    def __init__(self, reason: str, *, refs: tuple[str, ...] = ()) -> None:
+        super().__init__(f"{reason}: {', '.join(refs)}" if refs else reason)
+        self.reason = reason
+        self.refs = refs
 
 
 class CreateOnlyCollision(WriteRefused):
