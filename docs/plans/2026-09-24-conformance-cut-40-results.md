@@ -463,8 +463,31 @@ harness. `REPLICATE_RETRY` pins the completed retry, not the bare one.
 
 ## 6. Main integration
 
-Filled at merge: the whole-branch review, the repository gate on the exact
-integrated head, and the merge into `main`.
+**The whole-branch review.** Dispatched over `b9cd8b6..9428a31` against the
+spec's decisions, the plan's Global Constraints and the cut document's §5 and
+§6. No Critical findings. Two Important: `_stage_marker` lacked the
+display-facet and governed-stamp guards spec §5 names for both staging doors
+(Ruling 7), and `_population` let an unparseable staging file escape as a raw
+`nodes` exception instead of the terminal `staging-corrupt` spec §5 promises.
+Both were fixed in one wave (`65bfe1d`, recorded in §3.2), with unit tests that
+fail against the pre-fix source; the cut-40 phase modules re-ran after it
+(`34 passed`, and `test_n2_cut40.py` `10 passed`, every arm sound), and a scoped
+re-review found both findings addressed. The remaining Minor findings and the
+triaged deferred minors are filed as `beliefs-1ce6cc`.
+
+**The gate on the exact integrated head.** `just gate` at `e84edee` on the
+certified volume: `All checks passed!`; pyright `0 errors, 0 warnings, 0
+informations`; `5670 passed, 1 skipped in 1294.98s (0:21:34)`; TypeScript
+`Test Files 7 passed (7)`, `Tests 155 passed (155)` (log
+`.work/acceptance/cut40-gate.log`). The only later branch commit, `38f345e`,
+closes task records and touches no code.
+
+**The merge.** `8a07b0a` (`merge: the publish act, local — conformance cut
+40`), `--no-ff` into `main` at `b9cd8b6`, without conflicts; the merged tree is
+byte-identical to `38f345e`. It also carries the cut-19 J2i repair
+(`567edbf`, §3.1) to `main`, whose cut-19 guard had been red since `70ff54e`.
+`just check` on the merged tree passed (ruff `All checks passed!`, pyright `0
+errors, 0 warnings, 0 informations`, biome, tsc, `tasks check`).
 
 ## 7. Execution rulings
 
