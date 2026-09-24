@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-from nodes.core.frontmatter import node_to_markdown
+from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.relations import Relation
 
 from beliefs import stored
@@ -152,6 +152,17 @@ def test_the_snapshot_round_trips_and_its_identity_is_stable():
     assert snapshot.identity() == decode_snapshot(encode_snapshot(snapshot)).identity()
 
 
+def test_a_record_with_hand_edited_prose_is_accepted_and_round_trips():
+    """`body` is hand-editable prose on world records (stored.py), outside the
+    semantic hash; a snapshot record carrying one is not malformed."""
+    d = stored.dataset_node(title="d", resources=PINNED)
+    r = _run("r", produces=[d.id]).model_copy(update={"body": "A note."})
+    assert node_from_markdown(node_to_markdown(r)).body == "A note."
+    records = tuple(sorted((n.id, node_to_markdown(n)) for n in (d, r)))
+    snapshot = Snapshot("e" * 32, records)
+    assert decode_snapshot(encode_snapshot(snapshot)) == snapshot
+
+
 @pytest.mark.parametrize(
     "mutate",
     [
@@ -159,7 +170,9 @@ def test_the_snapshot_round_trips_and_its_identity_is_stable():
         lambda s: replace(s, records=tuple(reversed(s.records))),
         lambda s: replace(s, records=(s.records[0], s.records[0])),
         lambda s: replace(s, records=((s.records[0][0], s.records[1][1]), s.records[1])),     # text is another id's
-        lambda s: replace(s, records=((s.records[0][0], s.records[0][1] + "\n"), s.records[1])),  # not canonical
+        # parses to the same id but is not the canonical rendering: an extra
+        # space after `title:` is legal YAML and does not survive re-encoding
+        lambda s: replace(s, records=((s.records[0][0], s.records[0][1].replace("\ntitle:", "\ntitle: ", 1)), s.records[1])),
         lambda s: replace(s, event_token="x"),
     ],
 )

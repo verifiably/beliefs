@@ -151,7 +151,7 @@ class Snapshot:
                 node = node_from_markdown(row[1])
             except Exception as caught:  # nodes and pydantic raise several types for unparseable text
                 raise MalformedRecord(f"{row[0]}: a snapshot record's text does not parse: {caught}") from caught
-            if node.id != row[0] or node.body != "" or node_to_markdown(node) != row[1]:
+            if node.id != row[0] or node_to_markdown(node) != row[1]:
                 raise MalformedRecord(f"{row[0]}: a snapshot record's text is not that record's canonical rendering")
         ids = [row[0] for row in self.records]
         if ids != sorted(set(ids)):
