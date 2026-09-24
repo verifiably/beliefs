@@ -713,6 +713,10 @@ def test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_c
         "_registration_for",
         lambda *a, **k: (_ for _ in ()).throw(ExecutionError("readback", index=None, applied=None)),
     )
+    # The seam's own mark, in isolation: since beliefs-40e593 the durable port also marks
+    # the root before its intent and commit, which covers for a seam that lost its mark
+    # (cut 19's J2i scored vacuous on exactly that).
+    monkeypatch.setattr(science_root, "mark_root_unresolved", lambda root: None)
     with pytest.raises(ExecutionError):
         w.add(proposition("p1"))
     monkeypatch.undo()
@@ -765,6 +769,8 @@ def test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(sessio
     state = state_of(root)
     index_type = type(state.corpus.index)
     monkeypatch.setattr(index_type, "upsert", lambda self, node: (_ for _ in ()).throw(RuntimeError("index down")))
+    # The seam's own mark, in isolation (see the readback check above; beliefs-40e593).
+    monkeypatch.setattr(science_root, "mark_root_unresolved", lambda root: None)
     with pytest.raises(ExecutionError, match="index down"):
         w.add(proposition("p1"))
     monkeypatch.undo()
