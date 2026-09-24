@@ -2291,6 +2291,47 @@ class CorpusWriter:
             )
             return manifest
 
+    def _stage_record(self, text: str) -> Node:
+        """Publish-act-local §5: one snapshot record, written into a staging corpus
+        byte for byte as its snapshot text. The ordinary writer's record-local
+        guards — document, registry and facet payloads under the staging profile,
+        display facet, governed stamp, rendering, collision — and none of the
+        view-reading ones, which ran where the record was minted: population runs
+        in id order, not dependency order. Nothing but the act calls it."""
+        node = node_from_markdown(text)
+        self._authority.require("corpus-write", (node.kind,))
+        with self._operation:
+            self._require_pins_agree()
+            if node.kind not in stored.WORLD_KINDS:
+                raise ValidationRefused(f"{node.id}: a staged record is a world record")
+            self._refuse_invalid(node)
+            self._refuse_facet_shapes(node)  # the staging profile's registry and facet payloads (finding 3)
+            if stored.display_facet_malformed(node):
+                raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
+            self._refuse_governed_stamp(node)
+            self._refuse_already_minted(node)
+            if self._refuse_rendering(node) != text.encode("utf-8"):
+                raise ValidationRefused(f"{node.id}: a staged record renders as its snapshot text")
+            self._refuse_collision(node)
+            return self._corpus.add(node)
+
+    def _stage_marker(self, node: Node) -> Node:
+        """Publish-act-local §5: the factory's marker, written last into a staging
+        corpus. Only a well-formed, self-consistent marker is written."""
+        self._authority.require("publish", ("publication",))
+        from beliefs.publication import MARKER_KIND, marker_consistent, publication_content_malformed
+
+        with self._operation:
+            self._require_pins_agree()
+            if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node):
+                raise ValidationRefused(f"{getattr(node, 'id', node)}: a staged marker is a consistent publication record")
+            self._refuse_invalid(node)
+            self._refuse_facet_shapes(node)  # a profile without coordination v2 does not declare `publication` (finding 3)
+            self._refuse_already_minted(node)
+            self._refuse_rendering(node)
+            self._refuse_collision(node)
+            return self._corpus.add(node)
+
     def _require_bound_port(self, port: OperationPort | None) -> OperationPort:
         """The port an operation runs on: this writer's own for `None`, or a
         supplied one bound to the same root, authority and profile

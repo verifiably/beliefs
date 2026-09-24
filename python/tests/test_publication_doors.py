@@ -614,3 +614,146 @@ def test_the_fold_yields_pre_binding_for_a_refusal_before_the_binding(tmp_path):
     bound = ChainBound(root, "9" * 32, view, len(view.entries) - 1, True)
     ((_, outcome),) = list(_reports_at(bound, VIEW, HERE, seam_over({root: view})))
     assert outcome == PreBinding("staging-corrupt")
+
+
+# --- publish-act-local §4.2, §7: the pin re-check, the lifecycle binding, the pre-binding refusal
+
+
+def test_a_view_revised_before_the_lock_refuses_and_appends_nothing(tmp_path):
+    """Spec §4.2: the pin evaluated before the lock is re-checked under it."""
+    doors = Doors(tmp_path)
+    stale = PROJECT_VIEW.pinned("0" * 32)
+    with pytest.raises(PublicationRefused) as caught:
+        _open_publication(
+            doors.writer(), doors.resolver, view=PROJECT_VIEW, destination=HERE, clock=clock, seam=doors.seam(), expected_view=stale
+        )
+    assert caught.value.reason == "view-revised"
+    assert doors.port.calls == []
+
+
+def test_a_view_pinned_to_the_resolved_revision_opens(tmp_path):
+    doors = Doors(tmp_path)
+    expected = PROJECT_VIEW.pinned(REVISION)
+    opened = _open_publication(
+        doors.writer(), doors.resolver, view=PROJECT_VIEW, destination=HERE, clock=clock, seam=doors.seam(), expected_view=expected
+    )
+    assert opened.intent.view == expected and len(doors.appended()) == 1
+
+
+def _lifecycle(subject: str):
+    from beliefs.report import (
+        Exported,
+        PublicationExportEntry,
+        PublicationRevealEntry,
+        PublicationStagingEntry,
+        Revealed,
+        Staged,
+    )
+
+    return (
+        PublicationStagingEntry(subject, Staged("1" * 32, 1)),
+        PublicationExportEntry(subject, Exported("1" * 32, "9" * 64)),
+        PublicationRevealEntry(subject, Revealed("1" * 32)),
+    )
+
+
+def test_the_binding_carries_its_lifecycle_before_the_binding_entry(tmp_path):
+    doors = Doors(tmp_path)
+    opened = doors.open()
+    lifecycle = _lifecycle(str(binding_address(opened.intent.view, HERE)))
+    outcome = _bind_publication(
+        doors.writer(), doors.resolver, opened, corpus_id="1" * 32, marker="2" * 32, artifact="9" * 64,
+        remotely_revealed=False, clock=clock, seam=doors.seam(), lifecycle=lifecycle,
+    )
+    assert outcome.binding is not None
+    assert outcome.report.entries[:3] == lifecycle and type(outcome.report.entries[3]) is PublicationBindingEntry
+
+
+def test_a_refused_binding_carries_its_lifecycle_too(tmp_path):
+    """The fallback report is the same lifecycle, then the refusing binding entry."""
+    doors = Doors(tmp_path)
+    opened = doors.open()
+    stale = _tampered(doors, opened, binding_tips=("3" * 32,))
+    lifecycle = _lifecycle(str(binding_address(stale.intent.view, HERE)))
+    outcome = _bind_publication(
+        doors.writer(), doors.resolver, stale, corpus_id="1" * 32, marker="2" * 32, artifact="9" * 64,
+        remotely_revealed=True, clock=clock, seam=doors.seam(), lifecycle=lifecycle,
+    )
+    assert outcome.binding is None
+    assert outcome.report.entries[:3] == lifecycle
+    assert outcome.report.entries[3].outcome == BindingPredecessorNotStanding("1" * 32, "2" * 32, True, ())
+
+
+def _staging_corrupt_on(opened):
+    from beliefs.report import PublicationStagingEntry, StagingCorrupt
+
+    return (PublicationStagingEntry(str(binding_address(opened.intent.view, HERE)), StagingCorrupt("1" * 32, "extra", ("run:x",))),)
+
+
+def test_the_pre_binding_refusal_writes_its_report_alone_and_fulfils(tmp_path):
+    from beliefs.publication_doors import _refuse_publication
+
+    doors = Doors(tmp_path)
+    opened = doors.open()
+    entries = _staging_corrupt_on(opened)
+    report = _refuse_publication(doors.writer(), opened, entries, clock=clock)
+    assert report.entries == entries
+    assert (report.operation, report.event_token, report.observer, report.instrument) == (
+        "publish", opened.intent.event_token, opened.intent.actor, PUBLISH_INSTRUMENT,
+    )
+    fulfilled = [args for kind, args in doors.port.calls if kind == "execute_fulfilling"]
+    ((plan, fulfills),) = fulfilled
+    assert fulfills == opened.digest
+    assert [op.path for op in plan] == [path_for_node_id(stored.act_report_node(report).id)]
+    assert doors.files("publication-binding") == []
+
+
+def test_the_pre_binding_refusal_refuses_a_binding_entry_before_any_effect(tmp_path):
+    from beliefs.publication_doors import _refuse_publication
+
+    doors = Doors(tmp_path)
+    opened = doors.open()
+    calls = list(doors.port.calls)
+    subject = str(binding_address(opened.intent.view, HERE))
+    with pytest.raises(MalformedRecord):
+        _refuse_publication(
+            doors.writer(), opened, (PublicationBindingEntry(subject, BindingBound("c" * 32, "1" * 32, "2" * 32)),), clock=clock
+        )
+    with pytest.raises(PermitExceeded):
+        _refuse_publication(doors.writer(lacking(families=("publish",))), opened, _staging_corrupt_on(opened), clock=clock)
+    assert doors.port.calls == calls and doors.files("act-report") == []
+
+
+# --- publish-act-local §9: the attempt reading (its durable pin is Task 6's) -----
+
+
+def _reader_over(root):
+    mount(root, WRITTEN_ID)
+    return CorpusWriter(root, DefaultExecutor, authority=FULL, profile=V2)
+
+
+def test_the_attempt_reading_is_none_for_an_unknown_token_and_unfinished_before_its_fulfilment(tmp_path):
+    from beliefs.publication_doors import AttemptReading, attempt_reading
+
+    doors = Doors(tmp_path)
+    opened = doors.open()
+    assert attempt_reading(doors.writer(), "0" * 32, doors.seam()) is None
+    assert attempt_reading(doors.writer(), opened.intent.event_token, doors.seam()) == AttemptReading(opened, "unfinished", None)
+
+
+@pytest.mark.parametrize("build, expected", [(_staging_corrupt, "staging-corrupt"), (_full, "bound")], ids=["pre-binding", "bound"])
+def test_the_attempt_reading_is_closed_with_the_last_outcome(tmp_path, build, expected):
+    from beliefs.publication_doors import attempt_reading
+
+    root, view = _sequence_chain(tmp_path, [build])
+    reading = attempt_reading(_reader_over(root), "0" * 32, seam_over({root: view}))
+    assert reading is not None and (reading.reading, reading.outcome) == ("closed", expected)
+    assert reading.opened.digest == view.entries[1].digest
+
+
+def test_the_attempt_reading_is_indeterminate_when_the_fold_refuses_its_report(tmp_path):
+    from beliefs.publication_doors import attempt_reading
+
+    root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())], report_token="e" * 32)
+    reading = attempt_reading(_reader_over(root), "0" * 32, seam_over({root: view}))
+    assert reading is not None and (reading.reading, reading.outcome) == ("indeterminate", None)

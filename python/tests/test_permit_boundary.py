@@ -106,6 +106,10 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "root.py:fork_store": "lifecycle",
     # 2026-09-23 cut 39: the step-8 binding door commits through the guarded fulfilment.
     "publication_doors.py:_bind_publication": "publish",
+    # 2026-09-23 cut 40: the staging doors write through `_corpus.add`; the pre-binding refusal fulfils.
+    "corpus.py:CorpusWriter._stage_record": "corpus-write",
+    "corpus.py:CorpusWriter._stage_marker": "publish",
+    "publication_doors.py:_refuse_publication": "publish",
 }
 
 SEAM_MODULES = (
