@@ -39,7 +39,7 @@ from beliefs.publication import binding_record, marker_record, marker_uid
 from beliefs.publication_arrival import admit_publication
 from beliefs.publication_doors import _open_publication, attempt_reading
 from beliefs.publish import Published, PublishRefused, PublishUnresolved, pending_publishes, publish, resume_publish
-from beliefs.publish_request import decode_snapshot
+from beliefs.publish_request import Snapshot, decode_snapshot, encode_snapshot
 from beliefs.root import (
     LifecycleState,
     export_head_artifact,
@@ -402,12 +402,18 @@ def test_y6_b_a_rewritten_snapshot_is_request_corrupt_durably(source, monkeypatc
     monkeypatch.undo()
     token = token_of_last_intent(source)
     snapshot = source.ops / "publish" / token / "selection.v1"
+    original = decode_snapshot(snapshot.read_bytes())
+    # A valid, canonically encoded snapshot of other bytes: it decodes, so only
+    # the identity check against the request refuses it.
+    rewritten = encode_snapshot(Snapshot(token, original.records[:-1]))
+    assert rewritten != snapshot.read_bytes() and decode_snapshot(rewritten).records == original.records[:-1]
     snapshot.chmod(0o644)
-    rewritten = snapshot.read_bytes().replace(b"r-a", b"r-z")
-    assert rewritten != snapshot.read_bytes()
     snapshot.write_bytes(rewritten)
     outcome = resume(source, token)
     assert outcome == PublishRefused(token, "request-corrupt")
+    (report,) = _publish_reports(source, token)
+    (entry,) = report["entries"]
+    assert entry["outcome"]["reason"] == "snapshot-mismatch", entry
     reading = attempt_reading(fresh_writer(source), token, moment_seam())
     assert reading is not None and reading.reading == "closed"
     assert _binding_files(source) == [] and not list(source.dest.iterdir())
