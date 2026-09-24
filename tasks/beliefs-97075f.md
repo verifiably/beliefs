@@ -1,15 +1,19 @@
 ---
 id: beliefs-97075f
 title: "ResultManifest keeps declared-target order in memory but sorts when stored, so equivalence reads failed for identical outputs"
-status: todo
+status: done
 priority: 1
 size: s
 complexity: mid
 process: direct
+owner: fix/manifest-order
 created: 2026-09-23T18:49:35Z
-updated: 2026-09-24T02:13:06Z
+updated: 2026-09-24T02:24:04Z
+started: 2026-09-24T02:13:16Z
+completed: 2026-09-24T02:24:04Z
 depends: []
 tags: [verification]
+model: "claude-opus-5-5[1m]"
 agent: claude-code/claude-opus-5-5
 ---
 
@@ -18,3 +22,10 @@ Observed 2026-09-23 (science belief-path Task 9, sci-5fe8fc): a RunMinted's in-m
 ## Notes
 
 - 2026-09-24T02:13:06Z (main): process direct: the task names the fix (canonical order at construction) and the round-trip test
+- 2026-09-24T02:13:16Z (fix/manifest-order): started
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T02:13:16Z (fix/manifest-order): claimed by claude-code opus-5-5, pid 3181057
+- 2026-09-24T02:24:04Z (fix/manifest-order): done
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T02:24:04Z (fix/manifest-order): ResultManifest sorts its outputs at construction, so a declared-order manifest equals its stored round trip and CONTENT_EQUALITY passes; test_runrecord pins it
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

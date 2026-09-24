@@ -483,6 +483,9 @@ class ResultManifest:
         names = [name for name, _ in self.outputs]
         if len(set(names)) != len(names):
             raise MalformedClosure("duplicate logical names in result manifest")
+        # Canonical order, as stored: a manifest in declared-target order must
+        # equal its own decoded round trip.
+        object.__setattr__(self, "outputs", tuple(sorted(self.outputs)))
 
 
 @sealed

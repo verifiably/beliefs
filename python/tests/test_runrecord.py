@@ -1,5 +1,6 @@
 """The closure-to-stored codec (spec §2.6 items 4–5)."""
 
+import dataclasses
 from decimal import Decimal
 from typing import cast
 
@@ -12,8 +13,8 @@ from beliefs.adapter import require_executing_environment
 from beliefs.errors import MalformedClosure, MalformedRecord, RecipeVersionUnsupported
 from beliefs.identity import v1
 from beliefs.production import mint_dataset
-from beliefs.recipe import EnvironmentReference, RunClosure, run_domain_for, run_domain_for_projection
-from beliefs.replay import conformance
+from beliefs.recipe import EnvironmentReference, ResultManifest, RunClosure, run_domain_for, run_domain_for_projection
+from beliefs.replay import CONTENT_EQUALITY, conformance
 
 
 def _projection(*, recipe_key, receipt):
@@ -138,6 +139,14 @@ def test_a_minted_closure_round_trips_through_decode_run_closure() -> None:
     assert type(decoded.recipe.environment) is EnvironmentReference
     assert decoded.recipe.environment.identity() == run.recipe.environment.identity()
     assert decoded.recipe.workflow_definition.family_streams == run.recipe.workflow_definition.family_streams
+
+
+def test_a_manifest_built_out_of_order_equals_its_stored_round_trip() -> None:
+    minted = build_closure()
+    run = dataclasses.replace(minted, result=ResultManifest(tuple(reversed(minted.result.outputs))))
+    decoded = runrecord.decode_run_closure(_node_for(run))
+    assert decoded.result == run.result
+    assert CONTENT_EQUALITY.evaluate(decoded.result, run.result) == "passed"
 
 
 def test_conformance_over_decode_run_closure_matches_the_minted_closure() -> None:
