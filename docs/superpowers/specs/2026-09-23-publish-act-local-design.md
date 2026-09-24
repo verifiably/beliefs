@@ -130,7 +130,15 @@ Each decision names what it rejects.
    cut 39's one member of `KERNEL_REQUIREMENTS`, widens to what the act does:
    - `publish` over `publication-binding` and `publication`;
    - `corpus-write` over `act-report` and every world kind;
-   - `lifecycle`.
+   - `lifecycle`, for `init_corpus_root`, `adopt_manifest`, `init_world_root`
+     and the reveal;
+   - `registry`, for step 3's `World.admit`, whose `_locked_admit` requires it.
+
+   A read of every call the act makes on 2026-09-23 found no other
+   requirement. Every acceptance arm publishes under an authority holding
+   exactly this permit (`scoped_authority(publishes(), actor)`), so a family
+   missing here fails the happy path rather than passing under a wider test
+   authority.
 
    The caller's authority stages, exports and reveals, because the caller is
    the one permitted to publish.
@@ -382,8 +390,9 @@ function of the intent and those arguments.
 - each writes one registered transaction through the writer's own
   `_corpus.add`.
 
-`_stage_marker` also requires `publication.publication_content_malformed` to
-answer `None` and `marker_consistent` to answer `True`.
+`_stage_marker` also requires `not publication.publication_content_malformed(marker)`
+(the function returns a `bool`, `False` for a valid marker) and
+`marker_consistent(marker)`.
 
 **Step 3.** Re-check completeness, since a true prefix goes back to step 2.
 Then reinvoke `World.admit(staging, provenance = a fresh adoption)` on the
@@ -451,6 +460,27 @@ stop at the first refusal. Cut 39's "exactly one entry" becomes this
 sequence. The act-report design gains an "Amended 2026-09-23 (publish act,
 cut 40)" note in §2 and §6 item 3.
 
+**The orphan fold reads the sequence.** Cut 39's `_reports_at`
+(`publication_doors.py`) refuses `revision-malformed` unless a fulfilling
+report carries exactly one `publication-binding` entry. Left unchanged, every
+report this slice writes would make the next publish to the same
+`(view, destination)` refuse at step 0, after a success and after a
+pre-binding refusal alike. It is amended:
+
+- the report's entries are validated by the same ordered-sequence rule the
+  report constructor applies (one shared function in `report.py`), and a
+  sequence that breaks it refuses `revision-malformed`, as before;
+- a sequence ending in a `publication-binding` entry yields that entry's
+  outcome, and `marker_tips_at` folds it exactly as cut 39 does;
+- a valid sequence ending in a pre-binding refusal (`request-corrupt`,
+  `staging-corrupt`, `export-collision`, `reveal-refused`) yields a new
+  value, `PreBinding`. `marker_tips_at` skips it: nothing was revealed
+  remotely, so it neither creates nor retires an orphan, and it binds no
+  marker.
+
+A cut-39 report (one binding entry) is a valid sequence, so cut 39's reports
+keep folding unchanged.
+
 ## 8. Step 9 and done
 
 **Done** is layer design §6.1's definition, unchanged: this attempt's binding
@@ -507,7 +537,7 @@ It opens the arriving root read-only (`ReadView.opened_at`) and refuses with
 | check | reason |
 |---|---|
 | exactly one record of kind `publication` | `marker-absent`, `marker-duplicated` |
-| `publication_content_malformed(marker)` is `None` | `marker-malformed` |
+| `not publication_content_malformed(marker)` | `marker-malformed` |
 | `marker_consistent(marker)` | `marker-inconsistent` |
 | the root's other records are exactly `marker.selection` | `selection-mismatch`, naming the first difference |
 | no record of kind `publication-binding` | `binding-present` |
@@ -521,7 +551,8 @@ atomicity claim"). `ArrivalRefused` is a new `WriteRefused` in `errors.py`.
 ## 11. What does not change
 
 - the intent's bytes and `PublishIntent`;
-- `standing_at`, `marker_tips_at` and the cut-39 refusal table;
+- `standing_at` and the cut-39 refusal table (`_reports_at` and
+  `marker_tips_at` change only as §7's fold amendment says);
 - both records' factories;
 - every lifecycle function in `root.py`;
 - `admit_arrival` and `World.admit`;
@@ -530,8 +561,9 @@ atomicity claim"). `ArrivalRefused` is a new `WriteRefused` in `errors.py`.
 - the TypeScript parity artifact;
 - the reproduction driver.
 
-`_open_publication` changes only by `expected_view` (§4.2), and
-`_bind_publication` only by `lifecycle` (§7). No stored record of an existing
+`_open_publication` changes only by `expected_view` (§4.2),
+`_bind_publication` only by `lifecycle` (§7), and `_reports_at` only by the
+fold amendment (§7). No stored record of an existing
 kind changes a byte.
 
 ## 12. Shared files, under roadmap concurrency rule 3
@@ -556,7 +588,7 @@ The Y table (`../../designs/2026-09-22-publication-design.md`) gains Y5–Y10:
 | **Y6** | a retry never selects differently: population reads only the snapshot the request's digest names, written create-only before the request; a corpus that drifts after step 0 does not strand the retry; a request or snapshot that disagrees with its intent is `request-corrupt`, reported, terminal |
 | **Y7** | staging resumes only from a true prefix; a hole, an extra, a byte mismatch or an unequal marker is `staging-corrupt`, reported, terminal; population is complete iff the marker is byte-equal to the factory's |
 | **Y8** | the local reveal is `restore_root`'s grant on `<destination>/<corpus_id>` against the create-only sibling; a colliding sibling or a non-`validated` verdict is reported and binds nothing; a second publication to the same destination lands beside the first |
-| **Y9** | a crash after any local step resumes exactly to one binding and one report; done iff this attempt's binding exists and the intent is `closed`; `indeterminate` and binding-without-report fail closed with nothing written; the terminal report carries the lifecycle entries in step order |
+| **Y9** | a crash after any local step resumes exactly to one binding and one report; done iff this attempt's binding exists and the intent is `closed`; `indeterminate` and binding-without-report fail closed with nothing written; the terminal report carries the lifecycle entries in step order, and the next publish's step-0 fold reads every such report, successful or refused |
 | **Y10** | a published corpus is admitted in a second world only through `admit_publication`, which refuses before any write a root with no marker, two markers, a malformed or inconsistent marker, a binding, or records other than the marker's selection |
 
 ## 14. Testing and the cut
@@ -578,7 +610,11 @@ The Y table (`../../designs/2026-09-22-publication-design.md`) gains Y5–Y10:
   typed and stored forms, and the ordered-sequence rule refuses an
   out-of-order or post-refusal entry.
 - **Permits:** `publishes()` names exactly decision 6's families and kinds,
-  and every ordinary route naming `publish` still refuses.
+  `registry` included, and every ordinary route naming `publish` still
+  refuses.
+- **The fold:** `_reports_at` over a cut-39 single-entry report, a full
+  success sequence, each pre-binding refusal sequence (yielding `PreBinding`),
+  and an out-of-order sequence (`revision-malformed`).
 - **`admit_publication`:** each refusal reason over a hand-built root.
 
 ### 14.2 Acceptance — `test_publish_act_acceptance.py` (new)
@@ -603,6 +639,7 @@ then reads only disk. A kill at an engine stage is `persistence-cut`'s (§16).
 | Y9-b | Y9 | a binding revision raw-written beside an unfinished intent → `Unresolved("binding-without-report")`, nothing written |
 | Y9-c | Y9 | an intent with no request → `Unresolved("no-request")`; `pending_publishes` omits it |
 | Y9-d | Y9 | done then a crash inside step 9 → resume discards staging and answers `Published` |
+| Y9-e | Y9 | a successful publish followed by a second publish of the same view to the same destination: the second's intent carries the first's marker in `marker_tips` and binds; separately, a `staging-corrupt` refusal followed by a fresh publish: the fresh intent's `marker_tips` omits the refused attempt, and it binds |
 | Y10-a | Y10 | a second world admits the published root through `admit_publication`, and its epoch sees the selection |
 | Y10-b | Y10 | a root built through the staging doors with one record beyond its marker's selection, exported, replicated and restored against its own artifact, so its chain verifies → `admit_publication` refuses `selection-mismatch`, and the recipient's registry is unchanged |
 
@@ -622,10 +659,11 @@ then reads only disk. A kill at an engine stage is `persistence-cut`'s (§16).
 | Y9-b | the classifier treats binding-present-unfinished as done |
 | Y9-c | `pending_publishes` lists requestless intents |
 | Y9-d | done is decided by resolving the current binding instead of this attempt's identity |
+| Y9-e | `_reports_at` keeps cut 39's exactly-one-binding-entry rule |
 | Y10-a | `admit_publication` skips `marker_consistent` |
 | Y10-b | the selection-equality check compares ids only against the marker, not the root's contents |
 
-The plan fixes the declared accounting (14 arms, 14 units, 6 rows as drafted
+The plan fixes the declared accounting (15 arms, 15 units, 6 rows as drafted
 here: Y5–Y10). A unit whose check does not see its sabotage is rehomed at
 Task 0, never dropped.
 
@@ -686,3 +724,15 @@ orphans and Ruling 12, and the recipient's `divergent-publication`.
 ## 18. Review log
 
 - 2026-09-23: drafted. The user chose the local-first split before drafting.
+- 2026-09-23: user review, three findings, all taken after checking them
+  against the code:
+  - the permit lacked `registry`, which `World.admit`'s `_locked_admit`
+    requires; it is added, and every acceptance arm runs under exactly
+    `publishes()` (decision 6);
+  - `_reports_at` accepted only a single `publication-binding` entry, so every
+    report this slice writes would have refused the next publish's step 0;
+    the fold now reads the ordered sequence and skips pre-binding refusals
+    (§7), with arm Y9-e and its sabotage (15 arms, 15 units);
+  - `publication_content_malformed` returns a `bool`, so the marker check is
+    `not publication_content_malformed(marker)` in staging (§5) and at
+    arrival (§10).
