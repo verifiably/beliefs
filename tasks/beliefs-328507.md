@@ -8,13 +8,14 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-24T02:36:32Z
+updated: 2026-09-24T03:16:38Z
 started: 2026-09-24T02:25:52Z
 depends: [beliefs-d7d7d1]
 parent: beliefs-1a5157
 tags: [publication]
 agent: claude-code/claude-opus-5-5
 spec: docs/superpowers/specs/2026-09-23-publish-act-local-design.md
+plan: docs/superpowers/plans/2026-09-23-publish-act-local.md
 ---
 
 Slice 2 of publish: layer design 6.1 steps 0 (request record, durable create-only write, pins derivation, closure/empty refusals, selection snapshot answering the corpus-drifted retry problem), 1-7 and 9, the recovery table, transport as an injected seam with remotely-revealed orphans, marker-required arrival, and the act-report lifecycle entries. Designed after slice 1 discharges.
