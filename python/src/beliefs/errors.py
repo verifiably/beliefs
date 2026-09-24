@@ -9,6 +9,7 @@ tell a good refusal from a bad one.
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
@@ -1154,6 +1155,14 @@ class PublicationRefused(WriteRefused):
         super().__init__(reason)
         self.reason = reason
         self.tips = tips
+
+
+class CreateOnlyCollision(WriteRefused):
+    """A create-only name already holds other bytes (publish-act-local design §4.4)."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(f"{path}: a create-only name already holds other bytes")
+        self.path = path
 
 
 class PredecessorNotStanding(WriteRefused):
