@@ -1,17 +1,22 @@
 ---
 id: beliefs-328507
-title: "The publish act: request record, selection snapshot, staging, export, reveal and recovery (cut 40)"
-status: todo
+title: "The publish act, local: request, snapshot, staging, export, reveal, recovery and arrival (cut 40)"
+status: done
 priority: 2
 size: xl
 complexity: high
 process: planned
+owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-23T14:27:47Z
+updated: 2026-09-24T16:07:11Z
+started: 2026-09-24T02:25:52Z
+completed: 2026-09-24T16:07:11Z
 depends: [beliefs-d7d7d1]
 parent: beliefs-1a5157
 tags: [publication]
 agent: claude-code/claude-opus-5-5
+spec: docs/superpowers/specs/2026-09-23-publish-act-local-design.md
+plan: docs/superpowers/plans/2026-09-23-publish-act-local.md
 ---
 
 Slice 2 of publish: layer design 6.1 steps 0 (request record, durable create-only write, pins derivation, closure/empty refusals, selection snapshot answering the corpus-drifted retry problem), 1-7 and 9, the recovery table, transport as an injected seam with remotely-revealed orphans, marker-required arrival, and the act-report lifecycle entries. Designed after slice 1 discharges.
@@ -19,3 +24,22 @@ Slice 2 of publish: layer design 6.1 steps 0 (request record, durable create-onl
 ## Notes
 
 - 2026-09-23T14:27:47Z (design/publish): Cut 40's recovery table must cover the unfinished publish intent: at cut 39 step 8, an exception before any effect (non-bool reveal, pin disagreement, unbound port, malformed binding arguments, a mismatched OpenedPublication, a guard exception other than LogEvidenceRefused, or a LogEvidenceRefused on the written root whose fallback cannot write) leaves the intent unfinished rather than orphaned, so a remotely revealed marker is recovered only from the unfinished intent (cut-39 results §3.3, Ruling 12).
+- 2026-09-24T02:25:52Z (design/publish): started
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T02:25:52Z (design/publish): claimed by claude-code opus-5-5, pid 3181057; brainstorming the cut-40 spec in .worktrees/publish
+- 2026-09-24T02:26:25Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T02:26:25Z (design/publish): claimed by claude-code opus-5-5, pid 3181057; brainstorming the cut-40 spec in .worktrees/publish
+- 2026-09-24T02:36:23Z (design/publish): User chose local-first split 2026-09-23: cut 40 = local act + marker-required arrival; cut 41 = transport seam, remote reveal/orphans (Ruling 12), remote recovery rows, divergent-publication. Spec drafted: docs/superpowers/specs/2026-09-23-publish-act-local-design.md
+- 2026-09-24T02:36:32Z (design/publish): parked (waiting on user, review): Cut-40 spec awaiting user review: docs/superpowers/specs/2026-09-23-publish-act-local-design.md; on approval, writing-plans in .worktrees/publish
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T03:16:40Z (design/publish): parked (waiting on user, review): Cut-40 plan awaiting user review and execution choice: docs/superpowers/plans/2026-09-23-publish-act-local.md
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T10:28:43Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:c93cd81e-dbd2-4766-8217-506a58a55a62","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T10:28:43Z (design/publish): Plan approved by the user; executing subagent-driven. Claimed by claude-code (opus-5-5) controller, pid 315348.
+- 2026-09-24T10:35:36Z (design/publish): Cut 40 frozen: INIT_RETRY, ADMIT_RETRY, EXPORT_STABLE, REPLICATE_RETRY, REPLICATE_AFTER_RESTORE, READ_SERVICEABLE = holds (all six); FOREIGN_REPLICA = atoms.coordinator.lifecycle.RootOperationMismatch (also for a restored, serviceable occupant); accounting 15/15/6; chains cut 39.
+- 2026-09-24T16:07:11Z (design/publish): done
+  provenance: {"harness_session":"claude-code:c93cd81e-dbd2-4766-8217-506a58a55a62","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T16:07:11Z (design/publish): cut 40 discharged: Y5–Y10 — the local publish act, its resumption and marker-required arrival
+  provenance: {"harness_session":"claude-code:c93cd81e-dbd2-4766-8217-506a58a55a62","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

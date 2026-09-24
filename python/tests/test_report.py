@@ -7,10 +7,12 @@ T5's no-observation negative (the persistence seam) — cut 3 §4.2."""
 import dataclasses
 import re
 from collections import defaultdict
+from typing import Any
 
 import pytest
 from closure_fixtures import make_closure, sample_report
 from fixtures_cut3 import report
+from test_publish_intent import intent as _publish_intent
 
 from beliefs import report as report_values
 from beliefs import stored
@@ -31,18 +33,31 @@ from beliefs.report import (
     BindingPredecessorNotStanding,
     ByteLocatorUntested,
     DeclarationPinEntry,
+    ExportCollision,
+    Exported,
     LocatorEntry,
     ManagedMutationEntry,
     OperationIntent,
     PinnedDeclaration,
     PublicationBindingEntry,
+    PublicationExportEntry,
+    PublicationRequestEntry,
+    PublicationRevealEntry,
+    PublicationStagingEntry,
     PublishedObservation,
     RecordImportEntry,
     Registration,
+    RequestCorrupt,
+    Revealed,
+    RevealRefused,
+    Staged,
+    StagingCorrupt,
     SubjectEvaluationEntry,
     _mint_report,
     cite,
     completion,
+    publish_entries_from_facet,
+    publish_sequence_error,
 )
 
 
@@ -458,7 +473,7 @@ def test_the_publish_report_seam_mints_one_binding_entry_for_a_publish_intent_on
     from beliefs.intents.publish import Destination, PublishIntent
 
     entry = PublicationBindingEntry(SUBJECT, _BOUND)
-    times = {"observer": "actor", "instrument": "beliefs.publish", "opened_at": "t0", "closed_at": "t1"}
+    times: dict[str, Any] = {"observer": "actor", "instrument": "beliefs.publish", "opened_at": "t0", "closed_at": "t1"}
     intent = PublishIntent(
         kind="publish",
         event_token="c" * 32,
@@ -480,3 +495,122 @@ def test_the_publish_report_seam_mints_one_binding_entry_for_a_publish_intent_on
         _mint_publish_report(look_alike, entry=entry, **times)  # type: ignore[arg-type]
     with pytest.raises(MalformedRecord, match="one publication-binding entry"):
         _mint_publish_report(intent, entry=(entry,), **times)  # type: ignore[arg-type]
+
+
+# --- publish-act-local §7: the lifecycle entries and the ordered sequence ------
+
+
+
+@pytest.fixture
+def publish_intent_value():
+    return _publish_intent()
+
+
+_S = "coord:" + "a" * 32 + "/" + "d" * 32
+_C = "1" * 32
+
+
+def _lifecycle(stop: str | None = None):
+    staged = PublicationStagingEntry(_S, Staged(_C, 3))
+    exported = PublicationExportEntry(_S, Exported(_C, "f" * 64))
+    revealed = PublicationRevealEntry(_S, Revealed(_C))
+    return {
+        None: (staged, exported, revealed),
+        "staging": (PublicationStagingEntry(_S, StagingCorrupt(_C, "extra", ("dataset:x",))),),
+        "export": (staged, PublicationExportEntry(_S, ExportCollision(_C, f"{_C}.head-artifact.v1"))),
+        "reveal": (staged, exported, PublicationRevealEntry(_S, RevealRefused(_C, "refuted"))),
+    }[stop]
+
+
+def _binding():
+    return PublicationBindingEntry(_S, BindingBound("c" * 32, _C, "2" * 32))
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        (PublicationRequestEntry(_S, RequestCorrupt("snapshot-mismatch")),),
+        _lifecycle("staging"),
+        _lifecycle("export"),
+        _lifecycle("reveal"),
+        (*_lifecycle(), _binding()),
+        (_binding(),),                                     # cut 39's lone binding entry
+    ],
+    ids=["request", "staging", "export", "reveal", "bound", "lone-binding"],
+)
+def test_the_admitted_publish_sequences(entries):
+    assert publish_sequence_error(entries) is None
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        (),
+        _lifecycle(),                                      # every lifecycle entry succeeded, no binding
+        (_lifecycle()[1], _lifecycle()[0], _lifecycle()[2], _binding()),   # out of order
+        (*_lifecycle("staging"), _lifecycle()[1]),         # an entry after a refusal
+        (_lifecycle()[0], _binding()),                     # a binding after a partial lifecycle
+        (PublicationRequestEntry(_S, RequestCorrupt("undecodable")), _binding()),
+        (PublicationStagingEntry("coord:other", Staged(_C, 1)), *_lifecycle()[1:], _binding()),  # two subjects
+    ],
+    ids=["empty", "no-binding", "order", "after-refusal", "partial", "request-then-binding", "subjects"],
+)
+def test_every_other_sequence_is_refused(entries):
+    assert publish_sequence_error(entries) is not None
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: RequestCorrupt("other"),
+        lambda: Staged(_C, 0),
+        lambda: Staged(_C, True),
+        lambda: Staged("x", 1),
+        lambda: StagingCorrupt(_C, "extra", ("a", "b")),
+        lambda: StagingCorrupt(_C, "pins-foreign", ["dataset:x"]),  # type: ignore[arg-type]
+        lambda: StagingCorrupt(_C, "unknown", ()),
+        lambda: Exported(_C, "f" * 63),
+        lambda: ExportCollision(_C, "other.head-artifact.v1"),
+        lambda: RevealRefused(_C, "validated"),
+    ],
+)
+def test_each_lifecycle_outcome_refuses_its_malformed_forms(build):
+    with pytest.raises(MalformedRecord):
+        build()
+
+
+def test_the_stored_form_decodes_to_the_same_sequence():
+    from beliefs.report import _entry_facet
+
+    entries = (*_lifecycle(), _binding())
+    assert publish_entries_from_facet([_entry_facet(e) for e in entries]) == entries
+    with pytest.raises(MalformedRecord):
+        publish_entries_from_facet([_entry_facet(e) for e in _lifecycle()])
+
+
+def test_the_publish_report_mints_the_lifecycle_before_the_binding(publish_intent_value):
+    from beliefs.boundary import _mint_publish_refusal, _mint_publish_report
+
+    times = {"observer": "o", "instrument": "beliefs.publish", "opened_at": "2026-09-23T00:00:00Z", "closed_at": "2026-09-23T00:00:01Z"}
+    report = _mint_publish_report(publish_intent_value, entry=_binding(), lifecycle=_lifecycle(), **times)
+    assert report.entries == (*_lifecycle(), _binding())
+    refused = _mint_publish_refusal(publish_intent_value, entries=_lifecycle("export"), **times)
+    assert refused.entries == _lifecycle("export")
+    with pytest.raises(MalformedRecord):
+        _mint_publish_refusal(publish_intent_value, entries=(*_lifecycle(), _binding()), **times)
+    with pytest.raises(MalformedRecord):
+        _mint_publish_report(publish_intent_value, entry=_binding(), lifecycle=_lifecycle("staging"), **times)
+
+
+@pytest.mark.parametrize("bad", [["x"], {"x": 1}], ids=["list", "dict"])
+def test_a_non_string_stored_type_or_kind_refuses_rather_than_crashing(bad):
+    from beliefs.report import _entry_facet
+
+    entry = {"kind": "publication-staging", "subject": _S, "outcome": {"type": bad}}
+    assert stored._valid_report_entry(entry) is False
+    with pytest.raises(MalformedRecord):
+        report_values.lifecycle_outcome_from_facet("publication-staging", {"type": bad})
+    with pytest.raises(MalformedRecord):
+        publish_entries_from_facet([entry])
+    with pytest.raises(MalformedRecord):
+        publish_entries_from_facet([{**_entry_facet(_lifecycle("staging")[0]), "kind": bad}])

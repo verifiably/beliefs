@@ -54,7 +54,7 @@ GUARANTEE_TABLES: dict[str, tuple[str, ...]] = {
     "B": tuple(f"B{n}" for n in range(1, 8)),
         "Q": tuple(f"Q{n}" for n in range(1, 11)),
     "U": tuple(f"U{n}" for n in range(1, 11)),
-    "Y": ("Y1", "Y2", "Y3", "Y4"),
+    "Y": ("Y1", "Y2", "Y3", "Y4", "Y5", "Y6", "Y7", "Y8", "Y9", "Y10"),
 }
 
 #: Which design owns each table. The formal model reproduces every other table in
@@ -317,6 +317,7 @@ _COUNT_WORDS = {
     74: "Seventy-four",
     75: "Seventy-five",
     77: "Seventy-seven",
+    78: "Seventy-eight",
 }
 
 

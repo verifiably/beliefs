@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pytest
 
+from beliefs import stored
 from beliefs.coordination import COORDINATION_KINDS, ORDINARY_COORDINATION_KINDS, PUBLICATION_KINDS
 from beliefs.errors import ActorMismatch, PermitExceeded, PermitFact, PermitSummary, WriteRefused
 from beliefs.permit import (
@@ -173,7 +174,8 @@ class TestE4RequirementConstruction:
         # Since cut 39 `publish` is a family and publishes() is the kernel requirement;
         # the name is cut 17's E4c check, re-targeted there (test_n2_cut17.py _LIVE_SABOTAGES).
         assert RequiredCapabilities.publishes().permit == WritePermit(
-            frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"})
+            frozenset({"publication-binding", "publication", "act-report", *stored.WORLD_KINDS}),
+            frozenset({"publish", "corpus-write", "lifecycle", "registry"}),
         )
 
     def test_a_requirement_never_names_a_non_command_family(self):
@@ -241,10 +243,21 @@ class TestReadOnly:
 def test_publishes_constructs_exactly_the_kernel_requirement():
     required = RequiredCapabilities.publishes()
     assert required.permit == WritePermit(
-        frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"})
+        frozenset({"publication-binding", "publication", "act-report", *stored.WORLD_KINDS}),
+        frozenset({"publish", "corpus-write", "lifecycle", "registry"}),
     )
     assert KERNEL_REQUIREMENTS == frozenset({required.permit})
     assert scoped_authority(required, "publisher").permit == required.permit
+
+
+def test_the_publication_permit_covers_every_call_the_act_makes():
+    """Spec decision 6: the act's registry call (`World.admit`) and lifecycle calls
+    run under exactly this permit (user review finding 1)."""
+    authority = scoped_authority(RequiredCapabilities.publishes(), "actor")
+    authority.require("registry")
+    authority.require("lifecycle")
+    authority.require("publish", ("publication-binding", "publication"))
+    authority.require("corpus-write", ("act-report", *stored.WORLD_KINDS))
 
 
 @pytest.mark.parametrize(

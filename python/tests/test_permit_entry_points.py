@@ -715,6 +715,59 @@ def _publication_probe(work: Path):
     return (_corpus_probe(work), _chain(_STATE[work]["root"]))
 
 
+def _refuse(authority, work):
+    from beliefs.publication import binding_address
+    from beliefs.publication_doors import _refuse_publication
+    from beliefs.report import PublicationStagingEntry, StagingCorrupt
+
+    opened = _STATE[work]["opened"]
+    subject = str(binding_address(opened.intent.view, opened.intent.destination))
+    return _refuse_publication(
+        _publication_writer(authority, work), opened, (PublicationStagingEntry(subject, StagingCorrupt("1" * 32, "extra", ("run:x",))),),
+        clock=lambda: _PUBLICATION_AT,
+    )
+
+
+# --- the staging doors (publish-act-local §5), in-memory executor --------------------
+
+
+def _staging_writer(authority: Authority, work: Path) -> CorpusWriter:
+    from coordination_fixtures import coordination_profile
+    from test_corpus_write import Recorder
+
+    return CorpusWriter(work / "corpus", Recorder, authority=authority, profile=coordination_profile(None, version=2))
+
+
+def _prepare_staging(work: Path, _request) -> None:
+    """A staging corpus under the v2 profile, its manifest adopted under a full authority."""
+    writer = _staging_writer(lacking(), work)
+    writer.adopt_manifest(profile=pins_for(writer.profile))
+    _STATE[work] = {}
+    _reset_recorder()
+
+
+def _stage_record(authority, work):
+    from nodes.core.frontmatter import node_to_markdown
+
+    from beliefs import stored
+
+    return _staging_writer(authority, work)._stage_record(node_to_markdown(stored.run_node("r", title="r", spec="s")))
+
+
+def _stage_marker(authority, work):
+    from test_publish_intent import intent
+
+    from beliefs.publication import marker_record
+
+    return _staging_writer(authority, work)._stage_marker(
+        marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",))
+    )
+
+
+def _staging_probe(work: Path):
+    return _corpus_probe(work)
+
+
 CASES = (
     Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _prepare_corpus(), _add, _corpus_probe),
     Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_corpus(_mint_eligible), _retract, _corpus_probe),
@@ -761,6 +814,10 @@ CASES = (
     _lifecycle_case("fork_corpus", "fork_corpus"),
     _lifecycle_case("fork_store", "fork_store"),
     Case("publication_doors.py:_bind_publication", "publish", ("publication-binding", "act-report"), True, _prepare_publication, _bind_publication, _publication_probe, ("corpus-write",)),
+    # 2026-09-23 cut 40: the staging doors and the pre-binding refusal.
+    Case("corpus.py:CorpusWriter._stage_record", "corpus-write", ("run",), False, _prepare_staging, _stage_record, _staging_probe),
+    Case("corpus.py:CorpusWriter._stage_marker", "publish", ("publication",), False, _prepare_staging, _stage_marker, _staging_probe),
+    Case("publication_doors.py:_refuse_publication", "publish", ("publication-binding", "act-report"), True, _prepare_publication, _refuse, _publication_probe, ("corpus-write",)),
 )
 
 

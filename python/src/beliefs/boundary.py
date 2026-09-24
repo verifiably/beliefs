@@ -113,6 +113,7 @@ from beliefs.report import (
     RunRefusal,
     SubjectEvaluationEntry,
     _mint_report,
+    publish_sequence_error,
 )
 from beliefs.runrecord import OperationPort, publication_plan
 from beliefs.sealed import sealed
@@ -370,13 +371,19 @@ def _mint_publish_report(
     opened_at: str,
     closed_at: str,
     entry: PublicationBindingEntry,
+    lifecycle: tuple[Entry, ...] = (),
 ) -> ActReport:
-    """The publish report: exactly one publication-binding entry (publication-records
-    design §7), closing the domain-tagged publish intent and nothing else."""
+    """The publish report: the lifecycle entries in step order, then the one
+    publication-binding entry (publish-act-local §7), closing the domain-tagged
+    publish intent and nothing else."""
     if type(intent) is not PublishIntent:
         raise MalformedRecord("a publish report closes a publish intent")
     if type(entry) is not PublicationBindingEntry:
         raise MalformedRecord("a publish report carries one publication-binding entry")
+    if type(lifecycle) is not tuple:
+        raise MalformedRecord("a publish report's lifecycle entries are a tuple")
+    if (problem := publish_sequence_error((*lifecycle, entry))) is not None:
+        raise MalformedRecord(problem)
     return _mint_report(
         operation="publish",
         event_token=intent.event_token,
@@ -385,7 +392,36 @@ def _mint_publish_report(
         instrument=instrument,
         opened_at=opened_at,
         closed_at=closed_at,
-        entries=(entry,),
+        entries=(*lifecycle, entry),
+    )
+
+
+def _mint_publish_refusal(
+    intent: PublishIntent,
+    *,
+    observer: str,
+    instrument: str,
+    opened_at: str,
+    closed_at: str,
+    entries: tuple[Entry, ...],
+) -> ActReport:
+    """A publish refused before its binding (publish-act-local §7): the lifecycle
+    entries reached, the refusing one last, or the request refusal alone."""
+    if type(intent) is not PublishIntent:
+        raise MalformedRecord("a publish report closes a publish intent")
+    if type(entries) is not tuple or not entries or type(entries[-1]) is PublicationBindingEntry:
+        raise MalformedRecord("a pre-binding refusal ends before the binding entry")
+    if (problem := publish_sequence_error(entries)) is not None:
+        raise MalformedRecord(problem)
+    return _mint_report(
+        operation="publish",
+        event_token=intent.event_token,
+        actor=intent.actor,
+        observer=observer,
+        instrument=instrument,
+        opened_at=opened_at,
+        closed_at=closed_at,
+        entries=entries,
     )
 
 

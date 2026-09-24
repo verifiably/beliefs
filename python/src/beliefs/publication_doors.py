@@ -8,6 +8,7 @@ import secrets
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal, final
 
 from nodes.core.errors import ValidationError as NodesValidationError
 from nodes.core.frontmatter import node_from_bytes
@@ -36,15 +37,20 @@ from beliefs.report import (
     BindingBound,
     BindingEvidenceRefused,
     BindingPredecessorNotStanding,
+    Entry,
     PublicationBindingEntry,
+    publish_entries_from_facet,
 )
 from beliefs.runrecord import OperationPort
 from beliefs.world.logmodel import AbsentView, IntentEntryView, RegisteredEntryView, SettledEntryView, WellFormedView
 
 __all__ = [
     "PUBLISH_INSTRUMENT",
+    "AttemptReading",
     "BindingOutcome",
     "OpenedPublication",
+    "PreBinding",
+    "attempt_reading",
     "marker_tips_at",
 ]
 
@@ -64,9 +70,19 @@ class BindingOutcome:
     binding: Node | None  # present iff the outcome is BindingBound
 
 
+@final
+@dataclass(frozen=True)
+class PreBinding:
+    """A publish report that ends before its binding entry (publish-act-local §7):
+    nothing was revealed remotely, so it neither creates nor retires an orphan,
+    and it binds no marker."""
+
+    outcome: str  # the last entry's outcome type
+
+
 def _reports_at(
     bound: ChainBound, view: CoordinationAddress, destination: Destination, seam: MomentSeam
-) -> Iterator[tuple[PublishIntent, Mapping[str, object] | PositionRefused]]:
+) -> Iterator[tuple[PublishIntent, Mapping[str, object] | PositionRefused | PreBinding]]:
     """Every publish intent for (view, destination) within the bound, with the
     report its committed fulfilment created, read and matched (spec §6)."""
     entries = bound.view.entries[: bound.head + 1]
@@ -115,10 +131,15 @@ def _reports_at(
             # or token never folds — it refuses (user review, finding 2)
             yield intent, PositionRefused("report-unqualified", f"{bound.root}: {paths[0]}: {qualifies} for intent {entry.digest}")
             continue
-        if len(facet["entries"]) != 1 or facet["entries"][0]["kind"] != "publication-binding":
-            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report")
+        try:
+            entries = publish_entries_from_facet(facet["entries"])
+        except MalformedRecord as caught:
+            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report: {caught}")
             continue
-        yield intent, facet["entries"][0]["outcome"]
+        if type(entries[-1]) is not PublicationBindingEntry:
+            yield intent, PreBinding(str(facet["entries"][-1]["outcome"]["type"]))
+            continue
+        yield intent, facet["entries"][-1]["outcome"]
 
 
 def marker_tips_at(
@@ -144,6 +165,8 @@ def marker_tips_at(
         for intent, outcome in _reports_at(bound, view, destination, seam):
             if type(outcome) is PositionRefused:
                 return outcome
+            if type(outcome) is PreBinding:
+                continue  # refused before its binding: no marker bound, no orphan, nothing retired
             shared = outcome["type"] == "bound" or outcome.get("remotely_revealed") is True
             if outcome["type"] != "bound" and outcome.get("remotely_revealed") is True:
                 orphans.add((str(outcome["corpus_id"]), str(outcome["marker"])))
@@ -206,6 +229,7 @@ def _open_publication(
     clock: Callable[[], str],
     seam: MomentSeam,
     port: OperationPort | None = None,
+    expected_view: CoordinationAddress | None = None,
 ) -> OpenedPublication:
     """Step 0: judge at the written root's tip under its lock, freeze the reading
     into the intent, and append it. A `LogEvidenceRefused` propagates: nothing
@@ -225,6 +249,9 @@ def _open_publication(
         if type(resolved) is CoordinationRefused:
             raise PublicationRefused("divergent-view", tips=resolved.tips)
         assert type(resolved) is Node
+        if expected_view is not None and view.unpinned().pinned(resolved.uid) != expected_view:
+            # spec §4.2: the selection was evaluated before this lock, against another revision
+            raise PublicationRefused("view-revised")
         mounts = resolver.mounted()
         written = Path(writer.root).resolve()
         anchors: list[Anchor] = []
@@ -278,6 +305,7 @@ def _bind_publication(
     clock: Callable[[], str],
     seam: MomentSeam,
     port: OperationPort | None = None,
+    lifecycle: tuple[Entry, ...] = (),
 ) -> BindingOutcome:
     """Step 8: one fulfilling transaction under the written root's lock — the
     binding revision and its report, or, when the guard's recomputation at the
@@ -297,7 +325,7 @@ def _bind_publication(
     def report_of(outcome: BindingBound | BindingPredecessorNotStanding | BindingEvidenceRefused) -> ActReport:
         return boundary._mint_publish_report(
             intent, observer=intent.actor, instrument=PUBLISH_INSTRUMENT, opened_at=intent.at,
-            closed_at=closed_at, entry=PublicationBindingEntry(subject, outcome),
+            closed_at=closed_at, entry=PublicationBindingEntry(subject, outcome), lifecycle=lifecycle,
         )
 
     success = report_of(BindingBound(binding.uid, corpus_id, marker))
@@ -330,3 +358,71 @@ def _bind_publication(
     if reason is None:
         return BindingOutcome(success, binding)
     return BindingOutcome(report_of(judged["outcome"]), None)
+
+
+def _refuse_publication(
+    writer: CorpusWriter,
+    opened: OpenedPublication,
+    entries: tuple[Entry, ...],
+    *,
+    clock: Callable[[], str],
+    port: OperationPort | None = None,
+) -> ActReport:
+    """Publish-act-local §7: a refusal before the binding — the lifecycle entries
+    reached, the refusing one last — written alone in one fulfilling transaction.
+    Nothing was revealed remotely, so it carries no orphan fields."""
+    writer.authority.require("publish", ("publication-binding",))
+    writer.authority.require("corpus-write", ("act-report",))
+    writer._require_pins_agree()
+    operation_port = writer._require_bound_port(port)
+    intent = opened.intent
+    report = boundary._mint_publish_refusal(
+        intent, observer=intent.actor, instrument=PUBLISH_INSTRUMENT, opened_at=intent.at, closed_at=clock(), entries=entries,
+    )
+    writer._state.unresolved = True
+    operation_port.execute_fulfilling([writer._create_op(stored.act_report_node(report))], opened.digest)
+    writer._reconstruct()
+    return report
+
+
+@dataclass(frozen=True)
+class AttemptReading:
+    opened: OpenedPublication
+    reading: Literal["unfinished", "closed", "indeterminate"]
+    outcome: str | None  # the report's last outcome type when closed
+
+
+def _token_of(payload: bytes) -> str | None:
+    try:
+        return decode_publish_intent(payload).event_token
+    except MalformedRecord:
+        return None
+
+
+def attempt_reading(writer: CorpusWriter, event_token: str, seam: MomentSeam) -> AttemptReading | None:
+    """The completion reading of the publish intent carrying `event_token` on the
+    written chain (publish-act-local §9, planning note), read by the fold's own
+    rule: no committed fulfilment is `unfinished`; a present, matching,
+    qualifying report is `closed`; a report the fold refuses is `indeterminate`.
+    `None` when no such intent is on the chain."""
+    written = Path(writer.root).resolve()
+    view = seam.inspect_written(written)
+    if type(view) is not WellFormedView:
+        raise MalformedRecord(f"{written}: the written chain is not well formed")
+    found = [e for e in view.entries if type(e) is IntentEntryView and _token_of(e.payload) == event_token]
+    if not found:
+        return None
+    if len(found) != 1:
+        raise MalformedRecord(f"{written}: {len(found)} publish intents carry token {event_token}")
+    intent = decode_publish_intent(found[0].payload)
+    opened = OpenedPublication(intent, found[0].digest)
+    bound = ChainBound(written, writer.corpus_id, view, len(view.entries) - 1, True)
+    for folded, outcome in _reports_at(bound, intent.view, intent.destination, seam):
+        if folded.event_token != event_token:
+            continue
+        if type(outcome) is PositionRefused:
+            return AttemptReading(opened, "indeterminate", None)
+        if type(outcome) is PreBinding:
+            return AttemptReading(opened, "closed", outcome.outcome)
+        return AttemptReading(opened, "closed", str(outcome["type"]))
+    return AttemptReading(opened, "unfinished", None)

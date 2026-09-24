@@ -14,16 +14,17 @@ import time
 from typing import Any, ClassVar, cast
 
 import pytest
-from authority import ACTOR, FULL, narrowed
+from authority import ACTOR, FULL, lacking, narrowed
+from coordination_fixtures import coordination_profile, raw_coordination_node
 from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut3 import report as mint_report
 from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut6 import PINS
 from nodes.core.errors import CollisionError, ExecutionError, RefError, ValidationError
-from nodes.core.frontmatter import node_from_markdown
+from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node, NodeMetadata
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp
-from profiles import BASE, WITH_BIOLOGY
+from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_source_address import entry, raw_source
 
 from beliefs import boundary, stored
@@ -48,6 +49,7 @@ from beliefs.errors import (
     WriteRefused,
 )
 from beliefs.identity import v1
+from beliefs.publication import marker_record
 from beliefs.report import Moved, OperationIntent
 from beliefs.root import open_corpus
 from beliefs.runrecord import publication_plan
@@ -1280,3 +1282,119 @@ class TestEstimandTargetMatch:
         node = stored._node("analysis-spec", identity, "forged", {stored.ANALYSIS_SPEC_FACET: {"identity": identity, "projection": text.decode()}}, ())
         with pytest.raises(ValidationRefused, match="estimand-target-mismatch.*operator"):
             typed_writer.add(node)
+
+
+# --- publish-act-local §5: the staging doors -----------------------------------
+
+
+def _staging_writer(tmp_path):
+    # `DefaultExecutor` itself is the factory: a root's writers share one executor factory
+    profile = coordination_profile(None, version=2)
+    writer = CorpusWriter(tmp_path / "staging", DefaultExecutor, authority=FULL, profile=profile)
+    writer.adopt_manifest(profile=pins_for(profile))
+    return writer
+
+
+def test_stage_record_writes_the_snapshot_text_byte_for_byte(tmp_path):
+    writer = _staging_writer(tmp_path)
+    node = stored.run_node("r", title="r", spec="s", produces=["dataset:elsewhere"])  # its target is not staged: no view check
+    text = node_to_markdown(node)
+    writer._stage_record(text)
+    assert (writer.root / writer._relative_path(node)).read_text() == text
+
+
+def test_stage_record_refuses_a_repeat_and_a_non_world_record(tmp_path):
+    writer = _staging_writer(tmp_path)
+    node = stored.run_node("r", title="r", spec="s", produces=[])
+    writer._stage_record(node_to_markdown(node))
+    with pytest.raises(RecordAlreadyMinted):
+        writer._stage_record(node_to_markdown(node))
+    project = raw_coordination_node("project", "1" * 32, "2" * 32)
+    with pytest.raises(ValidationRefused):
+        writer._stage_record(node_to_markdown(project))
+
+
+def test_stage_record_refuses_non_canonical_text(tmp_path):
+    writer = _staging_writer(tmp_path)
+    node = stored.run_node("r", title="r", spec="s", produces=[])
+    # the same record under a quoted title: frontmatter the canonical rendering does not
+    # produce (a trailing newline would not do — it is body prose and round-trips)
+    with pytest.raises(ValidationRefused, match="renders as its snapshot text"):
+        writer._stage_record(node_to_markdown(node).replace("title: r\n", "title: 'r'\n", 1))
+    assert not (writer.root / writer._relative_path(node)).exists()
+
+
+def test_stage_marker_writes_only_a_consistent_marker(tmp_path):
+    from test_publish_intent import intent
+
+    writer = _staging_writer(tmp_path)
+    marker = marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",))
+    writer._stage_marker(marker)
+    assert (writer.root / writer._relative_path(marker)).read_text() == node_to_markdown(marker)
+    forged = marker.model_copy(update={"uid": "0" * 32})
+    with pytest.raises(ValidationRefused):
+        writer._stage_marker(forged)
+
+
+@pytest.mark.parametrize(
+    ("extra", "reason"),
+    [
+        ({stored.DISPLAY_FACET: {"statement": "s"}}, "malformed display facet"),
+        ({stored.SEMANTIC_IDENTITY_FACET: {"hash": "0" * 64}}, "has no semantic-identity domain"),
+    ],
+    ids=["display-facet", "governed-stamp"],
+)
+def test_stage_marker_runs_the_display_facet_and_governed_stamp_guards(tmp_path, monkeypatch, extra, reason):
+    """Spec §5: both staging doors run the display-facet and governed-stamp guards.
+    A marker carrying either facet is refused; the closed content rule and the
+    facet-payload check refuse it first, so with those disarmed the guard itself
+    is what refuses, under `_stage_record`'s message shape."""
+    from test_publish_intent import intent
+
+    from beliefs import publication
+
+    marker = marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",))
+    carrying = marker.model_copy(update={"facets": {**marker.facets, **extra}})
+    with pytest.raises(ValidationRefused):
+        _staging_writer(tmp_path / "armed")._stage_marker(carrying)
+    monkeypatch.setattr(publication, "publication_content_malformed", lambda node: False)
+    monkeypatch.setattr(publication, "marker_consistent", lambda node: True)
+    monkeypatch.setattr(CorpusWriter, "_refuse_facet_shapes", lambda self, node: None)
+    writer = _staging_writer(tmp_path / "disarmed")
+    with pytest.raises(ValidationRefused, match=reason):
+        writer._stage_marker(carrying)
+    assert not (writer.root / "publication").exists()
+
+
+def test_stage_record_refuses_a_facet_the_staging_profile_does_not_declare(tmp_path):
+    """Finding 3: an unactivated domain's facet is refused, as `add` refuses it."""
+    writer = _staging_writer(tmp_path)
+    node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    node.facets["biology/gene-axis"] = {"axis": "rows"}
+    with pytest.raises(ValidationRefused, match="facet-unexpected"):
+        writer._stage_record(node_to_markdown(stored.stamp_semantic_identity(node)))
+
+
+def test_stage_marker_refuses_under_a_profile_without_coordination_v2(tmp_path):
+    """Finding 3: a marker under BASE, which pins no coordination contract, is refused."""
+    from test_publish_intent import intent
+
+    writer = CorpusWriter(tmp_path / "base", DefaultExecutor, authority=FULL, profile=BASE)
+    writer.adopt_manifest(profile=pins_for(BASE))
+    marker = marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",))
+    with pytest.raises(ValidationRefused, match="kind-unknown"):
+        writer._stage_marker(marker)
+
+
+def test_the_staging_doors_require_their_permits_first(tmp_path):
+    from test_publish_intent import intent
+
+    writer = _staging_writer(tmp_path)
+    node = stored.run_node("r", title="r", spec="s", produces=[])
+    narrow = CorpusWriter(writer.root, DefaultExecutor, authority=lacking(kinds=("run",)), profile=writer.profile)
+    with pytest.raises(PermitExceeded):
+        narrow._stage_record(node_to_markdown(node))
+    unpublishing = CorpusWriter(writer.root, DefaultExecutor, authority=lacking(families=("publish",)), profile=writer.profile)
+    with pytest.raises(PermitExceeded):
+        unpublishing._stage_marker(marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",)))
+    assert not (writer.root / "run").exists() and not (writer.root / "publication").exists()

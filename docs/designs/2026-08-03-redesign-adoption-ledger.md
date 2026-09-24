@@ -46,15 +46,15 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-23** for cut 39's publication-records discharge: W17
-closes in full and Y1–Y4 close, and `publish` stays open with its second
-slice. The T table stays partial on T7's cross-root case alone, and row 5
-stays partial for L1's persistence arms alone.
+**Updated 2026-09-24** for cut 40's discharge of the publish act for a
+local destination: Y5–Y10 close, and `publish` stays open with cut 41's
+remote slice. The T table stays partial on T7's cross-root case alone, and
+row 5 stays partial for L1's persistence arms alone.
 
-**Implemented through conformance cut 39.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 40.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–39 record discharge in their dated results records, most recently
-`../plans/2026-09-23-conformance-cut-39-results.md`.
+and cuts 26–40 record discharge in their dated results records, most recently
+`../plans/2026-09-24-conformance-cut-40-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -341,8 +341,46 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   engine's write-ahead order. Two internal doors write the source root, the
   step-0 intent and the step-8 binding commit, with no public route. **W17
   closes in full and Y1–Y4 close.** `publish` stays in the table with its
-  remainder, the second slice (`beliefs-328507`). The corpus has **193 of
-  220 rows closed, 27 open**.
+  remainder, the second slice (`beliefs-328507`). The corpus had **193 of
+  220 rows closed, 27 open** at cut 39.
+- **The publish act's rows (Y5–Y10)**, banked 2026-09-24 with conformance cut
+  40's freeze (`2026-09-22-publication-design.md`,
+  `2026-09-24-conformance-cut-40.md`): Y5–Y10 were open under `publish` from
+  the freeze to the discharge, with the corpus at **193 of 226 rows closed,
+  33 open**.
+- **The publish act for a local destination, and marker-required
+  arrival**, built 2026-09-24 at cut 40
+  (`../plans/2026-09-24-conformance-cut-40-results.md`).
+  - `publish(writer, resolver, world, view=…, destination=…, …)` authorizes
+    against one permit, `RequiredCapabilities.publishes()`. Step 0
+    evaluates the view against the caller's current epoch and runs every
+    refusal before the lock, writing nothing. It opens the intent under
+    the lock with a pin re-check (`view-revised`). It then writes the
+    selection snapshot `selection.v1` and the request `request.v1`
+    create-only under the operations root, the snapshot first.
+  - Population reads only the snapshot, through two writer doors,
+    `_stage_record` and `_stage_marker`, into a private staging corpus and
+    world. A true prefix resumes, and anything else is `staging-corrupt`.
+  - The staged corpus is admitted and its head exported. The artifact is
+    written create-only beside the export root, which is
+    `<destination>/<corpus_id>`, so a local destination holds many
+    publications. The reveal is `restore_root`'s grant.
+  - Step 8 binds through cut 39's door, carrying the `publication-staging`,
+    `publication-export` and `publication-reveal` entries ahead of the
+    binding in one terminal report. The report's four new entry kinds form
+    an ordered sequence, and the next publish's fold reads every such
+    report, successful or refused before the binding.
+  - `resume_publish` resumes a crashed attempt by reinvoking each lifecycle
+    operation under the intent's actor, and `pending_publishes` lists the
+    unfinished ones.
+  - A published corpus enters a second world only through
+    `admit_publication`, which refuses before any write a root without
+    exactly one well-formed, consistent marker, one holding a binding, or
+    one whose records are not exactly the marker's selection.
+  - **Y5–Y10 close.** `publish` stays in the table with cut 41's remainder
+    (`beliefs-3ce305`): remote transport, the remote reveal and its
+    orphans, and `divergent-publication`. The corpus has **199 of 226 rows
+    closed, 27 open**.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -362,19 +400,27 @@ not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
-| `publish` | the governed publication act — the second slice (`beliefs-328507`): the request record, the selection snapshot, staging, export, reveal, the recovery table, transport and arrival, with the rows it appends to the Y table; W17 and Y1–Y4 closed at cut 39 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication; follows the complete world-read lane and precedes the final contract cut |
+| `publish` | the governed publication act's remote slice, cut 41 (`beliefs-3ce305`): the transport seam, the remote reveal and its orphans (cut 39's Ruling 12), the recovery table's remote rows, and the recipient's `divergent-publication`, with the rows it appends to the Y table; W17 and Y1–Y4 closed at cut 39, the local act and Y5–Y10 at cut 40 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication to a remote destination; follows the complete world-read lane and precedes the final contract cut |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-23-conformance-cut-39-results.md`) discharges publication
+(`../plans/2026-09-24-conformance-cut-40-results.md`) discharges the publish
+act for a local destination at cut 40: the step-0 refusals and the selection
+snapshot, the request and its create-only write, staging through two writer
+doors, export and the local reveal at `<destination>/<corpus_id>`, one
+terminal report carrying the lifecycle entries in step order, resumption by
+reinvocation, and marker-required arrival. Y5–Y10 close; `publish` stays in
+this table and the roadmap index with cut 41's remote slice, and the corpus
+has **199 of 226** rows closed, 27 open. L1 stays partial on its persistence
+arms under `persistence-cut`, and T7 on its cross-root case under
+`cross-root-publication`. The preceding record
+(`../plans/2026-09-23-conformance-cut-39-results.md`) discharged publication
 records at cut 39: the coordination contract's v2 amendment, the two
 publication kinds and their deterministic records, the `publish` kind and
 family, the evidence-bearing publish intent, and the intent-position judgment
-over the chain's inventory. W17 closes in full and Y1–Y4 close; `publish`
-stays in this table and the roadmap index with its second slice, and the
-corpus has **193 of 220** rows closed, 27 open. L1 stays partial on its
-persistence arms under `persistence-cut`, and T7 on its cross-root case under
-`cross-root-publication`. The preceding record
+over the chain's inventory. W17 closed in full and Y1–Y4 closed; `publish`
+stayed with its second slice, and the corpus had **193 of 220** rows closed,
+27 open, at cut 39. The record before that
 (`../plans/2026-09-22-conformance-cut-38-results.md`) discharged the
 act-report remainder at cut 38: the `audit` and `re-check` operations each
 open through the boundary with one operation intent before any act and close
@@ -447,7 +493,7 @@ merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 (`beliefs-eacbe2`) no longer waits on `nodes`. Every boundary's tracker entry is named in the
 roadmap's [Boundary index](../plans/2026-08-29-implementation-roadmap.md#boundary-index).
 `publish` remains open under the layer design; cut 39 closed cut 14's W17
-remainder, and the second slice is what remains.
+remainder, cut 40 the local act, and cut 41's remote slice is what remains.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the

@@ -1340,3 +1340,117 @@ opens. The transition measured here is narrower again than §17's: the
 kernel gained a contract version, two kinds, an act family and an
 intent-position judgment while the reproduction's stored state and
 re-derived answer remained byte-for-byte where §17 left them.
+
+## 19. Addendum — the publish act, local, 2026-09-24
+
+Re-run under the local publish act
+(`../superpowers/specs/2026-09-23-publish-act-local-design.md`; cut 40),
+from the worktree `publish`, at head `ab1b572`. No contract succeeded, so
+nothing under `.work/reproduction/mm30` was recreated or moved aside: the
+corpus was read in place, exactly as at §18. `SCIENCE_MM30_ROOT` was set to
+the certified volume's canonical path, formed from `$(readlink -f
+~/d/beliefs)`. `MM30_PREDECESSOR` again had to be set explicitly, to
+`~/d/proto/projects/cancer/cancer-types/multiple-myeloma` — the declared
+default resolves two path segments short of it on this host, as at §12.
+`reproduction.preflight` printed `ok` without a host-load refusal.
+
+### 19.1 What changed in the kernel this slice
+
+Cut 40 adds the local publish act itself: `beliefs/publish.py`, reaching
+the lifecycle only through `root.py`'s wrappers; its step-0 pieces in
+`beliefs/publish_request.py`, which snapshot the selection into
+`selection.v1` and write it create-only before `request.v1`; the durable
+create-only write in `beliefs/durable.py`; the lifecycle report entries
+recording each step in order; the staging doors — `CorpusWriter._stage_record`
+and `CorpusWriter._stage_marker` in `corpus.py`, and `_refuse_publication`
+in `publication_doors.py` — through which staging is written; and
+marker-required arrival in `beliefs/publication_arrival.py`, gated on
+`admit_publication`. A cut-19 test repair (beliefs-50067c) accompanies the
+slice. None of it is reached by the mm30 driver:
+
+```
+$ grep -n 'publish\|publication\|durable' python/tools/reproduction/*.py
+python/tools/reproduction/belief.py:23:from beliefs.verify import AssessmentVerification, admission_record, build_verification, publication_node
+python/tools/reproduction/belief.py:48:        producer_snapshot_identity="no-epoch-published",  # supplied: this exercise builds no epoch (record §3)
+python/tools/reproduction/belief.py:118:        epoch="none-published",
+python/tools/reproduction/belief.py:128:    minted = writer.add(publication_node(verification, assessment_ref=st["assessment_ref"]))
+python/tools/reproduction/rederive.py:6:binding. 10b's: the corpus (verification record, two run publications,
+python/tools/reproduction/rederive.py:39:    two run publications and the spec record; recomputes only through
+python/tools/reproduction/rederive.py:46:            "corpus": ["verification record (basis, comparison report, scope, verdict read)", "two run publications", "analysis-spec record"],
+python/tools/reproduction/rederive.py:72:            contract_identity="none-consulted", epoch="none-published", certification=certification,
+python/tools/reproduction/rederive.py:210:            filed="verification-publication (write-path lane)",
+python/tools/reproduction/run.py:156:        epoch="none-published",
+python/tools/reproduction/spec.py:126:    """The kernel's own builder (verification-publication design §7)."""
+python/tools/reproduction/hold.py:3:The dataset record's id is its content address: the run publication names
+python/tools/reproduction/hold.py:57:    published = write(ctx, StoreLocator(st["store_id"], relative), content, expected=digest)
+python/tools/reproduction/hold.py:67:        (ByteObservation(digest=digest, location=published.record.location.canonical()),),
+python/tools/reproduction/hold.py:83:        holdings_observation_ref=f"holdings-observation:{published.record.identity()}",
+```
+
+— every hit is the driver's own pre-existing "run publication" /
+"verification-publication" vocabulary (`beliefs.verify`'s `publication_node`,
+minted by step 8 as part of this reproduction's established evidence chain
+since before this slice), not cut 40's publish act; `durable` matches
+nothing at all. A narrower grep for the slice's own symbols is empty:
+
+```
+$ grep -n 'PublishIntent\|publish_request\|DurableWrite\|publication_arrival\|_stage_record\|_stage_marker\|admit_publication' python/tools/reproduction/*.py
+$
+```
+
+The driver's `open_writer` still returns a plain `CorpusWriter`
+(`tools/reproduction/world.py`) and calls its pre-existing `add`, never the
+new `_stage_record` or `_stage_marker` staging methods. mm30's own manifest
+pins no coordination contract and names no publication destination — its
+profile is unchanged from §18:
+
+```
+corpus_id: 8b5d0c802677ee445e2b9d91ebf5d6a7
+manifest_version: 2
+profile:
+  domains:
+    biology: biology:24bcec4370cfcff3077414798c02525814d4aeaaf84430ab378838df7345d53b
+    mm30: mm30:4af7c4212d482ae60f429526ff5a8a6d4c335f70351a2687cd2062ffdedf437c
+  science_contract: science:52a4399342235225fbf23526050cf64ff0436d9b72bc54e30fc0c2cb7193b220
+```
+
+The driver mints no publication marker or binding, opens no destination,
+and calls neither staging door nor the arrival door.
+
+### 19.2 What the re-run reached
+
+Before the run, `state.json` held `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}` and
+`rederived_equal: true` — unchanged from §18.2. A copy was taken first
+(SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`).
+`reproduction.rederive`, run in the foreground, printed the same 10a
+payload — `{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}`
+in this document's established (alphabetical) transcription; the raw
+stdout renders the same dataclass in field-declaration order,
+`{"kind": "NoBelief", "reason": "no-directional-outcome", "detail": ""}`
+— with `"equal": true`. The rewritten `state.json` held the same
+`rederived_belief` payload with `rederived_equal: true`. A full-file diff
+against the pre-run copy was empty, and both files carried SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1` — the
+same digest §18.2 recorded. Neither the driver nor its corpus reaches the
+publish act, its records, or the arrival door (§19.1's greps); the
+conformance-cut acceptance modules discharging cut 40's Y5–Y10 guarantee
+rows are where this slice's certified-tuple evidence lives — this
+reproduction's evidence exercises none of them.
+
+`cd python && uv run --frozen pytest tests/test_reproduction_driver.py
+tests/test_designs_corpus.py`: 50 passed.
+
+### 19.3 What this addendum does not claim
+
+That mm30 publishes anything: no marker or binding was minted, no
+destination was named, no request or selection snapshot was written, and
+neither staging door nor the arrival door was called. The success
+criterion this reproduction lane measures against needs no publish —
+mm30's own corpus stands on `science_contract` and its two domains alone,
+and cut 40's publish act is additive machinery the driver never opens. The
+transition measured here is narrower again than §18's: the kernel gained a
+local publish act, its request and staging pieces, a durable create-only
+write, and marker-required arrival, while the reproduction's stored state
+and re-derived answer remained byte-for-byte where §18 left them.

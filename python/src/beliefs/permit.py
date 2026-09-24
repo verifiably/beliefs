@@ -16,6 +16,7 @@ from typing import Literal
 
 from beliefs.errors import PermitExceeded, PermitFact, PermitSummary
 from beliefs.identity import v1
+from beliefs.profile import shipped_base
 
 __all__ = [
     "ACT_FAMILIES",
@@ -116,8 +117,14 @@ class WritePermit:
         return PermitSummary(tuple(sorted(self.kinds)), tuple(sorted(self.act_families)), self.ungoverned)
 
 
+_WORLD_KINDS = tuple(name for name, kind in shipped_base().kinds.items() if kind.role == "world")
+"""Duplicates `stored.WORLD_KINDS`: `stored.py` imports `beliefs.permit`, so this
+module computes the same world-kind tuple from `shipped_base()` rather than
+import `stored` and cycle."""
+
 _PUBLICATION_PERMIT = WritePermit(
-    frozenset({"publication-binding", "act-report"}), frozenset({"publish", "corpus-write"})
+    frozenset({"publication-binding", "publication", "act-report", *_WORLD_KINDS}),
+    frozenset({"publish", "corpus-write", "lifecycle", "registry"}),
 )
 KERNEL_REQUIREMENTS: frozenset[WritePermit] = frozenset({_PUBLICATION_PERMIT})
 """The one closed exception to command reachability (decision 7): the

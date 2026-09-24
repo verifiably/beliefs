@@ -1,7 +1,7 @@
 # User and autonomy layers — design
 
 **Date:** 2026-08-29
-**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories. Sub-project 1 delivered 2026-09-02: `../../designs/2026-08-31-coordination-and-view-kinds-design.md` elaborates §4.1–§4.2, adds W17/W18, and is implemented through conformance cut 14, with only W17 intent-position deferred to `publish`. Sub-project 5's first slice, publication records (`2026-09-22-publication-records-design.md`), discharged at conformance cut 39 on 2026-09-23 and closed W17 (`../../plans/2026-09-23-conformance-cut-39-results.md`); the publish act itself is its second slice
+**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories. Sub-project 1 delivered 2026-09-02: `../../designs/2026-08-31-coordination-and-view-kinds-design.md` elaborates §4.1–§4.2, adds W17/W18, and is implemented through conformance cut 14, with only W17 intent-position deferred to `publish`. Sub-project 5's first slice, publication records (`2026-09-22-publication-records-design.md`), discharged at conformance cut 39 on 2026-09-23 and closed W17 (`../../plans/2026-09-23-conformance-cut-39-results.md`); its second slice, the publish act for a local destination (`2026-09-23-publish-act-local-design.md`), discharged at conformance cut 40 on 2026-09-24 and closed Y5–Y10 (`../../plans/2026-09-24-conformance-cut-40-results.md`); remote destinations are its third slice, cut 41
 **Scope:** the division of the stack above the epistemic kernel into a daily
 surface and an autonomy layer, the rename that makes the division nameable,
 and the sub-projects that build it. It selects no cut scope and freezes no
@@ -486,6 +486,33 @@ missing identities listed; the user widens the view or drops the record.
    > pins, its epoch and its staging identities, so an intent with no request
    > record is still never resumed.
 
+   > **Amended 2026-09-24 (publish act, local, conformance cut 40 —
+   > `2026-09-23-publish-act-local-design.md` decisions 2–3, §4;
+   > `../../plans/2026-09-24-conformance-cut-40-results.md`):**
+   >
+   > - **The selection is evaluated before the lock and snapshotted.** Step
+   >   0 resolves the view, then evaluates its query against the caller's
+   >   `current_epoch(world)`. The act never builds an epoch. It runs every
+   >   step-0 refusal (`selection-incomplete`, `empty-selection`,
+   >   `closure-incomplete`, `pins-disagree`, `coordination-unpinned`,
+   >   `destination-unusable`, `operations-root-unusable`,
+   >   `profile-disagrees`) before the lock, writing nothing.
+   > - **The lock covers the tips and the intent, with a pin re-check.**
+   >   Inside it, `_open_publication` resolves the view again and refuses
+   >   `view-revised` if the tip is no longer the revision evaluated, so a
+   >   new revision is never frozen beside the old revision's selection.
+   > - **The snapshot, then the request.** After the intent, the selected
+   >   records' canonical texts are written create-only to
+   >   `<operations root>/publish/<event_token>/selection.v1`, then the
+   >   request, whose `selection` field is the snapshot's identity.
+   > - **Population reads only the snapshot.** It does not re-resolve the
+   >   selection at the frozen epoch as step 2 below says, so a corpus that
+   >   moves after the intent (`corpus-drifted`) cannot strand a retry. The
+   >   epoch's packaging identity is still frozen in the request, and the
+   >   marker still cites it.
+   > - **The staging profile is supplied.** The staging profile is the
+   >   caller's `ProfileSpec`, whose pins must equal the derived pins.
+
    **The destination pins.** A destination corpus carries exactly one
    `CorpusPins = (science_contract, domains)`, and a selection may span
    several source corpora. The pins are derived at step 0 from the
@@ -644,6 +671,25 @@ missing identities listed; the user widens the view or drops the record.
    the destination directory; for a Git remote, a Zenodo deposit, or an
    inbox it is the request's `export` path, a durable, publisher-owned
    directory that step 7 later transports. The actor cannot reach it.
+
+   > **Amended 2026-09-24 (publish act, local, conformance cut 40 —
+   > `2026-09-23-publish-act-local-design.md` decision 4, §6;
+   > `../../plans/2026-09-24-conformance-cut-40-results.md`):**
+   >
+   > - **A local destination is a container, not the export root.** Each
+   >   publication's export root is `<destination>/<corpus_id>`, and its
+   >   sibling is `<destination>/<corpus_id>.head-artifact.v1`. The root's
+   >   `.metadata` sibling (`metadata_root_for`) sits beside both. A second
+   >   publication to the same destination lands beside the first rather
+   >   than colliding with it.
+   > - **The destination is resolved and checked at step 0.** It must be an
+   >   existing directory inside neither the operations root, a mounted
+   >   corpus root nor the world root. The resolved path is what the intent
+   >   and the request freeze.
+   > - **`replicate_root` is reinvoked on every retry.** Its
+   >   retained-operation check, not the root's serviceable state, proves
+   >   that the root at the path is this attempt's. A foreign occupant
+   >   refuses and binds nothing.
 5. **Write the artifact to its canonical sibling locator** —
    `<export root parent>/<corpus_id>.head-artifact.v1`, outside the root
    so the corpus bytes are untouched — by the durable create-only write
@@ -788,6 +834,32 @@ reading, classifies the state it finds, and resumes there:
 | revealed; either binding state; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
 | revealed; this attempt's binding revision **absent**; intent `closed` | **terminally refused**, not done and never resumed: `closed` means fulfilled, not successful, and a fulfillment without this attempt's revision is step 8's `predecessor-not-standing` refusal on record — the revealed corpus is unbound: discarded if local, a standing orphan superseded by the next publication if remote (step 8), and a new attempt begins under a new token |
 | revealed; this attempt's binding revision present; intent `closed` | done |
+
+> **Amended 2026-09-24 (publish act, local, conformance cut 40 —
+> `2026-09-23-publish-act-local-design.md` §4.5, §9;
+> `../../plans/2026-09-24-conformance-cut-40-results.md`):**
+> `request-corrupt` is restated for the snapshot. The "cached tips disagree"
+> case cannot arise, because since cut 39 the tips are in the intent and step
+> 8's door recomputes them. Before the table above, a retry decodes the
+> request and the snapshot. It refuses `request-corrupt`, reported and
+> terminal, when:
+>
+> - the request fails to decode;
+> - the request's token, view or destination disagrees with the intent's;
+> - the snapshot is missing;
+> - the snapshot's identity differs from the request's `selection`;
+> - the snapshot's records fail to decode.
+>
+> Before any of that, `resume_publish` reads the intent's completion
+> reading. An `unfinished` intent with no request is `no-request`, never
+> resumed. An `unfinished` intent with this attempt's binding present is
+> `binding-without-report`. Both write nothing.
+>
+> The rows through step 6 and step 8 are reached by reinvocation, as
+> written. The bare-reservation row is the engine's exact-retry predicate,
+> which a crash at the act's step boundaries does not reach; killing the
+> process inside `replicate_root` is `persistence-cut`'s. The remote row
+> (step 7) is cut 41's.
 
 No abandon operation exists, and cleanup of a reservation nobody will
 retry is an explicit out-of-band operator action, never something a
@@ -994,7 +1066,8 @@ computed belief — every step a governed record.
 `domain-boundary` retains D1's cross-repository negative.
 Item 1's `coordination-addressing` boundary left the live ledger when cut 14
 discharged; `publish` retains W17 intent-position. *(Amended 2026-09-23:
-cut 39 closed W17; `publish` retains its second slice.)*
+cut 39 closed W17; `publish` retains its second slice.)* *(Amended 2026-09-24:
+cut 40 discharged the local act; `publish` retains cut 41's remote slice.)*
 
 ## 9. Verification posture shared by the three repositories
 

@@ -29,6 +29,9 @@ __all__ = [
     "EVIDENCE_REFUSAL_REASONS",
     "INDETERMINATE",
     "OPERATION_KINDS",
+    "REQUEST_CORRUPT_REASONS",
+    "REVEAL_REFUSED_VERDICTS",
+    "STAGING_CORRUPT_REASONS",
     "UNFINISHED",
     "ActReport",
     "AssessmentRunIntent",
@@ -40,6 +43,8 @@ __all__ = [
     "DeclarationPinEntry",
     "Entry",
     "EvaluationFinding",
+    "ExportCollision",
+    "Exported",
     "ImportedRecords",
     "LocatorEntry",
     "ManagedMutationEntry",
@@ -47,17 +52,34 @@ __all__ = [
     "OperationIntent",
     "PinnedDeclaration",
     "PublicationBindingEntry",
+    "PublicationExportEntry",
+    "PublicationRequestEntry",
+    "PublicationRevealEntry",
+    "PublicationStagingEntry",
     "PublishedObservation",
     "RecordImportEntry",
     "RecordMutationEntry",
     "Registration",
+    "RequestCorrupt",
     "RetrievalFailed",
+    "RevealRefused",
+    "Revealed",
     "RunAttemptEntry",
     "RunRefusal",
+    "Staged",
+    "StagingCorrupt",
     "SubjectEvaluationEntry",
     "binding_outcome_from_facet",
     "cite",
     "completion",
+]
+# publish-act-local §7's functions, in a list of their own: cut 3's T1 and T8 arms
+# pin `"completion",\n]` as the tail of the list above
+__all__ += [
+    "lifecycle_outcome_from_facet",
+    "outcome_type",
+    "publish_entries_from_facet",
+    "publish_sequence_error",
 ]
 
 ACT_REPORT_DOMAIN = "science.act-report.v1"
@@ -335,6 +357,100 @@ def binding_outcome_from_facet(
         values["tips"] = tuple(values["tips"])
     return kind(**values)
 
+REQUEST_CORRUPT_REASONS = ("undecodable", "intent-disagrees", "snapshot-missing", "snapshot-mismatch", "snapshot-undecodable")
+STAGING_CORRUPT_REASONS = ("pins-foreign", "hole", "extra", "bytes", "marker")
+REVEAL_REFUSED_VERDICTS = ("refuted", "unresolvable", "malformed")
+_HEX64 = re.compile(r"[0-9a-f]{64}")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class RequestCorrupt:
+    reason: str
+
+    def __post_init__(self) -> None:
+        if self.reason not in REQUEST_CORRUPT_REASONS:
+            raise MalformedRecord(f"request-corrupt reason {self.reason!r} is outside {REQUEST_CORRUPT_REASONS}")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Staged:
+    corpus_id: str
+    records: int
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "staged corpus id")
+        if type(self.records) is not int or self.records < 1:
+            raise MalformedRecord("staged records is a positive exact int")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class StagingCorrupt:
+    corpus_id: str
+    reason: str
+    refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "staging-corrupt corpus id")
+        if self.reason not in STAGING_CORRUPT_REASONS:
+            raise MalformedRecord(f"staging-corrupt reason {self.reason!r} is outside {STAGING_CORRUPT_REASONS}")
+        if type(self.refs) is not tuple or len(self.refs) > 1 or any(type(ref) is not str or not ref for ref in self.refs):
+            raise MalformedRecord("staging-corrupt refs are a tuple of at most one record id")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Exported:
+    corpus_id: str
+    artifact: str
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "exported corpus id")
+        if type(self.artifact) is not str or _HEX64.fullmatch(self.artifact) is None:
+            raise MalformedRecord("an exported artifact identity is 64 lowercase hex")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class ExportCollision:
+    corpus_id: str
+    sibling: str
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "export-collision corpus id")
+        if self.sibling != f"{self.corpus_id}.head-artifact.v1":
+            raise MalformedRecord("an export collision names the corpus's own sibling")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Revealed:
+    corpus_id: str
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "revealed corpus id")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class RevealRefused:
+    corpus_id: str
+    verdict: str
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "reveal-refused corpus id")
+        if self.verdict not in REVEAL_REFUSED_VERDICTS:
+            raise MalformedRecord(f"reveal-refused verdict {self.verdict!r} is outside {REVEAL_REFUSED_VERDICTS}")
+
 
 Outcome: TypeAlias = (
     PublishedObservation
@@ -349,6 +465,13 @@ Outcome: TypeAlias = (
     | BindingBound
     | BindingPredecessorNotStanding
     | BindingEvidenceRefused
+    | RequestCorrupt
+    | Staged
+    | StagingCorrupt
+    | Exported
+    | ExportCollision
+    | Revealed
+    | RevealRefused
 )
 
 
@@ -457,6 +580,53 @@ class PublicationBindingEntry:
         _require_str(self.subject, "publication binding entry subject")
         _require_outcome(self, self.outcome)
 
+@sealed
+@final
+@dataclass(frozen=True)
+class PublicationRequestEntry:
+    subject: str
+    outcome: RequestCorrupt
+
+    def __post_init__(self) -> None:
+        _require_str(self.subject, "publication request entry subject")
+        _require_outcome(self, self.outcome)
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class PublicationStagingEntry:
+    subject: str
+    outcome: Staged | StagingCorrupt
+
+    def __post_init__(self) -> None:
+        _require_str(self.subject, "publication staging entry subject")
+        _require_outcome(self, self.outcome)
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class PublicationExportEntry:
+    subject: str
+    outcome: Exported | ExportCollision
+
+    def __post_init__(self) -> None:
+        _require_str(self.subject, "publication export entry subject")
+        _require_outcome(self, self.outcome)
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class PublicationRevealEntry:
+    subject: str
+    outcome: Revealed | RevealRefused
+
+    def __post_init__(self) -> None:
+        _require_str(self.subject, "publication reveal entry subject")
+        _require_outcome(self, self.outcome)
+
 
 Entry: TypeAlias = (
     LocatorEntry
@@ -467,6 +637,10 @@ Entry: TypeAlias = (
     | RecordMutationEntry
     | RunAttemptEntry
     | PublicationBindingEntry
+    | PublicationRequestEntry
+    | PublicationStagingEntry
+    | PublicationExportEntry
+    | PublicationRevealEntry
 )
 
 _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
@@ -478,6 +652,10 @@ _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
     RecordMutationEntry: (Moved, Consolidated),
     RunAttemptEntry: (RunRefusal,),
     PublicationBindingEntry: (BindingBound, BindingPredecessorNotStanding, BindingEvidenceRefused),
+    PublicationRequestEntry: (RequestCorrupt,),
+    PublicationStagingEntry: (Staged, StagingCorrupt),
+    PublicationExportEntry: (Exported, ExportCollision),
+    PublicationRevealEntry: (Revealed, RevealRefused),
 }
 _ENTRY_KINDS: dict[type[object], str] = {
     LocatorEntry: "pure-look",
@@ -488,6 +666,10 @@ _ENTRY_KINDS: dict[type[object], str] = {
     RecordMutationEntry: "record-mutation",
     RunAttemptEntry: "run-attempt",
     PublicationBindingEntry: "publication-binding",
+    PublicationRequestEntry: "publication-request",
+    PublicationStagingEntry: "publication-staging",
+    PublicationExportEntry: "publication-export",
+    PublicationRevealEntry: "publication-reveal",
 }
 _OUTCOME_TYPES: dict[type[object], str] = {
     PublishedObservation: "published-observation",
@@ -502,7 +684,102 @@ _OUTCOME_TYPES: dict[type[object], str] = {
     BindingBound: "bound",
     BindingPredecessorNotStanding: "predecessor-not-standing",
     BindingEvidenceRefused: "evidence-refused",
+    RequestCorrupt: "request-corrupt",
+    Staged: "staged",
+    StagingCorrupt: "staging-corrupt",
+    Exported: "exported",
+    ExportCollision: "export-collision",
+    Revealed: "revealed",
+    RevealRefused: "reveal-refused",
 }
+
+_LIFECYCLE_ENTRIES = (PublicationStagingEntry, PublicationExportEntry, PublicationRevealEntry)
+_LIFECYCLE_SUCCESS = {PublicationStagingEntry: Staged, PublicationExportEntry: Exported, PublicationRevealEntry: Revealed}
+
+
+def publish_sequence_error(sequence: object) -> str | None:
+    """`None` iff `sequence` is a publish report's sequence (publish-act-local
+    §7): a request refusal alone; staging, export, reveal in order, each but the
+    last succeeding and the last refusing; the whole successful lifecycle then
+    the binding; or the binding alone (cut 39's door, called bare)."""
+    if type(sequence) is not tuple or not sequence or any(type(e) not in _ENTRY_KINDS for e in sequence):
+        return "a publish report carries a non-empty tuple of entries"
+    if len({e.subject for e in sequence}) != 1:
+        return "every entry of a publish report names the one binding address"
+    kinds = tuple(type(e) for e in sequence)
+    if kinds == (PublicationRequestEntry,):
+        return None
+    if kinds[-1] is PublicationBindingEntry:
+        if kinds[:-1] not in ((), _LIFECYCLE_ENTRIES):
+            return "a binding entry follows the whole lifecycle or nothing"
+        if any(type(e.outcome) is not _LIFECYCLE_SUCCESS[type(e)] for e in sequence[:-1]):
+            return "a binding follows a lifecycle that succeeded at every step"
+        return None
+    if kinds != _LIFECYCLE_ENTRIES[: len(kinds)]:
+        return "lifecycle entries run staging, export, reveal, in that order"
+    if any(type(e.outcome) is not _LIFECYCLE_SUCCESS[type(e)] for e in sequence[:-1]):
+        return "only the last lifecycle entry refuses"
+    if type(sequence[-1].outcome) is _LIFECYCLE_SUCCESS[kinds[-1]]:
+        return "a lifecycle sequence ends at a refusal or at the binding"
+    return None
+
+
+_LIFECYCLE_OUTCOMES: dict[str, dict[str, type]] = {
+    "publication-request": {"request-corrupt": RequestCorrupt},
+    "publication-staging": {"staged": Staged, "staging-corrupt": StagingCorrupt},
+    "publication-export": {"exported": Exported, "export-collision": ExportCollision},
+    "publication-reveal": {"revealed": Revealed, "reveal-refused": RevealRefused},
+}
+_LIFECYCLE_ENTRY_TYPES = {
+    "publication-request": PublicationRequestEntry,
+    "publication-staging": PublicationStagingEntry,
+    "publication-export": PublicationExportEntry,
+    "publication-reveal": PublicationRevealEntry,
+}
+
+
+def lifecycle_outcome_from_facet(kind: str, outcome: object) -> Outcome:
+    """A lifecycle outcome's stored form, decoded through its typed constructor,
+    so the stored mirror and the values share one rule set. Raises
+    `MalformedRecord` on anything else."""
+    types = _LIFECYCLE_OUTCOMES.get(kind)
+    if types is None or not isinstance(outcome, dict) or type(outcome.get("type")) is not str or outcome["type"] not in types:
+        raise MalformedRecord(f"a {kind} outcome names one of {sorted(types or ())}")
+    value_type = types[outcome["type"]]
+    names = {field.name for field in dataclasses.fields(value_type)}
+    if set(outcome) != {"type", *names}:
+        raise MalformedRecord(f"a {outcome['type']} outcome carries exactly {sorted(names)}")
+    values = {name: outcome[name] for name in names}
+    if "refs" in values:
+        if type(values["refs"]) is not list:
+            raise MalformedRecord("refs are a list in the stored form")
+        values["refs"] = tuple(values["refs"])
+    return value_type(**values)
+
+
+def publish_entries_from_facet(rows: object) -> tuple[Entry, ...]:
+    """A publish report's stored entry rows as values, in one ordered sequence."""
+    if type(rows) is not list:
+        raise MalformedRecord("a publish report's entries are a list")
+    decoded: list[Entry] = []
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {"kind", "subject", "outcome"} or type(row["kind"]) is not str or type(row["subject"]) is not str:
+            raise MalformedRecord("a publish entry carries exactly kind, subject and outcome")
+        if row["kind"] == "publication-binding":
+            decoded.append(PublicationBindingEntry(row["subject"], binding_outcome_from_facet(row["outcome"])))
+        elif row["kind"] in _LIFECYCLE_ENTRY_TYPES:
+            entry_type = _LIFECYCLE_ENTRY_TYPES[row["kind"]]
+            decoded.append(entry_type(row["subject"], lifecycle_outcome_from_facet(row["kind"], row["outcome"])))
+        else:
+            raise MalformedRecord(f"{row['kind']!r} is not a publish entry kind")
+    sequence = tuple(decoded)
+    if (problem := publish_sequence_error(sequence)) is not None:
+        raise MalformedRecord(problem)
+    return sequence
+
+
+def outcome_type(outcome: Outcome) -> str:
+    return _OUTCOME_TYPES[type(outcome)]
 
 
 def _outcome_facet(outcome: Outcome) -> dict[str, object]:
