@@ -1,13 +1,15 @@
 ---
 id: beliefs-328507
 title: "The publish act: request record, selection snapshot, staging, export, reveal and recovery (cut 40)"
-status: todo
+status: doing
 priority: 2
 size: xl
 complexity: high
 process: planned
+owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-23T14:27:47Z
+updated: 2026-09-24T02:26:25Z
+started: 2026-09-24T02:25:52Z
 depends: [beliefs-d7d7d1]
 parent: beliefs-1a5157
 tags: [publication]
@@ -19,3 +21,9 @@ Slice 2 of publish: layer design 6.1 steps 0 (request record, durable create-onl
 ## Notes
 
 - 2026-09-23T14:27:47Z (design/publish): Cut 40's recovery table must cover the unfinished publish intent: at cut 39 step 8, an exception before any effect (non-bool reveal, pin disagreement, unbound port, malformed binding arguments, a mismatched OpenedPublication, a guard exception other than LogEvidenceRefused, or a LogEvidenceRefused on the written root whose fallback cannot write) leaves the intent unfinished rather than orphaned, so a remotely revealed marker is recovered only from the unfinished intent (cut-39 results §3.3, Ruling 12).
+- 2026-09-24T02:25:52Z (design/publish): started
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T02:25:52Z (design/publish): claimed by claude-code opus-5-5, pid 3181057; brainstorming the cut-40 spec in .worktrees/publish
+- 2026-09-24T02:26:25Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T02:26:25Z (design/publish): claimed by claude-code opus-5-5, pid 3181057; brainstorming the cut-40 spec in .worktrees/publish
