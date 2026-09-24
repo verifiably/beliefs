@@ -500,9 +500,14 @@ RAW_WRITE_ALLOWLIST = {
     # every corpus and world root and registered by nothing (publish-act-local
     # design §4.4).
     "durable.py": {"unlink"},
+    # Step 9's discard: a done attempt's staging corpus, its staging world and
+    # their metadata siblings, private throwaway roots under the operations
+    # root, removed outside any `atoms` operation (publish-act-local design §8,
+    # §16 item 3). The request and the snapshot stay.
+    "publish.py": {"rmtree"},
 }
-"""The eight surfaces Science writes with its own hands, all stated. None is
-a registered surface; a ninth entry appearing here would be a claim to weigh,
+"""The nine surfaces Science writes with its own hands, all stated. None is
+a registered surface; a tenth entry appearing here would be a claim to weigh,
 which is why the allowlist is compared for equality and never for containment.
 """
 
@@ -591,7 +596,7 @@ def test_no_cooperative_mutation_path_skips_registration():
     assert set(RAW_WRITE_ALLOWLIST) == {
         "adapter.py", "boundary.py", "confinement.py", "probe.py",
         "holdings/boundary.py", "holdings/acquire.py", "holdings/transport.py",
-        "durable.py",
+        "durable.py", "publish.py",
     }
 
 

@@ -255,6 +255,8 @@ __all__ = [
     "open_world_read",
     "plan_preflight",
     "read_lifecycle_state",
+    "read_serviceable",
+    "replicate_export",
     "replicate_root",
     "restore_root",
     "store_identity",
@@ -528,6 +530,21 @@ def read_lifecycle_state(root: Path) -> LifecycleState:
         str(metadata_root_for(target)),
         PRODUCTION_STORAGE,
     )
+
+
+def replicate_export(staging_root: Path, export_root: Path, *, authority: Authority) -> RootOperationId:
+    """The publish act's replication (publish-act-local design §6 step 6):
+    `replicate_root`, reached by a name the act may hold, since only this
+    module names an engine command. Reinvoked on every retry, its retained
+    operation check proves the export root is the attempt's; a foreign
+    occupant's `RootOperationMismatch` propagates unchanged."""
+    return replicate_root(staging_root, export_root, authority=authority)
+
+
+def read_serviceable(root: Path) -> bool:
+    """Whether `root` is read-only serviceable: the local reveal (publish-act-local
+    design §6). Only this module reads the lifecycle state by its engine name."""
+    return read_lifecycle_state(root) is LifecycleState.READ_ONLY_SERVICEABLE
 
 
 def migrate_root_to_lifecycle_v3(root: Path, *, authority: Authority) -> None:
