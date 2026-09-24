@@ -600,3 +600,17 @@ def test_the_publish_report_mints_the_lifecycle_before_the_binding(publish_inten
         _mint_publish_refusal(publish_intent_value, entries=(*_lifecycle(), _binding()), **times)
     with pytest.raises(MalformedRecord):
         _mint_publish_report(publish_intent_value, entry=_binding(), lifecycle=_lifecycle("staging"), **times)
+
+
+@pytest.mark.parametrize("bad", [["x"], {"x": 1}], ids=["list", "dict"])
+def test_a_non_string_stored_type_or_kind_refuses_rather_than_crashing(bad):
+    from beliefs.report import _entry_facet
+
+    entry = {"kind": "publication-staging", "subject": _S, "outcome": {"type": bad}}
+    assert stored._valid_report_entry(entry) is False
+    with pytest.raises(MalformedRecord):
+        report_values.lifecycle_outcome_from_facet("publication-staging", {"type": bad})
+    with pytest.raises(MalformedRecord):
+        publish_entries_from_facet([entry])
+    with pytest.raises(MalformedRecord):
+        publish_entries_from_facet([{**_entry_facet(_lifecycle("staging")[0]), "kind": bad}])

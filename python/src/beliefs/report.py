@@ -743,7 +743,7 @@ def lifecycle_outcome_from_facet(kind: str, outcome: object) -> Outcome:
     so the stored mirror and the values share one rule set. Raises
     `MalformedRecord` on anything else."""
     types = _LIFECYCLE_OUTCOMES.get(kind)
-    if types is None or not isinstance(outcome, dict) or outcome.get("type") not in types:
+    if types is None or not isinstance(outcome, dict) or type(outcome.get("type")) is not str or outcome["type"] not in types:
         raise MalformedRecord(f"a {kind} outcome names one of {sorted(types or ())}")
     value_type = types[outcome["type"]]
     names = {field.name for field in dataclasses.fields(value_type)}
@@ -763,7 +763,7 @@ def publish_entries_from_facet(rows: object) -> tuple[Entry, ...]:
         raise MalformedRecord("a publish report's entries are a list")
     decoded: list[Entry] = []
     for row in rows:
-        if not isinstance(row, dict) or set(row) != {"kind", "subject", "outcome"} or type(row["subject"]) is not str:
+        if not isinstance(row, dict) or set(row) != {"kind", "subject", "outcome"} or type(row["kind"]) is not str or type(row["subject"]) is not str:
             raise MalformedRecord("a publish entry carries exactly kind, subject and outcome")
         if row["kind"] == "publication-binding":
             decoded.append(PublicationBindingEntry(row["subject"], binding_outcome_from_facet(row["outcome"])))
