@@ -337,18 +337,12 @@ Append this planning note under the spec's §18. It records every interface the 
 
 Update spec §3's `PublishOutcome` table and §14's two tables to match these notes, and change the spec's `Status` line to "approved 2026-09-23; frozen as cut 40 on <date>".
 
-File the plan's step children, one per `### Task N:` heading, each depending on its predecessor:
+The plan's step children exist, filed with the plan, each depending on its predecessor:
+- Task 0 `beliefs-e55483`, Task 1 `beliefs-64c176`, Task 2 `beliefs-95368c`, Task 3 `beliefs-871506`;
+- Task 4 `beliefs-bd21d1`, Task 5 `beliefs-b07d23`, Task 6 `beliefs-c58c49` (high), Task 7 `beliefs-a3bce5`;
+- Task 8 `beliefs-20eae3` (high), Task 9 `beliefs-c5e5ea`, Task 10 `beliefs-53192c`, Task 11 `beliefs-b103bf`, Task 12 `beliefs-e9d93c`.
 
-```bash
-prev=""
-for n in 0 1 2 3 4 5 6 7 8 9 10 11 12; do
-  title=$(grep -m1 "^### Task $n:" docs/superpowers/plans/2026-09-23-publish-act-local.md | sed 's/^### //')
-  id=$(tasks add "$title" --parent beliefs-328507 --plan publish-act-local --step "$title" --complexity mid --process direct --tag publication --agent claude-code/claude-opus-5-5 | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])")
-  [ -n "$prev" ] && tasks dep "$id" --on "$prev" >/dev/null
-  prev=$id; echo "$n $id"
-done
-```
-Then `tasks edit <Task 6's id> --complexity high` and `tasks edit <Task 8's id> --complexity high`: the act's resumption and the acceptance module carry the interacting behaviour. `tasks start` each child before its task, and `tasks done` it in that task's commit.
+`tasks start` each child before its task, and `tasks done` it in that task's commit. Every `<Task N's id>` below is its id from this list.
 
 - [ ] **Step 6: Verify and commit the freeze**
 
