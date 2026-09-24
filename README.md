@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Seventy-seven documents in `docs/designs/`: the banked redesigns, review
+Seventy-eight documents in `docs/designs/`: the banked redesigns, review
 disposition, adoption ledger, measurements, rulings, and contributor-guide
-design written 2026-08-02 through 2026-09-23. Read them in this order:
+design written 2026-08-02 through 2026-09-24. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -108,8 +108,9 @@ design written 2026-08-02 through 2026-09-23. Read them in this order:
 | `2026-09-21-conformance-cut-36.md` | the discharged event-level-l8 cut: the event domain, the witness predicate and the witness-asymmetric relation; L8 closed, L4 and L10 relabelled, L1 re-homed to `persistence-cut`, 16 declaration units, three boundary invariants, the cut 35 runner as prefix; the boundary closes |
 | `2026-09-21-conformance-cut-37.md` | the discharged l13-preimage cut: the digest match over held copies and surviving preimages, the stated absence, the corruption refusal; L13 closed, 11 declaration units, three boundary invariants, the cut 36 runner as prefix; the boundary closes |
 | `2026-09-22-conformance-cut-38.md` | the discharged act-report-remainder cut: the `audit` and `re-check` operations through the boundary, every supplied port bound to its writer; T2 closed in full, 12 declaration units, three boundary invariants, the cut 37 runner as prefix; the boundary closes |
-| `2026-09-22-publication-design.md` | the publication guarantee table (Y): Y1–Y4 from the publication-records slice; the publish act appends its own |
+| `2026-09-22-publication-design.md` | the publication guarantee table (Y): Y1–Y4 from the publication-records slice; Y5–Y10 from the publish act (local), banked with cut 40 |
 | `2026-09-23-conformance-cut-39.md` | the discharged publication-records cut: the coordination contract's v2 amendment, the publish intent and the intent-position judgment; W17 and Y1–Y4 closed in full, 13 declaration units, the cut 38 runner as prefix; `publish` stays open with its second slice |
+| `2026-09-24-conformance-cut-40.md` | the frozen publish-act cut: request, snapshot, staging, export, the local reveal, resumption and marker-required arrival; Y5–Y10 read, 15 declaration units, the cut 39 runner as prefix |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -204,7 +205,7 @@ The latest discharged boundary is cut 39
 [results](docs/plans/2026-09-23-conformance-cut-39-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **220 rows** across **twenty-one frozen
+test before it is a passing one. There are **226 rows** across **twenty-one frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q, U, Y), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.

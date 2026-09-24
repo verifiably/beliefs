@@ -161,7 +161,8 @@ and the `world-read` lane's head with its remainder, the second slice
 (`beliefs-328507`) — the governed publication act between the two doors
 this cut built.
 
-The current accounting is 193 of 220 rows closed, with 27 open. The prior
+The current accounting is 193 of 226 rows closed, with 33 open: cut 40's
+freeze banks the publish act's rows, Y5–Y10, open under `publish`. The prior
 single-corpus mm30 measurement has no remaining on-path boundary; a second corpus may place one here. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state; cut 32 re-ran it again under a further successor and composed and read the `h1-prognosis` fragment from the recreated corpus, which measures structure rather than the on-path question; cut 33 re-derived the same `NoBelief` answer with the empty retraction enumeration derived rather than supplied; cut 34 read the same corpus in place (no contract succeeded to move it aside) and re-derived the same answer, with the new arm exercised only by the acceptance module, not by mm30's corpus; cut 35 read it in place once more and re-derived the same answer with `state.json` byte-identical, its five stored holdings observations all `store` locations decoding unchanged through the widened codec — the `url` arm and the `acquisition` operation are exercised only by the acceptance module; cut 36 read it in place again and re-derived the same answer with `state.json` byte-identical — the event-level relation is read by no driver step, and mm30's single corpus chain orders no cross-chain pair. Cut 37 read it in place again and re-derived the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing; cut 38 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver audits through the bare evaluator and re-checks no holding; cut 39 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's manifest pins no coordination contract. None of these later measurements re-ranks the path.
 
 ## Boundary index
@@ -188,7 +189,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 | `weighted-belief` | S6 (h) | 3 | [beliefs-638318](../../tasks/beliefs-638318.md) |
 | `extraction-path` | M12 | 3 | [beliefs-9e1f60](../../tasks/beliefs-9e1f60.md) |
 | `cross-root-publication` | T7's cross-root case | 3 | [beliefs-256f17](../../tasks/beliefs-256f17.md) |
-| `publish` | the governed publication act and its records' remaining rows (the second slice) | 1, off the path | [beliefs-1a5157](../../tasks/beliefs-1a5157.md) |
+| `publish` | the governed publication act and its records' remaining rows (the second slice); Y5–Y10 (cut 40, frozen) | 1, off the path | [beliefs-1a5157](../../tasks/beliefs-1a5157.md) |
 
 ## Tier 1 — buildable now
 
@@ -203,7 +204,7 @@ In breadth order. Each opens only when no on-path lane is startable
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `publish` | the governed publication act and its records' remaining rows (the second slice, `beliefs-328507`); W17 and Y1–Y4 closed at cut 39 | immutable selected-view publication | the user and autonomy layer design §§4.1 and 6; cut 39 landed the coordination contract's v2 amendment and the act-report's `publish` kind, and the second slice's lifecycle entries land before `contract-cut` freezes |
+| 1 | `publish` | the governed publication act and its records' remaining rows (the second slice, `beliefs-328507`), Y5–Y10 open since cut 40's freeze; W17 and Y1–Y4 closed at cut 39 | immutable selected-view publication | the user and autonomy layer design §§4.1 and 6; cut 39 landed the coordination contract's v2 amendment and the act-report's `publish` kind, and the second slice's lifecycle entries land before `contract-cut` freezes |
 | 2 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
@@ -323,7 +324,8 @@ C10 remains partial only on its `instrument-certification` eligibility arm,
 owned by `contract-cut`; T7 remains partial on its cross-root case, the T
 table's last open row, owned by `cross-root-publication`. The Y table,
 banked at cut 39's freeze, is closed in full at its discharge; the publish
-act's slice appends its own rows.
+act's slice appends Y5–Y10 at cut 40's freeze, and they stay never selected
+until its discharge.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
@@ -347,9 +349,9 @@ act's slice appends its own rows.
 | B | — | — | — |
 | Q | — | — | — |
 | U | — | — | — |
-| Y | — | — | — |
+| Y | Y5, Y6, Y7, Y8, Y9, Y10 | — | — |
 
-Closed 193 of 220; open 27.
+Closed 193 of 226; open 33.
 
 ## Appendix B — classification of every open row
 
@@ -376,6 +378,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | M12 | the extraction path (cut 3 §5; kernel limitation 3) | `extraction-path` — tier 3 |
 | P1 | the resolver half of the negative, 5b §6's deterministic resolution (cut 4 §5) | `contract-cut` |
 | T7 | the same-root case is read at cut 35 (publish-together in one registered transaction, the address unchanged while the record bytes move); the cross-root case remains (act-report design §4: refused today) | `cross-root-publication`, tier 3 |
+| Y5–Y10 | the publish act, local: step-0 refusals, the snapshot, staging, the local reveal, resumption and marker-required arrival, banked at cut 40's freeze (`../designs/2026-09-22-publication-design.md`) | `publish` — tier 1, off the path; cut 40 |
 
 One boundary carried no guarantee row and entered on the ledger's own
 statements: `nodes-remainder` (row 3: reserved-path contract, recoverable

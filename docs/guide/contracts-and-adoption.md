@@ -53,6 +53,7 @@ sources:
   - ../designs/2026-09-22-conformance-cut-38.md
   - ../designs/2026-09-22-publication-design.md
   - ../designs/2026-09-23-conformance-cut-39.md
+  - ../designs/2026-09-24-conformance-cut-40.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -141,13 +142,14 @@ records are reproduced through the new typed boundaries.
 Conformance cut 1 was frozen before implementation. It selected eleven of 126
 then-banked guarantee rows—six wholly and five only at named assertion arms—and
 classified the other 115 by the subsystem that would unblock them. The corpus
-has since grown to 220 rows across twenty-one frozen tables (the README keeps the
+has since grown to 226 rows across twenty-one frozen tables (the README keeps the
 count): the belief policy's P1–P9 banked the day the cut was drawn, the admission ramp appended G9 on 2026-08-09
 while narrowing W3's dataset arm, the verified-holdings record design banked
 H1–H4 on 2026-08-10, the act-report design banked T1–T8 on 2026-08-11, the coordination-and-view-kinds design banked W17–W18 on 2026-08-31, and
 later designs banked their tables through Q (estimand typing, cut 31) and U
-(composite claims, cut 32), and the publication-records slice banked Y1–Y4
-on 2026-09-22 with cut 39's freeze. The
+(composite claims, cut 32), the publication-records slice banked Y1–Y4
+on 2026-09-22 with cut 39's freeze, and the publish act's slice banked
+Y5–Y10 on 2026-09-24 with cut 40's freeze. The
 cut's stop rule was the last fully designed seam: typed claim construction,
 projection, identity, decode, and cross-language parity, with no persistence
 boundary and no belief computation.
@@ -316,9 +318,16 @@ kinds' deterministic records, the `publish` operation kind and act family,
 the evidence-bearing publish intent, and the intent-position judgment over
 the chain's inventory. Fourteen arms over thirteen declaration units close
 W17 in full and Y1–Y4; `publish` stays open with its second slice, the act
-itself. The corpus now has **193 of 220 rows closed, 27 open**
+itself. That left the corpus at **193 of 220 rows closed, 27 open**
 (`../designs/2026-09-23-conformance-cut-39.md`;
 `../plans/2026-09-23-conformance-cut-39-results.md`).
+Cut 40 is frozen and not yet discharged: the publish act for a local
+destination — the request and the selection snapshot, staging through two
+dedicated doors, export, the local reveal, resumption by reinvocation, and
+the marker-required arrival door
+(`../designs/2026-09-24-conformance-cut-40.md`). Its freeze banks the publish
+act's rows, Y5–Y10 (`../designs/2026-09-22-publication-design.md`), so the
+corpus now has **193 of 226 rows closed, 33 open**.
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)

@@ -9,7 +9,7 @@ half.
 **Task:** `beliefs-328507`, child of the lane task `beliefs-1a5157`
 **Lane:** `world-read`, its head since cut 38 (roadmap §Lanes)
 **Cut:** 40, off the path (roadmap tier 1, off-path row 1)
-**Status:** draft, 2026-09-23
+**Status:** approved 2026-09-23; frozen as cut 40 on 2026-09-24
 
 ## 1. What this slice is
 
@@ -200,16 +200,18 @@ def publish(
     view: CoordinationAddress,         # unpinned
     destination: Destination,          # type "local" in this slice
     operations_root: Path,
+    staging_profile: ProfileSpec,      # its pins must be the derived pins
     clock: Callable[[], str],
     seam: MomentSeam,
     port: OperationPort | None = None,
 ) -> PublishOutcome
 
 def resume_publish(
-    writer, resolver, *, event_token: str, operations_root: Path, clock, seam, port=None,
+    writer, resolver, *, event_token: str, operations_root: Path, staging_profile: ProfileSpec,
+    clock, seam, port=None,
 ) -> PublishOutcome
 
-def pending_publishes(writer, *, operations_root: Path) -> tuple[str, ...]
+def pending_publishes(writer, *, operations_root: Path, seam: MomentSeam) -> tuple[str, ...]
 ```
 
 `PublishOutcome` is a closed union:
@@ -217,8 +219,8 @@ def pending_publishes(writer, *, operations_root: Path) -> tuple[str, ...]
 | outcome | when |
 |---|---|
 | `Published(event_token, corpus_id, marker, binding, artifact)` | done (§9) |
-| `PublishRefused(event_token, report)` | a terminal refusal on record: step 8's two refusals, or §7's four pre-binding refusals |
-| `Unresolved(event_token, reason)` | §9's fail-closed rows, with nothing written |
+| `PublishRefused(event_token, outcome)` | a terminal refusal on record: step 8's two refusals, or §7's four pre-binding refusals; `outcome` is the report's last entry's outcome type (for example `staging-corrupt` or `predecessor-not-standing`) |
+| `PublishUnresolved(event_token, reason)` | §9's fail-closed rows, with nothing written |
 
 A refusal before the intent is `PublicationRefused`, raised as an exception
 (cut 39's `WriteRefused`) with the new reasons in §4.1. The attempt has no
@@ -520,11 +522,11 @@ terminal refusal, staging is kept for the operator (layer design §6.1).
 
 | state found | outcome |
 |---|---|
-| intent `unfinished`, no request | `Unresolved("no-request")`, nothing written; never resumed |
-| intent `indeterminate` | `Unresolved("indeterminate")`: fail closed, not resumed, not relabelled |
+| intent `unfinished`, no request | `PublishUnresolved("no-request")`, nothing written; never resumed |
+| intent `indeterminate` | `PublishUnresolved("indeterminate")`: fail closed, not resumed, not relabelled |
 | intent `closed`, this attempt's binding present | `Published`; step 9 if staging remains |
 | intent `closed`, binding absent | `PublishRefused` with the report on record; never resumed |
-| intent `unfinished`, binding present | `Unresolved("binding-without-report")`: a foreign write, since step 8 is all-or-nothing |
+| intent `unfinished`, binding present | `PublishUnresolved("binding-without-report")`: a foreign write, since step 8 is all-or-nothing |
 | intent `unfinished`, request present, binding absent | step 1, by reinvocation (§2 decision 8) |
 
 From step 1 on, the layer design's local rows are reached, not dispatched:
@@ -647,35 +649,36 @@ These run on the certified tuple, over a source world with two contributing
 corpora and a written root pinning coordination v2. The fixture is built under
 setup authority (worlds, epochs, the view's revisions); the writers that call
 `publish` and `resume_publish` bind exactly `publishes()`. Every arm ends
-`_durably`. Crashes are injected at step boundaries through a fault seam on
-the act, which raises and discards in-memory state; a fresh `resume_publish`
-then reads only disk. A kill at an engine stage is `persistence-cut`'s (§16).
+`_durably`. Crashes are injected at step boundaries by monkeypatching the
+act's named step functions (`_initialize`, `_populate`, `_admit_and_export`,
+`_write_sibling`, `_replicate`, `_restore`, `_bind`, `_discard`), which raise
+and discard in-memory state; a fresh `resume_publish` then reads only disk. A kill at an engine stage is `persistence-cut`'s (§16).
 
 | unit | row | assertion |
 |---|---|---|
 | Y5-a | Y5 | each pre-intent refusal leaves the chain's tip and the operations root byte-unchanged |
 | Y5-b | Y5 | a view revised between evaluation and lock refuses `view-revised`; nothing is appended |
-| Y6-a | Y6 | a crash after the request; a task minted in the written root, so the world drifts; `resume_publish` publishes the step-0 selection byte for byte |
+| Y6-a | Y6 | a record added to a contributing corpus after the intent is appended and before the snapshot is written, so the world drifts and re-evaluation refuses `corpus-drifted`; a crash before step 1; `resume_publish` publishes the step-0 selection byte for byte |
 | Y6-b | Y6 | the snapshot rewritten with other bytes → `request-corrupt` report, closed, no binding |
-| Y7-a | Y7 | a crash after *k* staged records → resume writes *k + 1* … once each (the counting port) |
+| Y7-a | Y7 | a crash after *k* staged records → resume writes *k + 1* … once each (counting `_stage_record` calls on the resume) |
 | Y7-b | Y7 | an extra record raw-written into staging → `staging-corrupt` naming it, report alone, staging retained |
 | Y8-a | Y8 | a published root is read-only-serviceable at `<destination>/<corpus_id>` with the sibling beside it; a second publish of the same view lands beside it, and its marker supersedes the first's |
 | Y8-b | Y8 | a pre-existing sibling with other bytes → `export-collision`, no binding |
 | Y9-a | Y9 | for each step boundary 1–6 and 8, crash then resume → `Published`, exactly one binding revision and one report, the report's entries in step order |
-| Y9-b | Y9 | a binding revision raw-written beside an unfinished intent → `Unresolved("binding-without-report")`, nothing written |
-| Y9-c | Y9 | an intent with no request → `Unresolved("no-request")`; `pending_publishes` omits it |
+| Y9-b | Y9 | a binding revision raw-written beside an unfinished intent → `PublishUnresolved("binding-without-report")`, nothing written |
+| Y9-c | Y9 | `pending_publishes` lists a crashed attempt and omits a done one and a requestless intent; the requestless intent resumes to `PublishUnresolved("no-request")` |
 | Y9-d | Y9 | done then a crash inside step 9 → resume discards staging and answers `Published` |
 | Y9-e | Y9 | a successful publish followed by a second publish of the same view to the same destination: the second's intent carries the first's marker in `marker_tips` and binds; separately, a `staging-corrupt` refusal followed by a fresh publish: the fresh intent's `marker_tips` omits the refused attempt, and it binds |
-| Y10-a | Y10 | a second world admits the published root through `admit_publication`, and its epoch sees the selection |
+| Y10-a | Y10 | a second world admits the published root through `admit_publication`, and its epoch sees the selection; a plain replica with no marker is refused `marker-absent` |
 | Y10-b | Y10 | a root built through the staging doors with one record beyond its marker's selection, exported, replicated and restored against its own artifact, so its chain verifies → `admit_publication` refuses `selection-mismatch`, and the recipient's registry is unchanged |
 
 ### 14.3 N2 sabotages — `n2_arms_cut40.py`
 
 | unit | sabotage |
 |---|---|
-| Y5-a | the closure check skips `composes` |
+| Y5-a | the closure reads relation targets only |
 | Y5-b | `_open_publication` ignores `expected_view` |
-| Y6-a | resume re-evaluates the query instead of reading the snapshot |
+| Y6-a | the act re-evaluates the selection after the intent instead of keeping the step-0 evaluation |
 | Y6-b | the retry skips the snapshot's identity check |
 | Y7-a | the classifier restarts population from record 1 |
 | Y7-b | the classifier ignores records outside the snapshot |
@@ -683,11 +686,11 @@ then reads only disk. A kill at an engine stage is `persistence-cut`'s (§16).
 | Y8-b | the sibling write overwrites instead of creating |
 | Y9-a | step 8's report omits the lifecycle entries |
 | Y9-b | the classifier treats binding-present-unfinished as done |
-| Y9-c | `pending_publishes` lists requestless intents |
-| Y9-d | done is decided by resolving the current binding instead of this attempt's identity |
+| Y9-c | `pending_publishes` drops the `unfinished` filter |
+| Y9-d | the done branch of `resume_publish` skips step 9 |
 | Y9-e | `_reports_at` keeps cut 39's exactly-one-binding-entry rule |
-| Y10-a | `admit_publication` skips `marker_consistent` |
-| Y10-b | the selection-equality check compares ids only against the marker, not the root's contents |
+| Y10-a | `admit_publication` drops the marker count, so a root with no marker is not refused |
+| Y10-b | the selection check tests membership one way only |
 
 The plan fixes the declared accounting (15 arms, 15 units, 6 rows as drafted
 here: Y5–Y10). A unit whose check does not see its sabotage is rehomed at
@@ -784,3 +787,61 @@ orphans and Ruling 12, and the recipient's `divergent-publication`.
     answering `present` (§4.4);
   - acceptance fixtures are built under setup authority, and only the
     publishing and resuming writers bind exactly `publishes()` (§14.2).
+- 2026-09-23 — at planning (plan `../plans/2026-09-23-publish-act-local.md`):
+  - **The staging profile is the caller's.** The kernel has no function that
+    compiles a `ProfileSpec` from pin identities, and `adopt_manifest` writes
+    only its writer's own profile's pins. So `publish` and `resume_publish` take
+    `staging_profile: ProfileSpec`, and step 0 refuses `profile-disagrees`
+    (a new `PublicationRefused` reason, before the intent) when its pins are not
+    the derived pins. A resume with another profile refuses `ValidationRefused`
+    and writes nothing, like an actor mismatch (decision 9).
+  - **`_stage_record` applies the record-local refusals only**: document
+    validation, already minted, the rendering equal to the snapshot text, and
+    collision. It skips the view-reading refusals `_refuse` also applies
+    (supersedes and assesses targets, composite members, verification), since
+    population runs in id order, not dependency order, and every selected
+    record passed those checks where it was minted.
+  - **`staging-corrupt` carries `refs`**, a tuple of zero or one record ids,
+    not a nullable record. The identity encoding refuses null, and
+    `corpus_id` is always known, since every staging-corrupt case is found
+    after the manifest exists.
+  - **`PublishRefused` carries the last entry's outcome type** (for example
+    `staging-corrupt` or `predecessor-not-standing`), not the report. A resume
+    that finds a closed attempt reads the outcome from the chain's report and
+    holds no `ActReport` value. `Unresolved` is named `PublishUnresolved`,
+    since `world.selection.Unresolved` exists.
+  - **The completion reading is `publication_doors.attempt_reading`.** It reads
+    the written chain by the fold's own rule (`_reports_at`): no committed
+    fulfilment is `unfinished`; a report that is present, matching and
+    qualifying is `closed`; a report the fold refuses is `indeterminate`.
+  - **The head artifact's content identity** (the binding's `artifact`) is the
+    SHA-256 of the artifact's canonical bytes, the bytes the sibling holds.
+  - **`_bind_publication(lifecycle=())` and `_open_publication(expected_view=None)`
+    default to cut 39's behaviour.** Cut 39's frozen tests call both doors
+    bare, and the ordered-sequence rule admits a lone binding entry, which the
+    act never writes.
+  - **Crashes are injected by monkeypatching the act's named step functions**
+    (`beliefs.publish._initialize`, `_populate`, `_admit_and_export`,
+    `_write_sibling`, `_replicate`, `_restore`, `_bind`, `_discard`), not
+    through a fault parameter on the act.
+  - **Six arms are reshaped so that each check sees its sabotage:**
+    - Y5-a's sabotage makes the closure read relation targets only. The rule is
+      one loop over every world relation, so a `composes`-only sabotage would
+      need a special case the code does not have; the composite amendment is
+      pinned by a unit test instead.
+    - Y6-a's drift is committed between the intent and the snapshot write, and
+      its sabotage re-evaluates the selection after the intent. The written
+      root is not a world corpus, so the drift is a record added to a
+      contributing corpus.
+    - Y9-c asserts that `pending_publishes` lists a crashed attempt and omits a
+      done one and a requestless intent. Its sabotage drops the `unfinished`
+      filter: `pending_publishes` enumerates request files, so a requestless
+      intent is never a candidate.
+    - Y9-d's sabotage skips step 9 on the done branch of `resume_publish`.
+    - Y10-a also admits nothing from a plain replica with no marker, and its
+      sabotage removes the marker count. `marker_consistent` is not
+      independently observable: the content rule already checks uid and
+      address, and the id follows from both.
+    - Y10-b's sabotage checks selection membership one way only.
+  - **The destination and the operations root are resolved once, at entry**
+    (`Path.resolve()`), and neither may lie inside the other.

@@ -49,7 +49,9 @@ work.
 **Updated 2026-09-23** for cut 39's publication-records discharge: W17
 closes in full and Y1–Y4 close, and `publish` stays open with its second
 slice. The T table stays partial on T7's cross-root case alone, and row 5
-stays partial for L1's persistence arms alone.
+stays partial for L1's persistence arms alone. **Updated 2026-09-24** for
+cut 40's freeze: Y5–Y10, the publish act's rows, are banked and open under
+`publish`.
 
 **Implemented through conformance cut 39.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
@@ -341,8 +343,14 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   engine's write-ahead order. Two internal doors write the source root, the
   step-0 intent and the step-8 binding commit, with no public route. **W17
   closes in full and Y1–Y4 close.** `publish` stays in the table with its
-  remainder, the second slice (`beliefs-328507`). The corpus has **193 of
-  220 rows closed, 27 open**.
+  remainder, the second slice (`beliefs-328507`). The corpus had **193 of
+  220 rows closed, 27 open** at cut 39.
+- **The publish act's rows (Y5–Y10)**, banked 2026-09-24 with conformance cut
+  40's freeze (`2026-09-22-publication-design.md`,
+  `2026-09-24-conformance-cut-40.md`): Y5–Y10 are open under `publish`, the
+  local act's request, snapshot, staging, export, reveal, resumption and
+  marker-required arrival. The corpus has **193 of 226 rows closed, 33
+  open**.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -362,7 +370,7 @@ not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
-| `publish` | the governed publication act — the second slice (`beliefs-328507`): the request record, the selection snapshot, staging, export, reveal, the recovery table, transport and arrival, with the rows it appends to the Y table; W17 and Y1–Y4 closed at cut 39 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication; follows the complete world-read lane and precedes the final contract cut |
+| `publish` | the governed publication act — the second slice (`beliefs-328507`): the request record, the selection snapshot, staging, export, reveal, the recovery table, transport and arrival, with Y5–Y10, the rows it appends to the Y table (cut 40, frozen; open); W17 and Y1–Y4 closed at cut 39 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication; follows the complete world-read lane and precedes the final contract cut |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
@@ -372,7 +380,7 @@ publication kinds and their deterministic records, the `publish` kind and
 family, the evidence-bearing publish intent, and the intent-position judgment
 over the chain's inventory. W17 closes in full and Y1–Y4 close; `publish`
 stays in this table and the roadmap index with its second slice, and the
-corpus has **193 of 220** rows closed, 27 open. L1 stays partial on its
+corpus had **193 of 220** rows closed, 27 open, at cut 39. L1 stays partial on its
 persistence arms under `persistence-cut`, and T7 on its cross-root case under
 `cross-root-publication`. The preceding record
 (`../plans/2026-09-22-conformance-cut-38-results.md`) discharged the
