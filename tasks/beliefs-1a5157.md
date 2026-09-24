@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-24T02:25:52Z
+updated: 2026-09-24T02:36:32Z
 started: 2026-09-22T21:54:25Z
 depends: [beliefs-b34652, beliefs-1f7400]
 tags: [migration, publication, coordination]
@@ -43,4 +43,6 @@ Uncertainty: Destination-specific remote transport remains for Science, while th
 - 2026-09-23T17:32:16Z (main): parked (waiting on agent, session): Slice 2 (beliefs-328507, cut 40): brainstorm its spec in .worktrees/publish after rebasing design/publish on main; the recovery table must cover unfinished intents (see its note).
   provenance: {"harness_session":"claude-code:9a178026-a9d1-42aa-8035-08fc78013fed","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-24T02:25:52Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T02:36:32Z (design/publish): parked (waiting on user, review): Slice 2 (beliefs-328507) spec awaiting user review; cut 41 filed as beliefs-3ce305
   provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
