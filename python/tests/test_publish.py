@@ -6,15 +6,16 @@ from __future__ import annotations
 import pytest
 from authority import FULL
 from coordination_fixtures import coordination_profile
-from nodes.core.frontmatter import node_to_markdown
+from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import DefaultExecutor
 from profiles import pins_for
 from test_publish_intent import intent
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
+from beliefs.errors import MalformedRecord
 from beliefs.publication import marker_record
-from beliefs.publish import _Population, _population
+from beliefs.publish import _Population, _population, _require_snapshot_records
 from beliefs.publish_request import Snapshot
 from beliefs.report import StagingCorrupt
 
@@ -108,3 +109,38 @@ def test_a_marker_unequal_to_the_expected_one_is_corrupt(staging):
     assert other.id == marker.id
     writer._stage_marker(other)
     assert _population(writer, corpus_id, snapshot, marker) == StagingCorrupt(corpus_id, "marker", (marker.id,))
+
+
+class _View:
+    """`get` over a dict: the captured records the pre-intent check compares against."""
+
+    def __init__(self, nodes):
+        self._nodes = {n.id: n for n in nodes}
+
+    def get(self, ref):
+        return self._nodes[ref].model_copy(deep=True)
+
+
+def test_the_captured_records_pass_the_pre_intent_check():
+    nodes = _nodes()
+    _require_snapshot_records(_View(nodes), tuple((n.id, node_to_markdown(n)) for n in nodes))
+
+
+def test_a_text_that_is_not_its_canonical_rendering_refuses_before_the_intent():
+    nodes = _nodes()
+    records = tuple((n.id, node_to_markdown(n)) for n in nodes)
+    # a quoted title parses to the captured record but is not its canonical rendering
+    bent = tuple((i, t.replace("title: r\n", "title: 'r'\n", 1) if i == "run:r" else t) for i, t in records)
+    assert bent != records and node_from_markdown(dict(bent)["run:r"]) == next(n for n in nodes if n.id == "run:r")
+    with pytest.raises(MalformedRecord, match="canonical"):
+        _require_snapshot_records(_View(nodes), bent)
+
+
+def test_a_canonical_text_of_another_record_refuses_before_the_intent():
+    nodes = _nodes()
+    run = next(n for n in nodes if n.id == "run:r")
+    other = stored.run_node("r", title="not the captured title", spec="s", produces=[r.target for r in run.relations])
+    assert other.id == run.id and other != run
+    records = tuple((n.id, node_to_markdown(other if n.id == run.id else n)) for n in nodes)
+    with pytest.raises(MalformedRecord, match="captured"):
+        _require_snapshot_records(_View(nodes), records)

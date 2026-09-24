@@ -11,8 +11,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+from typing import Protocol
 
-from nodes.core.frontmatter import node_to_markdown
+from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
 
 from beliefs import stored
@@ -194,6 +195,7 @@ def publish(
     if pins_of(staging_profile) != pins:
         raise PublicationRefused("profile-disagrees")
     records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)
+    _require_snapshot_records(read, records)
     opened = _open_publication(
         writer, resolver, view=view.unpinned(), destination=destination, clock=clock, seam=seam, port=port, expected_view=pinned,
     )
@@ -215,6 +217,28 @@ def publish(
     write_create_only(op / "request.v1", encode_request(request))
     attempt = _Attempt(writer, resolver, opened, request, snapshot, op, staging_profile, clock, seam, port)
     return _run(attempt)
+
+
+class _Captured(Protocol):
+    """What the pre-intent check reads of a world view: its captured records."""
+
+    def get(self, ref: str) -> Node: ...
+
+
+_PROBE_TOKEN = "0" * 32
+"""A well-formed stand-in token: the pre-intent check runs the snapshot's own rule
+before the real token exists, and the rule does not read the token's value."""
+
+
+def _require_snapshot_records(read: _Captured, records: tuple[tuple[str, str], ...]) -> None:
+    """Spec §4.3, asserted before the intent (§4.1 item 8): the records satisfy the
+    snapshot's own rule (each parses, carries its id and is its canonical
+    rendering), and each re-parses to the record the view captured. It holds by
+    construction; a failure is a malformed record and nothing is written."""
+    Snapshot(_PROBE_TOKEN, records)
+    for address, text in records:
+        if node_from_markdown(text) != read.get(address):
+            raise MalformedRecord(f"{address}: its snapshot text does not re-parse to the record the view captured")
 
 
 # --- steps 1–9 -----------------------------------------------------------------
@@ -437,9 +461,8 @@ def resume_publish(
         if not present:
             assert reading.outcome is not None
             return PublishRefused(event_token, reading.outcome)
-        request = decode_request((op / "request.v1").read_bytes())
         _discard(op)
-        return _published_from_disk(writer, reading.opened, request)
+        return _published_from_disk(writer, reading.opened)
     if present:
         return PublishUnresolved(event_token, "binding-without-report")
     if not (op / "request.v1").is_file():
@@ -455,7 +478,7 @@ def resume_publish(
     return _run(_Attempt(writer, resolver, reading.opened, request, snapshot, op, staging_profile, clock, seam, port))
 
 
-def _published_from_disk(writer: CorpusWriter, opened: OpenedPublication, request: PublishRequest) -> Published:
+def _published_from_disk(writer: CorpusWriter, opened: OpenedPublication) -> Published:
     """A done attempt's outcome, read back from its binding revision."""
     address = binding_address(opened.intent.view, opened.intent.destination)
     binding_id = f"{BINDING_KIND}:{address.project}.{address.local}.{binding_uid(opened.intent.event_token)}"
