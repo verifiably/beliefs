@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-09-23
+updated: 2026-09-24
 sources:
   - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
@@ -287,8 +287,10 @@ implementation**: a guarantee row awaiting code is work, not a question.
   either an act-report design amendment
   (`../superpowers/specs/2026-09-22-act-report-remainder-design.md` §13).
   Cut 39 (2026-09-23) added `publish`, the ninth kind, which opens only
-  through its domain intent and carries one `publication-binding` entry; its
-  lifecycle entries are work for the publish act's second slice, not a
-  question.
+  through its domain intent and carries one `publication-binding` entry.
+  Cut 40 (2026-09-24) added its lifecycle entries: `publication-request`,
+  `publication-staging`, `publication-export` and `publication-reveal`,
+  which form one ordered sequence ahead of the binding. The remote
+  transport's entries are work for cut 41, not a question.
   ([act-report design](../designs/2026-08-11-act-report-design.md),
   [what stays open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open))

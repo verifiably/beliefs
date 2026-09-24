@@ -9,7 +9,7 @@ half.
 **Task:** `beliefs-328507`, child of the lane task `beliefs-1a5157`
 **Lane:** `world-read`, its head since cut 38 (roadmap §Lanes)
 **Cut:** 40, off the path (roadmap tier 1, off-path row 1)
-**Status:** approved 2026-09-23; frozen as cut 40 on 2026-09-24
+**Status:** discharged at conformance cut 40 on 2026-09-24; results: ../../plans/2026-09-24-conformance-cut-40-results.md
 
 ## 1. What this slice is
 
@@ -284,6 +284,30 @@ In order, with nothing written by any refusal:
 8. Build the snapshot bytes in memory from the view's retained records, in
    `selection.selected` order (§4.3).
 
+> **Amended 2026-09-24 (conformance cut 40 —
+> `../../plans/2026-09-24-conformance-cut-40-results.md` §3):** the code runs
+> the list above in this order, and nothing is written by any refusal:
+>
+> 1. the permit;
+> 2. a `remote` destination's `ValidationRefused`;
+> 3. the **operations-root and destination checks** (item 7 above, and
+>    `operations-root-unusable`), which run first. Each path is resolved
+>    once, at entry, and neither may lie inside the other or inside a mounted
+>    corpus root or the world root. The resolved destination is what the
+>    intent and the request freeze;
+> 4. items 1–6 in their order, then the planning note's `profile-disagrees`
+>    (§18);
+> 5. item 8, where each record's text is built and then **asserted** before
+>    the intent: the records satisfy §4.3's snapshot rule (each parses,
+>    carries its id and is its own canonical rendering), and each text
+>    re-parses equal to the record the view captured. A failure refuses
+>    `MalformedRecord`. It holds by construction, so it is asserted, not
+>    trusted, and it precedes the intent so that a step-0 failure writes
+>    nothing (Y5).
+>
+> The cheap path checks run ahead of the view's evaluation to fail early.
+> Item 7's position above is the list's, not the code's.
+
 ### 4.2 Under the lock: tips and intent
 
 `_open_publication` gains one keyword, `expected_view: CoordinationAddress`
@@ -312,6 +336,10 @@ comparison is what makes that sound.
 - Step 0 checks every record's content identity against the view's capture
   before writing. The check holds by construction and is asserted, not
   trusted.
+
+> **Amended 2026-09-24 (conformance cut 40):** the check runs before the
+> intent, not before the snapshot's write (§4.1's note). "Before writing"
+> therefore means before any write of the attempt.
 
 ### 4.4 The durable create-only write — `beliefs/durable.py` (new)
 

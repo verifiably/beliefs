@@ -1,6 +1,6 @@
 # Conformance cut 40 — the publish act, local
 
-**Status:** frozen 2026-09-24, before implementation; Y5–Y10 are open
+**Status:** discharged 2026-09-24 on the certified volume; results: ../plans/2026-09-24-conformance-cut-40-results.md
 **Design:** `../superpowers/specs/2026-09-23-publish-act-local-design.md`, approved 2026-09-23 at `8cd59d3` after one user review; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-23-publish-act-local.md`.
 **Numbered after** cut 39 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 40 or above at freeze.

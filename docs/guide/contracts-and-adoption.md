@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-23
+updated: 2026-09-24
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -68,6 +68,7 @@ sources:
   - ../plans/2026-09-21-conformance-cut-37-results.md
   - ../plans/2026-09-22-conformance-cut-38-results.md
   - ../plans/2026-09-23-conformance-cut-39-results.md
+  - ../plans/2026-09-24-conformance-cut-40-results.md
 ---
 
 # Contracts and adoption
@@ -216,7 +217,7 @@ W8b is measured and not selected. Its build defect is repaired by
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 
-Thirty-five conformance cuts have been frozen and discharged, each frozen before
+Thirty-six conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -321,13 +322,18 @@ W17 in full and Y1–Y4; `publish` stays open with its second slice, the act
 itself. That left the corpus at **193 of 220 rows closed, 27 open**
 (`../designs/2026-09-23-conformance-cut-39.md`;
 `../plans/2026-09-23-conformance-cut-39-results.md`).
-Cut 40 is frozen and not yet discharged: the publish act for a local
-destination — the request and the selection snapshot, staging through two
-dedicated doors, export, the local reveal, resumption by reinvocation, and
-the marker-required arrival door
-(`../designs/2026-09-24-conformance-cut-40.md`). Its freeze banks the publish
-act's rows, Y5–Y10 (`../designs/2026-09-22-publication-design.md`), so the
-corpus now has **193 of 226 rows closed, 33 open**.
+Cut 40's freeze banked the publish act's rows, Y5–Y10
+(`../designs/2026-09-22-publication-design.md`), taking the corpus to 193 of
+226 rows closed. Cut 40 is discharged. It builds the publish act for a local
+destination: the step-0 refusals and the selection snapshot, the request and
+its create-only write, staging through two dedicated doors, export, and the
+local reveal at `<destination>/<corpus_id>`. It also builds one terminal
+report carrying the lifecycle entries in step order, resumption by
+reinvocation, and the marker-required arrival door. Fifteen arms over
+fifteen declaration units close Y5–Y10. `publish` stays open with cut 41's
+remote slice. The corpus now has **199 of 226 rows closed, 27 open**
+(`../designs/2026-09-24-conformance-cut-40.md`;
+`../plans/2026-09-24-conformance-cut-40-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -366,4 +372,5 @@ questions under
 - [Cut 36 discharge results](../plans/2026-09-21-conformance-cut-36-results.md)
 - [Cut 37 discharge results](../plans/2026-09-21-conformance-cut-37-results.md)
 - [Cut 38 discharge results](../plans/2026-09-22-conformance-cut-38-results.md)
-- [Cut 39 discharge results, the newest results record](../plans/2026-09-23-conformance-cut-39-results.md)
+- [Cut 39 discharge results](../plans/2026-09-23-conformance-cut-39-results.md)
+- [Cut 40 discharge results, the newest results record](../plans/2026-09-24-conformance-cut-40-results.md)
