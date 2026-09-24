@@ -84,7 +84,7 @@ These are the inputs a person meets that the spec's arms do not pin. Each line n
 | `docs/designs/<freeze date>-conformance-cut-40.md` (new), `README.md`, `docs/guide/contracts-and-adoption.md`, `python/tests/test_designs_corpus.py`, the ledger, the roadmap | freeze and totals: 226 rows (Task 0) |
 | `python/tests/test_publish_engine_order.py` (new) | the engine facts the act relies on (Task 0) |
 | `python/src/beliefs/durable.py` (new), `python/tests/test_durable.py` (new) | `write_create_only`, `ensure_directory` (Task 1) |
-| `python/src/beliefs/errors.py` | `CreateOnlyCollision` (Task 1); `PublicationRefused` gains `refs`, `corpus_ids`, `field`; `ArrivalRefused` (Task 3) |
+| `python/src/beliefs/errors.py` | `CreateOnlyCollision` (Task 1); `PublicationRefused` gains `refs`, `corpus_ids`, `field`; `PublicationArrivalRefused` (Task 3) |
 | `python/src/beliefs/report.py`, `python/src/beliefs/stored.py`, `python/src/beliefs/boundary.py` | lifecycle entries and outcomes, `publish_sequence_error`, `publish_entries_from_facet`, the stored mirror, `_mint_publish_report(lifecycle=)`, `_mint_publish_refusal` (Task 2) |
 | `python/src/beliefs/publication_doors.py` | `PreBinding` and the fold (Task 2); `expected_view`, `lifecycle`, `_refuse_publication`, `AttemptReading`, `attempt_reading` (Task 5) |
 | `python/tests/test_report.py`, `python/tests/test_publication_doors.py` | Task 2's and Task 5's unit tests |
@@ -110,7 +110,7 @@ These are the inputs a person meets that the spec's arms do not pin. Each line n
 **Interfaces:**
 - Produces:
   - the frozen cut body the guard pins (Task 9 reads its freeze commit and digest);
-  - the engine verdicts `INIT_RETRY`, `ADMIT_RETRY`, `EXPORT_STABLE`, `REPLICATE_RETRY` and `READ_SERVICEABLE`, each `"holds"` or a refusal text, which decide whether any arm is declared unrun.
+  - the engine verdicts `INIT_RETRY`, `ADMIT_RETRY`, `EXPORT_STABLE`, `REPLICATE_RETRY`, `REPLICATE_AFTER_RESTORE` and `READ_SERVICEABLE`, each `"holds"` or a refusal text, which decide whether any arm is declared unrun, and `FOREIGN_REPLICA`, the exception type a foreign occupant raises.
 
 - [ ] **Step 1: Confirm cut 40 is unclaimed**
 
@@ -212,6 +212,36 @@ def test_replicate_retry_after_completion_converges(staged):
     assert read_lifecycle_state(export) is LifecycleState.READ_ONLY_UNSERVICEABLE
 
 
+def test_replicate_retry_after_restore_converges(staged):
+    """REPLICATE_AFTER_RESTORE: a replication retried exactly after its copy was
+    restored returns the same operation id and leaves the copy serviceable —
+    the resume after a crash past step 6 reinvokes it (finding 2)."""
+    corpus, _, world, export = staged
+    corpus_id = load_manifest(corpus).corpus_id
+    artifact = export_head_artifact(world, CorpusSubject(corpus_id))
+    first = replicate_root(corpus, export, authority=FULL)
+    restore_root(export, CorpusSubject(corpus_id), ObserverSet((ArtifactCarrier.from_bytes(artifact),)), authority=FULL)
+    assert replicate_root(corpus, export, authority=FULL) == first
+    assert read_lifecycle_state(export) is LifecycleState.READ_ONLY_SERVICEABLE
+
+
+def test_replicate_over_a_foreign_serviceable_root_refuses(staged, certified_work):
+    """FOREIGN_REPLICA: another corpus's serviceable replica at the export path
+    refuses this replication. The exception type is recorded for Task 8."""
+    corpus, _, world, export = staged
+    other = certified_work / f"publish-engine-foreign-{os.getpid()}-{next(_counter)}"
+    try:
+        init_corpus_root(other, authority=FULL)
+        open_corpus(other, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
+        replicate_root(other, export, authority=FULL)
+        with pytest.raises(Exception) as refused:
+            replicate_root(corpus, export, authority=FULL)
+        print(f"FOREIGN_REPLICA = {type(refused.value).__module__}.{type(refused.value).__name__}")
+    finally:
+        shutil.rmtree(other, ignore_errors=True)
+        shutil.rmtree(metadata_root_for(other), ignore_errors=True)
+
+
 def test_a_restored_replica_reads_and_stays_serviceable(staged):
     """READ_SERVICEABLE: restore against the exported artifact validates, and a
     ReadView opens the serviceable copy (admit_publication's read)."""
@@ -228,9 +258,10 @@ def test_a_restored_replica_reads_and_stays_serviceable(staged):
 ```bash
 cd python && uv run --frozen pytest tests/test_publish_engine_order.py -q
 ```
-Expected: 5 passed. Record each verdict as `"holds"`.
+Expected: 7 passed (run with `-s` once to read the printed `FOREIGN_REPLICA` type). Record each verdict as `"holds"`, and `FOREIGN_REPLICA` as the printed exception type: Task 8's foreign-occupant test asserts exactly it.
+- `test_replicate_over_a_foreign_serviceable_root_refuses` probes an unserviceable foreign replica. If the engine instead *accepts* it (the probe fails because nothing raised), a foreign occupant would be adopted as this attempt's copy: park `--reason decision`, since the spec's identity argument rests on that refusal.
 - If `test_admit_retry_converges` fails, the admission record type may name its field differently. Read `AdmissionRecord` (`grep -n "class AdmissionRecord" -A12 src/beliefs/world/registry.py`), fix the assertion's attribute, and re-run. Only a raised refusal counts as a failing fact.
-- If a fact fails, `tasks note beliefs-328507` the refusal text. Then park `--reason decision`: every resumption row the spec lists depends on these five, so nothing later is built on an unpinned fact.
+- If a fact fails, `tasks note beliefs-328507` the refusal text. Then park `--reason decision`: every resumption row the spec lists depends on these six, so nothing later is built on an unpinned fact.
 - `ReadView` is imported from `beliefs.corpus`; if that fails, find its home with `grep -rn "^class ReadView" src/beliefs`.
 
 - [ ] **Step 3: Bank Y5–Y10.** Append the six rows to the table in `docs/designs/2026-09-22-publication-design.md`, copied byte for byte from the spec's §13 (`grep -n '^| \*\*Y\(5\|6\|7\|8\|9\|10\)\*\*' docs/superpowers/specs/2026-09-23-publish-act-local-design.md`). Change its status line to: "Y1–Y4 closed at cut 39; Y5–Y10 banked with conformance cut 40's freeze (`../superpowers/specs/2026-09-23-publish-act-local-design.md` §13)".
@@ -257,7 +288,7 @@ Then these sections:
 - **§2, the boundary:** every file in this plan's file map from Task 1 to Task 9, and "Frozen declarations and cut bodies through cut 39 remain byte-exact."
 - **§3, selection:** the six Y rows from Step 3, then the unit table from spec §14.2 as amended by Step 5's planning notes (fifteen rows, Y5-a through Y10-b, with the assertion column).
 - **§4, accounting:** "**15 arms, 15 declaration units**, six rows; Y5–Y10 open and close; recent-cut row `(15, 15, 6)`; Task 8 passes <n>; 193 of 226 → 199 of 226". Here `<n>` is fifteen plus the parametrized cases Task 8 declares: Y5-a's refusal cases and Y9-a's boundaries. Write the number Task 8's parametrization yields, counted from the plan's Task 8 code. If Step 2 left a fact unrun, state which arm is unrun, the reduced counts, and that the row is **partial**.
-- **§5, N2 and acceptance obligations:** the sabotage table from Task 9 Step 1, the five engine verdicts from Step 2, `PREFIX_RUNNERS = ("cut39_acceptance.py",)` and `PHASE_MODULES = ("test_publish_act_acceptance.py", "test_n2_cut40.py")`.
+- **§5, N2 and acceptance obligations:** the sabotage table from Task 9 Step 1, the six engine verdicts and `FOREIGN_REPLICA` from Step 2, `PREFIX_RUNNERS = ("cut39_acceptance.py",)` and `PHASE_MODULES = ("test_publish_act_acceptance.py", "test_n2_cut40.py")`.
 - **§6, second reader:** check that:
   - every arm publishes under exactly `publishes()`;
   - Y6-a's drift happens after the intent is appended and before the snapshot is written;
@@ -348,7 +379,7 @@ The plan's step children exist, filed with the plan, each depending on its prede
 
 ```bash
 cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py tests/test_publish_engine_order.py -q
-cd .. && tasks note beliefs-328507 "Cut 40 frozen: INIT_RETRY, ADMIT_RETRY, EXPORT_STABLE, REPLICATE_RETRY, READ_SERVICEABLE = <verdicts>; accounting 15/15/6; chains cut 39."
+cd .. && tasks note beliefs-328507 "Cut 40 frozen: INIT_RETRY, ADMIT_RETRY, EXPORT_STABLE, REPLICATE_RETRY, REPLICATE_AFTER_RESTORE, READ_SERVICEABLE = <verdicts>; FOREIGN_REPLICA = <type>; accounting 15/15/6; chains cut 39."
 tasks check && git add docs README.md python/tests/test_designs_corpus.py python/tests/test_publish_engine_order.py tasks
 git commit -m "docs(cut): freeze conformance cut 40, the publish act (local); bank Y5–Y10"
 git rev-parse HEAD; sha256sum docs/designs/*-conformance-cut-40.md
@@ -421,6 +452,22 @@ def test_the_final_name_never_shows_partial_bytes(tmp_path, monkeypatch):
     with pytest.raises(OSError):
         write_create_only(tmp_path / "request.v1", b"one")
     assert not (tmp_path / "request.v1").exists()
+
+
+def test_a_retry_after_a_death_before_the_directory_fsync_syncs_it(tmp_path, monkeypatch):
+    real = durable._fsync_directory
+
+    def dying(directory):
+        raise OSError("died after the link, before the directory fsync")
+
+    monkeypatch.setattr(durable, "_fsync_directory", dying)
+    with pytest.raises(OSError):
+        write_create_only(tmp_path / "request.v1", b"one")
+    assert (tmp_path / "request.v1").read_bytes() == b"one"
+    synced = []
+    monkeypatch.setattr(durable, "_fsync_directory", lambda directory: synced.append(directory) or real(directory))
+    assert write_create_only(tmp_path / "request.v1", b"one") == "present"
+    assert synced == [tmp_path.resolve()]
 
 
 def test_write_create_only_resolves_its_directory(tmp_path):
@@ -532,6 +579,9 @@ def write_create_only(path: Path, data: bytes) -> Literal["created", "present"]:
         temporary.unlink()
         if target.read_bytes() != data:
             raise CreateOnlyCollision(target) from None
+        # an earlier call may have died after its link and before its directory
+        # fsync: the retry completes that obligation before answering (finding 5)
+        _fsync_directory(directory)
         return "present"
     except BaseException:
         temporary.unlink()
@@ -544,7 +594,7 @@ def write_create_only(path: Path, data: bytes) -> Literal["created", "present"]:
 - [ ] **Step 4: Run to verify they pass**
 
 Run: `cd python && uv run --frozen pytest tests/test_durable.py -q`
-Expected: 9 passed.
+Expected: 10 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1095,13 +1145,13 @@ git commit -m "feat(report): the publish lifecycle entries, their ordered sequen
 ### Task 3: The permit and the refusal values
 
 **Files:**
-- Modify: `python/src/beliefs/permit.py` (`_PUBLICATION_PERMIT`), `python/src/beliefs/errors.py` (`PublicationRefused`, `ArrivalRefused`), `python/tests/test_permit.py`
+- Modify: `python/src/beliefs/permit.py` (`_PUBLICATION_PERMIT`), `python/src/beliefs/errors.py` (`PublicationRefused`, `PublicationArrivalRefused`), `python/tests/test_permit.py`
 
 **Interfaces:**
 - Produces:
   - `RequiredCapabilities.publishes()`, whose permit is `WritePermit(frozenset({"publication-binding", "publication", "act-report", *stored.WORLD_KINDS}), frozenset({"publish", "corpus-write", "lifecycle", "registry"}))`;
   - `PublicationRefused(reason, *, tips=(), refs=(), corpus_ids=(), field="")`;
-  - `ArrivalRefused(reason, *, refs=())`.
+  - `PublicationArrivalRefused(reason, *, refs=())`.
 
 - [ ] **Step 1: Update the tests.** In `test_permit.py`, the assertion at line ~175 becomes:
 
@@ -1152,8 +1202,11 @@ In `errors.py`, replace `PublicationRefused`'s `__init__` with
 and add
 
 ```python
-class ArrivalRefused(WriteRefused):
-    """A publication's arrival refused before any write (publish-act-local design §10)."""
+class PublicationArrivalRefused(WriteRefused):
+    """A publication's arrival refused before any write (publish-act-local design §10).
+    Not `ArrivalRefused`, verified arrival's `(cause, report, detail)` refusal,
+    which `admit_arrival` raises and which passes through `admit_publication`
+    unchanged."""
 
     def __init__(self, reason: str, *, refs: tuple[str, ...] = ()) -> None:
         super().__init__(f"{reason}: {', '.join(refs)}" if refs else reason)
@@ -1318,6 +1371,8 @@ def test_destination_checks(tmp_path):
     (tmp_path / "file").write_bytes(b"")
     (tmp_path / "link").symlink_to(dest)
     assert require_usable(ops, Destination.local(str(dest)), forbidden=(corpus,)) == (ops.resolve(), dest.resolve())
+    # finding 4: a symlinked destination answers its resolved target, which step 0 freezes
+    assert require_usable(ops, Destination.local(str(tmp_path / "link")), forbidden=(corpus,)) == (ops.resolve(), dest.resolve())
     for bad in (tmp_path / "missing", tmp_path / "file", ops, ops / "inner", corpus / "inner"):
         if bad == ops / "inner":
             bad.mkdir()
@@ -1772,6 +1827,28 @@ def test_stage_marker_writes_only_a_consistent_marker(tmp_path):
         writer._stage_marker(forged)
 
 
+def test_stage_record_refuses_a_facet_the_staging_profile_does_not_declare(tmp_path):
+    """Finding 3: an unactivated domain's facet is refused, as `add` refuses it."""
+    writer = _staging_writer(tmp_path)
+    node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    node.facets["biology/gene-axis"] = {"axis": "rows"}
+    with pytest.raises(ValidationRefused, match="facet-unexpected"):
+        writer._stage_record(node_to_markdown(stored.stamp_semantic_identity(node)))
+
+
+def test_stage_marker_refuses_under_a_profile_without_coordination_v2(tmp_path):
+    """Finding 3: a marker under BASE, which pins no coordination contract, is refused."""
+    from nodes.core.write_plan import DefaultExecutor
+    from profiles import BASE
+    from test_publish_intent import intent
+
+    writer = CorpusWriter(tmp_path / "base", lambda root: DefaultExecutor(root), authority=FULL, profile=BASE)
+    writer.adopt_manifest(profile=pins_for(BASE))
+    marker = marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",))
+    with pytest.raises(ValidationRefused, match="kind-unknown"):
+        writer._stage_marker(marker)
+
+
 def test_the_staging_doors_require_their_permits_first(tmp_path):
     writer = _staging_writer(tmp_path)
     node = stored.run_node("r", title="r", spec="s", produces=[])
@@ -1837,9 +1914,11 @@ Expected: `AttributeError: 'CorpusWriter' object has no attribute '_stage_record
 ```python
     def _stage_record(self, text: str) -> Node:
         """Publish-act-local §5: one snapshot record, written into a staging corpus
-        byte for byte as its snapshot text. Record-local refusals only — the
-        view-reading ones ran where the record was minted, and population runs in
-        id order, not dependency order (planning note). Nothing but the act calls it."""
+        byte for byte as its snapshot text. The ordinary writer's record-local
+        guards — document, registry and facet payloads under the staging profile,
+        display facet, governed stamp, rendering, collision — and none of the
+        view-reading ones, which ran where the record was minted: population runs
+        in id order, not dependency order. Nothing but the act calls it."""
         node = node_from_markdown(text)
         self._authority.require("corpus-write", (node.kind,))
         with self._operation:
@@ -1847,6 +1926,10 @@ Expected: `AttributeError: 'CorpusWriter' object has no attribute '_stage_record
             if node.kind not in stored.WORLD_KINDS:
                 raise ValidationRefused(f"{node.id}: a staged record is a world record")
             self._refuse_invalid(node)
+            self._refuse_facet_shapes(node)  # the staging profile's registry and facet payloads (finding 3)
+            if stored.display_facet_malformed(node):
+                raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
+            self._refuse_governed_stamp(node)
             self._refuse_already_minted(node)
             if self._refuse_rendering(node) != text.encode("utf-8"):
                 raise ValidationRefused(f"{node.id}: a staged record renders as its snapshot text")
@@ -1863,6 +1946,8 @@ Expected: `AttributeError: 'CorpusWriter' object has no attribute '_stage_record
             self._require_pins_agree()
             if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node):
                 raise ValidationRefused(f"{getattr(node, 'id', node)}: a staged marker is a consistent publication record")
+            self._refuse_invalid(node)
+            self._refuse_facet_shapes(node)  # a profile without coordination v2 does not declare `publication` (finding 3)
             self._refuse_already_minted(node)
             self._refuse_rendering(node)
             self._refuse_collision(node)
@@ -2265,7 +2350,9 @@ def publish(
     if destination.type != "local":
         raise ValidationRefused("remote destinations arrive in cut 41")
     forbidden = (*resolver.mounted(), *world.config.corpus_roots, world.config.world_root)
-    operations_root, _ = require_usable(operations_root, destination, forbidden=forbidden)
+    operations_root, resolved_destination = require_usable(operations_root, destination, forbidden=forbidden)
+    # spec §4.1 item 7: the resolved path is the destination the intent and the request freeze
+    destination = Destination.local(str(resolved_destination))
     resolved = resolver.resolve(view.unpinned())
     if resolved is None:
         raise PublicationRefused("view-unresolved")
@@ -2408,14 +2495,16 @@ def _serviceable(root: Path) -> bool:
 
 
 def _replicate(a: _Attempt, corpus_id: str) -> None:
-    """Step 6, first half: the exact replication (a retry adopts its claim)."""
-    export = _export_root(a, corpus_id)
-    if not _serviceable(export):
-        replicate_root(a.op / "staging", export, authority=a.writer.authority)
+    """Step 6, first half: the exact replication, reinvoked on every retry
+    whatever the export root's state (spec §6 step 6): its retained-operation
+    check, not the root's serviceability, proves the root is this attempt's. A
+    foreign occupant refuses, and the refusal propagates (spec §16 item 6)."""
+    replicate_root(a.op / "staging", _export_root(a, corpus_id), authority=a.writer.authority)
 
 
 def _restore(a: _Attempt, corpus_id: str) -> str:
-    """Step 6, second half: the reveal — `restore_root` against the sibling read back."""
+    """Step 6, second half: the reveal — `restore_root` against the sibling read
+    back. Called only after `_replicate` has proven the root is this attempt's."""
     export = _export_root(a, corpus_id)
     if _serviceable(export):
         return "validated"
@@ -2595,8 +2684,8 @@ git commit -m "feat(publish): the local publish act — step 0 through step 9, a
 - Create: `python/src/beliefs/publication_arrival.py`, `python/tests/test_publication_arrival.py`
 
 **Interfaces:**
-- Consumes: `ArrivalRefused` (Task 3); `root.admit_arrival`; `ReplicaOf` and `load_manifest` (`beliefs.world`); `publication_content_malformed` and `marker_consistent`.
-- Produces: `admit_publication(world, root, observers) -> tuple[AdmissionRecord, LogReport]`, which raises `ArrivalRefused` with the reasons `marker-absent`, `marker-duplicated`, `marker-malformed`, `marker-inconsistent`, `binding-present` and `selection-mismatch`.
+- Consumes: `PublicationArrivalRefused` (Task 3); `root.admit_arrival`; `ReplicaOf` and `load_manifest` (`beliefs.world`); `publication_content_malformed` and `marker_consistent`.
+- Produces: `admit_publication(world, root, observers) -> tuple[AdmissionRecord, LogReport]`, which raises `PublicationArrivalRefused` with the reasons `marker-absent`, `marker-duplicated`, `marker-malformed`, `marker-inconsistent`, `binding-present` and `selection-mismatch`.
 
 - [ ] **Step 1: Write the failing tests.** Unit tests over hand-built roots in `tmp_path`. `admit_arrival` is monkeypatched to record its call, so these tests prove the checks and the order, and Task 8's Y10 arms prove the admission.
 
@@ -2614,7 +2703,7 @@ from test_publish_intent import intent
 from beliefs import publication_arrival, stored
 from beliefs.corpus import CorpusWriter
 from authority import FULL
-from beliefs.errors import ArrivalRefused
+from beliefs.errors import PublicationArrivalRefused
 from beliefs.publication import binding_record, marker_record
 from beliefs.publication_arrival import admit_publication
 
@@ -2645,7 +2734,7 @@ def test_a_consistent_publication_is_handed_to_admit_arrival(arriving):
 
 def test_no_marker_refuses_before_admission(arriving):
     writer, _, calls = arriving
-    with pytest.raises(ArrivalRefused) as caught:
+    with pytest.raises(PublicationArrivalRefused) as caught:
         admit_publication("world", writer.root, "observers")
     assert caught.value.reason == "marker-absent" and calls == []
 
@@ -2654,7 +2743,7 @@ def test_two_markers_refuse(arriving):
     writer, run, calls = arriving
     writer._stage_marker(_marker((run.id,)))
     raw_add(writer.root, marker_record(intent(event_token="9" * 32), world_id="d" * 32, epoch="f" * 64, selection=(run.id,)))
-    with pytest.raises(ArrivalRefused) as caught:
+    with pytest.raises(PublicationArrivalRefused) as caught:
         admit_publication("world", writer.root, "observers")
     assert caught.value.reason == "marker-duplicated" and calls == []
 
@@ -2664,7 +2753,7 @@ def test_a_malformed_marker_refuses(arriving):
     marker = _marker((run.id,))
     marker.facets[stored.COORDINATION_FACET]["selection"] = ["not an id"]
     raw_add(writer.root, marker)
-    with pytest.raises(ArrivalRefused) as caught:
+    with pytest.raises(PublicationArrivalRefused) as caught:
         admit_publication("world", writer.root, "observers")
     assert caught.value.reason == "marker-malformed" and calls == []
 
@@ -2673,7 +2762,7 @@ def test_a_binding_in_the_root_refuses(arriving):
     writer, run, calls = arriving
     writer._stage_marker(_marker((run.id,)))
     raw_add(writer.root, binding_record(intent(), corpus_id="1" * 32, marker="2" * 32, artifact="3" * 64))
-    with pytest.raises(ArrivalRefused) as caught:
+    with pytest.raises(PublicationArrivalRefused) as caught:
         admit_publication("world", writer.root, "observers")
     assert caught.value.reason == "binding-present" and calls == []
 
@@ -2687,7 +2776,7 @@ def test_records_other_than_the_selection_refuse(arriving, extra):
         writer._stage_marker(_marker((run.id,)))
     else:
         writer._stage_marker(_marker(tuple(sorted((run.id, other.id)))))
-    with pytest.raises(ArrivalRefused) as caught:
+    with pytest.raises(PublicationArrivalRefused) as caught:
         admit_publication("world", writer.root, "observers")
     assert caught.value.reason == "selection-mismatch" and caught.value.refs == (other.id,) and calls == []
 ```
@@ -2708,7 +2797,7 @@ from pathlib import Path
 
 from beliefs import stored
 from beliefs.corpus import ReadView
-from beliefs.errors import ArrivalRefused
+from beliefs.errors import PublicationArrivalRefused
 from beliefs.publication import BINDING_KIND, MARKER_KIND, marker_consistent, publication_content_malformed
 from beliefs.root import admit_arrival
 from beliefs.world import ReplicaOf, load_manifest
@@ -2724,21 +2813,21 @@ def admit_publication(world, root: Path, observers):
     records = tuple(ReadView.opened_at(root).iter_stored())
     markers = [node for node in records if node.kind == MARKER_KIND]
     if not markers:
-        raise ArrivalRefused("marker-absent")
+        raise PublicationArrivalRefused("marker-absent")
     if len(markers) > 1:
-        raise ArrivalRefused("marker-duplicated")
+        raise PublicationArrivalRefused("marker-duplicated")
     (marker,) = markers
     if publication_content_malformed(marker):
-        raise ArrivalRefused("marker-malformed")
+        raise PublicationArrivalRefused("marker-malformed")
     if not marker_consistent(marker):
-        raise ArrivalRefused("marker-inconsistent")
+        raise PublicationArrivalRefused("marker-inconsistent")
     if any(node.kind == BINDING_KIND for node in records):
-        raise ArrivalRefused("binding-present")
+        raise PublicationArrivalRefused("binding-present")
     held = sorted(node.id for node in records if node.kind != MARKER_KIND)
     selection = list(marker.facets[stored.COORDINATION_FACET]["selection"])
     if held != selection:
         first = sorted(set(held) ^ set(selection))[0]
-        raise ArrivalRefused("selection-mismatch", refs=(first,))
+        raise PublicationArrivalRefused("selection-mismatch", refs=(first,))
     return admit_arrival(world, root, ReplicaOf(load_manifest(root).corpus_id), observers)
 ```
 The binding check runs before the selection check so that a root carrying a binding names that reason. The spec's §10 table lists it last; the planning note records the order.
@@ -2786,7 +2875,7 @@ from tempfile import mkdtemp
 from types import SimpleNamespace
 
 import pytest
-from authority import ACTOR
+from authority import ACTOR, FULL
 from coordination_fixtures import content_for, coordination_profile, raw_add
 from nodes.core.frontmatter import node_to_markdown
 from profiles import BASE, WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
@@ -2797,7 +2886,7 @@ from beliefs import publish as act
 from beliefs import stored
 from beliefs.coordination import coordination_revision
 from beliefs.corpus import CoordinationResolver, CorpusWriter, ReadView
-from beliefs.errors import ArrivalRefused, PublicationRefused, SelectionRefused
+from beliefs.errors import PublicationArrivalRefused, PublicationRefused, SelectionRefused
 from beliefs.intents.publish import Destination
 from beliefs.permit import RequiredCapabilities, scoped_authority
 from beliefs.publication import binding_record, marker_record, marker_uid
@@ -2829,6 +2918,10 @@ from durable_fixture import pinned as _pinned
 from beliefs.errors import ValidationRefused
 
 AUTHORITY = scoped_authority(RequiredCapabilities.publishes(), ACTOR)
+"""Exactly the publication permit: the writers that call `publish` and `resume_publish` bind it."""
+SETUP = FULL
+"""Fixture construction — corpora, worlds, epochs, the view's revisions — is not
+the act under test and runs under the full permit (finding 6)."""
 V2 = coordination_profile(None, version=2)
 KINDS = {"version": "science.view-query.v1", "clauses": [{"all": [{"kinds": ["dataset", "run"]}]}]}
 _counter = count()
@@ -2874,8 +2967,8 @@ def source(work_directory, monkeypatch):
     def corpus(profile=BASE, nodes=()):
         path = base / f"corpus-{next(_counter)}"
         roots.append(path)
-        init_corpus_root(path, authority=AUTHORITY)
-        writer = open_corpus(path, authority=AUTHORITY, profile=profile)
+        init_corpus_root(path, authority=SETUP)
+        writer = open_corpus(path, authority=SETUP, profile=profile)
         manifest = writer.adopt_manifest(profile=pins_for(profile))
         for node in nodes:
             writer.add(node.model_copy(deep=True))
@@ -2887,23 +2980,26 @@ def source(work_directory, monkeypatch):
         b, beta, _ = corpus(nodes=beta_nodes)
         world_root = base / "world"
         config = WorldConfig(world_root, "e" * 32, (alpha, beta))
-        init_world_root(config, authority=AUTHORITY)
-        world = open_world(config, authority=AUTHORITY)
+        init_world_root(config, authority=SETUP)
+        world = open_world(config, authority=SETUP)
         world.admit(alpha, provenance=Fresh())
         world.admit(beta, provenance=Fresh())
         epoch.build_epoch(world, coverage=frozenset({a, b}), bindings=hold_shipped(world))
         written = base / "written"
         roots.append(written)
-        init_corpus_root(written, authority=AUTHORITY)
-        open_corpus(written, authority=AUTHORITY, profile=V2).adopt_manifest(profile=pins_for(V2))
+        init_corpus_root(written, authority=SETUP)
+        open_corpus(written, authority=SETUP, profile=V2).adopt_manifest(profile=pins_for(V2))
         resolver = CoordinationResolver({written.resolve(): V2})
-        writer = open_corpus(written, authority=AUTHORITY, profile=V2, coordination_resolver=resolver)
+        writer = open_corpus(written, authority=SETUP, profile=V2, coordination_resolver=resolver)
         project = writer.mint_coordination("project", content=content_for("project", query=KINDS))
         ops, dest = base / "ops", base / "dest"
         ops.mkdir()
         dest.mkdir()
+        publisher = open_corpus(written, authority=AUTHORITY, profile=V2, coordination_resolver=resolver)
+        publishing_world = open_world(config, authority=AUTHORITY)  # open_world requires no family
         yield SimpleNamespace(
-            base=base, world=world, alpha=alpha, alpha_writer=alpha_writer, corpus=corpus, written=written, writer=writer,
+            setup_writer=writer, setup_world=world,
+            base=base, world=publishing_world, alpha=alpha, alpha_writer=alpha_writer, corpus=corpus, written=written, writer=publisher,
             resolver=resolver, view=coordination_revision(project).address, ops=ops, dest=dest, a=a, b=b,
             destination=Destination.local(str(dest)),
         )
@@ -2920,8 +3016,13 @@ def run(s, **changes):
 
 
 def fresh_writer(s):
-    """A new writer over the written root: in-memory state discarded, as after a crash."""
+    """A new publishing writer over the written root: in-memory state discarded, as after a crash."""
     return open_corpus(s.written, authority=AUTHORITY, profile=V2, coordination_resolver=s.resolver)
+
+
+def setup_writer(s):
+    """A setup writer over the written root, for the view's revisions and raw fixtures."""
+    return open_corpus(s.written, authority=SETUP, profile=V2, coordination_resolver=s.resolver)
 
 
 def resume(s, token):
@@ -2950,7 +3051,7 @@ def _project(s):
 def _revise_query(s, query) -> None:
     """Revise the view's query (a new project revision superseding the tip) and repoint `s.view`."""
     tip = _project(s)
-    revised = s.writer.revise_coordination(
+    revised = setup_writer(s).revise_coordination(
         "project", s.view.unpinned(), predecessors=(tip.uid,), content=content_for("project", query=query),
     )
     s.view = coordination_revision(revised).address
@@ -2977,10 +3078,12 @@ def _pins_disagree(s):
     ids = []
     for profile, title in ((WITH_BIOLOGY, "bio-1"), (WITH_BIOLOGY_OTHER, "bio-2")):
         corpus_id, root, _ = s.corpus(profile, nodes=(stored.dataset_node(title=title, resources=_pinned(title)),))
-        s.world = open_world(WorldConfig(s.world.config.world_root, s.world.config.world_id, (*s.world.config.corpus_roots, root)), authority=AUTHORITY)
-        s.world.admit(root, provenance=Fresh())
+        config = WorldConfig(s.world.config.world_root, s.world.config.world_id, (*s.world.config.corpus_roots, root))
+        s.setup_world = open_world(config, authority=SETUP)
+        s.setup_world.admit(root, provenance=Fresh())
+        s.world = open_world(config, authority=AUTHORITY)
         ids.append(corpus_id)
-    epoch.build_epoch(s.world, coverage=frozenset({s.a, s.b, *ids}), bindings=hold_shipped(s.world))
+    epoch.build_epoch(s.setup_world, coverage=frozenset({s.a, s.b, *ids}), bindings=hold_shipped(s.setup_world))
     _revise_query(s, _query("dataset"))
     return {}
 
@@ -2988,12 +3091,15 @@ def _pins_disagree(s):
 def _coordination_v1(s):
     v1 = coordination_profile(None, version=1)
     written = s.base / "written-v1"
-    init_corpus_root(written, authority=AUTHORITY)
-    open_corpus(written, authority=AUTHORITY, profile=v1).adopt_manifest(profile=pins_for(v1))
+    init_corpus_root(written, authority=SETUP)
+    open_corpus(written, authority=SETUP, profile=v1).adopt_manifest(profile=pins_for(v1))
     s.resolver = CoordinationResolver({written.resolve(): v1})
+    minted = open_corpus(written, authority=SETUP, profile=v1, coordination_resolver=s.resolver).mint_coordination(
+        "project", content=content_for("project", query=KINDS)
+    )
     s.writer = open_corpus(written, authority=AUTHORITY, profile=v1, coordination_resolver=s.resolver)
     s.written = written
-    s.view = coordination_revision(s.writer.mint_coordination("project", content=content_for("project", query=KINDS))).address
+    s.view = coordination_revision(minted).address
     return {}
 
 
@@ -3040,8 +3146,8 @@ def test_y5_b_a_view_revised_between_evaluation_and_lock_refuses_durably(source,
     original = act._open_publication
 
     def revising(writer, resolver, **kwargs):
-        writer.revise_coordination("project", source.view.unpinned(), predecessors=(source.view.revision,),
-                                   content=content_for("project", query=KINDS, body="revised"))
+        setup_writer(source).revise_coordination("project", source.view.unpinned(), predecessors=(source.view.revision,),
+                                                 content=content_for("project", query=KINDS, body="revised"))
         return original(writer, resolver, **kwargs)
 
     monkeypatch.setattr(act, "_open_publication", revising)
@@ -3168,6 +3274,35 @@ def test_y8_b_a_colliding_sibling_is_export_collision_and_binds_nothing_durably(
     assert not (source.dest / corpus_id).exists()
 
 
+def test_a_foreign_root_at_the_export_path_binds_nothing_durably(source, monkeypatch):
+    """Finding 2: a serviceable replica of another corpus occupying
+    `<destination>/<corpus_id>` is refused by `replicate_root`, never taken as
+    this attempt's copy; the attempt stays pending (spec §16 item 6)."""
+    crash(monkeypatch, "_replicate", before=True)
+    with pytest.raises(Crash):
+        run(source)
+    monkeypatch.undo()
+    token = token_of_last_intent(source)
+    corpus_id = load_manifest(source.ops / "publish" / token / "staging").corpus_id
+    other_id, other, _ = source.corpus(nodes=(stored.run_node("o", title="o", spec="s", produces=[]),))
+    config = WorldConfig(source.base / "foreign-world", "a" * 32, (other,))
+    init_world_root(config, authority=SETUP)
+    foreign_world = open_world(config, authority=SETUP)
+    foreign_world.admit(other, provenance=Fresh())
+    artifact = export_head_artifact(foreign_world, CorpusSubject(other_id))
+    occupant = source.dest / corpus_id
+    replicate_root(other, occupant, authority=SETUP)
+    restore_root(occupant, CorpusSubject(other_id), ObserverSet((ArtifactCarrier.from_bytes(artifact),)), authority=SETUP)
+    assert read_lifecycle_state(occupant) is LifecycleState.READ_ONLY_SERVICEABLE
+    with pytest.raises(FOREIGN_REPLICA):
+        resume(source, token)
+    assert _binding_files(source) == []
+    assert attempt_reading(fresh_writer(source), token, moment_seam()).reading == "unfinished"
+    assert token in pending_publishes(fresh_writer(source), operations_root=source.ops, seam=moment_seam())
+```
+`FOREIGN_REPLICA` is the exception type Task 0's probe printed, imported at the module's top from where the probe named it. `source.corpus` builds the other corpus under setup authority.
+
+```python
 BOUNDARIES = [
     ("_initialize", True), ("_initialize", False), ("_populate", False), ("_admit_and_export", False),
     ("_write_sibling", False), ("_replicate", False), ("_restore", False), ("_bind", True),
@@ -3281,9 +3416,10 @@ def test_resume_refuses_another_actor_and_another_profile_writing_nothing(source
 
 
 def _recipient(source, published_root: Path):
+    """The recipient's world: a different world, under its own (setup) authority."""
     config = WorldConfig(source.base / f"recipient-{next(_counter)}", "c" * 32, (published_root,))
-    init_world_root(config, authority=AUTHORITY)
-    return open_world(config, authority=AUTHORITY)
+    init_world_root(config, authority=SETUP)
+    return open_world(config, authority=SETUP)
 
 
 def test_y10_a_a_second_world_admits_a_publication_and_nothing_without_a_marker_durably(source):
@@ -3298,15 +3434,15 @@ def test_y10_a_a_second_world_admits_a_publication_and_nothing_without_a_marker_
     assert all(view.resolve(i) == i for i, _ in act.decode_snapshot((source.ops / "publish" / outcome.event_token / "selection.v1").read_bytes()).records)
     plain_id, plain, _ = source.corpus(nodes=(stored.run_node("p", title="p", spec="s", produces=[]),))
     other = _recipient(source, plain)
-    with pytest.raises(ArrivalRefused) as caught:
+    with pytest.raises(PublicationArrivalRefused) as caught:
         admit_publication(other, plain, observers)
     assert caught.value.reason == "marker-absent"
 
 
 def test_y10_b_a_verified_root_with_records_beyond_its_selection_is_refused_before_admission_durably(source):
     forged = source.base / "forged-staging"
-    init_corpus_root(forged, authority=AUTHORITY)
-    writer = open_corpus(forged, authority=AUTHORITY, profile=V2)
+    init_corpus_root(forged, authority=SETUP)
+    writer = open_corpus(forged, authority=SETUP, profile=V2)
     manifest = writer.adopt_manifest(profile=pins_for(V2))
     kept, extra = (stored.run_node(name, title=name, spec="s", produces=[]) for name in ("kept", "extra"))
     writer._stage_record(node_to_markdown(kept))
@@ -3315,17 +3451,17 @@ def test_y10_b_a_verified_root_with_records_beyond_its_selection_is_refused_befo
                                clock=Clock(), seam=moment_seam())
     writer._stage_marker(marker_record(opened.intent, world_id="e" * 32, epoch="f" * 64, selection=(kept.id,)))
     config = WorldConfig(source.base / "forged-world", "b" * 32, (forged,))
-    init_world_root(config, authority=AUTHORITY)
-    staging_world = open_world(config, authority=AUTHORITY)
+    init_world_root(config, authority=SETUP)
+    staging_world = open_world(config, authority=SETUP)
     staging_world.admit(forged, provenance=Fresh())
     artifact = export_head_artifact(staging_world, CorpusSubject(manifest.corpus_id))
     copy = source.dest / "forged"
-    replicate_root(forged, copy, authority=AUTHORITY)
+    replicate_root(forged, copy, authority=SETUP)
     observers = ObserverSet((ArtifactCarrier.from_bytes(artifact),))
-    assert restore_root(copy, CorpusSubject(manifest.corpus_id), observers, authority=AUTHORITY).outcome == "validated"
+    assert restore_root(copy, CorpusSubject(manifest.corpus_id), observers, authority=SETUP).outcome == "validated"
     recipient = _recipient(source, copy)
     registry_before = sorted(p.relative_to(recipient.config.world_root) for p in recipient.config.world_root.rglob("*"))
-    with pytest.raises(ArrivalRefused) as caught:
+    with pytest.raises(PublicationArrivalRefused) as caught:
         admit_publication(recipient, copy, observers)
     assert caught.value.reason == "selection-mismatch" and caught.value.refs == (extra.id,)
     assert sorted(p.relative_to(recipient.config.world_root) for p in recipient.config.world_root.rglob("*")) == registry_before
@@ -3384,7 +3520,7 @@ The arms follow. Copy every `before` from the tree after Task 8 and check it wit
 | Y9-c | `publish.py` | `        if reading is not None and reading.reading == "unfinished":` | `        if reading is not None:` |
 | Y9-d | `publish.py` | `        _discard(op)` | `        pass` |
 | Y9-e | `publication_doors.py` | `        if type(entries[-1]) is not PublicationBindingEntry:\n            yield intent, PreBinding(` | `        if len(entries) != 1:\n            yield intent, PositionRefused("revision-malformed", "not a publish report")\n            continue\n        if type(entries[-1]) is not PublicationBindingEntry:\n            yield intent, PreBinding(` |
-| Y10-a | `publication_arrival.py` | `    if not markers:\n        raise ArrivalRefused("marker-absent")` | `    if False:\n        raise ArrivalRefused("marker-absent")` |
+| Y10-a | `publication_arrival.py` | `    if not markers:\n        raise PublicationArrivalRefused("marker-absent")` | `    if False:\n        raise PublicationArrivalRefused("marker-absent")` |
 | Y10-b | `publication_arrival.py` | `    if held != selection:` | `    if not set(selection) <= set(held):` |
 
 Each arm's `asserts` text is its spec §13 row clause, in one sentence. Before pinning, run each sabotaged text through `ast.parse` via `n2_arms.py`'s sabotage helper.
@@ -3596,7 +3732,7 @@ At self-review, three first-draft stubs were written out in full: Y5-a's nine ca
 - **Doors:** `AttemptReading(opened, reading, outcome)`; `attempt_reading(writer, event_token, seam)`; `_refuse_publication(writer, opened, entries, *, clock, port=None)`; `_open_publication(…, expected_view=None)`; `_bind_publication(…, lifecycle=())`.
 - **The act:** `publish(writer, resolver, world, *, view, destination, operations_root, staging_profile, clock, seam, port=None)`; `resume_publish(writer, resolver, *, event_token, operations_root, staging_profile, clock, seam, port=None)`; `pending_publishes(writer, *, operations_root, seam)`; `Published(event_token, corpus_id, marker, binding, artifact)`; `PublishRefused(event_token, outcome)`; `PublishUnresolved(event_token, reason)`.
 - **Arrival:** `admit_publication(world, root, observers)`.
-- **Errors:** `ArrivalRefused(reason, *, refs=())`, `PublicationRefused(reason, *, tips=(), refs=(), corpus_ids=(), field="")`, `CreateOnlyCollision(path)`.
+- **Errors:** `PublicationArrivalRefused(reason, *, refs=())`, `PublicationRefused(reason, *, tips=(), refs=(), corpus_ids=(), field="")`, `CreateOnlyCollision(path)`.
 - **The spec's names the plan renames**, each in the planning note: `Unresolved` → `PublishUnresolved`; `PublishRefused(event_token, report)` → `PublishRefused(event_token, outcome)`; `StagingCorrupt`'s nullable `corpus_id` and `record` → `corpus_id` and `refs`.
 
 **Review Focus.** All five lines have a test in their owning task: Task 4 (1 and 2), Task 8 (3 and 4) and Task 1 (5).
@@ -3615,3 +3751,11 @@ At self-review, three first-draft stubs were written out in full: Y5-a's nine ca
   - six arms reshaped so each check sees its sabotage (Y5-a, Y6-a, Y9-c, Y9-d, Y10-a, Y10-b).
 
   Task 0 pins five engine facts before anything relies on them: the initializers, admission, export and replication retries converge, and a restored copy reads.
+
+- 2026-09-24 — user review of the plan, six findings, each verified against the code (the user had probed the staging, permit, destination and retry findings); all taken, and the spec amended to match (its §18):
+  1. **`ArrivalRefused` already exists** (`errors.py:379`, raised by `world/verify.py` with `(cause, report, detail)`). The publication door's refusal is `PublicationArrivalRefused`, everywhere in the plan and the spec; verified arrival's refusal passes through unchanged.
+  2. **Serviceability was taken as identity.** `_replicate` now reinvokes `replicate_root` on every retry, and `_restore` runs only after it. Task 0 gains two probes: `REPLICATE_AFTER_RESTORE` (a retry after the grant converges) and `FOREIGN_REPLICA` (another corpus's replica at the path refuses, and its exception type is recorded). Task 8 gains `test_a_foreign_root_at_the_export_path_binds_nothing_durably`. The spec records the foreign occupant as a limitation: the attempt stays pending.
+  3. **The staging doors skipped the profile.** Both now run `_refuse_invalid` and `_refuse_facet_shapes`, and `_stage_record` also runs the display-facet and governed-stamp checks, the ordinary writer's record-local guards. Two tests pin the probed cases: an unactivated domain facet (`facet-unexpected`) and a marker under `BASE` (`kind-unknown`). The view-reading refusals stay omitted.
+  4. **The resolved destination was discarded.** `publish` freezes `Destination.local(str(resolved))` before the intent, and `test_destination_checks` asserts that a symlinked destination answers its target.
+  5. **A retry answered `present` without the directory `fsync`.** It now syncs the directory first, with a fault test for a death between the link and the sync.
+  6. **The fixture used the publish-only permit for setup.** Corpora, worlds, epochs, the view's revisions, the forged root and the recipient worlds run under `SETUP = FULL`. The publishing writer and the world handed to `publish` bind exactly `publishes()` (`open_world` requires no family).

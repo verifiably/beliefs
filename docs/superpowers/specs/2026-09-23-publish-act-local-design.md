@@ -275,7 +275,10 @@ In order, with nothing written by any refusal:
      `coordination-unpinned` or `pins-disagree`.
 7. **Destination.** `destination.locator` must be an existing directory, not
    inside the operations root, any mounted corpus root or the world root.
-   Otherwise `destination-unusable`.
+   Otherwise `destination-unusable`. The locator is resolved here, and the
+   **resolved** path is the destination the intent and the request freeze. A
+   symlink retargeted between a crash and its resume therefore cannot move the
+   export away from the directory step 0 validated.
 8. Build the snapshot bytes in memory from the view's retained records, in
    `selection.selected` order (§4.3).
 
@@ -316,8 +319,11 @@ comparison is what makes that sound.
 2. `os.link` it to `path`. The link fails if the name exists.
 3. `unlink` the temporary and `fsync` the directory.
 
-On `FileExistsError` it reads `path`: identical bytes answer `"present"`, and
-different bytes raise `CreateOnlyCollision(path)`. Any leftover
+On `FileExistsError` it reads `path`. Identical bytes `fsync` the directory
+and answer `"present"`: an earlier invocation that died after its link but
+before its directory `fsync` left the name in a directory not yet synced, and
+the retry completes that obligation. Different bytes raise
+`CreateOnlyCollision(path)`. Any leftover
 `.{path.name}.*.tmp` in the directory is removed first. This is layer design
 §6.1 step 0's mechanism, used by the snapshot, the request and the sibling
 (§6). It is plain POSIX, not an `atoms` root. `root.py` stays the one `atoms`
@@ -385,8 +391,15 @@ function of the intent and those arguments.
 `_stage_record(writer, text)` and `_stage_marker(writer, node)` sit on
 `CorpusWriter` beside `add`:
 - each runs under `writer._operation` and requires its permit;
-- each runs `_require_pins_agree` and `validated_node`;
-- each refuses a record the staging pins do not authorize;
+- each runs `_require_pins_agree` and the record-local guards the ordinary
+  writer applies: document validation, the profile's registry and facet
+  payloads (`_refuse_facet_shapes`, which refuses a kind or a facet the
+  staging profile does not declare — a publication under a profile without
+  coordination v2, an unactivated domain's facet), the display facet, the
+  governed semantic-identity stamp, the rendering, and collision;
+- neither runs the view-reading refusals (supersedes and assesses targets,
+  composite members, verification): population runs in id order, not
+  dependency order, and every selected record passed them where it was minted;
 - each writes one registered transaction through the writer's own
   `_corpus.add`.
 
@@ -408,8 +421,15 @@ stores nothing.
   artifact)`. A collision, a sibling of the same name with other bytes, is
   `export-collision`, terminal (§7).
 - **Step 6.**
-  1. `replicate_root(staging, export root)` returns the retained operation
-     id, and an exact retry adopts the claim.
+  1. `replicate_root(staging, export root)` is **reinvoked on every retry**,
+     whatever the export root's state. It returns the retained operation id,
+     and an exact retry adopts the claim; its retained-operation check is what
+     proves the root at that path is this attempt's replication. A
+     serviceable root is never taken as this attempt's on its state alone. A
+     foreign root occupying the path — another replication, serviceable or
+     not — makes `replicate_root` refuse. That refusal propagates: nothing
+     binds, the intent stays `unfinished`, `pending_publishes` keeps listing
+     the attempt, and the occupant is the operator's to remove (§16).
   2. If `read_lifecycle_state(export root)` is not `READ_ONLY_SERVICEABLE`,
      run `restore_root(export root, CorpusSubject(corpus_id),
      ObserverSet((ArtifactCarrier.from_bytes(<the sibling read back>),)))`.
@@ -532,7 +552,7 @@ def admit_publication(world: World, root: Path, observers: ObserverSet) -> tuple
 ```
 
 It opens the arriving root read-only (`ReadView.opened_at`) and refuses with
-`ArrivalRefused(reason)`, before any write, when any of the following fails:
+`PublicationArrivalRefused(reason)`, before any write, when any of the following fails:
 
 | check | reason |
 |---|---|
@@ -546,7 +566,11 @@ It then calls `admit_arrival(world, root, ReplicaOf(load_manifest(root).corpus_i
 observers)`, whose chain verification binds the files the checks read. A
 root that is read-only and serviceable does not change between the checks
 and the call. Anything less is refused whole (layer design §6.1 "the
-atomicity claim"). `ArrivalRefused` is a new `WriteRefused` in `errors.py`.
+atomicity claim"). `PublicationArrivalRefused` is a new `WriteRefused` in
+`errors.py`. It is not `ArrivalRefused`, which names verified arrival's
+refusal `(cause, report, detail)` and is raised by `admit_arrival` itself;
+the checks here run before that act, and its refusal passes through
+unchanged.
 
 ## 11. What does not change
 
@@ -620,7 +644,9 @@ The Y table (`../../designs/2026-09-22-publication-design.md`) gains Y5–Y10:
 ### 14.2 Acceptance — `test_publish_act_acceptance.py` (new)
 
 These run on the certified tuple, over a source world with two contributing
-corpora and a written root pinning coordination v2. Every arm ends
+corpora and a written root pinning coordination v2. The fixture is built under
+setup authority (worlds, epochs, the view's revisions); the writers that call
+`publish` and `resume_publish` bind exactly `publishes()`. Every arm ends
 `_durably`. Crashes are injected at step boundaries through a fault seam on
 the act, which raises and discards in-memory state; a fresh `resume_publish`
 then reads only disk. A kill at an engine stage is `persistence-cut`'s (§16).
@@ -713,6 +739,11 @@ lifecycle through `root.py`'s wrappers. `_stage_record`, `_stage_marker` and
    The roots are private and throwaway.
 4. **`publish` has no public route.** `science` reaches it by its own design.
 5. **Remote destinations are refused until cut 41.**
+6. **A foreign root occupying `<destination>/<corpus_id>` leaves the attempt
+   unfinished.** `replicate_root` refuses it, and the kernel does not
+   classify engine refusals outside `root.py`, so no terminal report is
+   written. The attempt stays listed by `pending_publishes` until an operator
+   clears the path.
 
 ## 17. Task linkage
 
@@ -736,3 +767,20 @@ orphans and Ruling 12, and the recipient's `divergent-publication`.
   - `publication_content_malformed` returns a `bool`, so the marker check is
     `not publication_content_malformed(marker)` in staging (§5) and at
     arrival (§10).
+- 2026-09-24: user review of the plan, six findings, all taken after checking
+  them against the code:
+  - `ArrivalRefused` already exists (verified arrival's
+    `(cause, report, detail)`); the publication door's refusal is
+    `PublicationArrivalRefused` (§10);
+  - a serviceable export root is not proof of this attempt's replication:
+    `replicate_root` is reinvoked on every retry and its retained-operation
+    check decides; a foreign occupant refuses and binds nothing (§6, §16
+    item 6);
+  - the staging doors apply the writer's record-local profile guards,
+    registry and facet payloads included, not only structural validation
+    (§5);
+  - the resolved destination is what step 0 freezes (§4.1 item 7);
+  - an exact retry of the create-only write fsyncs the directory before
+    answering `present` (§4.4);
+  - acceptance fixtures are built under setup authority, and only the
+    publishing and resuming writers bind exactly `publishes()` (§14.2).
