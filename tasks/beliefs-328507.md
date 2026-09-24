@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-22T22:08:29Z
-updated: 2026-09-24T03:16:40Z
+updated: 2026-09-24T10:28:43Z
 started: 2026-09-24T02:25:52Z
 depends: [beliefs-d7d7d1]
 parent: beliefs-1a5157
@@ -34,3 +34,6 @@ Slice 2 of publish: layer design 6.1 steps 0 (request record, durable create-onl
   provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-24T03:16:40Z (design/publish): parked (waiting on user, review): Cut-40 plan awaiting user review and execution choice: docs/superpowers/plans/2026-09-23-publish-act-local.md
   provenance: {"harness_session":"claude-code:99a95437-3bde-4503-a0dd-5f5a57cd7bd2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T10:28:43Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:c93cd81e-dbd2-4766-8217-506a58a55a62","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-24T10:28:43Z (design/publish): Plan approved by the user; executing subagent-driven. Claimed by claude-code (opus-5-5) controller, pid 315348.
