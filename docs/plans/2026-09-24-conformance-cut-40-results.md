@@ -347,6 +347,36 @@ reviewed:
   the final-review fix wave (Ruling 7). Population byte-compares the marker
   to the factory's output before anything builds on it.
 
+**Post-discharge fixes.** The whole-branch review after discharge at
+`9428a31` found two findings, fixed in one dispatch at `65bfe1d` (Ruling
+13). Neither edits the frozen declaration: every one of cut 40's fifteen
+`before` lines still occurs exactly once in its module, cut 39's pinned
+lines did not move, `test_arm_staleness.py` passes, and
+`test_publish_act_acceptance.py` (34 passed) and `test_n2_cut40.py` (10
+passed, sabotage audit included) re-ran green against the changed source.
+
+- **`_stage_marker`'s guards, `65bfe1d`** — spec §5 requires the
+  display-facet and governed-stamp guards on both staging doors, and only
+  `_stage_record` ran them. `_stage_marker` now runs both beside
+  `_refuse_facet_shapes`, under `_stage_record`'s message shape, and names
+  the record by `node.id` (every caller passes the factory's `Node`). The
+  marker's closed content rule and the facet-payload check refuse such a
+  marker first, so the unit test asserts the refusal armed and, with those
+  two disarmed, that the guard itself refuses
+  (`test_stage_marker_runs_the_display_facet_and_governed_stamp_guards`).
+- **A corrupt staging file, `65bfe1d`** — `_population` read the staging
+  store through `iter_stored`, and a file `nodes` refuses to read raised a
+  raw exception, so every resume raised, the attempt stayed `unfinished` and
+  `pending_publishes` listed it for good. Probed: garbage, non-UTF-8 and
+  malformed frontmatter raise `ValidationError`, a record off its mapped
+  path `PlacementError`, a duplicate uid `CollisionError`; nothing raises
+  `MalformedRecord`. Those three now return `StagingCorrupt(corpus_id,
+  "bytes", ())`, naming no record since none can be read to name (Y7;
+  `test_an_unreadable_staging_file_is_corrupt_bytes`).
+
+The deferred minors in §3.3 and the review's other minors are filed as
+`beliefs-1ce6cc` (priority 3).
+
 ### 3.3 Review findings and limitations
 
 Every task was reviewed against the spec before the next began. Task 2's
@@ -355,7 +385,8 @@ Task 6's the late snapshot assertion and the dead request decode, and Task
 8's Y6-b insensitivity. Each was fixed in a round of its own and re-reviewed
 clean.
 
-The deferred minors, carried to the final review (§6):
+The deferred minors, carried to the final review (§6) and filed after it as
+`beliefs-1ce6cc`:
 
 - `_refuse_publication` does not check that its entries' subject equals the
   intent's binding address.
@@ -464,6 +495,8 @@ integrated head, and the merge into `main`.
   wave.** The display-facet and governed-stamp guards are not a Task 5 loop.
   Population byte-compares the marker to the factory's output first, so
   nothing downstream builds on the gap.
+  Resolved at `65bfe1d`: the fix wave added both guards (§3.2,
+  post-discharge fixes).
 - **Ruling 8: `attempt_reading` fails early.** It raises `MalformedRecord`
   on a chain that is not well-formed and on two intents sharing a token, and
   the act lets that propagate with nothing written. Spec §9's
@@ -485,6 +518,10 @@ integrated head, and the merge into `main`.
   commit on `main` first. Every code change goes through a worktree, and this
   lane's merge carries the repair to `main`. `main`'s cut-19 guard stays red
   until then, as it has been since `70ff54e`.
+- **Ruling 13: one fix dispatch after the final review** for the marker
+  door's guards and the corrupt staging file, then the cut-40 phase modules
+  re-run (§3.2). The review's minors went to one follow-up task,
+  `beliefs-1ce6cc`, not to this lane.
 - **Every implementer ran in the foreground and committed before
   returning.** The lane's detached runs, both chained cut runners, went
   through the reaping wrapper, and each process group was confirmed gone.
