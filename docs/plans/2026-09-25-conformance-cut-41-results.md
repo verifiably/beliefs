@@ -370,8 +370,18 @@ consumer is science's part 2 (`sci-f95f8b`), which calls
 
 ## 6. Main integration
 
-Filled at merge: the merge into `main` and the verification on the merged
-tree. The whole-branch review and the repository gate ran before this record
+`design/live-query` merged into `main` at `6fdb7de` (2026-09-25), a local
+merge that is not yet pushed. The branch had merged `main` at `ce8e46e` before
+the freeze, and the later `main` commits touched task records only, so the
+merge was clean. On the merged tree, from the main checkout on the certified
+volume:
+
+- `just test-fast`: 5702 passed, 1 skipped.
+- `tests/acceptance/test_live_selection_acceptance.py`,
+  `tests/acceptance/test_n2_cut41.py` and slice 4's
+  `tests/acceptance/test_world_selection_acceptance.py`: 54 passed.
+
+The whole-branch review and the repository gate ran before this record
 (§3.3).
 
 ## 7. Execution rulings
