@@ -267,10 +267,10 @@ Beside the units, the module holds:
 | Z1-a | the capture loop skips the last covered corpus |
 | Z1-b | the terminal-status filter is dropped from coverage |
 | Z1-c | absent corpora are dropped from `absent` |
-| Z1-d | coverage is read from the current epoch's declared coverage |
+| Z1-d | the registry's coverage is filtered by the current epoch's declared coverage |
 | Z2-a | the before/after state comparison inside the hold is dropped |
 | Z2-b | the capture hold is bypassed (`nullcontext()` in place of `capture()`), with the before/after comparison kept |
-| Z3-a | the stamp re-reads `corpus_state_identity` after every capture instead of keeping the in-hold state |
+| Z3-a | the stamp re-reads `corpus_state_identity` for each covered corpus when it is built, instead of keeping the in-hold state |
 | Z4-a | a construction failure omits the corpus instead of collecting its damage |
 | Z4-b | the base-pin check is skipped |
 | Z5-a | the scoped uniqueness check runs over every record before `address_map` |

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Baseline is `main` at `f3a02fe`** (`git merge-base main design/live-query`). Work in `.worktrees/live-query` (branch `design/live-query`, locked "on WORK_ROOT storage"). Paths below are relative to the repository root; paths shown to the user carry the `.worktrees/live-query/` prefix. The main checkout is `~/d/beliefs`.
+- **Baseline is `main` at `a79fb5a`**, merged into the branch at `ce8e46e` before Task 0 (the design forked at `f3a02fe`; the merge brought `beliefs-3ce305`'s cut-42 title and the task-note history). Work in `.worktrees/live-query` (branch `design/live-query`, locked "on WORK_ROOT storage"). Paths below are relative to the repository root; paths shown to the user carry the `.worktrees/live-query/` prefix. The main checkout is `~/d/beliefs`.
 - **The fast loop.** From the worktree root: `SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test just test-fast` (`beliefs-ad68df`). For one module: `cd python && SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test uv run --frozen pytest tests/<module> -q`. About 216 `CapabilityUnavailable` failures mean the export is missing, not a bug.
 - **Acceptance and N2 run from the worktree, under overrides onto the main checkout's certified volume — not after a fast-forward.** The worktree sits on WORK_ROOT storage, which the durability allowlist refuses, and acceptance fixtures whose roots are repo-relative fail there. Before any acceptance or N2 run:
 
@@ -129,7 +129,7 @@ Expected: `scan done` and nothing else from the three listings, so no branch hol
 
 Then relabel remote publish's **current** references to planned cut 42, in this freeze commit. Rule 1 claims the number at the freeze, so the claim and the relabel land together. The exact edits:
 - `docs/designs/2026-08-03-redesign-adoption-ledger.md`: the `Updated 2026-09-24` paragraph, the **Y5–Y10 close** bullet, the `publish` row of the open-boundary table, the paragraph after that table, and the `publish remains open …` sentence: each "cut 41" that names the remote slice → "cut 42".
-- `docs/plans/2026-08-29-implementation-roadmap.md`: the `world-read` head sentence, the boundary index's `publish` row, the off-path tier table's row 1, and "Cut 41's remote slice appends its own rows" → cut 42.
+- `docs/plans/2026-08-29-implementation-roadmap.md`: the `world-read` head sentence, the lane table's `world-read` row ("its third, the remote slice (cut 41), is next"), the boundary index's `publish` row, the off-path tier table's row 1, and "Cut 41's remote slice appends its own rows" → cut 42.
 - `README.md` ("stays open with cut 41's remote slice"), `docs/guide/contracts-and-adoption.md` (same phrase), `docs/guide/open-questions.md` ("work for cut 41"), `docs/designs/2026-09-22-publication-design.md` ("the remote slice, cut 41,") → cut 42.
 - `python/src/beliefs/publish.py`: `ValidationRefused("remote destinations arrive in cut 41")` → `"… in cut 42"`. No test or arm pins the text (`git grep -n "arrive in cut" -- python/tests` finds nothing); rerun `git grep` to confirm first.
 - `tasks edit beliefs-3ce305 --title "The publish act, remote: transport seam, remote reveal and orphans, divergent-publication (cut 42)"`, plus `tasks note beliefs-3ce305 "renumbered cut 41 → 42 on <date>: live view-query evaluation froze as cut 41 (beliefs-cc0aea), by the user's decision of 2026-09-25"`. The title was changed on `main` on 2026-09-25, when the user decided: confirm it reads so and skip the edit.
@@ -183,6 +183,20 @@ In the moved design:
     `SelectionRefused("corpus-damaged")`, `AddressMapConflict`,
     `ResolutionRefused`, `CaptureDrift`, and `BuildContended` from `capture()`.
     No new error class is added.
+  - **`live.py` repeats `open_world_view`'s coverage block, capture loop, W8b
+    message and inbound-edge construction instead of sharing them.** The
+    repeated `view.py` lines are pinned by live arms (cut 23's W10d, W10e and
+    W10g; cut 27's S9-a), and cut 41's arms need single-site targets in
+    `live.py`. The two identical `except` branches in `_capture` and the
+    per-corpus filter in `_address_map` stay separate for the same reason:
+    Z4-a and Z5-b each need one site. A later de-duplication re-targets those
+    arms through the guards' `_LIVE_SABOTAGES`, and is out of this cut.
+  - **`evaluate_live_query` checks `type(world) is registry.World` and
+    `isinstance(query, ViewQuery)`**, as `evaluate_query` does; "a parsed
+    `ViewQuery`" (§3.1) is read as an instance.
+  - **Z1-d's and Z3-a's sabotages are stated as implemented** in §6.3: Z1-d
+    filters the registry's coverage by the current epoch's coverage, and Z3-a
+    re-reads each covered corpus's state when the stamp is built.
   - **The twelve arms were audited on paper at the freeze** (plan Task 0 Step
     2); the executable audit is plan Task 5, and an arm that fails it is
     rehomed in a dated §8 supplement to the cut document.
@@ -204,7 +218,7 @@ print(sum(map(len, m.GUARANTEE_TABLES.values())), 'rows', len(m.GUARANTEE_TABLES
 ```
 Expected today: `231 rows 22 tables 79 designs` (80 after Step 4). Update:
 - `README.md`: "**231 rows** across **twenty-two frozen tables**", the design-count word ("Eighty documents"), its "through <newest design date>", and two design-table rows: the moved design (`the live attention read: a view query denoted over every admitted corpus's current state, stamped by its capture; table Z`) and the cut document (Step 4);
-- `docs/guide/contracts-and-adoption.md`: its rows-and-tables sentence and totals line, and the frozen-not-discharged cut paragraph, on cut 40's shape.
+- `docs/guide/contracts-and-adoption.md`: its rows-and-tables sentence and totals line, and the frozen-not-discharged cut paragraph, on cut 40's shape. That paragraph cites both new filenames (the moved design and the cut document): `test_the_guide_cites_every_design` requires every design to be cited on a guide page.
 
 - [ ] **Step 4: Write the cut document.** Read `sed -n 1,190p docs/designs/2026-09-24-conformance-cut-40.md` first and keep its headings exactly (`## 1. What this cut is` … `## 7. Limitations`): the guard slices §§2–7 from `## 2. The boundary` to the first `\n## 8.`. Header:
 
@@ -238,7 +252,7 @@ Point this plan's **Spec** line at `docs/designs/2026-09-24-live-query-evaluatio
 ```bash
 cd .. && tasks note beliefs-cc0aea "Cut 41 frozen: <case>; accounting 12/12/5; prefix <runner>."
 tasks done beliefs-09a5c4 "cut 41 frozen; Z1–Z5 banked; arms audited on paper"
-tasks check && git add docs README.md python/tests/test_designs_corpus.py tasks
+tasks check && git add docs README.md python/tests/test_designs_corpus.py python/src/beliefs/publish.py tasks
 git commit -m "docs(cut): freeze conformance cut 41, live view-query evaluation; bank Z1–Z5"
 git rev-parse HEAD; sha256sum docs/designs/*-conformance-cut-41.md
 ```
@@ -281,20 +295,6 @@ class TestLocatedState:
         make_absent(roots, BETA)
         assert open_world_view(world, published)._located_state(dataset_ref("d-b")) == "not-present"
 
-    def test_the_core_denotes_what_evaluate_query_selects(self, tmp_path):
-        from beliefs.world.selection import _denoted
-
-        world, roots, published, topic = topic_world(
-            tmp_path, [{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}]
-        )
-        view = open_world_view(world, published)
-        selection = evaluate_topic(world, roots, published, topic)
-        denoted = _denoted(view, selection.query)
-        assert (denoted.selected, denoted.contributing, denoted.unresolved) == (
-            selection.selected,
-            selection.contributing,
-            selection.unresolved,
-        )
 ```
 
 - [ ] **Step 2: Run it to see it fail**
@@ -349,7 +349,7 @@ and in `WorldReadView`, directly after `locate`:
 
 - [ ] **Step 5: `world/selection.py`.** Make exactly these edits and nothing else.
 
-Imports: replace the `collections.abc`, `typing`, `nodes`, `read` and `view` import lines with
+Imports: replace the `collections.abc`, `dataclasses`, `typing`, `nodes`, `read` and `view` import lines with
 
 ```python
 from collections.abc import Iterator, Mapping
@@ -692,7 +692,7 @@ git commit -m "feat(world): the live selection and its capture stamp"
 - Consumes: Task 1's `_denoted`, `_Denotation`, `LocatedState`, `RelationView`; Task 2's types; `registry._locked_barrier`, `_scan_registry`, `_live_corpus_ids`, `_reduce_status`, `_carrier_roots`, `corpus_state_identity`; `corpus._operation_lock_for`, `ReadView.opened_at`, `ReadView._require_base_pin`; `derive.Capture`, `CapturedCorpus`, `CapturedRecord`, `address_map`.
 - Produces: `evaluate_live_query(world: registry.World, query: ViewQuery) -> LiveSelection`. Task 5's arms target the exact spellings below, so write them character for character.
 
-- [ ] **Step 1: Write the failing tests.** Add to the imports of `python/tests/test_live_selection.py`:
+- [ ] **Step 1: Write the failing tests.** Add to the imports of `python/tests/test_live_selection.py`, merging each line into the module's existing import from the same module and keeping the groups sorted (ruff's I001 is on):
 
 ```python
 from coordination_fixtures import raw_coordination_node
@@ -1386,11 +1386,19 @@ def test_live_after_a_write_selects_what_the_old_epoch_refuses_durably(live_worl
 
 
 AGREEMENT_QUERIES = (
-    query([{"addresses": [dataset_ref("d-b")]}]),
-    query([{"kinds": ["dataset", "run"]}]),
-    query([{"references-term": GENE}]),
+    # Slice 4's acceptance queries over its default topic records
+    # (`test_world_selection_acceptance.py`), then two of this plan's own.
+    query([{"kinds": ["dataset"]}]),
     query([{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}]),
+    query([{"references-term": GENE}]),
+    query([{"references-term": GENE.upper()}]),
+    query([{"references-term": GENE.lower()}]),
+    query([{"addresses": [dataset_ref("d-a")]}], [{"references-term": GENE}]),
+    query([{"addresses": [dataset_ref("d-b")]}]),
     query([{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "in"}}]),
+    query([{"closure": {"anchor": dataset_ref("d-a"), "predicates": ["produces"], "direction": "in"}}]),
+    query([{"kinds": ["dataset"]}, {"addresses": [dataset_ref("d-b")]}], [{"kinds": ["run"]}]),
+    query([{"kinds": ["dataset", "run"]}]),
     query(
         [{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "both"}}],
         [{"kinds": ["proposition"]}],
@@ -1473,7 +1481,10 @@ def test_an_evaluation_writes_nothing_durably(live_world):
 
 ```bash
 uv run --frozen pytest tests/acceptance/test_live_selection_acceptance.py -q
+uv run --frozen ruff check tests/acceptance/test_live_selection_acceptance.py
 ```
+
+The repository's ruff (and the pre-commit hook) refuse the module as written above: nine unused unpacked names (RUF059) and one nested `with` (SIM117, in Z2-b's `BuildContended` check). Prefix each unused unpacked name with `_` and merge the two `with` statements into one; neither change touches an assertion. Then extend `test_coordination_records_are_never_selected_durably` with spec §6.2's other half, that the address map holds no coordination address: capture the covered carriers with `live._capture(roots)` and assert `project.id` is not a key of `live._address_map(captured, states)` (import the module as `from beliefs.world import live as live_module`, since `live` names a selection elsewhere in the file).
 Expected: 19 passed. If a fixture fails for a reason the plan did not foresee (a durable writer refusing a topic record, a manifest serialized without the `science_contract: ` spelling Z4-b asserts), fix the fixture, never the assertion the row names, and note the fix for the results record's §3.
 
 - [ ] **Step 3: Commit**
@@ -1644,7 +1655,7 @@ The acceptance shim `python/tests/acceptance/n2_arms_cut41.py` is cut 40's shim 
 - import `CUT40_ARMS` from `n2_arms_cut40` and add it to `PRIOR_ARMS`;
 - add `"python/tests/n2_arms_cut40.py": "<sha>"` to `FROZEN_PRIOR_CUT_FILES` (`git log -1 --format=%h -- python/tests/n2_arms_cut40.py`);
 - set `FROZEN_CUT` to the cut-41 document, and `CUT41_FREEZE_COMMIT` and `CUT41_FROZEN_SHA256` from Task 0 Step 5;
-- set `FROZEN_DECLARATION = "python/tests/n2_arms_cut41.py"`, recompute `CUT41_DECLARATION_SHA256` with `sha256sum python/tests/n2_arms_cut41.py`, and rename every `CUT40_*` constant to `CUT41_*`;
+- set `FROZEN_DECLARATION = "python/tests/n2_arms_cut41.py"`, recompute `CUT41_DECLARATION_SHA256` with `sha256sum python/tests/n2_arms_cut41.py`, and rename every `CUT40_*` constant to `CUT41_*` except the `CUT40_ARMS` import the previous bullet adds to `PRIOR_ARMS`;
 - make the inventory test assert the twelve units in Step 1's order and `(FROZEN_ARMS, FROZEN_UNITS) == (12, 12)`;
 - point `test_every_acceptance_test_the_arms_name_exists` at `test_live_selection_acceptance.py`;
 - make the freeze test assert `"**12 arms, 12 declaration units**" in " ".join(current.split())` and the prefix tuple (`'("cut40_acceptance.py",)' in current`);
