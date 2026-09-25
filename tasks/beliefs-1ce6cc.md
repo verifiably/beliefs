@@ -4,7 +4,7 @@ title: "Cut-40 final-review follow-ups: polish deferred at merge"
 status: todo
 priority: 3
 created: 2026-09-24T15:41:32Z
-updated: 2026-09-24T15:41:32Z
+updated: 2026-09-25T10:59:17Z
 depends: []
 tags: [publication, hygiene]
 ---
@@ -28,3 +28,7 @@ Minors the cut-40 whole-branch review (design/publish) deferred at merge. Each i
 - Consider wrapping RootOperationMismatch as a typed WriteRefused in root.py's `replicate_export`.
 
 Source: docs/plans/2026-09-24-conformance-cut-40-results.md §3.3 and the final-review fix wave (65bfe1d).
+
+## Notes
+
+- 2026-09-25T10:59:17Z (design/live-query): The remote slice this body calls cut 41 was renumbered to planned cut 42 on 2026-09-25 (live view-query evaluation froze as cut 41, beliefs-cc0aea).
