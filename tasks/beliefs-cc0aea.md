@@ -8,13 +8,13 @@ complexity: high
 process: planned
 owner: main
 created: 2026-09-24T10:43:33Z
-updated: 2026-09-25T02:26:43Z
+updated: 2026-09-25T10:49:59Z
 started: 2026-09-25T01:17:04Z
 depends: []
 tags: [world-read, coordination]
 source: science docs/specs/2026-09-24-coordination-command-set-design.md §8 S1
 agent: claude-code/claude-opus-5-5
-spec: docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md
+spec: docs/designs/2026-09-24-live-query-evaluation-design.md
 plan: docs/superpowers/plans/2026-09-24-live-query-evaluation.md
 ---
 
@@ -30,3 +30,4 @@ Requested by science's coordination command set design (docs/specs/2026-09-24-co
 - 2026-09-25T01:37:06Z (main): Review 2026-09-24 requested changes: keep address_map's AddressMapConflict classification and precedence, scope the W8b check to records outside the map; focused cut 42 (rows Z1-Z5, 11 arms) for the live entry point; never-published and coverage-qualified agreement tests. Spec revised
 - 2026-09-25T02:26:43Z (design/live-query): parked (waiting on user, review): Plan docs/superpowers/plans/2026-09-24-live-query-evaluation.md (9680614, worktree .worktrees/live-query) awaits user review, an execution method, and the cut-number choice (cut 41 is unfrozen: take 41 or wait)
   provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-25T10:49:59Z (design/live-query): Cut 41 frozen: twelve arms audited on paper, all hold (a scratch pre-flight of plan Tasks 1–4 saw each sabotage fail its check as predicted); scan clean on every branch; Z1–Z5 banked, 199 of 231; accounting 12/12/5; prefix ("cut40_acceptance.py",).

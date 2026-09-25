@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+ under `uv`, pytest, the `nodes` records, the certified `atoms` engine behind `root.py` (reached here only through the acceptance fixtures), the acceptance harness under `python/tests/acceptance/`, and the N2 audit.
 
-**Spec:** `docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md`, approved 2026-09-24 at `d67359e` after two user reviews, amended 2026-09-25 at this plan's review (cut 41, prefix cut 40; Z2-b observes enumeration). Task 0 moves it to `docs/designs/2026-09-24-live-query-evaluation-design.md` as table Z's owner (the cut 31 and cut 32 precedent for a new table); every later task reads it there. Read it first; every task cites its decisions (§2) and sections.
+**Spec:** `docs/designs/2026-09-24-live-query-evaluation-design.md`, approved 2026-09-24 at `d67359e` after two user reviews, amended 2026-09-25 at this plan's review (cut 41, prefix cut 40; Z2-b observes enumeration). Task 0 moved it there from `docs/superpowers/specs/` as table Z's owner (the cut 31 and cut 32 precedent for a new table); every later task reads it there. Read it first; every task cites its decisions (§2) and sections.
 
 ## Global Constraints
 

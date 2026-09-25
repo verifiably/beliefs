@@ -47,7 +47,7 @@ here rather than restating it. It lists no unresolved design question:
 work.
 
 **Updated 2026-09-24** for cut 40's discharge of the publish act for a
-local destination: Y5–Y10 close, and `publish` stays open with cut 41's
+local destination: Y5–Y10 close, and `publish` stays open with cut 42's
 remote slice. The T table stays partial on T7's cross-root case alone, and
 row 5 stays partial for L1's persistence arms alone.
 
@@ -384,7 +384,7 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
     `admit_publication`, which refuses before any write a root without
     exactly one well-formed, consistent marker, one holding a binding, or
     one whose records are not exactly the marker's selection.
-  - **Y5–Y10 close.** `publish` stays in the table with cut 41's remainder
+  - **Y5–Y10 close.** `publish` stays in the table with cut 42's remainder
     (`beliefs-3ce305`): remote transport, the remote reveal and its
     orphans, and `divergent-publication`. The corpus has **199 of 226 rows
     closed, 27 open**.
@@ -407,7 +407,7 @@ not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
-| `publish` | the governed publication act's remote slice, cut 41 (`beliefs-3ce305`): the transport seam, the remote reveal and its orphans (cut 39's Ruling 12), the recovery table's remote rows, and the recipient's `divergent-publication`, with the rows it appends to the Y table; W17 and Y1–Y4 closed at cut 39, the local act and Y5–Y10 at cut 40 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication to a remote destination; follows the complete world-read lane and precedes the final contract cut |
+| `publish` | the governed publication act's remote slice, cut 42 (`beliefs-3ce305`): the transport seam, the remote reveal and its orphans (cut 39's Ruling 12), the recovery table's remote rows, and the recipient's `divergent-publication`, with the rows it appends to the Y table; W17 and Y1–Y4 closed at cut 39, the local act and Y5–Y10 at cut 40 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication to a remote destination; follows the complete world-read lane and precedes the final contract cut |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
@@ -417,7 +417,7 @@ snapshot, the request and its create-only write, staging through two writer
 doors, export and the local reveal at `<destination>/<corpus_id>`, one
 terminal report carrying the lifecycle entries in step order, resumption by
 reinvocation, and marker-required arrival. Y5–Y10 close; `publish` stays in
-this table and the roadmap index with cut 41's remote slice, and the corpus
+this table and the roadmap index with cut 42's remote slice, and the corpus
 has **199 of 226** rows closed, 27 open. L1 stays partial on its persistence
 arms under `persistence-cut`, and T7 on its cross-root case under
 `cross-root-publication`. The preceding record
@@ -500,7 +500,7 @@ merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 (`beliefs-eacbe2`) no longer waits on `nodes`. Every boundary's tracker entry is named in the
 roadmap's [Boundary index](../plans/2026-08-29-implementation-roadmap.md#boundary-index).
 `publish` remains open under the layer design; cut 39 closed cut 14's W17
-remainder, cut 40 the local act, and cut 41's remote slice is what remains.
+remainder, cut 40 the local act, and cut 42's remote slice is what remains.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the

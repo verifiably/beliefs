@@ -1,10 +1,6 @@
 # Live view-query evaluation — design
 
-**Status:** draft for review, 2026-09-24; revised after review the same day (uid
-conflict contract, a focused conformance cut, never-published and qualified agreement
-tests); revised again after the second review (Z2-b's hold check, the rule-5 prefix, the
-shared-uid Z5-a fixture); amended 2026-09-25 at the plan review (numbered cut 41 with
-prefix cut 40; Z2-b also observes enumeration). **Task:** `beliefs-cc0aea`.
+**Status:** approved 2026-09-24 after two user reviews, amended 2026-09-25; frozen as conformance cut 41 on 2026-09-25; implementation not yet started. **Task:** `beliefs-cc0aea`.
 **Requested by:** science's coordination command set design
 (`science docs/specs/2026-09-24-coordination-command-set-design.md`, §8 S1,
 decision 3, §5.5).
@@ -256,11 +252,11 @@ Beside the units, the module holds:
 
 | row | guarantee |
 |---|---|
-| Z1 | a live evaluation covers exactly the world's admitted, non-terminal corpora, read from the registry; each present corpus is captured and each absent one is listed |
-| Z2 | each corpus's state reads and enumeration run inside its own capture hold, and a state that moves there discards the evaluation |
-| Z3 | the stamp names exactly the per-corpus states whose records were denoted |
-| Z4 | a damaged present corpus refuses the evaluation and is never omitted from it |
-| Z5 | world-record conflicts refuse with publish's classification and precedence; the scoped check covers only records outside the map |
+| **Z1** | a live evaluation covers exactly the world's admitted, non-terminal corpora, read from the registry; each present corpus is captured and each absent one is listed |
+| **Z2** | each corpus's state reads and enumeration run inside its own capture hold, and a state that moves there discards the evaluation |
+| **Z3** | the stamp names exactly the per-corpus states whose records were denoted |
+| **Z4** | a damaged present corpus refuses the evaluation and is never omitted from it |
+| **Z5** | world-record conflicts refuse with publish's classification and precedence; the scoped check covers only records outside the map |
 
 | unit | sabotage (all in `world/live.py`) |
 |---|---|
@@ -317,3 +313,39 @@ Each of W7-a to W7-i still applies exactly once.
   slice as planned cut 42.
 - Science's part 2 (`sci-f95f8b`) calls `evaluate_live_query` for `next` under a
   selection and renders `complete`, `absent` and the stamp.
+
+## 8. Planning notes
+
+- 2026-09-24 — at planning (plan `../superpowers/plans/2026-09-24-live-query-evaluation.md`):
+  - **Table Z's owner is this design**, moved into `docs/designs/` at the
+    freeze as estimand typing (cut 31) and composite claims (cut 32) were for
+    their new tables.
+  - **`LocatedState`** (`Literal["resolved", "not-present", "unknown"]`) lives
+    in `world/view.py`, beside `WorldReadView._located_state`, because
+    `selection.py` already imports `view.py` and the reverse would cycle.
+  - **`RelationAdjacency` is typed over a structural `RelationView` protocol**
+    in `corpus.py` (`get`, `resolve`, `inbound`, `live_id`), which `ReadView`,
+    `WorldReadView` and the live capture all satisfy. Nothing it reads changes.
+  - **The live capture is private** (`live._LiveCapture`); `_denoted` returns a
+    private `_Denotation(selected, contributing, unresolved)`.
+  - **The damage and conflict refusals keep their exception types**:
+    `SelectionRefused("corpus-damaged")`, `AddressMapConflict`,
+    `ResolutionRefused`, `CaptureDrift`, and `BuildContended` from `capture()`.
+    No new error class is added.
+  - **`live.py` repeats `open_world_view`'s coverage block, capture loop, W8b
+    message and inbound-edge construction instead of sharing them.** The
+    repeated `view.py` lines are pinned by live arms (cut 23's W10d, W10e and
+    W10g; cut 27's S9-a), and cut 41's arms need single-site targets in
+    `live.py`. The two identical `except` branches in `_capture` and the
+    per-corpus filter in `_address_map` stay separate for the same reason:
+    Z4-a and Z5-b each need one site. A later de-duplication re-targets those
+    arms through the guards' `_LIVE_SABOTAGES`, and is out of this cut.
+  - **`evaluate_live_query` checks `type(world) is registry.World` and
+    `isinstance(query, ViewQuery)`**, as `evaluate_query` does; "a parsed
+    `ViewQuery`" (§3.1) is read as an instance.
+  - **Z1-d's and Z3-a's sabotages are stated as implemented** in §6.3: Z1-d
+    filters the registry's coverage by the current epoch's coverage, and Z3-a
+    re-reads each covered corpus's state when the stamp is built.
+  - **The twelve arms were audited on paper at the freeze** (plan Task 0 Step
+    2); the executable audit is plan Task 5, and an arm that fails it is
+    rehomed in a dated §8 supplement to the cut document.

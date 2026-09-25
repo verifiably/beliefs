@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Seventy-eight documents in `docs/designs/`: the banked redesigns, review
+Eighty documents in `docs/designs/`: the banked redesigns, review
 disposition, adoption ledger, measurements, rulings, and contributor-guide
-design written 2026-08-02 through 2026-09-24. Read them in this order:
+design written 2026-08-02 through 2026-09-25. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -110,7 +110,9 @@ design written 2026-08-02 through 2026-09-24. Read them in this order:
 | `2026-09-22-conformance-cut-38.md` | the discharged act-report-remainder cut: the `audit` and `re-check` operations through the boundary, every supplied port bound to its writer; T2 closed in full, 12 declaration units, three boundary invariants, the cut 37 runner as prefix; the boundary closes |
 | `2026-09-22-publication-design.md` | the publication guarantee table (Y): Y1–Y4 from the publication-records slice, closed at cut 39; Y5–Y10 from the publish act (local), banked with cut 40 and closed at its discharge |
 | `2026-09-23-conformance-cut-39.md` | the discharged publication-records cut: the coordination contract's v2 amendment, the publish intent and the intent-position judgment; W17 and Y1–Y4 closed in full, 13 declaration units, the cut 38 runner as prefix; `publish` stays open with its second slice |
-| `2026-09-24-conformance-cut-40.md` | the discharged publish-act cut: request, snapshot, staging, export, the local reveal, resumption and marker-required arrival; Y5–Y10 closed in full, 15 declaration units, the cut 39 runner as prefix; `publish` stays open with cut 41's remote slice |
+| `2026-09-24-conformance-cut-40.md` | the discharged publish-act cut: request, snapshot, staging, export, the local reveal, resumption and marker-required arrival; Y5–Y10 closed in full, 15 declaration units, the cut 39 runner as prefix; `publish` stays open with cut 42's remote slice |
+| `2026-09-24-live-query-evaluation-design.md` | the live attention read: a view query denoted over every admitted corpus's current state, stamped by its capture; table Z |
+| `2026-09-25-conformance-cut-41.md` | the frozen live-query cut: coverage from the registry's admitted set, one capture hold per corpus, damage and conflict refusals, and the capture stamp; Z1–Z5 read, 12 declaration units, the cut 40 runner as prefix |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -204,14 +206,14 @@ It reveals each publication at `<destination>/<corpus_id>`, closes through
 one report whose lifecycle entries run in step order, and resumes a crashed
 attempt by reinvocation. A published corpus enters a second world only
 through the marker-required arrival door. `publish` itself stays open with
-cut 41's remote slice.
+cut 42's remote slice.
 The latest discharged boundary is cut 40
 ([cut](docs/designs/2026-09-24-conformance-cut-40.md),
 [results](docs/plans/2026-09-24-conformance-cut-40-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **226 rows** across **twenty-one frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q, U, Y), and every cut is frozen
+test before it is a passing one. There are **231 rows** across **twenty-two frozen
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q, U, Y, Z), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 
