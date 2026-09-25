@@ -15,6 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.13"]
+    # N2's pool sizes itself from OPS_WORKERS and refuses to run without it. On a host
+    # `host-budget run` sets it; a runner has no host-budget, so the job sets it to the
+    # standard public-repository runner's 4 vCPUs (ops docs/specs/2026-09-24-host-budget-design.md).
+    env:
+      OPS_WORKERS: "4"
     defaults:
       run:
         working-directory: beliefs/python

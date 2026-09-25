@@ -15,10 +15,12 @@ just test
 
 `check` is ruff, pyright, biome, tsc, and `tasks check`; `test` is the serial pytest
 gate and the TypeScript suite. Both run through the vendored timing wrapper `tools/tt`,
-so the run is recorded. The commands they run here are:
+so the run is recorded, and `test` runs under ops' `host-budget run`, which sets the
+`OPS_WORKERS` that N2 sizes its pool from and refuses to run without. The commands they
+run here are:
 
 ```
-uv run --frozen pytest
+host-budget run -- uv run --frozen pytest
 uv run --frozen ruff check .
 uv run --frozen pyright
 ```
@@ -40,10 +42,11 @@ Start with the zero-dependency deterministic loop:
 uv run --frozen pytest --ignore=tests/test_n2.py
 ```
 
-On the measured multicore host, run the same loop in parallel:
+On a multicore host, run the same loop in parallel under ops' `host-budget run`, which
+sets `-n auto`'s worker count from the host's CPU budget:
 
 ```
-uv run --frozen pytest -n 8 --dist=loadfile --ignore=tests/test_n2.py
+host-budget run -- uv run --frozen pytest -n auto --dist=loadfile --ignore=tests/test_n2.py
 ```
 
 The whole-repository equivalent, which also runs the TypeScript tests vitest selects
@@ -51,14 +54,17 @@ from the working tree, is `just test-fast` from the root.
 
 Use a test file or node id (`tests/test_module.py::test_name`) for the narrowest
 deterministic run, `-k` for a name expression, `--lf` to rerun failures, or
-`--ff` to run failures first. Adjust `-n` to the machine; `8` is the measured
-value on a 16-core/32-thread host.
+`--ff` to run failures first. The measurements below used `-n 8` on a
+16-core/32-thread host; `host-budget show` prints what `-n auto` gets now.
 
 N2 runs each declared contract check in its own subprocess and is intentionally
 excluded only from ordinary iteration. The serial `uv run --frozen pytest` above
 remains the required CI, conformance, and completion gate. For an exploratory
 parallel full run, remove `--ignore`; `--dist=loadfile` keeps all N2 tests on one
-xdist worker so their internal 24 workers are not multiplied.
+xdist worker. N2's own pool sizes itself from `OPS_WORKERS`, which `host-budget run`
+sets, taking its share of it inside an xdist worker so the workers do not multiply
+it. Without `OPS_WORKERS` N2 refuses to run: run it under `host-budget run`, or set
+`OPS_WORKERS=<n>` for one module run by hand.
 
 On 2026-09-04 with fresh writable caches, the serial gate ran 3,216 tests in
 868.15s; serial without N2 ran 3,178 in 703.03s; parallel with N2 ran 3,216 in

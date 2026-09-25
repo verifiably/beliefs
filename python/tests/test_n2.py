@@ -107,7 +107,31 @@ PORTABLE_ARMS = tuple(
 )
 """Every arm the portable suite audits, both sabotaged and unsabotaged."""
 
-WORKERS = 24
+
+def workers() -> int:
+    """How many arms, or one arm's checks, run at once: the job's `OPS_WORKERS` allowance.
+
+    `host-budget run` sets it from this host's budget and CI sets it in the workflow, so
+    unset it is refused rather than guessed. Inside a pytest-xdist worker the allowance is
+    shared with the other workers, or N workers would each start N more (ops
+    `docs/specs/2026-09-24-host-budget-design.md`, "Nested pools").
+    """
+    allowance = os.environ.get("OPS_WORKERS")
+    if allowance is None:
+        raise RuntimeError(
+            "OPS_WORKERS is unset: run the suite through `host-budget run` (the justfile's "
+            "recipes do), or set OPS_WORKERS=<n> explicitly"
+        )
+    total = int(allowance)
+    if total < 1:
+        raise RuntimeError(f"OPS_WORKERS={allowance} is not a worker count; it must be at least 1")
+    if "PYTEST_XDIST_WORKER" not in os.environ:
+        return total
+    count = os.environ.get("PYTEST_XDIST_WORKER_COUNT")
+    if count is None:
+        return 1
+    return max(1, total // int(count))
+
 
 PASSED = 0
 FAILED = 1
@@ -221,6 +245,30 @@ def test_an_explicit_cache_root_reaches_n2_children(tmp_path, monkeypatch):
     assert calls[0][1]["env"]["XDG_CACHE_HOME"] == str(cache)
 
 
+def test_an_unset_worker_allowance_names_both_remedies(monkeypatch):
+    monkeypatch.delenv("OPS_WORKERS", raising=False)
+    with pytest.raises(RuntimeError, match=r"host-budget run.*OPS_WORKERS=<n>"):
+        workers()
+
+
+@pytest.mark.parametrize(
+    ("xdist", "expected"),
+    [
+        ({}, 12),
+        ({"PYTEST_XDIST_WORKER": "gw0", "PYTEST_XDIST_WORKER_COUNT": "5"}, 2),
+        ({"PYTEST_XDIST_WORKER": "gw0", "PYTEST_XDIST_WORKER_COUNT": "16"}, 1),
+        ({"PYTEST_XDIST_WORKER": "gw0"}, 1),
+    ],
+)
+def test_an_xdist_worker_shares_the_allowance(monkeypatch, xdist, expected):
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
+    monkeypatch.delenv("PYTEST_XDIST_WORKER_COUNT", raising=False)
+    monkeypatch.setenv("OPS_WORKERS", "12")
+    for name, value in xdist.items():
+        monkeypatch.setenv(name, value)
+    assert workers() == expected
+
+
 NODES_CHECK = "test_domain_boundary.py::test_d1_installed_nodes_is_invariant_under_namespace_renaming"
 
 
@@ -308,7 +356,7 @@ def baseline(arm: Arm) -> Finding:
     and under sabotage as `uncollected` — and diverge on a check that resolves
     and still fails, which only this direction can see.
     """
-    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+    with ThreadPoolExecutor(max_workers=workers()) as pool:
         runs = list(pool.map(lambda check: _run_check(check, None), arm.checks))
     unresolved = [run for run in runs if run.returncode != PASSED]
     if unresolved:
@@ -367,7 +415,7 @@ def findings(tmp_path_factory) -> tuple[Finding, ...]:
     arm owns its own copy."""
     root = tmp_path_factory.mktemp("n2")
     all_arms = PORTABLE_ARMS
-    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+    with ThreadPoolExecutor(max_workers=workers()) as pool:
         return tuple(pool.map(lambda pair: audit(pair[1], root / f"arm{pair[0]}"), enumerate(all_arms)))
 
 

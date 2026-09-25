@@ -25,7 +25,7 @@ tt := "python3 tools/tt"
 # `pyright` takes no path argument, deliberately: python/README.md records that naming a
 # path narrows the check and hides diagnostics outside it, which is how tests/ drifted
 # once already. The gate is the whole project or it is not the gate.
-py_fast_cmd := "(cd python && uv run --frozen pytest -n 8 --dist=loadfile --ignore=tests/test_n2.py)"
+py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadfile --ignore=tests/test_n2.py)"
 py_test_cmd := "(cd python && uv run --frozen pytest)"
 py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen pyright)"
 
@@ -58,18 +58,23 @@ setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)
 
 # beliefs-92e6fe measured this at 164s against the serial gate's 868s and pinned
 # pytest-xdist rather than adopting coverage-based selection; --dist=loadfile keeps every
-# N2 test on one worker so its own 24 subprocess workers are not multiplied. An empty
+# N2 test on one worker, whose pool then takes its share of OPS_WORKERS. An empty
 # vitest selection is a result, not a failure.
+#
+# `test`, `test-fast` and the pre-push hook run under ops' `host-budget run`, which sizes
+# them to this host's CPU budget: `-n auto` reads PYTEST_XDIST_AUTO_NUM_WORKERS, and
+# N2's pool reads OPS_WORKERS and refuses to run without it (ops
+# docs/specs/2026-09-24-host-budget-design.md). `tt` stays outside so it times the run.
 #
 # The documented fast local loop: xdist with N2 excluded, plus the affected TS tests.
 test-fast:
-    {{tt}} test-fast -- sh -c '{{fast_cmd}}'
+    {{tt}} test-fast -- host-budget run -- sh -c '{{fast_cmd}}'
 
 # The serial pytest run is the required conformance gate.
 #
 # The full suite, both packages.
 test:
-    {{tt}} test -- sh -c '{{test_cmd}}'
+    {{tt}} test -- host-budget run -- sh -c '{{test_cmd}}'
 
 # Seconds, not minutes: lint, typecheck, and the task-record check.
 check:
@@ -96,14 +101,15 @@ hook-pre-commit-docs:
 
 # What a pre-push hook will run: `gate`'s commands, under one hook target.
 hook-pre-push:
-    {{tt}} hook-pre-push -- sh -c '{{check_cmd}} && {{test_cmd}}'
+    {{tt}} hook-pre-push -- host-budget run -- sh -c '{{check_cmd}} && {{test_cmd}}'
 
 # CI keeps a two-job matrix (Python 3.11/3.13, Node 20/24); each job runs the recipe for
 # its package, so the whole job is one recorded number. These run exactly what `test` and
 # `check` run for that package. `tasks check` is not in them: the tasks binary is not on
 # a runner, which is why CI runs these rather than `just gate` (design section 4.6).
 # The serial pytest run is deliberate — python/README.md makes it the required CI,
-# conformance and completion gate, so CI does not use the xdist fast loop.
+# conformance and completion gate, so CI does not use the xdist fast loop. A runner has
+# no host-budget, so ci.yml sets OPS_WORKERS for the Python job itself.
 #
 # The Python job: the serial suite, then ruff and pyright.
 ci-python:
