@@ -1731,12 +1731,41 @@ class CoordinationResolver:
                 (revision.node for revision in revisions if revision.node.uid == address.revision),
                 None,
             )
+        return self._resolution(revisions)
+
+    @staticmethod
+    def _resolution(revisions: Sequence[CoordinationRevision]) -> Node | CoordinationRefused | None:
+        """An unpinned address's resolution over its revisions."""
         tips = standing_tips(revisions)
         if not tips:
             return None
         if len(tips) > 1:
             return CoordinationRefused("divergent-view", tuple(revision.node.uid for revision in tips))
         return next(iter(tips)).node
+
+    def standing(
+        self, kind: str, *, project: CoordinationAddress | None = None
+    ) -> Mapping[CoordinationAddress, Node | CoordinationRefused | None]:
+        """Every address of `kind` over exactly these mounts, optionally within one
+        project, in address order, each with what `resolve` returns for it: its tip,
+        `divergent-view` with its tips, or None when no revision stands. Names are
+        content the kernel never consults; a caller matches them over this."""
+        if kind not in COORDINATION_KINDS:
+            raise ValueError(f"{kind!r} is not a coordination kind")
+        if project is not None and project != CoordinationAddress(project.project):
+            raise ValueError(f"{project} is not an unpinned project address")
+        by_address: dict[CoordinationAddress, list[CoordinationRevision]] = {}
+        for revision in self._revisions():
+            if project is None or revision.address.project == project.project:
+                by_address.setdefault(revision.address, []).append(revision)
+        standing: dict[CoordinationAddress, Node | CoordinationRefused | None] = {}
+        for address, revisions in by_address.items():
+            kinds = {revision.node.kind for revision in revisions}
+            if len(kinds) > 1:
+                raise MalformedRecord(f"{address}: coordination revisions disagree on kind {sorted(kinds)}")
+            if kinds == {kind}:
+                standing[address] = self._resolution(revisions)
+        return MappingProxyType(standing)
 
 
 MismatchScope = Literal["none", "domains", "base", "malformed"]

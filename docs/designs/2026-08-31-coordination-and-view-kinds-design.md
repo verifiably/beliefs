@@ -834,6 +834,13 @@ so another root's committed revision is not hidden behind a stale `ReadView`.
 The destination's entry supplies the writer's authorization; no second profile
 argument or contract compilation path exists in `CorpusWriter`.
 
+Beside resolution by address, `standing(kind, project=None)` enumerates every
+address of one coordination kind over exactly the mounted roots, optionally
+within one project, in address order, each with what `resolve` returns for it.
+Names stay content the kernel never consults (§3.3); a surface matching a name
+matches over this enumeration, so the mount set stays the one authority on what
+is visible (science's coordination command set design, S3; `beliefs-1af3fd`).
+
 The module boundary follows the existing mutable-capability rule:
 
 - `coordination.py` holds address values, facet validation, pure tip
