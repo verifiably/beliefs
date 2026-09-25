@@ -13,11 +13,13 @@ from typing import TYPE_CHECKING, TypeAlias, final
 
 from nodes.core.node import Node
 
-from beliefs.coordination import CoordinationAddress
-from beliefs.corpus import CorpusWriter, Finding, OperationCommit, _operation_lock_for
+from beliefs.coordination import CoordinationAddress, CoordinationRefused
+from beliefs.corpus import CoordinationResolver, CorpusWriter, Finding, OperationCommit, _operation_lock_for
 from beliefs.errors import (
+    CoordinationUnavailable,
     PermitExceeded,
     PermitFact,
+    ProjectNotResolvable,
     ScienceError,
     SessionClosed,
     SessionLedgerFailed,
@@ -31,6 +33,7 @@ from beliefs.sealed import sealed
 from beliefs.session.ledger import (
     ActLine,
     LedgerWriter,
+    SelectLine,
     require_hex,
     require_invocation_id,
     utc_now,
@@ -106,6 +109,30 @@ class _Invocation:
     input_digest: str
     acts: list[ActLine]
     outcome: Mapping[str, object] | None
+    selection: SelectLine | None = None
+
+
+def require_project_address(address: object) -> CoordinationAddress:
+    """An unpinned project address: the only thing a caller may ask to select
+    (selection design §4). The kernel pins it; a caller never supplies a revision."""
+    if type(address) is not CoordinationAddress or address.local is not None or address.revision is not None:
+        raise ValueError(f"a selection names an unpinned project address, not {address!r}")
+    return address
+
+
+def resolve_project(resolver: CoordinationResolver | None, address: CoordinationAddress) -> CoordinationAddress:
+    """`address` resolved through `resolver` to its one standing `project` tip, and
+    pinned to that revision (selection design decision 2)."""
+    if resolver is None:
+        raise CoordinationUnavailable(f"{address}: no coordination resolver is mounted to resolve a project")
+    resolved = resolver.resolve(address)
+    if resolved is None:
+        raise ProjectNotResolvable(f"{address}: the selected project does not resolve")
+    if isinstance(resolved, CoordinationRefused):
+        raise ProjectNotResolvable(f"{address}: the selected project is divergent", tips=resolved.tips)
+    if resolved.kind != "project":
+        raise ProjectNotResolvable(f"{address}: resolves to a {resolved.kind}, not a project")
+    return address.pinned(resolved.uid)
 
 
 class WriterSession:
@@ -128,6 +155,8 @@ class WriterSession:
         store_root: Path | None = None,
         store_id: str | None = None,
         holdings_seam: StoreActSeam | None = None,
+        coordination_resolver: CoordinationResolver | None = None,
+        project: CoordinationAddress | None = None,
     ) -> None:
         self.session_id = require_hex(session_id, 32, "session id")
         self.actor = f"session:{self.session_id}"  # derived, never supplied (J4)
@@ -145,6 +174,11 @@ class WriterSession:
         self.store_root = None if store_root is None else Path(store_root)
         self.store_id = store_id
         self._holdings_seam = holdings_seam
+        if project is not None and (
+            type(project) is not CoordinationAddress or project.local is not None or project.revision is None
+        ):
+            raise ValueError(f"an initial selection is a project address pinned to its revision, not {project!r}")
+        self._coordination_resolver = coordination_resolver
         # Re-entrant: a scoped act holds this lock for its whole duration and the
         # helpers it calls take it again (§13 item 18). `claim_invocation` and
         # `close_invocation` are unchanged by that — they still take it once.
@@ -165,6 +199,7 @@ class WriterSession:
                     "ungoverned": self._ceiling.ungoverned,
                 },
                 "at": utc_now(),
+                "project": None if project is None else str(project),
             }
         )
 
@@ -241,6 +276,33 @@ class WriterSession:
             self._require_live()
             entry = self._index.get(invocation)
             return () if entry is None else tuple(entry.acts)
+
+    # --- selection (selection design §4.2) -----------------------------------------------
+    def select_project(self, invocation_id: str, address: CoordinationAddress | None) -> CoordinationAddress | None:
+        """Ledger the current invocation's one selection change and return it
+        pinned, or None for a clear. The index learns it only after the append
+        returns; a failed append is terminal and leaves the index unchanged."""
+        invocation = require_invocation_id(invocation_id)
+        if address is not None:
+            require_project_address(address)
+        with self._lock:
+            self._require_live()
+            if invocation != self._current:
+                raise SessionProtocolError(f"{invocation} cannot select; the current invocation is {self._current}")
+            entry = self._index[invocation]
+            if entry.selection is not None:
+                raise SessionProtocolError(f"{invocation} already recorded its selection")
+            pinned = None if address is None else resolve_project(self._coordination_resolver, address)
+            self._ledger.append({"line": "select", "invocation": invocation, "project": None if pinned is None else str(pinned)})
+            entry.selection = SelectLine(invocation, pinned)
+            return pinned
+
+    def invocation_selection(self, invocation_id: str) -> SelectLine | None:
+        invocation = require_invocation_id(invocation_id)
+        with self._lock:
+            self._require_live()
+            found = self._index.get(invocation)
+            return None if found is None else found.selection
 
     def _require_current(self, invocation: str) -> None:
         with self._lock:
