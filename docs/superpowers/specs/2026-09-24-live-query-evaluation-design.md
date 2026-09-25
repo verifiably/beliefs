@@ -201,8 +201,9 @@ A new `tests/test_live_selection.py`, reusing `test_world_selection.py`'s world 
 - **Damage.** A corpus with a malformed stored record, and a corpus with a
   disagreeing base pin, each refuse `corpus-damaged` naming that corpus. Two damaged
   corpora are named together.
-- **Capture drift.** A write injected inside one corpus's capture hold, through the
-  same seam slice 2's drift tests use, raises `CaptureDrift` and returns nothing.
+- **Capture drift.** A state that moves inside one corpus's capture hold (the
+  `corpus_state_identity` monkeypatch `test_world_view.py` uses) raises `CaptureDrift`
+  and returns nothing.
 - **Address conflicts.** One canonical address held in two corpora propagates
   `AddressMapConflict` (`duplicate-location`).
 - **No writes.** The world root's and each corpus root's file trees, and their state
