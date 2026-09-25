@@ -140,6 +140,13 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   ledgered; the public store identity reader; the reference rules under the
   beliefs scope
   (`docs/designs/2026-09-09-session-routes-design.md`). Built.
+- **Session selection** — the ledger records the current-project selection as
+  a project address pinned to its resolved revision: on `session-open`, and on
+  a `select` line per change under the current invocation, replayed by the
+  reader with the writer's currency and read back per invocation and as a
+  per-act attribution
+  ([selection design](../superpowers/specs/2026-09-24-session-selection-ledger-design.md)).
+  Built; no conformance cut.
 - **Facet contracts** — base and domain contracts declare closed facet schemas;
   profiles compile kinds, relations and facets; every write seam validates the
   caller-held profile; and the empirical-observation acquisition boundary is
