@@ -31,6 +31,7 @@ from beliefs.errors import (
     SessionClosed,
     SessionLedgerFailed,
     SessionProtocolError,
+    SessionRefused,
 )
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit
 from beliefs.session import (
@@ -402,20 +403,9 @@ def test_attended_session_refuses_an_uncompiled_profile_before_ledger_effects(tm
 # are swapped here for this module's own in-memory doubles so the test stays
 # off the durable path entirely; nothing about the pass-through under test is a
 # durable-engine behaviour.
-def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, profile=WITH_BIOLOGY):
-    """`resolver_for` is handed the adopted corpus's id, since a resolver keyed
-    by it (`StubResolver`) can only be built once the corpus exists."""
-    from beliefs.session import open_attended_session
-    from beliefs.world import WorldConfig
+def _stub_durable_seams(monkeypatch) -> None:
+    """Swap the session's durable seams for in-memory doubles (see the note above)."""
     from beliefs.world.logmodel import GenesisEntryView, WellFormedView
-
-    root = tmp_path / "corpus"
-    root.mkdir()
-    writer = CorpusWriter(
-        root, DefaultExecutor, authority=FULL, profile=profile,
-        operation_port=OperationRecorder(root, authority=FULL, profile=profile),
-    )
-    writer.adopt_manifest(profile=pins_for(profile))
 
     genesis = GenesisEntryView(digest="g" * 64, payload=b"", baseline=())
 
@@ -431,6 +421,23 @@ def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, pro
     monkeypatch.setattr(session_module, "log_seam", lambda: _StubLogSeam())
     monkeypatch.setattr(session_module, "durable_executor_factory", lambda: DefaultExecutor)
     monkeypatch.setattr(session_module, "durable_operation_port", _stub_port)
+
+
+def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, profile=WITH_BIOLOGY):
+    """`resolver_for` is handed the adopted corpus's id, since a resolver keyed
+    by it (`StubResolver`) can only be built once the corpus exists."""
+    from beliefs.session import open_attended_session
+    from beliefs.world import WorldConfig
+
+    root = tmp_path / "corpus"
+    root.mkdir()
+    writer = CorpusWriter(
+        root, DefaultExecutor, authority=FULL, profile=profile,
+        operation_port=OperationRecorder(root, authority=FULL, profile=profile),
+    )
+    writer.adopt_manifest(profile=pins_for(profile))
+
+    _stub_durable_seams(monkeypatch)
 
     config = WorldConfig(tmp_path / "world", WORLD, (root,))
     resolver = resolver_for(writer.corpus_id)
@@ -684,3 +691,57 @@ def test_every_act_is_attributed_to_the_selection_standing_when_it_ran(tmp_path,
         ("proposition:p3", None),
         ("proposition:p4", CoordinationAddress(P, revision=R1)),
     ]
+
+
+# --- the initial selection at open (selection design §4.1) -----------------------------
+def _coordinated_open(tmp_path, monkeypatch, base_contract, *, coordination=True, **kwargs):
+    """Open a real `open_attended_session` over a coordination-pinned root holding
+    projects P@R1, D@R3 and D@R4 (divergent), with the durable seams stubbed."""
+    from beliefs.session import open_attended_session
+    from beliefs.world import WorldConfig
+
+    profile = coordination_profile(base_contract)
+    root = mounted_root(tmp_path / "corpus", profile)
+    raw_add(
+        root,
+        raw_coordination_node("project", P, R1),
+        raw_coordination_node("project", D, R3),
+        raw_coordination_node("project", D, R4),
+    )
+    _stub_durable_seams(monkeypatch)
+    ops = tmp_path / "ops"
+    config = WorldConfig(tmp_path / "world", WORLD, (root,))
+    session = open_attended_session(config, ops, profile=profile, coordination=profile if coordination else None, **kwargs)
+    return session, ops
+
+
+def test_an_attended_session_records_its_resolved_initial_project(tmp_path, monkeypatch, base_contract):
+    session, ops = _coordinated_open(tmp_path, monkeypatch, base_contract, project=CoordinationAddress(P))
+    assert open_ledger_reader(ops, session.session_id).initial_project == CoordinationAddress(P, revision=R1)
+    session.claim_invocation("A", "project-select", DIGEST)
+    assert session.select_project("A", CoordinationAddress(P)) == CoordinationAddress(P, revision=R1)
+
+
+def test_an_attended_session_without_a_project_opens_unselected(tmp_path, monkeypatch, base_contract):
+    session, ops = _coordinated_open(tmp_path, monkeypatch, base_contract)
+    assert open_ledger_reader(ops, session.session_id).initial_project is None
+
+
+@pytest.mark.parametrize(
+    "project, coordination, refusal",
+    [
+        pytest.param(CoordinationAddress(P), False, SessionRefused, id="no-coordination-profile"),
+        pytest.param(CoordinationAddress("0" * 32), True, ProjectNotResolvable, id="unknown"),
+        pytest.param(CoordinationAddress(D), True, ProjectNotResolvable, id="divergent"),
+        pytest.param(CoordinationAddress(P, revision=R1), True, ValueError, id="pinned"),
+        pytest.param(CoordinationAddress(P, L), True, ValueError, id="subordinate"),
+    ],
+)
+def test_an_unresolvable_initial_project_refuses_before_any_ledger_effect(
+    tmp_path, monkeypatch, base_contract, project, coordination, refusal
+):
+    with pytest.raises(refusal) as caught:
+        _coordinated_open(tmp_path, monkeypatch, base_contract, coordination=coordination, project=project)
+    if project == CoordinationAddress(D):
+        assert caught.value.tips == (R3, R4)  # pyright: ignore[reportAttributeAccessIssue]
+    assert not (tmp_path / "ops" / "sessions").exists()

@@ -8,6 +8,7 @@ import secrets
 from contextlib import ExitStack
 from pathlib import Path
 
+from beliefs.coordination import CoordinationAddress
 from beliefs.corpus import (
     CoordinationResolver,
     CorpusWriter,
@@ -40,6 +41,8 @@ from beliefs.session.writer import (
     KernelRefusalValue,
     ScopedWriter,
     WriterSession,
+    require_project_address,
+    resolve_project,
 )
 from beliefs.world import WorldConfig, load_manifest
 from beliefs.world.logmodel import ChainView, WellFormedView
@@ -79,11 +82,17 @@ def open_attended_session(
     coordination: ProfileSpec | None = None,
     store_root: Path | None = None,
     snapshot_resolver: SnapshotResolver | None = None,
+    project: CoordinationAddress | None = None,
 ) -> WriterSession:
     """The interactive constructor (design §3.1): full permit by construction.
 
     A world-bound caller passes `RetainedSnapshots(world)`; without it a
     session cannot author a snapshot-arm retraction.
+
+    `project`, an unpinned project address, is the initial selection: it
+    resolves through the coordination resolver before the session directory
+    exists, and the pinned result is written into `session-open` (selection
+    design §4.1).
     """
     if type(world_config) is not WorldConfig:
         raise TypeError("open_attended_session takes an exact WorldConfig")
@@ -93,6 +102,10 @@ def open_attended_session(
         raise TypeError("profile must be a compiled ProfileSpec")
     if coordination is not None and not isinstance(coordination, ProfileSpec):
         raise TypeError("coordination must be a compiled ProfileSpec")
+    if project is not None:
+        require_project_address(project)
+        if coordination is None:
+            raise SessionRefused(f"{project}: an initial project needs a coordination profile to resolve it")
     if len(world_config.corpus_roots) != 1:
         raise SessionRefused(
             f"a session needs exactly one corpus root; the config names {len(world_config.corpus_roots)}"
@@ -117,6 +130,7 @@ def open_attended_session(
         if store_id is None:
             raise SessionRefused(f"store root {store_root} carries no store genesis")
     resolver = CoordinationResolver({root: coordination}) if coordination is not None else None
+    pinned = None if project is None else resolve_project(resolver, project)
 
     session_id = secrets.token_hex(16)
     path = ledger_path(operations_root, session_id)
@@ -147,6 +161,8 @@ def open_attended_session(
         store_root=store_root,
         store_id=store_id,
         holdings_seam=holdings_seam() if store_root is not None else None,
+        coordination_resolver=resolver,
+        project=pinned,
     )
     # §3.1: session-open is written (by the constructor) before reconciliation runs.
     session.findings = reconcile_sessions(world_config, operations_root, exclude=session_id)
