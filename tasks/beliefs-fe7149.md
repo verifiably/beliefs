@@ -7,10 +7,14 @@ size: m
 complexity: high
 process: planned
 created: 2026-09-23T11:40:35Z
-updated: 2026-09-23T11:40:35Z
+updated: 2026-09-24T10:43:33Z
 depends: []
 tags: [session]
 agent: claude-code/claude-fable-5-1
 ---
 
 open_attended_session refuses unless corpus_roots names exactly one root (session/__init__.py) and its CoordinationResolver mounts only that root, while the read side already opens one view per configured root. The science projects design (science docs/specs/2026-09-23-projects-corpora-and-workspaces-design.md §3.1) needs a session that writes to one corpus and reads every configured one: a write root named separately from the read set; each mounted corpus read under the profile its own manifest pins (mm30 pins the mm30 corpus-local contract; a working corpus pins base + biology + coordination); coordination tip resolution over every mounted corpus, which coordination-and-view-kinds §6.3 already states as world-wide. Prerequisite of the second-project milestone (§9.2). The kernel owns how a mounted corpus's profile is compiled and cached; science adds write_root beside corpus_roots when this lands.
+
+## Notes
+
+- 2026-09-24T10:43:33Z (main): From science's coordination command set design (docs/specs/2026-09-24-coordination-command-set-design.md §6): science states the writer's profile explicitly (domains + contracts + coordination); every other mount activates exactly what its manifest pins, each pin resolved by contract identity against shipped packs and the launcher-supplied documents (science's contracts ∪ read_contracts); an unresolvable pin refuses at open naming mount and pin; availability never becomes activation. The per-mount compile API should accept those available documents from the launcher. Sessionless reads need the same compile outside a session.
