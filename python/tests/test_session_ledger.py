@@ -451,3 +451,12 @@ def test_a_select_the_writer_could_not_have_written_is_refused(tmp_path, raw, me
         open_ledger_reader(tmp_path, SESSION)
     evidence = read_ledger_evidence(tmp_path, SESSION)
     assert type(evidence) is LedgerUnreadable and message in evidence.error
+
+
+def test_the_session_package_exports_the_selection_record_beside_the_other_ledger_records():
+    """`WriterSession.invocation_selection` returns it and `InvocationRecord.selection`
+    holds it, so it is public where `ActLine` and `InvocationRecord` are."""
+    import beliefs.session as session_package
+
+    assert "SelectLine" in session_package.__all__
+    assert session_package.SelectLine is SelectLine
