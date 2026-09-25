@@ -169,17 +169,19 @@ The method runs under the session lock, in this order:
 A refusal at steps 1–4 appends nothing and leaves the invocation current, so science
 closes it with a refusal outcome. A failure at step 5 is the ledger's `LedgerFailed`
 state (writer-session decision 20). It raises `SessionLedgerFailed`, and the index
-never learns the selection, so `invocation_selection` still answers `None`. The
-session is terminal: every later method, including another `select_project`, raises
-`SessionLedgerFailed`. The session keeps no "current project" of its own:
+never learns the selection: the invocation's entry in the session's internal index
+holds no selection. The session is terminal. Every later method raises
+`SessionLedgerFailed`, including another `select_project` and `invocation_selection`,
+which checks liveness as `invocation_acts` does. The session keeps no "current project" of its own:
 the dispatcher holds the live value (science §5.1), and the kernel holds its record.
 
 ```python
 def invocation_selection(self, invocation_id: str) -> SelectLine | None
 ```
 
-This reads the in-memory index, like `invocation_acts`. It returns `None` when the
-invocation recorded no selection.
+This reads the in-memory index. Like `invocation_acts`, it first requires a live
+session, so it raises `SessionClosed` or `SessionLedgerFailed` when the session is
+closed or failed. It returns `None` when the invocation recorded no selection.
 
 ### 4.3 Reading back
 
@@ -237,10 +239,14 @@ In `test_session_ledger.py` and the writer-session tests:
   `open A, act, open B, select A, act` ledger yields no `attributed_acts()`, so the
   invalid line cannot reattribute B's act.
 - **Append failure.** The `select` append is faulted at `write` (a short write), at
-  `flush` and at `os.fsync`, one case each. Each raises `SessionLedgerFailed`, leaves
-  `invocation_selection` at `None`, and makes the session terminal: `select_project`,
-  `claim_invocation`, `close_invocation`, `scoped` and `close` all raise
-  `SessionLedgerFailed` afterwards. Nothing after the fault reaches the file.
+  `flush` and at `os.fsync`, one case each. In each case:
+  - the call raises `SessionLedgerFailed`;
+  - the invocation's entry in the internal index is unchanged, holding no selection
+    (asserted on the index itself, not through a public read);
+  - the session is terminal: `select_project`, `invocation_selection`,
+    `invocation_acts`, `claim_invocation`, `close_invocation`, `scoped` and `close`
+    all raise `SessionLedgerFailed` afterwards;
+  - nothing after the fault reaches the file.
 - **History.** A pre-amendment `session-open` line without `project` parses, with
   `initial_project` `None`, and `reconcile_sessions` over a directory holding one
   reports no `session-ledger-malformed`.
