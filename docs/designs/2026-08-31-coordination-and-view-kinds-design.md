@@ -8,6 +8,8 @@ W12, and W18 in full, W13's two-project negative, and W17's ordinary revision
 family. W17 remains partial only on intent-position, owned by `publish`.
 *(Amended 2026-09-23: W17's intent-position arm closed at conformance cut 39,
 `../plans/2026-09-23-conformance-cut-39-results.md`; see the note under §11.6.)*
+*(Amended 2026-09-25: §6.2 gains a third regime, live attention reads, at
+conformance cut 41, `../plans/2026-09-25-conformance-cut-41-results.md`.)*
 **Scope:** the tier-3 `coordination-addressing` answer, per the user and
 autonomy layer design (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`) §4.1,
 §4.2 and §8 item 1: the view query language `science.view-query.v1`; opaque
@@ -601,6 +603,14 @@ visibly apart:
   view or task is current — resolves over the checkout's mounted corpora
   with no epoch named (§4.4): coordination is not belief input, and no
   packaging step mediates seeing your own task edit.
+
+> *Amended 2026-09-25 (`beliefs-cc0aea`, conformance cut 41).* A third
+> regime, attention reads: a view's query may also be denoted live by
+> `evaluate_live_query`, over every admitted corpus's current state, for
+> queue-like attention surfaces such as science's `next` under a selected
+> project. Its result is a `LiveSelection` stamped with the captured corpus
+> states and never an epoch identity, so it cannot stand in for an
+> epoch-bound selection. Belief reads and publication stay epoch-bound.
 
 Belief exclusion is double: no coordination kind declares a belief-bearing
 edge (inertness is the default — foundations' closed routes), and §5.6 made

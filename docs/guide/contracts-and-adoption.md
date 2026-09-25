@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-24
+updated: 2026-09-25
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -71,6 +71,7 @@ sources:
   - ../plans/2026-09-22-conformance-cut-38-results.md
   - ../plans/2026-09-23-conformance-cut-39-results.md
   - ../plans/2026-09-24-conformance-cut-40-results.md
+  - ../plans/2026-09-25-conformance-cut-41-results.md
 ---
 
 # Contracts and adoption
@@ -220,7 +221,7 @@ W8b is measured and not selected. Its build defect is repaired by
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 
-Thirty-six conformance cuts have been frozen and discharged, each frozen before
+Thirty-seven conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -337,13 +338,17 @@ fifteen declaration units close Y5–Y10. `publish` stays open with cut 42's
 remote slice. That left the corpus at **199 of 226 rows closed, 27 open**
 (`../designs/2026-09-24-conformance-cut-40.md`;
 `../plans/2026-09-24-conformance-cut-40-results.md`).
-Cut 41 is frozen and not yet discharged: live view-query evaluation, a view
-query denoted over every admitted corpus's current state with no epoch,
-each present corpus captured inside its own hold, damage and world-record
-conflicts refused, and the result stamped by the states it captured
-(`../designs/2026-09-25-conformance-cut-41.md`). Its freeze banks the live
-query's rows, Z1–Z5 (`../designs/2026-09-24-live-query-evaluation-design.md`),
-so the corpus now has **199 of 231 rows closed, 32 open**.
+Cut 41's freeze banked the live query's rows, Z1–Z5
+(`../designs/2026-09-24-live-query-evaluation-design.md`), taking the corpus
+to 199 of 231 rows closed. Cut 41 is discharged. It builds live view-query
+evaluation: a view query denoted over every admitted corpus's current state
+with no epoch, each present corpus captured inside its own hold, damage and
+world-record conflicts refused with publish's classification, and the
+result stamped by the states it captured. Twelve arms over twelve
+declaration units close Z1–Z5, and the `live-query` boundary enters and
+closes at its results record. The corpus now has **204 of 231 rows closed,
+27 open** (`../designs/2026-09-25-conformance-cut-41.md`;
+`../plans/2026-09-25-conformance-cut-41-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -383,4 +388,5 @@ questions under
 - [Cut 37 discharge results](../plans/2026-09-21-conformance-cut-37-results.md)
 - [Cut 38 discharge results](../plans/2026-09-22-conformance-cut-38-results.md)
 - [Cut 39 discharge results](../plans/2026-09-23-conformance-cut-39-results.md)
-- [Cut 40 discharge results, the newest results record](../plans/2026-09-24-conformance-cut-40-results.md)
+- [Cut 40 discharge results](../plans/2026-09-24-conformance-cut-40-results.md)
+- [Cut 41 discharge results, the newest results record](../plans/2026-09-25-conformance-cut-41-results.md)

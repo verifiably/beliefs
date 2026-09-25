@@ -1,6 +1,6 @@
 # Conformance cut 41 — live view-query evaluation
 
-**Status:** frozen 2026-09-25, before implementation; Z1–Z5 are open
+**Status:** discharged 2026-09-25 on the certified volume; results: ../plans/2026-09-25-conformance-cut-41-results.md
 **Design:** `2026-09-24-live-query-evaluation-design.md`, approved 2026-09-24 at `d67359e` after two user reviews, amended 2026-09-25 at the plan review; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-24-live-query-evaluation.md`.
 **Numbered** under roadmap concurrency rules 1 and 5: cut 41 by the user's decision of 2026-09-25, prefixing cut 40; the remote publish slice (`beliefs-3ce305`) is relabelled planned cut 42 in this commit. The freeze scan on 2026-09-25 found no cut-41-or-later document, results record or runner on any branch (`main`, `design/live-query`, `design/publish`, `origin/main`).

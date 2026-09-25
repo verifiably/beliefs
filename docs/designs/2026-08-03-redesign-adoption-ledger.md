@@ -46,15 +46,17 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-24** for cut 40's discharge of the publish act for a
-local destination: Y5–Y10 close, and `publish` stays open with cut 42's
-remote slice. The T table stays partial on T7's cross-root case alone, and
-row 5 stays partial for L1's persistence arms alone.
+**Updated 2026-09-25** for cut 41's discharge of live view-query
+evaluation: Z1–Z5, banked at cut 41's freeze, close, and `live-query`
+enters and closes at that record, so the table below carries no row for it.
+`publish` stays open with cut 42's remote slice. The T table stays partial
+on T7's cross-root case alone, and row 5 stays partial for L1's persistence
+arms alone. The corpus has **204 of 231 rows closed, 27 open**.
 
-**Implemented through conformance cut 40.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 41.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–40 record discharge in their dated results records, most recently
-`../plans/2026-09-24-conformance-cut-40-results.md`.
+and cuts 26–41 record discharge in their dated results records, most recently
+`../plans/2026-09-25-conformance-cut-41-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -386,8 +388,29 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
     one whose records are not exactly the marker's selection.
   - **Y5–Y10 close.** `publish` stays in the table with cut 42's remainder
     (`beliefs-3ce305`): remote transport, the remote reveal and its
-    orphans, and `divergent-publication`. The corpus has **199 of 226 rows
-    closed, 27 open**.
+    orphans, and `divergent-publication`. The corpus had **199 of 226 rows
+    closed, 27 open** at cut 40.
+- **Live attention reads**, built 2026-09-25 at cut 41
+  (`../plans/2026-09-25-conformance-cut-41-results.md`) —
+  `evaluate_live_query` denotes a view query over every admitted corpus's
+  current state, captured corpus by corpus inside each hold and stamped by
+  those states, never an epoch; Z1–Z5 close (cut 41).
+  - Coverage is the registry's admitted, non-terminal set, read under the
+    world barrier; an admitted corpus with no carrier is listed in `absent`,
+    and a world that has never published evaluates.
+  - Each present corpus is captured inside its own `capture()` hold,
+    serially in sorted order: a state that moves there raises `CaptureDrift`,
+    and a damaged corpus refuses `corpus-damaged` rather than being omitted.
+  - Addresses map through publish's own `derive.address_map` over world
+    kinds, so world-record conflicts refuse with publish's classification
+    and precedence; a scoped W8b check after the map covers the records
+    outside it.
+  - The result is a sealed `LiveSelection` stamped by a `CaptureStamp` of
+    the in-hold states, never an epoch identity; it shares `evaluate_query`'s
+    denotation through a private core, and it writes nothing. Belief reads
+    and publication stay epoch-bound (coordination §6.2, amended).
+  - `live-query` entered this table at the results record and closed in the
+    same commit. The corpus has **204 of 231 rows closed, 27 open**.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -411,16 +434,24 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-24-conformance-cut-40-results.md`) discharges the publish
+(`../plans/2026-09-25-conformance-cut-41-results.md`) discharges live
+view-query evaluation at cut 41: coverage from the registry's admitted set,
+one capture hold per corpus, damage and world-record conflicts refused with
+publish's classification, and a stamp naming the in-hold states.
+`live-query` entered this table and the roadmap's boundary index at that
+record and closed in the same commit, so neither carries an open row for
+it, and the roadmap's lane table carries the closed `live-query` lane.
+Z1–Z5 close; the corpus has **204 of 231** rows closed, 27 open. L1 stays
+partial on its persistence arms under `persistence-cut`, and T7 on its
+cross-root case under `cross-root-publication`. The preceding record
+(`../plans/2026-09-24-conformance-cut-40-results.md`) discharged the publish
 act for a local destination at cut 40: the step-0 refusals and the selection
 snapshot, the request and its create-only write, staging through two writer
 doors, export and the local reveal at `<destination>/<corpus_id>`, one
 terminal report carrying the lifecycle entries in step order, resumption by
-reinvocation, and marker-required arrival. Y5–Y10 close; `publish` stays in
-this table and the roadmap index with cut 42's remote slice, and the corpus
-has **199 of 226** rows closed, 27 open. L1 stays partial on its persistence
-arms under `persistence-cut`, and T7 on its cross-root case under
-`cross-root-publication`. The preceding record
+reinvocation, and marker-required arrival. Y5–Y10 closed; `publish` stayed
+in this table and the roadmap index with its remote slice, and the corpus
+had **199 of 226** rows closed, 27 open, at cut 40. The record before that
 (`../plans/2026-09-23-conformance-cut-39-results.md`) discharged publication
 records at cut 39: the coordination contract's v2 amendment, the two
 publication kinds and their deterministic records, the `publish` kind and

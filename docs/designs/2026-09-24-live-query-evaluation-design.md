@@ -1,6 +1,6 @@
 # Live view-query evaluation — design
 
-**Status:** approved 2026-09-24 after two user reviews, amended 2026-09-25; frozen as conformance cut 41 on 2026-09-25; implementation not yet started. **Task:** `beliefs-cc0aea`.
+**Status:** approved 2026-09-24 after two user reviews, amended 2026-09-25; frozen as conformance cut 41 on 2026-09-25; discharged at conformance cut 41 on 2026-09-25; results: `../plans/2026-09-25-conformance-cut-41-results.md`. **Task:** `beliefs-cc0aea`.
 **Requested by:** science's coordination command set design
 (`science docs/specs/2026-09-24-coordination-command-set-design.md`, §8 S1,
 decision 3, §5.5).
