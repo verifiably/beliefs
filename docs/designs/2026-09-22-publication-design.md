@@ -7,7 +7,7 @@ closed at cut 40 (2026-09-24, `../plans/2026-09-24-conformance-cut-40-results.md
 owner (`python/tests/test_designs_corpus.py` `TABLE_OWNERS`). Y1–Y4 are the
 publication-records slice's (`../superpowers/specs/2026-09-22-publication-records-design.md`
 §10), Y5–Y10 the local publish act's (`../superpowers/specs/2026-09-23-publish-act-local-design.md`
-§13); the remote slice, cut 41, appends its own rows here.
+§13); the remote slice, cut 42, appends its own rows here.
 
 The act is specified by the user and autonomy layer design §6.1
 (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`); the

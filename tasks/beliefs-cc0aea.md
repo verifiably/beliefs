@@ -1,19 +1,22 @@
 ---
 id: beliefs-cc0aea
 title: "Live, unpublished view-query evaluation for attention reads"
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: planned
 owner: main
 created: 2026-09-24T10:43:33Z
-updated: 2026-09-25T01:37:06Z
+updated: 2026-09-25T13:44:56Z
 started: 2026-09-25T01:17:04Z
+completed: 2026-09-25T13:44:56Z
 depends: []
 tags: [world-read, coordination]
 source: science docs/specs/2026-09-24-coordination-command-set-design.md §8 S1
 agent: claude-code/claude-opus-5-5
+spec: docs/designs/2026-09-24-live-query-evaluation-design.md
+plan: docs/superpowers/plans/2026-09-24-live-query-evaluation.md
 ---
 
 Requested by science's coordination command set design (docs/specs/2026-09-24-coordination-command-set-design.md §8 S1, decision 3). evaluate_query denotes a ViewQuery only over a WorldReadView at a published epoch and refuses corpus-drifted once any corpus moves past it (coordination-and-view-kinds §6.2), and no science command may publish an epoch (framework §4.4). A project's next would therefore refuse after the first write until an operator republished. Requirement: denote a ViewQuery over the mounted corpora's current captured state without building or publishing an epoch, returning a selection whose stamp names the capture rather than any epoch identity, so no consumer can mistake it for an epoch-bound answer. Publish and every epoch-bound read are unchanged. Rationale: the queue is attention, not belief input — §6.2's own argument for live coordination resolution ('no packaging step mediates seeing your own task edit') covers seeing your own new proposition in your project's queue. Function vs view type is the kernel's call. Blocks science's project-scoped next.
@@ -26,3 +29,10 @@ Requested by science's coordination command set design (docs/specs/2026-09-24-co
 - 2026-09-25T01:20:47Z (main): parked (waiting on user, review): Spec docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md (branch design/live-query, worktree .worktrees/live-query) awaits user review; then writing-plans
   provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-25T01:37:06Z (main): Review 2026-09-24 requested changes: keep address_map's AddressMapConflict classification and precedence, scope the W8b check to records outside the map; focused cut 42 (rows Z1-Z5, 11 arms) for the live entry point; never-published and coverage-qualified agreement tests. Spec revised
+- 2026-09-25T02:26:43Z (design/live-query): parked (waiting on user, review): Plan docs/superpowers/plans/2026-09-24-live-query-evaluation.md (9680614, worktree .worktrees/live-query) awaits user review, an execution method, and the cut-number choice (cut 41 is unfrozen: take 41 or wait)
+  provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-25T10:49:59Z (design/live-query): Cut 41 frozen: twelve arms audited on paper, all hold (a scratch pre-flight of plan Tasks 1–4 saw each sabotage fail its check as predicted); scan clean on every branch; Z1–Z5 banked, 199 of 231; accounting 12/12/5; prefix ("cut40_acceptance.py",).
+- 2026-09-25T13:44:56Z (design/live-query): done
+  provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-25T13:44:56Z (design/live-query): cut 41 discharged: Z1–Z5 — evaluate_live_query over every admitted corpus, stamped by its capture
+  provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

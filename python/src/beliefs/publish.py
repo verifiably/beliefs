@@ -167,7 +167,7 @@ def publish(
     """Publish `view` to a local `destination` (spec §3–§8)."""
     _require_publishes(writer)
     if destination.type != "local":
-        raise ValidationRefused("remote destinations arrive in cut 41")
+        raise ValidationRefused("remote destinations arrive in cut 42")
     forbidden = (*resolver.mounted(), *world.config.corpus_roots, world.config.world_root)
     operations_root, resolved_destination = require_usable(operations_root, destination, forbidden=forbidden)
     # spec §4.1 item 7: the resolved path is the destination the intent and the request freeze

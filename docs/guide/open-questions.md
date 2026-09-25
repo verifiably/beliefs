@@ -291,6 +291,6 @@ implementation**: a guarantee row awaiting code is work, not a question.
   Cut 40 (2026-09-24) added its lifecycle entries: `publication-request`,
   `publication-staging`, `publication-export` and `publication-reveal`,
   which form one ordered sequence ahead of the binding. The remote
-  transport's entries are work for cut 41, not a question.
+  transport's entries are work for cut 42, not a question.
   ([act-report design](../designs/2026-08-11-act-report-design.md),
   [what stays open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open))

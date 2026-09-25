@@ -7,7 +7,7 @@ size: l
 complexity: high
 process: planned
 created: 2026-09-24T02:36:23Z
-updated: 2026-09-25T10:06:03Z
+updated: 2026-09-25T10:39:08Z
 depends: [beliefs-328507]
 parent: beliefs-1a5157
 tags: [publication]
@@ -19,3 +19,4 @@ Third slice of publish, split from beliefs-328507 by the user on 2026-09-23. Own
 ## Notes
 
 - 2026-09-25T10:06:03Z (main): Renumbered cut 41 → 42 on 2026-09-25 by the user's decision: live view-query evaluation (beliefs-cc0aea) freezes as cut 41, prefixing cut 40. Living docs on main still say cut 41 for this slice until beliefs-cc0aea's freeze commit relabels them (its plan, Task 0 Step 1); do not freeze this slice as 41.
+- 2026-09-25T10:39:08Z (design/live-query): renumbered cut 41 → 42 on 2026-09-25: live view-query evaluation froze as cut 41 (beliefs-cc0aea), by the user's decision of 2026-09-25
