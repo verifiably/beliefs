@@ -1454,3 +1454,81 @@ transition measured here is narrower again than §18's: the kernel gained a
 local publish act, its request and staging pieces, a durable create-only
 write, and marker-required arrival, while the reproduction's stored state
 and re-derived answer remained byte-for-byte where §18 left them.
+
+## 20. Addendum — live view-query evaluation, 2026-09-25
+
+Re-run under live, unpublished view-query evaluation
+(`docs/designs/2026-09-24-live-query-evaluation-design.md`; cut 41), from
+the worktree `live-query`, at head `e198961`. `SCIENCE_MM30_ROOT` was set
+to the certified volume's canonical path, formed from `$(readlink -f
+~/d/beliefs)`. `MM30_PREDECESSOR` again had to be set explicitly, to
+`~/d/proto/projects/cancer/cancer-types/multiple-myeloma` — the declared
+default resolves two path segments short of it on this host, as at §19.
+`reproduction.preflight` printed `ok` without a host-load refusal.
+
+### 20.1 What changed in the kernel this slice
+
+Cut 41 adds `evaluate_live_query` (`beliefs/world/live.py`): it denotes a
+`ViewQuery` over every corpus the world admits with no terminal status,
+each captured inside its own operation-lock hold, and returns a
+`LiveSelection` stamped with the states it captured, reading no epoch and
+writing nothing. It shares its denotation with the existing
+`evaluate_query` path through a refactored, private view protocol —
+`selection._denoted` in `beliefs/world/selection.py` — so the two callers
+differ only in what they capture and how they stamp it
+(`beliefs/world/view.py`, `beliefs/corpus.py`). The slice also adds the
+live selection acceptance module (`tests/acceptance/test_live_selection_acceptance.py`)
+and cut 41's declaration, guard, and runner. None of it is reached by the
+mm30 driver:
+
+```
+$ grep -n 'evaluate_query\|selection\|live' python/tools/reproduction/*.py
+python/tools/reproduction/analysis_inputs.py:3:Five keys the analysis needs and the selection cannot supply: `held_file`,
+python/tools/reproduction/rederive.py:175:        # it (design §9): it lives in the prior corpus state, not in this
+python/tools/reproduction/paths.py:14:# `.worktrees/` is removed when the lane closes, and the corpus must outlive it.
+```
+
+— each hit is unrelated to this slice: `analysis_inputs.py`'s "selection"
+names the driver's own pre-existing input-selection concept (the five keys
+`analysis-inputs.yaml` fixes, not a `ViewQuery` or `LiveSelection`);
+`rederive.py`'s "live" is the verb in "it lives in the prior corpus
+state"; `paths.py`'s "live" is the tail of "outlive". A narrower grep for
+the slice's own symbols is empty:
+
+```
+$ grep -n 'evaluate_live_query\|LiveSelection\|denotation\|ViewQuery' python/tools/reproduction/*.py
+$
+```
+
+The driver mints no view query, opens no live selection, and calls
+neither `evaluate_query` nor `evaluate_live_query`; mm30's own manifest
+names no view and pins the same profile as §19.
+
+### 20.2 What the re-run reached
+
+Before the run, `state.json` held `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}` and
+`rederived_equal: true` — unchanged from §19.2. A copy was taken first
+(SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`).
+`reproduction.rederive`, run in the foreground, printed the same 10a
+payload — `{"kind": "NoBelief", "reason": "no-directional-outcome",
+"detail": ""}` in stdout's field-declaration order — with `"equal": true`.
+The rewritten `state.json` held the same `rederived_belief` payload with
+`rederived_equal: true`. A full-file diff (`cmp`) against the pre-run copy
+was empty, and both files carried SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1` — the
+same digest §19.2 recorded.
+
+`cd python && uv run --frozen pytest tests/test_reproduction_driver.py
+tests/test_designs_corpus.py -q`: 50 passed.
+
+### 20.3 What this addendum does not claim
+
+That mm30's driver evaluates any view query: `evaluate_live_query` and the
+shared denotation core are additive machinery the driver never opens, and
+the driver's corpus admits no view for it to evaluate over. This
+reproduction's stored state and re-derived answer remained byte-for-byte
+where §19 left them; the certified-tuple evidence for cut 41's Z1–Z5
+guarantee rows lives in the live selection acceptance module and the
+cut-41 guard and runner, none of which this reproduction lane exercises.
