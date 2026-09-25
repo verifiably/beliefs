@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 from coordination_fixtures import raw_coordination_node
 from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut4 import raw_write
 from test_world_build import ALPHA, BETA
-from test_world_receipts import corpora, world_over
+from test_world_receipts import corpora, hold_shipped, publish, world_over
+from test_world_registry import write_manifest
 from test_world_selection import PROJECT, query
 
 from beliefs import stored
@@ -17,6 +20,7 @@ from beliefs.world import registry
 from beliefs.world.live import LIVE_SELECTION_VERSION, CaptureStamp, LiveSelection, evaluate_live_query
 from beliefs.world.read import BoundStamp
 from beliefs.world.selection import Selection, Unresolved
+from beliefs.world.view import open_world_view
 
 WORLD = "f" * 32
 STATE = "a" * 64
@@ -128,3 +132,35 @@ class TestEvaluation:
         assert late.id in moved.selected
         assert dict(moved.stamp.coverage)[ALPHA] != dict(first.stamp.coverage)[ALPHA]
         assert dict(moved.stamp.coverage)[BETA] == dict(first.stamp.coverage)[BETA]
+
+    def test_an_unreadable_manifest_refuses_with_open_world_views_message(self, tmp_path):
+        """`_coverage` copies `open_world_view`'s manifest-refusal text
+        verbatim rather than sharing it (design §8's frozen-arm ruling); this
+        pins the two message sets equal so a later edit to one side cannot
+        drift from the other unnoticed."""
+        world, _roots = two_corpora(tmp_path)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        broken = tmp_path / "broken"
+        broken.mkdir()
+        (broken / "corpus.yaml").write_text("not: [a manifest\n", encoding="utf-8")
+        world.config = replace(world.config, corpus_roots=(*world.config.corpus_roots, broken))
+
+        with pytest.raises(ResolutionRefused) as live_refusal:
+            evaluate_live_query(world, DATASETS)
+        with pytest.raises(ResolutionRefused) as view_refusal:
+            open_world_view(world, published)
+        assert str(live_refusal.value) == str(view_refusal.value)
+
+    def test_a_duplicate_configured_carrier_refuses_with_open_world_views_message(self, tmp_path):
+        """Same pin as above, for `_coverage`'s duplicate-carrier refusal."""
+        world, _roots = two_corpora(tmp_path)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        duplicate = tmp_path / "dup-alpha"
+        write_manifest(duplicate, ALPHA)
+        world.config = replace(world.config, corpus_roots=(*world.config.corpus_roots, duplicate))
+
+        with pytest.raises(ResolutionRefused) as live_refusal:
+            evaluate_live_query(world, DATASETS)
+        with pytest.raises(ResolutionRefused) as view_refusal:
+            open_world_view(world, published)
+        assert str(live_refusal.value) == str(view_refusal.value)
