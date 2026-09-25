@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: main
 created: 2026-09-24T10:43:33Z
-updated: 2026-09-25T01:17:04Z
+updated: 2026-09-25T01:20:47Z
 started: 2026-09-25T01:17:04Z
 depends: []
 tags: [world-read, coordination]
@@ -23,3 +23,5 @@ Requested by science's coordination command set design (docs/specs/2026-09-24-co
 - 2026-09-25T01:17:04Z (main): started
   provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-25T01:17:04Z (main): claimed by claude-code/claude-opus-5-5; process planned: spec in docs/superpowers/specs, worktree .worktrees/live-query
+- 2026-09-25T01:20:47Z (main): parked (waiting on user, review): Spec docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md (branch design/live-query, worktree .worktrees/live-query) awaits user review; then writing-plans
+  provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
