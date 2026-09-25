@@ -10,11 +10,12 @@ the selection instead of folding them into it.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import Literal, final
+from typing import Literal, Protocol, final
 
 from nodes.core.node import Node
+from nodes.core.structural_index import ResolvedEdge
 
 from beliefs.corpus import RelationAdjacency, validated_node
 from beliefs.decode import MalformedWireClaim, stored_claim_terms
@@ -23,8 +24,8 @@ from beliefs.identity import v1
 from beliefs.sealed import sealed
 from beliefs.traversal import Adjacency, RelationEntry, Step, closure
 from beliefs.view_query import Addresses, Closure, Kinds, Predicate, ReferencesTerm, ViewQuery
-from beliefs.world.read import BoundStamp, NotPresent, Unknown
-from beliefs.world.view import WorldReadView
+from beliefs.world.read import BoundStamp
+from beliefs.world.view import LocatedState, WorldReadView
 
 __all__ = ["SELECTION_VERSION", "Selection", "Unresolved", "evaluate_query"]
 
@@ -103,6 +104,26 @@ Held = Mapping[str, tuple[str, Node]]
 """Live address -> (corpus_id, retained record), one enumeration of the capture."""
 
 
+class _QueryableView(Protocol):
+    """What the denotation reads of a capture: a `WorldReadView` at an epoch,
+    or `live._LiveCapture` over the current state (live-query design
+    decision 9). Both satisfy it structurally; neither names it."""
+
+    def _located_state(self, ref: str) -> LocatedState: ...
+
+    def corpus_of(self, ref: str) -> str | None: ...
+
+    def resolve(self, ref: str) -> str | None: ...
+
+    def get(self, ref: str) -> Node: ...
+
+    def inbound(self, ref: str) -> list[ResolvedEdge]: ...
+
+    def live_id(self, uid: str) -> str: ...
+
+    def _mapped_records(self) -> Iterator[tuple[str, Node]]: ...
+
+
 def _binds_term(node: Node, term: str) -> bool:
     validated_node(node)
     try:
@@ -115,7 +136,7 @@ def _binds_term(node: Node, term: str) -> bool:
 class _InboundAdjacency:
     """Inbound edges under one predicate over the world view."""
 
-    def __init__(self, view: WorldReadView, predicate: str) -> None:
+    def __init__(self, view: _QueryableView, predicate: str) -> None:
         self._view = view
         self._predicate = predicate
 
@@ -147,7 +168,7 @@ class _InboundAdjacency:
 class _QueryAdjacency:
     """Closure adjacencies composed in predicate then direction order."""
 
-    def __init__(self, view: WorldReadView, predicates: tuple[str, ...], direction: str) -> None:
+    def __init__(self, view: _QueryableView, predicates: tuple[str, ...], direction: str) -> None:
         parts: list[Adjacency] = []
         for predicate in predicates:
             if direction in ("out", "both"):
@@ -160,13 +181,13 @@ class _QueryAdjacency:
         return tuple(step for part in self._parts for step in part.steps(ref))
 
 
-def _classify(view: WorldReadView, entry: RelationEntry) -> Unresolved:
-    located = view.locate(entry.target)
-    if type(located) is NotPresent:
+def _classify(view: _QueryableView, entry: RelationEntry) -> Unresolved:
+    state = view._located_state(entry.target)
+    if state == "not-present":
         corpus_id = view.corpus_of(entry.target)
         assert corpus_id is not None
         return Unresolved(entry.source, entry.predicate, entry.target, "not-present", corpus_id)
-    assert type(located) is Unknown, entry
+    assert state == "unknown", entry
     return Unresolved(entry.source, entry.predicate, entry.target, "unknown", None)
 
 
@@ -186,6 +207,31 @@ def evaluate_query(view: WorldReadView, query: ViewQuery) -> Selection:
         # A report whose states agree lists records outside the world map by
         # construction (coordination and prose kinds); only a moved state refuses.
         raise SelectionRefused("corpus-drifted", refs=moved)
+    denoted = _denoted(view, query)
+    return Selection(
+        stamp=view.stamp,
+        query=query,
+        selected=denoted.selected,
+        contributing=denoted.contributing,
+        absent=view.absent(),
+        unresolved=denoted.unresolved,
+    )
+
+
+@final
+@dataclass(frozen=True)
+class _Denotation:
+    """The part of an answer the capture determines and the stamp does not."""
+
+    selected: tuple[str, ...]
+    contributing: tuple[str, ...]
+    unresolved: tuple[Unresolved, ...]
+
+
+def _denoted(view: _QueryableView, query: ViewQuery) -> _Denotation:
+    """The one denotation both entry points run (§3.2): every named address
+    located first, then each clause the intersection of its predicates and
+    the answer the union of its clauses."""
     _require_located(view, query.addresses())
 
     held: dict[str, tuple[str, Node]] = {node.id: (corpus_id, node) for corpus_id, node in view._mapped_records()}
@@ -201,27 +247,24 @@ def evaluate_query(view: WorldReadView, query: ViewQuery) -> Selection:
     for address in selected:
         validated_node(held[address][1])
     contributing = sorted({held[address][0] for address in selected})
-    return Selection(
-        stamp=view.stamp,
-        query=query,
+    return _Denotation(
         selected=tuple(sorted(selected)),
         contributing=tuple(contributing),
-        absent=view.absent(),
         unresolved=tuple(sorted(unresolved.values(), key=lambda step: step.sort_key)),
     )
 
 
-def _require_located(view: WorldReadView, addresses: tuple[str, ...]) -> None:
+def _require_located(view: _QueryableView, addresses: tuple[str, ...]) -> None:
     """Every address the query names resolves, or the evaluation refuses
     naming each offender of the worst state; unknown and not-present never
     share one refusal (W6)."""
     unknown: list[str] = []
     not_present: list[tuple[str, str]] = []
     for address in addresses:
-        located = view.locate(address)
-        if type(located) is Unknown:
+        state = view._located_state(address)
+        if state == "unknown":
             unknown.append(address)
-        elif type(located) is NotPresent:
+        elif state == "not-present":
             corpus_id = view.corpus_of(address)
             assert corpus_id is not None
             not_present.append((address, corpus_id))
@@ -236,7 +279,7 @@ def _require_located(view: WorldReadView, addresses: tuple[str, ...]) -> None:
 
 
 def _denote(
-    view: WorldReadView,
+    view: _QueryableView,
     predicate: Predicate,
     held: Held,
     unresolved: dict[tuple[str, str, str], Unresolved],

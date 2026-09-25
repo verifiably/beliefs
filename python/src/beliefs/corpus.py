@@ -853,6 +853,19 @@ def _forget_roots_under(directory: Path) -> None:
 # --- the two adjacency adapters ---------------------------------------------
 
 
+class RelationView(Protocol):
+    """What a relation adjacency reads of a view. `ReadView`, `WorldReadView`
+    and the live capture behind `world.live` all satisfy it structurally."""
+
+    def get(self, ref: str) -> Node: ...
+
+    def resolve(self, ref: str) -> str | None: ...
+
+    def inbound(self, ref: str) -> list[ResolvedEdge]: ...
+
+    def live_id(self, uid: str) -> str: ...
+
+
 class RelationAdjacency:
     """Stored relations under one predicate, in one direction.
 
@@ -862,7 +875,7 @@ class RelationAdjacency:
     fixture that pins this is why the flag is read at all.
     """
 
-    def __init__(self, view: ReadView | WorldReadView, predicate: str, direction: str) -> None:
+    def __init__(self, view: RelationView, predicate: str, direction: str) -> None:
         if direction not in DIRECTIONS:
             raise ValueError(f"direction {direction!r} is outside {DIRECTIONS}")
         self._view = view

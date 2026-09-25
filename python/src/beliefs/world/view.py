@@ -43,6 +43,9 @@ __all__ = ["DamageReport", "DriftReport", "WorldReadView", "open_world_view"]
 
 _MINT = object()
 
+LocatedState = Literal["resolved", "not-present", "unknown"]
+"""`locate`'s answer as the three states the query evaluator reads (live-query design decision 9)."""
+
 
 @final
 @dataclass(frozen=True)
@@ -155,6 +158,16 @@ class WorldReadView:
         if corpus_id in self._absent:
             return NotPresent(self._stamp)
         return Resolved(Location(corpus_id, uid), self._stamp)
+
+    def _located_state(self, ref: str) -> LocatedState:
+        """`locate`'s answer as the evaluator's three states; damage refuses
+        exactly as `locate` refuses it."""
+        located = self.locate(ref)
+        if type(located) is Unknown:
+            return "unknown"
+        if type(located) is NotPresent:
+            return "not-present"
+        return "resolved"
 
     def corpus_of(self, ref: str) -> str | None:
         entry = self._recorded.get(ref)

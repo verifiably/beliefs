@@ -359,3 +359,15 @@ class TestAbsenceAndValidation:
         world, roots, published, topic = topic_world(tmp_path, [{"kinds": ["dataset"]}], alpha_extra=(stale,))
         with pytest.raises(SemanticHashStale):
             evaluate_topic(world, roots, published, topic)
+
+
+class TestLocatedState:
+    """The evaluator reads `locate` as three states (live-query design decision 9)."""
+
+    def test_the_three_states_follow_locate(self, tmp_path):
+        world, roots, published, _topic = topic_world(tmp_path, [{"kinds": ["dataset"]}])
+        view = open_world_view(world, published)
+        assert view._located_state(dataset_ref("d-b")) == "resolved"
+        assert view._located_state("dataset:never") == "unknown"
+        make_absent(roots, BETA)
+        assert open_world_view(world, published)._located_state(dataset_ref("d-b")) == "not-present"
