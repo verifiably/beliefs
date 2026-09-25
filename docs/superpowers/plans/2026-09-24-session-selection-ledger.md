@@ -17,10 +17,27 @@
 - `select` is appended only for the current invocation, at most once per invocation, before that invocation's close (decisions 3, 5); the reader enforces the same currency (decision 7).
 - The index learns a selection only after the ledger append returns; an append failure is terminal (`SessionLedgerFailed` from every later method, `invocation_selection` included) and leaves the index unchanged (§4.2).
 - No conformance cut (decision 8, accepted in review). Ordinary tests only.
-- These frozen cut-19 sabotage before-strings must stay textually intact and each still occur **exactly once** in its module (`tests/test_arm_staleness.py` must stay green). Do not write new code that repeats any of them:
-  - `session/writer.py`: `"            if self._current != invocation:\n                raise SessionProtocolError(\n"` (in `_require_current` — the new currency check must be spelled `if invocation != self._current:` instead); `"            entry = self._index.get(invocation)\n            if entry is None:\n"` (in `claim_invocation` — new reads must not repeat it); `"            self._index[invocation].outcome = validated\n"`; the `invocation-close` append; `"        if not permit_covers(self._ceiling, required):\n"`; `"        writer = self._writer_factory(scoped_authority(required, self.actor))\n"`; `"            self._session._record_act(self._invocation, commit)\n"`; `"        with self._session._lock, _operation_lock_for(self._writer.root):\n"`; `"            if entry.command != command or entry.input_digest != digest:\n"`; `"            self._session._require_current(self._invocation)\n"`.
-  - `session/ledger.py`: `"            os.fsync(self._file.fileno())\n"`; `"            self._failed = True\n"`; the `except OSError as caught:  # a directory in the file's place, …` line in `read_ledger_evidence`.
-  - `session/__init__.py`: `"    if len(world_config.corpus_roots) != 1:\n"`; `"    if type(view) is not WellFormedView:\n"`; the two lines in `reconcile_sessions` (`chains[corpus_id] = log_seam().inspect_detached(root)`, `stack.enter_context(_operation_lock_for(root))`).
+- **The pinned sabotages are the effective audited arms, not the declaration files.** `tests/test_arm_staleness.py` holds every arm a live guard audits — its `CUTN_ARMS` after `_LIVE_SABOTAGES` re-targeting, against the tree the guard pins — to occurring exactly once. The declaration files (`n2_arms_cut19.py` and others) are frozen and may spell strings the kernel has outgrown; a re-targeted row supersedes them, and working code is never reshaped to restore a declared string. On this plan's baseline (`d0d964e`) the effective arms that touch the session modules are these 19, each occurring once (no cited-not-run guard targets them):
+
+  | Guard | Rows | Module | Before-block (first line) |
+  |---|---|---|---|
+  | cut 19 | J3a | `session/writer.py` | `authority = scoped_authority(required, self.actor)` |
+  | cut 19 | J3b | `session/writer.py` | `if not permit_covers(self._ceiling, required):` |
+  | cut 19 | J5a, J5b | `session/writer.py` | `self._session._record_act(self._invocation, commit)` (J5b: the three lines `commit = perform()` … `return commit.record`) |
+  | cut 19 | J5c | `session/writer.py` | `with self._session._lock, _operation_lock_for(self._writer.root):` |
+  | cut 19 | J6a | `session/writer.py` | `if entry.command != command or entry.input_digest != digest:` |
+  | cut 19 | J6b | `session/writer.py` | `entry = self._index.get(invocation)` + `if entry is None:` |
+  | cut 19 | J6c | `session/writer.py` | `self._index[invocation].outcome = validated` |
+  | cut 19 | J7c | `session/writer.py` | the `invocation-close` append + the two lines after it |
+  | cut 19 | J11a | `session/writer.py` | `if self._current != invocation:` + `raise SessionProtocolError(` |
+  | cut 19 | J11b | `session/writer.py` | `self._session._require_current(self._invocation)` + `commit = perform()` |
+  | cut 38 | BI-3 | `session/writer.py` | `port=self.operation_port(), hold=self._closing_hold,` … `def recheck(` |
+  | cut 19 | J7a, J7b | `session/ledger.py` | `os.fsync(self._file.fileno())`; `self._failed = True` |
+  | cut 19 | J8g | `session/ledger.py` | `except OSError as caught:  # a directory in the file's place, …` |
+  | cut 19 | J8e, J8f | `session/__init__.py` | `chains[corpus_id] = log_seam().inspect_detached(root)`; `stack.enter_context(_operation_lock_for(root))` |
+  | cut 19 | J9a, J9b | `session/__init__.py` | `if len(world_config.corpus_roots) != 1:`; `if type(view) is not WellFormedView:` |
+
+  New code must not add an occurrence of any of them: the currency check is spelled `if invocation != self._current:` (not J11a's form), and new index reads name their variable `found` (not J6b's `entry`). This plan moves no pinned line; a step that finds it must would re-target the row in the guard's `_LIVE_SABOTAGES` (the fix `test_arm_staleness.py` prescribes), record that in the task note, and never edit the declaration file. The table is a snapshot for reading the diff; `tests/test_arm_staleness.py` is the authority, run at the end of Tasks 1–3.
 - `root.py` stays the one `atoms` importer: nothing here imports `atoms`. No new write primitive is added, so `WRITE_ENTRY_POINTS` does not change.
 - A design document under `docs/designs/` cites a spec under `docs/superpowers/specs/` by a markdown link (`[…](../superpowers/specs/<file>.md)`), never by a backticked filename (`test_designs_corpus.py::test_every_cross_reference_resolves`).
 - Tests: targeted runs are `cd python && uv run --frozen pytest -q -p no:cacheprovider <paths>`; the inner loop is `just test-fast` from the worktree root. This worktree lives on WORK_ROOT storage, which is not on the durability allowlist, so capability-dependent tests need the certified work root on the main checkout's volume (beliefs-ad68df). Export it once per shell, from the worktree root: `export SCIENCE_CUT13_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.lifecycle-wrappers-test"`. Every command below that needs it assumes it is exported. Never call `pytest` outside `uv run`/`just`.
@@ -200,7 +217,7 @@ def test_a_torn_select_leaves_the_previous_selection_standing(tmp_path):
         pytest.param(select("A", f"coord:{P}"), id="unpinned"),
         pytest.param(select("A", f"coord:{P}/{L}@{R1}"), id="subordinate"),
         pytest.param(select("A", "project-health"), id="not-an-address"),
-        pytest.param(select("A", f"coord:{P.upper()}@{R1}"), id="uppercase-hex"),
+        pytest.param(select("A", f"coord:{'A' * 32}@{R1}"), id="uppercase-hex"),  # alphabetic hex: P's digits have no case
         pytest.param(select("A", f"coord:{P}@{R1}@{R2}"), id="extra-segment"),
         pytest.param(select("A", 5), id="not-a-string"),
         pytest.param({**select("A", P_AT_R1), "at": AT}, id="extra-key"),
@@ -1138,21 +1155,34 @@ In `docs/designs/2026-08-03-redesign-adoption-ledger.md`, insert after the bulle
 Run: `cd python && uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py`
 Expected: all pass (the two links resolve; no backticked spec filename in `docs/designs/`).
 
-- [ ] **Step 5: Run the gate**
+- [ ] **Step 5: Run the gate, and the affected capability checks against this worktree's code**
 
-Run from the worktree root:
+Every check below runs here, against the worktree's code, before the goal closes. None is deferred to after the merge. Capability-dependent tests point at certified work roots on the main checkout's volume (beliefs-ad68df), not at the uncertified WORK_ROOT defaults. From the worktree root:
 
 ```bash
+MAIN="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+export SCIENCE_CUT10_ROOT="$MAIN/.lifecycle-wrappers-test"
+export SCIENCE_CUT4_ROOT="$MAIN/.cut4-acceptance"
 just check
 just test-fast
+(cd python && uv run --frozen pytest -q -p no:cacheprovider -n 8 \
+  tests/acceptance/test_session_acceptance.py \
+  tests/acceptance/test_act_report_remainder_acceptance.py \
+  tests/acceptance/test_snapshot_retraction_acceptance.py \
+  tests/acceptance/test_source_address_acceptance.py \
+  tests/acceptance/test_url_retrieval_acceptance.py)
+(cd python && uv run --frozen pytest -q -p no:cacheprovider \
+  tests/acceptance/test_n2_cut19.py tests/acceptance/test_n2_cut38.py)
 ```
 
-Expected: `just check` clean; `just test-fast` exits 0 with no failures. If any failure is `CapabilityUnavailable` from a repo-relative acceptance root (beliefs-ad68df), record it in a task note and rerun that module from the main checkout after the merge instead of treating it as a code failure; any other failure is a code failure and blocks the task.
+`SCIENCE_CUT10_ROOT`, not the `SCIENCE_CUT13_ROOT` the earlier tasks export: the portable conftest reads either, but the N2 harness (`test_n2.py::_run_check`) forwards only `SCIENCE_CUT4`–`10_ROOT` and `SCIENCE_MM30_ROOT` to each check's child pytest. With `SCIENCE_CUT13_ROOT` alone, cut 38's baseline fails 11 checks in the worktree on unchanged code (piloted 2026-09-25; with `SCIENCE_CUT10_ROOT`, the cut 19 and 38 guards pass, 17 tests in 42 s). The acceptance modules are the ones that drive `beliefs.session`. Cut 19 and cut 38 are the live guards whose arms sabotage the session modules, so running them shows every audited arm still bites the changed code, not only that it applies.
+
+Expected: `just check` clean, and every run exits 0 with no failures and no errors. Any failure blocks the task, `CapabilityUnavailable` and `UncertifiedVolume` included. If a capability check cannot run with these overrides (the engine refuses the volume, or a fixture ignores the override), do not close anything. Record the exact mismatch in a `tasks note` on beliefs-f9ff55: the test id, the root it used, and the engine's refusal text. Then park beliefs-f9ff55 and beliefs-1148ad with that verification as the outstanding next action, and skip Step 6. A module that passes from the main checkout after the merge does not stand in for this run.
 
 - [ ] **Step 6: Commit and close the goal**
 
 ```bash
-tasks done beliefs-f9ff55 "writer-session selection amendment and adoption ledger bullet; gate green"
+tasks done beliefs-f9ff55 "writer-session selection amendment and adoption ledger bullet; check, test-fast, session acceptance and the cut 19/38 guards green against the worktree"
 tasks done beliefs-1148ad "Session ledger records the selection: session-open project, select line under the writer's currency, select_project/invocation_selection, open_attended_session(project=), reader initial_project/selection/attributed_acts"
 tasks check
 git add docs/designs/2026-09-05-writer-session-design.md docs/designs/2026-08-03-redesign-adoption-ledger.md tasks/

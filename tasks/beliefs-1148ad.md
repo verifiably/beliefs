@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-09-24T10:43:33Z
-updated: 2026-09-25T02:11:24Z
+updated: 2026-09-25T02:26:43Z
 started: 2026-09-25T01:13:18Z
 depends: []
 tags: [session]
@@ -25,3 +25,5 @@ Requested by science's coordination command set design (§8 S2; projects design 
 - 2026-09-25T01:13:18Z (main): started
   provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-25T01:13:18Z (main): claimed by claude-code/claude-opus-5-5; process planned: spec in docs/superpowers/specs, worktree .worktrees/session-selection
+- 2026-09-25T02:26:43Z (design/session-selection): parked (waiting on user, review): Plan docs/superpowers/plans/2026-09-24-session-selection-ledger.md (94768cf, worktree .worktrees/session-selection) awaits user review and an execution method
+  provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
