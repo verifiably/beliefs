@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypeAlias, final
 
+from beliefs.coordination import CoordinationAddress
 from beliefs.errors import LedgerMalformed, SessionLedgerFailed
 from beliefs.sealed import sealed
 
@@ -28,17 +29,19 @@ __all__ = [
     "LedgerReader",
     "LedgerUnreadable",
     "LedgerWriter",
+    "SelectLine",
     "encode_line",
     "ledger_path",
     "open_ledger_reader",
     "read_ledger_evidence",
     "require_hex",
     "require_invocation_id",
+    "require_selection",
     "utc_now",
     "validated_outcome",
 ]
 
-LINE_KINDS = ("session-open", "invocation-open", "act", "invocation-close", "session-close")
+LINE_KINDS = ("session-open", "invocation-open", "act", "invocation-close", "session-close", "select")
 LEDGER_FILE = "ledger.v1"
 _INVOCATION = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _HEX = "0123456789abcdef"
@@ -66,6 +69,19 @@ def require_hex(value: object, width: int, what: str) -> str:
     if type(value) is not str or len(value) != width or any(c not in _HEX for c in value):
         raise ValueError(f"{what} must be {width} lowercase hexadecimal characters")
     return value
+
+
+def require_selection(value: object, what: str) -> CoordinationAddress | None:
+    """A recorded selection: `null`, or a project address pinned to the revision it
+    resolved to (selection design decision 1)."""
+    if value is None:
+        return None
+    if type(value) is not str:
+        raise ValueError(f"{what} must be null or a pinned project address")
+    address = CoordinationAddress.parse(value)
+    if address.local is not None or address.revision is None:
+        raise ValueError(f"{what} must be a project address pinned to a revision: {value!r}")
+    return address
 
 
 def _require_str(value: object, what: str) -> str:
@@ -115,12 +131,24 @@ class ActLine:
 @sealed
 @final
 @dataclass(frozen=True)
+class SelectLine:
+    """One `select` line: the invocation that changed the selection, and the new
+    value — pinned, or None for a clear (selection design §4.3)."""
+
+    invocation: str
+    project: CoordinationAddress | None
+
+
+@sealed
+@final
+@dataclass(frozen=True)
 class InvocationRecord:
     invocation: str
     command: str
     input_digest: str
     acts: tuple[ActLine, ...]
     outcome: Mapping[str, object] | None
+    selection: SelectLine | None
 
 
 class LedgerWriter:
@@ -176,7 +204,10 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
             "act": {"line", "invocation", "corpus", "entry", "intent", "records"},
             "invocation-close": {"line", "invocation", "outcome"},
             "session-close": {"line", "at"},
+            "select": {"line", "invocation", "project"},
         }[kind]
+        if kind == "session-open" and "project" in line:
+            expected = expected | {"project"}  # a pre-amendment session-open omits it (selection design decision 6)
         if set(line) != expected:
             raise ValueError(f"{kind} carries exactly {sorted(expected)}")
         if kind == "session-open":
@@ -187,6 +218,8 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
             if not isinstance(permit, Mapping) or set(permit) != {"kinds", "act_families", "ungoverned"}:
                 raise ValueError("permit summary carries kinds, act_families and ungoverned")
             _require_str(line["at"], "at")
+            if "project" in line:
+                require_selection(line["project"], "session-open project")
         elif kind == "invocation-open":
             require_invocation_id(line["invocation"])
             _require_str(line["command"], "command")
@@ -201,6 +234,9 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
         elif kind == "invocation-close":
             require_invocation_id(line["invocation"])
             validated_outcome(line["outcome"])
+        elif kind == "select":
+            require_invocation_id(line["invocation"])
+            require_selection(line["project"], "select project")
         else:
             _require_str(line["at"], "at")
     except (ValueError, TypeError) as caught:
@@ -214,7 +250,9 @@ class LedgerReader:
     By the time a line reaches this constructor, `_parse` has already refused
     any line the writer's protocol cannot produce (an `act` or
     `invocation-close` naming an invocation never opened or already closed, a
-    repeated `invocation-open`, or any line after `session-close`) — so every
+    repeated `invocation-open`, a `select` naming anything but the current
+    invocation, a second `select` in one invocation, or any line after
+    `session-close`) — so every
     `act`/`invocation-close` here targets an invocation this loop has already
     recorded, and no salvaging is needed."""
 
@@ -224,28 +262,39 @@ class LedgerReader:
         head = lines[0]
         self.actor = str(head["actor"])
         self.world_id = str(head["world"])
+        self.initial_project = require_selection(head.get("project"), "session-open project")
         self.closed = any(line["line"] == "session-close" for line in lines)
         self._records: dict[str, InvocationRecord] = {}
         self._order: list[str] = []
         acts: dict[str, list[ActLine]] = {}
+        selections: dict[str, SelectLine] = {}
+        attributed: list[tuple[ActLine, CoordinationAddress | None]] = []
+        standing = self.initial_project
         for line in lines[1:]:
             kind = line["line"]
             if kind == "invocation-open":
                 invocation = str(line["invocation"])
                 self._order.append(invocation)
-                self._records[invocation] = InvocationRecord(invocation, str(line["command"]), str(line["input_digest"]), (), None)
+                self._records[invocation] = InvocationRecord(invocation, str(line["command"]), str(line["input_digest"]), (), None, None)
                 acts[invocation] = []
             elif kind == "act":
                 invocation = str(line["invocation"])
-                acts[invocation].append(
-                    ActLine(invocation, str(line["corpus"]), str(line["entry"]), str(line["intent"]), _pairs(line["records"], "act records"))
-                )
+                act = ActLine(invocation, str(line["corpus"]), str(line["entry"]), str(line["intent"]), _pairs(line["records"], "act records"))
+                acts[invocation].append(act)
+                attributed.append((act, standing))
+            elif kind == "select":
+                invocation = str(line["invocation"])
+                standing = require_selection(line["project"], "select project")
+                selections[invocation] = SelectLine(invocation, standing)
             elif kind == "invocation-close":
                 invocation = str(line["invocation"])
                 current = self._records[invocation]
-                self._records[invocation] = InvocationRecord(invocation, current.command, current.input_digest, (), validated_outcome(line["outcome"]))
+                self._records[invocation] = InvocationRecord(invocation, current.command, current.input_digest, (), validated_outcome(line["outcome"]), None)
         for invocation, record in list(self._records.items()):
-            self._records[invocation] = InvocationRecord(invocation, record.command, record.input_digest, tuple(acts.get(invocation, ())), record.outcome)
+            self._records[invocation] = InvocationRecord(
+                invocation, record.command, record.input_digest, tuple(acts.get(invocation, ())), record.outcome, selections.get(invocation)
+            )
+        self._attributed = tuple(attributed)
 
     @property
     def open_invocations(self) -> tuple[str, ...]:
@@ -253,6 +302,12 @@ class LedgerReader:
 
     def acts(self) -> tuple[ActLine, ...]:
         return tuple(act for i in self._order for act in self._records[i].acts)
+
+    def attributed_acts(self) -> tuple[tuple[ActLine, CoordinationAddress | None], ...]:
+        """Every act in ledger order, with the selection standing at its line: the
+        latest `select` before it, else session-open's value (selection design
+        decision 4)."""
+        return self._attributed
 
     def invocations(self) -> tuple[InvocationRecord, ...]:
         return tuple(self._records[i] for i in self._order)
@@ -265,8 +320,10 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
     """Parse every complete line, refusing both a malformed line's own shape
     (`_validated_line`) and a line the writer's protocol can never produce:
     an `act` or `invocation-close` naming an invocation never opened or
-    already closed, a repeated `invocation-open`, or any line after
-    `session-close` (design §7 row J7; fail-early forbids salvaging any of
+    already closed, a repeated `invocation-open`, a `select` naming an
+    invocation never opened, one naming anything but the current invocation
+    (the writer's currency, replayed), a second `select` in one invocation, or
+    any line after `session-close` (design §7 row J7; fail-early forbids salvaging any of
     these rather than tolerating and reporting around them)."""
     if not raw:
         raise LedgerMalformed("line 1: the ledger is empty; no session-open")
@@ -276,6 +333,8 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
     opened: set[str] = set()
     closed: set[str] = set()
     session_closed_at: int | None = None
+    current: str | None = None  # the writer's currency, replayed (selection design decision 7)
+    selected: set[str] = set()
     for number, chunk in enumerate(chunks, start=1):
         try:
             parsed = json.loads(chunk.decode("utf-8"))
@@ -294,6 +353,7 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
                 if invocation in opened:
                     raise LedgerMalformed(f"line {number}: invocation {invocation!r} is already open")
                 opened.add(invocation)
+                current = invocation
             elif kind == "act":
                 invocation = str(validated["invocation"])
                 if invocation not in opened:
@@ -307,6 +367,19 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
                 if invocation in closed:
                     raise LedgerMalformed(f"line {number}: invocation {invocation!r} is already closed")
                 closed.add(invocation)
+                if invocation == current:
+                    current = None
+            elif kind == "select":
+                invocation = str(validated["invocation"])
+                if invocation not in opened:
+                    raise LedgerMalformed(f"line {number}: select names invocation {invocation!r}, never opened")
+                if invocation != current:
+                    raise LedgerMalformed(
+                        f"line {number}: select names invocation {invocation!r}, not the current invocation ({current!r})"
+                    )
+                if invocation in selected:
+                    raise LedgerMalformed(f"line {number}: invocation {invocation!r} already holds a select")
+                selected.add(invocation)
             elif kind == "session-close":
                 session_closed_at = number
             elif kind == "session-open":

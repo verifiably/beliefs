@@ -1213,3 +1213,35 @@ the lock. A forbidden candidate kind is refused before target resolution,
 including a missing target; a permitted forged candidate kind never grants
 authority over a forbidden stored kind. With full authority, changing a
 dataset's kind still reaches the dataset revision allowlist refusal.
+
+## Selection amendment — 2026-09-24
+
+The ledger records the session's current-project selection
+([selection design](../superpowers/specs/2026-09-24-session-selection-ledger-design.md),
+`beliefs-1148ad`; science's coordination command set design §8 S2). §3.2's
+table gains one key and one row:
+
+| `line` | fields |
+|---|---|
+| `session-open` | as before, plus `project`: `null` or a project address pinned to the revision it resolved to (`coord:<project>@<revision>`) |
+| `select` | `invocation`; `project`: `null` or a pinned project address |
+
+`open_attended_session` takes `project`, an unpinned project address, and
+resolves it through the coordination resolver before the session directory
+exists; no tip, a divergent tip, or a tip that is not a `project` refuses
+`ProjectNotResolvable`, and a project without `coordination` refuses
+`SessionRefused`. `WriterSession.select_project(invocation_id, address)`
+resolves the same way, appends `select` for the current invocation only and at
+most once per invocation, and returns the pinned address; the index learns it
+after the append returns, and a failed append is §3.2's terminal
+`LedgerFailed` state. `invocation_selection(invocation_id)` reads the index and,
+like `invocation_acts`, requires a live session.
+
+A selection takes effect at its line, whether or not its invocation later
+closes. The reader replays the writer's currency (§3.3): a `select` naming
+anything but the invocation current at its line, or a second `select` in one
+invocation, is `LedgerMalformed`. §3.5's reader gains
+`LedgerReader.initial_project`, `InvocationRecord.selection` and
+`attributed_acts()`, which pairs every act with the selection standing at its
+line. A `session-open` written before this amendment, without `project`, reads
+as no selection; it is the only historical shape accepted.

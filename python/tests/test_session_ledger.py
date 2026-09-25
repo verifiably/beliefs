@@ -8,6 +8,7 @@ from collections.abc import Mapping
 
 import pytest
 
+from beliefs.coordination import CoordinationAddress
 from beliefs.errors import LedgerMalformed, SessionLedgerFailed
 from beliefs.session.ledger import (
     LINE_KINDS,
@@ -16,12 +17,14 @@ from beliefs.session.ledger import (
     LedgerMissing,
     LedgerUnreadable,
     LedgerWriter,
+    SelectLine,
     encode_line,
     ledger_path,
     open_ledger_reader,
     read_ledger_evidence,
     validated_outcome,
 )
+from beliefs.session.reconcile import reconcile
 
 SESSION = "a" * 32
 ACTOR = f"session:{SESSION}"
@@ -30,11 +33,41 @@ DIGEST = "c" * 64
 ENTRY = "d" * 64
 INTENT = "e" * 64
 AT = "2026-09-05T12:00:00Z"
+P, Q, L, R1, R2 = ("1" * 32, "2" * 32, "3" * 32, "4" * 32, "5" * 32)
+P_AT_R1 = f"coord:{P}@{R1}"
+Q_AT_R2 = f"coord:{Q}@{R2}"
 
 
-def open_line():
+def open_line(**project):
+    """The session-open line; `open_line(project=...)` adds the post-amendment key."""
     return {"line": "session-open", "session": SESSION, "actor": ACTOR, "world": WORLD,
-            "permit": {"kinds": ["proposition"], "act_families": ["corpus-write"], "ungoverned": False}, "at": AT}
+            "permit": {"kinds": ["proposition"], "act_families": ["corpus-write"], "ungoverned": False}, "at": AT, **project}
+
+
+def invocation_open(name):
+    return {"line": "invocation-open", "invocation": name, "command": "mint", "input_digest": DIGEST, "at": AT}
+
+
+def invocation_close(name):
+    return {"line": "invocation-close", "invocation": name, "outcome": {"done": []}}
+
+
+def act(name, entry=ENTRY):
+    return {"line": "act", "invocation": name, "corpus": WORLD, "entry": entry, "intent": INTENT, "records": []}
+
+
+def select(name, project):
+    return {"line": "select", "invocation": name, "project": project}
+
+
+def ledger_bytes(*lines):
+    return b"".join(encode_line(line) for line in lines)
+
+
+def selection_of(reader, invocation):
+    record = reader.invocation(invocation)
+    assert record is not None
+    return record.selection
 
 
 def lines():
@@ -63,7 +96,7 @@ def fsyncs(monkeypatch):
 def test_lines_are_canonical_json_one_per_line():
     encoded = encode_line({"z": 1, "a": [1, 2], "line": "act"})
     assert encoded == b'{"a":[1,2],"line":"act","z":1}\n'
-    assert set(LINE_KINDS) == {"session-open", "invocation-open", "act", "invocation-close", "session-close"}
+    assert set(LINE_KINDS) == {"session-open", "invocation-open", "act", "invocation-close", "session-close", "select"}
 
 
 def test_each_append_is_fsynced_once_and_lands_before_return(tmp_path, fsyncs):
@@ -288,3 +321,142 @@ def test_validated_outcome_accepts_the_two_shapes_and_nothing_else():
     for bad in ({}, {"done": [], "refusal": {}}, {"done": [["u"]]}, {"refusal": {"code": 1, "message": "m", "data": {}}}, {"refusal": {"code": "c", "message": "m", "data": []}}, {"other": 1}):
         with pytest.raises(ValueError):
             validated_outcome(bad)
+
+
+# --- selection lines (selection design §3, §4.3) -------------------------------------
+def test_the_reader_reads_the_initial_project_each_selection_and_the_attribution(tmp_path):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    writer = LedgerWriter(path)
+    a1, a2, b1 = "1" * 64, "2" * 64, "3" * 64
+    for line in (
+        open_line(project=P_AT_R1),
+        invocation_open("A"),
+        act("A", a1),
+        select("A", Q_AT_R2),  # one invocation may act, select, then act again (decision 5)
+        act("A", a2),
+        invocation_close("A"),
+        invocation_open("B"),
+        select("B", None),
+        act("B", b1),
+        invocation_close("B"),
+        invocation_open("C"),
+        invocation_close("C"),
+    ):
+        writer.append(line)
+    writer.close()
+    reader = open_ledger_reader(tmp_path, SESSION)
+    assert reader.initial_project == CoordinationAddress(P, revision=R1)
+    record_a, record_b, record_c = reader.invocations()
+    assert record_a.selection == SelectLine("A", CoordinationAddress(Q, revision=R2))
+    assert record_b.selection == SelectLine("B", None)
+    assert record_c.selection is None
+    assert [(act_line.entry, project) for act_line, project in reader.attributed_acts()] == [
+        (a1, CoordinationAddress(P, revision=R1)),
+        (a2, CoordinationAddress(Q, revision=R2)),
+        (b1, None),
+    ]
+
+
+def test_a_historical_session_open_without_project_reads_as_no_selection(tmp_path):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(ledger_bytes(*lines()))  # open_line() is the pre-amendment six-key shape
+    reader = open_ledger_reader(tmp_path, SESSION)
+    assert reader.initial_project is None
+    assert [project for _, project in reader.attributed_acts()] == [None]
+    evidence = read_ledger_evidence(tmp_path, SESSION)
+    assert type(evidence) is not LedgerUnreadable
+    assert "session-ledger-malformed" not in {finding.code for finding in reconcile((evidence,), {})}
+
+
+def test_a_torn_select_leaves_the_previous_selection_standing(tmp_path):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(
+        ledger_bytes(open_line(project=P_AT_R1), invocation_open("A"))
+        + encode_line(select("A", Q_AT_R2))[:25]
+    )
+    reader = open_ledger_reader(tmp_path, SESSION)
+    assert reader.torn_tail is True
+    assert reader.initial_project == CoordinationAddress(P, revision=R1)
+    assert selection_of(reader, "A") is None
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        pytest.param(select("A", f"coord:{P}"), id="unpinned"),
+        pytest.param(select("A", f"coord:{P}/{L}@{R1}"), id="subordinate"),
+        pytest.param(select("A", "project-health"), id="not-an-address"),
+        pytest.param(select("A", f"coord:{'A' * 32}@{R1}"), id="uppercase-hex"),  # alphabetic hex: P's digits have no case
+        pytest.param(select("A", f"coord:{P}@{R1}@{R2}"), id="extra-segment"),
+        pytest.param(select("A", 5), id="not-a-string"),
+        pytest.param({**select("A", P_AT_R1), "at": AT}, id="extra-key"),
+        pytest.param({"line": "select", "invocation": "A"}, id="missing-project"),
+        pytest.param({"line": "select", "invocation": "bad id!", "project": None}, id="bad-invocation-id"),
+    ],
+)
+def test_a_malformed_select_line_is_refused_naming_its_number(tmp_path, line):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(ledger_bytes(open_line(project=None), invocation_open("A"), line))
+    with pytest.raises(LedgerMalformed, match="line 3"):
+        open_ledger_reader(tmp_path, SESSION)
+
+
+@pytest.mark.parametrize("project", [f"coord:{P}", f"coord:{P}/{L}@{R1}", 7])
+def test_a_malformed_session_open_project_is_refused(tmp_path, project):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(ledger_bytes(open_line(project=project)))
+    with pytest.raises(LedgerMalformed, match="line 1"):
+        open_ledger_reader(tmp_path, SESSION)
+
+
+@pytest.mark.parametrize(
+    "raw, message",
+    [
+        pytest.param(
+            ledger_bytes(open_line(project=None), invocation_open("A"), invocation_open("B"), select("A", P_AT_R1)),
+            "line 4", id="select-names-an-abandoned-invocation",
+        ),
+        pytest.param(
+            ledger_bytes(open_line(project=None), invocation_open("A"), invocation_open("B"), invocation_close("B"), select("A", P_AT_R1)),
+            "line 5", id="select-while-no-invocation-is-current",
+        ),
+        pytest.param(
+            ledger_bytes(open_line(project=None), invocation_open("A"), invocation_close("A"), select("A", P_AT_R1)),
+            "line 4", id="select-after-its-invocation-closed",
+        ),
+        pytest.param(
+            ledger_bytes(open_line(project=None), select("A", P_AT_R1)),
+            "line 2", id="select-names-an-unopened-invocation",
+        ),
+        pytest.param(
+            ledger_bytes(open_line(project=None), invocation_open("A"), select("A", P_AT_R1), select("A", None)),
+            "line 4", id="a-second-select-in-one-invocation",
+        ),
+        pytest.param(
+            ledger_bytes(open_line(project=None), invocation_open("A"), act("A"), invocation_open("B"), select("A", P_AT_R1), act("B")),
+            "line 5", id="an-invalid-select-cannot-reattribute-a-later-act",
+        ),
+    ],
+)
+def test_a_select_the_writer_could_not_have_written_is_refused(tmp_path, raw, message):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(raw)
+    with pytest.raises(LedgerMalformed, match=message):
+        open_ledger_reader(tmp_path, SESSION)
+    evidence = read_ledger_evidence(tmp_path, SESSION)
+    assert type(evidence) is LedgerUnreadable and message in evidence.error
+
+
+def test_the_session_package_exports_the_selection_record_beside_the_other_ledger_records():
+    """`WriterSession.invocation_selection` returns it and `InvocationRecord.selection`
+    holds it, so it is public where `ActLine` and `InvocationRecord` are."""
+    import beliefs.session as session_package
+
+    assert "SelectLine" in session_package.__all__
+    assert session_package.SelectLine is SelectLine

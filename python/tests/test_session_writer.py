@@ -3,12 +3,15 @@ executor and a synthetic-digest port (design §13 item 2)."""
 
 from __future__ import annotations
 
+import json
+import os
 import threading
 from pathlib import Path
 from typing import Any
 
 import pytest
 from authority import FULL, narrowed
+from coordination_fixtures import coordination_profile, mounted_root, raw_add, raw_coordination_node
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_corpus_write import OperationRecorder
@@ -16,15 +19,19 @@ from test_operation_writes import RecordingPort, proposition
 
 from beliefs import session as session_module
 from beliefs import stored
-from beliefs.corpus import CorpusWriter
+from beliefs.coordination import CoordinationAddress
+from beliefs.corpus import CoordinationResolver, CorpusWriter
 from beliefs.errors import (
+    CoordinationUnavailable,
     PermitExceeded,
     PermitFact,
     PlanRefused,
+    ProjectNotResolvable,
     RetractionTargetUnresolvable,
     SessionClosed,
     SessionLedgerFailed,
     SessionProtocolError,
+    SessionRefused,
 )
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit
 from beliefs.session import (
@@ -38,7 +45,7 @@ from beliefs.session import (
     WriterSession,
     open_ledger_reader,
 )
-from beliefs.session.ledger import LedgerWriter, ledger_path
+from beliefs.session.ledger import LedgerWriter, SelectLine, ledger_path
 from beliefs.world.records import RECORD_CEILING
 
 SESSION = "a" * 32
@@ -54,6 +61,8 @@ def make_session(
     store_root: Path | None = None,
     store_id: str | None = None,
     holdings_seam: Any = None,
+    coordination_resolver: CoordinationResolver | None = None,
+    project: CoordinationAddress | None = None,
 ) -> tuple[WriterSession, list[RecordingPort]]:
     corpus_root = tmp_path / "corpus"
     corpus_root.mkdir()
@@ -73,6 +82,7 @@ def make_session(
         operations_root=operations_root, ledger=ledger, writer_factory=writer_factory,
         ceiling=WritePermit.full() if ceiling is None else ceiling,
         profile=BASE, store_root=store_root, store_id=store_id, holdings_seam=holdings_seam,
+        coordination_resolver=coordination_resolver, project=project,
     )
     return session, ports
 
@@ -393,20 +403,9 @@ def test_attended_session_refuses_an_uncompiled_profile_before_ledger_effects(tm
 # are swapped here for this module's own in-memory doubles so the test stays
 # off the durable path entirely; nothing about the pass-through under test is a
 # durable-engine behaviour.
-def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, profile=WITH_BIOLOGY):
-    """`resolver_for` is handed the adopted corpus's id, since a resolver keyed
-    by it (`StubResolver`) can only be built once the corpus exists."""
-    from beliefs.session import open_attended_session
-    from beliefs.world import WorldConfig
+def _stub_durable_seams(monkeypatch) -> None:
+    """Swap the session's durable seams for in-memory doubles (see the note above)."""
     from beliefs.world.logmodel import GenesisEntryView, WellFormedView
-
-    root = tmp_path / "corpus"
-    root.mkdir()
-    writer = CorpusWriter(
-        root, DefaultExecutor, authority=FULL, profile=profile,
-        operation_port=OperationRecorder(root, authority=FULL, profile=profile),
-    )
-    writer.adopt_manifest(profile=pins_for(profile))
 
     genesis = GenesisEntryView(digest="g" * 64, payload=b"", baseline=())
 
@@ -422,6 +421,23 @@ def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, pro
     monkeypatch.setattr(session_module, "log_seam", lambda: _StubLogSeam())
     monkeypatch.setattr(session_module, "durable_executor_factory", lambda: DefaultExecutor)
     monkeypatch.setattr(session_module, "durable_operation_port", _stub_port)
+
+
+def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, profile=WITH_BIOLOGY):
+    """`resolver_for` is handed the adopted corpus's id, since a resolver keyed
+    by it (`StubResolver`) can only be built once the corpus exists."""
+    from beliefs.session import open_attended_session
+    from beliefs.world import WorldConfig
+
+    root = tmp_path / "corpus"
+    root.mkdir()
+    writer = CorpusWriter(
+        root, DefaultExecutor, authority=FULL, profile=profile,
+        operation_port=OperationRecorder(root, authority=FULL, profile=profile),
+    )
+    writer.adopt_manifest(profile=pins_for(profile))
+
+    _stub_durable_seams(monkeypatch)
 
     config = WorldConfig(tmp_path / "world", WORLD, (root,))
     resolver = resolver_for(writer.corpus_id)
@@ -457,3 +473,275 @@ def test_attended_session_without_a_snapshot_resolver_refuses_the_arm(tmp_path, 
 
     with pytest.raises(RetractionTargetUnresolvable, match="reaches none"):
         scoped.retract(_session_snapshot_retraction(S, scoped.actor))
+
+
+# --- selection (selection design §4.2) ------------------------------------------------
+P, Q, D, L = ("1" * 32, "2" * 32, "3" * 32, "4" * 32)
+R1, R2, R3, R4, R5 = ("5" * 32, "6" * 32, "7" * 32, "8" * 32, "9" * 32)
+
+
+def projects_resolver(tmp_path: Path, base_contract) -> tuple[CoordinationResolver, Path]:
+    """A resolver over one mounted root holding projects P@R1 and Q@R2."""
+    profile = coordination_profile(base_contract)
+    root = mounted_root(tmp_path / "coordination", profile)
+    raw_add(root, raw_coordination_node("project", P, R1), raw_coordination_node("project", Q, R2))
+    return CoordinationResolver({root: profile}), root
+
+
+def ledger_file(session: WriterSession) -> Path:
+    return ledger_path(session.operations_root, SESSION)
+
+
+def recorded_selection(session: WriterSession, invocation: str) -> SelectLine | None:
+    record = open_ledger_reader(session.operations_root, SESSION).invocation(invocation)
+    assert record is not None
+    return record.selection
+
+
+def test_select_project_ledgers_the_pinned_tip_and_the_index_learns_it(tmp_path, base_contract):
+    resolver, _ = projects_resolver(tmp_path, base_contract)
+    session, _ = make_session(tmp_path, coordination_resolver=resolver)
+    session.claim_invocation("A", "project-select", DIGEST)
+    pinned = session.select_project("A", CoordinationAddress(P))
+    assert pinned == CoordinationAddress(P, revision=R1)
+    assert session.invocation_selection("A") == SelectLine("A", pinned)
+    assert session.current_invocation == "A"  # selecting does not close the invocation
+    session.close_invocation("A", {"done": []})
+    session.claim_invocation("B", "project-select", DIGEST)
+    assert session.select_project("B", None) is None
+    assert session.invocation_selection("B") == SelectLine("B", None)
+    session.close_invocation("B", {"done": []})
+    session.claim_invocation("C", "mint", DIGEST)
+    assert session.invocation_selection("C") is None
+    assert session.invocation_selection("Z") is None
+    assert recorded_selection(session, "A") == SelectLine("A", CoordinationAddress(P, revision=R1))
+    assert recorded_selection(session, "B") == SelectLine("B", None)
+
+
+def test_reselecting_the_standing_project_records_a_second_line(tmp_path, base_contract):
+    resolver, _ = projects_resolver(tmp_path, base_contract)
+    session, _ = make_session(tmp_path, coordination_resolver=resolver)
+    for invocation in ("A", "B"):
+        session.claim_invocation(invocation, "project-select", DIGEST)
+        assert session.select_project(invocation, CoordinationAddress(P)) == CoordinationAddress(P, revision=R1)
+        session.close_invocation(invocation, {"done": []})
+    reader = open_ledger_reader(session.operations_root, SESSION)
+    assert [record.selection for record in reader.invocations()] == [
+        SelectLine("A", CoordinationAddress(P, revision=R1)),
+        SelectLine("B", CoordinationAddress(P, revision=R1)),
+    ]
+
+
+def test_session_open_always_writes_the_project_key(tmp_path):
+    session, _ = make_session(tmp_path, project=CoordinationAddress(P, revision=R1))
+    head = json.loads(ledger_file(session).read_bytes().splitlines()[0])
+    assert head["project"] == f"coord:{P}@{R1}"
+    assert open_ledger_reader(session.operations_root, SESSION).initial_project == CoordinationAddress(P, revision=R1)
+    (tmp_path / "unselected").mkdir()
+    other, _ = make_session(tmp_path / "unselected")
+    assert json.loads(ledger_file(other).read_bytes().splitlines()[0])["project"] is None
+
+
+@pytest.mark.parametrize("project", [CoordinationAddress(P), CoordinationAddress(P, L, R1), f"coord:{P}@{R1}"])
+def test_a_session_refuses_an_initial_project_that_is_not_pinned_to_a_project_revision(tmp_path, project):
+    with pytest.raises(ValueError):
+        make_session(tmp_path, project=project)  # pyright: ignore[reportArgumentType]
+
+
+def test_select_project_refusals_append_nothing_and_leave_the_invocation_current(tmp_path, base_contract):
+    resolver, root = projects_resolver(tmp_path, base_contract)
+    raw_add(
+        root,
+        raw_coordination_node("project", D, R3),
+        raw_coordination_node("project", D, R4),  # two standing tips: divergent
+        raw_coordination_node("question", L, R5),  # a project-root address whose tip is not a project
+    )
+    session, _ = make_session(tmp_path, coordination_resolver=resolver)
+    session.claim_invocation("A", "project-select", DIGEST)
+    before = ledger_file(session).read_bytes()
+    for address, refusal in (
+        (CoordinationAddress("0" * 32), ProjectNotResolvable),
+        (CoordinationAddress(D), ProjectNotResolvable),
+        (CoordinationAddress(L), ProjectNotResolvable),
+        (CoordinationAddress(P, L), ValueError),
+        (CoordinationAddress(P, revision=R1), ValueError),
+        (f"coord:{P}", ValueError),
+    ):
+        with pytest.raises(refusal) as caught:
+            session.select_project("A", address)  # pyright: ignore[reportArgumentType]
+        if address == CoordinationAddress(D):
+            assert caught.value.tips == (R3, R4)  # pyright: ignore[reportAttributeAccessIssue]
+        assert ledger_file(session).read_bytes() == before
+        assert session.current_invocation == "A"
+        assert session.invocation_selection("A") is None
+
+
+def test_a_clear_needs_no_resolver_but_an_address_does(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "project-select", DIGEST)
+    with pytest.raises(CoordinationUnavailable):
+        session.select_project("A", CoordinationAddress(P))
+    assert session.select_project("A", None) is None
+
+
+def test_a_later_revision_leaves_the_recorded_line_pinned(tmp_path, base_contract):
+    resolver, root = projects_resolver(tmp_path, base_contract)
+    session, _ = make_session(tmp_path, coordination_resolver=resolver)
+    session.claim_invocation("A", "project-select", DIGEST)
+    session.select_project("A", CoordinationAddress(P))
+    session.close_invocation("A", {"done": []})
+    raw_add(root, raw_coordination_node("project", P, R5, supersedes=(f"project:{P}.{R1}",)))
+    session.claim_invocation("B", "project-select", DIGEST)
+    assert session.select_project("B", CoordinationAddress(P)) == CoordinationAddress(P, revision=R5)
+    assert recorded_selection(session, "A") == SelectLine("A", CoordinationAddress(P, revision=R1))
+
+
+def test_select_project_is_held_to_the_current_invocation_and_one_line(tmp_path, base_contract):
+    resolver, _ = projects_resolver(tmp_path, base_contract)
+    session, _ = make_session(tmp_path, coordination_resolver=resolver)
+    session.claim_invocation("A", "project-select", DIGEST)
+    session.select_project("A", CoordinationAddress(P))
+    before = ledger_file(session).read_bytes()
+    with pytest.raises(SessionProtocolError):
+        session.select_project("A", CoordinationAddress(Q))  # a second select in one invocation
+    session.claim_invocation("B", "project-select", DIGEST)  # A is now abandoned
+    with pytest.raises(SessionProtocolError):
+        session.select_project("A", CoordinationAddress(Q))
+    session.close_invocation("B", {"done": []})
+    with pytest.raises(SessionProtocolError):
+        session.select_project("B", CoordinationAddress(Q))  # no invocation is current
+    after = ledger_file(session).read_bytes()
+    assert after.startswith(before) and b'"line":"select"' not in after[len(before):]
+
+
+def test_selection_calls_on_a_closed_session_are_session_closed(tmp_path, base_contract):
+    resolver, _ = projects_resolver(tmp_path, base_contract)
+    session, _ = make_session(tmp_path, coordination_resolver=resolver)
+    session.claim_invocation("A", "project-select", DIGEST)
+    session.close()
+    for call in (lambda: session.select_project("A", CoordinationAddress(P)), lambda: session.invocation_selection("A")):
+        with pytest.raises(SessionClosed):
+            call()
+
+
+@pytest.mark.parametrize("fault", ["write", "flush", "fsync"])
+def test_a_failed_select_append_leaves_the_index_unchanged_and_ends_the_session(tmp_path, base_contract, monkeypatch, fault):
+    resolver, _ = projects_resolver(tmp_path, base_contract)
+    session, _ = make_session(tmp_path, coordination_resolver=resolver)
+    session.claim_invocation("A", "project-select", DIGEST)
+    handle = session._ledger._file
+
+    def failing(*_args):
+        raise OSError(f"{fault} failed")
+
+    if fault == "write":
+        real_write = handle.write
+        monkeypatch.setattr(handle, "write", lambda data: real_write(data[:17]))  # a short write
+    elif fault == "flush":
+        monkeypatch.setattr(handle, "flush", failing)
+    else:
+        monkeypatch.setattr(os, "fsync", failing)
+    with pytest.raises(SessionLedgerFailed):
+        session.select_project("A", CoordinationAddress(P))
+    monkeypatch.undo()
+    assert session._index["A"].selection is None  # the index never learned the selection
+    frozen = ledger_file(session).read_bytes()
+    for call in (
+        lambda: session.select_project("A", None),
+        lambda: session.invocation_selection("A"),
+        lambda: session.invocation_acts("A"),
+        lambda: session.claim_invocation("B", "mint", DIGEST),
+        lambda: session.close_invocation("A", {"done": []}),
+        lambda: session.scoped(PROPOSITIONS, "A"),
+        session.close,
+    ):
+        with pytest.raises(SessionLedgerFailed):
+            call()
+    assert ledger_file(session).read_bytes() == frozen  # nothing after the fault reaches the file
+
+
+def test_every_act_is_attributed_to_the_selection_standing_when_it_ran(tmp_path, base_contract):
+    resolver, _ = projects_resolver(tmp_path, base_contract)
+    session, _ = make_session(tmp_path, coordination_resolver=resolver, project=CoordinationAddress(P, revision=R1))
+
+    def mint(invocation: str, name: str) -> str:
+        writer = session.scoped(PROPOSITIONS, invocation)
+        return writer.add(proposition(name)).id
+
+    session.claim_invocation("A", "mint", DIGEST)
+    mint("A", "p1")
+    session.select_project("A", CoordinationAddress(Q))  # act, then select, in one invocation
+    mint("A", "p2")
+    session.close_invocation("A", {"done": []})
+    session.claim_invocation("B", "project-select", DIGEST)
+    session.select_project("B", None)
+    session.close_invocation("B", {"done": []})
+    session.claim_invocation("C", "mint", DIGEST)
+    mint("C", "p3")
+    session.close_invocation("C", {"done": []})
+    session.claim_invocation("F", "project-select", DIGEST)
+    session.select_project("F", CoordinationAddress(P))
+    session.claim_invocation("G", "mint", DIGEST)  # F is abandoned; its selection still stands (decision 4)
+    mint("G", "p4")
+    session.close_invocation("G", {"done": []})
+    reader = open_ledger_reader(session.operations_root, SESSION)
+    assert [(act.record_ids[0][1], project) for act, project in reader.attributed_acts()] == [
+        ("proposition:p1", CoordinationAddress(P, revision=R1)),
+        ("proposition:p2", CoordinationAddress(Q, revision=R2)),
+        ("proposition:p3", None),
+        ("proposition:p4", CoordinationAddress(P, revision=R1)),
+    ]
+
+
+# --- the initial selection at open (selection design §4.1) -----------------------------
+def _coordinated_open(tmp_path, monkeypatch, base_contract, *, coordination=True, **kwargs):
+    """Open a real `open_attended_session` over a coordination-pinned root holding
+    projects P@R1, D@R3 and D@R4 (divergent), with the durable seams stubbed."""
+    from beliefs.session import open_attended_session
+    from beliefs.world import WorldConfig
+
+    profile = coordination_profile(base_contract)
+    root = mounted_root(tmp_path / "corpus", profile)
+    raw_add(
+        root,
+        raw_coordination_node("project", P, R1),
+        raw_coordination_node("project", D, R3),
+        raw_coordination_node("project", D, R4),
+    )
+    _stub_durable_seams(monkeypatch)
+    ops = tmp_path / "ops"
+    config = WorldConfig(tmp_path / "world", WORLD, (root,))
+    session = open_attended_session(config, ops, profile=profile, coordination=profile if coordination else None, **kwargs)
+    return session, ops
+
+
+def test_an_attended_session_records_its_resolved_initial_project(tmp_path, monkeypatch, base_contract):
+    session, ops = _coordinated_open(tmp_path, monkeypatch, base_contract, project=CoordinationAddress(P))
+    assert open_ledger_reader(ops, session.session_id).initial_project == CoordinationAddress(P, revision=R1)
+    session.claim_invocation("A", "project-select", DIGEST)
+    assert session.select_project("A", CoordinationAddress(P)) == CoordinationAddress(P, revision=R1)
+
+
+def test_an_attended_session_without_a_project_opens_unselected(tmp_path, monkeypatch, base_contract):
+    session, ops = _coordinated_open(tmp_path, monkeypatch, base_contract)
+    assert open_ledger_reader(ops, session.session_id).initial_project is None
+
+
+@pytest.mark.parametrize(
+    "project, coordination, refusal",
+    [
+        pytest.param(CoordinationAddress(P), False, SessionRefused, id="no-coordination-profile"),
+        pytest.param(CoordinationAddress("0" * 32), True, ProjectNotResolvable, id="unknown"),
+        pytest.param(CoordinationAddress(D), True, ProjectNotResolvable, id="divergent"),
+        pytest.param(CoordinationAddress(P, revision=R1), True, ValueError, id="pinned"),
+        pytest.param(CoordinationAddress(P, L), True, ValueError, id="subordinate"),
+    ],
+)
+def test_an_unresolvable_initial_project_refuses_before_any_ledger_effect(
+    tmp_path, monkeypatch, base_contract, project, coordination, refusal
+):
+    with pytest.raises(refusal) as caught:
+        _coordinated_open(tmp_path, monkeypatch, base_contract, coordination=coordination, project=project)
+    if project == CoordinationAddress(D):
+        assert caught.value.tips == (R3, R4)  # pyright: ignore[reportAttributeAccessIssue]
+    assert not (tmp_path / "ops" / "sessions").exists()

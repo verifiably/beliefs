@@ -25,5 +25,8 @@ Requested by science's coordination command set design (docs/specs/2026-09-24-co
 - 2026-09-25T01:17:04Z (main): started
   provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-25T01:17:04Z (main): claimed by claude-code/claude-opus-5-5; process planned: spec in docs/superpowers/specs, worktree .worktrees/live-query
+- 2026-09-25T01:20:47Z (main): parked (waiting on user, review): Spec docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md (branch design/live-query, worktree .worktrees/live-query) awaits user review; then writing-plans
+  provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-25T01:37:06Z (main): Review 2026-09-24 requested changes: keep address_map's AddressMapConflict classification and precedence, scope the W8b check to records outside the map; focused cut 42 (rows Z1-Z5, 11 arms) for the live entry point; never-published and coverage-qualified agreement tests. Spec revised
 - 2026-09-25T02:26:43Z (design/live-query): parked (waiting on user, review): Plan docs/superpowers/plans/2026-09-24-live-query-evaluation.md (9680614, worktree .worktrees/live-query) awaits user review, an execution method, and the cut-number choice (cut 41 is unfrozen: take 41 or wait)
   provenance: {"harness_session":"claude-code:af80b7c9-5bc3-4364-b1cc-1d608fd7381f","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
