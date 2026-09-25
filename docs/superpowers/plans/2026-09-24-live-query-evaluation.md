@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `evaluate_live_query(world, query) -> LiveSelection`, which denotes a view query over every admitted corpus's current state with no epoch, stamped by the states it captured, and discharge its five guarantees as conformance cut 42.
+**Goal:** Add `evaluate_live_query(world, query) -> LiveSelection`, which denotes a view query over every admitted corpus's current state with no epoch, stamped by the states it captured, and discharge its five guarantees as conformance cut 41.
 
 **Architecture:** `world/selection.py`'s denotation is lifted into a private core, `_denoted(view, query)`, typed over a private protocol that `WorldReadView` and a new private live capture both satisfy. `evaluate_query` keeps its entry checks and calls the core. A new `world/live.py` resolves coverage from the registry, captures each present corpus inside its own operation-lock hold, derives the address map with publish's `derive.address_map`, runs the core, and returns a `LiveSelection` carrying a `CaptureStamp`. `corpus.py` gains one structural protocol so `RelationAdjacency` accepts the live capture, and `WorldReadView` gains one private method.
 
 **Tech Stack:** Python 3.11+ under `uv`, pytest, the `nodes` records, the certified `atoms` engine behind `root.py` (reached here only through the acceptance fixtures), the acceptance harness under `python/tests/acceptance/`, and the N2 audit.
 
-**Spec:** `docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md`, approved 2026-09-24 at `d67359e` after two user reviews. Task 0 moves it to `docs/designs/2026-09-24-live-query-evaluation-design.md` as table Z's owner (the cut 31 and cut 32 precedent for a new table); every later task reads it there. Read it first; every task cites its decisions (§2) and sections.
+**Spec:** `docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md`, approved 2026-09-24 at `d67359e` after two user reviews, amended 2026-09-25 at this plan's review (cut 41, prefix cut 40; Z2-b observes enumeration). Task 0 moves it to `docs/designs/2026-09-24-live-query-evaluation-design.md` as table Z's owner (the cut 31 and cut 32 precedent for a new table); every later task reads it there. Read it first; every task cites its decisions (§2) and sections.
 
 ## Global Constraints
 
@@ -18,7 +18,7 @@
 
   ```bash
   cd ~/d/beliefs/.worktrees/live-query/python && cd "$(pwd -P)"
-  for n in $(seq 4 42); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
+  for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
   export SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test
   ```
 
@@ -37,7 +37,7 @@
   runner import, its `(runner, cut, accounting)` parametrization entry with the
   declared-arm, declaration-unit and guarantee-row counts, and the cut's
   guarantee-rows-exercised line. Cuts 33, 34 and 35 landed theirs at `f4c2cef`,
-  `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. Here that is Task 5, Step 4, with `(cut42, 42, (12, 12, 5))`.
+  `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. Here that is Task 5, Step 4, with `(cut41, 41, (12, 12, 5))`.
 - **The declared accounting is 12 arms, 12 declaration units, 5 rows (Z1–Z5).** Every later mention reads the frozen cut document's §4.
 - **Frozen declarations and cut bodies stay byte-exact.** Cut 28's live arms pin these `world/selection.py` spellings, and each must occur **exactly once** after Task 1:
   - `if view.damaged():` (W7-a), `if moved:` (W7-b), `    if type(view) is not WorldReadView:` (W7-o);
@@ -61,8 +61,8 @@
   7. `AddressMapConflict` propagates unchanged (`uid-corruption` before `duplicate-location`); the scoped W8b check runs only after the map succeeds and only over uids a record outside the map holds;
   8. damage (`CorpusStateMalformed`, `ContractMismatch`) is collected and refuses `corpus-damaged` naming every damaged corpus; `corpus-drifted` is never raised here;
   9. the denotation is shared, not copied;
-  10. cut 42 is the focused cut, and cut 28 stays as it is.
-- **The lane.** The boundary id is `live-query`, its own lane, opened off the dogfood path under roadmap rule 6. Its shared surface is `world/selection.py` and `world/live.py`. Under rule 3 it names two files the `world-read` lane (`publish`, cut 41) also lists: `world/view.py`, which gains one private method and one type alias, and `corpus.py`, which gains one protocol and one annotation. The later merge resolves toward the earlier one. The lane amends no contract oracle, so `contract-cut` gains no dependency.
+  10. cut 41 is the focused cut, and cut 28 stays as it is.
+- **The lane.** The boundary id is `live-query`, its own lane, opened off the dogfood path under roadmap rule 6. Its shared surface is `world/selection.py` and `world/live.py`. Under rule 3 it names two files the `world-read` lane (`publish`, planned cut 42) also lists: `world/view.py`, which gains one private method and one type alias, and `corpus.py`, which gains one protocol and one annotation. The later merge resolves toward the earlier one. The lane amends no contract oracle, so `contract-cut` gains no dependency.
 - **Detached runs go through the reaping wrapper** (Processes rule). Launch the cut runner and the gate with `setsid nohup ~/d/beliefs/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`, after `test -x` on the wrapper. An end-of-turn report that leaves one running names its process group (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session`.
 - **Commits:**
   - Use conventional commits, with no attribution trailers.
@@ -88,7 +88,7 @@ These are the inputs a person meets that the spec's tests do not pin. Each names
 | File | Responsibility |
 | --- | --- |
 | `docs/designs/2026-09-24-live-query-evaluation-design.md` (moved from `docs/superpowers/specs/`) | the design, owner of table Z (Task 0); status and planning notes |
-| `docs/designs/<freeze date>-conformance-cut-42.md` (new), `README.md`, `docs/guide/contracts-and-adoption.md`, `python/tests/test_designs_corpus.py` | freeze and totals (Task 0) |
+| `docs/designs/<freeze date>-conformance-cut-41.md` (new), `README.md`, `docs/guide/contracts-and-adoption.md`, `python/tests/test_designs_corpus.py` | freeze and totals (Task 0) |
 | `python/src/beliefs/corpus.py` | `RelationView` protocol; `RelationAdjacency` typed over it (Task 1) |
 | `python/src/beliefs/world/view.py` | `LocatedState`; `WorldReadView._located_state` (Task 1) |
 | `python/src/beliefs/world/selection.py` | `_QueryableView`, `_Denotation`, `_denoted`; helpers typed over the protocol (Task 1) |
@@ -96,36 +96,45 @@ These are the inputs a person meets that the spec's tests do not pin. Each names
 | `python/src/beliefs/world/live.py` (new) | `CaptureStamp`, `LiveSelection` (Task 2); `evaluate_live_query` and its private capture (Task 3) |
 | `python/tests/test_live_selection.py` (new) | portable tests (Tasks 2 and 3) |
 | `python/tests/acceptance/test_live_selection_acceptance.py` (new) | the twelve units and the module's other tests (Task 4) |
-| `python/tests/n2_arms_cut42.py`, `python/tests/acceptance/n2_arms_cut42.py`, `python/tests/acceptance/test_n2_cut42.py`, `python/tools/cut42_acceptance.py` (new); `python/tests/test_recent_cut_acceptance.py` | declaration, guard, runner, recent-cut row (Task 5) |
+| `python/tests/n2_arms_cut41.py`, `python/tests/acceptance/n2_arms_cut41.py`, `python/tests/acceptance/test_n2_cut41.py`, `python/tools/cut41_acceptance.py` (new); `python/tests/test_recent_cut_acceptance.py` | declaration, guard, runner, recent-cut row (Task 5) |
 | `docs/designs/2026-09-05-mm30-reproduction.md` | the next addendum (Task 6) |
-| `docs/plans/<date>-conformance-cut-42-results.md` (new), `docs/designs/2026-08-31-coordination-and-view-kinds-design.md`, the ledger, the roadmap, `python/tools/roadmap_status.py` | discharge (Task 8) |
+| `docs/plans/<date>-conformance-cut-41-results.md` (new), `docs/designs/2026-08-31-coordination-and-view-kinds-design.md`, the ledger, the roadmap, `python/tools/roadmap_status.py` | discharge (Task 8) |
 
 ---
 
-### Task 0: Freeze cut 42, bank Z1–Z5, audit the arms on paper
+### Task 0: Freeze cut 41, bank Z1–Z5, audit the arms on paper
 
 A cut is frozen before its code exists (roadmap, Concurrency rules), so the twelve arms cannot be executed at the freeze. This task audits each arm against its unit on paper instead. The executable audit is Task 5 Step 5, and an arm that fails it there is rehomed in a dated §8 supplement to the cut document, never dropped.
 
 **Files:**
-- Create: `docs/designs/<freeze date>-conformance-cut-42.md`
+- Create: `docs/designs/<freeze date>-conformance-cut-41.md`
 - Move: `docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md` → `docs/designs/2026-09-24-live-query-evaluation-design.md`
 - Modify: `python/tests/test_designs_corpus.py`, `README.md`, `docs/guide/contracts-and-adoption.md`, this plan (its **Spec** line), tasks through the CLI
+- Modify (Step 1's relabel of the remote slice to planned cut 42): `docs/designs/2026-08-03-redesign-adoption-ledger.md`, `docs/plans/2026-08-29-implementation-roadmap.md`, `docs/guide/open-questions.md`, `docs/designs/2026-09-22-publication-design.md`, `python/src/beliefs/publish.py`
 
 **Interfaces:**
 - Produces: the frozen cut body and its digest (Task 5 pins them); the prefix decision (`PREFIX_RUNNERS`) that Task 5 writes.
 
-- [ ] **Step 1: Claim the number under rules 1 and 5**
+- [ ] **Step 1: Recheck the number, claim cut 41, and relabel the remote slice**
+
+The user decided on 2026-09-25: this cut is **cut 41**, and `PREFIX_RUNNERS = ("cut40_acceptance.py",)`, since cut 40's is the highest-numbered runner (rule 5). Cut 40 is discharged, so the discharge waits on nothing. The remote publish slice (`beliefs-3ce305`), which prose had reserved as cut 41, becomes **planned cut 42**. The decision stands only while no cut-41 document exists, so recheck that at the freeze:
 
 ```bash
 cd ~/d/beliefs
 for b in $(git for-each-ref --format='%(refname:short)' refs/heads); do git ls-tree -r --name-only "$b" docs/designs | grep -E "conformance-cut-4[1-9]" | sed "s|^|$b: |"; done; echo scan done
-ls docs/plans | grep -E "conformance-cut-4[1-9]-results" ; git worktree list
+ls docs/plans | grep -E "conformance-cut-4[1-9]-results"; ls python/tools | grep -E "cut4[1-9]_acceptance"; git worktree list
 ```
 
-Decide by what the scan shows:
-- **Case A: a cut-41 document exists on some branch, and nothing numbered 42 or above.** This cut is 42. `PREFIX_RUNNERS = ("cut41_acceptance.py",)`, discharged or not. While cut 41 is undischarged, this cut's discharge (Task 5 Step 5) waits for cut 41's results record on `main`, and then this branch rebases onto `main` so `cut41_acceptance.py` exists. Record "Case A" for §5 of the cut document.
-- **Case B: no cut-41 document anywhere.** Stop. `tasks note beliefs-cc0aea` the scan output, then `tasks park beliefs-cc0aea "cut number: cut 41 unfrozen; rule 1 claims numbers at freeze" --waiting-on user --reason decision`. The next step states the choice: (i) wait for cut 41 to freeze, then continue as Case A; or (ii, **recommended**) freeze this cut as 41 under rule 1, renumber every "cut 41" naming the remote publish slice to 42 (the ledger's `publish` row and prose, the roadmap's boundary index and tier table, `beliefs-3ce305`'s title), and in this plan and the spec read every `42` as `41` and `PREFIX_RUNNERS = ("cut40_acceptance.py",)`. (ii) does not wait an off-path lane behind another. The approved spec says 42, so the choice is the user's.
-- **Case C: a document numbered 42 or above already exists.** Take the next free number above the highest one, name the highest-numbered runner as the prefix, and serialize after every undischarged lower cut (rule 5). Read every `42` below as that number, and note it.
+Expected: `scan done` and nothing else from the three listings, so no branch holds a cut-41-or-later document, results record or runner. If anything else is listed, stop: `tasks note beliefs-cc0aea` the scan output, and `tasks park beliefs-cc0aea "cut 41 was claimed before this freeze; the number and prefix need a new decision" --waiting-on user --reason decision`.
+
+Then relabel remote publish's **current** references to planned cut 42, in this freeze commit. Rule 1 claims the number at the freeze, so the claim and the relabel land together. The exact edits:
+- `docs/designs/2026-08-03-redesign-adoption-ledger.md`: the `Updated 2026-09-24` paragraph, the **Y5–Y10 close** bullet, the `publish` row of the open-boundary table, the paragraph after that table, and the `publish remains open …` sentence: each "cut 41" that names the remote slice → "cut 42".
+- `docs/plans/2026-08-29-implementation-roadmap.md`: the `world-read` head sentence, the boundary index's `publish` row, the off-path tier table's row 1, and "Cut 41's remote slice appends its own rows" → cut 42.
+- `README.md` ("stays open with cut 41's remote slice"), `docs/guide/contracts-and-adoption.md` (same phrase), `docs/guide/open-questions.md` ("work for cut 41"), `docs/designs/2026-09-22-publication-design.md` ("the remote slice, cut 41,") → cut 42.
+- `python/src/beliefs/publish.py`: `ValidationRefused("remote destinations arrive in cut 41")` → `"… in cut 42"`. No test or arm pins the text (`git grep -n "arrive in cut" -- python/tests` finds nothing); rerun `git grep` to confirm first.
+- `tasks edit beliefs-3ce305 --title "The publish act, remote: transport seam, remote reveal and orphans, divergent-publication (cut 42)"`, plus `tasks note beliefs-3ce305 "renumbered cut 41 → 42 on <date>: live view-query evaluation froze as cut 41 (beliefs-cc0aea), by the user's decision of 2026-09-25"`. The title was changed on `main` on 2026-09-25, when the user decided: confirm it reads so and skip the edit.
+
+Historical text stays byte-exact: cut 40's frozen document and results record, the publish-act-local spec and plan, the dated amendments in the user-and-autonomy layer design, and task notes. Each of those records what was true when it was written. Afterwards, `git grep -n "cut 41" -- README.md docs/designs/2026-08-03-redesign-adoption-ledger.md docs/plans/2026-08-29-implementation-roadmap.md docs/guide docs/designs/2026-09-22-publication-design.md python/src` should list only lines about this cut.
 
 - [ ] **Step 2: Audit every arm on paper.** For each row, confirm against the Task 3 code and the Task 4 test that the check observes what the sabotage changes. If a row does not hold, change the unit's test (never the frozen text) before Step 5, and record why in the spec's planning notes.
 
@@ -136,7 +145,7 @@ Decide by what the scan shows:
 | Z1-c | `absent == (b,)` and `complete` is false | absent corpora are dropped from `absent` | `absent` becomes `()` and `complete` true |
 | Z1-d | a never-published world evaluates; a corpus admitted after the epoch is covered | coverage is filtered by the current epoch | `current_epoch` raises `EpochUnknown` on the first call; on the second, B is filtered out |
 | Z2-a | a state moving inside the hold raises `CaptureDrift` | the before/after comparison is dropped | the evaluation returns instead of raising |
-| Z2-b | every state read and open for the carrier sees holder `"capture"`; a held writer lock refuses `BuildContended` | the hold is bypassed, the comparison kept | the holder is `None` at every call, and no `BuildContended` is raised |
+| Z2-b | every state read, open, and record yielded by `iter_stored` for the carrier sees holder `"capture"` (read as the iterator is consumed); a held writer lock refuses `BuildContended` | the hold is bypassed, the comparison kept | the holder is `None` at every call and every yield, and no `BuildContended` is raised |
 | Z3-a | the stamp names the first corpus's in-hold state; the late record is unselected | the stamp re-reads state after all captures | the re-read sees the late record's state, which differs from the in-hold one |
 | Z4-a | a malformed corpus refuses `corpus-damaged` naming it | a construction failure omits the corpus | a selection returns without the corpus |
 | Z4-b | a foreign base pin refuses `corpus-damaged` naming it | the base-pin check is skipped | the corpus is read as healthy and a selection returns |
@@ -154,7 +163,7 @@ tasks edit beliefs-cc0aea --spec docs/designs/2026-09-24-live-query-evaluation-d
 
 In the moved design:
 - bold the five row ids in §6.3's row table (`| **Z1** |` … `| **Z5** |`), the form every banked table uses;
-- set its Status line to `**Status:** approved 2026-09-24 after two user reviews; frozen as conformance cut 42 on <date>; implementation not yet started. **Task:** \`beliefs-cc0aea\`.`;
+- set its Status line to `**Status:** approved 2026-09-24 after two user reviews, amended 2026-09-25; frozen as conformance cut 41 on <date>; implementation not yet started. **Task:** \`beliefs-cc0aea\`.`;
 - append `## 8. Planning notes`, holding exactly these bullets:
 
 ```markdown
@@ -185,7 +194,7 @@ In `python/tests/test_designs_corpus.py`:
 - extend `table_words` with `22: "twenty-two"`;
 - extend `_COUNT_WORDS` with `79: "Seventy-nine"` and `80: "Eighty"`.
 
-Totals: compute rather than assume, since cut 41 may freeze first:
+Totals: compute rather than assume, since another design may land first:
 
 ```bash
 cd python && uv run --frozen python -c "
@@ -200,21 +209,21 @@ Expected today: `231 rows 22 tables 79 designs` (80 after Step 4). Update:
 - [ ] **Step 4: Write the cut document.** Read `sed -n 1,190p docs/designs/2026-09-24-conformance-cut-40.md` first and keep its headings exactly (`## 1. What this cut is` … `## 7. Limitations`): the guard slices §§2–7 from `## 2. The boundary` to the first `\n## 8.`. Header:
 
 ```markdown
-# Conformance cut 42 — live view-query evaluation
+# Conformance cut 41 — live view-query evaluation
 
 **Status:** frozen <date>, before implementation; Z1–Z5 are open
-**Design:** `2026-09-24-live-query-evaluation-design.md`, approved 2026-09-24 at `d67359e` after two user reviews; implementation not yet started.
+**Design:** `2026-09-24-live-query-evaluation-design.md`, approved 2026-09-24 at `d67359e` after two user reviews, amended 2026-09-25 at the plan review; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-24-live-query-evaluation.md`.
-**Numbered** under roadmap concurrency rules 1 and 5: <Step 1's case, and the scan result>.
+**Numbered** under roadmap concurrency rules 1 and 5: cut 41 by the user's decision of 2026-09-25, prefixing cut 40; the remote publish slice (`beliefs-3ce305`) is relabelled planned cut 42 in this commit. <Step 1's scan result>.
 ```
 
 Sections:
 - **§1:** design §1 condensed; the `live-query` lane opened off the path under rule 6; the rule-3 overlaps (`world/view.py`, `corpus.py`); no oracle amended, so `contract-cut` gains no dependency.
-- **§2, the boundary:** every file in this plan's file map from Task 1 to Task 5, then "Frozen declarations and cut bodies through cut 41 remain byte-exact; cut 28's W7 arms keep applying exactly once."
+- **§2, the boundary:** every file in this plan's file map from Task 1 to Task 5, then "Frozen declarations and cut bodies through cut 40 remain byte-exact; cut 28's W7 arms keep applying exactly once."
 - **§3, selection:** the five Z rows copied from the design's §6.3, then its §6.2 unit table (twelve rows, Z1-a to Z5-c).
 - **§4, accounting:** "**12 arms, 12 declaration units**, five rows; Z1–Z5 open and close; recent-cut row `(12, 12, 5)`; `<closed>` of 231 → `<closed + 5>` of 231". Take `<closed>` from `cd python && uv run --frozen python tools/roadmap_status.py | tail -1`.
-- **§5, N2 and acceptance obligations:** the sabotage table from Task 5 Step 1, `PREFIX_RUNNERS` as Step 1 decided (write the tuple literally), and `PHASE_MODULES = ("test_live_selection_acceptance.py", "test_n2_cut42.py")`.
-- **§6, second reader:** check that Z2-b observes the holder at every state read and every open for the carrier, not just one; that Z3-a's write lands after the first corpus's hold is released and before the evaluation returns; that Z5-a's duplicate shares its uid; and that no arm touches `world/selection.py`.
+- **§5, N2 and acceptance obligations:** the sabotage table from Task 5 Step 1, `PREFIX_RUNNERS` as Step 1 decided (write the tuple literally), and `PHASE_MODULES = ("test_live_selection_acceptance.py", "test_n2_cut41.py")`.
+- **§6, second reader:** check that Z2-b observes the holder at every state read, every open, and every record `iter_stored` yields for the carrier, not just one, and that the enumeration check reads the holder during consumption, not at generator creation; that Z3-a's write lands after the first corpus's hold is released and before the evaluation returns; that Z5-a's duplicate shares its uid; and that no arm touches `world/selection.py`.
 - **§7, limitations:** coherence is per corpus, with no cross-corpus snapshot (decision 5); an absent corpus's addresses are unknown to a live read (decision 4); a live selection is attention, never belief input (§5's amendment).
 
 - [ ] **Step 5: Verify and commit the freeze**
@@ -227,13 +236,13 @@ Expected: pass. If the cross-reference guard flags a science filename the moved 
 Point this plan's **Spec** line at `docs/designs/2026-09-24-live-query-evaluation-design.md`, then:
 
 ```bash
-cd .. && tasks note beliefs-cc0aea "Cut 42 frozen: <case>; accounting 12/12/5; prefix <runner>."
-tasks done beliefs-09a5c4 "cut 42 frozen; Z1–Z5 banked; arms audited on paper"
+cd .. && tasks note beliefs-cc0aea "Cut 41 frozen: <case>; accounting 12/12/5; prefix <runner>."
+tasks done beliefs-09a5c4 "cut 41 frozen; Z1–Z5 banked; arms audited on paper"
 tasks check && git add docs README.md python/tests/test_designs_corpus.py tasks
-git commit -m "docs(cut): freeze conformance cut 42, live view-query evaluation; bank Z1–Z5"
-git rev-parse HEAD; sha256sum docs/designs/*-conformance-cut-42.md
+git commit -m "docs(cut): freeze conformance cut 41, live view-query evaluation; bank Z1–Z5"
+git rev-parse HEAD; sha256sum docs/designs/*-conformance-cut-41.md
 ```
-Record the hash as `CUT42_FREEZE_COMMIT` and the digest as `CUT42_FROZEN_SHA256`, both for Task 5.
+Record the hash as `CUT41_FREEZE_COMMIT` and the digest as `CUT41_FROZEN_SHA256`, both for Task 5.
 
 The plan's step children, filed with the plan, each depending on its predecessor:
 - Task 0 `beliefs-09a5c4`, Task 1 `beliefs-462b32`, Task 2 `beliefs-bfe541` (low), Task 3 `beliefs-efe56e`;
@@ -1075,7 +1084,7 @@ git commit -m "feat(world): evaluate a view query live over every admitted corpu
 - [ ] **Step 1: Write the module.** Every assertion is the spec §6.2 row it names.
 
 ```python
-"""Cut 42: live view-query evaluation over certified durable roots (live-query design §6.2)."""
+"""Cut 41: live view-query evaluation over certified durable roots (live-query design §6.2)."""
 
 from __future__ import annotations
 
@@ -1121,7 +1130,7 @@ def topic_records():
 
 @pytest.fixture()
 def scratch(work_directory):
-    path = Path(mkdtemp(prefix="cut42-", dir=work_directory))
+    path = Path(mkdtemp(prefix="cut41-", dir=work_directory))
     try:
         yield path
     finally:
@@ -1238,6 +1247,7 @@ def test_z2_b_state_reads_and_enumeration_run_inside_the_corpus_hold_durably(liv
     seen: list[tuple[str, Path, object]] = []
     original_state = registry.corpus_state_identity
     original_open = ReadView.opened_at.__func__
+    original_iter = ReadView.iter_stored
 
     def state(root):
         seen.append(("state", Path(root).resolve(), _operation_lock_for(root)._holder))
@@ -1247,14 +1257,26 @@ def test_z2_b_state_reads_and_enumeration_run_inside_the_corpus_hold_durably(liv
         seen.append(("open", Path(root).resolve(), _operation_lock_for(root)._holder))
         return original_open(cls, root)
 
+    def enumerated(self):
+        # `iter_stored` reads the store lazily, so the holder is read at each record
+        # as the evaluation consumes it, not when the iterator is made: a
+        # generator created inside the hold and drained after it must fail here.
+        root = self._corpus.store.root
+        for node in original_iter(self):
+            seen.append(("enumerate", Path(root).resolve(), _operation_lock_for(root)._holder))
+            yield node
+
     monkeypatch.setattr(registry, "corpus_state_identity", state)
     monkeypatch.setattr(ReadView, "opened_at", classmethod(opened))
+    monkeypatch.setattr(ReadView, "iter_stored", enumerated)
     evaluate_live_query(world, DATASETS)
     monkeypatch.undo()
 
     calls = [call for call in seen if call[1] in carriers]
-    assert {kind for kind, _, _ in calls} == {"state", "open"}
-    assert {path for _, path, _ in calls} == carriers
+    # every carrier holds records, so each is seen stating, opening and enumerating
+    assert {carrier: {kind for kind, path, _ in calls if path == carrier} for carrier in carriers} == {
+        carrier: {"state", "open", "enumerate"} for carrier in carriers
+    }
     assert all(holder == "capture" for _, _, holder in calls), calls
     with _operation_lock_for(roots[a]):
         with pytest.raises(BuildContended):
@@ -1459,7 +1481,7 @@ Expected: 19 passed. If a fixture fails for a reason the plan did not foresee (a
 ```bash
 tasks done <Task 4's id> "acceptance: twelve Z units and the module's seven other tests"
 tasks check && git add python/tests/acceptance/test_live_selection_acceptance.py tasks
-git commit -m "test(cut42): the live selection acceptance module — Z1–Z5"
+git commit -m "test(cut41): the live selection acceptance module — Z1–Z5"
 ```
 
 ---
@@ -1467,17 +1489,17 @@ git commit -m "test(cut42): the live selection acceptance module — Z1–Z5"
 ### Task 5: Declarations, guard, runner, the recent-cut row; run the cut
 
 **Files:**
-- Create: `python/tests/n2_arms_cut42.py`, `python/tests/acceptance/n2_arms_cut42.py`, `python/tests/acceptance/test_n2_cut42.py`, `python/tools/cut42_acceptance.py`
+- Create: `python/tests/n2_arms_cut41.py`, `python/tests/acceptance/n2_arms_cut41.py`, `python/tests/acceptance/test_n2_cut41.py`, `python/tools/cut41_acceptance.py`
 - Modify: `python/tests/test_recent_cut_acceptance.py`
 
 **Interfaces:**
 - Consumes: Task 0's freeze commit, digest and prefix decision; Task 4's test names; Task 3's spellings.
-- Produces: `CUT42_ARMS` (12), `DECLARATION_UNITS` (12), `UNIT_CHECKS`, `unit_of`, `CO_CITED = ()`; the runner's `main`, `PREFIX_RUNNERS`, `PHASE_MODULES`.
+- Produces: `CUT41_ARMS` (12), `DECLARATION_UNITS` (12), `UNIT_CHECKS`, `unit_of`, `CO_CITED = ()`; the runner's `main`, `PREFIX_RUNNERS`, `PHASE_MODULES`.
 
-- [ ] **Step 1: The declaration.** Create `python/tests/n2_arms_cut42.py`:
+- [ ] **Step 1: The declaration.** Create `python/tests/n2_arms_cut41.py`:
 
 ```python
-"""Frozen cut-42 declaration: twelve units, twelve sabotage arms, one each."""
+"""Frozen cut-41 declaration: twelve units, twelve sabotage arms, one each."""
 
 from n2_arms import Arm, Sabotage
 
@@ -1518,7 +1540,7 @@ _LIVE = "world/live.py"
 def unit_of(row: str) -> str:
     """Every arm homes its own unit; no row shares one."""
     if row not in DECLARATION_UNITS:
-        raise ValueError(f"{row!r} is not a cut-42 row")
+        raise ValueError(f"{row!r} is not a cut-41 row")
     return row
 
 
@@ -1531,7 +1553,7 @@ def _arm(row, assertion, before, after):
     )
 
 
-CUT42_ARMS = (
+CUT41_ARMS = (
     _arm(
         "Z1-a",
         "Every present admitted corpus is captured and stamped, so skipping the last covered corpus loses its records and its coverage pair.",
@@ -1616,22 +1638,22 @@ CUT42_ARMS = (
 )
 ```
 
-The acceptance shim `python/tests/acceptance/n2_arms_cut42.py` is cut 40's shim with every `40` replaced by `42`.
+The acceptance shim `python/tests/acceptance/n2_arms_cut41.py` is cut 40's shim with every `40` replaced by `41`.
 
-- [ ] **Step 2: The guard.** Copy `python/tests/acceptance/test_n2_cut40.py` to `python/tests/acceptance/test_n2_cut42.py`, then:
-- import `CUT40_ARMS` from `n2_arms_cut40` and add it to `PRIOR_ARMS`, and in Case A also `CUT41_ARMS` from `n2_arms_cut41`;
-- add `"python/tests/n2_arms_cut40.py": "<sha>"` to `FROZEN_PRIOR_CUT_FILES` (`git log -1 --format=%h -- python/tests/n2_arms_cut40.py`), and cut 41's declaration the same way in Case A;
-- set `FROZEN_CUT` to the cut-42 document, and `CUT42_FREEZE_COMMIT` and `CUT42_FROZEN_SHA256` from Task 0 Step 5;
-- set `FROZEN_DECLARATION = "python/tests/n2_arms_cut42.py"`, recompute `CUT42_DECLARATION_SHA256` with `sha256sum python/tests/n2_arms_cut42.py`, and rename every `CUT40_*` constant to `CUT42_*`;
+- [ ] **Step 2: The guard.** Copy `python/tests/acceptance/test_n2_cut40.py` to `python/tests/acceptance/test_n2_cut41.py`, then:
+- import `CUT40_ARMS` from `n2_arms_cut40` and add it to `PRIOR_ARMS`;
+- add `"python/tests/n2_arms_cut40.py": "<sha>"` to `FROZEN_PRIOR_CUT_FILES` (`git log -1 --format=%h -- python/tests/n2_arms_cut40.py`);
+- set `FROZEN_CUT` to the cut-41 document, and `CUT41_FREEZE_COMMIT` and `CUT41_FROZEN_SHA256` from Task 0 Step 5;
+- set `FROZEN_DECLARATION = "python/tests/n2_arms_cut41.py"`, recompute `CUT41_DECLARATION_SHA256` with `sha256sum python/tests/n2_arms_cut41.py`, and rename every `CUT40_*` constant to `CUT41_*`;
 - make the inventory test assert the twelve units in Step 1's order and `(FROZEN_ARMS, FROZEN_UNITS) == (12, 12)`;
 - point `test_every_acceptance_test_the_arms_name_exists` at `test_live_selection_acceptance.py`;
-- make the freeze test assert `"**12 arms, 12 declaration units**" in " ".join(current.split())` and the prefix tuple Task 0 Step 1 recorded (`'("cut41_acceptance.py",)' in current` in Case A);
-- replace the row-parser negatives with `("", "Z1", "Z1-e", "Z2-c", "Z3-b", "Z4-c", "Z5-d", "Z6-a", "Y5-a", "W7-a")`, each raising `is not a cut-42 row`.
+- make the freeze test assert `"**12 arms, 12 declaration units**" in " ".join(current.split())` and the prefix tuple (`'("cut40_acceptance.py",)' in current`);
+- replace the row-parser negatives with `("", "Z1", "Z1-e", "Z2-c", "Z3-b", "Z4-c", "Z5-d", "Z6-a", "Y5-a", "W7-a")`, each raising `is not a cut-41 row`.
 
-- [ ] **Step 3: The runner.** Create `python/tools/cut42_acceptance.py`:
+- [ ] **Step 3: The runner.** Create `python/tools/cut41_acceptance.py`:
 
 ```python
-"""Run cut 42 after the highest-numbered prior runner on the certified durable tuple."""
+"""Run cut 41 after the highest-numbered prior runner on the certified durable tuple."""
 
 from __future__ import annotations
 
@@ -1647,11 +1669,11 @@ REPO_ROOT = PYTHON_ROOT.parent
 # Beside the main checkout, as cut 40's runner resolves it: a lane worktree
 # under `.worktrees/` sits on storage the durability allowlist refuses.
 MAIN_CHECKOUT = REPO_ROOT.parents[1] if REPO_ROOT.parent.name == ".worktrees" else REPO_ROOT
-DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut42"
+DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut41"
 
 # Roadmap rule 5: the highest-numbered acceptance runner at freeze (the cut document's §5).
-PREFIX_RUNNERS = ("cut41_acceptance.py",)
-PHASE_MODULES = ("test_live_selection_acceptance.py", "test_n2_cut42.py")
+PREFIX_RUNNERS = ("cut40_acceptance.py",)
+PHASE_MODULES = ("test_live_selection_acceptance.py", "test_n2_cut41.py")
 
 
 def declared_accounting() -> tuple[int, int, int]:
@@ -1660,18 +1682,18 @@ def declared_accounting() -> tuple[int, int, int]:
         path = str(directory)
         if path not in sys.path:
             sys.path.insert(0, path)
-    from n2_arms_cut42 import CUT42_ARMS, DECLARATION_UNITS  # pyright: ignore[reportMissingImports]
+    from n2_arms_cut41 import CUT41_ARMS, DECLARATION_UNITS  # pyright: ignore[reportMissingImports]
 
     rows = {unit.partition("-")[0] for unit in DECLARATION_UNITS}
     assert rows == {"Z1", "Z2", "Z3", "Z4", "Z5"}
-    arms, units = len(CUT42_ARMS), len(DECLARATION_UNITS)
+    arms, units = len(CUT41_ARMS), len(DECLARATION_UNITS)
     assert (arms, units) == (12, 12)
     return arms, units, len(rows)
 
 
 def main(argv: list[str]) -> int:
     result = run_acceptance(
-        cut=42,
+        cut=41,
         python_root=PYTHON_ROOT,
         default_work=DEFAULT_WORK,
         prefix_runners=PREFIX_RUNNERS,
@@ -1689,44 +1711,42 @@ if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
 ```
 
-`PREFIX_RUNNERS` is the Case A tuple. Write exactly the tuple the frozen cut document's §5 names, never a runner chosen at Task 5.
+`PREFIX_RUNNERS` is the tuple Task 0 Step 1 fixed. Write exactly the tuple the frozen cut document's §5 names, never a runner chosen at Task 5.
 
-- [ ] **Step 4: The recent-cut row.** In `python/tests/test_recent_cut_acceptance.py`, add `import cut42_acceptance as cut42` after the cut-40 import, `(cut42, 42, (12, 12, 5)),` after cut 40's entry, `"cut42"` after `"cut40"` in `ids`, and after the cut-40 branch:
+- [ ] **Step 4: The recent-cut row.** In `python/tests/test_recent_cut_acceptance.py`, add `import cut41_acceptance as cut41` after the cut-40 import, `(cut41, 41, (12, 12, 5)),` after cut 40's entry, `"cut41"` after `"cut40"` in `ids`, and after the cut-40 branch:
 
 ```python
-    if cut == 42:
+    if cut == 41:
         assert "guarantee rows exercised: 5 (5 newly closed: Z1, Z2, Z3, Z4, Z5)" in output
 ```
 
-In Case A, cut 41's own row lands with cut 41; do not add it here.
-
-- [ ] **Step 5: Guard green, then the cut, detached.** In Case A, first confirm cut 41's results record is on `main` (`ls ~/d/beliefs/docs/plans/*-conformance-cut-41-results.md`) and rebase this branch onto `main`. If it is not there yet, `tasks park <Task 5's id> "run cut 42 after cut 41 discharges (rule 5)" --reason dependency` and stop.
+- [ ] **Step 5: Guard green, then the cut, detached.** The prefix, cut 40, is discharged, so rule 5 adds no wait. Rerun Task 0 Step 1's scan against `main` first. If a document numbered 42 or above has frozen since and is undischarged, rule 5 does not reorder this cut, which is lower-numbered. If anything numbered 41 other than this cut appears, stop and `tasks park <Task 5's id> "cut 41 contested at discharge" --waiting-on user --reason decision`.
 
 ```bash
 cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py tests/test_frozen_guards.py -q
 cd ~/d/beliefs/.worktrees/live-query/python && cd "$(pwd -P)"
 export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-for n in $(seq 4 42); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
+for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
 test -x ~/d/beliefs/.work/acceptance/detached.sh
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut42-runner.log uv run --frozen python tools/cut42_acceptance.py > /dev/null 2>&1 &
-sleep 2; echo "runner process group $(cat ~/d/beliefs/.work/acceptance/cut42-runner.log.pid)"
+setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut41-runner.log uv run --frozen python tools/cut41_acceptance.py > /dev/null 2>&1 &
+sleep 2; echo "runner process group $(cat ~/d/beliefs/.work/acceptance/cut41-runner.log.pid)"
 ```
-If the turn ends before the wrapper does, report that process group and the stop command, `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut42-runner.log.pid)"`.
+If the turn ends before the wrapper does, report that process group and the stop command, `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut41-runner.log.pid)"`.
 
 Read the log at exit. Expected tail:
-- three `[cut42 phase n/3]` lines;
+- three `[cut41 phase n/3]` lines;
 - `declared arms: 12 (= 12 declaration units; 5 guarantee rows)`;
 - the rows-exercised line;
 - exit 0, with every arm `sound` and every check `resolved`.
 
-A `stale` verdict means a `before` no longer matches: fix the source's spelling back to Task 3's, never the frozen declaration. An arm that is not `sound` (its check passes under its sabotage) is rehomed, never dropped: append a dated `## 8. Supplement` to the cut document naming the arm, the reshaped sabotage or check and why, update the declaration and `CUT42_DECLARATION_SHA256` to match, and rerun. §§2–7 stay byte-exact.
+A `stale` verdict means a `before` no longer matches: fix the source's spelling back to Task 3's, never the frozen declaration. An arm that is not `sound` (its check passes under its sabotage) is rehomed, never dropped: append a dated `## 8. Supplement` to the cut document naming the arm, the reshaped sabotage or check and why, update the declaration and `CUT41_DECLARATION_SHA256` to match, and rerun. §§2–7 stay byte-exact.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 tasks done <Task 5's id> "N2 declaration, guard, runner, recent-cut row; the cut ran sound"
-tasks check && git add python/tests/n2_arms_cut42.py python/tests/acceptance/n2_arms_cut42.py python/tests/acceptance/test_n2_cut42.py python/tools/cut42_acceptance.py python/tests/test_recent_cut_acceptance.py tasks
-git commit -m "test(cut42): N2 declaration, guard, runner and the recent-cut row — Z1–Z5"
+tasks check && git add python/tests/n2_arms_cut41.py python/tests/acceptance/n2_arms_cut41.py python/tests/acceptance/test_n2_cut41.py python/tools/cut41_acceptance.py python/tests/test_recent_cut_acceptance.py tasks
+git commit -m "test(cut41): N2 declaration, guard, runner and the recent-cut row — Z1–Z5"
 ```
 
 ---
@@ -1765,10 +1785,10 @@ git commit -m "docs(reproduction): re-run under live view-query evaluation; noth
 ```bash
 cd ~/d/beliefs/.worktrees/live-query && cd "$(pwd -P)"
 export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-for n in $(seq 4 42); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
+for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
 export SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut42-gate.log just gate > /dev/null 2>&1 &
-sleep 2; echo "gate process group $(cat ~/d/beliefs/.work/acceptance/cut42-gate.log.pid)"
+setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut41-gate.log just gate > /dev/null 2>&1 &
+sleep 2; echo "gate process group $(cat ~/d/beliefs/.work/acceptance/cut41-gate.log.pid)"
 ```
 Read the log at exit. Expected: the pytest summary line with zero failures, and the TypeScript suite green.
 
@@ -1776,7 +1796,7 @@ Read the log at exit. Expected: the pytest summary line with zero failures, and 
 
 ```bash
 tasks done <Task 7's id> "whole-branch review landed; gate green"
-tasks check && git add tasks && git commit -m "chore(tasks): cut 42 review and gate"
+tasks check && git add tasks && git commit -m "chore(tasks): cut 41 review and gate"
 ```
 
 ---
@@ -1784,7 +1804,7 @@ tasks check && git add tasks && git commit -m "chore(tasks): cut 42 review and g
 ### Task 8: The results record, the re-rank, the amendments; close and merge
 
 **Files:**
-- Create: `docs/plans/<date>-conformance-cut-42-results.md`
+- Create: `docs/plans/<date>-conformance-cut-41-results.md`
 - Modify: the cut document (`**Status:**`), the design (`**Status:**`), `docs/designs/2026-08-31-coordination-and-view-kinds-design.md` (§6.2), the ledger, the roadmap, `python/tools/roadmap_status.py`, `docs/guide/contracts-and-adoption.md`, `README.md`, tasks
 
 - [ ] **Step 1: The results record**, on cut 40's shape (`docs/plans/2026-09-24-conformance-cut-40-results.md`):
@@ -1796,35 +1816,35 @@ tasks check && git add tasks && git commit -m "chore(tasks): cut 42 review and g
 - **§6, main integration:** filled at merge.
 - **§7, execution rulings:** the Task 0 Step 1 case.
 
-- [ ] **Step 2: `roadmap_status.py`.** Add `42: ("conformance-cut-42-results §2", "Z1, Z2, Z3, Z4, Z5", ""),` after the highest existing entry, then regenerate Appendix A with `cd python && uv run --frozen python tools/roadmap_status.py`.
+- [ ] **Step 2: `roadmap_status.py`.** Add `41: ("conformance-cut-41-results §2", "Z1, Z2, Z3, Z4, Z5", ""),` after the highest existing entry, then regenerate Appendix A with `cd python && uv run --frozen python tools/roadmap_status.py`.
 
 - [ ] **Step 3: Ledger and roadmap.** Follow cut 31's discharge commit (`git show 61a6f95 -- docs/designs/2026-08-03-redesign-adoption-ledger.md docs/plans/2026-08-29-implementation-roadmap.md`): `live-query` enters and closes in this commit, so neither table carries an open row for it.
-  - **Ledger `Current state`:** an `**Updated <date>**` paragraph and a built bullet, "**Live attention reads** — `evaluate_live_query` denotes a view query over every admitted corpus's current state, captured corpus by corpus inside each hold and stamped by those states, never an epoch; Z1–Z5 close (cut 42)"; "Implemented through conformance cut 42"; the totals. The boundary table is unchanged.
-  - **Roadmap:** `**Ranked at:** cut 42` (under rule 2, if a higher-numbered results record already landed, rebase and re-rank against it); a `**Cut 42 (<date>) discharges live view-query evaluation and closes the boundary**` paragraph on cut 31's shape, recording that `live-query` entered and closed at this record, that it was opened off the path under rule 6, and that it re-ranks nothing on the path; the boundary index's opening sentence extended to name `live-query` beside `estimand-typing` and `composite-claims`; the accounting paragraph; Appendix A pasted; Appendix B unchanged, since no row stays open.
+  - **Ledger `Current state`:** an `**Updated <date>**` paragraph and a built bullet, "**Live attention reads** — `evaluate_live_query` denotes a view query over every admitted corpus's current state, captured corpus by corpus inside each hold and stamped by those states, never an epoch; Z1–Z5 close (cut 41)"; "Implemented through conformance cut 41"; the totals. The boundary table is unchanged.
+  - **Roadmap:** `**Ranked at:** cut 41` (under rule 2, if a higher-numbered results record already landed, rebase and re-rank against it); a `**Cut 41 (<date>) discharges live view-query evaluation and closes the boundary**` paragraph on cut 31's shape, recording that `live-query` entered and closed at this record, that it was opened off the path under rule 6, and that it re-ranks nothing on the path; the boundary index's opening sentence extended to name `live-query` beside `estimand-typing` and `composite-claims`; the accounting paragraph; Appendix A pasted; Appendix B unchanged, since no row stays open.
 
 - [ ] **Step 4: Amendments.**
-  - `docs/designs/2026-08-31-coordination-and-view-kinds-design.md` §6.2: after the two regimes, the design's §5 paragraph verbatim, dated to the discharge (`> *Amended <date> (\`beliefs-cc0aea\`, conformance cut 42).* A third regime, attention reads: …`).
-  - The design's Status: `discharged at conformance cut 42 on <date>; results: \`../plans/<date>-conformance-cut-42-results.md\``.
+  - `docs/designs/2026-08-31-coordination-and-view-kinds-design.md` §6.2: after the two regimes, the design's §5 paragraph verbatim, dated to the discharge (`> *Amended <date> (\`beliefs-cc0aea\`, conformance cut 41).* A third regime, attention reads: …`).
+  - The design's Status: `discharged at conformance cut 41 on <date>; results: \`../plans/<date>-conformance-cut-41-results.md\``.
   - The cut document's Status: `discharged <date> on the certified volume; results: …`.
-  - README: "through **cut 42**", its cut-42 row's wording, and "The latest discharged boundary is cut 42"; the guide's cut-42 line as discharged.
+  - README: "through **cut 41**", its cut-41 row's wording, and "The latest discharged boundary is cut 41"; the guide's cut-41 line as discharged.
 
 - [ ] **Step 5: Close in the results record's commit**
 
 ```bash
 cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py -q && cd ..
-tasks done <Task 8's id> "results record, re-rank at cut 42, amendments"
-tasks done beliefs-cc0aea "cut 42 discharged: Z1–Z5 — evaluate_live_query over every admitted corpus, stamped by its capture"
+tasks done <Task 8's id> "results record, re-rank at cut 41, amendments"
+tasks done beliefs-cc0aea "cut 41 discharged: Z1–Z5 — evaluate_live_query over every admitted corpus, stamped by its capture"
 tasks check && git add docs python/tools/roadmap_status.py README.md tasks
-git commit -m "docs(cut42): results record, re-rank at cut 42, Z1–Z5 closed"
+git commit -m "docs(cut41): results record, re-rank at cut 41, Z1–Z5 closed"
 ```
 
 - [ ] **Step 6: Merge and tell science**
 
 ```bash
-cd ~/d/beliefs && git merge --no-ff design/live-query -m "merge: live view-query evaluation — conformance cut 42"
-tasks note sci-f95f8b "beliefs-cc0aea landed (cut 42): beliefs.world.live.evaluate_live_query(world, query) -> LiveSelection; render complete, absent and stamp (CaptureStamp: world_id, coverage)."
+cd ~/d/beliefs && git merge --no-ff design/live-query -m "merge: live view-query evaluation — conformance cut 41"
+tasks note sci-f95f8b "beliefs-cc0aea landed (cut 41): beliefs.world.live.evaluate_live_query(world, query) -> LiveSelection; render complete, absent and stamp (CaptureStamp: world_id, coverage)."
 ```
-Fill the results record's §6 in a `docs(cut42): record merged-main verification` commit. Then run `tt-report` (ops) to harvest the worktree's timing log, check that no host pointer resolves into the worktree (`readlink -f ~/bin/* ~/.local/bin/* 2>/dev/null | grep live-query` prints nothing), and remove it: `git worktree unlock .worktrees/live-query && git worktree remove .worktrees/live-query && git branch -d design/live-query`.
+Fill the results record's §6 in a `docs(cut41): record merged-main verification` commit. Then run `tt-report` (ops) to harvest the worktree's timing log, check that no host pointer resolves into the worktree (`readlink -f ~/bin/* ~/.local/bin/* 2>/dev/null | grep live-query` prints nothing), and remove it: `git worktree unlock .worktrees/live-query && git worktree remove .worktrees/live-query && git branch -d design/live-query`.
 
 ---
 
@@ -1855,7 +1875,7 @@ Fill the results record's §6 in a `docs(cut42): record merged-main verification
 | §6.5 | Tasks 1, 3 and 5 (`test_arm_staleness.py`, slice 4's acceptance) |
 | §7 | Task 8 Steps 3 and 6 |
 
-**Placeholders.** Four places defer a spelling to the tree by instruction, each with the command that settles it: the freeze hash and digests (Task 0 Step 5 → Task 5 Step 2), the prior declaration pins (Task 5 Step 2's `git log`), the corpus totals (Task 0 Step 3's script and `roadmap_status.py`), and the reproduction section number (Task 6 Step 2). The Case B and C branches of Task 0 Step 1 each say what changes.
+**Placeholders.** Four places defer a spelling to the tree by instruction, each with the command that settles it: the freeze hash and digests (Task 0 Step 5 → Task 5 Step 2), the prior declaration pins (Task 5 Step 2's `git log`), the corpus totals (Task 0 Step 3's script and `roadmap_status.py`), and the reproduction section number (Task 6 Step 2). Task 0 Step 1 rechecks the number at the freeze and stops on any conflict.
 
 **Type consistency.**
 - `CaptureStamp(world_id: str, coverage: tuple[tuple[str, str], ...])`; `LiveSelection(stamp, query, selected, contributing, absent, unresolved)` with `complete`, `projection()`, `identity()`; `LIVE_SELECTION_VERSION`.
@@ -1868,3 +1888,4 @@ Fill the results record's §6 in a `docs(cut42): record merged-main verification
 ## Plan review log
 
 - 2026-09-24 — drafted. Resolved at planning and recorded for the design's §8 (Task 0 Step 3): table Z's owner is the moved design; `LocatedState` lives in `view.py`; `RelationAdjacency` is typed over `RelationView`; no new error class; the arms audited on paper at the freeze, since a cut is frozen before its code exists, with the executable audit and any rehoming at Task 5. Cut numbering follows rules 1 and 5 by Task 0 Step 1's three cases; the unfrozen-cut-41 case is the user's decision.
+- 2026-09-25 — user review: freeze as **cut 41** with prefix cut 40, and relabel the remote publish slice's current references to planned cut 42 at the freeze, keeping historical cut bodies byte-exact (Task 0 Step 1, which rechecks the number first). Z2-b also wraps `ReadView.iter_stored`, reading the holder at each record as the evaluation consumes it, because enumeration reads the store separately from the open. The accounting stays 12/12/5.

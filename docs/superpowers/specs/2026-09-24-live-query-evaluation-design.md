@@ -2,7 +2,9 @@
 
 **Status:** draft for review, 2026-09-24; revised after review the same day (uid
 conflict contract, a focused conformance cut, never-published and qualified agreement
-tests). **Task:** `beliefs-cc0aea`.
+tests); revised again after the second review (Z2-b's hold check, the rule-5 prefix, the
+shared-uid Z5-a fixture); amended 2026-09-25 at the plan review (numbered cut 41 with
+prefix cut 40; Z2-b also observes enumeration). **Task:** `beliefs-cc0aea`.
 **Requested by:** science's coordination command set design
 (`science docs/specs/2026-09-24-coordination-command-set-design.md`, §8 S1,
 decision 3, §5.5).
@@ -220,7 +222,7 @@ slice 4's acceptance. Each Z unit below has an N2 arm (§6.3).
 | Z1-c | Z1 | an admitted corpus whose carrier is missing is listed in `absent` and `complete` is false; an address held only there refuses `address-unknown`, never `address-not-present` |
 | Z1-d | Z1 | coverage is the registry's, not an epoch's: in a world that has **never published**, the evaluation succeeds and selects its records; in a world whose current epoch covers only A, a corpus B admitted afterwards with a matching record is covered and its record selected |
 | Z2-a | Z2 | a state that moves inside one corpus's capture hold (the `corpus_state_identity` monkeypatch `test_world_view.py` uses) raises `CaptureDrift`, and no selection is returned |
-| Z2-b | Z2 | both state reads and the enumeration run inside that corpus's own capture hold. Wrappers around `registry.corpus_state_identity` and `ReadView.opened_at` record the carrier's operation-lock holder at each call, and every call for that carrier must see `"capture"`. A writer holding the corpus's operation lock makes the evaluation refuse `BuildContended`, because a capture never waits |
+| Z2-b | Z2 | both state reads and the enumeration run inside that corpus's own capture hold. Wrappers around `registry.corpus_state_identity`, `ReadView.opened_at` and `ReadView.iter_stored` record the carrier's operation-lock holder at each call, the last at each record it yields as the evaluation consumes it (enumeration reads the store lazily, so a check at the open alone would miss an enumeration moved outside the hold). Every call and every yield for that carrier must see `"capture"`. A writer holding the corpus's operation lock makes the evaluation refuse `BuildContended`, because a capture never waits |
 | Z3-a | Z3 | a record written into corpus A after A's hold releases and before the evaluation returns (injected at the capture of the next corpus): the new record is not selected, and the stamp names A's state from inside the hold, so selection and stamp describe the same bytes |
 | Z4-a | Z4 | a present corpus with a malformed stored record refuses `corpus-damaged` naming it; the corpus is never silently left out of a returned selection |
 | Z4-b | Z4 | a present corpus whose base pin disagrees refuses `corpus-damaged` naming it |
@@ -250,7 +252,7 @@ Beside the units, the module holds:
 - **No writes.** The world root's and every corpus root's file trees, and their state
   identities, are unchanged by an evaluation.
 
-### 6.3 Guarantee rows and N2 sabotages — `n2_arms_cut42.py`
+### 6.3 Guarantee rows and N2 sabotages — `n2_arms_cut41.py`
 
 | row | guarantee |
 |---|---|
@@ -282,17 +284,18 @@ and `test_arm_staleness.py` must stay green.
 
 ### 6.4 The cut
 
-The cut is numbered 42, because `beliefs-3ce305` holds 41. The cut document is
-`docs/designs/<freeze date>-conformance-cut-42.md`, dated by the commit that freezes
-it after review. Under the roadmap's concurrency rule 5, a cut names the
-highest-numbered acceptance runner, so the prefix is read when cut 42 freezes and
-never written into the plan in advance. If cut 41 has been frozen by then, discharged
-or not, `python/tools/cut42_acceptance.py` sets `PREFIX_RUNNERS =
-("cut41_acceptance.py",)`, and while cut 41 is undischarged, cut 42's discharge is
-serialized after cut 41's. The plan's freeze task checks which runners exist and
-records in the cut document which one it chained. The runner also sets
-`PHASE_MODULES =
-("test_live_selection_acceptance.py", "test_n2_cut42.py")`. The cut also needs its row
+The cut is numbered **41**, by the user's decision of 2026-09-25 under the
+roadmap's concurrency rule 1: no cut-41 document existed, and the number had only
+been reserved in prose for the remote publish slice (`beliefs-3ce305`), which
+becomes planned cut 42. The plan's freeze task rechecks the number and stops if it
+has been claimed. It relabels the remote slice's current references to cut 42 in
+the freeze commit and leaves historical cut bodies byte-exact. The cut document is
+`docs/designs/<freeze date>-conformance-cut-41.md`, dated by the commit that
+freezes it after review. Under rule 5 a cut names the highest-numbered acceptance
+runner, which is cut 40's, so `python/tools/cut41_acceptance.py` sets
+`PREFIX_RUNNERS = ("cut40_acceptance.py",)`. Cut 40 is discharged, so nothing
+serializes this cut's discharge. The runner also sets `PHASE_MODULES =
+("test_live_selection_acceptance.py", "test_n2_cut41.py")`. The cut also needs its row
 in `test_recent_cut_acceptance.py`, with the declared arm, unit and guarantee-row
 counts and the guarantee-rows-exercised line, and a results record.
 
@@ -309,8 +312,8 @@ Each of W7-a to W7-i still applies exactly once.
 ## 7. What changes elsewhere
 
 - Coordination §6.2 gets the amendment in §5.
-- The adoption ledger opens rows Z1–Z5 and closes them at cut 42's results record.
-- The roadmap names cut 42 beside cut 41, and records its serialization behind cut 41
-  under rule 5 when cut 41 is frozen first.
+- The adoption ledger opens rows Z1–Z5 and closes them at cut 41's results record.
+- The roadmap names cut 41 as the `live-query` lane's cut, and names the remote publish
+  slice as planned cut 42.
 - Science's part 2 (`sci-f95f8b`) calls `evaluate_live_query` for `next` under a
   selection and renders `complete`, `absent` and the stamp.
