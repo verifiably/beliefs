@@ -40,11 +40,11 @@
 - Consumes: existing `py_fast_cmd`, `host-budget run`, and pytest-xdist `loadgroup`.
 - Produces: fast recipe using `-n auto --dist=loadgroup --ignore=tests/test_n2.py`, with no N2 marker.
 
-- [ ] **Step 1: Anchor the merged baseline.** Record the already-green 5,706-pass `loadfile` fast run from local main, the spec's per-file attribution, current commit, Python version, host load and worker count. The new per-file measurement follows the small scheduler pilot.
-- [ ] **Step 2: Pilot each scheduler on the four heavy files.** Under `host-budget run`, select one representative test from each file with `-n auto --dist=loadfile`, then the same four node IDs with `--dist=loadgroup`. Require both verdicts and selected IDs to agree before a full-loop sweep.
-- [ ] **Step 3: Change only `py_fast_cmd` to `loadgroup`.** Keep `--ignore=tests/test_n2.py` and TypeScript selection unchanged. Update the nearby justfile comment to explain that this scheduler is for tests outside N2.
-- [ ] **Step 4: Compare complete fast loops.** Run `just test-fast` after the change and a direct `loadfile` comparison on the same warm host budget with `-vv --durations=0`; collect selected/skipped counts, the four heavy files' durations, worker assignments, fixture setup and worker-seconds. Require unchanged collection and verdict; if `loadgroup` loses, revert the recipe change, record why, and keep the P0 open for a measured alternative.
-- [ ] **Step 5: Verify and commit.** Run `just check`, `tasks check` and `git diff --check`; close the Task 1 child with `tasks done` and commit the accepted scheduler and task record as `perf: balance test scheduler`. This task is complete only with a green fast loop.
+- [x] **Step 1: Anchor the merged baseline.** Record the already-green 5,706-pass `loadfile` fast run from local main, the spec's per-file attribution, current commit, Python version, host load and worker count. The new per-file measurement follows the small scheduler pilot.
+- [x] **Step 2: Pilot each scheduler on the four heavy files.** Under `host-budget run`, select one representative test from each file with `-n auto --dist=loadfile`, then the same four node IDs with `--dist=loadgroup`. Require both verdicts and selected IDs to agree before a full-loop sweep.
+- [x] **Step 3: Change only `py_fast_cmd` to `loadgroup`.** Keep `--ignore=tests/test_n2.py` and TypeScript selection unchanged. Update the nearby justfile comment to explain that this scheduler is for tests outside N2.
+- [x] **Step 4: Compare complete fast loops.** Run `just test-fast` after the change and a direct `loadfile` comparison on the same warm host budget with `-vv --durations=0`; collect selected/skipped counts, the four heavy files' durations, worker assignments, fixture setup and worker-seconds. Require unchanged collection and verdict; if `loadgroup` loses, revert the recipe change, record why, and keep the P0 open for a measured alternative.
+- [x] **Step 5: Verify and commit.** Run `just check`, `tasks check` and `git diff --check`; close the Task 1 child with `tasks done` and commit the accepted scheduler and task record as `perf: balance test scheduler`. This task is complete only with a green fast loop.
 
 ### Task 2: Memoize the pure environment identity
 

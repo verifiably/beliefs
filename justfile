@@ -25,7 +25,7 @@ tt := "python3 tools/tt"
 # `pyright` takes no path argument, deliberately: python/README.md records that naming a
 # path narrows the check and hides diagnostics outside it, which is how tests/ drifted
 # once already. The gate is the whole project or it is not the gate.
-py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadfile --ignore=tests/test_n2.py)"
+py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py)"
 py_test_cmd := "(cd python && uv run --frozen pytest)"
 py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen pyright)"
 
@@ -56,10 +56,10 @@ docs_check_cmd := hygiene_cmd + " && tasks check"
 # npm ci replaces node_modules; restore its local Dropbox ignore attribute afterward.
 setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)"
 
-# beliefs-92e6fe measured this at 164s against the serial gate's 868s and pinned
-# pytest-xdist rather than adopting coverage-based selection; --dist=loadfile keeps every
-# N2 test on one worker, whose pool then takes its share of OPS_WORKERS. An empty
-# vitest selection is a result, not a failure.
+# beliefs-92e6fe measured the parallel fast loop at 164s against the serial gate's
+# 868s and pinned pytest-xdist rather than adopting coverage-based selection.
+# loadgroup spreads non-N2 tests across workers. An empty vitest selection is a result,
+# not a failure.
 #
 # `test`, `test-fast` and the pre-push hook run under ops' `host-budget run`, which sizes
 # them to this host's CPU budget: `-n auto` reads PYTEST_XDIST_AUTO_NUM_WORKERS, and
