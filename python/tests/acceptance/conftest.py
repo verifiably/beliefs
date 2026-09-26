@@ -9,7 +9,7 @@ where durability cannot be exercised must not be able to report cut-4 discharge.
 **The work directory has to sit on the certified volume**, which the platform
 temporary directory generally does not — `/tmp` is a tmpfs on most hosts, and a
 tmpfs has no barrier-option table at all. So the default is a directory beside
-the checkout, and `SCIENCE_CUT4_ROOT` overrides it for a host that keeps its
+the main checkout, and `SCIENCE_CUT4_ROOT` overrides it for a host that keeps its
 certified volume elsewhere.
 """
 
@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
+from checkout import MAIN_CHECKOUT
 from fixtures_cut3 import TESTING_PROFILE
 from profiles import BASE
 
@@ -35,8 +36,7 @@ from beliefs.root import (
 )
 from beliefs.world import Fresh, WorldConfig
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_WORK = REPO_ROOT / ".cut4-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".cut4-acceptance"
 
 _counter = count()
 

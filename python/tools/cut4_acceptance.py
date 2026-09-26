@@ -29,9 +29,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+from checkout import MAIN_CHECKOUT
+
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-DEFAULT_WORK = PYTHON_ROOT.parent / ".cut4-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".cut4-acceptance"
 
 PROBE_REFUSED = 2
 """Distinct from pytest's own codes: *the arms did not run* is not *an arm

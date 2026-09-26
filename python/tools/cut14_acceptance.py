@@ -7,9 +7,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+from checkout import MAIN_CHECKOUT
+
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-DEFAULT_WORK = PYTHON_ROOT.parent / ".cut14-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".cut14-acceptance"
 PREFIX_RUNNERS: tuple[str, ...] = ()
 PHASE_MODULES = (
     "test_n2_cut6.py",

@@ -6,18 +6,17 @@ import sys
 from pathlib import Path
 
 from acceptance_runner import run_acceptance
+from checkout import MAIN_CHECKOUT
 
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 TOOLS = PYTHON_ROOT / "tools"
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-REPO_ROOT = PYTHON_ROOT.parent
 # "Beside the checkout" means beside the **main** checkout, as
-# `tools/reproduction/paths.py` resolves it: a lane worktree under `.worktrees/`
+# `checkout.py` resolves it: a lane worktree under `.worktrees/`
 # sits on storage the durability allowlist refuses, and the acceptance roots
 # must sit where the certified volume is. `.work/acceptance/` rather than a
 # dotted root at the project root: `test_project_root.py` names the legacy
 # `.cut*-acceptance` roots individually and admits no new one.
-MAIN_CHECKOUT = REPO_ROOT.parents[1] if REPO_ROOT.parent.name == ".worktrees" else REPO_ROOT
 DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut34"
 
 PREFIX_RUNNERS = ("cut33_acceptance.py",)
