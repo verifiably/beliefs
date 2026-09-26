@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T16:47:55Z
+updated: 2026-09-26T17:05:56Z
 started: 2026-09-26T10:07:42Z
 depends: []
 tags: [testing]
@@ -58,3 +58,5 @@ Outcome: keep the same full test inventory and both independent environment capt
 - 2026-09-26T16:34:25Z (perf/test-latency): Task 1 measured on merged pin-fix tree: loadfile 5706 passed/1 skipped in 183.50 s, 1221.5 measured worker-s; loadgroup same inventory/verdict in 139.91 s, 1974.6 worker-s. Under loadgroup replay setup grew 18.0→196.7 s across 14 workers, verify 32.8→363.3 s across 16, boundary 7.9→32.2 s across 13. just test-fast loadgroup passed at 143.39 s. Keep scheduler for wall gain, but ≤90 s still open; fixture duplication is the measured residual.
 - 2026-09-26T16:40:28Z (perf/test-latency): Task 1 post-commit just test-fast passed 5706/1 skipped in 244.14 s, but host-budget changed from 16 fan-out to 8 because Bitwig audio was active (busy 4.9); do not compare this wall time to the earlier 16-worker samples. Need comparable idle-host runs for final acceptance.
 - 2026-09-26T16:47:55Z (perf/test-latency): Task 2 memo red-green: equal-manifest spy failed at 2 digest calls before and passed at 1 after; changed row required second call, fields/vars/repr/eq/pickle unchanged. Recipe+closure+frozen-guard+arm-staleness tests 121 passed; 8465-artifact direct 9 calls 2.376 s vs memoized 0.290 s, 8 hits/1 miss. 8-worker fast loop passed 5707/1 skipped in 197.53 s (pre-memo 244.14 s under audio); 16-worker target comparison deferred until host budget recovers.
+- 2026-09-26T17:02:02Z (perf/test-latency): Task 3 certified two-phase pilot at host-budget 8 (Bitwig audio): collection 5754 serial = 5708 non-N2 + 46 N2 with no overlap/missing IDs; small && pilot passed 1+1. Full phase 1 passed 5707/1 skipped in 192.67 s; standalone N2 passed 46 in 339.02 s with full 8-worker pool; TypeScript passed 155/155. Python total ~531.69 s at 8 workers is correctness evidence, not 16-worker ≤300 s acceptance. Shared gate not changed yet.
+- 2026-09-26T17:05:56Z (perf/test-latency): Residual scheduler trial after loadgroup tail: four-file worksteal pilot passed 4/4. At audio-limited host-budget 8, complete non-N2 worksteal passed 5707/1 skipped in 171.91 s, ~1201.7 measured worker-s; verify used 1 worker/setup 28.6 s, replay 3/setup 61.2 s. Same-budget memoized loadgroup fast run was 197.53 s. Worksteal reduces fixture duplication; test at comparable 16-worker budget before choosing a recipe.

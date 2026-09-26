@@ -52,6 +52,13 @@ pool, passed 46 tests in 193 seconds and consumed 2,514 CPU-seconds. Grouping
 it under xdist would turn that CPU work into a roughly 40-minute tail. The
 full gate therefore needs two Python phases and a fresh certified pilot.
 
+The first certified two-phase pilot ran under an eight-worker host allowance
+while audio was active: the non-N2 phase passed 5,707 tests with one skip in
+192.67 seconds, standalone N2 passed 46 in 339.02 seconds, and TypeScript
+passed 155. Collection matched the 5,754-test serial inventory exactly. This
+proves the split verdict at eight workers; it does not measure the 16-worker
+300-second target.
+
 The existing red baseline has a separate fix: `5ee9e24` on `design/publish`
 updates the live guard pins, cited-not-run registry and dated cut 7/9 citations.
 That branch passes all seven `test_frozen_guards.py` checks. The same change

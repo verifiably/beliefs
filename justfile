@@ -26,7 +26,7 @@ tt := "python3 tools/tt"
 # path narrows the check and hides diagnostics outside it, which is how tests/ drifted
 # once already. The gate is the whole project or it is not the gate.
 py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py)"
-py_test_cmd := "(cd python && uv run --frozen pytest)"
+py_test_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py && uv run --frozen pytest tests/test_n2.py)"
 py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen pyright)"
 
 # `npm ci` is installation, not a gate, so it stays out of the gate recipes and lives in
@@ -70,7 +70,8 @@ setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)
 test-fast:
     {{tt}} test-fast -- host-budget run -- sh -c '{{fast_cmd}}'
 
-# The serial pytest run is the required conformance gate.
+# The complete Python gate: parallel non-N2 tests, then N2 alone with its full
+# OPS_WORKERS pool. Both summaries are counted by tt as one recorded run.
 #
 # The full suite, both packages.
 test:
@@ -107,11 +108,10 @@ hook-pre-push:
 # its package, so the whole job is one recorded number. These run exactly what `test` and
 # `check` run for that package. `tasks check` is not in them: the tasks binary is not on
 # a runner, which is why CI runs these rather than `just gate` (design section 4.6).
-# The serial pytest run is deliberate — python/README.md makes it the required CI,
-# conformance and completion gate, so CI does not use the xdist fast loop. A runner has
-# no host-budget, so ci.yml sets OPS_WORKERS for the Python job itself.
+# A runner has no host-budget, so ci.yml sets both worker variables for the
+# parallel first phase and the standalone N2 pool.
 #
-# The Python job: the serial suite, then ruff and pyright.
+# The Python job: both pytest phases, then ruff and pyright.
 ci-python:
     {{tt}} ci-python -- sh -c '{{py_test_cmd}} && {{py_check_cmd}}'
 
