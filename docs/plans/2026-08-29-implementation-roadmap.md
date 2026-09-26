@@ -343,7 +343,7 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — [which external authorities are accepted](../guide/open-questions.md#identity-world-and-change) |
 | `weighted-belief` | S6 (h) | the successor belief-policy design over `commensurable` and `co_scoped` ([beliefs-638318](../../tasks/beliefs-638318.md)) — the key domain is supplied by estimand typing (cut 31); what is open is the policy — [weighted belief](../guide/open-questions.md#claims-and-belief) |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
-| `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
+| `cross-root-publication` | T7's cross-root case | [the act report's residue](../guide/open-questions.md#writes-operations-and-publication) |
 
 One design question the success criterion meets on its first day is not a row
 and is carried by the lane that owns its surface: where a typed claim is authored

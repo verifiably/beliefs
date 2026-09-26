@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-08
 **Status:** Approved 2026-08-08; implemented as `docs/guide/` and maintained
-under §6's rule.
+under §6's rule. Amended 2026-09-26: an overview page, a sixth topic page, and a
+plain-language opening on every topic page (§3, §4, §7).
 **Scope:** A concise, topic-first companion to the redesign documents for new
 contributors. The guide summarizes decisions; it does not replace or amend
 them.
@@ -54,10 +55,12 @@ later cleanup is not the normal update path.
 | Page | Responsibility |
 |---|---|
 | `README.md` | Introduce Science, show the conceptual map, link to the ledger for implementation status, and provide newcomer and reference reading paths. |
+| `overview.md` | *(added 2026-09-26)* Introduce the big picture in plain language, as a book's opening chapter would: the ecosystem's goal and what it is for, before any mechanics; one analysis followed from data to belief, the key concepts grouped by the question each answers, the recurring principles, the layers of the stack, and how the project is built. |
 | `foundations.md` | Explain the epistemic invariant, kernel, ownership boundaries, profiles, and main record categories. |
 | `claims-and-belief.md` | Explain typed claims, assessments, evidence eligibility, belief policy, domain vocabulary, and the corpus measurements that tested vocabulary admission and claim typing. |
 | `identity-world-and-change.md` | Explain semantic identity, addresses, corpora, the world index, epochs, retraction, supersession, and the mutation log's pre-mutation registration, chains, anchors, and detectable-removal guarantee. |
 | `computation-and-reproducibility.md` | Explain analysis specs, run closures, replay eligibility, equivalence, and verification. |
+| `writes-operations-and-publication.md` | *(added 2026-09-26)* Explain write permits and authority, writer sessions, ordinary writes versus operations, operation intents and act reports, acquisition, and publication. |
 | `contracts-and-adoption.md` | Explain normative contracts, guarantees, conformance, review evidence, implementation cuts, and adoption order; link to living sources for current detail rather than duplicating them. |
 | `open-questions.md` | Consolidate unresolved questions without silently promoting limitations or deferred implementation into design uncertainty. |
 | `glossary.md` | Provide one canonical, alphabetized set of short definitions linked to the relevant topic pages and sources. |
@@ -70,7 +73,12 @@ design may inform several pages, and a page may synthesize several designs.
 Topic pages use this structure, omitting a section only when it has no useful
 content:
 
-1. **TL;DR** — one sentence.
+1. **In brief** — a short plain-language paragraph followed by three to five
+   key takeaways, written for a reader who knows no project vocabulary.
+   *(Amended 2026-09-26: this replaced a one-sentence TL;DR, which in practice
+   compressed the page into its densest jargon. A reader skimming only the
+   openings of the overview and the topic pages should come away with a correct
+   mental model.)*
 2. **Why it matters** — the user-visible or epistemic problem in one short
    paragraph.
 3. **Key ideas** — the smallest set of concepts needed to understand the topic.
@@ -126,7 +134,7 @@ Editorial review checks the remaining rules:
 - no unresolved placeholders;
 - explicit separation of designed, banked, measured, and implemented states.
 
-The guide is successful when a new contributor can read the index plus the five
+The guide is successful when a new contributor can read the overview plus the six
 topic pages in order, explain the system's invariant and major boundaries, and
 reach the exact source sections for details without reading the full design
 corpus first.

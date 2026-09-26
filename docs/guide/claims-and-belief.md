@@ -2,7 +2,7 @@
 title: Claims and belief
 status: living
 created: 2026-08-08
-updated: 2026-09-16
+updated: 2026-09-26
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
@@ -24,11 +24,30 @@ sources:
 
 # Claims and belief
 
-## TL;DR
+## In brief
 
-A proposition is an immutable typed claim; empirical belief is a policy-bound
-value computed only from eligible, directional assessments with demonstrated
-independence—not from literature assertions or stored “current belief.”
+A claim here is not a sentence but a small structure: a relationship (the
+**operator**, such as *affects*), the things it relates, the conditions under
+which it is meant to hold, the direction of the effect where the relationship
+has one (its **polarity**), and what kind of claim it is — causal, structural,
+statistical, or methodological (its **claim layer**). That structure is
+the claim's identity, so two people wording the same claim differently are
+talking about one claim. A **belief** about a claim is calculated when asked:
+the calculation counts the verified assessments that point for or against it,
+and only as many of them as are demonstrably independent of one another — two
+analyses of the same data are one piece of evidence, not two.
+
+- **Structure is identity.** Changing the wording changes nothing; changing what
+  is claimed makes a new claim that points back at the old one.
+- **Vocabulary is earned.** A term enters the shared base only when separate
+  corpora agree on it and some rule actually reads it.
+- **Assessments are the only evidence.** Each carries a verdict — supported,
+  refuted, or inconclusive — and counts only after a clean re-run.
+- **What an analysis estimates is typed too.** The quantity, its scale, and the
+  estimate with its uncertainty are structured values, not prose.
+- **A belief is a number with a receipt.** Version 1 is a signed count of
+  independent directional assessments, returned with a digest of every input and
+  the exact policy used. "No evidence" is its own answer, never zero.
 
 ## Why it matters
 
@@ -152,7 +171,10 @@ migration. The mm30 reproduction recreated its corpus, re-authored its spec,
 and re-derived its belief from disk in a fresh process to the same value
 (`../designs/2026-09-05-mm30-reproduction.md` §10).
 
-Independence is derived from complete dataset-lineage closures. It is
+### Independence is pairwise and derived
+
+Two assessments that ultimately rest on the same data are not two pieces of
+evidence. Independence is derived from complete dataset-lineage closures. It is
 three-valued—`independent`, `shared-source`, or `not-certified`—and pairwise, so
 it cannot be represented honestly as fixed groups. Belief aggregation instead
 builds a dependency graph and selects a maximum set of pairwise demonstrably
