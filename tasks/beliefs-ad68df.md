@@ -1,13 +1,15 @@
 ---
 id: beliefs-ad68df
 title: Certified-tuple tests fail in worktrees on WORK_ROOT storage
-status: todo
+status: doing
 priority: 2
 size: s
 complexity: mid
 process: direct
+owner: main
 created: 2026-09-25T01:21:27Z
-updated: 2026-09-25T10:00:51Z
+updated: 2026-09-26T08:07:28Z
+started: 2026-09-26T08:07:28Z
 depends: []
 tags: [testing]
 agent: claude-code/claude-opus-5-5
@@ -18,3 +20,6 @@ A worktree under .worktrees/ lives on WORK_ROOT (/mnt/ssd3 on titan), whose ext4
 ## Notes
 
 - 2026-09-25T10:00:51Z (main): 2026-09-25: the N2 harness (test_n2.py::_run_check) forwards only SCIENCE_CUT4-10_ROOT and SCIENCE_MM30_ROOT to each check's child pytest, so SCIENCE_CUT13_ROOT does not reach guard children: cut 38's baseline failed 11 checks in a WORK_ROOT worktree on unchanged code. Exporting SCIENCE_CUT10_ROOT=<main>/.lifecycle-wrappers-test (read first by tests/conftest.py) plus SCIENCE_CUT4_ROOT=<main>/.cut4-acceptance made the cut 19 and 38 guards pass (17 tests, 42 s). The fix should cover guard children too.
+- 2026-09-26T08:07:28Z (main): started
+  provenance: {"harness_session":"claude-code:3615b71e-88b4-402a-972d-ae857c1808d4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-26T08:07:28Z (main): claimed by claude-code opus-5-5, pid 438313; fix in-repo: point certified roots (conftest + N2 guard children) at the main checkout's volume
