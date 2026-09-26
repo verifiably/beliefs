@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from atoms.core.errors import CapabilityUnavailable
+from checkout import MAIN_CHECKOUT
 from confinement_constants import CONFINED_MOUNTS, ENVIRONMENT, RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
 from uncertified_host import uncertified_host
 
@@ -135,7 +136,7 @@ def certified_work() -> "Iterator[Path]":
 
     The lifecycle-wrapper tests run the real engine, whose durability
     allowlist requires an exact configuration tuple. Cut 10 supplies its run
-    root; ordinary tests use the repository-relative fallback. Every root a
+    root; ordinary tests use the fallback beside the main checkout. Every root a
     test creates lives inside this directory, which keeps the derived metadata
     siblings inside it too.
     """
@@ -147,7 +148,7 @@ def certified_work() -> "Iterator[Path]":
         or os.environ.get("SCIENCE_CUT12_ROOT")
         or os.environ.get("SCIENCE_CUT13_ROOT")
     )
-    base = Path(configured) if configured else REPO_ROOT / ".lifecycle-wrappers-test"
+    base = Path(configured) if configured else MAIN_CHECKOUT / ".lifecycle-wrappers-test"
     base.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="t-", dir=base))
     yield work

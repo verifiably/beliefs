@@ -6,11 +6,12 @@ import sys
 from pathlib import Path
 
 from acceptance_runner import run_acceptance
+from checkout import MAIN_CHECKOUT
 
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 TOOLS = PYTHON_ROOT / "tools"
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-DEFAULT_WORK = PYTHON_ROOT.parent / ".cut29-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".cut29-acceptance"
 
 PREFIX_RUNNERS = ("cut28_acceptance.py",)
 PHASE_MODULES = ("test_dataset_address_acceptance.py", "test_n2_cut29.py")

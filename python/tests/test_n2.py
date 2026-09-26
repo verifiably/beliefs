@@ -50,6 +50,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
+from checkout import MAIN_CHECKOUT
 from n2_arms import (
     ARMS,
     CLASS_NODE_BY_CONSTRUCTION,
@@ -516,12 +517,12 @@ def test_an_explicit_uncertified_cut10_root_reaches_holdings_engine_checks(monke
         shutil.rmtree(root, ignore_errors=True)
 
 
-def test_an_empty_cut10_root_uses_the_repository_relative_fallback(monkeypatch, request):
+def test_an_empty_cut10_root_uses_the_main_checkout_fallback(monkeypatch, request):
     monkeypatch.delenv("SCIENCE_CUT12_ROOT", raising=False)
     monkeypatch.delenv("SCIENCE_CUT13_ROOT", raising=False)
     monkeypatch.setenv("SCIENCE_CUT10_ROOT", "")
     work = request.getfixturevalue("certified_work")
-    assert work.parent.resolve() == (TESTS.parent.parent / ".lifecycle-wrappers-test").resolve()
+    assert work.parent.resolve() == (MAIN_CHECKOUT / ".lifecycle-wrappers-test").resolve()
 
 
 class TestTheHarnessCanSeeAVacuousArm:

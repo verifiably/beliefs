@@ -63,10 +63,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+from checkout import MAIN_CHECKOUT
+
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 TOOLS = PYTHON_ROOT / "tools"
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-DEFAULT_WORK = PYTHON_ROOT.parent / ".cut9-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".cut9-acceptance"
 
 PREFIX_RUNNERS = ("cut7_acceptance.py",)
 """The prior cut's own command, run as it stands. It already chains cuts 5

@@ -16,10 +16,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+from checkout import MAIN_CHECKOUT
+
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 TOOLS = PYTHON_ROOT / "tools"
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-DEFAULT_WORK = PYTHON_ROOT.parent / ".cut11-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".cut11-acceptance"
 
 PREFIX_RUNNERS = ("cut10_acceptance.py",)
 PHASE_MODULES = ("test_intent_boundary_acceptance.py", "test_n2_cut11.py")

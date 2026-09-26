@@ -13,9 +13,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+from checkout import MAIN_CHECKOUT
+
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-DEFAULT_WORK = PYTHON_ROOT.parent / ".cut5-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".cut5-acceptance"
 
 PROBE_REFUSED = 2
 

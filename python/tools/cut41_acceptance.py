@@ -6,14 +6,13 @@ import sys
 from pathlib import Path
 
 from acceptance_runner import run_acceptance
+from checkout import MAIN_CHECKOUT
 
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 TOOLS = PYTHON_ROOT / "tools"
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-REPO_ROOT = PYTHON_ROOT.parent
-# Beside the main checkout, as cut 40's runner resolves it: a lane worktree
+# Beside the main checkout, as `checkout.py` resolves it: a lane worktree
 # under `.worktrees/` sits on storage the durability allowlist refuses.
-MAIN_CHECKOUT = REPO_ROOT.parents[1] if REPO_ROOT.parent.name == ".worktrees" else REPO_ROOT
 DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance" / "cut41"
 
 # Roadmap rule 5: the highest-numbered acceptance runner at freeze (the cut document's §5).

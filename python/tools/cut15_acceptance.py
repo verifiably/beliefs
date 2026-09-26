@@ -9,10 +9,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+from checkout import MAIN_CHECKOUT
+
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 TOOLS = PYTHON_ROOT / "tools"
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-DEFAULT_WORK = PYTHON_ROOT.parent / ".cut15-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".cut15-acceptance"
 
 PREFIX_RUNNERS = ("cut14_acceptance.py",)
 PHASE_MODULES = ("test_cut15_lineage.py", "test_confinement_acceptance.py", "test_n2_cut15.py")
