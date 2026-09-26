@@ -30,4 +30,7 @@ MESSAGE
     exit 1
 fi
 
+# The gate runs tests that create their own Git repos; Git's hook variables must not follow them.
+git_local_vars=$(git rev-parse --local-env-vars) || exit 1
+unset $git_local_vars
 exec just hook-pre-push
