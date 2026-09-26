@@ -6,9 +6,9 @@ priority: 2
 size: l
 complexity: high
 process: planned
-owner: main
+owner: design/publish
 created: 2026-09-24T02:36:23Z
-updated: 2026-09-26T08:47:27Z
+updated: 2026-09-26T08:59:01Z
 started: 2026-09-26T08:38:03Z
 depends: [beliefs-328507]
 parent: beliefs-1a5157
@@ -29,3 +29,6 @@ Third slice of publish, split from beliefs-328507 by the user on 2026-09-23. Own
 - 2026-09-26T08:47:20Z (design/publish): spec drafted: docs/superpowers/specs/2026-09-26-publish-act-remote-design.md (Y11-Y16, 12 arms); awaiting user review
 - 2026-09-26T08:47:27Z (design/publish): parked (waiting on user, review): user reviews docs/superpowers/specs/2026-09-26-publish-act-remote-design.md in .worktrees/publish; on approval, the agent writes the cut-42 plan (writing-plans) there
   provenance: {"harness_session":"claude-code:3615b71e-88b4-402a-972d-ae857c1808d4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-26T08:59:01Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:3615b71e-88b4-402a-972d-ae857c1808d4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-26T08:59:01Z (design/publish): spec review round 1: four findings verified against code (orphan scenario unreachable at intent position; mark not checked against export; listing blind to extras; tip reading lacks corpus-level layout checks); revising

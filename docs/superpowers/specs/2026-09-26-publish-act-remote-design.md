@@ -123,9 +123,12 @@ Each decision names what it rejects.
      A pre-binding refusal found after the mark (`staging-corrupt` over a
      staging root damaged after the reveal) would be `PreBinding`, which
      carries no orphan, and a possibly shared marker would be dropped.
-   - A mark that fails to decode, or disagrees with its intent, answers
+   - Before resuming from it, the act checks the mark against its intent and
+     against the retained export root and sibling (§4.2). A mark that fails
+     to decode, or disagrees with either, answers
      `PublishUnresolved("transport-mark-corrupt")` and writes nothing: fail
-     closed, like `indeterminate`.
+     closed, like `indeterminate`. Nothing the mark names reaches a binding
+     unchecked.
 
 6. **Ruling 12 is closed at step 0.** A publish refuses
    `PublicationRefused("publish-unfinished", tokens=…)` before its intent,
@@ -135,8 +138,12 @@ Each decision names what it rejects.
    binds or closes as an orphan, and the next publish supersedes it.
    - An `unfinished` attempt with no mark never uploaded anything, so it does
      not block. That covers a requestless intent and a crash anywhere before
-     the mark. If it is resumed later and binds against moved tips, step 8
-     refuses it as an orphan by cut 39's rule.
+     the mark. If it is resumed after a later publish has bound, it still
+     binds: step 8 judges tips at its own intent position, where the later
+     binding does not exist yet (cut 39's intent-position rule). The two
+     bindings are lawful siblings. A recipient holding both markers reads
+     `divergent-publication` until the next publish, whose binding tips are
+     both siblings, supersedes both markers.
    - **Rejected:** folding the stranded attempt's marker into the new
      intent's `marker_tips`. The mark is outside the chain, and step 8's guard
      recomputes `marker_tips` from the chain alone (cut 39 §6), so the
@@ -193,7 +200,7 @@ Each decision names what it rejects.
 ```python
 class Transport(Protocol):
     def push(self, destination: Destination, files: Mapping[str, Path]) -> TransportAbandoned | None: ...
-    def listing(self, destination: Destination, names: frozenset[str]) -> Mapping[str, str]: ...
+    def listing(self, destination: Destination, corpus_id: str) -> Mapping[str, str]: ...
 
 @dataclass(frozen=True)
 class TransportAbandoned:
@@ -214,11 +221,18 @@ def local_listing(files: Mapping[str, Path]) -> dict[str, str]
   be idempotent: it converges on the same remote content. It returns
   `TransportAbandoned` when this attempt's upload will never complete, and
   raises for anything transient.
-- **`listing`** reads the remote back. It returns the SHA-256 hex of each
-  named file the remote holds and omits the absent ones. It may raise.
-- **Verified complete** means `listing(destination, frozenset(files)) ==
+- **`listing`** enumerates the publication's whole namespace at the remote:
+  every file it holds whose name is `<corpus_id>.head-artifact.v1` or begins
+  with `<corpus_id>/`, each mapped to the SHA-256 hex of its remote bytes. It
+  names what the remote holds, not what the act asked for, so an extra file is
+  visible. It may raise.
+- **Verified complete** means `listing(destination, corpus_id) ==
   local_listing(files)`, computed by the act. Anything else is
   `listing-mismatch`: a missing name, an extra name, or a differing digest.
+- **The namespace is the seam's to keep.** A destination kind lays the names
+  out as it likes (a git tree, a deposit's file list), but it must enumerate
+  exactly the files under them. An adapter that cannot enumerate its remote
+  cannot implement `listing`, and cannot publish.
 - The seam takes no authority. It reaches only the remote. The act holds the
   permit (§3.2).
 
@@ -290,8 +304,23 @@ next publish, not left permanent (§16 item 3).
   stays `unfinished`, blocks step 0, and is the operator's.
 - **Decoded strictly.** Every field is present, and there are no others. The
   token and destination equal the intent's. The marker equals
-  `marker_uid(token)`. The destination's type is `remote`. Any failure is
-  `transport-mark-corrupt`.
+  `marker_uid(token)`. The destination's type is `remote`.
+- **Checked against the export before a resume uses it.** Let `export` be
+  `<op>/export/<corpus_id>` and `sibling` be
+  `<op>/export/<corpus_id>.head-artifact.v1`. All of the following must hold:
+  1. `read_serviceable(export)`, and `load_manifest(export).corpus_id` equals
+     the mark's `corpus_id`;
+  2. `sha256(sibling bytes)` equals the mark's `artifact`, and the sibling
+     decodes as a `science.head-artifact.v1` whose subject is
+     `CorpusSubject(corpus_id)` and whose genesis and head equal
+     `chain_head_reader()(export)`;
+  3. the export root holds exactly one record of kind `publication`, its uid
+     is the mark's `marker`, and its `selection` has `records` entries.
+
+  Any failure, including a failing decode, is `transport-mark-corrupt`. On a
+  fresh run the act builds the mark from exactly these values after step 6, so
+  the checks hold by construction there. A resume asserts them, because the
+  mark and the files it names are outside every chain.
 
 ### 4.3 Step 7
 
@@ -301,7 +330,7 @@ next publish, not left permanent (§16 item 3).
    `expected = local_listing(files)`;
 2. `transport.push(destination, files)`, where `TransportAbandoned(detail)`
    gives `TransportIncomplete(corpus_id, marker, "abandoned")`;
-3. `listing = transport.listing(destination, frozenset(files))`, where
+3. `listing = transport.listing(destination, mark.corpus_id)`, where
    `listing != expected` gives `TransportIncomplete(corpus_id, marker,
    "listing-mismatch")`;
 4. otherwise `Transported(corpus_id, listing_identity)`, where
@@ -403,7 +432,7 @@ unchanged: `indeterminate`, `closed`, `binding-without-report`.
 |---|---|
 | `unfinished`, no mark, request present | cut 40's request path; steps 1–6 into `<op>/export`, then the mark and step 7 |
 | `unfinished`, no mark, no request | `PublishUnresolved("no-request")` (cut 40, unchanged) |
-| `unfinished`, mark undecodable or disagreeing with the intent | `PublishUnresolved("transport-mark-corrupt")`, nothing written |
+| `unfinished`, mark undecodable, or disagreeing with the intent, the export root or the sibling (§4.2) | `PublishUnresolved("transport-mark-corrupt")`, nothing written |
 | `unfinished`, mark present | step 7 by reinvocation: `push` again, then `listing`, then step 8 |
 | `closed` by `transport-incomplete` | `PublishRefused(token, "transport-incomplete")`, never resumed |
 
@@ -427,13 +456,25 @@ The reading, over the view's captured records:
 1. **Collect** the records of kind `publication` whose address is
    `marker_address(view.unpinned(), destination)`. They are taken from every
    covered, present corpus's captured records.
-2. **Refuse** anything malformed or inconsistent. `admit_publication` already
-   refuses these at arrival, and the reading asserts it again, since a world
-   can hold a marker admitted by another route.
-   - A marker that fails `not publication_content_malformed` or
-     `marker_consistent` → `PublicationReadingRefused("marker-malformed",
-     refs=(id,))`.
-   - Two markers with one uid in two corpora → `marker-duplicated`.
+2. **Refuse any corpus whose layout arrival would refuse.** Every covered
+   corpus holding at least one marker at the address is checked by
+   `publication_layout_refusal(records)`. This is the check `admit_publication`
+   runs before any write, moved into one shared function in
+   `publication_arrival.py`; `admit_publication` calls it and keeps its
+   reasons and order unchanged. Over one corpus's captured records it refuses:
+   - no `publication` record (`marker-absent`) or several
+     (`marker-duplicated`);
+   - a marker failing `not publication_content_malformed`
+     (`marker-malformed`) or `marker_consistent` (`marker-inconsistent`);
+   - any `publication-binding` record (`binding-present`);
+   - records other than exactly the marker's `selection`
+     (`selection-mismatch`, the first difference).
+
+   The reading raises `PublicationReadingRefused(reason, corpus_id, refs)` with
+   the same reason. Across corpora, two markers with one uid →
+   `marker-duplicated`. A world can hold a corpus admitted by another route,
+   so the reading applies arrival's rule itself instead of trusting that
+   every holder arrived through the door.
 3. **Take the tips.**
    - `present` is the set of `(holding corpus_id, marker uid)` pairs;
    - `superseded` is the union of every present marker's
@@ -474,7 +515,10 @@ incomplete-copy case), so a partial upload is refused whole at the recipient.
 - `_open_publication`. The Ruling 12 check sits before it, not inside it.
 - Every lifecycle function in `root.py`, and `durable.py`.
 - The local act's behaviour, every cut 40 refusal and outcome included.
-- `admit_publication`, `admit_arrival` and `World.admit`.
+- `admit_publication`'s behaviour: its checks move into
+  `publication_layout_refusal` with the same reasons in the same order, and
+  cut 40's Y10 arms read it unchanged. `admit_arrival` and `World.admit` are
+  untouched.
 - `evaluate_query`, the TypeScript parity artifact and the reproduction
   driver.
 
@@ -501,12 +545,12 @@ The Y table (`../../designs/2026-09-22-publication-design.md`) gains Y11–Y16:
 
 | row | guarantee |
 |---|---|
-| **Y11** | a remote reveal is verified by the act, not the seam: the remote's listing of every export-root file and the sibling must equal the local listing by name and SHA-256; a missing, extra or altered file is `transport-incomplete` (`listing-mismatch`), reported, terminal; a remote destination without a transport, or a local one with one, refuses before anything is written |
-| **Y12** | the transport mark is written create-only after the export root validates and before the first `push`; once it exists a retry resumes at step 7 from the mark alone and never re-runs steps 1–6; a mark that fails to decode or disagrees with its intent fails closed with nothing written |
+| **Y11** | a remote reveal is verified by the act, not the seam: the remote's enumeration of the publication's whole namespace must equal the local listing of every export-root file and the sibling, by name and SHA-256; a missing, extra or altered file is `transport-incomplete` (`listing-mismatch`), reported, terminal; a remote destination without a transport, or a local one with one, refuses before anything is written |
+| **Y12** | the transport mark is written create-only after the export root validates and before the first `push`; once it exists a retry resumes at step 7 from the mark and never re-runs steps 1–6; a mark that fails to decode, or disagrees with its intent, the export root's manifest and chain, the sibling's identity or the export's marker, fails closed with nothing written |
 | **Y13** | a transport the seam abandons, or whose listing disagrees, closes the attempt with a report carrying `(corpus_id, marker)`; the fold reads it as a standing orphan that retires nothing, so the next publication's marker supersedes it and every orphan its intent named |
 | **Y14** | a publish refuses `publish-unfinished` before its intent, writing nothing, while an `unfinished` attempt for the same `(view, destination)` has a transport mark; an unfinished attempt without a mark never blocks; once the blocking attempt is resumed to a close, the publish proceeds and its marker supersedes the resumed one |
 | **Y15** | a crash at any remote step resumes to exactly one binding and one report whose entries run staging, export, reveal, transport, binding; a remote step-8 refusal carries `remotely_revealed: true` and is an orphan; step 9 keeps the export root, the mark, the request and the snapshot |
-| **Y16** | a recipient admits a remote publication from a raw copy through `restore_root` against the transported artifact and `admit_publication`, and a copy missing any file never validates; `publication_tip` answers the one standing marker, `divergent-publication` for siblings or an orphan beside its successor's sibling, and the one tip again once a marker superseding both arrives |
+| **Y16** | a recipient admits a remote publication from a raw copy through `restore_root` against the transported artifact and `admit_publication`, and a copy missing any file never validates; `publication_tip` refuses a corpus whose layout `admit_publication` would refuse, answers the one standing marker, `divergent-publication` for sibling markers, and the one tip again once a marker superseding both arrives |
 
 ## 11. Testing and the cut
 
@@ -530,8 +574,16 @@ The Y table (`../../designs/2026-09-22-publication-design.md`) gains Y11–Y16:
     four rows of §5.2's rule);
   - `unfinished_attempts` lists only unfulfilled intents for the pair.
 - **`publication_tip`:** none, one, two siblings, an orphan with a
-  successor, a gap (A and C held, B absent), a duplicated uid, a malformed
-  marker, and the cycle refusal from a hand-built pair.
+  successor, a gap (A and C held, B absent), a duplicated uid across corpora,
+  and the cycle refusal from a hand-built pair. Also, one hand-built corpus per
+  `publication_layout_refusal` reason — two distinct markers in one corpus,
+  one record beyond the selection, a binding present, a malformed and an
+  inconsistent marker — each refused by the reading as by
+  `admit_publication`.
+- **The transport's listing:** an extra remote file under `<corpus_id>/`, and
+  an extra sibling-like name, are each `listing-mismatch`.
+- **The mark's export checks:** each of §4.2's three checks failing alone is
+  `transport-mark-corrupt`.
 - **The seam guards:** remote without a transport, local with one, and
   `resume_publish` under each.
 
@@ -557,27 +609,27 @@ plus `_mark`, `_push` and `_verify`. Every arm ends `_durably`.
 
 | unit | row | assertion |
 |---|---|---|
-| Y11-a | Y11 | the fake alters one export-root file's bytes after `push` → `transport-incomplete` (`listing-mismatch`), closed, no binding, the report's entries staging, export, reveal, transport |
+| Y11-a | Y11 | two cases, each on a fresh attempt: the fake alters one export-root file's bytes after `push`, and the fake adds an extra file under `<corpus_id>/` after `push`; each → `transport-incomplete` (`listing-mismatch`), closed, no binding, the report's entries staging, export, reveal, transport |
 | Y12-a | Y12 | a crash inside `_push` after one file is uploaded leaves `transport.v1` on disk, and a second publish of the view refuses `publish-unfinished` naming the token |
 | Y12-b | Y12 | after the mark, an extra record raw-written into staging, then a crash in `_verify`; `resume_publish` answers `Published` with staging untouched by the resume (no `_stage_record` call, no `staging-corrupt`) |
-| Y12-c | Y12 | the mark rewritten with another `corpus_id`; resume → `PublishUnresolved("transport-mark-corrupt")`, the chain tip and the operations root byte-unchanged |
+| Y12-c | Y12 | two cases, each on a fresh attempt crashed in `_push`: the mark rewritten with another `corpus_id`, and the mark rewritten with another `artifact`; each resume → `PublishUnresolved("transport-mark-corrupt")`, the chain tip and the operations root byte-unchanged |
 | Y13-a | Y13 | the fake abandons → `PublishRefused("transport-incomplete")`; a second publish binds, and its marker's `supersedes_markers` holds the abandoned attempt's pair |
-| Y13-b | Y13 | a remote orphan O (as Y15-b); then attempt T, whose intent names O, abandons; then N publishes: N's `supersedes_markers` holds both O and T |
+| Y13-b | Y13 | attempt O abandons, which makes O a standing orphan; attempt T, whose intent's `marker_tips` names O, then abandons too; publish N then binds, and N's `supersedes_markers` holds both O and T |
 | Y14-a | Y14 | the Ruling 12 case: `_bind` monkeypatched to raise before any effect after a verified transport → intent `unfinished`; a new publish refuses `publish-unfinished` with nothing written; `resume_publish` → `Published`; the new publish then binds and supersedes it |
 | Y14-b | Y14 | an attempt crashed in `_initialize` (a request, no mark) does not block a second publish, which binds |
 | Y15-a | Y15 | for each remote boundary — `_mark`, `_push`, `_verify`, `_bind` — crash then resume → `Published`, one binding revision, one report whose entries are staging, export, reveal, transport, binding; step 9 leaves the export root serviceable and the mark in place |
-| Y15-b | Y15 | attempt A crashed after its intent, publish B bound, then A resumed → A's step 8 refuses `predecessor-not-standing` with `remotely_revealed: true`, and the next publish's `marker_tips` names A's pair |
+| Y15-b | Y15 | the one reachable `predecessor-not-standing`, cut 39's W17-p-a race driven through the act: A's `port` wrapper runs a whole remote publish B inside `append_intent`, after A's tip read and before A's intent. A transports, then its step 8 refuses `predecessor-not-standing` with `remotely_revealed: true`, and the next publish's `marker_tips` names A's pair |
 | Y16-a | Y16 | a recipient materializes the fake remote, restores against the transported artifact, admits through `admit_publication`, and `publication_tip` answers `CurrentPublication`; the same copy missing one file restores to a non-`validated` verdict and `admit_publication` refuses |
-| Y16-b | Y16 | the recipient holds B and the orphan A of Y15-b → `DivergentPublication` naming both; after the next publication C (which supersedes both) arrives → `CurrentPublication(C)` |
+| Y16-b | Y16 | sibling bindings: attempt A crashed in `_initialize`, publish B bound, then A resumed and bound at its own intent position. A recipient holding A and B reads `DivergentPublication` naming both; after the next publication C, whose binding tips are both, arrives → `CurrentPublication(C)` |
 
 ### 11.3 N2 sabotages — `n2_arms_cut42.py`
 
 | unit | sabotage |
 |---|---|
-| Y11-a | the listing comparison checks names only, not digests |
+| Y11-a | the comparison checks only the names the act uploaded against their digests, so a digest change is caught but the extra file is not (the fake's listing restricted to the uploaded names) |
 | Y12-a | the mark is written after `push` returns instead of before it |
 | Y12-b | a resume with a mark re-runs the request path instead of starting at step 7 |
-| Y12-c | an undecodable or disagreeing mark is treated as absent |
+| Y12-c | the resume checks the mark against its intent only, not against the export root and the sibling |
 | Y13-a | `_reports_at` yields `PreBinding(orphan=None)` for `transport-incomplete` |
 | Y13-b | a `PreBinding` orphan also retires its intent's `marker_tips` |
 | Y14-a | the `publish-unfinished` check is skipped |
@@ -677,3 +729,24 @@ These are recorded in `docs/guide/open-questions.md` and are not built:
   request) addressed only in part. The draft blocks only on a transport mark,
   adds a terminal `transport-incomplete` so that a broken remote cannot block
   a destination for ever, and makes the orphan rule asymmetric.
+- 2026-09-26: user review, four findings, all taken after checking them
+  against the code:
+  - **The orphan scenario was unreachable.** Y15-b had B bind after A's
+    intent. Step 8 judges tips at A's intent position, where B does not
+    exist, so A binds as a sibling. Y15-b now drives cut 39's W17-p-a race
+    through the act: a port wrapper commits B between A's tip read and its
+    append, the one reachable `predecessor-not-standing`. Y13-b's orphan is an
+    abandoned transport. Y16-b's divergence is two sibling bindings.
+    Decision 6's claim about a late resume now says it binds as a sibling,
+    repaired by the next publish.
+  - **The mark was checked against its intent only.** A rewritten `corpus_id`
+    or `artifact` could reach a binding. §4.2 now checks the mark against the
+    export root's manifest and chain head, the sibling's identity, and the
+    export's marker before any resume uses it. Y12-c covers both fields.
+  - **`listing` took the uploaded names, so an extra remote file was
+    invisible.** It now enumerates the publication's whole remote namespace,
+    and Y11-a adds an extra-file case.
+  - **The tip reading checked single markers only.** It now applies
+    `admit_publication`'s corpus-level layout rule, moved into one shared
+    `publication_layout_refusal`, to every corpus holding a marker at the
+    address.
