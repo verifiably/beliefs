@@ -1,7 +1,7 @@
 # Test-suite latency — balanced iteration and a full certified gate
 
 - **Date:** 2026-09-26
-- **Status:** draft for user review, round 2
+- **Status:** approved with the 2026-09-26 review changes
 - **Task:** `beliefs-9b248a` (P0)
 - **Workspace:** `.worktrees/test-latency`
 - **Related policy task:** `ops-5beefd` (cross-project detection and stop-work escalation)
@@ -57,9 +57,11 @@ work-root change affected runners 4–9 and 11–41, not only cuts 5–8.
 
 Success is a median of **at most 90 seconds for the existing fast-loop
 selection** (Python without N2, plus affected TypeScript tests) and **at most
-600 seconds for a complete certified full gate** (all Python and TypeScript
-tests, including N2). The full gate may run independent tests in parallel; its
-meaning is coverage and verdict, not a serial schedule.
+300 seconds for a complete certified full gate** (all Python and TypeScript
+tests, including N2). The 300-second target is provisional until the current
+full-gate pilot measures N2; revise it only from that measured N2 cost, not
+from a scheduler-only improvement. The full gate may run independent tests in
+parallel; its meaning is coverage and verdict, not a serial schedule.
 The serial command remains available for diagnosis, not as a completion threshold.
 The targets apply to comparable warm runs on the certified host and volume under
 `host-budget run`. A speedup that changes the selected tests or weakens a
@@ -72,20 +74,22 @@ capability-dependent check does not count.
    guard-green tree; it does not create a competing pin change or rewrite frozen
    evidence.
 
-2. **Balance the fast loop first.** `just test-fast` excludes N2, the only
-   documented reason for its `--dist=loadfile` setting. Trial xdist `load`
-   against the current `loadfile` command with identical collection and worker
-   budget. Trial `worksteal` if `load` leaves a slow tail. Where a test actually
-   needs worker affinity, apply a targeted `xdist_group` and use a scheduler
-   that honors it; do not group a whole heavy file merely to preserve the old
-   bottleneck. Record per-file wall time, worker assignment, fixture duplication
-   and aggregate worker-seconds. A recipe change may satisfy the fast-loop wall
-   target: developer wait is the outcome. It must keep all checks and pass on
-   repeated runs.
+2. **Balance both commands with `loadgroup`.** Trial xdist
+   `--dist=loadgroup` against the current `loadfile` command with identical
+   collection and worker budget. `test-fast` excludes N2, so its heavy files
+   can spread across workers. The full gate uses the same scheduler and puts
+   `pytestmark = pytest.mark.xdist_group("n2")` at module level in `test_n2.py`:
+   its session-scoped findings fixture must run on one worker, avoiding a
+   repeated audit on every worker that receives an N2 test. `worksteal` does
+   not honor this group. Record per-file wall time, worker assignment, fixture
+   duplication and aggregate worker-seconds. A recipe change may satisfy the
+   fast-loop wall target: developer wait is the outcome. It must keep all
+   checks and pass on repeated runs. If `loadgroup` leaves a slow tail, profile
+   that tail before proposing another scheduler.
 
 3. **Memoize only the pure environment identity.** `EnvironmentManifest`
    validates exact tuples of exact strings, so equal artifact tuples have equal
-   identity digests. Use a small bounded standard-library memo in `recipe.py`,
+   identity digests. Use `functools.lru_cache(maxsize=4)` in `recipe.py`,
    keyed by those validated artifact tuples, outside the dataclass instance.
    The memo must not appear in `dataclasses.fields()`, `vars()`, equality, repr
    or pickle; existing code projects values through `vars()` in several places.
@@ -99,10 +103,12 @@ capability-dependent check does not count.
    criterion of `beliefs-92e6fe` requires *full pytest*, and no banked
    guarantee found in the current design or N2 harness requires independent
    pytest files to run serially. N2 applies sabotages to copies, never to the
-   working tree. Its session-scoped findings fixture must remain on one xdist
-   worker so it is not recomputed on several workers; `--dist=loadfile` provides
-   that affinity for the first full-gate pilot. N2's nested pool must stay
-   within `OPS_WORKERS`. Only after the pilot passes on the certified tuple,
+   working tree. Its session-scoped findings fixture remains on one xdist
+   worker through the module's `xdist_group("n2")` marker and
+   `--dist=loadgroup`. N2's nested pool must stay within `OPS_WORKERS`.
+   `ci-python` has no `host-budget`, so CI sets both `OPS_WORKERS=4` for N2 and
+   `PYTEST_XDIST_AUTO_NUM_WORKERS=4` for `-n auto`; host-budget sets both on
+   the certified host. Only after the pilot passes on the certified tuple,
    repeated runs agree on collection and verdict, and the full gate meets its
    wall target should `just test`, pre-push and CI adopt the parallel command.
    The explicit serial pytest command remains available for diagnosis.
@@ -131,12 +137,13 @@ frozen conformance-cut bodies and all assertions intact.
    per-file breakdown, worker assignment and fixture cost, using the §1 table
    as the initial comparison. Run one representative test from each heavy file
    through a verdict under each proposed scheduler before a full-loop sweep.
-   Then run `load`, and `worksteal` only if needed, against `loadfile` on the
-   same warm worktree and host budget. Record commit, Python version, host load,
-   `OPS_WORKERS` and test count. A mode that exposes
+   Then run `loadgroup` against `loadfile` on the same warm worktree and host
+   budget. Record commit, Python version, host load, `OPS_WORKERS` and test
+   count. A mode that exposes
    order-dependent tests or repeats a module fixture enough to lose its wall
    benefit is not adopted. Keep the mode with the shortest repeatable wall time
-   and full unchanged collection.
+   and full unchanged collection. If neither mode reaches the fast-loop target,
+   keep the P0 open and attribute the remaining tail.
 
 3. **Identity trial.** Add a small regression check for digest equality,
    immutability and invisibility to `fields`, `vars`, repr and pickle. Benchmark
@@ -145,10 +152,11 @@ frozen conformance-cut bodies and all assertions intact.
    without changing closure capture counts, refusals or recorded identities.
 
 4. **Full-gate pilot and adoption.** Run one certified full parallel pilot
-   through its verdict using N2 affinity and a worker count within the host
-   budget. Read the full result before a longer comparison. Compare with the
-   seven-day serial distribution and the pilot's own per-file and N2 timings;
-   adjust distribution only from that evidence. Once equivalent and stable,
+   through its verdict with `loadgroup`, the N2 marker and a worker count within
+   the host budget. Read the full result before a longer comparison. Compare
+   with the seven-day serial distribution and the pilot's own per-file and N2
+   timings; revise the provisional 300-second target only if the measured N2
+   cost warrants it. Once equivalent and stable,
    update the shared test command used by `just test`, pre-push and `ci-python`,
    plus the current-facing `AGENTS.md`, justfile and README claims. CI remains
    uncertified for capability-dependent arms; only the certified host proves
@@ -156,7 +164,8 @@ frozen conformance-cut bodies and all assertions intact.
 
 5. **Final evidence.** Run `just check`, three warm fast-loop runs and at least
    two complete certified full-gate runs under comparable load. Both full
-   runs must meet the 600-second target; if they disagree materially, take a
+   runs must meet the 300-second target (or a pilot-justified revision); if they
+   disagree materially, take a
    third. The median fast-loop time must meet 90 seconds. Record selected test
    counts, skips, worker-seconds, range and any failed/reverted trials on the
    P0 task. If either target remains unmet, keep the P0 open and use the
