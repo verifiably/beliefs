@@ -378,7 +378,7 @@ context and the linked design references for normative detail.
   equivalence rule, with a derived scope and verdict. ([computation](computation-and-reproducibility.md#replay-verification-and-belief-are-different-decisions))
 - **verifiably** — The name of the whole ecosystem: `atoms`, `nodes`,
   `beliefs`, `science`, and `autonomy`. Its goal is understanding the world from
-  small, reproducible data analyses. ([overview](overview.md))
+  small, reproducible data analyses. ([overview](https://github.com/verifiably/docs/blob/main/overview.md))
 - **View** — A stored world query plus a label — `project`, `question`,
   `hypothesis`, `topic`, or `theme` — never a container. Evaluated at an epoch
   or live. ([foundations](foundations.md#views-and-coordination-are-governed-not-kernel))

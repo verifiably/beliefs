@@ -20,7 +20,8 @@ it explains the model by topic, in plain language first, and links to the design
 documents whenever detail matters. The designs, and the frozen guarantee labels
 in them, remain authoritative.
 
-**New here? Start with the [overview](overview.md).** It introduces the big
+**New here? Start with the [verifiably overview](https://github.com/verifiably/docs/blob/main/overview.md).** It lives in the
+ecosystem's own documentation repository, `verifiably/docs`, and introduces the big
 picture, follows one real claim from data to belief, and names every concept the
 topic pages build on.
 
@@ -48,8 +49,8 @@ contracts + corpus manifest → compiled profile ──governs every boundary ab
 
 ## Read in this order
 
-0. [Overview](overview.md) — the big picture, a worked example, and the key
-   concepts.
+0. [The verifiably overview](https://github.com/verifiably/docs/blob/main/overview.md) — the goal, a worked example, and the key
+   concepts (in `verifiably/docs`).
 1. [Foundations](foundations.md) — the invariant, the record kinds, and the
    ownership model.
 2. [Claims and belief](claims-and-belief.md) — what propositions and belief
