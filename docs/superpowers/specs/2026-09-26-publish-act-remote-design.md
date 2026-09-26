@@ -618,7 +618,7 @@ plus `_mark`, `_push` and `_verify`. Every arm ends `_durably`.
 | Y14-a | Y14 | the Ruling 12 case: `_bind` monkeypatched to raise before any effect after a verified transport → intent `unfinished`; a new publish refuses `publish-unfinished` with nothing written; `resume_publish` → `Published`; the new publish then binds and supersedes it |
 | Y14-b | Y14 | an attempt crashed in `_initialize` (a request, no mark) does not block a second publish, which binds |
 | Y15-a | Y15 | for each remote boundary — `_mark`, `_push`, `_verify`, `_bind` — crash then resume → `Published`, one binding revision, one report whose entries are staging, export, reveal, transport, binding; step 9 leaves the export root serviceable and the mark in place |
-| Y15-b | Y15 | the one reachable `predecessor-not-standing`, cut 39's W17-p-a race driven through the act: A's `port` wrapper runs a whole remote publish B inside `append_intent`, after A's tip read and before A's intent. A transports, then its step 8 refuses `predecessor-not-standing` with `remotely_revealed: true`, and the next publish's `marker_tips` names A's pair |
+| Y15-b | Y15 | the one reachable `predecessor-not-standing`, cut 39's W17-p-a race driven through the act. First, a remote publish P binds, so A has a predecessor. A's `port` wrapper then runs a whole remote publish B, superseding P, inside `append_intent`, after A's tip read (`binding_tips == (P,)`) and before A's intent. A transports, then its step 8 refuses `predecessor-not-standing` with `tips == (B,)` and `remotely_revealed: true`. The next publish's `marker_tips` names A's pair. Without P, A's empty `binding_tips` is a subset of any standing set, and the guard answers `evidence-refused` (`tips-disagree`) instead |
 | Y16-a | Y16 | a recipient materializes the fake remote, restores against the transported artifact, admits through `admit_publication`, and `publication_tip` answers `CurrentPublication`; the same copy missing one file restores to a non-`validated` verdict and `admit_publication` refuses |
 | Y16-b | Y16 | sibling bindings: attempt A crashed in `_initialize`, publish B bound, then A resumed and bound at its own intent position. A recipient holding A and B reads `DivergentPublication` naming both; after the next publication C, whose binding tips are both, arrives → `CurrentPublication(C)` |
 
@@ -750,3 +750,8 @@ These are recorded in `docs/guide/open-questions.md` and are not built:
     `admit_publication`'s corpus-level layout rule, moved into one shared
     `publication_layout_refusal`, to every corpus holding a marker at the
     address.
+- 2026-09-26: user review, round 2, one finding, taken after checking the
+  guard (`publication_doors.py`, `_bind_publication`): Y15-b had no bound
+  predecessor. An empty `binding_tips` is a subset of every standing set, so
+  the guard answers `tips-disagree`, not `predecessor-not-standing`. Y15-b now
+  binds a remote publish P first, and B supersedes it.
