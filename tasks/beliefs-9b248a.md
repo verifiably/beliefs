@@ -1,15 +1,16 @@
 ---
 id: beliefs-9b248a
 title: Cut Beliefs test iteration cost while preserving conformance
-status: doing
+status: done
 priority: 0
 size: l
 complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T18:01:17Z
+updated: 2026-09-26T18:35:55Z
 started: 2026-09-26T10:07:42Z
+completed: 2026-09-26T18:35:55Z
 depends: []
 tags: [testing]
 source: beliefs-f253a1
@@ -17,9 +18,9 @@ spec: docs/superpowers/specs/2026-09-26-test-suite-latency-design.md
 plan: docs/superpowers/plans/2026-09-26-test-suite-latency.md
 ---
 
-Why: seven-day medians were 1243 s for just test and 190 s for just test-fast, slowing iteration for weeks. The current 5704-test attribution found 1210 aggregate worker-seconds, including 423 s in closure captures and 208 s in repeated environment identities, with the 175 s test_boundary.py worker setting fast-loop wall time. Local main pin fix 2ec30ce restores a green baseline. Standalone N2 passes 46 tests in 193 s with 16 workers; under grouped xdist its nested pool would fall to one worker.
+Why: seven-day medians were 1243 s for just test and 190 s for just test-fast, slowing iteration for weeks. The initial 5704-test attribution found 1210 aggregate worker-seconds, including 423 s in closure captures and 208 s in repeated environment identities, with the 175 s test_boundary.py worker setting fast-loop wall time. Local main pin fix 2ec30ce restores a green baseline. Before the memo, standalone N2 passed 46 tests in 193 s with 16 workers; under grouped xdist its nested pool would fall to one worker.
 
-Outcome: keep the same full test inventory and both independent environment captures; use loadgroup for non-N2 tests, run N2 as a second serial pytest phase with its full pool, and add a bounded pure identity memo. On the certified tuple require warm fast-loop median at most 90 s and complete full runs at most 300 s. Record counts, worker-seconds and verdicts; keep the P0 open if either target is missed. The cross-project stop-work policy belongs to ops-5beefd.
+Outcome: keep the same full test inventory and both independent environment captures; use worksteal for non-N2 tests, run N2 as a second serial pytest phase with its full pool, add a bounded pure identity memo, and reduce repeated path work within each independent closure capture. On the certified tuple require warm fast-loop median at most 90 s and complete full runs at most 300 s. Record counts, worker-seconds and verdicts; keep the P0 open if either target is missed. The cross-project stop-work policy belongs to ops-5beefd.
 
 ## Notes
 
@@ -67,3 +68,9 @@ Outcome: keep the same full test inventory and both independent environment capt
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-26T17:54:26Z (perf/test-latency): 16-worker worksteal confirmation on current branch: just test-fast passed 5707/1 skipped, pytest 107.51 s; selected TS had no files. Host-budget granted 16, audio none. This confirms correctness and beats the old ~180 s loadfile wall time, but misses the ≤90 s fast target; keep P0 open and attribute the remaining tail after the full gate.
 - 2026-09-26T18:01:17Z (perf/test-latency): Certified host-budget 16, audio none: just test passed full two-phase gate at tt 279.714 s, 5908 executed tests (5707 non-N2, 46 N2, 155 TS) and one Python skip. Non-N2 pytest 102.83 s; standalone N2 post-memo 173.88 s. The separate just test-fast passed at tt 109.716 s / pytest 107.51 s, so the ≤90 s iteration target remains open. just check and tasks check passed with zero task warnings.
+- 2026-09-26T18:16:17Z (perf/test-latency): Task 4 capture path optimization: cProfile found Path.relative_to in add_tree 1.12 s per instrumented capture; using generated path parts removed that overhead. A per-_Closure parent-resolution memo retains fresh resolution across captures. Direct 8465-artifact capture fell from 2.00–2.06 s to 1.454/1.466/1.493 s; manifest equality and 60 closure/frozen/arm tests passed. Three certified 16-worker just test-fast verdicts passed 5709/1 skipped, tt 86.936/87.167/87.424 s, median 87.167 s. Full gate repeats remain.
+- 2026-09-26T18:35:47Z (perf/test-latency): Final 16-worker certified acceptance meets both budgets: fast tt median 87.167 s (three green runs) against ≤90 s; two full gates 235.749/237.467 s against ≤300 s with 5910 executed tests and one skip each. Closure captures remain independent and hash all rows; measured post-change 1127 worker-s, 256 closure walks. Reviewer found no code or gate issue. ops-5beefd remains the separate cross-project P0 stop-work policy task.
+- 2026-09-26T18:35:55Z (perf/test-latency): done
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T18:35:55Z (perf/test-latency): Cut certified fast-loop median to 87.167 s and full gate to 235.749–237.467 s while preserving all tests and independent captures; ops-5beefd owns the stop-work policy.
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}

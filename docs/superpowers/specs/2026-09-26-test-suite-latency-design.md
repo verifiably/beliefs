@@ -1,7 +1,7 @@
 # Test-suite latency — balanced iteration and a full certified gate
 
 - **Date:** 2026-09-26
-- **Status:** approved with the 2026-09-26 review changes
+- **Status:** implemented on `perf/test-latency`; certified acceptance passed
 - **Task:** `beliefs-9b248a` (P0)
 - **Workspace:** `.worktrees/test-latency`
 - **Related policy task:** `ops-5beefd` (cross-project detection and stop-work escalation)
@@ -66,6 +66,19 @@ took 102.83 seconds, standalone N2 173.88 seconds, and TypeScript passed 155
 tests. This is one full-gate sample below 300 seconds; the fast-loop sample
 still exceeds 90 seconds. Repeatable acceptance and tail attribution remain.
 
+The remaining fast-loop tail was traced to per-file path work in closure
+capture. Using root-relative path components directly and resolving repeated
+parents once within each `_Closure` walk reduced three direct captures of the
+same 8,465-artifact manifest from about 2.0 seconds to 1.45–1.49 seconds.
+Three subsequent certified 16-worker fast runs passed 5,709 tests with one
+skip each in 86.94, 87.17 and 87.42 seconds by `tt` (87.17 median). Two
+complete gates passed 5,910 executed tests with one Python skip in 235.75 and
+237.47 seconds. Standalone N2 took 148.54 and 150.75 seconds. An instrumented
+fast run counted 256 closure walks and 1,127 worker-seconds after the path
+change, versus 1,310 worker-seconds under the same scheduler before it; the
+earlier 188-walk count used `loadfile`, which ran module fixtures on fewer
+workers. The two captures and file hashes remain independent.
+
 The existing red baseline has a separate fix: `5ee9e24` on `design/publish`
 updates the live guard pins, cited-not-run registry and dated cut 7/9 citations.
 That branch passes all seven `test_frozen_guards.py` checks. The same change
@@ -78,11 +91,9 @@ work-root change affected runners 4–9 and 11–41, not only cuts 5–8.
 Success is a median of **at most 90 seconds for the existing fast-loop
 selection** (Python without N2, plus affected TypeScript tests) and **at most
 300 seconds for a complete certified full gate** (all Python and TypeScript
-tests, including N2). The two-phase gate's current budget is tight: about 193
-seconds for standalone N2 leaves roughly 107 seconds for the fast Python phase,
-TypeScript and overhead. If it misses, name the measured residual, especially
-N2, and keep the P0 open rather than relaxing the target to hide scheduler
-share arithmetic. The full gate may run independent tests in parallel; its
+tests, including N2). The accepted runs meet both thresholds. If a later run
+misses, name the measured residual, especially N2, rather than relaxing the
+target. The full gate may run independent tests in parallel; its
 meaning is coverage and verdict, not a serial schedule.
 The serial command remains available for diagnosis, not as a completion threshold.
 The targets apply to comparable warm runs on the certified host and volume under
@@ -103,10 +114,10 @@ capability-dependent check does not count.
    and replay and verify setup rose to 197 and 363 seconds respectively.
    At the same eight-worker budget, `worksteal` took 171.9 seconds and about
    1,202 worker-seconds versus `loadgroup`'s 197.5 seconds. Choose
-   `--dist=worksteal` for both fast and full first-phase recipes, retain
-   unchanged collection, and confirm it once at 16 workers. N2 retains its
-   full nested pool in the second phase. If the fast loop misses 90 seconds,
-   attribute the measured tail before changing more code.
+   `--dist=worksteal` for both fast and full first-phase recipes. The 16-worker
+   confirmation retained collection; the later path-walk change brought three
+   repeated fast verdicts below 90 seconds. N2 retains its full nested pool
+   in the second phase.
 
 3. **Memoize only the pure environment identity.** `EnvironmentManifest`
    validates exact tuples of exact strings, so equal artifact tuples have equal
@@ -147,11 +158,13 @@ capability-dependent check does not count.
    [run-confinement design](../../designs/2026-08-30-run-confinement-design.md).
    No process-wide closure cache, cross-observation file-digest cache, skipped
    files, changed manifest bytes or weaker mutation refusal is allowed.
+   The measured path improvement reuses resolved parent paths only within one
+   `_Closure` instance; each capture creates a new instance and rehashes every
+   file.
 
-The closure walker is a measured secondary cost, not the first lever. If balancing,
-identity memoization and a parallel full gate miss their targets, profile the
-residual before proposing path-walk changes or read-only fixture sharing. Keep
-frozen conformance-cut bodies and all assertions intact.
+The closure walker was the measured residual after scheduler balancing and
+identity memoization. Keep frozen conformance-cut bodies and all assertions
+intact.
 
 ## 3. Delivery and measurement order
 

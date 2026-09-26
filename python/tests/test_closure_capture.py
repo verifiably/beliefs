@@ -392,6 +392,36 @@ def test_a_symlink_row_captures_its_target_and_a_dangling_link_is_refused(tmp_pa
         walker.add(purelib / "dangling")
 
 
+def test_tree_exclusions_use_components_relative_to_the_tree_root(tmp_path):
+    walker, purelib = _site(tmp_path)
+    (purelib / "pkg" / ".git").mkdir(parents=True)
+    (purelib / "pkg" / "module.py").write_text("pass\n")
+    (purelib / "pkg" / ".git" / "config").write_text("excluded\n")
+
+    walker.add_tree(purelib, excluded=lambda parts: ".git" in parts)
+
+    assert set(walker.rows) == {f"{SANDBOX_SITE}/pkg/module.py"}
+
+
+def test_a_new_walk_resolves_a_changed_parent_symlink_again(tmp_path):
+    root = tmp_path / "root"
+    for name in ("first", "second"):
+        (root / name).mkdir(parents=True)
+        (root / name / "module.py").write_text(name)
+    alias = root / "alias"
+    alias.symlink_to("first")
+
+    first = _Closure()
+    first.register(root, SANDBOX_SITE)
+    assert first.add(alias / "module.py") == f"{SANDBOX_SITE}/first/module.py"
+
+    alias.unlink()
+    alias.symlink_to("second")
+    second = _Closure()
+    second.register(root, SANDBOX_SITE)
+    assert second.add(alias / "module.py") == f"{SANDBOX_SITE}/second/module.py"
+
+
 def test_check_links_refuses_a_symlink_row_whose_target_is_no_row(tmp_path):
     walker, _ = _site(tmp_path)
     walker.rows[f"{SANDBOX_SITE}/orphan"] = ("symlink", "../elsewhere")

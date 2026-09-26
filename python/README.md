@@ -52,11 +52,12 @@ host-budget run -- uv run --frozen pytest -n auto --dist=worksteal --ignore=test
 The whole-repository equivalent, which also runs the TypeScript tests vitest selects
 from the working tree, is `just test-fast` from the root.
 
-The 2026-09-26 certified 16-worker `worksteal` run passed 5,707 tests with one
-skip in 107.51s of pytest time (109.72s by `tt`). The full two-phase gate
-passed in 279.71s by `tt`: non-N2 took 102.83s, standalone N2 took 173.88s,
-and TypeScript passed 155 tests. The fast loop remains above its 90s target;
-these are single samples pending repeatable acceptance.
+On the certified 16-worker host on 2026-09-26, three warm `test-fast` runs
+passed 5,709 tests with one skip each in 86.94–87.42s by `tt` (87.17s
+median). Two complete `test` runs each passed 5,709 non-N2 and 46 N2 tests
+with one skip, plus 155 TypeScript tests, in 235.75s and 237.47s. Standalone
+N2 took 148.54s and 150.75s. These timings use the per-capture path-walk
+improvement; every artifact is still read and hashed on each capture.
 
 Use a test file or node id (`tests/test_module.py::test_name`) for the narrowest
 deterministic run, `-k` for a name expression, `--lf` to rerun failures, or
