@@ -8,11 +8,12 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T10:13:50Z
+updated: 2026-09-26T15:12:02Z
 started: 2026-09-26T10:07:42Z
 depends: []
 tags: [testing]
 source: beliefs-f253a1
+spec: docs/superpowers/specs/2026-09-26-test-suite-latency-design.md
 ---
 
 Why: the current seven-day median is 1243s for just test and 190s for just test-fast. This has continued to slow development after the September audit. The 2026-09-26 pilot test_r4_negative_a took 15.25s; profiling showed repeated runtime closure capture and manifest identity work, alongside four Snakemake launches. Prior ruling on beliefs-5b28c5 requires two independent captures for minimal-v1, and frozen conformance evidence must not be edited casually.
@@ -31,4 +32,9 @@ First step: draft and review the design in an isolated worktree, with concrete b
 - 2026-09-26T10:12:08Z (perf/test-latency): Baseline in .worktrees/test-latency after just setup: just test-fast ran 5704 passed, 1 skipped, 2 failed in 180.74s. Both failures are frozen guard pin checks; the same two fail on main in 2.90s, so this is an existing gate failure, not a worktree/setup artifact. The 117e97e work-root change moved cut5-8 acceptance runner files without matching live and cited guard pin maintenance. Repair or isolate this before claiming a green performance result.
 - 2026-09-26T10:13:23Z (perf/test-latency): Warm direct probes in worktree: three closure captures 2.001/2.060/2.020s (8465 artifacts), nine uncached EnvironmentManifest.identity calls median 0.237s; one capture under cProfile 4.064s with add_records 2.059s, add_tree 1.497s, pathlib.relative_to 1.080s, digest reads 0.358s. These are instrumentation-local costs; preserve two captures and test any optimization against both mutation detection and an end-to-end fast-suite baseline.
 - 2026-09-26T10:13:50Z (perf/test-latency): parked (waiting on user, review): User reviews the proposed latency design and targets in this session; on approval, codex resumes in .worktrees/test-latency, writes the committed spec, then writes the implementation plan for its review. First implementation step repairs baseline frozen-guard pins, then benchmarks capture/identity and verifies both environment captures remain.
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T15:09:09Z (perf/test-latency): resumed
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T15:09:09Z (perf/test-latency): User approved the in-chat Beliefs latency design on 2026-09-26 and asked for the written spec; resumed in .worktrees/test-latency. Spec review remains the next gate before implementation planning.
+- 2026-09-26T15:12:02Z (perf/test-latency): parked (waiting on user, review): User reviews docs/superpowers/specs/2026-09-26-test-suite-latency-design.md in .worktrees/test-latency; on approval, codex resumes this task and writes the implementation plan for its separate review. No implementation code has changed.
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
