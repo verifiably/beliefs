@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T16:34:25Z
+updated: 2026-09-26T16:47:55Z
 started: 2026-09-26T10:07:42Z
 depends: []
 tags: [testing]
@@ -56,3 +56,5 @@ Outcome: keep the same full test inventory and both independent environment capt
 - 2026-09-26T16:19:12Z (perf/test-latency): Claimed by Codex /root, pid 632270. Review found grouped N2 would receive OPS_WORKERS // PYTEST_XDIST_WORKER_COUNT = 1 here; changing the reviewed design to parallel non-N2 plus serial N2 in one gate, then implementing the four plan steps directly.
 - 2026-09-26T16:23:21Z (perf/test-latency): Task 1 baseline: local main pin-fix fast run 5706 passed, 1 skipped, pytest 189.38 s / tt 191.4 s under loadfile; user instrumented pre-fix fast run 1210 worker-s, boundary 175 s, replay 144 s, verify 138 s, cut15 113 s. Current worktree 2f00489, Python 3.13.12, host-budget fan-out 16, host busy 1.4 at preflight.
 - 2026-09-26T16:34:25Z (perf/test-latency): Task 1 measured on merged pin-fix tree: loadfile 5706 passed/1 skipped in 183.50 s, 1221.5 measured worker-s; loadgroup same inventory/verdict in 139.91 s, 1974.6 worker-s. Under loadgroup replay setup grew 18.0→196.7 s across 14 workers, verify 32.8→363.3 s across 16, boundary 7.9→32.2 s across 13. just test-fast loadgroup passed at 143.39 s. Keep scheduler for wall gain, but ≤90 s still open; fixture duplication is the measured residual.
+- 2026-09-26T16:40:28Z (perf/test-latency): Task 1 post-commit just test-fast passed 5706/1 skipped in 244.14 s, but host-budget changed from 16 fan-out to 8 because Bitwig audio was active (busy 4.9); do not compare this wall time to the earlier 16-worker samples. Need comparable idle-host runs for final acceptance.
+- 2026-09-26T16:47:55Z (perf/test-latency): Task 2 memo red-green: equal-manifest spy failed at 2 digest calls before and passed at 1 after; changed row required second call, fields/vars/repr/eq/pickle unchanged. Recipe+closure+frozen-guard+arm-staleness tests 121 passed; 8465-artifact direct 9 calls 2.376 s vs memoized 0.290 s, 8 hits/1 miss. 8-worker fast loop passed 5707/1 skipped in 197.53 s (pre-memo 244.14 s under audio); 16-worker target comparison deferred until host budget recovers.

@@ -5,7 +5,9 @@ surface (cut 3 §7.3 item 1)."""
 
 import dataclasses
 import inspect
+import pickle
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 from fixtures_cut3 import (
@@ -26,6 +28,7 @@ from fixtures_cut3 import (
     typed_estimand,
 )
 
+import beliefs.recipe as recipe_module
 from beliefs.errors import (
     BinaryFloatRefused,
     KeyCollision,
@@ -181,6 +184,29 @@ def test_r1_no_unknown_or_attested_component_is_representable():
 def test_r1_a_bare_lockfile_digest_is_refused_as_environment_identity():
     with pytest.raises(MalformedClosure):
         recipe(environment="sha256:" + "99" * 32)
+
+
+def test_equal_environment_manifests_share_identity_digest_without_visible_state():
+    artifacts = (("/science/env/python/bin/python3", "file", "sha256:" + "ab" * 32),)
+    first = EnvironmentManifest(artifacts)
+    equal = EnvironmentManifest(artifacts)
+    changed = EnvironmentManifest(((artifacts[0][0], "file", "sha256:" + "cd" * 32),))
+    cached = getattr(recipe_module, "_environment_identity", None)
+    if cached is not None:
+        cached.cache_clear()
+
+    with patch.object(v1, "digest", wraps=v1.digest) as digest:
+        identity = first.identity()
+        assert equal.identity() == identity
+        assert digest.call_count == 1
+        assert changed.identity() != identity
+        assert digest.call_count == 2
+
+    assert first == equal
+    assert {field.name for field in dataclasses.fields(first)} == {"artifacts"}
+    assert vars(first) == {"artifacts": artifacts}
+    assert repr(first) == f"EnvironmentManifest(artifacts={artifacts!r})"
+    assert pickle.loads(pickle.dumps(first)) == first
 
 
 # --- R2 ----------------------------------------------------------------------

@@ -5,6 +5,7 @@ from __future__ import annotations
 import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import cast, final
@@ -236,6 +237,11 @@ class Invocation:
             raise MalformedClosure("duplicate logical names in declared outputs")
 
 
+@lru_cache(maxsize=4)
+def _environment_identity(artifacts: tuple[tuple[str, str, str], ...]) -> str:
+    return v1.digest(ENVIRONMENT_DOMAIN, {"artifacts": _triples(artifacts)})
+
+
 @sealed
 @final
 @dataclass(frozen=True)
@@ -261,7 +267,7 @@ class EnvironmentManifest:
                 raise MalformedClosure(f"environment artifact {path!r} carries no content")
 
     def identity(self) -> str:
-        return v1.digest(ENVIRONMENT_DOMAIN, {"artifacts": _triples(self.artifacts)})
+        return _environment_identity(self.artifacts)
 
 
 @sealed
