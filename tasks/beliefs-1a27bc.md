@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: perf/test-latency
 created: 2026-09-26T16:07:45Z
-updated: 2026-09-26T17:10:31Z
+updated: 2026-09-26T17:15:47Z
 started: 2026-09-26T16:50:22Z
 depends: [beliefs-141ecd]
 parent: beliefs-9b248a
@@ -26,3 +26,6 @@ Pilot certified non-N2 loadgroup plus standalone serial N2, set CI worker variab
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-26T16:50:26Z (perf/test-latency): Claimed by Codex /root, pid 632270; piloting parallel non-N2 plus standalone N2 under one host-budget job before changing shared gate. Host currently grants 8 due Bitwig, so 16-worker target timing awaits idle host.
 - 2026-09-26T17:10:31Z (perf/test-latency): Eight-worker certified two-phase pilot passed: collection 5708+46=5754 matches serial, non-N2 5707/1 skipped in 192.67 s, standalone N2 46 in 339.02 s, TypeScript 155 passed. Candidate shared recipe and CI/doc edits prepared; current audio-limited budget cannot prove 16-worker ≤300 s target, so child stays open for comparable pilot.
+- 2026-09-26T17:15:42Z (perf/test-latency): run: 0 min (est 15, idle); preflight 0; refused: host-budget grants 8 while Bitwig audio is active, so the comparable 16-worker scheduler and full-gate acceptance runs cannot start.
+- 2026-09-26T17:15:47Z (perf/test-latency): parked (waiting on user, quiet; idle, 15 min): When host-budget grants 16, Codex runs one warm non-N2 worksteal fast loop and one loadgroup comparison in .worktrees/test-latency, selects the faster unchanged inventory, then runs the certified two-phase just test pilot and reads both phase verdicts before closing Task 3.
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}

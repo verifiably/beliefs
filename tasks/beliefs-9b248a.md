@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T17:12:06Z
+updated: 2026-09-26T17:15:53Z
 started: 2026-09-26T10:07:42Z
 depends: []
 tags: [testing]
@@ -61,3 +61,5 @@ Outcome: keep the same full test inventory and both independent environment capt
 - 2026-09-26T17:02:02Z (perf/test-latency): Task 3 certified two-phase pilot at host-budget 8 (Bitwig audio): collection 5754 serial = 5708 non-N2 + 46 N2 with no overlap/missing IDs; small && pilot passed 1+1. Full phase 1 passed 5707/1 skipped in 192.67 s; standalone N2 passed 46 in 339.02 s with full 8-worker pool; TypeScript passed 155/155. Python total ~531.69 s at 8 workers is correctness evidence, not 16-worker ≤300 s acceptance. Shared gate not changed yet.
 - 2026-09-26T17:05:56Z (perf/test-latency): Residual scheduler trial after loadgroup tail: four-file worksteal pilot passed 4/4. At audio-limited host-budget 8, complete non-N2 worksteal passed 5707/1 skipped in 171.91 s, ~1201.7 measured worker-s; verify used 1 worker/setup 28.6 s, replay 3/setup 61.2 s. Same-budget memoized loadgroup fast run was 197.53 s. Worksteal reduces fixture duplication; test at comparable 16-worker budget before choosing a recipe.
 - 2026-09-26T17:12:06Z (perf/test-latency): Verified tools/tt.parse_tests against the two-phase certified pilot plus TypeScript logs: 5908 executed tests counted (5707 non-N2 + 46 N2 + 155 TS), with the one skipped Python test excluded as designed. just --dry-run confirms test, hook-pre-push and ci-python expand the same shared two-phase Python command.
+- 2026-09-26T17:15:53Z (perf/test-latency): parked (waiting on agent, dependency): After Codex completes the 16-worker scheduler and full-gate pilot on beliefs-1a27bc, Codex starts beliefs-f69178, runs three warm fast and two certified full gates, reviews the branch, and closes the P0 only if 90 s and 300 s targets hold.
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
