@@ -1,13 +1,15 @@
 ---
 id: beliefs-3ce305
 title: "The publish act, remote: transport seam, remote reveal and orphans, divergent-publication (cut 42)"
-status: todo
+status: doing
 priority: 2
 size: l
 complexity: high
 process: planned
+owner: main
 created: 2026-09-24T02:36:23Z
-updated: 2026-09-25T10:39:08Z
+updated: 2026-09-26T08:38:03Z
+started: 2026-09-26T08:38:03Z
 depends: [beliefs-328507]
 parent: beliefs-1a5157
 tags: [publication]
@@ -20,3 +22,6 @@ Third slice of publish, split from beliefs-328507 by the user on 2026-09-23. Own
 
 - 2026-09-25T10:06:03Z (main): Renumbered cut 41 → 42 on 2026-09-25 by the user's decision: live view-query evaluation (beliefs-cc0aea) freezes as cut 41, prefixing cut 40. Living docs on main still say cut 41 for this slice until beliefs-cc0aea's freeze commit relabels them (its plan, Task 0 Step 1); do not freeze this slice as 41.
 - 2026-09-25T10:39:08Z (design/live-query): renumbered cut 41 → 42 on 2026-09-25: live view-query evaluation froze as cut 41 (beliefs-cc0aea), by the user's decision of 2026-09-25
+- 2026-09-26T08:38:03Z (main): started
+  provenance: {"harness_session":"claude-code:3615b71e-88b4-402a-972d-ae857c1808d4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-26T08:38:03Z (main): claimed by claude-code opus-5-5, pid 438313; brainstorming the cut-42 spec in .worktrees/publish
