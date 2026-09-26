@@ -8,19 +8,18 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T16:01:39Z
+updated: 2026-09-26T16:08:37Z
 started: 2026-09-26T10:07:42Z
 depends: []
 tags: [testing]
 source: beliefs-f253a1
 spec: docs/superpowers/specs/2026-09-26-test-suite-latency-design.md
+plan: docs/superpowers/plans/2026-09-26-test-suite-latency.md
 ---
 
-Why: the current seven-day median is 1243s for just test and 190s for just test-fast. This has continued to slow development after the September audit. The 2026-09-26 pilot test_r4_negative_a took 15.25s; profiling showed repeated runtime closure capture and manifest identity work, alongside four Snakemake launches. Prior ruling on beliefs-5b28c5 requires two independent captures for minimal-v1, and frozen conformance evidence must not be edited casually.
+Why: seven-day medians were 1243 s for just test and 190 s for just test-fast, slowing iteration for weeks. The current 5704-test attribution found 1210 aggregate worker-seconds, including 423 s in closure captures and 208 s in repeated environment identities, with the 175 s test_boundary.py worker setting fast-loop wall time. Local main pin fix 2ec30ce restores a green baseline.
 
-Outcome: measure representative capture, identity and launch costs on the certified host; choose and implement the smallest verified improvement that preserves both captures, environment mutation detection and frozen evidence; remeasure representative tests and the fast loop against the same baseline; set a tracked test-time budget and keep the serial conformance gate. Do not declare the issue resolved just because a faster local recipe exists.
-
-First step: draft and review the design in an isolated worktree, with concrete before/after checks and a realistic target. Related policy task is in ops.
+Outcome: keep the same full test inventory and both independent environment captures; use loadgroup with one N2 worker, a bounded pure identity memo, and a measured parallel full gate. On the certified tuple require warm fast-loop median at most 90 s and complete full runs at most 300 s, with any full-target revision justified only by measured N2 time. Record counts, worker-seconds and verdicts; keep the P0 open if either target is missed. The cross-project stop-work policy belongs to ops-5beefd.
 
 ## Notes
 
@@ -48,3 +47,7 @@ First step: draft and review the design in an isolated worktree, with concrete b
 - 2026-09-26T16:01:27Z (perf/test-latency): resumed
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-26T16:01:39Z (perf/test-latency): Claimed by Codex /root, pid 632270; user conditionally approved round-2 spec after loadgroup and 300 s target edits; writing implementation plan next.
+- 2026-09-26T16:04:45Z (perf/test-latency): Merged local main (including verified pin fix 2ec30ce) into perf/test-latency; frozen guards pass 7/7 in this worktree. Spec finalized at f3f85d9; plan drafting only, no latency code changed.
+- 2026-09-26T16:08:32Z (perf/test-latency): Implementation plan drafted in docs/superpowers/plans/2026-09-26-test-suite-latency.md with four ordered child tasks: loadgroup/N2, identity memo, parallel full gate, final evidence. User-approved spec includes 90 s fast and provisional 300 s full targets. tasks check and docs hook pass; no latency code implementation has started.
+- 2026-09-26T16:08:37Z (perf/test-latency): parked (waiting on user, review): User reviews .worktrees/test-latency/docs/superpowers/plans/2026-09-26-test-suite-latency.md; after approval Codex resumes in that worktree, starts beliefs-a77bf9, and runs the four-file scheduler pilot before the first full sweep.
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
