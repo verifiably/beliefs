@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T15:12:02Z
+updated: 2026-09-26T15:47:04Z
 started: 2026-09-26T10:07:42Z
 depends: []
 tags: [testing]
@@ -37,4 +37,11 @@ First step: draft and review the design in an isolated worktree, with concrete b
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-26T15:09:09Z (perf/test-latency): User approved the in-chat Beliefs latency design on 2026-09-26 and asked for the written spec; resumed in .worktrees/test-latency. Spec review remains the next gate before implementation planning.
 - 2026-09-26T15:12:02Z (perf/test-latency): parked (waiting on user, review): User reviews docs/superpowers/specs/2026-09-26-test-suite-latency-design.md in .worktrees/test-latency; on approval, codex resumes this task and writes the implementation plan for its separate review. No implementation code has changed.
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T15:40:51Z (perf/test-latency): resumed
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T15:40:52Z (perf/test-latency): User review round 1 requested revision: current per-file timing, xdist distribution for fast loop, reconsider parallel full gate, identity memo outside projections, and baseline pin fix via existing 5ee9e24 instead of duplicate work. Resumed spec only; code implementation remains gated.
+- 2026-09-26T15:45:00Z (perf/test-latency): Baseline pin fix landed on local main as cherry-pick 2ec30ce of design/publish 5ee9e24; focused frozen guards 7/7, just check green, just test-fast 5706 passed and 1 skipped in 189.38s. The separate integration worktree was removed after confirming no host pointer targeted it. Remote origin/main has not been pushed.
+- 2026-09-26T15:47:04Z (perf/test-latency): Spec review round 2: replaced stale 4438-test evidence with current 5704-pass worker attribution, made xdist balancing the fast-loop first lever, chose a parallel full gate conditional on certified N2-affinity validation, kept 90s/600s targets on the actual fast/full commands, and specified a bounded pure identity memo outside dataclass state. Local main now carries pin fix 2ec30ce; no duplicate repair in P0.
+- 2026-09-26T15:47:04Z (perf/test-latency): parked (waiting on user, review): User reviews round-2 docs/superpowers/specs/2026-09-26-test-suite-latency-design.md in .worktrees/test-latency; on approval, codex incorporates local main pin fix and writes the implementation plan for its separate review. No latency implementation has started.
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}

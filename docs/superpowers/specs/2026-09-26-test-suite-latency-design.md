@@ -1,140 +1,185 @@
-# Test-suite latency — restore the gate and reduce repeated runtime work
+# Test-suite latency — balanced iteration and a full certified gate
 
 - **Date:** 2026-09-26
-- **Status:** draft for user review
+- **Status:** draft for user review, round 2
 - **Task:** `beliefs-9b248a` (P0)
 - **Workspace:** `.worktrees/test-latency`
 - **Related policy task:** `ops-5beefd` (cross-project detection and stop-work escalation)
 
-## 1. Outcome and measured problem
+## 1. Outcome and current evidence
 
-The Python suite's real pipeline executions make normal development slow. The earlier
-audit (`beliefs-f253a1`) added timing records and a parallel local loop, but the last
-seven days of `tt-report --project beliefs` still show a **190.2-second median for
-`just test-fast`** and a **1,243.3-second median for `just test`**. The fast loop is
-useful, yet three minutes remains a long feedback cycle; the serial gate costs about
-21 minutes. The 2026-09-12 audit found 97 pipeline call sites in 17 files. Its 60
-slowest tests each took 5–24 seconds and consumed 669 of roughly 1,370 worker-seconds
-in that run. There is no material sleep or network cost to remove.
+The wait that matters is the time to a trustworthy verdict. The last seven days of
+`tt-report --project beliefs` show a 190.2-second median for `just test-fast` and a
+1,243.3-second median for `just test`. The previous audit supplied a fast loop and
+timing records, but did not bring either wait within an acceptable iteration budget.
 
-The 2026-09-26 pilot gives a narrower diagnosis. One replay test took 15.25 seconds on
-main and 14.26 seconds in the isolated worktree. It executes two runs, each with a
-capture before recipe minting and another immediately before launch. A warm capture
-of this environment's 8,465 artifacts took 2.001, 2.060 and 2.020 seconds. Three
-calculations of each of three immutable manifests' identity had a 0.237-second
-overall median. A `cProfile` diagnostic attributed more parent-process time to closure walks
-and repeated identity projection than to the four Snakemake launches; its absolute
-times are inflated by instrumentation and are **not** a speed baseline.
+One instrumented fast run on 2026-09-26 used the current suite, 16 xdist
+workers and the existing `--dist=loadfile` recipe. It reported 5,704 passed, one
+skipped and the same two frozen-guard failures in 179.6 seconds. The earlier
+worktree run reported the same results in 180.74 seconds.
 
-The baseline is also red. `just test-fast` in the hydrated worktree reported **5,704
-passed, 1 skipped, 2 failed in 180.74 seconds**. Both failures are
-`test_frozen_guards.py` pin checks, and the same two fail on main. Recent changes to
-cut 5–8 acceptance runners falsified live and cited pins without completing the guard
-maintenance. A performance result cannot be called green until those checks pass.
+| Current fast-loop observation | Measured value |
+| --- | ---: |
+| Test time summed across workers | 1,210 seconds |
+| `_walk_closure` | 188 calls, 423 seconds (35% of worker time) |
+| `EnvironmentManifest.identity()` | 1,760 calls, 208 seconds (17%) |
+| `test_boundary.py`, pinned to one worker | 175 seconds |
+| `test_replay.py` / `test_verify.py` / `test_cut15_workflows.py` | 144 / 138 / 113 seconds |
+| Workers idle after roughly 40 seconds | 8 of 16 |
 
-Success means the same guarantees with a materially shorter measured wait: a median
-of **at most 90 seconds for `just test-fast`** and **at most 600 seconds for `just
-test`**, on the certified host and volume tuple under the existing `host-budget run`
-recipes. These are roughly twofold improvements over the recorded medians, not a
-license to omit tests. If a safe optimization falls short, the P0 remains open and
-the next design decision uses the measured residual cost; a recipe-only speedup does
-not close it.
+The 1,210 worker-seconds imply a 76-second perfect-balance floor before any
+optimization. In the current distribution, one file determines nearly the entire
+180-second wall time. Heavy files have one or two module fixtures, so splitting a
+file across workers may repeat expensive setup; the distribution must be measured,
+not assumed to win.
 
-## 2. Decisions and boundaries
+The serial gate cannot plausibly reach the previous draft's 600-second target by
+the permitted product changes alone. Capture plus identity account for about 52%
+of the current Python worker time outside N2. Memoizing repeated identities could
+save roughly 190 worker-seconds; even halving capture cost would save roughly 200
+more. That still puts a serial whole-suite run near 850–900 seconds, and an
+unrealistic removal of both costs leaves roughly 700 seconds once the other work
+is included. These are attribution estimates, not a serial benchmark.
 
-1. **Restore the existing gate first.** Repair the two frozen-guard failures as
-   specified by the [frozen guard doctrine](2026-09-07-frozen-guard-doctrine-design.md):
-   re-pin live machinery to the changed runner files; add the newly falsified pins to
-   the cited-not-run registry; append dated citation amendments to affected cut
-   records. Do not edit a cited-not-run guard or rewrite frozen evidence. The two
-   failures are already reproduced on main; prove the repair in this worktree before
-   taking a green performance baseline.
+Parallel execution is a plausible full-gate lever: on 2026-09-04, the then-current
+3,216-test full suite took 223.34 seconds with eight xdist workers and
+`--dist=loadfile`, versus 868.15 seconds serially. That sample does not predict
+the current suite's result, so the new full gate needs a fresh certified pilot.
 
-2. **Keep the two independent minimal-boundary captures.** `beliefs-5b28c5` records
-   the user's prior ruling: the capture at recipe creation and the capture before
-   launch detect a changed executing environment. `require_executing_environment`
-   must continue to re-read and compare the closure. Confined runs keep their own
-   capture, snapshot and pre/post-exit integrity checks from the
+The existing red baseline has a separate fix: `5ee9e24` on `design/publish`
+updates the live guard pins, cited-not-run registry and dated cut 7/9 citations.
+That branch passes all seven `test_frozen_guards.py` checks. The same change
+reached local main as cherry-pick `2ec30ce`: the seven guard checks, `just check`
+and `just test-fast` (5,706 passed, one skipped in 189.38 seconds) pass there.
+The P0 branch must incorporate that main commit before its performance baseline.
+This spec does not duplicate the pin repair. The underlying `117e97e`
+work-root change affected runners 4–9 and 11–41, not only cuts 5–8.
+
+Success is a median of **at most 90 seconds for the existing fast-loop
+selection** (Python without N2, plus affected TypeScript tests) and **at most
+600 seconds for a complete certified full gate** (all Python and TypeScript
+tests, including N2). The full gate may run independent tests in parallel; its
+meaning is coverage and verdict, not a serial schedule.
+The serial command remains available for diagnosis, not as a completion threshold.
+The targets apply to comparable warm runs on the certified host and volume under
+`host-budget run`. A speedup that changes the selected tests or weakens a
+capability-dependent check does not count.
+
+## 2. Decisions
+
+1. **Use the existing main fix, outside this P0.** Local main contains the
+   verified cherry-pick `2ec30ce` of `5ee9e24`. The P0 plan starts from that
+   guard-green tree; it does not create a competing pin change or rewrite frozen
+   evidence.
+
+2. **Balance the fast loop first.** `just test-fast` excludes N2, the only
+   documented reason for its `--dist=loadfile` setting. Trial xdist `load`
+   against the current `loadfile` command with identical collection and worker
+   budget. Trial `worksteal` if `load` leaves a slow tail. Where a test actually
+   needs worker affinity, apply a targeted `xdist_group` and use a scheduler
+   that honors it; do not group a whole heavy file merely to preserve the old
+   bottleneck. Record per-file wall time, worker assignment, fixture duplication
+   and aggregate worker-seconds. A recipe change may satisfy the fast-loop wall
+   target: developer wait is the outcome. It must keep all checks and pass on
+   repeated runs.
+
+3. **Memoize only the pure environment identity.** `EnvironmentManifest`
+   validates exact tuples of exact strings, so equal artifact tuples have equal
+   identity digests. Use a small bounded standard-library memo in `recipe.py`,
+   keyed by those validated artifact tuples, outside the dataclass instance.
+   The memo must not appear in `dataclasses.fields()`, `vars()`, equality, repr
+   or pickle; existing code projects values through `vars()` in several places.
+   Keep the public `identity()` method and its bytes unchanged. This is a
+   pure value memo, not a cache of closure observations: every capture still
+   reads and hashes every required artifact, and the pre-launch comparison still
+   observes mutations. If end-to-end gain does not beat measurement noise,
+   revert the memo.
+
+4. **Make the routine full gate parallel after proving equivalence.** The done
+   criterion of `beliefs-92e6fe` requires *full pytest*, and no banked
+   guarantee found in the current design or N2 harness requires independent
+   pytest files to run serially. N2 applies sabotages to copies, never to the
+   working tree. Its session-scoped findings fixture must remain on one xdist
+   worker so it is not recomputed on several workers; `--dist=loadfile` provides
+   that affinity for the first full-gate pilot. N2's nested pool must stay
+   within `OPS_WORKERS`. Only after the pilot passes on the certified tuple,
+   repeated runs agree on collection and verdict, and the full gate meets its
+   wall target should `just test`, pre-push and CI adopt the parallel command.
+   The explicit serial pytest command remains available for diagnosis.
+   Historical cut-specific acceptance commands, including records that used a
+   serial command, and their evidence are unchanged.
+
+5. **Keep the boundary guarantees.** The earlier user ruling in
+   `beliefs-5b28c5` requires two independent captures for minimal runs:
+   recipe capture and pre-launch recapture. Confined snapshot and pre/post-exit
+   checks remain as specified by the
    [run-confinement design](../../designs/2026-08-30-run-confinement-design.md).
-   A process-wide closure cache, digest cache across observations, skipped file
-   checks or changed manifest bytes would weaken these guarantees and is rejected.
+   No process-wide closure cache, cross-observation file-digest cache, skipped
+   files, changed manifest bytes or weaker mutation refusal is allowed.
 
-3. **Remove repeated pure work at its shared source.** First trial per-instance
-   memoization of `EnvironmentManifest.identity()`: `EnvironmentManifest` is frozen,
-   its artifact tuples and strings are immutable, and callers currently project and
-   hash the same manifest more than once per run. Use only the standard library and
-   keep the public `identity()` method and digest bytes unchanged. If the measured
-   end-to-end gain does not exceed run variance, revert the trial.
+The closure walker is a measured secondary cost, not the first lever. If balancing,
+identity memoization and a parallel full gate miss their targets, profile the
+residual before proposing path-walk changes or read-only fixture sharing. Keep
+frozen conformance-cut bodies and all assertions intact.
 
-4. **Then optimize the closure walk only where profiling pays for it.** The next
-   candidate is the repeated path and metadata work in `adapter.py`'s `add_records`,
-   `add_tree` and per-file location flow. Each candidate must still read and hash every
-   required artifact on *each* capture, preserve symlink, root-precedence and escape
-   handling, and produce exactly the same manifest, render plan and refusal behavior.
-   Trial one local change at a time; keep it only if the representative tests and
-   suite timing improve beyond observed noise. No new dependency or general cache is
-   justified by the measurements.
+## 3. Delivery and measurement order
 
-5. **Use fixture sharing only for proven read-only duplicate runs.** If product-level
-   work alone misses the target, inspect nonfrozen test modules such as the R4 negative
-   family in `test_replay.py`. A shared module fixture is allowed only where every
-   consumer reads the identical minted run without mutation and the test still
-   exercises its own distinct behavior. Frozen conformance-cut bodies remain intact;
-   no assertion or execution arm may be dropped to meet the time budget.
+1. **Prerequisite.** Incorporate main's pin fix into the P0 branch and confirm
+   the seven frozen-guard checks still pass. No second pin repair is planned.
 
-The alternative of making the full gate parallel or running it less often is rejected
-as the primary fix: `just test-fast` already uses xdist, and the serial full run is the
-required certified conformance gate. The cross-project policy that creates a P0 and
-halts new lower-priority work belongs to `ops-5beefd`; its design and implementation
-are separate from this repository's performance change.
+2. **Per-file measurement and fast scheduler trial.** First record the current
+   per-file breakdown, worker assignment and fixture cost, using the §1 table
+   as the initial comparison. Run one representative test from each heavy file
+   through a verdict under each proposed scheduler before a full-loop sweep.
+   Then run `load`, and `worksteal` only if needed, against `loadfile` on the
+   same warm worktree and host budget. Record commit, Python version, host load,
+   `OPS_WORKERS` and test count. A mode that exposes
+   order-dependent tests or repeats a module fixture enough to lose its wall
+   benefit is not adopted. Keep the mode with the shortest repeatable wall time
+   and full unchanged collection.
 
-## 3. Implementation shape
+3. **Identity trial.** Add a small regression check for digest equality,
+   immutability and invisibility to `fields`, `vars`, repr and pickle. Benchmark
+   identity calls and a representative pipeline test, then the complete fast
+   loop. Keep the bounded memo only if it produces a material end-to-end gain
+   without changing closure capture counts, refusals or recorded identities.
 
-The implementation plan will divide work into measured, reviewable steps:
+4. **Full-gate pilot and adoption.** Run one certified full parallel pilot
+   through its verdict using N2 affinity and a worker count within the host
+   budget. Read the full result before a longer comparison. Compare with the
+   seven-day serial distribution and the pilot's own per-file and N2 timings;
+   adjust distribution only from that evidence. Once equivalent and stable,
+   update the shared test command used by `just test`, pre-push and `ci-python`,
+   plus the current-facing `AGENTS.md`, justfile and README claims. CI remains
+   uncertified for capability-dependent arms; only the certified host proves
+   those arms.
 
-1. **Baseline repair.** Identify each falsified live and cited pin, make the doctrine's
-   targeted updates, and prove both guard checks pass. Record the repair as a separate
-   result from any speedup. The frozen-cut citation amendments explain the later
-   change without altering the original discharge claim.
-2. **Controlled baseline.** On the certified tuple, run a small representative case
-   through its verdict, then record warm capture and identity microbenchmarks, replay
-   test durations, a complete `just test-fast`, and the serial gate through `just
-   test` or the pre-push hook. `tt` records the wall time and test count. Record CPU
-   budget, Python version, commit and host load with each comparison.
-3. **Pure-work trials.** Trial immutable manifest identity memoization and then
-   measured closure-walk changes. For each, compare byte-identical manifest and
-   identity results, boundary mutation/refusal tests, a representative pipeline case,
-   and the fast suite before keeping it. Revert neutral or slower changes.
-4. **Residual slow-tail pass.** If necessary, share only read-only baseline runs in
-   mutable test files after checking every consumer. Measure each module and the whole
-   loop. Preserve all conformance assertions and accepted runner inventories.
-5. **Final verification and budget.** Run `just check`, `just test-fast`, and the full
-   certified `just test` gate. Update the current-facing recipe and README timing
-   claims with actual numbers; leave `tools/tt` and the existing recipes as the timing
-   source. Record the final comparison and any unsuccessful trials on the P0 task.
+5. **Final evidence.** Run `just check`, three warm fast-loop runs and at least
+   two complete certified full-gate runs under comparable load. Both full
+   runs must meet the 600-second target; if they disagree materially, take a
+   third. The median fast-loop time must meet 90 seconds. Record selected test
+   counts, skips, worker-seconds, range and any failed/reverted trials on the
+   P0 task. If either target remains unmet, keep the P0 open and use the
+   residual timing to choose the next bounded change.
 
-No host launcher, symlink or service pointer is repointed at the worktree. Every live
-test uses an explicit worktree path or a local environment override.
+A live test runs the worktree code by explicit path or local environment
+override. No host launcher, service or shared config pointer is repointed.
 
 ## 4. Verification contract
 
-**Correctness.** The two existing frozen-guard failures must turn green through pin
-maintenance, not skips. A changed artifact between the two minimal-boundary captures
-must still refuse execution. Confined pre/post-exit mutation checks, closure escape
-refusals, symlink handling, recipe identities and N2 capability-dependent arms must
-retain their results. The full serial gate must pass on the certified tuple; a green
-CI run on an uncertified runner cannot substitute for it.
+- The main baseline and final certified gate pass without converting failures
+  into skips. N2 still audits every declared arm and retains its own copied
+  workspaces; the full gate runs the same test inventory as serial pytest.
+- Changing an artifact between the two minimal-boundary captures still refuses
+  execution. Confined pre/post-exit mutation checks, symlink and escape
+  refusals, recipe identities and frozen guard pins retain their results.
+- The chosen scheduler passes repeated full runs on the certified tuple.
+  Parallel execution must not make a module fixture or fixed work root produce
+  an order-dependent result. If it does, diagnose that shared state before
+  changing the gate; the serial command remains the gate until resolved.
+- Wall time is compared with the same commands and warm caches. Report
+  aggregate worker-seconds beside wall time so fixture duplication is visible.
+  A green uncertified CI run is evidence about portable tests only.
 
-**Performance.** Compare the same commands, warm dependency caches and host budget.
-Use at least three warm samples for capture, identity and representative test timings;
-use three complete fast-loop samples before and after a retained optimization. For the
-expensive serial gate, use the recent `tt` distribution and one repaired-tree baseline,
-then at least two post-change complete runs under comparable host load. Record median,
-range, test count and failures. If the post-change samples straddle a target, add one
-sample rather than declaring a win from the best run. Only a passing result that beats
-run-to-run variance counts as an improvement.
-
-The P0 closes when both time targets are met and the certified gate is green, or after
-the user reviews a new design that explicitly changes the target based on measured
-limits. `ops-5beefd` remains responsible for making a future sustained breach visible
-and blocking lower-priority starts across projects.
+`ops-5beefd` owns the separate cross-project policy for surfacing a sustained
+budget breach as P0 and stopping lower-priority starts.
