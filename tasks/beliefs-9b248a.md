@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T16:08:37Z
+updated: 2026-09-26T16:21:32Z
 started: 2026-09-26T10:07:42Z
 depends: []
 tags: [testing]
@@ -17,9 +17,9 @@ spec: docs/superpowers/specs/2026-09-26-test-suite-latency-design.md
 plan: docs/superpowers/plans/2026-09-26-test-suite-latency.md
 ---
 
-Why: seven-day medians were 1243 s for just test and 190 s for just test-fast, slowing iteration for weeks. The current 5704-test attribution found 1210 aggregate worker-seconds, including 423 s in closure captures and 208 s in repeated environment identities, with the 175 s test_boundary.py worker setting fast-loop wall time. Local main pin fix 2ec30ce restores a green baseline.
+Why: seven-day medians were 1243 s for just test and 190 s for just test-fast, slowing iteration for weeks. The current 5704-test attribution found 1210 aggregate worker-seconds, including 423 s in closure captures and 208 s in repeated environment identities, with the 175 s test_boundary.py worker setting fast-loop wall time. Local main pin fix 2ec30ce restores a green baseline. Standalone N2 passes 46 tests in 193 s with 16 workers; under grouped xdist its nested pool would fall to one worker.
 
-Outcome: keep the same full test inventory and both independent environment captures; use loadgroup with one N2 worker, a bounded pure identity memo, and a measured parallel full gate. On the certified tuple require warm fast-loop median at most 90 s and complete full runs at most 300 s, with any full-target revision justified only by measured N2 time. Record counts, worker-seconds and verdicts; keep the P0 open if either target is missed. The cross-project stop-work policy belongs to ops-5beefd.
+Outcome: keep the same full test inventory and both independent environment captures; use loadgroup for non-N2 tests, run N2 as a second serial pytest phase with its full pool, and add a bounded pure identity memo. On the certified tuple require warm fast-loop median at most 90 s and complete full runs at most 300 s. Record counts, worker-seconds and verdicts; keep the P0 open if either target is missed. The cross-project stop-work policy belongs to ops-5beefd.
 
 ## Notes
 
@@ -51,3 +51,6 @@ Outcome: keep the same full test inventory and both independent environment capt
 - 2026-09-26T16:08:32Z (perf/test-latency): Implementation plan drafted in docs/superpowers/plans/2026-09-26-test-suite-latency.md with four ordered child tasks: loadgroup/N2, identity memo, parallel full gate, final evidence. User-approved spec includes 90 s fast and provisional 300 s full targets. tasks check and docs hook pass; no latency code implementation has started.
 - 2026-09-26T16:08:37Z (perf/test-latency): parked (waiting on user, review): User reviews .worktrees/test-latency/docs/superpowers/plans/2026-09-26-test-suite-latency.md; after approval Codex resumes in that worktree, starts beliefs-a77bf9, and runs the four-file scheduler pilot before the first full sweep.
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T16:19:07Z (perf/test-latency): resumed
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T16:19:12Z (perf/test-latency): Claimed by Codex /root, pid 632270. Review found grouped N2 would receive OPS_WORKERS // PYTEST_XDIST_WORKER_COUNT = 1 here; changing the reviewed design to parallel non-N2 plus serial N2 in one gate, then implementing the four plan steps directly.
