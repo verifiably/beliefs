@@ -505,3 +505,9 @@ artifact that must survive belongs on the durable volume beside the checkout,
 not in scratch. Future subagent-driven executions must either keep the rulings
 ledger at a tracked path and commit it at close-out, or copy it out of the
 worktree before `git worktree remove`.
+
+## 11. Dated citation amendment — 2026-09-26
+
+Commit `117e97e` changed the default certified work-root resolution in the cut
+5 and 6 runners. Cut 7's live guard now pins those runner files at that commit.
+This updates current machinery; the discharge and its recorded run are unchanged.
