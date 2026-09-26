@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-09-16
+updated: 2026-09-26
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -25,11 +25,28 @@ sources:
 
 # Computation and reproducibility
 
-## TL;DR
+## In brief
 
-A run is an immutable, complete execution closure; reproduction compares two
-runs under a frozen equivalence rule, and only a passing clean-environment
-verification can admit an assessment to empirical belief.
+Before an analysis runs, its plan is frozen: what it estimates, how its output
+becomes a verdict, and what "the same result" means. The analysis then runs —
+for evidence, in a sealed environment that can see only the code, software, and
+data it captured — and the **run** record keeps all of it. To count as evidence, the analysis must
+be run a second time in a fresh environment and the two runs compared under the
+frozen rule. Only a match reached that way — a *clean-environment* verification —
+lets the analysis's assessment into a belief.
+
+- **The plan comes first.** The analysis spec is fixed before the result exists,
+  and the run cannot override it.
+- **A run is complete or it is not a run.** Recipe, outputs, and the facts of
+  the execution are all captured; a missing piece is refused, not tolerated.
+- **Only confined execution counts.** A confined run sees only its captured
+  closure, with no network. A less-confined run is still a run, but it can never
+  reach the scope that admits evidence.
+- **"Can we replay it", "did the replay match", and "does it count" are three
+  separate questions.** Only a passed clean-environment verification answers the
+  last one yes.
+- **Data preparation is tracked, not counted.** A dataset-production run records
+  lineage but never produces evidence about a claim.
 
 ## Why it matters
 
@@ -174,11 +191,11 @@ publication is implemented and discharged at cut 21
 ([design](../designs/2026-09-06-verification-publication-design.md),
 [results](../plans/2026-09-06-conformance-cut-21-results.md)): a published
 verification carries its comparison report, so the audit and the import
-recompute its scope from the corpus rather than from an in-memory value. What is not built here is owned
-elsewhere — the mutation log's event-level order (L8); and the
-preimage-backed classification of a removed verification (L13) — and listed
-with those owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16).
+recompute its scope from the corpus rather than from an in-memory value. The
+run boundary has no open boundary of its own; R22's resolver arm and R23's
+rules-store clauses wait on the first full contract cut, as the
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
+records.
 
 The mm30 reproduction was re-run end to end at cut 31 under the successor
 contracts (`../designs/2026-09-05-mm30-reproduction.md` §10). It **recreates**

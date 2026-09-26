@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-09-24
+updated: 2026-09-26
 sources:
   - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
@@ -28,9 +28,18 @@ sources:
   - ../designs/2026-09-15-conformance-cut-31.md
   - ../designs/2026-09-12-composite-claims-design.md
   - ../designs/2026-09-16-conformance-cut-32.md
+  - ../superpowers/specs/2026-09-22-act-report-remainder-design.md
+  - ../superpowers/specs/2026-09-21-event-level-l8-design.md
 ---
 
 # Open questions
+
+## In brief
+
+These are the design decisions nobody has made yet. Each entry says what is
+undecided and links to the design that raised it. A question here is not a bug
+and not missing code: it is a choice that has to be made, usually once a real
+case forces it, before the affected part can be designed.
 
 This page groups the material open edges that remain after later designs closed
 or narrowed earlier questions. It is a navigation aid, not a new docket: follow
@@ -48,9 +57,6 @@ implementation**: a guarantee row awaiting code is work, not a question.
   model-conditional, proof, derivation, and simulation claims cannot satisfy the
   empirical `observes` route. Do they get a second eligibility and answer model,
   or remain outside computed belief? ([kernel question](../designs/2026-08-02-epistemic-kernel-design.md#11-open-questions))
-- ~~**Empirical-observation facet.** What demonstrates an acquisition boundary?~~
-  **CLOSED 2026-09-05** by the
-  [facet-contracts design §6](../designs/2026-09-05-facet-contracts-design.md#6-the-empirical-observation-contract).
 - **Lineage-inherited empirical standing.** Should a derived dataset inherit
   empirical standing from observed ancestors, and what exact lineage proof
   would permit it? ([facet-contracts design §14](../designs/2026-09-05-facet-contracts-design.md#14-open-questions-this-design-files))
@@ -137,9 +143,11 @@ implementation**: a guarantee row awaiting code is work, not a question.
   which weights a design key and a precision term license, and whether any
   constants are global or domain-scoped.
   ([belief questions](../designs/2026-08-05-belief-policy-design.md#9-open-questions))
-- **Losing the last held copy.** Nothing records the destruction of a final held
-  artifact. The recorded-loss repair was withdrawn as premature and stays
-  withdrawn, so the gap is a stated residue rather than an oversight.
+- **Losing the last held copy.** Since cut 18 the managed holdings deletion act
+  records a last held copy's removal through the boundary. Destruction outside
+  the boundary is still recorded nowhere, and the recorded-loss repair was
+  withdrawn as premature and stays withdrawn, so that gap is a stated residue
+  rather than an oversight.
   ([ρO2](../designs/2026-08-04-formal-model-and-claim-calculus-design.md#11-open-questions))
 - **Whether the nine † labels are adopted.** The formal model froze none of
   them. Adopting commits the banked tables to a vocabulary; declining leaves the
@@ -165,14 +173,6 @@ implementation**: a guarantee row awaiting code is work, not a question.
   honest default rather than a finding that attesters are equally reliable. The
   data collection that would inform per-source priors does not exist.
   ([ruling question](../designs/2026-08-08-world-address-ruling.md#11-open-questions))
-- **Authority and coordination.** The designs assume one writer and no access
-  control; multi-writer semantics, authority to retract, and propagation of
-  cross-project blockers still need concrete rules. The root lifecycle
-  (2026-08-23) narrowed the accident half mechanically — a copy fails closed
-  and two cooperative writers of one root are unconstructible, the sole
-  writable exit a fork under a fresh identity — but who *may* write remains
-  the open question. ([review writer question](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md#8-open-questions),
-  [root-lifecycle design](../designs/2026-08-23-world-index-root-lifecycle-design.md))
 - **Storage and retention.** The epoch carrier now fixes closed YAML members
   and explicit whole-epoch GC, but retention policy, redirect growth, and log
   serialization still need measurements before pruning or format rules are
@@ -196,6 +196,7 @@ implementation**: a guarantee row awaiting code is work, not a question.
   built; a design amendment to the log design §7 when a consumer needs it.
   ([event-level L8 design](../superpowers/specs/2026-09-21-event-level-l8-design.md#11-limitations-and-open-questions-this-slice-files),
   [log design §7](../designs/2026-08-03-tamper-evident-log-design.md#7-ordering-across-chains))
+
 ## Computation and reproducibility
 
 - **Artifact lifetime.** Held code, environments, inputs, and outputs accumulate;
@@ -265,32 +266,31 @@ implementation**: a guarantee row awaiting code is work, not a question.
   certification is unspellable and existing instruments certify only through a
   successor spec. Open is the cadence: sweep, mint on next authored use, or
   never. ([normative-contract questions](../designs/2026-08-03-normative-contract-design.md#11-open-questions))
-- **The act-report's residue.** The act-report design (2026-08-11) closed
-  the run boundary's report seam: the boundary-minted terminal record of
-  an opened operation — or the pre-intent refusal record of a rejected
-  run request — the operation intent's three-valued completion reading
-  (unfinished, indeterminate, closed), and the durable home of a look's
-  non-report. Three things stay open, deliberately: cross-root publication
-  of a dataset's provenance reference and its acquiring report (refused
-  today); a compaction protocol that must preserve intent-qualification
-  resolvability and fulfillment evidence (the rule today is retain); the
-  agentic surface — audit scheduling and liveness, kernel sub-problem 6.
-  The operation-kind enum is no longer closed at five: cut 16 added `move`
-  and `consolidate`, cut 19 `corpus-write`, and cut 35 built the
-  `acquisition` boundary the enum had named since 2026-08-11. Cut 38
-  (2026-09-22) built the `audit` and `re-check` operations; every kind but
-  `corpus-write`, reportless by design, now opens through a boundary and
-  closes through exactly one terminal record — the `run` where one is
-  minted, the act-report otherwise. One question the slice files: a
-  world-scope audit operation — one report per touched root under one token
-  (§2.2's composite shape), or one report whose entries name their corpus —
-  either an act-report design amendment
-  (`../superpowers/specs/2026-09-22-act-report-remainder-design.md` §13).
-  Cut 39 (2026-09-23) added `publish`, the ninth kind, which opens only
-  through its domain intent and carries one `publication-binding` entry.
-  Cut 40 (2026-09-24) added its lifecycle entries: `publication-request`,
-  `publication-staging`, `publication-export` and `publication-reveal`,
-  which form one ordered sequence ahead of the binding. The remote
-  transport's entries are work for cut 42, not a question.
+
+## Writes, operations, and publication
+
+- **Who may write.** Write permits (cut 17) and the writer session (cut 19)
+  settle *how* a write is authorized and attributed, not *who* is entitled to
+  it. The designs assume one writer and no access control; multi-writer
+  semantics, authority to retract, and propagation of cross-project blockers
+  still need concrete rules. The root lifecycle
+  (2026-08-23) narrowed the accident half mechanically — a copy fails closed
+  and two cooperative writers of one root are unconstructible, the sole
+  writable exit a fork under a fresh identity — but who *may* write remains
+  the open question. ([review writer question](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md#8-open-questions),
+  [root-lifecycle design](../designs/2026-08-23-world-index-root-lifecycle-design.md))
+- **The act report's residue.** Every operation kind but `corpus-write` now
+  opens through a boundary and closes through exactly one terminal record (cut
+  38), and `publish` joined as the ninth kind at cut 39. Three things stay
+  open, deliberately: **cross-root publication** of a dataset's provenance
+  reference and its acquiring report (refused today; T7's cross-root case); a
+  **compaction protocol** that must preserve intent-qualification resolvability
+  and fulfillment evidence (the rule today is retain everything); and the
+  **agentic surface's** audit scheduling and liveness, kernel sub-problem 6.
   ([act-report design](../designs/2026-08-11-act-report-design.md),
   [what stays open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open))
+- **A world-scope audit operation.** The `audit` operation judges one corpus. A
+  world-wide audit could be one report per touched root under one token, or one
+  report whose entries name their corpus; either is an act-report design
+  amendment.
+  ([act-report remainder §13](../superpowers/specs/2026-09-22-act-report-remainder-design.md#13-open-questions-this-slice-files))

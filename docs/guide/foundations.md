@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-09-23
+updated: 2026-09-26
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -23,15 +23,31 @@ sources:
   - ../designs/2026-09-12-composite-claims-design.md
   - ../superpowers/specs/2026-09-22-publication-records-design.md
   - ../plans/2026-09-23-conformance-cut-39-results.md
+  - ../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md
+  - ../designs/2026-09-24-live-query-evaluation-design.md
 ---
 
 # Foundations
 
-## TL;DR
+## In brief
 
-Science makes empirical belief a derived reading over a small typed kernel:
-only reproduced assessments of held observations can enter it, and contracts
-make invalid routes unconstructible at the boundary.
+At the centre of Science is one rule: **a belief about the world can only be
+moved by an analysis that was re-run successfully on data we actually have.**
+Everything else is arranged to protect that rule. There is a small, fixed set of
+record kinds, and only one of them — the assessment — has a path into belief.
+Contracts say what each record may contain, and the system refuses anything that
+does not fit rather than trying to fix it.
+
+- **One route to belief.** An assessment of a claim, backed by a verified re-run
+  over held data. Papers, notes, and tasks have no route.
+- **"Held" means we can produce the exact bytes.** A dataset we can only name,
+  not produce, is *declared* and never counts.
+- **Fourteen kernel record kinds, no more.** Beliefs, indexes, projects, and
+  tasks are views or coordination records, not kernel kinds.
+- **Each rule lives where its nature puts it.** Storage knows nothing about
+  science; the kernel knows the scientific rules; domains add vocabulary.
+- **Refuse, don't repair.** A sanctioned action produces a valid state or a
+  refusal; audit reports writes that went around it.
 
 ## Why it matters
 
@@ -150,18 +166,21 @@ reference. Editing mints an immutable **revision** through a family that takes
 one or more predecessor tips; an address resolves to its one standing tip or
 refuses naming every tip, and divergence is repaired by one revision
 superseding them all. The query a view stores is `science.view-query.v1` — a
-small, closed selector grammar evaluated at a named epoch, deliberately not a
-query engine. The evaluator is `evaluate_query` over the world read view, delivered at cut 28. The [coordination-and-view-kinds
+small, closed selector grammar, deliberately not a query engine. It is
+evaluated either at a named epoch (`evaluate_query`, cut 28) or live over the
+corpora's current state for attention reads such as a work queue
+(`evaluate_live_query`, cut 41); see
+[reading the world](identity-world-and-change.md#reading-the-world-at-an-epoch-or-live).
+The [coordination-and-view-kinds
 design](../designs/2026-08-31-coordination-and-view-kinds-design.md)
-specifies all of this and is implemented through conformance cut 14. Its 2026-09-02
-§11 amendment leaves W17's intent-position evidence with `publish`, the first
-operation that can define an honest multi-root proof shape; cut 14 covers the
-ordinary revision family and builds no caller-asserted substitute. Cut 39
-supplied that evidence: the publish intent carries its frozen tips and one
-anchor per other mounted root, and presence at the intent's position is each
-root's chain inventory at its bound, never the directory — so W17 closes
+specifies all of this and is implemented through conformance cut 14.
+
+The coordination contract's version 2 adds two more coordination kinds,
+`publication` and `publication-binding`, which record a published view and bind
+a view and destination to what was published. Only the publish act mints them
 ([publication-records design](../superpowers/specs/2026-09-22-publication-records-design.md);
-[cut 39 results](../plans/2026-09-23-conformance-cut-39-results.md)).
+[cut 39 results](../plans/2026-09-23-conformance-cut-39-results.md)); see
+[publishing a view](writes-operations-and-publication.md#publishing-a-view).
 
 ### Ownership follows the nature of the rule
 
@@ -172,6 +191,21 @@ root's chain inventory at its bound, never the directory — so W17 closes
 | `domains` | Namespaced sorts, operators, dimensions, facets, and vocabulary bindings. A domain may extend interpretation, not redefine kernel relations. |
 | `practices` | Procedures and workflows that use the model without owning scientific vocabulary. |
 | `atoms` | Durable atomic filesystem effects, including the pre-mutation registration boundary. |
+
+Domain and practice packs live inside this repository: domains under
+`python/src/beliefs/domains/`, where the biology pack is the first shipped one,
+and practices as `PRACTICE.yaml` documents that `beliefs.contract.practice`
+parses, with no pack shipped yet. `nodes` and `atoms` are their own
+repositories. Two layers sit above the kernel,
+each its own repository: `science`, the daily surface of commands people and
+agents use, and `autonomy`, which runs that surface unattended. Neither owns a
+record kind or any storage: every durable thing they produce is a governed
+record written through a `beliefs` writer
+([layer design §3](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md#3-repositories-and-names)).
+
+Only one module, `beliefs/root.py`, imports `atoms`: the composition root binds
+the certified engine and hands every other module a seam. The rule is tested
+(`test_capability_boundary.py`).
 
 Composition happens at Science's boundary. There is no compatibility layer with
 the predecessor: legacy material is reproduced through the ordinary typed
@@ -211,24 +245,26 @@ structural or integrity finding, but it mints nothing and performs no repair.
   the run closure that makes an assessment eligible.
 - [Contracts and adoption](contracts-and-adoption.md) explains frozen guarantees
   and which parts of these boundaries are executable today.
+- [Writes, operations, and publication](writes-operations-and-publication.md)
+  describes the permit-bound doors every write goes through.
 
 ## Current state
 
-The kernel's typed records, admission and belief computation run: claim
-construction and identity, the derived admission state, the assessment
-admission gate, and `science.belief.v1` under an exact binding. Kernel §8.7's
-recorded-mutation consequences now close through the mutation log's anchor
-carriage and verification and cut 12's successor admission. Every write entry
-point now receives a bound authority, checks its permit before effects, and
-reads its actor from that authority. The agentic surface has an approved [user
-and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md);
-its writer session is implemented and discharged as conformance cut 19
-([writer-session design](../designs/2026-09-05-writer-session-design.md)) — the
-attended session, its session ledger and claim protocol, the invocation-bound
-scoped writer, and reconciliation. Its [session routes](../designs/2026-09-09-session-routes-design.md)
-add ledgered run and holdings access, the public store identity reader, and
-kernel-scoped reference rules. Its daily surface and autonomy
-sub-projects are not yet implemented; salvage remains undesigned. The [adoption ledger's current-state
+- **Built:** the fourteen kernel kinds with typed construction and identity; the
+  derived admission state, the assessment admission gate, and
+  `science.belief.v1` under an exact binding; the mutation log's anchoring and
+  verification and successor admission, which close kernel §8.7's
+  recorded-mutation consequences; facet contracts and the empirical-observation
+  payload (cut 20); views and coordination records (cut 14) with both query
+  evaluators; bound authority at every write entry point (cut 17); and the
+  writer session, its routes, and session selection
+  ([writer-session design](../designs/2026-09-05-writer-session-design.md),
+  [session routes](../designs/2026-09-09-session-routes-design.md)).
+- **Above the kernel:** the `science` daily surface has its command framework
+  and belief-path commands and part of its coordination commands; `autonomy` is
+  not started; salvage has no design.
+
+The [adoption ledger's current-state
 summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
 is the complete statement of what is built and what remains.
 

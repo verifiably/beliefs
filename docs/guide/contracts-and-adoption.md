@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-25
+updated: 2026-09-26
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -72,15 +72,33 @@ sources:
   - ../plans/2026-09-23-conformance-cut-39-results.md
   - ../plans/2026-09-24-conformance-cut-40-results.md
   - ../plans/2026-09-25-conformance-cut-41-results.md
+  - ../plans/2026-09-02-conformance-cut-14-results.md
+  - ../plans/2026-09-01-conformance-cut-15-results.md
 ---
 
 # Contracts and adoption
 
-## TL;DR
+## In brief
 
-Frozen guarantee identifiers become executable, mutation-tested obligations in
-immutable contract cuts; adoption proceeds in dependency-ordered slices, and the
-living ledger—not this guide—is the authority for what has actually landed.
+The designs make promises, and each promise has a permanent label — G1, W8a,
+R12 — called a **guarantee row**. Work is built in small slices called
+**conformance cuts**. Each cut is frozen before any of its code exists: it names
+which rows the slice will satisfy, and states what it leaves out. Every check
+the cut adds is paired with a deliberate break of the code, and the check must fail when that
+break is applied; a check that cannot fail does not count. The
+[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16),
+not this guide, says what has landed.
+
+- **Promises have permanent names.** Rows are never renumbered, so a test or a
+  review can point at exactly the obligation it covers.
+- **Scope is chosen before the code.** A cut cannot be widened afterwards to
+  match what happened to get built.
+- **Every check proves it can fail.** Each is armed with a sabotage that must
+  turn it red.
+- **Partial is the honest default.** If any selected part of a row is not
+  exercised, the row stays partial.
+- **Measurements inform; they do not certify.** Surveys of real corpora narrow
+  what the next slice should claim, and never change implementation status.
 
 ## Why it matters
 
@@ -143,51 +161,40 @@ exercise and must leave the rest explicitly deferred. The clean-start ruling
 also forbids mechanical predecessor migration and compatibility machinery:
 records are reproduced through the new typed boundaries.
 
-Conformance cut 1 was frozen before implementation. It selected eleven of 126
-then-banked guarantee rows—six wholly and five only at named assertion arms—and
-classified the other 115 by the subsystem that would unblock them. The corpus
-has since grown to 231 rows across twenty-two frozen tables (the README keeps the
-count): the belief policy's P1–P9 banked the day the cut was drawn, the admission ramp appended G9 on 2026-08-09
-while narrowing W3's dataset arm, the verified-holdings record design banked
-H1–H4 on 2026-08-10, the act-report design banked T1–T8 on 2026-08-11, the coordination-and-view-kinds design banked W17–W18 on 2026-08-31, and
-later designs banked their tables through Q (estimand typing, cut 31) and U
-(composite claims, cut 32), the publication-records slice banked Y1–Y4
-on 2026-09-22 with cut 39's freeze, the publish act's slice banked
-Y5–Y10 on 2026-09-24 with cut 40's freeze, and the live view-query design
-banked Z1–Z5 on 2026-09-25 with cut 41's freeze. The
-cut's stop rule was the last fully designed seam: typed claim construction,
-projection, identity, decode, and cross-language parity, with no persistence
-boundary and no belief computation.
+[Conformance cut 1](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md#5-conformance-cut-1--frozen-prospectively)
+set the pattern. Frozen before implementation, it selected eleven of the 126
+rows then banked — six wholly and five only at named assertion arms — and
+classified every other row by the subsystem that would unblock it. Its stop rule
+was the last fully designed seam: typed claim construction, projection,
+identity, decode, and cross-language parity, with no persistence and no belief
+computation. [Cut 2](../designs/2026-08-09-conformance-cut-2.md) drew the next
+line at the belief seam and [cut 3](../designs/2026-08-11-conformance-cut-3.md)
+at the run boundary, each frozen before any of its code existed and each read
+adversarially by a second reviewer before the freeze. Every cut since has
+followed the same discipline.
 
-[Conformance cut 2](../designs/2026-08-09-conformance-cut-2.md) was frozen
-2026-08-09 on the same discipline, before its slice was built, and gives the
-ten post-cut-1 rows their owner. The selection required no amendment after
-the freeze. It is drawn at the belief seam — the derived
-admission state, the assessment admission gate, the belief input closure digest,
-and `science.belief.v1` under an exact binding — selecting 13 rows in full and
-11 at named assertion arms, and classifying the remaining 108 deferred rows by the
-subsystem that unblocks them. The admission ramp's three open questions are its
-stated boundary conditions: verified-holdings observations enter as supplied
-arguments precisely because where they are recorded had not yet been
-designed at the freeze (designed 2026-08-10, the verified-holdings record
-design; the frozen selection is unchanged), no arm reads an observation's
-timestamp, and the partly-pinned fixtures exercise a ruled boundary without
-corroborating the ruling. A second reader reviewed the
-selection adversarially before the freeze, and every arm its findings moved,
-they moved out.
+The row corpus grows as designs bank new tables; the repository README keeps
+the current count, and the ledger the number closed.
 
-[Conformance cut 3](../designs/2026-08-11-conformance-cut-3.md) was frozen
-2026-08-11 at the run boundary, again before any of its implementation
-existed. It selects 15 rows in full and 19 at named assertion arms — spec
-freezing and closure construction, the execution boundary through a minimal
-Snakemake adapter, dataset production, replay and verification-as-value, and
-the completion and report layer. Of the twelve rows banked after cut 2, seven
-— T1–T6 and T8 — gain their first arms, while H1–H4 and T7 wait on the
-persistence seam: the holdings design's own assignment. The selection was
-amended across three adversarial readings before merge, with the frozen text
-preserved verbatim, and a scratch root is staging by location, not
-confinement — no arm of this cut reaches `clean-environment`. The selection
-required no amendment after the freeze.
+### How a cut runs
+
+1. **Freeze.** A cut document selects rows, whole or at named assertion arms,
+   and states what it deliberately leaves out. It is frozen by a dated commit
+   after review; later evidence that invalidates it is recorded beside it, never
+   edited into it. A cut number is claimed at freeze, in freeze order, which is
+   why cut 18 was frozen as 17 and renumbered.
+2. **Arm.** The acceptance runner for the cut (`python/tools/cutN_acceptance.py`)
+   pairs each selected unit with an exact sabotage mutation (runners exist
+   from cut 4 onward). The N2 harness applies it to an isolated copy and
+   classifies the arm sound, `vacuous`, `mixed`, `uncollected`, or `stale`.
+3. **Discharge.** The suite runs on the certified kernel-and-volume tuple, where
+   a missing capability is a failure rather than a skip. A **results record**
+   under `../plans/` records the outcome; the ledger, the roadmap, and
+   `test_recent_cut_acceptance.py` gain the cut in the same change.
+
+Two constraints recur in every plan because missing them has cost fix rounds:
+only `beliefs/root.py` may import `atoms`, and every discharged cut adds its row
+to `test_recent_cut_acceptance.py`.
 
 ### Measurements constrain the next slice
 
@@ -211,162 +218,80 @@ fitted result into independent validation.
   contract succession, standing, epochs, and audit inputs.
 - [Computation and reproducibility](computation-and-reproducibility.md) uses
   exact rule bindings and instrument certification in runs and verifications.
+- [Writes, operations, and publication](writes-operations-and-publication.md)
+  describes the doors whose guarantees the later cuts test.
 
 ## Current state
 
-Cut 23 discharges the world read view and cross-corpus traversal: D3, S1,
-S1a, S5, W6, W10 and R19 close; R23 gains its coverage clause and stays partial.
-W8b is measured and not selected. Its build defect is repaired by
-`beliefs-fda0e5`; the conformance row awaits a future selection.
-The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
-the certified chain and repository gates; it makes no new mm30 measurement.
-
-Thirty-seven conformance cuts have been frozen and discharged, each frozen before
-its code existed and each from cut 4 onward discharged on the certified tuple
-with a results record under `../plans/`. The cut discipline is what this page
-owns: a cut selects rows, the acceptance runner arms each selected unit with
-an exact sabotage mutation, and a discharge is a results record, never a
-re-reading of the frozen text. Cut 13 closed the run boundary's confinement
-arms — R15, R4, R9 and R13 in full, R16 and R21 at their confinement arms —
-so a real verification can reach `clean-environment`
-(`../designs/2026-08-30-run-confinement-design.md`). Cut 15 closes R2, R16,
-R20, and R21 across the full workflow surface and reads R23's local
-basis/composition disagreement without reopening replay cardinality. The
-relocation cut is discharged as cut 16: W5 reads in full, G3 and D7 close,
-W16, C3, R23, M3 and T2 remained partial there on their named remainders,
-T2 until it closes at cut 38, and T8 is
-re-read against `move` and `consolidate`. The write-permits cut is discharged
-as cut 17: E1–E8 close, every write entry point requires its permit before any
-effect, and no caller supplies an actor. The deletion cut is discharged as
-cut 18 — frozen the same day as cut 17 and numbered after it, because a number
-is claimed at freeze in freeze order: G2c, G8, C6, R5, W16, M1 and M5 close;
-S5, R23, R19, R22 and M3 were partial at that cut; S5 and R19 close at cut 23.
-C1, T8, M11 and M13 were re-read.
-The writer-session cut is discharged as cut 19: J1–J11 close — the `J` table's
-every row, selected in full before implementation and read in full afterwards
-(`../designs/2026-09-05-conformance-cut-19.md`).
-The facet-contracts slice is discharged as cut 20: 15 rows read full/closed,
-D1 was partial on its cross-repository arm, and D6's domain-facet reader arm
-then traveled with biology slice 2
-(`../plans/2026-09-07-conformance-cut-20-results.md`).
-The verification-publication cut is discharged as cut 21 (V1–V8 full/closed),
-and the biology-pack slice is discharged as cut 22 (B1–B7 and D6 full/closed;
-D1 still partial then)
-(`../plans/2026-09-08-conformance-cut-22-results.md`).
-Cut 26 closes D1's cross-repository negative through namespace-renaming
-invariance and two `nodes`-package sabotages
-(`../designs/2026-09-12-conformance-cut-26.md`;
-`../plans/2026-09-12-conformance-cut-26-results.md`).
-Cut 27 discharges world resolution slice 3 — R23's snapshot, import and
-divergence clauses, W8a's packaging arms, the X5 and W13 relabels and the new
-row S9 (`../plans/2026-09-13-conformance-cut-27-results.md`).
-Cut 28 discharges world resolution slice 4 — W7's view evaluation and the W8/W8b conflicts over existing code (`../designs/2026-09-14-conformance-cut-28.md`; `../plans/2026-09-14-conformance-cut-28-results.md`).
-Cut 29 discharges world resolution slice 5 — dataset ids derived from the content identity and held at the write boundary and both inputs of `consolidate` (`../designs/2026-09-14-conformance-cut-29.md`; `../plans/2026-09-14-conformance-cut-29-results.md`).
-Cut 30 discharges world resolution slice 6 — divergent correction histories reconcile at `consolidate` by absorption (`../designs/2026-09-15-conformance-cut-30.md`; `../plans/2026-09-15-conformance-cut-30-results.md`).
-Cut 31 is discharged: estimand typing, the first off-path lane after the world-read path closed, reading Q1–Q10 in full over 26 sabotage arms — the estimand, its applicability, and the estimate and uncertainty the rule yields are typed, and a pre-grammar record is refused under its own name (`../designs/2026-09-15-conformance-cut-31.md`; design `../designs/2026-09-12-estimand-typing-design.md`; results `../plans/2026-09-16-conformance-cut-31-results.md`).
-Cut 32 discharges composite claims, the second off-path lane under rule 6, reading U1–U10 in full over 26 sabotage arms — the `composite` kind records the structure a set of claims is drawn against, its reading is derived through the traced evaluator and stored nowhere, and it is inert to belief (`../designs/2026-09-16-conformance-cut-32.md`; design `../designs/2026-09-12-composite-claims-design.md`; results `../plans/2026-09-16-conformance-cut-32-results.md`).
-Cut 33 discharges correction-remainder slice 1: standing reaches the evaluator,
-C7 and C3 close, and C10's audit arm is read over 11 declaration units.
-Cut 34 discharges correction-remainder slice 2 and closes the boundary: the
-retraction target gains a third arm, the semantic snapshot, read live from
-the corpora its own coverage names and reported or refused at import, audit,
-diagnostic query, and the world read; C8 and C9 close over 17 declaration
-units, and the mutation lane has no further open boundary
-(`../designs/2026-09-19-conformance-cut-34.md`;
-`../plans/2026-09-19-conformance-cut-34-results.md`).
-Cut 35 discharges URL retrieval and closes the boundary: the `url` locator
-under the banked canonicalization profile, the network discipline as the
-kernel's URL dereference boundary behind an injectable transport seam, and
-the `acquisition` operation — one intent, per resource a URL look and an
-optional managed materialization, one act-report published in the same
-registered transaction as the dataset it mints. H4, G9, R10, T5, T1 and T4
-close over 27 declaration units and eleven boundary invariants; T2 stayed
-partial there on the `audit` and `re-check` operation kinds and closes at
-cut 38, and T7 remains partial on its cross-root case
-(`../designs/2026-09-20-conformance-cut-35.md`;
-`../plans/2026-09-20-conformance-cut-35-results.md`).
-Cut 36 discharges event-level L8 and closes the boundary: an event is
-`(corpus_id, entry_digest)` with at most one moment, a cut speaks about a
-chain only with a placeable anchor under the live genesis, and the relation
-is witness-asymmetric over ordered cuts — the double witness answers
-`unordered`. L8 closes over 16 declaration units and three boundary
-invariants; L4 and L10 close as relabels citing cuts 8, 9 and 10; L1 stays
-partial on its persistence arms, re-homed to `persistence-cut`
-(`../designs/2026-09-21-conformance-cut-36.md`;
-`../plans/2026-09-21-conformance-cut-36-results.md`).
-Cut 37 discharges the L13 preimage resolver and closes the boundary: the
-digest match over held copies and surviving preimage bytes, absence stated,
-corrupt local history refused. Fifteen arms over eleven declaration units
-(including three boundary invariants) close L13; row 5 stays partial for
-L1 under `persistence-cut`. That left the corpus at **187 of 216 rows
-closed, 29 open**
-(`../designs/2026-09-21-conformance-cut-37.md`;
-`../plans/2026-09-21-conformance-cut-37-results.md`).
-Cut 38 discharges the act-report remainder: the `audit` and `re-check`
-operations open through the boundary — one operation intent before any act —
-and each closes through one act-report, and a supplied operation port is bound
-to its writer's root, authority and profile or refused before any intent.
-Fourteen arms over twelve declaration units (including three boundary
-invariants) close T2 in full, so every operation kind but `corpus-write`,
-reportless by design, now opens through a boundary and closes through
-exactly one terminal record: the `run` where one is minted, the act-report
-otherwise; the T table stays partial on T7's cross-root case alone. That
-left the corpus at **188 of 216 rows closed, 28 open**
-(`../designs/2026-09-22-conformance-cut-38.md`;
-`../plans/2026-09-22-conformance-cut-38-results.md`).
-Cut 39's freeze banked the publication table, Y1–Y4
-(`../designs/2026-09-22-publication-design.md`), taking the corpus to 188 of
-220 rows closed. Cut 39 discharges publication records: the coordination
-contract's v2 amendment declaring `publication` and `publication-binding`
-and adding `composite` and `composes` to the query vocabulary, the two
-kinds' deterministic records, the `publish` operation kind and act family,
-the evidence-bearing publish intent, and the intent-position judgment over
-the chain's inventory. Fourteen arms over thirteen declaration units close
-W17 in full and Y1–Y4; `publish` stays open with its second slice, the act
-itself. That left the corpus at **193 of 220 rows closed, 27 open**
-(`../designs/2026-09-23-conformance-cut-39.md`;
-`../plans/2026-09-23-conformance-cut-39-results.md`).
-Cut 40's freeze banked the publish act's rows, Y5–Y10
-(`../designs/2026-09-22-publication-design.md`), taking the corpus to 193 of
-226 rows closed. Cut 40 is discharged. It builds the publish act for a local
-destination: the step-0 refusals and the selection snapshot, the request and
-its create-only write, staging through two dedicated doors, export, and the
-local reveal at `<destination>/<corpus_id>`. It also builds one terminal
-report carrying the lifecycle entries in step order, resumption by
-reinvocation, and the marker-required arrival door. Fifteen arms over
-fifteen declaration units close Y5–Y10. `publish` stays open with cut 42's
-remote slice. That left the corpus at **199 of 226 rows closed, 27 open**
-(`../designs/2026-09-24-conformance-cut-40.md`;
-`../plans/2026-09-24-conformance-cut-40-results.md`).
-Cut 41's freeze banked the live query's rows, Z1–Z5
-(`../designs/2026-09-24-live-query-evaluation-design.md`), taking the corpus
-to 199 of 231 rows closed. Cut 41 is discharged. It builds live view-query
-evaluation: a view query denoted over every admitted corpus's current state
-with no epoch, each present corpus captured inside its own hold, damage and
-world-record conflicts refused with publish's classification, and the
-result stamped by the states it captured. Twelve arms over twelve
-declaration units close Z1–Z5, and the `live-query` boundary enters and
-closes at its results record. The corpus now has **204 of 231 rows closed,
-27 open** (`../designs/2026-09-25-conformance-cut-41.md`;
-`../plans/2026-09-25-conformance-cut-41-results.md`).
-The complete normative contract cut, its executable suite and N1–N10 are not
-yet implemented. The
+Forty-one conformance cuts have been frozen and discharged, each frozen before
+its code existed and each from cut 4 onward discharged on the certified tuple.
+Cut 42, the remote half of the publish act, is being designed and is not yet
+frozen. The complete
+normative contract cut, its executable suite, and N1–N10 are not yet
+implemented; the roadmap schedules them after `publish`. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
-states what is built and which remaining boundaries have named owners; the cut
-documents and results records in the references below are the evidence.
+states the row count, what remains, and who owns it.
 
 The contributor guide has no ledger artifact of its own. That is deliberate:
 it documents the system, does not implement a system boundary, and no adoption
 item waits on it.
 
+### What each cut built
+
+A map from a cut number to the boundary it built. The cut document holds the
+exact selection; the results record under `../plans/` holds the evidence.
+
+| Cut | What it built |
+|---|---|
+| [1](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md) | Typed claim construction, projection, identity, decode, and Python/TypeScript parity |
+| [2](../designs/2026-08-09-conformance-cut-2.md) | The belief seam: admission state, admission gate, belief-input digest, `science.belief.v1` |
+| [3](../designs/2026-08-11-conformance-cut-3.md) | The run boundary: spec freezing, closure, minimal Snakemake execution, dataset production, replay, verification as a value, completion reading |
+| [4](../designs/2026-08-17-conformance-cut-4.md) | The first persistence slice: the composition root over the certified `atoms` engine and the add-only write boundary |
+| [5](../designs/2026-08-19-conformance-cut-5.md) | Family adapters: supersede, revise, retract, explicit import |
+| [6](../designs/2026-08-20-conformance-cut-6.md) | The world registry |
+| [7](../designs/2026-08-20-conformance-cut-7.md) | The epoch carrier |
+| [8](../designs/2026-08-22-conformance-cut-8.md) | Mutation-log verification and anchoring |
+| [9](../designs/2026-08-23-conformance-cut-9.md) | Root lifecycle and the store substrate |
+| [10](../designs/2026-08-24-conformance-cut-10.md) | Verified holdings, store-side |
+| [11](../designs/2026-08-27-conformance-cut-11.md) | General intent qualification and durable run publication |
+| [12](../designs/2026-08-29-conformance-cut-12.md) | Successor admission (G4 at persistence width) |
+| [13](../designs/2026-08-30-conformance-cut-13.md) | Run confinement: `clean-environment` becomes reachable |
+| [14](../plans/2026-09-02-conformance-cut-14-results.md) | Coordination and view kinds |
+| [15](../plans/2026-09-01-conformance-cut-15-results.md) | The full workflow surface (R2, R16, R20, R21) |
+| [16](../designs/2026-09-03-conformance-cut-16.md) | Relocation: `move` and `consolidate` |
+| [17](../plans/2026-09-04-conformance-cut-17-results.md) | Write permits at every write entry point (E1–E8) |
+| [18](../designs/2026-09-04-conformance-cut-18.md) | Managed deletion |
+| [19](../designs/2026-09-05-conformance-cut-19.md) | The writer session (J1–J11) |
+| [20](../designs/2026-09-05-conformance-cut-20.md) | Facet contracts |
+| [21](../designs/2026-09-06-conformance-cut-21.md) | Verification publication (V1–V8) |
+| [22](../designs/2026-09-08-conformance-cut-22.md) | The biology pack and the domain-facet read (B1–B7, D6) |
+| [23](../designs/2026-09-09-conformance-cut-23.md) | The world read view and cross-corpus traversal |
+| [24](../designs/2026-09-10-conformance-cut-24.md) | Coreference attestation and its balance |
+| [25](../designs/2026-09-10-conformance-cut-25.md) | Source addresses derived from normalized identifiers; identifier correction |
+| [26](../designs/2026-09-12-conformance-cut-26.md) | D1's cross-repository negative |
+| [27](../designs/2026-09-13-conformance-cut-27.md) | Epoch import, epoch audit and snapshot-state diagnostics, and the damaged-corpus world audit |
+| [28](../designs/2026-09-14-conformance-cut-28.md) | View-query evaluation at an epoch (W7, W8b) |
+| [29](../designs/2026-09-14-conformance-cut-29.md) | Dataset addresses derived from content identity |
+| [30](../designs/2026-09-15-conformance-cut-30.md) | Reconciling divergent correction histories at `consolidate` |
+| [31](../designs/2026-09-15-conformance-cut-31.md) | Estimand typing (Q1–Q10) |
+| [32](../designs/2026-09-16-conformance-cut-32.md) | Composite claims (U1–U10) |
+| [33](../designs/2026-09-16-conformance-cut-33.md) | Retraction standing reaches the belief evaluator (C3, C7) |
+| [34](../designs/2026-09-19-conformance-cut-34.md) | Retraction of a producer's semantic snapshot (C8, C9) |
+| [35](../designs/2026-09-20-conformance-cut-35.md) | URL retrieval and the `acquisition` operation |
+| [36](../designs/2026-09-21-conformance-cut-36.md) | Event-level ordering across chains (L8) |
+| [37](../designs/2026-09-21-conformance-cut-37.md) | Digest-matched classification of removed records (L13) |
+| [38](../designs/2026-09-22-conformance-cut-38.md) | The `audit` and `re-check` operations (T2) |
+| [39](../designs/2026-09-23-conformance-cut-39.md) | Publication records and the publish intent (W17, Y1–Y4) |
+| [40](../designs/2026-09-24-conformance-cut-40.md) | The publish act for a local destination (Y5–Y10) |
+| [41](../designs/2026-09-25-conformance-cut-41.md) | Live view-query evaluation (Z1–Z5) |
+
 ## Open edges
 
 See [Contracts and adoption](open-questions.md#contracts-and-adoption) for
 contract governance, the normative artifact's shape, certifying instruments that
-already exist, and the residues the verified-holdings record and the act-report
-design deliberately left open. The writer model sits with the other authority
-questions under
-[Identity, world, and change](open-questions.md#identity-world-and-change).
+already exist, relation endpoint enforcement, and the verified-holdings record's
+residue. The act report's residue and the writer model are under
+[Writes, operations, and publication](open-questions.md#writes-operations-and-publication).
 
 ## References
 
@@ -381,12 +306,4 @@ questions under
 - [Composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md)
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
-- [Cut 12 discharge results](../plans/2026-08-29-conformance-cut-12-results.md)
-- [Cut 34 discharge results](../plans/2026-09-19-conformance-cut-34-results.md)
-- [Cut 35 discharge results](../plans/2026-09-20-conformance-cut-35-results.md)
-- [Cut 36 discharge results](../plans/2026-09-21-conformance-cut-36-results.md)
-- [Cut 37 discharge results](../plans/2026-09-21-conformance-cut-37-results.md)
-- [Cut 38 discharge results](../plans/2026-09-22-conformance-cut-38-results.md)
-- [Cut 39 discharge results](../plans/2026-09-23-conformance-cut-39-results.md)
-- [Cut 40 discharge results](../plans/2026-09-24-conformance-cut-40-results.md)
-- [Cut 41 discharge results, the newest results record](../plans/2026-09-25-conformance-cut-41-results.md)
+- [The newest results record, cut 41](../plans/2026-09-25-conformance-cut-41-results.md); every other cut's record sits beside it under `docs/plans/`

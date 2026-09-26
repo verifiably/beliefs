@@ -2,7 +2,7 @@
 title: Glossary
 status: living
 created: 2026-08-08
-updated: 2026-09-20
+updated: 2026-09-26
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -18,6 +18,8 @@ sources:
   - ../designs/2026-09-15-conformance-cut-31.md
   - ../designs/2026-09-12-composite-claims-design.md
   - ../designs/2026-09-16-conformance-cut-32.md
+  - ../designs/2026-09-22-publication-design.md
+  - ../designs/2026-09-24-live-query-evaluation-design.md
 ---
 
 # Glossary
@@ -25,23 +27,24 @@ sources:
 Terms are defined in their Science-specific sense. Follow the topic link for
 context and the linked design references for normative detail.
 
-- **Act family** — One of the six closed classes of write in `beliefs` —
-  `corpus-write`, `run`, `holdings`, `registry`, `epoch`, `lifecycle` — that a
-  write permit names. `KIND_ACTS` maps each record kind to the families
-  admissible as its minting route; only the first three are reachable from a
-  command. ([write-permits design](../designs/2026-09-04-write-permits-design.md))
+- **Acquisition** — The operation that fetches resources by URL under a
+  recorded network discipline, optionally stores them, and — when every look
+  found what was expected — mints the dataset and its closing act report in one
+  transaction; otherwise the report closes alone (cut 35).
+  ([writes](writes-operations-and-publication.md#acquiring-data))
+- **Act family** — One of the seven closed classes of write in `beliefs` —
+  `corpus-write`, `run`, `holdings`, `registry`, `epoch`, `lifecycle`, and
+  `publish` — that a write permit names. `KIND_ACTS` maps each record kind to
+  the families admissible as its minting route.
+  ([writes](writes-operations-and-publication.md#every-write-carries-a-bound-authority))
 - **Act report** — The boundary-minted terminal record of one opened
-  operation — acquisition, audit, import, re-check, or a run attempt that
-  minted no run — or the refusal record of a run request rejected before
-  an operation can open. Inert by type; its entries record each member
-  act's subject, explicit instrument inputs, and outcome in that act
-  kind's own vocabulary, citable as (act-report ref, entry index). The
-  operations that open one today are `import`, `move`, `consolidate`,
-  `run-attempt` and, since cut 35, `acquisition` — one intent, per resource
-  a URL look and an optional managed materialization, and a closing report
-  published in the same registered transaction as the dataset it mints;
-  `audit` and `re-check` have no opening boundary yet.
-  ([act-report design](../designs/2026-08-11-act-report-design.md))
+  operation that minted no run, or the refusal record of a run request rejected
+  before an operation can open. Inert by type; its entries record each member
+  act's subject, explicit instrument inputs, and outcome in that act kind's own
+  vocabulary, citable as (act-report ref, entry index). Every operation kind
+  but `corpus-write` can close through one; `run-attempt` closes through its
+  `run` when one is minted.
+  ([writes](writes-operations-and-publication.md#ordinary-writes-and-operations))
 - **Address** — A canonical lookup key, `kind:<basis-digest>`, distinct from
   label, location, and historical continuity. ([identity](identity-world-and-change.md#identity-is-not-one-field))
 - **Analysis spec** — An immutable preregistered plan naming a proposition,
@@ -56,15 +59,14 @@ context and the linked design references for normative detail.
   ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
 - **Assessment** — A run-derived result that evaluates one proposition and is
   the only record kind allowed to enter empirical belief. ([claims](claims-and-belief.md#assessments-are-the-only-empirical-route))
-- **Audit wrapper** — The boundary operation that runs the read-only
-  audit evaluator and publishes its findings as entries in an inert act
-  report, under the wrapper's own operation intent. The evaluator's
-  contract is unchanged: it inspects any configuration, returns
-  validation or findings, and mints nothing.
-  ([act-report design](../designs/2026-08-11-act-report-design.md))
 - **Atoms** — The bottom layer of the stack: durable atomic filesystem
   effects, including the pre-mutation registration boundary. Its own
   repository. ([foundations](foundations.md#ownership-follows-the-nature-of-the-rule))
+- **Audit operation** — The `audit` operation kind: it appends one intent,
+  runs the read-only corpus audit evaluator under the root lock, and closes
+  through one act report carrying one entry per finding. The evaluator itself
+  inspects any configuration, returns validation or findings, and mints
+  nothing. ([writes](writes-operations-and-publication.md#the-nine-operation-kinds))
 - **Authority** — The frozen pair of a write permit and an actor, bound once
   at a construction seam (`open_corpus`, `open_world`, the operation port,
   the holdings act context, the lifecycle acts) and never per call. Every
@@ -97,6 +99,15 @@ context and the linked design references for normative detail.
 - **Clean-environment verification** — A passed comparison of equal recipes
   with qualifying fresh-environment and confinement evidence; the only scope
   that can admit an assessment. ([computation](computation-and-reproducibility.md#replay-verification-and-belief-are-different-decisions))
+- **Co-scoped** — The companion predicate: true when two estimands' typed
+  applicability maps are equal. Two specs on one claim may be commensurable and
+  not co-scoped; a successor policy reading only the first would pool them.
+  ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
+- **Commensurable** — A total, decidable predicate over two admitted estimands:
+  true when they estimate the same quantity — same claim, contrast, measure,
+  scale and reference — differing at most in how it was identified. Exposed
+  from `beliefs.estimand` and read by nothing in `science.belief.v1`.
+  ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
 - **Completion reading** — The three-valued, derived, never stored state
   of a boundary operation, read per root from its operation intent under
   the log's reduction: unfinished (unmatched intent), indeterminate
@@ -114,18 +125,37 @@ context and the linked design references for normative detail.
   undesigned boundary. ([adoption](contracts-and-adoption.md#adoption-follows-legal-partial-states))
 - **Contract cut** — An immutable, content-addressed version of the normative
   Science contract and its exact oracle-case identities. ([contracts](contracts-and-adoption.md#designs-explain-contract-cuts-will-govern))
-- **Corpus** — An admitted collection with a durable opaque `corpus_id`, a
-  profile-pinning manifest, and identity-changing states. ([identity](identity-world-and-change.md#there-is-one-world-projects-are-views))
-- **Corpus state identity** — A digest of the complete canonical corpus manifest
-  plus the sorted identities of its nodes. ([identity](identity-world-and-change.md#there-is-one-world-projects-are-views))
+- **Coordination record** — A `task`, `decision`, or `note`: an attributed act
+  minted under the coordination contract, addressed `(project, local id)`,
+  captured by epochs, and never a world fact or belief input. The two
+  publication kinds are coordination records too.
+  ([foundations](foundations.md#views-and-coordination-are-governed-not-kernel))
 - **Coreference attestation** — An attributed, additive record that two
   distinctly identified records of one kind are believed to name one thing. Its
   stance is `+1` or `-1`, its weight is one regardless of who authored it, and the
   pair's balance is derived rather than stored. A positive balance activates a
   query-layer coreference edge; nothing merges.
   ([identity](identity-world-and-change.md#correction-is-additive))
+- **Corpus** — An admitted collection with a durable opaque `corpus_id`, a
+  profile-pinning manifest, and identity-changing states. ([identity](identity-world-and-change.md#there-is-one-world-projects-are-views))
+- **Corpus state identity** — A digest of the complete canonical corpus manifest
+  plus the sorted identities of its nodes. ([identity](identity-world-and-change.md#there-is-one-world-projects-are-views))
+- **Dataset address** — The `dataset:sha256:<hex>` lookup key: the ruled fold
+  over a dataset's declared resource digests (deduplicated, sorted,
+  newline-joined, sha256), which is the record's id from cut 29.
+  ([identity](identity-world-and-change.md#identity-is-not-one-field))
 - **Dataset-production run** — A run shape that transforms data and produces one
   dataset without a proposition, spec, or assessment. ([computation](computation-and-reproducibility.md#one-run-kind-has-two-shapes))
+- **Declared** — A dataset carrying a content identity without a matching byte
+  observation of every resource it declares. A world entity, authorable and
+  referenceable, and never belief-eligible. Not the same as *unheld*: a run that
+  looked in one place and found nothing has measured its own coverage. The
+  route out is a matching holdings observation (G9).
+  ([foundations](foundations.md#the-epistemic-invariant))
+- **Discharge** — Completing a frozen conformance cut: its acceptance suite
+  runs on the certified tuple and a results record states which rows closed and
+  which stayed partial. A discharge never edits the frozen cut.
+  ([adoption](contracts-and-adoption.md#how-a-cut-runs))
 - **Domain contract** — A namespaced declaration of domain sorts, operators,
   qualifier dimensions, facets, and vocabulary bindings. ([foundations](foundations.md#contracts-compile-into-profiles))
 - **Edge** — A composite's member, read rather than stored as an edge: the
@@ -149,32 +179,16 @@ context and the linked design references for normative detail.
   binary float, a string, or an estimate the rule's own scale forbids produces
   no assessment and a finding, never `inconclusive`.
   ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
-- **Uncertainty** — The typed companion of an estimate: an interval with a
-  level in `(0, 1)` containing the estimate, or a dispersion with a
-  non-negative standard error, on the estimate's own scale. The kernel gives
-  the kind one meaning and does not say whether an interval is credible or
-  confidence. ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
-- **Commensurable** — A total, decidable predicate over two admitted estimands:
-  true when they estimate the same quantity — same claim, contrast, measure,
-  scale and reference — differing at most in how it was identified. Exposed
-  from `beliefs.estimand` and read by nothing in `science.belief.v1`.
-  ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
-- **Co-scoped** — The companion predicate: true when two estimands' typed
-  applicability maps are equal. Two specs on one claim may be commensurable and
-  not co-scoped; a successor policy reading only the first would pool them.
-  ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
 - **Facet** — A named block of typed fields carried by a record. Base-profile
   facets are unnamespaced; domain facets are namespaced and may extend
   interpretation without redefining kernel relations. A dataset's
   empirical-observation facet is what lets a run's `observes` edge confer
   eligibility. ([facet-contracts design](../designs/2026-09-05-facet-contracts-design.md),
   [foundations](foundations.md#contracts-compile-into-profiles))
-- **Declared** — A dataset carrying a content identity without a matching byte
-  observation of every resource it declares. A world entity, authorable and
-  referenceable, and never belief-eligible. Not the same as *unheld*: a run that
-  looked in one place and found nothing has measured its own coverage. The
-  route out is a matching holdings observation (G9).
-  ([foundations](foundations.md#the-epistemic-invariant))
+- **Guarantee row** — One numbered promise in a design's guarantee table,
+  labelled permanently (G1, W8a, R12) so tests and reviews can cite it. A row
+  is closed, partial, or open; a cut selects rows whole or at named assertion
+  arms. ([adoption](contracts-and-adoption.md#designs-explain-contract-cuts-will-govern))
 - **Held** — Exactly reproducible bytes available on demand under a content
   identity; not a synonym for raw, public, local, or checked into Git. Distinct
   from **declared**, which has the identity and not the bytes. Derived from
@@ -199,7 +213,7 @@ context and the linked design references for normative detail.
   projection determines a record's content identity. ([identity](identity-world-and-change.md#identity-is-not-one-field))
 - **Independence** — A pairwise, three-valued judgment derived from complete
   dataset-lineage closure: independent, shared-source, or not-certified.
-  ([claims](claims-and-belief.md#assessments-are-the-only-empirical-route))
+  ([claims](claims-and-belief.md#independence-is-pairwise-and-derived))
 - **Instrument certification** — A recomputable witness that a specific rule and
   implementation binding conforms and can reach its required outcomes.
   ([contracts](contracts-and-adoption.md#rules-bind-meaning-to-the-code-that-ran))
@@ -210,12 +224,14 @@ context and the linked design references for normative detail.
   and a pinned authority snapshot. It is never stored, never part of identity, and
   never resolved against.
   ([identity](identity-world-and-change.md#identity-is-not-one-field))
+- **Live query** — `evaluate_live_query`: a view query evaluated over every
+  admitted corpus's current state with no epoch, returning a `LiveSelection`
+  stamped by the corpus states it captured. For attention reads such as a work
+  queue; belief inputs and publication stay epoch-bound (cut 41).
+  ([identity](identity-world-and-change.md#reading-the-world-at-an-epoch-or-live))
 - **Mutation log** — A per-root hash-linked chain registering boundary
   transactions and destructive intent, with heads observed outside their own
   deletable set. ([identity](identity-world-and-change.md#mutation-history-is-detectable-relative-to-observers))
-- **Nodes** — The entity/relation substrate beneath `beliefs`: generic
-  storage, relation closure, traversal and mechanism, knowing no scientific
-  semantics. Its own repository. ([foundations](foundations.md#ownership-follows-the-nature-of-the-rule))
 - **NoBelief** — A successful answer saying belief cannot be produced because
   inputs are unavailable, no assessment is eligible, or only non-directional
   outcomes remain. ([claims](claims-and-belief.md#a-belief-is-a-reproducible-view))
@@ -225,6 +241,20 @@ context and the linked design references for normative detail.
   `not-consulted`, when the snapshot opened no vocabulary that could decide it.
   A check not performed is not a finding, and the receipt says which it was.
   ([claims](claims-and-belief.md#composites-a-structure-over-claims-and-never-a-claim))
+- **Nodes** — The entity/relation substrate beneath `beliefs`: generic
+  storage, relation closure, traversal and mechanism, knowing no scientific
+  semantics. Its own repository. ([foundations](foundations.md#ownership-follows-the-nature-of-the-rule))
+- **Observes** — The run-input role for held data carrying an
+  empirical-observation facet; the only input role that can make a run's
+  assessment eligible for belief. ([foundations](foundations.md#closed-routes-inert-by-default))
+- **Operation** — A boundary action with one or more member acts. It appends
+  an operation intent before any act and closes through exactly one terminal
+  record — the `run` where one is minted, the act report otherwise; a
+  `corpus-write` closes through its own registration, and `publish` opens
+  through its own domain intent. There are
+  nine kinds: `corpus-write`, `run-attempt`, `import`, `move`, `consolidate`,
+  `acquisition`, `audit`, `re-check`, and `publish`.
+  ([writes](writes-operations-and-publication.md#the-nine-operation-kinds))
 - **Operation intent** — The tamper log's third intent consumer: appended
   once per boundary operation, after the observer-corpus root freezes and
   before any member act, carrying the operation kind, the minted event
@@ -240,21 +270,33 @@ context and the linked design references for normative detail.
 - **Policy binding** — The required pair of belief-policy rule identity and
   implementation content identity used for one belief computation.
   ([claims](claims-and-belief.md#a-belief-is-a-reproducible-view))
-- **Profile** — The runtime specification compiled from one Science base
-  contract and the domain contracts pinned by a corpus manifest.
-  ([foundations](foundations.md#contracts-compile-into-profiles))
-- **Proposition** — An immutable record whose semantic identity is its typed
-  claim structure, not its prose rendering. ([claims](claims-and-belief.md#structure-not-prose-determines-identity))
-- **Published verification** — A verification record carrying its whole basis
-  with the comparison report embedded under an id that is its identity; the
-  audit and the import recompute its scope, and a record without a report is
-  checked for verdict and identity only.
-  ([verification publication](../designs/2026-09-06-verification-publication-design.md#41-the-facet))
 - **Pre-grammar record** — An analysis spec or assessment minted before
   `science.estimand.v1`, carrying prose where the typed members belong. It is
   **refused under its own name** by the readers and reported under its own
   audit code; nothing coerces or repairs it. A corpus still holding one after
   cut 31 is a corpus that was not recreated. ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
+- **Profile** — The runtime specification compiled from one Science base
+  contract and the domain contracts pinned by a corpus manifest.
+  ([foundations](foundations.md#contracts-compile-into-profiles))
+- **Proposition** — An immutable record whose semantic identity is its typed
+  claim structure, not its prose rendering. ([claims](claims-and-belief.md#structure-not-prose-determines-identity))
+- **Publication** — The marker record in a published corpus, carrying where
+  it came from (world, epoch, view, view revision) and the selection it
+  publishes; revisions link by `supersedes`. A coordination kind, minted only by
+  the publish act. ([writes](writes-operations-and-publication.md#publishing-a-view))
+- **Publication binding** — The coordination record in the source project
+  whose revisions bind a (view, destination) pair to the corpus and marker it
+  published. ([writes](writes-operations-and-publication.md#publishing-a-view))
+- **Publish** — The operation that copies what a view selects, unchanged,
+  into a fresh immutable corpus at a destination, with a `publication` marker,
+  a `publication-binding` revision, and one act report. Local destinations are
+  built (cut 40); remote ones are being designed as cut 42.
+  ([writes](writes-operations-and-publication.md#publishing-a-view))
+- **Published verification** — A verification record carrying its whole basis
+  with the comparison report embedded under an id that is its identity; the
+  audit and the import recompute its scope, and a record without a report is
+  checked for verdict and identity only.
+  ([verification publication](../designs/2026-09-06-verification-publication-design.md#41-the-facet))
 - **Qualifier** — A restriction on one of an operator's declared dimensions,
   sorted exactly as an argument is. The v1 fragment is flat: one restriction per
   dimension, with a quantifier. ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))
@@ -262,6 +304,9 @@ context and the linked design references for normative detail.
   other context that never confers empirical eligibility. ([foundations](foundations.md#closed-routes-inert-by-default))
 - **Refused** — A fail-early boundary outcome for malformed, contradictory, or
   out-of-contract input; it never guesses or repairs. ([foundations](foundations.md#valid-transitions-refuse-audit-detects-bypasses))
+- **Results record** — The dated document under `docs/plans/` that discharges
+  a conformance cut: the certified run, the rows closed and left partial, and
+  the repository gates. ([adoption](contracts-and-adoption.md#how-a-cut-runs))
 - **Retraction** — An immutable, attributed record that subtracts an exact
   target's standing at read time without deleting or modifying it.
   ([identity](identity-world-and-change.md#correction-is-additive))
@@ -269,6 +314,12 @@ context and the linked design references for normative detail.
   held implementation content identity that executed it. ([contracts](contracts-and-adoption.md#rules-bind-meaning-to-the-code-that-ran))
 - **Run** — A complete immutable execution closure consisting of a recipe,
   result, and occurrence. ([computation](computation-and-reproducibility.md#a-run-has-three-complete-parts))
+- **Sabotage** — The exact source mutation paired with each selected check in
+  a cut's arm. The N2 harness applies it to an isolated copy, and every check
+  the arm names must fail; otherwise the arm is `vacuous` (all survive), `mixed`
+  (some survive), `uncollected` (a check did not run), or `stale` (the mutation
+  no longer applies).
+  ([adoption](contracts-and-adoption.md#every-oracle-must-be-falsifiable))
 - **Same-kind succession** — The discipline `supersedes` has always carried,
   declared in the base contract since cut 32 rather than only intended: a
   relation marked `same_kind` whose declared sources and targets differ refuses
@@ -298,17 +349,13 @@ context and the linked design references for normative detail.
 - **Sort** — The type of referent a slot admits. Operators declare a sort per
   argument position and per qualifier dimension, so a term of one sort cannot
   fill a slot of another. ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))
-- **Source assertion** — A record of what a source asserts, denies, or
-  hypothesizes about a proposition; it is useful but has no edge into belief.
-  ([foundations](foundations.md#the-epistemic-invariant))
 - **Source address** — The `source:<digest>` lookup key derived under
   `science.source-address.v1` from the selected normalized external identifier,
   using fixed precedence DOI, PMID, ISBN, then accession.
   ([identity](identity-world-and-change.md#identity-is-not-one-field))
-- **Dataset address** — The `dataset:sha256:<hex>` lookup key: the ruled fold
-  over a dataset's declared resource digests (deduplicated, sorted,
-  newline-joined, sha256), which is the record's id from cut 29.
-  ([identity](identity-world-and-change.md#identity-is-not-one-field))
+- **Source assertion** — A record of what a source asserts, denies, or
+  hypothesizes about a proposition; it is useful but has no edge into belief.
+  ([foundations](foundations.md#the-epistemic-invariant))
 - **Standing** — The active status calculated from an acyclic retraction graph,
   including counter-retractions, rather than stored as a mutable flag.
   ([identity](identity-world-and-change.md#correction-is-additive))
@@ -317,8 +364,18 @@ context and the linked design references for normative detail.
   ([identity](identity-world-and-change.md#correction-is-additive))
 - **UID** — A durable continuity identifier used when addresses change through
   correction, or when duplicate storage is consolidated. ([identity](identity-world-and-change.md#identity-is-not-one-field))
+- **Uncertainty** — The typed companion of an estimate: an interval with a
+  level in `(0, 1)` containing the estimate, or a dispersion with a
+  non-negative standard error, on the estimate's own scale. The kernel gives
+  the kind one meaning and does not say whether an interval is credible or
+  confidence. ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
 - **Verification** — An immutable comparison of two runs under a frozen
   equivalence rule, with a derived scope and verdict. ([computation](computation-and-reproducibility.md#replay-verification-and-belief-are-different-decisions))
+- **View** — A stored world query plus a label — `project`, `question`,
+  `hypothesis`, `topic`, or `theme` — never a container. Evaluated at an epoch
+  or live. ([foundations](foundations.md#views-and-coordination-are-governed-not-kernel))
+- **World** — The union of admitted corpora and world-level records; projects
+  are views over it, not separate epistemic universes. ([identity](identity-world-and-change.md#there-is-one-world-projects-are-views))
 - **Write permit** — A closed set of record kinds and a closed set of act
   families a holder may emit. A launcher binds one inside the writer endpoint;
   `science` compiles a declaration to a `RequiredCapabilities` value and never
@@ -331,5 +388,3 @@ context and the linked design references for normative detail.
   intent followed by exactly one committed registration fulfilling it. It is
   the `beliefs` half of the command framework's write boundary beyond permits.
   ([writer-session design](../designs/2026-09-05-writer-session-design.md))
-- **World** — The union of admitted corpora and world-level records; projects
-  are views over it, not separate epistemic universes. ([identity](identity-world-and-change.md#there-is-one-world-projects-are-views))
