@@ -78,23 +78,21 @@ that made them (ledger R7's transitive-fixpoint principle, fix round 4)."""
 
 CUT6_SOURCE_COMMIT = "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e"
 CUT8_FREEZE_COMMIT = "117f37e"
-RENAME_COMMIT = "5a02ca2"
-"""The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
-file whose only post-freeze edit was that rename's import strings."""
+WORKTREE_ROOT_COMMIT = "117e97e"
+"""The runner defaults moved to the main checkout's certified work root."""
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": "1e92471",  # exact R20 matcher amendment, validated below
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
-    "python/tools/cut5_acceptance.py": RENAME_COMMIT,
-    "python/tools/cut6_acceptance.py": RENAME_COMMIT,
+    "python/tools/cut5_acceptance.py": WORKTREE_ROOT_COMMIT,
+    "python/tools/cut6_acceptance.py": WORKTREE_ROOT_COMMIT,
     "python/tests/n2_arms_cut7.py": CUT8_FREEZE_COMMIT,
-    "python/tools/cut7_acceptance.py": RENAME_COMMIT,
-    # Cut 8's own declarations, audit, and runner: deliberately stale on this
-    # tree (ledger R15) and exactly as frozen — staleness is a fact about the
-    # tree, never a license to edit the declaration.
+    "python/tools/cut7_acceptance.py": WORKTREE_ROOT_COMMIT,
+    # Cut 8's declarations and audit remain frozen (ledger R15); its runner
+    # changed only to resolve the certified work root beside the main checkout.
     "python/tests/acceptance/n2_arms_cut8.py": CUT8_BANK_COMMIT,
     "python/tests/acceptance/test_n2_cut8.py": CUT8_AUDIT_REPIN_COMMIT,
-    "python/tools/cut8_acceptance.py": CUT8_BANK_COMMIT,
+    "python/tools/cut8_acceptance.py": WORKTREE_ROOT_COMMIT,
 }
 """Each prior-cut surface and the commit whose content it must still hold."""
 

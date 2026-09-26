@@ -43,6 +43,7 @@ MOVED_BY_VERIFICATION_PUBLICATION = (
     "moved at 1e92471, when the verification-publication slice rewrote the cut-3 and cut-5 "
     "arm declarations against the landed source under the fix-the-arm-never-the-source rule"
 )
+MOVED_BY_WORKTREE_ROOT = "moved at 117e97e, when runners resolved certified work roots beside the main checkout"
 
 CITED_NOT_RUN: dict[str, CitedNotRun] = {
     "test_n2_cut4.py": CitedNotRun(
@@ -111,10 +112,13 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
         ),
         falsified_pins={
             "python/tests/n2_arms_cut5.py": MOVED_BY_VERIFICATION_PUBLICATION,
+            "python/tools/cut5_acceptance.py": MOVED_BY_WORKTREE_ROOT,
+            "python/tools/cut6_acceptance.py": MOVED_BY_WORKTREE_ROOT,
             "python/tests/acceptance/test_n2_cut6.py": (
                 "moved after the 5a02ca2 package rename; cuts 7 and 9 re-pinned their own "
                 "entries for it while they were live, and cut 8, already cited, did not"
             ),
+            "python/tools/cut7_acceptance.py": MOVED_BY_WORKTREE_ROOT,
         },
         stale_arms={
             "L2u1[1]": "moved at ef07763, when cut 37 split committed-removal inventory from replay: the committed-set anchor occurs twice",

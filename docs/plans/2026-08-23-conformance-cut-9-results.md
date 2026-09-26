@@ -551,3 +551,10 @@ this execution depends on a file that lives only in a worktree.
 
 Rulings with obligations discharged in this document: R11 (§4), R15 (§2.2,
 §3, §8.3), R16 (§7), R17 (§4, §7), R21 (§7), R22 (§1.2), R23 (§2.2).
+
+## 10. Dated citation amendment — 2026-09-26
+
+Commit `117e97e` changed the default certified work-root resolution in the cut
+5–8 runners. Cut 9's live guard now pins those runner files at that commit.
+Cut 8's cited guard remains frozen; its newly falsified pins are recorded in
+`python/tests/cited_not_run.py`. The discharge and its recorded run are unchanged.

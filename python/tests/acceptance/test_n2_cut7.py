@@ -174,18 +174,17 @@ Cut 7 touches none of cut 5's or cut 6's surfaces; this pin is used here only
 to assert that, byte for byte.
 """
 
-RENAME_COMMIT = "5a02ca2"
+WORKTREE_ROOT_COMMIT = "117e97e"
 WRITE_PERMITS_MIGRATION_COMMIT = "659cc6e"
-"""The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
-file whose only post-freeze edit was that rename's import strings."""
+"""The runner defaults moved to the main checkout's certified work root."""
 
 D1_HISTORICAL_REPLAY_AMENDMENT_COMMIT = "46667b25c1afed966c3b831b6aef44ebb23e4616"
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": "1e92471",  # exact R20 matcher amendment, validated below
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
-    "python/tools/cut5_acceptance.py": RENAME_COMMIT,
-    "python/tools/cut6_acceptance.py": RENAME_COMMIT,
+    "python/tools/cut5_acceptance.py": WORKTREE_ROOT_COMMIT,
+    "python/tools/cut6_acceptance.py": WORKTREE_ROOT_COMMIT,
     # Cut 6's *acceptance module* is not frozen in the same sense — slice 2
     # rewrote it, at `c8c0b12`, to audit the pre-move tree — but it is pinned by
     # that ruling and no later task may drift it either. So it is guarded
