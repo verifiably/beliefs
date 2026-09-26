@@ -20,7 +20,7 @@ runs under ops' `host-budget run`, which sizes xdist and N2's own pool. The Pyth
 commands it runs are:
 
 ```
-host-budget run -- sh -c 'uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py && uv run --frozen pytest tests/test_n2.py'
+host-budget run -- sh -c 'uv run --frozen pytest -n auto --dist=worksteal --ignore=tests/test_n2.py && uv run --frozen pytest tests/test_n2.py'
 uv run --frozen ruff check .
 uv run --frozen pyright
 ```
@@ -46,11 +46,17 @@ On a multicore host, run the same loop in parallel under ops' `host-budget run`,
 sets `-n auto`'s worker count from the host's CPU budget:
 
 ```
-host-budget run -- uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py
+host-budget run -- uv run --frozen pytest -n auto --dist=worksteal --ignore=tests/test_n2.py
 ```
 
 The whole-repository equivalent, which also runs the TypeScript tests vitest selects
 from the working tree, is `just test-fast` from the root.
+
+The 2026-09-26 certified 16-worker `worksteal` run passed 5,707 tests with one
+skip in 107.51s of pytest time (109.72s by `tt`). The full two-phase gate
+passed in 279.71s by `tt`: non-N2 took 102.83s, standalone N2 took 173.88s,
+and TypeScript passed 155 tests. The fast loop remains above its 90s target;
+these are single samples pending repeatable acceptance.
 
 Use a test file or node id (`tests/test_module.py::test_name`) for the narrowest
 deterministic run, `-k` for a name expression, `--lf` to rerun failures, or

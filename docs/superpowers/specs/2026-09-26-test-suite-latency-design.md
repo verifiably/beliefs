@@ -59,6 +59,13 @@ passed 155. Collection matched the 5,754-test serial inventory exactly. This
 proves the split verdict at eight workers; it does not measure the 16-worker
 300-second target.
 
+A subsequent certified 16-worker run using `worksteal` passed the fast loop
+(5,707 passed, one skipped) in 107.51 seconds of pytest time, 109.72 seconds
+by `tt`. The complete gate passed in 279.71 seconds by `tt`: its non-N2 phase
+took 102.83 seconds, standalone N2 173.88 seconds, and TypeScript passed 155
+tests. This is one full-gate sample below 300 seconds; the fast-loop sample
+still exceeds 90 seconds. Repeatable acceptance and tail attribution remain.
+
 The existing red baseline has a separate fix: `5ee9e24` on `design/publish`
 updates the live guard pins, cited-not-run registry and dated cut 7/9 citations.
 That branch passes all seven `test_frozen_guards.py` checks. The same change
@@ -89,17 +96,17 @@ capability-dependent check does not count.
    guard-green tree; it does not create a competing pin change or rewrite frozen
    evidence.
 
-2. **Balance the fast Python phase with `loadgroup`.** Trial xdist
-   `--dist=loadgroup` against the current `loadfile` command with identical
-   collection and worker budget. `test-fast` and the full gate's first Python
-   phase exclude N2, so heavy files can spread across workers. N2 runs as a
-   second, serial pytest invocation and retains its full nested pool. No N2
-   `xdist_group` marker or grouped-worker pilot is needed. Record per-file wall
-   time, worker assignment, fixture duplication and aggregate worker-seconds.
-   A recipe change may satisfy the
-   fast-loop wall target: developer wait is the outcome. It must keep all
-   checks and pass on repeated runs. If `loadgroup` leaves a slow tail, profile
-   that tail before proposing another scheduler.
+2. **Balance the fast Python phase with `worksteal`.** N2 runs in a separate
+   pytest process, so the non-N2 phase needs no xdist group affinity. The
+   measured `loadgroup` trial split expensive module fixtures across workers:
+   at 16 workers aggregate test time rose from 1,222 to 1,975 worker-seconds,
+   and replay and verify setup rose to 197 and 363 seconds respectively.
+   At the same eight-worker budget, `worksteal` took 171.9 seconds and about
+   1,202 worker-seconds versus `loadgroup`'s 197.5 seconds. Choose
+   `--dist=worksteal` for both fast and full first-phase recipes, retain
+   unchanged collection, and confirm it once at 16 workers. N2 retains its
+   full nested pool in the second phase. If the fast loop misses 90 seconds,
+   attribute the measured tail before changing more code.
 
 3. **Memoize only the pure environment identity.** `EnvironmentManifest`
    validates exact tuples of exact strings, so equal artifact tuples have equal
@@ -117,7 +124,7 @@ capability-dependent check does not count.
    criterion of `beliefs-92e6fe` requires *full pytest*, and no banked
    guarantee found in the current design or N2 harness requires independent
    pytest files to run serially. N2 applies sabotages to copies, never to the
-   working tree. Run `pytest -n auto --dist=loadgroup
+   working tree. Run `pytest -n auto --dist=worksteal
    --ignore=tests/test_n2.py && pytest tests/test_n2.py` as the two Python
    phases, followed by TypeScript. The `&&` requires both verdicts, and
    `tools/tt` adds their pytest summary counts into one recorded gate. N2 runs
@@ -155,13 +162,12 @@ frozen conformance-cut bodies and all assertions intact.
    per-file breakdown, worker assignment and fixture cost, using the §1 table
    as the initial comparison. Run one representative test from each heavy file
    through a verdict under each proposed scheduler before a full-loop sweep.
-   Then run `loadgroup` against `loadfile` on the same warm worktree and host
-   budget. Record commit, Python version, host load, `OPS_WORKERS` and test
-   count. A mode that exposes
-   order-dependent tests or repeats a module fixture enough to lose its wall
-   benefit is not adopted. Keep the mode with the shortest repeatable wall time
-   and full unchanged collection. If neither mode reaches the fast-loop target,
-   keep the P0 open and attribute the remaining tail.
+   The `loadgroup` and `loadfile` trials exposed fixture duplication and a
+   pinned-file tail respectively. The eight-worker `worksteal` trial retained
+   the full inventory with lower wall time and worker-seconds; confirm the
+   chosen scheduler once at 16 workers. Record commit, Python version, host
+   load, `OPS_WORKERS`, test count, and any remaining tail. If it misses the
+   fast-loop target, keep the P0 open and attribute that tail.
 
 3. **Identity trial.** Add a small regression check for digest equality,
    immutability and invisibility to `fields`, `vars`, repr and pickle. Benchmark
@@ -170,7 +176,7 @@ frozen conformance-cut bodies and all assertions intact.
    without changing closure capture counts, refusals or recorded identities.
 
 4. **Full-gate pilot and adoption.** Run one certified two-phase Python pilot
-   through both verdicts: parallel `loadgroup` with N2 ignored, then serial N2
+   through both verdicts: parallel `worksteal` with N2 ignored, then serial N2
    with the full host allowance. Read each result before a longer comparison.
    Compare with the seven-day serial distribution and the pilot's own per-file
    and N2 timings; attribute any miss of 300 seconds to measured components.

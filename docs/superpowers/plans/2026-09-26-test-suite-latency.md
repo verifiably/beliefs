@@ -4,7 +4,7 @@
 
 **Goal:** Bring the unchanged fast selection to a warm median of at most 90 seconds and the complete certified gate to at most 300 seconds.
 
-**Architecture:** Use pytest-xdist `loadgroup` for the non-N2 fast selection, including the first phase of the full gate. Run N2 in a second serial pytest process so its session fixture is built once and its nested pool receives the full worker allowance. Memoize only the value identity of a validated environment manifest; keep both filesystem captures. Promote the two-phase command only after a certified pilot, then measure repeated end-to-end verdicts.
+**Architecture:** Use pytest-xdist `worksteal` for the non-N2 fast selection, including the first phase of the full gate. Run N2 in a second serial pytest process so its session fixture is built once and its nested pool receives the full worker allowance. Memoize only the value identity of a validated environment manifest; keep both filesystem captures. Promote the two-phase command after a certified pilot, then measure repeated end-to-end verdicts.
 
 **Tech Stack:** Python 3.11+, pytest/pytest-xdist 3.8.0, `functools.lru_cache`, just, `host-budget`, `tools/tt`, GitHub Actions.
 
@@ -23,7 +23,7 @@
 ## Review Focus
 
 - N2 inherits xdist's one-worker pool and takes roughly 40 minutes: Task 3 runs it in a separate serial pytest phase and records its worker allowance and time.
-- Splitting heavy files repeats module setup enough to erase the wall gain: Task 1 compares per-file wall time, worker-seconds and fixture setup under both schedulers.
+- Splitting heavy files repeats module setup enough to erase the wall gain: Task 1's `loadgroup` trial measured this; the final `worksteal` choice needs a 16-worker confirmation.
 - Equal manifests in different objects rehash while a changed row reuses the old digest: Task 2's spy test counts digest calls and compares identities.
 - A cache field changes projected, compared or pickled manifests: Task 2 checks `fields`, `vars`, repr, equality and pickle after a warm identity call.
 - CI accidentally omits a Python phase or oversubscribes the first phase: Task 3 checks the two `&&`-joined pytest commands and both CI env values, then runs a CI-shaped small pilot.
@@ -38,7 +38,7 @@
 
 **Interfaces:**
 - Consumes: existing `py_fast_cmd`, `host-budget run`, and pytest-xdist `loadgroup`.
-- Produces: fast recipe using `-n auto --dist=loadgroup --ignore=tests/test_n2.py`, with no N2 marker.
+- Produces: fast recipe using `-n auto --dist=worksteal --ignore=tests/test_n2.py`, with no N2 marker. The completed `loadgroup` trial below is retained as historical evidence; review changed the scheduler choice after its fixture cost was measured.
 
 - [x] **Step 1: Anchor the merged baseline.** Record the already-green 5,706-pass `loadfile` fast run from local main, the spec's per-file attribution, current commit, Python version, host load and worker count. The new per-file measurement follows the small scheduler pilot.
 - [x] **Step 2: Pilot each scheduler on the four heavy files.** Under `host-budget run`, select one representative test from each file with `-n auto --dist=loadfile`, then the same four node IDs with `--dist=loadgroup`. Require both verdicts and selected IDs to agree before a full-loop sweep.
@@ -73,14 +73,15 @@
 - Evidence: `beliefs-9b248a` task notes, through `tasks note`
 
 **Interfaces:**
-- Consumes: Task 1's `loadgroup` fast recipe, Task 2's unchanged manifest identity, `py_test_cmd` shared by `just test`, pre-push and `ci-python`.
+- Consumes: Task 1's fast recipe (changed to `worksteal` after review), Task 2's unchanged manifest identity, `py_test_cmd` shared by `just test`, pre-push and `ci-python`.
 - Produces: `py_test_cmd := py_fast_cmd + " && (cd python && uv run --frozen pytest tests/test_n2.py)"`; CI Python env includes both `OPS_WORKERS: "4"` and `PYTEST_XDIST_AUTO_NUM_WORKERS: "4"`.
 
 - [x] **Step 1: Collect and pilot without changing the gate.** Compare the union of `--dist=loadgroup --ignore=tests/test_n2.py` and standalone `tests/test_n2.py` collection with the existing serial full collection, including skips and IDs. Run a small certified two-phase `&&` selection: one representative non-N2 boundary test under xdist, then one N2 harness test outside xdist that reaches a verdict without the full `findings` fixture. Check `OPS_WORKERS` is the full allowance in the second phase and read both verdicts before a full run. No N2 marker or four-worker grouped pilot is needed.
 - [x] **Step 2: Run one complete certified two-phase pilot.** From `python/`, run `host-budget run -- sh -c 'uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py && uv run --frozen pytest tests/test_n2.py'` to completion, then the TypeScript suite. Record each phase's selected/passed/skipped counts, N2 pool size and wall time, total wall time and worker-seconds; inspect every failure or skip. Compare with the seven-day serial distribution and the independent 193-second standalone N2 diagnostic. If 300 seconds is missed, attribute the residual and keep the P0 open rather than relaxing the target.
 - [x] **Step 3: Promote the shared command only if the pilot passes.** Change `py_test_cmd` once; `just test`, pre-push and `ci-python` inherit both `&&`-joined pytest phases. Set the CI xdist count to `4` beside `OPS_WORKERS: "4"`. Keep an explicit one-process `uv run --frozen pytest` documented for diagnosis.
 - [x] **Step 4: Correct current-facing documentation.** Update `AGENTS.md`, `python/README.md`, justfile and CI comments to name the two-phase full gate, N2's full pool, CI worker count, and measured timing. Preserve historical dated measurements and frozen cut bodies. State that CI's portable result does not certify host-dependent arms.
-- [ ] **Step 5: Verify and commit.** Run `just check`, `tasks check` and `git diff --check`; check that `just --dry-run ci-python`, `just --dry-run hook-pre-push` and `just --dry-run test` all expand to the same two-phase `py_test_cmd`. Close the Task 3 child with `tasks done` and commit the gate, documentation and task record as `perf: run full pytest gate in two phases`, with pilot evidence on the P0 task.
+- [x] **Review correction:** Set the shared fast/full first-phase scheduler to `worksteal`, call the identity helper's `cache_clear()` directly in its test, and update the spec and current-facing docs. A focused check and small two-phase pilot passed. At 16 workers, the fast loop passed in 109.72s by `tt` and the certified full gate passed in 279.71s, with N2 taking 173.88s. The fast loop still misses 90s; Task 4 attributes its tail.
+- [x] **Step 5: Verify and commit.** `just check`, `tasks check` and `git diff --check` passed; dry runs of `ci-python`, `hook-pre-push` and `test` expand to the same two-phase Python command. The certified pilot passed in 279.71s by `tt`, including 173.88s for N2. Close the Task 3 child with `tasks done` and commit the gate, documentation and task record.
 
 ### Task 4: Prove the latency budget and close the P0
 
@@ -92,6 +93,6 @@
 - Consumes: `just test-fast`, `just test`, `just check`, `tt-report`, and Tasks 1–3's recorded baselines.
 - Produces: repeatable fast and full verdicts with counts and timing evidence; a closed P0 only if both thresholds hold.
 
-- [ ] **Step 1: Run the complete checks.** On the certified tuple and under comparable warm host load, run `just check`, three `just test-fast` runs, and two complete `just test` runs. If the full runs disagree materially, take a third. Read each `tools/tt` verdict and record Python/TypeScript counts, skips, range, per-file tail, N2 time and worker-seconds; compare fast-loop worker-seconds and closure-call counts with Task 1's same-budget baseline.
-- [ ] **Step 2: Apply the acceptance arithmetic.** Require fast median ≤90 seconds and every accepted full run ≤300 seconds. Verify selected tests and certified capability checks stayed intact. If either target misses, keep the P0 open, name N2's measured share when relevant, profile the residual tail, and add only the next bounded measured change to this plan.
+- [ ] **Step 1: Run the complete checks.** On the certified tuple and under comparable warm host load, run `just check`, three `just test-fast` runs, and two complete `just test` runs. If the full runs disagree materially, take a third. Read each `tools/tt` verdict and record Python/TypeScript counts, skips, range, per-file tail, standalone N2's post-memo time and worker-seconds; compare fast-loop worker-seconds and closure-call counts with Task 1's same-budget baseline.
+- [ ] **Step 2: Apply the acceptance arithmetic.** Require fast median ≤90 seconds and every accepted full run ≤300 seconds. Verify selected tests and certified capability checks stayed intact. If the full gate misses because of N2, attribute N2's own work as the next lever; do not reopen the scheduler choice. If either target misses, keep the P0 open, profile the residual, and add only the next bounded measured change to this plan.
 - [ ] **Step 3: Finish the record.** Update any current-facing timing claim that the final runs made stale. Run `tasks check` with zero errors and report all warnings. Close the Task 4 child and `beliefs-9b248a` with one-line outcomes in the same final commit as any remaining work; retain `ops-5beefd` as the separate cross-project policy task.

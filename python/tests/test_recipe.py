@@ -191,9 +191,7 @@ def test_equal_environment_manifests_share_identity_digest_without_visible_state
     first = EnvironmentManifest(artifacts)
     equal = EnvironmentManifest(artifacts)
     changed = EnvironmentManifest(((artifacts[0][0], "file", "sha256:" + "cd" * 32),))
-    cached = getattr(recipe_module, "_environment_identity", None)
-    if cached is not None:
-        cached.cache_clear()
+    recipe_module._environment_identity.cache_clear()
 
     with patch.object(v1, "digest", wraps=v1.digest) as digest:
         identity = first.identity()

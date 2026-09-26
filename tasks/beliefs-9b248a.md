@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T17:15:53Z
+updated: 2026-09-26T18:01:17Z
 started: 2026-09-26T10:07:42Z
 depends: []
 tags: [testing]
@@ -63,3 +63,7 @@ Outcome: keep the same full test inventory and both independent environment capt
 - 2026-09-26T17:12:06Z (perf/test-latency): Verified tools/tt.parse_tests against the two-phase certified pilot plus TypeScript logs: 5908 executed tests counted (5707 non-N2 + 46 N2 + 155 TS), with the one skipped Python test excluded as designed. just --dry-run confirms test, hook-pre-push and ci-python expand the same shared two-phase Python command.
 - 2026-09-26T17:15:53Z (perf/test-latency): parked (waiting on agent, dependency): After Codex completes the 16-worker scheduler and full-gate pilot on beliefs-1a27bc, Codex starts beliefs-f69178, runs three warm fast and two certified full gates, reviews the branch, and closes the P0 only if 90 s and 300 s targets hold.
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T17:50:04Z (perf/test-latency): resumed
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T17:54:26Z (perf/test-latency): 16-worker worksteal confirmation on current branch: just test-fast passed 5707/1 skipped, pytest 107.51 s; selected TS had no files. Host-budget granted 16, audio none. This confirms correctness and beats the old ~180 s loadfile wall time, but misses the ≤90 s fast target; keep P0 open and attribute the remaining tail after the full gate.
+- 2026-09-26T18:01:17Z (perf/test-latency): Certified host-budget 16, audio none: just test passed full two-phase gate at tt 279.714 s, 5908 executed tests (5707 non-N2, 46 N2, 155 TS) and one Python skip. Non-N2 pytest 102.83 s; standalone N2 post-memo 173.88 s. The separate just test-fast passed at tt 109.716 s / pytest 107.51 s, so the ≤90 s iteration target remains open. just check and tasks check passed with zero task warnings.

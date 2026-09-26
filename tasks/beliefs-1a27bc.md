@@ -1,15 +1,16 @@
 ---
 id: beliefs-1a27bc
 title: Adopt the two-phase full gate
-status: doing
+status: done
 priority: 0
 size: m
 complexity: mid
 process: direct
 owner: perf/test-latency
 created: 2026-09-26T16:07:45Z
-updated: 2026-09-26T17:15:47Z
+updated: 2026-09-26T18:01:23Z
 started: 2026-09-26T16:50:22Z
+completed: 2026-09-26T18:01:23Z
 depends: [beliefs-141ecd]
 parent: beliefs-9b248a
 tags: [testing]
@@ -28,4 +29,11 @@ Pilot certified non-N2 loadgroup plus standalone serial N2, set CI worker variab
 - 2026-09-26T17:10:31Z (perf/test-latency): Eight-worker certified two-phase pilot passed: collection 5708+46=5754 matches serial, non-N2 5707/1 skipped in 192.67 s, standalone N2 46 in 339.02 s, TypeScript 155 passed. Candidate shared recipe and CI/doc edits prepared; current audio-limited budget cannot prove 16-worker ≤300 s target, so child stays open for comparable pilot.
 - 2026-09-26T17:15:42Z (perf/test-latency): run: 0 min (est 15, idle); preflight 0; refused: host-budget grants 8 while Bitwig audio is active, so the comparable 16-worker scheduler and full-gate acceptance runs cannot start.
 - 2026-09-26T17:15:47Z (perf/test-latency): parked (waiting on user, quiet; idle, 15 min): When host-budget grants 16, Codex runs one warm non-N2 worksteal fast loop and one loadgroup comparison in .worktrees/test-latency, selects the faster unchanged inventory, then runs the certified two-phase just test pilot and reads both phase verdicts before closing Task 3.
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T17:50:09Z (perf/test-latency): resumed
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T17:50:15Z (perf/test-latency): Claimed by Codex /root, pid 632270. Review chooses worksteal now: N2 runs outside xdist, while measured loadgroup duplicated replay and verify setup. Host-budget currently grants 16, so run one worksteal fast loop and the certified two-phase gate; no further scheduler comparison.
+- 2026-09-26T18:01:23Z (perf/test-latency): done
+  provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-26T18:01:23Z (perf/test-latency): Adopted worksteal plus a certified two-phase full gate; 5,908 executed tests passed in 279.714 s, including standalone N2 in 173.88 s.
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
