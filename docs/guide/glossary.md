@@ -270,6 +270,10 @@ context and the linked design references for normative detail.
 - **Policy binding** — The required pair of belief-policy rule identity and
   implementation content identity used for one belief computation.
   ([claims](claims-and-belief.md#a-belief-is-a-reproducible-view))
+- **Polarity** — The sign of the effect a claim asserts — `positive`,
+  `negative`, or `unsigned` — for operators the contract declares sign-apt; other
+  operators have no polarity. Part of claim identity; in a composite it is the
+  edge's sign. ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))
 - **Pre-grammar record** — An analysis spec or assessment minted before
   `science.estimand.v1`, carrying prose where the typed members belong. It is
   **refused under its own name** by the readers and reported under its own
@@ -327,12 +331,13 @@ context and the linked design references for normative detail.
   are of different kinds refuses on the shared write path — `add` and explicit
   import alike — and audits as `supersedes-cross-kind` when raw-written.
   ([identity](identity-world-and-change.md#identity-is-not-one-field))
-- **Science** — Two senses, deliberately: the name of the whole stack
-  (`atoms`, `nodes`, `beliefs`, `science`, `autonomy`), which is how the
-  banked designs use it; and the daily-surface layer above `beliefs` —
-  harness-neutral commands and skills, generated adapters, the CLI and MCP,
-  the derived work queue and publish — which is its own repository.
-  ([user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md))
+- **Science** — The daily-surface layer above `beliefs`: harness-neutral
+  commands and skills, generated adapters, the CLI and MCP, the derived work
+  queue, and publish glue; its own repository. The banked designs also use
+  "Science" for the whole stack, which predates the ecosystem's current name,
+  **verifiably**. The base contract `science` and rule identities such as
+  `science.belief.v1` keep the old name because renaming them would re-identify
+  every claim. ([user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md))
 - **Scoped writer** — The writer a session hands one invocation: bound to that
   invocation, refusing every act outside it, and holding an effective permit
   that is *exactly* the declared requirement rather than the session's ceiling.
@@ -371,6 +376,9 @@ context and the linked design references for normative detail.
   confidence. ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
 - **Verification** — An immutable comparison of two runs under a frozen
   equivalence rule, with a derived scope and verdict. ([computation](computation-and-reproducibility.md#replay-verification-and-belief-are-different-decisions))
+- **verifiably** — The name of the whole ecosystem: `atoms`, `nodes`,
+  `beliefs`, `science`, and `autonomy`. Its goal is understanding the world from
+  small, reproducible data analyses. ([overview](overview.md))
 - **View** — A stored world query plus a label — `project`, `question`,
   `hypothesis`, `topic`, or `theme` — never a container. Evaluated at an epoch
   or live. ([foundations](foundations.md#views-and-coordination-are-governed-not-kernel))

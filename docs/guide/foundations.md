@@ -31,8 +31,9 @@ sources:
 
 ## In brief
 
-At the centre of Science is one rule: **a belief about the world can only be
-moved by an analysis that was re-run successfully on data we actually have.**
+At the centre of the kernel is one rule: **only an analysis of data we actually
+hold, shown to give the same result when run again from scratch, can count as
+evidence about the world.**
 Everything else is arranged to protect that rule. There is a small, fixed set of
 record kinds, and only one of them — the assessment — has a path into belief.
 Contracts say what each record may contain, and the system refuses anything that
@@ -207,7 +208,7 @@ Only one module, `beliefs/root.py`, imports `atoms`: the composition root binds
 the certified engine and hands every other module a seam. The rule is tested
 (`test_capability_boundary.py`).
 
-Composition happens at Science's boundary. There is no compatibility layer with
+Composition happens at the kernel's boundary. There is no compatibility layer with
 the predecessor: legacy material is reproduced through the ordinary typed
 authoring path, not mechanically migrated or inferred from prose.
 

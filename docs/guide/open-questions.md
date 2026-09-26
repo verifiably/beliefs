@@ -81,6 +81,17 @@ implementation**: a guarantee row awaiting code is work, not a question.
   route is closed: Science's Python composition root combines portable `nodes`
   with `atoms`; `nodes` does not adopt the Python-only engine.
   ([substrate question](../designs/2026-08-02-substrate-consolidation-design.md#12-open-questions))
+- **Observation-first analysis.** Today an assessment starts from a stated
+  proposition and an analysis spec written for it. Should there be a route that
+  starts from the data instead — characterizing datasets of different types and
+  modalities through simple, well-grounded methods (statistical,
+  information-theoretic, unbiased detectors) with minimal human or AI decisions
+  in the early steps — and then assigns plausibility to one model or several
+  from what is seen? What would such a characterization record, and how would it
+  reach belief without reopening the closed route? Raised 2026-09-26 from
+  proto-science's experience that pre-registrations often became decoration and
+  were amended after the data were seen. Undesigned.
+  ([beliefs-8b26dc](../../tasks/beliefs-8b26dc.md))
 - **Pre-run fixation is not pre-registration.** Science can guarantee that a
   spec was frozen before its run. Calling that *pre-registered* additionally
   claims it preceded data access, which needs external evidence. The two must

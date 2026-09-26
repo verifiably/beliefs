@@ -1,5 +1,5 @@
 ---
-title: Science contributor guide
+title: verifiably contributor guide
 status: living
 created: 2026-08-08
 updated: 2026-09-26
@@ -9,10 +9,13 @@ sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
 ---
 
-# Science contributor guide
+# verifiably contributor guide
 
-Science records scientific claims, the analyses that assess them, and the exact
-inputs needed to explain a belief. This guide is the short path into the system:
+verifiably aims to improve our understanding of the world by building it up from
+small, reproducible data analyses, letting the data lead and keeping unverified
+claims out. This repository, `beliefs`, is its kernel: it records claims, the
+analyses that assess them, and the exact inputs behind every conclusion. This
+guide is the short path into the system:
 it explains the model by topic, in plain language first, and links to the design
 documents whenever detail matters. The designs, and the frozen guarantee labels
 in them, remain authoritative.
@@ -21,7 +24,7 @@ in them, remain authoritative.
 picture, follows one real claim from data to belief, and names every concept the
 topic pages build on.
 
-## The system in six ideas
+## The kernel in six ideas
 
 1. **A world holds immutable records.** Corpora contribute records to a world;
    content identity and explicit addresses keep references stable.

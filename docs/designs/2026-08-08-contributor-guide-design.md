@@ -55,7 +55,7 @@ later cleanup is not the normal update path.
 | Page | Responsibility |
 |---|---|
 | `README.md` | Introduce Science, show the conceptual map, link to the ledger for implementation status, and provide newcomer and reference reading paths. |
-| `overview.md` | *(added 2026-09-26)* Introduce the big picture in plain language, as a book's opening chapter would: the problem, one claim followed from data to belief, the key concepts grouped by the question each answers, the recurring principles, the layers of the stack, and how the project is built. |
+| `overview.md` | *(added 2026-09-26)* Introduce the big picture in plain language, as a book's opening chapter would: the ecosystem's goal and what it is for, before any mechanics; one analysis followed from data to belief, the key concepts grouped by the question each answers, the recurring principles, the layers of the stack, and how the project is built. |
 | `foundations.md` | Explain the epistemic invariant, kernel, ownership boundaries, profiles, and main record categories. |
 | `claims-and-belief.md` | Explain typed claims, assessments, evidence eligibility, belief policy, domain vocabulary, and the corpus measurements that tested vocabulary admission and claim typing. |
 | `identity-world-and-change.md` | Explain semantic identity, addresses, corpora, the world index, epochs, retraction, supersession, and the mutation log's pre-mutation registration, chains, anchors, and detectable-removal guarantee. |

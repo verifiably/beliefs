@@ -26,9 +26,11 @@ sources:
 
 ## In brief
 
-A claim in Science is not a sentence but a small structure: a relationship (the
+A claim here is not a sentence but a small structure: a relationship (the
 **operator**, such as *affects*), the things it relates, the conditions under
-which it is meant to hold, and whether it asserts or denies. That structure is
+which it is meant to hold, the direction of the effect where the relationship
+has one (its **polarity**), and what kind of claim it is — causal, structural,
+statistical, or methodological (its **claim layer**). That structure is
 the claim's identity, so two people wording the same claim differently are
 talking about one claim. A **belief** about a claim is calculated when asked:
 the calculation counts the verified assessments that point for or against it,

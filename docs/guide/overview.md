@@ -10,98 +10,145 @@ sources:
   - ../designs/2026-09-05-mm30-reproduction.md
   - ../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md
   - ../plans/2026-08-29-implementation-roadmap.md
+  - ../designs/2026-09-12-composite-claims-design.md
+  - ../designs/2026-09-12-estimand-typing-design.md
 ---
 
 # Overview
 
 ## In brief
 
-Science is a system for keeping track of what we believe about the world, and
-why. It records scientific claims, the data and analyses that bear on them, and
-enough detail to run every analysis again. A belief is never typed in by hand:
-it is calculated on request from analyses that were re-run, in a clean
-environment, against data we actually have.
+verifiably is an effort to improve our understanding of the world by building
+it up from small, reproducible data analyses. Each analysis is a building block:
+a precise question asked of real data, recorded completely enough that anyone
+can run it again and get the same answer. Blocks are combined to map what is
+known about a topic, to see whether the same pattern appears across independent
+experiments, and to find where more work would teach us the most. Throughout,
+the data lead: a claim gains weight only from analyses of data we actually have,
+never because a paper, a person, or an AI said so.
 
-The five ideas to carry into the rest of the guide:
+- **Understanding is built from analyses, not assertions.** Each block is one
+  analysis of one dataset, small enough to check.
+- **Confidence comes from agreement across experiments.** One careful analysis
+  can still mislead. The same pattern in several independent datasets, perhaps
+  measured in different ways, is much harder to explain away.
+- **Unverified claims are kept out.** A paper is recorded as what someone wrote,
+  not as fact, and categories or labels invented by a person or an AI never
+  become part of what a record means.
+- **Every block can be traced and repeated.** Which data, which code, which
+  settings, and what came out are all on the record, and nothing is quietly
+  overwritten.
+- **People and agents work on the same ground.** The same records, commands,
+  and rules serve a researcher at a terminal and an agent running unattended.
 
-- **Belief is calculated, not stored.** Ask the same question of the same
-  records and you get the same answer, together with a fingerprint of exactly
-  what it was calculated from.
-- **Only re-run analyses of data we hold can move a belief.** A paper is
-  recorded as what someone wrote, not as a measurement, so it can guide work but
-  never changes a belief by itself.
-- **Nothing is overwritten.** A correction, a withdrawal, or a better version is
-  a new record that points at the old one.
-- **A claim has structure, not just wording.** Rephrasing a sentence does not
-  change the claim; changing what it asserts makes a new one.
-- **Bad input is refused, not repaired.** The system says "no" and why, rather
-  than guessing what was meant.
+## What it is for
 
-## The problem it solves
+The building blocks are useful in four ways:
 
-A research notebook might say *"PHF19 rises as multiple myeloma progresses."*
-That sentence cannot answer the questions a careful reader asks of it. Which data
-showed it? Which analysis, with which settings? Would the analysis give the same
-answer if run again tomorrow, on another machine? Has anyone since found a
-problem with the data? Is *"PHF19 is associated with progression"* the same claim
-or a different one?
+- **Mapping the landscape** around a topic, system, question, or hypothesis:
+  what has been analysed, on which data, with what result.
+- **Aggregating analyses** into a sturdier picture than any single one gives,
+  and from there towards more complex questions — a form of meta-analysis in
+  which every contributing analysis can itself be checked.
+- **Finding gaps**: where understanding is thin, where results disagree, and so
+  where additional effort is most likely to pay off.
+- **Giving humans and agents a common substrate** to work on, with the same
+  guarantees whoever does the work.
 
-Science's predecessor stored claims as prose and checked its policies after the
-fact, so each of those answers depended on someone's memory. The redesign makes
-each question answerable by construction: every claim has a precise form, every
-analysis is captured completely enough to repeat, and every belief names the
-exact inputs it was computed from.
+## Why build from reproducible blocks
 
-## One claim, start to finish
+Even an unbiased analysis of one experiment can reach the wrong conclusion: a
+quirk of one cohort, a batch effect, or plain chance. What earns plausibility is
+seeing the same pattern emerge again and again, across experiments and across
+kinds of data. For that agreement to mean anything, three things must hold for
+every block:
 
-The clearest way in is to follow a single claim through the system. This is a
-real run — the mm30 reproduction, repeated after each major change
+- **We know exactly what it rests on**: the precise data, code, and settings.
+- **It gives the same answer when run again from scratch**, so the result is a
+  property of the data and the method, not of one machine on one day.
+- **It is independent of the blocks it agrees with.** Two analyses of the same
+  dataset are one observation, not two, and must be counted once.
+
+Most of the machinery in this guide exists to make those three properties
+checkable rather than assumed.
+
+## What is kept out
+
+The system is built to stop unverified material from quietly becoming part of
+what we believe.
+
+- **Literature as a source of truth.** A paper's statement is recorded as a
+  *source assertion*: useful for deciding what to look at, never evidence by
+  itself, because nothing in it can be re-run.
+- **Subjective categories and labels.** Genes, diseases, and cell lines are
+  named by the identifiers of established ontologies, not by names someone
+  chose. Human-readable labels are computed for display and never stored or used
+  to identify anything. A term enters the shared vocabulary only when separately
+  built collections agree on it and some rule actually uses it. When two records
+  might name the same thing, that is recorded as an attributed, graded claim,
+  never an automatic merge.
+- **Results nobody can repeat.** An analysis counts only after it has been run a
+  second time from scratch and matched.
+- **Quiet revisions.** Records are never edited in place. A changed analysis is
+  a new version, and the earlier one and its results stay visible.
+- **Double counting.** Analyses that share data are recognised as dependent and
+  counted once.
+
+## One building block, start to finish
+
+The clearest way to meet the machinery is to follow one block through it. This
+is a real run — the mm30 reproduction, repeated after each major change
 ([record §3 and §10](../designs/2026-09-05-mm30-reproduction.md#3-the-path)).
+Terms in **bold** are the record types the rest of the guide explains.
 
-1. **State the claim precisely.** "Disease stage affects PHF19 expression,
-   positively" becomes a **proposition**: the operator `affects`, the arguments
-   `concept:disease-stage` and `protein:PHF19`, a causal claim layer, and
-   positive polarity. The proposition's identity is computed from that
-   structure, so rewording its display text changes nothing.
-2. **Hold the data.** The expression matrix (GEO series GSE179929, 6,154,181
-   bytes) is copied from a local file into a store and hashed. A **holdings observation** records
-   that exactly these bytes were found there, and the **dataset** that names
-   those bytes becomes *held*. A dataset that only names a file nobody has is
-   *declared*: a real record, but one that cannot support a belief until an
-   observation finds its bytes.
-3. **Fix the plan before running.** An **analysis spec** freezes what is being
-   estimated (PHF19 in progressive disease compared with newly diagnosed
-   disease), how the numeric result is turned into a verdict, and what "the same
-   result" means when the analysis is repeated.
-4. **Run it in a sealed box.** A Snakemake workflow runs inside a confined
-   sandbox that sees only the captured code, environment, and inputs, with no
-   network. The **run** record captures all of that plus the outputs.
-5. **Read off the verdict.** The frozen interpretation rule reads the output
-   (a rank comparison, z = 1.16, p = 0.25) and yields an **assessment** of the
-   proposition: `inconclusive`.
-6. **Run it again, from scratch.** A second run in a fresh environment is
-   compared with the first under the frozen rule. The **verification** says the
-   two agree, and that the comparison reached *clean-environment* scope, the
-   only scope strong enough to count. Only now is the assessment admitted.
-7. **Ask what we believe.** The belief calculation gathers every admitted
-   assessment of the proposition. Here the only one has no direction, so the
-   answer is `NoBelief(no-directional-outcome)` — an honest "no evidence either
-   way", never a fake zero. A `supported` or `refuted` result would have produced
-   a **belief** value together with a digest naming every record and rule it
-   consulted.
+1. **Write the question down precisely.** "Does disease stage raise PHF19
+   expression in multiple myeloma?" is recorded as a **proposition** with
+   explicit parts rather than as a sentence: the relationship (*affects*; the
+   guide calls this the *operator*), the two things it relates (disease stage,
+   and the protein PHF19), the direction asserted (*raises* rather than
+   *lowers*; the *polarity*), and what kind of claim it is (a cause-and-effect
+   claim rather than, say, a mere association; the *claim layer*). Because those
+   parts are the claim's identity, rewording the sentence changes nothing.
+2. **Get the data in hand.** The expression matrix (GEO series GSE179929,
+   6,154,181 bytes) is copied from a local file into a store and fingerprinted
+   by its hash. A **holdings observation** records that exactly these bytes were
+   found there, and the **dataset** naming them becomes *held*. A dataset that
+   only names a file nobody has is *declared*: a real record, but one that
+   cannot support anything until an observation finds its bytes.
+3. **Describe the analysis.** An **analysis spec** records which comparison is
+   made (PHF19 in progressive disease against newly diagnosed disease), how the
+   output is read as a verdict, and what counts as "the same result" when the
+   analysis is repeated. It is recorded before the run, so the run can be checked
+   against a fixed description. It is not a promise that cannot change: if the
+   data show the analysis should be different, you record a new version. A new
+   version cannot quietly drop an earlier attempt whose repeat failed on the
+   record, so what was tried stays visible.
+4. **Run it in a sealed box.** A Snakemake workflow runs inside a sandbox that
+   sees only the captured code, software, and data, with no network. The **run**
+   record keeps all of that and the outputs.
+5. **Read off the result.** The spec's rule reads the output (a rank comparison,
+   z = 1.16, p = 0.25) and records an **assessment** of the proposition:
+   `inconclusive`.
+6. **Check that it reproduces.** The analysis is run again from scratch in a
+   fresh environment and the two runs are compared. This second run is a check,
+   not a second piece of evidence: it must give the same result. The
+   **verification** records that it did, in a clean environment — the only
+   setting strong enough to let the assessment count.
+7. **See what it adds up to.** Every checked, independent assessment of the
+   proposition is combined into a **belief**. Here there is one, and it points
+   neither way, so the answer is `NoBelief(no-directional-outcome)` — an honest
+   "no evidence either way", never a fake zero. As blocks from other datasets
+   accumulate, each checked and independent one adds its direction, and the
+   answer always comes with a fingerprint of every record and rule it used.
 
 ```text
 proposition ◀──assesses── assessment ──derived from──▶ run ──observes──▶ held dataset
      ▲                        ▲                          │
-     │                        │                          └── replayed and compared ──▶ verification
-     │                   admitted only when that verification is a clean-environment pass
+     │                        │                          └── run again and compared ──▶ verification
+     │                   counts only when that verification is a clean-environment match
      │
- source assertion   (a paper's statement: recorded, never a route to belief)
+ source assertion   (a paper's statement: recorded, never evidence by itself)
 ```
-
-A paper saying that PHF19 drives progression can be recorded too, as a
-**source assertion** about the same proposition. It helps decide what to test.
-It does not move the belief, because nothing in it can be re-run.
 
 ## The main ideas, grouped
 
@@ -145,9 +192,39 @@ the designs predictable.
   cannot accidentally open a new route into belief. There is exactly one route —
   a verified assessment of a claim — and the set of routes is closed.
 
+## Where the design is heading
+
+The kernel today supports the path above well, and it is deliberately only part
+of the goal. Three directions matter for reading the rest of the guide:
+
+- **Weighing evidence, not just counting it.** Version 1 of the belief
+  calculation gives every checked, independent assessment one vote. The
+  quantities it would need to weigh them — what was estimated, on what scale,
+  with what uncertainty — are already recorded as typed values. The weighting
+  policy itself is the next design
+  ([open question](open-questions.md#claims-and-belief)).
+- **Comparing models.** A **composite** records a structure over several claims,
+  such as a causal diagram, and reads each member's belief. That lets the
+  evidence for one structure be set beside another's; how plausibility should be
+  assigned across competing models is still open.
+- **Starting from observation.** Today's path begins with a stated claim and an
+  analysis written for it. The intended complement begins with the data:
+  characterize datasets of different types from several angles using simple,
+  well-grounded methods — statistical, information-theoretic, unbiased
+  detectors — with as few human or AI decisions as possible in the early steps,
+  and then weigh one model or several by what is seen. This is a direction, not
+  yet a design ([open question](open-questions.md#foundations)).
+
+Finding gaps is served above the kernel: the daily surface derives a work queue
+from the records, and the autonomy layer's priority function will choose what
+to work on next.
+
 ## The layers of the stack
 
-"Science" names the whole stack. This repository, `beliefs`, is its middle layer.
+The ecosystem is called **verifiably**. It has five layers, each its own
+repository; this one, `beliefs`, is the middle. The earlier, single-repository
+system was called Science, and the banked designs still use "Science" for the
+whole stack; in this guide `science` names only the daily-surface layer.
 
 | Layer | Repository | What it does | State |
 |---|---|---|---|
