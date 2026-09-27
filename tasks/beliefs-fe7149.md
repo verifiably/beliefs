@@ -1,15 +1,16 @@
 ---
 id: beliefs-fe7149
 title: "Attended session: one write root, N mounted read corpora, coordination resolution over all"
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: planned
 owner: design/session-mounts
 created: 2026-09-23T11:40:35Z
-updated: 2026-09-27T15:02:55Z
+updated: 2026-09-27T23:21:17Z
 started: 2026-09-27T13:25:55Z
+completed: 2026-09-27T23:21:17Z
 depends: []
 tags: [session]
 agent: claude-code/claude-fable-5-1
@@ -43,3 +44,5 @@ open_attended_session refuses unless corpus_roots names exactly one root (sessio
 - 2026-09-27T15:02:53Z (design/session-mounts): plan review round 1 taken: J15-a via same-profile read mount D, ManifestMalformed split, owned fixture teardown, A/B note fixed. User chose subagent-driven, sequential, after clearance.
 - 2026-09-27T15:02:55Z (design/session-mounts): parked (waiting on user, review): user reviews the round-1 plan fixes in .worktrees/session-mounts; on clearance, execute subagent-driven (sequential) starting Task 0 beliefs-8e46e1 after publish Task 0 freezes cut 42
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T23:21:17Z (design/session-mounts): done
+- 2026-09-27T23:21:17Z (design/session-mounts): Cut43 discharged: one write root, every configured corpus mounted under its own pins, coordination over all, corpus-matched reconciliation; review and certified gate passed.
