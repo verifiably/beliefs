@@ -915,3 +915,9 @@ These are recorded in `docs/guide/open-questions.md` and are not built:
     - Y16-c reads a damaged root as holding nothing. That is what a
       report-mode capture does to the one unreadable file, over a root
       whose only other content the check does not need.
+
+- 2026-09-27 — Task 7 acceptance execution: Y16-b reads the epoch refusal
+  through `AddressMapConflict.finding.code`, the existing typed interface.
+  The plan assumed `args[0]` held the `Finding`; it holds the formatted error
+  message. The required `duplicate-location` code and the sibling-publication
+  assertions are unchanged.
