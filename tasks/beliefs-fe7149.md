@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/session-mounts
 created: 2026-09-23T11:40:35Z
-updated: 2026-09-27T14:52:06Z
+updated: 2026-09-27T14:52:07Z
 started: 2026-09-27T13:25:55Z
 depends: []
 tags: [session]
@@ -36,3 +36,5 @@ open_attended_session refuses unless corpus_roots names exactly one root (sessio
 - 2026-09-27T14:51:57Z (design/session-mounts): resumed
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-27T14:52:06Z (design/session-mounts): spec approved (round 2, J15b wording taken); plan drafted: docs/superpowers/plans/2026-09-27-session-mounts.md, 9 tasks (beliefs-8e46e1..beliefs-654638), cut 43 chaining cut 42; Task 5 waits for cut 42's merge
+- 2026-09-27T14:52:07Z (design/session-mounts): parked (waiting on user, review): user reviews docs/superpowers/plans/2026-09-27-session-mounts.md in .worktrees/session-mounts and picks the execution method; then the agent starts Task 0 (beliefs-8e46e1)
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
