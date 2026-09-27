@@ -128,7 +128,8 @@ These are the inputs a person meets that the spec's arms do not pin. Each line n
 - Produces:
   - the frozen cut body the guard pins (Task 8 reads its freeze commit and digest);
   - the engine verdicts `EXPORT_LAYOUT`, `CHAIN_HEAD_SERVICEABLE`, `EVALUATE_INTACT`, `EVALUATE_DELETED`, `EVALUATE_ALTERED`, `EVALUATE_WRITES_NOTHING` and `DAMAGE_WRITABLE`, each `"holds"` or a refusal text;
-  - `EVALUATE_UNREADABLE` and `EVALUATE_UNDECODABLE`, each either the outcome the evaluation answers or the exception type it raises, and `CHAIN_HEAD_DAMAGED`, the exception type the chain head raises over a damaged chain. Task 5's `root.py` translations catch exactly the types these name;
+  - `EVALUATE_UNREADABLE` and `EVALUATE_UNDECODABLE`, each either the outcome the evaluation answers or the exception type it raises;
+  - `CHAIN_HEAD_DAMAGED`, `CHAIN_HEAD_DELETED` and `CHAIN_HEAD_UNREADABLE`, the exception types the chain head raises over a damaged, deleted and unreadable chain directory, and `EVALUATE_CHAIN_DELETED`, what the evaluation does over a deleted one. Task 5's `root.py` translations catch exactly the types these name (plan review, round 2: a deleted or unreadable chain raises `PreconditionRefused`);
   - `CHAIN_DIR`, the name of the chain directory at the export root's top level, which Task 8's Y16-a sabotage uses.
 
 - [ ] **Step 1: Confirm the baseline and that cut 42 is unclaimed**
@@ -328,15 +329,42 @@ def test_a_damaged_chain_raises_from_the_chain_head(exported):
     with pytest.raises(Exception) as caught:  # a probe: the type is the finding
         chain_head_reader()(export)
     print(f"CHAIN_HEAD_DAMAGED = {type(caught.value).__module__}.{type(caught.value).__qualname__}")
+
+
+@pytest.mark.parametrize("damage", ["deleted", "unreadable"])
+def test_a_missing_or_unreadable_chain_raises_from_the_chain_head(exported, damage):
+    """CHAIN_HEAD_DELETED and CHAIN_HEAD_UNREADABLE (the round-2 reviewer saw
+    `PreconditionRefused` for both), and EVALUATE_CHAIN_DELETED."""
+    if damage == "unreadable" and os.geteuid() == 0:
+        pytest.skip("root reads mode-0 directories")
+    export, corpus_id, observers, _, _ = exported
+    writable(export)
+    chain = export / ".#~chain"
+    if damage == "deleted":
+        shutil.rmtree(chain)
+    else:
+        chain.chmod(0)
+    try:
+        with pytest.raises(Exception) as caught:  # a probe: the type is the finding
+            chain_head_reader()(export)
+        print(f"CHAIN_HEAD_{damage.upper()} = {type(caught.value).__module__}.{type(caught.value).__qualname__}")
+        if damage == "deleted":
+            try:
+                print(f"EVALUATE_CHAIN_DELETED answers {_evaluate(export, corpus_id, observers)}")
+            except Exception as refused:  # a probe
+                print(f"EVALUATE_CHAIN_DELETED raises {type(refused).__module__}.{type(refused).__qualname__}")
+    finally:
+        if chain.exists():
+            chain.chmod(0o755)
 ```
 
 ```bash
 cd python && uv run --frozen pytest tests/test_publish_remote_engine.py -q -s 2>&1 | tail -15
 ```
-Expected: `9 passed`, with the `TOP LEVEL =`, `EVALUATE_UNREADABLE`, `EVALUATE_UNDECODABLE` and `CHAIN_HEAD_DAMAGED` lines.
+Expected: `11 passed`, with the `TOP LEVEL =`, `EVALUATE_UNREADABLE`, `EVALUATE_UNDECODABLE`, `CHAIN_HEAD_DAMAGED`, `CHAIN_HEAD_DELETED`, `CHAIN_HEAD_UNREADABLE` and `EVALUATE_CHAIN_DELETED` lines.
 - Record `CHAIN_DIR` as the one name in `TOP LEVEL` that is neither a record kind directory nor `corpus.yaml`. The J9 acceptance case removes it as `".#~chain"`; if it differs, change the chain-damage probe's `".#~chain"` to match and rerun.
 - Record each other verdict as `"holds"`, and the three printed lines verbatim.
-- If `CHAIN_HEAD_DAMAGED` or either `EVALUATE_*` line names a type that is neither `OSError`'s family nor `ChainStateInvalid` or `TransactionHalted` (both already imported in `root.py`), Task 5's two translations catch that type too. Import it in `root.py` beside the others.
+- Task 5's two translations already catch `OSError`, `ChainStateInvalid`, `TransactionHalted` and `PreconditionRefused`, all four imported in `root.py`. If any printed line names another type, both translations catch that type too; import it in `root.py` beside the others.
 
 If one fails:
 - **`EVALUATE_DELETED` or `EVALUATE_ALTERED` answers `validated`.** Before deciding, probe `audit_log`, spec §4.3's other candidate. Build a `WorldConfig(<stem>/audit-world, "a" * 32, (export,))` and call `audit_log(config, CorpusSubject(corpus_id), export, observers, actor="probe")`. If it refuses both damages, Task 5's `evaluate_copy` wraps `audit_log` with that single-root configuration, and the planning note says so. If neither call refuses both, the spec says planning stops: `tasks note beliefs-3ce305 "<verdicts>"`, then park `--reason decision`. There is no fallback check.
@@ -368,7 +396,7 @@ Then these sections:
 - **§2, the boundary:** every file in this plan's file map from Task 1 to Task 8, and "Frozen declarations and cut bodies through cut 41 remain byte-exact."
 - **§3, selection:** the six Y rows from Step 3, then the unit table from spec §11.2 as amended by Step 5's planning notes: fourteen rows, Y11-a through Y16-c, with the assertion column.
 - **§4, accounting:** "**14 arms, 14 declaration units**, six rows; Y11–Y16 open and close; recent-cut row `(14, 14, 6)`; Task 7 passes <n>; 204 of 237 → 210 of 237".
-  - `<n>` is the number of test cases Task 7's module collects: `cd python && uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py --collect-only -q | tail -1`, run after Task 7. Until then, write the count from Task 7's code: fourteen units, whose parametrizations make twenty-four cases, plus the three extra tests' six cases, for 30.
+  - `<n>` is the number of test cases Task 7's module collects: `cd python && uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py --collect-only -q | tail -1`, run after Task 7. Until then, write the count from Task 7's code: fourteen units, whose parametrizations make twenty-four cases, plus the three extra tests' seven cases, for 31.
   - If Step 2 left a fact unrun, state which arm is unrun, give the reduced counts, and say that the row is **partial**.
 - **§5, N2 and acceptance obligations:**
   - the sabotage table from Task 8 Step 1;
@@ -1731,7 +1759,7 @@ def evaluate_copy(dest_root: Path, subject: CorpusSubject | StoreSubject, observ
         raise TypeError("a copy is evaluated for a corpus or store subject")
     try:
         return _restore_root(dest_root, subject, observers, seam=_log_seam(), grant=_grant_nothing).outcome
-    except (OSError, ChainStateInvalid, TransactionHalted):
+    except (OSError, ChainStateInvalid, TransactionHalted, PreconditionRefused):
         return "unreadable"
 
 
@@ -1745,9 +1773,11 @@ def export_chain_head(root: Path) -> tuple[str, str] | None:
     damaged chain is a mark that names no export, never an exception out of the act."""
     try:
         return _chain_head(root)
-    except (ChainStateInvalid, TransactionHalted):
+    except (OSError, ChainStateInvalid, TransactionHalted, PreconditionRefused):
         return None
 ```
+
+`PreconditionRefused` covers more than one fact (the `UNREGISTERED_ROOT` note in `root.py`). Here every one of them means the retained export's chain cannot be read, which is the mark naming no readable export, so it answers `None` and the resume answers `transport-mark-corrupt`.
 
 Both `except` tuples grow by any further type Task 0 printed (`EVALUATE_UNREADABLE`, `EVALUATE_UNDECODABLE`, `CHAIN_HEAD_DAMAGED`), and by nothing else.
 
@@ -1776,6 +1806,8 @@ def test_export_chain_head_answers_none_for_a_damaged_chain(exported):
     writable(export)
     victim = next(p for p in sorted((export / ".#~chain").rglob("*")) if p.is_file())
     victim.write_bytes(b"garbage")
+    assert export_chain_head(export) is None
+    shutil.rmtree(export / ".#~chain")
     assert export_chain_head(export) is None
 ```
 
@@ -2507,6 +2539,7 @@ then reads only disk."""
 from __future__ import annotations
 
 import os
+import shutil
 import stat
 from dataclasses import replace
 from itertools import count
@@ -2937,7 +2970,7 @@ def test_y16_c_a_held_root_with_an_unreadable_record_file_refuses_capture_damage
 # --- beyond the units -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("check", ["serviceable", "sibling", "chain", "marker"])
+@pytest.mark.parametrize("check", ["serviceable", "sibling", "chain", "chain-deleted", "marker"])
 def test_each_export_check_failing_alone_is_transport_mark_corrupt_durably(remote, monkeypatch, check):
     """§11.1: each of §4.2's checks failing alone → transport-mark-corrupt, nothing written.
     The marker case is the content check, which runs after the evaluation validates."""
@@ -2953,6 +2986,10 @@ def test_each_export_check_failing_alone_is_transport_mark_corrupt_durably(remot
         monkeypatch.setattr(act, "decode_head_artifact", lambda data: replace(real(data), head="0" * 64))
     elif check == "chain":
         monkeypatch.setattr(act, "export_chain_head", lambda _root: None)
+    elif check == "chain-deleted":
+        export = export_of(remote, token, mark_of(remote, token).corpus_id)
+        writable(export)
+        shutil.rmtree(export / ".#~chain")  # Task 0's CHAIN_DIR
     else:
         path = op_dir(remote, token) / "transport.v1"
         mark = mark_of(remote, token)
@@ -3001,7 +3038,7 @@ cd ~/d/beliefs/.worktrees/publish/python && cd "$(pwd -P)"
 uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py -q 2>&1 | tail -5
 uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py --collect-only -q | tail -1
 ```
-Expected: `30 passed` (one or two skips when run as root), and a collection count of 30: the units' 24 cases plus the three extra tests' 6. The frozen cut document is never edited after Task 0; its digest is Task 8's pin. If the collected count differs from §4's, the results record §3 states both numbers and why they differ.
+Expected: `31 passed` (one or two skips when run as root), and a collection count of 31: the units' 24 cases plus the three extra tests' 7. The frozen cut document is never edited after Task 0; its digest is Task 8's pin. If the collected count differs from §4's, the results record §3 states both numbers and why they differ.
 
 If `admit_publication` over Y16-a's unrestored partial copy raises something other than `PublicationArrivalRefused` (for example if `ReadView` refuses a copy restore did not grant), assert that type instead and record it in the spec's §17. The unit's claim is that the copy is refused, not which door refuses it.
 
@@ -3010,7 +3047,7 @@ A unit that fails for its own reason is a finding: fix the source, not the asser
 - [ ] **Step 3: Commit**
 
 ```bash
-tasks done <Task 7's id> "acceptance module: 14 units, 30 cases"
+tasks done <Task 7's id> "acceptance module: 14 units, 31 cases"
 tasks check && git add python/tests/acceptance/test_publish_remote_acceptance.py tasks
 git commit -m "test(cut42): the remote publish acceptance module — Y11–Y16"
 ```
@@ -3359,3 +3396,4 @@ The execution rulings are already in the committed results record §7 (memory `e
   2. **Corruption could escape as an exception.** The chain head raises `ChainStateInvalid` over a damaged chain, and a marker without `selection` raised `KeyError`. `root.py` now translates both engine types: `export_chain_head` answers `None`, and `evaluate_copy` answers `"unreadable"`. Task 0 prints the types, so each `except` names exactly what the engine raises. The marker's shape is checked (`publication_content_malformed`, `marker_consistent`) before its facet is read. The export-check test gains a `chain` case.
 
   Also from the review: long runs are harness-tracked (`run_in_background`), not detached. The Global Constraints and Tasks 8 and 11 changed accordingly.
+- 2026-09-27 — user review of the plan, round 2: P1 resolved. One P2 finding, confirmed by the reviewer's probe, taken: **a missing chain escaped recovery.** Deleting `.#~chain`, or making it unreadable, raises `PreconditionRefused` from the chain head, which `export_chain_head` did not catch, so the resume raised instead of answering `transport-mark-corrupt`. Both `root.py` translations now catch `PreconditionRefused` (and `OSError`). Task 0 probes a deleted and an unreadable chain directory, and the evaluation over a deleted one. The export-check acceptance test gains a real `chain-deleted` case (31 cases).
