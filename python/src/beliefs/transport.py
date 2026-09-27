@@ -44,12 +44,16 @@ def transport_files(container: Path, corpus_id: str) -> dict[str, Path]:
     """Every regular file under `<container>/<corpus_id>`, named
     `<corpus_id>/<posix path relative to the root>`, and the sibling, named
     `<corpus_id>.head-artifact.v1`. The `.metadata` sibling is the engine's and is
-    never named. A symlink or any other non-regular entry refuses."""
+    never named. A symlink, scan error, or other non-regular entry refuses."""
     root = Path(container) / corpus_id
     if root.is_symlink() or not root.is_dir():
         raise MalformedRecord(f"{root}: a transported root is a directory")
+
+    def raise_scan_error(error: OSError) -> None:
+        raise error
+
     files: dict[str, Path] = {}
-    for directory, dirnames, filenames in os.walk(root):
+    for directory, dirnames, filenames in os.walk(root, onerror=raise_scan_error):
         dirnames[:] = sorted(dirnames)
         here = Path(directory)
         for name in (*dirnames, *filenames):

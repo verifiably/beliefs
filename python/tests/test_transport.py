@@ -75,6 +75,20 @@ def test_a_missing_root_or_sibling_refuses(tmp_path):
         transport_files(container, CORPUS)
 
 
+def test_a_directory_scan_error_refuses(tmp_path, monkeypatch):
+    container = _container(tmp_path)
+    scan = os.scandir
+
+    def fail_nested_scan(path):
+        if Path(path) == container / CORPUS / "run":
+            raise PermissionError("scan denied")
+        return scan(path)
+
+    monkeypatch.setattr(os, "scandir", fail_nested_scan)
+    with pytest.raises(OSError, match="scan denied"):
+        transport_files(container, CORPUS)
+
+
 def test_the_local_listing_digests_the_bytes(tmp_path):
     files = transport_files(_container(tmp_path), CORPUS)
     assert local_listing(files) == {name: sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
