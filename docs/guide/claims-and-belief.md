@@ -301,7 +301,7 @@ intent-bearing acts and projected under a declared coverage — so an
 observation's admission input is a system record rather than a supplied
 argument. The survey and typing exercise remain hand-run measurements, not
 conformance oracles. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
 states what remains. The estimand, applicability, estimate and uncertainty are
 typed as of cut 31, with the two commensuration predicates exposed and unread.
 The `composite` kind is built as of cut 32: structures are recorded, read

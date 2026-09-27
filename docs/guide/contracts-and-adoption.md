@@ -86,7 +86,7 @@ R12 — called a **guarantee row**. Work is built in small slices called
 which rows the slice will satisfy, and states what it leaves out. Every check
 the cut adds is paired with a deliberate break of the code, and the check must fail when that
 break is applied; a check that cannot fail does not count. The
-[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16),
+[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27),
 not this guide, says what has landed.
 
 - **Promises have permanent names.** Rows are never renumbered, so a test or a
@@ -223,13 +223,10 @@ fitted result into independent validation.
 
 ## Current state
 
-Forty-one conformance cuts have been frozen and discharged, each frozen before
-its code existed and each from cut 4 onward discharged on the certified tuple.
-Cut 42, the remote half of the publish act, is being designed and is not yet
-frozen. The complete
+Forty-one conformance cuts have been discharged, each frozen before its code existed and each from cut 4 onward discharged on the certified tuple. Cut 42, the remote half of the publish act, and cut 43, the multi-corpus session, are frozen before implementation. This branch banks 235 rows: 204 closed and 31 open; cut 42’s rows join at the Task 5 merge. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
 implemented; the roadmap schedules them after `publish`. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
 states the row count, what remains, and who owns it.
 
 The contributor guide has no ledger artifact of its own. That is deliberate:
@@ -284,6 +281,7 @@ exact selection; the results record under `../plans/` holds the evidence.
 | [39](../designs/2026-09-23-conformance-cut-39.md) | Publication records and the publish intent (W17, Y1–Y4) |
 | [40](../designs/2026-09-24-conformance-cut-40.md) | The publish act for a local destination (Y5–Y10) |
 | [41](../designs/2026-09-25-conformance-cut-41.md) | Live view-query evaluation (Z1–Z5) |
+| [43](../designs/2026-09-27-conformance-cut-43.md) | The multi-corpus session (J12–J15), frozen before implementation; discharge follows cut 42 |
 
 ## Open edges
 

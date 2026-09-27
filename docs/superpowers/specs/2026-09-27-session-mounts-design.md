@@ -9,10 +9,8 @@ its coordination command set design
 **Boundary:** `multi-corpus-session`, new, in the `write-path` lane, which this design
 reopens.
 **Task:** `beliefs-fe7149`
-**Cut:** the next number free at freeze (roadmap concurrency rule 1). The number is 42 if
-this cut freezes before `beliefs-3ce305`'s cut does, and 43 otherwise. This spec calls it
-**cut N**.
-**Status:** approved 2026-09-27 after two user reviews; ready for planning
+**Cut 43:** numbered after cut 42 (`design/publish`) under roadmap concurrency rule 1; its discharge serializes after cut 42 under rule 5.
+**Status:** approved 2026-09-27; frozen as cut 43 on 2026-09-27
 
 ## 1. What this slice is
 
@@ -288,7 +286,7 @@ building the resolver over every root, and §9's J14 holds each of them:
 ## 6. Shared files, under roadmap concurrency rule 3
 
 This lane rewrites `session/__init__.py` and `session/reconcile.py`, and adds `mount.py`. Its overlap with the open
-`world-read` lane (`publish`, cut 42 or 43) is:
+`world-read` lane (`publish`, cut 42) is:
 
 - `errors.py` (one class), `python/tests/test_designs_corpus.py`, the adoption ledger, the
   roadmap and the guide index. Every lane rewrites these.
@@ -356,7 +354,7 @@ to the membership check itself: `if write_root not in world_config.corpus_roots:
 `if False:`. J9's zero-root case passes an adopted, well-formed root as `write_root`, so
 the membership check is the only refusal on its path. Under the sabotage that session
 opens and creates its directory, and J9's check fails. J12a sabotages the same line for
-cut N's own outside-write-root case. The two arms share a mutation and differ in the
+cut 43's own outside-write-root case. The two arms share a mutation and differ in the
 check that sees it.
 
 **Where the re-target lives.** A frozen arm is re-targeted in the `_LIVE_SABOTAGES` table
@@ -373,15 +371,15 @@ J9a. The other cut-19 pins in `session/__init__.py` (`inspect_detached`,
 `_operation_lock_for`, `WellFormedView`) and in `session/reconcile.py` (`if r.digest in
 acts:`, `if unknown:`, the `unknown =` line, `if staged not in digests:`) are kept
 byte-exact by §3.2 and decision 8. A second stale arm is a finding against this spec,
-not a routine re-target. J9a's frozen declaration is not edited, and cut N's document
+not a routine re-target. J9a's frozen declaration is not edited, and cut 43's document
 cites J12 as the successor of J9's two-root clause.
 
 J9's case in `test_session_acceptance.py` opens a two-root configuration and expects
-`SessionRefused`. That configuration now opens, so cut N's commit removes the two-root
+`SessionRefused`. That configuration now opens, so cut 43's commit removes the two-root
 case from J9's parametrization (J12 covers it). It passes `write_root` to the rest: the
 configuration's own root where it has one, and for the zero-root case the adopted,
 well-formed `root` the test already builds, so J9a's re-target is observable. The
-edit is named in cut N's document. It is the only change to cut 19's acceptance module;
+edit is named in cut 43's document. It is the only change to cut 19's acceptance module;
 the other refusing configurations stay as they are.
 
 ### 8.4 The cut
@@ -399,7 +397,7 @@ Global Constraints carry the two repository obligations verbatim:
 - The writer-session design gets a dated amendment section: §3.1's signature and checks,
   limitation 1 retired in its first sentence, and J9's two-root clause pointing at J12.
 - The adoption ledger's `Current state` gains `multi-corpus-session` and closes it at
-  cut N's results record. The `write-path` lane row reopens with this boundary.
+  cut 43's results record. The `write-path` lane row reopens with this boundary.
 - The roadmap places `multi-corpus-session` in tier 1 **on the path**: it is a prerequisite
   of the second-project milestone, which is the next measurement of the success criterion
   (roadmap, "On the path"). Rule 6's two-lane limit holds, with `world-read` as the second
@@ -446,3 +444,39 @@ feeds the same milestone.
   J15b's sabotage removes `session-entry-foreign` only. The backward check still reports
   `session-act-unverified`, which J15c's sabotage removes. The reviewer withdrew the
   round-1 claim that later guards also needed J9a re-targeting: only cut 19 audits that arm.
+
+
+## 13. Planning notes
+
+- 2026-09-27 — at planning (plan `../plans/2026-09-27-session-mounts.md`):
+  - **The test-local contract is the `biology` fixture** (`tests/profiles.py`
+    `biology("fixture")`): a `biology`-namespace document whose identity is
+    not the shipped pack's. The acceptance corpora are:
+    - A, the write root: base, the fixture `biology` and coordination v2.
+      Ordinary proposition writes need the fixture's operators.
+    - B: base, the shipped `biology` and coordination v2.
+    - C: the fixture `biology` alone, the mm30 shape.
+    - D: a read mount with A's profile. J15-a's sabotage needs a read target
+      the writer can bind without a profile mismatch.
+
+    §8.2's "biology and the test-local contract" cannot both pin the one
+    namespace.
+  - **J15a's sabotage rebinds the writer factory's root, and with it the
+    operation port, to the first read mount whose profile equals the
+    writer's (D).** The spec's §8.3 "binds the first read mount" would bind B,
+    whose profile differs, and construction would refuse `ContractMismatch`
+    before any write. The unchanged-tree assertion would then never be
+    reached (plan review, round 2).
+  - **A malformed pin is the manifest's refusal, not the mount's.** A pin not
+    spelled `<namespace>:<identity>` fails `load_manifest` with
+    `ManifestMalformed`, which propagates (§3.1). `MountPinUnresolved` is
+    reserved for a well-formed pin nothing carries.
+  - **J12c's sabotage binds the whole session to `corpus_roots[0]`** in place
+    of the resolved write root. That is where the writer factory's root
+    comes from, so it is the one-edit form of "the writer factory binds
+    `corpus_roots[0]`".
+  - **Nine units, one per arm.** J13's two units are portable tests in
+    `test_mount.py`, and J15-b and J15-c are portable tests in
+    `test_session_reconcile.py`, over stand-in views as the spec states.
+  - **`mounts=None` is `None`, never an empty mapping.** An empty mapping
+    omits every configured root and refuses under decision 3.

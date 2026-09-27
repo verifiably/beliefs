@@ -194,7 +194,7 @@ verification carries its comparison report, so the audit and the import
 recompute its scope from the corpus rather than from an in-memory value. The
 run boundary has no open boundary of its own; R22's resolver arm and R23's
 rules-store clauses wait on the first full contract cut, as the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
 records.
 
 The mm30 reproduction was re-run end to end at cut 31 under the successor

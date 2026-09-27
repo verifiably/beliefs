@@ -242,7 +242,7 @@ that the operation was scientifically or administratively authorized.
 The address ruling governs the derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
 address. Owners for everything not built are in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27).
 
 ## Open edges
 

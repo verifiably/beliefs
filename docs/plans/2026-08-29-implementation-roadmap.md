@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 41, against the ledger's Current state (2026-09-25)
+**Ranked at:** cut 41, against the ledger's Current state (2026-09-27)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -14,7 +14,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -201,7 +201,7 @@ stays off-path row 1 and the `world-read` lane's head with cut 42's
 remainder; the cut number was taken by the user's decision of 2026-09-25,
 and the remote slice was relabelled planned cut 42 at cut 41's freeze.
 
-The current accounting is 204 of 231 rows closed, with 27 open. The prior
+The current accounting is 204 of 235 rows closed, with 31 open. The prior
 single-corpus mm30 measurement has no remaining on-path boundary; a second corpus may place one here. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state; cut 32 re-ran it again under a further successor and composed and read the `h1-prognosis` fragment from the recreated corpus, which measures structure rather than the on-path question; cut 33 re-derived the same `NoBelief` answer with the empty retraction enumeration derived rather than supplied; cut 34 read the same corpus in place (no contract succeeded to move it aside) and re-derived the same answer, with the new arm exercised only by the acceptance module, not by mm30's corpus; cut 35 read it in place once more and re-derived the same answer with `state.json` byte-identical, its five stored holdings observations all `store` locations decoding unchanged through the widened codec — the `url` arm and the `acquisition` operation are exercised only by the acceptance module; cut 36 read it in place again and re-derived the same answer with `state.json` byte-identical — the event-level relation is read by no driver step, and mm30's single corpus chain orders no cross-chain pair. Cut 37 read it in place again and re-derived the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing; cut 38 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver audits through the bare evaluator and re-checks no holding; cut 39 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's manifest pins no coordination contract; cut 40 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's world publishes nothing, so the act and the arrival door are not reached; cut 41 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver evaluates no view query, live or epoch-bound. None of these later measurements re-ranks the path.
 
 ## Boundary index
@@ -224,6 +224,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 | id | rows it closes | tier | task |
 |---|---|---|---|
+| `multi-corpus-session` | J12–J15: one write root, manifest-pinned profiles for every configured corpus, coordination over every mount and corpus-matched reconciliation | 1, on the path — required by Science's second-project milestone | [beliefs-fe7149](../../tasks/beliefs-fe7149.md) |
 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | 1, the join — the base contract now carries the estimand grammar (cut 31) and the composite grammar, the `composite` kind, the `composes` signature and `supersedes`' `same_kind` declaration (cut 32): two more oracles amended before the freeze | [beliefs-eacbe2](../../tasks/beliefs-eacbe2.md) |
 | `persistence-cut` | X2; L1's persistence arms (re-homed at cut 36) | 2 | [beliefs-3ea822](../../tasks/beliefs-3ea822.md) |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | 3 | [beliefs-84d7b0](../../tasks/beliefs-84d7b0.md) |
@@ -236,7 +237,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 ### On the path
 
-No boundary: the reproduction record's on-path measurement is discharged at cut 30, and the cut 31–33 re-runs measured nothing new about the on-path question; the next measurement (a second corpus) may place one here.
+`multi-corpus-session` is on the path: the second-project milestone opens a session writing one corpus and reading every configured corpus under its own profile. J12–J15 are banked at cut 43 and remain open until discharge.
 
 ### Off the path
 
@@ -268,7 +269,7 @@ boundary sits in the lane of its prerequisite and waits there.
 
 | lane | boundaries, in order | shared surface | status |
 |---|---|---|---|
-| `write-path` | none — no open boundary | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed: `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
+| `write-path` | `multi-corpus-session` | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | open: `multi-corpus-session` (cut 43); `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
 | `domain` | none — `domain-boundary` closed at cut 26 after slices 1 and 2 at cuts 20 and 22 | the `nodes` registry | closed 2026-09-12 at cut 26 |
 | `composite-claims` | none — `composite-claims` closed at cut 32 | `contract/base.py`, `contract/domain.py`, `profile.py`, `composite.py`, `stored.py`, `corpus.py`, `audit.py`, `belief.py`, `evaluation.py`, `permit.py`, `resolution.py`, `errors.py`, both `CONTRACT.yaml` copies, the TypeScript contract and profile parsers, and the reproduction driver; the overlap with `world-read` and `mutation` on `corpus.py`, `audit.py`, `evaluation.py` and `belief.py` was named at the freeze under rule 3 | closed 2026-09-16 at cut 32 |
 | `live-query` | none — `live-query` closed at cut 41 | `world/selection.py` and `world/live.py`; the overlap with `world-read` on `world/view.py` (one private method, one type alias) and `corpus.py` (one protocol, one annotation) was named at the freeze under rule 3 | closed 2026-09-25 at cut 41 |
@@ -355,11 +356,11 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 41
+## Appendix A — live status of every guarantee row at cut 43
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it. Cut 41
-closes Z1–Z5 in full, reads no row in part, and reopens nothing. L1
+closes Z1–Z5 in full; cut 43 banks J12–J15, still open before implementation, and reads no row in part. L1
 remains partial on its persistence arms, last read at cut 8 and owned by
 `persistence-cut`; W8 remains partial on its ambiguous-search-term
 conflict; R23 and W8a remain partial only on their `contract-cut` clauses;
@@ -395,7 +396,7 @@ banked at cut 41's freeze, is closed in full at its discharge.
 | Y | — | — | — |
 | Z | — | — | — |
 
-Closed 204 of 231; open 27.
+Closed 204 of 235; open 31.
 
 ## Appendix B — classification of every open row
 

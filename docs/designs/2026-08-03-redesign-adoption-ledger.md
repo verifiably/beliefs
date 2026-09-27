@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-16)
+## Current state (2026-09-27)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,12 +46,12 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-25** for cut 41's discharge of live view-query
+**Updated 2026-09-27** for cut 43's freeze: J12–J15 are banked and open under `multi-corpus-session`; cut 42's remote rows remain on its branch until the Task 5 merge. Cut 41's discharge of live view-query
 evaluation: Z1–Z5, banked at cut 41's freeze, close, and `live-query`
 enters and closes at that record, so the table below carries no row for it.
 `publish` stays open with cut 42's remote slice. The T table stays partial
 on T7's cross-root case alone, and row 5 stays partial for L1's persistence
-arms alone. The corpus has **204 of 231 rows closed, 27 open**.
+arms alone. The corpus has **204 of 235 rows closed, 31 open**.
 
 **Implemented through conformance cut 41.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
@@ -410,7 +410,7 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
     denotation through a private core, and it writes nothing. Belief reads
     and publication stay epoch-bound (coordination §6.2, amended).
   - `live-query` entered this table at the results record and closed in the
-    same commit. The corpus has **204 of 231 rows closed, 27 open**.
+    same commit. At cut 41, the corpus had **204 of 231 rows closed, 27 open**.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -430,6 +430,7 @@ not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
+| `multi-corpus-session` | J12–J15, banked with cut 43: mount every configured corpus under its manifest-pinned profile, choose one write root, and reconcile each act against its corpus | the second-project milestone in Science; `beliefs-fe7149` | a session that writes one corpus while resolving coordination over all configured corpora |
 | `publish` | the governed publication act's remote slice, cut 42 (`beliefs-3ce305`): the transport seam, the remote reveal and its orphans (cut 39's Ruling 12), the recovery table's remote rows, and the recipient's `divergent-publication`, with the rows it appends to the Y table; W17 and Y1–Y4 closed at cut 39, the local act and Y5–Y10 at cut 40 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication to a remote destination; follows the complete world-read lane and precedes the final contract cut |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
@@ -441,7 +442,7 @@ publish's classification, and a stamp naming the in-hold states.
 `live-query` entered this table and the roadmap's boundary index at that
 record and closed in the same commit, so neither carries an open row for
 it, and the roadmap's lane table carries the closed `live-query` lane.
-Z1–Z5 close; the corpus has **204 of 231** rows closed, 27 open. L1 stays
+Z1–Z5 close; J12–J15 are newly banked and open under `multi-corpus-session`; the corpus has **204 of 235** rows closed, 31 open. L1 stays
 partial on its persistence arms under `persistence-cut`, and T7 on its
 cross-root case under `cross-root-publication`. The preceding record
 (`../plans/2026-09-24-conformance-cut-40-results.md`) discharged the publish
