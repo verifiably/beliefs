@@ -279,7 +279,11 @@ and Y14-b); 64 publish, arrival, and arm-staleness tests passed. Ruff and
 Pyright passed; `tasks check` reported zero errors and zero warnings.
 The cut 42 N2 guard passed all 10 tests in 87.82 seconds, including the
 frozen declaration/body checks, baseline checks, and all fourteen sabotages.
-The full repository gate and main integration remain Task 11 work (§6).
+Scoped re-review approved both fixes at `f697ba6`. The repository gate on
+that head exited 0: 5815 Python tests passed with 1 skip, standalone N2
+passed 46 tests, and TypeScript passed 155 tests in 7 files. All static
+checks passed. The log is `.work/acceptance/cut42-gate.log` in the main
+checkout. Main integration is recorded in §6.
 
 ## 4. The reproduction
 

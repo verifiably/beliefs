@@ -47,7 +47,7 @@ here rather than restating it. It lists no unresolved design question:
 work.
 
 **Updated 2026-09-27** for cut 42's discharge of the remote publish act:
-Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. Its integration status remains here until `beliefs-1a5157` closes at final integration. The T table stays
+Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
 partial on T7's cross-root case; L1 stays partial on its persistence arms.
 The corpus has **210 of 237 rows closed, 27 open**.
 
