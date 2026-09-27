@@ -111,7 +111,9 @@ The spec's §13 planning notes are realized:
 **Task 8 self-review correction:** the writes guide still described cut 42
 remote publishing as frozen before implementation after its merge and discharge.
 Its current-state list now records cuts 42 and 43 as built, and its guarantee
-links name J1–J15 and Y1–Y16.
+links name J1–J15 and Y1–Y16. A separate correction restores the original
+guarantee table: a blank line introduced while banking J12–J15 had separated
+J10 from it. All frozen J1–J11 row text remains byte-identical to main.
 
 ## 4. The reproduction
 
