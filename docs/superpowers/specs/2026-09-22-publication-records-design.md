@@ -329,6 +329,8 @@ that the request identity names the view revision (§6.1 step 0), and the
 
 ## 6. The intent-position judgment — `coordination.py` and the log seam
 
+> **Amended 2026-09-27 (publish act, remote, cut 42 — `2026-09-26-publish-act-remote-design.md` §8):** `PreBinding.orphan` defaults to `None`; a terminal `transport-incomplete` supplies its marker pair, which the fold adds without retiring the intent's `marker_tips`. A binding or remotely revealed step-8 refusal retains the existing retirement rule. `unfinished_attempts` reads unfulfilled publish intents for a view and destination; the act blocks only those with a transport mark. This closes cut 39's Ruling 12.
+
 ```python
 def standing_at(
     resolver: CoordinationResolver, address: CoordinationAddress, *,

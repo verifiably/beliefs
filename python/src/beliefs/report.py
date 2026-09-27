@@ -76,6 +76,10 @@ __all__ = [
 # publish-act-local §7's functions, in a list of their own: cut 3's T1 and T8 arms
 # pin `"completion",\n]` as the tail of the list above
 __all__ += [
+    "TRANSPORT_INCOMPLETE_REASONS",
+    "PublicationTransportEntry",
+    "TransportIncomplete",
+    "Transported",
     "lifecycle_outcome_from_facet",
     "outcome_type",
     "publish_entries_from_facet",
@@ -360,6 +364,7 @@ def binding_outcome_from_facet(
 REQUEST_CORRUPT_REASONS = ("undecodable", "intent-disagrees", "snapshot-missing", "snapshot-mismatch", "snapshot-undecodable")
 STAGING_CORRUPT_REASONS = ("pins-foreign", "hole", "extra", "bytes", "marker")
 REVEAL_REFUSED_VERDICTS = ("refuted", "unresolvable", "malformed")
+TRANSPORT_INCOMPLETE_REASONS = ("abandoned", "listing-mismatch", "export-damaged")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
@@ -452,6 +457,36 @@ class RevealRefused:
             raise MalformedRecord(f"reveal-refused verdict {self.verdict!r} is outside {REVEAL_REFUSED_VERDICTS}")
 
 
+@sealed
+@final
+@dataclass(frozen=True)
+class Transported:
+    corpus_id: str
+    listing: str
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "transported corpus id")
+        if type(self.listing) is not str or _HEX64.fullmatch(self.listing) is None:
+            raise MalformedRecord("a transported listing identity is 64 lowercase hex")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class TransportIncomplete:
+    """A terminal refusal that carries its orphan (publish-act-remote decision 4)."""
+
+    corpus_id: str
+    marker: str
+    reason: str
+
+    def __post_init__(self) -> None:
+        _require_hex32(self.corpus_id, "transport-incomplete corpus id")
+        _require_hex32(self.marker, "transport-incomplete marker")
+        if self.reason not in TRANSPORT_INCOMPLETE_REASONS:
+            raise MalformedRecord(f"transport-incomplete reason {self.reason!r} is outside {TRANSPORT_INCOMPLETE_REASONS}")
+
+
 Outcome: TypeAlias = (
     PublishedObservation
     | ByteLocatorUntested
@@ -472,6 +507,8 @@ Outcome: TypeAlias = (
     | ExportCollision
     | Revealed
     | RevealRefused
+    | Transported
+    | TransportIncomplete
 )
 
 
@@ -628,6 +665,18 @@ class PublicationRevealEntry:
         _require_outcome(self, self.outcome)
 
 
+@sealed
+@final
+@dataclass(frozen=True)
+class PublicationTransportEntry:
+    subject: str
+    outcome: Transported | TransportIncomplete
+
+    def __post_init__(self) -> None:
+        _require_str(self.subject, "publication transport entry subject")
+        _require_outcome(self, self.outcome)
+
+
 Entry: TypeAlias = (
     LocatorEntry
     | ManagedMutationEntry
@@ -641,6 +690,7 @@ Entry: TypeAlias = (
     | PublicationStagingEntry
     | PublicationExportEntry
     | PublicationRevealEntry
+    | PublicationTransportEntry
 )
 
 _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
@@ -656,6 +706,7 @@ _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
     PublicationStagingEntry: (Staged, StagingCorrupt),
     PublicationExportEntry: (Exported, ExportCollision),
     PublicationRevealEntry: (Revealed, RevealRefused),
+    PublicationTransportEntry: (Transported, TransportIncomplete),
 }
 _ENTRY_KINDS: dict[type[object], str] = {
     LocatorEntry: "pure-look",
@@ -670,6 +721,7 @@ _ENTRY_KINDS: dict[type[object], str] = {
     PublicationStagingEntry: "publication-staging",
     PublicationExportEntry: "publication-export",
     PublicationRevealEntry: "publication-reveal",
+    PublicationTransportEntry: "publication-transport",
 }
 _OUTCOME_TYPES: dict[type[object], str] = {
     PublishedObservation: "published-observation",
@@ -691,17 +743,27 @@ _OUTCOME_TYPES: dict[type[object], str] = {
     ExportCollision: "export-collision",
     Revealed: "revealed",
     RevealRefused: "reveal-refused",
+    Transported: "transported",
+    TransportIncomplete: "transport-incomplete",
 }
 
 _LIFECYCLE_ENTRIES = (PublicationStagingEntry, PublicationExportEntry, PublicationRevealEntry)
-_LIFECYCLE_SUCCESS = {PublicationStagingEntry: Staged, PublicationExportEntry: Exported, PublicationRevealEntry: Revealed}
+_REMOTE_LIFECYCLE = (*_LIFECYCLE_ENTRIES, PublicationTransportEntry)
+_LIFECYCLE_SUCCESS = {
+    PublicationStagingEntry: Staged,
+    PublicationExportEntry: Exported,
+    PublicationRevealEntry: Revealed,
+    PublicationTransportEntry: Transported,
+}
 
 
 def publish_sequence_error(sequence: object) -> str | None:
-    """`None` iff `sequence` is a publish report's sequence (publish-act-local
-    §7): a request refusal alone; staging, export, reveal in order, each but the
-    last succeeding and the last refusing; the whole successful lifecycle then
-    the binding; or the binding alone (cut 39's door, called bare)."""
+    """`None` iff `sequence` is a publish report's sequence (publish-act-local §7,
+    publish-act-remote §5.1): a request refusal alone; a prefix of the local
+    lifecycle (staging, export, reveal) or of the remote one (… then transport),
+    each entry but the last succeeding and the last refusing; a whole lifecycle,
+    every entry succeeding, then the binding; or the binding alone (cut 39's
+    door, called bare)."""
     if type(sequence) is not tuple or not sequence or any(type(e) not in _ENTRY_KINDS for e in sequence):
         return "a publish report carries a non-empty tuple of entries"
     if len({e.subject for e in sequence}) != 1:
@@ -710,13 +772,13 @@ def publish_sequence_error(sequence: object) -> str | None:
     if kinds == (PublicationRequestEntry,):
         return None
     if kinds[-1] is PublicationBindingEntry:
-        if kinds[:-1] not in ((), _LIFECYCLE_ENTRIES):
+        if kinds[:-1] not in ((), _LIFECYCLE_ENTRIES, _REMOTE_LIFECYCLE):
             return "a binding entry follows the whole lifecycle or nothing"
         if any(type(e.outcome) is not _LIFECYCLE_SUCCESS[type(e)] for e in sequence[:-1]):
             return "a binding follows a lifecycle that succeeded at every step"
         return None
-    if kinds != _LIFECYCLE_ENTRIES[: len(kinds)]:
-        return "lifecycle entries run staging, export, reveal, in that order"
+    if kinds != _REMOTE_LIFECYCLE[: len(kinds)]:
+        return "lifecycle entries run staging, export, reveal, transport, in that order"
     if any(type(e.outcome) is not _LIFECYCLE_SUCCESS[type(e)] for e in sequence[:-1]):
         return "only the last lifecycle entry refuses"
     if type(sequence[-1].outcome) is _LIFECYCLE_SUCCESS[kinds[-1]]:
@@ -729,12 +791,14 @@ _LIFECYCLE_OUTCOMES: dict[str, dict[str, type]] = {
     "publication-staging": {"staged": Staged, "staging-corrupt": StagingCorrupt},
     "publication-export": {"exported": Exported, "export-collision": ExportCollision},
     "publication-reveal": {"revealed": Revealed, "reveal-refused": RevealRefused},
+    "publication-transport": {"transported": Transported, "transport-incomplete": TransportIncomplete},
 }
 _LIFECYCLE_ENTRY_TYPES = {
     "publication-request": PublicationRequestEntry,
     "publication-staging": PublicationStagingEntry,
     "publication-export": PublicationExportEntry,
     "publication-reveal": PublicationRevealEntry,
+    "publication-transport": PublicationTransportEntry,
 }
 
 

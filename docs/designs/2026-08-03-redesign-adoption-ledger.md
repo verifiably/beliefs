@@ -46,17 +46,15 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-25** for cut 41's discharge of live view-query
-evaluation: Z1–Z5, banked at cut 41's freeze, close, and `live-query`
-enters and closes at that record, so the table below carries no row for it.
-`publish` stays open with cut 42's remote slice. The T table stays partial
-on T7's cross-root case alone, and row 5 stays partial for L1's persistence
-arms alone. The corpus has **204 of 231 rows closed, 27 open**.
+**Updated 2026-09-27** for cut 42's discharge of the remote publish act:
+Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
+partial on T7's cross-root case; L1 stays partial on its persistence arms.
+The corpus has **210 of 237 rows closed, 27 open**.
 
-**Implemented through conformance cut 41.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 42.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–41 record discharge in their dated results records, most recently
-`../plans/2026-09-25-conformance-cut-41-results.md`.
+and cuts 26–42 record discharge in their dated results records, most recently
+`../plans/2026-09-27-conformance-cut-42-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -295,7 +293,7 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   boundary-invariant declaration units hold recovery before resolution, the
   one world inspection under the audit's lock order, and the isolated
   genesis clause of placement.
-  The `world-read` lane's head is `publish`.
+  The `world-read` lane subsequently closed with `publish` at cut 42.
 - The **L13 preimage resolver**, built 2026-09-21 at cut 37
   (`../plans/2026-09-21-conformance-cut-37-results.md`): classification
   matches the removed state's digest through `state_facts`, from a held
@@ -390,6 +388,16 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
     (`beliefs-3ce305`): remote transport, the remote reveal and its
     orphans, and `divergent-publication`. The corpus had **199 of 226 rows
     closed, 27 open** at cut 40.
+- **The remote publish act and recipient tip reading**, built 2026-09-27 at
+  cut 42 (`../plans/2026-09-27-conformance-cut-42-results.md`): the act
+  verifies the whole remote namespace against the evaluated export, writes
+  `transport.v1` before upload, resumes from that mark without staging,
+  blocks a second attempt while a marked attempt is unfinished, and closes
+  abandoned or damaged exports as standing orphans. Successful reports carry
+  staging, export, reveal, transport and binding in order. `publication_tip`
+  reads held roots independently, returning current or divergent tips and
+  refusing damaged capture. **Y11–Y16 close; `publish` is discharged in full.**
+
 - **Live attention reads**, built 2026-09-25 at cut 41
   (`../plans/2026-09-25-conformance-cut-41-results.md`) —
   `evaluate_live_query` denotes a view query over every admitted corpus's
@@ -430,20 +438,15 @@ not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
-| `publish` | the governed publication act's remote slice, cut 42 (`beliefs-3ce305`): the transport seam, the remote reveal and its orphans (cut 39's Ruling 12), the recovery table's remote rows, and the recipient's `divergent-publication`, with the rows it appends to the Y table; W17 and Y1–Y4 closed at cut 39, the local act and Y5–Y10 at cut 40 | user and autonomy layer design §8 item 5; `beliefs-1a5157` | immutable selected-view publication to a remote destination; follows the complete world-read lane and precedes the final contract cut |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-25-conformance-cut-41-results.md`) discharges live
-view-query evaluation at cut 41: coverage from the registry's admitted set,
-one capture hold per corpus, damage and world-record conflicts refused with
-publish's classification, and a stamp naming the in-hold states.
-`live-query` entered this table and the roadmap's boundary index at that
-record and closed in the same commit, so neither carries an open row for
-it, and the roadmap's lane table carries the closed `live-query` lane.
-Z1–Z5 close; the corpus has **204 of 231** rows closed, 27 open. L1 stays
-partial on its persistence arms under `persistence-cut`, and T7 on its
-cross-root case under `cross-root-publication`. The preceding record
+(`../plans/2026-09-27-conformance-cut-42-results.md`) discharges the remote
+publish act and recipient tip reading. Y11–Y16 close; the corpus has
+**210 of 237** rows closed, 27 open. L1 stays partial on its persistence
+arms under `persistence-cut`, and T7 on its cross-root case under
+`cross-root-publication`. Cut 41 closed Z1–Z5 and `live-query`.
+The earlier record
 (`../plans/2026-09-24-conformance-cut-40-results.md`) discharged the publish
 act for a local destination at cut 40: the step-0 refusals and the selection
 snapshot, the request and its create-only write, staging through two writer
@@ -530,8 +533,8 @@ merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 `nodes-ce28b8`), so row 3 carries no live work and the contract-cut join
 (`beliefs-eacbe2`) no longer waits on `nodes`. Every boundary's tracker entry is named in the
 roadmap's [Boundary index](../plans/2026-08-29-implementation-roadmap.md#boundary-index).
-`publish` remains open under the layer design; cut 39 closed cut 14's W17
-remainder, cut 40 the local act, and cut 42's remote slice is what remains.
+`publish` is discharged under the layer design: cut 39 closed cut 14's W17
+remainder, cut 40 the local act, and cut 42 the remote slice.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the

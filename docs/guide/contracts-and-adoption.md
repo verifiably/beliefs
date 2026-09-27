@@ -56,6 +56,7 @@ sources:
   - ../designs/2026-09-24-conformance-cut-40.md
   - ../designs/2026-09-24-live-query-evaluation-design.md
   - ../designs/2026-09-25-conformance-cut-41.md
+  - ../designs/2026-09-27-conformance-cut-42.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -223,12 +224,12 @@ fitted result into independent validation.
 
 ## Current state
 
-Forty-one conformance cuts have been frozen and discharged, each frozen before
+Forty-two conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple.
-Cut 42, the remote half of the publish act, is being designed and is not yet
-frozen. The complete
+Cut 42 discharges the remote publish act and Y11–Y16: 210 of 237 rows are
+closed across twenty-two tables, with 27 open. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
-implemented; the roadmap schedules them after `publish`. The
+implemented; `contract-cut` is the roadmap's next off-path boundary. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
 states the row count, what remains, and who owns it.
 
@@ -284,6 +285,7 @@ exact selection; the results record under `../plans/` holds the evidence.
 | [39](../designs/2026-09-23-conformance-cut-39.md) | Publication records and the publish intent (W17, Y1–Y4) |
 | [40](../designs/2026-09-24-conformance-cut-40.md) | The publish act for a local destination (Y5–Y10) |
 | [41](../designs/2026-09-25-conformance-cut-41.md) | Live view-query evaluation (Z1–Z5) |
+| [42](../designs/2026-09-27-conformance-cut-42.md) | Discharged remote publish act (Y11–Y16 closed); transport, recovery, and recipient tip reading |
 
 ## Open edges
 
@@ -306,4 +308,4 @@ residue. The act report's residue and the writer model are under
 - [Composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md)
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
-- [The newest results record, cut 41](../plans/2026-09-25-conformance-cut-41-results.md); every other cut's record sits beside it under `docs/plans/`
+- [The newest results record, cut 42](../plans/2026-09-27-conformance-cut-42-results.md); every other cut's record sits beside it under `docs/plans/`
