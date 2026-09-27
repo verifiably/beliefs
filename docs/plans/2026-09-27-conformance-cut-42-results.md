@@ -311,9 +311,35 @@ shared selected records across held publications.
 
 ## 6. Main integration
 
-Pending Task 11: whole-branch review, repository gate, lane-goal closure,
-and main integration. Fill the merge and gate evidence here at integration.
-No claim of a completed merge is made by this results record.
+Whole-branch review at `e8964e2` found the two issues recorded in §3.4;
+scoped re-review approved their fixes at `f697ba6`. The controller ran
+`just gate` on that reviewed head in `.worktrees/publish`, with exit 0:
+
+```text
+5815 passed, 1 skipped in 122.26s (0:02:02)
+46 passed in 197.08s (0:03:17)
+Test Files  7 passed (7)
+Tests  155 passed (155)
+```
+
+All static checks passed. The retained log is
+`.work/acceptance/cut42-gate.log` in the main checkout.
+Lane-close commit `59bfa58` closes `beliefs-d5feb8`, `beliefs-3ce305`, and
+`beliefs-1a5157`, and removes the pending integration wording from the
+ledger's Current state. Main was clean at `026f208`, the lane's merge base.
+The conflict-free `--no-ff` merge is `2c406c1`.
+
+Before these documentation-only main edits, `git diff --exit-code design/publish HEAD` was empty: the merged tree exactly matched the lane.
+The merged Python and TypeScript trees also exactly matched gate-tested
+`f697ba6` (`git diff --exit-code f697ba6 HEAD -- python ts`):
+
+- Python tree: `bbec273148bef913ffdf0801b2a91298d0370259`.
+- TypeScript tree: `0793ad3dbf078234b8be80f0968851f0be446bba`.
+
+Main verification: `tasks check` and `just check` passed with zero task
+errors or warnings. The full gate was not repeated over identical code.
+The local branch and worktree remain for controller cleanup; nothing was
+pushed.
 
 ## 7. Execution rulings
 
