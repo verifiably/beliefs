@@ -135,7 +135,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                     )
                 )
 
-    committed_everywhere: set[str] = set()
+    committed_pairs: set[tuple[str, str]] = set()
     well_formed: set[str] = set()
 
     # --- per corpus -------------------------------------------------------------------
@@ -175,7 +175,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
             if type(entry) is RegisteredEntryView and entry.fulfills is not None:
                 by_fulfills.setdefault(entry.fulfills, []).append(entry)
         digests = {entry.digest for entry in entries}
-        committed_everywhere |= {digest for digest, committed in settlement.items() if committed}
+        committed_pairs |= {(corpus_id, digest) for digest, committed in settlement.items() if committed}
 
         for txid, staged in view.pending:
             if staged not in digests:
@@ -219,7 +219,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
             reader = evidence if type(evidence) is LedgerReader else None
             open_invocations = list(reader.open_invocations) if reader is not None else []
             unknown = reader is None or bool(open_invocations)
-            acts: set[str] = {act.entry for act in reader.acts()} if reader is not None else set()
+            acts: set[str] = {act.entry for act in reader.acts() if act.corpus == corpus_id} if reader is not None else set()
             registrations = by_fulfills.get(entry.digest, [])
             committed = [r for r in registrations if settlement.get(r.digest) is True]
             pending = [r for r in registrations if settlement.get(r.digest) is None]
@@ -299,14 +299,15 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                 )
 
     # --- ledger claims the chains lack -------------------------------------------------
-    # Only a well-formed view is truth to compare a claim against: §6 classifies
+    # Claims are matched by corpus (session-mounts decision 8). Only a well-formed
+    # view is truth to compare a claim against: §6 classifies
     # nothing for a corpus whose view is absent or malformed, and a corpus with no
     # view at all (its root was not read) is not evidence either way.
     for evidence in ledgers:
         if type(evidence) is not LedgerReader:
             continue
         for act in evidence.acts():
-            if act.corpus in well_formed and act.entry not in committed_everywhere:
+            if act.corpus in well_formed and (act.corpus, act.entry) not in committed_pairs:
                 keyed.append(
                     (
                         (act.corpus, _LEDGER_CLAIM, "session-act-unverified", act.entry),

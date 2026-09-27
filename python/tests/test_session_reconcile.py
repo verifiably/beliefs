@@ -59,13 +59,13 @@ def view(*entries, pending=()) -> WellFormedView:
     return WellFormedView(genesis=genesis(), entries=(genesis(), *entries), tip=entries[-1].digest if entries else "g" * 64, pending=tuple(pending))
 
 
-def ledger(session: str = S1, *, opens=(), closes=(), acts=(), closed=True) -> LedgerReader:
+def ledger(session: str = S1, *, opens=(), closes=(), acts=(), closed=True, corpus: str = CORPUS) -> LedgerReader:
     lines = [{"line": "session-open", "session": session, "actor": f"session:{session}", "world": WORLD,
               "permit": {"kinds": [], "act_families": [], "ungoverned": True}, "at": AT}]
     for invocation in opens:
         lines.append({"line": "invocation-open", "invocation": invocation, "command": "mint", "input_digest": "d" * 64, "at": AT})
     for invocation, entry, intent_digest in acts:
-        lines.append({"line": "act", "invocation": invocation, "corpus": CORPUS, "entry": entry, "intent": intent_digest, "records": []})
+        lines.append({"line": "act", "invocation": invocation, "corpus": corpus, "entry": entry, "intent": intent_digest, "records": []})
     for invocation in closes:
         lines.append({"line": "invocation-close", "invocation": invocation, "outcome": {"done": []}})
     if closed:
@@ -256,6 +256,38 @@ def test_the_decoded_holdings_intent_carries_its_actor():
     entry = holdings_intent(I)
     decoded = decode_holdings_intent({"digest": I, "entry": {"payload": entry.payload.hex()}})
     assert decoded is not None and decoded["actor"] == f"session:{S1}"
+
+
+# --- session-mounts decision 8: matching by (corpus, digest) (J15-b, J15-c) -----
+
+A_ID, B_ID = "a" * 32, "b" * 32
+
+
+def _misattributed():
+    """A ledger naming corpus A over a registration committed in B's chain."""
+    chains = {A_ID: view(), B_ID: view(intent(I), registration(R, I), settled(R, True))}
+    return codes(reconcile([ledger(opens=("A",), closes=("A",), acts=(("A", R, I),), corpus=A_ID)], chains))
+
+
+def test_a_registration_in_another_corpus_than_its_act_names_is_foreign_there():
+    """J15-b: the forward direction."""
+    assert ("session-entry-foreign", "error", R) in _misattributed()
+
+
+def test_an_act_naming_a_corpus_that_does_not_hold_it_is_unverified():
+    """J15-c: the backward direction."""
+    assert ("session-act-unverified", "error", R) in _misattributed()
+
+
+def test_the_same_act_naming_the_corpus_that_holds_it_is_covered():
+    chains = {A_ID: view(), B_ID: view(intent(I), registration(R, I), settled(R, True))}
+    assert reconcile([ledger(opens=("A",), closes=("A",), acts=(("A", R, I),), corpus=B_ID)], chains) == ()
+
+
+def test_an_act_naming_an_unconfigured_corpus_is_not_unverified():
+    """Review Focus 5: no chain here is truth for it."""
+    chains = {A_ID: view()}
+    assert reconcile([ledger(opens=("A",), closes=("A",), acts=(("A", R, I),), corpus="e" * 32)], chains) == ()
 
 
 @pytest.mark.parametrize("shape", [run_intent, holdings_intent, url_intent])
