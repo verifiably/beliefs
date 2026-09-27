@@ -209,3 +209,44 @@ def test_a_missing_or_unreadable_chain_raises_from_the_chain_head(exported, dama
     finally:
         if chain.exists():
             chain.chmod(0o755)
+
+
+def test_evaluate_copy_is_the_no_grant_evaluation(exported):
+    from beliefs.root import evaluate_copy
+
+    export, corpus_id, observers, _, records = exported
+    before = (_tree(export), _tree(metadata_root_for(export)), read_lifecycle_state(export))
+    assert evaluate_copy(export, CorpusSubject(corpus_id), observers) == "validated"
+    assert (_tree(export), _tree(metadata_root_for(export)), read_lifecycle_state(export)) == before
+    writable(export)
+    (export / path_for_node_id(records[1].id)).write_bytes(b"\x00\xffnot a record")
+    assert evaluate_copy(export, CorpusSubject(corpus_id), observers) != "validated"
+    (export / path_for_node_id(records[1].id)).unlink()
+    assert evaluate_copy(export, CorpusSubject(corpus_id), observers) != "validated"
+
+
+def test_export_chain_head_answers_none_for_a_damaged_chain(exported):
+    from beliefs.root import export_chain_head
+
+    export, *_ = exported
+    assert export_chain_head(export) == chain_head_reader()(export)
+    writable(export)
+    victim = next(p for p in sorted((export / ".#~chain").rglob("*")) if p.is_file())
+    victim.write_bytes(b"garbage")
+    assert export_chain_head(export) is None
+    shutil.rmtree(export / ".#~chain")
+    assert export_chain_head(export) is None
+
+
+def test_evaluate_copy_translates_unreadable_evidence(exported):
+    from beliefs.root import evaluate_copy
+
+    if os.geteuid() == 0:
+        pytest.skip("root reads mode-0 files")
+    export, corpus_id, observers, _, records = exported
+    path = export / path_for_node_id(records[0].id)
+    path.chmod(0)
+    try:
+        assert evaluate_copy(export, CorpusSubject(corpus_id), observers) == "unreadable"
+    finally:
+        path.chmod(0o644)

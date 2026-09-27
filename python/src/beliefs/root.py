@@ -596,6 +596,36 @@ def restore_root(
     return _restore_root(dest_root, subject, observers, seam=_log_seam(), grant=grant)
 
 
+def evaluate_copy(dest_root: Path, subject: CorpusSubject | StoreSubject, observers: ObserverSet) -> str:
+    """`restore_root`'s evaluation of a copy, granting nothing (publish-act-remote
+    §4.3): the check a recipient's restore runs, run by the publisher over its own
+    retained export before every upload. Writes nothing; takes no authority.
+
+    Answers the evaluator's outcome, or `"unreadable"` when the copy cannot be
+    read to be judged: a file the process cannot open, or the engine refusing
+    the chain as state. The engine's types are named here and nowhere above."""
+    if type(subject) not in {CorpusSubject, StoreSubject}:
+        raise TypeError("a copy is evaluated for a corpus or store subject")
+    try:
+        return _restore_root(dest_root, subject, observers, seam=_log_seam(), grant=_grant_nothing).outcome
+    except (OSError, ChainStateInvalid, TransactionHalted, PreconditionRefused, LogEvidenceRefused):
+        return "unreadable"
+
+
+def _grant_nothing(_root: Path) -> None:
+    """The evaluation's grant: none. Admission stays `restore_root`'s."""
+
+
+def export_chain_head(root: Path) -> tuple[str, str] | None:
+    """`chain_head_reader()`'s `(genesis, head)` for a retained export, or `None`
+    when the engine refuses its chain as state (publish-act-remote §4.2): a
+    damaged chain is a mark that names no export, never an exception out of the act."""
+    try:
+        return _chain_head(root)
+    except (OSError, ChainStateInvalid, TransactionHalted, PreconditionRefused, LogEvidenceRefused):
+        return None
+
+
 def _fork_corpus_genesis_payload(forked_from: tuple[str, str]) -> bytes:
     """The corpus fork genesis: the constant domain, plus exactly where the
     child came from — the parent's genesis digest and the head the fork

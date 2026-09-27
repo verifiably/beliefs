@@ -164,3 +164,187 @@ def test_a_canonical_text_of_another_record_refuses_before_the_intent():
     records = tuple((n.id, node_to_markdown(other if n.id == run.id else n)) for n in nodes)
     with pytest.raises(MalformedRecord, match="captured"):
         _require_snapshot_records(_View(nodes), records)
+
+
+# --- publish-act-remote §3.2, §4.3: the seam guards and step 7 ------------------
+
+import os
+from hashlib import sha256
+from types import SimpleNamespace
+from typing import Any, cast
+
+from authority import ACTOR
+from transport_fake import DirectoryTransport
+
+from beliefs import publish as act
+from beliefs.errors import ValidationRefused
+from beliefs.intents.publish import Destination
+from beliefs.permit import RequiredCapabilities, scoped_authority
+from beliefs.publish_request import TransportMark
+from beliefs.report import Transported, TransportIncomplete
+from beliefs.transport import listing_identity, local_listing, transport_files
+from beliefs.world.anchors import CorpusSubject, HeadArtifact, head_artifact_bytes
+
+REMOTE = Destination.remote("https://remote.test/pub")
+CID, TOKEN = "1" * 32, "d" * 32
+
+
+def _writer(tmp_path):
+    from coordination_fixtures import coordination_profile
+    from nodes.core.write_plan import DefaultExecutor
+
+    from beliefs.corpus import CorpusWriter
+
+    root = tmp_path / "written"
+    root.mkdir()
+    return CorpusWriter(
+        root, DefaultExecutor, authority=scoped_authority(RequiredCapabilities.publishes(), ACTOR),
+        profile=coordination_profile(None, version=2),
+    )
+
+
+def _call_publish(writer, destination, transport):
+    none = cast(Any, None)
+    return act.publish(
+        writer, none, none, view=none, destination=destination, operations_root=none, staging_profile=none,
+        clock=none, seam=none, transport=transport,
+    )
+
+
+def test_a_remote_destination_without_a_transport_refuses_first(tmp_path):
+    with pytest.raises(ValidationRefused, match="needs a transport"):
+        _call_publish(_writer(tmp_path), REMOTE, None)
+
+
+def test_a_local_destination_with_a_transport_refuses_first(tmp_path):
+    with pytest.raises(ValidationRefused, match="takes no transport"):
+        _call_publish(_writer(tmp_path), Destination.local(str(tmp_path)), DirectoryTransport(tmp_path / "remote"))
+
+
+@pytest.mark.parametrize("destination, transport", [(REMOTE, None), ("local", "fake")], ids=["remote-without", "local-with"])
+def test_resume_applies_the_seam_rule_to_the_intents_destination(tmp_path, monkeypatch, destination, transport):
+    target = Destination.local(str(tmp_path)) if destination == "local" else destination
+    opened = SimpleNamespace(intent=SimpleNamespace(destination=target, actor=ACTOR, event_token=TOKEN))
+    monkeypatch.setattr(act, "attempt_reading", lambda *_: SimpleNamespace(opened=opened, reading="unfinished", outcome=None))
+    none = cast(Any, None)
+    with pytest.raises(ValidationRefused):
+        act.resume_publish(
+            _writer(tmp_path), none, event_token=TOKEN, operations_root=tmp_path, staging_profile=none, clock=none, seam=none,
+            transport=DirectoryTransport(tmp_path / "remote") if transport == "fake" else None,
+        )
+
+
+def _remote(tmp_path, monkeypatch, verdict="validated", fake=None):
+    """A `_Remote` over a hand-built export container and a mark agreeing with it;
+    the evaluation is stubbed, so step 7's own logic runs without the engine."""
+    op = tmp_path / "op"
+    root = op / "export" / CID
+    (root / "run").mkdir(parents=True)
+    (root / "run" / "a.md").write_bytes(b"a")
+    sibling = head_artifact_bytes(HeadArtifact(CorpusSubject(CID), "a" * 64, "b" * 64))
+    (op / "export" / f"{CID}.head-artifact.v1").write_bytes(sibling)
+    monkeypatch.setattr(act, "evaluate_copy", lambda *_args: verdict)
+    fake = fake or DirectoryTransport(tmp_path / "remote")
+    none = cast(Any, None)
+    opened = cast(Any, SimpleNamespace(intent=SimpleNamespace(destination=REMOTE, event_token=TOKEN)))
+    remote = act._Remote(none, none, opened, op, none, none, None, fake)
+    mark = TransportMark(TOKEN, REMOTE, CID, "2" * 32, sha256(sibling).hexdigest(), 1)
+    return remote, mark, fake
+
+
+def test_a_verified_transport_answers_its_listing_identity(tmp_path, monkeypatch):
+    remote, mark, fake = _remote(tmp_path, monkeypatch)
+    expected = local_listing(transport_files(remote.op / "export", CID))
+    assert act._transport(remote, mark) == Transported(CID, listing_identity(expected)) and fake.pushes == 1
+
+
+def test_an_export_the_evaluation_refuses_is_export_damaged_and_never_pushed(tmp_path, monkeypatch):
+    remote, mark, fake = _remote(tmp_path, monkeypatch, verdict="refuted")
+    assert act._transport(remote, mark) == TransportIncomplete(CID, "2" * 32, "export-damaged") and fake.pushes == 0
+
+
+def test_an_unreadable_export_file_is_export_damaged_and_never_pushed(tmp_path, monkeypatch):
+    if os.geteuid() == 0:
+        pytest.skip("root reads mode-0 files")
+    remote, mark, fake = _remote(tmp_path, monkeypatch)
+    path = remote.op / "export" / CID / "run" / "a.md"
+    path.chmod(0)
+    try:
+        assert act._transport(remote, mark) == TransportIncomplete(CID, "2" * 32, "export-damaged") and fake.pushes == 0
+    finally:
+        path.chmod(0o644)
+
+
+def test_bytes_changed_during_the_evaluation_are_export_damaged(tmp_path, monkeypatch):
+    remote, mark, fake = _remote(tmp_path, monkeypatch)
+
+    def changing(*_args):
+        (remote.op / "export" / CID / "run" / "a.md").write_bytes(b"changed")
+        return "validated"
+
+    monkeypatch.setattr(act, "evaluate_copy", changing)
+    assert act._transport(remote, mark) == TransportIncomplete(CID, "2" * 32, "export-damaged") and fake.pushes == 0
+
+
+def test_an_abandoning_seam_is_abandoned(tmp_path, monkeypatch):
+    remote, mark, fake = _remote(tmp_path, monkeypatch)
+    fake.abandon = True
+    assert act._transport(remote, mark) == TransportIncomplete(CID, "2" * 32, "abandoned")
+
+
+class _Lying(DirectoryTransport):
+    def __init__(self, base, lie):
+        super().__init__(base)
+        self.lie = lie
+
+    def listing(self, destination, corpus_id):
+        return self.lie(super().listing(destination, corpus_id))
+
+
+@pytest.mark.parametrize(
+    "lie",
+    [
+        lambda listed: {name: digest.upper() for name, digest in listed.items()},
+        lambda listed: {name: digest for name, digest in listed.items() if not name.endswith(".head-artifact.v1")},
+    ],
+    ids=["upper-case-digests", "sibling-omitted"],
+)
+def test_a_listing_that_is_not_exact_is_listing_mismatch(tmp_path, monkeypatch, lie):
+    """Review Focus 2: anything but an exact listing is refused, never taken as verified."""
+    remote, mark, _ = _remote(tmp_path, monkeypatch, fake=_Lying(tmp_path / "remote", lie))
+    assert act._transport(remote, mark) == TransportIncomplete(CID, "2" * 32, "listing-mismatch")
+
+
+@pytest.mark.parametrize("damage", ["symlink", "missing-sibling", "scan-error"])
+def test_export_enumeration_damage_after_the_mark_never_pushes(tmp_path, monkeypatch, damage):
+    remote, mark, fake = _remote(tmp_path, monkeypatch)
+    if damage == "symlink":
+        (remote.op / "export" / CID / "link").symlink_to("run/a.md")
+    elif damage == "missing-sibling":
+        (remote.op / "export" / f"{CID}.head-artifact.v1").unlink()
+    else:
+        def unreadable(*_args):
+            raise PermissionError("cannot scan export")
+        monkeypatch.setattr(act, "transport_files", unreadable)
+    assert act._transport(remote, mark) == TransportIncomplete(CID, "2" * 32, "export-damaged")
+    assert fake.pushes == 0
+
+
+@pytest.mark.parametrize("damage", ["symlink", "scan-error"])
+def test_export_enumeration_refuses_before_creating_the_mark(tmp_path, monkeypatch, damage):
+    remote, mark, _ = _remote(tmp_path, monkeypatch)
+    attempt = cast(Any, SimpleNamespace(
+        token=TOKEN, op=remote.op, request=SimpleNamespace(destination=REMOTE),
+        snapshot=SimpleNamespace(records=("record",)),
+    ))
+    error = MalformedRecord
+    if damage == "symlink":
+        (remote.op / "export" / CID / "link").symlink_to("run/a.md")
+    else:
+        def unreadable(*_args):
+            raise PermissionError("cannot scan export")
+        monkeypatch.setattr(act, "transport_files", unreadable)
+        error = PermissionError
+    with pytest.raises(error):
+        act._mark(attempt, CID, mark.artifact)
+    assert not (remote.op / "transport.v1").exists()
