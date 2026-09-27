@@ -39,6 +39,8 @@ from beliefs.report import (
     BindingPredecessorNotStanding,
     Entry,
     PublicationBindingEntry,
+    PublicationTransportEntry,
+    TransportIncomplete,
     publish_entries_from_facet,
 )
 from beliefs.runrecord import OperationPort
@@ -52,6 +54,7 @@ __all__ = [
     "PreBinding",
     "attempt_reading",
     "marker_tips_at",
+    "unfinished_attempts",
 ]
 
 PUBLISH_INSTRUMENT = "beliefs.publish"
@@ -73,11 +76,19 @@ class BindingOutcome:
 @final
 @dataclass(frozen=True)
 class PreBinding:
-    """A publish report that ends before its binding entry (publish-act-local §7):
-    nothing was revealed remotely, so it neither creates nor retires an orphan,
-    and it binds no marker."""
+    """A publish report that ends before its binding entry (publish-act-local §7).
+    It binds no marker. Only a `transport-incomplete` one carries an orphan
+    (publish-act-remote §5.2): a marker possibly shared, which retires nothing."""
 
     outcome: str  # the last entry's outcome type
+    orphan: tuple[str, str] | None = None
+
+
+def _orphan_of(entry: Entry) -> tuple[str, str] | None:
+    """§5.2 rule 2: `(corpus_id, marker)` when the last entry is `transport-incomplete`."""
+    if type(entry.outcome) is TransportIncomplete:
+        return (entry.outcome.corpus_id, entry.outcome.marker)
+    return None
 
 
 def _reports_at(
@@ -136,8 +147,11 @@ def _reports_at(
         except MalformedRecord as caught:
             yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report: {caught}")
             continue
+        if intent.destination.type == "local" and any(type(e) is PublicationTransportEntry for e in entries):
+            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]}: a transport entry under a local intent")
+            continue
         if type(entries[-1]) is not PublicationBindingEntry:
-            yield intent, PreBinding(str(facet["entries"][-1]["outcome"]["type"]))
+            yield intent, PreBinding(str(facet["entries"][-1]["outcome"]["type"]), _orphan_of(entries[-1]))
             continue
         yield intent, facet["entries"][-1]["outcome"]
 
@@ -166,7 +180,9 @@ def marker_tips_at(
             if type(outcome) is PositionRefused:
                 return outcome
             if type(outcome) is PreBinding:
-                continue  # refused before its binding: no marker bound, no orphan, nothing retired
+                if outcome.orphan is not None:
+                    orphans.add(outcome.orphan)  # possibly shared: an orphan that retires nothing
+                continue  # otherwise refused before its binding: no marker bound, nothing retired
             shared = outcome["type"] == "bound" or outcome.get("remotely_revealed") is True
             if outcome["type"] != "bound" and outcome.get("remotely_revealed") is True:
                 orphans.add((str(outcome["corpus_id"]), str(outcome["marker"])))
@@ -370,7 +386,7 @@ def _refuse_publication(
 ) -> ActReport:
     """Publish-act-local §7: a refusal before the binding — the lifecycle entries
     reached, the refusing one last — written alone in one fulfilling transaction.
-    Nothing was revealed remotely, so it carries no orphan fields."""
+    Only a `transport-incomplete` entry carries orphan fields (publish-act-remote §5.1)."""
     writer.authority.require("publish", ("publication-binding",))
     writer.authority.require("corpus-write", ("act-report",))
     writer._require_pins_agree()
@@ -426,3 +442,32 @@ def attempt_reading(writer: CorpusWriter, event_token: str, seam: MomentSeam) ->
             return AttemptReading(opened, "closed", outcome.outcome)
         return AttemptReading(opened, "closed", str(outcome["type"]))
     return AttemptReading(opened, "unfinished", None)
+
+
+def unfinished_attempts(
+    writer: CorpusWriter, view: CoordinationAddress, destination: Destination, seam: MomentSeam
+) -> tuple[str, ...]:
+    """The tokens of every publish intent for `(view, destination)` on the written
+    chain with no committed fulfilling registration, ascending (publish-act-remote
+    §4.1). It reads chain entries only, never reports."""
+    written = Path(writer.root).resolve()
+    chain_view = seam.inspect_written(written)
+    if type(chain_view) is not WellFormedView:
+        raise MalformedRecord(f"{written}: the written chain is not well formed")
+    committed = {e.registration for e in chain_view.entries if type(e) is SettledEntryView and e.committed}
+    fulfilled = {
+        e.fulfills
+        for e in chain_view.entries
+        if type(e) is RegisteredEntryView and e.fulfills is not None and e.digest in committed
+    }
+    tokens: list[str] = []
+    for entry in chain_view.entries:
+        if type(entry) is not IntentEntryView or entry.digest in fulfilled:
+            continue
+        try:
+            intent = decode_publish_intent(entry.payload)
+        except MalformedRecord:
+            continue  # another shape's intent
+        if intent.view.unpinned() == view.unpinned() and intent.destination == destination:
+            tokens.append(intent.event_token)
+    return tuple(sorted(tokens))
