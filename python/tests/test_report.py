@@ -44,6 +44,7 @@ from beliefs.report import (
     PublicationRequestEntry,
     PublicationRevealEntry,
     PublicationStagingEntry,
+    PublicationTransportEntry,
     PublishedObservation,
     RecordImportEntry,
     Registration,
@@ -53,6 +54,9 @@ from beliefs.report import (
     Staged,
     StagingCorrupt,
     SubjectEvaluationEntry,
+    Transported,
+    TransportIncomplete,
+    _entry_facet,
     _mint_report,
     cite,
     completion,
@@ -614,3 +618,79 @@ def test_a_non_string_stored_type_or_kind_refuses_rather_than_crashing(bad):
         publish_entries_from_facet([entry])
     with pytest.raises(MalformedRecord):
         publish_entries_from_facet([{**_entry_facet(_lifecycle("staging")[0]), "kind": bad}])
+
+
+# --- publish-act-remote §5.1: the transport entry and the remote lifecycle ------
+
+_STAGE = PublicationStagingEntry(_S, Staged(_C, 2))
+_EXPORT = PublicationExportEntry(_S, Exported(_C, "f" * 64))
+_REVEAL = PublicationRevealEntry(_S, Revealed(_C))
+_MOVED = PublicationTransportEntry(_S, Transported(_C, "e" * 64))
+_BIND = PublicationBindingEntry(_S, BindingBound("c" * 32, _C, "a" * 32))
+
+
+def _incomplete(reason: str) -> PublicationTransportEntry:
+    return PublicationTransportEntry(_S, TransportIncomplete(_C, "a" * 32, reason))
+
+
+@pytest.mark.parametrize(
+    "sequence",
+    [
+        (_STAGE, _EXPORT, _REVEAL, _MOVED, _BIND),
+        (_STAGE, _EXPORT, _REVEAL, _incomplete("abandoned")),
+        (_STAGE, _EXPORT, _REVEAL, _incomplete("listing-mismatch")),
+        (_STAGE, _EXPORT, _REVEAL, _incomplete("export-damaged")),
+    ],
+    ids=["bound", "abandoned", "listing-mismatch", "export-damaged"],
+)
+def test_the_remote_lifecycle_is_admitted_and_round_trips(sequence):
+    assert publish_sequence_error(sequence) is None
+    assert publish_entries_from_facet([_entry_facet(entry) for entry in sequence]) == sequence
+
+
+@pytest.mark.parametrize(
+    "sequence",
+    [
+        (_STAGE, _EXPORT, _MOVED),
+        (_STAGE, _EXPORT, PublicationRevealEntry(_S, RevealRefused(_C, "refuted")), _MOVED),
+        (_STAGE, _EXPORT, _REVEAL, _incomplete("abandoned"), _BIND),
+        (_STAGE, _EXPORT, _REVEAL, _MOVED),
+        (_MOVED, _BIND),
+    ],
+    ids=["before-reveal", "after-refusal", "bind-after-incomplete", "transport-ends", "transport-alone"],
+)
+def test_malformed_remote_sequences_are_refused(sequence):
+    assert publish_sequence_error(sequence) is not None
+
+
+def test_every_local_sequence_is_still_admitted():
+    corrupt = PublicationStagingEntry(_S, StagingCorrupt(_C, "extra", ("dataset:x",)))
+    for sequence in (
+        (_STAGE, _EXPORT, _REVEAL, _BIND),
+        (_BIND,),
+        (corrupt,),
+        (_STAGE, _EXPORT, PublicationRevealEntry(_S, RevealRefused(_C, "refuted"))),
+    ):
+        assert publish_sequence_error(sequence) is None
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: Transported(_C, "E" * 64),
+        lambda: Transported("1" * 31, "e" * 64),
+        lambda: TransportIncomplete(_C, "a" * 32, "timed-out"),
+        lambda: TransportIncomplete(_C, "a" * 31, "abandoned"),
+    ],
+    ids=["listing-upper", "short-corpus", "reason-outside", "short-marker"],
+)
+def test_the_transport_outcomes_refuse_malformed_fields(build):
+    with pytest.raises(MalformedRecord):
+        build()
+
+
+def test_the_stored_mirror_accepts_both_transport_outcomes():
+    from beliefs.stored import _valid_report_entry
+
+    assert _valid_report_entry(_entry_facet(_MOVED))
+    assert _valid_report_entry(_entry_facet(_incomplete("export-damaged")))

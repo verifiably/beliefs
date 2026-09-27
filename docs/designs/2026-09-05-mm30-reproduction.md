@@ -1532,3 +1532,61 @@ reproduction's stored state and re-derived answer remained byte-for-byte
 where §19 left them; the certified-tuple evidence for cut 41's Z1–Z5
 guarantee rows lives in the live selection acceptance module and the
 cut-41 guard and runner, none of which this reproduction lane exercises.
+
+## 21. Addendum — the publish act, remote, 2026-09-27
+
+Re-run under the remote publish act
+(`../superpowers/specs/2026-09-26-publish-act-remote-design.md`; cut 42),
+from the worktree `publish`, at head `f625e21`. The existing corpus was read
+in place. `SCIENCE_MM30_ROOT` named the certified volume's canonical path,
+formed from `$(readlink -f ~/d/beliefs)`, and `MM30_PREDECESSOR` again named
+`~/d/proto/projects/cancer/cancer-types/multiple-myeloma`, as at §20.
+`reproduction.preflight` printed `ok` before the re-run.
+
+### 21.1 What changed in the kernel this slice
+
+Cut 42 adds a remote transport seam (`beliefs/transport.py`) and the remote
+steps of `beliefs/publish.py`: a durable transport mark before upload,
+transport of the export and head artifact, and recovery that accounts for a
+possibly shared marker when transport is incomplete. It extends the
+publication fold to carry those orphans and adds `publication_tip` in
+`beliefs/publication_arrival.py` for a recipient to read its held markers
+and distinguish a current tip from divergent publications. None of these
+paths is reached by the mm30 driver:
+
+```
+$ grep -n 'publish\|publication\|transport' python/tools/reproduction/*.py
+```
+
+The grep has no `transport` hit. Its `publish` and `publication` hits are the
+driver's pre-existing run-publication and verification-publication vocabulary,
+plus `publication_node` in `belief.py` and `write`'s `published` result in
+`hold.py` (§19.1). A narrower grep for `publication_tip`, `TransportMark`,
+`transport_files`, `TransportIncomplete`, `publish_request`, and
+`publication_arrival` returned no lines. The driver supplies no remote
+destination or transport and never calls `publication_tip`.
+
+### 21.2 What the re-run reached
+
+Before the run, `state.json` held `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}` and
+`rederived_equal: true`. A copy was taken in the reproduction scratchpad.
+`reproduction.rederive` printed the same 10a payload in field-declaration
+order, `{"kind": "NoBelief", "reason": "no-directional-outcome", "detail": ""}`,
+with `"equal": true`; the rewritten state held the same payload and
+`rederived_equal: true`. `cmp` and a full-file `diff -u` against the copy
+found no difference. Both files had SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`,
+the same hash as §20.2.
+
+`cd python && uv run --frozen pytest tests/test_reproduction_driver.py
+tests/test_designs_corpus.py -q`: 50 passed.
+
+### 21.3 What this addendum does not claim
+
+That mm30 publishes anything. It mints no publication marker or binding,
+names no remote destination, invokes no transport, and reads no recipient
+tip. The remote act and its recipient reading are additive to this driver;
+cut 42's Y11–Y16 evidence lives in its acceptance tests and runner, while
+the reproduction's stored state and re-derived answer remain byte-for-byte
+where §20 left them.

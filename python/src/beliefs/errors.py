@@ -1162,15 +1162,17 @@ class PublicationRefused(WriteRefused):
     """A publish door refused before its intent (publication-records design §6)."""
 
     def __init__(
-        self, reason: str, *, tips: tuple[str, ...] = (), refs: tuple[str, ...] = (), corpus_ids: tuple[str, ...] = (), field: str = ""
+        self, reason: str, *, tips: tuple[str, ...] = (), refs: tuple[str, ...] = (), corpus_ids: tuple[str, ...] = (), field: str = "",
+        tokens: tuple[str, ...] = (),
     ) -> None:
-        detail = ", ".join(part for part in (",".join(refs), ",".join(corpus_ids), field) if part)
+        detail = ", ".join(part for part in (",".join(refs), ",".join(corpus_ids), field, ",".join(tokens)) if part)
         super().__init__(f"{reason}: {detail}" if detail else reason)
         self.reason = reason
         self.tips = tips
         self.refs = refs
         self.corpus_ids = corpus_ids
         self.field = field
+        self.tokens = tokens
 
 
 class PublicationArrivalRefused(WriteRefused):
@@ -1183,6 +1185,23 @@ class PublicationArrivalRefused(WriteRefused):
         super().__init__(f"{reason}: {', '.join(refs)}" if refs else reason)
         self.reason = reason
         self.refs = refs
+
+
+class PublicationReadingRefused(WriteRefused):
+    """A held publication root or the recipient's tip reading refused."""
+
+    def __init__(self, reason: str, corpus_id: str | None, refs: tuple[str, ...] = ()) -> None:
+        where = f" in {corpus_id}" if corpus_id is not None else ""
+        super().__init__(f"{reason}{where}: {', '.join(refs)}" if refs else f"{reason}{where}")
+        self.reason = reason
+        self.corpus_id = corpus_id
+        self.refs = refs
+
+    def __str__(self) -> str:
+        message = super().__str__()
+        if self.reason == "capture-damaged" and self.__cause__ is not None:
+            return f"{message}: {self.__cause__}"
+        return message
 
 
 class CreateOnlyCollision(WriteRefused):

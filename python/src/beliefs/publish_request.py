@@ -20,13 +20,17 @@ from beliefs.intents.publish import Destination
 from beliefs.profile import ProfileSpec, shipped_coordination
 
 __all__ = [
+    "MARK_DOMAIN",
     "PUBLISHING_COORDINATION",
     "PublishRequest",
     "Snapshot",
+    "TransportMark",
     "closure_missing",
+    "decode_mark",
     "decode_request",
     "decode_snapshot",
     "derive_pins",
+    "encode_mark",
     "encode_request",
     "encode_snapshot",
     "pins_of",
@@ -36,6 +40,7 @@ __all__ = [
 
 SELECTION_DOMAIN = "science.publish-selection.v1"
 REQUEST_DOMAIN = "science.publish-request.v1"
+MARK_DOMAIN = "science.publish-transport.v1"
 _STAGING_WORLD_DOMAIN = "science.publish-staging-world.v1"
 _HEX32 = re.compile(r"[0-9a-f]{32}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
@@ -104,15 +109,20 @@ def _inside(path: Path, other: Path) -> bool:
     return path == other or other in path.parents
 
 
-def require_usable(operations_root: Path, destination: Destination, *, forbidden: Sequence[Path]) -> tuple[Path, Path]:
-    """The resolved operations root and local destination directory (spec §3,
-    §4.1 item 7): both existing directories, neither inside the other, neither
-    inside a mounted corpus root or the world root (`forbidden`)."""
+def require_usable(operations_root: Path, destination: Destination, *, forbidden: Sequence[Path]) -> tuple[Path, Destination]:
+    """The resolved operations root and the destination the intent freezes
+    (publish-act-local §4.1 item 7; publish-act-remote §4.1): the operations root
+    is an existing directory outside every mounted corpus root and the world root
+    (`forbidden`). A local destination is an existing directory, resolved, neither
+    it nor the operations root inside the other or inside `forbidden`. A remote
+    destination's locator is a canonical URL and is returned as given."""
     closed = tuple(Path(path).resolve() for path in forbidden)
     ops = Path(operations_root)
     if not ops.is_absolute() or not ops.is_dir() or any(_inside(ops.resolve(), path) for path in closed):
         raise PublicationRefused("operations-root-unusable")
     ops = ops.resolve()
+    if destination.type == "remote":
+        return ops, destination
     target = Path(destination.locator)
     if not target.is_dir():
         raise PublicationRefused("destination-unusable")
@@ -121,7 +131,7 @@ def require_usable(operations_root: Path, destination: Destination, *, forbidden
         if _inside(ops, target) and not _inside(target, ops):
             raise PublicationRefused("operations-root-unusable")
         raise PublicationRefused("destination-unusable")
-    return ops, target
+    return ops, Destination.local(str(target))
 
 
 def staging_world_id_for(event_token: str) -> str:
@@ -265,3 +275,65 @@ def decode_request(data: bytes) -> PublishRequest:
     if encode_request(request) != data:
         raise MalformedRecord("a request is not its canonical encoding")
     return request
+
+
+_MARK_FIELDS = frozenset({"domain", "event_token", "destination", "corpus_id", "marker", "artifact", "records"})
+
+
+@dataclass(frozen=True)
+class TransportMark:
+    """The durable record that a remote reveal may have begun (publish-act-remote
+    §4.2, decision 2): written create-only after step 6 and before the first `push`."""
+
+    event_token: str
+    destination: Destination
+    corpus_id: str
+    marker: str
+    artifact: str
+    records: int
+
+    def __post_init__(self) -> None:
+        _hex(self.event_token, _HEX32, "a mark's event token")
+        if type(self.destination) is not Destination or self.destination.type != "remote":
+            raise MalformedRecord("a transport mark names a remote destination")
+        _hex(self.corpus_id, _HEX32, "a mark's corpus id")
+        _hex(self.marker, _HEX32, "a mark's marker")
+        _hex(self.artifact, _HEX64, "a mark's artifact identity")
+        if type(self.records) is not int or self.records < 1:
+            raise MalformedRecord("a mark's record count is a positive exact int")
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "domain": MARK_DOMAIN,
+            "event_token": self.event_token,
+            "destination": self.destination.projection(),
+            "corpus_id": self.corpus_id,
+            "marker": self.marker,
+            "artifact": self.artifact,
+            "records": self.records,
+        }
+
+
+def encode_mark(mark: TransportMark) -> bytes:
+    return v1.encode(mark.projection())
+
+
+def decode_mark(data: bytes) -> TransportMark:
+    """Strictly: every field present and no other, under its domain, canonical bytes."""
+    value = _decoded(data, "a transport mark")
+    if set(value) != _MARK_FIELDS or value["domain"] != MARK_DOMAIN:
+        raise MalformedRecord("a transport mark carries exactly its closed field set under its domain")
+    try:
+        mark = TransportMark(
+            event_token=value["event_token"],
+            destination=Destination.from_projection(value["destination"]),
+            corpus_id=value["corpus_id"],
+            marker=value["marker"],
+            artifact=value["artifact"],
+            records=value["records"],
+        )
+    except (TypeError, ValueError) as caught:
+        raise MalformedRecord(f"a transport mark field is malformed: {caught}") from caught
+    if encode_mark(mark) != data:
+        raise MalformedRecord("a transport mark is not its canonical encoding")
+    return mark

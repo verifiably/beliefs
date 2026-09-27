@@ -54,7 +54,7 @@ GUARANTEE_TABLES: dict[str, tuple[str, ...]] = {
     "B": tuple(f"B{n}" for n in range(1, 8)),
         "Q": tuple(f"Q{n}" for n in range(1, 11)),
     "U": tuple(f"U{n}" for n in range(1, 11)),
-    "Y": ("Y1", "Y2", "Y3", "Y4", "Y5", "Y6", "Y7", "Y8", "Y9", "Y10"),
+    "Y": ("Y1", "Y2", "Y3", "Y4", "Y5", "Y6", "Y7", "Y8", "Y9", "Y10", "Y11", "Y12", "Y13", "Y14", "Y15", "Y16"),
     "Z": tuple(f"Z{n}" for n in range(1, 6)),
 }
 

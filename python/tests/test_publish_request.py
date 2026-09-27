@@ -17,10 +17,13 @@ from beliefs.profile import shipped_coordination
 from beliefs.publish_request import (
     PublishRequest,
     Snapshot,
+    TransportMark,
     closure_missing,
+    decode_mark,
     decode_request,
     decode_snapshot,
     derive_pins,
+    encode_mark,
     encode_request,
     encode_snapshot,
     require_usable,
@@ -120,9 +123,9 @@ def test_destination_checks(tmp_path):
         directory.mkdir()
     (tmp_path / "file").write_bytes(b"")
     (tmp_path / "link").symlink_to(dest)
-    assert require_usable(ops, Destination.local(str(dest)), forbidden=(corpus,)) == (ops.resolve(), dest.resolve())
+    assert require_usable(ops, Destination.local(str(dest)), forbidden=(corpus,)) == (ops.resolve(), Destination.local(str(dest.resolve())))
     # finding 4: a symlinked destination answers its resolved target, which step 0 freezes
-    assert require_usable(ops, Destination.local(str(tmp_path / "link")), forbidden=(corpus,)) == (ops.resolve(), dest.resolve())
+    assert require_usable(ops, Destination.local(str(tmp_path / "link")), forbidden=(corpus,)) == (ops.resolve(), Destination.local(str(dest.resolve())))
     for bad in (tmp_path / "missing", tmp_path / "file", ops, ops / "inner", corpus / "inner"):
         if bad == ops / "inner":
             bad.mkdir()
@@ -223,3 +226,75 @@ def test_a_malformed_request_is_refused(changes):
 def test_staging_world_id_is_a_domain_separated_function_of_the_token():
     assert staging_world_id_for("e" * 32) == staging_world_id_for("e" * 32) != staging_world_id_for("f" * 32)
     assert len(staging_world_id_for("e" * 32)) == 32
+
+
+# --- publish-act-remote §4.1, §4.2 ---------------------------------------------
+
+REMOTE = Destination.remote("https://remote.test/pub")
+
+
+def _mark(**changes) -> TransportMark:
+    values = {"event_token": "d" * 32, "destination": REMOTE, "corpus_id": "1" * 32, "marker": "2" * 32, "artifact": "3" * 64, "records": 2}
+    values.update(changes)
+    return TransportMark(**values)
+
+
+def test_a_remote_destination_is_returned_as_given(tmp_path):
+    ops = tmp_path / "ops"
+    ops.mkdir()
+    assert require_usable(ops, REMOTE, forbidden=()) == (ops.resolve(), REMOTE)
+
+
+def test_a_remote_destination_still_checks_the_operations_root(tmp_path):
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    for bad in (tmp_path / "missing", corpus):
+        with pytest.raises(PublicationRefused) as caught:
+            require_usable(bad, REMOTE, forbidden=(corpus,))
+        assert caught.value.reason == "operations-root-unusable"
+
+
+def test_the_mark_round_trips_canonically():
+    mark = _mark()
+    assert decode_mark(encode_mark(mark)) == mark
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"destination": Destination.local("/srv/published")},
+        {"event_token": "D" * 32},
+        {"corpus_id": "1" * 31},
+        {"marker": "x" * 32},
+        {"artifact": "3" * 63},
+        {"records": 0},
+        {"records": True},
+    ],
+    ids=["local", "token", "corpus", "marker", "artifact", "records-zero", "records-bool"],
+)
+def test_a_malformed_mark_is_refused(change):
+    with pytest.raises(MalformedRecord):
+        _mark(**change)
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        lambda d: {**d, "extra": 1},
+        lambda d: {k: v for k, v in d.items() if k != "records"},
+        lambda d: {**d, "domain": "science.publish-request.v1"},
+        lambda d: {**d, "records": "2"},
+    ],
+    ids=["extra-field", "missing-field", "wrong-domain", "records-text"],
+)
+def test_a_mark_that_is_not_its_closed_shape_does_not_decode(tamper):
+    from beliefs.identity import v1
+
+    value = v1.decode(encode_mark(_mark()))
+    with pytest.raises(MalformedRecord):
+        decode_mark(v1.encode(tamper(value)))
+
+
+def test_a_mark_that_is_not_canonical_does_not_decode():
+    with pytest.raises(MalformedRecord):
+        decode_mark(encode_mark(_mark()) + b" ")

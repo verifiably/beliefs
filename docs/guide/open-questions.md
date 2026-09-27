@@ -305,3 +305,14 @@ implementation**: a guarantee row awaiting code is work, not a question.
   report whose entries name their corpus; either is an act-report design
   amendment.
   ([act-report remainder §13](../superpowers/specs/2026-09-22-act-report-remainder-design.md#13-open-questions-this-slice-files))
+
+- **Retiring a superseded publication at the recipient.** Cut 42's tip reading
+  identifies the current marker, but no operation retires the superseded
+  corpus through the recipient's registry lifecycle.
+- **A recipient's missing intermediate publication.** The tip reading fails
+  closed; acquiring the missing publication is `science` discovery glue.
+- **A recipient's world index over overlapping publications.** Two publications
+  sharing selected records cannot form one epoch: the address map refuses
+  `duplicate-location`. Whether retirement excludes superseded corpora or
+  recipients must consolidate remains open ([beliefs-81367e](../../tasks/beliefs-81367e.md)).
+  These three remainders are [remote publish §13](../superpowers/specs/2026-09-26-publish-act-remote-design.md#13-what-this-slice-does-not-settle).

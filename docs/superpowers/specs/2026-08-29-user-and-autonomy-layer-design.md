@@ -513,6 +513,13 @@ missing identities listed; the user widens the view or drops the record.
    > - **The staging profile is supplied.** The staging profile is the
    >   caller's `ProfileSpec`, whose pins must equal the derived pins.
 
+
+   > **Amended 2026-09-27 (publish act, remote, conformance cut 42 — `2026-09-26-publish-act-remote-design.md`):**
+   > Step 0 refuses `publish-unfinished` before the intent if an unfinished
+   > attempt for the same view and remote destination has `transport.v1`; the
+   > refusal names the sorted blocking tokens. An unmarked attempt does not
+   > block. The launcher supplies one operations root per written root (decision 6).
+
    **The destination pins.** A destination corpus carries exactly one
    `CorpusPins = (science_contract, domains)`, and a selection may span
    several source corpora. The pins are derived at step 0 from the
@@ -690,6 +697,11 @@ missing identities listed; the user widens the view or drops the record.
    >   retained-operation check, not the root's serviceable state, proves
    >   that the root at the path is this attempt's. A foreign occupant
    >   refuses and binds nothing.
+
+   > **Amended 2026-09-27 (publish act, remote, conformance cut 42 — `2026-09-26-publish-act-remote-design.md`):**
+   > The remote export root is `<op>/export/<corpus_id>`, and its sibling is
+   > `<op>/export/<corpus_id>.head-artifact.v1` (decision 7).
+
 5. **Write the artifact to its canonical sibling locator** —
    `<export root parent>/<corpus_id>.head-artifact.v1`, outside the root
    so the corpus bytes are untouched — by the durable create-only write
@@ -719,6 +731,16 @@ missing identities listed; the user widens the view or drops the record.
    or not complete." For a remote destination **this is the reveal**, and
    the recipient's own `restore_root` + `admit_arrival` (§6.3) is the
    admission.
+
+   > **Amended 2026-09-27 (publish act, remote, conformance cut 42 — `2026-09-26-publish-act-remote-design.md`):**
+   > Step 7 uses the `Transport` seam, but the act compares its whole remote
+   > namespace listing and SHA-256 digests against every export-root file and
+   > the sibling. Before the first upload it writes the create-only
+   > `transport.v1` mark. Before every push it evaluates the export against its
+   > chain and sibling, with listings before and after. Abandonment, a listing
+   > mismatch or export damage closes `transport-incomplete`, without binding,
+   > carrying the marker pair as an orphan (decisions 1, 2 and 4).
+
 8. **Commit the source binding, after the reveal and never before.** In
    the source root, mint **this attempt's revision** of the source
    project's `publication-binding` record (§6.2) — naming the revealed
@@ -795,7 +817,20 @@ missing identities listed; the user widens the view or drops the record.
    > `marker_tips` names it; the fold reads publish reports in every mounted
    > root by the chain-first rule, so a lost refusal report refuses rather
    > than silently dropping its orphan.
+
+   > **Amended 2026-09-27 (publish act, remote, conformance cut 42 — `2026-09-26-publish-act-remote-design.md`):**
+   > A `transport-incomplete` report is a `PreBinding` orphan. It adds its own
+   > marker pair and retires none of the intent's `marker_tips`; a successful
+   > binding or a step-8 refusal carrying `remotely_revealed: true` does retire
+   > those tips. This asymmetry preserves every possibly revealed predecessor
+   > when a transport is abandoned (decision 3).
+
 9. Discard the staging corpus and the staging world.
+
+
+> **Amended 2026-09-27 (publish act, remote, conformance cut 42 — `2026-09-26-publish-act-remote-design.md`):**
+> Step 9 retains the remote export root, its sibling and the transport mark;
+> only staging and its world are discarded (decision 8).
 
 **Done** means exactly: **this attempt's binding revision exists** in
 the source root — looked up by its deterministic identity, never by
@@ -860,6 +895,16 @@ reading, classifies the state it finds, and resumes there:
 > which a crash at the act's step boundaries does not reach; killing the
 > process inside `replicate_root` is `persistence-cut`'s. The remote row
 > (step 7) is cut 41's.
+
+
+> **Amended 2026-09-27 (publish act, remote, conformance cut 42 — `2026-09-26-publish-act-remote-design.md`):**
+> The recovery table splits on the mark (§6). With no mark, the request and
+> snapshot path reinvokes steps 1–6. With a mark, resume checks its identity
+> against the intent, export and sibling, evaluates the export, and resumes
+> step 7 without reading staging or the request. Identity disagreement is
+> `transport-mark-corrupt`, unresolved with nothing written; export damage
+> closes `transport-incomplete` as an orphan. A transport exception remains
+> retryable; `TransportAbandoned` is a terminal answer, not an abandon act.
 
 No abandon operation exists, and cleanup of a reservation nobody will
 retry is an explicit out-of-band operator action, never something a
@@ -938,6 +983,16 @@ operator adopts many. Coreference between a local
 record and an adopted one is the existing graded `coreference-attestation`.
 Nothing promotes, overlays, or rewrites; the predecessor's peers, registry
 and overlay collapse into adopt, attest, query.
+
+
+> **Amended 2026-09-27 (publish act, remote, conformance cut 42 — `2026-09-26-publish-act-remote-design.md`):**
+> `publication_tip(roots, view, destination)` reads each held
+> root independently and applies the same layout check as `admit_publication`,
+> refusing `capture-damaged` for unreadable content. It returns
+> `CurrentPublication` for one tip or `DivergentPublication`
+> (`divergent-publication`) for siblings. A missing intermediate fails closed.
+> It needs no world epoch: overlapping publications still refuse
+> `duplicate-location` when indexed together (§7; `beliefs-81367e`).
 
 ### 6.4 What `science` adds
 
@@ -1067,7 +1122,7 @@ computed belief — every step a governed record.
 Item 1's `coordination-addressing` boundary left the live ledger when cut 14
 discharged; `publish` retains W17 intent-position. *(Amended 2026-09-23:
 cut 39 closed W17; `publish` retains its second slice.)* *(Amended 2026-09-24:
-cut 40 discharged the local act; `publish` retains cut 41's remote slice.)*
+cut 40 discharged the local act; cut 42 discharged the remote act and closed `publish`.)*
 
 ## 9. Verification posture shared by the three repositories
 
