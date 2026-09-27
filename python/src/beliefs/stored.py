@@ -893,6 +893,7 @@ _REPORT_ENTRY_OUTCOMES: dict[str, dict[str, tuple[str, ...]]] = {
     "publication-staging": {"staged": (), "staging-corrupt": ()},
     "publication-export": {"exported": (), "export-collision": ()},
     "publication-reveal": {"revealed": (), "reveal-refused": ()},
+    "publication-transport": {"transported": (), "transport-incomplete": ()},
 }
 
 
@@ -930,7 +931,7 @@ def _valid_report_entry(entry: object) -> bool:
         except MalformedRecord:
             return False
         return True
-    if kind in ("publication-request", "publication-staging", "publication-export", "publication-reveal"):
+    if kind in ("publication-request", "publication-staging", "publication-export", "publication-reveal", "publication-transport"):
         try:
             report_values.lifecycle_outcome_from_facet(kind, entry.get("outcome"))
         except MalformedRecord:
