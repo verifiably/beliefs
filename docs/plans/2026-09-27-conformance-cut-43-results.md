@@ -11,21 +11,21 @@
 
 ## 1. What ran
 
-The final fixed-tree runner ran from `.worktrees/session-mounts/python` through
+The final post-review fixed-tree runner ran from `.worktrees/session-mounts/python` through
 `host-budget run -- uv run --frozen python tools/cut43_acceptance.py`, with
 `SCIENCE_MM30_ROOT` on the main checkout's certified volume. Its tracked foreground
-command exited 0; the retained log is main `.work/acceptance/cut43-runner-final.log`.
+command exited 0; the retained log is main `.work/acceptance/cut43-runner-postreview.log`.
 The runner chains cut 42 (`PREFIX_RUNNERS = ("cut42_acceptance.py",)`), retaining
 the historical live prefix; cut 8 remains cited-not-run. All **70 pytest phases and
 1106 passing invocations** passed, including inherited repetitions. Reported pytest
-times total **3038.18 seconds**; elapsed time was approximately 52 minutes.
+times total **3148.72 seconds**; elapsed time was approximately 54 minutes.
 The final run had no failed phase, refusal, abort or retry.
 
 ```text
 [cut43 phase 2/3] test_session_mounts_acceptance.py
-13 passed in 12.95s
+13 passed in 12.99s
 [cut43 phase 3/3] test_n2_cut43.py
-10 passed in 11.50s
+10 passed in 11.95s
 declared arms: 9 (= 9 declaration units; 4 guarantee rows)
 guarantee rows exercised: 4 (4 newly closed: J12, J13, J14, J15)
 ```
@@ -115,6 +115,21 @@ links name J1–J15 and Y1–Y16. A separate correction restores the original
 guarantee table: a blank line introduced while banking J12–J15 had separated
 J10 from it. All frozen J1–J11 row text remains byte-identical to main.
 
+**Task 8 whole-branch review, J12-c:** the selected-root acceptance used A/B,
+whose profiles differ. Its frozen wrong-root mutation bound A while selecting B,
+so profile compatibility refused before the intended selected-root assertion.
+The acceptance case now selects each of A/D, which already share a profile;
+heterogeneous A/B resolution remains exercised by J14 and J15. No frozen
+mutation, declaration, row, acceptance count or production code changed.
+
+The direct corrected baseline exited 0; the frozen J12-c mutant exited 1 at
+`assert session.corpus_root == write`, with no `ContractMismatch`. Full output is
+main `.work/acceptance/cut43-j12-fix-pilot.log`. The certified prefix-free pilot
+passed 13 acceptance cases and 10 guard checks. The final unmodified full chain
+then ran on this corrected tree from 22:15 to 23:09 UTC, exited 0, and supplies
+§1's replacement evidence in `cut43-runner-postreview.log`. The earlier
+`cut43-runner-final.log` is retained as evidence before this correction.
+
 ## 4. The reproduction
 
 `../designs/2026-09-05-mm30-reproduction.md` §22 records Task 6's certified preflight
@@ -165,7 +180,9 @@ integration; it will record the merge and main verification here.
   and metadata sibling, then asserts no findings. Direct baseline exited 0; the
   mutant exited 1 at tree equality. Evidence is main
   `.work/acceptance/cut43-j15-fix-pilot.log`. Focused acceptance and guard checks
-  passed 23 cases, followed by the final full chain in §1. The earlier
+  passed 23 cases, followed by the earlier fixed-tree chain in
+  `cut43-runner-final.log` (70 phases, 1106 passes, 3038.18 seconds summed pytest
+  time). Task 8 then corrected J12-c and repeated the complete chain as §1 records. The earlier
   `.work/acceptance/cut43-runner.log` is retained, not substituted for the fixed-tree run.
 - The guard resolves each `UNIT_CHECKS` module path because the approved units
   span three modules; cut 42's single-module guard assumption did not apply.

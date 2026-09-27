@@ -143,7 +143,7 @@ def test_j12_b_a_mount_set_other_than_the_configured_roots_refuses_durably(corpo
         refused_without_directory(s, (s.a, s.b), s.a, ContractMismatch, profile=V2_SHIPPED, mounts=compiled)
 
 
-@pytest.mark.parametrize("case", ["a", "b", "one-root"])
+@pytest.mark.parametrize("case", ["a", "d", "one-root"])
 def test_j12_c_the_session_writes_the_named_root_and_only_it_durably(corpora, case):
     """J12-c: each configured root as the write root in turn; the negative, a
     one-root world, opens as J9's sessions do."""
@@ -161,8 +161,8 @@ def test_j12_c_the_session_writes_the_named_root_and_only_it_durably(corpora, ca
         }
         session.close()
         return
-    write, other = (s.a, s.b) if case == "a" else (s.b, s.a)
-    session, _, _ = open_over(s, (s.a, s.b), write)
+    write, other = (s.a, s.d) if case == "a" else (s.d, s.a)
+    session, _, _ = open_over(s, (s.a, s.d), write)
     assert session.corpus_root == write
     before = state(other)
     w = fresh(session, "A", RequiredCapabilities.coordination())
