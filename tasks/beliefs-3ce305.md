@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-24T02:36:23Z
-updated: 2026-09-27T13:50:15Z
+updated: 2026-09-27T13:50:26Z
 started: 2026-09-26T08:38:03Z
 depends: [beliefs-328507]
 parent: beliefs-1a5157
@@ -44,3 +44,5 @@ Third slice of publish, split from beliefs-328507 by the user on 2026-09-23. Own
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-27T13:46:44Z (design/publish): resumed by claude-code (opus-5-5), session 6e2a536f-f4b5-41c3-abab-f729843ae299: review round 3 (three findings: overlapping publications in one world index, resume without payload revalidation, damaged capture)
 - 2026-09-27T13:50:15Z (design/publish): review round 3 taken: publication_tip reads held roots alone (duplicate-location premise), step 7 evaluates the export before every push (export-damaged orphan), capture-damaged refusal; Y13-c, Y16-c added, 14 arms
+- 2026-09-27T13:50:26Z (design/publish): parked (waiting on user, review): user re-reviews the spec (round 3 taken, e353c2d) in .worktrees/publish; on approval, the agent writes the cut plan there
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
