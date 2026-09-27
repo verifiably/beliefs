@@ -12,7 +12,7 @@ reopens.
 **Cut:** the next number free at freeze (roadmap concurrency rule 1). The number is 42 if
 this cut freezes before `beliefs-3ce305`'s cut does, and 43 otherwise. This spec calls it
 **cut N**.
-**Status:** draft for user review, 2026-09-27; amended after review round 1, 2026-09-27
+**Status:** approved 2026-09-27 after two user reviews; ready for planning
 
 ## 1. What this slice is
 
@@ -344,7 +344,7 @@ One arm per mutation that must fail a check:
 | J13b | every available contract is activated | the extra-contract case gains a namespace |
 | J14a | the resolver is built over `{write_root: mounts[write_root]}` only | the read-mount project does not resolve at open |
 | J15a | the writer factory binds the first read mount | the read mount's hash changes |
-| J15b | `reconcile` builds a session's act index over every corpus, not the chain's own | the A-named act over B's registration yields no finding |
+| J15b | `reconcile` builds a session's act index over every corpus, not the chain's own | the A-named act over B's registration yields no `session-entry-foreign` in B (the backward check still reports `session-act-unverified`, which J15c's sabotage removes) |
 | J15c | the committed set holds digests, not `(corpus_id, digest)` pairs | the act naming A is not `session-act-unverified` |
 
 **Re-targeting cut 19's J9a.** J9a pins `if len(world_config.corpus_roots) != 1:`, which
@@ -442,3 +442,7 @@ feeds the same milestone.
     case given a real write root, and the re-target lives in `test_n2_cut19.py`, the
     guard that audits it. Any other stale live arm is found by the staleness test, not
     by hand.
+- 2026-09-27: user review, round 2: approved for planning. One wording correction taken:
+  J15b's sabotage removes `session-entry-foreign` only. The backward check still reports
+  `session-act-unverified`, which J15c's sabotage removes. The reviewer withdrew the
+  round-1 claim that later guards also needed J9a re-targeting: only cut 19 audits that arm.
