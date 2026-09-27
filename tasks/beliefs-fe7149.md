@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/session-mounts
 created: 2026-09-23T11:40:35Z
-updated: 2026-09-27T13:58:47Z
+updated: 2026-09-27T13:58:49Z
 started: 2026-09-27T13:25:55Z
 depends: []
 tags: [session]
@@ -30,3 +30,5 @@ open_attended_session refuses unless corpus_roots names exactly one root (sessio
 - 2026-09-27T13:58:47Z (design/session-mounts): resumed
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-27T13:58:47Z (design/session-mounts): review round 1 taken: reconcile matches (corpus_id, digest) both ways (J15b/c); no separate empty-roots guard, J9a re-targets to the membership check in test_n2_cut19.py's _LIVE_SABOTAGES
+- 2026-09-27T13:58:49Z (design/session-mounts): parked (waiting on user, review): user re-reviews the spec (round 1 taken) in .worktrees/session-mounts; on approval, the agent writes the cut-N plan there
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
