@@ -169,9 +169,8 @@ def publish(
     if destination.type != "local":
         raise ValidationRefused("remote destinations arrive in cut 42")
     forbidden = (*resolver.mounted(), *world.config.corpus_roots, world.config.world_root)
-    operations_root, resolved_destination = require_usable(operations_root, destination, forbidden=forbidden)
-    # spec §4.1 item 7: the resolved path is the destination the intent and the request freeze
-    destination = Destination.local(str(resolved_destination))
+    # local §4.1 item 7, remote §4.1: the returned destination is the one the intent and the request freeze
+    operations_root, destination = require_usable(operations_root, destination, forbidden=forbidden)
     resolved = resolver.resolve(view.unpinned())
     if resolved is None:
         raise PublicationRefused("view-unresolved")
