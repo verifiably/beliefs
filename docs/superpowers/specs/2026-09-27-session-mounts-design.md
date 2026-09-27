@@ -12,7 +12,7 @@ reopens.
 **Cut:** the next number free at freeze (roadmap concurrency rule 1). The number is 42 if
 this cut freezes before `beliefs-3ce305`'s cut does, and 43 otherwise. This spec calls it
 **cut N**.
-**Status:** draft for user review, 2026-09-27
+**Status:** draft for user review, 2026-09-27; amended after review round 1, 2026-09-27
 
 ## 1. What this slice is
 
@@ -134,12 +134,31 @@ sessionless read context calls the same function and builds its own resolver.
    write root. This is the one property the slice exists to keep, and it has its own row
    (J15).
 
-8. **The ledger does not change.** `session-open` carries no corpus field today. Each
-   `act` line carries the corpus id of the root it wrote, which is the write root's, read
-   once at open as today. Reconciliation already matches act lines to chains by corpus id
-   across every configured root, so an actor-matching entry in a read mount's chain would
-   be classified `session-entry-foreign`, which is the detection we want. No line kind, no
-   key, no reader rule moves.
+8. **The ledger does not change; reconciliation matches by corpus.** `session-open`
+   carries no corpus field today. Each `act` line carries the corpus id of the root it
+   wrote, which is the write root's, read once at open as today. No line kind, key or
+   reader rule moves.
+
+   Reconciliation does not use that corpus id today. It indexes a session's acts by entry
+   digest alone (`acts = {act.entry …}` in `session/reconcile.py`) and checks ledger
+   claims against one set of digests committed in *any* chain (`committed_everywhere`). A
+   ledger naming write corpus A, over a registration actually committed in read corpus B,
+   therefore matches in both directions and yields no finding (the round-1 reviewer's
+   portable probe). With one root that could not happen. With N mounted roots it is the
+   wrong-corpus write J15 exists to catch. So reconciliation matches the pair
+   `(corpus_id, registration digest)` both ways:
+   - **Forward.** For a chain of corpus X, a committed session registration is covered
+     only by an act line naming X. The act index a chain entry is checked against is that
+     session's acts *for X*. Otherwise the entry is `session-entry-foreign` (or
+     `session-outcome-unknown` under an open invocation), as today.
+   - **Backward.** An act line naming corpus X is verified only by a registration
+     committed in X's chain. The committed set becomes a set of `(corpus_id, digest)`
+     pairs. Otherwise the act is `session-act-unverified`, as today.
+
+   Both codes, severities, refs and the sort key are unchanged. So is every finding over a
+   one-root world, where the pair and the digest agree. The change is written to keep
+   cut 19's J8 pins byte-exact: J8's pinned `if r.digest in acts:` line stays as it is, and
+   `acts` is built from that session's acts filtered to the chain's corpus id (§8.3).
    *Rejected:* recording the mount set in `session-open`. Nothing reads it. The initial
    project and every `select` are pinned to a revision, so resolution is replayable without
    knowing which mounts produced it.
@@ -215,25 +234,26 @@ none creates one:
    `ProfileSpec` values. Anything else raises `TypeError`.
 2. `project` with `mounts=None` refuses `SessionRefused` (as today with
    `coordination=None`).
-3. An empty `corpus_roots` refuses `SessionRefused` ("a session needs at least one corpus
-   root").
-4. `write_root.resolve()` not in `corpus_roots` refuses `SessionRefused`, naming the write
-   root.
-5. With `mounts`: two keys resolving to one path, or a resolved key set other than
+3. `write_root.resolve()` not in `corpus_roots` refuses `SessionRefused`, naming the write
+   root. An empty `corpus_roots` contains no write root, so this one check refuses it, and
+   there is no separate count check: a second guard would be unreachable, and a sabotage
+   of it could never fail a check (§8.3).
+4. With `mounts`: two keys resolving to one path, or a resolved key set other than
    `corpus_roots`, refuses `SessionRefused`, naming the missing and the extra roots.
-6. `require_profile_compatible(profile, mounts[write_root] if mounts else None)`
+5. `require_profile_compatible(profile, mounts[write_root] if mounts else None)`
    (`ContractMismatch`).
-7. The write root's manifest loads (`SessionRefused`), `require_pins_agree(write_root,
+6. The write root's manifest loads (`SessionRefused`), `require_pins_agree(write_root,
    profile)` holds (`ContractMismatch`), and its detached view is a `WellFormedView`
    (`SessionRefused`). These are today's checks on today's root.
-8. `store_root` checks, unchanged.
-9. `CoordinationResolver(mounts)`, when `mounts` is supplied. A read mount whose manifest
+7. `store_root` checks, unchanged.
+8. `CoordinationResolver(mounts)`, when `mounts` is supplied. A read mount whose manifest
    does not load re-raises as `SessionRefused` naming the root. A pin mismatch propagates as
    the resolver's `ContractMismatch`.
-10. `project` resolves through the resolver (unchanged).
+9. `project` resolves through the resolver (unchanged).
 
-The writer factory, `WriterSession(corpus_root=…, corpus_id=…)`, and reconciliation are
-unchanged except that they take `write_root` where they took the sole root.
+The writer factory and `WriterSession(corpus_root=…, corpus_id=…)` are unchanged except
+that they take `write_root` where they took the sole root. `reconcile_sessions` is
+unchanged. `session/reconcile.py`'s `reconcile` matches by corpus (decision 8).
 `SessionRefused`'s docstring changes from "not exactly one corpus root" to "no corpus
 root, or a write root or mount set that does not match the configured roots".
 
@@ -256,6 +276,7 @@ building the resolver over every root, and §9's J14 holds each of them:
 
 - The ledger: every line kind, key set and reader rule (decision 8).
 - `CoordinationResolver`, `CorpusWriter`, `reconcile_sessions` and the publish act's code.
+  `reconcile` changes only in what it matches (decision 8).
 - Science's read side (`ReadContext.views`). It already opens one view per configured
   root; its resolver moves to per-mount profiles in science's own task.
 - The scoped writer's permit, the claim protocol and the lifecycle (J1–J8, J10, J11).
@@ -266,7 +287,7 @@ building the resolver over every root, and §9's J14 holds each of them:
 
 ## 6. Shared files, under roadmap concurrency rule 3
 
-This lane rewrites `session/__init__.py` and adds `mount.py`. Its overlap with the open
+This lane rewrites `session/__init__.py` and `session/reconcile.py`, and adds `mount.py`. Its overlap with the open
 `world-read` lane (`publish`, cut 42 or 43) is:
 
 - `errors.py` (one class), `python/tests/test_designs_corpus.py`, the adoption ledger, the
@@ -288,7 +309,7 @@ Four new rows in the `J` table. J9's two-root clause is superseded by J12 and ci
 | **J12** | A session opens over a write root and a mount set. It opens when `write_root` is one of `corpus_roots` and `mounts` is `None` or covers exactly `corpus_roots`. It refuses at open with no session directory when `corpus_roots` is empty, when `write_root` is outside it, when `mounts` omits or adds a root or names one root twice, when a read mount's manifest does not load, and when the writer's profile is not the write mount's | Open over a two-root world with each root as the write root in turn → opens, `corpus_root` is the named one. Open over: zero roots; a write root outside the set; mounts missing one root; mounts with an extra root; mounts naming one root by two paths (a symlink); a read mount with no manifest; `profile` differing from `mounts[write_root]` → `SessionRefused` or `ContractMismatch` as §3.2 lists, no `sessions/` entry. **Negative:** a one-root world with `write_root` set to that root writes the same `session-open` key set, world id and permit summary that J9's case asserts |
 | **J13** | `compile_mount_profile` activates exactly the manifest's pins, each resolved by namespace and content identity against the shipped base, the shipped coordination contracts, the shipped domain packs and `available`. A pin nothing resolves refuses `MountPinUnresolved` naming the root, namespace and pin, and an available document the manifest does not pin is never activated | Compile a corpus pinning base, `biology` and coordination v2 with nothing available → its pins; a corpus pinning a test-local domain contract with that contract available → its pins; the same with the contract absent → `MountPinUnresolved` naming it; with an extra unpinned contract available → activated set unchanged; a corpus pinning an unshipped base identity → `MountPinUnresolved` on `science`. Pass each result to `CoordinationResolver` → accepted. **Negative:** an available contract with the pinned namespace and a different identity does not satisfy the pin |
 | **J14** | A session with mounts resolves coordination over every mounted corpus: tips, revise predecessors, divergence, the initial project and `standing` | Mint a project in corpus B (a read mount, written by a library writer before open); open a session writing A with `project` set to B's address → opens with B's revision pinned in `session-open`. Revise that project in the session → the revision is in A, the address resolves to it, `standing("project")` lists it once. Then, with the session still open, revise the same project from its B revision through a library writer on B alone (whose own resolver sees only B) → two tips, one per root, and the session resolves the address to `divergent-view` naming both. **Negative:** the same session opened with `mounts` covering only A refuses at open (J12), and a session with `mounts=None` refuses `revise_coordination` with `CoordinationUnavailable` |
-| **J15** | A session never writes a read mount | Hash every read mount's tree, its metadata sibling and its chain before open. Run a lifecycle with an ordinary write, a coordination mint and a revision of a read-mount predecessor, then close and reconcile. Hash again → equal. Reconciliation reports no finding against a read mount. **Negative:** a writer factory bound to a read mount changes that mount's hash, and the check fails |
+| **J15** | A session never writes a read mount | Hash every read mount's tree, its metadata sibling and its chain before open. Run a lifecycle with an ordinary write, a coordination mint and a revision of a read-mount predecessor, then close and reconcile. Hash again → equal. Reconciliation reports no finding against a read mount. **Reconciliation matches by corpus:** over stand-in views, a ledger whose act line names corpus A while the fulfilling registration is committed in B's chain under the session's actor yields `session-entry-foreign` in B and `session-act-unverified` for the act naming A; the same ledger with the act naming B yields neither. **Negative:** a writer factory bound to a read mount changes that mount's hash, and the check fails |
 
 ## 8. Testing and the cut
 
@@ -323,16 +344,43 @@ One arm per mutation that must fail a check:
 | J13b | every available contract is activated | the extra-contract case gains a namespace |
 | J14a | the resolver is built over `{write_root: mounts[write_root]}` only | the read-mount project does not resolve at open |
 | J15a | the writer factory binds the first read mount | the read mount's hash changes |
+| J15b | `reconcile` builds a session's act index over every corpus, not the chain's own | the A-named act over B's registration yields no finding |
+| J15c | the committed set holds digests, not `(corpus_id, digest)` pairs | the act naming A is not `session-act-unverified` |
 
-Cut 19's J9a pins `if len(world_config.corpus_roots) != 1:`, which this slice removes. Cut
-N's runner re-targets J9a in its `_LIVE_SABOTAGES` table to the empty-roots refusal. J9's
-zero-root evidence still holds, and a sabotage of that check still fails J9's zero-root
-case. J9a's frozen declaration is not edited, and cut N's document cites J12 as the
-successor of J9's two-root clause. `test_arm_staleness.py` then sees no stale pin.
+**Re-targeting cut 19's J9a.** J9a pins `if len(world_config.corpus_roots) != 1:`, which
+this slice removes. Its replacement must be a mutation J9's check can see. A separate
+empty-roots guard would not be one: removing it leaves the membership check refusing the
+same configuration with the same `SessionRefused` and no directory, which is all J9
+asserts (round-1 review). So there is no separate guard (§3.2 check 3), and J9a re-targets
+to the membership check itself: `if write_root not in world_config.corpus_roots:` becomes
+`if False:`. J9's zero-root case passes an adopted, well-formed root as `write_root`, so
+the membership check is the only refusal on its path. Under the sabotage that session
+opens and creates its directory, and J9's check fails. J12a sabotages the same line for
+cut N's own outside-write-root case. The two arms share a mutation and differ in the
+check that sees it.
+
+**Where the re-target lives.** A frozen arm is re-targeted in the `_LIVE_SABOTAGES` table
+of the live guard that audits it, never in its declaration module, which later runners
+pin by commit (`FROZEN_PRIOR_CUT_FILES`). Cut 19's arms are audited by
+`test_n2_cut19.py`, so J9a's re-target is a new `_LIVE_SABOTAGES` table there, applied
+to `CUT19_ARMS` as cuts 11 and 32 apply theirs. Cut N's runner holds only its own arms'
+re-targets. Every other live guard whose audited arms a changed line invalidates is
+re-targeted in its own guard the same way. The plan does not list those guards by hand:
+it runs `test_arm_staleness.py`'s `test_every_arm_a_live_guard_audits_applies_exactly_once`
+over the changed tree, and every stale arm it reports gets a re-target in the guard that
+audits it. A zero-stale result is the exit condition. This spec expects exactly one,
+J9a. The other cut-19 pins in `session/__init__.py` (`inspect_detached`,
+`_operation_lock_for`, `WellFormedView`) and in `session/reconcile.py` (`if r.digest in
+acts:`, `if unknown:`, the `unknown =` line, `if staged not in digests:`) are kept
+byte-exact by §3.2 and decision 8. A second stale arm is a finding against this spec,
+not a routine re-target. J9a's frozen declaration is not edited, and cut N's document
+cites J12 as the successor of J9's two-root clause.
 
 J9's case in `test_session_acceptance.py` opens a two-root configuration and expects
 `SessionRefused`. That configuration now opens, so cut N's commit removes the two-root
-case from J9's parametrization (J12 covers it) and passes `write_root` to the rest. The
+case from J9's parametrization (J12 covers it). It passes `write_root` to the rest: the
+configuration's own root where it has one, and for the zero-root case the adopted,
+well-formed `root` the test already builds, so J9a's re-target is observable. The
 edit is named in cut N's document. It is the only change to cut 19's acceptance module;
 the other refusing configurations stay as they are.
 
@@ -377,3 +425,20 @@ Global Constraints carry the two repository obligations verbatim:
 `beliefs-fe7149` holds this spec (`--spec session-mounts`). The plan's steps become its
 children. `beliefs-c08725` (relocating the mm30 corpus) is independent of this code and
 feeds the same milestone.
+
+## 12. Review log
+
+- 2026-09-27: drafted.
+- 2026-09-27: user review, round 1, two findings, taken after checking them against the
+  code:
+  - **Reconciliation could not see a wrong-corpus write.** `reconcile` indexed acts by
+    digest and pooled committed digests across chains, so an act naming A over a
+    registration in B matched both ways. Decision 8 now matches `(corpus_id, digest)`
+    in both directions, keeping J8's pins byte-exact. J15 carries the regression, and
+    J15b and J15c sabotage each direction.
+  - **The J9a re-target was masked.** An empty-roots guard sits in front of the
+    membership check, which refuses the same configuration identically. The count check
+    is gone (§3.2 check 3), J9a re-targets to the membership check with J9's zero-root
+    case given a real write root, and the re-target lives in `test_n2_cut19.py`, the
+    guard that audits it. Any other stale live arm is found by the staleness test, not
+    by hand.

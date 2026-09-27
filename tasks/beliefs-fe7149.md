@@ -6,9 +6,9 @@ priority: 2
 size: m
 complexity: high
 process: planned
-owner: main
+owner: design/session-mounts
 created: 2026-09-23T11:40:35Z
-updated: 2026-09-27T13:33:52Z
+updated: 2026-09-27T13:58:47Z
 started: 2026-09-27T13:25:55Z
 depends: []
 tags: [session]
@@ -27,3 +27,6 @@ open_attended_session refuses unless corpus_roots names exactly one root (sessio
 - 2026-09-27T13:33:45Z (design/session-mounts): spec drafted: docs/superpowers/specs/2026-09-27-session-mounts-design.md — a cut (J9a pin moves, J9 two-root evidence superseded by J12); compile_mount_profile + open_attended_session(write_root, mounts)
 - 2026-09-27T13:33:52Z (design/session-mounts): parked (waiting on user, review): user reviews docs/superpowers/specs/2026-09-27-session-mounts-design.md in .worktrees/session-mounts; on approval the agent writes the cut-N plan there (writing-plans)
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T13:58:47Z (design/session-mounts): resumed
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T13:58:47Z (design/session-mounts): review round 1 taken: reconcile matches (corpus_id, digest) both ways (J15b/c); no separate empty-roots guard, J9a re-targets to the membership check in test_n2_cut19.py's _LIVE_SABOTAGES
