@@ -213,9 +213,10 @@ enter a world-index map or a belief's inputs.
   `audit` and `re-check` (cut 38); the publication records and publish intent
   (cut 39); the publish act for a local destination and marker-required
   arrival (cut 40).
-- **Being designed:** publishing to a remote destination — the transport seam,
-  the remote reveal and its orphans, and the recipient's
-  `divergent-publication` refusal — as conformance cut 42, not yet frozen.
+- **Frozen before implementation:** publishing to a remote destination — the
+  transport seam, the remote reveal and its orphans, and the recipient's
+  `divergent-publication` refusal — as conformance cut 42 on `design/publish`.
+  Its discharge follows its merge to `main`.
 - **Not built:** cross-root publication of a dataset's provenance reference and
   its acquiring report (T7's cross-root case).
 

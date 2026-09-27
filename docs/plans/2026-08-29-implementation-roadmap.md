@@ -423,6 +423,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | M12 | the extraction path (cut 3 §5; kernel limitation 3) | `extraction-path` — tier 3 |
 | P1 | the resolver half of the negative, 5b §6's deterministic resolution (cut 4 §5) | `contract-cut` |
 | T7 | the same-root case is read at cut 35 (publish-together in one registered transaction, the address unchanged while the record bytes move); the cross-root case remains (act-report design §4: refused today) | `cross-root-publication`, tier 3 |
+| J12–J15 | a session mounts every configured corpus under its manifest-pinned profile, chooses one write root, resolves coordination across mounts and reconciles acts by corpus (cut 43 §1–3) | `multi-corpus-session` — tier 1, on the path |
 
 One boundary carried no guarantee row and entered on the ledger's own
 statements: `nodes-remainder` (row 3: reserved-path contract, recoverable
