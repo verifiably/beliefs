@@ -258,6 +258,9 @@ def test_a_damaged_root_refuses_capture_damaged(tmp_path, damage, holds_marker):
         with pytest.raises(PublicationReadingRefused) as caught:
             publication_tip((writer.root,), VIEW, REMOTE)
         assert caught.value.reason == "capture-damaged" and caught.value.corpus_id == writer.corpus_id
+        assert caught.value.__cause__ is not None
+        assert str(caught.value.__cause__) in str(caught.value)
+        assert caught.value.refs == ()
     finally:
         path.chmod(0o644)
 

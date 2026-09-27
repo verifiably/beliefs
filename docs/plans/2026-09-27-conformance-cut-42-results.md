@@ -250,6 +250,37 @@ Additional execution adjustments:
   guard requires their boundary sets to agree. This is a documentation
   placement adjustment to the plan, not a test waiver.
 
+### 3.4 Final whole-branch review fixes
+
+Review at `e8964e2` found two issues. A nonregular or dangling
+`transport.v1` was treated as absent by `is_file()`: another publish could
+start, and a resume could close on a corrupt request without recording an
+orphan. Resume also followed a symlink to a regular mark and let unreadable
+mark errors escape. Adjacent `lstat()` checks now keep nonregular marks
+blocking and answer `PublishUnresolved("transport-mark-corrupt")` before
+reading the request; mark read errors receive the same unresolved verdict.
+The original step-0 and resume sabotage anchors remain byte-exact.
+
+Five additional regression cases cover a directory, dangling symlink,
+symlink to a valid mark, unreadable file, and FIFO, each after a partial
+upload and with a corrupt request. They assert blocking, unresolved resume,
+an unfinished attempt, an unchanged chain tip, and no report. All five
+failed before the fix and pass afterward. These supplement the frozen
+31-case evidence above; no frozen declaration or cut body changed.
+
+The second finding was a `capture-damaged` message missing the caught store
+error required by spec §7.1. `PublicationReadingRefused.__str__` now includes
+its explicit cause for that reason, preserving the constructor, `refs`, and
+Y16-c's raise anchor. Four unreadable/undecodable capture assertions failed
+before this change and pass afterward.
+
+Focused validation: 7 remote cases passed (the five regressions plus Y12-b
+and Y14-b); 64 publish, arrival, and arm-staleness tests passed. Ruff and
+Pyright passed; `tasks check` reported zero errors and zero warnings.
+The cut 42 N2 guard passed all 10 tests in 87.82 seconds, including the
+frozen declaration/body checks, baseline checks, and all fourteen sabotages.
+The full repository gate and main integration remain Task 11 work (§6).
+
 ## 4. The reproduction
 
 `2026-09-05-mm30-reproduction.md` §21 records the certified preflight and

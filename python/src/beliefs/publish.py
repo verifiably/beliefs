@@ -8,6 +8,7 @@ remote reveal, from its transport mark. Every lifecycle call goes through
 from __future__ import annotations
 
 import shutil
+import stat
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
@@ -207,6 +208,16 @@ def _op_dir(operations_root: Path, event_token: str) -> Path:
     return operations_root / "publish" / event_token
 
 
+def _mark_nonregular(op: Path) -> bool:
+    """Only an absent entry is unmarked; never follow a damaged mark's symlink."""
+    try:
+        return not stat.S_ISREG((op / "transport.v1").lstat().st_mode)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+
+
 # --- step 0 ------------------------------------------------------------------
 
 
@@ -233,6 +244,7 @@ def publish(
     if destination.type == "remote":
         # remote §4.1, decision 6: a stranded attempt that may have shared its marker blocks the pair
         blocking = tuple(token for token in unfinished_attempts(writer, view, destination, seam) if (_op_dir(operations_root, token) / "transport.v1").is_file())
+        blocking = tuple(sorted(set(blocking) | {token for token in unfinished_attempts(writer, view, destination, seam) if _mark_nonregular(_op_dir(operations_root, token))}))
         if blocking:
             raise PublicationRefused("publish-unfinished", tokens=blocking)
     resolved = resolver.resolve(view.unpinned())
@@ -633,7 +645,7 @@ def _resume_from_mark(r: _Remote) -> PublishOutcome:
     content, trusted only once the evaluation validated it."""
     try:
         mark = decode_mark((r.op / "transport.v1").read_bytes())
-    except MalformedRecord:
+    except (OSError, MalformedRecord):
         return PublishUnresolved(r.token, "transport-mark-corrupt")
     if _mark_corrupt(r, mark):
         return PublishUnresolved(r.token, "transport-mark-corrupt")
@@ -709,6 +721,8 @@ def resume_publish(
         return _published_from_disk(writer, reading.opened)
     if present:
         return PublishUnresolved(event_token, "binding-without-report")
+    if _mark_nonregular(op):
+        return PublishUnresolved(event_token, "transport-mark-corrupt")
     if (op / "transport.v1").is_file():
         assert transport is not None  # the seam rule above: a mark exists only for a remote intent
         return _resume_from_mark(_Remote(writer, resolver, reading.opened, op, clock, seam, port, transport))

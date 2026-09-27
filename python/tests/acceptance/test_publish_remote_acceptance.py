@@ -495,3 +495,44 @@ def test_a_transport_incomplete_attempt_is_never_resumed_durably(remote):
     pushes, tip = remote.transport.pushes, chain_tip(remote)
     assert resume_remote(remote, abandoned.event_token) == PublishRefused(abandoned.event_token, "transport-incomplete")
     assert remote.transport.pushes == pushes and chain_tip(remote) == tip
+
+
+@pytest.mark.parametrize("damage", ["directory", "dangling", "symlink", "unreadable", "fifo"])
+def test_a_damaged_mark_blocks_and_never_resumes_the_request(remote, damage):
+    """An extant mark keeps the token unfinished even with a corrupt request."""
+    if damage == "unreadable" and os.geteuid() == 0:
+        pytest.skip("root reads mode-0 files")
+    remote.transport.fail_after_files = 1
+    with pytest.raises(TransportFault):
+        publish_remote(remote)
+    token = token_of_last_intent(remote)
+    op = op_dir(remote, token)
+    mark = op / "transport.v1"
+    data = mark.read_bytes()
+    mark.unlink()
+    if damage == "directory":
+        mark.mkdir()
+    elif damage in ("dangling", "symlink"):
+        target = op / "mark-target"
+        if damage == "symlink":
+            target.write_bytes(data)
+        mark.symlink_to(target)
+    elif damage == "fifo":
+        os.mkfifo(mark)
+    else:
+        mark.write_bytes(data)
+        mark.chmod(0)
+    (op / "request.v1").write_bytes(b"corrupt request")
+    remote.transport.fail_after_files = None
+    tip = chain_tip(remote)
+    try:
+        with pytest.raises(PublicationRefused) as refused:
+            publish_remote(remote)
+        assert refused.value.reason == "publish-unfinished" and refused.value.tokens == (token,)
+        assert resume_remote(remote, token) == PublishUnresolved(token, "transport-mark-corrupt")
+        reading = attempt_reading(fresh_writer(remote), token, moment_seam())
+        assert reading is not None and reading.reading == "unfinished"
+        assert chain_tip(remote) == tip and _publish_reports(remote, token) == []
+    finally:
+        if damage == "unreadable":
+            mark.chmod(0o644)

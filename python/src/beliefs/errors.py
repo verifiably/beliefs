@@ -1187,6 +1187,12 @@ class PublicationReadingRefused(WriteRefused):
         self.corpus_id = corpus_id
         self.refs = refs
 
+    def __str__(self) -> str:
+        message = super().__str__()
+        if self.reason == "capture-damaged" and self.__cause__ is not None:
+            return f"{message}: {self.__cause__}"
+        return message
+
 
 class CreateOnlyCollision(WriteRefused):
     """A create-only name already holds other bytes (publish-act-local design §4.4)."""
