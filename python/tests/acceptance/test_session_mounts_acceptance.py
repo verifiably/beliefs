@@ -7,6 +7,7 @@ from its own manifest, and each case's directory is removed at teardown."""
 
 from __future__ import annotations
 
+import json
 import secrets
 import shutil
 from collections.abc import Mapping
@@ -38,6 +39,7 @@ from beliefs.profile import (
 )
 from beliefs.root import init_corpus_root, metadata_root_for, open_corpus
 from beliefs.session import open_attended_session, open_ledger_reader, reconcile_sessions
+from beliefs.session.ledger import ledger_path
 from beliefs.world import WorldConfig
 
 V2_LOCAL = compile_profile(shipped_base_contract(), [biology("fixture")], coordination=shipped_coordination(2))
@@ -150,6 +152,13 @@ def test_j12_c_the_session_writes_the_named_root_and_only_it_durably(corpora, ca
         session, config, ops = open_over(s, (s.a,), s.a)
         reader = open_ledger_reader(ops, session.session_id)
         assert reader.world_id == config.world_id and reader.actor == session.actor
+        opened = json.loads(ledger_path(ops, session.session_id).read_bytes().splitlines()[0])
+        ceiling = FULL.permit.summary()
+        assert opened["permit"] == {
+            "kinds": list(ceiling.kinds),
+            "act_families": list(ceiling.act_families),
+            "ungoverned": ceiling.ungoverned,
+        }
         session.close()
         return
     write, other = (s.a, s.b) if case == "a" else (s.b, s.a)
@@ -193,7 +202,9 @@ def test_j14_a_coordination_resolves_over_every_mount_durably(corpora):
     session.close()
     bare, _, _ = open_over(s, (s.a, s.b), s.a, mounts=None, profile=V2_LOCAL)
     with pytest.raises(CoordinationUnavailable):
-        fresh(bare, "B", RequiredCapabilities.coordination()).mint_coordination("project", content=content_for("project"))
+        fresh(bare, "B", RequiredCapabilities.coordination()).revise_coordination(
+            "project", address, predecessors=[project.uid], content=content_for("project", name="without-mounts")
+        )
     bare.close()
 
 
@@ -216,8 +227,8 @@ def test_j15_a_a_session_never_writes_a_read_mount_durably(corpora):
     c.revise_coordination("project", address, predecessors=[project.uid], content=content_for("project", name="revised-in-a"))
     session.close_invocation("B", {"done": []})
     session.close()
-    assert {root: state(root) for root in (s.b, s.c, s.d)} == before
     assert reconcile_sessions(config, ops) == ()
+    assert {root: state(root) for root in (s.b, s.c, s.d)} == before
 
 
 def test_the_mm30_shape_mounts_beside_a_working_corpus_durably(corpora):
