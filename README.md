@@ -29,7 +29,7 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Eighty-one documents in `docs/designs/`: the banked redesigns, review
+Eighty-two documents in `docs/designs/`: the banked redesigns, review
 disposition, adoption ledger, measurements, rulings, and contributor-guide
 design written 2026-08-02 through 2026-09-27. Read them in this order:
 

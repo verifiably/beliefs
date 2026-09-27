@@ -390,7 +390,7 @@ banked at cut 41's freeze, is closed in full at its discharge.
 | T | — | T7 (cut 35) | — |
 | E | — | — | — |
 | F | — | — | — |
-| J | — | — | — |
+| J | J12, J13, J14, J15 | — | — |
 | V | — | — | — |
 | B | — | — | — |
 | Q | — | — | — |
