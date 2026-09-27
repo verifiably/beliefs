@@ -7,7 +7,7 @@ complexity: mid
 process: direct
 owner: design/session-mounts
 created: 2026-09-27T14:51:57Z
-updated: 2026-09-27T20:46:54Z
+updated: 2026-09-27T21:44:37Z
 started: 2026-09-27T19:40:00Z
 completed: 2026-09-27T20:46:54Z
 depends: [beliefs-fe1a0a]
@@ -27,3 +27,6 @@ step: "Task 5: Declarations, guard, runner, the recent-cut row; run the cut"
 - 2026-09-27T20:46:53Z (design/session-mounts): run: 62 min (est 55, shared); full chained acceptance 62; passed: 70 pytest phases, 1106 passing invocations; cut43 13 acceptance and 10 guard tests, all nine arms sound
 - 2026-09-27T20:46:54Z (design/session-mounts): done
 - 2026-09-27T20:46:54Z (design/session-mounts): N2 declarations, guard, runner, recent-cut row; full cut 43 chain green, all nine arms sound
+- 2026-09-27T20:50:57Z (design/session-mounts): Task5 review fix round1: capture reconciliation findings, compare read-root and metadata trees first, then assert findings empty, so J15-a fails at its designated tree assertion after reconciliation.
+- 2026-09-27T20:52:06Z (design/session-mounts): Fix round1 pilot passed: baseline exit0, J15-a mutation exit1 at read-mount tree equality, after reconciliation. Cut43 acceptance+guard23 passed; final full chain next, est62min shared.
+- 2026-09-27T21:44:37Z (design/session-mounts): run: 52 min (est 62, shared); final chained acceptance 52; passed: 70 phases, 1106 passing invocations; cut43 acceptance13 and guard10; J15-a designated tree assertion verified in direct mutation pilot

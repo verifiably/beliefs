@@ -227,8 +227,9 @@ def test_j15_a_a_session_never_writes_a_read_mount_durably(corpora):
     c.revise_coordination("project", address, predecessors=[project.uid], content=content_for("project", name="revised-in-a"))
     session.close_invocation("B", {"done": []})
     session.close()
-    assert reconcile_sessions(config, ops) == ()
+    findings = reconcile_sessions(config, ops)
     assert {root: state(root) for root in (s.b, s.c, s.d)} == before
+    assert findings == ()
 
 
 def test_the_mm30_shape_mounts_beside_a_working_corpus_durably(corpora):
