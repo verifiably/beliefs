@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-24T02:36:23Z
-updated: 2026-09-27T14:22:17Z
+updated: 2026-09-27T14:22:28Z
 started: 2026-09-26T08:38:03Z
 depends: [beliefs-328507]
 parent: beliefs-1a5157
@@ -51,3 +51,5 @@ Third slice of publish, split from beliefs-328507 by the user on 2026-09-23. Own
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-27T13:58:57Z (design/publish): spec approved by user 2026-09-27 at e353c2d (round 3); keep Task 0's proof that the chosen export-verification call detects both a deleted and an altered record; writing the cut plan
 - 2026-09-27T14:22:17Z (design/publish): plan drafted: docs/superpowers/plans/2026-09-27-publish-act-remote.md (12 tasks, children beliefs-64bb0e..beliefs-d5feb8); Task 0 probes evaluate_copy against deleted and altered records per the user's round-3 condition
+- 2026-09-27T14:22:28Z (design/publish): parked (waiting on user, review): user reviews docs/superpowers/plans/2026-09-27-publish-act-remote.md in .worktrees/publish and picks the execution method; then the agent starts Task 0 (beliefs-64bb0e)
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
