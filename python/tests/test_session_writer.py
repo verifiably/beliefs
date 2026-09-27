@@ -22,6 +22,7 @@ from beliefs import stored
 from beliefs.coordination import CoordinationAddress
 from beliefs.corpus import CoordinationResolver, CorpusWriter
 from beliefs.errors import (
+    ContractMismatch,
     CoordinationUnavailable,
     PermitExceeded,
     PermitFact,
@@ -34,6 +35,7 @@ from beliefs.errors import (
     SessionRefused,
 )
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit
+from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination
 from beliefs.session import (
     Claim,
     ClaimDone,
@@ -387,7 +389,7 @@ def test_attended_session_refuses_an_uncompiled_profile_before_ledger_effects(tm
     config = WorldConfig(tmp_path / "world", WORLD, (tmp_path / "corpus",))
     before = tuple(tmp_path.rglob("*"))
     with pytest.raises(TypeError, match="compiled ProfileSpec"):
-        open_attended_session(config, tmp_path / "ops", profile=None)  # pyright: ignore[reportArgumentType]
+        open_attended_session(config, tmp_path / "ops", write_root=tmp_path / "corpus", profile=None)  # pyright: ignore[reportArgumentType]
     assert tuple(tmp_path.rglob("*")) == before
 
 
@@ -441,7 +443,7 @@ def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, pro
 
     config = WorldConfig(tmp_path / "world", WORLD, (root,))
     resolver = resolver_for(writer.corpus_id)
-    return open_attended_session(config, tmp_path / "ops", profile=profile, snapshot_resolver=resolver)
+    return open_attended_session(config, tmp_path / "ops", write_root=root, profile=profile, snapshot_resolver=resolver)
 
 
 def _session_snapshot_retraction(identity: str, actor: str):
@@ -711,7 +713,7 @@ def _coordinated_open(tmp_path, monkeypatch, base_contract, *, coordination=True
     _stub_durable_seams(monkeypatch)
     ops = tmp_path / "ops"
     config = WorldConfig(tmp_path / "world", WORLD, (root,))
-    session = open_attended_session(config, ops, profile=profile, coordination=profile if coordination else None, **kwargs)
+    session = open_attended_session(config, ops, write_root=root, profile=profile, mounts={root: profile} if coordination else None, **kwargs)
     return session, ops
 
 
@@ -745,3 +747,91 @@ def test_an_unresolvable_initial_project_refuses_before_any_ledger_effect(
     if project == CoordinationAddress(D):
         assert caught.value.tips == (R3, R4)  # pyright: ignore[reportAttributeAccessIssue]
     assert not (tmp_path / "ops" / "sessions").exists()
+
+
+# --- session-mounts §3.2: the write root and the mounts (row J12) --------------
+
+V2M = compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(2))
+
+
+def _two_roots(tmp_path, monkeypatch):
+    from beliefs.world import WorldConfig
+
+    a, b = mounted_root(tmp_path / "a", V2M), mounted_root(tmp_path / "b", V2M)
+    _stub_durable_seams(monkeypatch)
+    return a.resolve(), b.resolve(), WorldConfig(tmp_path / "world", WORLD, (a, b))
+
+
+def _open(config, tmp_path, **kwargs):
+    from beliefs.session import open_attended_session
+
+    return open_attended_session(config, tmp_path / "ops", **kwargs)
+
+
+@pytest.mark.parametrize("which", [0, 1], ids=["first", "second"])
+def test_either_configured_root_can_be_the_write_root(tmp_path, monkeypatch, which):
+    a, b, config = _two_roots(tmp_path, monkeypatch)
+    write = (a, b)[which]
+    session = _open(config, tmp_path, write_root=write, profile=V2M, mounts={a: V2M, b: V2M})
+    assert session.corpus_root == write
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["outside", "zero-roots", "missing-mount", "extra-mount", "repeated-mount", "unadopted-read-mount"],
+)
+def test_the_configuration_refusals_create_no_session_directory(tmp_path, monkeypatch, case):
+    from beliefs.world import WorldConfig
+
+    a, b, config = _two_roots(tmp_path, monkeypatch)
+    kwargs = {"write_root": a, "profile": V2M, "mounts": {a: V2M, b: V2M}}
+    if case == "outside":
+        kwargs["write_root"] = tmp_path / "elsewhere"
+    elif case == "zero-roots":
+        config = WorldConfig(tmp_path / "world", WORLD, ())
+        kwargs["mounts"] = None
+    elif case == "missing-mount":
+        kwargs["mounts"] = {a: V2M}
+    elif case == "extra-mount":
+        kwargs["mounts"] = {a: V2M, b: V2M, mounted_root(tmp_path / "c", V2M): V2M}
+    elif case == "repeated-mount":
+        os.symlink(a, tmp_path / "link")
+        kwargs["mounts"] = {a: V2M, tmp_path / "link": V2M, b: V2M}
+    else:
+        (tmp_path / "d").mkdir()
+        config = WorldConfig(tmp_path / "world", WORLD, (a, tmp_path / "d"))
+        kwargs["mounts"] = {a: V2M, tmp_path / "d": V2M}
+    with pytest.raises(SessionRefused):
+        _open(config, tmp_path, **kwargs)
+    assert not (tmp_path / "ops" / "sessions").exists()
+
+
+def test_the_writer_profile_must_be_the_write_mounts(tmp_path, monkeypatch):
+    a, b, config = _two_roots(tmp_path, monkeypatch)
+    other = compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(1))
+    with pytest.raises(ContractMismatch):
+        _open(config, tmp_path, write_root=a, profile=V2M, mounts={a: other, b: V2M})
+    assert not (tmp_path / "ops" / "sessions").exists()
+
+
+def test_mount_keys_resolve_before_matching(tmp_path, monkeypatch):
+    """Review Focus 1."""
+    a, b, config = _two_roots(tmp_path, monkeypatch)
+    os.symlink(b, tmp_path / "b-link")
+    session = _open(config, tmp_path, write_root=a, profile=V2M, mounts={a: V2M, tmp_path / "b-link": V2M})
+    assert session._coordination_resolver is not None and set(session._coordination_resolver.mounted()) == {a, b}
+
+
+def test_two_roots_without_mounts_open_without_coordination(tmp_path, monkeypatch):
+    """Review Focus 4."""
+    a, _, config = _two_roots(tmp_path, monkeypatch)
+    session = _open(config, tmp_path, write_root=a, profile=V2M)
+    assert session._coordination_resolver is None and session.corpus_root == a
+
+
+def test_a_non_path_write_root_is_a_type_error(tmp_path, monkeypatch):
+    a, b, config = _two_roots(tmp_path, monkeypatch)
+    with pytest.raises(TypeError):
+        _open(config, tmp_path, write_root=str(a), profile=V2M)  # type: ignore[arg-type]
+    with pytest.raises(TypeError):
+        _open(config, tmp_path, write_root=a, profile=V2M, mounts={str(a): V2M, b: V2M})  # type: ignore[dict-item]

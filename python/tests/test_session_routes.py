@@ -423,7 +423,7 @@ def _durable_session(certified_work):
     open_corpus(corpus_root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
     init_store_root(store_root, authority=FULL)
     config = WorldConfig(certified_work / "world", "a" * 32, (corpus_root,))
-    return open_attended_session(config, certified_work / "ops", profile=BASE, store_root=store_root)
+    return open_attended_session(config, certified_work / "ops", write_root=corpus_root, profile=BASE, store_root=store_root)
 
 
 def test_acquire_through_a_session_ledgers_every_commit(certified_work, tmp_path):
@@ -483,7 +483,7 @@ def test_a_store_less_session_audits_and_cannot_recheck(certified_work):
     init_corpus_root(corpus_root, authority=FULL)
     open_corpus(corpus_root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
     config = WorldConfig(certified_work / "world", "a" * 32, (corpus_root,))
-    session = open_attended_session(config, certified_work / "ops", profile=BASE)
+    session = open_attended_session(config, certified_work / "ops", write_root=corpus_root, profile=BASE)
     session.claim_invocation("A", "audit", DIGEST)
     scoped = session.scoped(RECHECKS, "A")
     assert scoped.audit(instrument="inst", evidence=NO_EVIDENCE).entries == ()

@@ -1533,8 +1533,9 @@ class OperationPortMissing(WriteRefused):
 
 class SessionRefused(ScienceError):
     """`open_attended_session` refused its configuration (writer-session
-    design §3.1): not exactly one corpus root, no manifest, or no well-formed
-    chain."""
+    design §3.1, session-mounts design §3.2): a write root outside the configured
+    roots, a mount set other than the configured roots, a root with no manifest,
+    or no well-formed chain."""
 
 
 class SessionClosed(ScienceError):

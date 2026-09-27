@@ -496,7 +496,7 @@ def test_attended_session_refuses_incompatible_profiles_before_creating_operatio
     config = WorldConfig(tmp_path / "world", "b" * 32, (root,))
     before = _bytes(tmp_path)
     with pytest.raises(ContractMismatch):
-        open_attended_session(config, tmp_path / "ops", profile=foreign_profile if mismatch == "foreign" else BASE,
-                              coordination=WITH_BIOLOGY if mismatch == "mounted" else None)
+        open_attended_session(config, tmp_path / "ops", write_root=root, profile=foreign_profile if mismatch == "foreign" else BASE,
+                              mounts={root: WITH_BIOLOGY} if mismatch == "mounted" else None)
     assert not (tmp_path / "ops").exists()
     assert _bytes(tmp_path) == before
