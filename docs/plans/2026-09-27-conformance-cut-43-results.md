@@ -160,8 +160,12 @@ The `write-path` lane closes again; `contract-cut` stays first off the path.
 
 ## 6. Main integration
 
-Not yet merged. Task 8 owns final whole-branch review, the repository gate and main
-integration; it will record the merge and main verification here.
+Task 8's whole-branch review and scoped re-review approved the final tree.
+`just gate` exited 0 on `4c80d2b`: 5847 Python tests passed with one skip,
+standalone N2 passed 46, and TypeScript passed 155; static checks passed.
+The closure commit was `1624a4c`, and `design/session-mounts` merged into `main`
+at `9e3822c`. The merged Python and TypeScript trees are byte-identical to the
+gate-tested tree. `just check` passed on merged `main`.
 
 ## 7. Execution rulings
 
