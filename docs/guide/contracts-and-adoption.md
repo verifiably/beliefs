@@ -224,10 +224,10 @@ fitted result into independent validation.
 
 ## Current state
 
-Forty-two conformance cuts have been frozen and discharged, each frozen before
+Forty-three conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple.
-Cut 42 discharges the remote publish act and Y11–Y16: 210 of 241 rows are
-closed across twenty-two tables, with 31 open, including J12–J15 banked at cut 43. The complete
+Cut 43 discharges the multi-corpus session and J12–J15: 214 of 241 rows are
+closed across twenty-two tables, with 27 open. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
 implemented; `contract-cut` is the roadmap's next off-path boundary. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
@@ -286,7 +286,7 @@ exact selection; the results record under `../plans/` holds the evidence.
 | [40](../designs/2026-09-24-conformance-cut-40.md) | The publish act for a local destination (Y5–Y10) |
 | [41](../designs/2026-09-25-conformance-cut-41.md) | Live view-query evaluation (Z1–Z5) |
 | [42](../designs/2026-09-27-conformance-cut-42.md) | Discharged remote publish act (Y11–Y16 closed); transport, recovery, and recipient tip reading |
-| [43](../designs/2026-09-27-conformance-cut-43.md) | The multi-corpus session (J12–J15), frozen before implementation; discharge follows cut 42 |
+| [43](../designs/2026-09-27-conformance-cut-43.md) | The multi-corpus session (J12–J15), discharged after cut 42 |
 
 ## Open edges
 
@@ -309,4 +309,4 @@ residue. The act report's residue and the writer model are under
 - [Composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md)
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
-- [The newest results record, cut 42](../plans/2026-09-27-conformance-cut-42-results.md); every other cut's record sits beside it under `docs/plans/`
+- [The newest results record, cut 43](../plans/2026-09-27-conformance-cut-43-results.md); every other cut's record sits beside it under `docs/plans/`

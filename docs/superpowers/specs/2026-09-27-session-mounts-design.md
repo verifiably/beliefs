@@ -10,7 +10,7 @@ its coordination command set design
 reopens.
 **Task:** `beliefs-fe7149`
 **Cut 43:** numbered after cut 42 (`design/publish`) under roadmap concurrency rule 1; its discharge serializes after cut 42 under rule 5.
-**Status:** approved 2026-09-27; frozen as cut 43 on 2026-09-27
+**Status:** implemented and discharged as cut 43 on 2026-09-27; [results](../../plans/2026-09-27-conformance-cut-43-results.md). Main integration remains Task 8.
 
 ## 1. What this slice is
 

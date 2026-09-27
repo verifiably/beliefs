@@ -1,6 +1,6 @@
 # Conformance cut 43 — the multi-corpus session
 
-**Status:** frozen 2026-09-27, before implementation; J12–J15 are open
+**Status:** discharged 2026-09-27; J12–J15 closed; [results](../plans/2026-09-27-conformance-cut-43-results.md). Frozen body below unchanged.
 **Design:** [session-mounts design](../superpowers/specs/2026-09-27-session-mounts-design.md), approved 2026-09-27.
 **Plan:** [implementation plan](../superpowers/plans/2026-09-27-session-mounts.md).
 **Numbered** after cut 42 (`design/publish`) under roadmap rule 1; its discharge serializes after cut 42's under rule 5. The branch scan on 2026-09-27 found `design/publish: conformance-cut-42` and no cut 43 document on any branch. The cut 42 document hash was `5887bb87dc30d7451c3302651d546aa941cea70be6e99b7223fbd537d45faf35`.

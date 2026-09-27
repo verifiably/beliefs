@@ -294,7 +294,7 @@ context and the linked design references for normative detail.
 - **Publish** — The operation that copies what a view selects, unchanged,
   into a fresh immutable corpus at a destination, with a `publication` marker,
   a `publication-binding` revision, and one act report. Local destinations are
-  built (cut 40); remote ones are being designed as cut 42.
+  built (cut 40); remote ones are built at cut 42.
   ([writes](writes-operations-and-publication.md#publishing-a-view))
 - **Published verification** — A verification record carrying its whole basis
   with the comparison report embedded under an id that is its identity; the
@@ -389,7 +389,8 @@ context and the linked design references for normative detail.
   `science` compiles a declaration to a `RequiredCapabilities` value and never
   holds a permit. Exceeding one is `PermitExceeded`, refused before any effect.
   ([write-permits design](../designs/2026-09-04-write-permits-design.md))
-- **Writer session** — An attended session over one corpus root: a fresh
+- **Writer session** — An attended session with one write root and every configured corpus mounted
+  under its own manifest-pinned profile (cut 43): a fresh
   session identity that fixes the actor as `session:<id>`, a session ledger,
   the claim protocol that makes an invocation replayable, and every
   session-mediated ordinary write performed as one `corpus-write` operation

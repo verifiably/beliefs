@@ -1254,3 +1254,37 @@ invocation, is `LedgerMalformed`. §3.5's reader gains
 `attributed_acts()`, which pairs every act with the selection standing at its
 line. A `session-open` written before this amendment, without `project`, reads
 as no selection; it is the only historical shape accepted.
+
+## Session-mounts amendment — 2026-09-27
+
+Cut 43 discharges J12–J15 ([design](../superpowers/specs/2026-09-27-session-mounts-design.md),
+[results](../plans/2026-09-27-conformance-cut-43-results.md)). This supersedes §3.1's
+single-root opening rule and limitation 1's first sentence. Its restriction on
+ordinary cross-corpus targeting remains.
+
+`open_attended_session(world_config, operations_root, *, write_root, profile,
+mounts=None, store_root=None, snapshot_resolver=None, project=None)` requires an
+explicit `write_root: Path`. After path resolution it must belong to
+`world_config.corpus_roots`. Supplied `mounts: Mapping[Path, ProfileSpec]` must cover
+exactly those roots, each once; aliases, omissions and extras refuse. The writer
+profile must equal its write mount's profile. Its adopted manifest, pins and
+well-formed chain are still checked; each read manifest must load and match its
+profile, while consumers that need read chains check them. Every refusal precedes
+the session directory. `mounts=None` opens without coordination; an empty mapping
+is different. The resolver reads every mount; the writer and operation port bind
+only the selected write root.
+
+J9's historical two-root refusal clause is superseded by J12's two-root opening
+and membership guarantee. The ledger format, world id and full-permit summary
+remain unchanged. Reconciliation matches acts and committed registrations by
+`(corpus_id, entry_digest)` in both directions: a registration in B cannot fulfill
+an act naming A, yielding `session-entry-foreign` in B and
+`session-act-unverified` for A when both views are well formed.
+
+`beliefs.mount.compile_mount_profile(root, *, available=())` compiles exactly the
+manifest's pins against shipped base, coordination v1/v2, shipped domain packs and
+available parsed domain documents. Namespace and content identity must both match;
+unpinned available documents never activate. A well-formed unresolved pin raises
+`MountPinUnresolved` naming root, namespace and pin; malformed manifests retain
+their own refusal. Every mount still requires the shipped base, there is no cache,
+and ordinary writes remain within the selected write corpus.

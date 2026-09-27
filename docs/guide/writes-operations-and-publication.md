@@ -75,8 +75,10 @@ declared requirement into a permit request and never holds a permit itself
 
 ### Writer sessions: an attended session and its ledger
 
-A **writer session** is how the daily surface writes. It opens over one corpus
-root with a fresh session identity, which fixes the actor as `session:<id>`, and
+A **writer session** is how the daily surface writes. It names one write root
+and can mount every configured corpus under its own manifest-pinned profile
+([cut 43](../plans/2026-09-27-conformance-cut-43-results.md)), resolving coordination
+across all mounts. A fresh session identity fixes the actor as `session:<id>`, and
 keeps a **session ledger**: an append-then-fsync file whose every line is durable
 before its call returns. Each command invocation first records a **claim**, so a
 retried invocation is recognised and deduplicated instead of written twice. The
