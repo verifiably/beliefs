@@ -145,7 +145,7 @@ The approved spec's §17 planning notes were implemented as follows (the
 notes are retained here to keep the discharge evidence self-contained):
 
 
-- 2026-09-27 — at planning (plan `../plans/2026-09-27-publish-act-remote.md`):
+- 2026-09-27 — at planning (plan `../superpowers/plans/2026-09-27-publish-act-remote.md`):
   - **The export evaluation is `root.evaluate_copy(dest_root, subject,
     observers) -> str`**: `_restore_root`'s outcome with a grant that does
     nothing, the recipient's own evaluation, or `"unreadable"` when the copy
