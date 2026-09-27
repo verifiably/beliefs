@@ -22,7 +22,7 @@
   - its discharge waits for cut 42's merge;
   - Tasks 0–4 run now, and Task 5 starts by merging `main` once cut 42 has landed.
 
-  If Task 0's scan finds no cut 42 frozen anywhere, stop and ask. The number and the chain both change, and that is the user's sequencing call.
+  Task 0 (`beliefs-8e46e1`) runs only after publish's Task 0 (`beliefs-64bb0e`) has frozen cut 42. That task's record lives on `design/publish`, where this branch's tracker cannot resolve it, so Step 1's scan enforces the order, not `tasks dep`. If the scan finds no cut 42 frozen anywhere, stop and ask. The number and the chain both change, and that is the user's sequencing call.
 - AGENTS.md, Cut plans, verbatim: **`root.py` is the one `atoms` importer** (`test_capability_boundary.py`,
   `TestTheCompositionRootIsTheOneAtomsImporter`). A classification over engine
   cause types, a predicate over engine exceptions, or any other engine-typed
@@ -111,11 +111,26 @@ Expected: `design/publish: conformance-cut-42` and no `-43` anywhere. Anything e
 - 2026-09-27 — at planning (plan `../plans/2026-09-27-session-mounts.md`):
   - **The test-local contract is the `biology` fixture** (`tests/profiles.py`
     `biology("fixture")`): a `biology`-namespace document whose identity is
-    not the shipped pack's. The acceptance corpora are: A, base plus the
-    shipped `biology` plus coordination v2; B, base plus the fixture `biology`
-    plus coordination v2; and C, the fixture `biology` alone, which has the
-    mm30 shape. §8.2's "biology and the test-local contract" cannot both pin
-    the one namespace.
+    not the shipped pack's. The acceptance corpora are:
+    - A, the write root: base, the fixture `biology` and coordination v2.
+      Ordinary proposition writes need the fixture's operators.
+    - B: base, the shipped `biology` and coordination v2.
+    - C: the fixture `biology` alone, the mm30 shape.
+    - D: a read mount with A's profile. J15-a's sabotage needs a read target
+      the writer can bind without a profile mismatch.
+
+    §8.2's "biology and the test-local contract" cannot both pin the one
+    namespace.
+  - **J15a's sabotage rebinds the writer factory's root, and with it the
+    operation port, to the first read mount whose profile equals the
+    writer's (D).** The spec's §8.3 "binds the first read mount" would bind B,
+    whose profile differs, and construction would refuse `ContractMismatch`
+    before any write. The unchanged-tree assertion would then never be
+    reached (plan review, round 2).
+  - **A malformed pin is the manifest's refusal, not the mount's.** A pin not
+    spelled `<namespace>:<identity>` fails `load_manifest` with
+    `ManifestMalformed`, which propagates (§3.1). `MountPinUnresolved` is
+    reserved for a well-formed pin nothing carries.
   - **J12c's sabotage binds the whole session to `corpus_roots[0]`** in place
     of the resolved write root. That is where the writer factory's root
     comes from, so it is the one-edit form of "the writer factory binds
@@ -169,7 +184,7 @@ from profiles import WITH_BIOLOGY, biology, pins_for
 
 from beliefs.consulted import CorpusPins
 from beliefs.corpus import CoordinationResolver
-from beliefs.errors import MountPinUnresolved, UnparsedContract
+from beliefs.errors import ManifestMalformed, MountPinUnresolved, UnparsedContract
 from beliefs.mount import compile_mount_profile
 from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination, shipped_domain_contract
 from beliefs.world.registry import CorpusManifest, manifest_bytes
@@ -243,14 +258,20 @@ def test_duplicate_available_documents_are_harmless(tmp_path):
     [
         (CorpusPins("science:" + "0" * 64, {}), "science"),
         (CorpusPins(pins_for(COORD_ONLY).science_contract, {"coordination": "coordination:" + "0" * 64}), "coordination"),
-        (CorpusPins(pins_for(COORD_ONLY).science_contract, {"biology": "not-the-namespace:" + "0" * 64}), "biology"),
     ],
-    ids=["unshipped-base", "unshipped-coordination", "malformed-pin"],
+    ids=["unshipped-base", "unshipped-coordination"],
 )
-def test_pins_nothing_carries_refuse(tmp_path, pins, namespace):
+def test_well_formed_pins_nothing_carries_refuse(tmp_path, pins, namespace):
     with pytest.raises(MountPinUnresolved) as caught:
         compile_mount_profile(_root(tmp_path, "x", pins), available=(biology("fixture"),))
     assert caught.value.namespace == namespace
+
+
+def test_a_malformed_pin_is_the_manifests_refusal(tmp_path):
+    """§3.1: `load_manifest`'s refusals propagate; `MountPinUnresolved` is for well-formed pins."""
+    pins = CorpusPins(pins_for(COORD_ONLY).science_contract, {"biology": "not-the-namespace:" + "0" * 64})
+    with pytest.raises(ManifestMalformed):
+        compile_mount_profile(_root(tmp_path, "x", pins), available=(biology("fixture"),))
 
 
 def test_each_compiled_profile_is_accepted_by_the_resolver(tmp_path):
@@ -355,7 +376,7 @@ def _shipped(namespace: str) -> tuple[DomainContract, ...]:
 
 If importing `beliefs.world` at module level cycles (`corpus.py` imports it lazily for that reason), move the import into the function and note why.
 
-- [ ] **Step 4: Run to verify they pass.** `uv run --frozen pytest tests/test_mount.py -q && uv run --frozen pyright src/beliefs/mount.py` → `12 passed` (10 test functions, one parametrized three ways).
+- [ ] **Step 4: Run to verify they pass.** `uv run --frozen pytest tests/test_mount.py -q && uv run --frozen pyright src/beliefs/mount.py` → `12 passed` (11 test functions, one parametrized two ways).
 
 - [ ] **Step 5: Commit**
 
@@ -701,12 +722,15 @@ git commit -m "fix(session): reconcile acts to chains by corpus as well as diges
 J12, J14 and J15-a over real roots on the certified volume. Corpus A (the
 write root) pins base, the fixture `biology` and coordination v2; B pins base,
 the shipped `biology` and coordination v2; C pins the fixture `biology` alone,
-the mm30 shape. Every mount is compiled from its own manifest."""
+the mm30 shape; D shares A's profile as a read mount. Every mount is compiled
+from its own manifest, and each case's directory is removed at teardown."""
 
 from __future__ import annotations
 
 import secrets
+import shutil
 from pathlib import Path
+from tempfile import mkdtemp
 from types import SimpleNamespace
 
 import pytest
@@ -715,7 +739,7 @@ from coordination_fixtures import content_for, pins_for
 from nodes.core.paths import path_for_node_id
 from profiles import WITH_BIOLOGY, biology
 from test_durable_families import proposition
-from test_session_acceptance import PROPOSITIONS, adopted, fresh
+from test_session_acceptance import PROPOSITIONS, fresh
 
 from beliefs.coordination import CoordinationRefused, coordination_revision
 from beliefs.corpus import CoordinationResolver
@@ -732,14 +756,29 @@ V2_SHIPPED = compile_profile(shipped_base_contract(), [shipped_domain_contract("
 AVAILABLE = (biology("fixture"),)
 
 
+def _adopt(base: Path, name: str, profile) -> Path:
+    root = base / name
+    init_corpus_root(root, authority=FULL)
+    open_corpus(root, authority=FULL, profile=profile).adopt_manifest(profile=pins_for(profile))
+    return root.resolve()
+
+
 @pytest.fixture()
 def corpora(work_directory):
-    return SimpleNamespace(
-        base=work_directory,
-        a=adopted(work_directory, "a", pins=pins_for(V2_LOCAL), profile=V2_LOCAL).resolve(),
-        b=adopted(work_directory, "b", pins=pins_for(V2_SHIPPED), profile=V2_SHIPPED).resolve(),
-        c=adopted(work_directory, "c", pins=pins_for(WITH_BIOLOGY), profile=WITH_BIOLOGY).resolve(),
-    )
+    """Every case owns one directory under the certified work directory: its
+    roots, their `.metadata` siblings, its worlds, links and operations roots.
+    Teardown removes it whole (plan review, round 2)."""
+    base = Path(mkdtemp(prefix="cut43-", dir=work_directory)).resolve()
+    try:
+        yield SimpleNamespace(
+            base=base,
+            a=_adopt(base, "a", V2_LOCAL),
+            b=_adopt(base, "b", V2_SHIPPED),
+            c=_adopt(base, "c", WITH_BIOLOGY),
+            d=_adopt(base, "d", V2_LOCAL),  # a read mount with A's profile: J15-a's sabotage target
+        )
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
 
 
 def mounts_for(roots):
@@ -872,8 +911,8 @@ def test_j15_a_a_session_never_writes_a_read_mount_durably(corpora):
     s = corpora
     project = library_on(s.b, V2_SHIPPED).mint_coordination("project", content=content_for("project", name="in-b"))
     address = coordination_revision(project).address.unpinned()
-    before = {root: state(root) for root in (s.b, s.c)}
-    session, config, ops = open_over(s, (s.a, s.b, s.c), s.a)
+    before = {root: state(root) for root in (s.b, s.c, s.d)}
+    session, config, ops = open_over(s, (s.a, s.b, s.c, s.d), s.a)
     w = fresh(session, "A", PROPOSITIONS)
     w.add(proposition("q1"))
     session.close_invocation("A", {"done": []})
@@ -882,7 +921,7 @@ def test_j15_a_a_session_never_writes_a_read_mount_durably(corpora):
     c.revise_coordination("project", address, predecessors=[project.uid], content=content_for("project", name="revised-in-a"))
     session.close_invocation("B", {"done": []})
     session.close()
-    assert {root: state(root) for root in (s.b, s.c)} == before
+    assert {root: state(root) for root in (s.b, s.c, s.d)} == before
     assert reconcile_sessions(config, ops) == ()
 
 
@@ -941,11 +980,11 @@ The arms follow. Copy each `before` from the tree and check it with `source.coun
 | J13-a | `mount.py` | `        match = next((c for c in candidates if c.content_identity == identity), None)` | `        match = next(iter(candidates), None)` |
 | J13-b | `mount.py` | `    return compile_profile(base, domains, coordination=coordination)` | `    return compile_profile(base, [*domains, *(d for d in documents if d.namespace not in {m.namespace for m in domains})], coordination=coordination)` |
 | J14-a | `session/__init__.py` | `    resolver = _mount_resolver(mounted)` | `    resolver = _mount_resolver({root: mounted[root]} if mounted is not None else None)` |
-| J15-a | `session/__init__.py` | `        return CorpusWriter(\n            root,` | `        return CorpusWriter(\n            next(r for r in world_config.corpus_roots if r != root),` |
+| J15-a | `session/__init__.py` | `    def writer_factory(authority: Authority) -> CorpusWriter:\n        return CorpusWriter(` | `    def writer_factory(authority: Authority) -> CorpusWriter:\n        root = next(r for r, p in (mounted or {}).items() if r != write_root and p.compiled_identity == profile.compiled_identity)\n        return CorpusWriter(` |
 | J15-b | `session/reconcile.py` | `            acts: set[str] = {act.entry for act in reader.acts() if act.corpus == corpus_id} if reader is not None else set()` | `            acts: set[str] = {act.entry for act in reader.acts()} if reader is not None else set()` |
 | J15-c | `session/reconcile.py` | `            if act.corpus in well_formed and (act.corpus, act.entry) not in committed_pairs:` | `            if act.corpus in well_formed and act.entry not in {digest for _, digest in committed_pairs}:` |
 
-J12-c's `after` is spelled for the one-edit form (spec §13). `test_arm_staleness.py` expects `root = write_root` to occur once in `session/__init__.py`.
+J12-c's and J15-a's `after`s are spelled for the one-edit form (spec §13). J15-a's rebinds the factory's local `root`, so the writer and its operation port both move to D, a read mount with the writer's profile. The write then lands there, and J15-a's unchanged-tree assertion is what fails. `test_arm_staleness.py` expects `root = write_root` and the `writer_factory` signature line to occur once each in `session/__init__.py`.
 
 - [ ] **Step 2: The guard.** Copy `test_n2_cut42.py` (from `main` after Step 0) to `test_n2_cut43.py`, then:
 - import `CUT42_ARMS` into `PRIOR_ARMS`, and pin `n2_arms_cut42.py` in `FROZEN_PRIOR_CUT_FILES`;
@@ -1111,3 +1150,9 @@ Tell science's owner that `sci-923d3a` can start: the kernel now takes `write_ro
   - `mounts=None`, never an empty mapping.
 
   Sequencing: cut 43 chains cut 42, so Task 5 starts after `design/publish` merges. Tasks 0–4 do not wait.
+- 2026-09-27 — user review of the plan, round 1, three P2 findings, each confirmed by the reviewer's probe, all taken:
+  1. **J15-a's sabotage failed before the write.** Redirecting the writer to B kept A's profile, so construction refused `ContractMismatch`. The acceptance corpora gain D, a read mount with A's profile, and the sabotage rebinds the factory's root, and with it the operation port, to D. The write lands there, and the unchanged-tree assertion fails.
+  2. **The malformed pin expected the wrong refusal.** It is `load_manifest`'s `ManifestMalformed`, which propagates (§3.1). It has its own test now, and `MountPinUnresolved` covers only well-formed pins nothing carries.
+  3. **The acceptance fixture had no teardown.** `corpora` now owns a `mkdtemp` directory under the certified work directory, holding every root, metadata sibling, world, link and operations root. It removes that directory at teardown, and no longer imports `adopted`.
+
+  Also: the planning note's A and B profiles were swapped and are corrected; Task 0 waits for publish's Task 0, enforced by Step 1's scan because the two task records live on different branches.
