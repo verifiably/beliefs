@@ -1177,6 +1177,17 @@ class PublicationArrivalRefused(WriteRefused):
         self.refs = refs
 
 
+class PublicationReadingRefused(WriteRefused):
+    """A held publication root or the recipient's tip reading refused."""
+
+    def __init__(self, reason: str, corpus_id: str | None, refs: tuple[str, ...] = ()) -> None:
+        where = f" in {corpus_id}" if corpus_id is not None else ""
+        super().__init__(f"{reason}{where}: {', '.join(refs)}" if refs else f"{reason}{where}")
+        self.reason = reason
+        self.corpus_id = corpus_id
+        self.refs = refs
+
+
 class CreateOnlyCollision(WriteRefused):
     """A create-only name already holds other bytes (publish-act-local design §4.4)."""
 
