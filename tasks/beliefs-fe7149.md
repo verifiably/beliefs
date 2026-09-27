@@ -1,18 +1,21 @@
 ---
 id: beliefs-fe7149
 title: "Attended session: one write root, N mounted read corpora, coordination resolution over all"
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: planned
-owner: main
+owner: design/session-mounts
 created: 2026-09-23T11:40:35Z
-updated: 2026-09-27T13:25:55Z
+updated: 2026-09-27T23:21:17Z
 started: 2026-09-27T13:25:55Z
+completed: 2026-09-27T23:21:17Z
 depends: []
 tags: [session]
 agent: claude-code/claude-fable-5-1
+spec: docs/superpowers/specs/2026-09-27-session-mounts-design.md
+plan: docs/superpowers/plans/2026-09-27-session-mounts.md
 ---
 
 open_attended_session refuses unless corpus_roots names exactly one root (session/__init__.py) and its CoordinationResolver mounts only that root, while the read side already opens one view per configured root. The science projects design (science docs/specs/2026-09-23-projects-corpora-and-workspaces-design.md §3.1) needs a session that writes to one corpus and reads every configured one: a write root named separately from the read set; each mounted corpus read under the profile its own manifest pins (mm30 pins the mm30 corpus-local contract; a working corpus pins base + biology + coordination); coordination tip resolution over every mounted corpus, which coordination-and-view-kinds §6.3 already states as world-wide. Prerequisite of the second-project milestone (§9.2). The kernel owns how a mounted corpus's profile is compiled and cached; science adds write_root beside corpus_roots when this lands.
@@ -23,3 +26,23 @@ open_attended_session refuses unless corpus_roots names exactly one root (sessio
 - 2026-09-27T13:25:55Z (main): started
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-27T13:25:55Z (main): claimed by claude-code (opus-5-5), session 6e2a536f-f4b5-41c3-abab-f729843ae299, pid 753003
+- 2026-09-27T13:33:45Z (design/session-mounts): spec drafted: docs/superpowers/specs/2026-09-27-session-mounts-design.md — a cut (J9a pin moves, J9 two-root evidence superseded by J12); compile_mount_profile + open_attended_session(write_root, mounts)
+- 2026-09-27T13:33:52Z (design/session-mounts): parked (waiting on user, review): user reviews docs/superpowers/specs/2026-09-27-session-mounts-design.md in .worktrees/session-mounts; on approval the agent writes the cut-N plan there (writing-plans)
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T13:58:47Z (design/session-mounts): resumed
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T13:58:47Z (design/session-mounts): review round 1 taken: reconcile matches (corpus_id, digest) both ways (J15b/c); no separate empty-roots guard, J9a re-targets to the membership check in test_n2_cut19.py's _LIVE_SABOTAGES
+- 2026-09-27T13:58:49Z (design/session-mounts): parked (waiting on user, review): user re-reviews the spec (round 1 taken) in .worktrees/session-mounts; on approval, the agent writes the cut-N plan there
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T14:51:57Z (design/session-mounts): resumed
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T14:52:06Z (design/session-mounts): spec approved (round 2, J15b wording taken); plan drafted: docs/superpowers/plans/2026-09-27-session-mounts.md, 9 tasks (beliefs-8e46e1..beliefs-654638), cut 43 chaining cut 42; Task 5 waits for cut 42's merge
+- 2026-09-27T14:52:07Z (design/session-mounts): parked (waiting on user, review): user reviews docs/superpowers/plans/2026-09-27-session-mounts.md in .worktrees/session-mounts and picks the execution method; then the agent starts Task 0 (beliefs-8e46e1)
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T15:02:53Z (design/session-mounts): resumed
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T15:02:53Z (design/session-mounts): plan review round 1 taken: J15-a via same-profile read mount D, ManifestMalformed split, owned fixture teardown, A/B note fixed. User chose subagent-driven, sequential, after clearance.
+- 2026-09-27T15:02:55Z (design/session-mounts): parked (waiting on user, review): user reviews the round-1 plan fixes in .worktrees/session-mounts; on clearance, execute subagent-driven (sequential) starting Task 0 beliefs-8e46e1 after publish Task 0 freezes cut 42
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T23:21:17Z (design/session-mounts): done
+- 2026-09-27T23:21:17Z (design/session-mounts): Cut43 discharged: one write root, every configured corpus mounted under its own pins, coordination over all, corpus-matched reconciliation; review and certified gate passed.

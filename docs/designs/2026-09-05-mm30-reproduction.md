@@ -1590,3 +1590,53 @@ tip. The remote act and its recipient reading are additive to this driver;
 cut 42's Y11–Y16 evidence lives in its acceptance tests and runner, while
 the reproduction's stored state and re-derived answer remain byte-for-byte
 where §20 left them.
+
+## 22. Addendum — the multi-corpus session, 2026-09-27
+
+Re-run under the attended session over one write root and N mounted corpora
+(`../superpowers/specs/2026-09-27-session-mounts-design.md`; cut 43), from the
+`session-mounts` worktree at head `60f37ad`. The existing corpus was read in
+place at the certified volume's canonical path under the main checkout;
+`MM30_PREDECESSOR` named the same predecessor as §21. `reproduction.preflight`
+printed `ok` before `reproduction.rederive` ran in a fresh process.
+
+### 22.1 What changed in the kernel this slice
+
+`open_attended_session` now requires `write_root` and accepts `mounts`, a
+mapping of corpus roots to their profiles, in place of the single coordination
+profile. `compile_mount_profile` resolves each root's own manifest pins, and
+`reconcile_sessions` matches ledger acts to committed registrations by corpus
+and entry digest. The reproduction driver does not call this session path:
+
+```
+$ grep -n 'open_attended_session\|mount' python/tools/reproduction/*.py
+```
+
+The grep returned no lines. This run therefore checks the reproduction under
+the changed kernel, without exercising a multi-corpus session.
+
+### 22.2 What the re-run reached
+
+Before the run, `state.json` held `rederived_belief` =
+`{"detail":"","kind":"NoBelief","reason":"no-directional-outcome"}` and
+`rederived_equal: true`. A copy was taken first in the reproduction scratchpad.
+`reproduction.rederive` printed the same 10a payload in field-declaration
+order, `{"kind": "NoBelief", "reason": "no-directional-outcome", "detail": ""}`,
+with `"equal": true`; 10b and 10c also retained their true equality and
+restoration checks. The rewritten state held the same `rederived_belief` and
+`rederived_equal: true`. `cmp` exited 0 and a full-file `diff -u` was empty.
+Both files had SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`,
+the same hash as §21.2.
+
+`cd python && uv run --frozen pytest tests/test_reproduction_driver.py
+tests/test_designs_corpus.py -q`: 50 passed.
+
+### 22.3 What this addendum does not claim
+
+The mm30 exercise still opens one corpus as a library. It does not mount mm30
+beside a working corpus or exercise the attended session's new write-root and
+mount selection. That second-project milestone belongs to science
+(`sci-0d00d2`) after `beliefs-c08725` relocates the reproduced corpus. Cut
+43's J12–J15 evidence lives in its acceptance tests and runner; this re-run
+only establishes that the stored mm30 state and answer did not move.

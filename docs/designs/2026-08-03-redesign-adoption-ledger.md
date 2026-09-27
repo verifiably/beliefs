@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-16)
+## Current state (2026-09-27)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,15 +46,15 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-27** for cut 42's discharge of the remote publish act:
+**Updated 2026-09-27** for cut 43's discharge of `multi-corpus-session`: J12–J15 close.
 Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
 partial on T7's cross-root case; L1 stays partial on its persistence arms.
-The corpus has **210 of 237 rows closed, 27 open**.
+The corpus has **214 of 241 rows closed, 27 open**.
 
-**Implemented through conformance cut 42.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 43.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–42 record discharge in their dated results records, most recently
-`../plans/2026-09-27-conformance-cut-42-results.md`.
+and cuts 26–43 record discharge in their dated results records, most recently
+`../plans/2026-09-27-conformance-cut-43-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -418,7 +418,13 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
     denotation through a private core, and it writes nothing. Belief reads
     and publication stay epoch-bound (coordination §6.2, amended).
   - `live-query` entered this table at the results record and closed in the
-    same commit. The corpus has **204 of 231 rows closed, 27 open**.
+    same commit. At cut 41, the corpus had **204 of 231 rows closed, 27 open**.
+
+- **The multi-corpus session**, built 2026-09-27 at cut 43
+  ([results](../plans/2026-09-27-conformance-cut-43-results.md)): one explicit write root,
+  manifest-pinned profiles for every configured corpus, coordination resolution over
+  all mounts, and reconciliation by corpus and registration digest. **J12–J15 close;
+  `multi-corpus-session` is discharged in full.** Main integration follows Task 8.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -441,9 +447,9 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-27-conformance-cut-42-results.md`) discharges the remote
-publish act and recipient tip reading. Y11–Y16 close; the corpus has
-**210 of 237** rows closed, 27 open. L1 stays partial on its persistence
+(`../plans/2026-09-27-conformance-cut-43-results.md`) discharges the multi-corpus
+session. J12–J15 close; the corpus has
+**214 of 241** rows closed, 27 open. L1 stays partial on its persistence
 arms under `persistence-cut`, and T7 on its cross-root case under
 `cross-root-publication`. Cut 41 closed Z1–Z5 and `live-query`.
 The earlier record

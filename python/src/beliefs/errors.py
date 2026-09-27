@@ -652,6 +652,16 @@ class ProfileError(ScienceError):
     """A profile refused — at compilation, at construction, or at resolution."""
 
 
+class MountPinUnresolved(ProfileError):
+    """A manifest pin is carried by no shipped or available contract."""
+
+    def __init__(self, root: Path, namespace: str, pin: str) -> None:
+        super().__init__(f"{root}: the {namespace} pin {pin} resolves to no shipped or available contract")
+        self.root = root
+        self.namespace = namespace
+        self.pin = pin
+
+
 class ResolutionError(ScienceError):
     """A snapshot or receipt refused — at construction, never at resolution itself.
 
@@ -1542,8 +1552,9 @@ class OperationPortMissing(WriteRefused):
 
 class SessionRefused(ScienceError):
     """`open_attended_session` refused its configuration (writer-session
-    design §3.1): not exactly one corpus root, no manifest, or no well-formed
-    chain."""
+    design §3.1, session-mounts design §3.2): a write root outside the configured
+    roots, a mount set other than the configured roots, a root with no manifest,
+    or no well-formed chain."""
 
 
 class SessionClosed(ScienceError):

@@ -726,6 +726,15 @@ The `J` table. Rows are frozen; ids are never renumbered.
 | **J11** | A scoped writer is bound to one invocation: it acts only while that invocation is the current one, refuses with `SessionProtocolError` and nothing written before it is claimed, after it is closed or abandoned, and under any other current invocation, and carries the requirement it was scoped with, not the ceiling | `scoped(req, "A")`; act before claiming A → `SessionProtocolError`, head unchanged; claim A fresh, act → minted; close A; act again → `SessionProtocolError`; `scoped(narrower, "B")`, claim B fresh; act with A's writer → `SessionProtocolError`, head unchanged, no `act` line under B; act with B's writer → minted under B; abandon B (no close), claim C fresh; act with B's writer → `SessionProtocolError`. **Negative:** two writers scoped for the same id under one claim both act, and every act ledgers under that id |
 | **J10** | A session-written record is indistinguishable on ordinary read from a library write of the same node: same bytes, same path, no additional record, and the corpus view differs only by the record itself | Write one node through a scoped writer and the same node through `open_corpus` on a twin root; assert byte-equal record files, equal `corpus_check` findings, and equal record inventories. Session-`delete` a record and raw-`unlink` its twin; assert the two read views are equal. **Negative:** the two *chains* differ — the session root holds the intent and the fulfilling registration — which is the whole of the difference |
 
+J12–J15 banked with conformance cut 43's freeze (`../superpowers/specs/2026-09-27-session-mounts-design.md` §7); J9's two-root clause is superseded by J12.
+
+| row | guarantee | mutation test |
+|---|---|---|
+| **J12** | A session opens over a write root and a mount set. It opens when `write_root` is one of `corpus_roots` and `mounts` is `None` or covers exactly `corpus_roots`. It refuses at open with no session directory when `corpus_roots` is empty, when `write_root` is outside it, when `mounts` omits or adds a root or names one root twice, when a read mount's manifest does not load, and when the writer's profile is not the write mount's | Open over a two-root world with each root as the write root in turn → opens, `corpus_root` is the named one. Open over: zero roots; a write root outside the set; mounts missing one root; mounts with an extra root; mounts naming one root by two paths (a symlink); a read mount with no manifest; `profile` differing from `mounts[write_root]` → `SessionRefused` or `ContractMismatch` as §3.2 lists, no `sessions/` entry. **Negative:** a one-root world with `write_root` set to that root writes the same `session-open` key set, world id and permit summary that J9's case asserts |
+| **J13** | `compile_mount_profile` activates exactly the manifest's pins, each resolved by namespace and content identity against the shipped base, the shipped coordination contracts, the shipped domain packs and `available`. A pin nothing resolves refuses `MountPinUnresolved` naming the root, namespace and pin, and an available document the manifest does not pin is never activated | Compile a corpus pinning base, `biology` and coordination v2 with nothing available → its pins; a corpus pinning a test-local domain contract with that contract available → its pins; the same with the contract absent → `MountPinUnresolved` naming it; with an extra unpinned contract available → activated set unchanged; a corpus pinning an unshipped base identity → `MountPinUnresolved` on `science`. Pass each result to `CoordinationResolver` → accepted. **Negative:** an available contract with the pinned namespace and a different identity does not satisfy the pin |
+| **J14** | A session with mounts resolves coordination over every mounted corpus: tips, revise predecessors, divergence, the initial project and `standing` | Mint a project in corpus B (a read mount, written by a library writer before open); open a session writing A with `project` set to B's address → opens with B's revision pinned in `session-open`. Revise that project in the session → the revision is in A, the address resolves to it, `standing("project")` lists it once. Then, with the session still open, revise the same project from its B revision through a library writer on B alone (whose own resolver sees only B) → two tips, one per root, and the session resolves the address to `divergent-view` naming both. **Negative:** the same session opened with `mounts` covering only A refuses at open (J12), and a session with `mounts=None` refuses `revise_coordination` with `CoordinationUnavailable` |
+| **J15** | A session never writes a read mount | Hash every read mount's tree, its metadata sibling and its chain before open. Run a lifecycle with an ordinary write, a coordination mint and a revision of a read-mount predecessor, then close and reconcile. Hash again → equal. Reconciliation reports no finding against a read mount. **Reconciliation matches by corpus:** over stand-in views, a ledger whose act line names corpus A while the fulfilling registration is committed in B's chain under the session's actor yields `session-entry-foreign` in B and `session-act-unverified` for the act naming A; the same ledger with the act naming B yields neither. **Negative:** a writer factory bound to a read mount changes that mount's hash, and the check fails |
+
 ## 8. Limitations
 
 1. **One corpus root.** A `WorldConfig` naming several refuses at open. The
@@ -1245,3 +1254,37 @@ invocation, is `LedgerMalformed`. §3.5's reader gains
 `attributed_acts()`, which pairs every act with the selection standing at its
 line. A `session-open` written before this amendment, without `project`, reads
 as no selection; it is the only historical shape accepted.
+
+## Session-mounts amendment — 2026-09-27
+
+Cut 43 discharges J12–J15 ([design](../superpowers/specs/2026-09-27-session-mounts-design.md),
+[results](../plans/2026-09-27-conformance-cut-43-results.md)). This supersedes §3.1's
+single-root opening rule and limitation 1's first sentence. Its restriction on
+ordinary cross-corpus targeting remains.
+
+`open_attended_session(world_config, operations_root, *, write_root, profile,
+mounts=None, store_root=None, snapshot_resolver=None, project=None)` requires an
+explicit `write_root: Path`. After path resolution it must belong to
+`world_config.corpus_roots`. Supplied `mounts: Mapping[Path, ProfileSpec]` must cover
+exactly those roots, each once; aliases, omissions and extras refuse. The writer
+profile must equal its write mount's profile. Its adopted manifest, pins and
+well-formed chain are still checked; each read manifest must load and match its
+profile, while consumers that need read chains check them. Every refusal precedes
+the session directory. `mounts=None` opens without coordination; an empty mapping
+is different. The resolver reads every mount; the writer and operation port bind
+only the selected write root.
+
+J9's historical two-root refusal clause is superseded by J12's two-root opening
+and membership guarantee. The ledger format, world id and full-permit summary
+remain unchanged. Reconciliation matches acts and committed registrations by
+`(corpus_id, entry_digest)` in both directions: a registration in B cannot fulfill
+an act naming A, yielding `session-entry-foreign` in B and
+`session-act-unverified` for A when both views are well formed.
+
+`beliefs.mount.compile_mount_profile(root, *, available=())` compiles exactly the
+manifest's pins against shipped base, coordination v1/v2, shipped domain packs and
+available parsed domain documents. Namespace and content identity must both match;
+unpinned available documents never activate. A well-formed unresolved pin raises
+`MountPinUnresolved` naming root, namespace and pin; malformed manifests retain
+their own refusal. Every mount still requires the shipped base, there is no cache,
+and ordinary writes remain within the selected write corpus.

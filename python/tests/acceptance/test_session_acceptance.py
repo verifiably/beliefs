@@ -144,7 +144,7 @@ def config_for(work_directory: Path, root: Path) -> WorldConfig:
 
 def attended(work_directory: Path, root: Path, *, profile=WITH_BIOLOGY, **kwargs: Any) -> tuple[WriterSession, Path]:
     ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
-    return open_attended_session(config_for(work_directory, root), ops, profile=profile, **kwargs), ops
+    return open_attended_session(config_for(work_directory, root), ops, write_root=root, profile=profile, **kwargs), ops
 
 
 # --- the session's store (session-routes design §3.1) --------------------------
@@ -167,7 +167,7 @@ def test_a_store_root_without_a_genesis_refuses_before_any_ledger(work_directory
     store.mkdir()
     ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
     with pytest.raises(SessionRefused, match="store root"):
-        session_module.open_attended_session(config_for(work_directory, root), ops, profile=WITH_BIOLOGY, store_root=store)
+        session_module.open_attended_session(config_for(work_directory, root), ops, write_root=root, profile=WITH_BIOLOGY, store_root=store)
     assert not (ops / "sessions").exists()
 
 
@@ -344,7 +344,7 @@ def test_j1_coordination_writes_commit_as_operations(work_directory, base_contra
 
     profile = coordination_profile(base_contract)
     root = adopted(work_directory, "coord", pins=pins_for(profile), profile=profile)
-    session, _ = attended(work_directory, root, coordination=profile, profile=profile)
+    session, _ = attended(work_directory, root, mounts={root: profile}, profile=profile)
     before = len(chain(root).entries)
     w = fresh(session, "A", RequiredCapabilities.coordination())
     project = w.mint_coordination("project", content=content_for("project", name="first"))
@@ -480,7 +480,7 @@ def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
     # config and hands it to the constructor rather than going through the helper.
     config = config_for(work_directory, root)
     ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
-    session = open_attended_session(config, ops, profile=WITH_BIOLOGY)
+    session = open_attended_session(config, ops, write_root=root, profile=WITH_BIOLOGY)
     reader = open_ledger_reader(ops, session.session_id)
     assert reader.actor == session.actor == f"session:{session.session_id}"
     assert reader.world_id == config.world_id and reader.closed is False
@@ -514,29 +514,27 @@ def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
     plain = _track(work_directory / f"plain-{secrets.token_hex(4)}")
     plain.mkdir()
     missing = work_directory / f"missing-{secrets.token_hex(4)}"
-    other = adopted(work_directory, "other")
     chainless = adopted(work_directory, "chainless")
     shutil.rmtree(chainless / ".#~chain")  # the chain lives under the root; removing it is AbsentView
     for description, roots in (
         ("zero roots", ()),
-        ("two roots", (root, other)),
         ("missing root", (missing,)),
         ("existing, never registered", (plain,)),
         ("registered, no manifest", (registered_no_manifest,)),
     ):
         ops2 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
         with pytest.raises(SessionRefused):
-            open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), roots), ops2, profile=WITH_BIOLOGY)
+            open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), roots), ops2, write_root=roots[0] if roots else root, profile=WITH_BIOLOGY)
         assert not (ops2 / "sessions").exists(), description
     ops3 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
     with pytest.raises(SessionRefused):
-        open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), (chainless,)), ops3, profile=WITH_BIOLOGY)
+        open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), (chainless,)), ops3, write_root=chainless, profile=WITH_BIOLOGY)
     assert not (ops3 / "sessions").exists()
     # An unreadable prior ledger — a directory where the file should be — is a finding, never a refusal to open.
     ops4 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
     (ops4 / "sessions" / ("9" * 32) / "ledger.v1").mkdir(parents=True)
     (ops4 / "sessions" / ("8" * 32)).mkdir(parents=True)  # a directory with no ledger at all
-    opened = open_attended_session(config_for(work_directory, root), ops4, profile=WITH_BIOLOGY)
+    opened = open_attended_session(config_for(work_directory, root), ops4, write_root=root, profile=WITH_BIOLOGY)
     codes = {(f.code, f.ref) for f in opened.findings}
     assert ("session-ledger-malformed", "9" * 32) in codes and ("session-ledger-missing", "8" * 32) in codes
     opened.close()
@@ -1029,7 +1027,7 @@ real_prepare = CorpusWriter._refuse_family_kinds
 CorpusWriter._settle = lambda self: (order.append("settle"), real_settle(self))[1]
 CorpusWriter._refuse_family_kinds = lambda self, node, **k: (order.append("prepare"), real_prepare(self, node, **k))[1]
 from profiles import WITH_BIOLOGY
-session = open_attended_session(WorldConfig(root.parent / "w", secrets.token_hex(16), (root,)), ops, profile=WITH_BIOLOGY)
+session = open_attended_session(WorldConfig(root.parent / "w", secrets.token_hex(16), (root,)), ops, write_root=root, profile=WITH_BIOLOGY)
 findings = sorted({{f.code for f in session.findings}})
 w = session.scoped(RequiredCapabilities.for_kinds({{"proposition"}}, {{}}), "A")
 session.claim_invocation("A", "mint", "d" * 64)
@@ -1200,7 +1198,7 @@ def test_j8_reconciliation_over_the_real_root(work_directory, monkeypatch):
     later, _ops2 = attended(work_directory, root)  # a later endpoint over a *different* operations root
     assert {f.code for f in later.findings} == {"session-unknown"}  # this session's intents name a ledger it cannot see
     later.close()
-    second = open_attended_session(config, ops, profile=WITH_BIOLOGY)
+    second = open_attended_session(config, ops, write_root=root, profile=WITH_BIOLOGY)
     assert second.findings == reconcile_sessions(config, ops, exclude=second.session_id)
     second.close()
     # Byte equality with an unsettled registration present (registered inspection would have resolved it).

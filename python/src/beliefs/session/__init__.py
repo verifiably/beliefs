@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import secrets
+from collections.abc import Mapping
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -80,13 +81,18 @@ def open_attended_session(
     world_config: WorldConfig,
     operations_root: Path,
     *,
+    write_root: Path,
     profile: ProfileSpec,
-    coordination: ProfileSpec | None = None,
+    mounts: Mapping[Path, ProfileSpec] | None = None,
     store_root: Path | None = None,
     snapshot_resolver: SnapshotResolver | None = None,
     project: CoordinationAddress | None = None,
 ) -> WriterSession:
-    """The interactive constructor (design §3.1): full permit by construction.
+    """The interactive constructor (design §3.1, as the session-mounts design
+    amends it): full permit by construction. It writes `write_root`, one of the
+    configured roots, and nothing else. When `mounts` is given, it covers every
+    configured root, each under the profile its own manifest pins, and
+    coordination resolves over all of them. `None` opens without coordination.
 
     A world-bound caller passes `RetainedSnapshots(world)`; without it a
     session cannot author a snapshot-arm retraction.
@@ -100,20 +106,35 @@ def open_attended_session(
         raise TypeError("open_attended_session takes an exact WorldConfig")
     if not isinstance(operations_root, Path):
         raise TypeError("operations_root must be a Path")
+    if not isinstance(write_root, Path):
+        raise TypeError("write_root must be a Path")
     if not isinstance(profile, ProfileSpec):
         raise TypeError("profile must be a compiled ProfileSpec")
-    if coordination is not None and not isinstance(coordination, ProfileSpec):
-        raise TypeError("coordination must be a compiled ProfileSpec")
+    if mounts is not None and (
+        not isinstance(mounts, Mapping)
+        or any(not isinstance(key, Path) or not isinstance(value, ProfileSpec) for key, value in mounts.items())
+    ):
+        raise TypeError("mounts maps each configured root's Path to its compiled ProfileSpec")
     if project is not None:
         require_project_address(project)
-        if coordination is None:
-            raise SessionRefused(f"{project}: an initial project needs a coordination profile to resolve it")
-    if len(world_config.corpus_roots) != 1:
-        raise SessionRefused(
-            f"a session needs exactly one corpus root; the config names {len(world_config.corpus_roots)}"
-        )
-    require_profile_compatible(profile, coordination)
-    (root,) = world_config.corpus_roots
+        if mounts is None:
+            raise SessionRefused(f"{project}: an initial project needs mounted corpora to resolve it")
+    write_root = write_root.resolve()
+    if write_root not in world_config.corpus_roots:
+        raise SessionRefused(f"write root {write_root} is not one of the configured corpus roots")
+    root = write_root
+    mounted: dict[Path, ProfileSpec] | None = None
+    if mounts is not None:
+        resolved = [Path(key).resolve() for key in mounts]
+        configured = set(world_config.corpus_roots)
+        if len(set(resolved)) != len(resolved) or set(resolved) != configured:
+            missing = sorted(str(path) for path in configured - set(resolved))
+            extra = sorted(str(path) for path in set(resolved) - configured)
+            raise SessionRefused(
+                f"the mounts are exactly the configured corpus roots, each once; missing {missing}, extra {extra}"
+            )
+        mounted = {Path(key).resolve(): value for key, value in mounts.items()}
+    require_profile_compatible(profile, mounted[root] if mounted is not None else None)
     try:
         corpus_id = load_manifest(root).corpus_id
     except (ManifestMissing, ManifestMalformed) as caught:
@@ -131,7 +152,7 @@ def open_attended_session(
         store_id = store_identity(store_root)
         if store_id is None:
             raise SessionRefused(f"store root {store_root} carries no store genesis")
-    resolver = CoordinationResolver({root: coordination}) if coordination is not None else None
+    resolver = _mount_resolver(mounted)
     pinned = None if project is None else resolve_project(resolver, project)
 
     session_id = secrets.token_hex(16)
@@ -169,6 +190,17 @@ def open_attended_session(
     # §3.1: session-open is written (by the constructor) before reconciliation runs.
     session.findings = reconcile_sessions(world_config, operations_root, exclude=session_id)
     return session
+
+
+def _mount_resolver(mounted: Mapping[Path, ProfileSpec] | None) -> CoordinationResolver | None:
+    """Every mount in the resolver (decision 3). A read mount whose manifest does
+    not load refuses as the write root's does; a pin mismatch is the resolver's own."""
+    if mounted is None:
+        return None
+    try:
+        return CoordinationResolver(mounted)
+    except (ManifestMissing, ManifestMalformed) as caught:
+        raise SessionRefused(f"a mounted corpus is not adopted: {caught}") from caught
 
 
 def reconcile_sessions(

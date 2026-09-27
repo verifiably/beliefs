@@ -31,6 +31,13 @@ from test_n2 import audit, baseline
 import beliefs.root as science_root
 
 _LIVE_SABOTAGES = {
+    "J9a": Sabotage(
+        # session-mounts §8.3: the root-count guard is gone; the membership check
+        # alone refuses a zero-root configuration, so J9's zero-root case sees it.
+        "session/__init__.py",
+        before="    if write_root not in world_config.corpus_roots:\n",
+        after="    if False:\n",
+    ),
     "J3a": Sabotage(
         "session/writer.py",
         before="        authority = scoped_authority(required, self.actor)\n",

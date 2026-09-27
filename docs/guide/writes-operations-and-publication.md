@@ -75,8 +75,10 @@ declared requirement into a permit request and never holds a permit itself
 
 ### Writer sessions: an attended session and its ledger
 
-A **writer session** is how the daily surface writes. It opens over one corpus
-root with a fresh session identity, which fixes the actor as `session:<id>`, and
+A **writer session** is how the daily surface writes. It names one write root
+and can mount every configured corpus under its own manifest-pinned profile
+([cut 43](../plans/2026-09-27-conformance-cut-43-results.md)), resolving coordination
+across all mounts. A fresh session identity fixes the actor as `session:<id>`, and
 keeps a **session ledger**: an append-then-fsync file whose every line is durable
 before its call returns. Each command invocation first records a **claim**, so a
 retried invocation is recognised and deduplicated instead of written twice. The
@@ -208,18 +210,18 @@ enter a world-index map or a belief's inputs.
 ## Current state
 
 - **Built:** write permits on every write entry point (cut 17); the writer
-  session and its ledger (cut 19), its routes, and session selection; `move` and
+  session and its ledger (cut 19), its routes, session selection, and mounting
+  every configured corpus beside one write root (cut 43); `move` and
   `consolidate` (cut 16); managed deletion (cut 18); URL acquisition (cut 35);
   `audit` and `re-check` (cut 38); the publication records and publish intent
   (cut 39); the publish act for a local destination and marker-required
-  arrival (cut 40).
-- **Being designed:** publishing to a remote destination — the transport seam,
-  the remote reveal and its orphans, and the recipient's
-  `divergent-publication` refusal — as conformance cut 42, not yet frozen.
+  arrival (cut 40); publishing to a remote destination, including the transport
+  seam, remote reveal and its orphans, and the recipient's
+  `divergent-publication` refusal (cut 42).
 - **Not built:** cross-root publication of a dataset's provenance reference and
   its acquiring report (T7's cross-root case).
 
-The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
+The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
 is the authority for what remains and who owns it.
 
 ## Open edges
@@ -231,9 +233,9 @@ audit) and the question of who *may* write.
 ## References
 
 - [Write permits and E1–E8](../designs/2026-09-04-write-permits-design.md#7-guarantees)
-- [Writer session and J1–J11](../designs/2026-09-05-writer-session-design.md#7-guarantees)
+- [Writer session and J1–J15](../designs/2026-09-05-writer-session-design.md#7-guarantees)
 - [Act reports, operation intents and T1–T8](../designs/2026-08-11-act-report-design.md)
 - [What the act-report design left open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open)
-- [The publication table, Y1–Y10](../designs/2026-09-22-publication-design.md)
+- [The publication table, Y1–Y16](../designs/2026-09-22-publication-design.md)
 - [The publish act, local destination](../superpowers/specs/2026-09-23-publish-act-local-design.md)
 - [Publish and the commons](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md#6-publish-and-the-commons)
