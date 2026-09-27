@@ -652,6 +652,16 @@ class ProfileError(ScienceError):
     """A profile refused — at compilation, at construction, or at resolution."""
 
 
+class MountPinUnresolved(ProfileError):
+    """A manifest pin is carried by no shipped or available contract."""
+
+    def __init__(self, root: Path, namespace: str, pin: str) -> None:
+        super().__init__(f"{root}: the {namespace} pin {pin} resolves to no shipped or available contract")
+        self.root = root
+        self.namespace = namespace
+        self.pin = pin
+
+
 class ResolutionError(ScienceError):
     """A snapshot or receipt refused — at construction, never at resolution itself.
 
