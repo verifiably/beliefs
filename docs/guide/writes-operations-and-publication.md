@@ -210,15 +210,14 @@ enter a world-index map or a belief's inputs.
 ## Current state
 
 - **Built:** write permits on every write entry point (cut 17); the writer
-  session and its ledger (cut 19), its routes, and session selection; `move` and
+  session and its ledger (cut 19), its routes, session selection, and mounting
+  every configured corpus beside one write root (cut 43); `move` and
   `consolidate` (cut 16); managed deletion (cut 18); URL acquisition (cut 35);
   `audit` and `re-check` (cut 38); the publication records and publish intent
   (cut 39); the publish act for a local destination and marker-required
-  arrival (cut 40).
-- **Frozen before implementation:** publishing to a remote destination — the
-  transport seam, the remote reveal and its orphans, and the recipient's
-  `divergent-publication` refusal — as conformance cut 42 on `design/publish`.
-  Its discharge follows its merge to `main`.
+  arrival (cut 40); publishing to a remote destination, including the transport
+  seam, remote reveal and its orphans, and the recipient's
+  `divergent-publication` refusal (cut 42).
 - **Not built:** cross-root publication of a dataset's provenance reference and
   its acquiring report (T7's cross-root case).
 
@@ -234,9 +233,9 @@ audit) and the question of who *may* write.
 ## References
 
 - [Write permits and E1–E8](../designs/2026-09-04-write-permits-design.md#7-guarantees)
-- [Writer session and J1–J11](../designs/2026-09-05-writer-session-design.md#7-guarantees)
+- [Writer session and J1–J15](../designs/2026-09-05-writer-session-design.md#7-guarantees)
 - [Act reports, operation intents and T1–T8](../designs/2026-08-11-act-report-design.md)
 - [What the act-report design left open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open)
-- [The publication table, Y1–Y10](../designs/2026-09-22-publication-design.md)
+- [The publication table, Y1–Y16](../designs/2026-09-22-publication-design.md)
 - [The publish act, local destination](../superpowers/specs/2026-09-23-publish-act-local-design.md)
 - [Publish and the commons](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md#6-publish-and-the-commons)

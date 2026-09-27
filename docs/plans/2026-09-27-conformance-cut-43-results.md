@@ -108,6 +108,11 @@ The spec's §13 planning notes are realized:
 - `mounts=None` disables coordination; an empty mapping omits configured roots
   and refuses. They are distinct configurations.
 
+**Task 8 self-review correction:** the writes guide still described cut 42
+remote publishing as frozen before implementation after its merge and discharge.
+Its current-state list now records cuts 42 and 43 as built, and its guarantee
+links name J1–J15 and Y1–Y16.
+
 ## 4. The reproduction
 
 `../designs/2026-09-05-mm30-reproduction.md` §22 records Task 6's certified preflight
