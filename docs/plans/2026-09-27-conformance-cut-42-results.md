@@ -338,8 +338,8 @@ The merged Python and TypeScript trees also exactly matched gate-tested
 
 Main verification: `tasks check` and `just check` passed with zero task
 errors or warnings. The full gate was not repeated over identical code.
-The local branch and worktree remain for controller cleanup; nothing was
-pushed.
+The publish worktree was removed after a host-pointer scan. Its local branch
+remains; nothing was pushed.
 
 ## 7. Execution rulings
 
