@@ -69,14 +69,16 @@
   3. the orphan rule is asymmetric: a possibly shared marker creates an orphan, and only a certainly shared one retires orphans;
   4. `transport-incomplete` (`abandoned`, `listing-mismatch`, `export-damaged`) is a terminal refusal carrying `(corpus_id, marker)`, and an exception from the seam leaves the attempt `unfinished`;
   5. after the mark, a retry resumes at step 7 from the mark alone:
-     - the mark is checked against its intent, the export root and the sibling, and failing that it is `PublishUnresolved("transport-mark-corrupt")`;
+     - the mark is checked for **identity** against its intent, the export's manifest, its sibling and chain head, and its one marker file by name, and failing that it is `PublishUnresolved("transport-mark-corrupt")`;
+     - no record's **content** is read before the export evaluates `validated`: a damaged selected record closes the attempt `export-damaged`, never `transport-mark-corrupt` (plan review, round 1);
+     - the marker's content (its shape and its selection count) is checked only after that evaluation;
      - step 7 evaluates the export before every `push`;
   6. step 0 refuses `publish-unfinished` for an `unfinished` attempt with a mark on the same `(view, destination)`;
   7. the remote export root is `<op>/export/<corpus_id>`, and its sibling is `<op>/export/<corpus_id>.head-artifact.v1`;
   8. step 9 keeps the export root, the mark, the request and the snapshot;
   9. `publication_tip` reads each held root alone, with the family's one tip rule;
   10. the recipient's intake is `restore_root` then `admit_publication`, and there is no new door.
-- **Detached runs go through the reaping wrapper** (Processes rule). Launch the cut runner and the gate with `setsid nohup ~/d/beliefs/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`, after `test -x` on the wrapper. An end-of-turn report that leaves one running names its process group (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session`.
+- **Long runs are harness-tracked** (Processes rule; plan review, round 1). Run the cut runner and the gate through the Bash tool with `run_in_background: true`, piping through `tee` into a log under `~/d/beliefs/.work/acceptance/`. The harness starts the session's next turn when the process exits, and the session reads the log then. Never detach with `setsid nohup`, `&` or the `detached.sh` wrapper: the harness does not track those, and no turn ends waiting on one. Before the end-of-turn report, `host-load --section session` lists what the session left running.
 - **Commits:**
   - Use conventional commits with no attribution trailers.
   - Run `tasks check` before every commit.
@@ -126,6 +128,7 @@ These are the inputs a person meets that the spec's arms do not pin. Each line n
 - Produces:
   - the frozen cut body the guard pins (Task 8 reads its freeze commit and digest);
   - the engine verdicts `EXPORT_LAYOUT`, `CHAIN_HEAD_SERVICEABLE`, `EVALUATE_INTACT`, `EVALUATE_DELETED`, `EVALUATE_ALTERED`, `EVALUATE_WRITES_NOTHING` and `DAMAGE_WRITABLE`, each `"holds"` or a refusal text;
+  - `EVALUATE_UNREADABLE` and `EVALUATE_UNDECODABLE`, each either the outcome the evaluation answers or the exception type it raises, and `CHAIN_HEAD_DAMAGED`, the exception type the chain head raises over a damaged chain. Task 5's `root.py` translations catch exactly the types these name;
   - `CHAIN_DIR`, the name of the chain directory at the export root's top level, which Task 8's Y16-a sabotage uses.
 
 - [ ] **Step 1: Confirm the baseline and that cut 42 is unclaimed**
@@ -289,12 +292,51 @@ def test_the_evaluation_refuses_an_altered_selected_record(exported):
     path = export / path_for_node_id(records[0].id)
     path.write_bytes(path.read_bytes() + b"\n")
     assert _evaluate(export, corpus_id, observers) != "validated"
+
+
+@pytest.mark.parametrize("damage", ["unreadable", "undecodable"])
+def test_the_evaluation_over_an_unreadable_or_undecodable_record(exported, damage):
+    """EVALUATE_UNREADABLE and EVALUATE_UNDECODABLE: an outcome other than
+    `validated`, or the exception type printed for `root.py` to translate."""
+    if damage == "unreadable" and os.geteuid() == 0:
+        pytest.skip("root reads mode-0 files")
+    export, corpus_id, observers, _, records = exported
+    writable(export)
+    path = export / path_for_node_id(records[0].id)
+    if damage == "unreadable":
+        path.chmod(0)
+    else:
+        path.write_bytes(b"\x00\xffnot a record")
+    try:
+        outcome = _evaluate(export, corpus_id, observers)
+    except Exception as caught:  # a probe: the type is the finding
+        print(f"EVALUATE_{damage.upper()} raises {type(caught).__module__}.{type(caught).__qualname__}")
+    else:
+        print(f"EVALUATE_{damage.upper()} answers {outcome}")
+        assert outcome != "validated"
+    finally:
+        path.chmod(0o644)
+
+
+def test_a_damaged_chain_raises_from_the_chain_head(exported):
+    """CHAIN_HEAD_DAMAGED: the type `root.export_chain_head` translates."""
+    export, *_ = exported
+    writable(export)
+    chain = export / ".#~chain"  # CHAIN_DIR, as the layout probe prints it
+    victim = next(p for p in sorted(chain.rglob("*")) if p.is_file())
+    victim.write_bytes(b"garbage")
+    with pytest.raises(Exception) as caught:  # a probe: the type is the finding
+        chain_head_reader()(export)
+    print(f"CHAIN_HEAD_DAMAGED = {type(caught.value).__module__}.{type(caught.value).__qualname__}")
 ```
 
 ```bash
 cd python && uv run --frozen pytest tests/test_publish_remote_engine.py -q -s 2>&1 | tail -15
 ```
-Expected: `6 passed`, and the `TOP LEVEL =` line. Record `CHAIN_DIR` as the one name there that is neither a record kind directory nor `corpus.yaml` (the J9 acceptance case removes it as `".#~chain"`). Record each other verdict as `"holds"`.
+Expected: `9 passed`, with the `TOP LEVEL =`, `EVALUATE_UNREADABLE`, `EVALUATE_UNDECODABLE` and `CHAIN_HEAD_DAMAGED` lines.
+- Record `CHAIN_DIR` as the one name in `TOP LEVEL` that is neither a record kind directory nor `corpus.yaml`. The J9 acceptance case removes it as `".#~chain"`; if it differs, change the chain-damage probe's `".#~chain"` to match and rerun.
+- Record each other verdict as `"holds"`, and the three printed lines verbatim.
+- If `CHAIN_HEAD_DAMAGED` or either `EVALUATE_*` line names a type that is neither `OSError`'s family nor `ChainStateInvalid` or `TransactionHalted` (both already imported in `root.py`), Task 5's two translations catch that type too. Import it in `root.py` beside the others.
 
 If one fails:
 - **`EVALUATE_DELETED` or `EVALUATE_ALTERED` answers `validated`.** Before deciding, probe `audit_log`, spec §4.3's other candidate. Build a `WorldConfig(<stem>/audit-world, "a" * 32, (export,))` and call `audit_log(config, CorpusSubject(corpus_id), export, observers, actor="probe")`. If it refuses both damages, Task 5's `evaluate_copy` wraps `audit_log` with that single-root configuration, and the planning note says so. If neither call refuses both, the spec says planning stops: `tasks note beliefs-3ce305 "<verdicts>"`, then park `--reason decision`. There is no fallback check.
@@ -326,7 +368,7 @@ Then these sections:
 - **§2, the boundary:** every file in this plan's file map from Task 1 to Task 8, and "Frozen declarations and cut bodies through cut 41 remain byte-exact."
 - **§3, selection:** the six Y rows from Step 3, then the unit table from spec §11.2 as amended by Step 5's planning notes: fourteen rows, Y11-a through Y16-c, with the assertion column.
 - **§4, accounting:** "**14 arms, 14 declaration units**, six rows; Y11–Y16 open and close; recent-cut row `(14, 14, 6)`; Task 7 passes <n>; 204 of 237 → 210 of 237".
-  - `<n>` is the number of test cases Task 7's module collects: `cd python && uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py --collect-only -q | tail -1`, run after Task 7. Until then, write the count from Task 7's code: fourteen units, whose parametrizations make twenty-two cases, plus the three extra tests' five cases, for 27.
+  - `<n>` is the number of test cases Task 7's module collects: `cd python && uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py --collect-only -q | tail -1`, run after Task 7. Until then, write the count from Task 7's code: fourteen units, whose parametrizations make twenty-four cases, plus the three extra tests' six cases, for 30.
   - If Step 2 left a fact unrun, state which arm is unrun, give the reduced counts, and say that the row is **partial**.
 - **§5, N2 and acceptance obligations:**
   - the sabotage table from Task 8 Step 1;
@@ -351,12 +393,28 @@ Append this as the spec's §17. It records every interface the plan fixes where 
 
 - 2026-09-27 — at planning (plan `../plans/2026-09-27-publish-act-remote.md`):
   - **The export evaluation is `root.evaluate_copy(dest_root, subject,
-    observers) -> LogReport`**: `_restore_root` with a grant that does
-    nothing, the recipient's own evaluation. Task 0 pinned that it validates
-    an intact serviceable export, refuses one with a selected record deleted
-    and one with a selected record altered, and writes nothing.
-    `audit_log` was not chosen: it requires the target to be a configured
-    corpus root, and an export root is in no world.
+    observers) -> str`**: `_restore_root`'s outcome with a grant that does
+    nothing, the recipient's own evaluation, or `"unreadable"` when the copy
+    cannot be read to be judged (`OSError`, or the engine refusing its chain
+    as state, translated inside `root.py`). Task 0 pinned that it validates an
+    intact serviceable export, refuses one with a selected record deleted,
+    altered, unreadable or undecodable, and writes nothing. `audit_log` was
+    not chosen: it requires the target to be a configured corpus root, and an
+    export root is in no world.
+  - **§4.2's checks are identity only; the marker's content waits for the
+    evaluation** (plan review, round 1). Before anything else, the resume
+    checks the mark against its intent, the export's manifest, the sibling's
+    SHA-256, subject and chain head (`root.export_chain_head`, which answers
+    `None` for a chain the engine refuses as state), and the export's one
+    `publication` file by its path. It reads no record's content. It then
+    evaluates the export. A failed evaluation closes the attempt
+    `transport-incomplete` (`export-damaged`) with its orphan, so a damaged
+    selected record never strands the destination as `transport-mark-corrupt`.
+    Only after `validated` does it read the marker file and check its shape
+    (`publication_content_malformed`, `marker_consistent`), its uid and its
+    selection count. A disagreement there is `transport-mark-corrupt`. Step 7
+    evaluates again before `push`, binding the uploaded bytes to the judged
+    ones. A resume therefore evaluates twice, and a fresh run once.
   - **An `OSError` while reading an export file for either listing is
     `export-damaged`** (§4.3 steps 1 and 3). The listings read every byte, and
     a file the act cannot read is damage the evaluation would also find.
@@ -1579,7 +1637,7 @@ def _remote(tmp_path, monkeypatch, verdict="validated", fake=None):
     (root / "run" / "a.md").write_bytes(b"a")
     sibling = head_artifact_bytes(HeadArtifact(CorpusSubject(CID), "a" * 64, "b" * 64))
     (op / "export" / f"{CID}.head-artifact.v1").write_bytes(sibling)
-    monkeypatch.setattr(act, "evaluate_copy", lambda *_args: SimpleNamespace(outcome=verdict))
+    monkeypatch.setattr(act, "evaluate_copy", lambda *_args: verdict)
     fake = fake or DirectoryTransport(tmp_path / "remote")
     none = cast(Any, None)
     opened = cast(Any, SimpleNamespace(intent=SimpleNamespace(destination=REMOTE, event_token=TOKEN)))
@@ -1616,7 +1674,7 @@ def test_bytes_changed_during_the_evaluation_are_export_damaged(tmp_path, monkey
 
     def changing(*_args):
         (remote.op / "export" / CID / "run" / "a.md").write_bytes(b"changed")
-        return SimpleNamespace(outcome="validated")
+        return "validated"
 
     monkeypatch.setattr(act, "evaluate_copy", changing)
     assert act._transport(remote, mark) == TransportIncomplete(CID, "2" * 32, "export-damaged") and fake.pushes == 0
@@ -1661,20 +1719,39 @@ Expected: FAIL, with `publish() got an unexpected keyword argument 'transport'` 
 - [ ] **Step 3: `root.evaluate_copy`.** After `restore_root` in `root.py`:
 
 ```python
-def evaluate_copy(dest_root: Path, subject: CorpusSubject | StoreSubject, observers: ObserverSet) -> LogReport:
+def evaluate_copy(dest_root: Path, subject: CorpusSubject | StoreSubject, observers: ObserverSet) -> str:
     """`restore_root`'s evaluation of a copy, granting nothing (publish-act-remote
     §4.3): the check a recipient's restore runs, run by the publisher over its own
-    retained export before every upload. Writes nothing; takes no authority."""
+    retained export before every upload. Writes nothing; takes no authority.
+
+    Answers the evaluator's outcome, or `"unreadable"` when the copy cannot be
+    read to be judged: a file the process cannot open, or the engine refusing
+    the chain as state. The engine's types are named here and nowhere above."""
     if type(subject) not in {CorpusSubject, StoreSubject}:
         raise TypeError("a copy is evaluated for a corpus or store subject")
-    return _restore_root(dest_root, subject, observers, seam=_log_seam(), grant=_grant_nothing)
+    try:
+        return _restore_root(dest_root, subject, observers, seam=_log_seam(), grant=_grant_nothing).outcome
+    except (OSError, ChainStateInvalid, TransactionHalted):
+        return "unreadable"
 
 
 def _grant_nothing(_root: Path) -> None:
     """The evaluation's grant: none. Admission stays `restore_root`'s."""
+
+
+def export_chain_head(root: Path) -> tuple[str, str] | None:
+    """`chain_head_reader()`'s `(genesis, head)` for a retained export, or `None`
+    when the engine refuses its chain as state (publish-act-remote §4.2): a
+    damaged chain is a mark that names no export, never an exception out of the act."""
+    try:
+        return _chain_head(root)
+    except (ChainStateInvalid, TransactionHalted):
+        return None
 ```
 
-If Task 0 chose `audit_log`, the body is instead `audit_log(WorldConfig(<a scratch world root under the export's container>, "0" * 32, (dest_root,)), subject, dest_root, observers, actor="beliefs.publish")`, and the docstring says why.
+Both `except` tuples grow by any further type Task 0 printed (`EVALUATE_UNREADABLE`, `EVALUATE_UNDECODABLE`, `CHAIN_HEAD_DAMAGED`), and by nothing else.
+
+If Task 0 chose `audit_log`, `evaluate_copy`'s `_restore_root` call is instead `audit_log(WorldConfig(<a scratch world root under the export's container>, "0" * 32, (dest_root,)), subject, dest_root, observers, actor="beliefs.publish").outcome`, and the docstring says why.
 
 Append to `python/tests/test_publish_remote_engine.py`:
 
@@ -1683,10 +1760,23 @@ def test_evaluate_copy_is_the_no_grant_evaluation(exported):
     from beliefs.root import evaluate_copy
 
     export, corpus_id, observers, _, records = exported
-    assert evaluate_copy(export, CorpusSubject(corpus_id), observers).outcome == "validated"
+    assert evaluate_copy(export, CorpusSubject(corpus_id), observers) == "validated"
     writable(export)
+    (export / path_for_node_id(records[1].id)).write_bytes(b"\x00\xffnot a record")
+    assert evaluate_copy(export, CorpusSubject(corpus_id), observers) != "validated"
     (export / path_for_node_id(records[1].id)).unlink()
-    assert evaluate_copy(export, CorpusSubject(corpus_id), observers).outcome != "validated"
+    assert evaluate_copy(export, CorpusSubject(corpus_id), observers) != "validated"
+
+
+def test_export_chain_head_answers_none_for_a_damaged_chain(exported):
+    from beliefs.root import export_chain_head
+
+    export, *_ = exported
+    assert export_chain_head(export) == chain_head_reader()(export)
+    writable(export)
+    victim = next(p for p in sorted((export / ".#~chain").rglob("*")) if p.is_file())
+    victim.write_bytes(b"garbage")
+    assert export_chain_head(export) is None
 ```
 
 - [ ] **Step 4: The act.** In `publish.py`:
@@ -1696,7 +1786,14 @@ def test_evaluate_copy_is_the_no_grant_evaluation(exported):
 ```python
 from collections.abc import Callable, Mapping
 from nodes.core.errors import CollisionError, NodesError, PlacementError
+from nodes.core.frontmatter import node_from_bytes, node_from_markdown, node_to_markdown
+from nodes.core.paths import path_for_node_id
 from beliefs.errors import CreateOnlyCollision, MalformedRecord, PublicationRefused, ScienceError, ValidationRefused
+from beliefs.publication import (  # add to the existing list
+    marker_address,
+    marker_consistent,
+    publication_content_malformed,
+)
 from beliefs.publication_doors import (  # add to the existing list
     unfinished_attempts,
 )
@@ -1711,8 +1808,8 @@ from beliefs.report import (  # add to the existing list
     Transported,
 )
 from beliefs.root import (  # add to the existing list
-    chain_head_reader,
     evaluate_copy,
+    export_chain_head,
 )
 from beliefs.transport import Transport, TransportAbandoned, listing_identity, local_listing, transport_files
 from beliefs.world.anchors import CorpusSubject, decode_head_artifact
@@ -1859,9 +1956,17 @@ def _listing_or_none(files: Mapping[str, Path]) -> dict[str, str] | None:
 
 def _evaluate_export(r: _Remote, mark: TransportMark) -> str:
     """§4.3 step 2: the recipient's evaluation of the retained export against its
-    own sibling, granting nothing."""
-    observers = ObserverSet((ArtifactCarrier.from_bytes(_remote_sibling(r.op, mark.corpus_id).read_bytes()),))
-    return evaluate_copy(_remote_export(r.op, mark.corpus_id), CorpusSubject(mark.corpus_id), observers).outcome
+    own sibling, granting nothing; `"unreadable"` when it cannot be judged."""
+    try:
+        observers = ObserverSet((ArtifactCarrier.from_bytes(_remote_sibling(r.op, mark.corpus_id).read_bytes()),))
+    except (OSError, ScienceError):
+        return "unreadable"  # a sibling gone or undecodable since the mark: damage, like any other
+    return evaluate_copy(_remote_export(r.op, mark.corpus_id), CorpusSubject(mark.corpus_id), observers)
+
+
+def _export_damaged(r: _Remote, mark: TransportMark) -> bool:
+    """The one place the export's content is judged, on a fresh run and on a resume."""
+    return _evaluate_export(r, mark) != "validated"
 
 
 def _transport(r: _Remote, mark: TransportMark) -> Transported | TransportIncomplete:
@@ -1870,9 +1975,7 @@ def _transport(r: _Remote, mark: TransportMark) -> Transported | TransportIncomp
     damaged = TransportIncomplete(mark.corpus_id, mark.marker, "export-damaged")
     files = transport_files(r.op / "export", mark.corpus_id)
     before = _listing_or_none(files)
-    if before is None:
-        return damaged
-    if _evaluate_export(r, mark) != "validated":
+    if before is None or _export_damaged(r, mark):
         return damaged
     expected = _listing_or_none(files)
     if expected is None or expected != before:
@@ -1900,14 +2003,18 @@ def _transport_and_bind(r: _Remote, mark: TransportMark, entries: tuple[Entry, .
     return Published(r.token, mark.corpus_id, mark.marker, outcome.binding.uid, mark.artifact)
 
 
-_MARK_READ_FAILURES = (OSError, ValueError, ScienceError, NodesError)
-"""Everything reading a retained export can raise short of the engine: file I/O,
-the head artifact's decoder (`ValueError`), manifests and records (`ScienceError`),
-and the store (`NodesError`). Each one means the mark does not name this export."""
+def _marker_path(r: _Remote, mark: TransportMark) -> Path:
+    """The export's marker file, by name: its id follows from the intent and the mark's uid."""
+    address = marker_address(r.opened.intent.view, r.opened.intent.destination)
+    return _remote_export(r.op, mark.corpus_id) / path_for_node_id(f"{MARKER_KIND}:{address.project}.{address.local}.{mark.marker}")
 
 
 def _export_agrees(r: _Remote, mark: TransportMark) -> bool:
-    """§4.2's three checks against the retained export root and sibling."""
+    """§4.2 as identity only (planning note): the export's manifest names the
+    mark's corpus, the sibling is the mark's artifact and names that corpus and
+    the export's chain head, and the export holds one `publication` file, the
+    mark's marker by name. No record's content is read here, so a damaged
+    selected record reaches the evaluation and closes as `export-damaged`."""
     export, sibling = _remote_export(r.op, mark.corpus_id), _remote_sibling(r.op, mark.corpus_id)
     try:
         if not _serviceable(export) or load_manifest(export).corpus_id != mark.corpus_id:
@@ -1916,29 +2023,42 @@ def _export_agrees(r: _Remote, mark: TransportMark) -> bool:
         if sha256(data).hexdigest() != mark.artifact:
             return False
         artifact = decode_head_artifact(data)
-        if artifact.subject != CorpusSubject(mark.corpus_id) or (artifact.genesis, artifact.head) != chain_head_reader()(export):
-            return False
-        markers = [node for node in ReadView.opened_at(export).iter_stored() if node.kind == MARKER_KIND]
-    except _MARK_READ_FAILURES:
+    except (OSError, ValueError, ScienceError):  # file I/O, the artifact decoder, the manifest
         return False
-    return (
-        len(markers) == 1
-        and markers[0].uid == mark.marker
-        and len(markers[0].facets[stored.COORDINATION_FACET]["selection"]) == mark.records
-    )
+    head = export_chain_head(export)
+    if head is None or artifact.subject != CorpusSubject(mark.corpus_id) or (artifact.genesis, artifact.head) != head:
+        return False
+    marker = _marker_path(r, mark)
+    kind_directory = export / marker.relative_to(export).parts[0]
+    held = sorted(path for path in kind_directory.rglob("*") if path.is_file()) if kind_directory.is_dir() else []
+    return held == [marker]
 
 
 def _mark_corrupt(r: _Remote, mark: TransportMark) -> bool:
-    """§4.2: the mark agrees with its intent, then with its export."""
+    """§4.2: the mark agrees with its intent, then with its export's identity."""
     intent = r.opened.intent
     if mark.event_token != intent.event_token or mark.destination != intent.destination or mark.marker != marker_uid(intent.event_token):
         return True
     return not _export_agrees(r, mark)
 
 
+def _marker_agrees(r: _Remote, mark: TransportMark) -> bool:
+    """After the export evaluated `validated`: its marker is well formed and
+    consistent, is the mark's, and selects `mark.records` records."""
+    try:
+        node = node_from_bytes(_marker_path(r, mark).read_bytes())
+    except (OSError, NodesError):
+        return False
+    if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node) or node.uid != mark.marker:
+        return False
+    return len(node.facets[stored.COORDINATION_FACET]["selection"]) == mark.records
+
+
 def _resume_from_mark(r: _Remote) -> PublishOutcome:
-    """Decision 5: steps 7–9 from the mark alone, once it agrees with its intent,
-    its export root and its sibling; the lifecycle entries are rebuilt from it."""
+    """Decision 5: steps 7–9 from the mark alone. Identity first (a failure is
+    `transport-mark-corrupt`); then the export's content (a failure closes the
+    attempt `export-damaged` with its orphan, pushing nothing); then the marker's
+    content, trusted only once the evaluation validated it."""
     try:
         mark = decode_mark((r.op / "transport.v1").read_bytes())
     except MalformedRecord:
@@ -1950,8 +2070,14 @@ def _resume_from_mark(r: _Remote) -> PublishOutcome:
         PublicationExportEntry(r.subject, Exported(mark.corpus_id, mark.artifact)),
         PublicationRevealEntry(r.subject, Revealed(mark.corpus_id)),
     )
+    if _export_damaged(r, mark):
+        return _refused(r, (*entries, PublicationTransportEntry(r.subject, TransportIncomplete(mark.corpus_id, mark.marker, "export-damaged"))))
+    if not _marker_agrees(r, mark):
+        return PublishUnresolved(r.token, "transport-mark-corrupt")
     return _transport_and_bind(r, mark, entries)
 ```
+
+`_marker_path` builds the marker id the way `_binding_present` builds the binding id. The kind directory is the first component of the marker's own path under the export, so the `rglob` over it finds every `publication` file however `nodes` nests ids.
 
 **`resume_publish`.**
 - Add the keyword `transport: Transport | None = None` after `port`.
@@ -2602,11 +2728,14 @@ def test_y13_b_an_orphan_named_by_an_abandoned_attempt_is_not_retired_durably(re
     assert type(n) is Published and {o_pair, t_pair} <= supersedes(remote, n)
 
 
-@pytest.mark.parametrize("damage", ["deleted", "altered"])
+@pytest.mark.parametrize("damage", ["deleted", "altered", "unreadable", "undecodable"])
 def test_y13_c_an_export_damaged_after_the_mark_closes_as_an_orphan_durably(remote, monkeypatch, damage):
-    """Y13-c: a selected record deleted from, or altered in, the serviceable export
-    after the mark → the resume refuses `export-damaged` without pushing, and the
-    next publish supersedes the orphan."""
+    """Y13-c: a selected record deleted from, altered in, made unreadable in or
+    replaced by undecodable bytes in the serviceable export after the mark → the
+    resume refuses `export-damaged` without pushing (never `transport-mark-corrupt`),
+    and the next publish supersedes the orphan."""
+    if damage == "unreadable" and os.geteuid() == 0:
+        pytest.skip("root reads mode-0 files")
     crash(monkeypatch, "_push", before=True)
     with pytest.raises(Crash):
         publish_remote(remote)
@@ -2619,8 +2748,13 @@ def test_y13_c_an_export_damaged_after_the_mark_closes_as_an_orphan_durably(remo
     record = export / path_for_node_id(selected)
     if damage == "deleted":
         record.unlink()
+    elif damage == "altered":
+        data = record.read_bytes()
+        record.write_bytes(data[:-2] + bytes([data[-2] ^ 1]) + data[-1:])  # one byte flipped inside the content
+    elif damage == "unreadable":
+        record.chmod(0)
     else:
-        record.write_bytes(record.read_bytes() + b"\n")
+        record.write_bytes(b"\x00\xffnot a record")
     pushes = remote.transport.pushes
     assert resume_remote(remote, token) == PublishRefused(token, "transport-incomplete")
     assert remote.transport.pushes == pushes
@@ -2803,9 +2937,10 @@ def test_y16_c_a_held_root_with_an_unreadable_record_file_refuses_capture_damage
 # --- beyond the units -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("check", ["serviceable", "sibling", "marker"])
+@pytest.mark.parametrize("check", ["serviceable", "sibling", "chain", "marker"])
 def test_each_export_check_failing_alone_is_transport_mark_corrupt_durably(remote, monkeypatch, check):
-    """§11.1: each of §4.2's three checks failing alone → transport-mark-corrupt, nothing written."""
+    """§11.1: each of §4.2's checks failing alone → transport-mark-corrupt, nothing written.
+    The marker case is the content check, which runs after the evaluation validates."""
     crash(monkeypatch, "_push", before=True)
     with pytest.raises(Crash):
         publish_remote(remote)
@@ -2816,6 +2951,8 @@ def test_each_export_check_failing_alone_is_transport_mark_corrupt_durably(remot
     elif check == "sibling":
         real = act.decode_head_artifact
         monkeypatch.setattr(act, "decode_head_artifact", lambda data: replace(real(data), head="0" * 64))
+    elif check == "chain":
+        monkeypatch.setattr(act, "export_chain_head", lambda _root: None)
     else:
         path = op_dir(remote, token) / "transport.v1"
         mark = mark_of(remote, token)
@@ -2864,7 +3001,7 @@ cd ~/d/beliefs/.worktrees/publish/python && cd "$(pwd -P)"
 uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py -q 2>&1 | tail -5
 uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py --collect-only -q | tail -1
 ```
-Expected: `27 passed`, and a collection count of 27: the units' 22 cases plus the three extra tests' 5. The frozen cut document is never edited after Task 0; its digest is Task 8's pin. If the collected count differs from §4's, the results record §3 states both numbers and why they differ.
+Expected: `30 passed` (one or two skips when run as root), and a collection count of 30: the units' 24 cases plus the three extra tests' 6. The frozen cut document is never edited after Task 0; its digest is Task 8's pin. If the collected count differs from §4's, the results record §3 states both numbers and why they differ.
 
 If `admit_publication` over Y16-a's unrestored partial copy raises something other than `PublicationArrivalRefused` (for example if `ReadView` refuses a copy restore did not grant), assert that type instead and record it in the spec's §17. The unit's claim is that the copy is refused, not which door refuses it.
 
@@ -2873,7 +3010,7 @@ A unit that fails for its own reason is a finding: fix the source, not the asser
 - [ ] **Step 3: Commit**
 
 ```bash
-tasks done <Task 7's id> "acceptance module: 14 units, 27 cases"
+tasks done <Task 7's id> "acceptance module: 14 units, 30 cases"
 tasks check && git add python/tests/acceptance/test_publish_remote_acceptance.py tasks
 git commit -m "test(cut42): the remote publish acceptance module — Y11–Y16"
 ```
@@ -2946,7 +3083,7 @@ The arms follow, one `_arm(...)` each, in `DECLARATION_UNITS` order inside `CUT4
 | Y12-c | `publish.py` | `    return not _export_agrees(r, mark)` | `    return False` |
 | Y13-a | `publication_doors.py` | `        return (entry.outcome.corpus_id, entry.outcome.marker)` | `        return None` |
 | Y13-b | `publication_doors.py` | `                    orphans.add(outcome.orphan)  # possibly shared: an orphan that retires nothing (decision 3)` | `                    orphans.add(outcome.orphan)\n                    retired.update(intent.marker_tips)` |
-| Y13-c | `publish.py` | `    if _evaluate_export(r, mark) != "validated":` | `    if False:` |
+| Y13-c | `publish.py` | `    return _evaluate_export(r, mark) != "validated"` | `    return False` |
 | Y14-a | `publish.py` | `        if blocking:\n            raise PublicationRefused("publish-unfinished", tokens=blocking)` | `        if False:\n            raise PublicationRefused("publish-unfinished", tokens=blocking)` |
 | Y14-b | `publish.py` | `        blocking = tuple(token for token in unfinished_attempts(writer, view, destination, seam) if (_op_dir(operations_root, token) / "transport.v1").is_file())` | `        blocking = tuple(unfinished_attempts(writer, view, destination, seam))` |
 | Y15-a | `publish.py` | `    entries = (*entries, PublicationTransportEntry(r.subject, transported))` | `    entries = entries` |
@@ -2985,18 +3122,19 @@ The guard holds no `_LIVE_SABOTAGES` table: this lane moves no prior arm's pinne
         assert "guarantee rows exercised: 6 (6 newly closed: Y11, Y12, Y13, Y14, Y15, Y16)" in output
 ```
 
-- [ ] **Step 5: Guard green, then the cut, detached**
+- [ ] **Step 5: Guard green, then the cut, harness-tracked**
 
 ```bash
 cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py tests/test_frozen_guards.py -q
-cd ~/d/beliefs/.worktrees/publish/python && cd "$(pwd -P)"
-export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-test -x ~/d/beliefs/.work/acceptance/detached.sh
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut42-runner.log uv run --frozen python tools/cut42_acceptance.py > /dev/null 2>&1 &
-sleep 2; echo "runner process group $(cat ~/d/beliefs/.work/acceptance/cut42-runner.log.pid)"
 ```
 
-If the turn ends before the wrapper does, report that process group and the stop command, `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut42-runner.log.pid)"`.
+Then launch the runner with the Bash tool, `run_in_background: true`:
+
+```bash
+cd ~/d/beliefs/.worktrees/publish/python && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30 && set -o pipefail && uv run --frozen python tools/cut42_acceptance.py 2>&1 | tee ~/d/beliefs/.work/acceptance/cut42-runner.log
+```
+
+The harness starts the next turn when it exits. If the session must end first, the end-of-turn report names the background task and says that its log is the evidence. If the harness kills the run at its background cap (exit 144 and a truncated log; seen 2026-09-20 under an older harness), do not detach it. Run `tasks park <Task 8's id> "cut 42 runner killed at the background cap after <m> min; needs a harness-tracked way to run it" --reason environment`, and tell the user.
 
 Read the log at exit. The expected tail has:
 - three `[cut42 phase n/3]` lines;
@@ -3109,13 +3247,10 @@ git commit -m "docs(cut42): results record, re-rank at cut 42, Y11–Y16 closed"
 
 - [ ] **Step 1: Whole-branch review.** Run `superpowers:requesting-code-review` over `git diff main...HEAD`, against the Global Constraints' decisions, the Review Focus lines and the cut document's §5. Land each fix as its own commit and record it in the results record §3.
 
-- [ ] **Step 2: The gate, detached**
+- [ ] **Step 2: The gate, harness-tracked.** Launch with the Bash tool, `run_in_background: true`:
 
 ```bash
-cd ~/d/beliefs/.worktrees/publish && cd "$(pwd -P)"
-export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut42-gate.log just gate > /dev/null 2>&1 &
-sleep 2; echo "gate process group $(cat ~/d/beliefs/.work/acceptance/cut42-gate.log.pid)"
+cd ~/d/beliefs/.worktrees/publish && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30 && set -o pipefail && just gate 2>&1 | tee ~/d/beliefs/.work/acceptance/cut42-gate.log
 ```
 
 Read the log at exit. Expected: the pytest summary line with zero failures (memory `pytest-count-claims-need-the-summary-line`), and the TypeScript suite green.
@@ -3194,8 +3329,9 @@ The execution rulings are already in the committed results record §7 (memory `e
   - `_Remote(writer, resolver, opened, op, clock, seam, port, transport)`;
   - `_mark(a, corpus_id, artifact_identity) -> TransportMark`, `_push(r, files)`, `_verify(r, corpus_id)`;
   - `_transport(r, mark) -> Transported | TransportIncomplete`, `_transport_and_bind(r, mark, entries)`, `_resume_from_mark(r)`;
+  - `_export_damaged(r, mark) -> bool`, `_export_agrees(r, mark) -> bool` (identity), `_marker_agrees(r, mark) -> bool` (content, after the evaluation);
   - `PublishUnresolved(event_token, "transport-mark-corrupt")`.
-- **Root:** `evaluate_copy(dest_root, subject, observers) -> LogReport`.
+- **Root:** `evaluate_copy(dest_root, subject, observers) -> str` (the outcome, or `"unreadable"`); `export_chain_head(root) -> tuple[str, str] | None`.
 - **Recipient:** `require_publication_layout(records) -> None`; `publication_tip(roots, view, destination)`; `CurrentPublication(corpus_id, marker)`; `DivergentPublication(tips)`; `PublicationReadingRefused(reason, corpus_id, refs=())`.
 - **Errors:** `PublicationRefused(…, tokens=())`.
 - **Spec names the plan renames**, each in the planning note: `publication_layout_refusal` → `require_publication_layout`; the spec's `(read: WorldView, …)` signature had already become `roots` at round 3.
@@ -3218,3 +3354,8 @@ The execution rulings are already in the committed results record §7 (memory `e
   - the one-edit sabotages for Y12-a and Y16-c.
 
   Before anything relies on it, Task 0 pins that the evaluation validates an intact serviceable export, refuses one with a selected record deleted or altered, and writes nothing, and that the chain head reads a serviceable root. This keeps the user's round-3 condition that the chosen call be proven against both damages.
+- 2026-09-27 — user review of the plan, round 1, two findings, both confirmed by the reviewer's probe against a real restored export; both taken:
+  1. **A damaged selected record stranded the destination.** `_export_agrees` decoded every exported record, so an unreadable or undecodable selected record answered `transport-mark-corrupt` before step 7 could close it `export-damaged`. §4.2's checks are now identity only: the manifest, the sibling's hash, subject and chain head, and the one `publication` file by name. The export's content is judged by the evaluation, once on a resume and again before `push`. The marker's shape and selection count are read only after the evaluation validates (`_marker_agrees`). Y13-c now damages a selected record four ways (deleted, altered, unreadable, undecodable), and Task 0 probes the evaluation over the last two.
+  2. **Corruption could escape as an exception.** The chain head raises `ChainStateInvalid` over a damaged chain, and a marker without `selection` raised `KeyError`. `root.py` now translates both engine types: `export_chain_head` answers `None`, and `evaluate_copy` answers `"unreadable"`. Task 0 prints the types, so each `except` names exactly what the engine raises. The marker's shape is checked (`publication_content_malformed`, `marker_consistent`) before its facet is read. The export-check test gains a `chain` case.
+
+  Also from the review: long runs are harness-tracked (`run_in_background`), not detached. The Global Constraints and Tasks 8 and 11 changed accordingly.

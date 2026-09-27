@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-24T02:36:23Z
-updated: 2026-09-27T14:22:28Z
+updated: 2026-09-27T14:43:53Z
 started: 2026-09-26T08:38:03Z
 depends: [beliefs-328507]
 parent: beliefs-1a5157
@@ -53,3 +53,6 @@ Third slice of publish, split from beliefs-328507 by the user on 2026-09-23. Own
 - 2026-09-27T14:22:17Z (design/publish): plan drafted: docs/superpowers/plans/2026-09-27-publish-act-remote.md (12 tasks, children beliefs-64bb0e..beliefs-d5feb8); Task 0 probes evaluate_copy against deleted and altered records per the user's round-3 condition
 - 2026-09-27T14:22:28Z (design/publish): parked (waiting on user, review): user reviews docs/superpowers/plans/2026-09-27-publish-act-remote.md in .worktrees/publish and picks the execution method; then the agent starts Task 0 (beliefs-64bb0e)
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T14:43:53Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T14:43:53Z (design/publish): plan review round 1 taken: identity-only mark checks, evaluation before marker content, Y13-c four damages, root.py translations (evaluate_copy -> str, export_chain_head); long runs harness-tracked. User chose subagent-driven execution, sequential, fresh implementer + reviewer per task, once the fixes clear review.
