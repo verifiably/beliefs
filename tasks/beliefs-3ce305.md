@@ -8,13 +8,14 @@ complexity: high
 process: planned
 owner: design/publish
 created: 2026-09-24T02:36:23Z
-updated: 2026-09-27T13:50:26Z
+updated: 2026-09-27T14:22:17Z
 started: 2026-09-26T08:38:03Z
 depends: [beliefs-328507]
 parent: beliefs-1a5157
 tags: [publication]
 agent: claude-code/claude-opus-5-5
 spec: docs/superpowers/specs/2026-09-26-publish-act-remote-design.md
+plan: docs/superpowers/plans/2026-09-27-publish-act-remote.md
 ---
 
 Third slice of publish, split from beliefs-328507 by the user on 2026-09-23. Owns layer design §6.1 step 7 (transport as an injected seam, verified complete or not complete), the remote reveal and the orphans it creates, cut 39's Ruling 12 (an exception before any effect at step 8 leaves the intent unfinished rather than orphaned, so a remotely revealed marker must be recovered from the unfinished intent; leading candidate: step 0 refuses while an earlier publish to the same view and destination is unfinished and has a request record), the recovery table's remote rows, and the recipient's divergent-publication. Designed after cut 40 discharges.
@@ -46,3 +47,7 @@ Third slice of publish, split from beliefs-328507 by the user on 2026-09-23. Own
 - 2026-09-27T13:50:15Z (design/publish): review round 3 taken: publication_tip reads held roots alone (duplicate-location premise), step 7 evaluates the export before every push (export-damaged orphan), capture-damaged refusal; Y13-c, Y16-c added, 14 arms
 - 2026-09-27T13:50:26Z (design/publish): parked (waiting on user, review): user re-reviews the spec (round 3 taken, e353c2d) in .worktrees/publish; on approval, the agent writes the cut plan there
   provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T13:58:57Z (design/publish): resumed
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T13:58:57Z (design/publish): spec approved by user 2026-09-27 at e353c2d (round 3); keep Task 0's proof that the chosen export-verification call detects both a deleted and an altered record; writing the cut plan
+- 2026-09-27T14:22:17Z (design/publish): plan drafted: docs/superpowers/plans/2026-09-27-publish-act-remote.md (12 tasks, children beliefs-64bb0e..beliefs-d5feb8); Task 0 probes evaluate_copy against deleted and altered records per the user's round-3 condition
