@@ -1,13 +1,15 @@
 ---
 id: beliefs-fe7149
 title: "Attended session: one write root, N mounted read corpora, coordination resolution over all"
-status: todo
+status: doing
 priority: 2
 size: m
 complexity: high
 process: planned
+owner: main
 created: 2026-09-23T11:40:35Z
-updated: 2026-09-24T10:43:33Z
+updated: 2026-09-27T13:25:55Z
+started: 2026-09-27T13:25:55Z
 depends: []
 tags: [session]
 agent: claude-code/claude-fable-5-1
@@ -18,3 +20,6 @@ open_attended_session refuses unless corpus_roots names exactly one root (sessio
 ## Notes
 
 - 2026-09-24T10:43:33Z (main): From science's coordination command set design (docs/specs/2026-09-24-coordination-command-set-design.md §6): science states the writer's profile explicitly (domains + contracts + coordination); every other mount activates exactly what its manifest pins, each pin resolved by contract identity against shipped packs and the launcher-supplied documents (science's contracts ∪ read_contracts); an unresolvable pin refuses at open naming mount and pin; availability never becomes activation. The per-mount compile API should accept those available documents from the launcher. Sessionless reads need the same compile outside a session.
+- 2026-09-27T13:25:55Z (main): started
+  provenance: {"harness_session":"claude-code:6e2a536f-f4b5-41c3-abab-f729843ae299","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-27T13:25:55Z (main): claimed by claude-code (opus-5-5), session 6e2a536f-f4b5-41c3-abab-f729843ae299, pid 753003

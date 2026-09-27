@@ -233,12 +233,6 @@ class CapturedEnvironment:
         object.__setattr__(self, "plan", MappingProxyType(dict(self.plan)))
 
 
-def _located(host: Path) -> Path:
-    """The path's own location: its parent resolved, its name kept — so a
-    symlink is captured as the link, not as its target."""
-    return Path(os.path.realpath(host.parent)) / host.name
-
-
 def _path_tree_excluded(parts: tuple[str, ...]) -> bool:
     return ".git" in parts or _distribution_cache(parts)
 
@@ -261,6 +255,14 @@ class _Closure:
         self.native_arch: tuple[int, int, int] | None = None
         self._sonames: dict[str, Path] = {}
         self._roots: list[tuple[Path, str]] = []
+        self._parent_locations: dict[Path, Path] = {}
+
+    def _located(self, host: Path) -> Path:
+        """Resolve each parent once per walk, keeping the link's own name."""
+        parent = host.parent
+        if parent not in self._parent_locations:
+            self._parent_locations[parent] = Path(os.path.realpath(parent))
+        return self._parent_locations[parent] / host.name
 
     def register(self, host_root: Path, sandbox_root: str) -> None:
         self._roots.append((Path(os.path.realpath(host_root)), sandbox_root))
@@ -289,13 +291,13 @@ class _Closure:
         staying under the link's own root keeps its relative text, any other
         in-closure target is rewritten to its sandbox path, a target outside
         every root escapes, and a target that names nothing is dangling."""
-        located = _located(host)
+        located = self._located(host)
         sandbox = self.sandbox_of(located)
         if sandbox in self.rows:
             return sandbox
         if located.is_symlink():
             target = os.readlink(located)
-            target_host = _located(Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target)))
+            target_host = self._located(Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target)))
             root = self.root_of(located)
             target_root = self.root_of(target_host)
             if target_root is None:
@@ -317,7 +319,7 @@ class _Closure:
     def add_chain(self, host: Path) -> str:
         """Every link of a symlink chain as a symlink row and its terminal file
         as a file row; returns the terminal's sandbox path (design §4.2)."""
-        located = _located(host)
+        located = self._located(host)
         seen: set[Path] = set()
         while located.is_symlink():
             if located in seen:
@@ -325,7 +327,7 @@ class _Closure:
             seen.add(located)
             self.add(located)
             target = os.readlink(located)
-            located = _located(Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target)))
+            located = self._located(Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target)))
         return self.add(located)
 
     def check_links(self) -> None:
@@ -340,8 +342,9 @@ class _Closure:
             raise ClosureUnsupported(f"symlink {sandbox} -> {content!r} resolves to {resolved}, which is not a closure row")
 
     def add_tree(self, root: Path, *, excluded: Callable[[tuple[str, ...]], bool]) -> None:
+        root_depth = len(root.parts)
         for path in sorted(root.rglob("*")):
-            if excluded(path.relative_to(root).parts):
+            if excluded(path.parts[root_depth:]):
                 continue
             if path.is_symlink() or path.is_file():
                 self.add(path)
@@ -423,7 +426,7 @@ class _Closure:
             for elf_sandbox, elf in pending:
                 listed.add(elf_sandbox)
                 for soname, host in sorted(listing(elf).items()):
-                    located = _located(host)
+                    located = self._located(host)
                     canonical = Path(os.path.realpath(located))
                     known = self._sonames.setdefault(soname, canonical)
                     if known != canonical:

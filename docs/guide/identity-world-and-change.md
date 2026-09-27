@@ -2,7 +2,7 @@
 title: Identity, world, and change
 status: living
 created: 2026-08-08
-updated: 2026-09-11
+updated: 2026-09-26
 sources:
   - ../designs/2026-08-02-substrate-consolidation-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -30,16 +30,38 @@ sources:
   - ../designs/2026-09-10-conformance-cut-24.md
   - ../designs/2026-09-10-conformance-cut-25.md
   - ../designs/2026-09-13-conformance-cut-27.md
+  - ../designs/2026-09-24-live-query-evaluation-design.md
+  - ../superpowers/specs/2026-09-21-event-level-l8-design.md
+  - ../superpowers/specs/2026-09-21-l13-preimage-design.md
 ---
 
 # Identity, world, and change
 
-## TL;DR
+## In brief
 
-Science treats identity, location, human names, and historical continuity as
-different things; corrections add immutable records, indexes derive named views,
-and anchored mutation chains make some removals detectable without pretending
-that history is impossible to destroy.
+Every record has an identity computed from what it means, not from where it is
+stored or what it is called. All collections of records together form one
+**world**; to answer a question across them, the system builds an **epoch** — a
+frozen, published index of exactly which collections, in which states, it
+covers — and every answer names its epoch, or for a live read, the states it
+captured. Records are never edited
+in place: a better version **supersedes** the old one and a withdrawal
+**retracts** it, both as new records. Each collection keeps a hash-linked log of
+its changes, so an unrecorded deletion or a rewrite can be detected as long as
+someone outside
+kept a copy of the log's head.
+
+- **Meaning, address, name, continuity, and location are five separate
+  things.** Moving a file or renaming a label never changes an identity.
+- **One world; projects are views.** A project selects part of the world; it is
+  not a separate universe.
+- **Answers are pinned.** A world read names its epoch, or for attention reads,
+  the exact states it captured. There is no silent "latest".
+- **Corrections add, never erase.** A record's standing is calculated from the
+  retractions that target it, not stored as a flag.
+- **Tampering is detectable, within limits.** An outside observer's copy of the
+  log head exposes truncation or rewriting; losing every copy cannot be detected
+  from nothing.
 
 ## Why it matters
 
@@ -112,6 +134,23 @@ captures each present corpus against that explicit epoch's address map before
 serving any answer. `WorldReadView` follows the same adjacencies across corpus
 boundaries; a plain `ReadView` truncates at its corpus edge.
 
+### Reading the world: at an epoch or live
+
+A view's query can be evaluated two ways, and the difference is deliberate.
+
+- **At an epoch** — `evaluate_query` over a `WorldReadView`. The answer is bound
+  to a published epoch and refuses `corpus-drifted` once a covered corpus moves
+  past it. Belief inputs and publication read this way, because their answers
+  must be reproducible.
+- **Live** — `evaluate_live_query(world, query)`. The answer covers every
+  corpus the registry admits with no terminal status, captures each one inside
+  its own hold, and refuses a damaged corpus rather than omitting it. It returns
+  a `LiveSelection` stamped by the corpus states it captured, never by an epoch,
+  so no consumer can mistake it for an epoch-bound answer. A work queue reads
+  this way, so a user sees their own new record without anyone publishing an
+  epoch first (Z1–Z5, cut 41;
+  [live-query design](../designs/2026-09-24-live-query-evaluation-design.md)).
+
 ### Correction is additive
 
 Records are immutable. **Supersession** says that a replacement continues or
@@ -146,9 +185,15 @@ the verified replica-arrival act call it rather than reimplementing it. Replay
 walks the registered surface from the genesis baseline and compares in both
 directions, so a record the timeline never produced is a disagreement, and a
 removal inside that surface emits a finding naming the path and the removing
-transaction. Whether the removed record was a *failing verification* resolves
-only where the caller supplies historical bytes, and even then by the path the
-held copy claims rather than by digest.
+transaction. Whether the removed record was a *failing verification* is decided
+by matching the removed state's digest against a held copy or surviving preimage
+bytes; where neither survives, the finding says so (`removal-unclassified`)
+rather than guessing (L13, cut 37).
+
+Events on different chains can also be ordered, within what the anchors can
+witness. An event is `(corpus_id, entry_digest)`; `root.event_order` answers
+`a-precedes-b`, `b-precedes-a`, or `unordered`, and says `unordered` when the
+available captures cannot tell (L8, cut 36).
 
 This is deliberately bounded. A surviving anchor can expose truncation or
 rewriting; destruction of a root and every observer cannot be detected from
@@ -168,33 +213,35 @@ that the operation was scientifically or administratively authorized.
 
 ## Current state
 
-The world side runs end to end at the registry level: the authoritative world
-root, corpus manifests and corpus-state identity, and the append-only registry
-with lifecycle status and configured presence; epoch publication with its four
-derived maps, fixture-bound receipts, bounded reads and whole-epoch GC; the
-mutation log's anchor carriage and its verification — the log-head record and
-head artifact, the explicit anchor act, the four-outcome evaluator, replay with
-its removal policy pass, the audit and replica-arrival boundaries, the
-genesis↔mirror agreement check, and the ordered-cuts predicate; the root
-lifecycle and store substrate — the fail-closed writer state, the lifecycle
-commands, `restore_root`, the fork acts with act-derived `forked_from`, and
-genesis-bound store subjects; and verified store-side holdings with their
-intent-bearing acts. Cut 23 adds an explicit-epoch world read view with captured
-cross-corpus traversal, named absence and verification recomputation. Cut 24 makes
-the coreference attestation a governed, mintable kind and reduces stored attestations
-into the published balance. Cut 25 derives every source address from its normalized
-identifier and adds the attributed identifier correction; dataset re-addressing and
-divergent-history reconciliation are filed. Cut 27 adds the explicit epoch import,
-the epoch audit with its snapshot-state query, and a world audit that judges the
-capture corpus by corpus and reports a damaged corpus rather than refusing it;
-Cut 28 adds view-query evaluation over the world read view — a topic's query selects across corpora at an explicit epoch, refusing drift, damage and an address it cannot locate, and reporting absence rather than folding it in — and discharges W8b and W8's runnable conflicts over the existing build, `consolidate` and `move`.
-Cut 29 derives every dataset id from its declared content identity — the ruled fold, unchanged — and holds it at the write boundary and at both inputs of `consolidate`; divergent-history reconciliation remains filed.
-Cut 30 reconciles divergent correction histories at consolidate — keep's chain is the spine, the other replica's unheld events are absorbed into one consolidation entry, a prefix fast-forwards, and a re-run after interruption absorbs nothing twice; world-resolution is closed.
-W8's ambiguous-search-term conflict waits with W9 on the pinned authority snapshot. The address
-ruling governs those derived views: labels are computed on read,
+- **World registry and epochs** (cuts 6–7): the authoritative world root,
+  corpus manifests and corpus-state identity, the append-only registry with
+  lifecycle status and presence, epoch publication with its four derived maps
+  and receipts, bounded reads, and whole-epoch GC.
+- **Root lifecycle and holdings** (cuts 9–10): the fail-closed writer state,
+  lifecycle commands, `restore_root`, fork acts, and verified store-side
+  holdings.
+- **Reading across corpora** (cuts 23, 27, 28, 41): the explicit-epoch world
+  read view, epoch import and audit, a world audit that reports a damaged corpus
+  rather than refusing it, epoch-bound view-query evaluation, and live
+  evaluation.
+- **Addresses and coreference** (cuts 24, 25, 29, 30): graded coreference
+  attestation and its balance; source and dataset addresses derived from their
+  identifiers and content; attributed identifier correction; and `consolidate`
+  reconciling divergent correction histories.
+- **Correction** (cuts 4–5, 18, 33–34): supersede, revise, retract and import
+  through the write boundary; managed deletion; retraction standing reaching the
+  belief evaluator; and retraction of a producer's semantic snapshot.
+- **The mutation log** (cuts 8, 36, 37): anchoring, the four-outcome
+  verifier with replay, the event-level ordering relation, and digest-matched
+  classification of removed records.
+- **Not built:** rendered labels and the ambiguous-search refusal, which wait on
+  the pinned authority snapshot (W8's remaining conflict, W9, W14); and L1's
+  kill-at-stage and settlement-persistence arms and X2's persistence arm, which
+  wait on the `atoms` certification of the publication path.
+
+The address ruling governs the derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
-address. What the log still owes — event-level L8 and the L13 preimage resolver
-— is listed with its owners in the
+address. Owners for everything not built are in the
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16).
 
 ## Open edges

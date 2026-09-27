@@ -21,7 +21,9 @@ where the design work below was done and reviewed. Nothing here imports it, and
 records are reproduced under this system rather than migrated into it; the
 reasoning is recorded in the adoption ledger's §0.
 
-Start with the concise [contributor guide](docs/guide/README.md) for the system's
+For the ecosystem as a whole — its goal and how the repositories fit together — start
+with the [verifiably overview](https://github.com/verifiably/docs/blob/main/overview.md). For this kernel, read the concise
+[contributor guide](docs/guide/README.md) for the system's
 key ideas, reading paths, glossary, and open questions. Use the design corpus
 below for rationale and frozen guarantees.
 
