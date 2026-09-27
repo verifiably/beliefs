@@ -9,7 +9,7 @@ slices of sub-project 5's `beliefs` half.
 **Task:** `beliefs-3ce305`, child of the lane task `beliefs-1a5157`
 **Lane:** `world-read`
 **Cut:** 42, off the path (roadmap tier 1, off-path row 1)
-**Status:** draft for user review, 2026-09-26; amended after review round 3, 2026-09-27
+**Status:** approved 2026-09-27 at `e353c2d`; frozen as cut 42 on 2026-09-27
 
 ## 1. What this slice is
 
@@ -843,3 +843,75 @@ These are recorded in `docs/guide/open-questions.md` and are not built:
     drops unreadable files. The reading now reads each root through the same
     store read `admit_publication` runs and refuses `capture-damaged` (§7.1
     step 0). Y16-c is the reviewer's probe.
+
+## 17. Planning notes
+
+- 2026-09-27 — at planning (plan `../plans/2026-09-27-publish-act-remote.md`):
+  - **The export evaluation is `root.evaluate_copy(dest_root, subject,
+    observers) -> str`**: `_restore_root`'s outcome with a grant that does
+    nothing, the recipient's own evaluation, or `"unreadable"` when the copy
+    cannot be read to be judged (`OSError`, `LogEvidenceRefused` from an
+    unreadable record, or the engine refusing its chain as state, translated
+    inside `root.py`). Task 0 pinned that it validates an
+    intact serviceable export, refuses one with a selected record deleted,
+    altered, unreadable or undecodable, and writes nothing. `audit_log` was
+    not chosen: it requires the target to be a configured corpus root, and an
+    export root is in no world.
+  - **§4.2's checks are identity only; the marker's content waits for the
+    evaluation** (plan review, round 1). Before anything else, the resume
+    checks the mark against its intent, the export's manifest, the sibling's
+    SHA-256, subject and chain head (`root.export_chain_head`, which answers
+    `None` for a chain the engine refuses as state), and the export's one
+    `publication` file by its path. It reads no record's content. It then
+    evaluates the export. A failed evaluation closes the attempt
+    `transport-incomplete` (`export-damaged`) with its orphan, so a damaged
+    selected record never strands the destination as `transport-mark-corrupt`.
+    Only after `validated` does it read the marker file and check its shape
+    (`publication_content_malformed`, `marker_consistent`), its uid and its
+    selection count. A disagreement there is `transport-mark-corrupt`. Step 7
+    evaluates again before `push`, binding the uploaded bytes to the judged
+    ones. A resume therefore evaluates twice, and a fresh run once.
+  - **An `OSError` while reading an export file for either listing is
+    `export-damaged`** (§4.3 steps 1 and 3). The listings read every byte, and
+    a file the act cannot read is damage the evaluation would also find.
+  - **`publication_layout_refusal` is spelled `require_publication_layout(records)
+    -> None`**, which raises `PublicationArrivalRefused`. Raising keeps cut
+    40's Y10-a and Y10-b pins byte-exact. `publication_tip` catches it and
+    raises `PublicationReadingRefused` with the same reason and refs.
+  - **The layout check runs on every held root that holds any `publication`
+    record**, before the address filter. The address of a malformed marker
+    cannot be read, so a root whose only marker is malformed refuses the
+    reading rather than being skipped as "another view's".
+  - **`capture-damaged` catches exactly the store's four read refusals**:
+    `OSError` (an unreadable file answers `PermissionError`, probed),
+    `nodes`' `ValidationError` (undecodable bytes, probed), `PlacementError`
+    and `CollisionError`. These are `_population`'s three plus `OSError`.
+  - **`PublicationReadingRefused(reason, corpus_id, refs=())`**, where
+    `corpus_id` is `None` for the two readings that are not one corpus's:
+    `supersession-cycle`, and `marker-duplicated` across corpora.
+  - **`require_usable` returns the frozen `Destination`** in place of a path:
+    the resolved local directory, or the remote destination as given.
+  - **The mark codec lives in `publish_request.py`** beside the snapshot and
+    request codecs: `TransportMark`, `encode_mark`, `decode_mark`, and
+    `MARK_DOMAIN = "science.publish-transport.v1"`.
+  - **Steps 7–9 run over `_Remote`**, which holds the writer, the resolver,
+    the opened intent, the operations directory, the clock, the seam, the
+    port and the transport, and never the request or the snapshot
+    (decision 5). A fresh run builds it from `_Attempt.remote()`.
+  - **`PublicationRefused` gains `tokens`**, the blocking tokens in
+    ascending order.
+  - **`PreBinding.orphan` defaults to `None`**, so every existing
+    construction and comparison stands.
+  - **`publish-unfinished` runs for a remote destination only.** A local
+    destination can hold no mark (§4.1), and not reading its chain keeps cut
+    40's step-0 refusal order untouched.
+  - **The listing identity** is `v1.digest("science.publish-transport-listing.v1",
+    <expected listing as a mapping>)`, 64 lowercase hex.
+  - **Crashes are injected by monkeypatching the act's named step functions**,
+    cut 40's plus `_mark`, `_push` and `_verify`.
+  - **Two sabotages are spelled for one-edit form:**
+    - Y12-a deletes the mark's write. For a crash inside `push`, that is
+      indistinguishable from a mark written after `push` returns.
+    - Y16-c reads a damaged root as holding nothing. That is what a
+      report-mode capture does to the one unreadable file, over a root
+      whose only other content the check does not need.

@@ -29,9 +29,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Eighty documents in `docs/designs/`: the banked redesigns, review
+Eighty-one documents in `docs/designs/`: the banked redesigns, review
 disposition, adoption ledger, measurements, rulings, and contributor-guide
-design written 2026-08-02 through 2026-09-25. Read them in this order:
+design written 2026-08-02 through 2026-09-27. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -115,6 +115,7 @@ design written 2026-08-02 through 2026-09-25. Read them in this order:
 | `2026-09-24-conformance-cut-40.md` | the discharged publish-act cut: request, snapshot, staging, export, the local reveal, resumption and marker-required arrival; Y5–Y10 closed in full, 15 declaration units, the cut 39 runner as prefix; `publish` stays open with cut 42's remote slice |
 | `2026-09-24-live-query-evaluation-design.md` | the live attention read: a view query denoted over every admitted corpus's current state, stamped by its capture; table Z, banked with cut 41 and closed at its discharge |
 | `2026-09-25-conformance-cut-41.md` | the discharged live-query cut: coverage from the registry's admitted set, one capture hold per corpus, damage and conflict refusals, and the capture stamp; Z1–Z5 closed in full, 12 declaration units, the cut 40 runner as prefix; the boundary enters and closes |
+| `2026-09-27-conformance-cut-42.md` | the frozen remote publish cut: the transport seam, the mark, step 7's evaluation and verification, orphans, `publish-unfinished`, the remote recovery rows and `publication_tip`; Y11–Y16 read, 14 declaration units, the cut 41 runner as prefix |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -122,7 +123,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 41** is implemented and discharged. What
+Every conformance cut through **cut 41** is implemented and discharged; cut 42 is frozen with Y11–Y16 open. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -218,7 +219,7 @@ The latest discharged boundary is cut 41
 [results](docs/plans/2026-09-25-conformance-cut-41-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **231 rows** across **twenty-two frozen
+test before it is a passing one. There are **237 rows** across **twenty-two frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q, U, Y, Z), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.

@@ -201,7 +201,7 @@ stays off-path row 1 and the `world-read` lane's head with cut 42's
 remainder; the cut number was taken by the user's decision of 2026-09-25,
 and the remote slice was relabelled planned cut 42 at cut 41's freeze.
 
-The current accounting is 204 of 231 rows closed, with 27 open. The prior
+The current accounting is 204 of 237 rows closed, with 33 open. The prior
 single-corpus mm30 measurement has no remaining on-path boundary; a second corpus may place one here. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state; cut 32 re-ran it again under a further successor and composed and read the `h1-prognosis` fragment from the recreated corpus, which measures structure rather than the on-path question; cut 33 re-derived the same `NoBelief` answer with the empty retraction enumeration derived rather than supplied; cut 34 read the same corpus in place (no contract succeeded to move it aside) and re-derived the same answer, with the new arm exercised only by the acceptance module, not by mm30's corpus; cut 35 read it in place once more and re-derived the same answer with `state.json` byte-identical, its five stored holdings observations all `store` locations decoding unchanged through the widened codec — the `url` arm and the `acquisition` operation are exercised only by the acceptance module; cut 36 read it in place again and re-derived the same answer with `state.json` byte-identical — the event-level relation is read by no driver step, and mm30's single corpus chain orders no cross-chain pair. Cut 37 read it in place again and re-derived the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing; cut 38 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver audits through the bare evaluator and re-checks no holding; cut 39 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's manifest pins no coordination contract; cut 40 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's world publishes nothing, so the act and the arrival door are not reached; cut 41 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver evaluates no view query, live or epoch-bound. None of these later measurements re-ranks the path.
 
 ## Boundary index
@@ -367,7 +367,7 @@ C10 remains partial only on its `instrument-certification` eligibility arm,
 owned by `contract-cut`; T7 remains partial on its cross-root case, the T
 table's last open row, owned by `cross-root-publication`. The Y table is
 closed in full: Y1–Y4 at cut 39 and Y5–Y10, banked at cut 40's freeze, at
-its discharge. Cut 42's remote slice appends its own rows. The Z table,
+its discharge. Cut 42 freezes Y11–Y16 as open. The Z table,
 banked at cut 41's freeze, is closed in full at its discharge.
 
 | table | never selected | part — last cut that read it | reopened |
@@ -392,10 +392,10 @@ banked at cut 41's freeze, is closed in full at its discharge.
 | B | — | — | — |
 | Q | — | — | — |
 | U | — | — | — |
-| Y | — | — | — |
+| Y | Y11, Y12, Y13, Y14, Y15, Y16 | — | — |
 | Z | — | — | — |
 
-Closed 204 of 231; open 27.
+Closed 204 of 237; open 33.
 
 ## Appendix B — classification of every open row
 

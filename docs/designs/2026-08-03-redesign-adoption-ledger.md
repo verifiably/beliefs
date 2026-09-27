@@ -49,9 +49,9 @@ work.
 **Updated 2026-09-25** for cut 41's discharge of live view-query
 evaluation: Z1–Z5, banked at cut 41's freeze, close, and `live-query`
 enters and closes at that record, so the table below carries no row for it.
-`publish` stays open with cut 42's remote slice. The T table stays partial
+`publish` stays open with Y11–Y16 banked at cut 42's freeze. The T table stays partial
 on T7's cross-root case alone, and row 5 stays partial for L1's persistence
-arms alone. The corpus has **204 of 231 rows closed, 27 open**.
+arms alone. The corpus has **204 of 237 rows closed, 33 open**.
 
 **Implemented through conformance cut 41.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
@@ -441,7 +441,7 @@ publish's classification, and a stamp naming the in-hold states.
 `live-query` entered this table and the roadmap's boundary index at that
 record and closed in the same commit, so neither carries an open row for
 it, and the roadmap's lane table carries the closed `live-query` lane.
-Z1–Z5 close; the corpus has **204 of 231** rows closed, 27 open. L1 stays
+Z1–Z5 close; Y11–Y16 are open under `publish`; the corpus has **204 of 237** rows closed, 33 open. L1 stays
 partial on its persistence arms under `persistence-cut`, and T7 on its
 cross-root case under `cross-root-publication`. The preceding record
 (`../plans/2026-09-24-conformance-cut-40-results.md`) discharged the publish

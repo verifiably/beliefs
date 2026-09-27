@@ -56,6 +56,7 @@ sources:
   - ../designs/2026-09-24-conformance-cut-40.md
   - ../designs/2026-09-24-live-query-evaluation-design.md
   - ../designs/2026-09-25-conformance-cut-41.md
+  - ../designs/2026-09-27-conformance-cut-42.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -225,8 +226,9 @@ fitted result into independent validation.
 
 Forty-one conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple.
-Cut 42, the remote half of the publish act, is being designed and is not yet
-frozen. The complete
+Cut 42 is frozen with Y11–Y16 open, bringing the corpus to 237 rows across
+twenty-two tables; it has not been discharged.
+Cut 42, the remote half of the publish act, is frozen with Y11–Y16 open and not yet discharged. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
 implemented; the roadmap schedules them after `publish`. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
@@ -284,6 +286,7 @@ exact selection; the results record under `../plans/` holds the evidence.
 | [39](../designs/2026-09-23-conformance-cut-39.md) | Publication records and the publish intent (W17, Y1–Y4) |
 | [40](../designs/2026-09-24-conformance-cut-40.md) | The publish act for a local destination (Y5–Y10) |
 | [41](../designs/2026-09-25-conformance-cut-41.md) | Live view-query evaluation (Z1–Z5) |
+| [42](../designs/2026-09-27-conformance-cut-42.md) | Frozen remote publish act (Y11–Y16 open); transport, recovery, and recipient tip reading |
 
 ## Open edges
 
