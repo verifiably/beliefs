@@ -534,3 +534,11 @@ warnings, 0 informations`, biome, tsc, `tasks check`).
   runner — went through the reaping wrapper; its process group was
   confirmed gone. The repository gate is the lane's other detached run and
   has not run yet; §6 records it.
+
+---
+
+**Citing note, 2026-09-27 (frozen body above unchanged):** §3.3 Ruling 12
+is closed by conformance cut 42. The marked-attempt guard, mark-based
+resumption and asymmetric transport-orphan fold discharge the remote
+remainder; see `2026-09-27-conformance-cut-42-results.md` §§2–3 and
+`../superpowers/specs/2026-09-26-publish-act-remote-design.md` §§4, 6 and 8.

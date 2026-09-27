@@ -1,6 +1,6 @@
 # Conformance cut 42 — the publish act, remote
 
-**Status:** frozen 2026-09-27, before implementation; Y11–Y16 are open
+**Status:** discharged 2026-09-27 on the certified volume; results: `../plans/2026-09-27-conformance-cut-42-results.md`
 **Design:** `../superpowers/specs/2026-09-26-publish-act-remote-design.md`, approved 2026-09-27 at `e353c2d` after three user reviews; implementation not yet started.
 **Plan:** `../superpowers/plans/2026-09-27-publish-act-remote.md`.
 **Numbered after** cut 41 under roadmap concurrency rule 1. No other worktree or branch held a cut numbered 42 or above at freeze.

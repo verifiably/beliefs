@@ -9,7 +9,7 @@ slices of sub-project 5's `beliefs` half.
 **Task:** `beliefs-3ce305`, child of the lane task `beliefs-1a5157`
 **Lane:** `world-read`
 **Cut:** 42, off the path (roadmap tier 1, off-path row 1)
-**Status:** approved 2026-09-27 at `e353c2d`; frozen as cut 42 on 2026-09-27
+**Status:** discharged at conformance cut 42 on 2026-09-27; results: `../../plans/2026-09-27-conformance-cut-42-results.md`
 
 ## 1. What this slice is
 
