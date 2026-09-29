@@ -1,6 +1,7 @@
 # Front door for tests. Full suite: `just test`. Gates: `just check` (seconds: lint,
 # typecheck, task records) and `just gate` (check plus the suite). `just test-fast` is
-# the documented fast local loop; AGENTS.md points at it (audit step 3, 2026-09-12).
+# the documented fast local loop; `just test-one <runner args>` is the focused loop.
+# CI carries the full suite for origin/main; other pushes keep the complete local gate.
 #
 # Every recipe runs through the vendored timing wrapper tools/tt and the shared hygiene
 # check tools/ops-check (source of truth: ops bin/tt and ops bin/ops-check), so each run
@@ -11,6 +12,7 @@
 # costs. What is left of the audit is step 4, the after-week comparison (beliefs-f253a1).
 
 set quiet
+set positional-arguments
 
 tt := "python3 tools/tt"
 
@@ -38,16 +40,24 @@ ts_check_cmd := "(cd ts && npm run typecheck && npm run check)"
 
 fast_cmd := py_fast_cmd + " && " + ts_fast_cmd
 test_cmd := py_test_cmd + " && " + ts_test_cmd
+# Focused pytest selection, relative to python/. Override one_cmd for Vitest (AGENTS.md).
+one_cmd := "cd python && uv run --frozen pytest"
 hygiene_cmd := "python3 tools/ops-check"
 check_cmd := hygiene_cmd + " && " + py_check_cmd + " && " + ts_check_cmd + " && tasks check"
 
-# The checks a commit pays when it stages nothing under python/ or ts/: ruff, pyright,
-# tsc and biome read only those two trees, so such a commit cannot change their verdict,
-# and the pre-commit hook runs this instead (see .githooks/pre-commit). Composed from the
-# same pieces as check_cmd so the two cannot drift. Baseline 2026-09-12: 76 of 196
-# commits (39 percent) were docs- or tasks-only and each paid the 20s gate, pyright 92
-# percent of it (beliefs-f253a1).
+# Only agent guidance and task records take the docs-only path. README.md and docs/
+# are read by conformance tests, so the template's broader allowlist is unsafe here.
+docs_paths := "AGENTS.md tasks/*.md"
 docs_check_cmd := hygiene_cmd + " && tasks check"
+
+# ci.yml runs both complete package suites on main pushes and on PRs. PR-only refs
+# cannot shorten a push gate; only origin/main is covered by the push trigger.
+ci_suite_refs := "refs/heads/main"
+ci_remote := "origin"
+
+# Fixed fast set (act design form 3): all non-N2 Python tests plus all TS tests.
+# Vitest's unbased --changed selection sees no committed push changes in a clean tree.
+push_fast_cmd := py_fast_cmd + " && " + ts_test_cmd
 
 # What a fresh checkout or worktree needs before the gates can run. ts/ has no
 # node_modules of its own until `npm ci`; the python side needs nothing, because `uv run
@@ -69,6 +79,10 @@ setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)
 # The documented fast local loop: xdist with N2 excluded, plus the affected TS tests.
 test-fast:
     {{tt}} test-fast -- host-budget run -- sh -c '{{fast_cmd}}'
+
+# One path, path::test, or -k expression; argument boundaries reach the runner intact.
+test-one +args:
+    {{tt}} test-one -- host-budget run -- sh -c '{{one_cmd}} "$@" 2>&1' test-one "$@"
 
 # The complete Python gate: parallel non-N2 tests, then N2 alone with its full
 # OPS_WORKERS pool. Both summaries are counted by tt as one recorded run.
@@ -96,13 +110,17 @@ setup:
 hook-pre-commit:
     {{tt}} hook-pre-commit -- sh -c '{{check_cmd}}'
 
-# What the pre-commit hook runs when nothing under python/ or ts/ is staged: the checks that read what it touched.
+# What the pre-commit hook runs when every staged path matches docs_paths.
 hook-pre-commit-docs:
     {{tt}} hook-pre-commit-docs -- sh -c '{{docs_check_cmd}}'
 
 # What a pre-push hook will run: `gate`'s commands, under one hook target.
 hook-pre-push:
     {{tt}} hook-pre-push -- host-budget run -- sh -c '{{check_cmd}} && {{test_cmd}}'
+
+# Every pushed ref is covered by CI's full suite: checks and the fixed fast set.
+hook-pre-push-fast:
+    {{tt}} hook-pre-push-fast -- host-budget run -- sh -c '{{check_cmd}} && {{push_fast_cmd}}'
 
 # CI keeps a two-job matrix (Python 3.11/3.13, Node 20/24); each job runs the recipe for
 # its package, so the whole job is one recorded number. These run exactly what `test` and
