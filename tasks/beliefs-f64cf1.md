@@ -7,7 +7,7 @@ size: m
 complexity: mid
 process: planned
 created: 2026-09-26T19:29:52Z
-updated: 2026-09-26T19:29:52Z
+updated: 2026-09-29T23:48:29Z
 depends: []
 tags: [testing]
 source: beliefs-9b248a
@@ -19,3 +19,7 @@ Why: after beliefs-9b248a, standalone N2 (tests/test_n2.py, 46 tests) is the lar
 Change: first attribute N2's CPU per arm and per check (subprocess start, closure capture, pipeline runs, copy setup) with a pilot on a few arms before any full sweep. Then propose bounded reductions that keep every declared arm audited and every sabotage applied to its own copy. Separately evaluate a CI-only restructuring (N2 as its own job running concurrently with the non-N2 phase, or on one Python version) — that is layout, not a cost reduction, and must not weaken the certified local gate.
 
 Done when: N2's cost is attributed, retained reductions are measured end to end on the certified host, and the full gate and CI timings are recorded; no arm, check or capability-dependent result is dropped.
+
+## Notes
+
+- 2026-09-29T23:48:29Z (main): inherits beliefs-d3882f's remainder (dropped 2026-09-29): N2 is still paid on every push to a non-main ref and on hand-run just test. Its unexplored option, run N2 only when its inputs change, is a candidate reduction here and must keep every declared arm audited

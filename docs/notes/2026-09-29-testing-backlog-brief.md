@@ -38,8 +38,9 @@ Respect historical source pins, installed `nodes` arms, and certified-host limit
 Use copied packages for sabotage, and the timed test front door for checks.
 
 `beliefs-1b0827` already owns shared syntax validation. `beliefs-e35dee` owns the
-broader vacuity-detection question, and `beliefs-f64cf1` / `beliefs-d3882f` own N2
-cost and placement. Do not duplicate them or change full-gate coverage here.
+broader vacuity-detection question, and `beliefs-f64cf1` owns N2 cost and
+placement (`beliefs-d3882f` was dropped into it on 2026-09-29). Do not duplicate
+them or change full-gate coverage here.
 
 ## Alternatives
 
