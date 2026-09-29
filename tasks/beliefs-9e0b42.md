@@ -4,7 +4,7 @@ title: One-command mm30 driver run so the step order lives in one place
 status: idea
 priority: 2
 created: 2026-09-10T22:01:42Z
-updated: 2026-09-29T22:59:41Z
+updated: 2026-09-29T23:16:01Z
 depends: []
 parent: beliefs-cde4d9
 tags: [reproduction]
@@ -19,3 +19,4 @@ The current driver also has compose and two fresh-process read calls. world.main
 ## Notes
 
 - 2026-09-29T22:59:41Z (main): scope: briefed; current sequence and success verdict need an invocation inventory; research beliefs-b9c3ea; brief: docs/notes/2026-09-29-reproduction-audit-backlog-brief.md
+- 2026-09-29T23:16:01Z (research/beliefs-b9c3ea): finding (beliefs-b9c3ea, 2026-09-29): a recipe alone cannot report truthfully. Five steps (belief, rederive, close, compose's receipt check, read --again) record a defect and exit zero, and rederive needs the cut-22 archive at <work dir>.cut22, which a fresh directory lacks. Scope as: a just recipe over the design §13/§14 order with analysis_inputs restored, a read-only verdict step over state.json and findings.jsonl, and an environment override for paths.PRIOR. Body's ten-step order is stale. Inventory: docs/notes/2026-09-29-reproduction-audit-backlog-brief.md, Recipe inventory

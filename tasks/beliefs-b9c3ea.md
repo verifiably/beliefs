@@ -1,19 +1,21 @@
 ---
 id: beliefs-b9c3ea
 title: Establish the inputs and verdict for one-command mm30 recreation
-status: doing
+status: done
 priority: 3
 size: s
 complexity: mid
 process: direct
 owner: research/beliefs-b9c3ea
 created: 2026-09-29T22:59:41Z
-updated: 2026-09-29T23:11:22Z
+updated: 2026-09-29T23:16:01Z
 started: 2026-09-29T23:11:22Z
+completed: 2026-09-29T23:16:01Z
 depends: []
 parent: beliefs-cde4d9
 tags: [reproduction]
 source: docs/notes/2026-09-29-reproduction-audit-backlog-brief.md
+model: claude-fable-5-1
 agent: codex
 ---
 
@@ -28,3 +30,8 @@ Ideas it wakes: On completion, run tasks note on beliefs-9e0b42 with the finding
 - 2026-09-29T23:11:22Z (research/beliefs-b9c3ea): started
   provenance: {"harness_session":"claude-code:786b5be4-402f-41ae-9587-17839b760c79","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-29T23:11:22Z (research/beliefs-b9c3ea): claimed by claude-code/claude-fable-5-1, harness pid 2351564; process direct in .worktrees/beliefs-b9c3ea
+- 2026-09-29T23:16:01Z (research/beliefs-b9c3ea): result recorded in the brief's Recipe inventory section: 19-invocation sequence, six pre-existing inputs with their state on this host, per-step exit-code table, run-invariant verdict. Not run: preflight, any driver step, a linked prior archive. beliefs-0c1cc9's transition step is a named slot in the sequence, not duplicated
+- 2026-09-29T23:16:01Z (research/beliefs-b9c3ea): done
+  provenance: {"harness_session":"claude-code:786b5be4-402f-41ae-9587-17839b760c79","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-29T23:16:01Z (research/beliefs-b9c3ea): Inventoried the mm30 recreation recipe: sequence, inputs, exit-code gaps and a run-invariant verdict; a recipe needs a verdict step and a prior-archive override
+  provenance: {"harness_session":"claude-code:786b5be4-402f-41ae-9587-17839b760c79","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
