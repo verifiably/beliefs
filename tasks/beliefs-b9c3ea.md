@@ -1,13 +1,15 @@
 ---
 id: beliefs-b9c3ea
 title: Establish the inputs and verdict for one-command mm30 recreation
-status: todo
+status: doing
 priority: 3
 size: s
 complexity: mid
 process: direct
+owner: research/beliefs-b9c3ea
 created: 2026-09-29T22:59:41Z
-updated: 2026-09-29T22:59:41Z
+updated: 2026-09-29T23:11:22Z
+started: 2026-09-29T23:11:22Z
 depends: []
 parent: beliefs-cde4d9
 tags: [reproduction]
@@ -20,3 +22,9 @@ Where to start: python/tools/reproduction/{preflight,world,rederive,compose,read
 Bound: Trace the existing entry points and their state inputs/outputs once; compare fresh recreation with the documented read-in-place checks. Include the cut-22 and cut-31 archive requirements, compose and read --again, and steps that return zero after recording a defect. Inspect existing tests; do not run confinement, recreate or mutate the preserved corpus, build a runner framework, or implement the recipe.
 Expected result: Record one exact proposed recipe sequence, required pre-existing artifacts and a minimal terminal-verdict check, with unavailable inputs named. Recommend whether a recipe alone suffices; update this task and the brief. Keep relocation as a separate operation. Account for the transition step owned by beliefs-0c1cc9 without duplicating it.
 Ideas it wakes: On completion, run tasks note on beliefs-9e0b42 with the finding, in the same commit as this result.
+
+## Notes
+
+- 2026-09-29T23:11:22Z (research/beliefs-b9c3ea): started
+  provenance: {"harness_session":"claude-code:786b5be4-402f-41ae-9587-17839b760c79","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-29T23:11:22Z (research/beliefs-b9c3ea): claimed by claude-code/claude-fable-5-1, harness pid 2351564; process direct in .worktrees/beliefs-b9c3ea
