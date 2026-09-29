@@ -1,13 +1,15 @@
 ---
 id: beliefs-0c1cc9
 title: Make the cut-31 reproduction transition measurement repeatable
-status: todo
+status: doing
 priority: 3
 size: s
 complexity: mid
 process: direct
+owner: feat/beliefs-0c1cc9
 created: 2026-09-16T20:09:21Z
-updated: 2026-09-29T22:59:41Z
+updated: 2026-09-29T23:51:26Z
+started: 2026-09-29T23:51:26Z
 depends: []
 parent: beliefs-cde4d9
 tags: [conformance, reproduction]
@@ -29,3 +31,6 @@ The mm30 reproduction record's §11.5 measurement — the cut-31 corpus state au
 ## Notes
 
 - 2026-09-29T22:59:41Z (main): scope: scoped; P3/s/mid/direct; committed read-only transition step with an observed mismatch and zero-read check; original capture preserved; brief: docs/notes/2026-09-29-reproduction-audit-backlog-brief.md
+- 2026-09-29T23:51:26Z (feat/beliefs-0c1cc9): started
+  provenance: {"harness_session":"claude-code:d4d2dc53-33e1-4e0d-a9c8-0f172598281e","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-29T23:51:26Z (feat/beliefs-0c1cc9): claimed by claude-code/claude-fable-5-1, harness pid 2351564; process direct in .worktrees/beliefs-0c1cc9
