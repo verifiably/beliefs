@@ -15,6 +15,9 @@ Re-run 2026-09-15 under the estimand-typing design as cut 31's Q10, which
 recreates the corpus rather than retyping it: the successor-contract corpus
 is `.work/reproduction/mm30` and the prior state is kept at
 `.work/reproduction/mm30.cut22`; see §10.
+Relocated 2026-09-29: a read-only replica of the corpus and its store now also
+lives in a research world outside every checkout, and the fixture beside the
+checkout is unchanged; see §23.
 **Scope:** one real mm30 proposition pushed through the `beliefs` kernel as a
 library, from a registered world to the belief evaluator's answer, under the
 design `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` and its
@@ -1640,3 +1643,87 @@ mount selection. That second-project milestone belongs to science
 (`sci-0d00d2`) after `beliefs-c08725` relocates the reproduced corpus. Cut
 43's J12–J15 evidence lives in its acceptance tests and runner; this re-run
 only establishes that the stored mm30 state and answer did not move.
+
+## 23. Addendum — relocation to a research world, 2026-09-29
+
+`beliefs-c08725`, the operator task the science projects design names
+(science `docs/specs/2026-09-23-projects-corpora-and-workspaces-design.md`
+§3.1, §9.2): a research world lives outside every code checkout, and the
+reproduced corpus reaches it by `replicate_root` and `restore_root`, never by a
+file copy. The world beside the main checkout stays the reproduction's
+measurement fixture. Every later re-run of this record reads the fixture, not
+the relocated replica.
+
+### 23.1 The recipe
+
+The step is `python/tools/reproduction/relocate.py`, run from the
+`relocate-mm30` worktree at the worktree's canonical path, with `tools` on
+`PYTHONPATH` and `MM30_PREDECESSOR` set as in §22. `reproduction.preflight`
+printed `ok` first. Given a worlds directory, the step:
+
+1. mints a fresh `world_id` and makes `<worlds>/<world_id>/`;
+2. exports the fixture world's current head for the corpus and for the store
+   with `export_head_artifact`, which writes nothing, and keeps both artifacts
+   under `anchors/`;
+3. copies the corpus to `corpora/mm30/` and the store to `store/` with
+   `replicate_root`, then `restore_root` admits each copy, observed by an
+   `ArtifactCarrier` built from its exported head. The step refuses unless the
+   verdict is `validated` and the lifecycle is `READ_ONLY_SERVICEABLE`;
+4. initializes a new world root at `world/`. A world root is rebuilt, never
+   restored. `admit_arrival` then admits the corpus with
+   `ReplicaOf(<corpus_id>)`, observed by the same corpus artifact;
+5. writes `relocation.json`.
+
+The worlds directory is on the certified volume, the one the checkouts sit on,
+outside every checkout. It is not the design's
+`$XDG_DATA_HOME` default: on this host that resolves to the root filesystem,
+which is not known to match the durability allowlist. The host's
+`SCIENCE_CONFIG` names `science.toml` in the worlds directory's parent (set in
+the dotfiles' host-local environment file, never synced by git).
+
+The first attempt failed before copying anything. `replicate_root` publishes
+into an existing parent and creates only the leaf, and `corpora/` did not exist
+yet (`FileNotFoundError` from `establish_root`). The attempt had written only
+the two artifacts. That directory was removed, the step now creates the
+parent, and the second attempt is the one recorded here.
+
+### 23.2 What the run reached
+
+`relocation.json`, verbatim apart from paths:
+
+```json
+{
+  "admission": {"kind": "replica-of", "parent_corpus_id": "8b5d0c802677ee445e2b9d91ebf5d6a7"},
+  "arrival": "validated",
+  "corpus_id": "8b5d0c802677ee445e2b9d91ebf5d6a7",
+  "restore": {"corpus": "validated", "store": "validated"},
+  "source_world_id": "bc234bbfbbad12fb2915801de4a27301",
+  "store_id": "05b6c1225e710bb1559f36e8333f3f29",
+  "world_id": "aec951bc6becacced13df8f7ae6f8abf"
+}
+```
+
+A fresh process read the destination back. Both roots were
+`READ_ONLY_SERVICEABLE`. The manifest held the corpus id and pins of §22,
+`biology:24bcec43…` and `mm30:4af7c421…`. `open_world_read` over the new
+world answered `CorpusStatus(known=True, live=True, present=True,
+findings=())`. `diff -rq` found no difference between the source and replica
+corpus trees, or between the two store trees. The world directory holds
+6.7 MB. The fixture's `state.json` kept SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1` across
+both attempts, the hash of §21.2 and §22.2.
+
+### 23.3 What this addendum does not claim
+
+- No `science.toml` exists yet. The replica pins the mm30 successor chain
+  (cut 22 → cut 31 → current), which a `contracts` list of documents does not
+  reproduce today. Mounting a corpus under its own pins is science's
+  `read_contracts` (`sci-923d3a`), so the milestone writes the configuration.
+  Until then the host's `SCIENCE_CONFIG` refuses with `config file not found`.
+- The world holds no working corpus. Criterion 1 of the milestone
+  (`sci-0d00d2`) adds one beside the replica.
+- No belief was re-derived from the replica. Its equality with the fixture is
+  byte equality of the trees plus the validated chain verdicts, not a re-run
+  of step 10.
+- The world binds no rule bundle. The fixture's world binds none either, and
+  whatever the milestone's reads need, the milestone installs.

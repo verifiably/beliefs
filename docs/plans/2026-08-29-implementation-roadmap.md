@@ -254,7 +254,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 ### On the path
 
-No open kernel boundary. Cut 43 closes `multi-corpus-session`, the second-project milestone’s kernel prerequisite. Science’s `sci-923d3a` launcher wiring and `beliefs-c08725` corpus relocation remain prerequisites of that measurement; science’s `sci-0d00d2` performs it.
+No open kernel boundary. Cut 43 closes `multi-corpus-session`, the second-project milestone’s kernel prerequisite. `beliefs-c08725` relocated the mm30 corpus to a research world outside the checkout on 2026-09-29 (reproduction record §23). Science’s `sci-923d3a` launcher wiring remains the measurement’s prerequisite; science’s `sci-0d00d2` performs it.
 
 ### Off the path
 
