@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-fast-remedy
 created: 2026-09-30T15:57:07Z
-updated: 2026-09-30T16:55:27Z
+updated: 2026-09-30T17:18:44Z
 started: 2026-09-30T16:17:00Z
 depends: []
 tags: [halt, test-latency, testing]
@@ -26,3 +26,5 @@ Process: planned
 - 2026-09-30T16:17:00Z (perf/test-fast-remedy): started
   provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-30T16:17:00Z (perf/test-fast-remedy): claimed by codex, pid 2688366
+- 2026-09-30T17:18:44Z (perf/test-fast-remedy): parked (waiting on user, review): User reviews .worktrees/test-fast-remedy/docs/superpowers/specs/2026-09-30-fixture-grouping-latency-design.md and returns approval or revision findings
+  provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
