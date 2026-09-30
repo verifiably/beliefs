@@ -7,7 +7,7 @@ size: xs
 complexity: low
 process: direct
 created: 2026-09-30T10:37:37Z
-updated: 2026-09-30T10:37:37Z
+updated: 2026-09-30T10:49:28Z
 depends: []
 parent: beliefs-cde4d9
 tags: [reproduction]
@@ -23,3 +23,4 @@ Verification: just test-one tests/test_reproduction_driver.py (the parametrized 
 ## Notes
 
 - 2026-09-30T10:37:37Z (main): concerns: beliefs-9e0b42 extension — the verdict can pin composite_identity, which the brief misclassified as run-varying
+- 2026-09-30T10:49:28Z (main): input kept (user, 2026-09-30): .work/reproduction/mm30-fresh-2026-09-30, the §25 run's directory (423 MB, verdict passed at a819f23); its composite_identity is ef546cde73edf91b310bd49ff61cd7ace95add2c3d0ffb6e20701fb17b63df32. Verify the pinned verdict against it read-only: from python/, PYTHONPATH=tools SCIENCE_MM30_ROOT=<that dir> uv run --frozen python -m reproduction.verdict. Do not re-run steps into it: findings.jsonl is append-only and a re-run breaks the verdict
