@@ -73,8 +73,9 @@ No existing open research task found in this checkout owns the recipe inventory.
 - `beliefs-b9c3ea`: P3/s/mid/direct research; inventory current recreation inputs,
   invocations and verdict. Completion updates this brief and writes a finding
   note on `beliefs-9e0b42` in the same commit.
-- `beliefs-9e0b42`: briefed; the inventory below settles its scope as a recipe
-  plus a verdict step and a prior-archive override. It stays an idea until scoped.
+- `beliefs-9e0b42`: scoped 2026-09-30, P3/m/mid/direct; a prior-archive
+  override, a read-only verdict step, a `just` recipe over the sequence below,
+  and one certified-host run into a fresh directory.
 - `beliefs-b36632`: shelved until a reproduction measurement requires retained
   audit reports and accepts their mutation of the measured artifact.
 - `beliefs-9d2b68`: shelved until a named consumer needs persisted world audit
