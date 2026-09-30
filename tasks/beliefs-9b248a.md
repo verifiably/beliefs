@@ -8,11 +8,11 @@ complexity: high
 process: planned
 owner: perf/test-latency
 created: 2026-09-12T10:10:50Z
-updated: 2026-09-26T18:35:55Z
+updated: 2026-09-30T11:04:51Z
 started: 2026-09-26T10:07:42Z
 completed: 2026-09-26T18:35:55Z
 depends: []
-tags: [testing]
+tags: [testing, halt, test-latency]
 source: beliefs-f253a1
 spec: docs/superpowers/specs/2026-09-26-test-suite-latency-design.md
 plan: docs/superpowers/plans/2026-09-26-test-suite-latency.md
@@ -74,3 +74,4 @@ Outcome: keep the same full test inventory and both independent environment capt
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-26T18:35:55Z (perf/test-latency): Cut certified fast-loop median to 87.167 s and full gate to 235.749–237.467 s while preserving all tests and independent captures; ops-5beefd owns the stop-work policy.
   provenance: {"harness_session":"codex:01a0dd0c-461a-7d61-a6aa-c08f1b13c035","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-30T11:04:51Z (main): Historical latency incident tagged halt + test-latency for tt-latency floor; this task remains done and does not halt starts. Certified remedy completed 2026-09-26T18:35:55Z.
