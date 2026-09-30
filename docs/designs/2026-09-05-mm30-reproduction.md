@@ -1727,3 +1727,75 @@ both attempts, the hash of §21.2 and §22.2.
   of step 10.
 - The world binds no rule bundle. The fixture's world binds none either, and
   whatever the milestone's reads need, the milestone installs.
+
+## 24. Addendum — the transition measurement, repeatable, 2026-09-29
+
+`beliefs-0c1cc9`, filed at cut 32's review (cut-32 results §3.3): §11.5's
+measurement was taken by a one-shot script that was never committed, and no
+driver step wrote `state.cut31_corpus_state`. The driver now has that step.
+§11.5 stands as written; this section records the step and its first run.
+
+### 24.1 The step
+
+`python/tools/reproduction/transition.py`, step 13, run as
+`python -m reproduction.transition [--archive <root>]`. It takes §11.5's
+route: `ReadView.opened_at(<archive>/corpus)`, then `audit_corpus` with the
+two held rule implementations under `vocabulary.profile()`. It saves the audit
+findings, the corpus id, the base pin, the two refs the archive's own
+`state.json` names and the count of records read as
+`state.cut31_corpus_state`.
+
+- **The archive is required.** `--archive` names it; without the flag it is
+  `<work dir>.cut31`. A missing `corpus/corpus.yaml` or `state.json` raises
+  before anything is written. No other corpus is read in its place.
+- **The verdict is the exit code.** The step exits 0 only on exactly one
+  finding, `profile-mismatch: base`, with no record read. Any other
+  measurement is saved as observed, recorded as a step-13 `defect`, and exits
+  1.
+- **The count is taken at the view.** It counts every node the archive's view
+  hands out through `get` and `iter_stored` while the audit runs. Opening a
+  corpus indexes it, which is not the audit's read and is not counted.
+- **The work directory must be recreated first.** The successor profile
+  compiles from the held lists the recreation writes there.
+
+Five tests in `python/tests/test_reproduction_driver.py` hold the measurement,
+the wrong verdict, the three missing inputs, the default archive and the
+counter. The wrong-verdict test is the counter's positive control: over a
+corpus the profile accepts, the count is above zero.
+
+### 24.2 What the run reached
+
+Run from the `beliefs-0c1cc9` worktree at its canonical path against
+`.work/reproduction/mm30.cut31`. The work directory was a scratch directory
+holding copies of the fixture's four held lists and its `state.json`, so the
+fixture itself was not written.
+
+```json
+{
+  "assessment_ref": "assessment:618c6c584da64b62",
+  "audit": ["profile-mismatch: base"],
+  "base_pin": "science_contract: science:db7d2ebb252af89567dd7b56cc6bd8d4a563d03ab15d70698bff2f58ff32d557",
+  "corpus_id": "b6472fcf82a1dca72b7ef0461dffa570",
+  "records_read": 0,
+  "spec_ref": "analysis-spec:10e8bfce1aaad8a937a79bfba7cf523ac42b4240ec8b15e20e5b5f450d234714"
+}
+```
+
+The step exited 0. The measurement equals the value saved on 2026-09-16 key
+for key, and the scratch `state.json` stayed byte-identical to the fixture's
+after the step saved into it (SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`, the hash
+of §23.2). The archive was unchanged across the run: the digest over every
+file's content, and the digest over every entry's path, size, modification
+time and mode, were equal before and after, over 19,744 entries.
+
+### 24.3 What this addendum does not claim
+
+- The step has not run inside a fresh recreation. The run above used copies
+  of the fixture's held lists; a recreation from an empty directory is
+  `beliefs-9e0b42`'s recipe.
+- The cut-22 arm is unchanged. `rederive.prior_state` still reads
+  `<work dir>.cut22` with no override.
+- The archive's two record readers were not exercised. §10.8 hands the
+  cut-22 records to their readers by name; this step measures the audit only,
+  which is what §11.5 measured.

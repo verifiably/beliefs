@@ -10,10 +10,10 @@ Steps 11 and 12 (composite claims) add seven keys, all of that kind:
 - `reading_rows`, `reading_equal` — each member row as
   `{ref: (sign, answer class, identification)}`, and whether the second
   process's encoded reading is byte-equal to the first's;
-- `cut31_corpus_state` — what the corpus state moved aside at recreation
-  answers when it is opened read-only under the successor profile: the
-  `audit_corpus` findings, its corpus id, its base pin and how many of its
-  records the audit read.
+- `cut31_corpus_state` — step 13's (`transition`): what the corpus state
+  moved aside at recreation answers when it is opened read-only under the
+  successor profile: the `audit_corpus` findings, its corpus id, its base pin
+  and how many of its records the audit read.
 """
 
 from __future__ import annotations

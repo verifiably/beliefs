@@ -629,3 +629,126 @@ def test_the_reading_projection_round_trips_through_identity_v1(tmp_path):
     )
     encoded = v1.encode(reading.projection())
     assert encoded == v1.encode(json.loads(encoded))
+
+
+def _archived_state(root, *, pinned: bool):
+    """A stand-in for a corpus state moved aside at recreation: a corpus, its
+    manifest and the `state.json` beside it. `pinned=False` rewrites the base
+    pin to one no runtime ships, which is the archived state's condition."""
+    from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE
+    from profiles import pins_for
+    from test_stored import _testing_writer
+
+    from beliefs import stored
+    from beliefs.projection import project_claim
+
+    writer = _testing_writer(root / "corpus")
+    writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+    if not pinned:
+        manifest = root / "corpus" / "corpus.yaml"
+        manifest.write_text(manifest.read_text().replace(pins_for(TESTING_PROFILE).science_contract, "science:" + "f" * 64))
+    (root / "state.json").write_text(json.dumps({"spec_ref": "analysis-spec:s", "assessment_ref": "assessment:a"}))
+    return writer
+
+
+def _tree(root) -> dict[str, bytes]:
+    return {str(path.relative_to(root)): path.read_bytes() for path in sorted(root.rglob("*")) if path.is_file()}
+
+
+@pytest.fixture
+def transition(tmp_path, monkeypatch):
+    """The step over a work directory of its own, under the testing profile."""
+    from fixtures_cut3 import TESTING_PROFILE
+    from reproduction import paths
+    from reproduction import transition as step
+
+    monkeypatch.setattr(step, "profile", lambda: TESTING_PROFILE)
+    monkeypatch.setattr(paths, "STATE", tmp_path / "work" / "state.json")
+    monkeypatch.setattr(paths, "FINDINGS", tmp_path / "work" / "findings.jsonl")
+    return step
+
+
+def test_the_transition_step_measures_a_base_mismatch_and_reads_no_record(tmp_path, transition):
+    """Decision 11's transition arm, re-runnable: the archived corpus state
+    under the successor profile answers exactly `profile-mismatch: base`, and
+    the audit reads none of its records. The archive's bytes are untouched."""
+    from reproduction import paths
+
+    archive = tmp_path / "mm30.cut31"
+    _archived_state(archive, pinned=False)
+    before = _tree(archive)
+
+    assert transition.main(["--archive", str(archive)]) == 0
+
+    assert _tree(archive) == before
+    measured = json.loads(paths.STATE.read_text())["cut31_corpus_state"]
+    assert measured == {
+        "assessment_ref": "assessment:a",
+        "audit": ["profile-mismatch: base"],
+        "base_pin": "science_contract: science:" + "f" * 64,
+        "corpus_id": measured["corpus_id"],
+        "records_read": 0,
+        "spec_ref": "analysis-spec:s",
+    }
+    assert measured["corpus_id"] in before["corpus/corpus.yaml"].decode()
+    assert not paths.FINDINGS.exists()
+
+
+def test_the_transition_step_fails_any_other_measurement(tmp_path, transition):
+    """An archive the successor profile accepts is not the transition: the
+    audit reaches its records, the step saves what it observed, records a
+    defect and exits non-zero."""
+    from reproduction import paths
+
+    archive = tmp_path / "mm30.cut31"
+    _archived_state(archive, pinned=True)
+
+    assert transition.main(["--archive", str(archive)]) == 1
+
+    measured = json.loads(paths.STATE.read_text())["cut31_corpus_state"]
+    assert measured["audit"] == [] and measured["records_read"] > 0
+    (finding,) = [json.loads(line) for line in paths.FINDINGS.read_text().splitlines()]
+    assert finding["step"] == 13 and finding["class"] == "defect"
+    assert "profile-mismatch: base" in finding["reason"] and str(measured["records_read"]) in finding["reason"]
+
+
+@pytest.mark.parametrize("missing", ["corpus/corpus.yaml", "state.json", "archive"])
+def test_the_transition_step_refuses_a_missing_archive(tmp_path, transition, missing):
+    """The archived state is required input. Nothing stands in for it: not
+    the current corpus, not a skip, not a saved measurement."""
+    from reproduction import paths
+
+    archive = tmp_path / "mm30.cut31"
+    if missing != "archive":
+        _archived_state(archive, pinned=False)
+        (archive / missing).unlink()
+
+    with pytest.raises(RuntimeError, match="mm30.cut31"):
+        transition.main(["--archive", str(archive)])
+
+    assert not paths.STATE.exists() and not paths.FINDINGS.exists()
+
+
+def test_the_transition_step_defaults_to_the_sibling_of_the_work_directory(tmp_path, transition, monkeypatch):
+    from reproduction import paths
+
+    _archived_state(tmp_path / "mm30.cut31", pinned=False)
+    monkeypatch.setattr(paths, "CUT31", tmp_path / "mm30.cut31")
+
+    assert transition.main([]) == 0
+
+
+def test_counting_reads_restores_the_view_and_counts_one_view_only(tmp_path, transition):
+    """The count is an instrument over the view's two record routes; it must
+    leave the facade as it found it and ignore every other view's reads."""
+    from beliefs.corpus import ReadView
+
+    writer = _archived_state(tmp_path / "a", pinned=True)
+    other = _archived_state(tmp_path / "b", pinned=True)
+    get, iter_stored = ReadView.get, ReadView.iter_stored
+    with transition.counted_reads(writer.read_view) as read:
+        stored_ids = [node.id for node in writer.read_view.iter_stored()]
+        writer.read_view.get(stored_ids[0])
+        list(other.read_view.iter_stored())
+    assert read == [*stored_ids, stored_ids[0]]
+    assert ReadView.get is get and ReadView.iter_stored is iter_stored

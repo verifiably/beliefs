@@ -59,16 +59,17 @@ No existing open research task found in this checkout owns the recipe inventory.
   reproducible by one recipe? Answered by `beliefs-b9c3ea`; see "Recipe
   inventory" below.
 - Is the preserved cut-31 archive available and readable on the execution host?
-  The implementer of `beliefs-0c1cc9` verifies it and reports missing input
-  explicitly; its availability was not tested during this pass.
+  Answered by `beliefs-0c1cc9` on 2026-09-29: `.work/reproduction/mm30.cut31`
+  is present on this host and reads; reproduction record §24 has the run.
 - Which consumer needs reports retained in the corpus or across a world?
   A future reproduction requirement or multi-corpus consumer supplies the wake
   condition. This pass found no such requirement in the inspected sources.
 
 ## Proposed decomposition
 
-- `beliefs-0c1cc9`: scoped, P3/s/mid/direct; implement the repeatable transition
-  measurement with explicit missing-input and wrong-verdict failures.
+- `beliefs-0c1cc9`: done 2026-09-29; the repeatable transition measurement is
+  `python/tools/reproduction/transition.py`, with explicit missing-input and
+  wrong-verdict failures.
 - `beliefs-b9c3ea`: P3/s/mid/direct research; inventory current recreation inputs,
   invocations and verdict. Completion updates this brief and writes a finding
   note on `beliefs-9e0b42` in the same commit.
@@ -115,7 +116,7 @@ From `python/`, each line its own process, stopping at the first non-zero exit:
     uv run --frozen python -m reproduction.compose
     uv run --frozen python -m reproduction.read
     uv run --frozen python -m reproduction.read --again
-    <the cut-31 transition step, owned by beliefs-0c1cc9>
+    uv run --frozen python -m reproduction.transition --archive <the cut-31 archive>
     <the verdict step, below>
 
 This is the design's §13 and §14 order. Three written orders disagree with it:

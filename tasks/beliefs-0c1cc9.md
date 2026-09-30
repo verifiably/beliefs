@@ -1,15 +1,16 @@
 ---
 id: beliefs-0c1cc9
 title: Make the cut-31 reproduction transition measurement repeatable
-status: doing
+status: done
 priority: 3
 size: s
 complexity: mid
 process: direct
 owner: feat/beliefs-0c1cc9
 created: 2026-09-16T20:09:21Z
-updated: 2026-09-29T23:51:26Z
+updated: 2026-09-30T00:00:18Z
 started: 2026-09-29T23:51:26Z
+completed: 2026-09-30T00:00:18Z
 depends: []
 parent: beliefs-cde4d9
 tags: [conformance, reproduction]
@@ -34,3 +35,7 @@ The mm30 reproduction record's §11.5 measurement — the cut-31 corpus state au
 - 2026-09-29T23:51:26Z (feat/beliefs-0c1cc9): started
   provenance: {"harness_session":"claude-code:d4d2dc53-33e1-4e0d-a9c8-0f172598281e","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-29T23:51:26Z (feat/beliefs-0c1cc9): claimed by claude-code/claude-fable-5-1, harness pid 2351564; process direct in .worktrees/beliefs-0c1cc9
+- 2026-09-30T00:00:18Z (feat/beliefs-0c1cc9): done
+  provenance: {"harness_session":"claude-code:d4d2dc53-33e1-4e0d-a9c8-0f172598281e","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-30T00:00:18Z (feat/beliefs-0c1cc9): Step 13 (reproduction.transition) re-runs the cut-31 transition measurement: exit 0 only on profile-mismatch: base with zero records read; run against the preserved archive reproduced the 2026-09-16 value with the archive unchanged (record §24)
+  provenance: {"harness_session":"claude-code:d4d2dc53-33e1-4e0d-a9c8-0f172598281e","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
