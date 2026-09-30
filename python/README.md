@@ -20,7 +20,7 @@ runs under ops' `host-budget run`, which sizes xdist and N2's own pool. The Pyth
 commands it runs are:
 
 ```
-host-budget run -- sh -c 'uv run --frozen pytest -n auto --dist=worksteal --ignore=tests/test_n2.py && uv run --frozen pytest tests/test_n2.py'
+host-budget run -- sh -c 'uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py && uv run --frozen pytest tests/test_n2.py'
 uv run --frozen ruff check .
 uv run --frozen pyright
 ```
@@ -46,8 +46,11 @@ On a multicore host, run the same loop in parallel under ops' `host-budget run`,
 sets `-n auto`'s worker count from the host's CPU budget:
 
 ```
-host-budget run -- uv run --frozen pytest -n auto --dist=worksteal --ignore=tests/test_n2.py
+host-budget run -- uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py
 ```
+
+Tests using module- or class-scoped fixtures share a file or class group;
+other tests remain independently scheduled.
 
 The whole-repository equivalent, which also runs the TypeScript tests vitest selects
 from the working tree, is `just test-fast` from the root.
@@ -58,6 +61,11 @@ median). Two complete `test` runs each passed 5,709 non-N2 and 46 N2 tests
 with one skip, plus 155 TypeScript tests, in 235.75s and 237.47s. Standalone
 N2 took 148.54s and 150.75s. These timings use the per-capture path-walk
 improvement; every artifact is still read and hashed on each capture.
+
+With scoped fixture grouping on 2026-09-30, three warm `test-fast` runs
+passed 5,888 tests with one skip in 76.158s, 83.055s, and 83.353s by `tt`
+(83.055s median). The complete `test` gate passed 5,888 non-N2 tests,
+46 N2 tests, and 155 TypeScript tests in 242.97s.
 
 Use a test file or node id (`tests/test_module.py::test_name`) for the narrowest
 deterministic run, `-k` for a name expression, `--lf` to rerun failures, or

@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-fast-remedy
 created: 2026-09-30T15:57:07Z
-updated: 2026-09-30T19:05:41Z
+updated: 2026-09-30T19:17:45Z
 started: 2026-09-30T16:17:00Z
 depends: []
 tags: [halt, test-latency, testing]
@@ -44,3 +44,4 @@ Process: planned
   provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-30T18:52:59Z (perf/test-fast-remedy): Plan review conditions addressed: merge before verify/closure in registered main; F811 suppression; permanent hook test; inline execution.
 - 2026-09-30T19:05:41Z (perf/test-fast-remedy): Pilot on titan, 16 workers: loadgroup all-durations 1,136.9 reported worker-s and 88.667 s tt, 5,888 passed/1 skipped; fixed worksteal admission baselines 1,209.7 worker-s and 93.925 s tt. Replay setup 5–6 rows to 1; verify 10–13 to 2. New evaluation static fixture moves one production setup from call to setup; no duplicate production fixture. Follow-up plain fast: 82.985 s tt. Fresh worksteal runs varied 105.896 then 97.651 s tt.
+- 2026-09-30T19:17:45Z (perf/test-fast-remedy): Accepted remedy on titan, 16 workers: three uncontended pre-merge test-fast tt times 76.158, 83.055, 83.353 s (median 83.055 s), each 5,888 passed/1 skipped. Full just test 242.97 s: 5,888 non-N2 passed/1 skipped, 46 N2 passed, 155 TypeScript passed. Post-merge verification still required.
