@@ -1,7 +1,7 @@
 # Fast-suite fixture grouping
 
 - **Date:** 2026-09-30
-- **Status:** approved after written-spec review round 2; implementation pending plan review
+- **Status:** implemented and measured in the worktree; merge and incident verification pending
 - **Task:** `beliefs-04d696` (P0 test-latency halt)
 - **Workspace:** `.worktrees/test-fast-remedy`
 

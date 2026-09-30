@@ -66,9 +66,9 @@ assert request.node.get_closest_marker("xdist_group") is None
      from domain_facet_fixtures import over_kwargs
      from test_relocation import _writer
      from test_verify import _production_verification
- 
+
      from beliefs.verify import publication_node
- 
+
 -    production = _production_verification(request.getfixturevalue("production_pair"))
 +    mark = request.node.get_closest_marker("xdist_group")
 +    assert mark is not None and mark.args == ("tests/test_evaluation.py",)
