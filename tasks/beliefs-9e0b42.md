@@ -1,18 +1,20 @@
 ---
 id: beliefs-9e0b42
 title: One-command mm30 recreation that ends in a checked verdict
-status: doing
+status: done
 priority: 3
 size: m
 complexity: mid
 process: direct
 owner: main
 created: 2026-09-10T22:01:42Z
-updated: 2026-09-30T09:47:52Z
+updated: 2026-09-30T10:09:25Z
 started: 2026-09-30T09:47:52Z
+completed: 2026-09-30T10:09:25Z
 depends: []
 parent: beliefs-cde4d9
 tags: [reproduction]
+model: claude-opus-5-5
 ---
 
 Why: The mm30 recreation's step order is written in three plan documents that disagree, and a loop over the steps cannot report truthfully. Five steps (belief, rederive, close, compose's receipt check, read --again) record a defect and exit zero, and rederive needs the cut-22 archive at `<work dir>.cut22`, which a fresh directory lacks (inventory, beliefs-b9c3ea). One command that ends in a checked verdict makes "reproduces unaided" something a run can show.
@@ -48,3 +50,8 @@ The current driver also has compose and two fresh-process read calls. world.main
 - 2026-09-30T09:47:52Z (main): started
   provenance: {"harness_session":"claude-code:581b2a04-8931-471b-95f2-248506884c02","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-09-30T09:47:52Z (main): claimed by claude-code/claude-opus-5-5, pid 3352969
+- 2026-09-30T10:09:25Z (recreate-recipe): certified-host run at a819f23: 18 steps + verdict passed in 53 s wall into .work/reproduction/mm30-fresh-2026-09-30 (423 MB); preflight passes today; authored identities equal the record's; composite_identity also unchanged (brief grouped it as run-varying); test-fast 5887 passed in 879 s on 1 worker under host load
+- 2026-09-30T10:09:25Z (recreate-recipe): done
+  provenance: {"harness_session":"claude-code:581b2a04-8931-471b-95f2-248506884c02","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-09-30T10:09:25Z (recreate-recipe): just mm30-recreate, reproduction.verdict and MM30_CUT22_ARCHIVE; first run passed the verdict in 53 s (record §25)
+  provenance: {"harness_session":"claude-code:581b2a04-8931-471b-95f2-248506884c02","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

@@ -1799,3 +1799,86 @@ time and mode, were equal before and after, over 19,744 entries.
 - The archive's two record readers were not exercised. §10.8 hands the
   cut-22 records to their readers by name; this step measures the audit only,
   which is what §11.5 measured.
+
+## 25. Addendum — one-command recreation with a checked verdict, 2026-09-30
+
+`beliefs-9e0b42`. The recreation's step order was written in three plan
+documents that disagreed, and five steps record a defect and still exit zero
+(the backlog brief's recipe inventory,
+`docs/notes/2026-09-29-reproduction-audit-backlog-brief.md`). The driver now
+has one recipe that ends in a checked verdict, and this section records its
+first run. It supersedes §24.3's first two bullets: the transition step has
+now run inside a fresh recreation, and the cut-22 arm has an override.
+
+### 25.1 The recipe
+
+- **`just mm30-recreate <work> <predecessor> [cut22] [cut31]`.** It runs
+  the design's §13 and §14 sequence (preflight, world, select_target,
+  analysis_inputs, `lists prepare`, concepts, `lists mint`, type_target,
+  hold, spec, run, belief, rederive, close, compose, read, `read --again`,
+  `transition --archive <cut31>`). Each step runs in its own process from
+  `python/`, and the recipe stops at the first non-zero exit. Then it runs the
+  verdict, then `git diff --quiet` on the tracked
+  `python/tools/reproduction/analysis/workflow/Snakefile`. Before step 0 it
+  refuses a work directory that is relative, non-canonical or already
+  present, a missing predecessor root, an archive without `corpus/corpus.yaml`
+  or `state.json`, and a Snakefile that already differs from `HEAD`. The
+  archives default to `mm30.cut22` and `mm30.cut31` under the main
+  checkout's `.work/reproduction/`. It is not part of any gate, and it
+  deletes nothing.
+- **`MM30_CUT22_ARCHIVE`.** `paths.PRIOR` reads it and falls back to
+  `<work dir>.cut22`, which a fresh directory lacks. When the archive is
+  missing, `rederive.prior_state` still raises, and the message now names the
+  path and the variable.
+- **`python -m reproduction.verdict`.** It reads `state.json` and
+  `findings.jsonl` and writes nothing. It checks 40 run-invariant state keys,
+  copied from the fixture's `state.json`, in the brief's groups: authored,
+  run, belief, 10b, 10c, close, composite and transition. It also checks that
+  the stored and derived assessment identities agree and that compose did not
+  refuse. Any `defect` or `host` line fails. The lines outside `closed` must
+  be exactly the fixture's five, counted as (step, class). The step exits 1
+  and names every failed line. `findings.jsonl` is append-only, so the
+  verdict is defined over a fresh directory. Over the fixture it fails on the
+  11 extra step-10 design-gap lines that its repeated `rederive` runs left,
+  and on nothing else.
+
+### 25.2 What the run reached
+
+Run once from the `beliefs-9e0b42` worktree at its canonical path, at
+`a819f23`:
+
+    just mm30-recreate <main checkout>/.work/reproduction/mm30-fresh-2026-09-30 \
+        <canonical predecessor root>
+
+The predecessor root was spelled canonically, as the fixture's `held_file`
+records it. The archives were the defaults.
+
+- **Every step exited 0, preflight included.** `preflight` passes on this
+  host today. The recipe took 53 s of wall time, 34 s of it in `run`.
+- **The verdict passed:** `verdict: passed; 40 state keys, 16 findings lines`.
+  The tracked Snakefile was unchanged afterwards.
+- **The authored identities equal the record's.** The fresh `state.json` has
+  the fixture's key set exactly. Every value is equal to the fixture's except
+  the run-varying ones: the assessment identities and ref; the original run,
+  replayed run and verification refs; the corpus, world and store ids; the
+  holdings observation ref; the four absolute `*_file` paths;
+  `evidence_reconstruction.report_identity_read`; and the corpus-bound parts
+  of `log_verdict` (the head carrier's `anchored_through` and
+  `observer_bound`, and the no-observer finding's corpus id).
+- **`composite_identity` did not move.** It equals the fixture's
+  `ef546cde…`. The brief grouped composite identities with the run-varying
+  ones, and the verdict still compares nothing about it.
+- **The open findings are the fixture's five:** step 2 `corpus-work`, step 4
+  `design-gap` and `corpus-work`, step 9 `corpus-work` and step 10
+  `design-gap`.
+- **The directory** is `.work/reproduction/mm30-fresh-2026-09-30`, 423 MB
+  (384,879,834 bytes). The user decides whether it is kept.
+
+### 25.3 What this addendum does not claim
+
+- One run. The recipe has not been repeated, and a second run into another
+  fresh directory is not shown to agree.
+- The verdict pins the fixture's open findings by step and class, not by
+  reason text. A changed refusal that keeps the same step and class passes.
+- `relocate.py` and the retained audit reports (`beliefs-b36632`,
+  `beliefs-9d2b68`) are out of scope.
