@@ -20,8 +20,10 @@ PREDECESSOR = Path(
 )
 # The prior corpus state, moved aside when the corpus was recreated under the
 # successor contracts (estimand-typing decision 10). Read-only: Q10's
-# transition arm presents it to the successor readers.
-PRIOR = WORK.with_name(WORK.name + ".cut22")
+# transition arm presents it to the successor readers. A fresh work directory
+# has no such sibling, so `MM30_CUT22_ARCHIVE` names the archive explicitly; a
+# missing archive raises at `rederive.prior_state` either way.
+PRIOR = Path(os.environ.get("MM30_CUT22_ARCHIVE", WORK.with_name(WORK.name + ".cut22")))
 # The cut-31 corpus state, moved aside the same way when the corpus was
 # recreated under the composite grammar (composite-claims decision 11).
 # Read-only: the transition step audits it under the successor profile.

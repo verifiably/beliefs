@@ -146,8 +146,8 @@ def prior_state() -> dict:
     root = paths.PRIOR
     if not (root / "corpus" / "corpus.yaml").is_file():
         raise RuntimeError(
-            f"the prior corpus state is not at {root.name}; it is moved aside, never deleted, when the corpus is "
-            "recreated under the successor contracts (estimand-typing decision 10)"
+            f"the prior corpus state is not at {root}; it is moved aside, never deleted, when the corpus is "
+            "recreated under the successor contracts (estimand-typing decision 10); name it with MM30_CUT22_ARCHIVE"
         )
     prior = json.loads((root / "state.json").read_text())
     view = ReadView.opened_at(root / "corpus")

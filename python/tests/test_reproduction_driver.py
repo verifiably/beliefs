@@ -752,3 +752,177 @@ def test_counting_reads_restores_the_view_and_counts_one_view_only(tmp_path, tra
         list(other.read_view.iter_stored())
     assert read == [*stored_ids, stored_ids[0]]
     assert ReadView.get is get and ReadView.iter_stored is iter_stored
+
+
+def _passing_state() -> dict:
+    """A recreation's `state.json` as the verdict wants it: every expected
+    value in place, and run-varying identities that agree with each other."""
+    import copy
+
+    from reproduction import verdict
+
+    state: dict = {"assessment_identity_stored": "a" * 64, "assessment_identity_derived": "a" * 64}
+    for expected in verdict.EXPECTED.values():
+        for key, want in expected.items():
+            *parents, leaf = key.split(".")
+            node = state
+            for part in parents:
+                node = node.setdefault(part, {})
+            node[leaf] = copy.deepcopy(want)
+    return state
+
+
+def _open_lines() -> list[dict]:
+    from reproduction import verdict
+
+    return [
+        {"step": step, "class": cls, "reason": "r", "filed": "unfiled"}
+        for (step, cls), count in verdict.EXPECTED_OPEN.items()
+        for _ in range(count)
+    ] + [{"step": 1, "class": "closed", "reason": "held", "filed": "unfiled"}]
+
+
+def test_the_verdict_passes_a_recreation_that_reproduced():
+    from reproduction import verdict
+
+    assert verdict.failures(_passing_state(), _open_lines()) == []
+
+
+@pytest.mark.parametrize("group", ["authored", "run", "belief", "10b", "10c", "close", "composite", "transition"])
+def test_the_verdict_fails_each_group_on_a_value_it_does_not_expect(group):
+    from reproduction import verdict
+
+    state = _passing_state()
+    key = next(iter(verdict.EXPECTED[group]))
+    *parents, leaf = key.split(".")
+    node = state
+    for part in parents:
+        node = node[part]
+    node[leaf] = "something else"
+
+    (failed,) = verdict.failures(state, _open_lines())
+    assert failed.startswith(f"{group}: {key} is 'something else'")
+
+
+def test_the_verdict_compares_the_run_identities_only_with_each_other():
+    from reproduction import verdict
+
+    state = _passing_state()
+    state["assessment_identity_stored"] = state["assessment_identity_derived"] = "b" * 64
+    assert verdict.failures(state, _open_lines()) == []
+
+    state["assessment_identity_derived"] = "c" * 64
+    (failed,) = verdict.failures(state, _open_lines())
+    assert failed.startswith("run: assessment_identity_stored")
+
+
+def test_the_verdict_fails_a_composite_refusal():
+    from reproduction import verdict
+
+    state = _passing_state()
+    state["composite_refusal"] = "CompositeRefused: x"
+    assert verdict.failures(state, _open_lines()) == ["composite: compose refused: CompositeRefused: x"]
+
+
+@pytest.mark.parametrize(
+    "key", ["claim_identity", "evidence_reconstruction.audit_check.checked", "assessment_identity_derived"]
+)
+def test_the_verdict_fails_a_missing_key(key):
+    from reproduction import verdict
+
+    state = _passing_state()
+    *parents, leaf = key.split(".")
+    node = state
+    for part in parents:
+        node = node[part]
+    del node[leaf]
+
+    (failed,) = verdict.failures(state, _open_lines())
+    assert "missing" in failed and leaf in failed
+
+
+@pytest.mark.parametrize("cls", ["defect", "host"])
+def test_the_verdict_fails_any_defect_or_host_line(cls):
+    from reproduction import verdict
+
+    lines = [*_open_lines(), {"step": 10, "class": cls, "reason": "restoration key false", "filed": "unfiled"}]
+    assert verdict.failures(_passing_state(), lines) == [f"findings: step 10 recorded {cls}: restoration key false"]
+
+
+def test_the_verdict_fails_an_unexpected_open_line_and_an_absent_one():
+    """The open lines are exactly the fixture's five: a rederive re-run's
+    second step-10 design-gap line fails, and so does a missing step-9 one."""
+    from reproduction import verdict
+
+    lines = [line for line in _open_lines() if line["step"] != 9]
+    lines.append({"step": 10, "class": "design-gap", "reason": "r", "filed": "unfiled"})
+    assert verdict.failures(_passing_state(), lines) == [
+        "findings: 1 unexpected step 10 design-gap line(s)",
+        "findings: 1 expected step 9 corpus-work line(s) absent",
+    ]
+
+
+def test_the_verdict_step_reads_the_work_directory_and_writes_nothing(tmp_path, monkeypatch, capsys):
+    from reproduction import paths, verdict
+
+    monkeypatch.setattr(paths, "STATE", tmp_path / "state.json")
+    monkeypatch.setattr(paths, "FINDINGS", tmp_path / "findings.jsonl")
+    paths.STATE.write_text(json.dumps(_passing_state()))
+    paths.FINDINGS.write_text("".join(json.dumps(line) + "\n" for line in _open_lines()))
+    before = _tree(tmp_path)
+
+    assert verdict.main() == 0
+    assert "verdict: passed" in capsys.readouterr().out
+    assert _tree(tmp_path) == before
+
+    state = _passing_state()
+    state["scope_class"] = "host"
+    paths.STATE.write_text(json.dumps(state))
+    before = _tree(tmp_path)
+    assert verdict.main() == 1
+    assert "FAIL run: scope_class is 'host'" in capsys.readouterr().out
+    assert _tree(tmp_path) == before
+
+
+@pytest.mark.parametrize("missing", ["state.json", "findings.jsonl"])
+def test_the_verdict_step_refuses_a_work_directory_that_did_not_run(tmp_path, monkeypatch, missing):
+    from reproduction import paths, verdict
+
+    monkeypatch.setattr(paths, "STATE", tmp_path / "state.json")
+    monkeypatch.setattr(paths, "FINDINGS", tmp_path / "findings.jsonl")
+    for name in {"state.json", "findings.jsonl"} - {missing}:
+        (tmp_path / name).write_text("{}")
+
+    with pytest.raises(RuntimeError, match=missing):
+        verdict.main()
+
+
+def _prior(environ: dict[str, str]) -> str:
+    import os
+    import subprocess
+    import sys
+
+    tools = Path(__file__).resolve().parents[1] / "tools"
+    env = {k: v for k, v in os.environ.items() if k not in {"SCIENCE_MM30_ROOT", "MM30_CUT22_ARCHIVE"}}
+    return subprocess.run(
+        [sys.executable, "-c", "from reproduction import paths; print(paths.PRIOR)"],
+        env={**env, "PYTHONPATH": str(tools), **environ},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def test_the_cut22_archive_defaults_to_the_sibling_and_the_variable_moves_it(tmp_path):
+    work = tmp_path / "fresh"
+    assert _prior({"SCIENCE_MM30_ROOT": str(work)}) == str(tmp_path / "fresh.cut22")
+    archive = tmp_path / "elsewhere" / "mm30.cut22"
+    assert _prior({"SCIENCE_MM30_ROOT": str(work), "MM30_CUT22_ARCHIVE": str(archive)}) == str(archive)
+
+
+def test_a_missing_cut22_archive_raises(tmp_path, monkeypatch):
+    from reproduction import paths, rederive
+
+    monkeypatch.setattr(paths, "PRIOR", tmp_path / "absent.cut22")
+    with pytest.raises(RuntimeError, match="MM30_CUT22_ARCHIVE"):
+        rederive.prior_state()
