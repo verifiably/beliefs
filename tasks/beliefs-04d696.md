@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/test-fast-remedy
 created: 2026-09-30T15:57:07Z
-updated: 2026-09-30T18:25:47Z
+updated: 2026-09-30T18:52:59Z
 started: 2026-09-30T16:17:00Z
 depends: []
 tags: [halt, test-latency, testing]
@@ -39,3 +39,7 @@ Process: planned
   provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-09-30T18:25:47Z (perf/test-fast-remedy): parked (waiting on user, review): User reviews .worktrees/test-fast-remedy/docs/superpowers/plans/2026-09-30-fixture-grouping-latency.md and returns approval with execution method or revision findings
   provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-30T18:50:15Z (perf/test-fast-remedy): review: plan round 1 — verdict: revise; findings: P1 2, P2 2; reviewer: human
+- 2026-09-30T18:50:15Z (perf/test-fast-remedy): resumed
+  provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-30T18:52:59Z (perf/test-fast-remedy): Plan review conditions addressed: merge before verify/closure in registered main; F811 suppression; permanent hook test; inline execution.
