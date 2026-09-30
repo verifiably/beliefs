@@ -4,7 +4,7 @@ title: "In-use test-fast runs a median of 111 s, above the 90 s warm target"
 status: idea
 priority: 3
 created: 2026-09-30T00:19:13Z
-updated: 2026-09-30T00:19:13Z
+updated: 2026-09-30T10:37:37Z
 depends: []
 tags: [testing]
 source: beliefs-0c1cc9
@@ -20,3 +20,4 @@ Scope first as a measurement: split the recorded runs by concurrency and by work
 ## Notes
 
 - 2026-09-30T00:19:13Z (main): concerns: beliefs-9b248a extension — the 90 s target was defined warm on the certified host; recorded in-use runs sit at a 111 s median
+- 2026-09-30T10:37:37Z (main): data point 2026-09-30: test-fast took 879 s (5887 passed) when host-budget sized it to 1 worker under load avg ~10; the in-use median should say whether such runs are in or out of its sample
