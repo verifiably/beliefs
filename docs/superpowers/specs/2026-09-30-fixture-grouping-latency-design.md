@@ -1,7 +1,7 @@
 # Fast-suite fixture grouping
 
 - **Date:** 2026-09-30
-- **Status:** implemented and measured in the worktree; merge and incident verification pending
+- **Status:** implemented and verified on the certified host; incident `beliefs-04d696` closed
 - **Task:** `beliefs-04d696` (P0 test-latency halt)
 - **Workspace:** `.worktrees/test-fast-remedy`
 
