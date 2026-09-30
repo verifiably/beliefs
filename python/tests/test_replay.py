@@ -84,7 +84,8 @@ def _snapshot(family_streams):
     )
 
 
-def test_definition_agreement_is_none() -> None:
+def test_definition_agreement_is_none(request) -> None:
+    assert request.node.get_closest_marker("xdist_group") is None
     assert definition_agrees_with_plan(_snapshot({"fit": ("model-initialization",)}), seed_plan()) is None
 
 
@@ -319,7 +320,9 @@ def pair(tmp_path_factory):
     return original, replayed
 
 
-def test_a_replay_runs_in_a_fresh_scratch_root_with_an_equal_recipe(pair):
+def test_a_replay_runs_in_a_fresh_scratch_root_with_an_equal_recipe(pair, request):
+    mark = request.node.get_closest_marker("xdist_group")
+    assert mark is not None and mark.args == ("tests/test_replay.py",)
     original, replayed = pair
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
     assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping

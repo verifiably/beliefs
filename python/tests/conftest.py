@@ -28,6 +28,26 @@ from beliefs.recipe import (
 )
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    for item in items:
+        info = getattr(item, "_fixtureinfo", None)
+        if info is None:
+            continue
+        scopes = {
+            definitions[-1].scope
+            for name in info.names_closure
+            if (definitions := info.name2fixturedefs.get(name))
+        }
+        if "module" in scopes:
+            group = item.nodeid.split("::", 1)[0]
+        elif "class" in scopes:
+            group = item.nodeid.rsplit("::", 1)[0]
+        else:
+            continue
+        item.add_marker(pytest.mark.xdist_group(group))
+
+
 def _report_missing_capability(error: CapabilityUnavailable) -> None:
     """Turn a missing capability into a skip, but only on a declared uncertified host.
 
