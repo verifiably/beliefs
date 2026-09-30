@@ -430,7 +430,9 @@ def minted(tmp_path_factory):
     return outcome
 
 
-def test_the_boundary_mints_a_run_over_the_held_fixture(minted):
+def test_the_boundary_mints_a_run_over_the_held_fixture(minted, request):
+    mark = request.node.get_closest_marker("xdist_group")
+    assert mark is not None and mark.args == ("tests/test_boundary.py",)
     assert minted.run.recipe.shape == "assessment"
     assert minted.run.result.outputs[0][0] == "outputs/result.txt"
     assert minted.registration.pointer == minted.run.address()

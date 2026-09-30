@@ -146,7 +146,9 @@ class TestTypeRecord:
 
         return run
 
-    def test_a_well_formed_record_types(self, typed) -> None:
+    def test_a_well_formed_record_types(self, typed, request) -> None:
+        mark = request.node.get_closest_marker("xdist_group")
+        assert mark is not None and mark.args == ("tests/test_typing_exercise.py::TestTypeRecord",)
         record = typed(
             {
                 "subject": "concept:gain-1q",

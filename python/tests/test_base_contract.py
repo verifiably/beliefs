@@ -26,7 +26,8 @@ def document(base_contract_path) -> dict:
 
 
 class TestTheShippedContract:
-    def test_it_loads(self, base_contract_path):
+    def test_it_loads(self, base_contract_path, request):
+        assert request.node.get_closest_marker("xdist_group") is None
         contract = base.load_base_contract(base_contract_path)
         assert contract.name == "science"
         assert contract.version == 1

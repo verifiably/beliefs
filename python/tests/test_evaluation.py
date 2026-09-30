@@ -521,14 +521,16 @@ def test_the_closure_fields_are_build_closure_s_keywords_in_order():
 from test_verify import production_pair  # noqa: F401 - the module-scoped fixture V7's arm resolves
 
 
-def test_v7_gather_never_selects_a_production_verification(request, tmp_path):
+def test_v7_gather_never_selects_a_production_verification(production_pair, request, tmp_path):  # noqa: F811
     from domain_facet_fixtures import over_kwargs
     from test_relocation import _writer
     from test_verify import _production_verification
 
     from beliefs.verify import publication_node
 
-    production = _production_verification(request.getfixturevalue("production_pair"))
+    mark = request.node.get_closest_marker("xdist_group")
+    assert mark is not None and mark.args == ("tests/test_evaluation.py",)
+    production = _production_verification(production_pair)
     writer = _writer(tmp_path / "corpus")
     node = writer.add(publication_node(production))
     fixture = _fixture(writer, PROPOSITION_REF)
