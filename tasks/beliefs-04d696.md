@@ -1,15 +1,16 @@
 ---
 id: beliefs-04d696
 title: "Test latency over limit: test-fast 120.71 s against 90 s"
-status: doing
+status: done
 priority: 0
 size: m
 complexity: high
 process: planned
-owner: perf/test-fast-remedy
+owner: main
 created: 2026-09-30T15:57:07Z
-updated: 2026-09-30T19:24:23Z
+updated: 2026-09-30T19:30:06Z
 started: 2026-09-30T16:17:00Z
+completed: 2026-09-30T19:30:06Z
 depends: []
 tags: [halt, test-latency, testing]
 source: "tt-latency:titan:2026-09-30T15:57:06Z"
@@ -47,4 +48,11 @@ Process: planned
 - 2026-09-30T19:17:45Z (perf/test-fast-remedy): Accepted remedy on titan, 16 workers: three uncontended pre-merge test-fast tt times 76.158, 83.055, 83.353 s (median 83.055 s), each 5,888 passed/1 skipped. Full just test 242.97 s: 5,888 non-N2 passed/1 skipped, 46 N2 passed, 155 TypeScript passed. Post-merge verification still required.
 - 2026-09-30T19:23:19Z (perf/test-fast-remedy): review: impl round 1 — verdict: accept; findings: P3 2; reviewer: codex/gpt-6-astra
 - 2026-09-30T19:24:23Z (perf/test-fast-remedy): parked (waiting on agent, session): Codex merges the reviewed remedy into registered beliefs main, resumes the incident there, then runs three new fast verdicts and tt-latency verify
+  provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-30T19:25:28Z (main): resumed
+  provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-30T19:29:55Z (main): verified: titan after 2026-09-30T19:25:13Z: test-fast median 80.01 s, limit 90 s, 3 runs
+- 2026-09-30T19:30:06Z (main): done
+  provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-09-30T19:30:06Z (main): tt-latency verify: titan test-fast met (median 80.0 s, 3 runs, limit 90 s); noted: verified: titan after 2026-09-30T19:25:13Z: test-fast median 80.01 s, limit 90 s, 3 runs; verified: every obligation is met
   provenance: {"harness_session":"codex:01a0f1f2-8c7e-71c3-9d0e-3ec49cdcdfef","harness_session_source":"CODEX_SESSION_ID"}
