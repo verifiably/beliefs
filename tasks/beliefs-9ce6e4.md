@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T11:07:28Z
+updated: 2026-10-01T11:28:12Z
 started: 2026-10-01T09:35:48Z
 depends: []
 tags: [session]
@@ -61,3 +61,4 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-01T11:06:58Z (cross-mount-eligibility): review: spec round 6 — verdict: accept; findings: none; reviewer: unknown (pasted by the user)
 - 2026-10-01T11:07:28Z (cross-mount-eligibility): Spec approved at round 6. beliefs-724941 closed (decision 2). Science consumer task sci-dc0381 filed; sci-13050a and sci-0d00d2 depend on it and on this task.
+- 2026-10-01T11:28:12Z (cross-mount-eligibility): Plan drafted: docs/superpowers/plans/2026-10-01-mount-citations.md (Tasks 0-10, cut 44, 24 arms/24 units/6 rows). Planning found B4 (cut 22) promises nothing refuses for an unheld observed dataset in a corpus-local gather; J21 supersedes that clause by citation (spec §13), B4b and F4 re-targeted. mm30 pins shipped biology (24bcec43), so decision 3 passes for a shipped-pack working corpus.

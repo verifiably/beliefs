@@ -500,7 +500,7 @@ New rows J16–J21 in the `J` table.
 | **J18** | `corpus_check` reports an assessment whose eligibility rests on references the corpus does not hold as `eligibility-unresolved` (warning). Locally decided failures stay `eligibility-unmet` (error) | W after J16's session: `corpus_check(W)` → one `eligibility-unresolved` warning per cross-mount assessment, naming the references, and no error. A raw-written assessment over a held run with no `observes` input → `eligibility-unmet` error (S7's case, unchanged). A run observing one held invalid dataset and one unheld dataset → `eligibility-unresolved`. **Negative:** a run observing only held invalid datasets → `eligibility-unmet` |
 | **J19** | `audit_world` judges eligibility across covered corpora from the captured records, never raising: supported → no finding, unmapped → `eligibility-unmet`, held by an absent, damaged or excluded corpus, or by a malformed record → `eligibility-unresolved` naming the corpus and cause, and the audit continues | Publish an epoch over W and M after J16's session: `audit_world` → no eligibility finding. **Captured, not live:** the test wraps `open_world_view` so that, after the view captures and before the audit reads it, M's carrier loses the dataset's retrieval act-report (a raw delete) → still no eligibility finding. Remove M's carrier → `eligibility-unresolved` naming M, `absent`. Make one of M's files fail construction → `eligibility-unresolved` naming M, `damaged:construction`, with W's other records still audited and M's readable remainder audited as today. **Absent producer:** W holds an assessment, its run and the facet-bearing dataset that run observes, and M holds a run producing that dataset. Over an epoch covering both → `eligibility-unmet`. Remove M's carrier → still `eligibility-unmet`, because the epoch's published producers name M's run. A drift dataset in W, produced by nothing present, while M is absent → `eligibility-unresolved`, `producers-incomplete:M`. Make M's dataset's semantic stamp stale (a raw write before the epoch) → `eligibility-unresolved`, `malformed:semantic-hash-stale`, beside M's own `semantic-hash-stale` finding. Rebuild with W's run observing an M dataset that carries no empirical-observation facet (a well-formed record, so not in M's malformedness set) → `eligibility-unmet`. A malformed-payload dataset is the `unreadable` case, not this one: `facet-payload-malformed` is a malformedness code. **Negative:** an epoch covering W alone (M not admitted) → `eligibility-unmet`, since no covered corpus maps the dataset |
 | **J20** | Belief over a world read gathers, admits and evaluates the two-installation split: assessment and run in W, proposition and observed dataset in M | Over the J19 epoch: `evaluate_over(world_view, M's proposition, …)` → the same answer, admission and `node_corpus` attribution (assessment and run → W, the others → M) as the same records evaluated from one corpus, and a lineage snapshot that reaches M's dataset. **Negative:** with M's carrier absent → `NoBelief("unavailable-corpus-absent")` naming M |
-| **J21** | A corpus-local belief read refuses an assessment whose run names an input the corpus does not hold | W holds a proposition P, assessed in the session over a run observing M's dataset. `gather(ReadView(W), P)` → `InputOutsideCorpus` naming the assessment, run and dataset, and `evaluate_over` → `Refused("input-outside-corpus: …")`. **Negative:** the same proposition over a world view → evaluates (J20) |
+| **J21** | A corpus-local belief read refuses an assessment whose run names an input the corpus does not hold. It supersedes B4's absent-dataset clause ("nothing refuses"), cited (§13) | W holds a proposition P, assessed in the session over a run observing M's dataset. `gather(ReadView(W), P)` → `InputOutsideCorpus` naming the assessment, run and dataset, and `evaluate_over` → `Refused("input-outside-corpus: …")`. **Negative:** the same proposition over a world view → evaluates (J20) |
 
 ## 8. Testing and the cut
 
@@ -689,3 +689,58 @@ the code.
 2. J16h's sabotage still saw mount producers, because on revise `reading` is the
    citation view. It now passes `local` to both judgments.
 3. J16's plain-write expectation now names `AcquisitionBoundaryRefused`.
+
+## 13. Planning notes
+
+- 2026-10-01, at planning (plan `../plans/2026-10-01-mount-citations.md`):
+  - **Decision 9 supersedes a frozen clause.** Row B4 (cut 22, the biology-pack design
+    §7) states that `gather` over an observed dataset node absent from the view leaves
+    it out: "the run value carries no such input, no `FacetRead` and no `observes`
+    entry exist, nothing refuses". Its check is
+    `test_domain_facet_read.py::test_an_absent_observed_dataset_is_absent_from_gather`.
+    J21 refuses exactly that read on a corpus-local view, so "nothing refuses" no longer
+    holds there. B4's other clauses stand: every read is validated, and only held
+    datasets are read.
+    - The rounds 1–6 reviews did not see this. It is resolved the way cut 43 resolved
+      J9's two-root clause. J21 is the successor of B4's absent-dataset clause, the
+      cut 44 document cites it, and B4's frozen declaration is not edited.
+    - B4b's check keeps its node id, because the frozen declaration pins it. Its body
+      now asserts the J21 refusal, with a docstring naming the supersession.
+    - B4b's sabotage is re-targeted in `test_n2_cut22.py`'s `_LIVE_SABOTAGES` to J21a's
+      mutation. The two arms share it, as J9a and J12a share theirs.
+    - *Rejected:* dropping decision 9. Admission would keep judging a run with part of
+      its lineage silently missing, and science's guard would stay the only defence.
+  - **Foreseen re-targets.** Two live pins move:
+    - cut 20's F4 (`reason = validity_refusal(view, view.get(dataset_ref), profile)` in
+      `eligibility_refusal`) moves into `eligibility_outcome` with the judge and reports
+      arguments. It is re-targeted in `test_n2_cut20.py`'s `_LIVE_SABOTAGES` with the
+      same mutation, reading the facet directly.
+    - cut 22's B4b, above.
+
+    Cut 32's `_refuse` pins (`reading = self._view if view is None else view`, the
+    `_refuse_supersedes_same_kind` lines) and the pinned `self._refuse(record, …)` call
+    sites stay byte-exact. `_refuse` becomes a wrapper that opens the citation scope.
+    Its body moves unchanged into `_refuse_cited`, which first rebinds a `None` view to
+    the citation view. Any further stale arm is a finding against this spec.
+  - **`eligibility_refusal` keeps its string return.** §3.3's structured outcome is a new
+    `eligibility_outcome(view, node, profile, *, judge=None, reports=None) ->
+    EligibilityOutcome | None`. `eligibility_refusal` becomes its string projection with
+    the same keyword arguments. Frozen acceptance callers that compare its string
+    (`test_facet_acceptance.py`, `test_acquisition.py`) are therefore untouched.
+    `EligibilityOutcome(reason, unresolved=())` is `unresolved` exactly when
+    `unresolved` is non-empty.
+  - **mm30 can be cited from a shipped-pack working corpus.** The relocated replica pins
+    `biology:24bcec43…` (reproduction §23.2), which is
+    `shipped_domain_contract("biology").content_identity`. Decision 3's guard passes for
+    a working corpus on the shipped pack.
+  - **`producers-incomplete` refuses at the first incomplete lookup.** The captured
+    reader raises an internal marker when it is asked for an unmapped dataset's producers
+    while a covered corpus is unreadable. The eligibility arm turns the marker into
+    `eligibility-unresolved`. A run observing an unmapped dataset and a mapped valid one
+    may therefore report unresolved where a full scan would pass. That errs toward a
+    warning, never toward silence.
+  - **Portable fixtures.** The writer tests use roots W, M and M3 on `WITH_BIOLOGY`, M2 on
+    `WITH_BIOLOGY_OTHER` (decision 3's mismatch), and M4 on `BASE` (a namespace only W
+    pins). Acquisition's certified path is not portable, so J16i checks the seam
+    acquisition calls, `CorpusWriter._refuse_acquired_dataset` (`holdings/acquire.py`).
+
