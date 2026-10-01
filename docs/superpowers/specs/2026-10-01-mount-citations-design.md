@@ -765,3 +765,8 @@ the code.
   - **Tests that relied on the silent drop.** None beyond B4b's check. The rest of
     `just test-fast` is green, including `test_publication_arrival.py` and
     `test_facet_read.py`, which also seed `observes_missing`.
+
+- 2026-10-01, at Task 7 (N2 declarations):
+  - **J16-c's check was reshaped.** It was vacuous: a report-less verification never reads the view (cut 18 R2), so the
+    `view=self._view` mutation changed nothing. The check now writes a published, report-carrying verification over a
+    mount assessment, and the mutation and check id are unchanged.

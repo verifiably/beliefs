@@ -20,6 +20,7 @@ from nodes.core.errors import RefError
 from nodes.core.write_plan import DefaultExecutor
 from profiles import pins_for
 from test_corpus_write import OperationRecorder
+from verification_fixtures import publish_corpus
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter, MountCitations, ReadView, _operation_lock_for, _root_state_for
@@ -33,6 +34,7 @@ from beliefs.errors import (
     ImportRefused,
 )
 from beliefs.profile import compile_profile, shipped_base_contract
+from beliefs.verify import decode_verification, publication_node
 
 TYPED = profile_with()
 TYPED_OTHER = profile_with("other")
@@ -200,15 +202,15 @@ def test_an_assessment_over_a_mount_dataset_and_proposition_is_written(roots):
 
 
 def test_a_verification_of_a_mount_assessment_is_written(roots):
-    """J16-c's check."""
-    m = adopted(roots["m"])
-    d, p = m.add(observed("d")), m.add(proposition("p"))
-    run = m.add(run_over("r", d))
-    a = m.add(assessment("a", run, p))
-    value = stored.assessment_value(ReadView.opened_at(roots["m"]).get(a.id), profile=TYPED)
+    """J16-c's check: a published, report-carrying verification reads its `verifies`
+    target through the citation view (a report-less one never reads the view)."""
+    published = publish_corpus(adopted(roots["m"]))
     w = mounted_writer(roots, "m")
-    w.add(stored.verification_node("v", title="v", assessment=value.identity(), assessment_ref=a.id,
-                                   scope="clean-environment", verdict="passed"))
+    node = publication_node(published.derived, assessment_ref=published.assessment.id)
+    assert decode_verification(node) is not None
+    held = w.add(node)
+    assert ReadView.opened_at(roots["w"]).holds(held.id)
+    assert not ReadView.opened_at(roots["m"]).holds(held.id)
 
 
 def test_a_citation_across_differing_identities_refuses(roots):
