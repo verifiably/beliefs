@@ -34,7 +34,7 @@ import re
 import secrets
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import pairwise
@@ -74,10 +74,12 @@ from beliefs.dataset import dataset_address
 from beliefs.errors import (
     AcquisitionBoundaryRefused,
     ActorMismatch,
+    AddressMapConflict,
     BasisMissing,
     BuildContended,
     BuildHold,
     BundleMemberHeld,
+    CitationContractMismatch,
     CollisionRefused,
     CompositeError,
     ContractMismatch,
@@ -722,6 +724,136 @@ class _CapturedCheckView:
 
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
         return _producer_ids(self, dataset, aliases=aliases)
+
+
+class MountCitations:
+    """Citation reads over a session's write root and read mounts
+    (mount-citations decisions 1–5, §3.1). A read mount opens at its first use,
+    inside its own capture hold, which never queues; `close` releases every hold.
+    One instance serves one refusal chain."""
+
+    def __init__(self, own: ReadView, own_profile: ProfileSpec, read_mounts: Sequence[Path]) -> None:
+        self._own = own
+        self._own_profile = own_profile
+        self._roots = tuple(read_mounts)
+        self._opened: dict[Path, ReadView] = {}
+        self._holds = ExitStack()
+
+    def close(self) -> None:
+        try:
+            self._holds.close()
+        finally:
+            self._opened.clear()
+
+    def _read_mount(self, root: Path) -> ReadView:
+        view = self._opened.get(root)
+        if view is None:
+            self._holds.enter_context(_operation_lock_for(root).capture())
+            view = self._opened[root] = ReadView.opened_at(root)
+        return view
+
+    def _read_views(self) -> Iterator[tuple[Path, ReadView]]:
+        for root in self._roots:
+            yield root, self._read_mount(root)
+
+    def _holders(self, ref: str, base: ReadView | _ImportView) -> list[tuple[Path | None, ReadView | _ImportView]]:
+        found: list[tuple[Path | None, ReadView | _ImportView]] = [(None, base)] if base.holds(ref) else []
+        found.extend((root, view) for root, view in self._read_views() if view.holds(ref))
+        return found
+
+    def _one(self, ref: str, base: ReadView | _ImportView) -> ReadView | _ImportView | None:
+        """Decision 4: one holder or a refusal, never a pick by corpus order."""
+        found = self._holders(ref, base)
+        if not found:
+            return None
+        if len(found) > 1:
+            corpora = ", ".join(sorted(self._corpus_id(root) for root, _ in found))
+            raise AddressMapConflict(
+                Finding("error", "duplicate-location", ref, corpora,
+                        f"{ref}: held by corpora {corpora}; a citation never picks a holder by corpus order")
+            )
+        root, view = found[0]
+        if root is not None:
+            self._refuse_contract_mismatch(root)
+        return view
+
+    def _corpus_id(self, root: Path | None) -> str:
+        return self._own.corpus_id if root is None else self._opened[root].corpus_id
+
+    def _refuse_contract_mismatch(self, root: Path) -> None:
+        from beliefs.world import load_manifest
+
+        pinned = load_manifest(root).profile.domains
+        for namespace, identity in sorted(self._own_profile.activated_contracts.items()):
+            held = pinned.get(namespace)
+            if held is not None and held != f"{namespace}:{identity}":
+                raise CitationContractMismatch(root, namespace, held, f"{namespace}:{identity}")
+
+    def holder(self, ref: str) -> ReadView | None:
+        return cast("ReadView | None", self._one(ref, self._own))
+
+    def resolve(self, ref: str) -> str | None:
+        view = self.holder(ref)
+        return None if view is None else view.resolve(ref)
+
+    def holds(self, ref: str) -> bool:
+        return self.holder(ref) is not None
+
+    def get(self, ref: str) -> Node:
+        view = self.holder(ref)
+        if view is None:
+            raise RefError(f"{ref}: no session corpus holds it")
+        return view.get(ref)
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        """Decision 3a: the union over the write root and every read mount, held or
+        dangling, whether or not anything holds `dataset`."""
+        found = set(self._own.producers(dataset, aliases=aliases))
+        for _root, view in self._read_views():
+            found.update(view.producers(dataset, aliases=aliases))
+        return tuple(sorted(found))
+
+    def iter_stored(self) -> Iterator[Node]:
+        yield from self._own.iter_stored()
+        for _root, view in self._read_views():
+            yield from view.iter_stored()
+
+    def overlay(self, base: ReadView | _ImportView) -> _SessionOverlay:
+        return _SessionOverlay(self, base)
+
+
+class _SessionOverlay:
+    """An import path's acquisition-boundary view (decision 3a): `base` (the
+    overlay, or the write root) first, then the read mounts, one holder or a
+    refusal; producers are the union."""
+
+    def __init__(self, citations: MountCitations, base: ReadView | _ImportView) -> None:
+        self._citations = citations
+        self._base = base
+
+    def resolve(self, ref: str) -> str | None:
+        view = self._citations._one(ref, self._base)
+        return None if view is None else view.resolve(ref)
+
+    def holds(self, ref: str) -> bool:
+        return self._citations._one(ref, self._base) is not None
+
+    def get(self, ref: str) -> Node:
+        view = self._citations._one(ref, self._base)
+        if view is None:
+            raise RefError(f"{ref}: neither the overlay nor a read mount holds it")
+        return view.get(ref)
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        found = set(self._base.producers(dataset, aliases=aliases))
+        for _root, view in self._citations._read_views():
+            found.update(view.producers(dataset, aliases=aliases))
+        return tuple(sorted(found))
+
+    def iter_stored(self) -> Iterator[Node]:
+        yield from self._base.iter_stored()
+        for _root, view in self._citations._read_views():
+            yield from view.iter_stored()
 
 
 def _producer_ids(
