@@ -10,8 +10,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from authority import FULL, narrowed
+from authority import ACTOR, FULL, narrowed
 from coordination_fixtures import coordination_profile, mounted_root, raw_add, raw_coordination_node
+from dataset_fixtures import pinned
+from domain_facet_fixtures import testing_contract as _testing_contract
+from fixtures_cut3 import typed_applicability, typed_estimand
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_corpus_write import OperationRecorder
@@ -760,6 +763,56 @@ def _two_roots(tmp_path, monkeypatch):
     a, b = mounted_root(tmp_path / "a", V2M), mounted_root(tmp_path / "b", V2M)
     _stub_durable_seams(monkeypatch)
     return a.resolve(), b.resolve(), WorldConfig(tmp_path / "world", WORLD, (a, b))
+
+
+V2T = compile_profile(shipped_base_contract(), [_testing_contract(None)], coordination=shipped_coordination(2))
+
+
+def _two_typed_roots(tmp_path, monkeypatch):
+    from beliefs.world import WorldConfig
+
+    a, b = mounted_root(tmp_path / "a", V2T), mounted_root(tmp_path / "b", V2T)
+    _stub_durable_seams(monkeypatch)
+    return a.resolve(), b.resolve(), WorldConfig(tmp_path / "world", WORLD, (a, b))
+
+
+def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
+    """J16-e's check."""
+    a, b, config = _two_typed_roots(tmp_path, monkeypatch)
+    library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
+    d = library.add(stored.dataset_node(title="d", resources=pinned("d"),
+                                        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
+    p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    session = _open(config, tmp_path, write_root=a, profile=V2T, mounts={a: V2T, b: V2T})
+    w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
+    session.claim_invocation("A", "assess", "d" * 64)
+    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+    w.add(stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
+                                 outcome="supported", interpretation_rule="rule:threshold",
+                                 estimand=typed_estimand(), applicability=typed_applicability()))
+    session.close_invocation("A", {"done": []})
+    session.close()
+
+
+def test_a_symlinked_write_root_mount_key_is_filtered_after_normalization(tmp_path, monkeypatch):
+    """J16-g's check: the alias of the write root never reaches the writer."""
+    a, b, config = _two_typed_roots(tmp_path, monkeypatch)
+    alias = tmp_path / "alias-a"
+    alias.symlink_to(a)
+    library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
+    p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    d = library.add(
+        stored.dataset_node(title="d", resources=pinned("d"),
+                            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
+    session = _open(config, tmp_path, write_root=a, profile=V2T, mounts={alias: V2T, b: V2T})
+    w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
+    session.claim_invocation("A", "assess", "d" * 64)
+    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+    w.add(stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
+                                 outcome="supported", interpretation_rule="rule:threshold",
+                                 estimand=typed_estimand(), applicability=typed_applicability()))  # cites: opens the mounts
+    session.close_invocation("A", {"done": []})
+    session.close()
 
 
 def _open(config, tmp_path, **kwargs):

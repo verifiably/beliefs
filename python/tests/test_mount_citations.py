@@ -7,20 +7,31 @@ refusal chain over read mounts, and the session's wiring. Roots W, M and M3 pin
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from authority import ACTOR, FULL
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import profile_with
 from domain_facet_fixtures import testing_contract as _testing_contract
+from fixtures_cut3 import report as acquisition_report
 from fixtures_cut3 import typed_applicability, typed_estimand
 from nodes.core.errors import RefError
 from nodes.core.write_plan import DefaultExecutor
 from profiles import pins_for
+from test_corpus_write import OperationRecorder
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter, MountCitations, ReadView, _operation_lock_for, _root_state_for
-from beliefs.errors import AddressMapConflict, BuildContended, CitationContractMismatch
+from beliefs.errors import (
+    AcquisitionBoundaryRefused,
+    AddressMapConflict,
+    BuildContended,
+    CitationContractMismatch,
+    EligibilityUnmet,
+    FacetPayloadRefused,
+    ImportRefused,
+)
 from beliefs.profile import compile_profile, shipped_base_contract
 
 TYPED = profile_with()
@@ -165,3 +176,251 @@ def test_the_session_overlay_resolves_into_mounts_and_unions_producers(roots):
         assert overlay.producers(d.id) == ("run:r3",)
     finally:
         view.close()
+
+
+IMPORT: dict[str, Any] = {"observer": "o", "instrument": "i", "opened_at": "2026-10-01T00:00:00Z", "closed_at": "2026-10-01T00:00:01Z"}
+
+
+def mounted_writer(roots, *names, profile=TYPED, port=False):
+    root = roots["w"]
+    operation_port = OperationRecorder(root, authority=FULL, profile=profile) if port else None
+    return CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile, operation_port=operation_port,
+                        read_mounts=[roots[name] for name in names])
+
+
+def test_an_assessment_over_a_mount_dataset_and_proposition_is_written(roots):
+    """J16-a's and J16-b's check."""
+    m = adopted(roots["m"])
+    d, p = m.add(observed("d")), m.add(proposition("p"))
+    w = mounted_writer(roots, "m")
+    run = w.add(run_over("r", d))
+    held = w.add(assessment("a", run, p))
+    assert ReadView.opened_at(roots["w"]).holds(held.id)
+    assert not ReadView.opened_at(roots["m"]).holds(held.id)
+
+
+def test_a_verification_of_a_mount_assessment_is_written(roots):
+    """J16-c's check."""
+    m = adopted(roots["m"])
+    d, p = m.add(observed("d")), m.add(proposition("p"))
+    run = m.add(run_over("r", d))
+    a = m.add(assessment("a", run, p))
+    value = stored.assessment_value(ReadView.opened_at(roots["m"]).get(a.id), profile=TYPED)
+    w = mounted_writer(roots, "m")
+    w.add(stored.verification_node("v", title="v", assessment=value.identity(), assessment_ref=a.id,
+                                   scope="clean-environment", verdict="passed"))
+
+
+def test_a_citation_across_differing_identities_refuses(roots):
+    """J16-d's check."""
+    m2 = adopted(roots["m2"], TYPED_OTHER)
+    p2 = m2.add(proposition("p2"))
+    d = adopted(roots["m"]).add(observed("d"))
+    w = mounted_writer(roots, "m", "m2")
+    run = w.add(run_over("r", d))
+    with pytest.raises(CitationContractMismatch):
+        w.add(assessment("a", run, p2))
+
+
+def test_an_assessment_over_a_dataset_a_third_mount_produces_refuses(roots):
+    """J16-f's check: producers are the session's."""
+    d = adopted(roots["m"]).add(observed("d"))
+    p = adopted(roots["m"]).add(proposition("p"))
+    adopted(roots["m3"]).add(run_over("r3", produces=[d.id]))
+    w = mounted_writer(roots, "m", "m3")
+    run = w.add(run_over("r", d))
+    with pytest.raises(EligibilityUnmet, match="run:r3"):
+        w.add(assessment("a", run, p))
+
+
+def test_a_candidate_named_by_a_mount_runs_dangling_edge_refuses(roots):
+    adopted(roots["m"]).add(run_over("rm", produces=[dataset_ref("future")]))
+    w = mounted_writer(roots, "m")
+    with pytest.raises(AcquisitionBoundaryRefused, match="run:rm"):
+        w.add(observed("future"))
+
+
+def test_revise_adding_the_facet_to_a_dataset_a_mount_run_produces_refuses(roots):
+    """J16-h's check."""
+    w = mounted_writer(roots, "m")
+    plain = w.add(stored.dataset_node(title="plain", resources=pinned("plain")))
+    adopted(roots["m"]).add(run_over("rm", produces=[plain.id]))
+    candidate = plain.model_copy(deep=True)
+    candidate.facets["empirical-observation"] = {"locator": "instrument:fixture", "attested_by": ACTOR}
+    with pytest.raises(AcquisitionBoundaryRefused, match="run:rm"):
+        w.revise(candidate)
+
+
+def test_an_acquired_dataset_a_mount_run_produces_refuses(roots):
+    """J16-i's check, at the seam `holdings/acquire.py` calls."""
+    report = stored.act_report_node(acquisition_report(operation="acquisition"))
+    dataset = observed("got", retrieval=report.id)
+    adopted(roots["m"]).add(run_over("rm", produces=[dataset.id]))
+    w = mounted_writer(roots, "m")
+    with w._citing(), pytest.raises(AcquisitionBoundaryRefused, match="run:rm"):
+        w._refuse_acquired_dataset(dataset, report)
+
+
+def test_an_imported_run_producing_a_mount_observation_refuses(roots):
+    """J16-j's check: the reverse direction."""
+    d = adopted(roots["m"]).add(observed("d"))
+    w = mounted_writer(roots, "m", port=True)
+    with pytest.raises(ImportRefused) as refused:
+        w.import_bundle([run_over("ri", produces=[d.id])], **IMPORT)
+    assert refused.value.member == "run:ri"
+    assert isinstance(refused.value.__cause__, AcquisitionBoundaryRefused)
+    with pytest.raises(AcquisitionBoundaryRefused):
+        w.add(run_over("rw", produces=[d.id]))
+
+
+def test_a_dataset_whose_retrieval_report_is_in_a_mount_refuses(roots):
+    """J16-k's check: retrieval reports stay with their dataset."""
+    m = adopted(roots["m"], TYPED)
+    report = stored.act_report_node(acquisition_report(operation="acquisition"))
+    m_port = CorpusWriter(roots["m"], DefaultExecutor, authority=FULL, profile=TYPED,
+                          operation_port=OperationRecorder(roots["m"], authority=FULL, profile=TYPED))
+    m_port.import_bundle([report], **IMPORT)
+    w = mounted_writer(roots, "m")
+    with pytest.raises(FacetPayloadRefused, match="facet-retrieval-unresolved"):
+        w.add(observed("split", retrieval=report.id))
+    assert m.read_view.holds(report.id)
+
+
+def test_an_assessment_over_a_raw_split_dataset_refuses(roots):
+    """J16-l's check: eligibility reads a dataset's report in its own corpus."""
+    from fixtures_cut4 import raw_write
+
+    report = stored.act_report_node(acquisition_report(operation="acquisition"))
+    CorpusWriter(roots["m"], DefaultExecutor, authority=FULL, profile=TYPED,
+                 operation_port=OperationRecorder(roots["m"], authority=FULL, profile=TYPED)).import_bundle([report], **IMPORT)
+    split = observed("split", retrieval=report.id)
+    raw_write(roots["w"], split)
+    p = adopted(roots["m"]).add(proposition("p"))
+    w = mounted_writer(roots, "m")
+    w._reconstruct()
+    run = w.add(run_over("r", split))
+    with pytest.raises(EligibilityUnmet, match="facet-retrieval-unresolved"):
+        w.add(assessment("a", run, p))
+
+
+def test_an_imported_assessment_over_a_dataset_a_mount_produces_refuses(roots):
+    """J16-m's check: imports resolve locally and judge producers over the session."""
+    w = mounted_writer(roots, "m", port=True)
+    d = w.add(observed("d"))
+    run = w.add(run_over("r", d))
+    p = w.add(proposition("p"))
+    adopted(roots["m"]).add(run_over("rm", produces=[d.id]))
+    with pytest.raises(ImportRefused) as refused:
+        w.import_bundle([assessment("a", run, p)], **IMPORT)
+    assert refused.value.member == "assessment:a"
+    assert isinstance(refused.value.__cause__, EligibilityUnmet) and "run:rm" in str(refused.value.__cause__)
+
+
+def test_without_read_mounts_the_writes_refuse_as_today(roots):
+    m = adopted(roots["m"])
+    d, p = m.add(observed("d")), m.add(proposition("p"))
+    w = adopted(roots["w"])
+    run = w.add(run_over("r", d))
+    with pytest.raises(EligibilityUnmet, match="unresolved"):
+        w.add(assessment("a", run, p))
+
+
+def test_a_write_citing_nothing_opens_no_mount_while_a_mount_is_held(roots):
+    """Review Focus 1, and J17's negative."""
+    w = mounted_writer(roots, "m")
+    with _root_state_for(roots["m"], DefaultExecutor).lock:
+        w.add(proposition("q"))
+
+
+def test_a_citing_write_while_a_mount_is_held_refuses_build_contended(roots):
+    """A run's `observes` is not read at write time; the assessment through it cites."""
+    m = adopted(roots["m"])
+    d, p = m.add(observed("d")), m.add(proposition("p"))
+    w = mounted_writer(roots, "m")
+    run = w.add(run_over("r", d))
+    with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended):
+        w.add(assessment("a", run, p))
+    assert not ReadView.opened_at(roots["w"]).holds("assessment:a")
+
+
+def test_an_assessment_citing_only_write_root_records_still_contends(roots):
+    """J17's negative: decision 5 opens every read mount to rule out a second holder."""
+    w = mounted_writer(roots, "m")
+    d, p = w.add(observed("d")), w.add(proposition("p"))
+    run = w.add(run_over("r", d))
+    with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended):
+        w.add(assessment("a", run, p))
+
+
+def test_a_refused_citing_write_releases_every_mount_hold(roots):
+    """Review Focus 2."""
+    adopted(roots["m2"], TYPED_OTHER).add(proposition("p2"))
+    d = adopted(roots["m"]).add(observed("d"))
+    w = mounted_writer(roots, "m", "m2")
+    run = w.add(run_over("r", d))
+    with pytest.raises(CitationContractMismatch):
+        w.add(assessment("a", run, "proposition:p2"))
+    for name in ("m", "m2"):
+        with _operation_lock_for(roots[name]).capture():
+            pass
+
+
+def test_a_library_writer_beside_a_mounted_writer_reads_its_own_root_only(roots):
+    """Review Focus 3: writer state is shared per root; the read mounts are not."""
+    m = adopted(roots["m"])
+    d, p = m.add(observed("d")), m.add(proposition("p"))
+    mounted = mounted_writer(roots, "m")
+    run = mounted.add(run_over("r", d))
+    with pytest.raises(EligibilityUnmet):
+        adopted(roots["w"]).add(assessment("a", run, p))
+
+
+def test_read_mounts_refuse_the_writers_own_root_and_repeats(roots, tmp_path):
+    link = tmp_path / "alias"
+    link.symlink_to(roots["w"])
+    with pytest.raises(ValueError):
+        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=TYPED, read_mounts=[link])
+    with pytest.raises(ValueError):
+        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=TYPED, read_mounts=[roots["m"], roots["m"]])
+    with pytest.raises(TypeError):
+        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=TYPED, read_mounts=[str(roots["m"])])  # pyright: ignore[reportArgumentType]
+
+
+def test_a_spec_targeting_a_mount_proposition_is_written(tmp_path):
+    """J16's analysis-spec case: `test_corpus_write.py`'s spec-target admission, the target held in M.
+    Every root pins `TESTING_PROFILE`, as `typed_writer` does, so decision 3 does not fire."""
+    from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, spec_draft, spec_rules
+
+    from beliefs.projection import project_claim
+    from beliefs.spec import freeze
+
+    w_root, m_root = (tmp_path / "w").resolve(), (tmp_path / "m").resolve()
+    adopted(w_root, TESTING_PROFILE)
+    target = adopted(m_root, TESTING_PROFILE).add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
+    w = CorpusWriter(w_root, DefaultExecutor, authority=FULL, profile=TESTING_PROFILE, read_mounts=[m_root])
+    held = w.add(stored.analysis_spec_node(spec))
+    assert held.id == f"analysis-spec:{spec.identity}"
+    assert ReadView.opened_at(w_root).holds(held.id) and not ReadView.opened_at(m_root).holds(held.id)
+
+
+def test_a_composite_over_mount_propositions_is_written(tmp_path):
+    """J16's composite case: `test_composite_boundary.py`'s first add, the members held in M.
+    Every root pins `WITH_BIOLOGY`, as that module does, so decision 3 does not fire."""
+    from profiles import WITH_BIOLOGY
+    from test_composite_boundary import SNAPSHOT, A, B, C, _claim, _proposition
+
+    from beliefs.composite import build_composite
+
+    w_root, m_root = (tmp_path / "w").resolve(), (tmp_path / "m").resolve()
+    adopted(w_root, WITH_BIOLOGY)
+    m = adopted(m_root, WITH_BIOLOGY)
+    _proposition(m, "ab", _claim("EX:a", "EX:b"))
+    _proposition(m, "bc", _claim("EX:b", "EX:c", polarity="negative"))
+    value, _ = build_composite(WITH_BIOLOGY, m.read_view, shape="dag", nodes=[A, B, C],
+                               members=["proposition:ab", "proposition:bc"], snapshot=SNAPSHOT, slug="g")
+    w = CorpusWriter(w_root, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY, read_mounts=[m_root])
+    minted = w.add(stored.composite_node(value, title="a→b⊣c"))
+    node = ReadView.opened_at(w_root).get(minted.id)
+    assert {r.target for r in node.relations} == {"proposition:ab", "proposition:bc"}
+    assert not ReadView.opened_at(m_root).holds(minted.id)
