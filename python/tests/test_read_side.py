@@ -406,31 +406,6 @@ class TestTheCorpusCheck:
             ("error", "eligibility-unmet", "assessment:a1", "proposition:p1")
         ]
 
-    def test_a_dataset_the_corpus_does_not_hold_is_eligibility_unresolved(self, tmp_path):
-        """J18-a's check."""
-        view = admissible_corpus(tmp_path, observes=[dataset_ref("elsewhere")])
-        findings = corpus_check(view, BASE)
-        assert [(f.severity, f.code, f.ref, f.detail) for f in findings] == [
-            ("warning", "eligibility-unresolved", "assessment:a1", dataset_ref("elsewhere"))
-        ]
-
-    def test_an_unheld_run_is_eligibility_unresolved(self, tmp_path):
-        """Review Focus 4."""
-        view = admissible_corpus(tmp_path)
-        node = view.get("assessment:a1").model_copy(deep=True)
-        node.facets[stored.ASSESSMENT_FACET]["run"] = "run:elsewhere"
-        raw_write(view._corpus.store.root, stored.stamp_semantic_identity(node))
-        findings = corpus_check(reopen(view._corpus.store.root), BASE)
-        assert ("warning", "eligibility-unresolved", "assessment:a1", "run:elsewhere") in [
-            (f.severity, f.code, f.ref, f.detail) for f in findings
-        ]
-
-    def test_one_held_invalid_and_one_unheld_dataset_is_unresolved(self, tmp_path):
-        """J18-b's check."""
-        plain = stored.dataset_node(title="plain", resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}])
-        view = admissible_corpus(tmp_path, observes=[plain.id, dataset_ref("elsewhere")], extra=(plain,))
-        assert [(f.severity, f.code) for f in corpus_check(view, BASE)] == [("warning", "eligibility-unresolved")]
-
     def test_reads_inputs_confer_no_eligibility_in_any_quantity(self, tmp_path):
         view = admissible_corpus(tmp_path, observes=[], reads=[dataset_ref("raw"), dataset_ref("raw")])
         assert [f.code for f in corpus_check(view, BASE)] == ["eligibility-unmet"]
@@ -532,6 +507,32 @@ class TestTheCorpusCheck:
         findings = corpus_check(reopen(tmp_path), BASE)
         assert [f.sort_key for f in findings] == sorted(f.sort_key for f in findings)
         assert {f.ref for f in findings} == {"assessment:a1", dataset_ref("raw")}
+
+
+def test_a_dataset_the_corpus_does_not_hold_is_eligibility_unresolved(tmp_path):
+    """J18-a's check."""
+    view = admissible_corpus(tmp_path, observes=[dataset_ref("elsewhere")])
+    findings = corpus_check(view, BASE)
+    assert [(f.severity, f.code, f.ref, f.detail) for f in findings] == [
+        ("warning", "eligibility-unresolved", "assessment:a1", dataset_ref("elsewhere"))
+    ]
+
+def test_an_unheld_run_is_eligibility_unresolved(tmp_path):
+    """Review Focus 4."""
+    view = admissible_corpus(tmp_path)
+    node = view.get("assessment:a1").model_copy(deep=True)
+    node.facets[stored.ASSESSMENT_FACET]["run"] = "run:elsewhere"
+    raw_write(view._corpus.store.root, stored.stamp_semantic_identity(node))
+    findings = corpus_check(reopen(view._corpus.store.root), BASE)
+    assert ("warning", "eligibility-unresolved", "assessment:a1", "run:elsewhere") in [
+        (f.severity, f.code, f.ref, f.detail) for f in findings
+    ]
+
+def test_one_held_invalid_and_one_unheld_dataset_is_unresolved(tmp_path):
+    """J18-b's check."""
+    plain = stored.dataset_node(title="plain", resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}])
+    view = admissible_corpus(tmp_path, observes=[plain.id, dataset_ref("elsewhere")], extra=(plain,))
+    assert [(f.severity, f.code) for f in corpus_check(view, BASE)] == [("warning", "eligibility-unresolved")]
 
 
 class TestTheSnapshotWalk:
