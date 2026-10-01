@@ -174,8 +174,9 @@ published, report-carrying verification over a mount assessment, so the view dec
 it. The frozen mutation and check id are unchanged (`cac773c`).
 
 **J20's equality.** The durable case compares the value, policy binding and admission,
-and the closure projection, between the split world and the same records in one corpus. It excludes `belief_input_digest` and, from the closure, `producer_snapshot`
-and the retraction `coverage`: those name the world's epoch and its corpus ids by
+and the closure projection, between the split world and the same records in one
+corpus. It excludes `belief_input_digest` and, from the closure, `producer_snapshot` and
+the retraction `coverage`: those name the world's epoch and its corpus ids by
 construction, against `producer-snapshot-1` and the single corpus id. Every other closure
 member is equal. Attribution is asserted as assessment and run → W, the observed
 datasets → M, and the proposition's corpus via `corpus_of`, because `gather` attributes

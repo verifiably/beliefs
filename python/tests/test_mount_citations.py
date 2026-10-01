@@ -227,7 +227,8 @@ def test_a_verification_of_a_mount_assessment_is_written(roots):
     published = publish_corpus(adopted(roots["m"]))
     w = mounted_writer(roots, "m")
     node = publication_node(published.derived, assessment_ref=published.assessment.id)
-    assert decode_verification(node) is not None
+    decoded = decode_verification(node)
+    assert decoded is not None and decoded.assessment is not None  # it carries a `verifies` edge the view resolves
     held = w.add(node)
     assert ReadView.opened_at(roots["w"]).holds(held.id)
     assert not ReadView.opened_at(roots["m"]).holds(held.id)
@@ -373,6 +374,21 @@ def test_a_corpus_local_read_of_an_assessment_over_a_mount_run_refuses(roots):
                                 fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES})
     answer = evaluate_over(view, p.id, availability=availability, **read)
     assert isinstance(answer, Refused) and answer.reason.startswith("input-outside-corpus:")
+
+
+def test_a_run_no_session_corpus_holds_is_named_as_searched_across_the_session(roots):
+    """The refusal says where a mounted writer looked: the write root and its read mounts."""
+    p = adopted(roots["m"]).add(proposition("p"))
+    w = mounted_writer(roots, "m")
+    with pytest.raises(EligibilityUnmet, match="resolves to no node in the write root or any read mount"):
+        w.add(assessment("a", run_over("nowhere"), p))
+
+
+def test_eligibility_outside_a_citation_scope_raises_with_read_mounts(roots):
+    """`_refuse_ineligible`'s `None` view is the citation view, which exists only in a scope."""
+    w = mounted_writer(roots, "m")
+    with pytest.raises(RuntimeError, match="citation scope"):
+        w._refuse_ineligible(assessment("a", run_over("r"), "proposition:p"))
 
 
 def test_without_read_mounts_the_writes_refuse_as_today(roots):

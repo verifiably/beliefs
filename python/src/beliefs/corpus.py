@@ -1572,7 +1572,8 @@ def eligibility_outcome(
     if not isinstance(run_ref, str) or not run_ref:
         return EligibilityOutcome("the assessment names no run")
     if not view.holds(run_ref):
-        return EligibilityOutcome(f"the run {run_ref!r} resolves to no node in this corpus", (run_ref,))
+        searched = "the write root or any read mount" if isinstance(view, MountCitations) else "this corpus"
+        return EligibilityOutcome(f"the run {run_ref!r} resolves to no node in {searched}", (run_ref,))
     run = view.get(run_ref)
     observed = stored.inputs_of(run, stored.OBSERVES)
     if not observed:
@@ -3879,13 +3880,16 @@ class CorpusWriter:
     def _refuse_ineligible(self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None) -> None:
         """S7's write boundary. An import overlay finds the run and its datasets
         through itself and judges them with the session's producers; every other
-        path reads the citation view (mount-citations §3.1)."""
-        reading = self._view if view is None else view
+        path reads the citation view (mount-citations §3.1), which a `None` view
+        means. With read mounts, both are judged only inside a citation scope:
+        outside one this raises `RuntimeError`, as `_citation_view` does."""
+        reading = self._citation_view() if view is None else view
         judge: ProducerView | None = None
         reports: Callable[[str], ReportView | None] | None = None
         if self._read_mounts:
             citations = self._citations
-            assert citations is not None, "eligibility is judged inside a citation scope"
+            if citations is None:
+                raise RuntimeError("eligibility judged outside a citation scope (mount-citations decision 5)")
             if isinstance(reading, _ImportView):
                 judge, reports = citations.overlay(reading), (lambda _ref: reading)
             else:
