@@ -733,14 +733,23 @@ the code.
     `biology:24bcec43…` (reproduction §23.2), which is
     `shipped_domain_contract("biology").content_identity`. Decision 3's guard passes for
     a working corpus on the shipped pack.
-  - **`producers-incomplete` refuses at the first incomplete lookup.** The captured
-    reader raises an internal marker when it is asked for an unmapped dataset's producers
-    while a covered corpus is unreadable. The eligibility arm turns the marker into
-    `eligibility-unresolved`. A run observing an unmapped dataset and a mapped valid one
-    may therefore report unresolved where a full scan would pass. That errs toward a
-    warning, never toward silence.
-  - **Portable fixtures.** The writer tests use roots W, M and M3 on `WITH_BIOLOGY`, M2 on
-    `WITH_BIOLOGY_OTHER` (decision 3's mismatch), and M4 on `BASE` (a namespace only W
-    pins). Acquisition's certified path is not portable, so J16i checks the seam
+  - **`producers-incomplete` is judged per dataset, and the scan continues.**
+    - A known producer always decides a dataset: it is produced, whatever else is
+      unreadable.
+    - An own dataset the epoch never mapped, with no known producer, while a covered
+      corpus is unreadable, is treated as an unresolved reference. Its cause is
+      `producers-incomplete:<corpus ids>`.
+    - Eligibility goes on to the run's other observed datasets, so a later valid one
+      still supports the edge.
+
+    This replaces the draft plan's early abort, which turned definite failures into
+    warnings and skipped later valid datasets (plan review 1, P2).
+  - **Portable fixtures.**
+    - The writer tests use roots W, M and M3 on `profile_with()` (testing plus the
+      fixture `biology`), so `typed_estimand()`'s `testing/affects` decodes.
+    - M2 is on `profile_with("other")`, decision 3's mismatch.
+    - M4 is on the testing contract alone, a namespace set without `biology`.
+    - The world-audit tests keep `WITH_BIOLOGY`, which `corpora` pins in every
+      manifest. Eligibility decodes no estimand. Acquisition's certified path is not portable, so J16i checks the seam
     acquisition calls, `CorpusWriter._refuse_acquired_dataset` (`holdings/acquire.py`).
 

@@ -190,8 +190,8 @@ Then `tasks dep` each child on its predecessor, and start Task 0's child.
 - [ ] **Step 5: Verify and commit**
 
 ```bash
-cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py -q
-cd .. && tasks done <Task 0's id> "cut 44 frozen; J16–J21 banked"
+just test-one tests/test_designs_corpus.py tests/test_check_guide.py
+tasks done <Task 0's id> "cut 44 frozen; J16–J21 banked"
 tasks check && git add docs README.md python/tests/test_designs_corpus.py tasks
 git commit -m "docs(cut): freeze conformance cut 44, mount citations; bank J16–J21"
 git rev-parse --short HEAD; sha256sum docs/designs/2026-10-01-conformance-cut-44.md
@@ -226,7 +226,9 @@ Record `CUT44_FREEZE_COMMIT` and `CUT44_FROZEN_SHA256` for Task 7.
 ```python
 """Mount citations (mount-citations design, cut 44): the mount view, the writer's
 refusal chain over read mounts, and the session's wiring. Roots W, M and M3 pin
-`WITH_BIOLOGY`; M2 pins `WITH_BIOLOGY_OTHER` (decision 3's mismatch); M4 pins `BASE`."""
+`TYPED` (the testing contract and the fixture `biology`, so `typed_estimand()`'s
+`testing/affects` decodes); M2 pins `TYPED_OTHER`, another `biology` identity
+(decision 3's mismatch); M4 pins `TESTING_ONLY`, a namespace set without `biology`."""
 
 from __future__ import annotations
 
@@ -238,14 +240,21 @@ from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut3 import typed_applicability, typed_estimand
 from nodes.core.errors import RefError
 from nodes.core.write_plan import DefaultExecutor
-from profiles import BASE, WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
+from domain_facet_fixtures import profile_with, testing_contract
+from profiles import pins_for
+
+from beliefs.profile import compile_profile, shipped_base_contract
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter, MountCitations, ReadView, _operation_lock_for, _root_state_for
 from beliefs.errors import AddressMapConflict, BuildContended, CitationContractMismatch
 
+TYPED = profile_with()
+TYPED_OTHER = profile_with("other")
+TESTING_ONLY = compile_profile(shipped_base_contract(), [testing_contract(None)])
 
-def adopted(root: Path, profile=WITH_BIOLOGY) -> CorpusWriter:
+
+def adopted(root: Path, profile=TYPED) -> CorpusWriter:
     writer = CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile)
     if not (root / "corpus.yaml").exists():
         writer.adopt_manifest(profile=pins_for(profile))
@@ -279,13 +288,13 @@ def assessment(slug: str, run, prop):
 def roots(tmp_path):
     made = {name: tmp_path / name for name in ("w", "m", "m2", "m3", "m4")}
     for name, root in made.items():
-        adopted(root, {"m2": WITH_BIOLOGY_OTHER, "m4": BASE}.get(name, WITH_BIOLOGY))
+        adopted(root, {"m2": TYPED_OTHER, "m4": TESTING_ONLY}.get(name, TYPED))
     return {name: root.resolve() for name, root in made.items()}
 
 
 def citations(roots, *names):
     own = ReadView.opened_at(roots["w"])
-    return MountCitations(own, WITH_BIOLOGY, [roots[name] for name in names])
+    return MountCitations(own, TYPED, [roots[name] for name in names])
 
 
 def test_holder_is_the_one_corpus_holding_a_ref(roots):
@@ -343,7 +352,7 @@ def test_read_mounts_open_lazily_and_close_releases_their_holds(roots):
 
 def test_a_citation_into_a_differing_namespace_identity_refuses(roots):
     """J16-d's unit: M2 pins another `biology` identity than W's."""
-    p = adopted(roots["m2"], WITH_BIOLOGY_OTHER).add(proposition("p2"))
+    p = adopted(roots["m2"], TYPED_OTHER).add(proposition("p2"))
     view = citations(roots, "m2")
     try:
         with pytest.raises(CitationContractMismatch) as refused:
@@ -354,7 +363,7 @@ def test_a_citation_into_a_differing_namespace_identity_refuses(roots):
 
 
 def test_a_namespace_only_the_writer_pins_does_not_refuse(roots):
-    p = adopted(roots["m4"], BASE).add(proposition("p4"))
+    p = adopted(roots["m4"], TESTING_ONLY).add(proposition("p4"))
     view = citations(roots, "m4")
     try:
         assert view.holder(p.id) is not None
@@ -583,7 +592,7 @@ from beliefs.errors import AcquisitionBoundaryRefused, EligibilityUnmet, FacetPa
 IMPORT = {"observer": "o", "instrument": "i", "opened_at": "2026-10-01T00:00:00Z", "closed_at": "2026-10-01T00:00:01Z"}
 
 
-def mounted_writer(roots, *names, profile=WITH_BIOLOGY, port=False):
+def mounted_writer(roots, *names, profile=TYPED, port=False):
     root = roots["w"]
     operation_port = OperationRecorder(root, authority=FULL, profile=profile) if port else None
     return CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile, operation_port=operation_port,
@@ -607,7 +616,7 @@ def test_a_verification_of_a_mount_assessment_is_written(roots):
     d, p = m.add(observed("d")), m.add(proposition("p"))
     run = m.add(run_over("r", d))
     a = m.add(assessment("a", run, p))
-    value = stored.assessment_value(ReadView.opened_at(roots["m"]).get(a.id), profile=WITH_BIOLOGY)
+    value = stored.assessment_value(ReadView.opened_at(roots["m"]).get(a.id), profile=TYPED)
     w = mounted_writer(roots, "m")
     w.add(stored.verification_node("v", title="v", assessment=value.identity(), assessment_ref=a.id,
                                    scope="clean-environment", verdict="passed"))
@@ -615,7 +624,7 @@ def test_a_verification_of_a_mount_assessment_is_written(roots):
 
 def test_a_citation_across_differing_identities_refuses(roots):
     """J16-d's check."""
-    m2 = adopted(roots["m2"], WITH_BIOLOGY_OTHER)
+    m2 = adopted(roots["m2"], TYPED_OTHER)
     p2 = m2.add(proposition("p2"))
     d = adopted(roots["m"]).add(observed("d"))
     w = mounted_writer(roots, "m", "m2")
@@ -677,10 +686,10 @@ def test_an_imported_run_producing_a_mount_observation_refuses(roots):
 
 def test_a_dataset_whose_retrieval_report_is_in_a_mount_refuses(roots):
     """J16-k's check: retrieval reports stay with their dataset."""
-    m = adopted(roots["m"], WITH_BIOLOGY)
+    m = adopted(roots["m"], TYPED)
     report = stored.act_report_node(acquisition_report(operation="acquisition"))
-    m_port = CorpusWriter(roots["m"], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY,
-                          operation_port=OperationRecorder(roots["m"], authority=FULL, profile=WITH_BIOLOGY))
+    m_port = CorpusWriter(roots["m"], DefaultExecutor, authority=FULL, profile=TYPED,
+                          operation_port=OperationRecorder(roots["m"], authority=FULL, profile=TYPED))
     m_port.import_bundle([report], **IMPORT)
     w = mounted_writer(roots, "m")
     with pytest.raises(FacetPayloadRefused, match="facet-retrieval-unresolved"):
@@ -693,8 +702,8 @@ def test_an_assessment_over_a_raw_split_dataset_refuses(roots):
     from fixtures_cut4 import raw_write
 
     report = stored.act_report_node(acquisition_report(operation="acquisition"))
-    CorpusWriter(roots["m"], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY,
-                 operation_port=OperationRecorder(roots["m"], authority=FULL, profile=WITH_BIOLOGY)).import_bundle([report], **IMPORT)
+    CorpusWriter(roots["m"], DefaultExecutor, authority=FULL, profile=TYPED,
+                 operation_port=OperationRecorder(roots["m"], authority=FULL, profile=TYPED)).import_bundle([report], **IMPORT)
     split = observed("split", retrieval=report.id)
     raw_write(roots["w"], split)
     p = adopted(roots["m"]).add(proposition("p"))
@@ -735,15 +744,28 @@ def test_a_write_citing_nothing_opens_no_mount_while_a_mount_is_held(roots):
 
 
 def test_a_citing_write_while_a_mount_is_held_refuses_build_contended(roots):
-    d = adopted(roots["m"]).add(observed("d"))
+    """A run's `observes` is not read at write time; the assessment through it cites."""
+    m = adopted(roots["m"])
+    d, p = m.add(observed("d")), m.add(proposition("p"))
     w = mounted_writer(roots, "m")
+    run = w.add(run_over("r", d))
     with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended):
-        w.add(run_over("r", d))
+        w.add(assessment("a", run, p))
+    assert not ReadView.opened_at(roots["w"]).holds("assessment:a")
+
+
+def test_an_assessment_citing_only_write_root_records_still_contends(roots):
+    """J17's negative: decision 5 opens every read mount to rule out a second holder."""
+    w = mounted_writer(roots, "m")
+    d, p = w.add(observed("d")), w.add(proposition("p"))
+    run = w.add(run_over("r", d))
+    with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended):
+        w.add(assessment("a", run, p))
 
 
 def test_a_refused_citing_write_releases_every_mount_hold(roots):
     """Review Focus 2."""
-    adopted(roots["m2"], WITH_BIOLOGY_OTHER).add(proposition("p2"))
+    adopted(roots["m2"], TYPED_OTHER).add(proposition("p2"))
     d = adopted(roots["m"]).add(observed("d"))
     w = mounted_writer(roots, "m", "m2")
     run = w.add(run_over("r", d))
@@ -768,11 +790,11 @@ def test_read_mounts_refuse_the_writers_own_root_and_repeats(roots, tmp_path):
     link = tmp_path / "alias"
     link.symlink_to(roots["w"])
     with pytest.raises(ValueError):
-        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY, read_mounts=[link])
+        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=TYPED, read_mounts=[link])
     with pytest.raises(ValueError):
-        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY, read_mounts=[roots["m"], roots["m"]])
+        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=TYPED, read_mounts=[roots["m"], roots["m"]])
     with pytest.raises(TypeError):
-        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY, read_mounts=[str(roots["m"])])
+        CorpusWriter(roots["w"], DefaultExecutor, authority=FULL, profile=TYPED, read_mounts=[str(roots["m"])])
 ```
 
 Also add these two to `test_mount_citations.py`:
@@ -787,18 +809,30 @@ Name them `test_a_spec_targeting_a_mount_proposition_is_written` and
 `test_a_composite_over_mount_propositions_is_written`. Each test gives every root it
 uses the profile that existing test uses, so decision 3 does not fire.
 
-- [ ] **Step 2: The session tests.** Append to `test_session_writer.py`, after `_two_roots`
-  (which uses `V2M`):
+- [ ] **Step 2: The session tests.** Append to `test_session_writer.py`, after `_two_roots`.
+  `V2T` adds the testing contract to `V2M`, so the assessments' `testing/affects`
+  estimand decodes:
 
 ```python
+from domain_facet_fixtures import testing_contract
+
+V2T = compile_profile(shipped_base_contract(), [testing_contract(None)], coordination=shipped_coordination(2))
+
+
+def _two_typed_roots(tmp_path, monkeypatch):
+    a, b = mounted_root(tmp_path / "a", V2T), mounted_root(tmp_path / "b", V2T)
+    _stub_durable_seams(monkeypatch)
+    return a.resolve(), b.resolve(), WorldConfig(tmp_path / "world", WORLD, (a, b))
+
+
 def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
     """J16-e's check."""
-    a, b, config = _two_roots(tmp_path, monkeypatch)
-    library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2M)
+    a, b, config = _two_typed_roots(tmp_path, monkeypatch)
+    library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
     d = library.add(stored.dataset_node(title="d", resources=pinned("d"),
                                         empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
     p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
-    session = _open(config, tmp_path, write_root=a, profile=V2M, mounts={a: V2M, b: V2M})
+    session = _open(config, tmp_path, write_root=a, profile=V2T, mounts={a: V2T, b: V2T})
     w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {}), "A")
     session.claim_invocation("A", "assess", "d" * 64)
     run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
@@ -811,21 +845,27 @@ def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
 
 def test_a_symlinked_write_root_mount_key_is_filtered_after_normalization(tmp_path, monkeypatch):
     """J16-g's check: the alias of the write root never reaches the writer."""
-    a, b, config = _two_roots(tmp_path, monkeypatch)
+    a, b, config = _two_typed_roots(tmp_path, monkeypatch)
     alias = tmp_path / "alias-a"
     alias.symlink_to(a)
-    d = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2M).add(
+    library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
+    p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    d = library.add(
         stored.dataset_node(title="d", resources=pinned("d"),
                             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
-    session = _open(config, tmp_path, write_root=a, profile=V2M, mounts={alias: V2M, b: V2M})
-    w = session.scoped(RequiredCapabilities.for_kinds({"run"}, {}), "A")
-    session.claim_invocation("A", "run", "d" * 64)
-    w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+    session = _open(config, tmp_path, write_root=a, profile=V2T, mounts={alias: V2T, b: V2T})
+    w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {}), "A")
+    session.claim_invocation("A", "assess", "d" * 64)
+    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+    w.add(stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
+                                 outcome="supported", interpretation_rule="rule:threshold",
+                                 estimand=typed_estimand(), applicability=typed_applicability()))  # cites: opens the mounts
     session.close_invocation("A", {"done": []})
     session.close()
 ```
-Add `pinned`, `typed_estimand`, `typed_applicability`, `ACTOR` and `stored` to that
-module's imports if they are absent.
+Add `pinned`, `typed_estimand`, `typed_applicability`, `ACTOR`, `stored`,
+`compile_profile`, `shipped_base_contract` and `shipped_coordination` to that module's
+imports if they are absent.
 
 - [ ] **Step 3: Run them to see them fail**
 
@@ -1190,6 +1230,7 @@ git commit -m "feat(corpus): the corpus check reports unresolved eligibility as 
   `NO_EVIDENCE`:
 
 ```python
+from coordination_fixtures import raw_add
 from fixtures_cut3 import report as acquisition_report
 from fixtures_cut3 import typed_applicability, typed_estimand
 from dataset_fixtures import pinned
@@ -1198,7 +1239,9 @@ REPORT = stored.act_report_node(acquisition_report(operation="acquisition"))
 
 
 def _observed(seed, *, retrieval=REPORT.id, facet=True):
-    payload = {"locator": "instrument:fixture", "attested_by": "test-actor", "retrieval": retrieval}
+    payload = {"locator": "instrument:fixture", "attested_by": "test-actor"}
+    if retrieval is not None:
+        payload["retrieval"] = retrieval
     return stored.dataset_node(title=seed, resources=pinned(seed), empirical_observation=payload if facet else None)
 
 
@@ -1284,6 +1327,62 @@ def test_j19_a_malformed_held_record_is_unresolved(tmp_path):
     assert finding.code == "eligibility-unresolved" and "malformed:semantic-hash-stale" in finding.detail
 
 
+def test_j19_a_malformed_record_cited_by_an_alias_is_unresolved(tmp_path):
+    """Plan review 1, P1: malformedness is keyed by the canonical id."""
+    aliased = _observed("d").model_copy(update={"deprecated_ids": ["dataset:old-alias"]})
+    aliased = stored.stamp_semantic_identity(aliased)
+    p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    run = stored.run_node("r", title="r", spec="analysis-spec:s1", observes=["dataset:old-alias"])
+    a = stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
+                               outcome="supported", interpretation_rule="rule:threshold",
+                               estimand=typed_estimand(), applicability=typed_applicability())
+    roots = corpora(tmp_path, {ALPHA: (run, a), BETA: (aliased, REPORT, p)})
+    world = world_over(tmp_path, roots)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    path = next((roots[BETA] / "dataset").glob("*.md"))
+    path.write_text(path.read_text().replace("instrument:fixture", "instrument:edited"))  # stale stamp
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+    (finding,) = [f for f in audit.corpora[ALPHA] if f.code.startswith("eligibility")]
+    assert finding.code == "eligibility-unresolved" and "malformed:semantic-hash-stale" in finding.detail
+
+
+def test_j19_a_known_producer_decides_an_unmapped_dataset_while_a_corpus_is_absent(tmp_path):
+    """Plan review 1, P2: a definite producer stays definite; only an unknown one is incomplete."""
+    world, roots, published, _d = _cross_world(tmp_path)
+    late = _observed("late", retrieval=None)  # no report: only the producer can decide it
+    raw_add(roots[ALPHA], late, stored.run_node("rl", title="rl", spec="analysis-spec:s1", produces=[late.id]))
+    make_absent(roots, BETA)
+    run = stored.run_node("r2", title="r2", spec="analysis-spec:s1", observes=[late.id])
+    raw_add(roots[ALPHA], run, stored.assessment_node(
+        "a2", title="a2", spec="analysis-spec:s1", run=run.id, proposition="proposition:p", outcome="supported",
+        interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()))
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+    assert ("error", "eligibility-unmet", "assessment:a2") in _eligibility(audit)
+
+
+def test_j19_an_unknown_producer_is_unresolved_per_dataset_and_the_scan_continues(tmp_path):
+    """Plan review 1, P2: an incomplete dataset does not hide a later valid one."""
+    good = _observed("good", retrieval=REPORT.id)
+    p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    roots = corpora(tmp_path, {ALPHA: (good, REPORT, p), BETA: (stored.proposition_node("q", title="q", claim={"operator": "affects"}),)})
+    world = world_over(tmp_path, roots)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    drift = _observed("drift", retrieval=REPORT.id)
+    run = stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[drift.id, good.id])
+    raw_add(roots[ALPHA], drift, run, stored.assessment_node(
+        "a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id, outcome="supported",
+        interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()))
+    make_absent(roots, BETA)
+    assert _eligibility(audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)) == []
+    lonely = stored.run_node("r3", title="r3", spec="analysis-spec:s1", observes=[drift.id])
+    raw_add(roots[ALPHA], lonely, stored.assessment_node(
+        "a3", title="a3", spec="analysis-spec:s1", run=lonely.id, proposition=p.id, outcome="supported",
+        interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()))
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+    (finding,) = [f for f in audit.corpora[ALPHA] if f.ref == "assessment:a3" and f.code.startswith("eligibility")]
+    assert finding.code == "eligibility-unresolved" and "producers-incomplete" in finding.detail
+
+
 def test_j19_an_unobserving_dataset_elsewhere_is_unmet(tmp_path):
     world, _roots, published, _d = _cross_world(tmp_path, dataset=_observed("plain", facet=False))
     assert _eligibility(audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)) == [
@@ -1301,6 +1400,11 @@ def test_j19_an_uncovered_holder_is_unmet(tmp_path):
 If `world_over` refuses to admit a root that the coverage does not cover, build the
 `cover=(ALPHA,)` world over ALPHA's root alone instead. Keep the assertion.
 
+These tests keep `WITH_BIOLOGY`, because `corpora` pins it in every manifest. The
+eligibility arm reads only base content (decision 3), so the assessments'
+`testing/affects` estimand is never decoded by the code under test. Records added after
+`publish` with `raw_add` are drift: unmapped, and captured.
+
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `just test-one tests/test_world_audit.py -k j19`
@@ -1313,14 +1417,6 @@ Expected: the supported, absent, damaged, malformed and post-capture cases repor
     sabotage).
 
 ```python
-class _ProducersIncomplete(Exception):
-    """An unmapped dataset's producers while a covered corpus is unreadable (spec §13)."""
-
-    def __init__(self, corpora: tuple[str, ...]) -> None:
-        super().__init__(", ".join(corpora))
-        self.corpora = corpora
-
-
 class _CapturedCitations:
     """Decision 8's total reader over the captured world, for one citing corpus:
     own corpus first, then the epoch's map; never a live read, never a raise."""
@@ -1337,17 +1433,34 @@ class _CapturedCitations:
 
     def _holder(self, ref: str) -> _CapturedCheckView | None:
         if self._own.holds(ref):
+            if self._incomplete(ref):
+                self.unreadable[ref] = f"{self._citing} producers-incomplete:{','.join(sorted(self._causes))}"
+                return None
             return self._own
         corpus_id = self._view.corpus_of(ref)
         if corpus_id is None or corpus_id == self._citing:
             return None
         cause = self._causes.get(corpus_id)
-        if cause is None and ref in self._malformed.get(corpus_id, {}):
-            cause = f"malformed:{self._malformed[corpus_id][ref]}"
+        holder = self._readable.get(corpus_id)
+        if cause is None and holder is not None:
+            canonical = holder.resolve(ref)  # an alias names the canonical record the map is keyed by
+            if canonical is not None and canonical in self._malformed.get(corpus_id, {}):
+                cause = f"malformed:{self._malformed[corpus_id][canonical]}"
         if cause is not None:
             self.unreadable[ref] = f"{corpus_id} {cause}"
             return None
         return self._readable.get(corpus_id)
+
+    def _incomplete(self, ref: str) -> bool:
+        """Decision 8, per dataset: an own dataset the epoch never mapped, with no
+        known producer, while a covered corpus is unreadable, cannot be judged
+        unproduced. A known producer is definite and decides it (the scan goes on)."""
+        if self._view.corpus_of(ref) is not None or not self._causes:
+            return False
+        node = self._own.get(ref)
+        if node.kind != "dataset":
+            return False
+        return not self.producers(node.id, aliases=tuple(node.deprecated_ids))
 
     def holds(self, ref: str) -> bool:
         return self._holder(ref) is not None
@@ -1365,17 +1478,11 @@ class _CapturedCitations:
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
         found = {producer for view in self._readable.values() for producer in view.producers(dataset, aliases=aliases)}
         found.update(self._view.published_producers(dataset))
-        if self._view.corpus_of(dataset) is None and self._causes:
-            raise _ProducersIncomplete(tuple(sorted(self._causes)))
         return tuple(sorted(found))
 
     def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None:
         self.unreadable = {}
-        try:
-            outcome = eligibility_outcome(self, node, profile, reports=self._holder)
-        except _ProducersIncomplete as incomplete:
-            marker = f"producers-incomplete:{','.join(incomplete.corpora)}"
-            return EligibilityOutcome(marker, (marker,))
+        outcome = eligibility_outcome(self, node, profile, reports=self._holder)
         if outcome is None or not outcome.unresolved:
             return outcome
         if not any(ref in self.unreadable for ref in outcome.unresolved):
@@ -1461,7 +1568,12 @@ def test_an_absent_observed_dataset_is_absent_from_gather(tmp_path):
   Check `Refused`'s field name in `beliefs.belief` (`reason`, or whatever the existing
   `Refused` assertions in that module read) and use it.
 
-- [ ] **Step 2: J20's proof.** In `test_world_view.py`, beside
+- [ ] **Step 2: J20's proof.** First split `domain_facet_fixtures.seed` in two:
+  - `seed_nodes(*, axis="rows", observes_missing=False, claim=None, proposition=PROPOSITION_REF, outcomes=("supported", "supported")) -> list[Node]`
+    returns the node list `seed` builds today;
+  - `seed` calls it and keeps its writing branch unchanged.
+
+  Task 6 places those nodes across corpora. Then, in `test_world_view.py`, beside
   `TestEvaluationOverTheWorld`:
 
 ```python
@@ -1570,51 +1682,77 @@ git commit -m "feat(evaluation): a corpus-local read refuses inputs it cannot se
 - Create: `python/tests/acceptance/test_mount_citations_acceptance.py`
 
 **Interfaces:**
-- Consumes: Tasks 1–5. From `test_session_mounts_acceptance.py` it imports `_adopt`,
-  `mounts_for`, `open_over`, `library_on`, `state`, `AVAILABLE`, `V2_LOCAL` and
-  `V2_SHIPPED`. It imports `fresh` and `DIGEST` from `test_session_acceptance`.
+- Consumes: Tasks 1–5 and `domain_facet_fixtures.seed_nodes` (Task 5).
+- From `test_session_mounts_acceptance.py` it imports `library_on` and `state`. From
+  `test_session_acceptance` it imports `fresh`.
 
-Ten durable cases. Each owns one `mkdtemp` directory under `work_directory`, removed
-at teardown, on cut 43's pattern:
-- W, the write root: `V2_LOCAL` (fixture `biology`, coordination v2).
-- M: `WITH_BIOLOGY`, the mm30 shape, which shares W's `biology`.
-- M2: `V2_SHIPPED`, the shipped `biology` and decision 3's mismatch.
-- M3: `WITH_BIOLOGY`.
+Ten durable cases. Each owns one `mkdtemp` directory under `work_directory`, removed at
+teardown, on cut 43's pattern. Every profile activates the testing contract, so
+`typed_estimand()`'s `testing/affects` decodes (plan review 1, P2):
+- W, the session's write root: testing, the fixture `biology` and coordination v2.
+- M and M3: `profile_with()`, which is testing plus the fixture `biology`.
+- M2: `profile_with("other")`, another `biology` identity and decision 3's mismatch.
+- O: `profile_with()`, the one-corpus baseline for J20.
+
+Mounts are compiled with this module's own `AVAILABLE`, which carries the three
+test-local documents.
 
 - [ ] **Step 1: Write the module.**
 
 ```python
-"""Conformance cut 44 — mount citations (spec §8.2): J16–J21 over real roots on
-the certified volume. W (write root) pins base, the fixture `biology` and
-coordination v2; M and M3 pin the fixture `biology` alone; M2 pins the shipped
-`biology`, a differing identity of a namespace W pins."""
+"""Conformance cut 44 — mount citations (spec §8.2): J16–J21 over real roots on the
+certified volume. W (write root) pins testing, the fixture `biology` and
+coordination v2; M and M3 pin testing and the fixture `biology`; M2 pins another
+`biology` identity; O holds J20's one-corpus baseline."""
 
 from __future__ import annotations
 
 import secrets
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from tempfile import mkdtemp
 from types import SimpleNamespace
 
 import pytest
 from authority import FULL
-from dataset_fixtures import pinned
+from coordination_fixtures import pins_for
+from dataset_fixtures import dataset_ref, pinned
+from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed_nodes, testing_contract
 from fixtures_cut3 import typed_applicability, typed_estimand
-from profiles import WITH_BIOLOGY
+from profiles import biology
 from test_session_acceptance import fresh
-from test_session_mounts_acceptance import V2_LOCAL, V2_SHIPPED, _adopt, library_on, open_over, state
+from test_session_mounts_acceptance import library_on, state
 from test_world_receipts import hold_shipped, publish, world_over
+from test_world_view import make_absent
 
 from beliefs import stored
 from beliefs.audit import audit_world
-from beliefs.corpus import ReadView, _root_state_for, corpus_check
+from beliefs.belief import NoBelief
+from beliefs.corpus import ReadView, _root_state_for, corpus_check, lineage_snapshot
 from beliefs.errors import AddressMapConflict, BuildContended, CitationContractMismatch, EligibilityUnmet, InputOutsideCorpus
-from beliefs.evaluation import gather
+from beliefs.evaluation import evaluate_over_traced, gather
+from beliefs.mount import compile_mount_profile
 from beliefs.permit import RequiredCapabilities
+from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination
+from beliefs.root import init_corpus_root, open_corpus
+from beliefs.session import open_attended_session
+from beliefs.world import WorldConfig, load_manifest
+from beliefs.world.view import open_world_view
 from nodes.core.write_plan import DefaultExecutor
 
-CITING = RequiredCapabilities.for_kinds({"run", "assessment", "dataset", "proposition", "verification"}, {})
+TYPED = profile_with()
+TYPED_OTHER = profile_with("other")
+W_PROFILE = compile_profile(shipped_base_contract(), [testing_contract(None), biology("fixture")], coordination=shipped_coordination(2))
+AVAILABLE = (testing_contract(None), biology("fixture"), biology("other"))
+CITING = RequiredCapabilities.for_kinds({"run", "assessment", "proposition", "verification"}, {})
+
+
+def _adopt(base: Path, name: str, profile) -> Path:
+    root = base / name
+    init_corpus_root(root, authority=FULL)
+    open_corpus(root, authority=FULL, profile=profile).adopt_manifest(profile=pins_for(profile))
+    return root.resolve()
 
 
 @pytest.fixture()
@@ -1623,41 +1761,49 @@ def corpora(work_directory):
     try:
         yield SimpleNamespace(
             base=base,
-            w=_adopt(base, "w", V2_LOCAL),
-            m=_adopt(base, "m", WITH_BIOLOGY),
-            m2=_adopt(base, "m2", V2_SHIPPED),
-            m3=_adopt(base, "m3", WITH_BIOLOGY),
+            w=_adopt(base, "w", W_PROFILE),
+            m=_adopt(base, "m", TYPED),
+            m2=_adopt(base, "m2", TYPED_OTHER),
+            m3=_adopt(base, "m3", TYPED),
+            o=_adopt(base, "o", TYPED),
         )
     finally:
         shutil.rmtree(base, ignore_errors=True)
 
 
-def observed(seed, actor):
+def open_session(s, roots):
+    config = WorldConfig(s.base / f"world-{secrets.token_hex(4)}", secrets.token_hex(16), tuple(roots))
+    mounts = {root: compile_mount_profile(root, available=AVAILABLE) for root in roots}
+    return open_attended_session(config, s.base / f"ops-{secrets.token_hex(4)}", write_root=s.w, profile=W_PROFILE, mounts=mounts)
+
+
+def observed(seed):
     return stored.dataset_node(title=seed, resources=pinned(seed),
-                               empirical_observation={"locator": "instrument:fixture", "attested_by": actor})
+                               empirical_observation={"locator": "instrument:fixture", "attested_by": "test-actor"})
 
 
-def assessment(slug, run, prop):
-    return stored.assessment_node(slug, title=slug, spec="analysis-spec:s1", run=run.id, proposition=prop.id,
+def assessment(slug, run, prop_id):
+    return stored.assessment_node(slug, title=slug, spec="analysis-spec:s1", run=run.id, proposition=prop_id,
                                   outcome="supported", interpretation_rule="rule:threshold",
                                   estimand=typed_estimand(), applicability=typed_applicability())
 
 
 def seeded(s):
-    m = library_on(s.m, WITH_BIOLOGY)
-    d = m.add(observed("d", "test-actor"))
-    p = m.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
-    return d, p
+    m = library_on(s.m, TYPED)
+    return m.add(observed("d")), m.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+
+
+def run_then(w, d):
+    return w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))  # observes is not read at write time
 
 
 def test_j16_a_session_cites_a_mount_dataset_and_proposition_durably(corpora):
     s = corpora
     d, p = seeded(s)
     before = state(s.m)
-    session, _config, _ops = open_over(s, (s.w, s.m), s.w)
+    session = open_session(s, (s.w, s.m))
     w = fresh(session, "A", CITING)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
-    held = w.add(assessment("a", run, p))
+    held = w.add(assessment("a", run_then(w, d), p.id))
     session.close_invocation("A", {"done": []})
     session.close()
     assert ReadView.opened_at(s.w).holds(held.id) and state(s.m) == before
@@ -1666,12 +1812,11 @@ def test_j16_a_session_cites_a_mount_dataset_and_proposition_durably(corpora):
 def test_j16_a_citation_across_differing_identities_refuses_durably(corpora):
     s = corpora
     d, _p = seeded(s)
-    p2 = library_on(s.m2, V2_SHIPPED).add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
-    session, _config, _ops = open_over(s, (s.w, s.m, s.m2), s.w)
+    p2 = library_on(s.m2, TYPED_OTHER).add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
+    session = open_session(s, (s.w, s.m, s.m2))
     w = fresh(session, "A", CITING)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
     with pytest.raises(CitationContractMismatch):
-        w.add(assessment("a", run, p2))
+        w.add(assessment("a", run_then(w, d), p2.id))
     session.close_invocation("A", {"done": []})
     session.close()
 
@@ -1679,35 +1824,48 @@ def test_j16_a_citation_across_differing_identities_refuses_durably(corpora):
 def test_j16_producers_held_in_a_third_mount_refuse_durably(corpora):
     s = corpora
     d, p = seeded(s)
-    library_on(s.m3, WITH_BIOLOGY).add(stored.run_node("r3", title="r3", spec="analysis-spec:s1", produces=[d.id]))
-    session, _config, _ops = open_over(s, (s.w, s.m, s.m3), s.w)
+    library_on(s.m3, TYPED).add(stored.run_node("r3", title="r3", spec="analysis-spec:s1", produces=[d.id]))
+    session = open_session(s, (s.w, s.m, s.m3))
     w = fresh(session, "A", CITING)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
     with pytest.raises(EligibilityUnmet, match="run:r3"):
-        w.add(assessment("a", run, p))
+        w.add(assessment("a", run_then(w, d), p.id))
     session.close_invocation("A", {"done": []})
     session.close()
+
+
+def test_j16_no_mount_is_written_durably(corpora):
+    s = corpora
+    d, p = seeded(s)
+    before = {root: state(root) for root in (s.m, s.m3)}
+    session = open_session(s, (s.w, s.m, s.m3))
+    w = fresh(session, "A", CITING)
+    w.add(assessment("a", run_then(w, d), p.id))
+    session.close_invocation("A", {"done": []})
+    session.close()
+    assert {root: state(root) for root in (s.m, s.m3)} == before
 
 
 def test_j17_a_duplicate_citation_refuses_naming_both_durably(corpora):
     s = corpora
     d, p = seeded(s)
-    library_on(s.m3, WITH_BIOLOGY).add(observed("d", "test-actor"))
-    session, _config, _ops = open_over(s, (s.w, s.m, s.m3), s.w)
+    library_on(s.m3, TYPED).add(observed("d"))
+    session = open_session(s, (s.w, s.m, s.m3))
     w = fresh(session, "A", CITING)
+    run = run_then(w, d)
     with pytest.raises(AddressMapConflict):
-        w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+        w.add(assessment("a", run, p.id))
     session.close_invocation("A", {"done": []})
     session.close()
 
 
 def test_j17_a_held_mount_refuses_build_contended_durably(corpora):
     s = corpora
-    d, _p = seeded(s)
-    session, _config, _ops = open_over(s, (s.w, s.m), s.w)
+    d, p = seeded(s)
+    session = open_session(s, (s.w, s.m))
     w = fresh(session, "A", CITING)
+    run = run_then(w, d)
     with _root_state_for(s.m, DefaultExecutor).lock, pytest.raises(BuildContended):
-        w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+        w.add(assessment("a", run, p.id))
     session.close_invocation("A", {"done": []})
     session.close()
 
@@ -1715,106 +1873,110 @@ def test_j17_a_held_mount_refuses_build_contended_durably(corpora):
 def test_j18_the_session_corpus_check_warns_not_errs_durably(corpora):
     s = corpora
     d, p = seeded(s)
-    session, _config, _ops = open_over(s, (s.w, s.m), s.w)
+    session = open_session(s, (s.w, s.m))
     w = fresh(session, "A", CITING)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
-    w.add(assessment("a", run, p))
+    w.add(assessment("a", run_then(w, d), p.id))
     session.close_invocation("A", {"done": []})
     session.close()
-    findings = corpus_check(ReadView.opened_at(s.w), V2_LOCAL)
-    assert [(f.severity, f.code) for f in findings] == [("warning", "eligibility-unresolved")]
+    assert [(f.severity, f.code) for f in corpus_check(ReadView.opened_at(s.w), W_PROFILE)] == [
+        ("warning", "eligibility-unresolved")
+    ]
 
 
-def _published_split(s):
-    d, p = seeded(s)
-    session, _config, _ops = open_over(s, (s.w, s.m), s.w)
+def _split_seed(s):
+    """J20's fixture: `seed_nodes()`'s proposition and datasets in M, its runs,
+    assessments and verifications written in a session on W; the same nodes in O."""
+    nodes = seed_nodes()
+    in_m = {"proposition:p", dataset_ref("d-a"), dataset_ref("d-b")}
+    m, o = library_on(s.m, TYPED), library_on(s.o, TYPED)
+    for node in nodes:
+        o.add(node)
+        if node.id in in_m:
+            m.add(node)
+    session = open_session(s, (s.w, s.m))
     w = fresh(session, "A", CITING)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
-    w.add(assessment("a", run, p))
+    for node in nodes:
+        if node.id not in in_m:
+            w.add(node)
     session.close_invocation("A", {"done": []})
     session.close()
     roots = {ReadView.opened_at(root).corpus_id: root for root in (s.w, s.m)}
     world = world_over(s.base, roots, name=f"world-{secrets.token_hex(4)}")
-    return world, roots, publish(world, tuple(sorted(roots)), hold_shipped(world)), p, d
+    return world, roots, publish(world, tuple(sorted(roots)), hold_shipped(world))
+
+
+def _world_context(view, roots, kwargs):
+    return replace(
+        kwargs["context"],
+        snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"))),
+        producer_snapshot_identity=view.producer_snapshot_identity(),
+        node_corpus={},
+        pins={corpus_id: load_manifest(root).profile for corpus_id, root in roots.items()},
+    )
 
 
 def test_j19_the_world_audit_supports_the_split_durably(corpora):
     from audit_fixtures import NO_EVIDENCE
 
-    world, roots, published, _p, _d = _published_split(corpora)
-    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=V2_LOCAL)
+    world, _roots, published = _split_seed(corpora)
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=TYPED)
     assert not [f for findings in audit.corpora.values() for f in findings if f.code.startswith("eligibility")]
 
 
-def test_j20_belief_over_the_world_reads_the_split_durably(corpora):
-    from dataclasses import replace
-
-    from beliefs.corpus import lineage_snapshot
-    from beliefs.evaluation import evaluate_over
-    from beliefs.world import load_manifest
-    from beliefs.world.view import open_world_view
-    from domain_facet_fixtures import kwargs_for, over_kwargs
-
-    world, roots, published, p, d = _published_split(corpora)
+def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
+    s = corpora
+    world, roots, published = _split_seed(s)
     view = open_world_view(world, published)
-    kwargs = kwargs_for(view, V2_LOCAL)
-    context = replace(
-        kwargs["context"],
-        snapshot=lineage_snapshot(view, (d.id,)),
-        producer_snapshot_identity=view.producer_snapshot_identity(),
-        node_corpus={},
-        pins={corpus_id: load_manifest(root).profile for corpus_id, root in roots.items()},
-    )
-    answer = evaluate_over(view, p.id, **over_kwargs({**kwargs, "context": context}))
-    assert type(answer).__name__ in {"Belief", "NoBelief"}  # evaluated, not Refused
+    kwargs = kwargs_for(view, TYPED)
+    context = _world_context(view, roots, kwargs)
+    split_answer, split_admission = evaluate_over_traced(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
+    local = ReadView.opened_at(s.o)
+    local_answer, local_admission = evaluate_over_traced(local, "proposition:p", **over_kwargs(kwargs_for(local, TYPED)))
+    assert split_answer == local_answer and split_admission == local_admission
+    inputs = gather(view, "proposition:p", context=context, profile=TYPED,
+                    resolution=kwargs["resolution"], binding=kwargs["binding"])
+    w_id, m_id = ReadView.opened_at(s.w).corpus_id, ReadView.opened_at(s.m).corpus_id
+    assert inputs.node_corpus["run:run-a"] == (w_id,) and inputs.node_corpus[dataset_ref("d-a")] == (m_id,)
+    assert dataset_ref("d-a") in {root for root in context.snapshot.roots}
+    make_absent(roots, m_id)
+    absent_view = open_world_view(world, published)
+    answer, _admission = evaluate_over_traced(absent_view, "proposition:p", **over_kwargs({**kwargs, "context": _world_context(absent_view, roots, kwargs)}))
+    assert isinstance(answer, NoBelief) and answer.reason == "unavailable-corpus-absent"
 
 
 def test_j21_a_local_read_of_the_split_refuses_durably(corpora):
-    from domain_facet_fixtures import kwargs_for, over_kwargs
-
     s = corpora
     d, _p = seeded(s)
-    session, _config, _ops = open_over(s, (s.w, s.m), s.w)
+    session = open_session(s, (s.w, s.m))
     w = fresh(session, "A", CITING)
-    p_local = w.add(stored.proposition_node("q", title="q", claim={"operator": "affects"}))
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
-    w.add(assessment("a", run, p_local))
+    q = w.add(stored.proposition_node("q", title="q", claim={"operator": "affects"}))
+    w.add(assessment("a", run_then(w, d), q.id))
     session.close_invocation("A", {"done": []})
     session.close()
     view = ReadView.opened_at(s.w)
+    kwargs = kwargs_for(view, W_PROFILE)
     with pytest.raises(InputOutsideCorpus):
-        gather(view, p_local.id, **over_kwargs(kwargs_for(view, V2_LOCAL)))
-
-
-def test_j16_no_mount_is_written_across_the_module_durably(corpora):
-    """J15's property for this lane's writes: every citing write above leaves M byte-identical."""
-    s = corpora
-    d, p = seeded(s)
-    before = {root: state(root) for root in (s.m, s.m3)}
-    session, _config, _ops = open_over(s, (s.w, s.m, s.m3), s.w)
-    w = fresh(session, "A", CITING)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
-    w.add(assessment("a", run, p))
-    session.close_invocation("A", {"done": []})
-    session.close()
-    assert {root: state(root) for root in (s.m, s.m3)} == before
+        gather(view, q.id, context=kwargs["context"], profile=W_PROFILE,
+               resolution=kwargs["resolution"], binding=kwargs["binding"])
 ```
-  Check each helper import against its module (`NO_EVIDENCE`'s home, `over_kwargs` and
-  `kwargs_for` in `domain_facet_fixtures`), and fix the import line, not the
-  assertion. The acceptance corpora carry random ids, so J20 pins each corpus from its
-  own manifest rather than reusing `test_world_view.world_kwargs`, which pins ALPHA and
-  BETA. If `publish` refuses a world whose corpora pin different profiles (W carries
-  coordination v2 and M does not), record that in the spec's §13. Then publish
-  through the epoch builder `acceptance/test_live_selection_acceptance.py` uses for
-  mixed-profile worlds; do not change the corpora. Inside a session, a dataset's
-  `attested_by` must be `session.actor`. The datasets here are minted by a library
-  writer on M as `test-actor`, which is legal there.
+  Check these names against their modules before the first run, and fix the import or
+  attribute, not the assertion:
+  - `NO_EVIDENCE`'s home;
+  - `make_absent`'s module;
+  - `NoBelief`'s reason attribute;
+  - `node_corpus`'s value type (a tuple or a set);
+  - the lineage snapshot's root attribute.
+
+  If `publish` refuses a world whose corpora pin different profiles (W carries
+  coordination v2), record that in the spec's §13. Then publish through the epoch
+  builder that `acceptance/test_live_selection_acceptance.py` uses for mixed-profile
+  worlds, and leave the corpora unchanged. If J20's equality fails only on a field that
+  names a corpus or an epoch, compare the verdict, the evidence set and the admission
+  state instead, and record the field in §13. Any other difference is a finding: stop.
 
 - [ ] **Step 2: Run on the certified volume**
 
-```bash
-cd ~/d/beliefs/.worktrees/cross-mount-eligibility/python && cd "$(pwd -P)" && uv run --frozen pytest tests/acceptance/test_mount_citations_acceptance.py -q
-```
+Run: `just test-one tests/acceptance/test_mount_citations_acceptance.py`
 Expected: `10 passed`.
 
 - [ ] **Step 3: Commit**
@@ -1908,7 +2070,7 @@ git commit -m "test(cut44): durable acceptance for mount citations — J16–J21
 - [ ] **Step 5: Guard green, then the cut, harness-tracked.**
 
 ```bash
-cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py tests/test_frozen_guards.py -q
+just test-one tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py tests/test_frozen_guards.py
 ```
 Then run with the Bash tool, `run_in_background: true`:
 
@@ -1952,7 +2114,7 @@ git commit -m "test(cut44): N2 declarations, guard, runner and the recent-cut ro
     (spec §13).
 
 ```bash
-cd python && uv run --frozen pytest tests/test_reproduction_driver.py tests/test_designs_corpus.py -q
+just test-one tests/test_reproduction_driver.py tests/test_designs_corpus.py
 tasks done <Task 8's id> "reproduction re-run under cut 44"
 tasks check && git add docs/designs/2026-09-05-mm30-reproduction.md tasks
 git commit -m "docs(reproduction): re-run under mount citations"
@@ -2088,3 +2250,22 @@ module to copy from:
   - mm30's `biology` pin is the shipped pack's;
   - `producers-incomplete` refuses at the first incomplete lookup;
   - the portable fixtures.
+- 2026-10-01, plan review round 1: revise, P1 1, P2 5, P3 1, all accepted after
+  checking the code. The user also chose to keep J21 and supersede B4's clause by
+  citation, and sequential subagent-driven execution with a fresh review per task.
+  1. **P1.** Malformedness is keyed by canonical id. `_holder` now resolves an alias to
+     the canonical record before checking it, and the alias regression was added.
+  2. **P2.** `producers-incomplete` is judged per dataset. A known producer is
+     definite, and the scan continues. `_ProducersIncomplete` is gone, and two
+     regressions were added. Spec §13 is updated.
+  3. **P2.** A run's `observes` is not read at write time. The J17 contention and
+     duplicate tests (portable and durable) now cite through an assessment over a
+     written run, plus a negative where the assessment cites only W.
+  4. **P2.** `typed_estimand()` needs the testing contract. The portable, session and
+     durable fixtures now use testing-capable profiles, and the world-audit tests keep
+     `WITH_BIOLOGY` with the reason stated.
+  5. **P2.** Durable J21 passes `gather`'s four arguments explicitly.
+  6. **P2.** Durable J20 compares the split with a one-corpus baseline built from
+     `seed_nodes()`, asserts attribution and lineage, and keeps the absent-carrier
+     negative.
+  7. **P3.** Tasks 0, 6, 7 and 8 run through `just test-one`.
