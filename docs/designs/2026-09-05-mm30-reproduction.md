@@ -1889,18 +1889,24 @@ Re-run under conformance cut 44
 (`../superpowers/specs/2026-10-01-mount-citations-design.md`), from the
 `cross-mount-eligibility` worktree at head `5ac7447`. The existing corpus was
 read in place at the certified volume's canonical path under the main checkout;
-`MM30_PREDECESSOR` named the same predecessor as §22 and `SCIENCE_MM30_ROOT`
-named the fixture. `reproduction.preflight` printed `ok` before
-`reproduction.rederive` ran in a fresh process. The verdict step was not run: it
-is defined over a fresh recreation (§25.1), and the fixture fails it on the
-step-10 lines its repeated runs left.
+`SCIENCE_MM30_ROOT` named the fixture. The default predecessor path does not
+exist on this host, so `reproduction.preflight` needed `MM30_PREDECESSOR` set
+explicitly, as §§13–16 record: here to
+`~/d/proto/projects/cancer/cancer-types/multiple-myeloma`, the path the
+fixture's `held_file` records. Preflight then printed `ok` before
+`reproduction.rederive` ran in a fresh process. The verdict step was not run:
+per §25.1 it is defined over a fresh recreation, and over the fixture it fails
+on the extra step-10 design-gap lines that repeated `rederive` runs left.
 
 ### 26.1 What changed in the kernel this slice
 
 - Citations over read mounts: `MountCitations` lets a working corpus cite
   records held by a corpus mounted read-only.
-- The eligibility classes, including `eligibility-unresolved`, and the world
-  audit's captured reader.
+- `corpus_check` reports an assessment whose eligibility rests on references
+  its corpus does not hold as `eligibility-unresolved` (a warning), while
+  failures it can decide locally stay `eligibility-unmet` errors (spec
+  decision 7). `audit_world` judges eligibility over the captured world with a
+  captured citation reader, and never raises doing it (decision 8).
 - J21: a read of an input its corpus does not hold refuses
   `input-outside-corpus` on a corpus-local read.
 
