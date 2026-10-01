@@ -822,3 +822,10 @@ the code.
     `BuildContended` and raises `BuildContended` naming the read mount and the citing
     session write that could not capture it. The guide's writer-session section and the
     cut-44 results §5 state both faces.
+  - **Decision 8's `excluded:malformed` cause never occurs.** `audit_world` excludes a
+    corpus at its manifest scope `base` or `malformed`, but `_manifest_findings` yields
+    only `base`, `domains` or `none`, so the `malformed` scope never arises. `excluded:base`
+    does occur: a corpus that both fails construction and pins a non-shipped base is
+    classified `construction`-damaged, because construction never reads the base pin,
+    and is then excluded at scope `base` (`test_world_audit.py::test_j19_an_excluded_holder_is_unresolved`).
+    This is documentation only, with no code change.

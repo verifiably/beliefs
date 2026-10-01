@@ -892,8 +892,10 @@ class MalformedRecord(RecordError):
 
 
 class InputOutsideCorpus(MalformedRecord):
-    """A corpus-local read of an assessment whose run names an input the corpus
-    does not hold (mount-citations decision 9): read it over a world view."""
+    """A corpus-local read of an assessment whose run the corpus does not hold,
+    or whose run names an input the corpus does not hold (mount-citations
+    decision 9, extended to the run in spec §13): read it over a world view.
+    For an unheld run, `inputs` is the run alone."""
 
     def __init__(self, assessment: str, run: str, inputs: tuple[str, ...]) -> None:
         self.assessment, self.run, self.inputs = assessment, run, inputs

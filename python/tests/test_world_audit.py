@@ -701,6 +701,25 @@ def test_j19_d_the_audit_still_judges_w_and_ms_readable_remainder(tmp_path):
     assert ("semantic-hash-stale", remainder.id) in beta
 
 
+def test_j19_an_excluded_holder_is_unresolved(tmp_path):
+    """J19's excluded cause: BETA fails construction and pins a non-shipped base. The world
+    view classifies the damage as `construction` (construction never reads the base pin),
+    so the audit excludes BETA at scope `base`, and the citation into it is unresolved."""
+    from dataclasses import replace
+
+    from beliefs.world import registry
+
+    world, roots, published, _d = _cross_world(tmp_path)
+    damage(roots[BETA], "parse-error")
+    manifest = registry.load_manifest(roots[BETA])
+    pins = replace(manifest.profile, science_contract="science:" + "0" * 64)
+    (roots[BETA] / "corpus.yaml").write_bytes(registry.manifest_bytes(replace(manifest, profile=pins)))
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+    (finding,) = [f for f in audit.corpora[ALPHA] if f.code.startswith("eligibility")]
+    assert (finding.severity, finding.code, finding.ref) == ("warning", "eligibility-unresolved", "assessment:a")
+    assert f"({BETA} excluded:base)" in finding.detail
+
+
 def test_j19_e_an_absent_producer_keeps_the_dataset_produced(tmp_path):
     d = _observed("own")
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})

@@ -96,8 +96,8 @@ match frozen §4's count.
 ## 2. Accounting
 
 **24 arms, 24 declaration units, 6 guarantee rows. J16–J21 close.** Every declared arm
-ran sound. Every sub-case the rows name is exercised by a unit or durable test, except
-J19's `excluded:<scope>` cause, which §3 lists as unexercised.
+ran sound, and each of the six row sub-cases the final review found unexercised now has
+a portable test (§3).
 
 - **J16:** a session's write boundary resolves citations over the write root and every
   read mount, reads each cited record in its holding corpus under the writer's profile,
@@ -111,8 +111,8 @@ J19's `excluded:<scope>` cause, which §3 lists as unexercised.
   hold as an `eligibility-unresolved` warning; locally decided failures stay
   `eligibility-unmet` errors, with S7's finding line byte-exact.
 - **J19:** `audit_world` judges eligibility over its capture through a total citation
-  reader: supported, unmapped, and unresolved by an absent, damaged or malformed holder,
-  and the audit continues. The excluded-holder cause is not exercised (§3).
+  reader: supported, unmapped, and unresolved by an absent, damaged, excluded or
+  malformed holder, and the audit continues.
 - **J20:** belief over a world read gathers, admits and evaluates the two-installation
   split with the one-corpus answer.
 - **J21:** a corpus-local belief read refuses an input the corpus does not hold. It
@@ -196,7 +196,7 @@ refusal is not one of them.
 
 **Row sub-cases the final review found unexercised.** The final whole-branch review
 found six sub-cases of J16, J17 and J19 that no test reached while this record said the
-rows closed "in full". Five now have portable tests:
+rows closed "in full". All six now have portable tests:
 
 - J17, the address held by W and a read mount:
   `test_mount_citations.py::test_a_citation_held_by_the_write_root_and_a_mount_refuses_naming_both`
@@ -211,16 +211,15 @@ rows closed "in full". Five now have portable tests:
   `test_world_audit.py::test_j16_a_split_retrieval_report_is_unresolved_in_the_check_and_the_audit_alike`;
 - J16's negative through a session with `mounts=None`, which refuses the citation into
   another root with today's `EligibilityUnmet`:
-  `test_session_writer.py::test_a_session_with_no_mounts_refuses_a_citation_into_another_root`.
+  `test_session_writer.py::test_a_session_with_no_mounts_refuses_a_citation_into_another_root`;
+- J19's excluded holder: M fails construction and pins a non-shipped base. Construction
+  never reads the base pin, so the world view classifies M's damage as `construction`,
+  not `base-pin`. The audit then excludes M at scope `base`, and the citation into it is
+  `eligibility-unresolved` naming M with `excluded:base`:
+  `test_world_audit.py::test_j19_an_excluded_holder_is_unresolved`.
 
-None of these is a declared N2 arm. **Unexercised:** J19's `excluded:<scope>` cause.
-No test reaches it, and `audit_world` appears unable to produce it as a citation cause.
-`_manifest_findings` yields only scope `base`, `domains` or `none`, so `malformed` never
-occurs. Scope `base` arises in two ways, and neither reaches it. If the audit's profile
-requires a non-shipped base, every corpus is excluded, the citing one too, so no
-eligibility is judged. If a manifest pins a non-shipped base, the corpus is damaged
-(`base-pin`) and skipped before the exclusion. The reader's `excluded` branch therefore
-stands untested, and §2 no longer claims it.
+None of these is a declared N2 arm. The other scope value the reader names, `malformed`,
+never occurs: `_manifest_findings` yields only `base`, `domains` or `none` (spec §13).
 
 **A cut-31 cited test was narrowed.** Task 4 narrowed
 `test_world_audit.py::test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues`.
@@ -263,8 +262,7 @@ working corpus on the shipped pack can cite it. The mounted measurement is scien
 
 ## 5. Remaining boundary
 
-None for `mount-citations`: J16–J21 are discharged, with the one unexercised J19 cause
-§3 lists. Spec §10's limitations remain:
+None for `mount-citations`: J16–J21 are discharged. Spec §10's limitations remain:
 
 1. Read mounts are opened per citing write; there is no state-keyed cache.
 2. Duplicates refuse, including identical ones, until `beliefs-81367e`.
@@ -281,7 +279,7 @@ None for `mount-citations`: J16–J21 are discharged, with the one unexercised J
    everywhere.
 7. There is no world-wide bearer finding; `facet-bearer-produced` stays per corpus.
 
-Five follow-ups are filed:
+Six follow-ups are filed:
 
 - `beliefs-fdc40f` (priority 1): the acceptance runner's nested run directories push the
   deepest SQLite path past the platform limit one cut deeper than cut 43. Cut 44 ran
@@ -302,6 +300,12 @@ The final whole-branch review deferred three more, each filed as an idea:
 - `beliefs-4a2998`: have `_validate_import_bundle` open one citation scope per bundle.
   Today each record opens its own, so N records under M read mounts index the mounts
   N × M times.
+
+The final re-review found one more, pre-existing:
+
+- `beliefs-54e7b8` (idea): when `audit_world` excludes a corpus at scope `base` that is
+  also construction-damaged, its own `corpus-damaged` finding is dropped, because the
+  exclusion `continue`s before the damage report is appended.
 
 The second-project milestone has not been measured. Its kernel prerequisites are now
 closed; it waits on science's `sci-dc0381`. The `write-path` lane closes again;

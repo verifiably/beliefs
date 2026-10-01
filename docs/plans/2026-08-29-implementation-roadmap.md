@@ -384,8 +384,9 @@ where an interpretation rule reads content
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it. Cut 42
-closes Y11–Y16 in full; cut 43 closes J12–J15 in full; cut 44 closes J16–J21 and reads no row in part, with one J19 sub-case, the
-`excluded:<scope>` cause, unexercised (cut-44 results §3). L1
+closes Y11–Y16 in full; cut 43 closes J12–J15 in full; cut 44 closes J16–J21
+and reads no row in part, the six row sub-cases its final review found
+unexercised being tested since (cut-44 results §3). L1
 remains partial on its persistence arms, last read at cut 8 and owned by
 `persistence-cut`; W8 remains partial on its ambiguous-search-term
 conflict; R23 and W8a remain partial only on their `contract-cut` clauses;
