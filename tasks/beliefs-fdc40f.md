@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: fix/fdc40f-chain-depth
 created: 2026-10-01T15:11:16Z
-updated: 2026-10-01T21:32:51Z
+updated: 2026-10-01T22:26:12Z
 started: 2026-10-01T21:18:00Z
 completed: 2026-10-01T21:31:29Z
 depends: []
@@ -30,3 +30,4 @@ tools/acceptance_runner.py passes each prefix runner SCIENCE_CUT{cut-1}_ROOT=<th
 - 2026-10-01T21:31:29Z (fix/fdc40f-chain-depth): acceptance_runner hands each prefix runner its work dir, so chained runs are siblings at constant depth; cut 17's permit entry points pass at the new 6-level depth
   provenance: {"harness_session":"claude-code:e278d911-5d98-4ab3-83dd-1a16988a96a4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-01T21:32:51Z (main): post-merge proof: full cut-44 chain re-run at constant depth, no SCIENCE_CUT44_ROOT workaround, started 2026-10-01 from main 93b2073 (log .work/logs/cut44-chain-after-fdc40f.log)
+- 2026-10-01T22:26:12Z (main): run: post-merge full cut-44 chain at constant depth, no SCIENCE_CUT44_ROOT workaround: exit 0, every phase passed, no CapabilityUnavailable (log .work/logs/cut44-chain-after-fdc40f.log)
