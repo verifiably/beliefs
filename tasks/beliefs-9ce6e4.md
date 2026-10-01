@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T10:18:27Z
+updated: 2026-10-01T10:18:34Z
 started: 2026-10-01T09:35:48Z
 depends: []
 tags: [session]
@@ -31,3 +31,5 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-01T10:15:02Z (cross-mount-eligibility): review: spec round 1 — verdict: revise; findings: P1 3, P2 2; reviewer: unknown (pasted by the user)
 - 2026-10-01T10:18:27Z (cross-mount-eligibility): Round 1 disposition: all five accepted; producers union over session (3a), captured-only total world reader with unreadable class (8), eligibility reads base content only so audit_world keeps one profile (3), normalized mounted mapping (3.2); J16d witness is a mount-only claim operator in the estimand-target check
+- 2026-10-01T10:18:34Z (cross-mount-eligibility): parked (waiting on user, review): Round 2 review of .worktrees/cross-mount-eligibility/docs/superpowers/specs/2026-10-01-mount-citations-design.md (revisions at 9e5dcc1, §12 lists the round 1 dispositions); on accept: close beliefs-724941 citing decision 2, file the science §4 task, then writing-plans for cut 44
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
