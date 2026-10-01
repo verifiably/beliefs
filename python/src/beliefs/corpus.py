@@ -1635,11 +1635,20 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
 
 
+class _EligibilityReader(Protocol):
+    def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None: ...
+
+
+ELIGIBILITY_CODES = frozenset({"eligibility-unmet", "eligibility-unresolved"})
+
+
 def _record_findings(
     check: _CheckView | _CapturedCheckView,
     profile: ProfileSpec,
     scope: MismatchScope,
     disagreeing: frozenset[str],
+    *,
+    citations: _EligibilityReader | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     judge_namespaced = scope == "none"
@@ -1788,8 +1797,19 @@ def _record_findings(
                     resolved = check.resolve(target["ref"])
                     assert resolved is not None
                     retraction_targets.setdefault(resolved, []).append(node.id)
-        reason = eligibility_refusal(check, node, profile)
-        if reason is not None:
+        outcome = eligibility_outcome(check, node, profile) if citations is None else citations.eligibility(node, profile)
+        if outcome is not None and outcome.unresolved:
+            findings.append(
+                Finding(
+                    severity="warning",
+                    code="eligibility-unresolved",
+                    ref=node.id,
+                    detail=", ".join(outcome.unresolved),
+                    message=f"{node.id}: eligibility rests on {', '.join(outcome.unresolved)}, which this read does not hold; audit_world judges it",
+                )
+            )
+        elif outcome is not None:
+            reason = outcome.reason
             for relation in node.relations:
                 if relation.predicate == stored.ASSESSES:
                     findings.append(
