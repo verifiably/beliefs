@@ -799,3 +799,16 @@ the code.
       into `eligibility_outcome`. It is still true of the code (only `observes` inputs are
       read, and nothing reaches the registry compile), so `eligibility_outcome`'s
       docstring restores it: `reads` inputs never confer eligibility.
+
+- 2026-10-01, at the final whole-branch review (Task 10):
+  - **Decision 9 and J21 reach the run itself.** A session now writes an assessment
+    over a read mount's run, so a corpus-local `gather` over the write root meets an
+    assessment whose *run* the corpus does not hold. `gather` skipped that run, and
+    `evaluate` then indexed it and raised `KeyError`. On a corpus-local view an unheld
+    run now raises `InputOutsideCorpus(assessment, run, (run,))`, and `evaluate_over`
+    returns `Refused("input-outside-corpus: …")`, as for an unheld input. A world read
+    is unchanged: the run resolves in its holding corpus, or the read records it absent.
+    The final review found this; the rounds 1–6 reviews and the plan did not. Cut 44's
+    declaration is frozen at 24 arms, so no declared N2 arm holds this refusal. Unit tests
+    hold it (`test_domain_facet_read.py` and `test_mount_citations.py`), and the cut-44
+    results record says so.

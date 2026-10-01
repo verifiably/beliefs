@@ -84,6 +84,38 @@ def test_an_absent_observed_dataset_is_absent_from_gather(tmp_path):
     assert isinstance(answer, Refused) and answer.reason.startswith("input-outside-corpus:")
 
 
+def test_an_assessment_whose_run_the_corpus_does_not_hold_refuses(tmp_path):
+    """Decision 9 extended to the run itself (mount-citations spec §13, final review):
+    a corpus-local read of an assessment whose run the corpus does not hold refuses
+    `input-outside-corpus`, naming the run, instead of failing on the missing run."""
+    from domain_facet_fixtures import LOCAL_CORPUS_ID, seed_nodes
+    from fixtures_cut4 import raw_write, reopen
+    from profiles import pins_for
+
+    from beliefs import stored
+    from beliefs.errors import InputOutsideCorpus
+    from beliefs.world import registry
+
+    profile = profile_with()
+    root = tmp_path / "c"
+    root.mkdir()
+    (root / "corpus.yaml").write_bytes(registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(profile))))
+    nodes = seed_nodes()
+    for node in nodes:
+        if node.id != "run:run-a":
+            raw_write(root, node)
+    view = reopen(root)
+    assert not view.holds("run:run-a")
+    with pytest.raises(InputOutsideCorpus) as refused:
+        gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, profile))))
+    assert refused.value.run == "run:run-a" and refused.value.inputs == ("run:run-a",)
+    over_run_a = next(n for n in nodes if n.kind == "assessment" and stored.assessment_reference(n).run == "run-a")
+    assert refused.value.assessment == stored.assessment_value(over_run_a, profile=profile).identity()
+    answer = evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, profile)))
+    assert isinstance(answer, Refused) and answer.reason.startswith("input-outside-corpus:")
+    assert "run:run-a" in answer.reason
+
+
 def test_the_member_is_present_and_empty_when_nothing_was_read(tmp_path):
     profile = profile_with()
     view = seed(tmp_path, axis=None)

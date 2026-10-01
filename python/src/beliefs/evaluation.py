@@ -370,6 +370,11 @@ def gather(
             corpus_id = _absence_of(view, ref)
             if corpus_id is not None:
                 absent.append((ref, corpus_id))
+            elif not world:
+                # Decision 9 reaches the run itself (spec §13, final review): a session
+                # writes an assessment over a read mount's run, so a corpus-local read
+                # refuses it, never skipping a run `evaluate` then indexes.
+                raise InputOutsideCorpus(a.identity(), ref, (ref,))
             continue
         run_node = view.get(ref)
         runs[a.run] = run_value(view, ref)

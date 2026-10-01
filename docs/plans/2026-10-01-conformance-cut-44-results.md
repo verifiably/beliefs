@@ -180,6 +180,17 @@ datasets → M, and the proposition's corpus via `corpus_of`, because `gather` a
 only assessments, runs and datasets (decision 10). The lineage snapshot reaches M's
 dataset, and the absent-carrier negative is `NoBelief("unavailable-corpus-absent")`.
 
+**J21 was extended to the run after the cut ran.** The final whole-branch review found
+that a corpus-local read of an assessment whose run the corpus does not hold, the shape
+a mounted session writes when it assesses over a read mount's run, raised `KeyError`:
+`gather` skipped the run and `evaluate` indexed it. Decision 9 now reaches the run
+(spec §13): `gather` raises `InputOutsideCorpus` naming the run, and `evaluate_over`
+returns `Refused("input-outside-corpus: …")`. Unit tests cover it
+(`test_domain_facet_read.py::test_an_assessment_whose_run_the_corpus_does_not_hold_refuses`
+and `test_mount_citations.py::test_a_corpus_local_read_of_an_assessment_over_a_mount_run_refuses`),
+but no declared N2 arm does: cut 44's declaration is frozen at 24 arms, and this
+refusal is not one of them.
+
 **A cut-31 cited test was narrowed.** Task 4 narrowed
 `test_world_audit.py::test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues`.
 The old last-per-reference map hid a pre-existing `derivation-malformed` behind an

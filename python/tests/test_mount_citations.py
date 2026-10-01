@@ -318,6 +318,43 @@ def test_an_imported_assessment_over_a_dataset_a_mount_produces_refuses(roots):
     assert isinstance(refused.value.__cause__, EligibilityUnmet) and "run:rm" in str(refused.value.__cause__)
 
 
+def test_a_corpus_local_read_of_an_assessment_over_a_mount_run_refuses(roots):
+    """Decision 9 extended to the run (spec §13, final review): the assessment is written
+    in W over M's run, so a corpus-local read of W refuses `input-outside-corpus` naming
+    the run, where it once raised `KeyError` indexing the run it skipped."""
+    from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
+
+    from beliefs.belief import Availability, Refused, SuppliedContext
+    from beliefs.corpus import lineage_snapshot
+    from beliefs.errors import InputOutsideCorpus
+    from beliefs.evaluation import evaluate_over, gather
+    from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
+    from beliefs.resolution import build_snapshot
+
+    m = adopted(roots["m"])
+    d = m.add(observed("d"))
+    run = m.add(run_over("r", d))
+    w = mounted_writer(roots, "m")
+    p = w.add(stored.proposition_node("p", title="p", claim=CLAIM_FACET))
+    w.add(assessment("a", run, p))
+    view = ReadView.opened_at(roots["w"])
+    assert not view.holds(run.id)
+    read: dict[str, Any] = {
+        "context": SuppliedContext(snapshot=lineage_snapshot(view, ()), producer_snapshot_identity="producer-snapshot-1",
+                                   node_corpus={}, pins={view.corpus_id: pins_for(TYPED)}),
+        "profile": TYPED,
+        "resolution": build_snapshot(readable={EX: [GENE, PHENO, OTHER_GENE]}),
+        "binding": PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
+    }
+    with pytest.raises(InputOutsideCorpus) as refused:
+        gather(view, p.id, **read)
+    assert refused.value.run == run.id and refused.value.inputs == (run.id,)
+    availability = Availability(observations={}, implementations={BELIEF_V1.identity: BELIEF_V1},
+                                fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES})
+    answer = evaluate_over(view, p.id, availability=availability, **read)
+    assert isinstance(answer, Refused) and answer.reason.startswith("input-outside-corpus:")
+
+
 def test_without_read_mounts_the_writes_refuse_as_today(roots):
     m = adopted(roots["m"])
     d, p = m.add(observed("d")), m.add(proposition("p"))
