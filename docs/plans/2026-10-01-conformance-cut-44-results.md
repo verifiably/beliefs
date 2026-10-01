@@ -238,7 +238,11 @@ remain:
 1. Read mounts are opened per citing write; there is no state-keyed cache.
 2. Duplicates refuse, including identical ones, until `beliefs-81367e`.
 3. A read mount mid-write blocks every citing write in the session, with an immediate
-   `BuildContended`.
+   `BuildContended` naming the read mount. Its converse, added at the final review
+   (spec §13): a writer in the same process on a mounted root, arriving while a citing
+   write holds that mount's capture, refuses `BuildHold` at once, worded as an epoch
+   build's capture because the operation lock does not name its holder
+   (`test_mount_citations.py::test_a_writer_on_a_mount_a_citing_write_holds_refuses_build_hold`).
 4. There is no live multi-corpus belief read; belief over mounts is a world read at an
    epoch.
 5. Mutation targets stay in the write root.

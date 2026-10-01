@@ -28,6 +28,7 @@ from beliefs.errors import (
     AcquisitionBoundaryRefused,
     AddressMapConflict,
     BuildContended,
+    BuildHold,
     CitationContractMismatch,
     EligibilityUnmet,
     FacetPayloadRefused,
@@ -118,10 +119,11 @@ def test_a_held_read_mount_lock_refuses_build_contended(roots):
     d = adopted(roots["m"]).add(observed("d"))
     view = citations(roots, "m")
     try:
-        with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended):
+        with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended) as refused:
             view.holder(d.id)
     finally:
         view.close()
+    assert f"read mount {roots['m']}" in str(refused.value) and "citing session write" in str(refused.value)
 
 
 def test_read_mounts_open_lazily_and_close_releases_their_holds(roots):
@@ -377,9 +379,24 @@ def test_a_citing_write_while_a_mount_is_held_refuses_build_contended(roots):
     d, p = m.add(observed("d")), m.add(proposition("p"))
     w = mounted_writer(roots, "m")
     run = w.add(run_over("r", d))
-    with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended):
+    with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended, match="citing session write"):
         w.add(assessment("a", run, p))
     assert not ReadView.opened_at(roots["w"]).holds("assessment:a")
+
+
+def test_a_writer_on_a_mount_a_citing_write_holds_refuses_build_hold(roots):
+    """The converse of decision 5 (spec §13, final review): a same-process writer on a
+    read mount, arriving while a citing chain holds that mount's capture, refuses
+    `BuildHold`, worded for an epoch build, and never waits."""
+    m = adopted(roots["m"])
+    view = citations(roots, "m")
+    try:
+        view.holder("proposition:anything")  # the chain's capture of M is now held
+        with pytest.raises(BuildHold):
+            m.add(proposition("q"))
+    finally:
+        view.close()
+    assert m.add(proposition("q")).id == "proposition:q"
 
 
 def test_an_assessment_citing_only_write_root_records_still_contends(roots):

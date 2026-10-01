@@ -99,6 +99,15 @@ a namespace the writer pins. A **mutation target** is the record a write changes
 `supersede`'s predecessor, `retract`'s and `delete`'s target, `revise`'s record. Those
 resolve in the write root only, so a session never changes a mount's record.
 
+A citing write reads each read mount inside that mount's capture hold, which never
+waits. If another writer holds the mount mid-write, the citing write refuses
+`BuildContended`, naming the read mount, before any effect, and the caller retries.
+This happens even when every citation resolves in the write root, because the write
+must rule out a second holder. The converse also holds. A writer in the same process on
+a mounted root, arriving while a citing write holds that mount's capture, refuses
+`BuildHold`. Its message still speaks of "an epoch build's coherent capture", since the
+operation lock does not say who holds the capture.
+
 The session also carries ledgered routes for runs and holdings
 ([session routes](../designs/2026-09-09-session-routes-design.md)) and records
 which project the user has selected, pinned to the project revision it resolved

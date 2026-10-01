@@ -747,9 +747,17 @@ class MountCitations:
 
     def _read_mount(self, root: Path) -> ReadView:
         view = self._opened.get(root)
-        if view is None:
+        if view is not None:
+            return view
+        try:
             self._holds.enter_context(_operation_lock_for(root).capture())
-            view = self._opened[root] = ReadView.opened_at(root)
+        except BuildContended as exc:
+            # `capture` words its refusal for an epoch build; this one is a citing write's.
+            raise BuildContended(
+                f"read mount {root}: a citing session write could not capture it, because its operation "
+                f"lock is held (build-contended); the write refuses rather than queue, and the caller retries"
+            ) from exc
+        view = self._opened[root] = ReadView.opened_at(root)
         return view
 
     def _read_views(self) -> Iterator[tuple[Path, ReadView]]:

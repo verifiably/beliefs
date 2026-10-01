@@ -812,3 +812,13 @@ the code.
     declaration is frozen at 24 arms, so no declared N2 arm holds this refusal. Unit tests
     hold it (`test_domain_facet_read.py` and `test_mount_citations.py`), and the cut-44
     results record says so.
+  - **§10 limitation 3 has a converse, and the citing refusal names its mount.** A
+    citing write holds each read mount's capture from its first citation to the end
+    of its refusal chain. So a writer in the same process on that mount, arriving
+    meanwhile, refuses `BuildHold`, whose message speaks of an epoch build's coherent
+    capture. The refusal is immediate, and it is the same one an epoch build's capture
+    gives that writer. `OperationLock`'s messages are unchanged, since other cuts' tests
+    read them. Only the citing side is reworded: `_read_mount` catches the capture's
+    `BuildContended` and raises `BuildContended` naming the read mount and the citing
+    session write that could not capture it. The guide's writer-session section and the
+    cut-44 results §5 state both faces.
