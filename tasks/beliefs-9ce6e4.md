@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T12:06:42Z
+updated: 2026-10-01T12:27:15Z
 started: 2026-10-01T09:35:48Z
 depends: []
 tags: [session]
@@ -70,4 +70,10 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
 - 2026-10-01T12:02:54Z (cross-mount-eligibility): review: plan round 1 — verdict: revise; findings: P1 1, P2 5, P3 1; reviewer: unknown (pasted by the user)
 - 2026-10-01T12:06:41Z (cross-mount-eligibility): Plan round 1 disposition: all seven accepted (c0ed4f9): canonical-id malformedness, per-dataset producers-incomplete, J17 cites through an assessment, testing-capable fixtures, explicit gather args, J20 durable against a one-corpus baseline, test-one front door.
 - 2026-10-01T12:06:41Z (cross-mount-eligibility): parked (waiting on user, review): Plan round 2 review of .worktrees/cross-mount-eligibility/docs/superpowers/plans/2026-10-01-mount-citations.md (revisions at c0ed4f9); on accept: Task 0 (freeze cut 44, file step children), then sequential subagent-driven execution with a fresh review per task
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T12:26:10Z (cross-mount-eligibility): resumed
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T12:26:10Z (cross-mount-eligibility): review: plan round 2 — verdict: revise; findings: P2 3; reviewer: unknown (pasted by the user)
+- 2026-10-01T12:27:14Z (cross-mount-eligibility): Plan round 2 disposition: all three accepted; incompleteness only when the dataset would otherwise pass (validity_refusal with known producers), J20 pins read once before removal, J20 lineage asserts producers/not_present before and after removal.
+- 2026-10-01T12:27:14Z (cross-mount-eligibility): parked (waiting on user, review): Plan round 3 review of .worktrees/cross-mount-eligibility/docs/superpowers/plans/2026-10-01-mount-citations.md; on accept: Task 0 (freeze cut 44, file step children), then sequential subagent-driven execution with a fresh review per task
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
