@@ -341,18 +341,24 @@ class MountCitations:
   own `producers(dataset, aliases=aliases)`, and it answers for a ref nothing holds
   (decision 3a). `iter_stored` exists only for `_producer_ids`' protocol and yields every
   session corpus's records.
-- `acquisition_view(base, dataset=None) -> ProducerView` builds the view the writer
-  hands `bearer_refusal` and `validity_refusal` (decision 3a). `base` is the
-  path's own view, either the citation view or an `_ImportView` overlay.
+- `acquisition_view(base, *, local) -> ProducerView` builds the view the writer
+  hands `bearer_refusal` and `validity_refusal` (decision 3a). `base` is the path's
+  resolution view: the citation view, or an `_ImportView` overlay. `local` is the path's
+  corpus-local view: `self._view` on the add, replace, revise and correct-identifier
+  paths, and the `_ImportView` overlay itself on an import path. It is never the
+  citation view.
   - `resolve` and `get` of a ref the base does not hold fall through to the read mounts,
     with decision 4's duplicate refusal. This is the `produces`-target lookup.
   - `producers` is the union of the base's and every read mount's.
-  - The retrieval report is read from the corpus holding the dataset only (for a
-    candidate, `base`). `validity_refusal(view, node, profile, *, reports:
-    ReportView | None = None)` gains `reports`, a `holds`/`get` pair. It resolves
-    `retrieval` through `reports`, which defaults to `view`, so every existing caller
-    is unchanged. The writer passes the dataset's holder view, or `base` for a candidate.
-    `bearer_refusal` is unchanged.
+  - The retrieval report is read from the dataset's own corpus only.
+    `validity_refusal(view, node, profile, *, reports: ReportView | None = None)` gains
+    `reports`, a `holds`/`get` pair. It resolves `retrieval` through `reports`, which
+    defaults to `view`, so every caller outside this slice is unchanged.
+    - On every `_refuse_facets` path, the dataset judged is the write root's record or
+      an arriving one, so the writer passes `reports=local`.
+    - In eligibility, the observed dataset is held somewhere in the session, so the
+      writer passes `reports=citations.holder(dataset)`, the holding corpus's own view.
+    - `bearer_refusal` is unchanged.
 - A read mount's view is opened at its first use in one refusal chain, inside that mount's
   `capture()` hold (decision 5). All read-mount holds are released when the chain ends,
   on every exit path. A `BuildContended` from any hold propagates.
@@ -360,11 +366,12 @@ class MountCitations:
   the existing `_operation_lock_for`, which `world/live.py` already uses.
 
 The checks of decision 2 take the view as today (`view: ReadView | _ImportView | None`)
-and decode with the writer's profile (decision 3). `eligibility_refusal` judges each
-observed dataset with `validity_refusal(view, dataset, profile)` over the mount view
-itself. Its `holds` and `get` find the dataset and its retrieval report wherever they are
-held, and its `producers` is the session union (decision 3a). With a plain `ReadView`
-every answer is that view's, so behaviour is unchanged (decision 6).
+and decode with the writer's profile (decision 3). `eligibility_refusal` finds the run
+and each observed dataset over the mount view. It judges each dataset with
+`validity_refusal(view, dataset, profile, reports=view.holder(dataset))`: producers are
+the session's, and the retrieval report is the dataset's own corpus's (decision 3a).
+With a plain `ReadView` every answer is that view's, so behaviour is unchanged
+(decision 6).
 
 ### 3.2 The writer and the session
 
@@ -381,9 +388,10 @@ every answer is that view's, so behaviour is unchanged (decision 6).
   - Mutation-target reads and the own-index checks keep `self._view` and
     `self._corpus.index` (decision 1).
   - `_refuse_facets` hands `bearer_refusal` and `validity_refusal`
-    `citations.acquisition_view(reading)` when `read_mounts` is set. `reading` is the
-    view it was given, or the citation view. Without read mounts it hands them `reading`,
-    as today. So the `_ImportView` overlays themselves are unchanged. Their resolution
+    `citations.acquisition_view(reading, local=…)` when `read_mounts` is set, and passes
+    `validity_refusal` `reports=local`. `reading` is the view it was given, or the
+    citation view. `local` is that view when it is an `_ImportView` overlay, and
+    `self._view` otherwise. Without read mounts it hands them `reading`, as today. So the `_ImportView` overlays themselves are unchanged. Their resolution
     of retraction targets, coreference endpoints and every other relation stays local
     (decision 1). Only the acquisition-boundary judgment on an import path reads the
     session.
@@ -476,7 +484,7 @@ New rows J16–J21 in the `J` table.
 
 | row | guarantee | mutation test |
 |---|---|---|
-| **J16** | In a session with read mounts, the write boundary resolves the citations of decision 2 over the write root and every read mount, reads each cited record in its holding corpus under the writer's profile, refuses a citation across differing identities of one namespace, and judges producers over the whole session on every path. The write lands in the write root alone | Corpus M (read mount) pins base, `biology` and a test-local contract W does not pin. M holds a dataset with a valid empirical-observation facet, a proposition, and an assessment with its run. In a session writing W: a run observing M's dataset, then an assessment of M's proposition over that run → written to W. An analysis spec targeting M's proposition → written. **Contracts:** M2 pins a different identity of a test-local namespace W also pins (two versions of one fixture contract), and citing M2's proposition → `CitationContractMismatch` naming M2, the namespace and both pins. **Producers:** each of these is set up by library writers on one root at a time, which cannot see the other corpora, so dangling edges are legal.<br>- A run in W whose `produces` names an address nothing holds, then a dataset at that address declared with the facet → `AcquisitionBoundaryRefused`, as on a one-root writer. The same with the dangling edge in M's run → refused.<br>- M3 holds a run producing M's facet-bearing dataset. An assessment over a W run observing that dataset → `EligibilityUnmet` naming M3's run.<br>- W holds a dataset without the facet, and M's run produces it. `revise` adding the facet → refused.<br>- M's run produces the address an `acquire` in the session would mint → the acquisition refuses.<br>- **Reverse direction:** `import_bundle` in the session of a bundle holding a run whose `produces` names M's facet-bearing dataset → `AcquisitionBoundaryRefused`. A plain write of such a run → the same.<br>- **Split retrieval:** a dataset written in W whose payload's `retrieval` names an acquisition report held only in M → `FacetPayloadRefused` (`facet-retrieval-unresolved`). The same dataset raw-written into W → `corpus_check(W)` and `audit_world` both report `facet-retrieval-unresolved`, and no other finding on it. A verification of M's assessment → written. A composite over M's propositions → written. M's tree hash is unchanged (J15). A session whose `mounts` names the write root by a symlinked path → opens, and J16's writes behave the same. **Negative:** the same writes through a library `CorpusWriter` on W, and through a session with `mounts=None`, refuse as §1 lists, with today's messages |
+| **J16** | In a session with read mounts, the write boundary resolves the citations of decision 2 over the write root and every read mount, reads each cited record in its holding corpus under the writer's profile, refuses a citation across differing identities of one namespace, and judges producers over the whole session on every path. The write lands in the write root alone | Corpus M (read mount) pins base, `biology` and a test-local contract W does not pin. M holds a dataset with a valid empirical-observation facet, a proposition, and an assessment with its run. In a session writing W: a run observing M's dataset, then an assessment of M's proposition over that run → written to W. An analysis spec targeting M's proposition → written. **Contracts:** M2 pins a different identity of a test-local namespace W also pins (two versions of one fixture contract), and citing M2's proposition → `CitationContractMismatch` naming M2, the namespace and both pins. **Producers:** each of these is set up by library writers on one root at a time, which cannot see the other corpora, so dangling edges are legal.<br>- A run in W whose `produces` names an address nothing holds, then a dataset at that address declared with the facet → `AcquisitionBoundaryRefused`, as on a one-root writer. The same with the dangling edge in M's run → refused.<br>- M3 holds a run producing M's facet-bearing dataset. An assessment over a W run observing that dataset → `EligibilityUnmet` naming M3's run.<br>- W holds a dataset without the facet, and M's run produces it. `revise` adding the facet → refused.<br>- M's run produces the address an `acquire` in the session would mint → the acquisition refuses.<br>- **Reverse direction:** `import_bundle` in the session of a bundle holding a run whose `produces` names M's facet-bearing dataset → `ImportRefused` naming the run as `member`, whose `__cause__` is `AcquisitionBoundaryRefused`. A plain write of such a run → the same.<br>- **Split retrieval:** a dataset written in W whose payload's `retrieval` names an acquisition report held only in M → `FacetPayloadRefused` (`facet-retrieval-unresolved`). The same dataset raw-written into W, then an assessment over a W run observing it → `EligibilityUnmet` naming `facet-retrieval-unresolved`. The same dataset raw-written into W → `corpus_check(W)` and `audit_world` both report `facet-retrieval-unresolved`, and no other finding on it. A verification of M's assessment → written. A composite over M's propositions → written. M's tree hash is unchanged (J15). A session whose `mounts` names the write root by a symlinked path → opens, and J16's writes behave the same. **Negative:** the same writes through a library `CorpusWriter` on W, and through a session with `mounts=None`, refuse as §1 lists, with today's messages |
 | **J17** | A citation two session corpora resolve refuses `AddressMapConflict` (`duplicate-location`, naming both), and a read mount whose operation lock is held refuses `BuildContended`. Both happen before any effect, with nothing written | M1 and M2 both hold a dataset at one address (a raw write into M2). An assessment over a run observing it → `AddressMapConflict` naming M1 and M2, and W unchanged. The same with the address held by W and M1 → refuses naming both. With M's operation lock held by another holder, an assessment citing M → `BuildContended`, and W unchanged. **Negative:** a write citing only W's records while M's lock is held → `BuildContended` (decision 5: the chain opens every read mount), and a write citing nothing (a proposition) → written |
 | **J18** | `corpus_check` reports an assessment whose eligibility rests on references the corpus does not hold as `eligibility-unresolved` (warning). Locally decided failures stay `eligibility-unmet` (error) | W after J16's session: `corpus_check(W)` → one `eligibility-unresolved` warning per cross-mount assessment, naming the references, and no error. A raw-written assessment over a held run with no `observes` input → `eligibility-unmet` error (S7's case, unchanged). A run observing one held invalid dataset and one unheld dataset → `eligibility-unresolved`. **Negative:** a run observing only held invalid datasets → `eligibility-unmet` |
 | **J19** | `audit_world` judges eligibility across covered corpora from the captured records, never raising: supported → no finding, unmapped → `eligibility-unmet`, held by an absent, damaged or excluded corpus, or by a malformed record → `eligibility-unresolved` naming the corpus and cause, and the audit continues | Publish an epoch over W and M after J16's session: `audit_world` → no eligibility finding. **Captured, not live:** the test wraps `open_world_view` so that, after the view captures and before the audit reads it, M's carrier loses the dataset's retrieval act-report (a raw delete) → still no eligibility finding. Remove M's carrier → `eligibility-unresolved` naming M, `absent`. Make one of M's files fail construction → `eligibility-unresolved` naming M, `damaged:construction`, with W's other records still audited and M's readable remainder audited as today. **Absent producer:** W holds an assessment, its run and the facet-bearing dataset that run observes, and M holds a run producing that dataset. Over an epoch covering both → `eligibility-unmet`. Remove M's carrier → still `eligibility-unmet`, because the epoch's published producers name M's run. A drift dataset in W, produced by nothing present, while M is absent → `eligibility-unresolved`, `producers-incomplete:M`. Make M's dataset's semantic stamp stale (a raw write before the epoch) → `eligibility-unresolved`, `malformed:semantic-hash-stale`, beside M's own `semantic-hash-stale` finding. Rebuild with W's run observing an M dataset that carries no empirical-observation facet (a well-formed record, so not in M's malformedness set) → `eligibility-unmet`. A malformed-payload dataset is the `unreadable` case, not this one: `facet-payload-malformed` is a malformedness code. **Negative:** an epoch covering W alone (M not admitted) → `eligibility-unmet`, since no covered corpus maps the dataset |
@@ -516,10 +524,11 @@ run there, against a published epoch.
 | J16d | the `CitationContractMismatch` guard removed from `holder` | J16's M2 citation is written |
 | J16e | `writer_factory` passes `read_mounts=None` | J16's writes refuse |
 | J16f | `MountCitations.producers` answers from `holder(ref)` | J16's assessment over the M3-produced dataset is written |
-| J16h | `_revise_dataset_locked` calls `_refuse_facets` with `self._view` | J16's revise case is written |
+| J16h | on the revise path, `_refuse_facets` hands `reading` to the judgments instead of `acquisition_view(reading, local=…)` | J16's revise case is written |
 | J16i | `_refuse_facets` hands an `_ImportView` overlay to the judgments without `acquisition_view` | J16's acquire case mints |
 | J16j | `acquisition_view` resolves `produces` targets in `base` only | J16's reverse-direction import is accepted |
-| J16k | `reports` defaults to the session view on the writer's path | J16's split-retrieval write is accepted |
+| J16k | `_refuse_facets` passes `reports=base` (the citation view) instead of `local` | J16's split-retrieval write is accepted |
+| J16l | eligibility passes `reports=view` (the citation view) instead of the dataset's holder | J16's assessment over the raw-written split dataset is written |
 | J16g | `writer_factory` filters the raw `mounts` keys | J16's symlinked-write-root session refuses or contends instead of writing |
 | J17a | `holder` returns the first holder in corpus order | J17's two-mount case writes |
 | J17b | read-mount views open without the capture hold | J17's held-lock case writes |
@@ -645,3 +654,16 @@ code.
 
 Decision 3's mismatch rule is now stated as a policy choice (the reviewer's
 clarification). Limitation 7 records that the bearer findings stay per corpus.
+
+**Round 4 (2026-10-01), revise: P2 2, P3 1.** All three were accepted after checking the
+code.
+1. For a candidate, the retrieval lookup went to `base`, which can be the session-wide
+   citation view, and eligibility kept session-wide report lookup. `acquisition_view`
+   now takes `local`: the writer's own view, or the import overlay. Candidates read
+   reports there, and eligibility reads the observed dataset's holder. J16 gains the
+   raw-written split-dataset assessment and J16l. J16k is re-targeted at `local`.
+2. J16h's sabotage was masked by the wrapper. It now bypasses `acquisition_view` on
+   the revise path.
+3. An import refusal surfaces as `ImportRefused`, whose cause is
+   `AcquisitionBoundaryRefused` (`corpus.py`, `import_bundle`'s member loop). J16's
+   import expectation is corrected.
