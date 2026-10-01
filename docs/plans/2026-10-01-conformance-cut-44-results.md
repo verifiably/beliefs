@@ -95,7 +95,9 @@ match frozen §4's count.
 
 ## 2. Accounting
 
-**24 arms, 24 declaration units, 6 guarantee rows. J16–J21 close in full.**
+**24 arms, 24 declaration units, 6 guarantee rows. J16–J21 close.** Every declared arm
+ran sound. Every sub-case the rows name is exercised by a unit or durable test, except
+J19's `excluded:<scope>` cause, which §3 lists as unexercised.
 
 - **J16:** a session's write boundary resolves citations over the write root and every
   read mount, reads each cited record in its holding corpus under the writer's profile,
@@ -109,8 +111,8 @@ match frozen §4's count.
   hold as an `eligibility-unresolved` warning; locally decided failures stay
   `eligibility-unmet` errors, with S7's finding line byte-exact.
 - **J19:** `audit_world` judges eligibility over its capture through a total citation
-  reader: supported, unmapped, and unresolved by an absent, damaged, excluded or
-  malformed holder, and the audit continues.
+  reader: supported, unmapped, and unresolved by an absent, damaged or malformed holder,
+  and the audit continues. The excluded-holder cause is not exercised (§3).
 - **J20:** belief over a world read gathers, admits and evaluates the two-installation
   split with the one-corpus answer.
 - **J21:** a corpus-local belief read refuses an input the corpus does not hold. It
@@ -191,6 +193,34 @@ and `test_mount_citations.py::test_a_corpus_local_read_of_an_assessment_over_a_m
 but no declared N2 arm does: cut 44's declaration is frozen at 24 arms, and this
 refusal is not one of them.
 
+**Row sub-cases the final review found unexercised.** The final whole-branch review
+found six sub-cases of J16, J17 and J19 that no test reached while this record said the
+rows closed "in full". Five now have portable tests:
+
+- J17, the address held by W and a read mount:
+  `test_mount_citations.py::test_a_citation_held_by_the_write_root_and_a_mount_refuses_naming_both`
+  (the write root's own corpus id in the `duplicate-location` finding, W unchanged);
+- J19-d, W's other records and M's readable remainder still audited beside M's damage:
+  `test_world_audit.py::test_j19_d_the_audit_still_judges_w_and_ms_readable_remainder`;
+- J19's stale stamp, M's own `semantic-hash-stale` finding beside the eligibility one:
+  `test_world_audit.py::test_j19_a_malformed_held_record_is_unresolved`;
+- J16's raw-written split retrieval, the dataset in W and its report only in M, with
+  `corpus_check(W)` and `audit_world` each reporting `facet-retrieval-unresolved` on it
+  and nothing else:
+  `test_world_audit.py::test_j16_a_split_retrieval_report_is_unresolved_in_the_check_and_the_audit_alike`;
+- J16's negative through a session with `mounts=None`, which refuses the citation into
+  another root with today's `EligibilityUnmet`:
+  `test_session_writer.py::test_a_session_with_no_mounts_refuses_a_citation_into_another_root`.
+
+None of these is a declared N2 arm. **Unexercised:** J19's `excluded:<scope>` cause.
+No test reaches it, and `audit_world` appears unable to produce it as a citation cause.
+`_manifest_findings` yields only scope `base`, `domains` or `none`, so `malformed` never
+occurs. Scope `base` arises in two ways, and neither reaches it. If the audit's profile
+requires a non-shipped base, every corpus is excluded, the citing one too, so no
+eligibility is judged. If a manifest pins a non-shipped base, the corpus is damaged
+(`base-pin`) and skipped before the exclusion. The reader's `excluded` branch therefore
+stands untested, and §2 no longer claims it.
+
 **A cut-31 cited test was narrowed.** Task 4 narrowed
 `test_world_audit.py::test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues`.
 The old last-per-reference map hid a pre-existing `derivation-malformed` behind an
@@ -232,8 +262,8 @@ working corpus on the shipped pack can cite it. The mounted measurement is scien
 
 ## 5. Remaining boundary
 
-None for `mount-citations`: J16–J21 are discharged in full. Spec §10's limitations
-remain:
+None for `mount-citations`: J16–J21 are discharged, with the one unexercised J19 cause
+§3 lists. Spec §10's limitations remain:
 
 1. Read mounts are opened per citing write; there is no state-keyed cache.
 2. Duplicates refuse, including identical ones, until `beliefs-81367e`.

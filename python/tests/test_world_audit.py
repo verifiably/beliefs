@@ -684,6 +684,23 @@ def test_j19_d_a_damaged_holder_is_unresolved_and_the_audit_continues(tmp_path):
     assert ("corpus-damaged" in {f.code for f in audit.corpora[BETA]})
 
 
+def test_j19_d_the_audit_still_judges_w_and_ms_readable_remainder(tmp_path):
+    """J19-d's row in full: beside BETA's damage and the unresolved citation into it,
+    ALPHA's other records are still audited, and so is BETA's readable remainder."""
+    world, roots, published, _d = _cross_world(tmp_path)
+    damage(roots[BETA], "parse-error")
+    own, remainder = stale("w-late"), stale("m-late")
+    raw_write(roots[ALPHA], own)
+    raw_write(roots[BETA], remainder)
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+    alpha = [(f.code, f.ref) for f in audit.corpora[ALPHA]]
+    assert ("eligibility-unresolved", "assessment:a") in alpha
+    assert ("semantic-hash-stale", own.id) in alpha
+    beta = [(f.code, f.ref) for f in audit.corpora[BETA]]
+    assert "corpus-damaged" in {code for code, _ref in beta}
+    assert ("semantic-hash-stale", remainder.id) in beta
+
+
 def test_j19_e_an_absent_producer_keeps_the_dataset_produced(tmp_path):
     d = _observed("own")
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
@@ -703,12 +720,13 @@ def test_j19_e_an_absent_producer_keeps_the_dataset_produced(tmp_path):
 
 
 def test_j19_a_malformed_held_record_is_unresolved(tmp_path):
-    world, roots, published, _d = _cross_world(tmp_path)
+    world, roots, published, d = _cross_world(tmp_path)
     path = next((roots[BETA] / "dataset").glob("*.md"))
     path.write_text(path.read_text().replace("instrument:fixture", "instrument:edited"))  # stale stamp
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
     (finding,) = [f for f in audit.corpora[ALPHA] if f.code.startswith("eligibility")]
     assert finding.code == "eligibility-unresolved" and "malformed:semantic-hash-stale" in finding.detail
+    assert ("semantic-hash-stale", d.id) in [(f.code, f.ref) for f in audit.corpora[BETA]]  # BETA's own finding beside it
 
 
 def test_j19_a_malformed_record_cited_by_an_alias_is_unresolved(tmp_path):
@@ -797,3 +815,19 @@ def test_j19_an_uncovered_holder_is_unmet(tmp_path):
     assert _eligibility(audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)) == [
         ("error", "eligibility-unmet", "assessment:a")
     ]
+
+
+def test_j16_a_split_retrieval_report_is_unresolved_in_the_check_and_the_audit_alike(tmp_path):
+    """J16's split-retrieval case, raw-written: ALPHA (W) holds a dataset whose `retrieval`
+    names an acquisition report only BETA (M) holds. `corpus_check(W)` and `audit_world`
+    both report `facet-retrieval-unresolved` on it, and no other finding (decision 3a)."""
+    from beliefs.corpus import corpus_check
+
+    split = _observed("split")
+    roots = corpora(tmp_path, {ALPHA: (split,), BETA: (REPORT,)})
+    world = world_over(tmp_path, roots)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    local = corpus_check(ReadView.opened_at(roots[ALPHA]), WITH_BIOLOGY)
+    assert [f.code for f in local if f.ref == split.id] == ["facet-retrieval-unresolved"]
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+    assert [f.code for f in audit.corpora[ALPHA] if f.ref == split.id] == ["facet-retrieval-unresolved"]

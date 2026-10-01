@@ -794,6 +794,28 @@ def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
     session.close()
 
 
+def test_a_session_with_no_mounts_refuses_a_citation_into_another_root(tmp_path, monkeypatch):
+    """J16's negative: with `mounts=None` the session has no read mounts (decision 6), so
+    the assessment over B's dataset and proposition refuses as a library writer does."""
+    from beliefs.errors import EligibilityUnmet
+
+    a, b, config = _two_typed_roots(tmp_path, monkeypatch)
+    library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
+    d = library.add(stored.dataset_node(title="d", resources=pinned("d"),
+                                        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
+    p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    session = _open(config, tmp_path, write_root=a, profile=V2T, mounts=None)
+    w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
+    session.claim_invocation("A", "assess", "d" * 64)
+    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+    with pytest.raises(EligibilityUnmet, match=f"{d.id}: unresolved"):
+        w.add(stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
+                                     outcome="supported", interpretation_rule="rule:threshold",
+                                     estimand=typed_estimand(), applicability=typed_applicability()))
+    session.close_invocation("A", {"done": []})
+    session.close()
+
+
 def test_a_symlinked_write_root_mount_key_is_filtered_after_normalization(tmp_path, monkeypatch):
     """J16-g's check: the alias of the write root never reaches the writer."""
     a, b, config = _two_typed_roots(tmp_path, monkeypatch)

@@ -433,7 +433,8 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   `eligibility-unresolved` warning, `audit_world` judges eligibility over its capture,
   belief over a world read evaluates the two-installation split, and a corpus-local
   belief read refuses an input it does not hold, superseding B4's absent-dataset clause.
-  **J16–J21 close; `mount-citations` is discharged in full.** Main integration follows
+  **J16–J21 close; `mount-citations` is discharged.** One J19 sub-case, the
+  `excluded:<scope>` cause, is unexercised (results §3). Main integration follows
   Task 10.
 
 **Remaining implementation boundaries with named owners.** One row per

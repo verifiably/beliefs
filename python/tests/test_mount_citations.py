@@ -114,6 +114,24 @@ def test_a_ref_held_twice_refuses_duplicate_location_naming_both(roots):
     assert refused.value.finding.detail == ", ".join(ids)
 
 
+def test_a_citation_held_by_the_write_root_and_a_mount_refuses_naming_both(roots):
+    """J17's second case: W and M both hold the observed dataset (a raw write into M), so
+    the citing assessment refuses `duplicate-location` naming W and M, and W is unchanged."""
+    from fixtures_cut4 import raw_write
+
+    w = mounted_writer(roots, "m")
+    d = w.add(observed("d"))
+    run, p = w.add(run_over("r", d)), w.add(proposition("p"))
+    raw_write(roots["m"], d)
+    before = {path: path.read_bytes() for path in roots["w"].rglob("*") if path.is_file()}
+    with pytest.raises(AddressMapConflict) as refused:
+        w.add(assessment("a", run, p))
+    ids = sorted(ReadView.opened_at(roots[name]).corpus_id for name in ("w", "m"))
+    assert refused.value.finding.code == "duplicate-location" and refused.value.finding.ref == d.id
+    assert refused.value.finding.detail == ", ".join(ids)
+    assert {path: path.read_bytes() for path in roots["w"].rglob("*") if path.is_file()} == before
+
+
 def test_a_held_read_mount_lock_refuses_build_contended(roots):
     """J17-b's check: another holder owns M's operation lock."""
     d = adopted(roots["m"]).add(observed("d"))
