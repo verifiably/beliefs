@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T10:32:59Z
+updated: 2026-10-01T10:41:00Z
 started: 2026-10-01T09:35:48Z
 depends: []
 tags: [session]
@@ -38,4 +38,10 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
 - 2026-10-01T10:29:56Z (cross-mount-eligibility): review: spec round 2 — verdict: revise; findings: P1 3, P2 1; reviewer: unknown (pasted by the user)
 - 2026-10-01T10:32:58Z (cross-mount-eligibility): Round 2 disposition: all four accepted; validity over the mount view (session producers), citation view default for _refuse_facets on every caller and session producers in both _ImportView overlays, audit producers include published_producers with producers-incomplete for unmapped datasets, decision 3 now writer-profile decoding plus CitationContractMismatch on differing shared-namespace pins (J16d arms it)
 - 2026-10-01T10:32:58Z (cross-mount-eligibility): parked (waiting on user, review): Round 3 review of .worktrees/cross-mount-eligibility/docs/superpowers/specs/2026-10-01-mount-citations-design.md (§12 lists round 1-2 dispositions); on accept: close beliefs-724941 citing decision 2, file the science §4 task, then writing-plans for cut 44
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T10:39:27Z (cross-mount-eligibility): resumed
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T10:39:27Z (cross-mount-eligibility): review: spec round 3 — verdict: revise; findings: P1 1, P2 1; reviewer: unknown (pasted by the user)
+- 2026-10-01T10:40:59Z (cross-mount-eligibility): Round 3 disposition: both accepted; acquisition_view judges bearer/validity over the session both directions (produces targets resolve into mounts, producers union) while overlays stay local; retrieval reports explicitly local to their dataset (validity_refusal gains reports=); decision 3 restated as policy; limitation 7 records per-corpus bearer findings
+- 2026-10-01T10:40:59Z (cross-mount-eligibility): parked (waiting on user, review): Round 4 review of .worktrees/cross-mount-eligibility/docs/superpowers/specs/2026-10-01-mount-citations-design.md (§12 lists rounds 1-3); on accept: close beliefs-724941 citing decision 2, file the science §4 task, then writing-plans for cut 44
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
