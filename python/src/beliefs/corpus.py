@@ -1541,7 +1541,7 @@ class EligibilityOutcome:
 
 
 def eligibility_outcome(
-    view: ReadView | _ImportView | _CheckView | _CapturedCheckView | MountCitations,
+    view: ProducerView,
     node: Node,
     profile: ProfileSpec,
     *,

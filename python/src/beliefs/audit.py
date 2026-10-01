@@ -32,12 +32,17 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
 
+from nodes.core.errors import RefError
 from nodes.core.node import Node
 
 from beliefs import stored
+from beliefs.acquisition import validity_refusal
 from beliefs.assess import AssessmentValue, build_assessment
 from beliefs.corpus import (
+    ELIGIBILITY_CODES,
+    EligibilityOutcome,
     Finding,
+    MismatchScope,
     ReadView,
     _absence_of,
     _CapturedCheckView,
@@ -46,6 +51,7 @@ from beliefs.corpus import (
     _producers_of,
     _record_findings,
     corpus_check,
+    eligibility_outcome,
 )
 from beliefs.errors import (
     CorpusDamaged,
@@ -554,6 +560,86 @@ def _recompute(
     return None
 
 
+class _CapturedCitations:
+    """Decision 8's total reader over the captured world, for one citing corpus:
+    own corpus first, then the epoch's map; never a live read, never a raise."""
+
+    def __init__(self, view: WorldReadView, citing: str, readable: Mapping[str, _CapturedCheckView],
+                 causes: Mapping[str, str], malformed: Mapping[str, Mapping[str, str]]) -> None:
+        self._view = view
+        self._citing = citing
+        self._own = readable[citing]
+        self._readable = readable
+        self._causes = causes
+        self._malformed = malformed
+        self._profile: ProfileSpec | None = None
+        self.unreadable: dict[str, str] = {}
+
+    def _holder(self, ref: str) -> _CapturedCheckView | None:
+        if self._own.holds(ref):
+            if self._incomplete(ref):
+                self.unreadable[ref] = f"{self._citing} producers-incomplete:{','.join(sorted(self._causes))}"
+                return None
+            return self._own
+        corpus_id = self._view.corpus_of(ref)
+        if corpus_id is None or corpus_id == self._citing:
+            return None
+        cause = self._causes.get(corpus_id)
+        holder = self._readable.get(corpus_id)
+        if cause is None and holder is not None:
+            canonical = holder.resolve(ref)  # an alias names the canonical record the map is keyed by
+            if canonical is not None and canonical in self._malformed.get(corpus_id, {}):
+                cause = f"malformed:{self._malformed[corpus_id][canonical]}"
+        if cause is not None:
+            self.unreadable[ref] = f"{corpus_id} {cause}"
+            return None
+        return self._readable.get(corpus_id)
+
+    def _incomplete(self, ref: str) -> bool:
+        """Decision 8, per dataset: an own dataset the epoch never mapped, while a
+        covered corpus is unreadable, is uncertain only when it would otherwise
+        pass. A missing or malformed facet, a basis, a known producer or an
+        unresolved report each decide it definitely, and the scan goes on."""
+        if self._view.corpus_of(ref) is not None or not self._causes:
+            return False
+        node = self._own.get(ref)
+        if node.kind != "dataset":
+            return False
+        assert self._profile is not None, "producer completeness is judged inside eligibility()"
+        return validity_refusal(self, node, self._profile, reports=self._own) is None
+
+    def holds(self, ref: str) -> bool:
+        return self._holder(ref) is not None
+
+    def resolve(self, ref: str) -> str | None:
+        holder = self._holder(ref)
+        return None if holder is None else holder.resolve(ref)
+
+    def get(self, ref: str) -> Node:
+        holder = self._holder(ref)
+        if holder is None:
+            raise RefError(f"{ref}: not readable in this capture")
+        return holder.get(ref)
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        found = {producer for view in self._readable.values() for producer in view.producers(dataset, aliases=aliases)}
+        found.update(self._view.published_producers(dataset))
+        return tuple(sorted(found))
+
+    def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None:
+        self.unreadable = {}
+        self._profile = profile
+        outcome = eligibility_outcome(self, node, profile, reports=self._holder)
+        if outcome is None or not outcome.unresolved:
+            return outcome
+        if not any(ref in self.unreadable for ref in outcome.unresolved):
+            return EligibilityOutcome(outcome.reason)  # only unmapped references: unmet
+        return EligibilityOutcome(
+            outcome.reason,
+            tuple(f"{ref} ({self.unreadable[ref]})" if ref in self.unreadable else ref for ref in outcome.unresolved),
+        )
+
+
 def audit_world(
     world: World,
     published: Epoch,
@@ -573,7 +659,10 @@ def audit_world(
     drift = {report.corpus_id: report for report in view.drift()}
     corpora: dict[str, list[Finding]] = {}
     malformed: dict[str, set[str]] = {}
+    malformed_codes: dict[str, dict[str, str]] = {}
     excluded: set[str] = set()
+    excluded_scope: dict[str, str] = {}
+    eligible: dict[str, tuple[_CapturedCheckView, MismatchScope, frozenset[str]]] = {}
     for corpus_id, _state in published.coverage:
         findings = corpora.setdefault(corpus_id, [])
         if corpus_id in view.absent():
@@ -604,11 +693,13 @@ def audit_world(
             continue
         if scope in ("base", "malformed"):
             excluded.add(corpus_id)
+            excluded_scope[corpus_id] = scope
             continue
-        findings.extend(
-            _record_findings(_CapturedCheckView(view.captured_records(corpus_id)), profile, scope, disagreeing)
-        )
+        captured = _CapturedCheckView(view.captured_records(corpus_id))
+        eligible[corpus_id] = (captured, scope, disagreeing)
+        findings.extend(f for f in _record_findings(captured, profile, scope, disagreeing) if f.code not in ELIGIBILITY_CODES)
         malformed[corpus_id] = {finding.ref for finding in findings if finding.code in MALFORMEDNESS_CODES}
+        malformed_codes[corpus_id] = {f.ref: f.code for f in findings if f.code in MALFORMEDNESS_CODES}
         if report is not None:
             findings.extend(report.findings)
             excluded_count = len({finding.ref for finding in report.findings})
@@ -646,6 +737,14 @@ def audit_world(
                         f"{corpus_id}: uid {uid!r} is held but the epoch never mapped it; rebuild to publish it",
                     )
                 )
+    causes = {corpus_id: "absent" for corpus_id in view.absent()}
+    causes.update({report.corpus_id: f"damaged:{report.cause}" for report in view.damaged()})
+    causes.update({corpus_id: f"excluded:{scope}" for corpus_id, scope in excluded_scope.items()})
+    readable = {corpus_id: captured for corpus_id, (captured, _scope, _disagreeing) in eligible.items()}
+    for corpus_id, (captured, scope, disagreeing) in sorted(eligible.items()):
+        reader = _CapturedCitations(view, corpus_id, readable, causes, malformed_codes)
+        second = _record_findings(captured, profile, scope, disagreeing, citations=reader)
+        corpora[corpus_id].extend(f for f in second if f.code in ELIGIBILITY_CODES)
     for node in view.iter_stored():
         corpus_id = view.corpus_of(node.id)
         assert corpus_id is not None
