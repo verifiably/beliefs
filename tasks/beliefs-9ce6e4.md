@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T10:53:42Z
+updated: 2026-10-01T11:03:09Z
 started: 2026-10-01T09:35:48Z
 depends: []
 tags: [session]
@@ -50,4 +50,10 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
 - 2026-10-01T10:52:01Z (cross-mount-eligibility): review: spec round 4 — verdict: revise; findings: P2 2, P3 1; reviewer: unknown (pasted by the user)
 - 2026-10-01T10:53:41Z (cross-mount-eligibility): Round 4 disposition: all three accepted; acquisition_view(base, local=) with reports=local on _refuse_facets paths and reports=holder in eligibility; J16h retargeted to bypass acquisition_view on revise; J16 import expects ImportRefused caused by AcquisitionBoundaryRefused; J16l added
 - 2026-10-01T10:53:42Z (cross-mount-eligibility): parked (waiting on user, review): Round 5 review of .worktrees/cross-mount-eligibility/docs/superpowers/specs/2026-10-01-mount-citations-design.md (§12 lists rounds 1-4); on accept: close beliefs-724941 citing decision 2, file the science §4 task, then writing-plans for cut 44
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T11:02:17Z (cross-mount-eligibility): resumed
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T11:02:17Z (cross-mount-eligibility): review: spec round 5 — verdict: revise; findings: P1 1, P2 1, P3 1; reviewer: unknown (pasted by the user)
+- 2026-10-01T11:03:08Z (cross-mount-eligibility): Round 5 disposition: all three accepted; eligibility on _ImportView paths resolves through the overlay and judges validity with session producers (J16 imported-assessment case, J16m); J16h passes local to both judgments; plain write names AcquisitionBoundaryRefused
+- 2026-10-01T11:03:08Z (cross-mount-eligibility): parked (waiting on user, review): Round 6 review of .worktrees/cross-mount-eligibility/docs/superpowers/specs/2026-10-01-mount-citations-design.md (§12 lists rounds 1-5); on accept: close beliefs-724941 citing decision 2, file the science §4 task, then writing-plans for cut 44
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
