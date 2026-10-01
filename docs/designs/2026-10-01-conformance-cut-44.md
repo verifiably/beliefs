@@ -1,6 +1,6 @@
 # Conformance cut 44 — mount citations
 
-**Status:** frozen 2026-10-01, before implementation; J16–J21 are open
+**Status:** discharged 2026-10-01; J16–J21 closed; [results](../plans/2026-10-01-conformance-cut-44-results.md). Frozen body below unchanged.
 **Design:** [mount citations design](../superpowers/specs/2026-10-01-mount-citations-design.md), approved 2026-10-01.
 **Plan:** [implementation plan](../superpowers/plans/2026-10-01-mount-citations.md).
 **Numbered** after cut 43 under roadmap rule 1. The branch scan on 2026-10-01 found no `conformance-cut-44` or later document on any branch or remote ref.

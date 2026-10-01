@@ -11,7 +11,7 @@ amendments) and its commons design (`science docs/specs/2026-09-30-science-commo
 **Tasks:** `beliefs-9ce6e4` holds this spec; it answers `beliefs-724941` (§2 decision 2).
 **Cut 44:** numbered after cut 43 under roadmap concurrency rule 1. No branch or worktree
 holds a later cut on 2026-10-01.
-**Status:** approved 2026-10-01; frozen as cut 44 on 2026-10-01.
+**Status:** implemented and discharged as cut 44 on 2026-10-01; [results](../../plans/2026-10-01-conformance-cut-44-results.md). Main integration remains Task 10.
 
 ## 1. What this slice is
 
@@ -775,3 +775,27 @@ the code.
   - **B4's supersession also reaches cut 23's durable test tail**, the corpus-local read after M is removed in
     `test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably`, which now asserts J21's refusal. No
     other acceptance test changed.
+
+- 2026-10-01, at Task 9 (results, `../../plans/2026-10-01-conformance-cut-44-results.md`):
+  - **Acceptance fixtures.** §8.2 and the J16 row describe M pinning a test-local
+    namespace W lacks, and M2 on version 2 of the fixture contract. The durable module
+    (`test_mount_citations_acceptance.py`) uses `profile_with()` for M and M3 and
+    `biology("other")` for M2, as the portable tests do, so that it runs on the certified
+    volume without a further test-local contract. The decision 3 mismatch is therefore
+    exercised on `biology`. No durable case covers a namespace only M pins; a world read
+    over that shape is filed as `beliefs-d69102`, since `consulted_contracts` takes its
+    corpora only from attributed nodes.
+  - **J20's "the others → M".** `gather` attributes only assessments, runs and datasets
+    (decision 10), so `node_corpus` carries no entry for the proposition. The durable case
+    checks the proposition's corpus through the world view's `corpus_of`, and the
+    observed datasets through `node_corpus`.
+  - **§3.2 drift.**
+    - The session passes `()`, not `None`, when no read mount remains, and when `mounts`
+      is `None`. The writer treats an empty collection as no read mounts.
+    - `acquisition_view(reading, local=…)` was built as `MountCitations.overlay(base)`,
+      returning a `_SessionOverlay` over `base` whose producers and `produces` resolution
+      read the session.
+    - The old `eligibility_refusal` docstring's rationale was dropped when its body moved
+      into `eligibility_outcome`. It is still true of the code (only `observes` inputs are
+      read, and nothing reaches the registry compile), so `eligibility_outcome`'s
+      docstring restores it: `reads` inputs never confer eligibility.

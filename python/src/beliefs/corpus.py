@@ -1550,7 +1550,13 @@ def eligibility_outcome(
 ) -> EligibilityOutcome | None:
     """S7's cross-node predicate. `view` finds the run and its datasets; `judge`
     answers each dataset's producers (the session's, decision 3a); `reports`
-    names the corpus holding a dataset's retrieval report."""
+    names the corpus holding a dataset's retrieval report.
+
+    assessment → run → `observes` → dataset → facet. `reads` inputs never
+    confer eligibility, in any quantity, and no clause of this reaches the
+    registry compile: the kinds are the kernel's and the facet is the `science`
+    base profile's own.
+    """
     if not any(relation.predicate == stored.ASSESSES for relation in node.relations):
         return None
     facet = node.facets.get(stored.ASSESSMENT_FACET)

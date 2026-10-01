@@ -46,14 +46,14 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-10-01** for cut 44's freeze: J16–J21 are banked and open under `mount-citations`, and the `write-path` lane reopens. The corpus has **214 of 247 rows closed, 33 open**. Cut 43's discharge of `multi-corpus-session` closed J12–J15, and
+**Updated 2026-10-01** for cut 44's discharge of `mount-citations`: J16–J21 close, and the `write-path` lane, reopened at cut 44's freeze, closes again. The corpus has **220 of 247 rows closed, 27 open**. Cut 43's discharge of `multi-corpus-session` closed J12–J15, and
 Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
 partial on T7's cross-root case; L1 stays partial on its persistence arms.
 
-**Implemented through conformance cut 43.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 44.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–43 record discharge in their dated results records, most recently
-`../plans/2026-09-27-conformance-cut-43-results.md`.
+and cuts 26–44 record discharge in their dated results records, most recently
+`../plans/2026-10-01-conformance-cut-44-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -425,6 +425,17 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   all mounts, and reconciliation by corpus and registration digest. **J12–J15 close;
   `multi-corpus-session` is discharged in full.** Main integration follows Task 8.
 
+- **Mount citations**, built 2026-10-01 at cut 44
+  ([results](../plans/2026-10-01-conformance-cut-44-results.md)): a session's write
+  boundary resolves citations over the write root and every read mount, under each
+  holder's contract identities and with producers judged session-wide; mutation targets
+  stay in the write root. `corpus_check` reports eligibility it cannot decide as an
+  `eligibility-unresolved` warning, `audit_world` judges eligibility over its capture,
+  belief over a world read evaluates the two-installation split, and a corpus-local
+  belief read refuses an input it does not hold, superseding B4's absent-dataset clause.
+  **J16–J21 close; `mount-citations` is discharged in full.** Main integration follows
+  Task 10.
+
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
 carries no priority; ordering over these rows lives in
@@ -437,7 +448,6 @@ not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
-| `mount-citations` | J16–J21, banked with cut 44 (`beliefs-9ce6e4`): the write boundary resolves citations over the write root and every read mount, `corpus_check` and `audit_world` report unresolvable eligibility as `eligibility-unresolved`, the world read proves the two-installation split, and a corpus-local belief read refuses an input it does not hold | the second-project milestone in Science (`sci-0d00d2`); `beliefs-9ce6e4` | assessments over a mounted corpus's data and propositions, end to end |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `persistence-cut` | X2's persistence-cut arm; L1's kill-at-stage and settlement-persistence arms (both terminal outcomes) | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns; L1's arms re-homed here at cut 36 (`beliefs-3ea822`) | X2 in full; row 5's L1 read in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
@@ -447,9 +457,10 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-27-conformance-cut-43-results.md`) discharges the multi-corpus
-session. J12–J15 close. Cut 44's freeze banks J16–J21 as open under
-`mount-citations`; the corpus has **214 of 247** rows closed, 33 open. L1 stays partial on its persistence
+(`../plans/2026-10-01-conformance-cut-44-results.md`) discharges mount citations.
+J16–J21 close; the corpus has **220 of 247** rows closed, 27 open. Cut 43
+(`../plans/2026-09-27-conformance-cut-43-results.md`) discharged the multi-corpus
+session and closed J12–J15. L1 stays partial on its persistence
 arms under `persistence-cut`, and T7 on its cross-root case under
 `cross-root-publication`. Cut 41 closed Z1–Z5 and `live-query`.
 The earlier record
