@@ -76,7 +76,7 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
         [sys.executable, "-m", "pytest", str(runner.ACCEPTANCE / modules[1]), "-k", "one"],
     ]
     assert all(call[1]["cwd"] == runner.PYTHON_ROOT and call[1]["check"] is False for call in calls)
-    assert calls[0][1]["env"][f"SCIENCE_CUT{cut - 1}_ROOT"] == str(run)
+    assert calls[0][1]["env"][f"SCIENCE_CUT{cut - 1}_ROOT"] == str(tmp_path)
     for _command, keywords in calls[1:]:
         environment = keywords["env"]
         assert all(environment[f"SCIENCE_CUT{number}_ROOT"] == str(run) for number in range(4, cut + 1))
@@ -138,4 +138,33 @@ def test_recent_runner_propagates_prefix_failure(runner, cut: int, tmp_path: Pat
 
     assert runner.main([]) == 9
     assert calls == [[sys.executable, str(runner.TOOLS / runner.PREFIX_RUNNERS[0])]]
+    assert not list(tmp_path.glob("run-*"))
+
+
+def test_a_chained_prefix_run_sits_beside_its_parent_at_constant_depth(tmp_path: Path, monkeypatch) -> None:
+    """beliefs-fdc40f: nesting each prefix run inside its parent's grew the deepest
+    SQLite path by one run directory per cut until it passed 512 characters."""
+    import importlib
+    import os
+    from unittest import mock
+
+    probed: list[Path] = []
+    monkeypatch.setenv("SCIENCE_CUT44_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        root, "init_corpus_root", lambda corpus_root, *, authority: probed.append(Path(corpus_root).parent)
+    )
+
+    def chained(command: list[str], **keywords: Any) -> subprocess.CompletedProcess[str]:
+        script = Path(command[-1]).name
+        if command[1] != "-m" and int(script.removeprefix("cut").partition("_")[0]) >= 40:
+            with mock.patch.dict(os.environ, keywords["env"]):
+                return subprocess.CompletedProcess(command, importlib.import_module(script[:-3]).main([]))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(subprocess, "run", chained)
+
+    assert cut44.main([]) == 0
+    assert len(probed) == 5
+    assert len(set(probed)) == 5
+    assert all(run.parent == tmp_path for run in probed)
     assert not list(tmp_path.glob("run-*"))

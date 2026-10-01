@@ -67,6 +67,9 @@ def run_acceptance(
             return PROBE_REFUSED
 
         phase = 0
+        # A prefix runner gets this runner's work directory, not its run, so its
+        # own run sits beside this one: nesting grew the deepest SQLite path by one
+        # run directory per cut until it passed 512 characters (beliefs-fdc40f).
         for runner in prefix_runners:
             phase += 1
             print(f"[cut{cut} phase {phase}/{phases}] {runner}", flush=True)
@@ -77,7 +80,7 @@ def run_acceptance(
                 env={
                     **os.environ,
                     "XDG_CACHE_HOME": str(run / ".cache"),
-                    f"SCIENCE_CUT{cut - 1}_ROOT": str(run),
+                    f"SCIENCE_CUT{cut - 1}_ROOT": str(work),
                 },
             )
             if completed.returncode != 0:
