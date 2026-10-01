@@ -16,8 +16,9 @@ log, main `.work/acceptance/cut44-runner.log`, is that attempt's; the earlier th
 are recorded here.
 
 1. **Refused: `OPS_WORKERS` unset.** The plan's command omitted `host-budget run --`,
-   so the prefix chain refused in cut 6's N2 phase before any cut-44 code ran. The
-   command below is the corrected one, the same wrapper the justfile's test recipes use.
+   so the prefix chain refused in cut 6's N2 phase before any of cut 44's own phases
+   ran. The command below is the corrected one, the same wrapper the justfile's test
+   recipes use.
 2. **Failed in cut 17's phase.** `test_permit_entry_points` reported its 8
    `needs_volume` cases as `CapabilityUnavailable`: the SQLite-WAL parent connection
    failed with "unable to open database file". `tools/acceptance_runner.py` nests each
@@ -161,9 +162,8 @@ The portable suite cannot see `tests/acceptance`, which is why the cut runner fo
 **Independent evidence.** J21-a shares both its mutation and its check with cut 22's
 re-targeted B4b. The frozen §5 says the two "differ in their check"; they do not, and
 `test_n2_cut22.py`'s comment now says they share both. Cut 44 therefore has **23
-independent sabotage arms**. J21 is also proven by its unit tests and its durable
-acceptance case (`test_j21_a_local_read_of_the_split_refuses_durably`), not by an arm of
-its own alone.
+independent sabotage arms**. J21's arm is B4b's; its independent evidence is its unit
+tests and durable case (`test_j21_a_local_read_of_the_split_refuses_durably`).
 
 **J16-c's check was reshaped under its frozen id.** On the first N2 run the arm was
 vacuous: its check wrote a report-less verification, which never reads the view
@@ -171,9 +171,8 @@ vacuous: its check wrote a report-less verification, which never reads the view
 published, report-carrying verification over a mount assessment, so the view decides
 it. The frozen mutation and check id are unchanged (`cac773c`).
 
-**J20's equality.** The durable case compares the answer, the policy binding, the
-admission and the closure projection between the split world and the same records in
-one corpus. It excludes `belief_input_digest` and, from the closure, `producer_snapshot`
+**J20's equality.** The durable case compares the value, policy binding and admission,
+and the closure projection, between the split world and the same records in one corpus. It excludes `belief_input_digest` and, from the closure, `producer_snapshot`
 and the retraction `coverage`: those name the world's epoch and its corpus ids by
 construction, against `producer-snapshot-1` and the single corpus id. Every other closure
 member is equal. Attribution is asserted as assessment and run → W, the observed
@@ -195,8 +194,8 @@ The spec's §13 notes are realized, and Task 9 adds the rest:
   can be cited from a shipped-pack working corpus, since its `biology` pin is the shipped
   identity; `producers-incomplete` is judged per dataset and the scan continues; and the
   portable fixtures use `profile_with()` and `profile_with("other")`.
-- **At Task 5:** J20 compares verdict, binding and admission, not `belief_input_digest`;
-  no portable test relied on the silent drop beyond B4b's check.
+- **At Task 5:** J20 compares value, policy binding and admission, not
+  `belief_input_digest`; no portable test relied on the silent drop beyond B4b's check.
 - **At Task 7:** J16-c's reshape, and the cut-23 tail above.
 - **At Task 9:** the durable module realizes §8.2's M, M2 and M3 as `profile_with()`
   (M and M3) and `biology("other")` (M2), for portability, so no durable case covers a
@@ -258,39 +257,85 @@ Pending: Task 10 runs the whole-branch review and `just gate`, then merges
 
 ## 7. Execution rulings
 
+Each ruling is followed by its cost if wrong.
+
 - **Task 1:** J16-j's one-line `before` occurs twice in `corpus.py`, in `resolve` and
-  `get`. Task 7 spells it as the two-line, unique `resolve` body with a matching two-line
-  `after`, and J16-i as its two-line `for` loop. No code changed; the plan already said
-  to spell them from the tree where unique.
+  `get`. Task 7 spells it as the two-line, unique `resolve` body with a matching
+  two-line `after`, and J16-i as its two-line `for` loop. No code changed; the plan
+  already said to spell them from the tree where unique. *Cost if wrong:* J16-j stale or
+  ambiguous, caught by `test_arm_staleness` at Task 7.
 - **Task 2:** the implementer's concern that `boundary.acquisition_guard` judges the
   write root only needs no action. A session's operation port is a `LedgeredPort` whose
   `execute_fulfilling_guarded` raises `SessionProtocolError`, and the unattended writer
-  has no read mounts (decision 6).
+  has no read mounts (decision 6). *Cost if wrong:* an unattended publication with
+  mounts could miss a mount producer; no such path exists today.
 - **Task 3:** J18's tests are module-level functions, because the frozen cut document
-  names their checks with no class segment. A pre-review fix (`0c6dacf`) moved them.
-- **Task 4:** the narrowing of the cited cut-31 test stands (§3).
-- **Task 5:** J20 compares value, binding and admission, not `belief_input_digest`,
-  which names epoch and corpus ids by construction; the spec's J20 row never required
-  digest equality. Task 6's durable J20 additionally asserts closure-projection equality
-  minus `producer_snapshot` and retraction `coverage`, the full attribution row, lineage
-  and the negative, and durable J21 asserts the assessment.
-- **Task 6:** the acceptance fixture choice and J20's proposition attribution are
-  recorded in spec §13 at Task 9 (§3). The `consulted_contracts` gap is filed as
-  `beliefs-d69102` (§5).
+  names their checks with no class segment and the brief's code is module-level. A
+  pre-review fix (`0c6dacf`) moved them. *Cost if wrong:* one extra move commit.
+- **Task 4:** the narrowing of the cited cut-31 test
+  `test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues`
+  stands (§3). The old last-per-reference map hid a pre-existing `derivation-malformed`
+  behind an `eligibility-unresolved` this task correctly removes; cut 31 and mm30 §10
+  cite the test for the two pre-grammar codes, still asserted more strictly. *Cost if
+  wrong:* a masked defect in the derivation on `assessment:a-p` goes unexamined.
+- **Task 5:** the implementer's spec §13 note stands: J20 compares value, policy binding
+  and admission, not `belief_input_digest`, which names epoch and corpus ids by
+  construction. The spec's J20 row never required digest equality. *Cost if wrong:* one
+  note to reword.
+- **Task 5:** Task 6's durable J20 additionally asserts closure-projection equality
+  minus `producer_snapshot` and retraction `coverage`, plus the full row (assessment and
+  run → W; proposition and both datasets → M; lineage; the negative), and durable J21
+  asserts the assessment. This makes §13's "every other closure member is equal" a
+  tested claim. *Cost if wrong:* one extra assertion to drop.
+- **Task 6:** the spec's §8.2 and J16 row describe M pinning a namespace W lacks and M2
+  on fixture version 2, while the acceptance module uses `profile_with()` and
+  `biology("other")`. A §13 note records the fixture choice, beside a note that J20's
+  "the others → M" is checked for the proposition through `corpus_of` (both landed at
+  Task 9, §3). *Cost if wrong:* no durable case covers a namespace only M pins.
+- **Task 6:** file a follow-up for `consulted_contracts`, which takes corpora only from
+  attributed nodes, so a world read where M holds only the proposition with an M-only
+  namespace would raise `ContractDisagreement` ("pinned by no corpus"). Filed as
+  `beliefs-d69102` (§5); it predates the lane. *Cost if wrong:* a real mixed-namespace
+  world read refuses.
 - **Task 7:** J16-c keeps its frozen mutation and check id; its check body was reshaped
-  (§3).
+  to write a published, report-carrying verification over the mount assessment (§3).
+  The cut document names the check id, not its body. *Cost if wrong:* one more check
+  rewrite.
 - **Task 7:** J21-a joins J16-a and J16-b in `CO_CITED`, since its check is also B4b's
-  live re-target check.
-- **Task 7:** attempt 1 refused on `OPS_WORKERS`; the command gains
-  `host-budget run --` (§1).
-- **Task 7:** J21-a duplicates B4b's re-target in both mutation and check. The frozen
-  prose is not edited; `test_n2_cut22.py`'s current-facing comment was corrected, and
-  §3 states 23 independent arms.
+  live re-target check. *Cost if wrong:* the guard expects 23 distinct checks instead
+  of 24.
+- **Task 7:** attempt 1 refused on `OPS_WORKERS`; the rerun is
+  `host-budget run -- uv run --frozen python tools/cut44_acceptance.py`, as the
+  justfile's test recipes run, and §1 records the corrected command. *Cost if wrong:*
+  none; environment only.
+- **Task 7:** J21-a duplicates B4b's re-target in both mutation and check, so the frozen
+  prose "differ in their check" is false. The frozen body is not edited;
+  `test_n2_cut22.py`'s current-facing comment was corrected, and §3 states 23
+  independent arms. *Cost if wrong:* coverage overstated by one arm.
 - **Task 7:** attempt 2's path-length failure is worked around with
-  `SCIENCE_CUT44_ROOT=<main>/.work/c44` and filed as `beliefs-fdc40f` (§1, §5).
-- **Task 7:** the cut-23 tail asserted B4's superseded clause; only the tail was
-  rewritten to J21's refusal, and the acceptance modules were swept before attempt 4
-  (§3).
-- Deferred review observations are minor and none blocks discharge. The notable ones are an `assert` on a mutable profile in `audit.py`, a second-pass
-  audit cost per corpus that a dogfood should measure, and observes-loop filtering in
-  `evaluation.py` that no live arm guards after B4b's re-target.
+  `SCIENCE_CUT44_ROOT=<main>/.work/c44` (13 characters shorter, cut 43's proven depth,
+  gitignored and on the certified volume) and filed as `beliefs-fdc40f` (§1, §5).
+  *Cost if wrong:* cut 45 hits the limit again unless `beliefs-fdc40f` lands.
+- **Task 7:** the cut-23 tail asserted B4's absent-dataset clause, which the user
+  approved J21 superseding. **The rewritten test,
+  `test_world_view_acceptance.py::test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably`,
+  is the cited check for cut 23's R19b, R19c and R19e arms**
+  (`python/tests/acceptance/n2_arms_cut23.py:227,237,267`), **and its body was
+  edited** at `912005b`. Only the tail changed, to assert J21's refusal (`gather` raises
+  `InputOutsideCorpus` naming the run and its dataset; `evaluate_over` returns
+  `Refused("input-outside-corpus: …")`); the test keeps its name, and the R19b, R19c and
+  R19e observables sit in the unchanged part. The acceptance modules were swept for other
+  corpus-local reads over unheld inputs before attempt 4 (§3). *Cost if wrong:* a frozen
+  cut-23 claim is edited where it should have been pinned.
+- **Task 9:** the cut-44 document's `**Status:**` line is edited, and only that line.
+  Cut 43's results commit did the same, and
+  `test_the_newest_cut_document_says_it_is_discharged` requires it; the guard pins
+  §§2–7, which stay byte-exact. *Cost if wrong:* a frozen-document edit the user would
+  rather have avoided.
+- **Task 9:** Task 10 commits the lane's execution ledger to
+  `docs/plans/2026-10-01-mount-citations-execution-ledger.md` before the worktree is
+  removed, since the working copy is gitignored. *Cost if wrong:* none.
+- Deferred review observations are minor and none blocks discharge. The notable ones are
+  an `assert` on a mutable profile in `audit.py`, a second-pass audit cost per corpus that
+  a dogfood should measure, and observes-loop filtering in `evaluation.py` that no live
+  arm guards after B4b's re-target.
