@@ -67,6 +67,7 @@ from beliefs.errors import (
     CorpusDamaged,
     FacetPayloadRefused,
     FacetUndeclared,
+    InputOutsideCorpus,
     MalformedRecord,
     ProducerSnapshotMismatch,
     ProducerSnapshotRetracted,
@@ -369,6 +370,11 @@ def gather(
             corpus_id = _absence_of(view, ref)
             if corpus_id is not None:
                 absent.append((ref, corpus_id))
+            elif not world:
+                # Decision 9 reaches the run itself (spec §13, final review): a session
+                # writes an assessment over a read mount's run, so a corpus-local read
+                # refuses it, never skipping a run `evaluate` then indexes.
+                raise InputOutsideCorpus(a.identity(), ref, (ref,))
             continue
         run_node = view.get(ref)
         runs[a.run] = run_value(view, ref)
@@ -377,12 +383,17 @@ def gather(
             corpus_id = view.corpus_of(ref)
             assert corpus_id is not None
             attribution.setdefault(ref, set()).add(corpus_id)
+        outside: list[str] = []
         for role in stored.INPUT_ROLES:
             for target in stored.inputs_of(run_node, role):
                 if not view.holds(target):
                     corpus_id = _absence_of(view, target)
                     if corpus_id is not None:
                         absent.append((target, corpus_id))
+                    elif not world:
+                        outside.append(target)
+        if outside:
+            raise InputOutsideCorpus(a.identity(), ref, tuple(sorted(set(outside))))
         for target in stored.inputs_of(run_node, stored.OBSERVES):
             if not view.holds(target):
                 continue
@@ -512,6 +523,8 @@ def _evaluate_over_inputs(
         return Refused(f"facet-payload-refused: {exc}"), NotReached(), None
     except FacetUndeclared as exc:
         return Refused(str(exc)), NotReached(), None
+    except InputOutsideCorpus as exc:
+        return Refused(f"input-outside-corpus: {exc}"), NotReached(), None
     if inputs.absent:
         corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
         return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None

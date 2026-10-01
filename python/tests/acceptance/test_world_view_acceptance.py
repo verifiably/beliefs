@@ -33,6 +33,7 @@ from beliefs.errors import (
     BuildContended,
     CaptureDrift,
     EpochUnknown,
+    InputOutsideCorpus,
     MalformedRecord,
     RecordNotPresent,
     ResolutionError,
@@ -380,12 +381,13 @@ def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(
         node_corpus={value.identity(): (a,) for value in inputs.assessments},
     )
     local_kwargs = {**kwargs, "context": local_context}
-    local_inputs = gathered(local, local_kwargs)
-    assert local_inputs.absent == () and local_inputs.observed_facets == ()
+    # J21 (mount-citations decision 9): a corpus-local read whose run names an input the
+    # corpus does not hold refuses; run-a observes d-a, which only B holds.
+    with pytest.raises(InputOutsideCorpus) as outside:
+        gathered(local, local_kwargs)
+    assert outside.value.run == "run:run-a" and dataset_ref("d-a") in outside.value.inputs
     local_result = evaluate_over(local, "proposition:p", **over_kwargs(local_kwargs))
-    # Run-b's local evidence still admits a belief; the foreign evidence is gone.
-    assert isinstance(local_result, Belief)
-    assert local_result.belief_input_digest != complete_belief.belief_input_digest
+    assert isinstance(local_result, Refused) and local_result.reason.startswith("input-outside-corpus")
 
 
 @pytest.mark.parametrize("role", [stored.READS, stored.TRANSFORMS, stored.OBSERVES])

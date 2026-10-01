@@ -557,6 +557,31 @@ def world_kwargs(view, profile):
     return {**kwargs, "context": context}
 
 
+def test_j20_the_two_installation_split_evaluates_as_one_corpus(tmp_path):
+    """J20: assessments and runs in ALPHA (W); the proposition and observed datasets in BETA (M)."""
+    from beliefs.belief import Belief
+    from beliefs.evaluation import evaluate_over_traced, gather
+
+    world, _roots, published = split_evaluation_world(
+        tmp_path / "split", ("proposition:p", DATASET_D_A, dataset_ref("d-b"))
+    )
+    view = open_world_view(world, published)
+    profile = profile_with()
+    kwargs = world_kwargs(view, profile)
+    split_answer, split_admission = evaluate_over_traced(view, "proposition:p", **over_kwargs(kwargs))[:2]
+    inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                    resolution=kwargs["resolution"], binding=kwargs["binding"])
+    assert {ref for ref, corpora in inputs.node_corpus.items() if BETA in corpora} >= {DATASET_D_A}
+    assert all(ALPHA in corpora for ref, corpora in inputs.node_corpus.items() if ref.startswith("run:"))
+    local = seed(tmp_path / "one")
+    local_answer, local_admission = evaluate_over_traced(local, "proposition:p", **over_kwargs(kwargs_for(local, profile)))[:2]
+    # `belief_input_digest` differs by construction: the closure names the producer snapshot and the
+    # retraction coverage, which are the world's epoch and corpus ids (mount-citations spec §13).
+    assert isinstance(split_answer, Belief) and isinstance(local_answer, Belief)
+    assert split_answer.value == local_answer.value and split_answer.policy_binding == local_answer.policy_binding
+    assert split_admission == local_admission
+
+
 class TestEvaluationOverTheWorld:
     @pytest.mark.parametrize("consumer", ["gather", "evaluate", "evaluate_over"])
     @pytest.mark.parametrize("pin_state", ["agree", "disagree", "missing"])

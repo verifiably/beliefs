@@ -153,6 +153,7 @@ def open_attended_session(
         if store_id is None:
             raise SessionRefused(f"store root {store_root} carries no store genesis")
     resolver = _mount_resolver(mounted)
+    read_mounts = tuple(sorted(path for path in mounted if path != root)) if mounted is not None else ()
     pinned = None if project is None else resolve_project(resolver, project)
 
     session_id = secrets.token_hex(16)
@@ -170,6 +171,7 @@ def open_attended_session(
             operation_port=durable_operation_port(root, authority, profile=profile),
             coordination_resolver=resolver,
             snapshot_resolver=snapshot_resolver,
+            read_mounts=read_mounts,
         )
 
     session = WriterSession(

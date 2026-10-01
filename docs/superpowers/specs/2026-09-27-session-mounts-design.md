@@ -480,3 +480,23 @@ feeds the same milestone.
     `test_session_reconcile.py`, over stand-in views as the spec states.
   - **`mounts=None` is `None`, never an empty mapping.** An empty mapping
     omits every configured root and refuses under decision 3.
+
+## Mount-citations amendment — 2026-10-01
+
+Cut 44 discharges J16–J21 ([design](2026-10-01-mount-citations-design.md),
+[results](../../plans/2026-10-01-conformance-cut-44-results.md)). This narrows §5's
+cross-corpus targeting paragraph and restates limitation 4. The text above is kept as
+it was approved.
+
+- **§5, cross-corpus targeting, narrows to mutation targets.** A session's ordinary
+  write may now *cite* a record held in a read mount: an assessment over a mount's run
+  and dataset, an `assesses` or estimand target, a verification's assessment and a
+  composite's members resolve over the write root and every read mount, each read in
+  its holding corpus under the writer's profile (mount citations decision 2). What still
+  resolves in the write root alone is a mutation target (`supersede`'s predecessor,
+  `retract`'s and `delete`'s target, `revise`'s and `correct_identifier`'s record): a
+  non-coordination write resolves it there and refuses `target-missing` when it lives
+  elsewhere, as before. World resolution still owns cross-corpus mutation.
+- **Limitation 4 reads: mutation targets stay in the write root.** Citations reach
+  every read mount; the targets an ordinary write mutates do not (mount citations
+  decision 1 and limitation 5).

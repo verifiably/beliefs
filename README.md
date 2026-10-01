@@ -29,9 +29,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Eighty-two documents in `docs/designs/`: the banked redesigns, review
+Eighty-three documents in `docs/designs/`: the banked redesigns, review
 disposition, adoption ledger, measurements, rulings, and contributor-guide
-design written 2026-08-02 through 2026-09-27. Read them in this order:
+design written 2026-08-02 through 2026-10-01. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -117,6 +117,7 @@ design written 2026-08-02 through 2026-09-27. Read them in this order:
 | `2026-09-25-conformance-cut-41.md` | the discharged live-query cut: coverage from the registry's admitted set, one capture hold per corpus, damage and conflict refusals, and the capture stamp; Z1–Z5 closed in full, 12 declaration units, the cut 40 runner as prefix; the boundary enters and closes |
 | `2026-09-27-conformance-cut-42.md` | the discharged remote publish cut: the transport seam, the mark, step 7's evaluation and verification, orphans, `publish-unfinished`, the remote recovery rows and `publication_tip`; Y11–Y16 closed in full, 14 declaration units, the cut 41 runner as prefix |
 | `2026-09-27-conformance-cut-43.md` | the discharged multi-corpus session cut: J12–J15 closed, 9 declaration units and 9 arms; cut 42 runner as prefix |
+| `2026-10-01-conformance-cut-44.md` | the discharged mount-citations cut: J16–J21 closed, 24 declaration units and 24 arms; cut 43 runner as prefix |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -124,7 +125,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 43** is implemented and discharged; J12–J15 are closed. What
+Every conformance cut through **cut 44** is implemented and discharged; J16–J21 are closed. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -219,19 +220,22 @@ and stamps the result with the states it read, never an epoch; belief reads
 and publication stay epoch-bound.
 The session names one write root and can mount every configured corpus under its own
 manifest-pinned profile; coordination resolves across those mounts and reconciliation
-matches each act by corpus and registration digest. The latest discharged boundary is cut 43
-([cut](docs/designs/2026-09-27-conformance-cut-43.md),
-[results](docs/plans/2026-09-27-conformance-cut-43-results.md)).
+matches each act by corpus and registration digest. A session's writes may cite records
+held in its read mounts, while mutation targets stay in the write root; the checks report
+eligibility they cannot decide as a warning, and a corpus-local belief read refuses an
+input its corpus does not hold. The latest discharged boundary is cut 44
+([cut](docs/designs/2026-10-01-conformance-cut-44.md),
+[results](docs/plans/2026-10-01-conformance-cut-44-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **241 rows** across **twenty-two frozen
+test before it is a passing one. There are **247 rows** across **twenty-two frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q, U, Y, Z), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

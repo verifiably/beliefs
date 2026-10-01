@@ -31,7 +31,18 @@ import beliefs
 # fixture's `edges:` row, every acceptance conftest fails to import, and the
 # arm scores `uncollected` — `pytest` exiting 4 is not a failing check. The
 # defeated refusal is unchanged.
+#
+# Live matcher migration, 2026-10-01 (mount-citations Task 2, spec §13's foreseen
+# re-target): F4's validity call moved from `eligibility_refusal` into
+# `eligibility_outcome`, where it judges with `judging` and reads the dataset's
+# report through `reports`. The `after` is the frozen one: eligibility reads the
+# facet's presence instead of the validity predicate.
 _LIVE_SABOTAGES = {
+    "F4": Sabotage(
+        module="corpus.py",
+        before="        reason = validity_refusal(judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref))\n",
+        after='        reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else "absent"\n',
+    ),
     "F8": Sabotage(
         module="stored.py",
         before='    return _node("dataset", address.partition(":")[2], title, facets, ())\n',

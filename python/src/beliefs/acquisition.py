@@ -19,7 +19,7 @@ from beliefs.errors import FacetPayloadRefused
 from beliefs.facets import validate_payload
 from beliefs.profile import ProfileSpec
 
-__all__ = ["ProducerView", "bearer_refusal", "validity_refusal"]
+__all__ = ["ProducerView", "ReportView", "bearer_refusal", "validity_refusal"]
 
 
 class ProducerView(Protocol):
@@ -29,8 +29,15 @@ class ProducerView(Protocol):
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]: ...
 
 
-def validity_refusal(view: ProducerView, node: Node, profile: ProfileSpec) -> str | None:
-    """`None` when `node` carries a valid acquisition-boundary declaration."""
+class ReportView(Protocol):
+    def holds(self, ref: str) -> bool: ...
+    def get(self, ref: str) -> Node: ...
+
+
+def validity_refusal(view: ProducerView, node: Node, profile: ProfileSpec, *, reports: ReportView | None = None) -> str | None:
+    """`None` when `node` carries a valid acquisition-boundary declaration. The
+    retrieval report is read through `reports`, the dataset's own corpus, when
+    given (mount-citations decision 3a)."""
     if stored.EMPIRICAL_OBSERVATION_FACET not in node.facets:
         return "no-empirical-observation-facet"
     payload = node.facets[stored.EMPIRICAL_OBSERVATION_FACET]
@@ -45,9 +52,10 @@ def validity_refusal(view: ProducerView, node: Node, profile: ProfileSpec) -> st
         return f"facet-bearer-produced: produced by {', '.join(producers)}"
     retrieval = payload.get("retrieval")
     if retrieval is not None:
-        if not view.holds(retrieval):
+        held = view if reports is None else reports
+        if not held.holds(retrieval):
             return f"facet-retrieval-unresolved: {retrieval}"
-        facet = view.get(retrieval).facets.get("act-report")
+        facet = held.get(retrieval).facets.get("act-report")
         if not isinstance(facet, dict) or facet.get("operation") != "acquisition":
             return f"facet-retrieval-unresolved: {retrieval} is not an acquisition report"
     return None

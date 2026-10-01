@@ -266,7 +266,7 @@ structural or integrity finding, but it mints nothing and performs no repair.
   not started; salvage has no design.
 
 The [adoption ledger's current-state
-summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
+summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01)
 is the complete statement of what is built and what remains.
 
 ## Open edges

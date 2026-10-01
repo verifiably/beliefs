@@ -2,12 +2,13 @@
 title: Writes, operations, and publication
 status: living
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-10-01
 sources:
   - ../designs/2026-09-04-write-permits-design.md
   - ../designs/2026-09-05-writer-session-design.md
   - ../designs/2026-09-09-session-routes-design.md
   - ../superpowers/specs/2026-09-24-session-selection-ledger-design.md
+  - ../superpowers/specs/2026-10-01-mount-citations-design.md
   - ../designs/2026-08-11-act-report-design.md
   - ../superpowers/specs/2026-09-22-act-report-remainder-design.md
   - ../designs/2026-09-03-world-changing-families-design.md
@@ -86,6 +87,26 @@ invocation then receives a **scoped writer** whose permit is exactly what that
 command declared, not the session's ceiling. Reconciliation reads the ledger
 against the corpus's chain to settle anything a crash left open (J1–J11, cut 19;
 [writer-session design](../designs/2026-09-05-writer-session-design.md)).
+
+A session's writes still land in the write root alone, but what they *cite* may live
+in any read mount ([cut 44](../plans/2026-10-01-conformance-cut-44-results.md)). A
+**citation** is a reference a record carries to the evidence it rests on: an
+assessment's run and the datasets that run observes, the proposition an assessment or
+a spec targets, the assessment a verification checks, a composite's members. The write
+boundary resolves each over the write root and every read mount, reads it where it is
+held, and refuses an address two corpora hold or a mount that pins another identity of
+a namespace the writer pins. A **mutation target** is the record a write changes:
+`supersede`'s predecessor, `retract`'s and `delete`'s target, `revise`'s record. Those
+resolve in the write root only, so a session never changes a mount's record.
+
+A citing write reads each read mount inside that mount's capture hold, which never
+waits. If another writer holds the mount mid-write, the citing write refuses
+`BuildContended`, naming the read mount, before any effect, and the caller retries.
+This happens even when every citation resolves in the write root, because the write
+must rule out a second holder. The converse also holds. A writer in the same process on
+a mounted root, arriving while a citing write holds that mount's capture, refuses
+`BuildHold`. Its message still speaks of "an epoch build's coherent capture", since the
+operation lock does not say who holds the capture.
 
 The session also carries ledgered routes for runs and holdings
 ([session routes](../designs/2026-09-09-session-routes-design.md)) and records
@@ -211,7 +232,8 @@ enter a world-index map or a belief's inputs.
 
 - **Built:** write permits on every write entry point (cut 17); the writer
   session and its ledger (cut 19), its routes, session selection, and mounting
-  every configured corpus beside one write root (cut 43); `move` and
+  every configured corpus beside one write root (cut 43), and citations into those
+  mounts while mutation targets stay in the write root (cut 44); `move` and
   `consolidate` (cut 16); managed deletion (cut 18); URL acquisition (cut 35);
   `audit` and `re-check` (cut 38); the publication records and publish intent
   (cut 39); the publish act for a local destination and marker-required
@@ -221,7 +243,7 @@ enter a world-index map or a belief's inputs.
 - **Not built:** cross-root publication of a dataset's provenance reference and
   its acquiring report (T7's cross-root case).
 
-The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
+The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01)
 is the authority for what remains and who owns it.
 
 ## Open edges
@@ -233,7 +255,7 @@ audit) and the question of who *may* write.
 ## References
 
 - [Write permits and E1–E8](../designs/2026-09-04-write-permits-design.md#7-guarantees)
-- [Writer session and J1–J15](../designs/2026-09-05-writer-session-design.md#7-guarantees)
+- [Writer session and J1–J21](../designs/2026-09-05-writer-session-design.md#7-guarantees)
 - [Act reports, operation intents and T1–T8](../designs/2026-08-11-act-report-design.md)
 - [What the act-report design left open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open)
 - [The publication table, Y1–Y16](../designs/2026-09-22-publication-design.md)

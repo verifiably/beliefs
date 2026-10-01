@@ -1882,3 +1882,68 @@ records it. The archives were the defaults.
   reason text. A changed refusal that keeps the same step and class passes.
 - `relocate.py` and the retained audit reports (`beliefs-b36632`,
   `beliefs-9d2b68`) are out of scope.
+
+## 26. Addendum — citations over read mounts, 2026-10-01
+
+Re-run under conformance cut 44
+(`../superpowers/specs/2026-10-01-mount-citations-design.md`), from the
+`cross-mount-eligibility` worktree at head `5ac7447`. The existing corpus was
+read in place at the certified volume's canonical path under the main checkout;
+`SCIENCE_MM30_ROOT` named the fixture. The default predecessor path does not
+exist on this host, so `reproduction.preflight` needed `MM30_PREDECESSOR` set
+explicitly, as §§13–16 record: here to
+`~/d/proto/projects/cancer/cancer-types/multiple-myeloma`, the path the
+fixture's `held_file` records. Preflight then printed `ok` before
+`reproduction.rederive` ran in a fresh process. The verdict step was not run:
+per §25.1 it is defined over a fresh recreation, and over the fixture it fails
+on the extra step-10 design-gap lines that repeated `rederive` runs left.
+
+### 26.1 What changed in the kernel this slice
+
+- Citations over read mounts: `MountCitations` lets a working corpus cite
+  records held by a corpus mounted read-only.
+- `corpus_check` reports an assessment whose eligibility rests on references
+  its corpus does not hold as `eligibility-unresolved` (a warning), while
+  failures it can decide locally stay `eligibility-unmet` errors (spec
+  decision 7). `audit_world` judges eligibility over the captured world with a
+  captured citation reader, and never raises doing it (decision 8).
+- J21: a read of an input its corpus does not hold refuses
+  `input-outside-corpus` on a corpus-local read.
+
+The reproduction driver does not open a session or mount a corpus:
+
+```
+$ grep -n 'open_attended_session\|mount\|read_mounts' python/tools/reproduction/*.py
+```
+
+The grep returned no lines. This run therefore checks the reproduction under
+the changed kernel, without exercising a mounted citation.
+
+### 26.2 What the re-run reached
+
+A copy of `state.json` was taken first in the reproduction scratchpad.
+`reproduction.rederive` printed the 10a payload
+`{"kind": "NoBelief", "reason": "no-directional-outcome", "detail": ""}` with
+`"equal": true`, as in §22.2, not a `Refused("input-outside-corpus…")`. 10b
+kept `scope_equal`, `verdict_equal` and `report_identity_equal` true, with
+`scope_recomputed` `clean-environment` and `verdict_recomputed` `passed`; 10c
+kept `spec_restored`, `assessment_restored`, `assessment_equal` and
+`belief_equal` true. `cmp` exited 0 and a full-file `diff -u` was empty. Both
+files had SHA-256
+`1efbd06c433ba6546b9be92e45c91ad0ae5528f328b58f070311768e64861ae1`, the hash of
+§21.2, §22.2, §23.2 and §24.2.
+
+### 26.3 What this addendum does not claim
+
+- mm30 is still one corpus read as a library. It is not mounted beside a
+  working corpus and no citation crosses a mount in this run. The mounted
+  measurement is science's `sci-0d00d2`, after `sci-dc0381`.
+- The re-run shows J21 does not move mm30's answer, because every input the
+  run reads lives in its corpus. It does not exercise the refusal.
+
+### 26.4 The `biology` pin
+
+mm30's `corpus/corpus.yaml` manifest pins
+`biology:24bcec4370cfcff3077414798c02525814d4aeaaf84430ab378838df7345d53b`,
+equal to the shipped pack's `biology` pin (`24bcec43…`). A working corpus on the
+shipped pack can therefore cite mm30's records under spec §13.

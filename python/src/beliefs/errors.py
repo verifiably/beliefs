@@ -635,6 +635,19 @@ class ContractMismatch(ContractError):
     whose output never travels apart from its input, owes neither."""
 
 
+class CitationContractMismatch(ContractMismatch):
+    """A citation's holder pins another identity of a namespace the writer pins
+    (mount-citations decision 3): decoding under either profile would equate two
+    contracts, so the citation refuses instead."""
+
+    def __init__(self, root: Path, namespace: str, held: str, writer: str) -> None:
+        self.root, self.namespace, self.held, self.writer = root, namespace, held, writer
+        super().__init__(
+            f"{root}: the cited corpus pins {held} for {namespace!r}; this writer pins {writer} "
+            "(mount-citations decision 3)"
+        )
+
+
 class ContractDisagreement(ContractError):
     """Two corpora in one closure pinning different identities for one
     consulted namespace — refused, never merged, never preferred by recency
@@ -876,6 +889,17 @@ class MalformedRecord(RecordError):
     """A field that is not what the kernel's tables declare — a digest that is
     not ``<algorithm>:<lowercase hex>``, an outcome or scope outside its closed
     set, a role outside ``observes | reads | transforms``."""
+
+
+class InputOutsideCorpus(MalformedRecord):
+    """A corpus-local read of an assessment whose run the corpus does not hold,
+    or whose run names an input the corpus does not hold (mount-citations
+    decision 9, extended to the run in spec §13): read it over a world view.
+    For an unheld run, `inputs` is the run alone."""
+
+    def __init__(self, assessment: str, run: str, inputs: tuple[str, ...]) -> None:
+        self.assessment, self.run, self.inputs = assessment, run, inputs
+        super().__init__(f"{assessment} rests on {run}, which names {', '.join(inputs)}; this corpus does not hold them")
 
 
 class RecipeVersionUnsupported(RecordError):

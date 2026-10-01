@@ -33,8 +33,8 @@ import os
 import re
 import secrets
 import threading
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import pairwise
@@ -58,7 +58,7 @@ from beliefs import boundary as boundary_values
 from beliefs import report as report_values
 from beliefs import source as source_basis_projection
 from beliefs import stored
-from beliefs.acquisition import bearer_refusal, validity_refusal
+from beliefs.acquisition import ProducerView, ReportView, bearer_refusal, validity_refusal
 from beliefs.consulted import CorpusPins
 from beliefs.coordination import (
     COORDINATION_KINDS,
@@ -74,10 +74,12 @@ from beliefs.dataset import dataset_address
 from beliefs.errors import (
     AcquisitionBoundaryRefused,
     ActorMismatch,
+    AddressMapConflict,
     BasisMissing,
     BuildContended,
     BuildHold,
     BundleMemberHeld,
+    CitationContractMismatch,
     CollisionRefused,
     CompositeError,
     ContractMismatch,
@@ -722,6 +724,144 @@ class _CapturedCheckView:
 
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
         return _producer_ids(self, dataset, aliases=aliases)
+
+
+class MountCitations:
+    """Citation reads over a session's write root and read mounts
+    (mount-citations decisions 1–5, §3.1). A read mount opens at its first use,
+    inside its own capture hold, which never queues; `close` releases every hold.
+    One instance serves one refusal chain."""
+
+    def __init__(self, own: ReadView, own_profile: ProfileSpec, read_mounts: Sequence[Path]) -> None:
+        self._own = own
+        self._own_profile = own_profile
+        self._roots = tuple(read_mounts)
+        self._opened: dict[Path, ReadView] = {}
+        self._holds = ExitStack()
+
+    def close(self) -> None:
+        try:
+            self._holds.close()
+        finally:
+            self._opened.clear()
+
+    def _read_mount(self, root: Path) -> ReadView:
+        view = self._opened.get(root)
+        if view is not None:
+            return view
+        try:
+            self._holds.enter_context(_operation_lock_for(root).capture())
+        except BuildContended as exc:
+            # `capture` words its refusal for an epoch build; this one is a citing write's.
+            raise BuildContended(
+                f"read mount {root}: a citing session write could not capture it, because its operation "
+                f"lock is held (build-contended); the write refuses rather than queue, and the caller retries"
+            ) from exc
+        view = self._opened[root] = ReadView.opened_at(root)
+        return view
+
+    def _read_views(self) -> Iterator[tuple[Path, ReadView]]:
+        for root in self._roots:
+            yield root, self._read_mount(root)
+
+    def _holders(self, ref: str, base: ReadView | _ImportView) -> list[tuple[Path | None, ReadView | _ImportView]]:
+        found: list[tuple[Path | None, ReadView | _ImportView]] = [(None, base)] if base.holds(ref) else []
+        found.extend((root, view) for root, view in self._read_views() if view.holds(ref))
+        return found
+
+    def _one(self, ref: str, base: ReadView | _ImportView) -> ReadView | _ImportView | None:
+        """Decision 4: one holder or a refusal, never a pick by corpus order."""
+        found = self._holders(ref, base)
+        if not found:
+            return None
+        if len(found) > 1:
+            corpora = ", ".join(sorted(self._corpus_id(root) for root, _ in found))
+            raise AddressMapConflict(
+                Finding("error", "duplicate-location", ref, corpora,
+                        f"{ref}: held by corpora {corpora}; a citation never picks a holder by corpus order")
+            )
+        root, view = found[0]
+        if root is not None:
+            self._refuse_contract_mismatch(root)
+        return view
+
+    def _corpus_id(self, root: Path | None) -> str:
+        return self._own.corpus_id if root is None else self._opened[root].corpus_id
+
+    def _refuse_contract_mismatch(self, root: Path) -> None:
+        from beliefs.world import load_manifest
+
+        pinned = load_manifest(root).profile.domains
+        for namespace, identity in sorted(self._own_profile.activated_contracts.items()):
+            held = pinned.get(namespace)
+            if held is not None and held != f"{namespace}:{identity}":
+                raise CitationContractMismatch(root, namespace, held, f"{namespace}:{identity}")
+
+    def holder(self, ref: str) -> ReadView | None:
+        return cast("ReadView | None", self._one(ref, self._own))
+
+    def resolve(self, ref: str) -> str | None:
+        view = self.holder(ref)
+        return None if view is None else view.resolve(ref)
+
+    def holds(self, ref: str) -> bool:
+        return self.holder(ref) is not None
+
+    def get(self, ref: str) -> Node:
+        view = self.holder(ref)
+        if view is None:
+            raise RefError(f"{ref}: no session corpus holds it")
+        return view.get(ref)
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        """Decision 3a: the union over the write root and every read mount, held or
+        dangling, whether or not anything holds `dataset`."""
+        found = set(self._own.producers(dataset, aliases=aliases))
+        for _root, view in self._read_views():
+            found.update(view.producers(dataset, aliases=aliases))
+        return tuple(sorted(found))
+
+    def iter_stored(self) -> Iterator[Node]:
+        yield from self._own.iter_stored()
+        for _root, view in self._read_views():
+            yield from view.iter_stored()
+
+    def overlay(self, base: ReadView | _ImportView) -> _SessionOverlay:
+        return _SessionOverlay(self, base)
+
+
+class _SessionOverlay:
+    """An import path's acquisition-boundary view (decision 3a): `base` (the
+    overlay, or the write root) first, then the read mounts, one holder or a
+    refusal; producers are the union."""
+
+    def __init__(self, citations: MountCitations, base: ReadView | _ImportView) -> None:
+        self._citations = citations
+        self._base = base
+
+    def resolve(self, ref: str) -> str | None:
+        view = self._citations._one(ref, self._base)
+        return None if view is None else view.resolve(ref)
+
+    def holds(self, ref: str) -> bool:
+        return self._citations._one(ref, self._base) is not None
+
+    def get(self, ref: str) -> Node:
+        view = self._citations._one(ref, self._base)
+        if view is None:
+            raise RefError(f"{ref}: neither the overlay nor a read mount holds it")
+        return view.get(ref)
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        found = set(self._base.producers(dataset, aliases=aliases))
+        for _root, view in self._citations._read_views():
+            found.update(view.producers(dataset, aliases=aliases))
+        return tuple(sorted(found))
+
+    def iter_stored(self) -> Iterator[Node]:
+        yield from self._base.iter_stored()
+        for _root, view in self._citations._read_views():
+            yield from view.iter_stored()
 
 
 def _producer_ids(
@@ -1398,40 +1538,75 @@ def _producers_of(view: ReadView | WorldReadView, dataset: str) -> list[Producer
 # --- the §6.2 corpus check ---------------------------------------------------
 
 
-def eligibility_refusal(
-    view: ReadView | _ImportView | _CheckView | _CapturedCheckView, node: Node, profile: ProfileSpec
-) -> str | None:
-    """S7's cross-node predicate, in one implementation for both boundaries.
+@dataclass(frozen=True)
+class EligibilityOutcome:
+    """Why an `assesses` edge is inadmissible (mount-citations decision 7): the
+    edge is `unresolved` when it rests on references the reading view does not
+    hold and nothing held is valid; otherwise it is `unmet`."""
+
+    reason: str
+    unresolved: tuple[str, ...] = ()
+
+
+def eligibility_outcome(
+    view: ProducerView,
+    node: Node,
+    profile: ProfileSpec,
+    *,
+    judge: ProducerView | None = None,
+    reports: Callable[[str], ReportView | None] | None = None,
+) -> EligibilityOutcome | None:
+    """S7's cross-node predicate. `view` finds the run and its datasets; `judge`
+    answers each dataset's producers (the session's, decision 3a); `reports`
+    names the corpus holding a dataset's retrieval report.
 
     assessment → run → `observes` → dataset → facet. `reads` inputs never
     confer eligibility, in any quantity, and no clause of this reaches the
     registry compile: the kinds are the kernel's and the facet is the `science`
     base profile's own.
-
-    Returns the reason the `assesses` edge is inadmissible, or `None`.
     """
     if not any(relation.predicate == stored.ASSESSES for relation in node.relations):
         return None
     facet = node.facets.get(stored.ASSESSMENT_FACET)
     run_ref = facet.get("run") if isinstance(facet, dict) else None
     if not isinstance(run_ref, str) or not run_ref:
-        return "the assessment names no run"
+        return EligibilityOutcome("the assessment names no run")
     if not view.holds(run_ref):
-        return f"the run {run_ref!r} resolves to no node in this corpus"
+        searched = "the write root or any read mount" if isinstance(view, MountCitations) else "this corpus"
+        return EligibilityOutcome(f"the run {run_ref!r} resolves to no node in {searched}", (run_ref,))
     run = view.get(run_ref)
     observed = stored.inputs_of(run, stored.OBSERVES)
     if not observed:
-        return f"the run {run_ref!r} has no observes input; reads inputs never confer eligibility"
+        return EligibilityOutcome(f"the run {run_ref!r} has no observes input; reads inputs never confer eligibility")
+    judging = view if judge is None else judge
     reasons: list[str] = []
+    unresolved: list[str] = []
     for dataset_ref in observed:
         if not view.holds(dataset_ref):
             reasons.append(f"{dataset_ref}: unresolved")
+            unresolved.append(dataset_ref)
             continue
-        reason = validity_refusal(view, view.get(dataset_ref), profile)
+        reason = validity_refusal(judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref))
         if reason is None:
             return None
         reasons.append(f"{dataset_ref}: {reason}")
-    return f"no observes input of {run_ref!r} carries a valid empirical-observation facet ({'; '.join(reasons)})"
+    return EligibilityOutcome(
+        f"no observes input of {run_ref!r} carries a valid empirical-observation facet ({'; '.join(reasons)})",
+        tuple(unresolved),
+    )
+
+
+def eligibility_refusal(
+    view: ReadView | _ImportView | _CheckView | _CapturedCheckView | MountCitations,
+    node: Node,
+    profile: ProfileSpec,
+    *,
+    judge: ProducerView | None = None,
+    reports: Callable[[str], ReportView | None] | None = None,
+) -> str | None:
+    """`eligibility_outcome`'s reason alone: the write boundary's and frozen callers' form."""
+    outcome = eligibility_outcome(view, node, profile, judge=judge, reports=reports)
+    return None if outcome is None else outcome.reason
 
 
 def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
@@ -1475,11 +1650,20 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
 
 
+class _EligibilityReader(Protocol):
+    def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None: ...
+
+
+ELIGIBILITY_CODES = frozenset({"eligibility-unmet", "eligibility-unresolved"})
+
+
 def _record_findings(
     check: _CheckView | _CapturedCheckView,
     profile: ProfileSpec,
     scope: MismatchScope,
     disagreeing: frozenset[str],
+    *,
+    citations: _EligibilityReader | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     judge_namespaced = scope == "none"
@@ -1628,8 +1812,19 @@ def _record_findings(
                     resolved = check.resolve(target["ref"])
                     assert resolved is not None
                     retraction_targets.setdefault(resolved, []).append(node.id)
-        reason = eligibility_refusal(check, node, profile)
-        if reason is not None:
+        outcome = eligibility_outcome(check, node, profile) if citations is None else citations.eligibility(node, profile)
+        if outcome is not None and outcome.unresolved:
+            findings.append(
+                Finding(
+                    severity="warning",
+                    code="eligibility-unresolved",
+                    ref=node.id,
+                    detail=", ".join(outcome.unresolved),
+                    message=f"{node.id}: eligibility rests on {', '.join(outcome.unresolved)}, which this read does not hold; audit_world judges it",
+                )
+            )
+        elif outcome is not None:
+            reason = outcome.reason
             for relation in node.relations:
                 if relation.predicate == stored.ASSESSES:
                     findings.append(
@@ -1885,6 +2080,7 @@ class CorpusWriter:
         operation_port: OperationPort | None = None,
         coordination_resolver: CoordinationResolver | None = None,
         snapshot_resolver: SnapshotResolver | None = None,
+        read_mounts: Collection[Path] | None = None,
     ) -> None:
         if type(authority) is not Authority:
             raise TypeError("a writer binds an Authority")
@@ -1900,6 +2096,14 @@ class CorpusWriter:
             raise ValueError("the operation port holds another profile than this writer")
         self._profile = profile
         self._authority = authority
+        if read_mounts is not None and any(not isinstance(path, Path) for path in read_mounts):
+            raise TypeError("read_mounts holds Paths")
+        own = Path(root).resolve()
+        resolved = [path.resolve() for path in read_mounts or ()]
+        if own in resolved or len(set(resolved)) != len(resolved):
+            raise ValueError("read_mounts names the writer's own root, or one root twice (mount-citations §3.2)")
+        self._read_mounts: tuple[Path, ...] = tuple(sorted(resolved))
+        self._citations: MountCitations | None = None
         # Binding a writer establishes its root directory. `nodes` 2.0 refuses to
         # construct over an absent root (a missing root propagates; it is never an
         # empty corpus), while the best-effort executor still materializes kind
@@ -1934,6 +2138,27 @@ class CorpusWriter:
     @property
     def _view(self) -> ReadView:
         return self._state.view
+
+    @contextmanager
+    def _citing(self) -> Iterator[None]:
+        """One citation scope per refusal chain (decision 5): read mounts open
+        lazily inside it and their holds release when the outermost scope ends."""
+        if not self._read_mounts or self._citations is not None:
+            yield
+            return
+        self._citations = MountCitations(self._view, self._profile, self._read_mounts)
+        try:
+            yield
+        finally:
+            citations, self._citations = self._citations, None
+            citations.close()
+
+    def _citation_view(self) -> ReadView | MountCitations:
+        if not self._read_mounts:
+            return self._view
+        if self._citations is None:
+            raise RuntimeError("a citation read outside a citation scope (mount-citations decision 5)")
+        return self._citations
 
     @property
     def root(self) -> Path:
@@ -2054,6 +2279,11 @@ class CorpusWriter:
             raise CollisionRefused(str(caught)) from caught
 
     def _preflight_replace_locked(self, node: Node, *, provenance: bool = False) -> None:
+        """The replacement checks inside one citation scope (mount-citations decision 5)."""
+        with self._citing():
+            self._preflight_replace_cited(node, provenance=provenance)
+
+    def _preflight_replace_cited(self, node: Node, *, provenance: bool = False) -> None:
         """Run the lock-held replacement checks without writing."""
         existing = self._corpus.index.by_uid.get(node.uid)
         if existing is None or existing.id != node.id:
@@ -2061,11 +2291,11 @@ class CorpusWriter:
         self._refuse_family_kinds(node, admitted_kind=node.kind)
         self._refuse_source(node, provenance=True)
         self._refuse_dataset_basis(node)
-        self._refuse_ineligible(node)
+        self._refuse_ineligible(node, view=self._citation_view())
         if stored.display_facet_malformed(node):
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
         self._refuse_invalid(node)
-        self._refuse_facets(node, provenance=provenance)
+        self._refuse_facets(node, view=self._citation_view(), provenance=provenance)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)
@@ -3171,7 +3401,7 @@ class CorpusWriter:
         except UnfreezableSpec as caught:
             raise ValidationRefused(f"{record.id}: {caught}") from caught
 
-    def _refuse_estimand_target_mismatch(self, record: Node, *, view: ReadView | _ImportView) -> None:
+    def _refuse_estimand_target_mismatch(self, record: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
         """Estimand-typing §7.2: the spec's estimand names the claim its target
         record carries — both the identity and the operator, since a stored
         estimand carries the two as independent members with no preimage."""
@@ -3394,6 +3624,18 @@ class CorpusWriter:
         view: ReadView | _ImportView | None = None,
         provenance: bool = False,
     ) -> None:
+        with self._citing():
+            self._refuse_cited(node, document_validated=document_validated, view=view, provenance=provenance)
+
+    def _refuse_cited(
+        self,
+        node: Node,
+        *,
+        document_validated: bool = False,
+        view: ReadView | _ImportView | MountCitations | None = None,
+        provenance: bool = False,
+    ) -> None:
+        view = self._citation_view() if view is None else view
         self._refuse_already_minted(node)
         self._refuse_source(node, provenance=provenance)
         self._refuse_dataset_basis(node)
@@ -3431,25 +3673,30 @@ class CorpusWriter:
             if facet is not None:
                 validate_payload(facet, payload, where=node.id)
 
-    def _refuse_facets(self, node: Node, *, view: ReadView | _ImportView | None = None, provenance: bool = False) -> None:
-        """§5.2: registry, payload, bearer, actor, and acquisition validity.
-        Provenance preserves the attestation of an arriving record."""
+    def _refuse_facets(self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None, provenance: bool = False) -> None:
+        """§5.2: registry, payload, bearer, actor, and acquisition validity. With
+        read mounts, bearer and validity are judged over the session; a retrieval
+        report is read in the record's own corpus (decision 3a). Provenance
+        preserves the attestation of an arriving record."""
         self._refuse_facet_shapes(node)
 
-        reading = self._view if view is None else view
-        reason = bearer_refusal(reading, node)
-        if reason is not None:
-            raise AcquisitionBoundaryRefused(reason)
-        payload = node.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
-        if isinstance(payload, dict):
-            if not provenance and payload.get("attested_by") != self._authority.actor:
-                raise ActorMismatch(
-                    f"{node.id}: the declaration names attester {payload.get('attested_by')!r}, not the bound "
-                    f"{self._authority.actor!r}"
-                )
-            reason = validity_refusal(reading, node, self._profile)
+        with self._citing():
+            reading = self._citation_view() if view is None else view
+            local = reading if isinstance(reading, _ImportView) else self._view
+            judged = self._citations.overlay(reading) if self._citations is not None and isinstance(reading, _ImportView) else reading
+            reason = bearer_refusal(judged, node)
             if reason is not None:
-                raise FacetPayloadRefused(f"{node.id}: {reason}")
+                raise AcquisitionBoundaryRefused(reason)
+            payload = node.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
+            if isinstance(payload, dict):
+                if not provenance and payload.get("attested_by") != self._authority.actor:
+                    raise ActorMismatch(
+                        f"{node.id}: the declaration names attester {payload.get('attested_by')!r}, not the bound "
+                        f"{self._authority.actor!r}"
+                    )
+                reason = validity_refusal(judged, node, self._profile, reports=local)
+                if reason is not None:
+                    raise FacetPayloadRefused(f"{node.id}: {reason}")
 
     @staticmethod
     def _refuse_governed_stamp(node: Node) -> None:
@@ -3463,7 +3710,7 @@ class CorpusWriter:
         except IdentityError as caught:
             raise ValidationRefused(f"{node.id}: semantic-identity stamp cannot be recomputed: {caught}") from caught
 
-    def _refuse_composite(self, node: Node, *, view: ReadView | _ImportView) -> None:
+    def _refuse_composite(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
         """Design §4.2, steps 1–4, re-derived from the stored record: form,
         the relation set, member resolution and identity, classification.
         No vocabulary membership is read — the boundary holds no snapshot."""
@@ -3481,7 +3728,7 @@ class CorpusWriter:
         )  # steps 2–3
         composite_module.classify(self._profile, facet, claims)  # step 4
 
-    def _refuse_assesses_target_kind(self, node: Node, *, view: ReadView | _ImportView) -> None:
+    def _refuse_assesses_target_kind(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
         """`assesses` targets a proposition and nothing else (kernel §4.1, U4).
         The eligibility predicate reads the run and its observed dataset and
         never the target's kind, so without this an otherwise eligible
@@ -3506,7 +3753,7 @@ class CorpusWriter:
                     f"{node.id}: assesses-target-kind: an assessment assesses a proposition, not a {target.kind!r} ({relation.target})"
                 )
 
-    def _refuse_supersedes_same_kind(self, node: Node, *, view: ReadView | _ImportView) -> None:
+    def _refuse_supersedes_same_kind(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
         """Design §3.1's `same_kind` rule, on the shared path every route takes
         and outside the `document_validated` shortcut: a `supersedes` edge whose
         target is a record of another kind is a signature violation, whoever
@@ -3527,7 +3774,7 @@ class CorpusWriter:
                     f"({relation.target}); supersedes is same-kind succession (kernel §4.1, composite-claims §3.1)"
                 )
 
-    def _refuse_verification(self, node: Node, *, view: ReadView | _ImportView) -> None:
+    def _refuse_verification(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
         """Self-consistency of a published verification, before the intent
         (design §5.3): the record decodes — id, report identity, edge
         cardinality — and its `verifies` target is an assessment carrying the
@@ -3630,10 +3877,24 @@ class CorpusWriter:
             if node.id != address:
                 raise DatasetAddressDisagreement(f"{node.id}: the declaration derives {address}")
 
-    def _refuse_ineligible(self, node: Node, *, view: ReadView | _ImportView | None = None) -> None:
-        """S7's write boundary, reading the cross-node predicate through this
-        corpus's own read view."""
-        reason = eligibility_refusal(self._view if view is None else view, node, self._profile)
+    def _refuse_ineligible(self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None) -> None:
+        """S7's write boundary. An import overlay finds the run and its datasets
+        through itself and judges them with the session's producers; every other
+        path reads the citation view (mount-citations §3.1), which a `None` view
+        means. With read mounts, both are judged only inside a citation scope:
+        outside one this raises `RuntimeError`, as `_citation_view` does."""
+        reading = self._citation_view() if view is None else view
+        judge: ProducerView | None = None
+        reports: Callable[[str], ReportView | None] | None = None
+        if self._read_mounts:
+            citations = self._citations
+            if citations is None:
+                raise RuntimeError("eligibility judged outside a citation scope (mount-citations decision 5)")
+            if isinstance(reading, _ImportView):
+                judge, reports = citations.overlay(reading), (lambda _ref: reading)
+            else:
+                judge, reports = reading, citations.holder
+        reason = eligibility_refusal(reading, node, self._profile, judge=judge, reports=reports)
         if reason is not None:
             raise EligibilityUnmet(f"{node.id}: the assesses edge is inadmissible because {reason}")
 

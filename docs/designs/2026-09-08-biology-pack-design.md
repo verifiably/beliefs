@@ -682,6 +682,8 @@ fails:
 | **B7** | A consulted namespace's pin agrees with the profile | pins built from the profile → the walk proceeds; `science` pinned to another identity → `Refused("profile-pin-mismatch: science")`; a consulted domain pinned to another revision → refused naming it; an unconsulted domain pinned to anything → not compared, unchanged from cut 2 | the agreement check dropped → the mismatch test validates under one revision and digests another, and fails |
 | **B6** | The pack ships byte-identical, and TypeScript refuses what Python refuses | packaged copy equals `domains/biology/DOMAIN.yaml`; the TypeScript parser refuses own-namespace and `science` references and an unresolved reference at compile | the copy edited → the identity test fails; TypeScript accepting `mm30/concept` inside `mm30` → the parity refusal test fails |
 
+B4's absent-dataset clause ("nothing refuses") is superseded by J21 at cut 44 ([mount citations design](../superpowers/specs/2026-10-01-mount-citations-design.md) §7 and §13; [results](../plans/2026-10-01-conformance-cut-44-results.md)): a corpus-local read refuses `input-outside-corpus`. B4's other clauses stand.
+
 Rows elsewhere:
 
 - **D6 closes.** Its facet arm and the negative's domain-facet instantiation
