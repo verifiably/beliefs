@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import cast
 from unittest.mock import Mock
 
 import pytest
@@ -72,14 +71,17 @@ def test_gather_and_evaluate_agree_on_the_consulted_set(tmp_path):
 
 
 def test_an_absent_observed_dataset_is_absent_from_gather(tmp_path):
+    """B4's absent-dataset clause, superseded by J21 (mount-citations spec §13): a
+    corpus-local read of an input the corpus does not hold refuses, never drops it."""
+    from beliefs.errors import InputOutsideCorpus
+
     profile = profile_with()
     view = seed(tmp_path, observes_missing=True)
-    inputs = gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, profile))))
-    assert inputs.observed_facets == ()
-    assert all(entry.role != "observes" for entry in inputs.runs["run-a"].inputs)
-    assert len(cast(list[object], inputs.closure().projection["observes"])) == 1
-    assert ("dataset", "dataset:d-missing") not in inputs.read_trace
-    assert not isinstance(evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, profile))), Refused)
+    with pytest.raises(InputOutsideCorpus) as refused:
+        gather(view, PROPOSITION_REF, **over_kwargs(_gathered(kwargs_for(view, profile))))
+    assert refused.value.run == "run:run-a" and refused.value.inputs == ("dataset:d-missing",)
+    answer = evaluate_over(view, PROPOSITION_REF, **over_kwargs(kwargs_for(view, profile)))
+    assert isinstance(answer, Refused) and answer.reason.startswith("input-outside-corpus:")
 
 
 def test_the_member_is_present_and_empty_when_nothing_was_read(tmp_path):

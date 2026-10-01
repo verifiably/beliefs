@@ -891,6 +891,15 @@ class MalformedRecord(RecordError):
     set, a role outside ``observes | reads | transforms``."""
 
 
+class InputOutsideCorpus(MalformedRecord):
+    """A corpus-local read of an assessment whose run names an input the corpus
+    does not hold (mount-citations decision 9): read it over a world view."""
+
+    def __init__(self, assessment: str, run: str, inputs: tuple[str, ...]) -> None:
+        self.assessment, self.run, self.inputs = assessment, run, inputs
+        super().__init__(f"{assessment} rests on {run}, which names {', '.join(inputs)}; this corpus does not hold them")
+
+
 class RecipeVersionUnsupported(RecordError):
     """A v1 recipe lacks the workflow snapshot required by typed decode."""
 

@@ -34,7 +34,17 @@ from test_n2 import audit, baseline
 import beliefs.root as science_root
 
 # Final-review run membership, 2026-09-09; preserve the frozen declaration.
+#
+# Live re-target, 2026-10-01 (mount-citations Task 5, spec §13's foreseen re-target): B4b's
+# frozen mutation dropped the unheld-observes filter, which J21's refusal now precedes. The arm
+# keeps its frozen check, rewritten to J21's contract; its mutation removes the refusal and is
+# shared with J21-a (cut 44), the two differing in their check.
 _LIVE_SABOTAGES = {
+    "B4b": Sabotage(
+        module="evaluation.py",
+        before="        if outside:\n            raise InputOutsideCorpus(a.identity(), ref, tuple(sorted(set(outside))))\n",
+        after="",
+    ),
     "D6a": Sabotage(
         module="belief.py",
         before='    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed\n',

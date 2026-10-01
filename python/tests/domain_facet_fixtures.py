@@ -82,15 +82,14 @@ CROSSING_CLAIM: dict[str, Any] = {
 }
 
 
-def seed(
-    corpus: Path | CorpusWriter,
+def seed_nodes(
     *,
     axis: str | None = "rows",
     observes_missing: bool = False,
     claim: dict[str, Any] | None = None,
     proposition: str = PROPOSITION_REF,
     outcomes: tuple[str, str] = ("supported", "supported"),
-) -> ReadView:
+) -> list[Node]:
     domain_facets: dict[str, Any] = {"biology/gene-axis": {"axis": axis}} if axis is not None else {}
     nodes: list[Node] = [stored.proposition_node("p", title="p", claim=claim or CLAIM_FACET)]
     nodes.append(
@@ -138,6 +137,21 @@ def seed(
                 scope="clean-environment", verdict="passed"
             )
         )
+    return nodes
+
+
+def seed(
+    corpus: Path | CorpusWriter,
+    *,
+    axis: str | None = "rows",
+    observes_missing: bool = False,
+    claim: dict[str, Any] | None = None,
+    proposition: str = PROPOSITION_REF,
+    outcomes: tuple[str, str] = ("supported", "supported"),
+) -> ReadView:
+    nodes = seed_nodes(
+        axis=axis, observes_missing=observes_missing, claim=claim, proposition=proposition, outcomes=outcomes
+    )
     if isinstance(corpus, CorpusWriter):
         for node in nodes:
             corpus.add(node)

@@ -753,3 +753,15 @@ the code.
       manifest. Eligibility decodes no estimand. Acquisition's certified path is not portable, so J16i checks the seam
     acquisition calls, `CorpusWriter._refuse_acquired_dataset` (`holdings/acquire.py`).
 
+
+- 2026-10-01, at Task 5 (belief reads):
+  - **J20 compares verdict, binding and admission, not `belief_input_digest`.** The
+    split world and the one-corpus baseline agree on the belief value, the policy
+    binding and the admission. The digest differs by construction: the closure
+    projection names `producer_snapshot` (the world's epoch identity against
+    `producer-snapshot-1`) and the retraction `coverage` (the carriers' corpus ids
+    against the single corpus id). Those are the two fields that name a corpus; every
+    other closure member is equal.
+  - **Tests that relied on the silent drop.** None beyond B4b's check. The rest of
+    `just test-fast` is green, including `test_publication_arrival.py` and
+    `test_facet_read.py`, which also seed `observes_missing`.
