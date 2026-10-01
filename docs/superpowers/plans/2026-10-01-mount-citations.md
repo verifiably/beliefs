@@ -1383,6 +1383,23 @@ def test_j19_an_unknown_producer_is_unresolved_per_dataset_and_the_scan_continue
     assert finding.code == "eligibility-unresolved" and "producers-incomplete" in finding.detail
 
 
+def test_j19_an_unmapped_dataset_that_fails_on_its_own_is_unmet_while_a_corpus_is_absent(tmp_path):
+    """Plan review 2, P2: incompleteness applies only to a dataset that would otherwise pass."""
+    good_report = REPORT
+    p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    roots = corpora(tmp_path, {ALPHA: (good_report, p), BETA: (stored.proposition_node("q", title="q", claim={"operator": "affects"}),)})
+    world = world_over(tmp_path, roots)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    plain = _observed("plain-drift", facet=False)
+    run = stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[plain.id])
+    raw_add(roots[ALPHA], plain, run, stored.assessment_node(
+        "a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id, outcome="supported",
+        interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()))
+    make_absent(roots, BETA)
+    assert ("error", "eligibility-unmet", "assessment:a") in _eligibility(
+        audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY))
+
+
 def test_j19_an_unobserving_dataset_elsewhere_is_unmet(tmp_path):
     world, _roots, published, _d = _cross_world(tmp_path, dataset=_observed("plain", facet=False))
     assert _eligibility(audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)) == [
@@ -1413,8 +1430,8 @@ Expected: the supported, absent, damaged, malformed and post-capture cases repor
 
 - [ ] **Step 3: Implement** in `audit.py`.
   - Import `_CapturedCheckView`, `EligibilityOutcome`, `eligibility_outcome` and
-    `ELIGIBILITY_CODES` from `beliefs.corpus`, and `CorpusDamaged` (used by J19-d's
-    sabotage).
+    `ELIGIBILITY_CODES` from `beliefs.corpus`, `validity_refusal` from
+    `beliefs.acquisition`, and `CorpusDamaged` (used by J19-d's sabotage).
 
 ```python
 class _CapturedCitations:
@@ -1429,6 +1446,7 @@ class _CapturedCitations:
         self._readable = readable
         self._causes = causes
         self._malformed = malformed
+        self._profile: ProfileSpec | None = None
         self.unreadable: dict[str, str] = {}
 
     def _holder(self, ref: str) -> _CapturedCheckView | None:
@@ -1452,15 +1470,16 @@ class _CapturedCitations:
         return self._readable.get(corpus_id)
 
     def _incomplete(self, ref: str) -> bool:
-        """Decision 8, per dataset: an own dataset the epoch never mapped, with no
-        known producer, while a covered corpus is unreadable, cannot be judged
-        unproduced. A known producer is definite and decides it (the scan goes on)."""
+        """Decision 8, per dataset: an own dataset the epoch never mapped, while a
+        covered corpus is unreadable, is uncertain only when it would otherwise
+        pass. A missing or malformed facet, a basis, a known producer or an
+        unresolved report each decide it definitely, and the scan goes on."""
         if self._view.corpus_of(ref) is not None or not self._causes:
             return False
         node = self._own.get(ref)
         if node.kind != "dataset":
             return False
-        return not self.producers(node.id, aliases=tuple(node.deprecated_ids))
+        return validity_refusal(self, node, self._profile, reports=self._own) is None
 
     def holds(self, ref: str) -> bool:
         return self._holder(ref) is not None
@@ -1482,6 +1501,7 @@ class _CapturedCitations:
 
     def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None:
         self.unreadable = {}
+        self._profile = profile
         outcome = eligibility_outcome(self, node, profile, reports=self._holder)
         if outcome is None or not outcome.unresolved:
             return outcome
@@ -1905,13 +1925,14 @@ def _split_seed(s):
     return world, roots, publish(world, tuple(sorted(roots)), hold_shipped(world))
 
 
-def _world_context(view, roots, kwargs):
+def _world_context(view, pins, kwargs):
+    """`pins` are read once, while every manifest is present (plan review 2, P2)."""
     return replace(
         kwargs["context"],
         snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"))),
         producer_snapshot_identity=view.producer_snapshot_identity(),
         node_corpus={},
-        pins={corpus_id: load_manifest(root).profile for corpus_id, root in roots.items()},
+        pins=pins,
     )
 
 
@@ -1928,7 +1949,8 @@ def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
     world, roots, published = _split_seed(s)
     view = open_world_view(world, published)
     kwargs = kwargs_for(view, TYPED)
-    context = _world_context(view, roots, kwargs)
+    pins = {corpus_id: load_manifest(root).profile for corpus_id, root in roots.items()}
+    context = _world_context(view, pins, kwargs)
     split_answer, split_admission = evaluate_over_traced(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
     local = ReadView.opened_at(s.o)
     local_answer, local_admission = evaluate_over_traced(local, "proposition:p", **over_kwargs(kwargs_for(local, TYPED)))
@@ -1937,10 +1959,15 @@ def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
                     resolution=kwargs["resolution"], binding=kwargs["binding"])
     w_id, m_id = ReadView.opened_at(s.w).corpus_id, ReadView.opened_at(s.m).corpus_id
     assert inputs.node_corpus["run:run-a"] == (w_id,) and inputs.node_corpus[dataset_ref("d-a")] == (m_id,)
-    assert dataset_ref("d-a") in {root for root in context.snapshot.roots}
+    # the walk inspected M's dataset through the world view: held, its (empty) producer set captured
+    assert context.snapshot.producers[dataset_ref("d-a")] == ()
+    assert dataset_ref("d-a") not in context.snapshot.not_present
     make_absent(roots, m_id)
     absent_view = open_world_view(world, published)
-    answer, _admission = evaluate_over_traced(absent_view, "proposition:p", **over_kwargs({**kwargs, "context": _world_context(absent_view, roots, kwargs)}))
+    absent_context = _world_context(absent_view, pins, kwargs)
+    assert dataset_ref("d-a") not in absent_context.snapshot.producers
+    assert absent_context.snapshot.not_present[dataset_ref("d-a")] == m_id
+    answer, _admission = evaluate_over_traced(absent_view, "proposition:p", **over_kwargs({**kwargs, "context": absent_context}))
     assert isinstance(answer, NoBelief) and answer.reason == "unavailable-corpus-absent"
 
 
@@ -2269,3 +2296,14 @@ module to copy from:
      `seed_nodes()`, asserts attribution and lineage, and keeps the absent-carrier
      negative.
   7. **P3.** Tasks 0, 6, 7 and 8 run through `just test-one`.
+- 2026-10-01, plan review round 2: revise, P2 3, all accepted after checking the code.
+  1. Producer incompleteness now applies only when the unmapped dataset would otherwise
+     pass. `_incomplete` runs `validity_refusal` with the known producers, so a missing
+     facet, a basis, a known producer or an unresolved report each decide the dataset
+     definitely. A regression covers a plain drift dataset with a corpus absent.
+  2. J20's absent negative reads the pins once, while every manifest is present, and
+     reuses them for the absent view.
+  3. J20's lineage assertion now checks what the walk captured. While M is present,
+     M's dataset is in `producers` (empty) and not in `not_present`. After removal, it
+     is in `not_present` with M's id and has no producer entry.
+
