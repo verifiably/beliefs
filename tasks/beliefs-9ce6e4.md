@@ -1,17 +1,19 @@
 ---
 id: beliefs-9ce6e4
 title: Assessment eligibility and evidence gathering across mounted corpora
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T12:44:57Z
+updated: 2026-10-01T20:50:46Z
 started: 2026-10-01T09:35:48Z
+completed: 2026-10-01T20:50:46Z
 depends: []
 tags: [session]
+model: claude-opus-5-5
 agent: claude-code/claude-opus-5-5
 spec: docs/superpowers/specs/2026-10-01-mount-citations-design.md
 plan: docs/superpowers/plans/2026-10-01-mount-citations.md
@@ -81,3 +83,7 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
 - 2026-10-01T12:44:22Z (cross-mount-eligibility): resumed
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-01T12:44:22Z (cross-mount-eligibility): review: plan round 3 — verdict: accept; findings: none; reviewer: human
+- 2026-10-01T20:50:46Z (cross-mount-eligibility): done
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T20:50:46Z (cross-mount-eligibility): cut 44 discharged: citations over read mounts, session-wide acquisition invariants, eligibility classes in both checks, corpus-local reads refuse unheld inputs and runs
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
