@@ -281,7 +281,7 @@ None for `mount-citations`: J16–J21 are discharged, with the one unexercised J
    everywhere.
 7. There is no world-wide bearer finding; `facet-bearer-produced` stays per corpus.
 
-Two follow-ups are filed:
+Five follow-ups are filed:
 
 - `beliefs-fdc40f` (priority 1): the acceptance runner's nested run directories push the
   deepest SQLite path past the platform limit one cut deeper than cut 43. Cut 44 ran
@@ -291,6 +291,17 @@ Two follow-ups are filed:
   holds only the proposition, whose claim uses a namespace only that corpus pins, would
   raise `ContractDisagreement` ("pinned by no corpus"). This predates the lane; it was
   found in Task 6's review, and no durable case covers that shape.
+
+The final whole-branch review deferred three more, each filed as an idea:
+
+- `beliefs-e02ef3`: measure `audit_world`'s second `_record_findings` pass and the
+  per-write opening of every read mount at mm30 scale.
+- `beliefs-cb2a39`: add a live arm for `gather`'s observes-loop held filter
+  (`if not view.holds(target): continue`). No live arm has guarded it since cut 22's
+  absent-dataset arm was re-targeted (§3), and world views still depend on it.
+- `beliefs-4a2998`: have `_validate_import_bundle` open one citation scope per bundle.
+  Today each record opens its own, so N records under M read mounts index the mounts
+  N × M times.
 
 The second-project milestone has not been measured. Its kernel prerequisites are now
 closed; it waits on science's `sci-dc0381`. The `write-path` lane closes again;
