@@ -11,7 +11,7 @@ amendments) and its commons design (`science docs/specs/2026-09-30-science-commo
 **Tasks:** `beliefs-9ce6e4` holds this spec; it answers `beliefs-724941` (§2 decision 2).
 **Cut 44:** numbered after cut 43 under roadmap concurrency rule 1. No branch or worktree
 holds a later cut on 2026-10-01.
-**Status:** reviewed and approved 2026-10-01 after six review rounds (§12); cut 44 plan next.
+**Status:** approved 2026-10-01; frozen as cut 44 on 2026-10-01.
 
 ## 1. What this slice is
 

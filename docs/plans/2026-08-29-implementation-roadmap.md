@@ -14,7 +14,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -210,6 +210,14 @@ now the first off-path boundary. The reproduction re-run (§21) left
 `state.json` byte identical and returned the same `NoBelief`; mm30 publishes
 nothing and exercises no transport or recipient tip.
 
+**Cut 44 (2026-10-01) is frozen and reopens the `write-path` lane for `mount-citations`.**
+J16–J21 are banked and open: the write boundary resolves citations over the write root
+and every read mount, the checks report unresolvable eligibility, the world read proves
+the two-installation split, and a corpus-local belief read refuses an input it does not
+hold. It is tier 1 **on the path**, the second-project milestone's remaining kernel
+prerequisite (mount citations spec §9); the `Ranked at` line stays at cut 43 until its
+discharge.
+
 **Cut 43 (2026-09-27) discharges the multi-corpus session and closes the boundary** —
 J12–J15 close: one explicit write root, manifest-pinned profiles for every configured
 corpus, coordination over all mounts, and corpus-matched reconciliation. This was
@@ -220,7 +228,7 @@ its second-project measurement has not run. The §22 reproduction re-run remains
 one-corpus library compatibility evidence, with the same `NoBelief` and byte-identical
 state. Main integration is Task 8 of this lane.
 
-The current accounting is 214 of 241 rows closed, with 27 open. The prior
+The current accounting is 214 of 247 rows closed, with 33 open. The prior
 single-corpus mm30 measurement has no remaining on-path boundary; cut 43 closes the kernel prerequisite for measuring a second corpus. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state; cut 32 re-ran it again under a further successor and composed and read the `h1-prognosis` fragment from the recreated corpus, which measures structure rather than the on-path question; cut 33 re-derived the same `NoBelief` answer with the empty retraction enumeration derived rather than supplied; cut 34 read the same corpus in place (no contract succeeded to move it aside) and re-derived the same answer, with the new arm exercised only by the acceptance module, not by mm30's corpus; cut 35 read it in place once more and re-derived the same answer with `state.json` byte-identical, its five stored holdings observations all `store` locations decoding unchanged through the widened codec — the `url` arm and the `acquisition` operation are exercised only by the acceptance module; cut 36 read it in place again and re-derived the same answer with `state.json` byte-identical — the event-level relation is read by no driver step, and mm30's single corpus chain orders no cross-chain pair. Cut 37 read it in place again and re-derived the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing; cut 38 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver audits through the bare evaluator and re-checks no holding; cut 39 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's manifest pins no coordination contract; cut 40 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's world publishes nothing, so the act and the arrival door are not reached; cut 41 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver evaluates no view query, live or epoch-bound. None of these later measurements re-ranks the path.
 
 ## Boundary index
@@ -243,6 +251,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 | id | rows it closes | tier | task |
 |---|---|---|---|
+| `mount-citations` | J16–J21: citations into mounted corpora at the write boundary, the single-corpus check and the world audit, belief over the two-installation split | 1, on the path — the second-project milestone's remaining kernel prerequisite | [beliefs-9ce6e4](../../tasks/beliefs-9ce6e4.md) |
 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | 1, the join — the base contract now carries the estimand grammar (cut 31) and the composite grammar, the `composite` kind, the `composes` signature and `supersedes`' `same_kind` declaration (cut 32): two more oracles amended before the freeze | [beliefs-eacbe2](../../tasks/beliefs-eacbe2.md) |
 | `persistence-cut` | X2; L1's persistence arms (re-homed at cut 36) | 2 | [beliefs-3ea822](../../tasks/beliefs-3ea822.md) |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | 3 | [beliefs-84d7b0](../../tasks/beliefs-84d7b0.md) |
@@ -254,7 +263,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 ### On the path
 
-No open kernel boundary. Cut 43 closes `multi-corpus-session`, the second-project milestone’s kernel prerequisite. `beliefs-c08725` relocated the mm30 corpus to a research world outside the checkout on 2026-09-29 (reproduction record §23). Science’s `sci-923d3a` launcher wiring remains the measurement’s prerequisite; science’s `sci-0d00d2` performs it.
+`mount-citations` is the second-project milestone's remaining kernel prerequisite (mount citations spec §9): J16–J21 are banked at cut 44 and open until discharge, and the earlier "no open kernel boundary" was stale from the filing of `beliefs-9ce6e4` on 2026-09-30. Cut 43 closed `multi-corpus-session`, the second-project milestone’s kernel prerequisite. `beliefs-c08725` relocated the mm30 corpus to a research world outside the checkout on 2026-09-29 (reproduction record §23). Science’s `sci-923d3a` launcher wiring remains the measurement’s prerequisite; science’s `sci-0d00d2` performs it.
 
 ### Off the path
 
@@ -285,7 +294,7 @@ boundary sits in the lane of its prerequisite and waits there.
 
 | lane | boundaries, in order | shared surface | status |
 |---|---|---|---|
-| `write-path` | none — `multi-corpus-session` closed at cut 43 | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed 2026-09-27: `multi-corpus-session` (cut 43); `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
+| `write-path` | `mount-citations` | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | open: `mount-citations` (cut 44), reopened 2026-10-01; `multi-corpus-session` closed at cut 43 (2026-09-27); `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
 | `domain` | none — `domain-boundary` closed at cut 26 after slices 1 and 2 at cuts 20 and 22 | the `nodes` registry | closed 2026-09-12 at cut 26 |
 | `composite-claims` | none — `composite-claims` closed at cut 32 | `contract/base.py`, `contract/domain.py`, `profile.py`, `composite.py`, `stored.py`, `corpus.py`, `audit.py`, `belief.py`, `evaluation.py`, `permit.py`, `resolution.py`, `errors.py`, both `CONTRACT.yaml` copies, the TypeScript contract and profile parsers, and the reproduction driver; the overlap with `world-read` and `mutation` on `corpus.py`, `audit.py`, `evaluation.py` and `belief.py` was named at the freeze under rule 3 | closed 2026-09-16 at cut 32 |
 | `live-query` | none — `live-query` closed at cut 41 | `world/selection.py` and `world/live.py`; the overlap with `world-read` on `world/view.py` (one private method, one type alias) and `corpus.py` (one protocol, one annotation) was named at the freeze under rule 3 | closed 2026-09-25 at cut 41 |
@@ -367,11 +376,11 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 43
+## Appendix A — live status of every guarantee row at cut 44
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it. Cut 42
-closes Y11–Y16 in full; cut 43 closes J12–J15 in full. L1
+closes Y11–Y16 in full; cut 43 closes J12–J15 in full; cut 44 banks J16–J21, still open before implementation, and reads no row in part. L1
 remains partial on its persistence arms, last read at cut 8 and owned by
 `persistence-cut`; W8 remains partial on its ambiguous-search-term
 conflict; R23 and W8a remain partial only on their `contract-cut` clauses;
@@ -399,7 +408,7 @@ banked at cut 41's freeze, is closed in full at its discharge.
 | T | — | T7 (cut 35) | — |
 | E | — | — | — |
 | F | — | — | — |
-| J | — | — | — |
+| J | J16, J17, J18, J19, J20, J21 | — | — |
 | V | — | — | — |
 | B | — | — | — |
 | Q | — | — | — |
@@ -407,7 +416,7 @@ banked at cut 41's freeze, is closed in full at its discharge.
 | Y | — | — | — |
 | Z | — | — | — |
 
-Closed 214 of 241; open 27.
+Closed 214 of 247; open 33.
 
 ## Appendix B — classification of every open row
 

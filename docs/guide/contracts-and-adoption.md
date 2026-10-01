@@ -87,7 +87,7 @@ R12 — called a **guarantee row**. Work is built in small slices called
 which rows the slice will satisfy, and states what it leaves out. Every check
 the cut adds is paired with a deliberate break of the code, and the check must fail when that
 break is applied; a check that cannot fail does not count. The
-[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27),
+[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01),
 not this guide, says what has landed.
 
 - **Promises have permanent names.** Rows are never renumbered, so a test or a
@@ -226,11 +226,11 @@ fitted result into independent validation.
 
 Forty-three conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple.
-Cut 43 discharges the multi-corpus session and J12–J15: 214 of 241 rows are
-closed across twenty-two tables, with 27 open. The complete
+Cut 43 discharges the multi-corpus session and J12–J15: 214 of 247 rows are
+closed across twenty-two tables, with 33 open. Cut 44, mount citations, is frozen before implementation and banks J16–J21. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
 implemented; `contract-cut` is the roadmap's next off-path boundary. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01)
 states the row count, what remains, and who owns it.
 
 The contributor guide has no ledger artifact of its own. That is deliberate:
@@ -287,6 +287,7 @@ exact selection; the results record under `../plans/` holds the evidence.
 | [41](../designs/2026-09-25-conformance-cut-41.md) | Live view-query evaluation (Z1–Z5) |
 | [42](../designs/2026-09-27-conformance-cut-42.md) | Discharged remote publish act (Y11–Y16 closed); transport, recovery, and recipient tip reading |
 | [43](../designs/2026-09-27-conformance-cut-43.md) | The multi-corpus session (J12–J15), discharged after cut 42 |
+| [44](../designs/2026-10-01-conformance-cut-44.md) | Citations into mounted corpora (J16–J21), frozen before implementation |
 
 ## Open edges
 

@@ -49,7 +49,7 @@ GUARANTEE_TABLES: dict[str, tuple[str, ...]] = {
     "T": ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"),
     "E": tuple(f"E{n}" for n in range(1, 9)),
     "F": tuple(f"F{n}" for n in range(1, 9)),
-    "J": tuple(f"J{n}" for n in range(1, 16)),
+    "J": tuple(f"J{n}" for n in range(1, 22)),
     "V": tuple(f"V{n}" for n in range(1, 9)),
     "B": tuple(f"B{n}" for n in range(1, 8)),
         "Q": tuple(f"Q{n}" for n in range(1, 11)),
@@ -324,6 +324,7 @@ _COUNT_WORDS = {
     80: "Eighty",
     81: "Eighty-one",
     82: "Eighty-two",
+    83: "Eighty-three",
 }
 
 

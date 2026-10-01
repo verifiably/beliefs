@@ -8,12 +8,13 @@ complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T12:27:15Z
+updated: 2026-10-01T12:44:57Z
 started: 2026-10-01T09:35:48Z
 depends: []
 tags: [session]
 agent: claude-code/claude-opus-5-5
 spec: docs/superpowers/specs/2026-10-01-mount-citations-design.md
+plan: docs/superpowers/plans/2026-10-01-mount-citations.md
 ---
 
 An attended session writes one root and mounts N read corpora (cut 43). A run in the write root may observe a dataset whose record a read mount declares — a dataset's id derives from its content, so it is one world record and cannot be declared again in the write root without a duplicate-location that refuses every live selection. The run boundary accepts it (it needs only the address and a held path), but CorpusWriter._refuse_ineligible reads eligibility_refusal through the writer's own view, so the assessment over that run refuses EligibilityUnmet; gather/admission likewise read the proposition's own corpus. Needed: eligibility at the assess write, and evidence gathering and admission, resolving an observed dataset's declaration over the session's mounts. Science's coordination part 3 (sci-923d3a) keeps write-command dataset inputs in the write root and refuses a read mount's dataset by name until this lands; science's second-project milestone (sci-0d00d2) needs it to assess a working-corpus proposition over mm30 data.
@@ -77,3 +78,6 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
 - 2026-10-01T12:27:14Z (cross-mount-eligibility): Plan round 2 disposition: all three accepted; incompleteness only when the dataset would otherwise pass (validity_refusal with known producers), J20 pins read once before removal, J20 lineage asserts producers/not_present before and after removal.
 - 2026-10-01T12:27:14Z (cross-mount-eligibility): parked (waiting on user, review): Plan round 3 review of .worktrees/cross-mount-eligibility/docs/superpowers/plans/2026-10-01-mount-citations.md; on accept: Task 0 (freeze cut 44, file step children), then sequential subagent-driven execution with a fresh review per task
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T12:44:22Z (cross-mount-eligibility): resumed
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T12:44:22Z (cross-mount-eligibility): review: plan round 3 — verdict: accept; findings: none; reviewer: human

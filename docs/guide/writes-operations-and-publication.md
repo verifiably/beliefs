@@ -221,7 +221,7 @@ enter a world-index map or a belief's inputs.
 - **Not built:** cross-root publication of a dataset's provenance reference and
   its acquiring report (T7's cross-root case).
 
-The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-27)
+The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01)
 is the authority for what remains and who owns it.
 
 ## Open edges
