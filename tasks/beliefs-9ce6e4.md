@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T09:46:13Z
+updated: 2026-10-01T10:18:27Z
 started: 2026-10-01T09:35:48Z
 depends: []
 tags: [session]
@@ -25,3 +25,9 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-01T09:35:48Z (cross-mount-eligibility): claimed by claude-code/claude-opus-5-5, pid 17260; brainstorming with beliefs-724941's scope question folded in (decided in this design, not after it)
 - 2026-10-01T09:46:12Z (cross-mount-eligibility): Spec drafted: docs/superpowers/specs/2026-10-01-mount-citations-design.md (cut 44, rows J16-J21). Decision 2 answers beliefs-724941: one mount view covers eligibility, assesses target, estimand target, verification target, composite members; compared runs are caller-supplied RunClosure values.
+- 2026-10-01T09:46:53Z (cross-mount-eligibility): parked (waiting on user, review): User (or a dispatched reviewer) reviews .worktrees/cross-mount-eligibility/docs/superpowers/specs/2026-10-01-mount-citations-design.md; on accept: close beliefs-724941 citing decision 2, file the science §4 task, then writing-plans for cut 44
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T10:15:02Z (cross-mount-eligibility): resumed
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T10:15:02Z (cross-mount-eligibility): review: spec round 1 — verdict: revise; findings: P1 3, P2 2; reviewer: unknown (pasted by the user)
+- 2026-10-01T10:18:27Z (cross-mount-eligibility): Round 1 disposition: all five accepted; producers union over session (3a), captured-only total world reader with unreadable class (8), eligibility reads base content only so audit_world keeps one profile (3), normalized mounted mapping (3.2); J16d witness is a mount-only claim operator in the estimand-target check
