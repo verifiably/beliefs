@@ -38,7 +38,7 @@ import beliefs.root as science_root
 # Live re-target, 2026-10-01 (mount-citations Task 5, spec §13's foreseen re-target): B4b's
 # frozen mutation dropped the unheld-observes filter, which J21's refusal now precedes. The arm
 # keeps its frozen check, rewritten to J21's contract; its mutation removes the refusal and is
-# shared with J21-a (cut 44), the two differing in their check.
+# shared with J21-a (cut 44), the two sharing both the mutation and the check.
 _LIVE_SABOTAGES = {
     "B4b": Sabotage(
         module="evaluation.py",

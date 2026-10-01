@@ -770,3 +770,8 @@ the code.
   - **J16-c's check was reshaped.** It was vacuous: a report-less verification never reads the view (cut 18 R2), so the
     `view=self._view` mutation changed nothing. The check now writes a published, report-carrying verification over a
     mount assessment, and the mutation and check id are unchanged.
+
+- 2026-10-01, after the cut-44 runner's prefix chain:
+  - **B4's supersession also reaches cut 23's durable test tail**, the corpus-local read after M is removed in
+    `test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably`, which now asserts J21's refusal. No
+    other acceptance test changed.
