@@ -23,6 +23,7 @@ from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, Policy
 from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract
 from beliefs.resolution import build_snapshot
 from beliefs.world import registry
+from beliefs.world.view import WorldReadView
 
 LOCAL_CORPUS_ID = "c1" + "0" * 30
 
@@ -163,7 +164,7 @@ def seed(
     return reopen(corpus)
 
 
-def kwargs_for(view: ReadView, profile: ProfileSpec) -> dict[str, Any]:
+def kwargs_for(view: ReadView | WorldReadView, profile: ProfileSpec) -> dict[str, Any]:
     identities = {stored.assessment_reference(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
     return {
         "retractions": RetractionEnumeration(found=(), coverage=("c1",)),
