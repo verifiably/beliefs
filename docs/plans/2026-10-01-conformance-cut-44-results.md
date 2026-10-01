@@ -313,8 +313,13 @@ closed; it waits on science's `sci-dc0381`. The `write-path` lane closes again;
 
 ## 6. Main integration
 
-Pending: Task 10 runs the whole-branch review and `just gate`, then merges
-`cross-mount-eligibility` into `main` and fills this section.
+Task 10's whole-branch review returned three Important findings, all fixed in one
+wave (`3988be8`..`af2dc57`) and approved by a scoped re-review. The cut runner ran
+green again after the fixes (`d5a2715`, exit 0, 24 arms sound, J16–J21 exercised).
+`just gate` exited 0 on `af2dc57`: 5945 Python tests passed with one skip, standalone
+N2 passed 46, and TypeScript passed 155; static checks passed. The closure commit was
+`62ce29d`, and `cross-mount-eligibility` merged into `main` at `7932481`. The merged
+Python and TypeScript trees are byte-identical to the gate-tested tree.
 
 ## 7. Execution rulings
 
