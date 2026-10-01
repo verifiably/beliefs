@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: cross-mount-eligibility
 created: 2026-09-30T16:04:32Z
-updated: 2026-10-01T11:03:09Z
+updated: 2026-10-01T11:07:28Z
 started: 2026-10-01T09:35:48Z
 depends: []
 tags: [session]
@@ -57,3 +57,7 @@ An attended session writes one root and mounts N read corpora (cut 43). A run in
 - 2026-10-01T11:03:08Z (cross-mount-eligibility): Round 5 disposition: all three accepted; eligibility on _ImportView paths resolves through the overlay and judges validity with session producers (J16 imported-assessment case, J16m); J16h passes local to both judgments; plain write names AcquisitionBoundaryRefused
 - 2026-10-01T11:03:08Z (cross-mount-eligibility): parked (waiting on user, review): Round 6 review of .worktrees/cross-mount-eligibility/docs/superpowers/specs/2026-10-01-mount-citations-design.md (§12 lists rounds 1-5); on accept: close beliefs-724941 citing decision 2, file the science §4 task, then writing-plans for cut 44
   provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T11:06:58Z (cross-mount-eligibility): resumed
+  provenance: {"harness_session":"claude-code:ba7ce184-780b-4707-a2f5-de54e91daee6","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-01T11:06:58Z (cross-mount-eligibility): review: spec round 6 — verdict: accept; findings: none; reviewer: unknown (pasted by the user)
+- 2026-10-01T11:07:28Z (cross-mount-eligibility): Spec approved at round 6. beliefs-724941 closed (decision 2). Science consumer task sci-dc0381 filed; sci-13050a and sci-0d00d2 depend on it and on this task.
