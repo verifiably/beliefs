@@ -8,11 +8,13 @@ import pytest
 from authority import FULL
 from coordination_fixtures import coordination_profile, raw_add
 from nodes.core.frontmatter import node_to_markdown
+from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
 from profiles import pins_for
 from test_publish_intent import intent
 
 from beliefs import publication_arrival, stored
+from beliefs.coordination import coordination_revision
 from beliefs.corpus import CorpusWriter, corpus_check
 from beliefs.errors import (
     MalformedRecord,
@@ -26,6 +28,7 @@ from beliefs.publication import (
     _marker_release_malformed,
     marker_consistent,
     marker_record,
+    marker_uid,
     publication_content_malformed,
 )
 from beliefs.publication_arrival import admit_publication, publication_tip
@@ -226,7 +229,7 @@ def capture_fixture(holdings, *, source_version=2, carried=None):
     for cid, (provenance, refs) in holdings.items():
         manifests[cid] = CorpusManifest(2, cid, pins_for(profile))
         nodes = tuple(stored.run_node(ref.split(':',1)[1], title=ref, spec='s', produces=[]) if ref.startswith('run:') else
-                      __import__('nodes.core.node',fromlist=['Node']).Node(id=ref, uid='9'*32, kind=ref.split(':',1)[0],title=ref,body='',facets={},relations=[]) for ref in refs)
+                      Node(id=ref, uid='9'*32, kind=ref.split(':',1)[0],title=ref,body='',facets={},relations=[]) for ref in refs)
         value = marker_record(intent(event_token=cid), world_id='d'*32, epoch='f'*64,
              selection=tuple(sorted(refs)), attributions=None if source_version==2 else (carried or {}).get(cid,()))
         captures[cid] = (*nodes, value)
@@ -246,7 +249,7 @@ def test_y17_a_local_holdings(version):
 def test_y17_b_first_carry(kind):
     cid='a'*32
     read, registry, _=capture_fixture({cid:(ReplicaOf(cid),(kind+':a',))})
-    assert act._selected_attributions(read,registry,(kind+':a',),pin(3)) == ((kind+':a',cid,__import__('beliefs.publication',fromlist=['marker_uid']).marker_uid(cid)),)
+    assert act._selected_attributions(read,registry,(kind+':a',),pin(3)) == ((kind+':a',cid,marker_uid(cid)),)
 
 
 def test_y17_c_forwarded_origin():
@@ -263,7 +266,6 @@ def test_y17_d_selection_scope():
 
 
 def test_y17_e_distinct_holders():
-    from beliefs.publication import marker_uid
     a,b='a'*32,'b'*32
     read, registry, _=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))})
     assert act._selected_attributions(read,registry,('run:a','run:b'),pin(3)) == (('run:a',a,marker_uid(a)),('run:b',b,marker_uid(b)))
@@ -333,7 +335,6 @@ def test_y17_l_held_capture(monkeypatch):
 def test_y17_p_legacy_source():
     a='a'*32
     read, registry, _=capture_fixture({a:(ReplicaOf(a),('run:a',))})
-    from beliefs.publication import marker_uid
     assert act._selected_attributions(read,registry,('run:a',),pin(3))==(('run:a',a,marker_uid(a)),)
     read,registry,_=capture_fixture({a:(ReplicaOf(a),('run:a',))},source_version=3,carried={a:(ORIGIN,)})
     assert act._selected_attributions(read,registry,('run:a',),pin(3))==(ORIGIN,)
@@ -347,3 +348,158 @@ def test_y18_n_source_release(source_version,entries):
     with pytest.raises(PublicationRefused) as caught:
         act._selected_attributions(read,registry,('run:a',),pin(3))
     assert (caught.value.reason,caught.value.field,caught.value.corpus_ids)==('attribution-source-invalid','marker-malformed',(a,))
+
+from dataclasses import replace
+
+from coordination_fixtures import raw_coordination_node
+
+from beliefs.errors import RegistryMalformed
+from beliefs.intents.publish import Destination
+from beliefs.publish_request import PublishRequest, TransportMark, encode_request, staging_world_id_for
+from beliefs.report import RequestCorrupt
+from beliefs.world import StatusRecord, WorldConfig
+
+
+class Prepared(Exception):
+    pass
+
+
+def wrapper_fixture(tmp_path, monkeypatch, *, writer_version=3, source_version=2):
+    a,b='a'*32,'b'*32
+    read,registry,captures=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))},source_version=source_version)
+    writer=writer_at(tmp_path / 'written',writer_version)
+    calls=[]
+    world=SimpleNamespace(config=WorldConfig(tmp_path/'world','e'*32,()),registry=lambda:calls.append('scan') or registry)
+    project=raw_coordination_node('project','f'*32,'d'*32)
+    resolver=SimpleNamespace(mounted=lambda:(writer.root,),resolve=lambda address:project)
+    view=coordination_revision(project).address
+    selection=SimpleNamespace(complete=True,selected=('run:a','run:b'),contributing=(a,b),absent=(),unresolved=())
+    read.resolve=lambda ref:ref if ref in selection.selected else None
+    monkeypatch.setattr(act,'current_epoch',lambda world:SimpleNamespace(packaging_identity='c'*64))
+    monkeypatch.setattr(act,'open_world_view',lambda world,epoch:read)
+    monkeypatch.setattr(act,'evaluate_query',lambda read,query:selection)
+    def opening(*args,**kwargs):
+        calls.append('intent')
+        raise Prepared
+    monkeypatch.setattr(act,'_open_publication',opening)
+    ops,dest=tmp_path/'ops',tmp_path/'dest'
+    ops.mkdir();dest.mkdir()
+    def run():
+        return act.publish(writer,cast(Any,resolver),cast(Any,world),view=view,destination=Destination.local(str(dest)),operations_root=ops,
+            staging_profile=coordination_profile(None,version=writer_version),clock=lambda:'2026-10-02T00:00:00Z',seam=cast(Any,None))
+    return SimpleNamespace(run=run,read=read,registry=registry,captures=captures,calls=calls,world=world,ops=ops,writer=writer,a=a,b=b)
+
+
+def test_y5_e_v2_pin_precedence(tmp_path,monkeypatch):
+    s=wrapper_fixture(tmp_path,monkeypatch,writer_version=2,source_version=3)
+    before=tuple(s.writer.read_view.iter_stored())
+    with pytest.raises(PublicationRefused) as caught:s.run()
+    assert caught.value.reason=='pins-disagree' and caught.value.field=='coordination'
+    assert s.calls==[] and list(s.ops.iterdir())==[] and tuple(s.writer.read_view.iter_stored())==before
+
+
+def test_y17_g_before_intent(tmp_path,monkeypatch):
+    s=wrapper_fixture(tmp_path,monkeypatch,writer_version=2)
+    before=tuple(s.writer.read_view.iter_stored())
+    with pytest.raises(PublicationRefused) as caught:s.run()
+    assert caught.value.reason=='attribution-contract-unpinned' and caught.value.corpus_ids==(s.a,s.b)
+    assert s.calls==['scan'] and list(s.ops.iterdir())==[] and tuple(s.writer.read_view.iter_stored())==before
+
+
+@pytest.mark.parametrize('scenario',['retired','scan-error','missing-replica','missing-fresh-v2','missing-fresh-v3'])
+def test_y17_o_registry_boundary(tmp_path,monkeypatch,scenario):
+    version=2 if scenario=='missing-fresh-v2' else 3
+    s=wrapper_fixture(tmp_path,monkeypatch,writer_version=version)
+    registry=s.registry
+    if scenario=='retired':registry=RegistryView(registry.admissions,(StatusRecord(s.a,'retired','actor'),))
+    elif scenario.startswith('missing'):
+        if 'fresh' in scenario:registry=RegistryView(tuple(replace(row,provenance=Fresh()) for row in registry.admissions[1:]),())
+        else:registry=RegistryView(registry.admissions[1:],())
+    error=RegistryMalformed('preparation scan')
+    def scan():
+        s.calls.append('scan')
+        if scenario=='scan-error':raise error
+        return registry
+    s.world.registry=scan
+    if scenario=='retired':
+        seen=[]
+        original=act._selected_attributions
+        def selected(read,scanned,refs,coordination_pin):
+            assert scanned.statuses==(StatusRecord(s.a,'retired','actor'),)
+            result=original(read,scanned,refs,coordination_pin)
+            assert result is not None
+            seen.extend(result)
+            return result
+        monkeypatch.setattr(act,'_selected_attributions',selected)
+        with pytest.raises(Prepared):s.run()
+        assert len(seen)==2 and seen[0][1]==s.a
+        assert s.calls==['scan','intent']
+    elif scenario=='scan-error':
+        with pytest.raises(RegistryMalformed) as caught:s.run()
+        assert caught.value is error and s.calls==['scan']
+    else:
+        with pytest.raises(PublicationRefused) as caught:s.run()
+        assert caught.value.reason=='attribution-holder-unregistered' and caught.value.corpus_ids==(s.b,)
+        assert s.calls==['scan']
+    assert list(s.ops.iterdir())==[]
+
+
+def frozen_attempt(tmp_path, *, destination=None, entries=(ORIGIN,), coordination_pin=None):
+    value=intent(destination=destination or intent().destination)
+    snapshot=Snapshot(value.event_token,records(),entries)
+    request=PublishRequest(value.event_token,value.view,value.destination,'b'*64,'a'*32,
+           CorpusPins('science:'+'b'*64,{'coordination':coordination_pin or pin(3)}),snapshot.identity(),staging_world_id_for(value.event_token))
+    return cast(Any,SimpleNamespace(opened=SimpleNamespace(intent=value),request=request,snapshot=snapshot,op=tmp_path))
+
+
+def test_y17_m_local_frozen_marker(tmp_path,monkeypatch):
+    a=frozen_attempt(tmp_path)
+    monkeypatch.setattr(act,'_selected_attributions',lambda *args:pytest.fail('origin lookup on reconstruction'))
+    for name in ('open_world_view', 'current_epoch', 'load_manifest'):
+        monkeypatch.setattr(act,name,lambda *args:pytest.fail('source read on reconstruction'))
+    node=act._expected_marker(a)
+    assert node.facets['coordination']['published_from']['attributions']==[list(ORIGIN)]
+
+
+def test_y17_n_remote_frozen_marker(tmp_path,monkeypatch):
+    a=frozen_attempt(tmp_path,destination=Destination.remote('https://remote.test/pub'))
+    monkeypatch.setattr(act,'_selected_attributions',lambda *args:pytest.fail('origin lookup on remote reconstruction'))
+    for name in ('open_world_view', 'current_epoch', 'load_manifest'):
+        monkeypatch.setattr(act,name,lambda *args:pytest.fail('source read on remote reconstruction'))
+    node=act._expected_marker(a)
+    assert node.facets['coordination']['published_from']['attributions']==[list(ORIGIN)]
+
+
+@pytest.mark.parametrize('change',['origin','malformed'])
+def test_y18_h_snapshot_tamper(tmp_path,change):
+    a=frozen_attempt(tmp_path)
+    (tmp_path/'request.v1').write_bytes(encode_request(a.request))
+    value=a.snapshot.projection()
+    value['attributions']=[['run:a','e'*32,'d'*32]] if change=='origin' else [['run:a','bad','d'*32]]
+    (tmp_path/'selection.v1').write_bytes(v1.encode(value))
+    assert act._load(tmp_path,a.opened)==RequestCorrupt('snapshot-mismatch' if change=='origin' else 'snapshot-undecodable')
+
+
+@pytest.mark.parametrize('entries,version', [(None,3),((),2),((),1),(None,1),((),None),(None,None),((),'unsupported')])
+def test_y18_i_snapshot_pin(tmp_path,entries,version):
+    a=frozen_attempt(tmp_path,entries=entries)
+    domains={} if version is None else {'coordination':'unsupported' if version=='unsupported' else pin(version)}
+    request=replace(a.request,pins=CorpusPins(a.request.pins.science_contract,domains))
+    (tmp_path/'request.v1').write_bytes(encode_request(request))
+    (tmp_path/'selection.v1').write_bytes(encode_snapshot(a.snapshot))
+    assert act._load(tmp_path,a.opened)==RequestCorrupt('snapshot-pin-disagrees')
+    good=replace(request,pins=CorpusPins(request.pins.science_contract,{'coordination':pin(2 if entries is None else 3)}))
+    (tmp_path/'request.v1').write_bytes(encode_request(good))
+    assert act._load(tmp_path,a.opened)==(good,a.snapshot)
+
+
+@pytest.mark.parametrize('version,entries',[(2,(ORIGIN,)),(3,None),(2,None),(3,())])
+def test_y18_o_remote_release(tmp_path,monkeypatch,version,entries):
+    node=marker(entries)
+    path=tmp_path/'marker.md';path.write_text(node_to_markdown(node))
+    manifest=CorpusManifest(2,'a'*32,pins_for(coordination_profile(None,version=version)))
+    mark=TransportMark(intent().event_token,Destination.remote('https://remote.test/pub'),'a'*32,node.uid,'b'*64,1)
+    monkeypatch.setattr(act,'_marker_path',lambda *args:path)
+    monkeypatch.setattr(act,'load_manifest',lambda *args:manifest)
+    remote=SimpleNamespace(op=tmp_path)
+    assert act._marker_agrees(cast(Any,remote),mark)==((version==3)==(entries is not None))

@@ -57,6 +57,7 @@ from beliefs.publication_doors import (
     unfinished_attempts,
 )
 from beliefs.publish_request import (
+    PUBLISHING_COORDINATION,
     V3_PIN,
     PublishRequest,
     Snapshot,
@@ -326,13 +327,14 @@ def publish(
     )
     if pins_of(staging_profile) != pins:
         raise PublicationRefused("profile-disagrees")
+    attributions = _selected_attributions(read, world.registry(), selection.selected, pins.domains["coordination"])
     records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)
-    _require_snapshot_records(read, records)
+    _require_snapshot_records(read, records, attributions=attributions)
     opened = _open_publication(
         writer, resolver, view=view.unpinned(), destination=destination, clock=clock, seam=seam, port=port, expected_view=pinned,
     )
     token = opened.intent.event_token
-    snapshot = Snapshot(token, records)
+    snapshot = Snapshot(token, records, attributions)
     request = PublishRequest(
         event_token=token,
         view=opened.intent.view,
@@ -362,12 +364,15 @@ _PROBE_TOKEN = "0" * 32
 before the real token exists, and the rule does not read the token's value."""
 
 
-def _require_snapshot_records(read: _Captured, records: tuple[tuple[str, str], ...]) -> None:
+def _require_snapshot_records(
+    read: _Captured, records: tuple[tuple[str, str], ...], *,
+    attributions: tuple[tuple[str, str, str], ...] | None = None,
+) -> None:
     """Spec §4.3, asserted before the intent (§4.1 item 8): the records satisfy the
     snapshot's own rule (each parses, carries its id and is its canonical
     rendering), and each re-parses to the record the view captured. It holds by
     construction; a failure is a malformed record and nothing is written."""
-    Snapshot(_PROBE_TOKEN, records)
+    Snapshot(_PROBE_TOKEN, records, attributions)
     for address, text in records:
         if node_from_markdown(text) != read.get(address):
             raise MalformedRecord(f"{address}: its snapshot text does not re-parse to the record the view captured")
@@ -396,6 +401,7 @@ def _initialize(a: _Attempt) -> tuple[CorpusWriter, World, str] | StagingCorrupt
 def _expected_marker(a: _Attempt) -> Node:
     return marker_record(
         a.opened.intent, world_id=a.request.world_id, epoch=a.request.epoch, selection=tuple(i for i, _ in a.snapshot.records),
+        attributions=a.snapshot.attributions,
     )
 
 
@@ -690,7 +696,9 @@ def _marker_agrees(r: _Remote, mark: TransportMark) -> bool:
         return False
     if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node) or node.uid != mark.marker:
         return False
-    return len(node.facets[stored.COORDINATION_FACET]["selection"]) == mark.records
+    if len(node.facets[stored.COORDINATION_FACET]["selection"]) != mark.records:
+        return False
+    return not _marker_release_malformed(node, load_manifest(_remote_export(r.op, mark.corpus_id)).profile.domains.get("coordination"))
 
 
 def _resume_from_mark(r: _Remote) -> PublishOutcome:
@@ -741,6 +749,9 @@ def _load(op: Path, opened: OpenedPublication) -> tuple[PublishRequest, Snapshot
         return RequestCorrupt("snapshot-undecodable")
     if snapshot.identity() != request.selection or snapshot.event_token != intent.event_token:
         return RequestCorrupt("snapshot-mismatch")
+    coordination = request.pins.domains.get("coordination")
+    if coordination not in PUBLISHING_COORDINATION or (coordination == V3_PIN) != (snapshot.attributions is not None):
+        return RequestCorrupt("snapshot-pin-disagrees")
     return request, snapshot
 
 
