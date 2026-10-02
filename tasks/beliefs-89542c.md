@@ -4,7 +4,7 @@ title: "arm_staleness measures only an arm's before block, so a stale after scor
 status: idea
 priority: 2
 created: 2026-09-16T20:09:06Z
-updated: 2026-09-29T22:34:00Z
+updated: 2026-10-02T16:52:50Z
 depends: []
 parent: beliefs-287026
 tags: [conformance, testing]
@@ -16,3 +16,4 @@ The shared staleness probe (tests/arm_staleness.py, tests/test_arm_staleness.py)
 ## Notes
 
 - 2026-09-29T22:34:00Z (main): scope: briefed; verified before-only detector and existing uncollected refusal; research beliefs-aa9f88 will compare parse/import/collection without duplicating beliefs-1b0827; brief: docs/notes/2026-09-29-testing-backlog-brief.md
+- 2026-10-02T16:52:50Z (research/n2-preflight-pilot): pilot beliefs-aa9f88: faithful current D8a missing-edges replacement passes ast.parse and direct module import but named-check collection refuses exit4 through fixture profiles; control collects one test. Collection1.074-2.371s per single process, nine probes13.96s incl hydration. Recommendation: ready for later scope using existing syntax/N2 cost tasks; no gate implemented. Brief docs/notes/2026-09-29-testing-backlog-brief.md.

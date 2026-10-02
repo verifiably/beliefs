@@ -7,7 +7,7 @@ size: m
 complexity: mid
 process: planned
 created: 2026-09-26T19:29:52Z
-updated: 2026-09-29T23:48:29Z
+updated: 2026-10-02T16:52:50Z
 depends: []
 tags: [testing]
 source: beliefs-9b248a
@@ -23,3 +23,4 @@ Done when: N2's cost is attributed, retained reductions are measured end to end 
 ## Notes
 
 - 2026-09-29T23:48:29Z (main): inherits beliefs-d3882f's remainder (dropped 2026-09-29): N2 is still paid on every push to a non-main ref and on hand-run just test. Its unexplored option, run N2 only when its inputs change, is a candidate reduction here and must keep every declared arm audited
+- 2026-10-02T16:52:50Z (research/n2-preflight-pilot): coordination from beliefs-aa9f88: named-check collection catches valid stale D8a omitted-edges replacement missed by parse/direct import; single-process walls1.074-2.371s, nine probes13.96s incl hydration. Evaluate incremental whole-inventory cost/duplication before placement; pilot adds no full sweep or always-on gate.

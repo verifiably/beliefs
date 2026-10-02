@@ -7,7 +7,7 @@ size: s
 complexity: mid
 process: direct
 created: 2026-09-16T06:31:02Z
-updated: 2026-09-16T06:45:37Z
+updated: 2026-10-02T16:52:50Z
 depends: []
 tags: [conformance, testing]
 agent: claude-code/claude-fable-5-1
@@ -18,3 +18,4 @@ Found at cut 31 (Task 8, cut 21's V8f): a pinned two-line before-block still occ
 ## Notes
 
 - 2026-09-16T06:45:37Z (design/estimand-typing): Final review of cut 31 confirms the shape: lift the mutated-source ast.parse assertion (cut 31's guard, test_n2_cut31.py) into arm_staleness so every audited arm gets it; today only cuts 28 and 31 carry it per-cut.
+- 2026-10-02T16:52:50Z (research/n2-preflight-pilot): coordination from beliefs-aa9f88: parse catches deliberate syntax error but misses valid missing-edges D8a replacement; collection catches it through fixture imports. Keep syntax work separate; no parser/gate change in pilot.

@@ -1,15 +1,16 @@
 ---
 id: beliefs-aa9f88
 title: Determine whether a collection preflight catches stale N2 replacements affordably
-status: doing
+status: done
 priority: 2
 size: s
 complexity: mid
 process: direct
 owner: research/n2-preflight-pilot
 created: 2026-09-29T22:33:07Z
-updated: 2026-10-02T16:48:03Z
+updated: 2026-10-02T16:55:27Z
 started: 2026-10-02T16:48:02Z
+completed: 2026-10-02T16:55:26Z
 depends: []
 parent: beliefs-287026
 tags: [testing]
@@ -32,3 +33,10 @@ Ideas it wakes: On completion, run tasks note beliefs-89542c with the finding in
 - 2026-10-02T16:48:02Z (research/n2-preflight-pilot): started
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-10-02T16:48:02Z (research/n2-preflight-pilot): claimed by codex/gpt-6.1, pid3565319; process direct; isolated .worktrees/n2-preflight-pilot on research/n2-preflight-pilot, base3a59054. Scope is exactly three copied-package cases times parse/import/named-check collection, through just test-one; no rollout or full-arm sweep.
+- 2026-10-02T16:52:50Z (research/n2-preflight-pilot): pilot: nine just test-one probes, copied packages only,13.96s total incl first-use uv hydration. Valid D8a replacement parse/import/collect exits0/0/0, collection one test; syntax1/1/4; syntactically valid missing-edges replacement0/0/4, collection MalformedContract edges through acceptance conftest/profiles. Wall collection1.074-2.371s; module import misses this fixture-dependent failure. Original package hashes unchanged; no full sweep, runtime durability or rollout.
+- 2026-10-02T16:52:50Z (research/n2-preflight-pilot): recommendation: retain parse in beliefs-1b0827; inform beliefs-f64cf1 N2 cost/placement with named-check collection; do not add always-on gate from three cases. Accept only copied resolution/all named checks collected; exit4/zero collection refuses invalid audit input, never sound. Keep full audits for vacuity/runtime and benchmark broader cost only within existing cost task. Updated source brief with environment, exact cases, commands and acceptance criteria.
+- 2026-10-02T16:55:26Z (research/n2-preflight-pilot): verification: focused designs/guide23 passed in1.14s; just check0errors/0warnings; fast6080 passed/1 existing skip in87.02s, no affected TypeScript tests; taskscheck clean. Original source hashes unchanged, all nine probe outputs inspected through collection verdicts. Task-start multi-worktree uncommitted warning resolved by claim commit7414bc2.
+- 2026-10-02T16:55:26Z (research/n2-preflight-pilot): done
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T16:55:26Z (research/n2-preflight-pilot): Completed bounded nine-probe pilot: collection detects valid stale D8a omitted-edges replacement missed by parse/import;1.074-2.371s per process,13.96s incl hydration; brief and existing syntax/vacuity/cost/idea notes updated, no gate rollout.
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
