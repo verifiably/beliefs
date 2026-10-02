@@ -2,6 +2,7 @@
 
 **Date:** 2026-10-02  
 **Status:** proposed; written-spec review pending; no implementation authorized by this artifact yet  
+**Review:** human spec round 2 requested revision; this draft addresses P1 2, P2 7 and P3 4
 **Task:** `beliefs-d9bc57`  
 **Boundary:** `belief-acceptance`, proposed in the `world-read` lane  
 **Workspace:** `.worktrees/acceptance-filter`, branch `feat/acceptance-filter`  
@@ -98,10 +99,15 @@ AcceptancePolicy(
 
 The callable receives `(corpus_id, canonical_stored_address)`. The address is
 the record's live `node.id`, not an assessment identity, uid or deprecated
-spelling. The result must be exactly a `bool`; another return type is malformed.
+spelling. The constructor requires a callable, otherwise
+`MalformedRecord("acceptance-predicate-not-callable")`. The result must be exactly
+a `bool`; another return type raises `MalformedRecord("acceptance-result-not-bool")`.
 Exceptions fail the call and never turn into acceptance or an unrestricted retry.
 
-The statement is nonempty text, validated by `science.identity.v1` encoding.
+The statement must be an exact, nonempty `str`, otherwise the constructor raises
+`MalformedRecord("acceptance-statement-not-text")`. Its encoding check is that
+`v1.encode(statement)` succeeds; an encoding failure propagates the original
+`IdentityError` subclass, including `LoneSurrogate`, without replacement text.
 Science supplies its canonical policy document as that text, including the
 verifier set, relevant pin sources and provenance information it needs to
 explain exclusions. The kernel keeps this text unchanged and includes it in
@@ -125,13 +131,22 @@ Add a frozen `AcceptanceContext` with:
 
 - `statement: str`, the exact policy statement;
 - `excluded: tuple[tuple[str, str], ...]`, sorted unique corpus/address pairs;
-- `complete: bool`, whether gathering finished successfully.
+- `complete: bool`, whether all acceptance candidate scans and filtered standing
+  folds finished. Completion does not assert that dependency reads or contract
+  interpretation succeeded.
 
 `EvaluationInputs` gains `acceptance: AcceptanceContext | None`. `SuppliedContext`
 gains the same optional field so `_evaluate_over_inputs` can forward the computed
 selection to the pure evaluator with its existing `replace` operation. `Belief`,
 `NoBelief` and `Refused` gain the same optional field. Unrestricted calls leave
 it unset and preserve their present results.
+
+`gather` rejects any non-`None` incoming `context.acceptance`, with or without
+an `AcceptancePolicy`, by raising `MalformedRecord("supplied-acceptance-context")`
+before record iteration, resolution, standing or predicate invocation. It is
+an output of this resolver, like world-derived `node_corpus`, never permission
+to claim a selection ran. Only after gathering does `_evaluate_over_inputs`
+copy the resolver's context into the context passed to the pure evaluator.
 
 For a filtered call that completes gathering, every rejected evidence or
 correction record encountered in the selection domain is listed, including
@@ -140,18 +155,45 @@ origin information bound in its statement when rendering the upstream
 world-attributed exclusion report. Holding corpora are not presented as
 authenticated provenance worlds.
 
-A returned refusal before gathering completes carries the statement with
-`complete=False`; it must not present an empty exclusion list as a completed
-selection. Existing raised kernel errors still raise. A pure evaluator may
-consume a complete context with already selected `Records`; it does not have
-corpus/address information sufficient to run the predicate itself. An
-incomplete acceptance context cannot produce a `Belief`.
+A returned answer before that completion boundary carries
+`AcceptanceContext(statement, excluded=(), complete=False)`. Incomplete contexts
+**always** have `excluded=()`; their constructor refuses a nonempty list with
+`MalformedRecord("incomplete-acceptance-exclusions")`. Partially observed decisions
+are not returned, so incomplete reports do not vary with scan order. The statement
+uses the same validation as `AcceptancePolicy`. The corpus-backed wrapper's
+binding-exactness guard still runs first and carries this incomplete context
+on its returned refusal.
 
-Completeness means all candidate scans and filtered folds finished, not merely
-that `gather` returned. Its early absent-input route returns an incomplete
-context, and `unavailable-corpus-absent` carries that context without pretending
-selection finished. Exclusions already observed may be reported; an exception
-path that cannot return them reports the statement and `complete=False`.
+The completion boundary is after all evidence/correction candidate scans and
+filtered standing folds, when the verification scan and correction scoping have
+finished, before the claim lookup and late `consulted_contracts` walk. Public
+`gather` and `_evaluate_over_inputs` share a private gather implementation with
+invocation-owned state: the decision cache and the completed context. This lets
+the wrapper preserve completion on a caught late error without rerunning the
+predicate or attaching new fields to existing exception types. Public `gather`
+continues to raise its existing errors; the state is not a new public argument.
+
+| Outcome site | Acceptance context on a returned answer |
+|---|---|
+| Corpus-backed binding guard, caught error before the completion boundary, or `_absent_inputs` early return before evidence scans finish | Incomplete; `excluded=()` |
+| `ContractDisagreement`, `ContractMismatch`, `FacetPayloadRefused` or `FacetUndeclared` raised by the late `consulted_contracts` walk and caught by the wrapper | Complete; full sorted exclusions; existing refusal reason |
+| Other existing caught errors after the completion boundary, including a caught claim-decoding error | Complete; full sorted exclusions; existing refusal reason |
+| Absence discovered in the run/dependency loop or claim lookup, with all candidate scans and folds subsequently completed | Complete; full sorted exclusions; `NoBelief("unavailable-corpus-absent", ...)` and `NotReached()` |
+| Pure-evaluator Belief, NoBelief or Refused after a completed gather | Complete; full sorted exclusions |
+
+An error not already caught by the wrapper still raises. If another refusal
+occurs before a late absence answer can be produced, the existing refusal order
+wins; the table does not turn an exception into an absence answer.
+
+A pure evaluator may consume a complete context with already selected `Records`;
+it lacks corpus/address information sufficient to run the predicate itself.
+With a valid aggregation binding and `context.acceptance.complete=False`,
+`evaluate_traced` returns
+`(Refused("acceptance-selection-incomplete", acceptance=context.acceptance), NotReached())`
+immediately after step 1's binding-exactness guard, before step 2's consulted
+walk or any record-pool reads. An inexact binding retains precedence and its
+existing refusal reason, with the supplied acceptance context unchanged.
+`evaluate` remains the first projection of this path.
 
 The filtered corpus-backed path is the guaranteed selector. Direct construction
 of `Records` or `AcceptanceContext` remains supplied input, not kernel evidence
@@ -174,8 +216,22 @@ run observes a dataset held in a corpus contributing no accepted assessments.
 For a world view, obtain the holding corpus together with each record from the
 existing located capture (`WorldReadView._mapped_records`), before attribution
 is collapsed to derived identities. For a local view, use `view.corpus_id` and
-the stored address. An explicit policy on a manifest-less local corpus cannot
-invent a corpus identity and fails at that boundary.
+the stored address. For an explicit policy on a local view, preflight
+`view.corpus_id` immediately after the context guards and before any record
+iteration, reference resolution, standing, dependency reads or predicate call.
+A missing manifest raises `ManifestMissing` from `load_manifest`; a malformed
+manifest raises `ManifestMalformed`. The required manifest read itself is the
+preflight, not an evidence read. Neither error invents a corpus identity.
+
+The singular address map and uid uniqueness give this slice one holding corpus
+per stored address. That implements Science §9.2's **any holding corpus** rule
+for milestone 1a, where the holding set is a singleton. Distinct stored addresses
+can still carry one assessment identity and get independent acceptance decisions.
+Overlapping publications at milestone 1b (`beliefs-81367e`) must revisit this
+contract: the predicate must be tried for every holding corpus before collapsing
+an address, or an equivalent union must be computed. Choosing the first carrier
+would not implement §9.2. This slice leaves the current duplicate-location refusal
+in place and claims no overlap support.
 
 Each gather call caches decisions by `(corpus_id, address)` and invokes the
 predicate at most once for a candidate in that call. The same decision is
@@ -183,13 +239,49 @@ used by snapshot standing, ordinary corrections and evidence selection.
 No decision is cached on a shared view or across calls. Changing policy and
 re-evaluating the same view must change selection immediately.
 
+Science §9.4 requires every excluded record, which justifies invoking the
+predicate for every mapped assessment and verification and every correction
+candidate, including the full captured correction set used by snapshot standing.
+The cost is linear in that inventory even for a query matching little evidence.
+Relation-based selection must not move ahead of the predicate to omit irrelevant
+exclusions. Structural edge bookkeeping after a decision is allowed as §5.2
+states; excluded facets are still not decoded.
+
 ### 5.2 Evidence
 
-Reject an assessment or verification before decoding its facet, adding its
-identity or address to the visited sets, recording a semantic read, or
-applying relation-based selection. Rejected malformed evidence therefore
-does not poison the accepted pool; accepted malformed evidence still refuses
-under the existing checks.
+Decide acceptance before decoding an assessment or verification facet,
+recording a semantic read, or selecting the semantic evidence pool. Rejected
+malformed evidence therefore does not poison that pool; accepted malformed
+evidence still refuses under the existing checks.
+
+Assessment addresses have two different bookkeeping roles:
+
+- `verification_targets`: every assessment whose structural `assesses` edge
+  matches this proposition after reference resolution, whether accepted or
+  rejected. Populate this set after its acceptance decision, without decoding
+  rejected facets or claiming their identities.
+- `visited`: only acceptance-surviving assessments whose edge matches, including
+  those removed by a standing retraction as in the existing resolver. Rejected
+  addresses never enter this set, attribution, semantic read trace or correction
+  scope.
+
+After a verification's own acceptance decision, its `verifies` edge qualifies
+it for facet decoding if the resolved target belongs to `verification_targets`.
+Then `_verification_selected(value, ids)` selects its declared assessment identity
+against the accepted gathered identities exactly as now. Therefore an accepted
+failure or pass naming rejected twin B's stored address still applies to accepted
+twin A carrying the same identity. A verification of a rejected-only identity
+does not enter the evidence pool. Rejected assessment facets are never read to
+establish either case.
+
+Keep the existing edge-qualified verification-address bookkeeping for accepted
+verification records, including those subsequently removed by a standing
+retraction; rejected verification addresses never enter `verification_ids`.
+`verification_targets` is never unioned into
+`scope = visited | verification_ids | set(snapshot.bases)`. In particular, a
+correction targeting rejected twin B does not enter solely because B made an
+accepted verification's edge eligible for identity matching. Predicate rejection
+does not delete the structural address needed to locate that accepted verification.
 
 The evaluator and `verification.active` see only surviving records. An excluded
 superseder cannot remove an accepted failing verification. Identity-equal
@@ -210,27 +302,71 @@ facets form the correction graph; a rejected counter-retraction is absent from
 that graph and cannot restore its target.
 
 For world reads, the epoch's carried enumeration remains the authenticated
-candidate inventory for mapped corrections; node/route effects are applied
-here, and snapshot effects are judged by the live fold of §5.4. It is not replaced
-with caller-supplied refs, and post-epoch ordinary corrections do not enter it.
-Filter candidates before resolving or validating their contents. Resolve and
-validate surviving corrections' targets with the existing view. A target may
-be looked up to establish an accepted correction's integrity without being
-accepted evidence or becoming a standing graph vertex.
+candidate inventory for mapped corrections; node/route effects are applied here,
+and snapshot effects are judged by the live fold of §5.4. It is not replaced with
+caller-supplied refs, and post-epoch ordinary corrections do not enter it.
 
-Filtering can legitimately change a surviving retraction from `overturned` to
-`upheld`. Comparing that filtered result directly to the unfiltered receipt
-would reject the intended behavior. For an evaluation with excluded receipt
-candidates, derive per-corpus resolutions over the surviving inventoried facets
-using the captured per-corpus resolution data, then compare those with the
-world-wide fold before applying effects. Both folds use exactly the same
-acceptance decisions. Scope and digest the resulting filtered resolutions.
+For each enumerated ref, the order is:
 
-If no inventoried correction was excluded, retain the comparison with the original
-receipted resolutions. In particular, an explicit accept-all policy must not
-hide an existing `RetractionResolutionDisagreement`. Excluding a post-epoch
-snapshot-chain record outside the carried inventory does not disable this check;
-that record participates only in the live snapshot fold of §5.4.
+1. `_absence_of(view, ref)` first. A recorded-but-absent corpus is an absence,
+   before any predicate can exclude the record; damage propagates its refusal.
+2. `canonical = view.resolve(ref)` and `corpus_id = view.corpus_of(ref)`.
+   Resolve only the address here, without calling `get` or validating its facet.
+   If a present enumerated ref does not resolve, raise
+   `RetractionUnreadable(ref, ...)` with the existing missing-ref error as cause.
+3. Consult the cached decision for `(corpus_id, canonical)`; a deprecated
+   enumeration spelling therefore never reaches the predicate.
+4. Only for a survivor, fetch and validate the correction and resolve/check its
+   target. Target absence retains the existing absence answer. A target lookup
+   can establish an accepted correction's integrity without accepting that target
+   as evidence or making it a standing graph vertex.
+
+There is **no stored per-corpus resolution datum**. For a filtered evaluation,
+compute the local comparison oracle explicitly:
+
+- `M_c` is the record set `view._held[c]`: present epoch-mapped records only.
+  It excludes unmapped records from `view._captured_views[c]`.
+- Its resolver returns the held node's canonical `id` only when
+  `view._recorded[ref] == (c, uid)` and `uid` is held in `M_c`; otherwise `None`.
+  Build the existing `_CapturedCheckView` over those mapped nodes with that
+  restricted reference table. Do not add new redirects from drift records or
+  from current `deprecated_ids` absent from the epoch's address map.
+- `F_c` contains only validated, acceptance-surviving facets from the carried
+  inventory whose records belong to corpus `c`, keyed by canonical address.
+  It contains no post-epoch correction and no rejected correction facet.
+- `L_c = retraction_standing(M_c_resolver, F_c)` is the filtered per-corpus fold.
+  `W = retraction_standing(view, union(F_c))` is the filtered world-wide fold.
+  Compare `L_c[ref]` with `W[ref]` for **every** surviving inventoried correction.
+  A difference raises `RetractionResolutionDisagreement`; exclusions elsewhere
+  never disable this split-corpus check. Apply effects and scope resolutions from
+  `W` only after these comparisons pass.
+
+Filtering can legitimately change a survivor from `overturned` to `upheld`, so
+receipt fidelity is checked **per surviving ref**, not disabled globally:
+
+- Preserve the packaged `retraction-discovery-map.yaml` with the opened view.
+  Its `{target, retractions}` entries describe the original inventoried targets;
+  this is existing epoch data, not new resolution metadata or a new rule version.
+  Derive its in-corpus counter graph using the restricted resolver above. An
+  entry contributes `r -> k` when a listed correction `k` and the resolved
+  `target = r` are both inventoried corrections held in corpus `c`.
+- For each surviving ref `r`, let `C_c(r)` be the inventoried corrections reachable
+  from `r` along these target-to-counter edges. This includes rejected
+  counters, without reading or validating their current facets. Traverse with a
+  visited-ref set; this dependency query does not validate rejected records.
+  Cycles in a surviving standing fold retain `RetractionCycleMalformed`.
+- If `C_c(r)` contains no excluded record, compare the receipt's resolution for
+  `r` with `L_c[r]` and raise `RetractionResolutionDisagreement` on a mismatch.
+  A rejected correction outside this set cannot suppress the check. If it does
+  contain an excluded record, omit **only that ref's** receipt comparison, since
+  a filtered resolution may legitimately differ; the `L_c` versus `W` comparison
+  still runs. Normalize receipt refs through the same resolver for these lookups.
+
+This preserves all receipt comparisons for accept-all, and catches a corrupt
+resolution for an unaffected survivor even when another chain has exclusions.
+An excluded post-epoch snapshot-chain record is outside the original inventory
+and cannot disable these receipt checks. `open_world_view`'s existing packaging
+and carried-enumeration validation still run before any selection.
 
 The per-corpus versus world-wide disagreement remains a refusal even when a
 policy filters some unrelated correction. This is the existing split-corpus
@@ -242,11 +378,16 @@ audit and import continue to use their existing unfiltered semantics.
 
 Allow the snapshot-standing helper to receive an optional decision callable
 that takes corpus id and canonical stored address. Filter correction vertices
-before any fold and before chain-member validation, including counter-retractions
-that reach a snapshot-arm root.
+before `_validated_retraction_facet`, any standing fold and chain-member
+validation, including counter-retractions that reach a snapshot-arm root. A
+rejected malformed retraction outside any snapshot chain is also skipped before
+facet validation and cannot raise `RetractionUnreadable` from this fold.
 
 `WorldReadView.snapshot_standing` forwards that callable over the same **full
-captured records** it uses now. A filtered fold is computed for that evaluation
+captured records and full captured resolvers** it uses now (`_captured_views`).
+This deliberately differs from the mapped-only ordinary comparison oracle in
+§5.3: snapshot standing is live and must see post-epoch records. A filtered fold
+is computed for that evaluation
 and never stored in the view's policy-independent cache. The unrestricted cache
 and its callers retain their present semantics.
 
@@ -274,6 +415,13 @@ the existing closure members. The statement distinguishes otherwise identical
 selected evidence under different declared acceptance policies. The callable,
 its object identity, and invocation order are not identity inputs.
 
+For a filtered world evaluation, `history` is taken from the **filtered**
+`SnapshotStanding.history` for the bound producer snapshot and is the history
+unioned into `scoped.found`. Neither the cached unrestricted history nor the
+receipt's unfiltered snapshot resolutions are substituted. Rejected chain members
+are absent from this history and its read trace; changed surviving resolutions
+enter the digest. This is true for post-epoch snapshot corrections too.
+
 The global exclusion report is returned explanation, not a digest member.
 An unrelated excluded assessment's appearance must not perturb a belief over
 an unchanged proposition. Excluded facet values are never decoded just to hash
@@ -295,15 +443,19 @@ scope; unrestricted behavior retains the existing interpretation.
 | Proposed row | Obligation | Decisive checks |
 |---|---|---|
 | G10 | Assessment acceptance precedes evidence reads and identity collapse | All-rejected yields `no-eligible-assessment`; excluded facet-disagreeing twin is inert; accepting both still refuses; excluded malformed assessment is not decoded; canonical address and corpus are passed to the predicate |
-| G11 | Verification acceptance precedes lifecycle and supersession | Rejected failure cannot invalidate; rejected pass cannot admit; rejected superseder cannot clear an accepted failure; accepted failure plus accepted resolution retains the existing lifecycle |
-| G12 | Correction acceptance precedes every standing effect | Rejected node and route retractions are inert; rejected counter cannot restore; filtered resolution changes are legitimate; snapshot root/counter and post-epoch snapshot cases are filtered; accepted malformed chain refuses; split-corpus disagreement still refuses |
-| G13 | Policy and selection are reproducible and reported | Complete policy/exclusions on Belief and NoBelief and on post-gather Refused; pre-gather returned refusal is marked incomplete; policy mutation moves filtered digest; unrelated exclusion changes report but not digest; gather and pure-evaluation closures agree |
+| G11 | Verification acceptance precedes lifecycle and supersession | Rejected failure cannot invalidate; rejected pass cannot admit; rejected superseder cannot clear an accepted failure; accepted failure or pass naming a rejected twin's stored address still applies to the accepted identical assessment; rejected-only identities admit nothing; twin edge bookkeeping does not widen correction scope |
+| G12 | Correction acceptance precedes every standing effect | Rejected node and route retractions are inert; rejected counter cannot restore; filtered resolution changes are legitimate; rejected malformed snapshot-fold candidate is never facet-validated; accepted malformed chain refuses; mapped-only local oracle ignores drift-only aliases; split-corpus disagreement still refuses with unrelated exclusions; unchanged chains retain receipt-fidelity checks; filtered snapshot history alone enters the digest |
+| G13 | Policy and selection are reproducible and reported | Complete policy/exclusions on completed selection outcomes, including late consulted-contract refusals and late dependency-absence answers; every incomplete answer has empty exclusions; supplied acceptance context fails before reads; pure incomplete context refuses after the binding guard and before the consulted walk; policy mutation moves filtered digest; unrelated exclusion changes report but not digest; gather and pure-evaluation closures agree |
 
 Additional regression obligations: unrestricted closure bytes and answer shapes;
 accept-all value/admission parity; same captured view under two policies with no
 cross-call decision leakage; exact-bool return enforcement and raising predicate;
 unconditional damaged/absent-world behavior; dependencies in excluded-evidence
 corpora remain usable; no rejected-corpus attribution leaks into an accepted pool.
+Also test enumeration aliases deliver canonical callback addresses; missing local
+manifest fails with `ManifestMissing` before record reads; invalid statement
+encoding preserves its `IdentityError`; irrelevant rejected records appear in a
+complete report; and incomplete reports remain byte-identical under scan reordering.
 
 The plan maps these checks to declared arms, selects independent sabotages and
 records the declaration-unit and guarantee-row counts before implementation.
@@ -317,7 +469,9 @@ Expected shared surfaces are `belief.py`, `evaluation.py`, `closure.py`,
 snapshot-retraction and standing tests; the new acceptance module and N2 declarations;
 the runner and `test_recent_cut_acceptance.py`; and current-facing kernel,
 correction, formal-model, ledger, roadmap and guide documents. The implementation
-plan fixes exact files and counts after review. No new runtime dependency is needed.
+plan fixes exact files and counts after review, including the existing view's
+retention of the packaged correction discovery map and the private shared gather
+state for late error reporting. No new runtime dependency is needed.
 
 The accepted design and plan open `belief-acceptance` in `world-read` as a
 commons-milestone prerequisite. Current roadmap claims refer to the earlier

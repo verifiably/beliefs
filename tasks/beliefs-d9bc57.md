@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/acceptance-filter
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T08:22:53Z
+updated: 2026-10-02T09:29:45Z
 started: 2026-10-02T08:09:25Z
 depends: []
 tags: [belief]
@@ -35,4 +35,12 @@ Requirement from science's commons design §9: belief must count a record only w
 - 2026-10-02T08:22:50Z (feat/acceptance-filter): Spec self-review findings resolved inline: early absent-input returns explicitly remain incomplete, and snapshot-only post-epoch exclusions do not disable the receipted correction-resolution check. No product code changed.
 - 2026-10-02T08:22:50Z (feat/acceptance-filter): Verification: just test-fast passed (5946 passed, 1 skipped; Python phase 117.45 s; no affected TypeScript tests). Focused baseline: 119 passed. Written design ready for user review; implementation plan follows accepted spec.
 - 2026-10-02T08:22:50Z (feat/acceptance-filter): parked (waiting on user, review): User reviews .worktrees/acceptance-filter/docs/superpowers/specs/2026-10-02-belief-acceptance-design.md; after acceptance Codex resumes this worktree and drafts the implementation plan, then requests its review before freeze and implementation.
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T09:15:16Z (feat/acceptance-filter): resumed
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T09:15:16Z (feat/acceptance-filter): review: spec round 2 — verdict: revise; findings: P1 2, P2 7, P3 4; reviewer: human
+- 2026-10-02T09:15:16Z (feat/acceptance-filter): Review scope: verification edge membership for rejected identity twins; exact mapped per-corpus resolver and filtered facets; per-ref receipt fidelity; pre-facet snapshot filtering; supplied-context guard and pure-evaluator refusal; deterministic completion; overlap milestone limit; filtered snapshot history; canonicalization, manifest and encoding errors, exhaustive predicate cost.
+- 2026-10-02T09:27:06Z (feat/acceptance-filter): Round 2 disposition: all findings accepted. Spec now separates verification-target edge membership from accepted correction scope; defines mapped-only per-corpus resolvers and surviving inventoried facets; retains receipt checks per unaffected transitive counter set using the existing packaged discovery map; filters snapshot facets before validation; rejects supplied acceptance context; defines refusal order, deterministic empty incomplete reports and late completion; names the singleton/1b contract limit, filtered history and exact preflight errors/cost.
+- 2026-10-02T09:29:44Z (feat/acceptance-filter): Revision verification: just test-one tests/test_designs_corpus.py passed (15 tests, 0.82 s); just test-fast passed (5946 passed, 1 skipped; Python phase 84.25 s; no affected TypeScript tests); git diff --check and tasks check clean. These verify the documentation change against the existing implementation; acceptance behavior remains proposed.
+- 2026-10-02T09:29:44Z (feat/acceptance-filter): parked (waiting on user, review): User re-reviews revised .worktrees/acceptance-filter/docs/superpowers/specs/2026-10-02-belief-acceptance-design.md against round 2 findings; after acceptance Codex resumes this worktree and writes the implementation plan for its review before freeze or product changes.
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
