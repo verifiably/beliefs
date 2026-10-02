@@ -1,0 +1,1 @@
+{"domain":"science.publish-selection.v1","event_token":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","records":[{"id":"run:a","text":"---\nid: run:a\nuid: 1222e7d06462468f92fed68a7f701ae4\nkind: run\ntitle: a\nfacets:\n  run:\n    spec: s\n  semantic-identity:\n    digest: a11a894544e724877a73ca78a2ef83ba1019a470c553dbc6eae17c6af3d728cd\n---\n"}]}

@@ -1,7 +1,7 @@
 # Publication attribution — origins frozen with the selected records
 
 **Date:** 2026-10-02
-**Status:** revised after spec round 1; author-approved for planning under the review's fix-then-plan disposition
+**Status:** approved 2026-10-02 by the author after spec round 2 acceptance
 **Task:** `beliefs-f50596`
 **Boundary:** `publication-attribution`, proposed in `world-read`
 **Workspace:** `.worktrees/publication-attribution`, branch `feat/publication-attribution`
@@ -402,6 +402,6 @@ results; none happens before the written spec and plan reviews. Spec round 1
 requested these decisions and checks, then planning without another full spec
 round; the author accepts this corrected spec under that disposition.
 
-The next action is drafting and reviewing the implementation plan. The N2
+The implementation plan was accepted and author-approved on 2026-10-02; execution begins with the cut-number recheck and freeze. The N2
 preflight pilot remains after this publication slice, as agreed; no publication
 implementation or pilot has started here.

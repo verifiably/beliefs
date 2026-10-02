@@ -261,3 +261,8 @@ audit) and the question of who *may* write.
 - [The publication table, Y1–Y16](../designs/2026-09-22-publication-design.md)
 - [The publish act, local destination](../superpowers/specs/2026-09-23-publish-act-local-design.md)
 - [Publish and the commons](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md#6-publish-and-the-commons)
+
+Publication attribution is frozen, not implemented, in
+[cut 46](../designs/2026-10-02-conformance-cut-46.md): explicit coordination v3
+on new write roots will carry selected replica origins. V2's carried-selection
+refusal is an amendment; existing v2 attempts retain their recovery format.

@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/publication-attribution
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T13:58:25Z
+updated: 2026-10-02T14:23:31Z
 started: 2026-10-02T12:47:02Z
 depends: []
 tags: [publication]
@@ -35,3 +35,8 @@ Requirement from science's commons design (science docs/specs/2026-09-30-science
 - 2026-10-02T13:58:24Z (feat/publication-attribution): claimed by codex, harness daemon pid 11248; resumed in the existing locked .worktrees/publication-attribution worktree. Revised spec committed at dcc8a53, author-approved under the round-1 fix-then-plan disposition. Draft plan covers Tasks 0–7, 36 distinct units (Y5 3, Y17 16, Y18 17), ten durable functions, pre-change v2 byte fixtures, and the live cut-40 Y6-a retarget. Self-review checked spec coverage, signatures, failure precedence, actual baseline verdict resolved, and rule bindings vs profile activation. Focused document guards passed: 23 tests in 0.96s. No freeze, product change, task children, implementation agent or pilot has started.
 - 2026-10-02T13:58:24Z (feat/publication-attribution): parked (waiting on user, review): User reviews .worktrees/publication-attribution/docs/superpowers/plans/2026-10-02-publication-attribution.md; after approval Codex resumes native execution here, rechecks cut numbering and begins Task 0.
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T14:22:09Z (feat/publication-attribution): review: spec round 2 — verdict: accept; findings: none; reviewer: claude-code/claude-opus-5-5
+- 2026-10-02T14:22:09Z (feat/publication-attribution): review: plan round 1 — verdict: accept; findings: P3 3; reviewer: claude-code/claude-opus-5-5
+- 2026-10-02T14:22:10Z (feat/publication-attribution): resumed
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T14:23:31Z (feat/publication-attribution): Author approves spec dcc8a53 and plan 47a2260 after spec round 2 and plan round 1 acceptance. Native execution resumed; cut recheck finds maximum 45 across refs and all three worktrees, successor 46 available. Pre-change byte fixtures: marker beef9590baed6442330e4c85e4c673cc974a2feb41d3738ae48c39e4d6e38a07; selection a475656c573635014fe8cd8d9ee4df977ace92a8bf7fbe3547421e7d2de02182.

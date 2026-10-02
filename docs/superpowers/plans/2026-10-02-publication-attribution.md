@@ -21,7 +21,7 @@ runner. No new dependency.
 revised and author-approved at `dcc8a53` after round 1's P1/P2 decisions, under
 the review's fix-then-plan disposition. Read both artifacts before execution.
 
-**Status:** proposed; written-plan review required before freeze or execution.
+**Status:** approved 2026-10-02 after plan round 1; native execution started.
 Native execution continues the method used for acceptance; no task worker or
 review agent is dispatched while writing this plan.
 
@@ -534,7 +534,7 @@ and `_expected_marker`; `_load` pin-format guard; remote export release guard.
   inspect a source world. Y18-o supplies a canonical marker file and export
   manifest, exercising the actual predicate after the existing marker checks.
   Full artifact identity behavior is Task 5's durable evidence.
-- [ ] Add a live `_LIVE_SABOTAGES["Y6-a"]` override to cut 40's guard using the
+- [ ] Add a new live `_LIVE_SABOTAGES["Y6-a"]` override (cut 40 has no table yet), applying `replace` to the tuple returned by `frozen_guards.live_guards` that staleness audits. Add this override to cut 40's guard using the
   extended probe call. Its after-text still reselects canonical texts **after**
   intent, preserving attributions and the existing Y6-a check/assertion. Use
   `dataclasses.replace` on the imported frozen arm, like cut 33. Do not edit
@@ -611,8 +611,8 @@ change that function inventory.
   retire via setup world, then return the held view. Do not mutate corpus state
   in this case. In a separate parameter case actually write a record before
   capture and expect `SelectionRefused("corpus-drifted")`; unchanged unmapped
-  coordination markers remain selectable. Markerless replicas use real
-  `admit_arrival`, not the publication-specific arrival API.
+  coordination markers remain selectable. Assert preparation observed retired via `world.status(holder)` after the patched open. Markerless replicas use real
+  `admit_arrival` into a fresh world that does not already hold that corpus id.
 - [ ] Label malformed/tamper fixtures separately. Permission changes for damaged
   records follow existing `writable` helpers; restore/remove all roots and
   `metadata_root_for` in finally blocks. Registry/source traps apply after initial
@@ -741,6 +741,6 @@ documentation. All five Review Focus cases have owning tests. The pinned-boundar
 inventory explicitly includes stage, audit, arrival, tip, source and remote;
 shape-only `coordination.tips_at`, layout, factory and consistency are deliberate.
 
-This is a written plan for review. No cut-46 freeze, product-code change, new
-declaration, implementation task child, or N2 pilot has started. After approval,
-Codex resumes this worktree under native execution and begins Task 0.
+The user accepted this plan on 2026-10-02; the author approves the revised spec
+and plan. Task 0 starts with the cut-number recheck. Review notes are included
+in Tasks 4/5; product implementation follows the freeze.

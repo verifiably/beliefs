@@ -48,7 +48,9 @@ work.
 
 **Updated 2026-10-02** for cut 45's discharge of `belief-acceptance`: G10–G13
 close, and `world-read` closes that commons milestone 1a boundary. The corpus
-has **224 of 251 rows closed, 27 open**. Cut 44 discharged `mount-citations`,
+has **223 of 253 rows closed, 30 open** after cut 46 freezes publication
+attribution: Y5 reopened, Y17/Y18 banked open, `world-read` reopened for
+`publication-attribution` (`../superpowers/plans/2026-10-02-publication-attribution.md`). Cut 44 discharged `mount-citations`,
 closing J16–J21 and the `write-path` lane. Cut 43's discharge of
 `multi-corpus-session` closed J12–J15, and
 Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
@@ -464,6 +466,7 @@ not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
+| `publication-attribution` | Y5 amendment, Y17/Y18 banked open at cut 46; `world-read` reopened | `../superpowers/plans/2026-10-02-publication-attribution.md` |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `persistence-cut` | X2's persistence-cut arm; L1's kill-at-stage and settlement-persistence arms (both terminal outcomes) | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns; L1's arms re-homed here at cut 36 (`beliefs-3ea822`) | X2 in full; row 5's L1 read in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |

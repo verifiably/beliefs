@@ -1284,6 +1284,13 @@ adoption is decided; what §5 establishes is that ρ needs a vocabulary of rough
 this shape to state what M\* preserves or amends, and that manufacturing one
 class per residue shape is not that vocabulary.
 
+**Y — publication attribution** *(banked at cut 46; Y5 reopened)*
+
+| id | assertions | classes |
+|---|---|---|
+| Y17 | source or forwarded origin is selected before intent and frozen for retries | RF† + **CS** |
+| Y18 | release authorizes canonical origin content; commitment moves while marker identity stays fixed | **CS** + **OInv** |
+
 ## 6. M\* — the typed claim calculus
 
 This is the first section that **revises**. Everything above transcribes and
