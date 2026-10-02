@@ -213,3 +213,137 @@ def test_y5_d_v3_disagreement(domain):
     with pytest.raises(PublicationRefused) as caught:
         derive_pins({'z':b,'a':a},CorpusPins(base,{'coordination':pin(3)}))
     assert caught.value.reason=='pins-disagree' and caught.value.field==domain and caught.value.corpus_ids==('a','z')
+
+from types import SimpleNamespace
+
+import beliefs.publish as act
+from beliefs.world import AdmissionRecord, CorpusManifest, ForkOf, Fresh, RegistryView, ReplicaOf
+
+
+def capture_fixture(holdings, *, source_version=2, carried=None):
+    profile = coordination_profile(None, version=source_version)
+    manifests, captures, owners, admissions = {}, {}, {}, []
+    for cid, (provenance, refs) in holdings.items():
+        manifests[cid] = CorpusManifest(2, cid, pins_for(profile))
+        nodes = tuple(stored.run_node(ref.split(':',1)[1], title=ref, spec='s', produces=[]) if ref.startswith('run:') else
+                      __import__('nodes.core.node',fromlist=['Node']).Node(id=ref, uid='9'*32, kind=ref.split(':',1)[0],title=ref,body='',facets={},relations=[]) for ref in refs)
+        value = marker_record(intent(event_token=cid), world_id='d'*32, epoch='f'*64,
+             selection=tuple(sorted(refs)), attributions=None if source_version==2 else (carried or {}).get(cid,()))
+        captures[cid] = (*nodes, value)
+        owners.update({ref:cid for ref in refs})
+        admissions.append(AdmissionRecord(manifests[cid], provenance, 'actor'))
+    read = SimpleNamespace(corpus_of=owners.get, captured_manifest=manifests.__getitem__,captured_records=captures.__getitem__,get=lambda ref:next(n for n in captures[owners[ref]] if n.id==ref))
+    return cast(Any, read), RegistryView(tuple(admissions),()), captures
+
+
+@pytest.mark.parametrize('version', [2,3])
+def test_y17_a_local_holdings(version):
+    read, registry, _ = capture_fixture({'a'*32:(Fresh(),('run:a',)), 'b'*32:(ForkOf('a'*32,'c'*64),('run:b',))})
+    assert act._selected_attributions(read, registry, ('run:a','run:b'),pin(version)) == (None if version==2 else ())
+
+
+@pytest.mark.parametrize('kind', sorted(stored.WORLD_KINDS))
+def test_y17_b_first_carry(kind):
+    cid='a'*32
+    read, registry, _=capture_fixture({cid:(ReplicaOf(cid),(kind+':a',))})
+    assert act._selected_attributions(read,registry,(kind+':a',),pin(3)) == ((kind+':a',cid,__import__('beliefs.publication',fromlist=['marker_uid']).marker_uid(cid)),)
+
+
+def test_y17_c_forwarded_origin():
+    cid='a'*32
+    read, registry, _=capture_fixture({cid:(ReplicaOf(cid),('run:a',))},source_version=3,carried={cid:(ORIGIN,)})
+    assert act._selected_attributions(read,registry,('run:a',),pin(3)) == (ORIGIN,)
+
+
+def test_y17_d_selection_scope():
+    cid='a'*32
+    extra=('run:b','e'*32,'f'*32)
+    read, registry, _=capture_fixture({cid:(ReplicaOf(cid),('run:a','run:b'))},source_version=3,carried={cid:(ORIGIN,extra)})
+    assert act._selected_attributions(read,registry,('run:a',),pin(3)) == (ORIGIN,)
+
+
+def test_y17_e_distinct_holders():
+    from beliefs.publication import marker_uid
+    a,b='a'*32,'b'*32
+    read, registry, _=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))})
+    assert act._selected_attributions(read,registry,('run:a','run:b'),pin(3)) == (('run:a',a,marker_uid(a)),('run:b',b,marker_uid(b)))
+
+
+def test_y17_f_v2_refusal():
+    a,b='a'*32,'b'*32
+    read, registry, _=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))})
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read,registry,('run:a','run:b'),pin(2))
+    assert caught.value.reason=='attribution-contract-unpinned' and caught.value.corpus_ids==(a,b)
+
+
+def test_y17_h_markerless_replica():
+    a='a'*32
+    read, registry, captures=capture_fixture({a:(ReplicaOf(a),('run:a',))})
+    captures[a]=captures[a][:-1]
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read,registry,('run:a',),pin(3))
+    assert (caught.value.reason,caught.value.corpus_ids,caught.value.refs,caught.value.field)==('attribution-source-invalid',(a,),('run:a',),'marker-absent')
+
+
+@pytest.mark.parametrize('version',[2,3])
+@pytest.mark.parametrize('provenance',[Fresh(),ReplicaOf('a'*32)])
+def test_y17_i_missing_holder(version,provenance):
+    a='a'*32
+    read, _, _=capture_fixture({a:(provenance,('run:a','run:b'))})
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read,RegistryView((),()),('run:b','run:a'),pin(version))
+    assert (caught.value.reason,caught.value.corpus_ids,caught.value.refs)==('attribution-holder-unregistered',(a,),('run:a','run:b'))
+
+
+def test_y17_j_invalid_source_order():
+    a,b='a'*32,'b'*32
+    read, registry, captures=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))})
+    captures[a]=captures[a][:-1]
+    captures[b]=(*captures[b],marker_record(intent(event_token='c'*32),world_id='d'*32,epoch='f'*64,selection=('run:b',)))
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read,registry,('run:b','run:a'),pin(3))
+    assert (caught.value.corpus_ids,caught.value.field)==((a,),'marker-absent')
+
+
+def test_y17_k_admission_before_layout():
+    a,b='a'*32,'b'*32
+    read, registry, captures=capture_fixture({a:(ReplicaOf(a),('run:a',)),b:(ReplicaOf(b),('run:b',))})
+    captures[a]=captures[a][:-1]
+    registry=RegistryView((registry.admissions[0],),())
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read,registry,('run:a','run:b'),pin(3))
+    assert caught.value.reason=='attribution-holder-unregistered' and caught.value.corpus_ids==(b,)
+
+
+def test_y17_l_held_capture(monkeypatch):
+    a='a'*32
+    read, registry, _=capture_fixture({a:(ReplicaOf(a),('run:a',))})
+    calls=[]
+    records_at=read.captured_records
+    manifest_at=read.captured_manifest
+    read.captured_records=lambda cid:calls.append(('records',cid)) or records_at(cid)
+    read.captured_manifest=lambda cid:calls.append(('manifest',cid)) or manifest_at(cid)
+    monkeypatch.setattr(act.ReadView,'opened_at',lambda *args:pytest.fail('live root reopened'))
+    value = act._selected_attributions(read,registry,('run:a',),pin(3))
+    assert value is not None and value[0][1]==a
+    assert calls==[('records',a),('manifest',a)]
+
+
+def test_y17_p_legacy_source():
+    a='a'*32
+    read, registry, _=capture_fixture({a:(ReplicaOf(a),('run:a',))})
+    from beliefs.publication import marker_uid
+    assert act._selected_attributions(read,registry,('run:a',),pin(3))==(('run:a',a,marker_uid(a)),)
+    read,registry,_=capture_fixture({a:(ReplicaOf(a),('run:a',))},source_version=3,carried={a:(ORIGIN,)})
+    assert act._selected_attributions(read,registry,('run:a',),pin(3))==(ORIGIN,)
+
+
+@pytest.mark.parametrize('source_version,entries',[(2,(ORIGIN,)),(3,None)])
+def test_y18_n_source_release(source_version,entries):
+    a='a'*32
+    read,registry,captures=capture_fixture({a:(ReplicaOf(a),('run:a',))},source_version=source_version)
+    captures[a]=(*captures[a][:-1],marker(entries))
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read,registry,('run:a',),pin(3))
+    assert (caught.value.reason,caught.value.field,caught.value.corpus_ids)==('attribution-source-invalid','marker-malformed',(a,))
