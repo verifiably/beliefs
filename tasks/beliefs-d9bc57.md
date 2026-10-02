@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/acceptance-filter
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T12:38:39Z
+updated: 2026-10-02T17:26:11Z
 started: 2026-10-02T08:09:25Z
 completed: 2026-10-02T12:38:39Z
 depends: []
@@ -65,3 +65,5 @@ Requirement from science's commons design §9: belief must count a record only w
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-10-02T12:38:39Z (feat/acceptance-filter): Implemented and discharged acceptance before evidence and standing effects with statement-bound closure and deterministic reports; G10–G13 closed, all cut 45 gates passed, branch retained for integration.
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T17:25:29Z (research/n2-preflight-pilot): cleanup: fully merged acceptance worktree removed after integration3a59054; branch retained; tt-report harvested, no host pointers or unmerged changes. Evidence remains in committed cut45 results and main .work/acceptance.
+- 2026-10-02T17:26:11Z (research/n2-preflight-pilot): cleanup status correction: the preceding cleanup note describes the prepared outcome; worktree removal is pending final document checks and commit. Its clean/merged/pointer checks and timing harvest are complete.

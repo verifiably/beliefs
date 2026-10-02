@@ -88,7 +88,7 @@ No implementation or new audit gate is authorized by this brief.
 ## Bounded preflight pilot — 2026-10-02
 
 `beliefs-aa9f88` compared exactly three copied-package mutations and three
-probes, in `.worktrees/n2-preflight-pilot`, based on integrated main `3a59054`
+probes, in the now-removed worktree .worktrees/n2-preflight-pilot, based on integrated main `3a59054`
 and claim commit `7414bc2`. The nine sequential calls took **13.96 seconds**
 including copy preparation, process launch and first-use dependency hydration.
 No full-arm sweep, gate rollout, or durability test was run. All original package
@@ -133,7 +133,8 @@ just --set one_cmd 'cd python && uv run --frozen python /tmp/beliefs-n2-prefligh
 ```
 
 The copied package cases, results.json and nine complete logs are retained under
-.worktrees/n2-preflight-pilot/.work/n2-preflight-pilot. They are experiment inputs,
+.work/experiments/n2-preflight-pilot in main (archived before worktree cleanup).
+They are experiment inputs,
 not new repository gates. The first parse invocation's 4.935-second wall time
 includes creation of the locked Python environment and installation of 65 packages;
 uv reported cross-filesystem hardlink fallback to copy. Its inner parse took

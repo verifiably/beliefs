@@ -26,7 +26,9 @@ All durable runs used the certified tuple: kernel `7.2.2-arch1-1`, volume
 `/dev/nvme1n1p2`, ext4 mounted `rw,noatime,data=ordered`. The work root is
 main `.work/acceptance/cut46`; it resolves to that certified volume. Commands
 ran from the canonical worktree directory, accessed from the main checkout
-as `.worktrees/publication-attribution`, avoiding the symlink's pytest ELOOP.
+as .worktrees/publication-attribution, avoiding the symlink's pytest ELOOP.
+After local integration at `3a59054`, this merged worktree was removed on
+2026-10-02. The retained runner logs remain in main .work/acceptance.
 No host launcher, service or shared configuration pointer changed.
 
 The first successor at `eb18c87` was interrupted with exit **130** for the

@@ -29,7 +29,8 @@ record the completed steps and execution dispositions.
 
 ## Global Constraints
 
-- Reuse `.worktrees/acceptance-filter`, branch `feat/acceptance-filter`, locked
+- Historical workspace: .worktrees/acceptance-filter, branch `feat/acceptance-filter`
+  (removed after integration 2026-10-02). Execution used that existing worktree, locked
   on WORK_ROOT storage. Baseline is `dc41764`; main product baseline is `676e2f8`.
   `just setup` already passed. Paths shown to the user include the worktree prefix.
   Run commands from the canonical worktree path (`pwd -P`), avoiding pytest's

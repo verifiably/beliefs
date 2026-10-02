@@ -4,7 +4,7 @@
 **Status:** approved 2026-10-02; implemented and discharged at cut 46 (`../../plans/2026-10-02-conformance-cut-46-results.md`).
 **Task:** `beliefs-f50596`
 **Boundary:** `publication-attribution`, discharged in `world-read`
-**Workspace:** `.worktrees/publication-attribution`, branch `feat/publication-attribution`
+**Workspace (historical; removed after integration 2026-10-02):** .worktrees/publication-attribution, branch `feat/publication-attribution`
 **Measured against:** `d466f5f`, the acceptance discharge; this branch is stacked on `feat/acceptance-filter`. Main's independent `abb4f1c` changes only vendored tooling.
 **Authority:** Science commons design `2026-09-30-science-commons-design.md` §§4.8 and 7.1; the kernel's `../../designs/2026-09-22-publication-design.md` and its publication-records/local/remote slices
 **Cut:** proposed successor to cut 45; the implementation plan rechecks the number before freezing

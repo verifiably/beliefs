@@ -27,7 +27,8 @@ review agent is dispatched while writing this plan.
 
 ## Global Constraints
 
-- Reuse `.worktrees/publication-attribution`, branch `feat/publication-attribution`,
+- Historical workspace: .worktrees/publication-attribution, branch `feat/publication-attribution`
+  (removed after integration 2026-10-02). Execution used that existing worktree,
   locked on WORK_ROOT storage. It is stacked on acceptance discharge `d466f5f`;
   main's independent `abb4f1c` changes vendored tooling only. `just setup` passed.
   Run tools from the canonical worktree path (`pwd -P`) to avoid pytest ELOOP

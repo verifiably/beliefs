@@ -234,5 +234,7 @@ must revisit the predicate contract. Attribution entries (`beliefs-f50596`)
 are next, followed by the bounded N2 preflight pilot (`beliefs-aa9f88`). No
 other open limitation is discharged by these checks.
 
-The branch and `.worktrees/acceptance-filter` are retained. This record
-establishes branch-local discharge, not main integration or remote publication.
+At discharge, the branch and worktree .worktrees/acceptance-filter were retained.
+This record establishes branch-local discharge. The stack was subsequently
+integrated locally at `3a59054`; the merged worktree was removed on 2026-10-02.
+Its branch remains, and no remote publication followed.

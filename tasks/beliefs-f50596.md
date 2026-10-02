@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/publication-attribution
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T16:52:50Z
+updated: 2026-10-02T17:26:11Z
 started: 2026-10-02T12:47:02Z
 completed: 2026-10-02T16:43:23Z
 depends: []
@@ -52,3 +52,5 @@ Requirement from science's commons design (science docs/specs/2026-09-30-science
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-10-02T16:46:22Z (main): integration: personal-main merge prepared cleanly; all16 tested source/declaration hashes unchanged and independent ops-check6 retained. Static check0errors/0warnings. Pre-commit merged fast run6079 passed/1 existing skip/1 pin-guard failure: frozen_guards.holds compares committed HEAD (old main lacks cut45 declaration), while staged/live declaration exactly matches d466f5f SHA e845aff4e54eb74e88b561e77aa9fd6be4afe6246851b87fd95ee78e95e4d94b. Commit merge then rerun against merged HEAD; no source or guard change.
 - 2026-10-02T16:52:50Z (research/n2-preflight-pilot): integration verified: local merge3a59054 now passes committed-HEAD pin guard1/1 in3.58s and full fast6080 passed/1 existing skip in106.03s; merged static0errors/0warnings. Earlier pre-commit pin failure was HEAD-vs-staged-state only; no code/guard changed. Main source hashes equal certified successor inputs; no external write.
+- 2026-10-02T17:25:29Z (research/n2-preflight-pilot): cleanup: fully merged publication worktree removed after integration3a59054; branch retained; tt-report harvested, no host pointers or unmerged changes. Certified runner logs remain in main .work/acceptance.
+- 2026-10-02T17:26:11Z (research/n2-preflight-pilot): cleanup status correction: the preceding cleanup note describes the prepared outcome; worktree removal is pending final document checks and commit. Its clean/merged/pointer checks and timing harvest are complete.
