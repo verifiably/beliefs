@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from authority import FULL
@@ -146,3 +147,69 @@ def test_y18_m_tip_release(tmp_path, version, entries):
     with pytest.raises(PublicationReadingRefused) as caught:
         publication_tip((writer.root,), intent().view, intent().destination)
     assert caught.value.reason == 'marker-malformed' and caught.value.corpus_id == writer.corpus_id
+
+from beliefs.consulted import CorpusPins
+from beliefs.errors import PublicationRefused
+from beliefs.identity import v1
+from beliefs.publish_request import Snapshot, decode_snapshot, derive_pins, encode_snapshot
+
+
+def records():
+    row = cast(dict[str, Any], v1.decode((FIXTURES / 'publication-v2-selection.v1').read_bytes()))['records'][0]
+    return ((row['id'], row['text']),)
+
+
+def test_y18_f_snapshot_formats():
+    old = Snapshot('e'*32, records())
+    assert encode_snapshot(old) == (FIXTURES / 'publication-v2-selection.v1').read_bytes()
+    for entries in (None, (), (ORIGIN,)):
+        value = Snapshot('e'*32, records(), entries)
+        wire = encode_snapshot(value)
+        assert decode_snapshot(wire) == value
+        assert encode_snapshot(decode_snapshot(wire)) == wire
+        projection = value.projection()
+        assert ('attributions' in projection) == (entries is not None)
+        for bad in ('bad', [[1, 'c'*32, 'd'*32]], [list(ORIGIN), list(ORIGIN)], [['run:extra', 'c'*32, 'd'*32]]):
+            projection['attributions'] = bad
+            with pytest.raises(MalformedRecord):
+                decode_snapshot(v1.encode(projection))
+        projection = value.projection()
+        projection['extra'] = 'bad'
+        with pytest.raises(MalformedRecord):
+            decode_snapshot(v1.encode(projection))
+    for bad in ([], [ORIGIN], (list(ORIGIN),), (('run:a','c'*32),)):
+        with pytest.raises(MalformedRecord):
+            Snapshot('e'*32, records(), cast(Any, bad))
+
+
+def test_y18_g_snapshot_commitment():
+    old, empty = Snapshot('e'*32, records()), Snapshot('e'*32, records(), ())
+    a = Snapshot('e'*32, records(), (ORIGIN,))
+    b = Snapshot('e'*32, records(), (('run:a','f'*32,'d'*32),))
+    assert len({value.identity() for value in (old, empty, a, b)}) == 4
+    assert 'attributions' not in old.projection() and empty.projection()['attributions'] == []
+
+
+def pin(version):
+    return 'coordination:' + shipped_coordination(version).content_identity
+
+
+def test_y5_c_v3_destination_pins():
+    base='science:'+'b'*64
+    sources={'b':CorpusPins(base, {'coordination':pin(3),'physics':'physics:'+'a'*64}),
+             'a':CorpusPins(base, {'coordination':pin(2),'biology':'biology:'+'c'*64})}
+    value=derive_pins(sources,CorpusPins(base, {'coordination':pin(3), 'unused':'unused:'+'e'*64}))
+    assert dict(value.domains) == {'coordination':pin(3),'physics':'physics:'+'a'*64,'biology':'biology:'+'c'*64}
+    assert value.science_contract == base
+
+
+@pytest.mark.parametrize('domain', ['science_contract','biology','physics'])
+def test_y5_d_v3_disagreement(domain):
+    base='science:'+'b'*64
+    namespace = 'biology' if domain == 'science_contract' else domain
+    a=CorpusPins(base,{'coordination':pin(2),namespace:namespace+':'+'a'*64})
+    b=CorpusPins('science:'+'c'*64 if domain=='science_contract' else base,
+                 {'coordination':pin(3),namespace:namespace+':' + ('a' if domain=='science_contract' else 'd')*64})
+    with pytest.raises(PublicationRefused) as caught:
+        derive_pins({'z':b,'a':a},CorpusPins(base,{'coordination':pin(3)}))
+    assert caught.value.reason=='pins-disagree' and caught.value.field==domain and caught.value.corpus_ids==('a','z')
