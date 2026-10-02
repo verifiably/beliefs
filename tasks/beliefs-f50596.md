@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/publication-attribution
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T13:33:12Z
+updated: 2026-10-02T13:58:25Z
 started: 2026-10-02T12:47:02Z
 depends: []
 tags: [publication]
@@ -32,3 +32,6 @@ Requirement from science's commons design (science docs/specs/2026-09-30-science
 - 2026-10-02T13:30:57Z (feat/publication-attribution): resumed
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-10-02T13:33:12Z (feat/publication-attribution): Spec round 1 decisions: name the v2 carried-selection refusal and test its sorted ids plus earlier v2/v3 coordination disagreement; enable v3 only on new roots, compatible with Science commons §§11–12 without adding a re-pin act; refuse markerless ReplicaOf holdings rather than invent a carrier origin. Added missing-holder and first-invalid-holder checks. Verified P3 race correction: retirement retains admissions, so the second scan still supplies provenance; a genuinely missing admission fails closed. Every new publish scans, including v2 own-only; retries never scan. Legacy v2 missing origins remain unreconstructable, and coordination.tips_at is deliberately shape-only. Author accepts corrected spec under the reviewer/user fix-then-plan disposition; proceed to planning, no implementation.
+- 2026-10-02T13:58:24Z (feat/publication-attribution): claimed by codex, harness daemon pid 11248; resumed in the existing locked .worktrees/publication-attribution worktree. Revised spec committed at dcc8a53, author-approved under the round-1 fix-then-plan disposition. Draft plan covers Tasks 0–7, 36 distinct units (Y5 3, Y17 16, Y18 17), ten durable functions, pre-change v2 byte fixtures, and the live cut-40 Y6-a retarget. Self-review checked spec coverage, signatures, failure precedence, actual baseline verdict resolved, and rule bindings vs profile activation. Focused document guards passed: 23 tests in 0.96s. No freeze, product change, task children, implementation agent or pilot has started.
+- 2026-10-02T13:58:24Z (feat/publication-attribution): parked (waiting on user, review): User reviews .worktrees/publication-attribution/docs/superpowers/plans/2026-10-02-publication-attribution.md; after approval Codex resumes native execution here, rechecks cut numbering and begins Task 0.
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
