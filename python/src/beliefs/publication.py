@@ -104,17 +104,28 @@ def binding_record(intent: PublishIntent, *, corpus_id: str, marker: str, artifa
     return node
 
 
-def marker_record(intent: PublishIntent, *, world_id: str, epoch: str, selection: tuple[str, ...]) -> Node:
+def marker_record(
+    intent: PublishIntent, *, world_id: str, epoch: str, selection: tuple[str, ...],
+    attributions: tuple[tuple[str, str, str], ...] | None = None,
+) -> Node:
     if type(intent) is not PublishIntent:
         raise MalformedRecord("a marker record derives from a PublishIntent")
     if type(selection) is not tuple:  # before `list(...)`: None raises TypeError, a list or str would pass through
         raise MalformedRecord("a marker's selection is a tuple of world record ids")
+    if attributions is not None and (
+        type(attributions) is not tuple
+        or any(type(row) is not tuple for row in attributions)
+    ):
+        raise MalformedRecord("a marker's attributions are a tuple of tuples")
+    source: dict[str, object] = {"world_id": world_id, "epoch": epoch, "view": str(intent.view)}
+    if attributions is not None:
+        source["attributions"] = [list(row) for row in attributions]
     address = marker_address(intent.view, intent.destination)
     facet: dict[str, object] = {
         "author": intent.actor,
         "at": intent.at,
         "event_token": intent.event_token,
-        "published_from": {"world_id": world_id, "epoch": epoch, "view": str(intent.view)},
+        "published_from": source,
         "destination": intent.destination.projection(),
         "selection": list(selection),
         "supersedes_markers": [list(pair) for pair in intent.marker_tips],
@@ -147,6 +158,31 @@ def _selection(value: object) -> bool:
         and all(_world_record_id(member) for member in value)
         and value == sorted(set(value))
     )
+
+
+def _attributions_malformed(value: object, selection: tuple[str, ...]) -> bool:
+    """Validate wire members before comparing their strict address order."""
+    if type(value) is not list:
+        return True
+    for row in value:
+        if (
+            type(row) is not list or len(row) != 3
+            or any(type(member) is not str for member in row)
+            or not _world_record_id(row[0]) or row[0] not in selection
+            or _HEX32.fullmatch(row[1]) is None or _HEX32.fullmatch(row[2]) is None
+        ):
+            return True
+    addresses = [row[0] for row in value]
+    return addresses != sorted(set(addresses))
+
+
+def _marker_release_malformed(node: Node, coordination_pin: str | None) -> bool:
+    """A shape-validated marker is authorized only by its exact release pin."""
+    from beliefs.profile import shipped_coordination
+
+    carried = "attributions" in node.facets[stored.COORDINATION_FACET]["published_from"]
+    expected = "coordination:" + shipped_coordination(3 if carried else 2).content_identity
+    return coordination_pin != expected
 
 
 def publication_content_malformed(node: Node) -> bool:
@@ -182,7 +218,7 @@ def publication_content_malformed(node: Node) -> bool:
     if set(facet) != _MARKER_FIELDS or node.relations:
         return True
     source = facet["published_from"]
-    if not isinstance(source, dict) or set(source) != {"world_id", "epoch", "view"}:
+    if type(source) is not dict or set(source) not in ({"world_id", "epoch", "view"}, {"world_id", "epoch", "view", "attributions"}):
         return True
     try:
         view = CoordinationAddress.parse(source["view"])
@@ -197,6 +233,7 @@ def publication_content_malformed(node: Node) -> bool:
         or type(source["epoch"]) is not str
         or _HEX64.fullmatch(source["epoch"]) is None
         or not _selection(facet["selection"])
+        or ("attributions" in source and _attributions_malformed(source["attributions"], tuple(facet["selection"])))
         or type(pairs) is not list
         or any(
             type(p) is not list or len(p) != 2 or any(type(m) is not str or _HEX32.fullmatch(m) is None for m in p)

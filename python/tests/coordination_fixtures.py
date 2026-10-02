@@ -37,11 +37,11 @@ def coordination_contract(document=None, predecessor=None):
 
 
 def coordination_profile(base_contract, *, document=None, version=1):
-    if version == 2:
-        assert document is None, "a v2 profile is the shipped contract"
+    if version in (2, 3):
+        assert document is None, "a v2/v3 profile is the shipped contract"
         from beliefs.profile import shipped_coordination
 
-        return compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(2))
+        return compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(version))
     return compile_profile(shipped_base_contract(), [], coordination=coordination_contract(document))
 
 

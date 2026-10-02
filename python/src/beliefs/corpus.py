@@ -186,13 +186,13 @@ _COORDINATION_AT = re.compile(
 )
 
 
-def _publication_content_malformed(node: Node) -> bool:
+def _publication_content_malformed(node: Node, coordination_pin: str | None) -> bool:
     """The publication kinds' closed content rule (publication-records design §3), for the audit."""
     if node.kind not in PUBLICATION_KINDS:
         return False
-    from beliefs.publication import publication_content_malformed
+    from beliefs.publication import MARKER_KIND, _marker_release_malformed, publication_content_malformed
 
-    return publication_content_malformed(node)
+    return publication_content_malformed(node) or (node.kind == MARKER_KIND and _marker_release_malformed(node, coordination_pin))
 
 
 def _coordination_reference(value: object) -> str:
@@ -425,8 +425,7 @@ class OperationLock:
                 return self
             if self._holder == "capture":
                 raise BuildHold(
-                    "a corpus operation cannot proceed: an epoch build holds this root's "
-                    "coherent capture (build-hold)"
+                    "a corpus operation cannot proceed: an epoch build holds this root's coherent capture (build-hold)"
                 )
             snapshot = self._capture_generation
             while self._holder is not None:
@@ -701,8 +700,11 @@ class _CapturedCheckView:
     drift alike — resolving live and deprecated ids over that set and nothing
     else, so "does not resolve locally" means the capture (slice 3 §5.3)."""
 
-    def __init__(self, records: Sequence[Node]) -> None:
+    def __init__(self, records: Sequence[Node], *, addresses: Mapping[str, str] | None = None) -> None:
         self._by_id = {node.id: node for node in records}
+        if addresses is not None:
+            self._live = dict(addresses)
+            return
         self._live: dict[str, str] = {}
         for node in records:
             self._live[node.id] = node.id
@@ -1157,14 +1159,21 @@ def retraction_standing(
     return MappingProxyType(standing)
 
 
-def local_retraction_enumeration(view: ReadView) -> RetractionEnumeration:
+def local_retraction_enumeration(
+    view: ReadView, *, counts: Callable[[str, str], bool] | None = None
+) -> RetractionEnumeration:
     """Enumerate this corpus's retractions with their folded resolutions."""
     from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, RetractionEnumeration
 
+    corpus_id = view.corpus_id if counts is not None else None
     facets: dict[str, Mapping[str, object]] = {}
     for node in view.iter_stored():
         if node.kind != "retraction":
             continue
+        if counts is not None:
+            assert corpus_id is not None
+            if not counts(corpus_id, node.id):
+                continue
         try:
             facets[node.id] = _validated_retraction_facet(node)
         except ScienceError as caught:
@@ -1188,7 +1197,10 @@ class SnapshotStanding:
 
 
 def snapshot_standing(
-    views: Mapping[str, ReadView | _CapturedCheckView], subject_kind: str = "producer"
+    views: Mapping[str, ReadView | _CapturedCheckView],
+    subject_kind: str = "producer",
+    *,
+    counts: Callable[[str, str], bool] | None = None,
 ) -> SnapshotStanding:
     """Fold snapshot standing live over the corpora a snapshot covers.
 
@@ -1215,6 +1227,8 @@ def snapshot_standing(
         facets: dict[str, Mapping[str, object]] = {}
         for node in view.iter_stored():
             if node.kind != "retraction":
+                continue
+            if counts is not None and not counts(corpus_id, node.id):
                 continue
             try:
                 facets[node.id] = _validated_retraction_facet(node)
@@ -1677,7 +1691,7 @@ def _record_findings(
             continue
         coordination_valid = True
         if not withhold_coordination and stored.COORDINATION_FACET in node.facets:
-            if coordination_facet_malformed(node) or _publication_content_malformed(node):
+            if coordination_facet_malformed(node) or _publication_content_malformed(node, ("coordination:" + profile.activated_contracts["coordination"]) if "coordination" in profile.activated_contracts else None):
                 findings.append(
                     Finding(
                         severity="error",
@@ -2595,11 +2609,19 @@ class CorpusWriter:
         rule refuses any facet beside its coordination one first; the display
         and stamp guards stand behind it, as the spec requires on both doors."""
         self._authority.require("publish", ("publication",))
-        from beliefs.publication import MARKER_KIND, marker_consistent, publication_content_malformed
+        from beliefs.publication import (
+            MARKER_KIND,
+            _marker_release_malformed,
+            marker_consistent,
+            publication_content_malformed,
+        )
 
         with self._operation:
             self._require_pins_agree()
-            if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node):
+            if (
+                node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node)
+                or _marker_release_malformed(node, ("coordination:" + self._profile.activated_contracts["coordination"]) if "coordination" in self._profile.activated_contracts else None)
+            ):
                 raise ValidationRefused(f"{node.id}: a staged marker is a consistent publication record")
             self._refuse_invalid(node)
             self._refuse_facet_shapes(node)  # a profile without coordination v2 does not declare `publication` (finding 3)

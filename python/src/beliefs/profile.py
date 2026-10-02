@@ -90,14 +90,14 @@ def shipped_base_contract() -> BaseContract:
 
 def shipped_coordination(version: int = 2) -> CoordinationContract:
     """The coordination contract carried by this package (publication-records
-    design decision 2): version 1, and version 2 parsed as its successor. The
+    design decision 2): versions 1–3, each parsed against its immediate predecessor. The
     default is normalised before the cache, so `shipped_coordination()` and
     `shipped_coordination(2)` are one object."""
     if type(version) is not int:
         # `True in (1, 2)` holds and `@cache` would conflate True with 1
         raise ProfileError(f"a coordination contract version is an exact int, not {version!r}")
-    if version not in (1, 2):
-        raise ProfileError(f"this package ships coordination contract versions 1 and 2, not {version!r}")
+    if version not in (1, 2, 3):
+        raise ProfileError(f"this package ships coordination contract versions 1, 2 and 3, not {version!r}")
     return _shipped_coordination(version)
 
 
@@ -112,7 +112,7 @@ def _shipped_coordination(version: int) -> CoordinationContract:
         .joinpath(f"contracts/coordination/v{version}/CONTRACT.yaml")
         .read_text(encoding="utf-8")
     )
-    predecessor = None if version == 1 else _shipped_coordination(1)
+    predecessor = None if version == 1 else _shipped_coordination(version - 1)
     return parse_coordination_contract(parse_document(text, source=source), source=source, predecessor=predecessor)
 
 

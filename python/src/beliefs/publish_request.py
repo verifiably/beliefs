@@ -18,6 +18,7 @@ from beliefs.errors import CanonicalTextRefused, MalformedRecord, PublicationRef
 from beliefs.identity import v1
 from beliefs.intents.publish import Destination
 from beliefs.profile import ProfileSpec, shipped_coordination
+from beliefs.publication import _attributions_malformed
 
 __all__ = [
     "MARK_DOMAIN",
@@ -47,10 +48,11 @@ _HEX64 = re.compile(r"[0-9a-f]{64}")
 
 PUBLISHING_COORDINATION = frozenset(
     f"coordination:{shipped_coordination(version).content_identity}"
-    for version in (1, 2)
+    for version in (1, 2, 3)
     if "publication" in shipped_coordination(version).kinds
 )
 """The coordination pins that authorize a publication marker (spec §4.1 item 6)."""
+V3_PIN = "coordination:" + shipped_coordination(3).content_identity
 
 
 def closure_missing(view, selected: tuple[str, ...]) -> tuple[str, ...]:
@@ -83,12 +85,14 @@ def derive_pins(manifests: Mapping[str, CorpusPins], written: CorpusPins) -> Cor
     contracts = {pins.science_contract for pins in manifests.values()} | {written.science_contract}
     if len(contracts) != 1:
         raise PublicationRefused("pins-disagree", corpus_ids=corpus_ids, field="science_contract")
+    coordination = written.domains.get("coordination")
     domains: dict[str, str] = {}
     for corpus_id in corpus_ids:
         for namespace, pin in sorted(manifests[corpus_id].domains.items()):
+            if coordination == V3_PIN and namespace == "coordination":
+                continue
             if domains.setdefault(namespace, pin) != pin:
                 raise PublicationRefused("pins-disagree", corpus_ids=corpus_ids, field=namespace)
-    coordination = written.domains.get("coordination")
     if coordination not in PUBLISHING_COORDINATION:
         raise PublicationRefused("coordination-unpinned")
     if domains.setdefault("coordination", coordination) != coordination:
@@ -149,6 +153,7 @@ class Snapshot:
 
     event_token: str
     records: tuple[tuple[str, str], ...]
+    attributions: tuple[tuple[str, str, str], ...] | None = None
 
     def __post_init__(self) -> None:
         _hex(self.event_token, _HEX32, "a snapshot's event token")
@@ -166,13 +171,22 @@ class Snapshot:
         ids = [row[0] for row in self.records]
         if ids != sorted(set(ids)):
             raise MalformedRecord("a snapshot's records are strictly ascending by id")
+        if self.attributions is not None and (
+            type(self.attributions) is not tuple
+            or any(type(row) is not tuple for row in self.attributions)
+            or _attributions_malformed([list(row) for row in self.attributions], tuple(ids))
+        ):
+            raise MalformedRecord("a snapshot's attributions are canonical selected origin triples")
 
     def projection(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "domain": SELECTION_DOMAIN,
             "event_token": self.event_token,
             "records": [{"id": record_id, "text": text} for record_id, text in self.records],
         }
+        if self.attributions is not None:
+            result["attributions"] = [list(row) for row in self.attributions]
+        return result
 
     def identity(self) -> str:
         return v1.digest(SELECTION_DOMAIN, self.projection())
@@ -194,11 +208,16 @@ def _decoded(data: bytes, where: str) -> dict:
 
 def decode_snapshot(data: bytes) -> Snapshot:
     value = _decoded(data, "a snapshot")
-    if set(value) != {"domain", "event_token", "records"} or value["domain"] != SELECTION_DOMAIN or type(value["records"]) is not list:
+    if set(value) not in ({"domain", "event_token", "records"}, {"domain", "event_token", "records", "attributions"}) or value["domain"] != SELECTION_DOMAIN or type(value["records"]) is not list:
         raise MalformedRecord("a snapshot carries exactly its closed field set under its domain")
     if any(type(row) is not dict or set(row) != {"id", "text"} for row in value["records"]):
         raise MalformedRecord("a snapshot record carries exactly id and text")
-    snapshot = Snapshot(value["event_token"], tuple((row["id"], row["text"]) for row in value["records"]))
+    attributions = None
+    if "attributions" in value:
+        if _attributions_malformed(value["attributions"], tuple(row["id"] for row in value["records"])):
+            raise MalformedRecord("a snapshot's attributions are canonical selected origin triples")
+        attributions = tuple(tuple(row) for row in value["attributions"])
+    snapshot = Snapshot(value["event_token"], tuple((row["id"], row["text"]) for row in value["records"]), attributions)
     if encode_snapshot(snapshot) != data:
         raise MalformedRecord("a snapshot is not its canonical encoding")
     return snapshot

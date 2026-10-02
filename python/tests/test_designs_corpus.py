@@ -34,7 +34,7 @@ _ALGORITHM_QUALIFIED = re.compile(r"\A[a-z0-9][a-z0-9_-]*:[0-9a-f]+\Z")
 #: The frozen guarantee tables and the rows each holds. Extending a table
 #: means adding its id here; the corpus's own rule is that ids are never renumbered.
 GUARANTEE_TABLES: dict[str, tuple[str, ...]] = {
-    "G": ("G1", "G2a", "G2b", "G2c", "G3", "G4", "G5", "G6", "G7", "G8", "G9"),
+    "G": ("G1", "G2a", "G2b", "G2c", "G3", "G4", "G5", "G6", "G7", "G8", "G9", "G10", "G11", "G12", "G13"),
     "S": ("S1", "S1a", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9"),
     "W": tuple(f"W{n}" for n in range(1, 19)) + ("W5a", "W8a", "W8b"),
     "R": tuple(f"R{n}" for n in range(1, 24)),
@@ -54,7 +54,7 @@ GUARANTEE_TABLES: dict[str, tuple[str, ...]] = {
     "B": tuple(f"B{n}" for n in range(1, 8)),
         "Q": tuple(f"Q{n}" for n in range(1, 11)),
     "U": tuple(f"U{n}" for n in range(1, 11)),
-    "Y": ("Y1", "Y2", "Y3", "Y4", "Y5", "Y6", "Y7", "Y8", "Y9", "Y10", "Y11", "Y12", "Y13", "Y14", "Y15", "Y16"),
+    "Y": ("Y1", "Y2", "Y3", "Y4", "Y5", "Y6", "Y7", "Y8", "Y9", "Y10", "Y11", "Y12", "Y13", "Y14", "Y15", "Y16", "Y17", "Y18"),
     "Z": tuple(f"Z{n}" for n in range(1, 6)),
 }
 
@@ -325,6 +325,8 @@ _COUNT_WORDS = {
     81: "Eighty-one",
     82: "Eighty-two",
     83: "Eighty-three",
+    84: "Eighty-four",
+    85: "Eighty-five",
 }
 
 

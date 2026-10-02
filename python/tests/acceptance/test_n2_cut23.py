@@ -86,11 +86,11 @@ _LIVE_SABOTAGES = {
         module="evaluation.py",
         before=(
             '        return NoBelief("unavailable-corpus-absent", '
-            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None\n'
+            'detail=f"inputs recorded in absent corpora: {corpora}", acceptance=selection.report), NotReached(), None\n'
         ),
         after=(
             '        return NoBelief("unavailable-input-unheld", '
-            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached(), None\n'
+            'detail=f"inputs recorded in absent corpora: {corpora}", acceptance=selection.report), NotReached(), None\n'
         ),
     ),
 }

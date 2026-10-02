@@ -11,7 +11,7 @@ README. Two consequential edits fall outside §8.7's table and are recorded here
 basis in passing, and both would otherwise have kept describing an identity over
 prose (ρA1, ρA2).
 
-**Inherits:** the epistemic kernel (**G1–G9** since 2026-08-09, §4.1's signatures and semantic
+**Inherits:** the epistemic kernel (**G1–G13** (G10–G13 banked at cut 45; previously G1–G9) since 2026-08-09, §4.1's signatures and semantic
 identity, §8.7's recorded-history limit, limitation 4's predicate vocabulary),
 substrate consolidation (S1–S9, S9 added 2026-09-13), world addressing (**W1–W16** since 2026-08-08),
 computation and
@@ -959,6 +959,10 @@ rather than half-blank.
 | G7 | a semantic edit mints a new identity, prior bindings hold, old belief unmoved / a `title` overwrite mints nothing | **CS** + **OInv** / **OInv** |
 | G8 | a failing verification invalidates and forces recomputation; cleared only by resolution or standing retraction / deleting it restores admission | **FC** / **DL** |
 | G9 | a recorded content identity with no bytes is minted and reads `declared`, never `held` / bytes whose digest disagrees do not promote, and the state is derived rather than stored / matching bytes held anywhere, in or out of the repository, promote alike / the path-exists predicate fails **G9** while G2b, R5 and R10 pass (added 2026-08-09) | **FC** / **CS** + **FC** / **OInv** / **DL** |
+| G10 | assessment selection precedes semantic decode/collapse; excluded twins are inert | **FC** / **OInv** |
+| G11 | verification selection precedes lifecycle; accepted twin-target edges still apply without widening correction scope | **FC** / **CS** |
+| G12 | selected corrections fold before effects/validation, with mapped ordinary oracle and full-capture snapshot history | **FC** / **CS** |
+| G13 | completed/incomplete selection reports and statement-bound closure recompute deterministically | **WD** / **CS** / **OInv** |
 
 **S — substrate consolidation**
 
@@ -1279,6 +1283,13 @@ The vocabulary §8 should draw on, stabilized:
 adoption is decided; what §5 establishes is that ρ needs a vocabulary of roughly
 this shape to state what M\* preserves or amends, and that manufacturing one
 class per residue shape is not that vocabulary.
+
+**Y — publication attribution** *(banked at cut 46; Y5 reopened)*
+
+| id | assertions | classes |
+|---|---|---|
+| Y17 | source or forwarded origin is selected before intent and frozen for retries | RF† + **CS** |
+| Y18 | release authorizes canonical origin content; commitment moves while marker identity stays fixed | **CS** + **OInv** |
 
 ## 6. M\* — the typed claim calculus
 

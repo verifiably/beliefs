@@ -155,7 +155,7 @@ def test_an_unknown_version_is_refused():
     from beliefs.errors import ProfileError
 
     with pytest.raises(ProfileError):
-        shipped_coordination(3)
+        shipped_coordination(4)
 
 
 def test_a_bool_version_is_refused_not_conflated_with_one():

@@ -25,12 +25,20 @@ from beliefs import stored
 from beliefs.coordination import CoordinationAddress, CoordinationRefused, MomentSeam
 from beliefs.corpus import CoordinationResolver, CorpusWriter, ReadView
 from beliefs.durable import ensure_directory, write_create_only
-from beliefs.errors import CreateOnlyCollision, MalformedRecord, PublicationRefused, ScienceError, ValidationRefused
+from beliefs.errors import (
+    CreateOnlyCollision,
+    MalformedRecord,
+    PublicationArrivalRefused,
+    PublicationRefused,
+    ScienceError,
+    ValidationRefused,
+)
 from beliefs.intents.publish import Destination
 from beliefs.profile import ProfileSpec
 from beliefs.publication import (
     BINDING_KIND,
     MARKER_KIND,
+    _marker_release_malformed,
     binding_address,
     binding_uid,
     marker_address,
@@ -39,6 +47,7 @@ from beliefs.publication import (
     marker_uid,
     publication_content_malformed,
 )
+from beliefs.publication_arrival import require_publication_layout
 from beliefs.publication_doors import (
     OpenedPublication,
     _bind_publication,
@@ -48,6 +57,8 @@ from beliefs.publication_doors import (
     unfinished_attempts,
 )
 from beliefs.publish_request import (
+    PUBLISHING_COORDINATION,
+    V3_PIN,
     PublishRequest,
     Snapshot,
     TransportMark,
@@ -97,13 +108,13 @@ from beliefs.root import (
 from beliefs.runrecord import OperationPort
 from beliefs.transport import Transport, TransportAbandoned, listing_identity, local_listing, transport_files
 from beliefs.view_query import stored_query
-from beliefs.world import Fresh, WorldConfig, load_manifest
+from beliefs.world import Fresh, RegistryView, ReplicaOf, WorldConfig, load_manifest
 from beliefs.world.anchors import CorpusSubject, decode_head_artifact
 from beliefs.world.read import current_epoch
 from beliefs.world.registry import World
 from beliefs.world.selection import evaluate_query
 from beliefs.world.verify import ArtifactCarrier, ObserverSet
-from beliefs.world.view import open_world_view
+from beliefs.world.view import WorldReadView, open_world_view
 
 __all__ = ["PublishRefused", "PublishUnresolved", "Published", "pending_publishes", "publish", "resume_publish"]
 
@@ -218,6 +229,51 @@ def _mark_nonregular(op: Path) -> bool:
         return True
 
 
+def _selected_attributions(
+    read: WorldReadView, registry: RegistryView, selected: tuple[str, ...], coordination_pin: str,
+) -> tuple[tuple[str, str, str], ...] | None:
+    """Check all admissions first, then each replica's immutable captured layout."""
+    grouped: dict[str, list[str]] = {}
+    for ref in selected:
+        holder = read.corpus_of(ref)
+        assert holder is not None  # complete canonical world selection
+        grouped.setdefault(holder, []).append(ref)
+    admissions = {record.corpus_id: record for record in registry.admissions}
+    for holder in sorted(grouped):
+        if holder not in admissions:
+            raise PublicationRefused(
+                "attribution-holder-unregistered", corpus_ids=(holder,), refs=tuple(sorted(grouped[holder])),
+            )
+    replicas = tuple(holder for holder in sorted(grouped) if type(admissions[holder].provenance) is ReplicaOf)
+    if coordination_pin != V3_PIN:
+        if replicas:
+            raise PublicationRefused("attribution-contract-unpinned", corpus_ids=replicas)
+        return None
+    sources: dict[str, tuple[str, dict[str, tuple[str, str, str]]]] = {}
+    for holder in replicas:
+        records = read.captured_records(holder)
+        manifest = read.captured_manifest(holder)
+        try:
+            require_publication_layout(records)
+            (marker,) = (node for node in records if node.kind == MARKER_KIND)
+            if _marker_release_malformed(marker, manifest.profile.domains.get("coordination")):
+                raise PublicationArrivalRefused("marker-malformed")
+        except PublicationArrivalRefused as refused:
+            raise PublicationRefused(
+                "attribution-source-invalid", corpus_ids=(holder,), refs=tuple(sorted(grouped[holder])), field=refused.reason,
+            ) from refused
+        earlier = marker.facets[stored.COORDINATION_FACET]["published_from"].get("attributions", [])
+        sources[holder] = (marker.uid, {row[0]: (row[0], row[1], row[2]) for row in earlier})
+    result: list[tuple[str, str, str]] = []
+    for ref in sorted(selected):
+        holder = read.corpus_of(ref)
+        assert holder is not None
+        if holder in sources:
+            uid, earlier = sources[holder]
+            result.append(earlier.get(ref, (ref, holder, uid)))
+    return tuple(result)
+
+
 # --- step 0 ------------------------------------------------------------------
 
 
@@ -271,13 +327,14 @@ def publish(
     )
     if pins_of(staging_profile) != pins:
         raise PublicationRefused("profile-disagrees")
+    attributions = _selected_attributions(read, world.registry(), selection.selected, pins.domains["coordination"])
     records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)
-    _require_snapshot_records(read, records)
+    _require_snapshot_records(read, records, attributions=attributions)
     opened = _open_publication(
         writer, resolver, view=view.unpinned(), destination=destination, clock=clock, seam=seam, port=port, expected_view=pinned,
     )
     token = opened.intent.event_token
-    snapshot = Snapshot(token, records)
+    snapshot = Snapshot(token, records, attributions)
     request = PublishRequest(
         event_token=token,
         view=opened.intent.view,
@@ -307,12 +364,15 @@ _PROBE_TOKEN = "0" * 32
 before the real token exists, and the rule does not read the token's value."""
 
 
-def _require_snapshot_records(read: _Captured, records: tuple[tuple[str, str], ...]) -> None:
+def _require_snapshot_records(
+    read: _Captured, records: tuple[tuple[str, str], ...], *,
+    attributions: tuple[tuple[str, str, str], ...] | None = None,
+) -> None:
     """Spec §4.3, asserted before the intent (§4.1 item 8): the records satisfy the
     snapshot's own rule (each parses, carries its id and is its canonical
     rendering), and each re-parses to the record the view captured. It holds by
     construction; a failure is a malformed record and nothing is written."""
-    Snapshot(_PROBE_TOKEN, records)
+    Snapshot(_PROBE_TOKEN, records, attributions)
     for address, text in records:
         if node_from_markdown(text) != read.get(address):
             raise MalformedRecord(f"{address}: its snapshot text does not re-parse to the record the view captured")
@@ -341,6 +401,7 @@ def _initialize(a: _Attempt) -> tuple[CorpusWriter, World, str] | StagingCorrupt
 def _expected_marker(a: _Attempt) -> Node:
     return marker_record(
         a.opened.intent, world_id=a.request.world_id, epoch=a.request.epoch, selection=tuple(i for i, _ in a.snapshot.records),
+        attributions=a.snapshot.attributions,
     )
 
 
@@ -635,7 +696,9 @@ def _marker_agrees(r: _Remote, mark: TransportMark) -> bool:
         return False
     if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node) or node.uid != mark.marker:
         return False
-    return len(node.facets[stored.COORDINATION_FACET]["selection"]) == mark.records
+    if len(node.facets[stored.COORDINATION_FACET]["selection"]) != mark.records:
+        return False
+    return not _marker_release_malformed(node, load_manifest(_remote_export(r.op, mark.corpus_id)).profile.domains.get("coordination"))
 
 
 def _resume_from_mark(r: _Remote) -> PublishOutcome:
@@ -686,6 +749,9 @@ def _load(op: Path, opened: OpenedPublication) -> tuple[PublishRequest, Snapshot
         return RequestCorrupt("snapshot-undecodable")
     if snapshot.identity() != request.selection or snapshot.event_token != intent.event_token:
         return RequestCorrupt("snapshot-mismatch")
+    coordination = request.pins.domains.get("coordination")
+    if coordination not in PUBLISHING_COORDINATION or (coordination == V3_PIN) != (snapshot.attributions is not None):
+        return RequestCorrupt("snapshot-pin-disagrees")
     return request, snapshot
 
 

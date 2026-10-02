@@ -130,6 +130,13 @@ Standing is **computed, never stored on the target**. The target is byte-unchang
 reader joins the retraction records at read time. Two definitions make that
 well-founded and discoverable:
 
+Acceptance scope (cut 45 freeze): ordinary evaluation folds surviving inventoried
+facets over mapped corpus resolvers and the world union. Snapshot standing folds
+surviving full-capture facets, including post-epoch corrections. Selection precedes
+facet and chain validation; rejected records have no effect. Receipt fidelity
+continues per surviving ref unless its original in-corpus counter chain contains
+an excluded record. See the accepted belief-acceptance spec §5.
+
 **Standing, defined.** An input's standing is subtracted iff **at least one standing
 retraction targets it**, and a retraction is itself standing unless a standing
 retraction targets *it*. The recursion is well-founded because the **retraction graph

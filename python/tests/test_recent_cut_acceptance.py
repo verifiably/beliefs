@@ -21,6 +21,8 @@ import cut41_acceptance as cut41
 import cut42_acceptance as cut42
 import cut43_acceptance as cut43
 import cut44_acceptance as cut44
+import cut45_acceptance as cut45
+import cut46_acceptance as cut46
 import pytest
 
 from beliefs import root
@@ -43,8 +45,10 @@ from beliefs import root
         (cut42, 42, (14, 14, 6)),
         (cut43, 43, (9, 9, 4)),
         (cut44, 44, (24, 24, 6)),
+        (cut45, 45, (34, 34, 4)),
+        (cut46, 46, (36, 36, 3)),
     ),
-    ids=("cut23", "cut24", "cut33", "cut34", "cut35", "cut36", "cut37", "cut38", "cut39", "cut40", "cut41", "cut42", "cut43", "cut44"),
+    ids=("cut23", "cut24", "cut33", "cut34", "cut35", "cut36", "cut37", "cut38", "cut39", "cut40", "cut41", "cut42", "cut43", "cut44", "cut45", "cut46"),
 )
 def test_recent_runner_preserves_commands_environment_and_cleanup(
     runner, cut: int, accounting: tuple[int, int, int], tmp_path: Path, monkeypatch, capsys
@@ -82,6 +86,10 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
         assert all(environment[f"SCIENCE_CUT{number}_ROOT"] == str(run) for number in range(4, cut + 1))
     assert not run.exists()
     output = capsys.readouterr().out
+    if cut == 46:
+        assert "guarantee rows exercised: 3 (2 newly closed: Y17, Y18; Y5 amendment reclosed)" in output
+    if cut == 45:
+        assert "guarantee rows exercised: 4 (4 newly closed: G10, G11, G12, G13)" in output
     assert [f"[cut{cut} phase {phase}/3]" in output for phase in range(1, 4)] == [True, True, True]
     assert f"declared arms: {accounting[0]} (= {accounting[1]} declaration units; {accounting[2]} guarantee rows)" in output
 

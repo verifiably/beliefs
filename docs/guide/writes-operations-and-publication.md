@@ -243,7 +243,7 @@ enter a world-index map or a belief's inputs.
 - **Not built:** cross-root publication of a dataset's provenance reference and
   its acquiring report (T7's cross-root case).
 
-The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01)
+The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-02)
 is the authority for what remains and who owns it.
 
 ## Open edges
@@ -258,6 +258,20 @@ audit) and the question of who *may* write.
 - [Writer session and J1–J21](../designs/2026-09-05-writer-session-design.md#7-guarantees)
 - [Act reports, operation intents and T1–T8](../designs/2026-08-11-act-report-design.md)
 - [What the act-report design left open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open)
-- [The publication table, Y1–Y16](../designs/2026-09-22-publication-design.md)
+- [The publication table, Y1–Y18](../designs/2026-09-22-publication-design.md)
 - [The publish act, local destination](../superpowers/specs/2026-09-23-publish-act-local-design.md)
 - [Publish and the commons](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md#6-publish-and-the-commons)
+
+[Cut 46](../designs/2026-10-02-conformance-cut-46.md) discharges publication
+attribution. A new write root explicitly pinned to coordination v3 carries an
+entry for every selected replica-held record. It copies an earlier entry exactly,
+or names that holder's publication marker, and freezes entries in the selection
+snapshot before intent. Retries use those frozen entries; remote recovery from a
+mark uses its export alone. Marker identity stays unchanged.
+
+The shipped default remains v2. Its refusal of new replica-held selections is a
+named amendment; own-only publishing and saved attempts retain their old bytes.
+Existing manifests cannot be re-pinned. A markerless replica remains readable but
+cannot be newly published. Origins are claims, not proof of authorship; a legacy
+v2 carrier without entries can name only itself, even if it earlier carried
+another publication. See the [results](../plans/2026-10-02-conformance-cut-46-results.md).

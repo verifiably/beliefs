@@ -1382,7 +1382,7 @@ def test_stage_marker_refuses_under_a_profile_without_coordination_v2(tmp_path):
     writer = CorpusWriter(tmp_path / "base", DefaultExecutor, authority=FULL, profile=BASE)
     writer.adopt_manifest(profile=pins_for(BASE))
     marker = marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",))
-    with pytest.raises(ValidationRefused, match="kind-unknown"):
+    with pytest.raises(ValidationRefused, match="staged marker"):
         writer._stage_marker(marker)
 
 

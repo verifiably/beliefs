@@ -361,7 +361,7 @@ def binding_outcome_from_facet(
         values["tips"] = tuple(values["tips"])
     return kind(**values)
 
-REQUEST_CORRUPT_REASONS = ("undecodable", "intent-disagrees", "snapshot-missing", "snapshot-mismatch", "snapshot-undecodable")
+REQUEST_CORRUPT_REASONS = ("undecodable", "intent-disagrees", "snapshot-missing", "snapshot-mismatch", "snapshot-undecodable", "snapshot-pin-disagrees")
 STAGING_CORRUPT_REASONS = ("pins-foreign", "hole", "extra", "bytes", "marker")
 REVEAL_REFUSED_VERDICTS = ("refuted", "unresolvable", "malformed")
 TRANSPORT_INCOMPLETE_REASONS = ("abandoned", "listing-mismatch", "export-damaged")

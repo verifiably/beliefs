@@ -1,0 +1,112 @@
+# The coordination contract, version 3 — publication attribution.
+contract: coordination
+version: 3
+lineage:
+  successor: b23866284ae160f7e7322cbb3c63adcbc84f5f894e6f30f5468c76dc8434993d
+description: Project coordination records; version 3 requires published_from.attributions on publication markers, preserving the outer kind fields
+address_root: project
+query_vocabulary:
+  kinds:
+  - proposition
+  - source-assertion
+  - assessment
+  - analysis-spec
+  - run
+  - verification
+  - dataset
+  - source
+  - holdings-observation
+  - retraction
+  - instrument-certification
+  - coreference-attestation
+  - act-report
+  - composite
+  relations:
+  - assesses
+  - observes
+  - reads
+  - transforms
+  - produces
+  - produced_by
+  - executes
+  - targets
+  - verifies
+  - member_of
+  - grounded-in
+  - composes
+kinds:
+  project:
+    fields:
+    - name
+    - body
+    - author
+    - at
+    - query
+    query_versions:
+    - science.view-query.v1
+  question:
+    fields:
+    - name
+    - body
+    - author
+    - at
+    - query
+    query_versions:
+    - science.view-query.v1
+  hypothesis:
+    fields:
+    - name
+    - body
+    - author
+    - at
+    - query
+    query_versions:
+    - science.view-query.v1
+  topic:
+    fields:
+    - name
+    - body
+    - author
+    - at
+    - query
+    query_versions:
+    - science.view-query.v1
+  theme:
+    fields:
+    - name
+    - body
+    - author
+    - at
+    - query
+    query_versions:
+    - science.view-query.v1
+  task:
+    fields:
+    - name
+    - body
+    - author
+    - at
+    - status
+    - depends
+    query_versions: []
+  decision:
+    fields:
+    - name
+    - body
+    - author
+    - at
+    query_versions: []
+  note:
+    fields:
+    - name
+    - body
+    - author
+    - at
+    - about
+    query_versions: []
+  publication:
+    fields: [name, body, author, at, event_token, published_from, destination, selection, supersedes_markers]
+    query_versions: []
+  publication-binding:
+    fields: [name, body, author, at, event_token, view, destination, corpus_id, marker, artifact]
+    query_versions: []

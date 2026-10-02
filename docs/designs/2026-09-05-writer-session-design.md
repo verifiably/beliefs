@@ -1293,7 +1293,7 @@ an act naming A, yielding `session-entry-foreign` in B and
 `session-act-unverified` for A when both views are well formed.
 
 `beliefs.mount.compile_mount_profile(root, *, available=())` compiles exactly the
-manifest's pins against shipped base, coordination v1/v2, shipped domain packs and
+manifest's pins against shipped base, coordination v1/v2/v3, shipped domain packs and
 available parsed domain documents. Namespace and content identity must both match;
 unpinned available documents never activate. A well-formed unresolved pin raises
 `MountPinUnresolved` naming root, namespace and pin; malformed manifests retain

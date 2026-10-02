@@ -87,7 +87,7 @@ R12 — called a **guarantee row**. Work is built in small slices called
 which rows the slice will satisfy, and states what it leaves out. Every check
 the cut adds is paired with a deliberate break of the code, and the check must fail when that
 break is applied; a check that cannot fail does not count. The
-[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01),
+[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-02),
 not this guide, says what has landed.
 
 - **Promises have permanent names.** Rows are never renumbered, so a test or a
@@ -224,13 +224,15 @@ fitted result into independent validation.
 
 ## Current state
 
-Forty-four conformance cuts have been frozen and discharged, each frozen before
+Forty-six conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple.
-Cut 44 discharges mount citations and J16–J21: 220 of 247 rows are
-closed across twenty-two tables, with 27 open. The complete
+Cut 46 discharges publication attribution, recloses the Y5 amendment and closes
+Y17/Y18: 226 of 253 rows are closed across twenty-two tables, with 27 open.
+Explicit coordination v3 requires a new write root; existing v2 manifests
+cannot be replaced. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
 implemented; `contract-cut` is the roadmap's next off-path boundary. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-02)
 states the row count, what remains, and who owns it.
 
 The contributor guide has no ledger artifact of its own. That is deliberate:
@@ -288,6 +290,7 @@ exact selection; the results record under `../plans/` holds the evidence.
 | [42](../designs/2026-09-27-conformance-cut-42.md) | Discharged remote publish act (Y11–Y16 closed); transport, recovery, and recipient tip reading |
 | [43](../designs/2026-09-27-conformance-cut-43.md) | The multi-corpus session (J12–J15), discharged after cut 42 |
 | [44](../designs/2026-10-01-conformance-cut-44.md) | Citations into mounted corpora (J16–J21), discharged |
+| [45](../designs/2026-10-02-conformance-cut-45.md) | Belief acceptance (G10–G13), frozen before implementation |
 
 ## Open edges
 
@@ -310,4 +313,4 @@ residue. The act report's residue and the writer model are under
 - [Composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md)
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
-- [The newest results record, cut 44](../plans/2026-10-01-conformance-cut-44-results.md); every other cut's record sits beside it under `docs/plans/`
+- [The newest results record, cut 46](../plans/2026-10-02-conformance-cut-46-results.md); every other cut's record sits beside it under `docs/plans/`

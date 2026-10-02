@@ -104,7 +104,8 @@ sessionless read context calls the same function and builds its own resolver.
    `compile_mount_profile` reads the root's manifest and resolves each pin, never
    activating anything the manifest does not pin. The science pin must be the shipped
    base's identity. A `coordination` pin resolves against the shipped coordination
-   contracts, versions 1 and 2. Every other pin resolves against the shipped domain pack of
+   contracts, versions 1, 2 and 3 (v3 shipped at cut 46; the default remains v2).
+   Every other pin resolves against the shipped domain pack of
    that namespace, if there is one, and the `available` domain contracts of that namespace.
    The candidate whose `content_identity` equals the pinned identity is the one activated.
    No candidate, and the function refuses `MountPinUnresolved`, naming the root, the
