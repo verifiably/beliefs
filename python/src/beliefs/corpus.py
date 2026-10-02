@@ -425,8 +425,7 @@ class OperationLock:
                 return self
             if self._holder == "capture":
                 raise BuildHold(
-                    "a corpus operation cannot proceed: an epoch build holds this root's "
-                    "coherent capture (build-hold)"
+                    "a corpus operation cannot proceed: an epoch build holds this root's coherent capture (build-hold)"
                 )
             snapshot = self._capture_generation
             while self._holder is not None:
@@ -701,8 +700,11 @@ class _CapturedCheckView:
     drift alike — resolving live and deprecated ids over that set and nothing
     else, so "does not resolve locally" means the capture (slice 3 §5.3)."""
 
-    def __init__(self, records: Sequence[Node]) -> None:
+    def __init__(self, records: Sequence[Node], *, addresses: Mapping[str, str] | None = None) -> None:
         self._by_id = {node.id: node for node in records}
+        if addresses is not None:
+            self._live = dict(addresses)
+            return
         self._live: dict[str, str] = {}
         for node in records:
             self._live[node.id] = node.id
@@ -1157,14 +1159,21 @@ def retraction_standing(
     return MappingProxyType(standing)
 
 
-def local_retraction_enumeration(view: ReadView) -> RetractionEnumeration:
+def local_retraction_enumeration(
+    view: ReadView, *, counts: Callable[[str, str], bool] | None = None
+) -> RetractionEnumeration:
     """Enumerate this corpus's retractions with their folded resolutions."""
     from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, RetractionEnumeration
 
+    corpus_id = view.corpus_id if counts is not None else None
     facets: dict[str, Mapping[str, object]] = {}
     for node in view.iter_stored():
         if node.kind != "retraction":
             continue
+        if counts is not None:
+            assert corpus_id is not None
+            if not counts(corpus_id, node.id):
+                continue
         try:
             facets[node.id] = _validated_retraction_facet(node)
         except ScienceError as caught:
@@ -1188,7 +1197,10 @@ class SnapshotStanding:
 
 
 def snapshot_standing(
-    views: Mapping[str, ReadView | _CapturedCheckView], subject_kind: str = "producer"
+    views: Mapping[str, ReadView | _CapturedCheckView],
+    subject_kind: str = "producer",
+    *,
+    counts: Callable[[str, str], bool] | None = None,
 ) -> SnapshotStanding:
     """Fold snapshot standing live over the corpora a snapshot covers.
 
@@ -1215,6 +1227,8 @@ def snapshot_standing(
         facets: dict[str, Mapping[str, object]] = {}
         for node in view.iter_stored():
             if node.kind != "retraction":
+                continue
+            if counts is not None and not counts(corpus_id, node.id):
                 continue
             try:
                 facets[node.id] = _validated_retraction_facet(node)

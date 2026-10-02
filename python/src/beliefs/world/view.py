@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Literal, cast, final
 
 from nodes.core.errors import RefError
@@ -81,6 +82,7 @@ class WorldReadView:
     _producers: Mapping[tuple[str, str], tuple[str, ...]]
     _live: Mapping[str, ReadView]
     _retractions: RetractionEnumeration
+    _retraction_discovery: Mapping[str, tuple[str, ...]]
     _producer_snapshot: str
     _captured_views: Mapping[str, _CapturedCheckView]
     _snapshot_standing: SnapshotStanding | None
@@ -106,6 +108,7 @@ class WorldReadView:
         producers: Mapping[tuple[str, str], tuple[str, ...]],
         live: Mapping[str, ReadView],
         retractions: RetractionEnumeration,
+        retraction_discovery: Mapping[str, tuple[str, ...]],
         producer_snapshot: str,
         captured_views: Mapping[str, _CapturedCheckView],
     ) -> WorldReadView:
@@ -125,6 +128,7 @@ class WorldReadView:
         view._producers = producers
         view._live = live
         view._retractions = retractions
+        view._retraction_discovery = MappingProxyType(dict(retraction_discovery))
         view._producer_snapshot = producer_snapshot
         view._captured_views = captured_views
         view._snapshot_standing = None
@@ -188,7 +192,7 @@ class WorldReadView:
         """The bound epoch's producer-snapshot subject identity."""
         return self._producer_snapshot
 
-    def snapshot_standing(self) -> SnapshotStanding:
+    def snapshot_standing(self, *, counts: Callable[[str, str], bool] | None = None) -> SnapshotStanding:
         """The live fold over the present covered corpora, over the same
         captured records this view serves (slice 2 §8) — never over `_live`:
         a `ReadView` resolves through the index built at its open and
@@ -197,9 +201,20 @@ class WorldReadView:
         has no epoch address. Folded on the first read, not at the open, so
         a report-mode reader that never asks (`audit_world`) is not refused
         by a raw-written chain member; `gather` asks, and is."""
+        if counts is not None:
+            return snapshot_standing(self._captured_views, counts=counts)
         if self._snapshot_standing is None:
             self._snapshot_standing = snapshot_standing(self._captured_views)
         return self._snapshot_standing
+
+    def _mapped_view(self, corpus_id: str) -> _CapturedCheckView:
+        records = tuple(self._held[corpus_id].values())
+        addresses = {
+            ref: self._held[corpus_id][uid].id
+            for ref, (holder, uid) in self._recorded.items()
+            if holder == corpus_id and uid in self._held[corpus_id]
+        }
+        return _CapturedCheckView(records, addresses=addresses)
 
     def resolve(self, ref: str) -> str | None:
         self._refuse_damaged(ref)
@@ -265,6 +280,13 @@ def open_world_view(
 ) -> WorldReadView:
     stamp = _stamp(published)
     enumeration = _carried_enumeration(published)
+    discovery = _thawed(published.documents["retraction-discovery-map.yaml"])
+    assert isinstance(discovery, Mapping)
+    epoch._check_targets(cast(Mapping[object, object], discovery))
+    retraction_discovery = {
+        cast(str, entry["target"]): tuple(cast(list[str], entry["retractions"]))
+        for entry in cast(list[Mapping[str, object]], discovery["targets"])
+    }
     producer_identity = published.receipts["producer-receipt.yaml"].subject_identity
     if producer_identity is None:
         raise EpochMalformed(f"{published.packaging_identity}: the producer receipt names no subject identity")
@@ -411,6 +433,7 @@ def open_world_view(
         producers={location: tuple(sorted(runs)) for location, runs in producer_sets.items()},
         live=live,
         retractions=enumeration,
+        retraction_discovery=retraction_discovery,
         producer_snapshot=producer_identity,
         captured_views=captured_views,
     )

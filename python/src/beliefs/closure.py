@@ -105,6 +105,7 @@ def build_closure(
     consulted: tuple[tuple[str, str], ...],
     binding: tuple[str, str],
     observed_facets: tuple[FacetRead, ...],
+    acceptance_statement: str | None = None,
 ) -> Closure:
     """Build the closure over one proposition's belief inputs (kernel §5.1's
     projection table).
@@ -160,4 +161,6 @@ def build_closure(
         "consulted": [list(pair) for pair in consulted],
         "observed_facets": [row.projection() for row in observed_facets],
     }
+    if acceptance_statement is not None:
+        projection["acceptance_policy"] = acceptance_statement
     return Closure(projection=projection)

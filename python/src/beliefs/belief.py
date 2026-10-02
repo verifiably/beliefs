@@ -500,6 +500,7 @@ def _evaluate_traced(
         consulted=consulted,
         binding=(binding.rule, binding.implementation),
         observed_facets=records.observed_facets,
+        acceptance_statement=None if context.acceptance is None else context.acceptance.statement,
     )
     return Belief(value=value, belief_input_digest=closure.digest(), policy_binding=binding), reached
 

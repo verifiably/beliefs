@@ -80,6 +80,11 @@ HARNESS = Path(__file__).name
 # frozen declaration's bytes are not touched — `test_n2_cut22.py`'s pattern, here
 # for the portable cuts, which have no acceptance guard of their own.
 _LIVE_SABOTAGES = {
+    "G1": Sabotage(
+        module="closure.py",
+        before="    acceptance_statement: str | None = None,\n) -> Closure:",
+        after="    acceptance_statement: str | None = None,\n    source_assertions: tuple[object, ...] = (),\n) -> Closure:",
+    ),
     "P9": Sabotage(
         module="belief.py",
         before=(
@@ -103,7 +108,8 @@ _LIVE_SABOTAGES = {
     ),
 }
 PORTABLE_ARMS = tuple(
-    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
+    if arm.row in _LIVE_SABOTAGES and (arm.row != "G1" or arm.sabotage.module == "closure.py") else arm
     for arm in (*ARMS, *CUT2_ARMS, *CUT3_ARMS, *CUT26_ARMS)
 )
 """Every arm the portable suite audits, both sabotaged and unsabotaged."""

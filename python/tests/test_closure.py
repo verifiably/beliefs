@@ -269,6 +269,7 @@ def test_the_same_binding_resolves_identically_elsewhere():
             "consulted",
             "binding",
             "observed_facets",
+            "acceptance_statement",
         }
     assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in parameters.values())
 

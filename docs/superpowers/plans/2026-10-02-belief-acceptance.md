@@ -56,9 +56,11 @@ and fold interfaces, so per-task agent handoffs would add coordination overhead.
   G10 has six units, G11 six, G12 twelve and G13 ten. Each table row below is
   one unit and one arm. Other regressions are required checks, not extra units.
 - Preserve old frozen cuts and canonical declaration files byte for byte.
-  Two live overrides are foreseen: cut 18's **M1** verification membership uses
+  Live overrides: cut 18's **M1** verification membership uses
   verification_targets instead of visited (Task 3), and cut 33's **C3-b** local
-  enumeration call gains counts (Task 2). Preserve their assertions and checks.
+  enumeration call gains counts (Task 2). Cut 33's **BI-5** receipt comparison
+  gains indentation under the unrestricted branch (Task 2 finding; same check
+  and assertion). Preserve their assertions and checks.
   `tests/test_arm_staleness.py` must remain green. Any other stale arm requires
   identifying its owner and amending this retarget list before proceeding;
   never silently weaken a check or edit its frozen body.
@@ -280,16 +282,13 @@ and `test_acceptance.py`.
   and `hold_shipped`. Raw malformed records use `fixtures_cut4.raw_write`,
   then a fresh view; never mutate an already-open capture and claim it reread.
   G12-d has a multi-hop chain whose excluded counter is not directly adjacent.
-  G12-g adds a drift record whose live id equals a mapped deprecated address.
-  The full captured resolver returns the drift node (live ids override aliases),
-  while the mapped resolver returns the inventoried node. Assert those distinct
-  results; avoid deprecated aliases whose outcome depends on iteration order.
-  To prove the ordinary fold actually uses the restricted resolver, first
-  compute snapshot standing, supply that same result through the snapshot
-  method, then observe full-capture resolver calls during gather. An accepted
-  ordinary node correction must fold without any further full-capture resolver
-  calls. The G12-g mutation switching L_c to `_captured_views[c]` must fail this
-  assertion, even when both resolvers happen to give the same standing result.
+  G12-g uses a real post-epoch alias to show that the full captured resolver
+  sees aliases absent from the epoch-mapped resolver. Corpus admission refuses
+  live/deprecated collisions before capture; characterize that live-id precedence
+  with a synthetic `_CapturedCheckView` pair rather than weakening admission.
+  Precompute snapshot standing and supply it during gather, then assert ordinary
+  folding makes no calls to the full captured resolver. Switching L_c to
+  `_captured_views[c]` must fail this assertion.
 - [ ] For G12-i reuse `test_world_receipts.repackage`: edit a surviving receipt
   resolution **and** its subject identity coherently so opening passes packaging
   and carried-enumeration checks. Reject an unrelated correction. Evaluation must
@@ -656,3 +655,5 @@ runner accounting `(34,34,4)`, frozen declaration hash and prior pins.
 - [x] Refusal parity includes corrupt receipt, split corpus and drift cases.
 - [x] No implementation starts before plan approval; no discharge is claimed from
   the current 119-test design baseline or portable fast suite.
+
+Execution dispositions: Tasks 2–4 share one commit and one fast gate. Besides M1/C3-b, retarget the live BI-5 receipt anchor in cut 33, R19e absent-answer anchor in cut 23, and portable G1 closure-signature anchor. Canonical declarations and frozen cut bodies remain unchanged.

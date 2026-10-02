@@ -416,7 +416,7 @@ def test_the_binding_is_guarded_before_any_read(corpus_fixture, monkeypatch):
 
     from beliefs import evaluation
 
-    monkeypatch.setattr(evaluation, "gather", lambda *a, **k: pytest.fail("read before the binding was refused"))
+    monkeypatch.setattr(evaluation, "_gather", lambda *a, **k: pytest.fail("read before the binding was refused"))
     result = evaluate_over(
         corpus_fixture.view,
         corpus_fixture.proposition,
@@ -477,6 +477,7 @@ def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
 
 def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(corpus_fixture, monkeypatch):
     from domain_facet_fixtures import over_kwargs
+
     """G3 makes the closure exist whenever a belief is produced; `NoBelief` and
     `Refused` commit no input closure, so there is nothing on those arms for a
     read to be contained in. `gather` still runs — the only guard before it is
@@ -484,8 +485,8 @@ def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(c
     from beliefs import evaluation
 
     calls: list[str] = []
-    real = evaluation.gather
-    monkeypatch.setattr(evaluation, "gather", lambda *a, **k: (calls.append("gathered"), real(*a, **k))[1])
+    real = evaluation._gather
+    monkeypatch.setattr(evaluation, "_gather", lambda *a, **k: (calls.append("gathered"), real(*a, **k))[1])
 
     no_belief = evaluate_over(
         corpus_fixture.view,
@@ -513,9 +514,24 @@ def test_the_closure_fields_are_build_closure_s_keywords_in_order():
 
     from beliefs.closure import build_closure
 
-    params = [p for p in inspect.signature(build_closure).parameters if p != "self"]
-    fields = [f.name for f in dataclasses.fields(EvaluationInputs)][:10]
-    assert fields == params
+    parameters = inspect.signature(build_closure).parameters
+    required = [name for name, parameter in parameters.items() if parameter.default is inspect.Parameter.empty]
+    expected = [
+        "proposition",
+        "assessments",
+        "runs",
+        "verifications",
+        "snapshot",
+        "producer_snapshot_identity",
+        "retractions",
+        "consulted",
+        "binding",
+        "observed_facets",
+    ]
+    assert required == expected
+    assert [f.name for f in dataclasses.fields(EvaluationInputs) if f.name in required] == expected
+    assert set(parameters) - set(required) == {"acceptance_statement"}
+    assert "acceptance" in {f.name for f in dataclasses.fields(EvaluationInputs)}
 
 
 from test_verify import production_pair  # noqa: F401 - the module-scoped fixture V7's arm resolves

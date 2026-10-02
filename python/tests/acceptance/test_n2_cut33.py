@@ -59,6 +59,26 @@ from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
 # sabotage still drops exactly the `if ref in taken` filter and nothing else,
 # leaving the history union (and everything else on the line) intact.
 _LIVE_SABOTAGES = {
+    "BI-5": Sabotage(
+        module="evaluation.py",
+        before=(
+            "            if computed != recorded:\n"
+            "                raise RetractionResolutionDisagreement(ref, recorded, computed)"
+        ),
+        after=(
+            "            if False:\n"
+            "                raise RetractionResolutionDisagreement(ref, recorded, computed)"
+        ),
+    ),
+    "C3-b": Sabotage(
+        module="evaluation.py",
+        before="    enumeration = view.retraction_enumeration() if world else local_retraction_enumeration(view, counts=counts)",
+        after=(
+            "    enumeration = view.retraction_enumeration() if world else local_retraction_enumeration(view, counts=counts)\n"
+            "    if world:\n"
+            '        enumeration = RetractionEnumeration(enumeration.found, tuple(f"{c}@{s}" for c, s in view.stamp.coverage))'
+        ),
+    ),
     "BI-3": Sabotage(
         module="evaluation.py",
         before=(
