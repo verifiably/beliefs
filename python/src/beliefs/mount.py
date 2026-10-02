@@ -38,7 +38,7 @@ def compile_mount_profile(root: Path, *, available: Iterable[DomainContract] = (
         prefix = f"{namespace}:"
         identity = pin[len(prefix):] if pin.startswith(prefix) else None
         if namespace == "coordination":
-            coordination = next((c for c in (shipped_coordination(1), shipped_coordination(2)) if c.content_identity == identity), None)
+            coordination = next((c for c in (shipped_coordination(1), shipped_coordination(2), shipped_coordination(3)) if c.content_identity == identity), None)
             if coordination is None:
                 raise MountPinUnresolved(root, namespace, pin)
             continue

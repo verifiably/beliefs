@@ -25,9 +25,11 @@ def _root(tmp_path, name, pins: CorpusPins, corpus_id: str = "c" * 32):
     return root
 
 
-def test_shipped_pins_compile_with_nothing_available(tmp_path):
-    root = _root(tmp_path, "a", pins_for(SHIPPED))
-    assert compile_mount_profile(root).compiled_identity == SHIPPED.compiled_identity
+@pytest.mark.parametrize("version", (1, 2, 3))
+def test_shipped_pins_compile_with_nothing_available(tmp_path, version):
+    expected = compile_profile(shipped_base_contract(), [shipped_domain_contract("biology")], coordination=shipped_coordination(version))
+    root = _root(tmp_path, "a", pins_for(expected))
+    assert compile_mount_profile(root).compiled_identity == expected.compiled_identity
 
 
 def test_a_test_local_contract_resolves_when_available(tmp_path):

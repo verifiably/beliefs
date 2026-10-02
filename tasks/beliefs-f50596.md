@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/publication-attribution
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T14:29:38Z
+updated: 2026-10-02T15:32:05Z
 started: 2026-10-02T12:47:02Z
 depends: []
 tags: [publication]
@@ -41,3 +41,4 @@ Requirement from science's commons design (science docs/specs/2026-09-30-science
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
 - 2026-10-02T14:23:31Z (feat/publication-attribution): Author approves spec dcc8a53 and plan 47a2260 after spec round 2 and plan round 1 acceptance. Native execution resumed; cut recheck finds maximum 45 across refs and all three worktrees, successor 46 available. Pre-change byte fixtures: marker beef9590baed6442330e4c85e4c673cc974a2feb41d3738ae48c39e4d6e38a07; selection a475656c573635014fe8cd8d9ee4df977ace92a8bf7fbe3547421e7d2de02182.
 - 2026-10-02T14:29:38Z (feat/publication-attribution): Freeze 5981ae6; v2 fixture bytes committed unchanged. Task 0 passes 23 docs, 5994 fast tests with 1 existing skip; tasks check zero warnings.
+- 2026-10-02T15:32:05Z (feat/publication-attribution): review: impl round 1 — verdict: revise; findings: P2 1; reviewer: codex/gpt-6-astra
