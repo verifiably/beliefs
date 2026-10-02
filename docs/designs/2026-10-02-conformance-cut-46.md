@@ -1,6 +1,6 @@
 # Conformance cut 46 — publication attribution
 
-**Status:** frozen 2026-10-02 before product implementation; not discharged.
+**Status:** frozen 2026-10-02 before product implementation; discharged 2026-10-02 (`../plans/2026-10-02-conformance-cut-46-results.md`).
 **Spec:** `../superpowers/specs/2026-10-02-publication-attribution-design.md`.
 **Plan:** `../superpowers/plans/2026-10-02-publication-attribution.md`.
 Successor to cut 45; all refs and worktrees were rechecked before choosing 46.

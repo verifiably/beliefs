@@ -21,7 +21,7 @@ runner. No new dependency.
 revised and author-approved at `dcc8a53` after round 1's P1/P2 decisions, under
 the review's fix-then-plan disposition. Read both artifacts before execution.
 
-**Status:** approved 2026-10-02 after plan round 1; native execution started.
+**Status:** approved 2026-10-02 after plan round 1; Tasks 0–7 completed and cut 46 discharged (`../../plans/2026-10-02-conformance-cut-46-results.md`).
 Native execution continues the method used for acceptance; no task worker or
 review agent is dispatched while writing this plan.
 
@@ -88,8 +88,9 @@ review agent is dispatched while writing this plan.
   Missing capability is refusal, not a skip. Before the full successor chain,
   finish the bounded pilot in Task 7 through its verdict. Use harness-tracked
   foreground sessions, no detached jobs or host-pointer changes.
-- Commit specs, plans and task evidence in this branch. No push, PR, integration
-  or Science configuration write is authorized here. The N2 preflight pilot task
+- Commit specs, plans and task evidence in this branch. No push, PR
+  or Science configuration write is authorized here. The replacement personal-profile
+  instructions authorize bounded local integration after reviewed discharge. The N2 preflight pilot task
   `beliefs-aa9f88` remains after this publication slice.
 
 ## Review Focus

@@ -110,7 +110,7 @@ design written 2026-08-02 through 2026-10-02. Read them in this order:
 | `2026-09-21-conformance-cut-36.md` | the discharged event-level-l8 cut: the event domain, the witness predicate and the witness-asymmetric relation; L8 closed, L4 and L10 relabelled, L1 re-homed to `persistence-cut`, 16 declaration units, three boundary invariants, the cut 35 runner as prefix; the boundary closes |
 | `2026-09-21-conformance-cut-37.md` | the discharged l13-preimage cut: the digest match over held copies and surviving preimages, the stated absence, the corruption refusal; L13 closed, 11 declaration units, three boundary invariants, the cut 36 runner as prefix; the boundary closes |
 | `2026-09-22-conformance-cut-38.md` | the discharged act-report-remainder cut: the `audit` and `re-check` operations through the boundary, every supplied port bound to its writer; T2 closed in full, 12 declaration units, three boundary invariants, the cut 37 runner as prefix; the boundary closes |
-| `2026-09-22-publication-design.md` | the publication guarantee table (Y): Y1–Y4 from the publication-records slice, closed at cut 39; Y5–Y10 from the publish act (local), banked with cut 40 and closed at its discharge; Y11–Y16 from the remote act, closed at cut 42 |
+| `2026-09-22-publication-design.md` | the publication guarantee table (Y): Y1–Y4 from the publication-records slice, closed at cut 39; Y5–Y10 from the publish act (local), banked with cut 40 and closed at its discharge; Y11–Y16 from the remote act, closed at cut 42; Y17/Y18 and the Y5 attribution amendment closed at cut 46 |
 | `2026-09-23-conformance-cut-39.md` | the discharged publication-records cut: the coordination contract's v2 amendment, the publish intent and the intent-position judgment; W17 and Y1–Y4 closed in full, 13 declaration units, the cut 38 runner as prefix; the act followed at cuts 40 and 42 |
 | `2026-09-24-conformance-cut-40.md` | the discharged publish-act cut: request, snapshot, staging, export, the local reveal, resumption and marker-required arrival; Y5–Y10 closed in full, 15 declaration units, the cut 39 runner as prefix; cut 42 subsequently discharged the remote slice |
 | `2026-09-24-live-query-evaluation-design.md` | the live attention read: a view query denoted over every admitted corpus's current state, stamped by its capture; table Z, banked with cut 41 and closed at its discharge |
@@ -119,7 +119,7 @@ design written 2026-08-02 through 2026-10-02. Read them in this order:
 | `2026-09-27-conformance-cut-43.md` | the discharged multi-corpus session cut: J12–J15 closed, 9 declaration units and 9 arms; cut 42 runner as prefix |
 | `2026-10-01-conformance-cut-44.md` | the discharged mount-citations cut: J16–J21 closed, 24 declaration units and 24 arms; cut 43 runner as prefix |
 | `2026-10-02-conformance-cut-45.md` | discharged belief-acceptance cut: G10–G13 closed, 34 declaration units/arms; cut 44 runner as prefix |
-| `2026-10-02-conformance-cut-46.md` | frozen publication attribution successor: Y5 reopened, Y17/Y18 banked open; 36 units/arms |
+| `2026-10-02-conformance-cut-46.md` | discharged publication attribution successor: Y5 amendment reclosed, Y17/Y18 closed; 36 units/arms |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -127,7 +127,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 45** is implemented and discharged; G10–G13 are closed. Cut 46 is frozen for publication attribution; Y5 is reopened and Y17/Y18 are open. What
+Every conformance cut through **cut 46** is implemented and discharged; the Y5 amendment and Y17/Y18 are closed. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -227,9 +227,12 @@ held in its read mounts, while mutation targets stay in the write root; the chec
 eligibility they cannot decide as a warning, and a corpus-local belief read refuses an
 input its corpus does not hold. A supplied acceptance policy selects evidence and
 corrections before their effects, reports exclusions, and binds its statement into
-the belief digest. The latest discharged boundary is cut 45
-([cut](docs/designs/2026-10-02-conformance-cut-45.md),
-[results](docs/plans/2026-10-02-conformance-cut-45-results.md)).
+the belief digest. Publication under an explicitly pinned coordination v3 freezes
+selected adopted records' origins and forwards earlier entries through subsequent
+publications. Existing v2 roots publish own-only selections and resume saved attempts;
+new carried selections require a new v3 write root. The latest discharged boundary is
+cut 46 ([cut](docs/designs/2026-10-02-conformance-cut-46.md),
+[results](docs/plans/2026-10-02-conformance-cut-46-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **253 rows** across **twenty-two frozen

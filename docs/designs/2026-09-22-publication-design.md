@@ -37,8 +37,8 @@ the same cut.
 | **Y17** | Every selected replica-held record receives its source publication or forwarded earlier origin, derived before intent and frozen with selection; retries never re-read origin inputs |
 | **Y18** | Canonical attribution content is authorized by the marker release, changes the selection commitment and artifact content, and preserves marker identity; source world-domain pins remain required |
 
-Y17/Y18 are banked open at cut 46. Y5 is reopened for the v2 carried-selection
+Y17/Y18 close at cut 46; the Y5 amendment is reclosed for the v2 carried-selection
 refusal, missing-holder/source refusals and v3 writer-derived coordination. Its
 historical v2 pin union and cut-40 step-0 guarantee remain release-specific;
 v2 carrying v3 still refuses pins-disagree on coordination before provenance.
-See `2026-10-02-conformance-cut-46.md` and the attribution spec §5.
+See `2026-10-02-conformance-cut-46.md`, `../plans/2026-10-02-conformance-cut-46-results.md` §2 and the attribution spec §5.

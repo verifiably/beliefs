@@ -46,20 +46,19 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-10-02** for cut 45's discharge of `belief-acceptance`: G10–G13
-close, and `world-read` closes that commons milestone 1a boundary. The corpus
-has **223 of 253 rows closed, 30 open** after cut 46 freezes publication
-attribution: Y5 reopened, Y17/Y18 banked open, `world-read` reopened for
-`publication-attribution` (`../superpowers/plans/2026-10-02-publication-attribution.md`). Cut 44 discharged `mount-citations`,
+**Updated 2026-10-02** for cut 46's discharge of `publication-attribution`:
+the Y5 amendment is reclosed and Y17/Y18 close. The corpus has **226 of 253 rows
+closed, 27 open**; `world-read` closes this commons milestone 1a boundary.
+Cut 45 discharged `belief-acceptance` and closed G10–G13. Cut 44 discharged `mount-citations`,
 closing J16–J21 and the `write-path` lane. Cut 43's discharge of
 `multi-corpus-session` closed J12–J15, and
 Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
 partial on T7's cross-root case; L1 stays partial on its persistence arms.
 
-**Implemented through conformance cut 45.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 46.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–45 record discharge in their dated results records, most recently
-`../plans/2026-10-02-conformance-cut-45-results.md`.
+and cuts 26–46 record discharge in their dated results records, most recently
+`../plans/2026-10-02-conformance-cut-46-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -451,8 +450,18 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   records and surviving inventoried facets, snapshot standing uses the full
   capture, and answers report completion and exclusions. The exact statement
   joins the selected closure digest. **G10–G13 close; `belief-acceptance` is
-  discharged.** This branch is retained for integration; publication attribution
-  (`beliefs-f50596`) remains the next commons prerequisite.
+  discharged.** It shares the completed commons prerequisite stack with attribution.
+
+- **Publication attribution**, built 2026-10-02 at cut 46
+  ([results](../plans/2026-10-02-conformance-cut-46-results.md)): explicit
+  coordination v3 on new write roots freezes selected replica origins before
+  intent, forwards earlier entries, and reuses them during local and remote
+  recovery. Marker identity is unchanged; source and destination release checks
+  remain pinned. Existing v2 roots keep own-only publishing and saved retries,
+  but refuse new carried selections. Markerless replicas cannot be published;
+  legacy v2 carriers have no recoverable upstream origin. **Y5 amendment and
+  Y17/Y18 close; `publication-attribution` is discharged.** The bounded N2
+  preflight pilot follows; local integration follows the personal-profile rule.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -466,7 +475,6 @@ not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
-| `publication-attribution` | Y5 amendment, Y17/Y18 banked open at cut 46; `world-read` reopened | `../superpowers/plans/2026-10-02-publication-attribution.md` |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `persistence-cut` | X2's persistence-cut arm; L1's kill-at-stage and settlement-persistence arms (both terminal outcomes) | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns; L1's arms re-homed here at cut 36 (`beliefs-3ea822`) | X2 in full; row 5's L1 read in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |

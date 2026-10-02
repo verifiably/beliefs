@@ -224,11 +224,12 @@ fitted result into independent validation.
 
 ## Current state
 
-Forty-five conformance cuts have been frozen and discharged, each frozen before
+Forty-six conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple.
-Cut 45 discharges belief acceptance and G10–G13: 224 of 251 rows are
-closed across twenty-two tables, with 27 open. Publication attribution is
-the next commons prerequisite. The complete
+Cut 46 discharges publication attribution, recloses the Y5 amendment and closes
+Y17/Y18: 226 of 253 rows are closed across twenty-two tables, with 27 open.
+Explicit coordination v3 requires a new write root; existing v2 manifests
+cannot be replaced. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
 implemented; `contract-cut` is the roadmap's next off-path boundary. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-02)
@@ -312,4 +313,4 @@ residue. The act report's residue and the writer model are under
 - [Composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md)
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
-- [The newest results record, cut 45](../plans/2026-10-02-conformance-cut-45-results.md); every other cut's record sits beside it under `docs/plans/`
+- [The newest results record, cut 46](../plans/2026-10-02-conformance-cut-46-results.md); every other cut's record sits beside it under `docs/plans/`
