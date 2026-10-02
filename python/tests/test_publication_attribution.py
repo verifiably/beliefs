@@ -154,7 +154,6 @@ def test_y18_m_tip_release(tmp_path, version, entries):
 from beliefs.consulted import CorpusPins
 from beliefs.errors import PublicationRefused
 from beliefs.identity import v1
-from beliefs.publish_request import Snapshot, decode_snapshot, derive_pins, encode_snapshot
 
 
 def records():
@@ -163,6 +162,8 @@ def records():
 
 
 def test_y18_f_snapshot_formats():
+    from beliefs.publish_request import Snapshot, decode_snapshot, encode_snapshot
+
     old = Snapshot('e'*32, records())
     assert encode_snapshot(old) == (FIXTURES / 'publication-v2-selection.v1').read_bytes()
     for entries in (None, (), (ORIGIN,)):
@@ -186,6 +187,8 @@ def test_y18_f_snapshot_formats():
 
 
 def test_y18_g_snapshot_commitment():
+    from beliefs.publish_request import Snapshot
+
     old, empty = Snapshot('e'*32, records()), Snapshot('e'*32, records(), ())
     a = Snapshot('e'*32, records(), (ORIGIN,))
     b = Snapshot('e'*32, records(), (('run:a','f'*32,'d'*32),))
@@ -198,6 +201,8 @@ def pin(version):
 
 
 def test_y5_c_v3_destination_pins():
+    from beliefs.publish_request import derive_pins
+
     base='science:'+'b'*64
     sources={'b':CorpusPins(base, {'coordination':pin(3),'physics':'physics:'+'a'*64}),
              'a':CorpusPins(base, {'coordination':pin(2),'biology':'biology:'+'c'*64})}
@@ -208,6 +213,8 @@ def test_y5_c_v3_destination_pins():
 
 @pytest.mark.parametrize('domain', ['science_contract','biology','physics'])
 def test_y5_d_v3_disagreement(domain):
+    from beliefs.publish_request import derive_pins
+
     base='science:'+'b'*64
     namespace = 'biology' if domain == 'science_contract' else domain
     a=CorpusPins(base,{'coordination':pin(2),namespace:namespace+':'+'a'*64})
@@ -219,7 +226,6 @@ def test_y5_d_v3_disagreement(domain):
 
 from types import SimpleNamespace
 
-import beliefs.publish as act
 from beliefs.world import AdmissionRecord, CorpusManifest, ForkOf, Fresh, RegistryView, ReplicaOf
 
 
@@ -241,24 +247,32 @@ def capture_fixture(holdings, *, source_version=2, carried=None):
 
 @pytest.mark.parametrize('version', [2,3])
 def test_y17_a_local_holdings(version):
+    import beliefs.publish as act
+
     read, registry, _ = capture_fixture({'a'*32:(Fresh(),('run:a',)), 'b'*32:(ForkOf('a'*32,'c'*64),('run:b',))})
     assert act._selected_attributions(read, registry, ('run:a','run:b'),pin(version)) == (None if version==2 else ())
 
 
 @pytest.mark.parametrize('kind', sorted(stored.WORLD_KINDS))
 def test_y17_b_first_carry(kind):
+    import beliefs.publish as act
+
     cid='a'*32
     read, registry, _=capture_fixture({cid:(ReplicaOf(cid),(kind+':a',))})
     assert act._selected_attributions(read,registry,(kind+':a',),pin(3)) == ((kind+':a',cid,marker_uid(cid)),)
 
 
 def test_y17_c_forwarded_origin():
+    import beliefs.publish as act
+
     cid='a'*32
     read, registry, _=capture_fixture({cid:(ReplicaOf(cid),('run:a',))},source_version=3,carried={cid:(ORIGIN,)})
     assert act._selected_attributions(read,registry,('run:a',),pin(3)) == (ORIGIN,)
 
 
 def test_y17_d_selection_scope():
+    import beliefs.publish as act
+
     cid='a'*32
     extra=('run:b','e'*32,'f'*32)
     read, registry, _=capture_fixture({cid:(ReplicaOf(cid),('run:a','run:b'))},source_version=3,carried={cid:(ORIGIN,extra)})
@@ -266,12 +280,16 @@ def test_y17_d_selection_scope():
 
 
 def test_y17_e_distinct_holders():
+    import beliefs.publish as act
+
     a,b='a'*32,'b'*32
     read, registry, _=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))})
     assert act._selected_attributions(read,registry,('run:a','run:b'),pin(3)) == (('run:a',a,marker_uid(a)),('run:b',b,marker_uid(b)))
 
 
 def test_y17_f_v2_refusal():
+    import beliefs.publish as act
+
     a,b='a'*32,'b'*32
     read, registry, _=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))})
     with pytest.raises(PublicationRefused) as caught:
@@ -280,6 +298,8 @@ def test_y17_f_v2_refusal():
 
 
 def test_y17_h_markerless_replica():
+    import beliefs.publish as act
+
     a='a'*32
     read, registry, captures=capture_fixture({a:(ReplicaOf(a),('run:a',))})
     captures[a]=captures[a][:-1]
@@ -291,6 +311,8 @@ def test_y17_h_markerless_replica():
 @pytest.mark.parametrize('version',[2,3])
 @pytest.mark.parametrize('provenance',[Fresh(),ReplicaOf('a'*32)])
 def test_y17_i_missing_holder(version,provenance):
+    import beliefs.publish as act
+
     a='a'*32
     read, _, _=capture_fixture({a:(provenance,('run:a','run:b'))})
     with pytest.raises(PublicationRefused) as caught:
@@ -299,6 +321,8 @@ def test_y17_i_missing_holder(version,provenance):
 
 
 def test_y17_j_invalid_source_order():
+    import beliefs.publish as act
+
     a,b='a'*32,'b'*32
     read, registry, captures=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))})
     captures[a]=captures[a][:-1]
@@ -309,6 +333,8 @@ def test_y17_j_invalid_source_order():
 
 
 def test_y17_k_admission_before_layout():
+    import beliefs.publish as act
+
     a,b='a'*32,'b'*32
     read, registry, captures=capture_fixture({a:(ReplicaOf(a),('run:a',)),b:(ReplicaOf(b),('run:b',))})
     captures[a]=captures[a][:-1]
@@ -319,6 +345,8 @@ def test_y17_k_admission_before_layout():
 
 
 def test_y17_l_held_capture(monkeypatch):
+    import beliefs.publish as act
+
     a='a'*32
     read, registry, _=capture_fixture({a:(ReplicaOf(a),('run:a',))})
     calls=[]
@@ -333,6 +361,8 @@ def test_y17_l_held_capture(monkeypatch):
 
 
 def test_y17_p_legacy_source():
+    import beliefs.publish as act
+
     a='a'*32
     read, registry, _=capture_fixture({a:(ReplicaOf(a),('run:a',))})
     assert act._selected_attributions(read,registry,('run:a',),pin(3))==(('run:a',a,marker_uid(a)),)
@@ -342,6 +372,8 @@ def test_y17_p_legacy_source():
 
 @pytest.mark.parametrize('source_version,entries',[(2,(ORIGIN,)),(3,None)])
 def test_y18_n_source_release(source_version,entries):
+    import beliefs.publish as act
+
     a='a'*32
     read,registry,captures=capture_fixture({a:(ReplicaOf(a),('run:a',))},source_version=source_version)
     captures[a]=(*captures[a][:-1],marker(entries))
@@ -355,7 +387,6 @@ from coordination_fixtures import raw_coordination_node
 
 from beliefs.errors import RegistryMalformed
 from beliefs.intents.publish import Destination
-from beliefs.publish_request import PublishRequest, TransportMark, encode_request, staging_world_id_for
 from beliefs.report import RequestCorrupt
 from beliefs.world import StatusRecord, WorldConfig
 
@@ -365,6 +396,8 @@ class Prepared(Exception):
 
 
 def wrapper_fixture(tmp_path, monkeypatch, *, writer_version=3, source_version=2):
+    import beliefs.publish as act
+
     a,b='a'*32,'b'*32
     read,registry,captures=capture_fixture({b:(ReplicaOf(b),('run:b',)),a:(ReplicaOf(a),('run:a',))},source_version=source_version)
     writer=writer_at(tmp_path / 'written',writer_version)
@@ -408,6 +441,8 @@ def test_y17_g_before_intent(tmp_path,monkeypatch):
 
 @pytest.mark.parametrize('scenario',['retired','scan-error','missing-replica','missing-fresh-v2','missing-fresh-v3'])
 def test_y17_o_registry_boundary(tmp_path,monkeypatch,scenario):
+    import beliefs.publish as act
+
     version=2 if scenario=='missing-fresh-v2' else 3
     s=wrapper_fixture(tmp_path,monkeypatch,writer_version=version)
     registry=s.registry
@@ -445,6 +480,8 @@ def test_y17_o_registry_boundary(tmp_path,monkeypatch,scenario):
 
 
 def frozen_attempt(tmp_path, *, destination=None, entries=(ORIGIN,), coordination_pin=None):
+    from beliefs.publish_request import PublishRequest, Snapshot, staging_world_id_for
+
     value=intent(destination=destination or intent().destination)
     snapshot=Snapshot(value.event_token,records(),entries)
     request=PublishRequest(value.event_token,value.view,value.destination,'b'*64,'a'*32,
@@ -453,6 +490,8 @@ def frozen_attempt(tmp_path, *, destination=None, entries=(ORIGIN,), coordinatio
 
 
 def test_y17_m_local_frozen_marker(tmp_path,monkeypatch):
+    import beliefs.publish as act
+
     a=frozen_attempt(tmp_path)
     monkeypatch.setattr(act,'_selected_attributions',lambda *args:pytest.fail('origin lookup on reconstruction'))
     for name in ('open_world_view', 'current_epoch', 'load_manifest'):
@@ -462,6 +501,8 @@ def test_y17_m_local_frozen_marker(tmp_path,monkeypatch):
 
 
 def test_y17_n_remote_frozen_marker(tmp_path,monkeypatch):
+    import beliefs.publish as act
+
     a=frozen_attempt(tmp_path,destination=Destination.remote('https://remote.test/pub'))
     monkeypatch.setattr(act,'_selected_attributions',lambda *args:pytest.fail('origin lookup on remote reconstruction'))
     for name in ('open_world_view', 'current_epoch', 'load_manifest'):
@@ -472,6 +513,9 @@ def test_y17_n_remote_frozen_marker(tmp_path,monkeypatch):
 
 @pytest.mark.parametrize('change',['origin','malformed'])
 def test_y18_h_snapshot_tamper(tmp_path,change):
+    import beliefs.publish as act
+    from beliefs.publish_request import encode_request
+
     a=frozen_attempt(tmp_path)
     (tmp_path/'request.v1').write_bytes(encode_request(a.request))
     value=a.snapshot.projection()
@@ -482,6 +526,9 @@ def test_y18_h_snapshot_tamper(tmp_path,change):
 
 @pytest.mark.parametrize('entries,version', [(None,3),((),2),((),1),(None,1),((),None),(None,None),((),'unsupported')])
 def test_y18_i_snapshot_pin(tmp_path,entries,version):
+    import beliefs.publish as act
+    from beliefs.publish_request import encode_request, encode_snapshot
+
     a=frozen_attempt(tmp_path,entries=entries)
     domains={} if version is None else {'coordination':'unsupported' if version=='unsupported' else pin(version)}
     request=replace(a.request,pins=CorpusPins(a.request.pins.science_contract,domains))
@@ -495,6 +542,9 @@ def test_y18_i_snapshot_pin(tmp_path,entries,version):
 
 @pytest.mark.parametrize('version,entries',[(2,(ORIGIN,)),(3,None),(2,None),(3,())])
 def test_y18_o_remote_release(tmp_path,monkeypatch,version,entries):
+    import beliefs.publish as act
+    from beliefs.publish_request import TransportMark
+
     node=marker(entries)
     path=tmp_path/'marker.md';path.write_text(node_to_markdown(node))
     manifest=CorpusManifest(2,'a'*32,pins_for(coordination_profile(None,version=version)))
