@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/publication-attribution
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T13:11:42Z
+updated: 2026-10-02T13:33:12Z
 started: 2026-10-02T12:47:02Z
 depends: []
 tags: [publication]
@@ -28,3 +28,7 @@ Requirement from science's commons design (science docs/specs/2026-09-30-science
 - 2026-10-02T13:11:41Z (feat/publication-attribution): Written spec ready for user review: docs/superpowers/specs/2026-10-02-publication-attribution-design.md. Focused document guards passed, 23 tests in 1.02s; tasks check and git diff --check passed with no task warnings. The only changes are this proposed spec and task-record evidence; publication implementation and its plan remain gated on the written review.
 - 2026-10-02T13:11:41Z (feat/publication-attribution): parked (waiting on user, review): User reviews .worktrees/publication-attribution/docs/superpowers/specs/2026-10-02-publication-attribution-design.md; after approval Codex resumes this worktree and writes the implementation plan.
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T13:30:56Z (feat/publication-attribution): review: spec round 1 — verdict: revise; findings: P1 1, P2 2, P3 4; reviewer: claude-code/claude-opus-5-5
+- 2026-10-02T13:30:57Z (feat/publication-attribution): resumed
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T13:33:12Z (feat/publication-attribution): Spec round 1 decisions: name the v2 carried-selection refusal and test its sorted ids plus earlier v2/v3 coordination disagreement; enable v3 only on new roots, compatible with Science commons §§11–12 without adding a re-pin act; refuse markerless ReplicaOf holdings rather than invent a carrier origin. Added missing-holder and first-invalid-holder checks. Verified P3 race correction: retirement retains admissions, so the second scan still supplies provenance; a genuinely missing admission fails closed. Every new publish scans, including v2 own-only; retries never scan. Legacy v2 missing origins remain unreconstructable, and coordination.tips_at is deliberately shape-only. Author accepts corrected spec under the reviewer/user fix-then-plan disposition; proceed to planning, no implementation.

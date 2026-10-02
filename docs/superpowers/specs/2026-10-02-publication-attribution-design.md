@@ -1,7 +1,7 @@
 # Publication attribution — origins frozen with the selected records
 
 **Date:** 2026-10-02
-**Status:** proposed; awaiting written-spec review before planning
+**Status:** revised after spec round 1; author-approved for planning under the review's fix-then-plan disposition
 **Task:** `beliefs-f50596`
 **Boundary:** `publication-attribution`, proposed in `world-read`
 **Workspace:** `.worktrees/publication-attribution`, branch `feat/publication-attribution`
@@ -90,6 +90,32 @@ Two existing rules constrain the extension:
    marker per selected replica holder during preparation. Reject live carrier
    reads during staging/retry and recursive origin lookup. Forwarding a valid
    entry does not require its named origin to be available.
+6. **Amend v2 publishing to refuse adopted holdings.** Name this amendment
+   **v2 carried-selection refusal**: new publish attempts under v2 no longer
+   publish selected `ReplicaOf` records without attribution. Preserve the
+   existing earlier refusals and old in-flight attempts. Reject retaining
+   today's unattributed successful path, which would violate Science §4.8.
+7. **Enable v3 through new write roots only.** Create a root with a profile
+   explicitly activating `shipped_coordination(3)`, then adopt its first
+   manifest with that profile's pins through the existing lifecycle API.
+   Use the same derived pins for staging. `adopt_manifest` is create-only:
+   an existing v2 manifest cannot be re-pinned. Reject a new re-pin act in
+   this slice. Existing v2 roots can still publish own-only selections and
+   resume old attempts, but cannot newly publish replica-held records. Science
+   §11 requires frozen attribution for 1a and does not require pin migration;
+   §12's 1a starts B beside a fresh write root. New explicitly v3 roots are
+   compatible with that milestone, and are an explicit Science deployment
+   prerequisite, not a claim that existing installations upgrade themselves.
+8. **Require publication layout from every replica holder.** `admit_arrival`
+   can admit markerless restored or moved corpora as `ReplicaOf`; it does not
+   establish that a replica is a publication. Such holdings remain readable,
+   but v3 publication preparation refuses them as `attribution-source-invalid`
+   with `field="marker-absent"`; v2 refuses them under decision 6. This also
+   applies to a restored copy of one's own unpublished corpus. Reject treating
+   markerless replicas as carrier-owned with no entry: Science §4.8 requires
+   every adopted record's marker origin, and the carrier's-own acceptance
+   branch needs a publication's `published_from` claim. Do not invent one or
+   reclassify registry provenance during publication.
 
 ## 4. Marker content and release rules
 
@@ -150,6 +176,11 @@ existing `PublicationReadingRefused`. The public arrival check happens before
 the verified admission writes. Pure factory and intent-position checks do not
 claim to authorize a contract release.
 
+In particular, `coordination.py::tips_at` deliberately uses the shape-only
+`publication_content_malformed` check while folding revisions at an intent
+position. It has no contract-pin authorization role. Preserve that caller and
+record it explicitly in the plan's boundary inventory.
+
 The remote export check retains its current identity-first ordering and the
 existing content/consistency/count checks. After those checks, it checks marker
 release using the validated export's manifest, never the original source world.
@@ -162,6 +193,22 @@ snapshot, before rendering canonical texts and probe-validating the snapshot.
 For each selected canonical address, use `read.corpus_of(address)` to get its
 holder and find that holder's admission. Do not infer the holder from an alias,
 semantic identity, path or the marker's claimed world id.
+
+This second registry scan runs for **every** new publish, including a v2
+own-only selection. Its bytes remain unchanged, but it gains the explicit
+preparation requirement that each selected holder have an admission. The
+registry scan can raise its existing integrity errors; an absent admission
+produces `attribution-holder-unregistered`. Reject skipping this scan for v2:
+without provenance it cannot distinguish an own-only selection from replicas.
+
+The registry scan and `open_world_view`'s earlier scan do not share one lock
+hold. Admission provenance is immutable, and retirement/departure appends a
+status while retaining the admission. A retirement between the two scans
+therefore still supplies the same provenance and does **not** cause
+`attribution-holder-unregistered`; preparation imposes no new live-status
+check. If a selected holder's admission is genuinely missing from the second
+scan, fail closed with that named refusal. Malformed registry data retains
+its existing earlier scan error. Never guess `Fresh` from a missing admission.
 
 Group the selected addresses by holder, with each group's addresses ascending.
 Check that every holder has an admission, in ascending holder order.
@@ -198,7 +245,10 @@ before opening the intent with
 `PublicationRefused("attribution-contract-unpinned", corpus_ids=...)`, naming
 all selected replica holders in sorted order. There is no un-attributed
 fallback. A v2 publication selecting only locally written holdings follows
-its existing path and emits its existing bytes.
+the existing rendering path after the new admission check and emits its
+existing bytes. The earlier pin checks retain precedence: a v2 writer with
+a contributing v3 source refuses `pins-disagree`, `field="coordination"`,
+before the registry scan and before `attribution-contract-unpinned`.
 
 For a v3 destination, the first invalid source in that holder order is
 deterministic. Translate a captured layout or release failure to
@@ -208,6 +258,14 @@ information is `PublicationRefused("attribution-holder-unregistered", ...)`,
 with the same holder/refs shape. Existing selection, registry and capture
 integrity errors keep their current errors and precedence; they are not repaired
 or converted into an origin guess.
+
+A legacy v2 source may itself have republished upstream records without any
+entries. Its historical marker cannot reveal that earlier origin. The v3
+publisher attributes such a record to that v2 carrier's own corpus/marker;
+it cannot reconstruct A through a legacy unattributed B. Science's carried
+branch therefore has accurate forwarding only from an existing explicit
+entry; neither this slice nor the acceptance predicate repairs historical
+missing provenance.
 
 ## 6. Freezing, staging and recovery
 
@@ -299,11 +357,18 @@ drop an obligation or count a collection/syntax failure as killing a check.
 | check | decisive result |
 |---|---|
 | Local holdings | Fresh/ForkOf records receive no carried entry; v2 own-only bytes remain exact; v3 carries an explicit empty list |
+| V2 amendment | With two selected v2 replicas and otherwise valid inputs, a v2 writer refuses `attribution-contract-unpinned` with both corpus ids ascending and no intent; a v3 source instead triggers the earlier `pins-disagree` on `coordination`, without a second registry scan |
+| V3 activation | A newly created write root adopts explicit v3 pins and publishes; an existing v2 root still refuses a second manifest adoption, and the shipped default remains v2 |
+| Markerless replica | A genuinely restored and verified non-publication admitted by `admit_arrival` is `ReplicaOf`; v3 refuses `attribution-source-invalid`/`marker-absent` before intent; v2 refuses the carried selection |
 | First carry | A's real v2 publication, adopted by B, supplies A's corpus id and own marker uid for every selected carried record |
 | Forwarding | C adopts B's v3 publication and retains A's entry without holding A; a B-authored record falls back to B's own marker |
 | Selection scope | Unselected source entries are absent from the output; two selected replica holders get their distinct origins |
 | Addresses | Entries use canonical selected ids; malformed, duplicate, out-of-order and unselected addresses refuse |
 | Source integrity | Missing/duplicate/malformed marker, binding-present, selection mismatch and missing admission refuse before intent |
+| Holder information | A controlled second scan missing a selected holder returns `attribution-holder-unregistered` with that holder and ascending selected refs, including on the v2 own-only path; no intent opens |
+| Source precedence | Two invalid replica captures supplied in reverse holder order still report only the ascending first holder and its exact layout reason; admission checks finish before any source layout validation |
+| Registry boundary | Retirement after capture retains the admission and origin; a scan integrity error propagates before intent; every new publish scans once during preparation, while retries never scan |
+| Legacy source | A historical v2 B carrying A without entries yields B's own origin; an explicit earlier entry in a v3 B is copied unchanged |
 | Release guards | v2 with attribution, v3 without attribution, and unsupported publication pins refuse at staged write, corpus check, arrival and tip reading |
 | Pin derivation | v3 carries a v2 source; v2 disagreements remain unchanged; differing science or non-coordination domain pins still refuse before intent |
 | Identity split | Same intent plus different valid origins preserves marker uid/address/id and consistency; snapshot digest and marker content differ |
@@ -333,8 +398,10 @@ When this slice lands, amend the current-facing publication design and guide
 for the v3 nested content rule and Y5's release-specific destination pins.
 Preserve frozen cuts and historical release evidence. The implementation plan
 owns the successor freeze, row banking, N2 declaration, runner, accounting and
-results; none happens before the written spec and plan reviews.
+results; none happens before the written spec and plan reviews. Spec round 1
+requested these decisions and checks, then planning without another full spec
+round; the author accepts this corrected spec under that disposition.
 
-The next action is review of this written spec. Once approved, Codex drafts the
-implementation plan. The N2 preflight pilot remains after this publication
-slice, as agreed; no publication implementation or pilot has started here.
+The next action is drafting and reviewing the implementation plan. The N2
+preflight pilot remains after this publication slice, as agreed; no publication
+implementation or pilot has started here.
