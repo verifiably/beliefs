@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/acceptance-filter
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T09:29:45Z
+updated: 2026-10-02T09:57:05Z
 started: 2026-10-02T08:09:25Z
 depends: []
 tags: [belief]
@@ -43,4 +43,12 @@ Requirement from science's commons design §9: belief must count a record only w
 - 2026-10-02T09:27:06Z (feat/acceptance-filter): Round 2 disposition: all findings accepted. Spec now separates verification-target edge membership from accepted correction scope; defines mapped-only per-corpus resolvers and surviving inventoried facets; retains receipt checks per unaffected transitive counter set using the existing packaged discovery map; filters snapshot facets before validation; rejects supplied acceptance context; defines refusal order, deterministic empty incomplete reports and late completion; names the singleton/1b contract limit, filtered history and exact preflight errors/cost.
 - 2026-10-02T09:29:44Z (feat/acceptance-filter): Revision verification: just test-one tests/test_designs_corpus.py passed (15 tests, 0.82 s); just test-fast passed (5946 passed, 1 skipped; Python phase 84.25 s; no affected TypeScript tests); git diff --check and tasks check clean. These verify the documentation change against the existing implementation; acceptance behavior remains proposed.
 - 2026-10-02T09:29:44Z (feat/acceptance-filter): parked (waiting on user, review): User re-reviews revised .worktrees/acceptance-filter/docs/superpowers/specs/2026-10-02-belief-acceptance-design.md against round 2 findings; after acceptance Codex resumes this worktree and writes the implementation plan for its review before freeze or product changes.
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T09:39:48Z (feat/acceptance-filter): resumed
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T09:39:48Z (feat/acceptance-filter): attribution correction: spec round 2 reviewer was claude-code/claude-opus-5-5, forwarded by the user; the earlier human attribution was incorrect.
+- 2026-10-02T09:39:49Z (feat/acceptance-filter): review: spec round 3 — verdict: accept; findings: P3 3; reviewer: claude-code/claude-opus-5-5
+- 2026-10-02T09:41:12Z (feat/acceptance-filter): claimed by codex/gpt-6, planning in existing acceptance-filter worktree; spec accepted at dc41764. Plan includes refusal parity and representative early/late caught errors; product implementation remains behind plan review.
+- 2026-10-02T09:57:04Z (feat/acceptance-filter): Plan drafted: 8 tasks, 34 arms/units across G10–G13, 8 durable checks. Accept-all refusal parity and representative early/late caught errors are explicit; M1/C3-b live retargets preserve frozen declarations. Inline coverage/type/count audit passed. Verification: 23 focused document checks passed; just test-fast 5946 passed, 1 skipped in 85.28s; no affected TypeScript tests; tasks check clean.
+- 2026-10-02T09:57:04Z (feat/acceptance-filter): parked (waiting on user, review): User reviews .worktrees/acceptance-filter/docs/superpowers/plans/2026-10-02-belief-acceptance.md; after acceptance Codex freezes cut 45 and executes the plan natively
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}

@@ -1,8 +1,8 @@
 # Belief acceptance before evidence and correction effects
 
 **Date:** 2026-10-02  
-**Status:** proposed; written-spec review pending; no implementation authorized by this artifact yet  
-**Review:** human spec round 2 requested revision; this draft addresses P1 2, P2 7 and P3 4
+**Status:** approved 2026-10-02; implementation-plan review pending; no conformance cut frozen yet
+**Review:** spec round 3 accepted revision `dc41764`; reviewer `claude-code/claude-opus-5-5`, forwarded by the user. Three nonblocking planning items are carried into the implementation plan.
 **Task:** `beliefs-d9bc57`  
 **Boundary:** `belief-acceptance`, proposed in the `world-read` lane  
 **Workspace:** `.worktrees/acceptance-filter`, branch `feat/acceptance-filter`  
