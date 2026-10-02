@@ -17,6 +17,7 @@ from beliefs.intents.publish import Destination
 from beliefs.publication import (
     BINDING_KIND,
     MARKER_KIND,
+    _marker_release_malformed,
     marker_address,
     marker_consistent,
     publication_content_malformed,
@@ -64,8 +65,13 @@ def require_publication_layout(records: tuple[Node, ...]) -> None:
 def admit_publication(world, root: Path, observers):
     """Check publication layout before admitting a replica of the same root."""
     root = Path(root).resolve()
-    require_publication_layout(tuple(ReadView.opened_at(root).iter_stored()))
-    return admit_arrival(world, root, ReplicaOf(load_manifest(root).corpus_id), observers)
+    records = tuple(ReadView.opened_at(root).iter_stored())
+    require_publication_layout(records)
+    manifest = load_manifest(root)
+    (marker,) = (node for node in records if node.kind == MARKER_KIND)
+    if _marker_release_malformed(marker, manifest.profile.domains.get("coordination")):
+        raise PublicationArrivalRefused("marker-malformed")
+    return admit_arrival(world, root, ReplicaOf(manifest.corpus_id), observers)
 
 
 def _held_records(root: Path, corpus_id: str) -> tuple[Node, ...]:
@@ -88,12 +94,16 @@ def publication_tip(
     held: list[tuple[str, Node]] = []
     seen: set[str] = set()
     for root in resolved:
-        corpus_id = load_manifest(root).corpus_id
+        manifest = load_manifest(root)
+        corpus_id = manifest.corpus_id
         records = _held_records(root, corpus_id)
         if not any(node.kind == MARKER_KIND for node in records):
             continue
         try:
             require_publication_layout(records)
+            (marker,) = (node for node in records if node.kind == MARKER_KIND)
+            if _marker_release_malformed(marker, manifest.profile.domains.get("coordination")):
+                raise PublicationArrivalRefused("marker-malformed")
         except PublicationArrivalRefused as refused:
             raise PublicationReadingRefused(refused.reason, corpus_id, refused.refs) from refused
         (marker,) = (node for node in records if node.kind == MARKER_KIND)
