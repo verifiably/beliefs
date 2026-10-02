@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/acceptance-filter
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T09:57:05Z
+updated: 2026-10-02T10:12:18Z
 started: 2026-10-02T08:09:25Z
 depends: []
 tags: [belief]
@@ -52,3 +52,8 @@ Requirement from science's commons design §9: belief must count a record only w
 - 2026-10-02T09:57:04Z (feat/acceptance-filter): Plan drafted: 8 tasks, 34 arms/units across G10–G13, 8 durable checks. Accept-all refusal parity and representative early/late caught errors are explicit; M1/C3-b live retargets preserve frozen declarations. Inline coverage/type/count audit passed. Verification: 23 focused document checks passed; just test-fast 5946 passed, 1 skipped in 85.28s; no affected TypeScript tests; tasks check clean.
 - 2026-10-02T09:57:04Z (feat/acceptance-filter): parked (waiting on user, review): User reviews .worktrees/acceptance-filter/docs/superpowers/plans/2026-10-02-belief-acceptance.md; after acceptance Codex freezes cut 45 and executes the plan natively
   provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T10:05:52Z (feat/acceptance-filter): resumed
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T10:05:52Z (feat/acceptance-filter): review: plan round 1 — verdict: revise; findings: P2 2, P3 5; reviewer: claude-code/claude-opus-5-5
+- 2026-10-02T10:07:00Z (feat/acceptance-filter): Ruling: plan round 1 corrections are adopted and execution approved under the user instruction to freeze/start without another review round. G13-e uses reachable supplied lineage not_present; wrapper state precedes binding guard. P3 corrections: explicit acceptance collection only, real cut headings, reliable live-id/alias drift fixture, canonical cwd. Product code still untouched before freeze.
+- 2026-10-02T10:12:18Z (feat/acceptance-filter): claimed by codex/gpt-6, pid 3565319; executing corrected plan natively. Freeze scan shows no competing cut 45; roadmap inventory 220/251 with G10–G13 banked open.

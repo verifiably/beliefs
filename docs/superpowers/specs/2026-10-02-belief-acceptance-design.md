@@ -1,7 +1,7 @@
 # Belief acceptance before evidence and correction effects
 
 **Date:** 2026-10-02  
-**Status:** approved 2026-10-02; implementation-plan review pending; no conformance cut frozen yet
+**Status:** approved 2026-10-02; plan approved after review corrections; frozen as cut 45 before implementation
 **Review:** spec round 3 accepted revision `dc41764`; reviewer `claude-code/claude-opus-5-5`, forwarded by the user. Three nonblocking planning items are carried into the implementation plan.
 **Task:** `beliefs-d9bc57`  
 **Boundary:** `belief-acceptance`, proposed in the `world-read` lane  
@@ -178,12 +178,18 @@ continues to raise its existing errors; the state is not a new public argument.
 | Corpus-backed binding guard, caught error before the completion boundary, or `_absent_inputs` early return before evidence scans finish | Incomplete; `excluded=()` |
 | `ContractDisagreement`, `ContractMismatch`, `FacetPayloadRefused` or `FacetUndeclared` raised by the late `consulted_contracts` walk and caught by the wrapper | Complete; full sorted exclusions; existing refusal reason |
 | Other existing caught errors after the completion boundary, including a caught claim-decoding error | Complete; full sorted exclusions; existing refusal reason |
-| Absence discovered in the run/dependency loop or claim lookup, with all candidate scans and folds subsequently completed | Complete; full sorted exclusions; `NoBelief("unavailable-corpus-absent", ...)` and `NotReached()` |
+| Absence discovered by `absences(snapshot)` from a supplied lineage snapshot, or defensively in the run/dependency loop or claim lookup, with all candidate scans and folds subsequently completed | Complete; full sorted exclusions; `NoBelief("unavailable-corpus-absent", ...)` and `NotReached()` |
 | Pure-evaluator Belief, NoBelief or Refused after a completed gather | Complete; full sorted exclusions |
 
 An error not already caught by the wrapper still raises. If another refusal
 occurs before a late absence answer can be produced, the existing refusal order
 wins; the table does not turn an exception into an absence answer.
+
+For world reads, genuinely absent covered corpora are caught by the initial
+`view.absent()` preflight. Later run/claim absence branches are defensive;
+`LineageSnapshot.not_present` supplies a reachable late absence without changing
+the captured view. The wrapper creates its invocation state before its binding
+guard so that refusal can carry the initial empty incomplete report without reads.
 
 A pure evaluator may consume a complete context with already selected `Records`;
 it lacks corpus/address information sufficient to run the predicate itself.

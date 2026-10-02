@@ -459,7 +459,9 @@ not listed.
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
 (`../plans/2026-10-01-conformance-cut-44-results.md`) discharges mount citations.
-J16–J21 close; the corpus has **220 of 247** rows closed, 27 open. Cut 43
+J16–J21 close; after cut 45 banks G10–G13, the corpus has **220 of 251**
+rows closed, 31 open. `belief-acceptance` reopens world-read for commons
+milestone 1a; the historical dogfood milestone remains completed. Cut 43
 (`../plans/2026-09-27-conformance-cut-43-results.md`) discharged the multi-corpus
 session and closed J12–J15. L1 stays partial on its persistence
 arms under `persistence-cut`, and T7 on its cross-root case under

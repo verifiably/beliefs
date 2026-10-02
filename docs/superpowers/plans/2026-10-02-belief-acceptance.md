@@ -21,7 +21,8 @@ at `dc41764` in spec review round 3. Read it before implementation. The review's
 three remaining items are addressed here: refusal parity in G12-l, representative
 early/late errors in G13-c/d, and an appended task attribution correction.
 
-**Status:** proposed; implementation awaits written-plan review. Execute natively
+**Status:** approved for execution after the two P2 corrections from plan review
+round 1; corrections incorporated below. Execute natively
 with `superpowers:executing-plans` after approval: these tasks share gather state
 and fold interfaces, so per-task agent handoffs would add coordination overhead.
 
@@ -30,6 +31,8 @@ and fold interfaces, so per-task agent handoffs would add coordination overhead.
 - Reuse `.worktrees/acceptance-filter`, branch `feat/acceptance-filter`, locked
   on WORK_ROOT storage. Baseline is `dc41764`; main product baseline is `676e2f8`.
   `just setup` already passed. Paths shown to the user include the worktree prefix.
+  Run commands from the canonical worktree path (`pwd -P`), avoiding pytest's
+  ELOOP through the `.worktrees` symlink in open_root.
 - Proposed cut number is **45**, following cut 44. Task 0 rechecks branches and
   worktrees before freezing; a newly occupied number requires an explicit plan
   amendment, not overwriting another cut. Freeze before changing product code.
@@ -155,9 +158,9 @@ The assertions are frozen in Task 0; changing one requires a disposition.
 | G13-b | `complete_report`: every irrelevant exclusion appears once, sorted | Apply relation matching before predicate |
 | G13-c | `early_error`: caught pre-completion error reports empty incomplete exclusions under both scan orders | Expose decisions while incomplete |
 | G13-d | `late_error`: caught late consulted error retains completed exclusions and original reason | Reset report in exception handler |
-| G13-e | `late_absence`: missing selected run after scans yields unavailable-corpus-absent with complete report | Mark every absence incomplete |
+| G13-e | `late_absence`: supplied lineage snapshot not_present yields unavailable-corpus-absent with complete report | Mark every absence incomplete |
 | G13-f | `supplied_context`: forged gather context raises before reads even without policy | Remove supplied-acceptance guard |
-| G13-g | `pure_incomplete`: pure refusal after binding guard and before consulted walk | Remove pure incomplete guard |
+| G13-g | `pure_incomplete`: pure refusal after binding guard and before consulted walk; wrapper bad-binding refusal carries empty incomplete report before reads | Remove pure incomplete guard |
 | G13-h | `closure_statement`: statement changes digest; unrelated exclusion does not; both closure paths agree | Omit acceptance_policy from projection |
 | G13-i | `two_policies`: same view, different calls, no decision/snapshot cache leakage | Return unrestricted snapshot cache on filtered call |
 | G13-j | `capture_integrity`: damaged/absent coverage cannot be hidden by reject-all | Return rejected-pool answer before coverage checks |
@@ -177,8 +180,9 @@ freeze commit/hash and task children for Tasks 0–7 under `beliefs-d9bc57`.
   Amend correction-standing prose to name both filtered resolvers; add the four
   rows to the formal-model coverage inventory and `GUARANTEE_TABLES["G"]`.
 - [ ] Write `docs/designs/2026-10-02-conformance-cut-45.md` using cut 44's seven
-  sections: frozen header with spec/plan paths; scope; boundary; this complete
-  arm/check table; accounting `(34,34,4)`; N2/acceptance obligations; limitations.
+  headings: What this cut is; The boundary; Selection; Accounting; N2 and
+  acceptance obligations; Second reader; Limitations. Include a frozen header
+  with spec/plan paths, this complete arm/check table and accounting `(34,34,4)`.
   Prefix is `("cut44_acceptance.py",)`; phases are
   `("test_belief_acceptance.py", "test_n2_cut45.py")`. Task 5 declares eight
   durable test functions. Include both resolver definitions, refusal parity and
@@ -276,9 +280,10 @@ and `test_acceptance.py`.
   and `hold_shipped`. Raw malformed records use `fixtures_cut4.raw_write`,
   then a fresh view; never mutate an already-open capture and claim it reread.
   G12-d has a multi-hop chain whose excluded counter is not directly adjacent.
-  G12-g adds a drift-only record with a deprecated id that would resolve a
-  ref if the full captured resolver were wrongly used. Assert the restricted
-  resolver does not resolve that alias, while the snapshot resolver does.
+  G12-g adds a drift record whose live id equals a mapped deprecated address.
+  The full captured resolver returns the drift node (live ids override aliases),
+  while the mapped resolver returns the inventoried node. Assert those distinct
+  results; avoid deprecated aliases whose outcome depends on iteration order.
   To prove the ordinary fold actually uses the restricted resolver, first
   compute snapshot standing, supply that same result through the snapshot
   method, then observe full-capture resolver calls during gather. An accepted
@@ -430,11 +435,11 @@ all corpus-backed outcomes carry the correct report.
   repeated predicate calls. These are representative boundary errors, not an
   exhaustive exception taxonomy. Existing contract tests retain real mismatch
   coverage; the sentinels isolate timing here.
-- [ ] G13-e injects `_absence_of(view,"run:run-a") == BETA` only at the
-  selected run's lookup, delegating all other refs to the original helper.
-  This isolates the late runs-loop branch: a carrier absent when the view opens
-  is already caught by the unconditional coverage preflight and would not test
-  this boundary. Assert the late absence answer after completed scans.
+- [ ] G13-e supplies a LineageSnapshot with a reachable `not_present` entry in
+  its context; `absences(snapshot)` discovers it after the runs loop. Assert the
+  late absence answer after completed scans without monkeypatches. Run/claim
+  late-absence branches are defensive for world reads: view.absent already
+  catches genuinely absent covered corpora before selection.
   Separately make a real covered BETA carrier absent and assert incomplete
   report; G13-j proves reject-all cannot hide that absence or damaged coverage.
   Neither may become no-eligible-assessment.
@@ -443,7 +448,11 @@ all corpus-backed outcomes carry the correct report.
   MalformedRecord("supplied-acceptance-context") before all those reads.
 - [ ] Run `just test-one tests/test_acceptance.py -k g13`. Reject incoming
   context.acceptance at the existing gather guard site. Wrapper binding guard
-  stays first. `_evaluate_over_inputs` creates one state and calls `_gather`
+  stays first. `_evaluate_over_inputs` creates one state **before** that guard,
+  so its initial report is AcceptanceContext(statement, (), False). Add the
+  wrapper bad-binding case to G13-g using a read sentinel; assert Refused retains
+  that incomplete report with NotReached. Unrestricted bad binding keeps None.
+  Valid binding then calls `_gather`
   directly. Every existing caught exception projects `selection.report` onto
   its existing answer; do not add new catches or rerun the predicate.
 - [ ] Call `selection.finish()` after verification scanning and correction scoping,
@@ -573,8 +582,8 @@ runner accounting `(34,34,4)`, frozen declaration hash and prior pins.
   Task 0. declared_accounting checks exact 34/34 and G10/G11/G12/G13 rows.
   Success prints `guarantee rows exercised: 4 (4 newly closed: G10, G11, G12, G13)`.
   Add recent-cut row `(cut45, 45, (34, 34, 4))` and that line assertion.
-- [ ] Run Task 7's bounded pilot now, before the first fast run can collect the
-  full new guard. Record its verdict with the current source/declaration hashes;
+- [ ] Run Task 7's bounded pilot now before the full mutation audit.
+  Record its verdict with the current source/declaration hashes;
   Task 7 reuses that evidence if those hashes are unchanged.
 - [ ] GREEN: `just test-one tests/test_recent_cut_acceptance.py
   tests/test_arm_staleness.py tests/test_capability_boundary.py
@@ -607,9 +616,9 @@ runner accounting `(34,34,4)`, frozen declaration hash and prior pins.
   ```
 
   The new guard uses `test_n2.workers()` for bounded pools, rather than copying
-  cut 44's hard-coded eight workers. Normal fast checks may collect the full
-  guard automatically; Task 6 runs the bounded pilot before its first such fast
-  run. This pilot orders verification and does not
+  cut 44's hard-coded eight workers. The fast suite ignores tests/acceptance;
+  explicit test-one paths and the runner collect the guard. This pilot orders
+  the extended mutation audit and does not
   create a second acceptance mode.
 - [ ] Run the complete successor runner through the recorded front door:
 

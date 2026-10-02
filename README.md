@@ -29,13 +29,13 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Eighty-three documents in `docs/designs/`: the banked redesigns, review
+Eighty-four documents in `docs/designs/`: the banked redesigns, review
 disposition, adoption ledger, measurements, rulings, and contributor-guide
-design written 2026-08-02 through 2026-10-01. Read them in this order:
+design written 2026-08-02 through 2026-10-02. Read them in this order:
 
 | document | what it rules |
 |---|---|
-| `2026-08-02-epistemic-kernel-design.md` | what belief is, what may change it, and what the system does not claim (guarantees G1–G9) |
+| `2026-08-02-epistemic-kernel-design.md` | what belief is, what may change it, and what the system does not claim (guarantees G1–G13) |
 | `2026-08-02-substrate-consolidation-design.md` | the `nodes`/`atoms` seam and the profile a corpus runs under (S1–S9) |
 | `2026-08-02-world-addressing-design.md` | addresses, corpora, and the world index (W1–W16) |
 | `2026-08-02-computation-reproducibility-design.md` | runs, recipes, replay, and lineage (R1–R23) |
@@ -118,6 +118,7 @@ design written 2026-08-02 through 2026-10-01. Read them in this order:
 | `2026-09-27-conformance-cut-42.md` | the discharged remote publish cut: the transport seam, the mark, step 7's evaluation and verification, orphans, `publish-unfinished`, the remote recovery rows and `publication_tip`; Y11–Y16 closed in full, 14 declaration units, the cut 41 runner as prefix |
 | `2026-09-27-conformance-cut-43.md` | the discharged multi-corpus session cut: J12–J15 closed, 9 declaration units and 9 arms; cut 42 runner as prefix |
 | `2026-10-01-conformance-cut-44.md` | the discharged mount-citations cut: J16–J21 closed, 24 declaration units and 24 arms; cut 43 runner as prefix |
+| `2026-10-02-conformance-cut-45.md` | frozen belief-acceptance cut: G10–G13 open, 34 declaration units/arms; cut 44 runner as prefix |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -228,7 +229,7 @@ input its corpus does not hold. The latest discharged boundary is cut 44
 [results](docs/plans/2026-10-01-conformance-cut-44-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **247 rows** across **twenty-two frozen
+test before it is a passing one. There are **251 rows** across **twenty-two frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q, U, Y, Z), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.

@@ -226,8 +226,9 @@ fitted result into independent validation.
 
 Forty-four conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple.
-Cut 44 discharges mount citations and J16–J21: 220 of 247 rows are
-closed across twenty-two tables, with 27 open. The complete
+Cut 44 discharges mount citations and J16–J21: 220 of 251 rows are
+closed across twenty-two tables, with 31 open after cut 45 banks G10–G13.
+Belief acceptance is the current commons prerequisite in world-read. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
 implemented; `contract-cut` is the roadmap's next off-path boundary. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01)
@@ -288,6 +289,7 @@ exact selection; the results record under `../plans/` holds the evidence.
 | [42](../designs/2026-09-27-conformance-cut-42.md) | Discharged remote publish act (Y11–Y16 closed); transport, recovery, and recipient tip reading |
 | [43](../designs/2026-09-27-conformance-cut-43.md) | The multi-corpus session (J12–J15), discharged after cut 42 |
 | [44](../designs/2026-10-01-conformance-cut-44.md) | Citations into mounted corpora (J16–J21), discharged |
+| [45](../designs/2026-10-02-conformance-cut-45.md) | Belief acceptance (G10–G13), frozen before implementation |
 
 ## Open edges
 
