@@ -150,6 +150,16 @@ def test_g13_i_two_policies(tmp_path):
         assert inputs.acceptance is not None
         assert inputs.acceptance.excluded == ((LOCAL_CORPUS_ID, rejected[0]),)
     assert len(seen) == 12 and len(set(seen)) == 6
+    world, roots, published = split_evaluation_world(tmp_path / "world", beta_refs=())
+    root = snapshot_retraction(open_world_view(world, published).producer_snapshot_identity())
+    raw_write(roots[ALPHA], root)
+    counter = retracts(root, "counter")
+    raw_write(roots[ALPHA], counter)
+    view = open_world_view(world, published)
+    assert view.snapshot_standing().history
+    assert _gather_world(view, {root.id}).retractions.found == ()
+    with pytest.raises(ProducerSnapshotRetracted):
+        _gather_world(view, {counter.id})
 
 
 def test_g13_j_capture_integrity(tmp_path):
@@ -174,12 +184,94 @@ def test_g13_j_capture_integrity(tmp_path):
             assert admission == belief.NotReached()
 
 
+@pytest.mark.parametrize("case", ("clean", "counter", "split", "corrupt", "malformed", "drift", "snapshot", "absent", "binding"))
+def test_g12_l_accept_all_refusal_parity(tmp_path, case):
+    from test_world_view import make_absent
+    length = 2 if case in {"counter", "split"} else 1 if case == "corrupt" else 0
+    world, roots, published, chain = _ordinary_chain(tmp_path, length)
+    if case == "split":
+        move(writer_at(roots[ALPHA], profile_with()), writer_at(roots[BETA], profile_with()), chain[1].id, **MOVE_FIELDS)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    elif case == "corrupt":
+        enumeration = replace(open_world_view(world, published).retraction_enumeration(), found=((chain[0].id, RETRACTION_OVERTURNED),))
+        receipt = document(published, "retraction-receipt.yaml")
+        receipt["enumeration"] = derive.retraction_enumeration_projection(enumeration)
+        receipt["subject"] = derive.retraction_enumeration_identity(enumeration)
+        published = repackage(world, published, {"retraction-receipt.yaml": receipt})
+    elif case == "malformed":
+        raw_write(roots[ALPHA], Node(id="retraction:bad", kind="retraction", title="bad"))
+    elif case == "drift":
+        node = support_in(open_world_view(world, published), ALPHA).model_copy(deep=True)
+        node.deprecated_ids.append("assessment:drift-alias")
+        raw_write(roots[ALPHA], node)
+    elif case == "snapshot":
+        root = snapshot_retraction(open_world_view(world, published).producer_snapshot_identity())
+        raw_write(roots[ALPHA], root)
+        raw_write(roots[ALPHA], retracts(root, "snapshot-counter"))
+    elif case == "absent":
+        make_absent(roots, BETA)
+    view = open_world_view(world, published)
+    kwargs = over_kwargs(world_kwargs(view, profile_with()))
+    if case == "binding":
+        kwargs["binding"] = object()
+    outcomes = []
+    for policy in (None, _policy()):
+        try:
+            answer, admission = evaluate_over_traced(view, PROPOSITION_REF, **kwargs, acceptance=policy)
+        except (RetractionResolutionDisagreement, RetractionUnreadable, ProducerSnapshotRetracted) as refused:
+            outcomes.append((type(refused), str(refused), getattr(refused, "ref", None)))
+        else:
+            if isinstance(answer, belief.Belief):
+                outcomes.append((type(answer), answer.value, answer.policy_binding, admission))
+            else:
+                outcomes.append((type(answer), answer.reason, getattr(answer, "detail", None), admission))
+    assert outcomes[0] == outcomes[1]
 
 
+def test_rejected_malformed_verification_and_local_correction(tmp_path, monkeypatch):
+    fixture = _fixture(tmp_path, PROPOSITION_REF)
+    verification = fixture.view.get("verification:v-1").model_copy(update={"facets": {}}, deep=True)
+    raw_write(tmp_path, verification)
+    correction = Node(id="retraction:bad", kind="retraction", title="bad")
+    raw_write(tmp_path, correction)
+    original = stored.verification_value
+    def decode(node):
+        assert node.id != verification.id, "rejected verification decoded"
+        return original(node)
+    monkeypatch.setattr(stored, "verification_value", decode)
+    inputs = gather(reopen(tmp_path), PROPOSITION_REF, **fixture.gather_kwargs,
+                    acceptance=_policy(verification.id, correction.id))
+    assert inputs.acceptance is not None and inputs.acceptance.complete
+    assert not inputs.retractions.found
+    assert verification.id not in {v.ref for v in inputs.verifications}
 
 
+def test_canonical_correction_alias_decides_once(tmp_path, monkeypatch):
+    world, roots, published, (root,) = _ordinary_chain(tmp_path)
+    alias = "retraction:old"
+    raw_write(roots[ALPHA], root.model_copy(update={"deprecated_ids": [alias]}))
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    view = open_world_view(world, published)
+    enumeration = replace(view.retraction_enumeration(), found=((alias, RETRACTION_UPHELD),))
+    monkeypatch.setattr(type(view), "retraction_enumeration", lambda _self: enumeration)
+    seen = []
+    kwargs = world_kwargs(view, profile_with())
+    inputs = gather(view, PROPOSITION_REF, context=kwargs["context"], profile=profile_with(),
+                    resolution=kwargs["resolution"], binding=kwargs["binding"],
+                    acceptance=belief.AcceptancePolicy(lambda c, r: seen.append((c, r)) or True, "policy"))
+    assert seen.count((ALPHA, root.id)) == 1
+    assert (ALPHA, alias) not in seen and root.id in dict(inputs.retractions.found)
 
 
+def test_excluded_evidence_holder_still_serves_dependencies(tmp_path):
+    from dataset_fixtures import dataset_ref
+    world, _roots, published = split_evaluation_world(tmp_path, beta_refs=("proposition:p", dataset_ref("d-a"), "assessment:a-2"))
+    view = open_world_view(world, published)
+    kwargs = over_kwargs(world_kwargs(view, profile_with()))
+    answer, admission = evaluate_over_traced(view, PROPOSITION_REF, **kwargs,
+        acceptance=belief.AcceptancePolicy(lambda c, _r: c != BETA, "alpha evidence"))
+    assert isinstance(answer, belief.Belief) and isinstance(admission, belief.Reached)
+    assert answer.acceptance is not None and (BETA, "assessment:a-2") in answer.acceptance.excluded
 
 
 def _policy(*rejected):
@@ -667,6 +759,7 @@ def test_g12_k_snapshot_history(tmp_path):
 
 
 def test_g13_a_policy_validation(tmp_path):
+    test_acceptance_value_validation()
     # Truth coercion or retrying a raising predicate must fail this check.
     world, _roots, published, _chain = _ordinary_chain(tmp_path)
     view = open_world_view(world, published)
