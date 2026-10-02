@@ -29,8 +29,8 @@ argument, called again every time it is asked).
 from __future__ import annotations
 
 import itertools
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import final
 
@@ -42,6 +42,7 @@ from beliefs.consulted import CorpusPins, consulted_contracts
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import ContractDisagreement, MalformedRecord
 from beliefs.facet_read import FacetRead
+from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot, certify
 from beliefs.policy import (
     AggregationInput,
@@ -59,6 +60,8 @@ from beliefs.verification import ADMITTED, Verification, lifecycle_state
 __all__ = [
     "NO_BELIEF_REASONS",
     "OUTCOME_SIGNS",
+    "AcceptanceContext",
+    "AcceptancePolicy",
     "Availability",
     "Belief",
     "NoBelief",
@@ -95,6 +98,42 @@ inputs reach a record the epoch maps to a covered corpus with no carrier
 (world-resolution slice 1 §5.3)."""
 
 
+def _acceptance_statement(statement: str) -> None:
+    if type(statement) is not str or not statement:
+        raise MalformedRecord("acceptance-statement-not-text")
+    v1.encode(statement)
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class AcceptancePolicy:
+    """One caller-pinned selection predicate and its opaque identity statement."""
+
+    counts: Callable[[str, str], bool]
+    statement: str
+
+    def __post_init__(self) -> None:
+        if not callable(self.counts):
+            raise MalformedRecord("acceptance-predicate-not-callable")
+        _acceptance_statement(self.statement)
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class AcceptanceContext:
+    statement: str
+    excluded: tuple[tuple[str, str], ...]
+    complete: bool
+
+    def __post_init__(self) -> None:
+        _acceptance_statement(self.statement)
+        if not self.complete and self.excluded:
+            raise MalformedRecord("incomplete-acceptance-exclusions")
+        object.__setattr__(self, "excluded", tuple(sorted(set(self.excluded))))
+
+
 @sealed
 @final
 @dataclass(frozen=True)
@@ -105,6 +144,7 @@ class Belief:
     answer has no committed input set to digest."""
 
     policy_binding: PolicyBinding
+    acceptance: AcceptanceContext | None = None
 
 
 @sealed
@@ -113,6 +153,7 @@ class Belief:
 class NoBelief:
     reason: str
     detail: str = ""
+    acceptance: AcceptanceContext | None = None
 
     def __post_init__(self) -> None:
         if self.reason not in NO_BELIEF_REASONS:
@@ -124,6 +165,7 @@ class NoBelief:
 @dataclass(frozen=True)
 class Refused:
     reason: str
+    acceptance: AcceptanceContext | None = None
 
 
 @sealed
@@ -230,6 +272,7 @@ class SuppliedContext:
     producer_snapshot_identity: str
     node_corpus: Mapping[str, tuple[str, ...]]
     pins: Mapping[str, CorpusPins]
+    acceptance: AcceptanceContext | None = None
 
     def __post_init__(self) -> None:
         if any(
@@ -264,12 +307,35 @@ def evaluate_traced(
     binding: object,
     profile: ProfileSpec,
 ) -> tuple[Belief | NoBelief | Refused, Admission]:
+    """Evaluate selected inputs and accompany every answer with its selection."""
+    answer, admission = _evaluate_traced(
+        proposition=proposition, records=records, availability=availability,
+        context=context, retractions=retractions, binding=binding, profile=profile,
+    )
+    if context.acceptance is not None:
+        answer = replace(answer, acceptance=context.acceptance)
+    return answer, admission
+
+
+def _evaluate_traced(
+    *,
+    proposition: str,
+    records: Records,
+    availability: Availability,
+    context: SuppliedContext,
+    retractions: RetractionEnumeration,
+    binding: object,
+    profile: ProfileSpec,
+) -> tuple[Belief | NoBelief | Refused, Admission]:
     """Belief-policy §4's evaluation order, exactly, top to bottom, and the
     admission the answer rests on — `not-reached` for every answer given
     before step 5 completed (design §6.2)."""
     # 1. The binding is exact, or nothing computes (P1).
     if not isinstance(binding, PolicyBinding):
         return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"), NotReached()
+
+    if context.acceptance is not None and not context.acceptance.complete:
+        return Refused("acceptance-selection-incomplete"), NotReached()
 
     # 2. The consulted-contract walk, over the closure's assessments, runs and observed datasets
     # (D7, unchanged: a cross-corpus disagreement refuses, never merges).

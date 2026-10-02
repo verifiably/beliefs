@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/acceptance-filter
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T10:12:18Z
+updated: 2026-10-02T10:32:10Z
 started: 2026-10-02T08:09:25Z
 depends: []
 tags: [belief]
@@ -57,3 +57,4 @@ Requirement from science's commons design §9: belief must count a record only w
 - 2026-10-02T10:05:52Z (feat/acceptance-filter): review: plan round 1 — verdict: revise; findings: P2 2, P3 5; reviewer: claude-code/claude-opus-5-5
 - 2026-10-02T10:07:00Z (feat/acceptance-filter): Ruling: plan round 1 corrections are adopted and execution approved under the user instruction to freeze/start without another review round. G13-e uses reachable supplied lineage not_present; wrapper state precedes binding guard. P3 corrections: explicit acceptance collection only, real cut headings, reliable live-id/alias drift fixture, canonical cwd. Product code still untouched before freeze.
 - 2026-10-02T10:12:18Z (feat/acceptance-filter): claimed by codex/gpt-6, pid 3565319; executing corrected plan natively. Freeze scan shows no competing cut 45; roadmap inventory 220/251 with G10–G13 banked open.
+- 2026-10-02T10:32:10Z (feat/acceptance-filter): Ruling: group Tasks 2–4 into one implementation commit because their invocation state, evidence scans and completion/digest forwarding form one gather path. Keep each task RED/GREEN checks and ledger, then run test-fast against the combined result before committing all three child dispositions. Assertions, frozen cut, public contract and final review unchanged; avoids three full gates for partial versions under current one-worker budget.
