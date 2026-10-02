@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: research/n2-preflight-pilot
 created: 2026-09-29T22:33:07Z
-updated: 2026-10-02T17:28:18Z
+updated: 2026-10-02T17:29:49Z
 started: 2026-10-02T16:48:02Z
 completed: 2026-10-02T16:55:26Z
 depends: []
@@ -43,3 +43,4 @@ Ideas it wakes: On completion, run tasks note beliefs-89542c with the finding in
 - 2026-10-02T17:25:29Z (research/n2-preflight-pilot): cleanup: fully merged pilot worktree removed after integration68e4bf1; branch retained. All copied cases/results/logs preserved byte-for-byte in main .work/experiments/n2-preflight-pilot; probe scripts/timing harvests archived there. No host pointers or unmerged changes.
 - 2026-10-02T17:26:11Z (research/n2-preflight-pilot): cleanup status correction: the preceding cleanup note describes the prepared outcome; worktree removal is pending final document checks and commit. All432 original pilot files are already archived and hash-verified.
 - 2026-10-02T17:28:18Z (research/n2-preflight-pilot): cleanup verification: documents23/23 in1.01s, static0errors/0warnings, fast6080 passed/1 existing skip in81.47s; archive432 original files hash-verified. Final commit/integration and worktree removal follow; no product code or frozen cut bodies changed.
+- 2026-10-02T17:29:49Z (main): cleanup complete: git worktree removal succeeded; only main remains registered. Pilot branch retained,432 original artifact files preserved/hash-verified in main .work/experiments/n2-preflight-pilot, timings harvested.
