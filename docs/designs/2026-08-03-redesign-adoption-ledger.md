@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-10-01)
+## Current state (2026-10-02)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,14 +46,18 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-10-01** for cut 44's discharge of `mount-citations`: J16–J21 close, and the `write-path` lane, reopened at cut 44's freeze, closes again. The corpus has **220 of 247 rows closed, 27 open**. Cut 43's discharge of `multi-corpus-session` closed J12–J15, and
+**Updated 2026-10-02** for cut 45's discharge of `belief-acceptance`: G10–G13
+close, and `world-read` closes that commons milestone 1a boundary. The corpus
+has **224 of 251 rows closed, 27 open**. Cut 44 discharged `mount-citations`,
+closing J16–J21 and the `write-path` lane. Cut 43's discharge of
+`multi-corpus-session` closed J12–J15, and
 Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
 partial on T7's cross-root case; L1 stays partial on its persistence arms.
 
-**Implemented through conformance cut 44.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 45.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–44 record discharge in their dated results records, most recently
-`../plans/2026-10-01-conformance-cut-44-results.md`.
+and cuts 26–45 record discharge in their dated results records, most recently
+`../plans/2026-10-02-conformance-cut-45-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -437,6 +441,17 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   review found unexercised are now tested (results §3). Main integration follows
   Task 10.
 
+- **Belief acceptance**, built 2026-10-02 at cut 45
+  ([results](../plans/2026-10-02-conformance-cut-45-results.md)): one supplied
+  predicate selects assessments, verifications and corrections before their
+  semantic reads and effects. Rejected twins preserve accepted verification
+  edges without entering correction scope; ordinary standing uses mapped
+  records and surviving inventoried facets, snapshot standing uses the full
+  capture, and answers report completion and exclusions. The exact statement
+  joins the selected closure digest. **G10–G13 close; `belief-acceptance` is
+  discharged.** This branch is retained for integration; publication attribution
+  (`beliefs-f50596`) remains the next commons prerequisite.
+
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
 carries no priority; ordering over these rows lives in
@@ -458,10 +473,10 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-10-01-conformance-cut-44-results.md`) discharges mount citations.
-J16–J21 close; after cut 45 banks G10–G13, the corpus has **220 of 251**
-rows closed, 31 open. `belief-acceptance` reopens world-read for commons
-milestone 1a; the historical dogfood milestone remains completed. Cut 43
+(`../plans/2026-10-02-conformance-cut-45-results.md`) discharges belief acceptance.
+G10–G13 close; the corpus has **224 of 251** rows closed, 27 open.
+The historical dogfood milestone remains completed. Cut 44 discharged mount
+citations and closed J16–J21. Cut 43
 (`../plans/2026-09-27-conformance-cut-43-results.md`) discharged the multi-corpus
 session and closed J12–J15. L1 stays partial on its persistence
 arms under `persistence-cut`, and T7 on its cross-root case under
@@ -564,7 +579,7 @@ roadmap to one set of ids.
 
 The artifact rows and §3 preserve the dated adoption history; their original
 "awaits implementation" statements describe those earlier cuts. Use
-[Current state](#current-state-2026-09-16) for the live remainder.
+[Current state](#current-state-2026-10-02) for the live remainder.
 
 > **Artifact status reconciliation (2026-09-10, through cut 24).** Row 5's
 > general intent qualification closed at cut 11 and G4 at cut 12; its live

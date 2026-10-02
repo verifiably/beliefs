@@ -1142,12 +1142,12 @@ remains undetectable.
 
 ### 5.1 The belief input closure (G3)
 
-Acceptance scope (cut 45 freeze): for a supplied policy, G3 commits the selected
+Acceptance scope (discharged at cut 45): for a supplied policy, G3 commits the selected
 closure and the opaque acceptance statement; global excluded addresses explain
 selection and are not closure members. G8 applies to surviving accepted
 verifications. Selection precedes semantic reads, identity collapse and standing
 (spec `../superpowers/specs/2026-10-02-belief-acceptance-design.md`). Unrestricted
-calls keep their existing projection. G10–G13 are banked, open until discharge.
+calls keep their existing projection. G10–G13 are discharged; see `../plans/2026-10-02-conformance-cut-45-results.md`.
 
 
 Naming assessments is not sufficient. Admission depends on verification state,

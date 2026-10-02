@@ -1,15 +1,16 @@
 ---
 id: beliefs-d9bc57
 title: "Acceptance predicate on gather: counts(corpus_id, address) before retraction folding, policy in the context (science commons §9)"
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: planned
 owner: feat/acceptance-filter
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-02T10:32:10Z
+updated: 2026-10-02T12:38:39Z
 started: 2026-10-02T08:09:25Z
+completed: 2026-10-02T12:38:39Z
 depends: []
 tags: [belief]
 source: sci-fe8522
@@ -58,3 +59,9 @@ Requirement from science's commons design §9: belief must count a record only w
 - 2026-10-02T10:07:00Z (feat/acceptance-filter): Ruling: plan round 1 corrections are adopted and execution approved under the user instruction to freeze/start without another review round. G13-e uses reachable supplied lineage not_present; wrapper state precedes binding guard. P3 corrections: explicit acceptance collection only, real cut headings, reliable live-id/alias drift fixture, canonical cwd. Product code still untouched before freeze.
 - 2026-10-02T10:12:18Z (feat/acceptance-filter): claimed by codex/gpt-6, pid 3565319; executing corrected plan natively. Freeze scan shows no competing cut 45; roadmap inventory 220/251 with G10–G13 banked open.
 - 2026-10-02T10:32:10Z (feat/acceptance-filter): Ruling: group Tasks 2–4 into one implementation commit because their invocation state, evidence scans and completion/digest forwarding form one gather path. Keep each task RED/GREEN checks and ledger, then run test-fast against the combined result before committing all three child dispositions. Assertions, frozen cut, public contract and final review unchanged; avoids three full gates for partial versions under current one-worker budget.
+- 2026-10-02T11:38:26Z (feat/acceptance-filter): review: impl round 1 — verdict: accept; findings: P3 1; reviewer: codex/gpt-6-astra
+- 2026-10-02T12:38:38Z (feat/acceptance-filter): retro: The reachable lineage-absence fixture and twin-address split prevented silent acceptance mistakes. The bounded mutation pilot caught G10-e bypassing only one of two preflights before declaration banking. Grouped dependent tasks kept the fast loop bounded; the full successor chain supplied inherited evidence. Tool evidence-tail friction filed as tack-af4ca5; no product follow-up from the accepted implementation review.
+- 2026-10-02T12:38:39Z (feat/acceptance-filter): done
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}
+- 2026-10-02T12:38:39Z (feat/acceptance-filter): Implemented and discharged acceptance before evidence and standing effects with statement-bound closure and deterministic reports; G10–G13 closed, all cut 45 gates passed, branch retained for integration.
+  provenance: {"harness_session":"codex:01a0fba6-b334-7252-a61e-7aedd3e230bb","harness_session_source":"CODEX_SESSION_ID"}

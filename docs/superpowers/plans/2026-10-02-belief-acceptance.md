@@ -21,10 +21,11 @@ at `dc41764` in spec review round 3. Read it before implementation. The review's
 three remaining items are addressed here: refusal parity in G12-l, representative
 early/late errors in G13-c/d, and an appended task attribution correction.
 
-**Status:** approved for execution after the two P2 corrections from plan review
-round 1; corrections incorporated below. Execute natively
-with `superpowers:executing-plans` after approval: these tasks share gather state
-and fold interfaces, so per-task agent handoffs would add coordination overhead.
+**Status:** Tasks 0–7 executed and discharged at cut 45 on 2026-10-02;
+results: `../../plans/2026-10-02-conformance-cut-45-results.md`. Execution used
+`superpowers:executing-plans` after the two P2 plan-review corrections. The
+checkboxes below preserve the approved instructions; task notes and results
+record the completed steps and execution dispositions.
 
 ## Global Constraints
 

@@ -1,13 +1,13 @@
 # Belief acceptance before evidence and correction effects
 
 **Date:** 2026-10-02  
-**Status:** approved 2026-10-02; plan approved after review corrections; frozen as cut 45 before implementation
+**Status:** implemented and discharged at cut 45 on 2026-10-02; results: `../../plans/2026-10-02-conformance-cut-45-results.md`
 **Review:** spec round 3 accepted revision `dc41764`; reviewer `claude-code/claude-opus-5-5`, forwarded by the user. Three nonblocking planning items are carried into the implementation plan.
 **Task:** `beliefs-d9bc57`  
-**Boundary:** `belief-acceptance`, proposed in the `world-read` lane  
+**Boundary:** `belief-acceptance`, discharged in the `world-read` lane
 **Workspace:** `.worktrees/acceptance-filter`, branch `feat/acceptance-filter`  
 **Measured against:** main `676e2f8`; the worktree starts at `f5a8ac2`, which adds only the task claim  
-**Cut:** numbered at freeze after the spec and implementation-plan reviews; no cut is frozen here
+**Cut:** 45, frozen at `4bec463` after the spec and implementation-plan reviews
 
 ## 1. Intent and scope
 

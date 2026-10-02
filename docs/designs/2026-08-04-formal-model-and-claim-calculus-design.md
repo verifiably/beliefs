@@ -959,7 +959,6 @@ rather than half-blank.
 | G7 | a semantic edit mints a new identity, prior bindings hold, old belief unmoved / a `title` overwrite mints nothing | **CS** + **OInv** / **OInv** |
 | G8 | a failing verification invalidates and forces recomputation; cleared only by resolution or standing retraction / deleting it restores admission | **FC** / **DL** |
 | G9 | a recorded content identity with no bytes is minted and reads `declared`, never `held` / bytes whose digest disagrees do not promote, and the state is derived rather than stored / matching bytes held anywhere, in or out of the repository, promote alike / the path-exists predicate fails **G9** while G2b, R5 and R10 pass (added 2026-08-09) | **FC** / **CS** + **FC** / **OInv** / **DL** |
-
 | G10 | assessment selection precedes semantic decode/collapse; excluded twins are inert | **FC** / **OInv** |
 | G11 | verification selection precedes lifecycle; accepted twin-target edges still apply without widening correction scope | **FC** / **CS** |
 | G12 | selected corrections fold before effects/validation, with mapped ordinary oracle and full-capture snapshot history | **FC** / **CS** |

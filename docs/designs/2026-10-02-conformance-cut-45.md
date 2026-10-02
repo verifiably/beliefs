@@ -1,6 +1,6 @@
 # Conformance cut 45 — belief acceptance
 
-**Status:** frozen 2026-10-02, before product implementation; G10–G13 open.
+**Status:** discharged 2026-10-02; G10–G13 closed. Frozen before product implementation at `4bec463`; results: `../plans/2026-10-02-conformance-cut-45-results.md`.
 **Spec:** `../superpowers/specs/2026-10-02-belief-acceptance-design.md`.
 **Plan:** `../superpowers/plans/2026-10-02-belief-acceptance.md`.
 Numbered after cut 44 under the roadmap's successor rule.

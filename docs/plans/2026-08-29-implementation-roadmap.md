@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 44, against the ledger's Current state (2026-10-01)
+**Ranked at:** cut 45, against the ledger's Current state (2026-10-02)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -14,7 +14,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-02`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -233,7 +233,8 @@ its second-project measurement has not run. The §22 reproduction re-run remains
 one-corpus library compatibility evidence, with the same `NoBelief` and byte-identical
 state. Main integration is Task 8 of this lane.
 
-The current accounting is 220 of 247 rows closed, with 27 open. The prior
+Cut 45 (2026-10-02) discharges `belief-acceptance` and closes G10–G13.
+The current accounting is 224 of 251 rows closed, with 27 open. The prior
 single-corpus mm30 measurement has no remaining on-path boundary; cuts 43 and 44 close the kernel prerequisites for measuring a second corpus. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state; cut 32 re-ran it again under a further successor and composed and read the `h1-prognosis` fragment from the recreated corpus, which measures structure rather than the on-path question; cut 33 re-derived the same `NoBelief` answer with the empty retraction enumeration derived rather than supplied; cut 34 read the same corpus in place (no contract succeeded to move it aside) and re-derived the same answer, with the new arm exercised only by the acceptance module, not by mm30's corpus; cut 35 read it in place once more and re-derived the same answer with `state.json` byte-identical, its five stored holdings observations all `store` locations decoding unchanged through the widened codec — the `url` arm and the `acquisition` operation are exercised only by the acceptance module; cut 36 read it in place again and re-derived the same answer with `state.json` byte-identical — the event-level relation is read by no driver step, and mm30's single corpus chain orders no cross-chain pair. Cut 37 read it in place again and re-derived the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing; cut 38 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver audits through the bare evaluator and re-checks no holding; cut 39 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's manifest pins no coordination contract; cut 40 read it in place again and re-derived the same answer with `state.json` byte-identical — mm30's world publishes nothing, so the act and the arrival door are not reached; cut 41 read it in place again and re-derived the same answer with `state.json` byte-identical — the driver evaluates no view query, live or epoch-bound. None of these later measurements re-ranks the path.
 
 ## Boundary index
@@ -303,7 +304,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | `composite-claims` | none — `composite-claims` closed at cut 32 | `contract/base.py`, `contract/domain.py`, `profile.py`, `composite.py`, `stored.py`, `corpus.py`, `audit.py`, `belief.py`, `evaluation.py`, `permit.py`, `resolution.py`, `errors.py`, both `CONTRACT.yaml` copies, the TypeScript contract and profile parsers, and the reproduction driver; the overlap with `world-read` and `mutation` on `corpus.py`, `audit.py`, `evaluation.py` and `belief.py` was named at the freeze under rule 3 | closed 2026-09-16 at cut 32 |
 | `live-query` | none — `live-query` closed at cut 41 | `world/selection.py` and `world/live.py`; the overlap with `world-read` on `world/view.py` (one private method, one type alias) and `corpus.py` (one protocol, one annotation) was named at the freeze under rule 3 | closed 2026-09-25 at cut 41 |
 | `estimand-typing` | none — `estimand-typing` closed at cut 31 | `estimand.py`, `decode.py`, `spec.py`, `record.py`, `assess.py`, `stored.py`, `corpus.py`, `audit.py`, `consulted.py`, `evaluation.py`, `belief.py`, `profile.py`, and the base and domain contracts; the overlap with `world-read` and `mutation` was named at the freeze under rule 3, not discovered in the merge | closed 2026-09-16 at cut 31 |
-| `world-read` | `belief-acceptance` — commons milestone 1a | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py`, `world/audit.py`, `holdings/boundary.py` as each slice names | closed 2026-09-27: `publish` discharged at cuts 39, 40 and 42; `act-report-remainder` discharged at cut 38, the two operations consuming `audit.py`, `world/audit.py` and `holdings/boundary.py` without editing them; event-level L8 discharged at cut 36 (with `log-remainder`); world-resolution discharged at cuts 23–25 and 27–30 |
+| `world-read` | none — `belief-acceptance` closed at cut 45 | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py`, `world/audit.py`, `holdings/boundary.py` as each slice names | closed 2026-10-02: `belief-acceptance` discharged at cut 45; earlier, `publish` discharged at cuts 39, 40 and 42; `act-report-remainder` discharged at cut 38, the two operations consuming `audit.py`, `world/audit.py` and `holdings/boundary.py` without editing them; event-level L8 discharged at cut 36 (with `log-remainder`); world-resolution discharged at cuts 23–25 and 27–30 |
 | `mutation` | none — `correction-remainder` closed at cut 34 | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | closed 2026-09-19 at cut 34 |
 | `acquisition` | none — `url-retrieval` closed at cut 35; its ride-along `act-report-remainder` re-homed to `world-read` with T2's remainder | `holdings/`, `report.py`, `corpus.py`, `session/writer.py`, `intents/`, `stored.py`; the overlap with `world-read` on `corpus.py` and `stored.py` was named at the freeze under rule 3 (spec §12) | closed 2026-09-20 at cut 35 |
 | `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus is the seed of the dogfood's world. Cut 31 re-ran it under the successor contracts into a recreated corpus at `.work/reproduction/mm30` (the 2026-09-05 corpus state moved aside, never deleted, to `.work/reproduction/mm30.cut22`) and appended §10; cut 32 moved the cut-31 state aside to `.work/reproduction/mm30.cut31`, composed and read the `h1-prognosis` fragment twice, and appended §11; cut 33 read that corpus in place and appended §12, deriving the same empty enumeration the driver had supplied; cut 34 read the same corpus in place again (no contract succeeded, so nothing moved aside) and appended §13, reaching the same `NoBelief` answer with no digest moved — the new `snapshot` retraction arm is exercised only by the acceptance module, not by mm30's corpus, which retracts nothing; cut 35 read it in place again and appended §14, the same answer with `state.json` byte-identical and every stored holdings observation a `store` location decoding unchanged through the widened codec; cut 36 read it in place again and appended §15, the same answer with `state.json` byte-identical and the event-level relation read by no driver step; cut 37 read it in place again and appended §16, the same answer with `state.json` byte-identical — the policy pass classifies nothing, since mm30's corpus removes nothing; cut 38 read it in place again and appended §17, the same answer with `state.json` byte-identical — the driver audits through the bare evaluator and re-checks no holding, so neither new operation is reached; cut 39 read it in place again and appended §18, the same answer with `state.json` byte-identical — mm30's manifest pins no coordination contract, so neither the v2 amendment nor the publish doors are reached; cut 40 read it in place again and appended §19, the same answer with `state.json` byte-identical — mm30's world publishes nothing, so neither the local act nor the arrival door is reached; cut 41 read it in place again and appended §20, the same answer with `state.json` byte-identical — the driver evaluates no view query, so neither the live path nor the shared denotation core is reached. Cut 42 appended §21 with the same answer and byte-identical state — mm30 publishes nothing and reaches no remote path. Cut 43 appended §22 with the same answer and byte-identical state — the driver opens no attended session and mounts no second corpus. Cut 44 appended §26 with the same answer and byte-identical state — the driver cites across no mount, and every input mm30's run reads is held, so J21's refusal is not reached. These re-runs measure transitions, not the on-path question, and re-rank nothing |
@@ -380,13 +381,14 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 44
+## Appendix A — live status of every guarantee row at cut 45
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it. Cut 42
 closes Y11–Y16 in full; cut 43 closes J12–J15 in full; cut 44 closes J16–J21
 and reads no row in part, the six row sub-cases its final review found
-unexercised being tested since (cut-44 results §3). L1
+unexercised being tested since (cut-44 results §3). Cut 45 closes G10–G13
+and discharges `belief-acceptance`. L1
 remains partial on its persistence arms, last read at cut 8 and owned by
 `persistence-cut`; W8 remains partial on its ambiguous-search-term
 conflict; R23 and W8a remain partial only on their `contract-cut` clauses;
@@ -399,7 +401,7 @@ banked at cut 41's freeze, is closed in full at its discharge.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
-| G | G10, G11, G12, G13 | — | — |
+| G | — | — | — |
 | S | — | S6 (cut 2) | — |
 | W | W9, W14 | W8 (cut 29), W8a (cut 27) | — |
 | R | — | R22 (cut 18), R23 (cut 27) | — |
@@ -422,7 +424,7 @@ banked at cut 41's freeze, is closed in full at its discharge.
 | Y | — | — | — |
 | Z | — | — | — |
 
-Closed 220 of 251; open 31. Cut 45 banks G10–G13, open in belief-acceptance.
+Closed 224 of 251; open 27. Cut 45 closes G10–G13 and belief-acceptance.
 
 ## Appendix B — classification of every open row
 
@@ -431,7 +433,6 @@ Each open row, its remainder as the last cut states it, and where it goes
 
 | row | remainder (source) | classification → boundary |
 |---|---|---|
-| G10–G13 | acceptance before evidence/correction effects, frozen cut 45 | `belief-acceptance` — world-read |
 | S6 | arm (h), "the first successor policy admitting unequal weights" (cut 2 §4.2; cut 4 §5) | `weighted-belief` — tier 3 |
 | W8 | the ambiguous-search-term conflict, W9's arm restated (cut 29 results §2) | `authority-labels` — tier 3 |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11); W8's ambiguous-search-term conflict joins them at cut 28 | `authority-labels` — tier 3 |

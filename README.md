@@ -118,7 +118,7 @@ design written 2026-08-02 through 2026-10-02. Read them in this order:
 | `2026-09-27-conformance-cut-42.md` | the discharged remote publish cut: the transport seam, the mark, step 7's evaluation and verification, orphans, `publish-unfinished`, the remote recovery rows and `publication_tip`; Y11–Y16 closed in full, 14 declaration units, the cut 41 runner as prefix |
 | `2026-09-27-conformance-cut-43.md` | the discharged multi-corpus session cut: J12–J15 closed, 9 declaration units and 9 arms; cut 42 runner as prefix |
 | `2026-10-01-conformance-cut-44.md` | the discharged mount-citations cut: J16–J21 closed, 24 declaration units and 24 arms; cut 43 runner as prefix |
-| `2026-10-02-conformance-cut-45.md` | frozen belief-acceptance cut: G10–G13 open, 34 declaration units/arms; cut 44 runner as prefix |
+| `2026-10-02-conformance-cut-45.md` | discharged belief-acceptance cut: G10–G13 closed, 34 declaration units/arms; cut 44 runner as prefix |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -126,7 +126,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 44** is implemented and discharged; J16–J21 are closed. What
+Every conformance cut through **cut 45** is implemented and discharged; G10–G13 are closed. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -224,9 +224,11 @@ manifest-pinned profile; coordination resolves across those mounts and reconcili
 matches each act by corpus and registration digest. A session's writes may cite records
 held in its read mounts, while mutation targets stay in the write root; the checks report
 eligibility they cannot decide as a warning, and a corpus-local belief read refuses an
-input its corpus does not hold. The latest discharged boundary is cut 44
-([cut](docs/designs/2026-10-01-conformance-cut-44.md),
-[results](docs/plans/2026-10-01-conformance-cut-44-results.md)).
+input its corpus does not hold. A supplied acceptance policy selects evidence and
+corrections before their effects, reports exclusions, and binds its statement into
+the belief digest. The latest discharged boundary is cut 45
+([cut](docs/designs/2026-10-02-conformance-cut-45.md),
+[results](docs/plans/2026-10-02-conformance-cut-45-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **251 rows** across **twenty-two frozen
@@ -236,7 +238,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-02).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

@@ -296,12 +296,19 @@ the belief policy's P1–P9 and the admission ramp's G9 in cut 2's selection.
 Since cut 33, retraction standing reaches that evaluator at the read:
 assessments and verifications targeted by standing retractions leave its input
 set, and standing route retractions retire lineage routes before certification.
+Since cut 45, `gather`, `evaluate_over` and `evaluate_over_traced` accept
+`acceptance=AcceptancePolicy(counts, statement)`: `counts` receives a corpus id
+and canonical record address and returns a boolean. Selection precedes evidence
+reads and standing effects. Answers carry a completed exclusion report, or an
+incomplete report with no exclusions; incomplete selection cannot yield a
+`Belief`. The exact statement joins the closure digest; exclusions are report
+metadata. Calls without a policy preserve their prior behavior and bytes.
 Verified holdings are a governed stored kind — recorded per location by
 intent-bearing acts and projected under a declared coverage — so an
 observation's admission input is a system record rather than a supplied
 argument. The survey and typing exercise remain hand-run measurements, not
 conformance oracles. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-01)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-02)
 states what remains. The estimand, applicability, estimate and uncertainty are
 typed as of cut 31, with the two commensuration predicates exposed and unread.
 The `composite` kind is built as of cut 32: structures are recorded, read
