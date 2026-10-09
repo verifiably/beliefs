@@ -65,6 +65,13 @@ separate vacuity question.
   This pilot measured 1.07–2.37 seconds per collection process, not inventory-wide
   or steady-state cost. A later scope pass uses this evidence to decide whether
   to extend the N2-only proposal; no rollout is included here.
+  Rescope 2026-10-09: the inventory is 43 `test_n2_cut*.py` guards and about 895
+  `Arm(` declarations, so one collection process per arm at the measured
+  1.07–2.37 seconds is roughly 16–35 serial minutes. That rules out an always-on
+  fast-suite collection. The open choice is whether collection runs only for arms
+  whose target module changed against the merge base (cut 32's D8a broke because
+  `domain.py` changed, not the arm) or inside the N2 phase. `beliefs-f64cf1`'s
+  per-arm cost attribution answers it; `beliefs-89542c` now depends on that task.
 - What caused the transient failure? Unknown; reopen only on recurrence with
   captured output, command, source revision and host/certification state.
 
@@ -73,7 +80,8 @@ separate vacuity question.
 - `beliefs-aa9f88`: **completed** bounded preflight research; findings below and
   on `beliefs-89542c` enter the same result commit.
 - `beliefs-89542c`: **briefed**, remains an idea ready for a later scope pass
-  using the measured collection result.
+  using the measured collection result. Rescoped 2026-10-09: still briefed,
+  now depends on `beliefs-f64cf1` for placement (see Unanswered questions).
 - `beliefs-7ab5c4`: **scoped**, P3/s/mid/direct; fail on missing or ambiguous
   portable override targets while retaining legitimate repeated rows.
 - `beliefs-95f461`: **scoped**, P3/xs/low/direct; document the four-module boundary
