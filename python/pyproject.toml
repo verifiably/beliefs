@@ -47,69 +47,6 @@ pythonpath = ["tools"]
 line-length = 120
 force-exclude = true
 
-# Freeze-protected files: byte-exact under a guard's pin, or cited-not-run evidence.
-# tests/test_frozen_guards.py holds this list equal to frozen_guards.protected_paths;
-# beliefs-ea5ec7 makes pins hold modulo formatting and removes it.
-[tool.ruff.format]
-exclude = [
-    "tests/acceptance/n2_arms_cut10.py",
-    "tests/acceptance/n2_arms_cut11.py",
-    "tests/acceptance/n2_arms_cut12.py",
-    "tests/acceptance/n2_arms_cut13.py",
-    "tests/acceptance/n2_arms_cut14.py",
-    "tests/acceptance/n2_arms_cut15.py",
-    "tests/acceptance/n2_arms_cut17.py",
-    "tests/acceptance/n2_arms_cut19.py",
-    "tests/acceptance/n2_arms_cut20.py",
-    "tests/acceptance/n2_arms_cut21.py",
-    "tests/acceptance/n2_arms_cut22.py",
-    "tests/acceptance/n2_arms_cut23.py",
-    "tests/acceptance/n2_arms_cut24.py",
-    "tests/acceptance/n2_arms_cut25.py",
-    "tests/acceptance/n2_arms_cut27.py",
-    "tests/acceptance/n2_arms_cut28.py",
-    "tests/acceptance/n2_arms_cut29.py",
-    "tests/acceptance/n2_arms_cut30.py",
-    "tests/acceptance/n2_arms_cut8.py",
-    "tests/acceptance/n2_arms_cut9.py",
-    "tests/acceptance/test_n2_cut10.py",
-    "tests/acceptance/test_n2_cut4.py",
-    "tests/acceptance/test_n2_cut5.py",
-    "tests/acceptance/test_n2_cut6.py",
-    "tests/acceptance/test_n2_cut8.py",
-    "tests/n2_arms_cut16.py",
-    "tests/n2_arms_cut18.py",
-    "tests/n2_arms_cut20.py",
-    "tests/n2_arms_cut26.py",
-    "tests/n2_arms_cut3.py",
-    "tests/n2_arms_cut31.py",
-    "tests/n2_arms_cut32.py",
-    "tests/n2_arms_cut33.py",
-    "tests/n2_arms_cut34.py",
-    "tests/n2_arms_cut35.py",
-    "tests/n2_arms_cut36.py",
-    "tests/n2_arms_cut37.py",
-    "tests/n2_arms_cut38.py",
-    "tests/n2_arms_cut39.py",
-    "tests/n2_arms_cut4.py",
-    "tests/n2_arms_cut40.py",
-    "tests/n2_arms_cut41.py",
-    "tests/n2_arms_cut42.py",
-    "tests/n2_arms_cut43.py",
-    "tests/n2_arms_cut44.py",
-    "tests/n2_arms_cut45.py",
-    "tests/n2_arms_cut46.py",
-    "tests/n2_arms_cut5.py",
-    "tests/n2_arms_cut6.py",
-    "tests/n2_arms_cut7.py",
-    "tools/cut10_acceptance.py",
-    "tools/cut4_acceptance.py",
-    "tools/cut5_acceptance.py",
-    "tools/cut6_acceptance.py",
-    "tools/cut7_acceptance.py",
-    "tools/cut8_acceptance.py",
-]
-
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "basic"

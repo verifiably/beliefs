@@ -22,7 +22,6 @@ from hashlib import sha256
 from pathlib import Path
 
 import pin_equivalence
-from cited_not_run import CITED_NOT_RUN
 
 _SHA256_LENGTH = 64
 _DECLARATION_DIGEST = re.compile(r"CUT\d+_DECLARATION_SHA256")
@@ -246,34 +245,3 @@ def declaration_digest(guard: Path) -> str | None:
 def declaration_commit(guard: Path) -> str | None:
     """The commit cuts 27-30 also pin their `FROZEN_DECLARATION` to."""
     return _named_constant(guard, _DECLARATION_COMMIT)
-
-
-def protected_paths(repo_root: Path) -> frozenset[str]:
-    """Every existing Python file a freeze claims, relative to `python/`.
-
-    A file is claimed when a guard pins it by table or by its scalar declaration pin, or
-    when it is a cited-not-run surface (guard, declaration, runner), which doctrine §2
-    makes evidence whether or not a later cut pinned it. Formatting excludes exactly
-    this set (spec 2026-10-09 §3.1).
-    """
-    claimed: set[str] = set()
-    for guard in guard_modules(repo_root):
-        claimed.update(pin.target for pin in pins_in(guard))
-        declaration = declaration_pin(guard)
-        if declaration is not None:
-            claimed.add(declaration)
-    for name, standing in CITED_NOT_RUN.items():
-        cut = standing.cut
-        claimed.update(
-            {
-                f"python/tests/acceptance/{name}",
-                f"python/tests/n2_arms_cut{cut}.py",
-                f"python/tests/acceptance/n2_arms_cut{cut}.py",
-                f"python/tools/cut{cut}_acceptance.py",
-            }
-        )
-    return frozenset(
-        path.removeprefix("python/")
-        for path in claimed
-        if path.startswith("python/") and path.endswith(".py") and (repo_root / path).is_file()
-    )
