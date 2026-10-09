@@ -109,7 +109,8 @@ _LIVE_SABOTAGES = {
 }
 PORTABLE_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
-    if arm.row in _LIVE_SABOTAGES and (arm.row != "G1" or arm.sabotage.module == "closure.py") else arm
+    if arm.row in _LIVE_SABOTAGES and (arm.row != "G1" or arm.sabotage.module == "closure.py")
+    else arm
     for arm in (*ARMS, *CUT2_ARMS, *CUT3_ARMS, *CUT26_ARMS)
 )
 """Every arm the portable suite audits, both sabotaged and unsabotaged."""
@@ -245,8 +246,7 @@ def test_an_explicit_cache_root_reaches_n2_children(tmp_path, monkeypatch):
     monkeypatch.setattr(
         subprocess,
         "run",
-        lambda command, **kwargs: calls.append((command, kwargs))
-        or subprocess.CompletedProcess(command, PASSED),
+        lambda command, **kwargs: calls.append((command, kwargs)) or subprocess.CompletedProcess(command, PASSED),
     )
     _run_check("test_belief.py::test_w18j_a_coordination_pin_never_enters_the_belief_input_digest", None)
     assert calls[0][1]["env"]["XDG_CACHE_HOME"] == str(cache)

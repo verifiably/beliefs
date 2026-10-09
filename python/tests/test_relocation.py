@@ -140,8 +140,9 @@ def test_move_refuses_a_destination_lacking_the_kind_before_either_intent(source
     node = source_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     source = _rebind(source_writer, FULL)
     destination = _rebind(destination_writer, lacking(kinds=("source",)))
-    before = tuple(member.id for member in source.read_view.iter_stored()), tuple(
-        member.id for member in destination.read_view.iter_stored()
+    before = (
+        tuple(member.id for member in source.read_view.iter_stored()),
+        tuple(member.id for member in destination.read_view.iter_stored()),
     )
 
     with pytest.raises(PermitExceeded) as caught:
@@ -168,9 +169,7 @@ def test_move_refuses_a_source_lacking_act_report_before_either_intent(source_wr
     assert _recording_port(source).intents == _recording_port(destination).intents == []
 
 
-def test_move_refuses_different_bound_actors_before_taking_a_lock(
-    source_writer, destination_writer, monkeypatch
-):
+def test_move_refuses_different_bound_actors_before_taking_a_lock(source_writer, destination_writer, monkeypatch):
     source = _rebind(source_writer, lacking(actor="source-actor"))
     destination = _rebind(destination_writer, lacking(actor="destination-actor"))
     monkeypatch.setattr(relocation, "_both_locks", lambda *_args: (_ for _ in ()).throw(AssertionError("lock")))
@@ -188,23 +187,15 @@ def test_append_operation_intent_refuses_a_foreign_actor_before_append(writer):
 
 
 def test_move_refuses_an_occupied_destination(source_writer, destination_writer):
-    node = source_writer.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
-    destination_writer.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
+    node = source_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
+    destination_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
 
     with pytest.raises(DuplicateLocation):
         relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
 
 
-def test_move_deprecated_alias_collision_refuses_before_intents(
-    source_writer, destination_writer
-):
-    node = source_writer.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
+def test_move_deprecated_alias_collision_refuses_before_intents(source_writer, destination_writer):
+    node = source_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     claimed = raw_source(
         {"doi": "10.1234/other"},
         history=[entry({"doi": "10.1234/abc"}, {"doi": "10.1234/other"})],
@@ -212,8 +203,7 @@ def test_move_deprecated_alias_collision_refuses_before_intents(
     )
     destination_writer.import_bundle([claimed], **MOVE_FIELDS)
     before_intents = {
-        id(writer_): list(_recording_port(writer_).intents)
-        for writer_ in (source_writer, destination_writer)
+        id(writer_): list(_recording_port(writer_).intents) for writer_ in (source_writer, destination_writer)
     }
     with pytest.raises(CollisionRefused):
         relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
@@ -224,15 +214,9 @@ def test_move_deprecated_alias_collision_refuses_before_intents(
         assert port.intents == before_intents[id(writer_)]
 
 
-def test_move_uid_collision_refuses_before_intents(
-    source_writer, destination_writer
-):
-    node = source_writer.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
-    other = stored.source_node(
-        title="Another paper", identifiers={"doi": "10.1234/other"}
-    )
+def test_move_uid_collision_refuses_before_intents(source_writer, destination_writer):
+    node = source_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
+    other = stored.source_node(title="Another paper", identifiers={"doi": "10.1234/other"})
     destination_writer.add(other.model_copy(update={"uid": node.uid}))
 
     with pytest.raises(CollisionRefused):
@@ -245,20 +229,14 @@ def test_move_uid_collision_refuses_before_intents(
 
 
 def test_move_refuses_a_same_root_pair(writer):
-    node = writer.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
+    node = writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
 
     with pytest.raises(SameRootRefused):
         relocation.move(writer, writer, node.id, **MOVE_FIELDS)
 
 
-def test_move_resolves_a_symlinked_same_root_and_acquires_its_lock_once(
-    writer, tmp_path, monkeypatch
-):
-    node = writer.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
+def test_move_resolves_a_symlinked_same_root_and_acquires_its_lock_once(writer, tmp_path, monkeypatch):
+    node = writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     alias = tmp_path / "alias"
     alias.symlink_to(writer.root, target_is_directory=True)
     twin = CorpusWriter(alias, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
@@ -281,12 +259,8 @@ def test_move_resolves_a_symlinked_same_root_and_acquires_its_lock_once(
     assert events == ["enter", "exit"]
 
 
-def test_move_refuses_a_missing_source_before_later_preconditions(
-    source_writer, destination_writer
-):
-    destination_writer.add(
-        stored.source_node(title="occupied", identifiers={"doi": "10.1234/missing"})
-    )
+def test_move_refuses_a_missing_source_before_later_preconditions(source_writer, destination_writer):
+    destination_writer.add(stored.source_node(title="occupied", identifiers={"doi": "10.1234/missing"}))
 
     with pytest.raises(RelocationTargetMissing):
         relocation.move(source_writer, destination_writer, "source:missing", **MOVE_FIELDS)
@@ -322,23 +296,15 @@ def test_move_checks_contract_agreement_before_destination_occupancy(tmp_path):
         tmp_path / "destination",
         domains=OTHER_PINS.domains,
     )
-    node = source.add(
-        _node("biology/gene-axis")
-    )
-    destination.add(
-        _node("biology/gene-axis")
-    )
+    node = source.add(_node("biology/gene-axis"))
+    destination.add(_node("biology/gene-axis"))
 
     with pytest.raises(ContractPinDisagreement):
         relocation.move(source, destination, node.id, **MOVE_FIELDS)
 
 
-def test_move_mints_one_report_per_root_under_one_token(
-    source_writer, destination_writer, monkeypatch
-):
-    node = source_writer.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
+def test_move_mints_one_report_per_root_under_one_token(source_writer, destination_writer, monkeypatch):
+    node = source_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     minted_by = []
     report_operations = {}
     for label, writer_ in (
@@ -377,8 +343,10 @@ def test_move_mints_one_report_per_root_under_one_token(
     assert destination_entry.subject == source_entry.subject == node.id
     assert destination_entry.corpus == destination_writer.corpus_id
     assert source_entry.corpus == source_writer.corpus_id
-    assert destination_entry.outcome == source_entry.outcome == Moved(
-        source_writer.corpus_id, destination_writer.corpus_id, node.id
+    assert (
+        destination_entry.outcome
+        == source_entry.outcome
+        == Moved(source_writer.corpus_id, destination_writer.corpus_id, node.id)
     )
     for label, writer_, report in (
         ("destination", destination_writer, destination_report),
@@ -409,9 +377,7 @@ def test_move_preflights_both_operation_ports_before_either_intent(tmp_path, mis
         domains=PINS.domains,
         operation_port=missing != "destination",
     )
-    node = source.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
+    node = source.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     configured = destination if missing == "source" else source
     configured_port = configured._operation_port
     assert isinstance(configured_port, OperationRecorder)
@@ -425,9 +391,7 @@ def test_move_preflights_both_operation_ports_before_either_intent(tmp_path, mis
 
 
 def test_move_validates_report_metadata_before_either_intent(source_writer, destination_writer):
-    node = source_writer.add(
-        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    )
+    node = source_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
 
     with pytest.raises(MalformedRecord, match="canonically encodable"):
         relocation.move(
@@ -445,12 +409,8 @@ def test_move_validates_report_metadata_before_either_intent(source_writer, dest
     assert not destination_writer.read_view.holds(node.id)
 
 
-def test_consolidate_preserves_a_shared_uid_and_retires_nothing(
-    source_writer, destination_writer
-):
-    keep = source_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
-    )
+def test_consolidate_preserves_a_shared_uid_and_retires_nothing(source_writer, destination_writer):
+    keep = source_writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"}))
     destination_writer.add(keep.model_copy(update={"title": "other"}))
 
     survivor, keep_report, other_report = relocation.consolidate(
@@ -474,15 +434,9 @@ def test_consolidate_preserves_a_shared_uid_and_retires_nothing(
     assert keep_report.actor == other_report.actor == ACTOR
 
 
-def test_consolidate_selects_one_of_two_distinct_uids_and_mints_no_third(
-    source_writer, destination_writer
-):
-    keep = source_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
-    )
-    other = destination_writer.add(
-        stored.source_node(title="other", identifiers={"doi": "10.1234/abc"})
-    )
+def test_consolidate_selects_one_of_two_distinct_uids_and_mints_no_third(source_writer, destination_writer):
+    keep = source_writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"}))
+    other = destination_writer.add(stored.source_node(title="other", identifiers={"doi": "10.1234/abc"}))
     assert keep.uid != other.uid
 
     survivor, keep_report, _ = relocation.consolidate(
@@ -503,18 +457,14 @@ def test_consolidate_selects_one_of_two_distinct_uids_and_mints_no_third(
     ] == [keep.uid]
 
 
-def test_consolidate_keeps_ungoverned_kinds_unstamped(
-    source_writer, destination_writer
-):
+def test_consolidate_keeps_ungoverned_kinds_unstamped(source_writer, destination_writer):
     keep = source_writer.add(Node(id="discussion:same", kind="discussion", title="kept"))
     other = destination_writer.add(
         Node(
             id="discussion:same",
             kind="discussion",
             title="other",
-            relations=[
-                Relation(source="discussion:same", predicate="cites", target="discussion:target")
-            ],
+            relations=[Relation(source="discussion:same", predicate="cites", target="discussion:target")],
         )
     )
 
@@ -530,12 +480,8 @@ def test_consolidate_keeps_ungoverned_kinds_unstamped(
 
 
 def test_consolidate_refuses_two_different_addresses(source_writer, destination_writer):
-    keep = source_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/kept"})
-    )
-    other = destination_writer.add(
-        stored.source_node(title="other", identifiers={"doi": "10.1234/other"})
-    )
+    keep = source_writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/kept"}))
+    other = destination_writer.add(stored.source_node(title="other", identifiers={"doi": "10.1234/other"}))
 
     with pytest.raises(AddressDisagreement):
         relocation.consolidate(
@@ -545,15 +491,9 @@ def test_consolidate_refuses_two_different_addresses(source_writer, destination_
         )
 
 
-def test_consolidate_is_not_offered_for_one_uid_under_two_addresses(
-    source_writer, destination_writer
-):
-    keep = source_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/kept"})
-    )
-    other = stored.source_node(
-        title="other", identifiers={"doi": "10.1234/other"}
-    ).model_copy(update={"uid": keep.uid})
+def test_consolidate_is_not_offered_for_one_uid_under_two_addresses(source_writer, destination_writer):
+    keep = source_writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/kept"}))
+    other = stored.source_node(title="other", identifiers={"doi": "10.1234/other"}).model_copy(update={"uid": keep.uid})
     destination_writer.add(other)
 
     with pytest.raises(AddressDisagreement):
@@ -565,14 +505,10 @@ def test_consolidate_is_not_offered_for_one_uid_under_two_addresses(
 
 
 def test_consolidate_refuses_a_same_root_pair(writer):
-    keep = writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
-    )
+    keep = writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"}))
 
     with pytest.raises(SameRootRefused):
-        relocation.consolidate(
-            (writer, keep.id), (writer, keep.id), **CONSOLIDATE_FIELDS
-        )
+        relocation.consolidate((writer, keep.id), (writer, keep.id), **CONSOLIDATE_FIELDS)
 
 
 @pytest.mark.parametrize("excluded", ["keep", "other"])
@@ -583,9 +519,7 @@ def test_consolidate_refuses_an_excluded_kind_on_either_input(tmp_path, excluded
     excluded_writer = keep_writer if excluded == "keep" else other_writer
     ordinary_writer = other_writer if excluded == "keep" else keep_writer
     excluded_writer._publish_operation_report(report, "ab" * 32)
-    ordinary = ordinary_writer.add(
-        stored.source_node(title="ordinary", identifiers={"doi": "10.1234/abc"})
-    )
+    ordinary = ordinary_writer.add(stored.source_node(title="ordinary", identifiers={"doi": "10.1234/abc"}))
     excluded_port = excluded_writer._operation_port
     assert isinstance(excluded_port, OperationRecorder)
     excluded_port.intents.clear()
@@ -608,16 +542,13 @@ def test_consolidate_refuses_an_excluded_kind_on_either_input(tmp_path, excluded
         )
 
     assert all(
-        isinstance(writer_._operation_port, OperationRecorder)
-        and writer_._operation_port.intents == []
+        isinstance(writer_._operation_port, OperationRecorder) and writer_._operation_port.intents == []
         for writer_ in (keep_writer, other_writer)
     )
 
 
 @pytest.mark.parametrize("missing", ["keep", "other"])
-def test_consolidate_preflights_both_operation_ports_before_either_intent(
-    tmp_path, missing
-):
+def test_consolidate_preflights_both_operation_ports_before_either_intent(tmp_path, missing):
     keep_writer = _writer(
         tmp_path / missing / "keep",
         domains=PINS.domains,
@@ -628,9 +559,7 @@ def test_consolidate_preflights_both_operation_ports_before_either_intent(
         domains=PINS.domains,
         operation_port=missing != "other",
     )
-    keep = keep_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
-    )
+    keep = keep_writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"}))
     other_writer.add(keep.model_copy(update={"title": "other"}))
     configured = other_writer if missing == "keep" else keep_writer
     configured_port = configured._operation_port
@@ -651,9 +580,7 @@ def test_consolidate_refuses_a_missing_input_before_intents(tmp_path, missing):
     keep_writer = _writer(tmp_path / missing / "keep", domains=PINS.domains)
     other_writer = _writer(tmp_path / missing / "other", domains=PINS.domains)
     present_writer = other_writer if missing == "keep" else keep_writer
-    present = present_writer.add(
-        stored.source_node(title="present", identifiers={"doi": "10.1234/abc"})
-    )
+    present = present_writer.add(stored.source_node(title="present", identifiers={"doi": "10.1234/abc"}))
 
     with pytest.raises(RelocationTargetMissing, match=f"{missing} corpus"):
         relocation.consolidate(
@@ -668,12 +595,8 @@ def test_consolidate_refuses_a_missing_input_before_intents(tmp_path, missing):
         assert port.intents == []
 
 
-def test_consolidate_validates_both_reports_before_either_intent(
-    source_writer, destination_writer
-):
-    keep = source_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
-    )
+def test_consolidate_validates_both_reports_before_either_intent(source_writer, destination_writer):
+    keep = source_writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"}))
     other = destination_writer.add(keep.model_copy(update={"title": "other"}))
 
     with pytest.raises(MalformedRecord, match="canonically encodable"):
@@ -693,26 +616,18 @@ def test_consolidate_validates_both_reports_before_either_intent(
 def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
     keep_writer = _writer(tmp_path / "keep", domains=PINS.domains)
     other_writer = _writer(tmp_path / "other", domains=PINS.domains)
-    keep = keep_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
-    )
+    keep = keep_writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"}))
     observed = other_writer.add(
         stored.dataset_node(
-                        title="raw",
+            title="raw",
             resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
-    run = other_writer.add(
-        stored.run_node(
-            "r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]
-        )
-    )
+    run = other_writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]))
     other = stored.source_node(title="other", identifiers={"doi": "10.1234/abc"})
     other.facets[stored.ASSESSMENT_FACET] = {"run": run.id}
-    other.relations = [
-        Relation(source=other.id, predicate=stored.ASSESSES, target="proposition:p1")
-    ]
+    other.relations = [Relation(source=other.id, predicate=stored.ASSESSES, target="proposition:p1")]
     from coordination_fixtures import raw_add
 
     raw_add(other_writer.root, other)
@@ -731,9 +646,7 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
         assert port.intents == []
 
 
-def test_consolidate_preflights_replacement_collisions_before_either_intent(
-    source_writer, destination_writer
-):
+def test_consolidate_preflights_replacement_collisions_before_either_intent(source_writer, destination_writer):
     claimed = source_writer.add(Node(id="discussion:claimed", kind="discussion", title="claimed"))
     keep = source_writer.add(Node(id="discussion:kept", kind="discussion", title="kept"))
     other = destination_writer.add(
@@ -747,12 +660,10 @@ def test_consolidate_preflights_replacement_collisions_before_either_intent(
     keep_before = source_writer.read_view.get(keep.id)
     other_before = destination_writer.read_view.get(other.id)
     before_intents = {
-        id(writer_): list(_recording_port(writer_).intents)
-        for writer_ in (source_writer, destination_writer)
+        id(writer_): list(_recording_port(writer_).intents) for writer_ in (source_writer, destination_writer)
     }
     before_fulfilling = {
-        id(writer_): list(_recording_port(writer_).fulfilling)
-        for writer_ in (source_writer, destination_writer)
+        id(writer_): list(_recording_port(writer_).fulfilling) for writer_ in (source_writer, destination_writer)
     }
 
     with pytest.raises(CollisionRefused):
@@ -773,8 +684,13 @@ def test_consolidate_preflights_replacement_collisions_before_either_intent(
 
 def test_every_relocation_refusal_is_a_write_refusal():
     for error in (
-        RelocationRefused, SameRootRefused, AddressDisagreement, DuplicateLocation,
-        ContractPinDisagreement, RelocationKindExcluded, RelocationTargetMissing,
+        RelocationRefused,
+        SameRootRefused,
+        AddressDisagreement,
+        DuplicateLocation,
+        ContractPinDisagreement,
+        RelocationKindExcluded,
+        RelocationTargetMissing,
     ):
         assert issubclass(error, WriteRefused)
 
@@ -857,9 +773,7 @@ def test_contract_agreement_refuses_a_different_used_domain_pin(tmp_path):
     )
 
     with pytest.raises(ContractPinDisagreement):
-        relocation._refuse_contract_disagreement(
-            _node("biology/gene-axis"), source, destination
-        )
+        relocation._refuse_contract_disagreement(_node("biology/gene-axis"), source, destination)
 
 
 def test_contract_agreement_refuses_a_missing_used_domain_pin(tmp_path):
@@ -867,9 +781,7 @@ def test_contract_agreement_refuses_a_missing_used_domain_pin(tmp_path):
     destination = _writer(tmp_path / "destination")
 
     with pytest.raises(ContractPinDisagreement):
-        relocation._refuse_contract_disagreement(
-            _node("biology/gene-axis"), source, destination
-        )
+        relocation._refuse_contract_disagreement(_node("biology/gene-axis"), source, destination)
 
 
 def test_contract_agreement_refuses_a_missing_used_source_domain_pin(tmp_path):
@@ -877,9 +789,7 @@ def test_contract_agreement_refuses_a_missing_used_source_domain_pin(tmp_path):
     destination = _writer(tmp_path / "destination", domains={"biology": BIOLOGY})
 
     with pytest.raises(ContractPinDisagreement):
-        relocation._refuse_contract_disagreement(
-            _node("biology/gene-axis"), source, destination
-        )
+        relocation._refuse_contract_disagreement(_node("biology/gene-axis"), source, destination)
 
 
 def test_contract_agreement_ignores_different_unused_domain_pins(tmp_path):
@@ -892,9 +802,7 @@ def test_contract_agreement_ignores_different_unused_domain_pins(tmp_path):
         domains=OTHER_PINS.domains,
     )
 
-    relocation._refuse_contract_disagreement(
-        _node("display"), source, destination
-    )
+    relocation._refuse_contract_disagreement(_node("display"), source, destination)
 
 
 def test_corpus_writer_exposes_its_root_manifest_identity_and_pins(tmp_path):
@@ -908,9 +816,9 @@ def test_corpus_writer_exposes_its_root_manifest_identity_and_pins(tmp_path):
 
 
 def test_used_facet_namespaces_are_only_the_namespaced_facet_prefixes():
-    assert stored.used_facet_namespaces(
-        _node("display", "biology/gene-axis", "testing/measure")
-    ) == frozenset({"biology", "testing"})
+    assert stored.used_facet_namespaces(_node("display", "biology/gene-axis", "testing/measure")) == frozenset(
+        {"biology", "testing"}
+    )
 
 
 def _raw_dataset_at(writer, node_id: str, seed: str) -> Node:
@@ -933,9 +841,7 @@ def _files(writer) -> dict[str, bytes]:
     return {str(p.relative_to(writer.root)): p.read_bytes() for p in sorted(writer.root.rglob("*.md"))}
 
 
-def test_move_refuses_a_handle_addressed_dataset_into_a_governed_destination(
-    source_writer, destination_writer
-):
+def test_move_refuses_a_handle_addressed_dataset_into_a_governed_destination(source_writer, destination_writer):
     node = _raw_dataset_at(source_writer, "dataset:handle", "h")
     with pytest.raises(DatasetAddressDisagreement):
         relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
@@ -944,9 +850,7 @@ def test_move_refuses_a_handle_addressed_dataset_into_a_governed_destination(
 
 
 @pytest.mark.parametrize("invalid", ["other", "keep"])
-def test_consolidate_validates_both_dataset_inputs_before_reconciling(
-    source_writer, destination_writer, invalid
-):
+def test_consolidate_validates_both_dataset_inputs_before_reconciling(source_writer, destination_writer, invalid):
     """Review finding 1: the loser's declaration is judged before it is discarded."""
     valid = source_writer.add(stored.dataset_node(title="kept", resources=pinned("shared")))
     # A raw record at the SAME id whose bytes are different: its declaration derives another address.

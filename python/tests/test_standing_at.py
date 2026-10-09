@@ -62,12 +62,17 @@ def seam_over(views: dict) -> MomentSeam:
 
 
 def revision_a() -> Node:
-    return binding_record(intent(event_token=TOKEN_A, binding_tips=()), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64)
+    return binding_record(
+        intent(event_token=TOKEN_A, binding_tips=()), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64
+    )
 
 
 def revision_b() -> Node:
     return binding_record(
-        intent(event_token=TOKEN_B, binding_tips=(binding_uid(TOKEN_A),)), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64
+        intent(event_token=TOKEN_B, binding_tips=(binding_uid(TOKEN_A),)),
+        corpus_id="e" * 32,
+        marker="f" * 32,
+        artifact="9" * 64,
     )
 
 
@@ -203,7 +208,9 @@ def test_a_committed_removal_of_an_inventoried_path_is_history_violated(tmp_path
     (_, _, reg_a, set_a), (path_b, data_b, reg_b, set_b) = a_then_b(root)
     (root / path_b).unlink()
     removal = registration(digest("reg-rm"), "rm", ((path_b, file_state(data_b)),), ((path_b, ABSENT),))
-    view = chain(GENESIS, reg_a, set_a, reg_b, set_b, removal, settlement(digest("set-rm"), removal.digest, "rm", committed=True))
+    view = chain(
+        GENESIS, reg_a, set_a, reg_b, set_b, removal, settlement(digest("set-rm"), removal.digest, "rm", committed=True)
+    )
     assert refused(judge(root, view), "history-violated")
 
 
@@ -211,8 +218,12 @@ def test_a_committed_rewrite_of_an_inventoried_path_is_history_violated(tmp_path
     root = fake_root(tmp_path)
     (_, _, reg_a, set_a), (path_b, data_b, reg_b, set_b) = a_then_b(root)
     (root / path_b).write_bytes(b"rewritten\n")
-    rewrite = registration(digest("reg-rw"), "rw", ((path_b, file_state(data_b)),), ((path_b, file_state(b"rewritten\n")),))
-    view = chain(GENESIS, reg_a, set_a, reg_b, set_b, rewrite, settlement(digest("set-rw"), rewrite.digest, "rw", committed=True))
+    rewrite = registration(
+        digest("reg-rw"), "rw", ((path_b, file_state(data_b)),), ((path_b, file_state(b"rewritten\n")),)
+    )
+    view = chain(
+        GENESIS, reg_a, set_a, reg_b, set_b, rewrite, settlement(digest("set-rw"), rewrite.digest, "rw", committed=True)
+    )
     assert refused(judge(root, view), "history-violated")
 
 
@@ -222,7 +233,9 @@ def test_a_committed_same_bytes_rewrite_of_an_inventoried_path_is_history_violat
     root = fake_root(tmp_path)
     (_, _, reg_a, set_a), (path_b, data_b, reg_b, set_b) = a_then_b(root)
     same = registration(digest("reg-same"), "same", ((path_b, file_state(data_b)),), ((path_b, file_state(data_b)),))
-    view = chain(GENESIS, reg_a, set_a, reg_b, set_b, same, settlement(digest("set-same"), same.digest, "same", committed=True))
+    view = chain(
+        GENESIS, reg_a, set_a, reg_b, set_b, same, settlement(digest("set-same"), same.digest, "same", committed=True)
+    )
     assert refused(judge(root, view), "history-violated")
 
 
@@ -230,8 +243,20 @@ def test_a_first_committed_rewrite_of_an_unregistered_file_is_history_violated(t
     root = fake_root(tmp_path)
     path, data = _binding_file(root)  # a real binding revision's bytes at its address path
     rewrite = registration(digest("reg-rw"), "rw", ((path, file_state(b"older\n")),), ((path, file_state(data)),))
-    view = chain(genesis_entry(b"g", label="rw-genesis"), rewrite, settlement(digest("set-rw"), rewrite.digest, "rw", committed=True))
-    judged = standing_at({root: WRITTEN_ID}, ADDRESS, BINDING_KIND, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}))
+    view = chain(
+        genesis_entry(b"g", label="rw-genesis"),
+        rewrite,
+        settlement(digest("set-rw"), rewrite.digest, "rw", committed=True),
+    )
+    judged = standing_at(
+        {root: WRITTEN_ID},
+        ADDRESS,
+        BINDING_KIND,
+        written=root,
+        position=view.tip,
+        anchors=(),
+        seam=seam_over({root: view}),
+    )
     assert type(judged) is PositionRefused and judged.reason == "history-violated"
 
 
@@ -249,7 +274,15 @@ def test_an_unaccounted_file_whose_only_registration_rewrites_it_is_unregistered
     path, data = _binding_file(root)
     rewrite = registration(digest("reg-rw"), "rw", ((path, file_state(b"older\n")),), ((path, file_state(data)),))
     view = chain(genesis_entry(b"g", label="rw-genesis"), rewrite)  # never settled: outside the inventory
-    judged = standing_at({root: WRITTEN_ID}, ADDRESS, BINDING_KIND, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}))
+    judged = standing_at(
+        {root: WRITTEN_ID},
+        ADDRESS,
+        BINDING_KIND,
+        written=root,
+        position=view.tip,
+        anchors=(),
+        seam=seam_over({root: view}),
+    )
     assert type(judged) is PositionRefused and judged.reason == "unregistered-revision"
 
 
@@ -341,12 +374,17 @@ def test_an_other_root_is_read_detached_and_the_written_root_registered(tmp_path
 
 def test_an_anchor_naming_another_genesis_is_anchor_unplaced(tmp_path):
     written, other, views, set_a = two_roots(tmp_path)
-    assert refused(judge_two(written, other, views, Anchor(OTHER_ID, digest("elsewhere"), set_a.digest)), "anchor-unplaced")
+    assert refused(
+        judge_two(written, other, views, Anchor(OTHER_ID, digest("elsewhere"), set_a.digest)), "anchor-unplaced"
+    )
 
 
 def test_an_anchor_head_no_longer_in_the_chain_is_anchor_unplaced(tmp_path):
     written, other, views, _ = two_roots(tmp_path)
-    assert refused(judge_two(written, other, views, Anchor(OTHER_ID, views[other].genesis.digest, digest("gone"))), "anchor-unplaced")
+    assert refused(
+        judge_two(written, other, views, Anchor(OTHER_ID, views[other].genesis.digest, digest("gone"))),
+        "anchor-unplaced",
+    )
 
 
 def test_a_position_that_is_no_entry_of_the_written_chain_is_anchor_unplaced(tmp_path):
@@ -392,7 +430,10 @@ def test_unequal_copies_of_one_revision_across_mounts_are_revision_mismatch(tmp_
     written, other = fake_root(tmp_path, "w"), fake_root(tmp_path, "o")
     path, data = place_file(written, revision_a())
     other_copy = binding_record(
-        intent(event_token=TOKEN_A, binding_tips=(), at="2026-09-23T00:00:00Z"), corpus_id="e" * 32, marker="f" * 32, artifact="9" * 64
+        intent(event_token=TOKEN_A, binding_tips=(), at="2026-09-23T00:00:00Z"),
+        corpus_id="e" * 32,
+        marker="f" * 32,
+        artifact="9" * 64,
     )
     other_path, other_data = place_file(other, other_copy)
     assert other_path == path and other_data != data
@@ -416,7 +457,9 @@ def coordination_pair(certified_work) -> Iterator[tuple[tuple[Path, Path], Profi
 
     profile = coordination_profile(None)
     # Resolved: the engine opens roots with no symlink in the path (ELOOP otherwise).
-    roots = tuple((certified_work / f"standing-{os.getpid()}-{next(_counter)}-{side}").resolve() for side in ("left", "right"))
+    roots = tuple(
+        (certified_work / f"standing-{os.getpid()}-{next(_counter)}-{side}").resolve() for side in ("left", "right")
+    )
     try:
         for root in roots:
             init_corpus_root(root, authority=FULL)
@@ -433,11 +476,15 @@ def test_the_judgment_agrees_with_the_live_tip_rule_when_nothing_moved(coordinat
 
     (left, right), profile = coordination_pair
     resolver = CoordinationResolver({left: profile, right: profile})
-    first, second = (open_corpus(root, authority=FULL, coordination_resolver=resolver, profile=profile) for root in (left, right))
+    first, second = (
+        open_corpus(root, authority=FULL, coordination_resolver=resolver, profile=profile) for root in (left, right)
+    )
     project = first.mint_coordination("project", content=content_for("project"))
     task = first.mint_coordination("task", project=coordination_revision(project).address, content=content_for("task"))
     address = coordination_revision(task).address
-    revised = second.revise_coordination("task", address, predecessors=(task.uid,), content=content_for("task", name="next"))
+    revised = second.revise_coordination(
+        "task", address, predecessors=(task.uid,), content=content_for("task", name="next")
+    )
 
     seam = moment_seam()
     mounted = resolver.mounted()

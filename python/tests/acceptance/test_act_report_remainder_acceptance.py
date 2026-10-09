@@ -62,7 +62,11 @@ __all__ = ["observer"]  # the fixture is re-exported for pytest's collection
 
 def operation_intent(root: Path, kind: str) -> IntentEntryView:
     """The one operation intent of `kind` — the holdings intents of the same kind carry a `location`."""
-    (entry,) = [e for e in intents(root) if json.loads(e.payload).get("kind") == kind and "location" not in json.loads(e.payload)]
+    (entry,) = [
+        e
+        for e in intents(root)
+        if json.loads(e.payload).get("kind") == kind and "location" not in json.loads(e.payload)
+    ]
     return entry
 
 
@@ -126,7 +130,9 @@ class RefusingPort(CountingPort):
 # --- T2 ----------------------------------------------------------------------------
 
 
-def test_t2e_an_audit_closes_through_exactly_one_report_after_its_intent_and_the_evaluator_ran_between_durably(observer, monkeypatch):
+def test_t2e_an_audit_closes_through_exactly_one_report_after_its_intent_and_the_evaluator_ran_between_durably(
+    observer, monkeypatch
+):
     ctx, writer = observer.ctx, observer.writer
     events: list[str] = []
     inner = writer._operation_port
@@ -145,36 +151,52 @@ def test_t2e_an_audit_closes_through_exactly_one_report_after_its_intent_and_the
             return digest
 
     real = audit_operation.audit_corpus
-    monkeypatch.setattr(audit_operation, "audit_corpus", lambda view, *, evidence, profile: events.append("evaluated") or real(view, evidence=evidence, profile=profile))
+    monkeypatch.setattr(
+        audit_operation,
+        "audit_corpus",
+        lambda view, *, evidence, profile: events.append("evaluated") or real(view, evidence=evidence, profile=profile),
+    )
     outcome = run_audit(writer, port=Recording(inner))
     assert events == ["appended", "evaluated", "closed"]
     entry = operation_intent(ctx.observer_root, "audit")
-    entries = chain(ctx.observer_root)  # one captured read; every read constructs fresh entry objects, so compare digests
+    entries = chain(
+        ctx.observer_root
+    )  # one captured read; every read constructs fresh entry objects, so compare digests
     positions = [
-        i for i, e in enumerate(entries)
-        if (isinstance(e, IntentEntryView) and e.digest == entry.digest) or (isinstance(e, RegisteredEntryView) and e.fulfills == entry.digest)
+        i
+        for i, e in enumerate(entries)
+        if (isinstance(e, IntentEntryView) and e.digest == entry.digest)
+        or (isinstance(e, RegisteredEntryView) and e.fulfills == entry.digest)
     ]
     assert len(positions) == 2 and positions[0] < positions[1]
     assert len(registrations_of(chain(ctx.observer_root), entry.digest, outcome.report_ref)) == 1
     assert closed(ctx.observer_root, "audit", outcome.report_ref, outcome.report)
 
 
-def test_t2f_a_recheck_closes_through_one_report_and_its_operation_intent_precedes_every_holdings_intent_durably(observer):
+def test_t2f_a_recheck_closes_through_one_report_and_its_operation_intent_precedes_every_holdings_intent_durably(
+    observer,
+):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a, b = held(ctx, store_id, "a.bin", b"alpha"), held(ctx, store_id, "b.bin", b"beta")
     before = len(intents(ctx.observer_root))
     outcome = recheck_locations(ctx, writer, (a, b))
     later = intents(ctx.observer_root)[before:]
     assert [json.loads(e.payload).get("kind") for e in later] == ["re-check", "re-check", "re-check"]
-    assert "location" not in json.loads(later[0].payload) and all("location" in json.loads(e.payload) for e in later[1:])
+    assert "location" not in json.loads(later[0].payload) and all(
+        "location" in json.loads(e.payload) for e in later[1:]
+    )
     fulfilled = {e.fulfills for e in registrations(ctx.observer_root)}
-    assert {e.digest for e in later} <= fulfilled  # every holdings intent fulfilled by its observation, the operation's by the report
+    assert {
+        e.digest for e in later
+    } <= fulfilled  # every holdings intent fulfilled by its observation, the operation's by the report
     assert len(registrations_of(chain(ctx.observer_root), later[0].digest, outcome.report_ref)) == 1
     assert closed(ctx.observer_root, "re-check", outcome.report_ref, outcome.report)
 
 
 @pytest.mark.parametrize("spoil", ["wrong-root", "no-port", "refusing-port", "foreign-store"])
-def test_t2g_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_no_act_for_both_kinds_durably(observer, certified_work, spoil, monkeypatch):
+def test_t2g_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_no_act_for_both_kinds_durably(
+    observer, certified_work, spoil, monkeypatch
+):
     """The audit has no root-selection or store arm (one writer, no store), so under
     `wrong-root` and `foreign-store` its half reads the port-less writer; the
     assertion is the same for every arm — no read, no intent, no record."""
@@ -183,7 +205,9 @@ def test_t2g_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_n
     reads: list[str] = []
     calls: list[object] = []
     inner_read = ctx.seam.read_path
-    ctx = replace(ctx, seam=replace(ctx.seam, read_path=lambda root, path: reads.append(path) or inner_read(root, path)))
+    ctx = replace(
+        ctx, seam=replace(ctx.seam, read_path=lambda root, path: reads.append(path) or inner_read(root, path))
+    )
     monkeypatch.setattr(audit_operation, "audit_corpus", lambda *a, **k: calls.append(a) or ())
     portless = CorpusWriter(ctx.observer_root, durable_executor_factory(), authority=FULL, profile=BASE)
     audit_writer, audit_kwargs = portless, {}
@@ -212,7 +236,9 @@ def test_t2g_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_n
         assert not any(node.kind == "act-report" for node in recheck_writer.read_view.iter_stored())
 
 
-def test_t2h_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_refused_durably(observer, certified_work):
+def test_t2h_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_refused_durably(
+    observer, certified_work
+):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     counting = CountingPort(writer._operation_port)
     outcome = run_audit(writer, port=counting)
@@ -223,7 +249,9 @@ def test_t2h_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_
     assert recheck_counting.submissions == 1
     intent_digest = operation_intent(ctx.observer_root, "audit").digest
     with pytest.raises(ExecutionError, match="already fulfills"):
-        writer._publish_operation_report(outcome.report, intent_digest, operations=(writer._create_op(proposition("p")),))
+        writer._publish_operation_report(
+            outcome.report, intent_digest, operations=(writer._create_op(proposition("p")),)
+        )
     assert len([e for e in registrations(ctx.observer_root) if e.fulfills == intent_digest]) == 1
     copy = certified_work / "copy"
     shutil.copytree(ctx.observer_root, copy, symlinks=True)
@@ -231,7 +259,9 @@ def test_t2h_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_
     forged.digests = [entry.digest for entry in chain(ctx.observer_root)]
     report_path = writer._relative_path(writer.read_view.get(outcome.report_ref))
     state = state_at(copy, report_path)
-    registration = forged.registration("tx-raw", ((report_path, state),), ((report_path, state),), fulfills=intent_digest)
+    registration = forged.registration(
+        "tx-raw", ((report_path, state),), ((report_path, state),), fulfills=intent_digest
+    )
     forged.append(SettledEntry(txid="tx-raw", registration=registration, outcome=ChainOutcome.COMMITTED))
     view = science_root._log_seam().inspect_registered(copy)
     assert isinstance(view, MalformedView), view
@@ -243,7 +273,9 @@ def test_t2i_a_port_bound_to_another_root_is_refused_by_both_kinds_before_any_in
     a = held(ctx, store_id, "a.bin", b"alpha")
     other = certified_work / "other"
     init_corpus_root(other, authority=FULL)
-    foreign = science_root.durable_operation_port(other, writer.authority, profile=writer.profile)  # the writer's authority and profile; only the root differs
+    foreign = science_root.durable_operation_port(
+        other, writer.authority, profile=writer.profile
+    )  # the writer's authority and profile; only the root differs
     before = (chain(ctx.observer_root), chain(other))
     with pytest.raises(PortMismatch):
         run_audit(writer, port=foreign)
@@ -252,15 +284,21 @@ def test_t2i_a_port_bound_to_another_root_is_refused_by_both_kinds_before_any_in
     assert (chain(ctx.observer_root), chain(other)) == before
 
 
-@pytest.mark.parametrize("spoil", ["empty-instrument", "unencodable-observer", "standing-elsewhere", "standing-unrequested"])
-def test_t2j_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_holdings_intent_and_no_read_durably(observer, spoil):
+@pytest.mark.parametrize(
+    "spoil", ["empty-instrument", "unencodable-observer", "standing-elsewhere", "standing-unrequested"]
+)
+def test_t2j_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_holdings_intent_and_no_read_durably(
+    observer, spoil
+):
     from beliefs.holdings.records import Found, holdings_observation
 
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a = held(ctx, store_id, "a.bin", b"alpha")
     reads: list[str] = []
     inner_read = ctx.seam.read_path
-    ctx = replace(ctx, seam=replace(ctx.seam, read_path=lambda root, path: reads.append(path) or inner_read(root, path)))
+    ctx = replace(
+        ctx, seam=replace(ctx.seam, read_path=lambda root, path: reads.append(path) or inner_read(root, path))
+    )
     kwargs: dict = {}
     if spoil == "empty-instrument":
         ctx = replace(ctx, instrument="")
@@ -268,8 +306,12 @@ def test_t2j_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_
         ctx = replace(ctx, observer="\udcff")
     elif spoil == "standing-elsewhere":
         elsewhere = holdings_observation(
-            location=StoreLocator(store_id, "b.bin"), outcome=Found("sha256:" + "0" * 64), observer="o", instrument="i",
-            event_token="t", observed_at="2026-09-22T00:00:00Z",
+            location=StoreLocator(store_id, "b.bin"),
+            outcome=Found("sha256:" + "0" * 64),
+            observer="o",
+            instrument="i",
+            event_token="t",
+            observed_at="2026-09-22T00:00:00Z",
         )
         kwargs["standing"] = {a.canonical(): (elsewhere,)}
     else:
@@ -301,41 +343,63 @@ def test_t5d_an_inconclusive_recheck_location_spells_untested_or_failed_by_wheth
     assert outcome.entries[1] == LocatorEntry(b.canonical(), ByteLocatorUntested("lease-refused"))
     assert outcome.entries[2] == LocatorEntry(c.canonical(), RetrievalFailed("io-error"))
     assert outcome.entries[1].outcome != outcome.entries[2].outcome
-    assert len(sorted((ctx.observer_root / "holdings-observation").iterdir())) == len(files_before) + 1  # a's re-check only
+    assert (
+        len(sorted((ctx.observer_root / "holdings-observation").iterdir())) == len(files_before) + 1
+    )  # a's re-check only
     assert closed(ctx.observer_root, "re-check", outcome.report_ref, outcome.report)
 
 
-def test_t6d_cite_resolves_each_finding_in_evaluator_order_and_a_permutation_moves_the_identity_durably(observer, monkeypatch):
+def test_t6d_cite_resolves_each_finding_in_evaluator_order_and_a_permutation_moves_the_identity_durably(
+    observer, monkeypatch
+):
     writer = observer.writer
     first = stale_dataset(writer)
     real = audit_operation.audit_corpus
     second = Finding("warning", "zz-second", "proposition:" + "b" * 64, "d2", "m2")
-    monkeypatch.setattr(audit_operation, "audit_corpus", lambda view, *, evidence, profile: real(view, evidence=evidence, profile=profile) + (second,))
+    monkeypatch.setattr(
+        audit_operation,
+        "audit_corpus",
+        lambda view, *, evidence, profile: real(view, evidence=evidence, profile=profile) + (second,),
+    )
     outcome = run_audit(writer)
     assert [f.ref for f in outcome.findings] == [first, second.ref]
     assert cite(outcome.report, 0).subject == first and cite(outcome.report, 1).subject == second.ref
     with pytest.raises(CitationRefused):
         cite(outcome.report, 2)
     permuted = boundary_values._mint_audit_report(
-        OperationIntent("audit", outcome.report.event_token, outcome.report.actor), observer=outcome.report.observer,
-        instrument=outcome.report.instrument, opened_at=outcome.report.opened_at, closed_at=outcome.report.closed_at,
+        OperationIntent("audit", outcome.report.event_token, outcome.report.actor),
+        observer=outcome.report.observer,
+        instrument=outcome.report.instrument,
+        opened_at=outcome.report.opened_at,
+        closed_at=outcome.report.closed_at,
         entries=(outcome.entries[1], outcome.entries[0]),
     )
     assert permuted.identity() != outcome.report.identity()
 
 
-def test_t6e_findings_differing_only_in_message_mint_equal_entries_and_one_identity_under_a_fixed_envelope_durably(observer, monkeypatch):
+def test_t6e_findings_differing_only_in_message_mint_equal_entries_and_one_identity_under_a_fixed_envelope_durably(
+    observer, monkeypatch
+):
     writer = observer.writer
     stale_dataset(writer)
     base = run_audit(writer)
     (finding,) = base.findings
-    monkeypatch.setattr(audit_operation, "audit_corpus", lambda view, *, evidence, profile: (replace(finding, message="reworded"),))
+    monkeypatch.setattr(
+        audit_operation, "audit_corpus", lambda view, *, evidence, profile: (replace(finding, message="reworded"),)
+    )
     reworded = run_audit(writer)
-    monkeypatch.setattr(audit_operation, "audit_corpus", lambda view, *, evidence, profile: (replace(finding, detail="other-detail"),))
+    monkeypatch.setattr(
+        audit_operation, "audit_corpus", lambda view, *, evidence, profile: (replace(finding, detail="other-detail"),)
+    )
     detailed = run_audit(writer)
     assert reworded.entries == base.entries and detailed.entries != base.entries
     assert reworded.report.identity() != base.report.identity()  # T8: distinct tokens; not the comparison that matters
-    envelope = {"observer": "o", "instrument": "i", "opened_at": "2026-09-22T00:00:00Z", "closed_at": "2026-09-22T00:00:00Z"}
+    envelope = {
+        "observer": "o",
+        "instrument": "i",
+        "opened_at": "2026-09-22T00:00:00Z",
+        "closed_at": "2026-09-22T00:00:00Z",
+    }
     intent = OperationIntent("audit", "f" * 32, writer.authority.actor)
     fixed = lambda entries: boundary_values._mint_audit_report(intent, entries=entries, **envelope).identity()
     assert fixed(base.entries) == fixed(reworded.entries)
@@ -362,7 +426,9 @@ def test_bi1_the_evaluator_modules_define_no_write_entry_point_and_reach_no_prim
     assert seen == wrappers
 
 
-def test_bi2_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_raced_write_lands_after_the_report_durably(observer, monkeypatch):
+def test_bi2_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_raced_write_lands_after_the_report_durably(
+    observer, monkeypatch
+):
     ctx, writer = observer.ctx, observer.writer
     started = threading.Event()
     real = audit_operation.audit_corpus
@@ -387,13 +453,21 @@ def test_bi2_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_
     thread.join(10)
     assert len(added) == 1
     committed = [e for e in chain(ctx.observer_root) if isinstance(e, RegisteredEntryView)]
-    report_position = next(i for i, e in enumerate(committed) if e.fulfills == operation_intent(ctx.observer_root, "audit").digest)
-    raced_position = next(i for i, e in enumerate(committed) if any(path == racer._relative_path(racer.read_view.get(added[0])) for path, _ in e.final))
+    report_position = next(
+        i for i, e in enumerate(committed) if e.fulfills == operation_intent(ctx.observer_root, "audit").digest
+    )
+    raced_position = next(
+        i
+        for i, e in enumerate(committed)
+        if any(path == racer._relative_path(racer.read_view.get(added[0])) for path, _ in e.final)
+    )
     assert report_position < raced_position
     assert outcome.entries == ()  # the raced record was not in the judged state
 
 
-def test_bi3_the_session_routes_write_one_act_line_per_committed_transaction_and_name_the_session_actor_durably(certified_work):
+def test_bi3_the_session_routes_write_one_act_line_per_committed_transaction_and_name_the_session_actor_durably(
+    certified_work,
+):
     session = _durable_session(certified_work)
     session.claim_invocation("A", "audit", DIGEST)
     scoped = session.scoped(RECHECKS, "A")
@@ -408,7 +482,11 @@ def test_bi3_the_session_routes_write_one_act_line_per_committed_transaction_and
     assert len(acts) == 4  # the audit's close, the write, the re-check act, the re-check's close
     observed = rechecked.entries[0].outcome
     assert isinstance(observed, PublishedObservation), observed
-    assert {pair[1] for act in acts for pair in act.record_ids} >= {audited.report_ref, rechecked.report_ref, observed.ref}
+    assert {pair[1] for act in acts for pair in act.record_ids} >= {
+        audited.report_ref,
+        rechecked.report_ref,
+        observed.ref,
+    }
     assert audited.report.observer == session.actor and rechecked.report.observer == session.actor
 
 
@@ -427,7 +505,9 @@ def test_deleting_the_published_audit_report_moves_the_operation_closed_to_indet
     assert completion(value, registrations_, {}) == INDETERMINATE
 
 
-def test_the_two_reports_leave_the_holdings_projection_unchanged_and_an_unfinished_audit_blocks_nothing(observer, certified_work):
+def test_the_two_reports_leave_the_holdings_projection_unchanged_and_an_unfinished_audit_blocks_nothing(
+    observer, certified_work
+):
     """T4's projection arm for the new kinds: over a fixed set of observations, both
     reports present, then one, then none, then an unmatched audit intent — the
     reducer outputs and the corpus's audit findings never move. The re-check's own
@@ -440,7 +520,9 @@ def test_the_two_reports_leave_the_holdings_projection_unchanged_and_an_unfinish
 
     def snapshot():
         active, blocked, _ = reduce(world, writer.corpus_id, binding)
-        findings = tuple((f.code, f.ref) for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile))
+        findings = tuple(
+            (f.code, f.ref) for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
+        )
         return output_digest(active), output_digest(blocked), blocked == [], findings
 
     def unlink(ref: str) -> None:
@@ -471,7 +553,9 @@ def test_the_two_reports_leave_the_belief_answer_and_its_admission_byte_unchange
     writer.adopt_manifest(profile=pins_for(profile))
     view = seed(writer)
     kwargs = over_kwargs(kwargs_for(view, profile))
-    ctx = ActContext(belief_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=profile)
+    ctx = ActContext(
+        belief_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=profile
+    )
 
     def answer():
         return evaluate_over_traced(writer.read_view, PROPOSITION_REF, **kwargs)  # (answer, admission)

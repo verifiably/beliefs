@@ -89,9 +89,7 @@ ASSESSMENT_REF = "assessment:a"
 verification is *about* an assessment identity, and the corpus address it names
 is a separate fact an importing corpus may simply not hold."""
 
-DISAGREEING_RESULT = ResultManifest(
-    outputs=(("out-a", "sha256:" + "a" * 64), ("out-b", "sha256:" + "b" * 64))
-)
+DISAGREEING_RESULT = ResultManifest(outputs=(("out-a", "sha256:" + "a" * 64), ("out-b", "sha256:" + "b" * 64)))
 """A replay manifest the held equivalence rule maps to `failed` — the honest
 verdict a forgery claiming `passed` contradicts."""
 
@@ -99,9 +97,7 @@ verdict a forgery claiming `passed` contradicts."""
 def _evidence(frozen) -> DerivationEvidence:
     """Task 3's interpretation evidence, plus the equivalence implementation a
     verification recomputation resolves from the original run's bindings."""
-    return replace(
-        _interpretation_evidence(frozen), held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY}
-    )
+    return replace(_interpretation_evidence(frozen), held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY})
 
 
 def _flip(verdict: str) -> str:
@@ -158,9 +154,7 @@ def _admission(w, identity: str) -> str:
         tuple(
             value
             for value in (
-                stored.verification_value(node)
-                for node in w.read_view.iter_stored()
-                if node.kind == "verification"
+                stored.verification_value(node) for node in w.read_view.iter_stored() if node.kind == "verification"
             )
             if value.assessment == identity
         )
@@ -182,9 +176,7 @@ def _two_runs(corpus, *, mount: bool, agreeing: bool) -> SimpleNamespace:
     frozen = freeze(spec_draft(), held_rules=spec_rules())
     evidence = _evidence(frozen)
     original = assessment_closure(frozen, token="tok-original")
-    replayed = assessment_closure(
-        frozen, token="tok-replayed", result=None if agreeing else DISAGREEING_RESULT
-    )
+    replayed = assessment_closure(frozen, token="tok-replayed", result=None if agreeing else DISAGREEING_RESULT)
     original_node = run_publication(original)
     replayed_node = run_publication(replayed)
     if mount:
@@ -252,9 +244,7 @@ class TestR19ExplicitImport:
         assert refused.value.member == forged.id
         assert not path_for(derived.writer.root, forged.id).exists()
         # the refusal report is the import family's own; no bundle member landed
-        assert [
-            p for p in derived.writer.root.rglob("*.md") if p not in before and "act-report" not in str(p)
-        ] == []
+        assert [p for p in derived.writer.root.rglob("*.md") if p not in before and "act-report" not in str(p)] == []
 
     def test_an_import_whose_runs_do_not_resolve_proceeds_with_a_finding(self, tmp_path):
         writer = _writer(tmp_path / "c")
@@ -369,7 +359,9 @@ class TestR19TransitionB:
         node = _stored_from(superseding, slug="superseding", supersedes=forged.id)
         w.import_bundle([node], evidence=derived_unmounted.evidence, **IMPORT_FIELDS)
         assert _admission(w, identity) != ADMITTED
-        assert [f.ref for f in audit_corpus(w.read_view, evidence=derived_unmounted.evidence, profile=w.profile)] == [forged.id]
+        assert [f.ref for f in audit_corpus(w.read_view, evidence=derived_unmounted.evidence, profile=w.profile)] == [
+            forged.id
+        ]
 
 
 class TestR19NegativesDAndE:
@@ -379,13 +371,12 @@ class TestR19NegativesDAndE:
         derived.writer._reconstruct()
         assert derived.writer.read_view.get(forged.id).kind == "verification"  # not refused, not detected on read
         assert corpus_check(derived.writer.read_view, derived.writer.profile) == ()  # the corpus check says nothing
-        assert [f.code for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence, profile=derived.writer.profile)] == [
-            "verification-derivation-contradicted"
-        ]
+        assert [
+            f.code
+            for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence, profile=derived.writer.profile)
+        ] == ["verification-derivation-contradicted"]
 
-    def test_a_self_consistent_raw_run_is_not_detected_and_an_unaudited_forgery_is_indistinguishable(
-        self, derived
-    ):
+    def test_a_self_consistent_raw_run_is_not_detected_and_an_unaudited_forgery_is_indistinguishable(self, derived):
         """A raw-written run whose own hashes agree is invisible to every read
         path — nothing structural is wrong, because nothing is — and a forged
         verification differs from a genuine one on no read-path predicate at
@@ -401,12 +392,12 @@ class TestR19NegativesDAndE:
         # the id it was written under
         assert run_ref(runrecord.decode_run_closure(raw_run).address()) == raw_run.id
         assert corpus_check(view, derived.writer.profile) == ()
-        assert audit_corpus(view, evidence=derived.evidence, profile=derived.writer.profile) == ()  # recomputation has nothing to contradict
+        assert (
+            audit_corpus(view, evidence=derived.evidence, profile=derived.writer.profile) == ()
+        )  # recomputation has nothing to contradict
 
         genuine = _stored_from(derived.verification, slug="genuine")
-        forged = _stored_from(
-            derived.verification, slug="forged", verdict=_flip(derived.verification.verdict)
-        )
+        forged = _stored_from(derived.verification, slug="forged", verdict=_flip(derived.verification.verdict))
         raw_write(derived.writer.root, genuine)
         raw_write(derived.writer.root, forged)
         derived.writer._reconstruct()
@@ -426,9 +417,9 @@ class TestR19NegativesDAndE:
 
         assert read_path(genuine.id) == read_path(forged.id)
         assert corpus_check(view, derived.writer.profile) == ()
-        assert {(f.code, f.ref) for f in audit_corpus(view, evidence=derived.evidence, profile=derived.writer.profile)} == {
-            ("verification-derivation-contradicted", forged.id)
-        }
+        assert {
+            (f.code, f.ref) for f in audit_corpus(view, evidence=derived.evidence, profile=derived.writer.profile)
+        } == {("verification-derivation-contradicted", forged.id)}
 
 
 class TestR22ExplicitImport:
@@ -437,9 +428,7 @@ class TestR22ExplicitImport:
             derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
         )
         assert isinstance(genuine, AssessmentValue)
-        proposition = derived.writer.add(
-            stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
-        )
+        proposition = derived.writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         forged = _assessment_node_from(
             genuine,
             slug="forged",
@@ -456,12 +445,8 @@ class TestR22ExplicitImport:
             derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
         )
         assert isinstance(genuine, AssessmentValue)
-        proposition = derived.writer.add(
-            stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
-        )
-        node = _assessment_node_from(
-            genuine, slug="a1", proposition=proposition.id, outcome=genuine.outcome
-        )
+        proposition = derived.writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        node = _assessment_node_from(genuine, slug="a1", proposition=proposition.id, outcome=genuine.outcome)
         derived.writer.import_bundle([node], evidence=derived.evidence, **IMPORT_FIELDS)
         assert derived.writer.read_view.get(node.id).kind == "assessment"
 
@@ -470,9 +455,7 @@ class TestR22ExplicitImport:
             derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
         )
         assert isinstance(genuine, AssessmentValue)
-        proposition = derived.writer.add(
-            stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
-        )
+        proposition = derived.writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         forged = _assessment_node_from(
             genuine,
             slug="forged",
@@ -483,9 +466,10 @@ class TestR22ExplicitImport:
         derived.writer._reconstruct()
         assert derived.writer.read_view.get(forged.id).kind == "assessment"
         assert corpus_check(derived.writer.read_view, derived.writer.profile) == ()
-        assert [f.code for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence, profile=derived.writer.profile)] == [
-            "assessment-derivation-contradicted"
-        ]
+        assert [
+            f.code
+            for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence, profile=derived.writer.profile)
+        ] == ["assessment-derivation-contradicted"]
 
 
 # --- V4 / V5 / V6 at the import boundary (design §5.4) ------------------------
@@ -498,7 +482,10 @@ def _bundle_around(source, published, *extra) -> tuple[Node, ...]:
     plus `extra` — so a target that carries another identity *resolves* in the
     destination's union view and is refused for the identity, not for absence."""
     view = source.read_view
-    runs = [view.get(stored.typed_ref("run", published.derived.original)), view.get(stored.typed_ref("run", published.derived.replayed))]
+    runs = [
+        view.get(stored.typed_ref("run", published.derived.original)),
+        view.get(stored.typed_ref("run", published.derived.replayed)),
+    ]
     others = [n for n in view.iter_stored() if n.kind in {"dataset", "proposition", "assessment"}]
     return (*others, *runs, *extra)
 
@@ -526,7 +513,11 @@ def test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(
         assert not path_for(target.root, node.id).exists()
     target = _writer(tmp_path / "target-good")
     # The target assessment is in the bundle and not in the corpus: the union view resolves it (the import-union arm).
-    report = target.import_bundle(_bundle_around(source, published, source.read_view.get(published.node.id)), evidence=published.evidence, **IMPORT_FIELDS)
+    report = target.import_bundle(
+        _bundle_around(source, published, source.read_view.get(published.node.id)),
+        evidence=published.evidence,
+        **IMPORT_FIELDS,
+    )
     assert not [f for f in _report_findings(report) if f.startswith("derivation-unchecked")]
     assert path_for(target.root, published.node.id).exists()
 
@@ -537,16 +528,24 @@ def test_v6_a_report_less_verification_imports_on_cut_18s_terms(tmp_path):
     legacy = _stored_from(published.derived, slug="legacy")
     contradicting = _stored_from(published.derived, slug="flipped", verdict=_flip(published.derived.verdict))
     derivation_less = stored.verification_node(
-        "bare", title="bare", assessment=published.derived.assessment, assessment_ref=ASSESSMENT_REF,
-        scope=published.derived.scope, verdict=published.derived.verdict,
+        "bare",
+        title="bare",
+        assessment=published.derived.assessment,
+        assessment_ref=ASSESSMENT_REF,
+        scope=published.derived.scope,
+        verdict=published.derived.verdict,
     )
     target = _writer(tmp_path / "target")
     report = target.import_bundle((derivation_less,), evidence=published.evidence, **IMPORT_FIELDS)
     assert any(f.startswith("derivation-unchecked: verification:bare") for f in _report_findings(report))
     report = target.import_bundle((legacy,), evidence=published.evidence, **IMPORT_FIELDS)
-    assert any(f.startswith("derivation-unchecked: verification:legacy") for f in _report_findings(report))  # its runs are not in the bundle
+    assert any(
+        f.startswith("derivation-unchecked: verification:legacy") for f in _report_findings(report)
+    )  # its runs are not in the bundle
     with pytest.raises(ImportRefused):
-        target.import_bundle(_bundle_around(source, published, contradicting), evidence=published.evidence, **IMPORT_FIELDS)
+        target.import_bundle(
+            _bundle_around(source, published, contradicting), evidence=published.evidence, **IMPORT_FIELDS
+        )
 
 
 def test_v8_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):

@@ -90,14 +90,25 @@ def open_session(s, roots):
 
 
 def observed(seed):
-    return stored.dataset_node(title=seed, resources=pinned(seed),
-                               empirical_observation={"locator": "instrument:fixture", "attested_by": "test-actor"})
+    return stored.dataset_node(
+        title=seed,
+        resources=pinned(seed),
+        empirical_observation={"locator": "instrument:fixture", "attested_by": "test-actor"},
+    )
 
 
 def assessment(slug, run, prop_id):
-    return stored.assessment_node(slug, title=slug, spec="analysis-spec:s1", run=run.id, proposition=prop_id,
-                                  outcome="supported", interpretation_rule="rule:threshold",
-                                  estimand=typed_estimand(), applicability=typed_applicability())
+    return stored.assessment_node(
+        slug,
+        title=slug,
+        spec="analysis-spec:s1",
+        run=run.id,
+        proposition=prop_id,
+        outcome="supported",
+        interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
+    )
 
 
 def seeded(s):
@@ -106,7 +117,9 @@ def seeded(s):
 
 
 def run_then(w, d):
-    return w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))  # observes is not read at write time
+    return w.add(
+        stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id])
+    )  # observes is not read at write time
 
 
 # --- J16 ------------------------------------------------------------------------
@@ -299,7 +312,9 @@ def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
     kwargs = kwargs_for(view, TYPED)
     pins = {corpus_id: load_manifest(root).profile for corpus_id, root in roots.items()}
     context = _world_context(view, pins, kwargs)
-    split_answer, split_admission = evaluate_over_traced(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
+    split_answer, split_admission = evaluate_over_traced(
+        view, "proposition:p", **over_kwargs({**kwargs, "context": context})
+    )
     local = ReadView.opened_at(s.o)
     local_kwargs = kwargs_for(local, TYPED)
     local_answer, local_admission = evaluate_over_traced(local, "proposition:p", **over_kwargs(local_kwargs))
@@ -309,10 +324,22 @@ def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
     assert isinstance(split_answer, Belief) and isinstance(local_answer, Belief)
     assert split_answer.value == local_answer.value and split_answer.policy_binding == local_answer.policy_binding
     assert split_admission == local_admission
-    inputs = gather(view, "proposition:p", context=context, profile=TYPED,
-                    resolution=kwargs["resolution"], binding=kwargs["binding"])
-    local_inputs = gather(local, "proposition:p", context=local_kwargs["context"], profile=TYPED,
-                          resolution=local_kwargs["resolution"], binding=local_kwargs["binding"])
+    inputs = gather(
+        view,
+        "proposition:p",
+        context=context,
+        profile=TYPED,
+        resolution=kwargs["resolution"],
+        binding=kwargs["binding"],
+    )
+    local_inputs = gather(
+        local,
+        "proposition:p",
+        context=local_kwargs["context"],
+        profile=TYPED,
+        resolution=local_kwargs["resolution"],
+        binding=local_kwargs["binding"],
+    )
     split_closure = inputs.closure().projection
     assert _without_corpus_names(split_closure) == _without_corpus_names(local_inputs.closure().projection)
     # and the two members left out are exactly the world's names: its epoch and its corpora
@@ -336,7 +363,9 @@ def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
     absent_context = _world_context(absent_view, pins, kwargs)
     assert dataset_ref("d-a") not in absent_context.snapshot.producers
     assert absent_context.snapshot.not_present[dataset_ref("d-a")] == m_id
-    answer, _admission = evaluate_over_traced(absent_view, "proposition:p", **over_kwargs({**kwargs, "context": absent_context}))
+    answer, _admission = evaluate_over_traced(
+        absent_view, "proposition:p", **over_kwargs({**kwargs, "context": absent_context})
+    )
     assert isinstance(answer, NoBelief) and answer.reason == "unavailable-corpus-absent"
     assert m_id in answer.detail and w_id not in answer.detail
 
@@ -369,8 +398,14 @@ def test_j21_a_local_read_of_the_split_refuses_durably(corpora):
     view = ReadView.opened_at(s.w)
     kwargs = kwargs_for(view, W_PROFILE)
     with pytest.raises(InputOutsideCorpus) as refused:
-        gather(view, q.id, context=kwargs["context"], profile=W_PROFILE,
-               resolution=kwargs["resolution"], binding=kwargs["binding"])
+        gather(
+            view,
+            q.id,
+            context=kwargs["context"],
+            profile=W_PROFILE,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
     assert refused.value.assessment == stored.assessment_reference(a).identity()
     assert (refused.value.run, refused.value.inputs) == (run.id, (d.id,))
     answer = evaluate_over(view, q.id, **over_kwargs(kwargs))

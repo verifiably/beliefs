@@ -162,7 +162,8 @@ def test_the_permit_is_required_before_the_carrier_is_read(tmp_path):
 def test_a_retracted_producer_subject_refuses_before_any_write(tmp_path):
     _world, _roots, _b, published, *_ = retracted_world(tmp_path)
     source = exported(published, tmp_path / "export")
-    replica = world_over(tmp_path, _roots, name="replica"); hold_shipped(replica)
+    replica = world_over(tmp_path, _roots, name="replica")
+    hold_shipped(replica)
     with pytest.raises(EpochImportRefused) as caught:
         import_epoch(replica, source)
     assert caught.value.reason == "retracted-snapshot"
@@ -173,10 +174,12 @@ def test_a_retracted_producer_subject_refuses_before_any_write(tmp_path):
 def test_an_unreadable_standing_refuses_before_any_write(tmp_path):
     from fixtures_cut4 import raw_write
     from test_snapshot_retraction import broken_counter
+
     _world, roots, _b, published, _i, _w, r, _c = retracted_world(tmp_path)
     broken = broken_counter(r)
     raw_write(roots[ALPHA], broken)
-    replica = world_over(tmp_path, roots, name="replica"); hold_shipped(replica)
+    replica = world_over(tmp_path, roots, name="replica")
+    hold_shipped(replica)
     with pytest.raises(EpochImportRefused) as caught:
         import_epoch(replica, exported(published, tmp_path / "export"))
     assert caught.value.reason == "unreadable-standing" and epochs_of(replica) == set()

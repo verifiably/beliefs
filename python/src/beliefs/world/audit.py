@@ -104,8 +104,7 @@ def _anchor_findings(opened: Mapping[str, epoch.Epoch], view: registry.RegistryV
                         "anchor-uncorroborated",
                         name,
                         anchor.subject,
-                        f"{name}: no registry log-head record carries the heads this epoch anchors "
-                        f"{anchor.subject} at",
+                        f"{name}: no registry log-head record carries the heads this epoch anchors {anchor.subject} at",
                     )
                 )
     return findings
@@ -168,9 +167,7 @@ def audit_epochs(world: registry.World) -> EpochAudit:
     return EpochAudit(tuple(outcomes), snapshots, tuple(sorted(findings, key=lambda finding: finding.sort_key)))
 
 
-def snapshot_state(
-    world: registry.World, kind: derive.ReceiptKind, subject_identity: str
-) -> SnapshotVerdict:
+def snapshot_state(world: registry.World, kind: derive.ReceiptKind, subject_identity: str) -> SnapshotVerdict:
     """Reduce one subject over every retained carrier without writing."""
     opened, unreadable, _view = _retained(world)
     member = read._member_for(kind)

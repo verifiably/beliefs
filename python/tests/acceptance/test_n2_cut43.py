@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -59,6 +60,24 @@ from n2_arms_cut43 import (
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J15-b": Sabotage(
+        module="session/reconcile.py",
+        before=(
+            "            acts: set[str] = (\n"
+            "                {act.entry for act in reader.acts() if act.corpus == corpus_id} if reader is not None else set()\n"
+            "            )\n"
+        ),
+        after="            acts: set[str] = {act.entry for act in reader.acts()} if reader is not None else set()\n",
+    ),
+}
+CUT43_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT43_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

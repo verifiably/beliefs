@@ -145,9 +145,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
             keyed.append(
                 (
                     (corpus_id, 0, "session-chain-absent", corpus_id),
-                    _finding(
-                        "error", "session-chain-absent", corpus_id, "", "no durable chain to compare against"
-                    ),
+                    _finding("error", "session-chain-absent", corpus_id, "", "no durable chain to compare against"),
                 )
             )
             continue
@@ -219,7 +217,9 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
             reader = evidence if type(evidence) is LedgerReader else None
             open_invocations = list(reader.open_invocations) if reader is not None else []
             unknown = reader is None or bool(open_invocations)
-            acts: set[str] = {act.entry for act in reader.acts() if act.corpus == corpus_id} if reader is not None else set()
+            acts: set[str] = (
+                {act.entry for act in reader.acts() if act.corpus == corpus_id} if reader is not None else set()
+            )
             registrations = by_fulfills.get(entry.digest, [])
             committed = [r for r in registrations if settlement.get(r.digest) is True]
             pending = [r for r in registrations if settlement.get(r.digest) is None]
@@ -250,8 +250,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                                     "session-entry-foreign",
                                     r.digest,
                                     f"session={sid} intent={entry.digest}",
-                                    "a committed session write no act line covers and no open "
-                                    "invocation explains",
+                                    "a committed session write no act line covers and no open invocation explains",
                                 ),
                             )
                         )
@@ -265,8 +264,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                                 "session-entry-pending",
                                 r.digest,
                                 f"session={sid} intent={entry.digest}",
-                                "an unsettled registration fulfilling a session intent; reported, "
-                                "not adjudicated",
+                                "an unsettled registration fulfilling a session intent; reported, not adjudicated",
                             ),
                         )
                     )
@@ -279,8 +277,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                             "session-outcome-unknown",
                             entry.digest,
                             f"session={sid} invocations={open_invocations}",
-                            "a session intent with no registration, under an open invocation or an "
-                            "unreadable ledger",
+                            "a session intent with no registration, under an open invocation or an unreadable ledger",
                         ),
                     )
                 )

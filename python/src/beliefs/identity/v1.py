@@ -191,13 +191,9 @@ def decode(data: bytes) -> object:
     except CanonicalTextRefused:
         raise
     except IdentityError as caught:
-        raise CanonicalTextRefused(
-            f"re-encoding refused ({type(caught).__name__}): {caught}"
-        ) from caught
+        raise CanonicalTextRefused(f"re-encoding refused ({type(caught).__name__}): {caught}") from caught
     if reencoded != data:
-        raise CanonicalTextRefused(
-            "bytes are not canonical: re-encoding differs from the input"
-        )
+        raise CanonicalTextRefused("bytes are not canonical: re-encoding differs from the input")
     return parsed
 
 

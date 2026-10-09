@@ -320,7 +320,11 @@ def supported_policy(policy: object) -> BoundaryPolicy:
     if type(policy) is not BoundaryPolicy:
         raise BoundaryPolicyUnsupported("the boundary policy must be a BoundaryPolicy value")
     for known in SUPPORTED_POLICIES:
-        if (policy.identity, policy.scope_rule, frozenset(policy.capabilities)) == (known.identity, known.scope_rule, frozenset(known.capabilities)):
+        if (policy.identity, policy.scope_rule, frozenset(policy.capabilities)) == (
+            known.identity,
+            known.scope_rule,
+            frozenset(known.capabilities),
+        ):
             return known
     raise BoundaryPolicyUnsupported(
         f"{policy.identity!r} with scope rule {policy.scope_rule!r} and capabilities "
@@ -664,7 +668,10 @@ class LaunchAttestation:
         if type(self.instance) is not InstanceAttestation:
             raise MalformedClosure("a confined launch's instance is an InstanceAttestation")
         _require_triples(self.rendered_environment, "launch rendered environment")
-        if any(kind not in RENDERED_KINDS for _, kind, _ in cast(tuple[tuple[str, str, str], ...], self.rendered_environment)):
+        if any(
+            kind not in RENDERED_KINDS
+            for _, kind, _ in cast(tuple[tuple[str, str, str], ...], self.rendered_environment)
+        ):
             raise MalformedClosure(f"a rendered environment row's kind is one of {RENDERED_KINDS}")
         _require_pairs(self.mounts, "launch mounts")
 

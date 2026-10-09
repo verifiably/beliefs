@@ -130,11 +130,7 @@ def reduce_chain(
     *,
     state_facts: StateFacts,
 ) -> QualificationPass:
-    settlement = {
-        entry.registration: entry.committed
-        for entry in entries
-        if type(entry) is SettledEntryView
-    }
+    settlement = {entry.registration: entry.committed for entry in entries if type(entry) is SettledEntryView}
     pointers: dict[str, list[RegisteredEntryView]] = {}
     for entry in entries:
         if type(entry) is RegisteredEntryView and entry.fulfills is not None:
@@ -278,11 +274,7 @@ def _qualify_one(
         if reduction.unresolved:
             unresolved = True
             continue
-        chosen = (
-            min(reduction.reasons, key=shapes.REASON_PRIORITY.index)
-            if reduction.reasons
-            else "no-record"
-        )
+        chosen = min(reduction.reasons, key=shapes.REASON_PRIORITY.index) if reduction.reasons else "no-record"
         non_qualifying.append((registration.digest, chosen))
     if unresolved:
         return _unresolvable(intent)

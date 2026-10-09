@@ -46,9 +46,7 @@ def _replace(root, node):
 
 
 def _git(root, *args):
-    return subprocess.run(
-        ["git", *args], cwd=root, check=True, stdout=subprocess.PIPE, text=True
-    ).stdout.strip()
+    return subprocess.run(["git", *args], cwd=root, check=True, stdout=subprocess.PIPE, text=True).stdout.strip()
 
 
 def test_json_lift_tags_every_type_uniformly():
@@ -109,24 +107,20 @@ def test_node_content_and_produces_relations_move_state_while_semantic_identity_
     removed = body_edit.model_copy(update={"relations": []})
     states.append(_replace(root, removed))
     added = removed.model_copy(
-        update={
-            "relations": [Relation(source=run.id, predicate=stored.PRODUCES, target="dataset:b")]
-        }
+        update={"relations": [Relation(source=run.id, predicate=stored.PRODUCES, target="dataset:b")]}
     )
     states.append(_replace(root, added))
     retargeted = added.model_copy(
-        update={
-            "relations": [Relation(source=run.id, predicate=stored.PRODUCES, target="dataset:c")]
-        }
+        update={"relations": [Relation(source=run.id, predicate=stored.PRODUCES, target="dataset:c")]}
     )
     states.append(_replace(root, retargeted))
     facet_only = retargeted.model_copy(deep=True)
     facet_only.facets["review"] = {"member": "changed"}
     states.append(_replace(root, facet_only))
     assert len(set(states)) == len(states)
-    assert {
-        stored.stored_semantic_hash(node) for node in (run, body_edit, removed, added, retargeted, facet_only)
-    } == {semantic}
+    assert {stored.stored_semantic_hash(node) for node in (run, body_edit, removed, added, retargeted, facet_only)} == {
+        semantic
+    }
 
 
 def test_relation_reordering_moves_state(tmp_path):
@@ -190,9 +184,7 @@ def test_a_misplaced_node_file_is_a_malformed_state(tmp_path):
 def test_every_semantic_manifest_member_moves_state(tmp_path):
     run = stored.run_node("manifest", title="manifest", spec="analysis-spec:s1")
     root = _state_root(tmp_path, run)
-    original = manifest_bytes(
-        CorpusManifest(2, "1" * 32, PINS, ForkedFrom("2" * 32, "3" * 64))
-    )
+    original = manifest_bytes(CorpusManifest(2, "1" * 32, PINS, ForkedFrom("2" * 32, "3" * 64)))
     (root / "corpus.yaml").write_bytes(original)
     states = [corpus_state_identity(root)]
 
@@ -284,9 +276,7 @@ def test_malformed_node_wraps_the_nodes_failure(tmp_path):
 def test_duplicate_uid_wraps_the_corpus_failure(tmp_path):
     first = stored.run_node("first", title="first", spec="analysis-spec:s1")
     root = _state_root(tmp_path, first)
-    second = stored.run_node("second", title="second", spec="analysis-spec:s1").model_copy(
-        update={"uid": first.uid}
-    )
+    second = stored.run_node("second", title="second", spec="analysis-spec:s1").model_copy(update={"uid": first.uid})
     path = Corpus(root).store.path_for(second.id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(node_to_markdown(second), encoding="utf-8")

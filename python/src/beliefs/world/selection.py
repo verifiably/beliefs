@@ -150,7 +150,9 @@ class _InboundAdjacency:
                     Step(
                         stored=edge.relation.source,
                         resolved=None,
-                        entry=RelationEntry(source=ref, position=position, predicate=self._predicate, target=edge.relation.source),
+                        entry=RelationEntry(
+                            source=ref, position=position, predicate=self._predicate, target=edge.relation.source
+                        ),
                     )
                 )
                 continue

@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -61,6 +62,28 @@ from n2_arms_cut45 import (
 from test_n2 import audit, baseline, workers
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "G13-e": Sabotage(
+        module="evaluation.py",
+        before=(
+            '                detail=f"inputs recorded in absent corpora: {corpora}",\n'
+            "                acceptance=selection.report,\n"
+            "            ),\n"
+        ),
+        after=(
+            '                detail=f"inputs recorded in absent corpora: {corpora}",\n'
+            "                acceptance=None if acceptance is None else AcceptanceContext(acceptance.statement, (), False),\n"
+            "            ),\n"
+        ),
+    ),
+}
+CUT45_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT45_ARMS
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-10-02-conformance-cut-45.md"
@@ -176,7 +199,42 @@ def findings(tmp_path_factory):
 
 
 def test_the_inventory_is_exactly_the_frozen_rows_units() -> None:
-    assert DECLARATION_UNITS == ('G10-a', 'G10-b', 'G10-c', 'G10-d', 'G10-e', 'G10-f', 'G11-a', 'G11-b', 'G11-c', 'G11-d', 'G11-e', 'G11-f', 'G12-a', 'G12-b', 'G12-c', 'G12-d', 'G12-e', 'G12-f', 'G12-g', 'G12-h', 'G12-i', 'G12-j', 'G12-k', 'G12-l', 'G13-a', 'G13-b', 'G13-c', 'G13-d', 'G13-e', 'G13-f', 'G13-g', 'G13-h', 'G13-i', 'G13-j')
+    assert DECLARATION_UNITS == (
+        "G10-a",
+        "G10-b",
+        "G10-c",
+        "G10-d",
+        "G10-e",
+        "G10-f",
+        "G11-a",
+        "G11-b",
+        "G11-c",
+        "G11-d",
+        "G11-e",
+        "G11-f",
+        "G12-a",
+        "G12-b",
+        "G12-c",
+        "G12-d",
+        "G12-e",
+        "G12-f",
+        "G12-g",
+        "G12-h",
+        "G12-i",
+        "G12-j",
+        "G12-k",
+        "G12-l",
+        "G13-a",
+        "G13-b",
+        "G13-c",
+        "G13-d",
+        "G13-e",
+        "G13-f",
+        "G13-g",
+        "G13-h",
+        "G13-i",
+        "G13-j",
+    )
     assert (FROZEN_ARMS, FROZEN_UNITS) == (34, 34)
     assert len(CUT45_ARMS) == FROZEN_ARMS and len(DECLARATION_UNITS) == FROZEN_UNITS
     assert all(arm.sabotage.package == "beliefs" for arm in CUT45_ARMS)
@@ -335,8 +393,10 @@ def test_pilot_arms_fail_under_sabotage(tmp_path_factory):
     chosen = tuple(arm for arm in CUT45_ARMS if arm.row in {"G10-a", "G11-d", "G12-i", "G13-d"})
     assert {arm.row for arm in chosen} == {"G10-a", "G11-d", "G12-i", "G13-d"}
     workspace = tmp_path_factory.mktemp("cut45-pilot")
+
     def run(arm):
         return arm, baseline(arm), audit(arm, workspace / arm.row)
+
     with ThreadPoolExecutor(max_workers=workers()) as pool:
         for arm, normal, mutated in pool.map(run, chosen):
             assert normal.verdict == "resolved", (arm.row, normal.detail)

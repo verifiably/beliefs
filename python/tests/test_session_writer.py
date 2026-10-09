@@ -83,11 +83,20 @@ def make_session(
 
     ledger = LedgerWriter(path)
     session = WriterSession(
-        session_id=SESSION, world_id=WORLD, corpus_root=corpus_root, corpus_id=CORPUS,
-        operations_root=operations_root, ledger=ledger, writer_factory=writer_factory,
+        session_id=SESSION,
+        world_id=WORLD,
+        corpus_root=corpus_root,
+        corpus_id=CORPUS,
+        operations_root=operations_root,
+        ledger=ledger,
+        writer_factory=writer_factory,
         ceiling=WritePermit.full() if ceiling is None else ceiling,
-        profile=BASE, store_root=store_root, store_id=store_id, holdings_seam=holdings_seam,
-        coordination_resolver=coordination_resolver, project=project,
+        profile=BASE,
+        store_root=store_root,
+        store_id=store_id,
+        holdings_seam=holdings_seam,
+        coordination_resolver=coordination_resolver,
+        project=project,
     )
     return session, ports
 
@@ -302,8 +311,23 @@ def test_delete_ledgers_an_empty_record_list(tmp_path):
 def test_the_scoped_writer_exposes_the_seventeen_methods_the_routes_and_its_invocation(tmp_path):
     public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
     assert public == {
-        "add", "retract", "attest_coreference", "correct_identifier", "supersede", "revise", "delete", "mint_coordination", "revise_coordination",
-        "invocation_id", "actor", "store_id", "operation_port", "holdings_context", "acquire", "audit", "recheck",
+        "add",
+        "retract",
+        "attest_coreference",
+        "correct_identifier",
+        "supersede",
+        "revise",
+        "delete",
+        "mint_coordination",
+        "revise_coordination",
+        "invocation_id",
+        "actor",
+        "store_id",
+        "operation_port",
+        "holdings_context",
+        "acquire",
+        "audit",
+        "recheck",
     }
 
 
@@ -437,7 +461,10 @@ def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, pro
     root = tmp_path / "corpus"
     root.mkdir()
     writer = CorpusWriter(
-        root, DefaultExecutor, authority=FULL, profile=profile,
+        root,
+        DefaultExecutor,
+        authority=FULL,
+        profile=profile,
         operation_port=OperationRecorder(root, authority=FULL, profile=profile),
     )
     writer.adopt_manifest(profile=pins_for(profile))
@@ -451,9 +478,13 @@ def _attended(tmp_path, monkeypatch, *, resolver_for=lambda corpus_id: None, pro
 
 def _session_snapshot_retraction(identity: str, actor: str):
     return stored.retraction_node(
-        title="t1", target=stored.SnapshotTarget("producer", identity), reason="authored-error",
-        rationale="the snapshot's coverage was too wide", grounds=("verification:v1",),
-        actor=actor, event_token="t1",
+        title="t1",
+        target=stored.SnapshotTarget("producer", identity),
+        reason="authored-error",
+        rationale="the snapshot's coverage was too wide",
+        grounds=("verification:v1",),
+        actor=actor,
+        event_token="t1",
     )
 
 
@@ -616,7 +647,7 @@ def test_select_project_is_held_to_the_current_invocation_and_one_line(tmp_path,
     with pytest.raises(SessionProtocolError):
         session.select_project("B", CoordinationAddress(Q))  # no invocation is current
     after = ledger_file(session).read_bytes()
-    assert after.startswith(before) and b'"line":"select"' not in after[len(before):]
+    assert after.startswith(before) and b'"line":"select"' not in after[len(before) :]
 
 
 def test_selection_calls_on_a_closed_session_are_session_closed(tmp_path, base_contract):
@@ -624,13 +655,18 @@ def test_selection_calls_on_a_closed_session_are_session_closed(tmp_path, base_c
     session, _ = make_session(tmp_path, coordination_resolver=resolver)
     session.claim_invocation("A", "project-select", DIGEST)
     session.close()
-    for call in (lambda: session.select_project("A", CoordinationAddress(P)), lambda: session.invocation_selection("A")):
+    for call in (
+        lambda: session.select_project("A", CoordinationAddress(P)),
+        lambda: session.invocation_selection("A"),
+    ):
         with pytest.raises(SessionClosed):
             call()
 
 
 @pytest.mark.parametrize("fault", ["write", "flush", "fsync"])
-def test_a_failed_select_append_leaves_the_index_unchanged_and_ends_the_session(tmp_path, base_contract, monkeypatch, fault):
+def test_a_failed_select_append_leaves_the_index_unchanged_and_ends_the_session(
+    tmp_path, base_contract, monkeypatch, fault
+):
     resolver, _ = projects_resolver(tmp_path, base_contract)
     session, _ = make_session(tmp_path, coordination_resolver=resolver)
     session.claim_invocation("A", "project-select", DIGEST)
@@ -716,7 +752,9 @@ def _coordinated_open(tmp_path, monkeypatch, base_contract, *, coordination=True
     _stub_durable_seams(monkeypatch)
     ops = tmp_path / "ops"
     config = WorldConfig(tmp_path / "world", WORLD, (root,))
-    session = open_attended_session(config, ops, write_root=root, profile=profile, mounts={root: profile} if coordination else None, **kwargs)
+    session = open_attended_session(
+        config, ops, write_root=root, profile=profile, mounts={root: profile} if coordination else None, **kwargs
+    )
     return session, ops
 
 
@@ -780,16 +818,31 @@ def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
     """J16-e's check."""
     a, b, config = _two_typed_roots(tmp_path, monkeypatch)
     library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
-    d = library.add(stored.dataset_node(title="d", resources=pinned("d"),
-                                        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
+    d = library.add(
+        stored.dataset_node(
+            title="d",
+            resources=pinned("d"),
+            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
+        )
+    )
     p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
     session = _open(config, tmp_path, write_root=a, profile=V2T, mounts={a: V2T, b: V2T})
     w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
     session.claim_invocation("A", "assess", "d" * 64)
     run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
-    w.add(stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
-                                 outcome="supported", interpretation_rule="rule:threshold",
-                                 estimand=typed_estimand(), applicability=typed_applicability()))
+    w.add(
+        stored.assessment_node(
+            "a",
+            title="a",
+            spec="analysis-spec:s1",
+            run=run.id,
+            proposition=p.id,
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+        )
+    )
     session.close_invocation("A", {"done": []})
     session.close()
 
@@ -801,17 +854,32 @@ def test_a_session_with_no_mounts_refuses_a_citation_into_another_root(tmp_path,
 
     a, b, config = _two_typed_roots(tmp_path, monkeypatch)
     library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
-    d = library.add(stored.dataset_node(title="d", resources=pinned("d"),
-                                        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
+    d = library.add(
+        stored.dataset_node(
+            title="d",
+            resources=pinned("d"),
+            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
+        )
+    )
     p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
     session = _open(config, tmp_path, write_root=a, profile=V2T, mounts=None)
     w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
     session.claim_invocation("A", "assess", "d" * 64)
     run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
     with pytest.raises(EligibilityUnmet, match=f"{d.id}: unresolved"):
-        w.add(stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
-                                     outcome="supported", interpretation_rule="rule:threshold",
-                                     estimand=typed_estimand(), applicability=typed_applicability()))
+        w.add(
+            stored.assessment_node(
+                "a",
+                title="a",
+                spec="analysis-spec:s1",
+                run=run.id,
+                proposition=p.id,
+                outcome="supported",
+                interpretation_rule="rule:threshold",
+                estimand=typed_estimand(),
+                applicability=typed_applicability(),
+            )
+        )
     session.close_invocation("A", {"done": []})
     session.close()
 
@@ -824,15 +892,29 @@ def test_a_symlinked_write_root_mount_key_is_filtered_after_normalization(tmp_pa
     library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
     p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
     d = library.add(
-        stored.dataset_node(title="d", resources=pinned("d"),
-                            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
+        stored.dataset_node(
+            title="d",
+            resources=pinned("d"),
+            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
+        )
+    )
     session = _open(config, tmp_path, write_root=a, profile=V2T, mounts={alias: V2T, b: V2T})
     w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
     session.claim_invocation("A", "assess", "d" * 64)
     run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
-    w.add(stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
-                                 outcome="supported", interpretation_rule="rule:threshold",
-                                 estimand=typed_estimand(), applicability=typed_applicability()))  # cites: opens the mounts
+    w.add(
+        stored.assessment_node(
+            "a",
+            title="a",
+            spec="analysis-spec:s1",
+            run=run.id,
+            proposition=p.id,
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+        )
+    )  # cites: opens the mounts
     session.close_invocation("A", {"done": []})
     session.close()
 

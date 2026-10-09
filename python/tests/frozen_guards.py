@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 
+from cited_not_run import CITED_NOT_RUN
+
 _SHA256_LENGTH = 64
 
 
@@ -33,7 +35,7 @@ class Pin:
         return len(self.pin) == _SHA256_LENGTH and all(c in "0123456789abcdef" for c in self.pin)
 
 
-def _module_constants(tree: ast.Module) -> dict[str, str]:
+def module_constants(tree: ast.Module) -> dict[str, str]:
     """The module-level string names a table may spell its pins with.
 
     `RENAME_COMMIT = "5a02ca2"` and its siblings are how several guards avoid repeating
@@ -52,7 +54,7 @@ def _module_constants(tree: ast.Module) -> dict[str, str]:
 def pins_in(guard: Path) -> tuple[Pin, ...]:
     """Every freeze pin the guard declares, in declaration order."""
     tree = ast.parse(guard.read_text(encoding="utf-8"))
-    constants = _module_constants(tree)
+    constants = module_constants(tree)
     pins: list[Pin] = []
     for node in tree.body:
         if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
@@ -149,3 +151,44 @@ def holds(pin: Pin, *, repo_root: Path) -> bool:
 def broken_pins(guard: Path, *, repo_root: Path) -> tuple[Pin, ...]:
     """The guard's pins the tree has falsified."""
     return tuple(pin for pin in pins_in(guard) if not holds(pin, repo_root=repo_root))
+
+
+def declaration_pin(guard: Path) -> str | None:
+    """The guard's scalar freeze: the declaration file its `CUTN_DECLARATION_SHA256` holds.
+
+    Cuts 26 onwards name their own arm declaration as a module-level `FROZEN_DECLARATION`
+    and pin it byte-exact with a scalar digest (cuts 27-30 add a `CUTN_DECLARATION_COMMIT`).
+    `pins_in` reads only the `FROZEN_*` tables, so this is the second form a freeze takes.
+    """
+    return module_constants(ast.parse(guard.read_text(encoding="utf-8"))).get("FROZEN_DECLARATION")
+
+
+def protected_paths(repo_root: Path) -> frozenset[str]:
+    """Every existing Python file a freeze claims, relative to `python/`.
+
+    A file is claimed when a guard pins it by table or by its scalar declaration pin, or
+    when it is a cited-not-run surface (guard, declaration, runner), which doctrine §2
+    makes evidence whether or not a later cut pinned it. Formatting excludes exactly
+    this set (spec 2026-10-09 §3.1).
+    """
+    claimed: set[str] = set()
+    for guard in guard_modules(repo_root):
+        claimed.update(pin.target for pin in pins_in(guard))
+        declaration = declaration_pin(guard)
+        if declaration is not None:
+            claimed.add(declaration)
+    for name, standing in CITED_NOT_RUN.items():
+        cut = standing.cut
+        claimed.update(
+            {
+                f"python/tests/acceptance/{name}",
+                f"python/tests/n2_arms_cut{cut}.py",
+                f"python/tests/acceptance/n2_arms_cut{cut}.py",
+                f"python/tools/cut{cut}_acceptance.py",
+            }
+        )
+    return frozenset(
+        path.removeprefix("python/")
+        for path in claimed
+        if path.startswith("python/") and path.endswith(".py") and (repo_root / path).is_file()
+    )

@@ -30,12 +30,22 @@ def closure_kwargs() -> dict:
     `("science.belief.v1", "impl-1")`. Fresh objects every call — the values
     are frozen, but tests build modified copies from a clean baseline."""
     a1 = AssessmentValue(
-        spec="spec-a", run="run-a", proposition="p1", outcome="supported", interpretation_rule="rule-1",
-        estimand=typed_estimand(), applicability=typed_applicability(),
+        spec="spec-a",
+        run="run-a",
+        proposition="p1",
+        outcome="supported",
+        interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     a2 = AssessmentValue(
-        spec="spec-b", run="run-b", proposition="p1", outcome="refuted", interpretation_rule="rule-1",
-        estimand=typed_estimand(), applicability=typed_applicability(),
+        spec="spec-b",
+        run="run-b",
+        proposition="p1",
+        outcome="refuted",
+        interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     runs = {
         "run-a": RunValue(
@@ -266,11 +276,11 @@ def test_the_same_binding_resolves_identically_elsewhere():
         "snapshot",
         "producer_snapshot_identity",
         "retractions",
-            "consulted",
-            "binding",
-            "observed_facets",
-            "acceptance_statement",
-        }
+        "consulted",
+        "binding",
+        "observed_facets",
+        "acceptance_statement",
+    }
     assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in parameters.values())
 
     here = build_closure(**closure_kwargs()).digest()
@@ -346,8 +356,12 @@ def test_an_activated_but_unconsulted_bump_is_absent(base_contract, testing_docu
     # the walk output — and hence the digest — is unchanged.
     profile = _bumped(base_contract, testing_document, "v1")
     real = pins_for(profile)
-    pins_v1 = CorpusPins(science_contract=real.science_contract, domains={**real.domains, "unrelated": "unrelated:" + "1" * 64})
-    pins_v2 = CorpusPins(science_contract=real.science_contract, domains={**real.domains, "unrelated": "unrelated:" + "2" * 64})
+    pins_v1 = CorpusPins(
+        science_contract=real.science_contract, domains={**real.domains, "unrelated": "unrelated:" + "1" * 64}
+    )
+    pins_v2 = CorpusPins(
+        science_contract=real.science_contract, domains={**real.domains, "unrelated": "unrelated:" + "2" * 64}
+    )
     consulted_v1 = consulted_contracts(
         claims={}, profile=profile, node_corpus={}, pins={"c1": pins_v1}, closure_nodes=()
     )

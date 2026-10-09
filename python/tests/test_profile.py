@@ -133,7 +133,9 @@ class TestCrossContractSlots:
     """Biology pack design §4.3: namespaced references resolve at compile."""
 
     def test_a_foreign_sort_resolves_when_its_contract_is_compiled(self, base_contract, testing, crossing_document):
-        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        crossing = domain.parse_domain_contract(
+            crossing_document, source="<crossing>", base=base_contract, predecessor=None
+        )
         profile = compile_profile(base_contract, [crossing, testing])
         operator = profile.operator("crossing/affects-local-entity")
         assert operator.arg_sorts == ("crossing/local", "testing/entity")
@@ -143,12 +145,16 @@ class TestCrossContractSlots:
         assert profile.sorts["testing/entity"].contract == "testing"
 
     def test_the_resolver_namespaces_a_bare_name_once(self, base_contract, testing, crossing_document):
-        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        crossing = domain.parse_domain_contract(
+            crossing_document, source="<crossing>", base=base_contract, predecessor=None
+        )
         profile = compile_profile(base_contract, [crossing, testing])
         assert profile.operator("crossing/same-local-local").arg_sorts == ("crossing/local", "crossing/local")
 
     def test_an_unresolved_reference_refuses_naming_the_namespace(self, base_contract, crossing_document):
-        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        crossing = domain.parse_domain_contract(
+            crossing_document, source="<crossing>", base=base_contract, predecessor=None
+        )
         with pytest.raises(MalformedContract, match="no compiled contract declares sort 'testing/cohort'"):
             compile_profile(base_contract, [crossing])
 
@@ -156,14 +162,20 @@ class TestCrossContractSlots:
         self, base_contract, testing, crossing_document
     ):
         crossing_document["dimensions"] = {}
-        crossing_document["operators"] = {"affects-local-entity": crossing_document["operators"]["affects-local-entity"]}
+        crossing_document["operators"] = {
+            "affects-local-entity": crossing_document["operators"]["affects-local-entity"]
+        }
         crossing_document["operators"]["affects-local-entity"]["arg_sorts"][1] = "testing/missing"
-        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        crossing = domain.parse_domain_contract(
+            crossing_document, source="<crossing>", base=base_contract, predecessor=None
+        )
         with pytest.raises(MalformedContract, match="no compiled contract declares sort 'testing/missing'"):
             compile_profile(base_contract, [crossing, testing])
 
     def test_compile_order_is_inert(self, base_contract, testing, crossing_document):
-        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        crossing = domain.parse_domain_contract(
+            crossing_document, source="<crossing>", base=base_contract, predecessor=None
+        )
         one = compile_profile(base_contract, [crossing, testing])
         other = compile_profile(base_contract, [testing, crossing])
         assert one.operator("crossing/affects-local-entity") == other.operator("crossing/affects-local-entity")
@@ -876,7 +888,13 @@ def test_edges_compile_under_the_namespaced_operator(base_contract, testing_docu
     testing = parse_domain_contract(testing_document, source="<t>", base=base_contract, predecessor=None)
     profile = compile_profile(base_contract, [testing])
     edge = profile.edges["testing/affects"]
-    assert (edge.operator, edge.cause, edge.effect, edge.retired, edge.contract) == ("testing/affects", 0, 1, False, "testing")
+    assert (edge.operator, edge.cause, edge.effect, edge.retired, edge.contract) == (
+        "testing/affects",
+        0,
+        1,
+        False,
+        "testing",
+    )
     assert "testing/correlates-with" not in profile.edges
 
 
@@ -886,10 +904,15 @@ def test_edges_enter_the_compiled_identity(base_contract, testing_document):
     from beliefs.contract import parse_domain_contract
     from beliefs.profile import compile_profile
 
-    with_edge = parse_domain_contract(copy.deepcopy(testing_document), source="<t>", base=base_contract, predecessor=None)
+    with_edge = parse_domain_contract(
+        copy.deepcopy(testing_document), source="<t>", base=base_contract, predecessor=None
+    )
     del testing_document["edges"]
     without = parse_domain_contract(testing_document, source="<t>", base=base_contract, predecessor=None)
-    assert compile_profile(base_contract, [with_edge]).compiled_identity != compile_profile(base_contract, [without]).compiled_identity
+    assert (
+        compile_profile(base_contract, [with_edge]).compiled_identity
+        != compile_profile(base_contract, [without]).compiled_identity
+    )
 
 
 def test_retiring_an_edge_row_moves_the_compiled_identity(base_contract, testing_document):

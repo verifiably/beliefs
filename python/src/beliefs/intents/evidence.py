@@ -33,9 +33,7 @@ carries as its match (successor-admission design §4.4)."""
 
 
 def record_layout_path(path: str) -> bool:
-    return path.endswith(".md") and any(
-        path.startswith(namespace + "/") for namespace in RECORD_NAMESPACES
-    )
+    return path.endswith(".md") and any(path.startswith(namespace + "/") for namespace in RECORD_NAMESPACES)
 
 
 def decode_node(path: str, payload: bytes) -> Node:
@@ -56,22 +54,14 @@ def decode_node(path: str, payload: bytes) -> Node:
         raise RecordUndecodable(f"{path}: {caught}") from caught
     try:
         if stored.semantic_hash_missing(node) or stored.semantic_hash_disagrees(node):
-            raise RecordUndecodable(
-                f"{path}: the semantic stamp does not agree with the stored fields"
-            )
+            raise RecordUndecodable(f"{path}: the semantic stamp does not agree with the stored fields")
     except (IdentityError, MalformedRecord) as caught:
-        raise RecordUndecodable(
-            f"{path}: the semantic projection is not encodable: {caught}"
-        ) from caught
+        raise RecordUndecodable(f"{path}: the semantic projection is not encodable: {caught}") from caught
     kind, _, slug = node.id.partition(":")
     if not slug or path != f"{kind}/{slug}.md":
-        raise RecordUndecodable(
-            f"{path}: the record id {node.id!r} does not name this path"
-        )
+        raise RecordUndecodable(f"{path}: the record id {node.id!r} does not name this path")
     if node.kind != kind:
-        raise RecordUndecodable(
-            f"{path}: the record kind {node.kind!r} disagrees with its id"
-        )
+        raise RecordUndecodable(f"{path}: the record kind {node.kind!r} disagrees with its id")
     return node
 
 
@@ -101,9 +91,7 @@ def decode_record(path: str, payload: bytes) -> RecordEvidence:
         except MalformedRecord as caught:
             raise RecordUndecodable(f"{path}: {caught}") from caught
         if node.id != f"holdings-observation:{value.identity()}":
-            raise RecordUndecodable(
-                f"{path}: the observation id disagrees with its identity"
-            )
+            raise RecordUndecodable(f"{path}: the observation id disagrees with its identity")
         return ObservationEvidence(
             value.location.canonical(),
             value.event_token,

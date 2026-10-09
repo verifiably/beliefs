@@ -448,9 +448,7 @@ def _receipts_of(directory: Path) -> tuple[_ReceiptCarrier, ...]:
     """The four receipts of one closed carrier, in §6.1's member order."""
     members = _carrier_members(directory)
     return tuple(
-        _parse_receipt(directory.name, member, members[member])
-        for member in EPOCH_MEMBERS
-        if member in RECEIPT_KINDS
+        _parse_receipt(directory.name, member, members[member]) for member in EPOCH_MEMBERS if member in RECEIPT_KINDS
     )
 
 
@@ -770,9 +768,7 @@ def _check_targets(document: Mapping[object, object]) -> None:
 
 
 def _check_pairs(document: Mapping[object, object]) -> None:
-    for entry in _entries(
-        document["pairs"], ("balance", "distinct_key_count", "endpoints"), "pairs"
-    ):
+    for entry in _entries(document["pairs"], ("balance", "distinct_key_count", "endpoints"), "pairs"):
         endpoints = entry["endpoints"]
         if type(endpoints) is not list or len(endpoints) != 2:
             raise ValueError("a coreference pair names exactly two endpoints")
@@ -791,9 +787,7 @@ _ANCHOR_KEYS = ("genesis_digest", "head_digest", "subject")
 
 
 def _check_anchors(document: Mapping[object, object]) -> None:
-    subjects = [
-        _anchor(entry).subject for entry in _entries(document["corpora"], _ANCHOR_KEYS, "corpora")
-    ]
+    subjects = [_anchor(entry).subject for entry in _entries(document["corpora"], _ANCHOR_KEYS, "corpora")]
     if subjects != sorted(subjects):
         raise ValueError("the corpus anchors are not sorted by subject")
     if len(set(subjects)) != len(subjects):
@@ -815,8 +809,7 @@ def _check_coverage(document: Mapping[object, object]) -> None:
     consumer is not a cosmetic fault.
     """
     covered = [
-        _covered_pair(entry)[0]
-        for entry in _entries(document["coverage"], ("corpus_id", "corpus_state"), "coverage")
+        _covered_pair(entry)[0] for entry in _entries(document["coverage"], ("corpus_id", "corpus_state"), "coverage")
     ]
     if covered != sorted(covered):
         raise ValueError("the coverage declaration is not sorted by corpus_id")
@@ -883,9 +876,7 @@ def _covered_states(document: Mapping[object, object]) -> tuple[tuple[str, str],
 # carrier path, no view and no handle, so a derivation that wanted to peek at
 # live state would have to be handed one by its caller.
 
-DERIVATION_KINDS: tuple[str, ...] = tuple(
-    RECEIPT_KINDS[member] for member in EPOCH_MEMBERS if member in RECEIPT_KINDS
-)
+DERIVATION_KINDS: tuple[str, ...] = tuple(RECEIPT_KINDS[member] for member in EPOCH_MEMBERS if member in RECEIPT_KINDS)
 """§5.2's four derivations, keyed as §7.5 keys their receipts, in §6.1's order.
 
 Derived from the member inventory rather than written out again: a build input
@@ -1044,8 +1035,7 @@ def _declared_bindings(bindings: Mapping[str, rules.RuleBinding]) -> Mapping[str
     """Exactly one exact pair per receipt kind. Three is not an epoch."""
     if set(bindings) != set(DERIVATION_KINDS):
         raise ValueError(
-            f"a build names one exact rule binding per receipt kind {sorted(DERIVATION_KINDS)}; "
-            f"got {sorted(bindings)}"
+            f"a build names one exact rule binding per receipt kind {sorted(DERIVATION_KINDS)}; got {sorted(bindings)}"
         )
     for kind, binding in bindings.items():
         if type(binding) is not rules.RuleBinding:
@@ -1067,13 +1057,9 @@ def _locked_resolve_coverage(
         carriers: dict[str, Path] = {}
         for corpus_id in covered:
             if not any(record.corpus_id == corpus_id for record in view.admissions):
-                raise CoverageUnknown(
-                    f"{corpus_id}: declared coverage names a corpus this world has not admitted"
-                )
+                raise CoverageUnknown(f"{corpus_id}: declared coverage names a corpus this world has not admitted")
             if any(record.corpus_id == corpus_id for record in view.statuses):
-                raise CoverageNotLive(
-                    f"{corpus_id}: declared coverage names a corpus with terminal status"
-                )
+                raise CoverageNotLive(f"{corpus_id}: declared coverage names a corpus with terminal status")
             roots = registry._carrier_roots(config, corpus_id)
             if len(roots) != 1:
                 detail = ",".join(sorted(str(root) for root in roots)) or "none"
@@ -1446,9 +1432,7 @@ def _derived_members(draft: _BuildDraft) -> Mapping[str, bytes]:
         bindings=draft.bindings,
     )
     members: dict[str, bytes] = {
-        "address-map.yaml": _document_bytes(
-            derive.address_map_projection(derive.address_map(draft.capture))
-        ),
+        "address-map.yaml": _document_bytes(derive.address_map_projection(derive.address_map(draft.capture))),
         "producers-map.yaml": _document_bytes(derive.producers_map_projection(snapshot.producers)),
         "retraction-discovery-map.yaml": _document_bytes(
             derive.retraction_discovery_map_projection(derive.retraction_discovery_map(draft.capture))
@@ -1507,8 +1491,7 @@ def _coverage_projection(draft: _BuildDraft) -> dict[str, object]:
     """
     return {
         "coverage": [
-            {"corpus_id": corpus_id, "corpus_state": corpus_state}
-            for corpus_id, corpus_state in draft.corpus_states
+            {"corpus_id": corpus_id, "corpus_state": corpus_state} for corpus_id, corpus_state in draft.corpus_states
         ]
     }
 
@@ -1520,8 +1503,7 @@ def _receipt_projection(receipt: derive.DerivationReceipt) -> dict[str, object]:
         "kind": receipt.kind,
         "subject": receipt.subject_identity,
         "corpus_states": [
-            {"corpus_id": corpus_id, "corpus_state": corpus_state}
-            for corpus_id, corpus_state in receipt.corpus_states
+            {"corpus_id": corpus_id, "corpus_state": corpus_state} for corpus_id, corpus_state in receipt.corpus_states
         ],
         "rule_identity": receipt.rule_identity,
         "implementation_identity": receipt.implementation_identity,
@@ -1537,9 +1519,7 @@ def _receipt_projection(receipt: derive.DerivationReceipt) -> dict[str, object]:
     return projection
 
 
-def _locked_log_head_records(
-    world_root: Path, packaging_identity: str, members: Mapping[str, bytes]
-) -> list[CreateOp]:
+def _locked_log_head_records(world_root: Path, packaging_identity: str, members: Mapping[str, bytes]) -> list[CreateOp]:
     """The build's registry-record half: one log-head record per covered corpus.
 
     Log-verification design §3.3. The epoch's `anchors.yaml` member and these
@@ -1580,9 +1560,7 @@ def _locked_log_head_records(
     return plan
 
 
-def _locked_publication_plan(
-    world_root: Path, packaging_identity: str, members: Mapping[str, bytes]
-) -> WritePlan:
+def _locked_publication_plan(world_root: Path, packaging_identity: str, members: Mapping[str, bytes]) -> WritePlan:
     """The one transaction, or nothing at all. The caller holds the world lock.
 
     First publication is eleven creates, a create for the pointer, and one
@@ -1820,9 +1798,7 @@ def _locked_retained_directories(world_root: Path) -> tuple[tuple[str, str | Non
             continue
         try:
             if entry.is_symlink() or not entry.is_dir() or not _PACKAGING_IDENTITY.fullmatch(entry.name):
-                entries.append(
-                    (entry.name, f"{entry}: nothing but epoch carriers and {CURRENT_POINTER!r} lives here")
-                )
+                entries.append((entry.name, f"{entry}: nothing but epoch carriers and {CURRENT_POINTER!r} lives here"))
                 continue
             if _emptied(entry):
                 continue

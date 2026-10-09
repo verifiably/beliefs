@@ -140,9 +140,7 @@ RULE_RESULTS = {
     "rolled-back": _BLOCKED_WITH_HEAD,
     "wrong-location": {
         "active": [member(REF_A, location=OTHER_LOCATION)],
-        "blocked": [
-            {"location": LOCATION, "reasons": ["unsettled"], "heads": []}
-        ],
+        "blocked": [{"location": LOCATION, "reasons": ["unsettled"], "heads": []}],
     },
     "wrong-token": _BLOCKED_WITH_HEAD,
     "no-observation": _BLOCKED_EMPTY_HEADS,
@@ -176,9 +174,7 @@ def test_holdings_matrix_agrees_across_both_consumers(case) -> None:
         records[record_path] = record_bytes
     else:
         record_path = ABSENT_RECORD_PATH
-    final_rows = (
-        ((record_path, FakeFile("f")),) if shape.startswith("settled-file") else ()
-    )
+    final_rows = ((record_path, FakeFile("f")),) if shape.startswith("settled-file") else ()
     entries.append(
         RegisteredEntryView(
             digest="r1",
@@ -308,9 +304,7 @@ def test_run_shapes_agree_between_verifier_and_completion(
     closure_fixture,
     expected,
 ) -> None:
-    intent_value, wire_payload, held_value, record_path, record_bytes = (
-        agreement_case(held_intent, closure_fixture)
-    )
+    intent_value, wire_payload, held_value, record_path, record_bytes = agreement_case(held_intent, closure_fixture)
     held_answer = completion(
         intent_value,
         (Registration(intent_value.event_token, "pointer"),),
@@ -318,6 +312,4 @@ def test_run_shapes_agree_between_verifier_and_completion(
     )
     assert held_answer == expected
     status = _verifier_status(wire_payload, record_path, record_bytes)
-    assert status == (
-        "matched" if expected == CLOSED else "attempt-without-recorded-outcome"
-    )
+    assert status == ("matched" if expected == CLOSED else "attempt-without-recorded-outcome")

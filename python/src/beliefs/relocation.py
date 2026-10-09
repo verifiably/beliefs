@@ -66,23 +66,17 @@ def _refuse_excluded_kind(node: Node) -> None:
         raise RelocationKindExcluded(f"{node.id}: kind {node.kind!r} is excluded from relocation")
 
 
-def _refuse_contract_disagreement(
-    node: Node, source: CorpusWriter, destination: CorpusWriter
-) -> None:
+def _refuse_contract_disagreement(node: Node, source: CorpusWriter, destination: CorpusWriter) -> None:
     source_pins = source.manifest_pins()
     destination_pins = destination.manifest_pins()
     if source_pins.science_contract != destination_pins.science_contract:
-        raise ContractPinDisagreement(
-            f"{node.id}: source and destination pin different science contracts"
-        )
+        raise ContractPinDisagreement(f"{node.id}: source and destination pin different science contracts")
     for namespace in sorted(stored.used_facet_namespaces(node)):
         if (
             namespace not in source_pins.domains
             or destination_pins.domains.get(namespace) != source_pins.domains[namespace]
         ):
-            raise ContractPinDisagreement(
-                f"{node.id}: source and destination disagree on used namespace {namespace!r}"
-            )
+            raise ContractPinDisagreement(f"{node.id}: source and destination disagree on used namespace {namespace!r}")
 
 
 def move(
@@ -108,15 +102,11 @@ def move(
         _refuse_excluded_kind(node)
         _refuse_contract_disagreement(node, source, destination)
         if destination.read_view.resolve(node.id) == node.id:
-            raise DuplicateLocation(
-                f"{node.id}: destination already holds this canonical address"
-            )
+            raise DuplicateLocation(f"{node.id}: destination already holds this canonical address")
         destination._preflight_add_locked(node, provenance=True)
         for position, writer in (("source", source), ("destination", destination)):
             if writer._operation_port is None:
-                raise RelocationRefused(
-                    f"{position} corpus has no operation port; move is a boundary operation"
-                )
+                raise RelocationRefused(f"{position} corpus has no operation port; move is a boundary operation")
 
         token = secrets.token_hex(16)
         destination.authority.require("corpus-write", (node.kind, "act-report"))
@@ -133,17 +123,11 @@ def move(
         }
         destination_report = destination._relocation_report(intent, **report_fields)
         source_report = source._relocation_report(intent, **report_fields)
-        destination_report_op = destination._create_op(
-            stored.act_report_node(destination_report)
-        )
+        destination_report_op = destination._create_op(stored.act_report_node(destination_report))
         source_report_op = source._create_op(stored.act_report_node(source_report))
 
-        destination_intent = destination._append_operation_intent(
-            intent.kind, intent.event_token, intent.actor
-        )
-        source_intent = source._append_operation_intent(
-            intent.kind, intent.event_token, intent.actor
-        )
+        destination_intent = destination._append_operation_intent(intent.kind, intent.event_token, intent.actor)
+        source_intent = source._append_operation_intent(intent.kind, intent.event_token, intent.actor)
         moved = destination._add_locked(node, provenance=True)
         source._delete_locked(node.id)
         destination._publish_operation_report(
@@ -163,9 +147,7 @@ def _relation_key(relation: Relation) -> tuple[str, str, str]:
     return relation.source, relation.predicate, relation.target
 
 
-def _reconcile(
-    survivor: Node, loser: Node, *, correction_entries: list[dict[str, Any]] | None = None
-) -> Node:
+def _reconcile(survivor: Node, loser: Node, *, correction_entries: list[dict[str, Any]] | None = None) -> Node:
     relations: dict[tuple[str, str, str], Relation] = {}
     for relation in (*survivor.relations, *loser.relations):
         relations.setdefault(_relation_key(relation), relation)
@@ -178,17 +160,11 @@ def _reconcile(
     unstamped = survivor.model_copy(
         update={
             "relations": [relations[key] for key in sorted(relations)],
-            "deprecated_ids": sorted(
-                {*survivor.deprecated_ids, *loser.deprecated_ids}
-            ),
+            "deprecated_ids": sorted({*survivor.deprecated_ids, *loser.deprecated_ids}),
             "facets": facets,
         }
     )
-    return (
-        stored.stamp_semantic_identity(unstamped)
-        if unstamped.kind in stored.SEMANTIC_DOMAINS
-        else unstamped
-    )
+    return stored.stamp_semantic_identity(unstamped) if unstamped.kind in stored.SEMANTIC_DOMAINS else unstamped
 
 
 def consolidate(
@@ -211,14 +187,10 @@ def consolidate(
         _refuse_same_root(keep_writer, other_writer)
         keep_id = keep_writer.read_view.resolve(keep_ref)
         if keep_id is None:
-            raise RelocationTargetMissing(
-                f"{keep_ref!r}: keep corpus holds no resolving record"
-            )
+            raise RelocationTargetMissing(f"{keep_ref!r}: keep corpus holds no resolving record")
         other_id = other_writer.read_view.resolve(other_ref)
         if other_id is None:
-            raise RelocationTargetMissing(
-                f"{other_ref!r}: other corpus holds no resolving record"
-            )
+            raise RelocationTargetMissing(f"{other_ref!r}: other corpus holds no resolving record")
         keep_node = keep_writer.read_view.get(keep_id)
         other_node = other_writer.read_view.get(other_id)
         _refuse_excluded_kind(keep_node)
@@ -232,9 +204,7 @@ def consolidate(
         try:
             v1.encode(rationale)
         except IdentityError as caught:
-            raise RelocationRefused(
-                "consolidate: rationale is a non-empty, canonically encodable string"
-            ) from caught
+            raise RelocationRefused("consolidate: rationale is a non-empty, canonically encodable string") from caught
         # Constructed before the merge so a consolidation entry carries this operation's
         # token; appended to either root only after every preflight below (slice 6 §5).
         intent = OperationIntent("consolidate", secrets.token_hex(16), keep_writer.authority.actor)
@@ -270,9 +240,7 @@ def consolidate(
         keep_writer._preflight_replace_locked(merged, provenance=True)
         for position, writer in (("keep", keep_writer), ("other", other_writer)):
             if writer._operation_port is None:
-                raise RelocationRefused(
-                    f"{position} corpus has no operation port; consolidate is a boundary operation"
-                )
+                raise RelocationRefused(f"{position} corpus has no operation port; consolidate is a boundary operation")
 
         keep_writer.authority.require("corpus-write", (merged.kind, "act-report"))
         other_writer.authority.require("corpus-write", (other_node.kind, "act-report"))
@@ -297,18 +265,10 @@ def consolidate(
         keep_report_op = keep_writer._create_op(stored.act_report_node(keep_report))
         other_report_op = other_writer._create_op(stored.act_report_node(other_report))
 
-        keep_intent = keep_writer._append_operation_intent(
-            intent.kind, intent.event_token, intent.actor
-        )
-        other_intent = other_writer._append_operation_intent(
-            intent.kind, intent.event_token, intent.actor
-        )
+        keep_intent = keep_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)
+        other_intent = other_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)
         survivor = keep_writer._replace_locked(merged, provenance=True)
         other_writer._delete_locked(other_node.id)
-        keep_writer._publish_operation_report(
-            keep_report, keep_intent, operation=keep_report_op
-        )
-        other_writer._publish_operation_report(
-            other_report, other_intent, operation=other_report_op
-        )
+        keep_writer._publish_operation_report(keep_report, keep_intent, operation=keep_report_op)
+        other_writer._publish_operation_report(other_report, other_intent, operation=other_report_op)
         return survivor, keep_report, other_report

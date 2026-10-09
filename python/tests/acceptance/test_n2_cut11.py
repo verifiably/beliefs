@@ -32,15 +32,68 @@ import beliefs.root as science_root
 # Live matcher migration, 2026-09-07: frozen declarations above stay byte-exact.
 # The same sabotages now target guarded publication and compiled stamp coverage.
 _LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "J7b": Sabotage(
-        "boundary.py",
-        before="        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback)\n",
-        after="        port.execute(plan)\n        reason = None\n",
+        module="boundary.py",
+        before=(
+            "        reason = port.execute_fulfilling_guarded(\n"
+            "            plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback\n"
+            "        )\n"
+        ),
+        after=("        port.execute(plan)\n        reason = None\n"),
     ),
     "J9a": Sabotage(
         "stored.py",
         before="    {name: kind.covered for name, kind in _WORLD.items() if kind.domain is not None}\n",
         after='    {name: tuple(key for key in kind.covered if name != "run" or key != RUN_CLOSURE_FACET) for name, kind in _WORLD.items() if kind.domain is not None}\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J1d": Sabotage(
+        module="world/verify.py",
+        before="    if type(records) is not tuple:\n",
+        after="    if False:\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J8j": Sabotage(
+        module="identity/v1.py",
+        before=(
+            "    except IdentityError as caught:\n"
+            '        raise CanonicalTextRefused(f"re-encoding refused ({type(caught).__name__}): {caught}") from caught\n'
+        ),
+        after=("    except IdentityError:\n        raise\n"),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J9c": Sabotage(
+        module="runrecord.py",
+        before=(
+            '    if shape == "assessment":\n'
+            '        if run_facet != {"spec": spec_identity}:\n'
+            "            raise MalformedRecord(f\"{node.id}: the run facet is exactly {{'spec': <the closure's spec>}}\")\n"
+            "    elif run_facet != {}:\n"
+            '        raise MalformedRecord(f"{node.id}: a production run facet is exactly {{}}")\n'
+        ),
+        after=('    if False:\n        raise MalformedRecord("run-facet agreement disabled")\n'),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J12b": Sabotage(
+        module="holdings/qualify.py",
+        before=(
+            "                if (\n"
+            '                    observation["location"] == intent["location"]\n'
+            '                    and observation["event_token"] == intent["event_token"]\n'
+            "                ):\n"
+        ),
+        after='                if observation["location"] == intent["location"]:\n',
     ),
 }
 CUT11_ARMS = tuple(
@@ -83,11 +136,7 @@ def _report(reason: str, findings: tuple, verdict: str) -> None:
     offending = [finding for finding in findings if finding.verdict == verdict]
     if offending:
         raise MalformedArm(
-            reason
-            + "\n"
-            + "\n".join(
-                f"  {finding.arm.label}\n    {finding.detail}" for finding in offending
-            )
+            reason + "\n" + "\n".join(f"  {finding.arm.label}\n    {finding.detail}" for finding in offending)
         )
 
 
@@ -140,10 +189,7 @@ class TestTheDeclarationTable:
         assert tuple(map(int, total.groups())) == (13, 13, 26)
         pairs = re.search(r"Selected units: ((?:[A-Z]+\d+ \d+(?:, )?)+)", flattened)
         assert pairs is not None
-        assert {
-            row: int(count)
-            for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))
-        } == ROW_UNITS
+        assert {row: int(count) for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))} == ROW_UNITS
 
     def test_the_frozen_cut_names_the_commit_this_audit_reads(self):
         completed = subprocess.run(
@@ -243,9 +289,7 @@ def test_the_partition_accounts_exactly_the_26_frozen_units() -> None:
     arm_units = {unit_of(arm.row) for arm in CUT11_ARMS}
     citation_units = set(ATOMS_CITATIONS_BY_UNIT)
     assert not arm_units & citation_units
-    expected = {f"L7u{number}" for number in range(1, 14)} | {
-        f"J{number}" for number in range(1, 14)
-    }
+    expected = {f"L7u{number}" for number in range(1, 14)} | {f"J{number}" for number in range(1, 14)}
     assert arm_units | citation_units == expected
     assert citation_units == {"L7u5"}
 

@@ -34,8 +34,8 @@ from beliefs.world.view import open_world_view
 
 LEFT = dataset_ref("left")
 RIGHT = dataset_ref("right")
-NFC = "caf\u00e9"      # precomposed e-acute
-NFD = "cafe\u0301"     # e + combining acute: one string to every digest, two to Python
+NFC = "caf\u00e9"  # precomposed e-acute
+NFD = "cafe\u0301"  # e + combining acute: one string to every digest, two to Python
 PINNED = [{"name": "d", "digest": "sha256:" + "1" * 64}]
 ATTESTING = RequiredCapabilities.for_kinds({"dataset", "coreference-attestation"}, {})
 
@@ -197,8 +197,16 @@ class TestTheKindIsGoverned:
             set(stored.WORLD_KINDS) - {"coreference-attestation"} - set(EXCLUDED_MUTATION_KINDS)
         )
         assert stored.COREFERENCE_ENDPOINT_KINDS == (
-            "proposition", "source-assertion", "assessment", "analysis-spec", "run",
-            "verification", "dataset", "source", "retraction", "instrument-certification",
+            "proposition",
+            "source-assertion",
+            "assessment",
+            "analysis-spec",
+            "run",
+            "verification",
+            "dataset",
+            "source",
+            "retraction",
+            "instrument-certification",
             "composite",
         )
 
@@ -208,8 +216,11 @@ class TestTheBuilder:
         node = attestation()
         assert node.kind == "coreference-attestation"
         assert node.facets[stored.COREFERENCE_ATTESTATION_FACET] == {
-            "endpoints": [LEFT, RIGHT], "stance": 1, "actor": ACTOR,
-            "grounds": "the same bytes", "event_token": "event-1",
+            "endpoints": [LEFT, RIGHT],
+            "stance": 1,
+            "actor": ACTOR,
+            "grounds": "the same bytes",
+            "event_token": "event-1",
         }
         # `_node` stamps every governed record; the facet set is exactly the two.
         assert set(node.facets) == {stored.COREFERENCE_ATTESTATION_FACET, "semantic-identity"}
@@ -299,12 +310,20 @@ class TestTheRuleNormalizes:
             "coverage": ["corpus-a"],
             "records": [
                 {
-                    "corpus_id": "corpus-a", "address": f"coreference:{n}", "uid": f"uid-{n}",
-                    "kind": "coreference-attestation", "deprecated_ids": [], "produces": [],
-                    "retraction": None, "certification": None,
+                    "corpus_id": "corpus-a",
+                    "address": f"coreference:{n}",
+                    "uid": f"uid-{n}",
+                    "kind": "coreference-attestation",
+                    "deprecated_ids": [],
+                    "produces": [],
+                    "retraction": None,
+                    "certification": None,
                     "coreference": {
-                        "endpoints": ["address-a", "address-b"], "stance": 1, "actor": "alice",
-                        "grounds": grounds, "event_token": f"event-{n}",
+                        "endpoints": ["address-a", "address-b"],
+                        "stance": 1,
+                        "actor": "alice",
+                        "grounds": grounds,
+                        "event_token": f"event-{n}",
                     },
                 }
                 for n, grounds in ((1, NFC), (2, NFD))
@@ -391,9 +410,7 @@ class TestPopulatedReceipts:
             )  # the belief input (test_world_read.py:448 pins this member as belief_input_identity's answer)
             assert outcomes(world, claimed)["producer"] == "validated"
 
-    def test_coverage_bounds_the_balance_and_the_narrower_epoch_is_indeterminate_over_the_wider_world(
-        self, tmp_path
-    ):
+    def test_coverage_bounds_the_balance_and_the_narrower_epoch_is_indeterminate_over_the_wider_world(self, tmp_path):
         world, _roots, bindings = self.two_corpus_world(tmp_path)
         narrow = publish(world, ("a" * 32,), bindings)
         assert document(narrow, "coreference-map.yaml")["pairs"][0]["balance"] == 1

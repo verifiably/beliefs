@@ -838,7 +838,7 @@ class Mutation:
 MUTATIONS: dict[str, Mutation] = {
     "omission": Mutation(
         "derive_producer_snapshot",
-        b'''
+        b"""
 def derive_producer_snapshot(capture):
     producers = {}
     first = None
@@ -855,12 +855,12 @@ def derive_producer_snapshot(capture):
         ],
         "coverage": sorted(capture["coverage"]),
     }
-''',
+""",
         frozenset({"producer.basic.yaml", "producer.every-corpus.yaml"}),
     ),
     "deprecated-address loss": Mutation(
         "derive_producer_snapshot",
-        b'''
+        b"""
 def derive_producer_snapshot(capture):
     producers = {}
     for record in capture["records"]:
@@ -873,12 +873,12 @@ def derive_producer_snapshot(capture):
         ],
         "coverage": sorted(capture["coverage"]),
     }
-''',
+""",
         frozenset({"producer.deprecated-address.yaml"}),
     ),
     "retraction target loss": Mutation(
         "enumerate_retractions",
-        b'''
+        b"""
 def enumerate_retractions(capture):
     by_target = {}
     for record in capture["records"]:
@@ -890,12 +890,12 @@ def enumerate_retractions(capture):
         "found": [[ref, resolution] for ref, resolution in sorted(by_target.values())],
         "coverage": sorted(capture["coverage"]),
     }
-''',
+""",
         frozenset({"retraction.several-per-target.yaml"}),
     ),
     "location leakage": Mutation(
         "enumerate_certifications",
-        b'''
+        b"""
 def enumerate_certifications(capture):
     by_kind = {}
     for record in capture["records"]:
@@ -908,12 +908,12 @@ def enumerate_certifications(capture):
         "by_kind": [{"kind": k, "refs": sorted(r)} for k, r in sorted(by_kind.items())],
         "coverage": sorted(capture["coverage"]),
     }
-''',
+""",
         frozenset({"certification.basic.yaml", "certification.location-free.yaml"}),
     ),
     "duplicate coreference weighting": Mutation(
         "reduce_coreference",
-        b'''
+        b"""
 def reduce_coreference(capture):
     units = {}
     for record in capture["records"]:
@@ -934,12 +934,12 @@ def reduce_coreference(capture):
             for (left, right), d in sorted(units.items())
         ]
     }
-''',
+""",
         frozenset({"coreference.basic.yaml", "coreference.duplicates.yaml", "coreference.unicode.yaml"}),
     ),
     "wrong sorting": Mutation(
         "reduce_coreference",
-        b'''
+        b"""
 def reduce_coreference(capture):
     units = {}
     for record in capture["records"]:
@@ -958,7 +958,7 @@ def reduce_coreference(capture):
             for (left, right), d in units.items()
         ]
     }
-''',
+""",
         frozenset(
             {
                 "coreference.basic.yaml",
@@ -1120,9 +1120,7 @@ class TestPurity:
             b"    ]}\n"
         )
         entry = rules._load_entry_point("look", source)
-        assert entry(TWO_CORPORA.rule_input()) == {
-            "kinds": ["mappingproxy", "tuple", "mappingproxy", "tuple"]
-        }
+        assert entry(TWO_CORPORA.rule_input()) == {"kinds": ["mappingproxy", "tuple", "mappingproxy", "tuple"]}
 
     def test_deriving_twice_from_one_capture_gives_one_answer(self):
         assert snapshot_of(TWO_CORPORA).identity() == snapshot_of(TWO_CORPORA).identity()

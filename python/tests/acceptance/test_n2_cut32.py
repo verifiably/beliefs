@@ -52,7 +52,7 @@ _LIVE_SABOTAGES = {
         before="    absent.extend((entry.ref, entry.corpus_id) for entry in absences(snapshot))\n",
         after="    absent.extend((entry.ref, entry.corpus_id) for entry in absences(snapshot))\n"
         "    absent.extend(\n"
-        "        (node.id, \"composite\")\n"
+        '        (node.id, "composite")\n'
         "        for node in view.iter_stored()\n"
         '        if node.kind == "composite" and any(relation.target in set(proposition_refs) for relation in node.relations)\n'
         "    )  # the composites naming the proposition reach the belief inputs\n",
@@ -63,37 +63,48 @@ _LIVE_SABOTAGES = {
         after="    if any(relation.source != node.id for relation in composes):\n",
     ),
     # Final review: identification now uses the evaluator's gathered values.
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "U8-b": Sabotage(
         module="composite.py",
-        before="            identification = tuple(sorted({\n"
-        "                value.estimand.control.identification.term\n"
-        "                for value in inputs.assessments\n"
-        "                if value.identity() in admission.admitted\n"
-        "            }))\n",
-        after="            identification = tuple(sorted({\n"
-        "                value.estimand.control.identification.term\n"
-        "                for value in inputs.assessments\n"
-        "                if value.identity() in admission.admitted\n"
-        '            })) or ("identification:observational",)\n',
+        before=("                )\n            )\n        rows.append(\n"),
+        after=('                )\n            ) or ("identification:observational",)\n        rows.append(\n'),
     ),
     "U8-d": Sabotage(
         module="evaluation.py",
         before="    if inputs.absent:\n",
         after="    if False:  # the evaluator wrapper's absent-corpus arm skipped\n",
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "U8-e": Sabotage(
         module="composite.py",
-        before="            identification = tuple(sorted({\n"
-        "                value.estimand.control.identification.term\n"
-        "                for value in inputs.assessments\n"
-        "                if value.identity() in admission.admitted\n"
-        "            }))\n",
-        after="            from beliefs.admission import Admitted as _Admitted, admit as _admit\n"
-        "            identification = tuple(sorted({\n"
-        "                value.estimand.control.identification.term\n"
-        "                for value in inputs.assessments\n"
-        "                if isinstance(_admit(value, inputs.runs[value.run], availability.observations, ()), _Admitted)\n"
-        "            }))  # a separate admission decision for the identification column\n",
+        before=(
+            "            identification = tuple(\n"
+            "                sorted(\n"
+            "                    {\n"
+            "                        value.estimand.control.identification.term\n"
+            "                        for value in inputs.assessments\n"
+            "                        if value.identity() in admission.admitted\n"
+            "                    }\n"
+            "                )\n"
+            "            )\n"
+        ),
+        after=(
+            "            from beliefs.admission import Admitted as _Admitted, admit as _admit\n"
+            "\n"
+            "            identification = tuple(\n"
+            "                sorted(\n"
+            "                    {\n"
+            "                        value.estimand.control.identification.term\n"
+            "                        for value in inputs.assessments\n"
+            "                        if isinstance(_admit(value, inputs.runs[value.run], availability.observations, ()), _Admitted)\n"
+            "                    }\n"
+            "                )\n"
+            "            )  # a separate admission decision for the identification column\n"
+        ),
     ),
     "U8-g": Sabotage(
         module="composite.py",
@@ -102,6 +113,30 @@ _LIVE_SABOTAGES = {
         "            from beliefs import belief as _belief\n"
         "            _belief.admitted(inputs.assessments, runs=inputs.runs, observations=availability.observations, "
         "verifications=inputs.verifications)  # a second admission pass\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "U3-a": Sabotage(
+        module="composite.py",
+        before='        if claim.layer != "causal":\n',
+        after="        if False:  # any layer forms an edge\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "U5-a": Sabotage(
+        module="composite.py",
+        before=(
+            "    return v1.digest(\n"
+            '        COMPOSITE_DOMAIN, {"kind": "composite", "present": ["composite"], "facets": {"composite": facet.projection()}}\n'
+        ),
+        after=(
+            "    projection = facet.projection()\n"
+            '    projection.pop("nodes")  # the node set dropped from the identity\n'
+            "    return v1.digest(\n"
+            '        COMPOSITE_DOMAIN, {"kind": "composite", "present": ["composite"], "facets": {"composite": projection}}\n'
+        ),
     ),
 }
 CUT32_ARMS = tuple(
@@ -330,12 +365,13 @@ def test_the_declaration_is_byte_exact_against_its_pinned_digest() -> None:
 
 
 def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
-    assert tuple(
-        frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
-        for live, frozen in zip(
-            CUT25_ARMS[: len(FROZEN_CUT25_ARMS)], FROZEN_CUT25_ARMS, strict=True
+    assert (
+        tuple(
+            frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
+            for live, frozen in zip(CUT25_ARMS[: len(FROZEN_CUT25_ARMS)], FROZEN_CUT25_ARMS, strict=True)
         )
-    ) == FROZEN_CUT25_ARMS
+        == FROZEN_CUT25_ARMS
+    )
     for path, pin in FROZEN_PRIOR_CUT_FILES.items():
         completed = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],

@@ -59,7 +59,9 @@ def context(certified_work):
     store_root = certified_work / "store"
     init_corpus_root(observer_root, authority=FULL)
     store_id = init_store_root(store_root, authority=FULL)
-    return ActContext(observer_root, store_root, "observer", "instrument", FULL, holdings_seam(), profile=BASE), store_id
+    return ActContext(
+        observer_root, store_root, "observer", "instrument", FULL, holdings_seam(), profile=BASE
+    ), store_id
 
 
 def _chain_len(root):
@@ -173,9 +175,14 @@ def test_recheck_refuses_to_mint_from_a_detached_capture(certified_work):
 
 
 def test_intent_payload_is_the_exact_canonical_json_shape():
-    payload = intent_payload(location=StoreLocator("a" * 32, "held.bin"), act_kind="re-check", event_token="token", actor="actor")
+    payload = intent_payload(
+        location=StoreLocator("a" * 32, "held.bin"), act_kind="re-check", event_token="token", actor="actor"
+    )
 
-    assert payload == b'{"actor":"actor","domain":"science.holdings-intent.v1","event_token":"token","kind":"re-check","location":{"relative_path":"held.bin","store_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","type":"store"}}'
+    assert (
+        payload
+        == b'{"actor":"actor","domain":"science.holdings-intent.v1","event_token":"token","kind":"re-check","location":{"relative_path":"held.bin","store_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","type":"store"}}'
+    )
     assert set(json.loads(payload)) == {"actor", "domain", "event_token", "kind", "location"}
     assert set(json.loads(payload)["location"]) == {"relative_path", "store_id", "type"}
 
@@ -232,11 +239,7 @@ def test_recheck_of_an_unserviceable_restored_root_mints_nothing_never_absent(ce
         )
     )
 
-    report = restore_root(
-        replica,
-        anchors.StoreSubject(store_id),
-        verify.ObserverSet((carrier,)),
-     authority=FULL)
+    report = restore_root(replica, anchors.StoreSubject(store_id), verify.ObserverSet((carrier,)), authority=FULL)
 
     assert report.outcome == "refuted"
     assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_UNSERVICEABLE
@@ -261,17 +264,13 @@ def test_read_unestablished_reports_retrieval_failed_verbatim_and_mints_nothing(
         ctx,
         seam=replace(
             ctx.seam,
-            read_path=lambda _root, _path: ReadUnestablishedView(
-                "io-failure", "device returned EIO"
-            ),
+            read_path=lambda _root, _path: ReadUnestablishedView("io-failure", "device returned EIO"),
         ),
     )
 
     result = recheck(ctx, StoreLocator(store_id, "held.bin"))
 
-    assert result == InconclusiveAttempt(
-        "retrieval-failed", "io-failure", "device returned EIO"
-    )
+    assert result == InconclusiveAttempt("retrieval-failed", "io-failure", "device returned EIO")
     assert not (ctx.observer_root / "holdings-observation").exists()
     chain = science_root._log_seam().inspect_registered(ctx.observer_root)
     assert isinstance(chain, WellFormedView)
@@ -385,13 +384,11 @@ def test_write_records_the_engine_final_row_not_the_payload_digest(certified_wor
 @pytest.mark.parametrize(
     ("final_states", "error"),
     [
-        ((('held.bin', FileStateView("sha256:" + "d" * 64)),), TypeError),
+        ((("held.bin", FileStateView("sha256:" + "d" * 64)),), TypeError),
         ((), RuntimeError),
     ],
 )
-def test_delete_refuses_a_wrong_or_missing_final_row(
-    certified_work, final_states, error
-):
+def test_delete_refuses_a_wrong_or_missing_final_row(certified_work, final_states, error):
     ctx, store_id = context(certified_work)
     ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
     original_delete = ctx.seam.store_delete
@@ -400,9 +397,7 @@ def test_delete_refuses_a_wrong_or_missing_final_row(
         outcome = original_delete(root, path)
         return StoreOutcomeView(outcome.txid, final_states)
 
-    ctx = replace(
-        ctx, seam=replace(ctx.seam, store_delete=delete_with_adversarial_evidence)
-    )
+    ctx = replace(ctx, seam=replace(ctx.seam, store_delete=delete_with_adversarial_evidence))
 
     with pytest.raises(error):
         delete(ctx, StoreLocator(store_id, "held.bin"))
@@ -411,9 +406,7 @@ def test_delete_refuses_a_wrong_or_missing_final_row(
     chain = science_root._log_seam().inspect_registered(ctx.observer_root)
     assert isinstance(chain, WellFormedView)
     intents = [entry for entry in chain.entries if isinstance(entry, IntentEntryView)]
-    registrations = [
-        entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)
-    ]
+    registrations = [entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)]
     assert len(intents) == 1
     assert not registrations
 
@@ -664,7 +657,9 @@ def test_an_inconclusive_url_look_mints_nothing_and_leaves_the_standing_observat
     assert len(list((ctx.observer_root / "holdings-observation").iterdir())) == 1
     assert len(_intents(ctx.observer_root)) == 2
     untested, _ = scripted_seam({}, unpinnable=True)
-    assert look(ctx, DATA, bounds=BOUNDS, seam=untested, scratch=tmp_path / "s") == InconclusiveLook("byte-locator-untested", "unpinnable")
+    assert look(ctx, DATA, bounds=BOUNDS, seam=untested, scratch=tmp_path / "s") == InconclusiveLook(
+        "byte-locator-untested", "unpinnable"
+    )
 
 
 def test_a_url_look_that_established_found_but_cannot_publish_raises(certified_work, tmp_path):
@@ -694,7 +689,9 @@ def test_a_url_look_refuses_a_scratch_root_under_either_root_before_any_intent(c
 def test_a_url_look_whose_record_refuses_to_construct_leaves_no_scratch(certified_work, tmp_path):
     ctx, store_id = context(certified_work)
     seam, _ = scripted_seam({"/data": Scripted(200, {"Content-Length": "1"}, (b"x",))})
-    foreign = write(ctx, StoreLocator(store_id, "elsewhere.bin"), b"y").record  # a standing observation of another location
+    foreign = write(
+        ctx, StoreLocator(store_id, "elsewhere.bin"), b"y"
+    ).record  # a standing observation of another location
     with pytest.raises(MalformedRecord):
         look(ctx, DATA, bounds=BOUNDS, seam=seam, scratch=tmp_path / "s", standing=(foreign,))
     assert list((tmp_path / "s").iterdir()) == []
@@ -751,7 +748,11 @@ def test_write_wraps_a_routine_store_refusal_and_nothing_else(certified_work):
         raise ExecutionError("publish", index=None, applied=0) from PreconditionRefused("shape")
 
     with pytest.raises(ExecutionError, match="publish"):
-        write(replace(ctx, seam=replace(ctx.seam, publish_fulfilling=refusing_publish)), StoreLocator(store_id, "held2.bin"), b"x")
+        write(
+            replace(ctx, seam=replace(ctx.seam, publish_fulfilling=refusing_publish)),
+            StoreLocator(store_id, "held2.bin"),
+            b"x",
+        )
 
 
 def test_write_against_a_read_only_replica_raises_store_write_refused_from_the_production_seam(certified_work):
@@ -760,7 +761,9 @@ def test_write_against_a_read_only_replica_raises_store_write_refused_from_the_p
     replica = certified_work / "replica"
     replicate_root(ctx.store_root, replica, authority=FULL)
     assert read_lifecycle_state(replica) in (
-        LifecycleState.METADATA_LESS, LifecycleState.READ_ONLY_UNSERVICEABLE, LifecycleState.READ_ONLY_SERVICEABLE,
+        LifecycleState.METADATA_LESS,
+        LifecycleState.READ_ONLY_UNSERVICEABLE,
+        LifecycleState.READ_ONLY_SERVICEABLE,
     )
     with pytest.raises(StoreWriteRefused) as caught:
         write(replace(ctx, store_root=replica), StoreLocator(store_id, "held.bin"), b"other")

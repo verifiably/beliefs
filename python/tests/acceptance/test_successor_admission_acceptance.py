@@ -102,9 +102,7 @@ def test_r12u1_an_excised_intent_entry_reads_malformed_and_the_act_refuses(certi
     intact = seam().inspect_registered(root)
     assert type(intact) is WellFormedView
     successor = next(
-        entry.digest
-        for entry in intact.entries
-        if type(entry) is RegisteredEntryView and entry.fulfills == intent
+        entry.digest for entry in intact.entries if type(entry) is RegisteredEntryView and entry.fulfills == intent
     )
     _leaf(root, intent).unlink()
     view = seam().inspect_registered(root)

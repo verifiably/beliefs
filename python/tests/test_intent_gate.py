@@ -33,14 +33,20 @@ def _holdings_payload(**overrides) -> bytes:
 
 
 def test_the_three_discriminators_are_exact_and_disjoint() -> None:
-    assert decoded(
-        "d1",
-        v1.encode({"kind": "import", "event_token": "t", "actor": "a"}),
-    ).shape == "operation"
-    assert decoded(
-        "d2",
-        v1.encode({"spec_identity": "s", "event_token": "t", "actor": "a"}),
-    ).shape == "assessment-run"
+    assert (
+        decoded(
+            "d1",
+            v1.encode({"kind": "import", "event_token": "t", "actor": "a"}),
+        ).shape
+        == "operation"
+    )
+    assert (
+        decoded(
+            "d2",
+            v1.encode({"spec_identity": "s", "event_token": "t", "actor": "a"}),
+        ).shape
+        == "assessment-run"
+    )
     assert decoded("d3", _holdings_payload()).shape == "holdings"
 
 
@@ -80,9 +86,7 @@ def test_empty_object_reads_domainless_unrecognized() -> None:
 def test_out_of_vocabulary_kind_is_domainless_unrecognized() -> None:
     gate = unrecognized(
         "d",
-        v1.encode(
-            {"kind": "dataset-production", "event_token": "t", "actor": "a"}
-        ),
+        v1.encode({"kind": "dataset-production", "event_token": "t", "actor": "a"}),
     )
     assert gate.code == "intent-domain-unrecognized"
 
@@ -121,9 +125,7 @@ def test_matching_requirements_per_shape() -> None:
     run = shapes.RunEvidence("assessment", "s" * 64, "tok")
     intent = decoded(
         "d",
-        v1.encode(
-            {"spec_identity": "s" * 64, "event_token": "tok", "actor": "a"}
-        ),
+        v1.encode({"spec_identity": "s" * 64, "event_token": "tok", "actor": "a"}),
     )
     assert shapes.mismatch(intent, run) is None
     assert (
@@ -148,14 +150,8 @@ def test_matching_requirements_per_shape() -> None:
         == "wrong-shape"
     )
     assert shapes.mismatch(intent, shapes.ReportEvidence("run-attempt", "tok")) is None
-    assert (
-        shapes.mismatch(intent, shapes.ReportEvidence("import", "tok"))
-        == "wrong-kind"
-    )
-    assert (
-        shapes.mismatch(intent, shapes.ObservationEvidence("store:x:y", "tok"))
-        == "wrong-purpose"
-    )
+    assert shapes.mismatch(intent, shapes.ReportEvidence("import", "tok")) == "wrong-kind"
+    assert shapes.mismatch(intent, shapes.ObservationEvidence("store:x:y", "tok")) == "wrong-purpose"
 
     production = decoded(
         "d",
@@ -175,20 +171,14 @@ def test_matching_requirements_per_shape() -> None:
         )
         == "wrong-shape"
     )
-    assert (
-        shapes.mismatch(production, shapes.ReportEvidence("run-attempt", "tok"))
-        is None
-    )
+    assert shapes.mismatch(production, shapes.ReportEvidence("run-attempt", "tok")) is None
 
     non_run = decoded(
         "d",
         v1.encode({"kind": "import", "event_token": "tok", "actor": "a"}),
     )
     assert shapes.mismatch(non_run, shapes.ReportEvidence("import", "tok")) is None
-    assert (
-        shapes.mismatch(non_run, shapes.ReportEvidence("audit", "tok"))
-        == "wrong-kind"
-    )
+    assert shapes.mismatch(non_run, shapes.ReportEvidence("audit", "tok")) == "wrong-kind"
     assert (
         shapes.mismatch(
             non_run,
@@ -199,10 +189,7 @@ def test_matching_requirements_per_shape() -> None:
 
     held = decoded("d", _holdings_payload(kind="write"))
     location = "store:" + "0" * 32 + ":a/b"
-    assert (
-        shapes.mismatch(held, shapes.ObservationEvidence(location, "t" * 32))
-        is None
-    )
+    assert shapes.mismatch(held, shapes.ObservationEvidence(location, "t" * 32)) is None
     assert (
         shapes.mismatch(
             held,
@@ -213,10 +200,7 @@ def test_matching_requirements_per_shape() -> None:
         )
         == "wrong-location"
     )
-    assert (
-        shapes.mismatch(held, shapes.ObservationEvidence(location, "other"))
-        == "wrong-token"
-    )
+    assert shapes.mismatch(held, shapes.ObservationEvidence(location, "other")) == "wrong-token"
     assert shapes.mismatch(held, shapes.InertRecord()) == "wrong-purpose"
 
 

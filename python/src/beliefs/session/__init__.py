@@ -223,7 +223,11 @@ def reconcile_sessions(
     with ExitStack() as stack:
         for root in roots:
             stack.enter_context(_operation_lock_for(root))
-        ids = sorted(entry.name for entry in sessions.iterdir() if entry.is_dir() and entry.name != exclude) if sessions.is_dir() else []
+        ids = (
+            sorted(entry.name for entry in sessions.iterdir() if entry.is_dir() and entry.name != exclude)
+            if sessions.is_dir()
+            else []
+        )
         for root in roots:
             try:
                 corpus_id = load_manifest(root).corpus_id

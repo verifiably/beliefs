@@ -125,9 +125,7 @@ def test_the_frozen_cut_and_commit_state_the_same_accounting() -> None:
         capture_output=True,
         text=True,
     ).stdout
-    assert _section(text, "## 11. Conformance cut 15") == _section(
-        frozen, "## 11. Conformance cut 15"
-    )
+    assert _section(text, "## 11. Conformance cut 15") == _section(frozen, "## 11. Conformance cut 15")
 
 
 def _section(text: str, heading: str) -> str:

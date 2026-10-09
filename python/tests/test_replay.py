@@ -120,12 +120,7 @@ def test_a_job_realizing_a_stream_its_family_does_not_declare_is_non_conforming(
         roots={"r": 11},
         stream_roots={"model-initialization": "r", "resample-draws": "r"},
     )
-    seeds = {
-        FIT_A: {
-            stream: correct_seed(11, FIT_A, stream)
-            for stream in ("model-initialization", "resample-draws")
-        }
-    }
+    seeds = {FIT_A: {stream: correct_seed(11, FIT_A, stream) for stream in ("model-initialization", "resample-draws")}}
     run = _family_run(
         families={"fit": ("model-initialization",), "other": ("resample-draws",)},
         plan=plan,
@@ -157,13 +152,8 @@ def test_a_job_omitting_a_stream_its_family_declares_is_non_conforming() -> None
 
 def test_a_wildcard_instance_is_judged_against_its_family() -> None:
     plan = seed_plan(streams=("model-initialization",))
-    seeds = {
-        key: {"model-initialization": correct_seed(11, key, "model-initialization")}
-        for key in (FIT_A, FIT_B)
-    }
-    assert conformance(
-        _family_run(families={"fit": ("model-initialization",)}, plan=plan, seeds=seeds)
-    ) == CONFORMING
+    seeds = {key: {"model-initialization": correct_seed(11, key, "model-initialization")} for key in (FIT_A, FIT_B)}
+    assert conformance(_family_run(families={"fit": ("model-initialization",)}, plan=plan, seeds=seeds)) == CONFORMING
 
 
 def test_different_families_realizing_different_streams_conforms() -> None:
@@ -189,10 +179,7 @@ def test_an_over_claiming_record_does_not_conform() -> None:
     )
     a, b = job_key("a", ()), job_key("b", ())
     seeds = {
-        key: {
-            stream: correct_seed(11, key, stream)
-            for stream in ("model-initialization", "resample-draws")
-        }
+        key: {stream: correct_seed(11, key, stream) for stream in ("model-initialization", "resample-draws")}
         for key in (a, b)
     }
     families = {"a": ("model-initialization",), "b": ("resample-draws",)}
@@ -205,12 +192,7 @@ def test_two_streams_in_one_job_are_both_checked() -> None:
         roots={"r": 11},
         stream_roots={"model-initialization": "r", "resample-draws": "r"},
     )
-    seeds = {
-        FIT_A: {
-            stream: correct_seed(11, FIT_A, stream)
-            for stream in ("model-initialization", "resample-draws")
-        }
-    }
+    seeds = {FIT_A: {stream: correct_seed(11, FIT_A, stream) for stream in ("model-initialization", "resample-draws")}}
     run = _family_run(
         families={"fit": ("model-initialization", "resample-draws")},
         plan=plan,
@@ -325,7 +307,10 @@ def test_a_replay_runs_in_a_fresh_scratch_root_with_an_equal_recipe(pair, reques
     assert mark is not None and mark.args == ("tests/test_replay.py",)
     original, replayed = pair
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
-    assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
+    assert (
+        original.run.occurrence.receipt.execution.scratch_mapping
+        != replayed.run.occurrence.receipt.execution.scratch_mapping
+    )
     assert (
         Path(original.run.occurrence.receipt.execution.scratch_mapping).parent
         == Path(replayed.run.occurrence.receipt.execution.scratch_mapping).parent
@@ -337,7 +322,10 @@ def test_a_production_replay_runs_through_the_boundary_with_an_equal_recipe(tmp_
     replayed = replay_of(original, tmp_path / "replayed", snakefile=SNAKEFILE_PRODUCTION)
     assert isinstance(original, RunMinted) and isinstance(replayed, RunMinted)
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
-    assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
+    assert (
+        original.run.occurrence.receipt.execution.scratch_mapping
+        != replayed.run.occurrence.receipt.execution.scratch_mapping
+    )
 
 
 def test_replay_over_a_closure_is_replay_over_the_minted_result(monkeypatch, tmp_path):
@@ -721,12 +709,17 @@ def test_r4_negative_d_a_receipt_missing_a_required_capability_derives_same_envi
     original, replayed = pair
     for missing in CAPABILITIES:
         fewer = tuple(capability for capability in CAPABILITIES if capability != missing)
-        assert derive_scope(original.run, _confined(replayed, capabilities=fewer), certification=None) == "same-environment"
+        assert (
+            derive_scope(original.run, _confined(replayed, capabilities=fewer), certification=None)
+            == "same-environment"
+        )
 
 
 def test_r4_negative_d_a_policy_qualifies_whatever_its_version_string(pair):
     original, replayed = pair
-    v99 = BoundaryPolicy(identity="boundary-policy/confined-v99", scope_rule="scope-derivation/v1", capabilities=CAPABILITIES)
+    v99 = BoundaryPolicy(
+        identity="boundary-policy/confined-v99", scope_rule="scope-derivation/v1", capabilities=CAPABILITIES
+    )
     left = dataclasses.replace(original.run, recipe=dataclasses.replace(original.run.recipe, boundary_policy=v99))
     right = _confined(replayed)
     right = dataclasses.replace(right, recipe=dataclasses.replace(right.recipe, boundary_policy=v99))

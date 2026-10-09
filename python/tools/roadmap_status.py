@@ -29,9 +29,11 @@ GUARANTEE_TABLES: dict[str, list[str]] = _corpus.GUARANTEE_TABLES
 ACCOUNTING: dict[int, tuple[str, str, str]] = {
     1: ("review-disposition-and-conformance-cut-1 §5", "M4, M7, M9, M10, M11, M13", "M5"),
     2: ("conformance-cut-2 §4", "G1, G2b, G6, P2–P9, M6, M8", "G2c, G3, G8, G9, S5, S6, P1, D3, D6, D7, N2"),
-    3: ("conformance-cut-3 §4 (not Appendix A)",
+    3: (
+        "conformance-cut-3 §4 (not Appendix A)",
         "G2a, G4, M2, R1, R3, R6, R7, R8, R11, R14, R17, R18, T3, T6, T8",
-        "G9, N2, R2, R4, R5, R9, R10, R12, R13, R16, R19, R20, R21, R22, R23, T1, T2, T4, T5"),
+        "G9, N2, R2, R4, R5, R9, R10, R12, R13, R16, R19, R20, R21, R22, R23, T1, T2, T4, T5",
+    ),
     4: ("conformance-cut-4 §4.1 and §4.2", "S7, S8, W3", "G9, N2, R19, R22, R23, S1, S1a, S5"),
     5: ("conformance-cut-5 accounting", "S2, S3, S4, G7, C1, C2, C4, C5", "M5, T1, T2, M3, R20, C3, C6, C10, G2c, G8"),
     6: ("conformance-cut-6 accounting", "X4, X6", "X5, W13"),

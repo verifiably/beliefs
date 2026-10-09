@@ -38,7 +38,9 @@ def test_world_mirror_loader_requires_a_valid_file(tmp_path):
     assert _world_mirror_bytes("2" * 32) == ("world_id: " + "2" * 32 + "\n").encode()
 
 
-@pytest.mark.parametrize("contents", ["{}\n", "world_id: nope\n", "world_id: " + "3" * 32 + "\nextra: x\n", "world_id: 3\nworld_id: 4\n"])
+@pytest.mark.parametrize(
+    "contents", ["{}\n", "world_id: nope\n", "world_id: " + "3" * 32 + "\nextra: x\n", "world_id: 3\nworld_id: 4\n"]
+)
 def test_world_mirror_loader_refuses_malformed_shape(tmp_path, contents):
     (tmp_path / "world.yaml").write_text(contents, encoding="utf-8")
 

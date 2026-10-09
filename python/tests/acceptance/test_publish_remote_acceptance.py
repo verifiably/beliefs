@@ -71,8 +71,14 @@ def publish_remote(s, **changes):
 
 def resume_remote(s, token: str, transport=None):
     return resume_publish(
-        fresh_writer(s), s.resolver, event_token=token, operations_root=s.ops, staging_profile=V2,
-        clock=Clock(), seam=moment_seam(), transport=transport or s.transport,
+        fresh_writer(s),
+        s.resolver,
+        event_token=token,
+        operations_root=s.ops,
+        staging_profile=V2,
+        clock=Clock(),
+        seam=moment_seam(),
+        transport=transport or s.transport,
     )
 
 
@@ -198,7 +204,9 @@ def test_y12_c_a_mark_disagreeing_with_its_export_fails_closed_durably(remote, m
     monkeypatch.undo()
     token = token_of_last_intent(remote)
     path = op_dir(remote, token) / "transport.v1"
-    path.write_bytes(encode_mark(replace(mark_of(remote, token), **{field: "7" * (32 if field == "corpus_id" else 64)})))
+    path.write_bytes(
+        encode_mark(replace(mark_of(remote, token), **{field: "7" * (32 if field == "corpus_id" else 64)}))
+    )
     tip, ops = chain_tip(remote), _ops_tree(remote)
     assert resume_remote(remote, token) == PublishUnresolved(token, "transport-mark-corrupt")
     assert chain_tip(remote) == tip and _ops_tree(remote) == ops
@@ -299,7 +307,9 @@ def test_y14_b_an_attempt_without_a_mark_never_blocks_durably(remote, monkeypatc
         publish_remote(remote)
     monkeypatch.undo()
     stranded = token_of_last_intent(remote)
-    assert (op_dir(remote, stranded) / "request.v1").is_file() and not (op_dir(remote, stranded) / "transport.v1").exists()
+    assert (op_dir(remote, stranded) / "request.v1").is_file() and not (
+        op_dir(remote, stranded) / "transport.v1"
+    ).exists()
     assert type(publish_remote(remote)) is Published
 
 
@@ -311,7 +321,9 @@ def test_y14_b_an_attempt_without_a_mark_never_blocks_durably(remote, monkeypatc
     [("_mark", False), ("_push", True), ("_push", False), ("_verify", True), ("_verify", False), ("_bind", True)],
     ids=["after-mark", "before-push", "after-push", "before-verify", "after-verify", "before-bind"],
 )
-def test_y15_a_a_crash_at_every_remote_step_resumes_to_one_binding_and_one_report_durably(remote, monkeypatch, step, before):
+def test_y15_a_a_crash_at_every_remote_step_resumes_to_one_binding_and_one_report_durably(
+    remote, monkeypatch, step, before
+):
     """Y15-a: crash, resume → Published; one binding, one report of the whole
     remote lifecycle; step 9 keeps the export root, the mark, the request and the snapshot."""
     crash(monkeypatch, step, before=before)
@@ -381,7 +393,9 @@ def test_y16_a_a_recipient_restores_admits_and_reads_the_current_publication_dur
     selected = marker_node(partial).facets[stored.COORDINATION_FACET]["selection"][0]
     writable(partial)
     (partial / path_for_node_id(selected)).unlink()
-    verdict = restore_root(partial, CorpusSubject(outcome.corpus_id), ObserverSet((ArtifactCarrier.from_bytes(sibling),)), authority=SETUP)
+    verdict = restore_root(
+        partial, CorpusSubject(outcome.corpus_id), ObserverSet((ArtifactCarrier.from_bytes(sibling),)), authority=SETUP
+    )
     assert verdict.outcome != "validated"
     with pytest.raises(PublicationArrivalRefused):
         admit_publication(recipient_world(remote, (partial,)), partial, observers)

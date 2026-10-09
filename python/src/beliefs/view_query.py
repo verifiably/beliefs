@@ -19,22 +19,13 @@ def _world_address(value: object, where: str) -> str:
     if type(value) is not str:
         raise ValueError(f"view query {where} must be a world address string")
     kind, separator, local = value.partition(":")
-    if (
-        separator != ":"
-        or kind not in stored.WORLD_KINDS
-        or not local
-        or value.startswith("coord:")
-    ):
+    if separator != ":" or kind not in stored.WORLD_KINDS or not local or value.startswith("coord:"):
         raise ValueError(f"view query {where} must be a world-tier address")
     return value
 
 
 def _distinct_strings(value: object, where: str) -> tuple[str, ...]:
-    if (
-        type(value) is not list
-        or not value
-        or any(type(member) is not str or not member for member in value)
-    ):
+    if type(value) is not list or not value or any(type(member) is not str or not member for member in value):
         raise ValueError(f"view query {where} must be a non-empty string list")
     members = tuple(value)
     if len(set(members)) != len(members):
@@ -154,11 +145,16 @@ def _predicate(value: object, where: str) -> Predicate:
     if key == "addresses":
         addresses = _distinct_strings(member, f"{where}.addresses")
         return Addresses(tuple(_world_address(address, f"{where}.addresses") for address in addresses))
-    if key != "closure" or type(member) is not dict or set(member) != {
-        "anchor",
-        "predicates",
-        "direction",
-    }:
+    if (
+        key != "closure"
+        or type(member) is not dict
+        or set(member)
+        != {
+            "anchor",
+            "predicates",
+            "direction",
+        }
+    ):
         raise ValueError(f"view query {where} is not a recognized v1 predicate")
     anchor = _world_address(member["anchor"], f"{where}.closure.anchor")
     predicates = _distinct_strings(member["predicates"], f"{where}.closure.predicates")

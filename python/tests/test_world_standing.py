@@ -326,7 +326,10 @@ class TestTheSnapshotTarget:
         _identity, writer, r = _retract_snapshot(world, roots, published, profile)
         c = writer.retract(counter_of(r, "counter"))
         _view, inputs, _answer = evaluation(world, published, profile)
-        assert (r.id, RETRACTION_OVERTURNED) in inputs.retractions.found and (c.id, RETRACTION_UPHELD) in inputs.retractions.found
+        assert (r.id, RETRACTION_OVERTURNED) in inputs.retractions.found and (
+            c.id,
+            RETRACTION_UPHELD,
+        ) in inputs.retractions.found
         assert ("retraction", r.id) in inputs.read_trace and ("retraction", c.id) in inputs.read_trace
         assert inputs.closure().digest() != baseline.closure().digest()
         assert len({ref for ref, _ in inputs.retractions.found}) == len(inputs.retractions.found)
@@ -337,8 +340,14 @@ class TestTheSnapshotTarget:
         make_absent(roots, BETA)
         view = open_world_view(world, published)
         kwargs = world_kwargs(view, profile)
-        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         identity = view.producer_snapshot_identity()
         assert (f"producer-snapshot:{identity}", BETA) in inputs.absent
 
@@ -365,6 +374,7 @@ class TestTheSnapshotTarget:
         # when what BETA holds is the snapshot's own retraction (decision 7: damage
         # refuses before the retraction that might resolve it is ever read).
         from test_world_view import damage
+
         world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
         profile = profile_with()
         if retraction_in is not None:
@@ -373,12 +383,22 @@ class TestTheSnapshotTarget:
         view = open_world_view(world, published, on_damage="report")
         kwargs = world_kwargs(view, profile)
         with pytest.raises(CorpusDamaged) as caught:
-            gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                   resolution=kwargs["resolution"], binding=kwargs["binding"])
-        assert caught.value.ref == f"producer-snapshot:{view.producer_snapshot_identity()}" and caught.value.corpus_id == BETA
+            gather(
+                view,
+                "proposition:p",
+                context=kwargs["context"],
+                profile=profile,
+                resolution=kwargs["resolution"],
+                binding=kwargs["binding"],
+            )
+        assert (
+            caught.value.ref == f"producer-snapshot:{view.producer_snapshot_identity()}"
+            and caught.value.corpus_id == BETA
+        )
 
     def test_a_rebuild_after_retraction_keeps_the_identity_and_still_refuses(self, tmp_path):
         from test_world_receipts import hold_shipped, publish
+
         world, roots, published = split_evaluation_world(tmp_path)
         profile = profile_with()
         identity, writer, r = _retract_snapshot(world, roots, published, profile)
@@ -394,20 +414,22 @@ class TestTheSnapshotTarget:
 
     def test_an_older_snapshots_retraction_is_out_of_the_closure(self, tmp_path):
         from test_world_receipts import hold_shipped, publish
+
         world, roots, published = split_evaluation_world(tmp_path)
         profile = profile_with()
         _v, baseline, _a = evaluation(world, published, profile)
-        narrow = publish(world, (ALPHA,), hold_shipped(world))          # a different identity
+        narrow = publish(world, (ALPHA,), hold_shipped(world))  # a different identity
         old_identity = narrow.receipts["producer-receipt.yaml"].subject_identity
         assert old_identity is not None
         writer = writer_at(roots[ALPHA], profile, resolver=RetainedSnapshots(world))
         writer.retract(snapshot_retraction(old_identity))
-        later = publish(world, (ALPHA, BETA), hold_shipped(world))       # captures that retraction
+        later = publish(world, (ALPHA, BETA), hold_shipped(world))  # captures that retraction
         _v, inputs, _a = evaluation(world, later, profile)
         assert inputs.retractions.found == baseline.retractions.found
 
     def test_a_broken_counter_retraction_refuses_the_read(self, tmp_path):
         from fixtures_cut4 import raw_write
+
         world, roots, published = split_evaluation_world(tmp_path)
         profile = profile_with()
         _identity, _writer, r = _retract_snapshot(world, roots, published, profile)

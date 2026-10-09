@@ -116,12 +116,22 @@ def _reports_at(
             continue
         if len(found) != 1:
             # one intent, one committed fulfilment: a second is a chain no door writes
-            yield intent, PositionRefused("revision-malformed", f"{bound.root}: intent {entry.digest} has {len(found)} committed fulfilments")
+            yield (
+                intent,
+                PositionRefused(
+                    "revision-malformed", f"{bound.root}: intent {entry.digest} has {len(found)} committed fulfilments"
+                ),
+            )
             continue
         registration = found[0]
         paths = [path for path, post in registration.final if path.startswith("act-report/") and seam.is_file(post)]
         if len(paths) != 1:
-            yield intent, PositionRefused("revision-malformed", f"{bound.root}: a publish fulfilment creates {len(paths)} reports")
+            yield (
+                intent,
+                PositionRefused(
+                    "revision-malformed", f"{bound.root}: a publish fulfilment creates {len(paths)} reports"
+                ),
+            )
             continue
         records = present_records(bound, paths[0], seam)
         if type(records) is PositionRefused:
@@ -140,15 +150,28 @@ def _reports_at(
         if qualifies is not None:
             # the audit's own qualification: a fulfilling report of the wrong kind
             # or token never folds — it refuses (user review, finding 2)
-            yield intent, PositionRefused("report-unqualified", f"{bound.root}: {paths[0]}: {qualifies} for intent {entry.digest}")
+            yield (
+                intent,
+                PositionRefused(
+                    "report-unqualified", f"{bound.root}: {paths[0]}: {qualifies} for intent {entry.digest}"
+                ),
+            )
             continue
         try:
             entries = publish_entries_from_facet(facet["entries"])
         except MalformedRecord as caught:
-            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report: {caught}")
+            yield (
+                intent,
+                PositionRefused("revision-malformed", f"{bound.root}: {paths[0]} is not a publish report: {caught}"),
+            )
             continue
         if intent.destination.type == "local" and any(type(e) is PublicationTransportEntry for e in entries):
-            yield intent, PositionRefused("revision-malformed", f"{bound.root}: {paths[0]}: a transport entry under a local intent")
+            yield (
+                intent,
+                PositionRefused(
+                    "revision-malformed", f"{bound.root}: {paths[0]}: a transport entry under a local intent"
+                ),
+            )
             continue
         if type(entries[-1]) is not PublicationBindingEntry:
             yield intent, PreBinding(str(facet["entries"][-1]["outcome"]["type"]), _orphan_of(entries[-1]))
@@ -189,7 +212,10 @@ def marker_tips_at(
             if shared:
                 retired.update(intent.marker_tips)
     bound_markers = {
-        (revision.node.facets[stored.COORDINATION_FACET]["corpus_id"], revision.node.facets[stored.COORDINATION_FACET]["marker"])
+        (
+            revision.node.facets[stored.COORDINATION_FACET]["corpus_id"],
+            revision.node.facets[stored.COORDINATION_FACET]["marker"],
+        )
         for revision in binding_tips
     }
     return tuple(sorted(bound_markers | (orphans - retired)))
@@ -224,12 +250,20 @@ def _judge(
     try:
         # checked in the guard, before registration: a mismatch writes nothing
         _require_the_opened_intent(seam.inspect_written(written), opened)
-        tips = standing_at(mounts, address, BINDING_KIND, written=written, position=opened.digest, anchors=intent.anchors, seam=seam)
+        tips = standing_at(
+            mounts, address, BINDING_KIND, written=written, position=opened.digest, anchors=intent.anchors, seam=seam
+        )
         if type(tips) is PositionRefused:
             return tips, None
         markers = marker_tips_at(
-            mounts, intent.view, intent.destination, written=written, position=opened.digest,
-            anchors=intent.anchors, seam=seam, binding_tips=tips,
+            mounts,
+            intent.view,
+            intent.destination,
+            written=written,
+            position=opened.digest,
+            anchors=intent.anchors,
+            seam=seam,
+            binding_tips=tips,
         )
     except LogEvidenceRefused as caught:
         return PositionRefused("chain-malformed", f"the engine refused to inspect a chain: {caught}"), None
@@ -289,7 +323,14 @@ def _open_publication(
         if type(tips) is PositionRefused:
             raise PublicationRefused(tips.reason)
         markers = marker_tips_at(
-            mounts, view, destination, written=written, position=own.tip, anchors=anchors, seam=seam, binding_tips=tips,
+            mounts,
+            view,
+            destination,
+            written=written,
+            position=own.tip,
+            anchors=anchors,
+            seam=seam,
+            binding_tips=tips,
         )
         if type(markers) is PositionRefused:
             raise PublicationRefused(markers.reason)
@@ -305,7 +346,9 @@ def _open_publication(
             marker_tips=markers,
             anchors=tuple(anchors),
         )
-        digest = writer._append_operation_intent("publish", token, intent.actor, port=port, payload=encode_publish_intent(intent))
+        digest = writer._append_operation_intent(
+            "publish", token, intent.actor, port=port, payload=encode_publish_intent(intent)
+        )
         return OpenedPublication(intent, digest)
 
 
@@ -340,8 +383,13 @@ def _bind_publication(
 
     def report_of(outcome: BindingBound | BindingPredecessorNotStanding | BindingEvidenceRefused) -> ActReport:
         return boundary._mint_publish_report(
-            intent, observer=intent.actor, instrument=PUBLISH_INSTRUMENT, opened_at=intent.at,
-            closed_at=closed_at, entry=PublicationBindingEntry(subject, outcome), lifecycle=lifecycle,
+            intent,
+            observer=intent.actor,
+            instrument=PUBLISH_INSTRUMENT,
+            opened_at=intent.at,
+            closed_at=closed_at,
+            entry=PublicationBindingEntry(subject, outcome),
+            lifecycle=lifecycle,
         )
 
     success = report_of(BindingBound(binding.uid, corpus_id, marker))
@@ -393,7 +441,12 @@ def _refuse_publication(
     operation_port = writer._require_bound_port(port)
     intent = opened.intent
     report = boundary._mint_publish_refusal(
-        intent, observer=intent.actor, instrument=PUBLISH_INSTRUMENT, opened_at=intent.at, closed_at=clock(), entries=entries,
+        intent,
+        observer=intent.actor,
+        instrument=PUBLISH_INSTRUMENT,
+        opened_at=intent.at,
+        closed_at=clock(),
+        entries=entries,
     )
     writer._state.unresolved = True
     operation_port.execute_fulfilling([writer._create_op(stored.act_report_node(report))], opened.digest)

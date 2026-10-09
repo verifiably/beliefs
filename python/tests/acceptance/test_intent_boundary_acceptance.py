@@ -44,9 +44,7 @@ def _qualification(root):
 
 
 def _append_assessment(port, *, spec="s" * 64, token="tok"):
-    return port.append_intent(
-        v1.encode({"spec_identity": spec, "event_token": token, "actor": "a"})
-    )
+    return port.append_intent(v1.encode({"spec_identity": spec, "event_token": token, "actor": "a"}))
 
 
 def _append_operation(port, *, kind, token="tok"):
@@ -85,11 +83,7 @@ def _observation_plan(token="tok"):
 
 
 def _non_qualifying_reason(findings):
-    details = [
-        finding.detail
-        for finding in findings
-        if finding.code == "intent-fulfillment-non-qualifying"
-    ]
+    details = [finding.detail for finding in findings if finding.code == "intent-fulfillment-non-qualifying"]
     assert len(details) == 1, findings
     return details[0]
 

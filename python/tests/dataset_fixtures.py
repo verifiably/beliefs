@@ -34,7 +34,9 @@ def pinned(seed: str) -> list[dict[str, str]]:
 
 def dataset_ref(seed: str) -> str:
     """The address `pinned(seed)` derives — usable before the record is built."""
-    address = dataset_address(DatasetDeclaration(resources=(ResourceDeclaration(name="matrix", digest=digest_for(seed)),)))
+    address = dataset_address(
+        DatasetDeclaration(resources=(ResourceDeclaration(name="matrix", digest=digest_for(seed)),))
+    )
     assert address is not None
     _MINTED[address] = seed
     return address

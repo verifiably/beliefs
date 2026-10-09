@@ -93,7 +93,9 @@ def shared_scratch(tmp_path_factory) -> Path:
 
 
 def confined(tmp_path: Path, shared_scratch: Path, **kwargs):
-    return run_assessment(tmp_path, port=MEMORY_PORT, boundary_policy=CONFINED_POLICY, scratch_base=shared_scratch, **kwargs)
+    return run_assessment(
+        tmp_path, port=MEMORY_PORT, boundary_policy=CONFINED_POLICY, scratch_base=shared_scratch, **kwargs
+    )
 
 
 def minimal(tmp_path: Path, **kwargs):
@@ -132,7 +134,14 @@ def test_each_confined_launch_executes_exactly_one_engine_argv(tmp_path):
 def confined_pair(tmp_path: Path, shared_scratch: Path, *, snakefile=SNAKEFILE_DETERMINISTIC, replay_cores=1):
     original = confined(tmp_path / "original", shared_scratch, snakefile=snakefile)
     assert isinstance(original, RunMinted), original
-    replayed = replay_of(original, tmp_path / "replayed", port=MEMORY_PORT, snakefile=snakefile, scratch_base=shared_scratch, cores=replay_cores)
+    replayed = replay_of(
+        original,
+        tmp_path / "replayed",
+        port=MEMORY_PORT,
+        snakefile=snakefile,
+        scratch_base=shared_scratch,
+        cores=replay_cores,
+    )
     assert isinstance(replayed, RunMinted), replayed
     return original, replayed
 
@@ -183,7 +192,9 @@ def admission_of(minted: RunMinted, verification):
 
 
 # --- R15 ------------------------------------------------------------------------
-def test_r15u1_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_never_starts(tmp_path, shared_scratch, monkeypatch):
+def test_r15u1_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_never_starts(
+    tmp_path, shared_scratch, monkeypatch
+):
     real_capture = boundary_module.capture_bundle
     real_launch = boundary_module.launch_confined
     launched: list[bool] = []
@@ -296,7 +307,9 @@ def test_end_to_end_a_passing_clean_environment_verification_admits_and_yields_b
 # --- R9, R13, R16 ------------------------------------------------------------------
 def test_r9u1_an_inconclusive_verification_admits_nothing(tmp_path, shared_scratch):
     original, replayed = confined_pair(tmp_path, shared_scratch)
-    unreadable = EquivalenceImplementation(identity="impl-eq-1", evaluate=lambda left, right: "inconclusive", fixtures=())
+    unreadable = EquivalenceImplementation(
+        identity="impl-eq-1", evaluate=lambda left, right: "inconclusive", fixtures=()
+    )
     verification = verification_of((original, replayed), held_rules={"impl-eq-1": unreadable})
     assert isinstance(verification, AssessmentVerification)
     assert verification.verdict == "inconclusive" and verification.scope == "clean-environment"
@@ -304,7 +317,9 @@ def test_r9u1_an_inconclusive_verification_admits_nothing(tmp_path, shared_scrat
     assert isinstance(verdict, AdmissionRefused) and verdict.reason.startswith("not-admitted-verification-state")
 
 
-def test_r13u1_an_import_outside_the_closure_is_refused_under_confinement_and_minted_under_minimal(tmp_path, shared_scratch):
+def test_r13u1_an_import_outside_the_closure_is_refused_under_confinement_and_minted_under_minimal(
+    tmp_path, shared_scratch
+):
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "secret.py").write_text("VALUE = 42\n")
@@ -337,14 +352,19 @@ def test_r21u1_a_write_outside_the_output_root_fails_closed(tmp_path, shared_scr
     assert "Read-only file system" in outcome.detail or "EROFS" in outcome.detail
 
 
-def test_r21u2_two_differently_mounted_scratch_roots_yield_equal_recipes_and_clean_environment(tmp_path, shared_scratch):
+def test_r21u2_two_differently_mounted_scratch_roots_yield_equal_recipes_and_clean_environment(
+    tmp_path, shared_scratch
+):
     other_scratch = tmp_path / "other-mount"
     original = confined(tmp_path / "original", shared_scratch)
     assert isinstance(original, RunMinted), original
     replayed = replay_of(original, tmp_path / "replayed", port=MEMORY_PORT, scratch_base=other_scratch)
     assert isinstance(replayed, RunMinted), replayed
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
-    assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
+    assert (
+        original.run.occurrence.receipt.execution.scratch_mapping
+        != replayed.run.occurrence.receipt.execution.scratch_mapping
+    )
     assert original.run.occurrence.receipt.execution.argv == replayed.run.occurrence.receipt.execution.argv
     assert derive_scope(original.run, replayed.run, certification=None) == "clean-environment"
     assert str(other_scratch) not in v1.encode(replayed.run.recipe._projection()).decode("utf-8")

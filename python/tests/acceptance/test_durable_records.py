@@ -42,14 +42,14 @@ RAW = stored.dataset_node(title="raw", resources=[{"name": "matrix", "digest": O
 
 def assessments_of(view):
     return tuple(
-        stored.assessment_value(node, profile=TESTING_PROFILE) for node in view.iter_stored() if node.kind == "assessment"
+        stored.assessment_value(node, profile=TESTING_PROFILE)
+        for node in view.iter_stored()
+        if node.kind == "assessment"
     )
 
 
 def verifications_of(view):
-    return tuple(
-        stored.verification_value(node) for node in view.iter_stored() if node.kind == "verification"
-    )
+    return tuple(stored.verification_value(node) for node in view.iter_stored() if node.kind == "verification")
 
 
 def belief_digest(view, proposition: str = PROPOSITION) -> str:
@@ -83,7 +83,7 @@ def belief_digest(view, proposition: str = PROPOSITION) -> str:
 
 def observed_dataset():
     return stored.dataset_node(
-                title="raw",
+        title="raw",
         resources=[{"name": "matrix", "digest": OBSERVED_DIGEST}],
         empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
@@ -143,7 +143,9 @@ class TestR19aTheGenuineAvailabilityTransition:
     @pytest.fixture()
     def stored_verification(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
-        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE)
+        assessment = stored.assessment_value(
+            mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE
+        )
         built = passed_verification_under_a_tolerance()
         durable_writer.add(
             stored.verification_node(
@@ -178,17 +180,13 @@ class TestR19aTheGenuineAvailabilityTransition:
         value = stored.verification_value(reopen(durable_root).get("verification:v1"))
         assert (value.verdict, value.scope) == (stored_verification.verdict, stored_verification.scope)
 
-    def test_admission_is_unchanged_when_the_artifacts_are_unreachable_here(
-        self, stored_verification, durable_root
-    ):
+    def test_admission_is_unchanged_when_the_artifacts_are_unreachable_here(self, stored_verification, durable_root):
         view = reopen(durable_root)
         before = self.admission(view, reachable_here=True)
         after = self.admission(reopen(durable_root), reachable_here=False)
         assert before == after
 
-    def test_unavailability_never_reaches_admission_as_a_heldness_answer(
-        self, stored_verification, durable_root
-    ):
+    def test_unavailability_never_reaches_admission_as_a_heldness_answer(self, stored_verification, durable_root):
         outcome = self.admission(reopen(durable_root), reachable_here=False)
         assert "input-not-held" not in getattr(outcome, "reason", "")
 
@@ -206,7 +204,9 @@ class TestR19aTheGenuineAvailabilityTransition:
 class TestR19deTheReadSideNegatives:
     def test_a_self_consistent_forged_verification_is_not_refused(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
-        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE)
+        assessment = stored.assessment_value(
+            mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE
+        )
         raw_write(
             durable_root,
             stored.verification_node(
@@ -223,7 +223,9 @@ class TestR19deTheReadSideNegatives:
 
     def test_reload_does_not_validate_it(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
-        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE)
+        assessment = stored.assessment_value(
+            mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE
+        )
         raw_write(
             durable_root,
             stored.verification_node(
@@ -244,11 +246,11 @@ class TestR19deTheReadSideNegatives:
         assert view.holds("run:smuggled")
         assert corpus_check(view, BASE) == ()
 
-    def test_an_unaudited_verification_is_indistinguishable_from_a_genuine_one(
-        self, durable_writer, durable_root
-    ):
+    def test_an_unaudited_verification_is_indistinguishable_from_a_genuine_one(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
-        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE)
+        assessment = stored.assessment_value(
+            mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE
+        )
         built = passed_verification_under_a_tolerance()
         genuine = stored.verification_node(
             "genuine",
@@ -308,9 +310,7 @@ class TestR22TheForgeryAtTheCorrectAddress:
     def test_the_belief_digest_differs_from_the_correct_states(self, forged, durable_root):
         assert belief_digest(reopen(durable_root)) != forged
 
-    def test_the_forgery_is_self_consistent_so_the_stale_hash_check_has_nothing_to_say(
-        self, forged, durable_root
-    ):
+    def test_the_forgery_is_self_consistent_so_the_stale_hash_check_has_nothing_to_say(self, forged, durable_root):
         view = reopen(durable_root)
         assert stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE).outcome == "supported"
 
@@ -322,34 +322,40 @@ class TestR22TheForgeryAtTheCorrectAddress:
         # none of them; what moves is the keyed facet digest paired with it.
         view = reopen(durable_root)
         value = stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE)
-        assert value.identity() == stored.assessment_value(
-            stored.assessment_node(
-                "a1",
-                title="a1",
-                spec=SPEC,
-                run=RUN,
-                proposition=PROPOSITION,
-                outcome="refuted",
-                interpretation_rule=RULE,
-                estimand=typed_estimand(),
-                applicability=typed_applicability(),
-            ),
-            profile=TESTING_PROFILE,
-        ).identity()
-        assert value.facet_digest() != stored.assessment_value(
-            stored.assessment_node(
-                "a1",
-                title="a1",
-                spec=SPEC,
-                run=RUN,
-                proposition=PROPOSITION,
-                outcome="refuted",
-                interpretation_rule=RULE,
-                estimand=typed_estimand(),
-                applicability=typed_applicability(),
-            ),
-            profile=TESTING_PROFILE,
-        ).facet_digest()
+        assert (
+            value.identity()
+            == stored.assessment_value(
+                stored.assessment_node(
+                    "a1",
+                    title="a1",
+                    spec=SPEC,
+                    run=RUN,
+                    proposition=PROPOSITION,
+                    outcome="refuted",
+                    interpretation_rule=RULE,
+                    estimand=typed_estimand(),
+                    applicability=typed_applicability(),
+                ),
+                profile=TESTING_PROFILE,
+            ).identity()
+        )
+        assert (
+            value.facet_digest()
+            != stored.assessment_value(
+                stored.assessment_node(
+                    "a1",
+                    title="a1",
+                    spec=SPEC,
+                    run=RUN,
+                    proposition=PROPOSITION,
+                    outcome="refuted",
+                    interpretation_rule=RULE,
+                    estimand=typed_estimand(),
+                    applicability=typed_applicability(),
+                ),
+                profile=TESTING_PROFILE,
+            ).facet_digest()
+        )
 
     def test_the_snapshot_stays_an_argument_to_the_digest(self, forged, durable_root):
         # The closure is corpus-local and the producer snapshot is supplied, so

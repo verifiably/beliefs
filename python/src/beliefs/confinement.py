@@ -167,7 +167,9 @@ def _verify_rows(root: Path, captured: CapturedEnvironment) -> None:
             actual = os.readlink(path) if path.is_symlink() else (_digest(path) if path.is_file() else "")
         elif sandbox in rendered:
             kind, content = rendered[sandbox]
-            actual = os.readlink(path) if path.is_symlink() else (path.read_text(encoding="utf-8") if path.is_file() else "")
+            actual = (
+                os.readlink(path) if path.is_symlink() else (path.read_text(encoding="utf-8") if path.is_file() else "")
+            )
         else:
             raise SnapshotMismatch(f"{root.name}: {sandbox} is not a manifested or rendered row (extra)")
         if (kind == "symlink") != path.is_symlink() or actual != content:
@@ -230,7 +232,13 @@ def bundle_identity(bundle: Path) -> str:
     """`capture_bundle`'s fold, recomputed over the copied tree. A read that
     fails is ClosureMutated: the observation could not be made."""
     try:
-        return _fold([(path.relative_to(bundle).as_posix(), _digest(path)) for path in sorted(bundle.rglob("*")) if path.is_file()])
+        return _fold(
+            [
+                (path.relative_to(bundle).as_posix(), _digest(path))
+                for path in sorted(bundle.rglob("*"))
+                if path.is_file()
+            ]
+        )
     except OSError as error:
         raise ClosureMutated(f"the bundle could not be read: {error}") from error
 
@@ -297,7 +305,10 @@ class MountPlan:
 
     @property
     def rows(self) -> tuple[tuple[str, str, str], ...]:
-        return (("/", "root", "ro"), *((sandbox, role, _ROLES[access]) for (sandbox, _, access), role in zip(self.binds, self.roles)))
+        return (
+            ("/", "root", "ro"),
+            *((sandbox, role, _ROLES[access]) for (sandbox, _, access), role in zip(self.binds, self.roles)),
+        )
 
     @property
     def expected(self) -> tuple[tuple[str, str, str], ...]:
@@ -363,7 +374,20 @@ def bwrap_argv(
     for name, value in environment:
         argv.extend(["--setenv", name, value])
     argv.extend(["--info-fd", str(info_fd), "--"])
-    argv.extend([f"{SANDBOX_VENV}/bin/python", "-m", PROBE_MODULE, "--report-fd", str(report_fd), "--go-fd", str(go_fd), "--loader", plan.loader, "--"])
+    argv.extend(
+        [
+            f"{SANDBOX_VENV}/bin/python",
+            "-m",
+            PROBE_MODULE,
+            "--report-fd",
+            str(report_fd),
+            "--go-fd",
+            str(go_fd),
+            "--loader",
+            plan.loader,
+            "--",
+        ]
+    )
     argv.extend(inner_argv)
     return tuple(argv)
 
@@ -396,7 +420,9 @@ class InstanceFacts:
 
 
 def observe_instance(pid: int, plan: MountPlan) -> InstanceFacts:
-    distinct = tuple(name for name in NAMESPACES if os.readlink(f"/proc/{pid}/ns/{name}") != os.readlink(f"/proc/self/ns/{name}"))
+    distinct = tuple(
+        name for name in NAMESPACES if os.readlink(f"/proc/{pid}/ns/{name}") != os.readlink(f"/proc/self/ns/{name}")
+    )
     return InstanceFacts(distinct, canonical_mounts(Path(f"/proc/{pid}/mountinfo").read_text(encoding="utf-8"), plan))
 
 
@@ -433,7 +459,9 @@ def _terminal_digest(captured: CapturedEnvironment, path: str) -> str | None:
         kind, content = row
         if kind == "file":
             return content
-        path = content if content.startswith("/") else posixpath.normpath(posixpath.join(posixpath.dirname(path), content))
+        path = (
+            content if content.startswith("/") else posixpath.normpath(posixpath.join(posixpath.dirname(path), content))
+        )
     return None
 
 
@@ -454,34 +482,48 @@ def judge_report(
         raise TypeError(f"malformed report: environ is {type(raw_environ).__name__!r}, not a mapping")
     environ = cast(Mapping[str, str], raw_environ)
     if dict(environ) != dict(environment):
-        raise ConfinementNotEstablished(f"environment differs from the declared set: {sorted(set(environ.items()) ^ set(environment))}")
+        raise ConfinementNotEstablished(
+            f"environment differs from the declared set: {sorted(set(environ.items()) ^ set(environment))}"
+        )
     if report["hostname"] != HOSTNAME:
         raise ConfinementNotEstablished(f"hostname {report['hostname']!r} is not {HOSTNAME!r}")
     if report["cwd"] != OUTPUT_ROOT:
         raise ConfinementNotEstablished(f"cwd {report['cwd']!r} is not {OUTPUT_ROOT!r}")
     filesystem = cast(Mapping[str, str], report["filesystem"])
     if dict(filesystem) != _expected_filesystem():
-        raise ConfinementNotEstablished(f"filesystem probes differ: {sorted(set(filesystem.items()) ^ set(_expected_filesystem().items()))}")
+        raise ConfinementNotEstablished(
+            f"filesystem probes differ: {sorted(set(filesystem.items()) ^ set(_expected_filesystem().items()))}"
+        )
     network = cast(Mapping[str, str], report["network"])
     if network["ipv4"] != "ENETUNREACH":
         raise ConfinementNotEstablished(f"network: IPv4 connect reported {network['ipv4']!r}, not ENETUNREACH")
     if network["ipv6"] not in _NETWORK_UNREACHABLE:
-        raise ConfinementNotEstablished(f"network: IPv6 reported {network['ipv6']!r}, not one of {_NETWORK_UNREACHABLE}")
+        raise ConfinementNotEstablished(
+            f"network: IPv6 reported {network['ipv6']!r}, not one of {_NETWORK_UNREACHABLE}"
+        )
     expected: dict[str, dict[str, str]] = {elf: {} for elf in captured.loader_elves}
     for elf, soname, resolved in captured.loader_map:
         expected.setdefault(elf, {})[soname] = resolved
     reported = cast(Mapping[str, Mapping[str, object]], report["loader"])
     if set(reported) != set(expected):
-        raise ConfinementNotEstablished(f"loader: the listed ELFs differ from the captured set: {sorted(set(reported) ^ set(expected))}")
+        raise ConfinementNotEstablished(
+            f"loader: the listed ELFs differ from the captured set: {sorted(set(reported) ^ set(expected))}"
+        )
     for elf, entry in reported.items():
         if entry["returncode"] != 0 or entry["unresolved"]:
-            raise ConfinementNotEstablished(f"loader: {elf} exited {entry['returncode']} with unresolved {entry['unresolved']}")
+            raise ConfinementNotEstablished(
+                f"loader: {elf} exited {entry['returncode']} with unresolved {entry['unresolved']}"
+            )
         resolved_map = cast(Mapping[str, list[str]], entry["resolved"])
         if set(resolved_map) != set(expected[elf]):
-            raise ConfinementNotEstablished(f"loader: {elf} lists {sorted(set(resolved_map) ^ set(expected[elf]))} differently from the capture")
+            raise ConfinementNotEstablished(
+                f"loader: {elf} lists {sorted(set(resolved_map) ^ set(expected[elf]))} differently from the capture"
+            )
         for soname, (path, digest) in resolved_map.items():
             if path != expected[elf][soname] or _terminal_digest(captured, path) != digest:
-                raise ConfinementNotEstablished(f"loader: {elf} maps {soname} to {path} ({digest}), not the manifested {expected[elf][soname]}")
+                raise ConfinementNotEstablished(
+                    f"loader: {elf} maps {soname} to {path} ({digest}), not the manifested {expected[elf][soname]}"
+                )
     snakefile = inner_argv[inner_argv.index("--snakefile") + 1]
     if not snakefile.startswith(f"{BUNDLE_ROOT}/"):
         raise ConfinementNotEstablished(f"the engine's snakefile {snakefile!r} is not under the bundle")

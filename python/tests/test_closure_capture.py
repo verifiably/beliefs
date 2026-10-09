@@ -161,13 +161,18 @@ def test_every_symlink_row_resolves_to_a_closure_row(captured):
     for path, (kind, content) in rows.items():
         if kind != "symlink":
             continue
-        resolved = content if content.startswith("/") else os.path.normpath(os.path.join(os.path.dirname(path), content))
+        resolved = (
+            content if content.startswith("/") else os.path.normpath(os.path.join(os.path.dirname(path), content))
+        )
         assert resolved in rows or any(row.startswith(resolved + "/") for row in rows), (path, content)
 
 
 def test_the_rendered_venv_and_pth_files_are_functions_of_the_layout(captured):
     rendered = {path: (kind, content) for path, kind, content in captured.rendered}
-    assert rendered[f"{SANDBOX_VENV}/pyvenv.cfg"] == ("file", f"home = {SANDBOX_PYTHON}/bin\ninclude-system-site-packages = false\n")
+    assert rendered[f"{SANDBOX_VENV}/pyvenv.cfg"] == (
+        "file",
+        f"home = {SANDBOX_PYTHON}/bin\ninclude-system-site-packages = false\n",
+    )
     version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
     assert rendered[f"{SANDBOX_VENV}/lib/{version_dir}/site-packages"] == ("symlink", SANDBOX_SITE)
     editable_pths = [
@@ -539,7 +544,9 @@ def test_add_native_closes_over_the_libraries_it_adds_and_maps_in_root_targets_t
     # ruling R6: libouter.so.1 resolves zero dependencies of its own but is
     # still a loadable ELF under the environment root — a key in
     # loader_elves, even though it never gains a loader_map row.
-    assert walker.loader_elves == sorted([f"{SANDBOX_SITE}/ext.so", f"{SANDBOX_SITE}/libinner.so.1", f"{SANDBOX_LIB}/libouter.so.1"])
+    assert walker.loader_elves == sorted(
+        [f"{SANDBOX_SITE}/ext.so", f"{SANDBOX_SITE}/libinner.so.1", f"{SANDBOX_LIB}/libouter.so.1"]
+    )
 
 
 def test_r4_a_foreign_class_or_machine_elf_is_a_row_but_never_listed_or_mapped(tmp_path):
@@ -575,11 +582,22 @@ def test_build_argv_is_policy_neutral_and_the_minimal_spelling_is_unchanged():
         in_process_jobs=False,
     )
     assert minimal == (
-        "/host/python", "-m", "snakemake",
-        "--snakefile", "/host/scratch/bundle/code/workflow/Snakefile",
-        "--cores", "1", "--directory", "/host/scratch", "--nolock",
-        "--log-handler-script", "/host/trace/handler.py",
-        "--config", "alpha=0.05", "--", "outputs/result.txt",
+        "/host/python",
+        "-m",
+        "snakemake",
+        "--snakefile",
+        "/host/scratch/bundle/code/workflow/Snakefile",
+        "--cores",
+        "1",
+        "--directory",
+        "/host/scratch",
+        "--nolock",
+        "--log-handler-script",
+        "/host/trace/handler.py",
+        "--config",
+        "alpha=0.05",
+        "--",
+        "outputs/result.txt",
     )
     confined = build_argv(
         interpreter="/science/env/venv/bin/python",
@@ -595,4 +613,13 @@ def test_build_argv_is_policy_neutral_and_the_minimal_spelling_is_unchanged():
     assert "--force-use-threads" in confined and confined.index("--force-use-threads") == confined.index("--nolock") + 1
     assert not any(part.startswith("/host") for part in confined)
     with pytest.raises(UnsafeInvocation):
-        build_argv(interpreter="/p", snakefile="/s", directory="/d", targets=("--all",), config={}, log_handler="/h", cores=1, in_process_jobs=False)
+        build_argv(
+            interpreter="/p",
+            snakefile="/s",
+            directory="/d",
+            targets=("--all",),
+            config={},
+            log_handler="/h",
+            cores=1,
+            in_process_jobs=False,
+        )

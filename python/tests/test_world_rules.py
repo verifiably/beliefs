@@ -47,13 +47,13 @@ def sort_members(capture):
 
 OTHER_SOURCE = SOURCE + b"\n\n# a second conforming implementation of the same rule\n"
 
-WRONG_SOURCE = b'''def sort_members(capture):
+WRONG_SOURCE = b"""def sort_members(capture):
     return {"members": list(capture["members"])}
-'''
+"""
 
-RAISING_SOURCE = b'''def sort_members(capture):
+RAISING_SOURCE = b"""def sort_members(capture):
     raise RuntimeError("this implementation does not run")
-'''
+"""
 
 FIXTURES: tuple[tuple[str, bytes], ...] = (
     ("sort.basic.yaml", b'input:\n  members: ["b", "a"]\nexpected:\n  members: ["a", "b"]\n'),
@@ -119,9 +119,7 @@ def stored_members(world: world_module.World) -> dict[str, bytes]:
     base = world.config.world_root / "rules"
     if not base.exists():
         return {}
-    return {
-        str(path.relative_to(base)): path.read_bytes() for path in sorted(base.rglob("*")) if path.is_file()
-    }
+    return {str(path.relative_to(base)): path.read_bytes() for path in sorted(base.rglob("*")) if path.is_file()}
 
 
 class TestTheTwoIdentities:
@@ -341,9 +339,7 @@ class TestHeldResolution:
         # The recomputation is over the stored bytes, and it closes on the
         # directory name.
         directory = world.config.world_root / "rules" / binding.rule_identity
-        recovered = tuple(
-            (path.name, path.read_bytes()) for path in sorted((directory / "fixtures").iterdir())
-        )
+        recovered = tuple((path.name, path.read_bytes()) for path in sorted((directory / "fixtures").iterdir()))
         assert rules.fixture_set_identity(recovered) == rules.fixture_set_identity(FIXTURES)
         assert rules.rule_identity(held.symbol, recovered) == binding.rule_identity
         assert rules.implementation_identity(held.source) == binding.implementation_identity
@@ -576,8 +572,7 @@ def receipt_document(
             "kind": RECEIPT_KINDS[member],
             "subject": subject,
             "corpus_states": [
-                {"corpus_id": corpus_id, "corpus_state": corpus_state}
-                for corpus_id, corpus_state in sorted(states)
+                {"corpus_id": corpus_id, "corpus_state": corpus_state} for corpus_id, corpus_state in sorted(states)
             ],
             "rule_identity": binding.rule_identity,
             "implementation_identity": binding.implementation_identity,
@@ -730,9 +725,7 @@ class TestExplicitRemoval:
         assert report.severed_receipts == tuple(
             sorted(
                 {
-                    expected_receipt_identity(
-                        member, subject=subject_identity(f"{marker}:{member}"), binding=binding
-                    )
+                    expected_receipt_identity(member, subject=subject_identity(f"{marker}:{member}"), binding=binding)
                     for marker, group in (("first", first_bindings), ("second", second_bindings))
                     for member, binding in group.items()
                     if binding == removed
@@ -745,9 +738,7 @@ class TestExplicitRemoval:
         # removed implementation is not a removed rule.
         for marker, member in (("first", "certification-receipt.yaml"), ("second", "coreference-receipt.yaml")):
             assert (
-                expected_receipt_identity(
-                    member, subject=subject_identity(f"{marker}:{member}"), binding=sibling
-                )
+                expected_receipt_identity(member, subject=subject_identity(f"{marker}:{member}"), binding=sibling)
                 not in report.severed_receipts
             )
 
@@ -924,9 +915,7 @@ class TestExplicitRemoval:
         assert report.binding == broken
         assert report.severed_receipts == tuple(
             sorted(
-                expected_receipt_identity(
-                    member, subject=subject_identity(f"broken:{member}"), binding=broken
-                )
+                expected_receipt_identity(member, subject=subject_identity(f"broken:{member}"), binding=broken)
                 for member in RECEIPT_MEMBERS
             )
         )
@@ -980,10 +969,7 @@ class TestExplicitRemoval:
         # Two carriers whose receipts agree in kind, subject, states and
         # binding are two carriers of the *same* receipt identity.
         first = author_epoch(world, dict.fromkeys(RECEIPT_MEMBERS, binding), "shared")
-        members = {
-            path.name: path.read_bytes()
-            for path in (world.config.world_root / "epochs" / first).iterdir()
-        }
+        members = {path.name: path.read_bytes() for path in (world.config.world_root / "epochs" / first).iterdir()}
         second = world.config.world_root / "epochs" / ("d" * 64)
         second.mkdir()
         for name, content in members.items():
@@ -1119,9 +1105,7 @@ class TestExplicitRemoval:
         if sabotage == "receipt-unknown-key":
             receipt.write_bytes(receipt.read_bytes() + b"note: extra\n")
         elif sabotage == "receipt-kind-mismatch":
-            receipt.write_bytes(
-                receipt.read_bytes().replace(b"kind: producer\n", b"kind: coreference-reduction\n")
-            )
+            receipt.write_bytes(receipt.read_bytes().replace(b"kind: producer\n", b"kind: coreference-reduction\n"))
         elif sabotage == "receipt-unsorted-states":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = list(reversed(document["corpus_states"]))
@@ -1148,9 +1132,7 @@ class TestExplicitRemoval:
             # never receipt keys.
             omitted = b"rule_identity:" if sabotage == "receipt-no-rule-identity" else b"kind:"
             receipt.write_bytes(
-                b"".join(
-                    line + b"\n" for line in receipt.read_bytes().splitlines() if not line.startswith(omitted)
-                )
+                b"".join(line + b"\n" for line in receipt.read_bytes().splitlines() if not line.startswith(omitted))
             )
 
         # The scan is what must not refuse; prove it reads this carrier.
@@ -1181,9 +1163,7 @@ class TestExplicitRemoval:
         if sabotage == "receipt-unsorted-states":
             assert report.severed_receipts == tuple(
                 sorted(
-                    expected_receipt_identity(
-                        member, subject=subject_identity(f"bent:{member}"), binding=binding
-                    )
+                    expected_receipt_identity(member, subject=subject_identity(f"bent:{member}"), binding=binding)
                     for member in RECEIPT_MEMBERS
                 )
             )
@@ -1215,9 +1195,7 @@ class TestExplicitRemoval:
         # And the projection member does not enter the receipt identity.
         assert report.severed_receipts == tuple(
             sorted(
-                expected_receipt_identity(
-                    member, subject=subject_identity(f"shaped:{member}"), binding=binding
-                )
+                expected_receipt_identity(member, subject=subject_identity(f"shaped:{member}"), binding=binding)
                 for member in RECEIPT_MEMBERS
             )
         )

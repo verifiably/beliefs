@@ -143,7 +143,9 @@ def main() -> int:
             f"with runs {sorted(inputs.runs)}; the spec target / stored proposition ref do not meet",
         )
         state.save(
-            verification_ref=minted.id, admission="not-evaluated: gather mismatch", belief_answer={"kind": "not-evaluated"}
+            verification_ref=minted.id,
+            admission="not-evaluated: gather mismatch",
+            belief_answer={"kind": "not-evaluated"},
         )
         return 2
     a = inputs.assessments[0]

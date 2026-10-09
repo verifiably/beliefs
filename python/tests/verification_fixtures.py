@@ -51,7 +51,14 @@ _PARTS = {
     "target_keys": (job_key("fit", (("n", "a"),)),),
     "targets": ("outputs/a.done",),
 }
-__all__ = ["CLAIM_FACET", "PROFILE", "EX", "GENE", "OTHER_GENE", "PHENO"]  # re-exported for the acceptance module  # noqa: RUF022
+__all__ = [  # noqa: RUF022
+    "CLAIM_FACET",
+    "PROFILE",
+    "EX",
+    "GENE",
+    "OTHER_GENE",
+    "PHENO",
+]  # re-exported for the acceptance module
 
 
 def frozen_for(target: str) -> FrozenSpec:
@@ -76,7 +83,9 @@ def clean_pair(frozen: FrozenSpec, *, agreeing: bool = True, qualifying: bool = 
     then derives `same-environment`, which is what a forged
     `clean-environment` over it must be caught against (V4)."""
     original = conforming_closure(frozen, token="tok-original")
-    replayed = conforming_closure(frozen, token="tok-replayed", confined=qualifying, outputs=None if agreeing else DISAGREEING)
+    replayed = conforming_closure(
+        frozen, token="tok-replayed", confined=qualifying, outputs=None if agreeing else DISAGREEING
+    )
     return original, replayed
 
 
@@ -105,7 +114,9 @@ def mint_datasets(writer, closure: RunClosure) -> None:
     for entry in closure.recipe.inputs:
         if not writer.read_view.holds(entry.dataset):
             writer.add(
-                stored.dataset_node(title="raw", resources=pinned_for(entry.dataset),
+                stored.dataset_node(
+                    title="raw",
+                    resources=pinned_for(entry.dataset),
                     empirical_observation={"locator": "instrument:fixture", "attested_by": writer.authority.actor},
                 )
             )
@@ -125,8 +136,14 @@ class Published:
 
 
 def publish_corpus(
-    writer, *, slug: str = "p", claim=None, certification: CodeLineageCertification | None = None,
-    agreeing: bool = True, qualifying: bool = True, publish: bool = False,
+    writer,
+    *,
+    slug: str = "p",
+    claim=None,
+    certification: CodeLineageCertification | None = None,
+    agreeing: bool = True,
+    qualifying: bool = True,
+    publish: bool = False,
 ) -> Published:
     """A proposition, the two runs and their datasets, the stored assessment
     over the original, the verification derived from the pair, and — with
@@ -140,16 +157,31 @@ def publish_corpus(
     evidence = evidence_for(frozen)
     derived_value = build_assessment(original, specs=evidence.specs, implementations=evidence.implementations)
     assert isinstance(derived_value, AssessmentValue), derived_value
-    optional = {n: getattr(derived_value, n) for n in ("estimate", "uncertainty", "estimand", "applicability") if getattr(derived_value, n) is not None}
+    optional = {
+        n: getattr(derived_value, n)
+        for n in ("estimate", "uncertainty", "estimand", "applicability")
+        if getattr(derived_value, n) is not None
+    }
     assessment = writer.add(
         stored.assessment_node(
-            f"a-{slug}", title=f"a-{slug}", spec=frozen.identity, run=run_ref(original.address()), proposition=proposition.id,
-            outcome=derived_value.outcome, interpretation_rule=derived_value.interpretation_rule, **optional,
+            f"a-{slug}",
+            title=f"a-{slug}",
+            spec=frozen.identity,
+            run=run_ref(original.address()),
+            proposition=proposition.id,
+            outcome=derived_value.outcome,
+            interpretation_rule=derived_value.interpretation_rule,
+            **optional,
         )
     )
     derived = build_verification(
-        original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
-        contract_identity=CONTRACT, epoch=EPOCH, certification=certification,
+        original,
+        replayed,
+        specs=evidence.specs,
+        held_rules=evidence.held_rules,
+        contract_identity=CONTRACT,
+        epoch=EPOCH,
+        certification=certification,
     )
     assert isinstance(derived, AssessmentVerification)
     node = None
@@ -180,9 +212,15 @@ def evaluation_kwargs(view) -> dict:
     identities = {stored.assessment_reference(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
     observations = observations_for(view)
     return {
-        "availability": Availability(observations=observations, implementations={BELIEF_V1.identity: BELIEF_V1}, fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES}),
+        "availability": Availability(
+            observations=observations,
+            implementations={BELIEF_V1.identity: BELIEF_V1},
+            fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES},
+        ),
         "context": SuppliedContext(
-            snapshot=lineage_snapshot(view, [n.id for n in view.iter_stored() if n.kind == "dataset"]),  # corpus refs, not content addresses [R2, second round]
+            snapshot=lineage_snapshot(
+                view, [n.id for n in view.iter_stored() if n.kind == "dataset"]
+            ),  # corpus refs, not content addresses [R2, second round]
             producer_snapshot_identity="producer-snapshot-1",
             node_corpus={identity: ("c1",) for identity in identities},
             pins={"c1": pins_for(PROFILE)},
@@ -234,7 +272,10 @@ def self_consistent_forgery(writer, node: Node, *, mutate) -> Node:
     forged_id = f"verification:{v1.digest(RUN_VERIFICATION_DOMAIN, _basis(members))}"
     forged = stored.stamp_semantic_identity(
         Node(
-            id=forged_id, kind="verification", title=node.title, facets={stored.VERIFICATION_FACET: facet},
+            id=forged_id,
+            kind="verification",
+            title=node.title,
+            facets={stored.VERIFICATION_FACET: facet},
             relations=[Relation(source=forged_id, predicate=r.predicate, target=r.target) for r in node.relations],
         )
     )
@@ -267,11 +308,21 @@ def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception],
     # so it audits clean and imports; only its proposition differs, which the audit's
     # comparison excludes (cut 18 ruling R12). Its identity differs by that member.
     value = published.derived_value
-    optional = {n: getattr(value, n) for n in ("estimate", "uncertainty", "estimand", "applicability") if getattr(value, n) is not None}
+    optional = {
+        n: getattr(value, n)
+        for n in ("estimate", "uncertainty", "estimand", "applicability")
+        if getattr(value, n) is not None
+    }
     other = writer.add(
         stored.assessment_node(
-            "a-other", title="a-other", spec=published.frozen.identity, run=run_ref(published.original.address()),
-            proposition=other_proposition.id, outcome=value.outcome, interpretation_rule=value.interpretation_rule, **optional,
+            "a-other",
+            title="a-other",
+            spec=published.frozen.identity,
+            run=run_ref(published.original.address()),
+            proposition=other_proposition.id,
+            outcome=value.outcome,
+            interpretation_rule=value.interpretation_rule,
+            **optional,
         )
     )
     other_identity = publication_node(derived, assessment_ref=other.id)

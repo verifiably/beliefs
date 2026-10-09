@@ -461,9 +461,7 @@ def _require_store_genesis(store_root: Path, payload: bytes, store_id: str) -> N
             f"{store_root}: the chain genesis payload is not a {STORE_GENESIS_DOMAIN} genesis: {caught}"
         ) from caught
     if named != store_id:
-        raise StoreIdMismatch(
-            f"{store_root}: the chain genesis names store_id {named!r}, not {store_id!r}"
-        )
+        raise StoreIdMismatch(f"{store_root}: the chain genesis names store_id {named!r}, not {store_id!r}")
 
 
 # --- the two acts (§3.2, §3.3) ------------------------------------------------
@@ -549,10 +547,7 @@ def _anchor_heads(
     targets = sorted(_require_lower_hex(corpus_id, 32, "corpus_id") for corpus_id in corpus_ids)
     if type(store_roots) is not tuple:
         raise TypeError("store_roots must be an exact tuple of (store_id, root) pairs")
-    store_targets = sorted(
-        (_require_lower_hex(store_id, 32, "store_id"), Path(root))
-        for store_id, root in store_roots
-    )
+    store_targets = sorted((_require_lower_hex(store_id, 32, "store_id"), Path(root)) for store_id, root in store_roots)
     origin = AnchorActOrigin(world.authority.actor)
     config = world.config
     with seam.world_lock(config.world_root):

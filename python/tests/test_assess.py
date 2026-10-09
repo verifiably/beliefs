@@ -274,7 +274,9 @@ def test_r22_negative_a_narrowing_applicability_needs_a_successor_spec_and_a_new
     minted,
 ):
     spec = freeze(spec_draft(), held_rules=spec_rules())
-    narrower = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
+    narrower = typed_applicability(
+        {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))}
+    )
     narrowed = revise(
         spec,
         edits={"applicability": narrower},
@@ -451,19 +453,50 @@ def run_assessment_under(tmp_path_factory):
 
 
 def _rule(output):
-    return {"impl-interp-1": RuleImplementation(identity="impl-interp-1", evaluate=lambda manifest: output, fixtures=())}
+    return {
+        "impl-interp-1": RuleImplementation(identity="impl-interp-1", evaluate=lambda manifest: output, fixtures=())
+    }
 
 
-@pytest.mark.parametrize("output,reason", [
-    ({"outcome": "supported", "estimate": 0.4}, "Decimal"),
-    ({"outcome": "supported", "estimate": "0.4"}, "Decimal"),
-    ({"outcome": "supported", "estimate": Decimal("0.4"), "uncertainty": {"kind": "interval", "low": Decimal("0.5"), "high": Decimal("0.7"), "level": Decimal("0.95")}}, "excludes the estimate"),
-    ({"outcome": "supported", "estimate": Decimal("0.4"), "uncertainty": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal(1)}}, "level"),
-    ({"outcome": "supported", "estimate": Decimal("0.4"), "uncertainty": {"kind": "standard-error", "value": Decimal("-0.1")}}, "non-negative"),
-    ({"outcome": "supported", "estimate": Decimal("0.4"), "reference": Decimal(0)}, "reference"),
-    ({"outcome": "supported", "scale": "additive"}, "scale"),
-    ({"outcome": "supported", "uncertainty": {"kind": "standard-error", "value": Decimal("0.1")}}, "estimate"),
-])
+@pytest.mark.parametrize(
+    "output,reason",
+    [
+        ({"outcome": "supported", "estimate": 0.4}, "Decimal"),
+        ({"outcome": "supported", "estimate": "0.4"}, "Decimal"),
+        (
+            {
+                "outcome": "supported",
+                "estimate": Decimal("0.4"),
+                "uncertainty": {
+                    "kind": "interval",
+                    "low": Decimal("0.5"),
+                    "high": Decimal("0.7"),
+                    "level": Decimal("0.95"),
+                },
+            },
+            "excludes the estimate",
+        ),
+        (
+            {
+                "outcome": "supported",
+                "estimate": Decimal("0.4"),
+                "uncertainty": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal(1)},
+            },
+            "level",
+        ),
+        (
+            {
+                "outcome": "supported",
+                "estimate": Decimal("0.4"),
+                "uncertainty": {"kind": "standard-error", "value": Decimal("-0.1")},
+            },
+            "non-negative",
+        ),
+        ({"outcome": "supported", "estimate": Decimal("0.4"), "reference": Decimal(0)}, "reference"),
+        ({"outcome": "supported", "scale": "additive"}, "scale"),
+        ({"outcome": "supported", "uncertainty": {"kind": "standard-error", "value": Decimal("0.1")}}, "estimate"),
+    ],
+)
 def test_an_ill_typed_rule_output_is_a_finding_never_inconclusive(minted, output, reason):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     derived = build_assessment(minted.run, specs={spec.identity: spec}, implementations=_rule(output))
@@ -473,7 +506,11 @@ def test_an_ill_typed_rule_output_is_a_finding_never_inconclusive(minted, output
 
 def test_a_well_typed_output_mints_typed_members(minted):
     spec = freeze(spec_draft(), held_rules=spec_rules())
-    output = {"outcome": "supported", "estimate": Decimal("0.4"), "uncertainty": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal("0.95")}}
+    output = {
+        "outcome": "supported",
+        "estimate": Decimal("0.4"),
+        "uncertainty": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal("0.95")},
+    }
     derived = build_assessment(minted.run, specs={spec.identity: spec}, implementations=_rule(output))
     assert isinstance(derived, AssessmentValue)
     assert isinstance(derived.uncertainty, Interval)
@@ -488,9 +525,15 @@ def test_a_multiplicative_estimate_must_be_positive(minted, run_assessment_under
     from beliefs.estimand import Measure
 
     spec = freeze(
-        spec_draft(estimand=typed_estimand(measure=Measure(Referent("testing/measure", "EX:hr"), "multiplicative"), reference=Decimal(1))),
+        spec_draft(
+            estimand=typed_estimand(
+                measure=Measure(Referent("testing/measure", "EX:hr"), "multiplicative"), reference=Decimal(1)
+            )
+        ),
         held_rules=spec_rules(),
     )
     run = run_assessment_under(spec)  # the module's helper that executes a closure under a given frozen spec
-    derived = build_assessment(run, specs={spec.identity: spec}, implementations=_rule({"outcome": "supported", "estimate": Decimal(0)}))
+    derived = build_assessment(
+        run, specs={spec.identity: spec}, implementations=_rule({"outcome": "supported", "estimate": Decimal(0)})
+    )
     assert isinstance(derived, AssessmentFinding) and "multiplicative" in derived.reason

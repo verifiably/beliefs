@@ -80,9 +80,7 @@ def _stored_act_report(writer: CorpusWriter) -> Node:
         entries=(RecordImportEntry(subject="other", outcome=ImportedRecords(refs=("discussion:x",), findings=())),),
     )
     foreign = stored.act_report_node(foreign_report)
-    writer.import_bundle(
-        [foreign], observer="corpus", instrument="test", opened_at="T0", closed_at="T1"
-    )
+    writer.import_bundle([foreign], observer="corpus", instrument="test", opened_at="T0", closed_at="T1")
     return writer.read_view.get(foreign.id)
 
 
@@ -200,7 +198,9 @@ def test_delete_refuses_a_kind_the_coordination_profile_names(tmp_path, base_con
     raw_add(root, node)
 
     resolver = CoordinationResolver({root: profile})
-    profiled_writer = CorpusWriter(root, DefaultExecutor, authority=FULL, coordination_resolver=resolver, profile=profile)
+    profiled_writer = CorpusWriter(
+        root, DefaultExecutor, authority=FULL, coordination_resolver=resolver, profile=profile
+    )
     profiled_writer._reconstruct()
 
     with pytest.raises(DeletionKindExcluded):
@@ -319,9 +319,7 @@ def test_e1_delete_requires_the_corpus_write_permit_on_the_resolved_kind(writer)
     """
     from test_relocation import _rebind
 
-    target = writer.add(
-        stored.proposition_node("doomed", title="doomed", claim={"operator": "affects"})
-    )
+    target = writer.add(stored.proposition_node("doomed", title="doomed", claim={"operator": "affects"}))
     path = path_for(writer.root, target.id)
     before = path.read_bytes()
 

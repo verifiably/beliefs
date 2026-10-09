@@ -43,7 +43,9 @@ from beliefs.session.ledger import ledger_path
 from beliefs.world import WorldConfig
 
 V2_LOCAL = compile_profile(shipped_base_contract(), [biology("fixture")], coordination=shipped_coordination(2))
-V2_SHIPPED = compile_profile(shipped_base_contract(), [shipped_domain_contract("biology")], coordination=shipped_coordination(2))
+V2_SHIPPED = compile_profile(
+    shipped_base_contract(), [shipped_domain_contract("biology")], coordination=shipped_coordination(2)
+)
 AVAILABLE = (biology("fixture"),)
 
 
@@ -77,15 +79,23 @@ def mounts_for(roots):
 
 
 def open_over(
-    s, roots, write_root, *,
+    s,
+    roots,
+    write_root,
+    *,
     mounts: Mapping[Path, ProfileSpec] | Literal["compiled"] | None = "compiled",
-    profile: ProfileSpec | None = None, **kwargs,
+    profile: ProfileSpec | None = None,
+    **kwargs,
 ):
     config = WorldConfig(s.base / f"world-{secrets.token_hex(4)}", secrets.token_hex(16), tuple(roots))
     ops = s.base / f"ops-{secrets.token_hex(4)}"
     compiled = mounts_for(roots) if isinstance(mounts, str) else mounts
-    writer_profile = profile or (compiled[write_root] if compiled else compile_mount_profile(write_root, available=AVAILABLE))
-    session = open_attended_session(config, ops, write_root=write_root, profile=writer_profile, mounts=compiled, **kwargs)
+    writer_profile = profile or (
+        compiled[write_root] if compiled else compile_mount_profile(write_root, available=AVAILABLE)
+    )
+    session = open_attended_session(
+        config, ops, write_root=write_root, profile=writer_profile, mounts=compiled, **kwargs
+    )
     return session, config, ops
 
 
@@ -98,13 +108,21 @@ def refused_without_directory(s, roots, write_root, error: type[Exception] = Ses
 
 
 def library_on(root: Path, profile):
-    return open_corpus(root, authority=FULL, profile=profile, coordination_resolver=CoordinationResolver({root: profile}))
+    return open_corpus(
+        root, authority=FULL, profile=profile, coordination_resolver=CoordinationResolver({root: profile})
+    )
 
 
 def state(root: Path):
     """A root's bytes and its metadata sibling's: the chain lives under the root."""
+
     def tree(path: Path):
-        return sorted((str(p.relative_to(path)), p.read_bytes() if p.is_file() else None) for p in path.rglob("*")) if path.exists() else []
+        return (
+            sorted((str(p.relative_to(path)), p.read_bytes() if p.is_file() else None) for p in path.rglob("*"))
+            if path.exists()
+            else []
+        )
+
     return tree(root), tree(metadata_root_for(root))
 
 
@@ -186,7 +204,9 @@ def test_j14_a_coordination_resolves_over_every_mount_durably(corpora):
     session, _, ops = open_over(s, (s.a, s.b), s.a, project=address)
     assert open_ledger_reader(ops, session.session_id).initial_project == address.pinned(project.uid)
     w = fresh(session, "A", RequiredCapabilities.coordination())
-    revised = w.revise_coordination("project", address, predecessors=[project.uid], content=content_for("project", name="revised-in-a"))
+    revised = w.revise_coordination(
+        "project", address, predecessors=[project.uid], content=content_for("project", name="revised-in-a")
+    )
     assert (s.a / path_for_node_id(revised.id)).is_file() and not (s.b / path_for_node_id(revised.id)).exists()
     resolver = session._coordination_resolver
     assert resolver is not None
@@ -224,7 +244,9 @@ def test_j15_a_a_session_never_writes_a_read_mount_durably(corpora):
     session.close_invocation("A", {"done": []})
     c = fresh(session, "B", RequiredCapabilities.coordination())
     c.mint_coordination("project", content=content_for("project", name="in-a"))
-    c.revise_coordination("project", address, predecessors=[project.uid], content=content_for("project", name="revised-in-a"))
+    c.revise_coordination(
+        "project", address, predecessors=[project.uid], content=content_for("project", name="revised-in-a")
+    )
     session.close_invocation("B", {"done": []})
     session.close()
     findings = reconcile_sessions(config, ops)

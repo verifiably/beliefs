@@ -49,9 +49,7 @@ def test_dataset_record_id_equals_its_content_address():
 
     from reproduction.hold import dataset_record
 
-    node, address = dataset_record(
-        name="expr.tsv", digest="sha256:" + "c" * 64, title="t", accession="GSE179929"
-    )
+    node, address = dataset_record(name="expr.tsv", digest="sha256:" + "c" * 64, title="t", accession="GSE179929")
     assert node.id == address == "dataset:sha256:" + sha256(("sha256:" + "c" * 64 + "\n").encode()).hexdigest()
 
 
@@ -59,9 +57,7 @@ def test_the_hold_step_declares_a_locator_and_the_bound_actor():
     from reproduction.authority import ACTOR
     from reproduction.hold import dataset_record
 
-    node, _ = dataset_record(
-        name="f.gz", digest="sha256:" + "c" * 64, title="dataset:gse179929", accession="GSE179929"
-    )
+    node, _ = dataset_record(name="f.gz", digest="sha256:" + "c" * 64, title="dataset:gse179929", accession="GSE179929")
     assert node.facets["empirical-observation"] == {"locator": "accession:GSE179929", "attested_by": ACTOR}
 
 
@@ -162,10 +158,17 @@ def test_spec_record_carries_a_fresh_semantic_stamp():
     from beliefs.spec import Deterministic, SpecDraft, SpecInput, freeze
 
     draft = SpecDraft(
-        target="proposition:p", estimand=typed_estimand(), method="m", assumptions="a", falsification="f",
-        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),), applicability=typed_applicability(),
-        interpretation_rule=spec_module.INTERPRETATION_RULE, equivalence_rule=spec_module.EQUIVALENCE_RULE,
-        parameters={"alpha": Decimal("0.05")}, nondeterminism=Deterministic(),
+        target="proposition:p",
+        estimand=typed_estimand(),
+        method="m",
+        assumptions="a",
+        falsification="f",
+        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),),
+        applicability=typed_applicability(),
+        interpretation_rule=spec_module.INTERPRETATION_RULE,
+        equivalence_rule=spec_module.EQUIVALENCE_RULE,
+        parameters={"alpha": Decimal("0.05")},
+        nondeterminism=Deterministic(),
     )
     node = spec_module.spec_record(freeze(draft, held_rules=spec_module.held_rules()))
     assert node.kind == "analysis-spec"
@@ -223,12 +226,21 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
     assert report["audit_check"] == {"checked": True, "reason": "", "contradiction": None}
     legacy = writer.add(
         stored.verification_node(
-            "legacy", title="legacy", assessment=published.derived.assessment, assessment_ref=published.assessment.id,
-            scope=published.derived.scope, verdict=published.derived.verdict,
-            derivation=(stored.typed_ref("run", published.derived.original), stored.typed_ref("run", published.derived.replayed)),
+            "legacy",
+            title="legacy",
+            assessment=published.derived.assessment,
+            assessment_ref=published.assessment.id,
+            scope=published.derived.scope,
+            verdict=published.derived.verdict,
+            derivation=(
+                stored.typed_ref("run", published.derived.original),
+                stored.typed_ref("run", published.derived.replayed),
+            ),
         )
     )
-    negative = rederive.reconstruct(writer.read_view, {**st, "verification_ref": legacy.id}, close.evidence_for(writer.read_view, TESTING_PROFILE))
+    negative = rederive.reconstruct(
+        writer.read_view, {**st, "verification_ref": legacy.id}, close.evidence_for(writer.read_view, TESTING_PROFILE)
+    )
     assert negative["comparison_report_stored"] is False and "scope_read" not in negative
 
 
@@ -258,9 +270,9 @@ def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_pa
     frozen = freeze(spec_draft(), held_rules=spec_rules())
     forged = stored.analysis_spec_node(frozen).model_copy(update={"id": "analysis-spec:forged"})
     forged.facets[stored.ANALYSIS_SPEC_FACET]["identity"] = "forged"
-    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace(
-        "fit the model", "fit another model"
-    )
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET][
+        "projection"
+    ].replace("fit the model", "fit another model")
     raw_write(writer.root, stored.stamp_semantic_identity(forged))
     with pytest.raises(RuntimeError, match="analysis-spec:forged"):
         close.evidence_for(reopen(writer.root), TESTING_PROFILE)
@@ -417,9 +429,7 @@ def test_a_held_list_is_written_sorted_canonical_and_newline_terminated(tmp_path
     # address of exactly those bytes under that resource name.
     declared = DatasetDeclaration(
         resources=(
-            ResourceDeclaration(
-                name="mm30-stage-levels.txt", digest="sha256:" + sha256(path.read_bytes()).hexdigest()
-            ),
+            ResourceDeclaration(name="mm30-stage-levels.txt", digest="sha256:" + sha256(path.read_bytes()).hexdigest()),
         )
     )
     assert address == dataset_address(declared)
@@ -501,7 +511,9 @@ def _phf19_inputs_case():
     }
     dataset_front = {
         "id": "dataset:gse179929",
-        "identity_context": {"molecular_ids": {"gene": {"namespace": "ensembl", "registry": "dataset:gene-crosswalk-hgnc"}}},
+        "identity_context": {
+            "molecular_ids": {"gene": {"namespace": "ensembl", "registry": "dataset:gene-crosswalk-hgnc"}}
+        },
     }
     header = ["Sample_ID", "P4_S1_NDMM", "P4_S2_PD", "P8_S1_PD"]
     crosswalk = [
@@ -584,7 +596,9 @@ def test_select_target_refuses_an_eligible_evidence_line_without_a_target(tmp_pa
         "---\nid: evidence-line:ok\ntarget: proposition:p\nevidence_type: empirical_data\nbelief_eligible: true\n---\n"
     )
     assert list(evidence_lines(tmp_path)) == ["proposition:p"]
-    (lines / "orphan.md").write_text("---\nid: evidence-line:orphan\nevidence_type: empirical_data\nbelief_eligible: true\n---\n")
+    (lines / "orphan.md").write_text(
+        "---\nid: evidence-line:orphan\nevidence_type: empirical_data\nbelief_eligible: true\n---\n"
+    )
     with pytest.raises(ValueError, match="orphan"):
         evidence_lines(tmp_path)
 
@@ -609,8 +623,13 @@ def test_the_reading_projection_round_trips_through_identity_v1(tmp_path):
 
     writer = _writer(tmp_path / "corpus")
     value, _ = build_composite(
-        writer.profile, writer.read_view, shape="dag", nodes=[CompositeNode(GENE, "EX:a")],
-        members=[], snapshot=build_snapshot(), slug="m",
+        writer.profile,
+        writer.read_view,
+        shape="dag",
+        nodes=[CompositeNode(GENE, "EX:a")],
+        members=[],
+        snapshot=build_snapshot(),
+        slug="m",
     )
     minted = writer.add(stored.composite_node(value, title="m"))
     reading = read_composite(
@@ -646,7 +665,9 @@ def _archived_state(root, *, pinned: bool):
     writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
     if not pinned:
         manifest = root / "corpus" / "corpus.yaml"
-        manifest.write_text(manifest.read_text().replace(pins_for(TESTING_PROFILE).science_contract, "science:" + "f" * 64))
+        manifest.write_text(
+            manifest.read_text().replace(pins_for(TESTING_PROFILE).science_contract, "science:" + "f" * 64)
+        )
     (root / "state.json").write_text(json.dumps({"spec_ref": "analysis-spec:s", "assessment_ref": "assessment:a"}))
     return writer
 

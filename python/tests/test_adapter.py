@@ -118,17 +118,13 @@ def test_claims_are_read_into_the_two_level_map(tmp_path) -> None:
     _write_claim(tmp_path / ".seeds", _claim())
     _write_claim(tmp_path / ".seeds", _claim(stream="resample-draws", seed=9))
     key = job_key("fit", (("sample", "a"),))
-    assert read_realized_seeds(tmp_path).seeds == {
-        key: {"model-initialization": 7, "resample-draws": 9}
-    }
+    assert read_realized_seeds(tmp_path).seeds == {key: {"model-initialization": 7, "resample-draws": 9}}
 
 
 def test_a_claim_whose_name_disagrees_with_its_content_is_refused(tmp_path) -> None:
     directory = tmp_path / ".seeds"
     directory.mkdir()
-    (directory / ("00" * 32 + ".json")).write_text(
-        json.dumps(_claim(), sort_keys=True, separators=(",", ":"))
-    )
+    (directory / ("00" * 32 + ".json")).write_text(json.dumps(_claim(), sort_keys=True, separators=(",", ":")))
     with pytest.raises(SeedClaimMalformed):
         read_realized_seeds(tmp_path)
 

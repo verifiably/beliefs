@@ -204,8 +204,12 @@ def test_world_subject_is_rejected_by_the_record_codec():
         lambda: anchors.BuildOrigin("x"),
         lambda: anchors.AnchorActOrigin(True),  # type: ignore[arg-type]
         lambda: anchors.AnchorActOrigin("\ud800"),
-        lambda: anchors.LogHeadRecord(anchors.CorpusSubject(CORPUS_ID), "x", HEAD, anchors.BuildOrigin(PACKAGING_IDENTITY)),
-        lambda: anchors.LogHeadRecord(anchors.CorpusSubject(CORPUS_ID), GENESIS, "x", anchors.BuildOrigin(PACKAGING_IDENTITY)),
+        lambda: anchors.LogHeadRecord(
+            anchors.CorpusSubject(CORPUS_ID), "x", HEAD, anchors.BuildOrigin(PACKAGING_IDENTITY)
+        ),
+        lambda: anchors.LogHeadRecord(
+            anchors.CorpusSubject(CORPUS_ID), GENESIS, "x", anchors.BuildOrigin(PACKAGING_IDENTITY)
+        ),
     ),
 )
 def test_log_head_values_refuse_malformed_fields(construct):
@@ -460,9 +464,7 @@ def test_each_engine_defect_kind_converts_to_its_view(engine_kind, science_kind)
 
     view = science_root._chain_view(inspection)
 
-    assert view == logmodel.MalformedView(
-        logmodel.DefectView(science_kind, subject, "the engine's own wording")
-    )
+    assert view == logmodel.MalformedView(logmodel.DefectView(science_kind, subject, "the engine's own wording"))
 
 
 def test_the_absent_chain_converts_to_the_absent_view():
@@ -1145,7 +1147,9 @@ CUT8_OTHER_WORLD_ID = "d" * 32
 WORLD_MIRROR = "world.yaml"
 
 
-def settled_world(base: Path, *, world_id: str = CUT8_WORLD_ID, name: str = "world", genesis_id: str | None = None) -> Chain:
+def settled_world(
+    base: Path, *, world_id: str = CUT8_WORLD_ID, name: str = "world", genesis_id: str | None = None
+) -> Chain:
     """A world root, its mirror, and the transaction that created it.
 
     `genesis_id` names the world the *chain* was minted under when it differs
@@ -1157,9 +1161,7 @@ def settled_world(base: Path, *, world_id: str = CUT8_WORLD_ID, name: str = "wor
     (root / WORLD_MIRROR).write_bytes(world_module._world_mirror_bytes(world_id))
     chain = Chain(root)
     chain.genesis(payload=science_root._world_genesis_payload(genesis_id if genesis_id is not None else world_id))
-    chain.transaction(
-        "tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),)
-    )
+    chain.transaction("tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),))
     chain.anchor = chain.tip
     chain.paths = (WORLD_MIRROR,)
     return chain
@@ -1227,9 +1229,7 @@ def rewritten_world(base: Path) -> Chain:
     (root / WORLD_MIRROR).write_bytes(world_module._world_mirror_bytes(CUT8_OTHER_WORLD_ID))
     chain = Chain(root)
     chain.genesis(payload=science_root._world_genesis_payload(CUT8_OTHER_WORLD_ID))
-    chain.transaction(
-        "tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),)
-    )
+    chain.transaction("tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),))
     chain.removed = superseded
     chain.anchor = superseded[-1]
     chain.paths = (WORLD_MIRROR,)
@@ -1257,9 +1257,7 @@ def coordinated_truncation(base: Path) -> Chain:
     (root / WORLD_MIRROR).write_bytes(world_module._world_mirror_bytes(CUT8_WORLD_ID))
     chain = Chain(root)
     chain.genesis(payload=science_root._world_genesis_payload(CUT8_WORLD_ID))
-    chain.transaction(
-        "tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),)
-    )
+    chain.transaction("tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),))
     behind = chain.tip
     for carrier in IN_ROOT_CARRIERS:
         target = root / carrier
@@ -1380,11 +1378,7 @@ def test_no_entry_class_records_preimage_gc():
         logmodel.SettledEntryView,
         logmodel.IntentEntryView,
     }
-    fields = {
-        f"{entry.__name__}.{name}"
-        for entry in classes
-        for name in getattr(entry, "__dataclass_fields__", {})
-    }
+    fields = {f"{entry.__name__}.{name}" for entry in classes for name in getattr(entry, "__dataclass_fields__", {})}
     assert not [name for name in fields if any(word in name.lower() for word in ("blob", "preimage", "gc"))]
 
     # The same width from the engine's side: the taxonomy of things a chain can

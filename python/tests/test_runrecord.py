@@ -188,9 +188,7 @@ def test_closure_member_mutation_diverges_from_the_id(assessment_closure) -> Non
     text = op.content.decode("utf-8")
     mutated = text.replace(assessment_closure.occurrence.actor, "someone-else", 1)
     node = node_from_markdown(mutated)
-    node.facets["semantic-identity"] = {
-        "digest": stored.recompute_semantic_hash(node)
-    }
+    node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
     with pytest.raises(MalformedRecord):
         runrecord.decode_run_record(node)
 
@@ -243,38 +241,28 @@ def test_decimal_wire_arms_project_decode_recompute(make_closure) -> None:
         assert threshold == original and type(threshold) is type(original)
 
 
-def test_shape_agreement_both_ways(
-    assessment_closure, production_closure
-) -> None:
+def test_shape_agreement_both_ways(assessment_closure, production_closure) -> None:
     _, _, (op,) = runrecord.publication_plan(assessment_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     node.facets["run"]["spec"] = "not-the-closure-spec"
-    node.facets["semantic-identity"] = {
-        "digest": stored.recompute_semantic_hash(node)
-    }
+    node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
     with pytest.raises(MalformedRecord):
         runrecord.decode_run_record(node)
 
     _, _, (op,) = runrecord.publication_plan(production_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     node.facets["run"]["spec"] = "s" * 64
-    node.facets["semantic-identity"] = {
-        "digest": stored.recompute_semantic_hash(node)
-    }
+    node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
     with pytest.raises(MalformedRecord):
         runrecord.decode_run_record(node)
 
 
-def test_run_facet_shapes_are_exact_not_get_based(
-    assessment_closure, production_closure
-) -> None:
+def test_run_facet_shapes_are_exact_not_get_based(assessment_closure, production_closure) -> None:
     for closure in (assessment_closure, production_closure):
         _, _, (op,) = runrecord.publication_plan(closure)
         node = node_from_markdown(op.content.decode("utf-8"))
         node.facets["run"]["extra"] = "key"
-        node.facets["semantic-identity"] = {
-            "digest": stored.recompute_semantic_hash(node)
-        }
+        node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
         with pytest.raises(MalformedRecord):
             runrecord.decode_run_record(node)
 
@@ -294,9 +282,7 @@ def test_production_facet_is_exactly_empty_and_run_spec_reads_none(
     assert stored.run_spec(node) is None
 
 
-def test_relations_are_role_preserving(
-    assessment_closure, production_closure
-) -> None:
+def test_relations_are_role_preserving(assessment_closure, production_closure) -> None:
     def edges(node, role, closure):
         expected = tuple(e.dataset for e in closure.recipe.inputs if e.role == role)
         assert expected, f"the fixture must carry a {role} input"

@@ -48,7 +48,10 @@ def main(argv: list[str]) -> int:
     )
 
     if result == 0:
-        print("guarantee rows exercised: 3 (3 newly closed: L8, L4, L10; L1 re-homed to persistence-cut, partial)", flush=True)
+        print(
+            "guarantee rows exercised: 3 (3 newly closed: L8, L4, L10; L1 re-homed to persistence-cut, partial)",
+            flush=True,
+        )
     return result
 
 

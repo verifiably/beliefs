@@ -228,6 +228,7 @@ def run(plan_path: Path, corpus: Path) -> Result:
     profile = compile_profile(base, [*(shipped_domain_contract(name) for name in document.get("also", [])), contract])
 
     plan = document["plan"]
+
     # Local names are namespaced here, once, so the plan file stays readable and
     # the term identifiers a claim actually carries are still what reaches
     # `build_claim`. A plan naming term identifiers directly would repeat the

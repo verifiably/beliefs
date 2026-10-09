@@ -40,7 +40,10 @@ WORLD = "a" * 32  # a world id is 32 lowercase hexadecimal characters (the ledge
 
 
 def intent(digest: str, session: str = S1, kind: str = "corpus-write") -> IntentEntryView:
-    return IntentEntryView(digest=digest, payload=v1.encode({"kind": kind, "event_token": "tok-" + digest[:4], "actor": f"session:{session}"}))
+    return IntentEntryView(
+        digest=digest,
+        payload=v1.encode({"kind": kind, "event_token": "tok-" + digest[:4], "actor": f"session:{session}"}),
+    )
 
 
 def registration(digest: str, fulfills: str) -> RegisteredEntryView:
@@ -48,7 +51,9 @@ def registration(digest: str, fulfills: str) -> RegisteredEntryView:
 
 
 def settled(registration_digest: str, committed: bool) -> SettledEntryView:
-    return SettledEntryView(digest="s" + registration_digest[1:], txid="t", registration=registration_digest, committed=committed)
+    return SettledEntryView(
+        digest="s" + registration_digest[1:], txid="t", registration=registration_digest, committed=committed
+    )
 
 
 def genesis() -> GenesisEntryView:
@@ -56,16 +61,40 @@ def genesis() -> GenesisEntryView:
 
 
 def view(*entries, pending=()) -> WellFormedView:
-    return WellFormedView(genesis=genesis(), entries=(genesis(), *entries), tip=entries[-1].digest if entries else "g" * 64, pending=tuple(pending))
+    return WellFormedView(
+        genesis=genesis(),
+        entries=(genesis(), *entries),
+        tip=entries[-1].digest if entries else "g" * 64,
+        pending=tuple(pending),
+    )
 
 
 def ledger(session: str = S1, *, opens=(), closes=(), acts=(), closed=True, corpus: str = CORPUS) -> LedgerReader:
-    lines = [{"line": "session-open", "session": session, "actor": f"session:{session}", "world": WORLD,
-              "permit": {"kinds": [], "act_families": [], "ungoverned": True}, "at": AT}]
+    lines = [
+        {
+            "line": "session-open",
+            "session": session,
+            "actor": f"session:{session}",
+            "world": WORLD,
+            "permit": {"kinds": [], "act_families": [], "ungoverned": True},
+            "at": AT,
+        }
+    ]
     for invocation in opens:
-        lines.append({"line": "invocation-open", "invocation": invocation, "command": "mint", "input_digest": "d" * 64, "at": AT})
+        lines.append(
+            {"line": "invocation-open", "invocation": invocation, "command": "mint", "input_digest": "d" * 64, "at": AT}
+        )
     for invocation, entry, intent_digest in acts:
-        lines.append({"line": "act", "invocation": invocation, "corpus": corpus, "entry": entry, "intent": intent_digest, "records": []})
+        lines.append(
+            {
+                "line": "act",
+                "invocation": invocation,
+                "corpus": corpus,
+                "entry": entry,
+                "intent": intent_digest,
+                "records": [],
+            }
+        )
     for invocation in closes:
         lines.append({"line": "invocation-close", "invocation": invocation, "outcome": {"done": []}})
     if closed:
@@ -111,7 +140,11 @@ def test_a_rolled_back_registration_is_no_registration():
 
 def test_an_intent_with_no_registration_under_an_open_invocation_is_outcome_unknown():
     chains = {CORPUS: view(intent(I))}
-    assert codes(reconcile([ledger(opens=("A",), closed=False)], chains))[0] == ("session-outcome-unknown", "warning", I)
+    assert codes(reconcile([ledger(opens=("A",), closed=False)], chains))[0] == (
+        "session-outcome-unknown",
+        "warning",
+        I,
+    )
 
 
 def test_an_unknown_session_actor_is_reported():
@@ -125,11 +158,14 @@ def test_an_ordinary_actor_is_never_classified():
     assert reconcile([ledger()], chains) == ()
 
 
-@pytest.mark.parametrize("evidence, code, severity", [
-    (LedgerMissing(S1), "session-ledger-missing", "warning"),
-    (LedgerEmpty(S1), "session-ledger-empty", "warning"),
-    (LedgerUnreadable(S1, "line 3: bad"), "session-ledger-malformed", "error"),
-])
+@pytest.mark.parametrize(
+    "evidence, code, severity",
+    [
+        (LedgerMissing(S1), "session-ledger-missing", "warning"),
+        (LedgerEmpty(S1), "session-ledger-empty", "warning"),
+        (LedgerUnreadable(S1, "line 3: bad"), "session-ledger-malformed", "error"),
+    ],
+)
 def test_unreadable_ledgers_are_findings_and_their_intents_read_outcome_unknown(evidence, code, severity):
     chains = {CORPUS: view(intent(I), registration(R, I), settled(R, True))}
     found = codes(reconcile([evidence], chains))
@@ -137,8 +173,20 @@ def test_unreadable_ledgers_are_findings_and_their_intents_read_outcome_unknown(
 
 
 def test_a_torn_tail_is_reported():
-    torn = parse_ledger(S1, encode_line({"line": "session-open", "session": S1, "actor": f"session:{S1}", "world": WORLD,
-                                          "permit": {"kinds": [], "act_families": [], "ungoverned": True}, "at": AT}) + b'{"line":"inv')
+    torn = parse_ledger(
+        S1,
+        encode_line(
+            {
+                "line": "session-open",
+                "session": S1,
+                "actor": f"session:{S1}",
+                "world": WORLD,
+                "permit": {"kinds": [], "act_families": [], "ungoverned": True},
+                "at": AT,
+            }
+        )
+        + b'{"line":"inv',
+    )
     assert ("ledger-torn-tail", "warning", S1) in codes(reconcile([torn], {CORPUS: view()}))
 
 
@@ -157,7 +205,10 @@ def test_the_views_pending_pairs_absent_from_entries_are_reported_without_an_int
 
 
 def test_absent_and_malformed_views_classify_nothing():
-    found = reconcile([ledger()], {CORPUS: AbsentView(), "d" * 32: MalformedView(DefectView(kind="foreign-leaf", subject="x", detail="y"))})
+    found = reconcile(
+        [ledger()],
+        {CORPUS: AbsentView(), "d" * 32: MalformedView(DefectView(kind="foreign-leaf", subject="x", detail="y"))},
+    )
     assert codes(found) == [("session-chain-absent", "error", CORPUS), ("session-chain-malformed", "error", "d" * 32)]
 
 
@@ -217,8 +268,16 @@ def test_reconcile_sessions_keeps_the_reconcile_order_and_leads_with_the_unadopt
     torn = ledger_path(ops, S1)
     torn.parent.mkdir(parents=True)
     torn.write_bytes(
-        encode_line({"line": "session-open", "session": S1, "actor": f"session:{S1}", "world": WORLD,
-                     "permit": {"kinds": [], "act_families": [], "ungoverned": True}, "at": AT})
+        encode_line(
+            {
+                "line": "session-open",
+                "session": S1,
+                "actor": f"session:{S1}",
+                "world": WORLD,
+                "permit": {"kinds": [], "act_families": [], "ungoverned": True},
+                "at": AT,
+            }
+        )
         + b'{"line":"inv'
     )
     (Path(ops) / "sessions" / ("2" * 32)).mkdir()
@@ -239,16 +298,26 @@ def test_reconcile_sessions_keeps_the_reconcile_order_and_leads_with_the_unadopt
 
 # --- the run and holdings shapes (session-routes design §4.4) ----------------------
 def run_intent(digest: str, session: str = S1) -> IntentEntryView:
-    return IntentEntryView(digest=digest, payload=v1.encode({"spec_identity": "5" * 64, "event_token": "tok", "actor": f"session:{session}"}))
+    return IntentEntryView(
+        digest=digest,
+        payload=v1.encode({"spec_identity": "5" * 64, "event_token": "tok", "actor": f"session:{session}"}),
+    )
 
 
 def holdings_intent(digest: str, session: str = S1) -> IntentEntryView:
-    payload = intent_payload(location=StoreLocator("1" * 32, "p.bin"), act_kind="write", event_token="tok", actor=f"session:{session}")
+    payload = intent_payload(
+        location=StoreLocator("1" * 32, "p.bin"), act_kind="write", event_token="tok", actor=f"session:{session}"
+    )
     return IntentEntryView(digest=digest, payload=payload)
 
 
 def url_intent(digest: str, session: str = S1) -> IntentEntryView:
-    payload = intent_payload(location=url_locator("https://example.org/a"), act_kind="re-check", event_token="tok", actor=f"session:{session}")
+    payload = intent_payload(
+        location=url_locator("https://example.org/a"),
+        act_kind="re-check",
+        event_token="tok",
+        actor=f"session:{session}",
+    )
     return IntentEntryView(digest=digest, payload=payload)
 
 

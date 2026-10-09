@@ -179,19 +179,14 @@ def _component_at(value: object, path: str) -> str:
 
 
 def _str_list(value: object, path: str) -> list[str]:
-    if not isinstance(value, list) or any(
-        type(member) is not str for member in value
-    ):
+    if not isinstance(value, list) or any(type(member) is not str for member in value):
         _refuse(path, "not a list of strings")
     return value
 
 
 def _pair_list(value: object, path: str) -> list[list[str]]:
     if not isinstance(value, list) or any(
-        not isinstance(row, list)
-        or len(row) != 2
-        or any(type(member) is not str for member in row)
-        for row in value
+        not isinstance(row, list) or len(row) != 2 or any(type(member) is not str for member in row) for row in value
     ):
         _refuse(path, "not a list of [string, string] pairs")
     return value
@@ -199,10 +194,7 @@ def _pair_list(value: object, path: str) -> list[list[str]]:
 
 def _triple_list(value: object, path: str) -> list[list[str]]:
     if not isinstance(value, list) or any(
-        not isinstance(row, list)
-        or len(row) != 3
-        or any(type(member) is not str for member in row)
-        for row in value
+        not isinstance(row, list) or len(row) != 3 or any(type(member) is not str for member in row) for row in value
     ):
         _refuse(path, "not a list of [string, string, string] triples")
     return value
@@ -287,9 +279,7 @@ def _validate_recipe(recipe: object) -> str:
     for output in declared:
         depth = 0
         if output.startswith("/"):
-            _refuse(
-                "$.recipe.invocation.declared_outputs", f"{output!r} is absolute"
-            )
+            _refuse("$.recipe.invocation.declared_outputs", f"{output!r} is absolute")
         for segment in output.split("/"):
             if segment == "..":
                 depth -= 1
@@ -310,15 +300,11 @@ def _validate_recipe(recipe: object) -> str:
         path = f"$.recipe.inputs[{index}]"
         if not isinstance(row, dict):
             _refuse(path, "not an object")
-        keys = {"role", "dataset", "content"} | (
-            {"exclusion"} if "exclusion" in row else set()
-        )
+        keys = {"role", "dataset", "content"} | ({"exclusion"} if "exclusion" in row else set())
         _mapping(row, keys, path)
         role = _str_at(row["role"], f"{path}.role")
         if role not in roles:
-            _refuse(
-                f"{path}.role", f"{role!r} is outside the {shape} partition {roles}"
-            )
+            _refuse(f"{path}.role", f"{role!r} is outside the {shape} partition {roles}")
         _str_at(row["dataset"], f"{path}.dataset")
         _component_at(row["content"], f"{path}.content")
         if "exclusion" in row:
@@ -327,9 +313,7 @@ def _validate_recipe(recipe: object) -> str:
                     f"{path}.exclusion",
                     "an exclusion certification is carried by a `reads` input only",
                 )
-            exclusion = _mapping(
-                row["exclusion"], {"rationale", "attribution"}, f"{path}.exclusion"
-            )
+            exclusion = _mapping(row["exclusion"], {"rationale", "attribution"}, f"{path}.exclusion")
             for member in ("rationale", "attribution"):
                 if not _str_at(exclusion[member], f"{path}.exclusion.{member}"):
                     _refuse(
@@ -375,24 +359,16 @@ def _validate_nondeterminism(value: object) -> None:
             {"derivation_rule", "streams", "roots", "stream_roots"},
             "$.recipe.nondeterminism.plan",
         )
-        _str_at(
-            plan["derivation_rule"], "$.recipe.nondeterminism.plan.derivation_rule"
-        )
-        streams = _str_list(
-            plan["streams"], "$.recipe.nondeterminism.plan.streams"
-        )
+        _str_at(plan["derivation_rule"], "$.recipe.nondeterminism.plan.derivation_rule")
+        streams = _str_list(plan["streams"], "$.recipe.nondeterminism.plan.streams")
         roots = plan["roots"]
         if not isinstance(roots, dict) or any(
-            type(key) is not str or type(member) is not int
-            for key, member in roots.items()
+            type(key) is not str or type(member) is not int for key, member in roots.items()
         ):
-            _refuse(
-                "$.recipe.nondeterminism.plan.roots", "not a string-to-int object"
-            )
+            _refuse("$.recipe.nondeterminism.plan.roots", "not a string-to-int object")
         stream_roots = plan["stream_roots"]
         if not isinstance(stream_roots, dict) or any(
-            type(key) is not str or type(member) is not str
-            for key, member in stream_roots.items()
+            type(key) is not str or type(member) is not str for key, member in stream_roots.items()
         ):
             _refuse(
                 "$.recipe.nondeterminism.plan.stream_roots",
@@ -406,13 +382,9 @@ def _validate_nondeterminism(value: object) -> None:
                 "a mapping entry for an undeclared stream",
             )
         if set(stream_roots.values()) - set(roots):
-            _refuse(
-                "$.recipe.nondeterminism.plan", "mapped roots nobody declared"
-            )
+            _refuse("$.recipe.nondeterminism.plan", "mapped roots nobody declared")
     else:
-        _refuse(
-            "$.recipe.nondeterminism.variant", f"unknown variant {variant!r}"
-        )
+        _refuse("$.recipe.nondeterminism.variant", f"unknown variant {variant!r}")
 
 
 def _validate_launch(value: object, path: str) -> bool:
@@ -480,9 +452,7 @@ def _validate_occurrence(value: object, *, recipe_v2: bool) -> str:
         _refuse("$.occurrence.trace", "not a list")
     for index, job in enumerate(trace):
         path = f"$.occurrence.trace[{index}]"
-        row = _mapping(
-            job, {"job_id", "rule", "wildcards", "inputs", "outputs"}, path
-        )
+        row = _mapping(job, {"job_id", "rule", "wildcards", "inputs", "outputs"}, path)
         job_id = _str_at(row["job_id"], f"{path}.job_id")
         rule = _str_at(row["rule"], f"{path}.rule")
         _pair_list(row["wildcards"], f"{path}.wildcards")
@@ -517,15 +487,10 @@ def _validate_occurrence(value: object, *, recipe_v2: bool) -> str:
     if not isinstance(seeds, dict) or any(
         type(job) is not str
         or not isinstance(per_stream, dict)
-        or any(
-            type(stream) is not str or type(seed) is not int
-            for stream, seed in per_stream.items()
-        )
+        or any(type(stream) is not str or type(seed) is not int for stream, seed in per_stream.items())
         for job, per_stream in seeds.items()
     ):
-        _refuse(
-            "$.occurrence.realized_seeds", "not a [job][stream] -> int object"
-        )
+        _refuse("$.occurrence.realized_seeds", "not a [job][stream] -> int object")
     raw_receipt = occurrence["receipt"]
     if isinstance(raw_receipt, dict) and set(raw_receipt) == {"planning", "execution"}:
         receipt = _mapping(raw_receipt, {"planning", "execution"}, "$.occurrence.receipt")
@@ -540,12 +505,8 @@ def _validate_occurrence(value: object, *, recipe_v2: bool) -> str:
 
 def _input_sort_key(row: dict[str, object]) -> tuple[str, str, str, str, str]:
     exclusion = row.get("exclusion")
-    rationale = (
-        cast(str, exclusion["rationale"]) if isinstance(exclusion, dict) else ""
-    )
-    attribution = (
-        cast(str, exclusion["attribution"]) if isinstance(exclusion, dict) else ""
-    )
+    rationale = cast(str, exclusion["rationale"]) if isinstance(exclusion, dict) else ""
+    attribution = cast(str, exclusion["attribution"]) if isinstance(exclusion, dict) else ""
     return (
         cast(str, row["role"]),
         cast(str, row["dataset"]),
@@ -569,16 +530,10 @@ def _reproject_launch(launch: dict[str, object]) -> None:
 def _reproject(parsed: dict[str, object]) -> dict[str, object]:
     rebuilt = cast(dict[str, object], deepcopy(parsed))
     recipe = cast(dict[str, object], rebuilt["recipe"])
-    recipe["inputs"] = sorted(
-        cast("list[dict[str, object]]", recipe["inputs"]), key=_input_sort_key
-    )
-    recipe["rule_bindings"] = sorted(
-        cast("list[list[str]]", recipe["rule_bindings"])
-    )
+    recipe["inputs"] = sorted(cast("list[dict[str, object]]", recipe["inputs"]), key=_input_sort_key)
+    recipe["rule_bindings"] = sorted(cast("list[list[str]]", recipe["rule_bindings"]))
     policy = cast(dict[str, object], recipe["boundary_policy"])
-    policy["capabilities"] = sorted(
-        cast("list[str]", policy["capabilities"])
-    )
+    policy["capabilities"] = sorted(cast("list[str]", policy["capabilities"]))
     if "workflow_definition" in recipe:
         definition = cast(dict[str, object], recipe["workflow_definition"])
         family_streams = cast(dict[str, list[str]], definition["family_streams"])
@@ -635,14 +590,8 @@ def decode_run_record(node: Node) -> RunPublication | None:
     facet = node.facets.get(stored.RUN_CLOSURE_FACET)
     if facet is None:
         return None
-    if (
-        not isinstance(facet, dict)
-        or set(facet) != {"projection"}
-        or type(facet["projection"]) is not str
-    ):
-        raise MalformedRecord(
-            f"{node.id}: the run-closure facet is exactly {{'projection': <text>}}"
-        )
+    if not isinstance(facet, dict) or set(facet) != {"projection"} or type(facet["projection"]) is not str:
+        raise MalformedRecord(f"{node.id}: the run-closure facet is exactly {{'projection': <text>}}")
     data = facet["projection"].encode("utf-8")
     parsed = decode_projection(data)
     run_domain_for_projection(parsed)
@@ -654,23 +603,16 @@ def decode_run_record(node: Node) -> RunPublication | None:
     occurrence_view = cast(dict[str, object], parsed["occurrence"])
     address = v1.digest(run_domain_for(_is_confined_receipt(occurrence_view["receipt"])), parsed)
     if node.id != run_ref(address):
-        raise MalformedRecord(
-            f"{node.id}: the recomputed address {address} is not the record id"
-        )
+        raise MalformedRecord(f"{node.id}: the recomputed address {address} is not the record id")
     recipe = cast(dict[str, object], parsed["recipe"])
     shape = cast(str, recipe["shape"])
     spec_identity = cast("str | None", recipe.get("spec_identity"))
     run_facet = node.facets.get(stored.RUN_FACET)
     if not isinstance(run_facet, dict):
-        raise MalformedRecord(
-            f"{node.id}: a boundary-published run carries the run facet"
-        )
+        raise MalformedRecord(f"{node.id}: a boundary-published run carries the run facet")
     if shape == "assessment":
         if run_facet != {"spec": spec_identity}:
-            raise MalformedRecord(
-                f"{node.id}: the run facet is exactly "
-                "{'spec': <the closure's spec>}"
-            )
+            raise MalformedRecord(f"{node.id}: the run facet is exactly {{'spec': <the closure's spec>}}")
     elif run_facet != {}:
         raise MalformedRecord(f"{node.id}: a production run facet is exactly {{}}")
     occurrence = cast(dict[str, object], parsed["occurrence"])
@@ -687,10 +629,7 @@ def _decoded_pairs(value: object) -> tuple[tuple[str, str], ...]:
 
 
 def _decoded_triples(value: object) -> tuple[tuple[str, str, str], ...]:
-    return tuple(
-        (cast(str, row[0]), cast(str, row[1]), cast(str, row[2]))
-        for row in cast("list[list[object]]", value)
-    )
+    return tuple((cast(str, row[0]), cast(str, row[1]), cast(str, row[2])) for row in cast("list[list[object]]", value))
 
 
 def _decode_launch(value: object) -> LaunchAttestation:
@@ -745,9 +684,7 @@ def decode_run_closure(node: Node) -> RunClosure:
     parsed = decode_projection(facet["projection"].encode("utf-8"))
     recipe = cast(dict[str, object], parsed["recipe"])
     if "workflow_definition_identity" in recipe:
-        raise RecipeVersionUnsupported(
-            "a v1 recipe carries an identity where the snapshot's members belong"
-        )
+        raise RecipeVersionUnsupported("a v1 recipe carries an identity where the snapshot's members belong")
 
     raw_definition = cast(dict[str, object], recipe["workflow_definition"])
     raw_invocation = cast(dict[str, object], recipe["invocation"])
@@ -779,9 +716,7 @@ def decode_run_closure(node: Node) -> RunClosure:
                 family: tuple(streams)
                 for family, streams in cast("dict[str, list[str]]", raw_definition["family_streams"]).items()
             },
-            checkpoint_expanded_families=tuple(
-                cast("list[str]", raw_definition["checkpoint_expanded_families"])
-            ),
+            checkpoint_expanded_families=tuple(cast("list[str]", raw_definition["checkpoint_expanded_families"])),
         ),
         invocation=Invocation(
             entrypoint=cast(str, raw_invocation["entrypoint"]),
@@ -827,9 +762,7 @@ def decode_run_closure(node: Node) -> RunClosure:
             for job in cast("list[dict[str, object]]", raw_occurrence["planned"])
         ),
         target_keys=tuple(cast("list[str]", raw_occurrence["target_keys"])),
-        realized_seeds=RealizedSeeds(
-            cast("dict[str, dict[str, int]]", raw_occurrence["realized_seeds"])
-        ),
+        realized_seeds=RealizedSeeds(cast("dict[str, dict[str, int]]", raw_occurrence["realized_seeds"])),
         receipt=BoundaryReceipt(
             planning=_decode_launch(raw_receipt["planning"]),
             execution=_decode_launch(raw_receipt["execution"]),
@@ -844,11 +777,7 @@ def decode_run_closure(node: Node) -> RunClosure:
 
 def publication_plan(closure: RunClosure) -> tuple[str, str, tuple[CreateOp, ...]]:
     shape = closure.recipe.shape
-    produces = (
-        mint_dataset(closure, existing_bases={}).address
-        if shape == "dataset-production"
-        else None
-    )
+    produces = mint_dataset(closure, existing_bases={}).address if shape == "dataset-production" else None
     address = closure.address()
     inputs = closure.recipe.inputs
     node = stored.run_publication_node(
@@ -858,17 +787,11 @@ def publication_plan(closure: RunClosure) -> tuple[str, str, tuple[CreateOp, ...
         spec=closure.recipe.spec_identity,
         observes=tuple(entry.dataset for entry in inputs if entry.role == "observes"),
         reads=tuple(entry.dataset for entry in inputs if entry.role == "reads"),
-        transforms=tuple(
-            entry.dataset for entry in inputs if entry.role == "transforms"
-        ),
+        transforms=tuple(entry.dataset for entry in inputs if entry.role == "transforms"),
         produces=(produces,) if produces is not None else (),
     )
     path = f"run/{address}.md"
     record_id = run_ref(address)
     if node.id != record_id:
-        raise MalformedRecord(
-            f"the stored node id {node.id!r} disagrees with the bridge's {record_id!r}"
-        )
-    return record_id, path, (
-        CreateOp(path, node_to_markdown(node).encode("utf-8")),
-    )
+        raise MalformedRecord(f"the stored node id {node.id!r} disagrees with the bridge's {record_id!r}")
+    return record_id, path, (CreateOp(path, node_to_markdown(node).encode("utf-8")),)

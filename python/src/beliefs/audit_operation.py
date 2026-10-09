@@ -97,7 +97,12 @@ def audit(
         entries = tuple(_entry(finding) for finding in findings)
         closed_at = _now()
         report = boundary_values._mint_audit_report(
-            intent, observer=observer, instrument=instrument, opened_at=opened_at, closed_at=closed_at, entries=entries,
+            intent,
+            observer=observer,
+            instrument=instrument,
+            opened_at=opened_at,
+            closed_at=closed_at,
+            entries=entries,
         )
         report_ref = stored.act_report_node(report).id
         writer._publish_operation_report(report, intent_digest, port=port)

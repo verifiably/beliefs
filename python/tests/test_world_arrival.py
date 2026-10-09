@@ -196,9 +196,7 @@ class TestTheArrivalCauses:
         clean = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
 
         # malformed, and it outranks a refuting anchor: step 1 stops there.
-        malformed = logmodel.MalformedView(
-            logmodel.DefectView(kind="cycle", subject=digest("x"), detail="a cycle")
-        )
+        malformed = logmodel.MalformedView(logmodel.DefectView(kind="cycle", subject=digest("x"), detail="a cycle"))
         with pytest.raises(ArrivalRefused) as caught:
             arrive(world, root, malformed, observers=(unreachable_anchor(clean),))
         assert (caught.value.cause, caught.value.report.outcome) == ("malformed", "malformed")
@@ -330,10 +328,10 @@ class TestWhatIsAdmitted:
         monkeypatch.setattr(
             registry,
             "_locked_admit",
-            lambda state_, world_root, factory, manifest_of, provenance, authority: seen.append(
-                type(provenance).__name__
-            )
-            or real(state_, world_root, factory, manifest_of, provenance, authority),
+            lambda state_, world_root, factory, manifest_of, provenance, authority: (
+                seen.append(type(provenance).__name__)
+                or real(state_, world_root, factory, manifest_of, provenance, authority)
+            ),
         )
         fresh = corpus_at(tmp_path / "fresh", BETA)
         world.admit(fresh, provenance=registry.Fresh())
@@ -454,18 +452,14 @@ class TestTheRefusalOrdering:
         # act reaches the transaction's own gate and refuses there.
         root = corpus_at(tmp_path / "forked", ALPHA)
         (root / "corpus.yaml").write_bytes(
-            registry.manifest_bytes(
-                registry.CorpusManifest(2, ALPHA, PINS, registry.ForkedFrom(BETA, "3" * 64))
-            )
+            registry.manifest_bytes(registry.CorpusManifest(2, ALPHA, PINS, registry.ForkedFrom(BETA, "3" * 64)))
         )
         write_chain(root, [(None, GenesisEntry(payload=science_root.GENESIS_PAYLOAD, baseline=()))])
         world = make_world(tmp_path, root)
         assert type(science_root._log_seam().inspect_detached(root)) is logmodel.WellFormedView
 
         with pytest.raises(ProvenanceMismatch):
-            science_root.admit_arrival(
-                world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(())
-            )
+            science_root.admit_arrival(world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(()))
 
         assert registry_files(world) == {}
         assert _operation_lock_for(root)._holder is None
@@ -489,9 +483,7 @@ class TestTheRefusalOrdering:
 
 
 class TestTheHold:
-    def test_it_holds_both_locks_across_inspection_capture_and_the_transaction(
-        self, tmp_path, monkeypatch
-    ):
+    def test_it_holds_both_locks_across_inspection_capture_and_the_transaction(self, tmp_path, monkeypatch):
         root = replica_root(tmp_path)
         world_lock = registry._world_lock_for(tmp_path / "world")
         corpus_lock = _operation_lock_for(root)
@@ -700,9 +692,7 @@ def test_an_unrepresentable_entry_at_a_modeled_path_refuses_with_no_report(tmp_p
     world = make_world(tmp_path, root)
 
     with pytest.raises(LogEvidenceRefused) as caught:
-        science_root.admit_arrival(
-            world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(())
-        )
+        science_root.admit_arrival(world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(()))
 
     assert (caught.value.phase, caught.value.engine_error) == ("capture", "PreconditionRefused")
     assert isinstance(caught.value.__cause__, PreconditionRefused)
@@ -753,7 +743,8 @@ def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatc
     monkeypatch.setattr(science_root, "append_intent", raising)
     executor = science_root._durable_executor(root)
     port = science_root.DurableOperationPort(
-        root, authority=FULL,
+        root,
+        authority=FULL,
         backend=science_root._PRODUCTION_BACKEND,
         storage=science_root.PRODUCTION_STORAGE,
         metadata_root=science_root.metadata_root_for(root),
@@ -780,7 +771,5 @@ def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatc
 
     # The third command's arm, stated as unrun rather than implied: no Science
     # mapping stands between `register_root` and its caller.
-    registrations = inspect.getsource(science_root.init_corpus_root) + inspect.getsource(
-        science_root.init_world_root
-    )
+    registrations = inspect.getsource(science_root.init_corpus_root) + inspect.getsource(science_root.init_world_root)
     assert "PendingUnresolved" not in registrations

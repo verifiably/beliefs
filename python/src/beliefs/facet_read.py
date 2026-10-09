@@ -37,9 +37,7 @@ class FacetRead:
         )
 
     @classmethod
-    def _minted(
-        cls, mint: object, *, address: str, key: str, payload_digest: str, contract_identity: str
-    ) -> FacetRead:
+    def _minted(cls, mint: object, *, address: str, key: str, payload_digest: str, contract_identity: str) -> FacetRead:
         if mint is not _MINT:
             raise MalformedRecord("FacetRead._minted is the reader's, not a public constructor")
         row = object.__new__(cls)
@@ -65,7 +63,9 @@ def read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> t
             "receipt for a read against a corpus, and nothing else can mint one (B3)"
         )
     if not view.holds(target):
-        raise MalformedRecord(f"{target} is not held by this corpus; the reader is called over held observed inputs only")
+        raise MalformedRecord(
+            f"{target} is not held by this corpus; the reader is called over held observed inputs only"
+        )
     node = view.get(target)
     if node.kind != "dataset":
         raise MalformedRecord(f"{node.id}: the domain-facet reader reads observed datasets, not {node.kind!r}")

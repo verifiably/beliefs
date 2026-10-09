@@ -53,7 +53,10 @@ def topic_world(tmp_path: Path, *clauses: list[dict], alpha_extra=(), beta_extra
     alpha = tuple(n for n in alpha if n.id not in without)
     beta = tuple(n for n in beta if n.id not in without)
     topic = raw_coordination_node(
-        "topic", PROJECT, REVISION, local=TOPIC,
+        "topic",
+        PROJECT,
+        REVISION,
+        local=TOPIC,
         query={"version": "science.view-query.v1", "clauses": [{"all": clause} for clause in clauses]},
     )
     roots = corpora(tmp_path, {ALPHA: (*alpha, *alpha_extra, topic), BETA: (*beta, *beta_extra)})
@@ -70,40 +73,62 @@ def evaluate_topic(world, roots, published, topic):
 
 class TestClosure:
     def test_out_from_the_run_selects_the_other_corpus_dataset_and_not_the_run(self, tmp_path):
-        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}])
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}]
+        )
         selection = evaluate_topic(world, roots, published, topic)
         assert selection.selected == (dataset_ref("d-b"),) and selection.contributing == (BETA,)
         assert selection.complete and selection.unresolved == ()
 
     def test_in_from_the_dataset_selects_the_producing_run_in_the_other_corpus(self, tmp_path):
-        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "in"}}])
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "in"}}]
+        )
         selection = evaluate_topic(world, roots, published, topic)
         assert selection.selected == ("run:r-a",) and selection.contributing == (ALPHA,)
 
     def test_both_walks_both_ways_and_excludes_the_anchor(self, tmp_path):
-        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "both"}}])
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "both"}}]
+        )
         assert evaluate_topic(world, roots, published, topic).selected == ("run:r-a",)
 
     def test_a_dangling_target_is_reported_unknown_and_never_selected(self, tmp_path):
         d_x = stored.dataset_node(title="d-x", resources=pinned("d-x"))
         d_x.relations.append(Relation(source=d_x.id, predicate="cites", target="dataset:never"))
-        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": dataset_ref("d-x"), "predicates": ["cites"], "direction": "out"}}], alpha_extra=(d_x,))
+        world, roots, published, topic = topic_world(
+            tmp_path,
+            [{"closure": {"anchor": dataset_ref("d-x"), "predicates": ["cites"], "direction": "out"}}],
+            alpha_extra=(d_x,),
+        )
         selection = evaluate_topic(world, roots, published, topic)
         assert selection.selected == () and selection.complete
         assert selection.unresolved == (Unresolved(dataset_ref("d-x"), "cites", "dataset:never", "unknown", None),)
 
     def test_a_traversed_target_in_an_absent_corpus_is_an_incomplete_selection_not_a_refusal(self, tmp_path):
-        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}])
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}]
+        )
         complete = evaluate_topic(world, roots, published, topic)
         make_absent(roots, BETA)
         partial = evaluate_topic(world, roots, published, topic)
         assert partial.selected == () and partial.absent == (BETA,) and not partial.complete
         assert partial.unresolved == (Unresolved("run:r-a", "produces", dataset_ref("d-b"), "not-present", BETA),)
-        assert partial.projection()["unresolved"] == [{"source": "run:r-a", "predicate": "produces", "target": dataset_ref("d-b"), "state": "not-present", "corpus_id": [BETA]}]
+        assert partial.projection()["unresolved"] == [
+            {
+                "source": "run:r-a",
+                "predicate": "produces",
+                "target": dataset_ref("d-b"),
+                "state": "not-present",
+                "corpus_id": [BETA],
+            }
+        ]
         assert partial.identity() != complete.identity()
 
     def test_an_anchor_in_an_absent_corpus_refuses(self, tmp_path):
-        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "in"}}])
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "in"}}]
+        )
         assert evaluate_topic(world, roots, published, topic).selected == ("run:r-a",)
         make_absent(roots, BETA)
         with pytest.raises(SelectionRefused) as caught:
@@ -111,7 +136,9 @@ class TestClosure:
         assert caught.value.reason == "address-not-present" and caught.value.refs == (dataset_ref("d-b"),)
 
     def test_an_absent_inbound_source_is_reported_not_present_and_not_dropped(self, tmp_path):
-        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": dataset_ref("d-a"), "predicates": ["produces"], "direction": "in"}}])
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"closure": {"anchor": dataset_ref("d-a"), "predicates": ["produces"], "direction": "in"}}]
+        )
         assert evaluate_topic(world, roots, published, topic).selected == ("run:r-b",)
         make_absent(roots, BETA)
         partial = evaluate_topic(world, roots, published, topic)
@@ -135,9 +162,16 @@ class TestClosure:
         d_x = stored.dataset_node(title="d-x", resources=pinned("d-x"))
         d_x.relations.append(Relation(source=d_x.id, predicate="cites", target="dataset:never"))
         d_x.relations.append(Relation(source=d_x.id, predicate="reads", target="dataset:never"))
-        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": dataset_ref("d-x"), "predicates": ["cites", "reads"], "direction": "out"}}], alpha_extra=(d_x,))
+        world, roots, published, topic = topic_world(
+            tmp_path,
+            [{"closure": {"anchor": dataset_ref("d-x"), "predicates": ["cites", "reads"], "direction": "out"}}],
+            alpha_extra=(d_x,),
+        )
         selection = evaluate_topic(world, roots, published, topic)
-        assert [(s.predicate, s.target) for s in selection.unresolved] == [("cites", "dataset:never"), ("reads", "dataset:never")]
+        assert [(s.predicate, s.target) for s in selection.unresolved] == [
+            ("cites", "dataset:never"),
+            ("reads", "dataset:never"),
+        ]
 
 
 class TestAddressesAndKinds:
@@ -187,10 +221,13 @@ class TestReferencesTerm:
 
     def test_a_term_in_a_qualifier_restriction_selects(self, tmp_path):
         qualified = stored.proposition_node(
-            "p-q", title="p-q",
+            "p-q",
+            title="p-q",
             claim={**CLAIM_FACET, "qualifiers": {"tissue": {"quantifier": "some", "restriction": "EX:liver"}}},
         )
-        world, roots, published, topic = topic_world(tmp_path, [{"references-term": "EX:liver"}], beta_extra=(qualified,))
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"references-term": "EX:liver"}], beta_extra=(qualified,)
+        )
         selection = evaluate_topic(world, roots, published, topic)
         assert selection.selected == ("proposition:p-q",)
 
@@ -224,7 +261,10 @@ class TestReferencesTerm:
         stale = stored.proposition_node("p-s", title="p-s", claim=CLAIM_FACET)
         stale.facets["proposition"]["args"] = ["EX:other", PHENO]
         world, roots, published, topic = topic_world(
-            tmp_path, [{"references-term": GENE}], beta_extra=(stale,), without=("proposition:p-b",),
+            tmp_path,
+            [{"references-term": GENE}],
+            beta_extra=(stale,),
+            without=("proposition:p-b",),
         )
         with pytest.raises(SemanticHashStale):
             evaluate_topic(world, roots, published, topic)
@@ -325,9 +365,7 @@ class TestEntryRefusals:
         assert caught.value.refs == (dataset_ref("d-b"),) and caught.value.corpus_ids == (BETA,)
 
     def test_unknown_outranks_not_present_and_the_two_never_share_a_refusal(self, tmp_path):
-        world, roots, published, topic = topic_world(
-            tmp_path, [{"addresses": [dataset_ref("d-b"), "dataset:never"]}]
-        )
+        world, roots, published, topic = topic_world(tmp_path, [{"addresses": [dataset_ref("d-b"), "dataset:never"]}])
         make_absent(roots, BETA)
         with pytest.raises(SelectionRefused) as caught:
             evaluate_topic(world, roots, published, topic)

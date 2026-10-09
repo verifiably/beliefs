@@ -267,7 +267,14 @@ class FakeSeam:
 
         # This fake never raises `ExecutionError`, so the predicate is never reached.
         return StoreActSeam(
-            corpus_lock, append_intent, publish_fulfilling, read_path, store_write, unused, unused, store_genesis,
+            corpus_lock,
+            append_intent,
+            publish_fulfilling,
+            read_path,
+            store_write,
+            unused,
+            unused,
+            store_genesis,
             lambda _caught: False,
         )
 
@@ -276,7 +283,9 @@ BOTH = RequiredCapabilities.for_kinds({"holdings-observation", "proposition"}, {
 
 
 def _holdings(tmp_path: Path, seam: FakeSeam, scope: RequiredCapabilities = HOLDINGS):
-    session, ports = make_session(tmp_path, store_root=tmp_path / "store", store_id=STORE_ID, holdings_seam=seam.build())
+    session, ports = make_session(
+        tmp_path, store_root=tmp_path / "store", store_id=STORE_ID, holdings_seam=seam.build()
+    )
     session.claim_invocation("A", "hold", DIGEST)
     writer = session.scoped(scope, "A")
     return session, writer, writer.holdings_context(instrument="test"), ports[-1]
@@ -293,6 +302,7 @@ def test_the_ledgered_port_forwards_its_inner_ports_root(tmp_path):
 
 def _published_pair(seam: FakeSeam) -> tuple[str, str]:
     from nodes.core.frontmatter import node_from_markdown
+
     ((op,),) = seam.published
     node = node_from_markdown(op.content.decode("utf-8"))  # type: ignore[attr-defined]
     return node.uid, node.id
@@ -323,7 +333,14 @@ def test_a_holdings_write_ledgers_an_act_naming_the_observation(tmp_path):
     session.close()
     (act,) = open_ledger_reader(session.operations_root, session.session_id).acts()
     assert (act.intent, act.entry, act.record_ids) == (INTENT, "2" * 64, (pair,))
-    assert seam.reached == ["corpus_lock", "append_intent", "store_genesis", "store_write", "corpus_lock", "publish_fulfilling"]
+    assert seam.reached == [
+        "corpus_lock",
+        "append_intent",
+        "store_genesis",
+        "store_write",
+        "corpus_lock",
+        "publish_fulfilling",
+    ]
 
 
 def test_a_context_kept_past_its_invocation_reaches_no_member(tmp_path):
@@ -344,6 +361,7 @@ def test_a_close_inside_the_intent_append_is_refused_at_the_genesis_read(tmp_pat
 
     def build():
         from dataclasses import replace
+
         built = original()
         inner_append = built.append_intent
 
@@ -351,6 +369,7 @@ def test_a_close_inside_the_intent_append_is_refused_at_the_genesis_read(tmp_pat
             digest = inner_append(root, payload)
             holder["session"].close_invocation("A", {"done": []})
             return digest
+
         return replace(built, append_intent=closing_append)
 
     seam.build = build  # type: ignore[method-assign]
@@ -392,7 +411,9 @@ def test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete(tmp_path
         except BaseException as caught:  # noqa: BLE001
             failures.append(caught)
 
-    a = threading.Thread(name="A", target=run, args=(lambda: write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes"),), daemon=True)
+    a = threading.Thread(
+        name="A", target=run, args=(lambda: write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes"),), daemon=True
+    )
     b = threading.Thread(name="B", target=run, args=(lambda: writer.add(proposition("p")),), daemon=True)
     a.start()
     assert a_in_publication.wait(5)
@@ -406,12 +427,15 @@ def test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete(tmp_path
 
 # --- the session acquisition route (url-retrieval design §8) -----------------------
 
-ACQUIRES = RequiredCapabilities.for_kinds({"holdings-observation", "dataset", "act-report"}, {"act-report": "corpus-write"})
+ACQUIRES = RequiredCapabilities.for_kinds(
+    {"holdings-observation", "dataset", "act-report"}, {"act-report": "corpus-write"}
+)
 
 
 def _acquisition_request():
     return AcquisitionRequest(
-        title="t", locator="url:https://example.org/dataset",
+        title="t",
+        locator="url:https://example.org/dataset",
         resources=(ResourceRequest("a", url_locator("https://example.org/a")),),
         bounds=RetrievalBounds(5.0, 1 << 20, 3),
     )
@@ -423,7 +447,9 @@ def _durable_session(certified_work):
     open_corpus(corpus_root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
     init_store_root(store_root, authority=FULL)
     config = WorldConfig(certified_work / "world", "a" * 32, (corpus_root,))
-    return open_attended_session(config, certified_work / "ops", write_root=corpus_root, profile=BASE, store_root=store_root)
+    return open_attended_session(
+        config, certified_work / "ops", write_root=corpus_root, profile=BASE, store_root=store_root
+    )
 
 
 def test_acquire_through_a_session_ledgers_every_commit(certified_work, tmp_path):
@@ -512,7 +538,9 @@ ACQUIRES_AND_ADDS = RequiredCapabilities.for_kinds(
 )
 
 
-def test_the_close_takes_the_session_lock_before_the_root_lock_and_a_concurrent_act_completes(certified_work, tmp_path, monkeypatch):
+def test_the_close_takes_the_session_lock_before_the_root_lock_and_a_concurrent_act_completes(
+    certified_work, tmp_path, monkeypatch
+):
     """Session, then root, is the only order `_act` takes; the close takes the same
     one, and holds neither around the request — so an act on another thread
     completes while the acquisition is open, and the close never waits on a
@@ -546,14 +574,19 @@ def test_the_close_takes_the_session_lock_before_the_root_lock_and_a_concurrent_
     partner = threading.Thread(target=add_while_open, daemon=True)
     partner.start()
     outcome = scoped.acquire(
-        _acquisition_request(), instrument="inst", scratch=tmp_path / "scratch", seam=replace(transport, connect=gated_connect)
+        _acquisition_request(),
+        instrument="inst",
+        scratch=tmp_path / "scratch",
+        seam=replace(transport, connect=gated_connect),
     )
     partner.join(30)
     assert not partner.is_alive() and outcome.dataset is not None
     assert owned and all(owned)  # every root-lock entry under the session saw the session lock owned first
     session.close_invocation("A", {"done": []})
     session.close()
-    assert len(open_ledger_reader(session.operations_root, session.session_id).acts()) == 3  # the add, the look, the close
+    assert (
+        len(open_ledger_reader(session.operations_root, session.session_id).acts()) == 3
+    )  # the add, the look, the close
 
 
 def test_acquire_on_a_store_less_session_refuses_before_any_intent(tmp_path):

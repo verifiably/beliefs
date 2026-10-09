@@ -90,7 +90,11 @@ class AcquisitionRequest:
         scheme, separator, rest = self.locator.partition(":") if type(self.locator) is str else ("", "", "")
         if separator != ":" or not rest or scheme not in LOCATOR_SCHEMES:
             raise MalformedRecord(f"an acquisition's locator is `<scheme>:<rest>` with scheme in {LOCATOR_SCHEMES}")
-        if type(self.resources) is not tuple or not self.resources or any(type(r) is not ResourceRequest for r in self.resources):
+        if (
+            type(self.resources) is not tuple
+            or not self.resources
+            or any(type(r) is not ResourceRequest for r in self.resources)
+        ):
             raise MalformedRecord("an acquisition request names at least one ResourceRequest")
         names = [resource.name for resource in self.resources]
         if len(names) != len(set(names)):
@@ -100,11 +104,16 @@ class AcquisitionRequest:
         if self.domain_facets is not None and (
             not isinstance(self.domain_facets, Mapping)
             or any(
-                type(key) is not str or "/" not in key or not isinstance(payload, Mapping) or any(type(k) is not str for k in payload)
+                type(key) is not str
+                or "/" not in key
+                or not isinstance(payload, Mapping)
+                or any(type(k) is not str for k in payload)
                 for key, payload in self.domain_facets.items()
             )
         ):
-            raise MalformedRecord("domain_facets maps namespaced `<namespace>/<name>` keys to mappings with string keys")
+            raise MalformedRecord(
+                "domain_facets maps namespaced `<namespace>/<name>` keys to mappings with string keys"
+            )
 
 
 @sealed
@@ -152,7 +161,9 @@ def acquire(
     ctx.authority.require("holdings", ("holdings-observation",))
     ctx.authority.require("corpus-write", ("dataset", "act-report"))
     if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():
-        raise AcquisitionRefused("the writer's root is not the act context's observer root; an acquisition publishes in one root")
+        raise AcquisitionRefused(
+            "the writer's root is not the act context's observer root; an acquisition publishes in one root"
+        )
     if port is None and writer._operation_port is None:
         raise AcquisitionRefused("this corpus has no operation port; acquisition is a boundary operation")
     refuse_scratch_root(scratch, (ctx.observer_root, ctx.store_root))
@@ -160,7 +171,9 @@ def acquire(
         store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))
         for resource in request.resources:
             if resource.materialize is not None and resource.materialize.store_id != store_id:
-                raise AcquisitionRefused(f"{resource.name}: its destination names store {resource.materialize.store_id}, not the bound {store_id}")
+                raise AcquisitionRefused(
+                    f"{resource.name}: its destination names store {resource.materialize.store_id}, not the bound {store_id}"
+                )
     writer._refuse_dataset_shape(  # the request-only metadata, before any effect
         stored.dataset_node(
             title=request.title,
@@ -185,11 +198,20 @@ def acquire(
             entries.append(LocatorEntry(subject, ByteLocatorUntested(SKIPPED_AFTER_STOP), inputs))
             continue
         result = look(
-            ctx, resource.url, bounds=request.bounds, seam=seam, scratch=scratch,
-            expected=resource.expected, standing=heads.get(subject) or (),
+            ctx,
+            resource.url,
+            bounds=request.bounds,
+            seam=seam,
+            scratch=scratch,
+            expected=resource.expected,
+            standing=heads.get(subject) or (),
         )
         if isinstance(result, InconclusiveLook):
-            outcome = ByteLocatorUntested(result.reason) if result.report == "byte-locator-untested" else RetrievalFailed(result.reason)
+            outcome = (
+                ByteLocatorUntested(result.reason)
+                if result.report == "byte-locator-untested"
+                else RetrievalFailed(result.reason)
+            )
             entries.append(LocatorEntry(subject, outcome, inputs))
             stop = Stop(resource.name, "look", result.reason)
             continue
@@ -201,7 +223,10 @@ def acquire(
                 destination = resource.materialize
                 try:
                     materialized = write(
-                        ctx, destination, result.retrieved.path.read_bytes(), expected=result.retrieved.digest,
+                        ctx,
+                        destination,
+                        result.retrieved.path.read_bytes(),
+                        expected=result.retrieved.digest,
                         standing=heads.get(destination.canonical()) or (),
                     )
                 except StoreWriteRefused as refused:
@@ -229,9 +254,17 @@ def acquire(
             if writer.read_view.resolve(ref) is None:
                 raise AcquisitionRefused(f"{ref}: the report would reference an observation no act published")
         held = address is not None and writer.read_view.resolve(address) is not None
-        report_entries = tuple(entries) + ((DeclarationPinEntry(address, PinnedDeclaration(address)),) if mint and address is not None and not held else ())
+        report_entries = tuple(entries) + (
+            (DeclarationPinEntry(address, PinnedDeclaration(address)),)
+            if mint and address is not None and not held
+            else ()
+        )
         report = boundary_values._mint_acquisition_report(
-            intent, observer=ctx.observer, instrument=ctx.instrument, opened_at=opened_at, closed_at=closed_at,
+            intent,
+            observer=ctx.observer,
+            instrument=ctx.instrument,
+            opened_at=opened_at,
+            closed_at=closed_at,
             entries=report_entries,
         )
         report_node = stored.act_report_node(report)
@@ -241,7 +274,11 @@ def acquire(
             dataset = stored.dataset_node(
                 title=request.title,
                 resources=[{"name": r.name, "digest": digests[r.name]} for r in request.resources],
-                empirical_observation={"locator": request.locator, "attested_by": ctx.actor, "retrieval": report_node.id},
+                empirical_observation={
+                    "locator": request.locator,
+                    "attested_by": ctx.actor,
+                    "retrieval": report_node.id,
+                },
                 domain_facets=request.domain_facets,
             )
             writer._refuse_acquired_dataset(dataset, report_node)

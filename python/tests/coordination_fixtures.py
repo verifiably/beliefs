@@ -77,9 +77,7 @@ def raw_coordination_node(kind, project, revision, *, local=None, supersedes=(),
                 **facet,
             }
         },
-        relations=[
-            Relation(source=node_id, predicate=stored.SUPERSEDES, target=target) for target in supersedes
-        ],
+        relations=[Relation(source=node_id, predicate=stored.SUPERSEDES, target=target) for target in supersedes],
     )
 
 
@@ -94,9 +92,7 @@ class Recorder:
         self._inner.execute(plan)
 
 
-def mounted_root(
-    root, profile, executor_factory: Callable[[Path], WritePlanExecutor] = DefaultExecutor
-):
+def mounted_root(root, profile, executor_factory: Callable[[Path], WritePlanExecutor] = DefaultExecutor):
     CorpusWriter(root, executor_factory, authority=FULL, profile=profile).adopt_manifest(profile=pins_for(profile))
     return root
 

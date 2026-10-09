@@ -672,16 +672,26 @@ def test_the_probe_maps_the_kernel_result_to_the_instrument_vocabulary(tmp_path:
     assert list((tmp_path / "scratch").iterdir()) == []  # the probe deletes the kernel's scratch file
     assert len(log.requests) == 1
     failing, _ = scripted_seam({"/data": Scripted(500, {}, (b"",))})
-    assert NetworkProbe(tmp_path / "scratch", resolver=failing.resolve, connect=failing.connect).fetch("https://example.org/data") == ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="status 500")
+    assert NetworkProbe(tmp_path / "scratch", resolver=failing.resolve, connect=failing.connect).fetch(
+        "https://example.org/data"
+    ) == ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="status 500")
     untested, _ = scripted_seam({}, unpinnable=True)
-    assert NetworkProbe(tmp_path / "scratch", resolver=untested.resolve, connect=untested.connect).fetch("https://example.org/data") == ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="unpinnable")
-    assert NetworkProbe(tmp_path / "scratch", resolver=seam.resolve, connect=seam.connect).fetch("https://user@example.org/data") == ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="malformed url")
+    assert NetworkProbe(tmp_path / "scratch", resolver=untested.resolve, connect=untested.connect).fetch(
+        "https://example.org/data"
+    ) == ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="unpinnable")
+    assert NetworkProbe(tmp_path / "scratch", resolver=seam.resolve, connect=seam.connect).fetch(
+        "https://user@example.org/data"
+    ) == ProbeOutcome(BYTES_LOCATOR_UNTESTED, reason="malformed url")
 
 
 def test_a_refused_redirect_hop_is_retrieval_failed_by_ordinal_and_category(tmp_path: Path) -> None:
-    seam, _ = scripted_seam({"/data": Scripted(302, {"Location": "https://tok3n-9f2a.example.net/data?X-Amz-Signature=abc"})})
+    seam, _ = scripted_seam(
+        {"/data": Scripted(302, {"Location": "https://tok3n-9f2a.example.net/data?X-Amz-Signature=abc"})}
+    )
     resolver = lambda host, _port: ["10.1.1.1"] if host != "example.org" else seam.resolve(host, 0)
-    outcome = NetworkProbe(tmp_path / "scratch", resolver=resolver, connect=seam.connect).fetch("https://example.org/data")
+    outcome = NetworkProbe(tmp_path / "scratch", resolver=resolver, connect=seam.connect).fetch(
+        "https://example.org/data"
+    )
     assert outcome == ProbeOutcome(BYTES_RETRIEVAL_FAILED, reason="redirect hop 1 refused: non-public-address")
 
 
@@ -756,5 +766,3 @@ def test_the_report_renders_from_the_artifact(roots: tuple[Path, Path, Path]) ->
     artifact["resources"] = []
     artifact["datasets"] = []
     assert "Mismatches: 0" in render_report(artifact)
-
-

@@ -38,10 +38,23 @@ def main(argv: list[str]) -> int:
     if again:
         equal = (paths.WORK / "reading-1.json").read_bytes() == encoded
         state.save(reading_equal=equal, reading_rows=rows)
-        findings.record(12, "closed" if equal else "defect", f"second-process reading {'equal' if equal else 'DIFFERS'}; rows {rows}")
+        findings.record(
+            12,
+            "closed" if equal else "defect",
+            f"second-process reading {'equal' if equal else 'DIFFERS'}; rows {rows}",
+        )
     else:
         state.save(reading_rows=rows)
-    print(json.dumps({"standing": reading.standing.projection(), "nodes": dict(reading.projection()["node_outcomes"]), "rows": rows}, indent=2))
+    print(
+        json.dumps(
+            {
+                "standing": reading.standing.projection(),
+                "nodes": dict(reading.projection()["node_outcomes"]),
+                "rows": rows,
+            },
+            indent=2,
+        )
+    )
     return 0
 
 

@@ -62,9 +62,15 @@ def intent_payload(*, location: Locator, act_kind: str, event_token: str, actor:
         else {"relative_path": location.relative_path, "store_id": location.store_id, "type": "store"}
     )
     return json.dumps(
-        {"actor": actor, "domain": HOLDINGS_INTENT_DOMAIN, "event_token": event_token, "kind": act_kind,
-         "location": location_facet},
-        sort_keys=True, separators=(",", ":"),
+        {
+            "actor": actor,
+            "domain": HOLDINGS_INTENT_DOMAIN,
+            "event_token": event_token,
+            "kind": act_kind,
+            "location": location_facet,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
     ).encode("utf-8")
 
 
@@ -126,9 +132,14 @@ def look(
         return InconclusiveLook("retrieval-failed", result.reason)
     try:  # from `Retrieved` to the caller's ownership: construction refusals included
         record = holdings_observation(
-            location=location, outcome=Found(result.digest), expected=expected, observer=ctx.observer,
-            instrument=ctx.instrument, event_token=token,
-            observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), supersedes=standing,
+            location=location,
+            outcome=Found(result.digest),
+            expected=expected,
+            observer=ctx.observer,
+            instrument=ctx.instrument,
+            event_token=token,
+            observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            supersedes=standing,
         )
         published = _publish_record(ctx, record, intent)
     except BaseException:
@@ -172,12 +183,24 @@ def _publish_record(ctx: ActContext, record: HoldingsObservation, intent: str) -
     return PublishedObservation(record)
 
 
-def _publish(ctx: ActContext, location: StoreLocator, outcome: Found | Absent, token: str, intent: str,
-             standing: tuple[HoldingsObservation, ...]) -> PublishedObservation:
+def _publish(
+    ctx: ActContext,
+    location: StoreLocator,
+    outcome: Found | Absent,
+    token: str,
+    intent: str,
+    standing: tuple[HoldingsObservation, ...],
+) -> PublishedObservation:
     ctx.authority.require("holdings", ("holdings-observation",))
-    record = holdings_observation(location=location, outcome=outcome, observer=ctx.observer, instrument=ctx.instrument,
-                                  event_token=token, observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                  supersedes=standing)
+    record = holdings_observation(
+        location=location,
+        outcome=outcome,
+        observer=ctx.observer,
+        instrument=ctx.instrument,
+        event_token=token,
+        observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        supersedes=standing,
+    )
     return _publish_record(ctx, record, intent)
 
 
@@ -194,8 +217,14 @@ def recheck(ctx: ActContext, location: StoreLocator, *, standing: tuple[Holdings
     store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))
     if store_id != location.store_id:
         raise StoreIdMismatch(f"store root names {store_id}, not {location.store_id}")
-    return _publish(ctx, location, Found(view.state.content_hash) if isinstance(view.state, FileStateView) else Absent(),
-                    token, intent, standing)
+    return _publish(
+        ctx,
+        location,
+        Found(view.state.content_hash) if isinstance(view.state, FileStateView) else Absent(),
+        token,
+        intent,
+        standing,
+    )
 
 
 def _final(outcome: StoreOutcomeView, path: str) -> FileStateView | AbsentStateView | NonRegularStateView:
@@ -224,8 +253,14 @@ def _append(ctx: ActContext, location: Locator, kind: str) -> tuple[str, str]:
     return token, intent
 
 
-def write(ctx: ActContext, location: StoreLocator, content: bytes, *, expected: str | None = None,
-          standing: tuple[HoldingsObservation, ...] = ()) -> PublishedObservation:
+def write(
+    ctx: ActContext,
+    location: StoreLocator,
+    content: bytes,
+    *,
+    expected: str | None = None,
+    standing: tuple[HoldingsObservation, ...] = (),
+) -> PublishedObservation:
     ctx.authority.require("holdings", ("holdings-observation",))
     if expected is not None:
         require_canonical_digest(expected, "a holdings observation's expected digest")
@@ -242,13 +277,22 @@ def write(ctx: ActContext, location: StoreLocator, content: bytes, *, expected: 
     state = _final(outcome, location.relative_path)
     if not isinstance(state, FileStateView):
         raise TypeError(f"store write did not establish a file at {location.relative_path!r}")
-    record = holdings_observation(location=location, outcome=Found(state.content_hash), expected=expected,
-                                  observer=ctx.observer, instrument=ctx.instrument, event_token=token,
-                                  observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), supersedes=standing)
+    record = holdings_observation(
+        location=location,
+        outcome=Found(state.content_hash),
+        expected=expected,
+        observer=ctx.observer,
+        instrument=ctx.instrument,
+        event_token=token,
+        observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        supersedes=standing,
+    )
     return _publish_record(ctx, record, intent)
 
 
-def delete(ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsObservation, ...] = ()) -> PublishedObservation:
+def delete(
+    ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsObservation, ...] = ()
+) -> PublishedObservation:
     ctx.authority.require("holdings", ("holdings-observation",))
     token, intent = _append(ctx, location, "delete")
     _bind(ctx, location)
@@ -258,9 +302,14 @@ def delete(ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsO
     return _publish(ctx, location, Absent(), token, intent, standing)
 
 
-def move(ctx: ActContext, source: StoreLocator, destination: StoreLocator, *,
-         standing_source: tuple[HoldingsObservation, ...] = (),
-         standing_destination: tuple[HoldingsObservation, ...] = ()) -> tuple[PublishedObservation, PublishedObservation]:
+def move(
+    ctx: ActContext,
+    source: StoreLocator,
+    destination: StoreLocator,
+    *,
+    standing_source: tuple[HoldingsObservation, ...] = (),
+    standing_destination: tuple[HoldingsObservation, ...] = (),
+) -> tuple[PublishedObservation, PublishedObservation]:
     ctx.authority.require("holdings", ("holdings-observation",))
     source_token, source_intent = _append(ctx, source, "move-source")
     destination_token, destination_intent = _append(ctx, destination, "move-destination")
@@ -273,6 +322,12 @@ def move(ctx: ActContext, source: StoreLocator, destination: StoreLocator, *,
         raise TypeError("store move did not establish absent source and file destination")
     return (
         _publish(ctx, source, Absent(), source_token, source_intent, standing_source),
-        _publish(ctx, destination, Found(destination_state.content_hash), destination_token, destination_intent,
-                 standing_destination),
+        _publish(
+            ctx,
+            destination,
+            Found(destination_state.content_hash),
+            destination_token,
+            destination_intent,
+            standing_destination,
+        ),
     )

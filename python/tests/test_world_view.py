@@ -61,9 +61,7 @@ def chain_nodes():
         resources=pinned("d1"),
         basis={
             "tag": "single",
-            "routes": [
-                {"identity": "route:d1", "run": r1.id, "ancestor": d0.id, "transforms": [d0.id]}
-            ],
+            "routes": [{"identity": "route:d1", "run": r1.id, "ancestor": d0.id, "transforms": [d0.id]}],
         },
     )
     r2 = stored.run_node("r2", title="r2", spec="s", transforms=[d1.id], produces=[dataset_ref("d2")])
@@ -72,9 +70,7 @@ def chain_nodes():
         resources=pinned("d2"),
         basis={
             "tag": "single",
-            "routes": [
-                {"identity": "route:d2", "run": r2.id, "ancestor": d1.id, "transforms": [d1.id]}
-            ],
+            "routes": [{"identity": "route:d2", "run": r2.id, "ancestor": d1.id, "transforms": [d1.id]}],
         },
     )
     return d0, r1, d1, r2, d2
@@ -148,9 +144,13 @@ class TestOpening:
     def test_a_postpublication_live_address_rename_is_corruption(self, tmp_path):
         world, roots, published = two_corpus_world(tmp_path)
         old = address_in(published, ALPHA)
-        renamed = reopen(roots[ALPHA]).get(old).model_copy(
-            deep=True,
-            update={"id": "dataset:postpublication-new", "deprecated_ids": [old]},
+        renamed = (
+            reopen(roots[ALPHA])
+            .get(old)
+            .model_copy(
+                deep=True,
+                update={"id": "dataset:postpublication-new", "deprecated_ids": [old]},
+            )
         )
         Corpus(roots[ALPHA]).store.path_for(old).unlink()
         raw_write(roots[ALPHA], renamed)
@@ -274,9 +274,7 @@ class TestTheEpochsEnumeration:
 
         world, _roots, published = two_corpus_world(tmp_path)
         receipts = dict(published.receipts)
-        receipts["producer-receipt.yaml"] = replace(
-            receipts["producer-receipt.yaml"], subject_identity=None
-        )
+        receipts["producer-receipt.yaml"] = replace(receipts["producer-receipt.yaml"], subject_identity=None)
         with pytest.raises(EpochMalformed, match="producer receipt names no subject identity"):
             open_world_view(world, replace(published, receipts=receipts))
 
@@ -329,9 +327,9 @@ class TestCrossCorpusEdges:
         }
         assert producers_of_d2 == {"run:r2"}
         # r2 transforms d1, which BETA holds: found at the world layer, dangling in ALPHA alone.
-        assert {
-            e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"
-        } == {"run:r2"}
+        assert {e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"} == {
+            "run:r2"
+        }
         with pytest.raises(RefError):  # the corpus facade cannot even ask about a ref it does not hold
             ReadView.opened_at(roots[ALPHA]).inbound(dataset_ref("d1"))
 
@@ -355,9 +353,9 @@ class TestCrossCorpusEdges:
         raw_write(roots[ALPHA], stored.dataset_node(title="a drift copy of BETA's d1", resources=pinned("d1")))
         view = open_world_view(world, published)
         assert view.corpus_of(dataset_ref("d1")) == BETA
-        assert {
-            e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"
-        } == {"run:r2"}
+        assert {e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"} == {
+            "run:r2"
+        }
 
     def test_published_producers_survive_an_absent_carrier(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
@@ -569,12 +567,20 @@ def test_j20_the_two_installation_split_evaluates_as_one_corpus(tmp_path):
     profile = profile_with()
     kwargs = world_kwargs(view, profile)
     split_answer, split_admission = evaluate_over_traced(view, "proposition:p", **over_kwargs(kwargs))[:2]
-    inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                    resolution=kwargs["resolution"], binding=kwargs["binding"])
+    inputs = gather(
+        view,
+        "proposition:p",
+        context=kwargs["context"],
+        profile=profile,
+        resolution=kwargs["resolution"],
+        binding=kwargs["binding"],
+    )
     assert {ref for ref, corpora in inputs.node_corpus.items() if BETA in corpora} >= {DATASET_D_A}
     assert all(ALPHA in corpora for ref, corpora in inputs.node_corpus.items() if ref.startswith("run:"))
     local = seed(tmp_path / "one")
-    local_answer, local_admission = evaluate_over_traced(local, "proposition:p", **over_kwargs(kwargs_for(local, profile)))[:2]
+    local_answer, local_admission = evaluate_over_traced(
+        local, "proposition:p", **over_kwargs(kwargs_for(local, profile))
+    )[:2]
     # `belief_input_digest` differs by construction: the closure names the producer snapshot and the
     # retraction coverage, which are the world's epoch and corpus ids (mount-citations spec §13).
     assert isinstance(split_answer, Belief) and isinstance(local_answer, Belief)
@@ -594,10 +600,17 @@ class TestEvaluationOverTheWorld:
         view = open_world_view(world, published)
         profile = profile_with()
         kwargs = world_kwargs(view, profile)
-        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         assert {ref for ref, corpora in inputs.node_corpus.items() if BETA in corpora} == {
-            "run:run-a", "run:run-b",
+            "run:run-a",
+            "run:run-b",
         }
         pins = dict(kwargs["context"].pins)
         other = replace(pins[BETA], science_contract="science:" + "0" * 64)
@@ -610,13 +623,24 @@ class TestEvaluationOverTheWorld:
 
         def run():
             if consumer == "gather":
-                return gather(view, "proposition:p", context=context, profile=profile,
-                              resolution=kwargs["resolution"], binding=kwargs["binding"])
+                return gather(
+                    view,
+                    "proposition:p",
+                    context=context,
+                    profile=profile,
+                    resolution=kwargs["resolution"],
+                    binding=kwargs["binding"],
+                )
             if consumer == "evaluate":
-                return evaluate(proposition="proposition:p", records=inputs.records(),
-                                context=replace(context, node_corpus=inputs.node_corpus),
-                                retractions=inputs.retractions,
-                                profile=profile, availability=kwargs["availability"], binding=kwargs["binding"])
+                return evaluate(
+                    proposition="proposition:p",
+                    records=inputs.records(),
+                    context=replace(context, node_corpus=inputs.node_corpus),
+                    retractions=inputs.retractions,
+                    profile=profile,
+                    availability=kwargs["availability"],
+                    binding=kwargs["binding"],
+                )
             return evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
 
         if pin_state == "missing":
@@ -643,8 +667,14 @@ class TestEvaluationOverTheWorld:
         profile = profile_with()
         view = open_world_view(world, published)
         kwargs = world_kwargs(view, profile)
-        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         assert inputs.absent == ()
         assert ("biology", kwargs["context"].pins[ALPHA].domains["biology"]) in inputs.consulted
         assert len(inputs.observed_facets) == 1  # d-a's gene-axis row, read through BETA's own ReadView
@@ -695,8 +725,14 @@ class TestEvaluationOverTheWorld:
         make_absent(roots, BETA)
         view = open_world_view(world, published)
         kwargs = world_kwargs(view, profile)
-        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         assert (f"producer-snapshot:{view.producer_snapshot_identity()}", BETA) in inputs.absent
         result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
@@ -727,8 +763,14 @@ class TestEvaluationOverTheWorld:
         kwargs = world_kwargs(view, profile)
         supplied = replace(kwargs["context"], node_corpus={"anything": (ALPHA,)})
         with pytest.raises(MalformedRecord, match="node_corpus.*derived"):
-            gather(view, "proposition:p", context=supplied, profile=profile,
-                   resolution=kwargs["resolution"], binding=kwargs["binding"])
+            gather(
+                view,
+                "proposition:p",
+                context=supplied,
+                profile=profile,
+                resolution=kwargs["resolution"],
+                binding=kwargs["binding"],
+            )
 
     @pytest.mark.parametrize("change", ["content", "addition", "removal"])
     def test_a_facet_read_is_held_to_the_capture(self, tmp_path, change):
@@ -745,8 +787,14 @@ class TestEvaluationOverTheWorld:
         kwargs = world_kwargs(view, profile)
         path = Corpus(roots[BETA]).store.path_for(dataset_ref("d-a"))
         path.write_text(path.read_text() + "\n")
-        gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-               resolution=kwargs["resolution"], binding=kwargs["binding"])
+        gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         node = reopen(roots[BETA]).get(dataset_ref("d-a"))
         if change == "content":
             node.facets["biology/gene-axis"]["axis"] = "columns"
@@ -757,9 +805,14 @@ class TestEvaluationOverTheWorld:
         path.write_text(node_to_markdown(node))
         assert view.get(dataset_ref("d-a")).facets["biology/gene-axis"]["axis"] == "rows"  # the capture stands
         with pytest.raises(CaptureDrift):
-            gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                   resolution=kwargs["resolution"], binding=kwargs["binding"])
-
+            gather(
+                view,
+                "proposition:p",
+                context=kwargs["context"],
+                profile=profile,
+                resolution=kwargs["resolution"],
+                binding=kwargs["binding"],
+            )
 
     def test_identical_assessment_values_at_distinct_addresses_consult_both_corpora(self, tmp_path):
         from beliefs.belief import Belief, Refused
@@ -767,9 +820,15 @@ class TestEvaluationOverTheWorld:
 
         nodes = tuple(seed(tmp_path / "scratch").iter_stored())
         twin = stored.assessment_node(
-            "a-twin", title="twin", spec="spec-a", run="run:run-a", proposition="proposition:p",
-            outcome="supported", interpretation_rule="rule-1",
-            estimand=typed_estimand(), applicability=typed_applicability(),
+            "a-twin",
+            title="twin",
+            spec="spec-a",
+            run="run:run-a",
+            proposition="proposition:p",
+            outcome="supported",
+            interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
         original = next(n for n in nodes if n.id == "assessment:a-1")
         assert original.id != twin.id and original.uid != twin.uid
@@ -779,8 +838,14 @@ class TestEvaluationOverTheWorld:
         world = world_over(tmp_path, roots)
         view = open_world_view(world, publish(world, (ALPHA, BETA), hold_shipped(world)))
         kwargs = world_kwargs(view, profile)
-        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         assert inputs.node_corpus[stored.assessment_value(original, profile=profile).identity()] == (ALPHA, BETA)
         with pytest.raises(TypeError):
             cast(Any, inputs.node_corpus)[stored.assessment_value(original, profile=profile).identity()] = (ALPHA,)
@@ -805,8 +870,14 @@ class TestEvaluationOverTheWorld:
         profile = profile_with()
         kwargs = world_kwargs(view, profile)
         assert kwargs["context"].snapshot.not_present == {}
-        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         assert inputs.absent == ((f"producer-snapshot:{view.producer_snapshot_identity()}", BETA),)
         result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
@@ -829,10 +900,18 @@ class TestEvaluationOverTheWorld:
         view = open_world_view(world, published)
         profile = profile_with()
         kwargs = world_kwargs(view, profile)
-        context = replace(kwargs["context"], snapshot=lineage_snapshot(
-            view, (dataset_ref("d-a"), dataset_ref("d-b"), dataset_ref("extra"))))
-        inputs = gather(view, "proposition:p", context=context, profile=profile,
-                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        context = replace(
+            kwargs["context"],
+            snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"), dataset_ref("extra"))),
+        )
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=context,
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         assert inputs.absent == ((f"producer-snapshot:{view.producer_snapshot_identity()}", BETA),)
         result = evaluate_over(view, "proposition:p", **over_kwargs({**kwargs, "context": context}))
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
@@ -846,8 +925,14 @@ class TestEvaluationOverTheWorld:
         view = open_world_view(world, publish(world, (ALPHA, BETA), hold_shipped(world)))
         profile = profile_with()
         kwargs = world_kwargs(view, profile)
-        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
-                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile,
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
         assert inputs.absent == () and inputs.claim is None
 
 

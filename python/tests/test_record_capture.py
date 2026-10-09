@@ -83,9 +83,7 @@ def test_swap_race_is_lost_by_the_attacker(certified_work, monkeypatch) -> None:
 def test_ceiling_boundary_exact_captures_one_over_withholds(certified_work) -> None:
     root = _corpus(certified_work / "root")
     (root / "run" / "exact.md").write_bytes(b"x" * records.RECORD_CEILING)
-    (root / "run" / "over.md").write_bytes(
-        b"x" * (records.RECORD_CEILING + 1)
-    )
+    (root / "run" / "over.md").write_bytes(b"x" * (records.RECORD_CEILING + 1))
     captured = dict(records.capture_records(root, "corpus"))
     assert set(captured) == {"run/exact.md"}
     assert len(captured["run/exact.md"]) == records.RECORD_CEILING
@@ -145,9 +143,7 @@ def test_an_unreadable_regular_file_is_named_not_dropped(certified_work, monkeyp
     assert surface.withheld == surface.uninspectable == ()
 
 
-def test_an_unenumerable_namespace_is_uninspectable_and_an_absent_one_is_silent(
-    certified_work, monkeypatch
-) -> None:
+def test_an_unenumerable_namespace_is_uninspectable_and_an_absent_one_is_silent(certified_work, monkeypatch) -> None:
     assert os.geteuid() != 0, "this arm needs a non-root user: root ignores directory modes"
     root = _five(certified_work / "root")
     (root / "assessment").rmdir()

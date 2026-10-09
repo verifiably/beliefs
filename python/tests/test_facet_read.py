@@ -135,11 +135,16 @@ def test_the_address_is_the_fetched_datasets_own(tmp_path):
 def test_the_digest_follows_the_payload_bytes(tmp_path):
     one, _ = _corpus(tmp_path / "one", **{"biology/gene-axis": {"axis": "rows"}})
     other, _ = _corpus(tmp_path / "other", **{"biology/gene-axis": {"axis": "columns"}})
-    assert read_observed_facets(WITH_BIOLOGY, one, ADDRESS)[0].payload_digest != read_observed_facets(WITH_BIOLOGY, other, ADDRESS)[0].payload_digest
+    assert (
+        read_observed_facets(WITH_BIOLOGY, one, ADDRESS)[0].payload_digest
+        != read_observed_facets(WITH_BIOLOGY, other, ADDRESS)[0].payload_digest
+    )
 
 
 def test_base_facets_are_not_this_readers(tmp_path):
-    node = stored.dataset_node(title="d-a", resources=RESOURCES,
+    node = stored.dataset_node(
+        title="d-a",
+        resources=RESOURCES,
         empirical_observation={"locator": "instrument:fixture", "attested_by": "actor:fixture"},
     )
     raw_write(tmp_path, node)

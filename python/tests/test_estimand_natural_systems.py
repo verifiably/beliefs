@@ -99,7 +99,9 @@ def snapshot(profile):
 
 def parts(**overrides):
     fields = {
-        "contrast": LevelsContrast(slot=1, baseline=Referent(PROC, "fourier-phase-randomized"), comparison=Referent(PROC, "identity")),
+        "contrast": LevelsContrast(
+            slot=1, baseline=Referent(PROC, "fourier-phase-randomized"), comparison=Referent(PROC, "identity")
+        ),
         "measure": Measure(quantity=Referent(STAT, "co-trev-1-num"), scale="additive"),
         "reference": Decimal(0),
         "control": Control(identification=Referent(IDENT, "within-series-surrogate"), conditioning=()),
@@ -138,9 +140,15 @@ class TestA2Admission:
         estimand = build(profile, claim, snapshot)
         applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
         value = AssessmentValue(
-            spec="spec-1", run="run-1", proposition=claim_identity(claim), outcome="supported",
-            interpretation_rule="rank-comparison/v1", estimand=estimand, applicability=applicability,
-            estimate=Decimal("-0.42"), uncertainty=StandardError(value=Decimal("0.013")),
+            spec="spec-1",
+            run="run-1",
+            proposition=claim_identity(claim),
+            outcome="supported",
+            interpretation_rule="rank-comparison/v1",
+            estimand=estimand,
+            applicability=applicability,
+            estimate=Decimal("-0.42"),
+            uncertainty=StandardError(value=Decimal("0.013")),
         )
         assert value.estimate == Decimal("-0.42")
         assert value.uncertainty == StandardError(value=Decimal("0.013"))
@@ -149,8 +157,13 @@ class TestA2Admission:
         estimand = build(profile, claim, snapshot)
         applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
         value = AssessmentValue(
-            spec="spec-1", run="run-1", proposition=claim_identity(claim), outcome="supported",
-            interpretation_rule="rank-comparison/v1", estimand=estimand, applicability=applicability,
+            spec="spec-1",
+            run="run-1",
+            proposition=claim_identity(claim),
+            outcome="supported",
+            interpretation_rule="rank-comparison/v1",
+            estimand=estimand,
+            applicability=applicability,
             estimate=Decimal("-0.42"),
         )
         assert value.estimate == Decimal("-0.42") and value.uncertainty is None
@@ -167,9 +180,13 @@ def test_a_surrogate_family_as_one_contrast_refuses_at_the_fragment(profile, cla
     # refuses that by name rather than flattening it (§3.3).
     with pytest.raises(EstimandFragmentRefused, match="one contrast") as excinfo:
         build_estimand(
-            profile, claim, snapshot=snapshot,
+            profile,
+            claim,
+            snapshot=snapshot,
             **parts(),
-            second_contrast=LevelsContrast(slot=1, baseline=Referent(PROC, "fourier-phase-randomized"), comparison=Referent(PROC, "aaft")),
+            second_contrast=LevelsContrast(
+                slot=1, baseline=Referent(PROC, "fourier-phase-randomized"), comparison=Referent(PROC, "aaft")
+            ),
         )
     assert "second_contrast" in str(excinfo.value)
 
@@ -179,7 +196,12 @@ def test_a_lag_range_as_a_continuous_contrast_over_an_absent_slot_refuses_with_t
     # is 2 (`Fin(2) = {0, 1}`), so slot 2 is outside it and the refusal names
     # the slot.
     with pytest.raises(ContrastRefused, match="slot 2") as excinfo:
-        build(profile, claim, snapshot, contrast=ContinuousContrast(slot=2, quantity=Referent(STAT, "co-trev-1-num"), increment=Decimal(1)))
+        build(
+            profile,
+            claim,
+            snapshot,
+            contrast=ContinuousContrast(slot=2, quantity=Referent(STAT, "co-trev-1-num"), increment=Decimal(1)),
+        )
     assert "Fin(2)" in str(excinfo.value)
 
 
@@ -213,18 +235,30 @@ def test_the_nulls_central_band_refuses_a_rejecting_estimate_but_admits_a_non_re
         check_uncertainty(band, Decimal("-0.42"), "additive")
     with pytest.raises(MalformedRecord, match=exact):
         AssessmentValue(
-            spec="spec-1", run="run-1", proposition=claim_identity(claim), outcome="supported",
-            interpretation_rule="rank-comparison/v1", estimand=estimand, applicability=applicability,
-            estimate=Decimal("-0.42"), uncertainty=band,
+            spec="spec-1",
+            run="run-1",
+            proposition=claim_identity(claim),
+            outcome="supported",
+            interpretation_rule="rank-comparison/v1",
+            estimand=estimand,
+            applicability=applicability,
+            estimate=Decimal("-0.42"),
+            uncertainty=band,
         )
 
     # Admitted: inside the band, under a label that would in fact be false —
     # built as a real `AssessmentValue`, with its typed members asserted.
     check_uncertainty(band, Decimal("0.05"), "additive")
     value = AssessmentValue(
-        spec="spec-1", run="run-1", proposition=claim_identity(claim), outcome="inconclusive",
-        interpretation_rule="rank-comparison/v1", estimand=estimand, applicability=applicability,
-        estimate=Decimal("0.05"), uncertainty=band,
+        spec="spec-1",
+        run="run-1",
+        proposition=claim_identity(claim),
+        outcome="inconclusive",
+        interpretation_rule="rank-comparison/v1",
+        estimand=estimand,
+        applicability=applicability,
+        estimate=Decimal("0.05"),
+        uncertainty=band,
     )
     assert value.estimate == Decimal("0.05")
     assert value.uncertainty == band
@@ -238,8 +272,13 @@ def test_a_float_estimate_refuses_and_is_never_coerced(profile, claim, snapshot)
     applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
     with pytest.raises(MalformedRecord, match="Decimal"):
         AssessmentValue(
-            spec="spec-1", run="run-1", proposition=claim_identity(claim), outcome="supported",
-            interpretation_rule="rank-comparison/v1", estimand=estimand, applicability=applicability,
+            spec="spec-1",
+            run="run-1",
+            proposition=claim_identity(claim),
+            outcome="supported",
+            interpretation_rule="rank-comparison/v1",
+            estimand=estimand,
+            applicability=applicability,
             estimate=-0.42,  # type: ignore[arg-type]
         )
     with pytest.raises(UncertaintyRefused, match="Decimal"):
@@ -264,14 +303,26 @@ class TestCommensuration:
         # `within-series-surrogate`; a distinct scheme is legitimate test data
         # for the sort, not a member the fragment lacks.
         binding = profile.sorts[IDENT].vocabulary
-        readable = build_snapshot(readable={
-            profile.sorts[SERIES].vocabulary: [RECORD],
-            profile.sorts[PROC].vocabulary: ["identity", "fourier-phase-randomized", "aaft"],
-            profile.sorts[STAT].vocabulary: ["co-trev-1-num", "co-trev-2-num"],
-            binding: ["within-series-surrogate", "block-bootstrap-surrogate"],
-        })
-        a = build(profile, claim, readable, control=Control(identification=Referent(IDENT, "within-series-surrogate"), conditioning=()))
-        b = build(profile, claim, readable, control=Control(identification=Referent(IDENT, "block-bootstrap-surrogate"), conditioning=()))
+        readable = build_snapshot(
+            readable={
+                profile.sorts[SERIES].vocabulary: [RECORD],
+                profile.sorts[PROC].vocabulary: ["identity", "fourier-phase-randomized", "aaft"],
+                profile.sorts[STAT].vocabulary: ["co-trev-1-num", "co-trev-2-num"],
+                binding: ["within-series-surrogate", "block-bootstrap-surrogate"],
+            }
+        )
+        a = build(
+            profile,
+            claim,
+            readable,
+            control=Control(identification=Referent(IDENT, "within-series-surrogate"), conditioning=()),
+        )
+        b = build(
+            profile,
+            claim,
+            readable,
+            control=Control(identification=Referent(IDENT, "block-bootstrap-surrogate"), conditioning=()),
+        )
         assert commensurable(a, b)
 
     def test_co_scoped_holds_for_the_empty_applicability_on_both_pairs(self, profile, claim, snapshot):
