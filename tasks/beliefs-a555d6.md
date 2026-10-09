@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: main
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:10:29Z
+updated: 2026-10-09T17:11:05Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -49,3 +49,6 @@ Verification:
 - 2026-10-09T17:01:36Z (main): started
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-09T17:08:57Z (chore/ruff-format-gate): pilot 2026-10-09 (worktree, discarded): exclude = 52 existing pinned python/ targets + cut 4's unpinned cited surface (guard, declaration, runner) = 56 files; ruff format touches 314 others; pins all hold; 70 audited arms stale across 27 live guards, 3 newly stale cited arms (cut 10); 5 displaced suppression comments (2 noqa, 3 type: ignore); test-fast otherwise green; all 70 re-targets derive mechanically with exact equivalence (format(sabotaged pre-format) == re-targeted arm applied to formatted)
+- 2026-10-09T17:11:04Z (chore/ruff-format-gate): correction to the pilot note: the protected set is 55 existing files (52 pinned + cut 4's 3); the pilot's 56 included the removed n2_arms_cut25.py. 28 live guards affected, not 27.
+- 2026-10-09T17:11:04Z (chore/ruff-format-gate): parked (waiting on user, review): user reviews docs/superpowers/specs/2026-10-09-ruff-format-gate-design.md (commit 4f1addf in .worktrees/ruff-format-gate); on approval the agent writes the implementation plan
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
