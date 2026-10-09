@@ -104,3 +104,42 @@ def test_a_coding_cookie_moved_below_line_two_breaks() -> None:
 def test_unparseable_input_breaks() -> None:
     assert not same(FORMATTED, FORMATTED + b"def (:\n")
     assert not same(b"x = 1\n", b"x = 1\0\n")
+
+
+# Four header lines, so the line-1-2 rule cannot decide a comment-move verdict.
+HEADER = b'"""A frozen declaration."""\n\nfrom n2_arms import Arm\n\n'
+
+
+def test_a_comment_moved_between_statements_of_one_def_breaks() -> None:
+    assert not same(
+        HEADER + b"def f():\n    a = 1\n    # note\n    b = 2\n    c = 3\n",
+        HEADER + b"def f():\n    a = 1\n    b = 2\n    # note\n    c = 3\n",
+    )
+
+
+def test_a_comment_moved_between_statements_of_one_class_breaks() -> None:
+    assert not same(
+        HEADER + b"class C:\n    a = 1\n    # note\n    b = 2\n    c = 3\n",
+        HEADER + b"class C:\n    a = 1\n    b = 2\n    # note\n    c = 3\n",
+    )
+
+
+def test_a_comment_moved_from_an_if_body_to_its_else_body_breaks() -> None:
+    assert not same(
+        HEADER + b"if x:\n    a = 1\n    # note\nelse:\n    b = 2\n",
+        HEADER + b"if x:\n    a = 1\nelse:\n    # note\n    b = 2\n",
+    )
+
+
+def test_a_comment_moved_between_arms_of_one_tuple_breaks() -> None:
+    assert not same(
+        HEADER + b"ARMS = (\n    Arm(row='Q1'),\n    # --- Q2:\n    Arm(row='Q2'),\n    Arm(row='Q2'),\n)\n",
+        HEADER + b"ARMS = (\n    Arm(row='Q1'),\n    Arm(row='Q2'),\n    # --- Q2:\n    Arm(row='Q2'),\n)\n",
+    )
+
+
+def test_a_trailing_comment_moved_between_dict_entries_breaks() -> None:
+    assert not same(
+        HEADER + b'FROZEN_X = {\n    "a.py": "1",  # cut 1\n    "b.py": "2",\n}\n',
+        HEADER + b'FROZEN_X = {\n    "a.py": "1",\n    "b.py": "2",  # cut 1\n}\n',
+    )
