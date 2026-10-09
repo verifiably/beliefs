@@ -79,13 +79,19 @@ def equivalent(original: bytes, current: bytes, *, path: str) -> bool
      reviewer's latin-1 case (a moved cookie turning `'é'` into `'Ã©'`) differs here as
      well as in rule 1.
   3. **Comment attachment.** Each `COMMENT` token is reduced to its exact text plus an
-     anchor, and the two sequences must be equal. The anchor is the statement the
-     comment belongs to, named by its index in a pre-order walk of every `ast.stmt`
-     (both trees are equal, so the indexes correspond). It is the innermost statement
-     whose `lineno..end_lineno` contains the comment's line. A comment on a line no
-     statement covers is anchored *before* the first statement that starts after it, or
-     at the end of the module. A comment moved to a different statement therefore breaks
-     the pin. A comment on line 1 or 2 (a shebang or a cookie) also keeps its line number.
+     anchor, and the two sequences must be equal. The anchor has four parts. Statements
+     and positioned nodes are named by their index in a pre-order walk of the tree (both
+     trees are equal, so the indexes correspond). The parts are: the innermost statement
+     whose `lineno..end_lineno` contains the comment's line, or none; the first
+     statement that starts after that line; the first positioned AST node of any kind
+     (any node with a `lineno`) that starts after that line, each numbered past the end
+     when there is none; and the count of `else` and `finally` keyword tokens before the
+     comment, since those keywords have no node of their own. A comment moved to a
+     different statement, to another branch of one statement, or between the elements of
+     one multi-line expression therefore breaks the pin. A comment moved between a
+     decorator and its `def` still holds, because the `def` is visited before its
+     decorators. A comment on line 1 or 2 (a shebang or a cookie) also keeps its line
+     number.
   4. **Directive lines.** A directive comment is one whose text matches
      `#\s*(type:|noqa|pyright:|mypy:|pragma|fmt:|isort:|ruff:)`, case-insensitively.
      Its physical line's code, meaning the text before the comment decoded with the
