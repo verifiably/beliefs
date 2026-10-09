@@ -4,7 +4,7 @@ title: A conformance-cut arm for _closing_hold's currency check
 status: shelved
 priority: 2
 created: 2026-10-09T11:31:49Z
-updated: 2026-10-09T11:32:03Z
+updated: 2026-10-09T23:10:53Z
 depends: []
 tags: [holdings, conformance]
 source: beliefs-27d500
@@ -15,3 +15,4 @@ From beliefs-27d500 item 14 (cut-35 final review, deferred minor). `src/session/
 ## Notes
 
 - 2026-10-09T11:32:03Z (main): shelved: Wake when a conformance cut's lane rewrites session/writer.py: that cut's plan declares this arm as a ride-along
+- 2026-10-09T23:10:53Z (freeze-pins-modulo-format): n2_arms_cut38.py was formatted by beliefs-ea5ec7 (ea6393a); a cited line number in it is read at the last byte-exact commit 3ae5a96 (frozen guard doctrine §8)
