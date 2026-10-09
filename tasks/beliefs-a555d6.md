@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:42:08Z
+updated: 2026-10-09T17:42:44Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -69,3 +69,5 @@ Verification:
 - 2026-10-09T17:42:06Z (chore/ruff-format-gate): resumed
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-09T17:42:06Z (chore/ruff-format-gate): plan written: docs/superpowers/plans/2026-10-09-ruff-format-gate.md, 6 steps; dry run of its tool and tests: 9/9 tests pass, derive on a scratch reformat gives 70 derived, 0 refused
+- 2026-10-09T17:42:44Z (chore/ruff-format-gate): parked (waiting on user, review): user reviews docs/superpowers/plans/2026-10-09-ruff-format-gate.md and picks the execution method; then the agent executes Task 1 in .worktrees/ruff-format-gate
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
