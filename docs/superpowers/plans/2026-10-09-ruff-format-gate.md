@@ -23,6 +23,7 @@
 - Acceptance-touching runs start from the canonical path: `cd "$(pwd -P)"` inside the worktree first (an `open_root` ELOOP otherwise comes from the `.worktrees` symlink, not a regression).
 - Long runs (the cut chain, `just gate`) go through Bash `run_in_background: true` with `set -o pipefail` and `tee` into `.work/ruff-format-gate/`, with a timeout that covers the run; never `nohup`, `&`, or `detached.sh`.
 - Use conventional commits and no AI attribution trailer, co-author line, or session URL.
+- Each task has a child record: Task 1 `beliefs-e02c1c`, Task 2 `beliefs-671156`, Task 3 `beliefs-83b412`, Task 4 `beliefs-b4d5c8`, Task 5 `beliefs-386cc1`, Task 6 `beliefs-3b1bb8`. Run `tasks start <child>` in the worktree before the task's first change and `tasks done <child> "<what landed>"` with the task's record staged into its commit — except Task 3, whose commit stays pure: close `beliefs-83b412` in a record-only commit right after it. The parent `beliefs-a555d6` closes last (Task 6 Step 7); `tasks done` refuses a parent with an open child.
 
 ## Review Focus
 
@@ -708,11 +709,12 @@ From `python/`: `uv run --frozen ruff format .`
 Expected: `313 files reformatted, 197 files left unchanged` (counts may differ if `main` moved; record the actual). Then confirm no protected file changed:
 
 ```bash
-PROTECTED=$(uv run --frozen python -c "import sys, pathlib; sys.path.insert(0, 'tests'); import frozen_guards; print(' '.join(sorted(frozen_guards.protected_paths(pathlib.Path('..').resolve()))))")
-git diff --quiet -- $PROTECTED && echo "no protected file changed"
+uv run --frozen python -c "import sys, pathlib; sys.path.insert(0, 'tests'); import frozen_guards; print('\n'.join(sorted(frozen_guards.protected_paths(pathlib.Path('..').resolve()))))" > ../.work/ruff-format-gate/protected.txt
+wc -l < ../.work/ruff-format-gate/protected.txt
+xargs git diff --quiet -- < ../.work/ruff-format-gate/protected.txt && echo "no protected file changed"
 ```
 
-Expected: `no protected file changed`.
+Expected: `56` (one path per line, so each is its own pathspec), then `no protected file changed`. The list goes through a file and `xargs` rather than an unquoted variable, because zsh does not word-split `$VAR` and would hand git one nonexistent combined path that never differs.
 
 - [ ] **Step 3: Move the displaced suppression comments back**
 
@@ -905,11 +907,13 @@ Expected: all pass.
 From the worktree root, after `cd "$(pwd -P)"`:
 
 ```bash
-MODS=$(cd python && uv run --frozen python -c "import sys, pathlib; sys.path.insert(0, 'tests'); import frozen_guards; print(' '.join('tests/acceptance/' + g.name for g in frozen_guards.live_guards(pathlib.Path('..').resolve())))")
-just test-one $MODS -k "not sabotage and not pilot_arm and not live_check and not audit and not mutation and not vacuous"
+mkdir -p .work/ruff-format-gate
+(cd python && uv run --frozen python -c "import sys, pathlib; sys.path.insert(0, 'tests'); import frozen_guards; print('\n'.join('tests/acceptance/' + g.name for g in frozen_guards.live_guards(pathlib.Path('..').resolve())))") > .work/ruff-format-gate/live-guards.txt
+wc -l < .work/ruff-format-gate/live-guards.txt
+xargs just test-one -k "not sabotage and not pilot_arm and not live_check and not audit and not mutation and not vacuous" < .work/ruff-format-gate/live-guards.txt
 ```
 
-Expected: 0 failed (about 290 selected, about 3 minutes). Every pin form a guard enforces — table, scalar digest, scalar commit, results-record check — runs here.
+Expected: `39` guard modules, then 0 failed (about 290 selected, about 3 minutes). As in Task 3, the list goes through `xargs`, so each module is its own argument under bash and zsh alike. Every pin form a guard enforces — table, scalar digest, scalar commit, results-record check — runs here.
 
 - [ ] **Step 9: Run the mutation pilot**
 
@@ -1035,24 +1039,39 @@ set -o pipefail && just gate 2>&1 | tee .work/ruff-format-gate/gate.log
 
 Expected: exit 0; record the pytest summary lines.
 
-- [ ] **Step 4: Record and close**
+- [ ] **Step 4: Record the verification**
 
 ```bash
 tasks note beliefs-a555d6 "verification: cut-46 chain passed (<phases> phases, <s> s pytest), just gate passed (<summary>)"
-tasks check
+git add tasks/
+git commit -m "chore(tasks): record beliefs-a555d6 verification"
+```
+
+- [ ] **Step 5: Final whole-branch review**
+
+The executing skill's final review runs over `main..chore/ruff-format-gate`, with corrective rounds for its Critical and Important findings. A fix touching guards or the kernel reruns Task 4 Steps 6–10, and Steps 2–3 here, before landing.
+
+- [ ] **Step 6: Land**
+
+Re-run Step 1's checks, then from the main checkout:
+
+```bash
+git merge --no-ff chore/ruff-format-gate -m "merge: ruff format in the gate (beliefs-a555d6)"
+just check
+```
+
+Expected: the merge applies cleanly and `just check` passes on `main`. The merge is a local merge in a personal repository; pushing is a separate step for the user.
+
+- [ ] **Step 7: Close the child, then the parent**
+
+From the main checkout, after the merge:
+
+```bash
+tasks done beliefs-3b1bb8 "cut-46 chain and just gate passed at the branch tip; merged at <merge short hash>"
 tasks done beliefs-a555d6 "ruff format enforced in just check; 313 files reformatted at <REFORMAT short>, 56 freeze-protected files excluded; 70 live arms re-targeted mechanically, cut 10's 3 recorded"
+tasks check
 git add tasks/
 git commit -m "chore(tasks): close beliefs-a555d6"
 ```
 
-`tasks check` must print nothing; report any warning.
-
-- [ ] **Step 5: Land (after the final whole-branch review clears)**
-
-From the main checkout:
-
-```bash
-git merge --no-ff chore/ruff-format-gate -m "merge: ruff format in the gate (beliefs-a555d6)"
-```
-
-Then run `just check` on `main`. The merge is a local merge in a personal repository; pushing is a separate step for the user.
+`tasks done beliefs-a555d6` refuses while any child is open, so every other child must already be done (each closed with its task). `tasks check` must print nothing; report any warning. Then remove the worktree under the global rules: `tt-report`, the ignored-file check, `git worktree unlock`, `git worktree remove`.
