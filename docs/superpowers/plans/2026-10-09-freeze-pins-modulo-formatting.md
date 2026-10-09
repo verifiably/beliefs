@@ -74,8 +74,9 @@ tests/n2_arms_cut7.py
 ```
 
 - The live-guard pin-check selection is
-  `just test-one $GUARDS -k "frozen or byte_exact or unchanged"`, where
-  `GUARDS=$(for n in 6 7 9 $(seq 11 46); do printf "tests/acceptance/test_n2_cut%s.py " $n; done)`.
+  `just test-one "${GUARDS[@]}" -k "frozen or byte_exact or unchanged"`, where `GUARDS` is
+  an array (zsh passes an unquoted scalar as one argument, and so would bash with a quoted one):
+  `GUARDS=(); for n in 6 7 9 $(seq 11 46); do GUARDS+=("tests/acceptance/test_n2_cut$n.py"); done`. The form works in both shells.
   Today it passes 96 tests with 338 deselected, in about 6 s.
 
 ---
@@ -437,6 +438,10 @@ def test_an_absence_pin_holds_only_while_the_target_stays_absent(scratch_repo) -
     pin = _commit(scratch_repo, {"other.py": FORMATTED})
     assert frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
 
+    (scratch_repo / "arms.py").symlink_to("missing.py")  # dangling, yet an entry exists
+    assert not frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
+
+    (scratch_repo / "arms.py").unlink()
     (scratch_repo / "arms.py").write_bytes(FORMATTED)
     assert not frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
 
@@ -533,6 +538,7 @@ Expected: the ten new tests fail with `AttributeError: module 'frozen_guards' ha
 
 ```python
 import ast
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -594,7 +600,7 @@ def commit_pin_holds(repo_root: Path, target: str, commit: str) -> bool:
     original = _blob(root, commit, target)
     path = root / target
     if original is None:
-        return not path.exists()
+        return not os.path.lexists(path)  # a dangling symlink is present
     return path.is_file() and pin_equivalence.equivalent(original, path.read_bytes(), path=target)
 
 
@@ -700,8 +706,8 @@ Expected: `34 files changed`.
 
 ```bash
 cd "$(pwd -P)"
-GUARDS=$(for n in 6 7 9 $(seq 11 46); do printf "tests/acceptance/test_n2_cut%s.py " $n; done)
-just test-one $GUARDS -k "frozen or byte_exact or unchanged" -p no:cacheprovider
+GUARDS=(); for n in 6 7 9 $(seq 11 46); do GUARDS+=("tests/acceptance/test_n2_cut$n.py"); done
+just test-one "${GUARDS[@]}" -k "frozen or byte_exact or unchanged" -p no:cacheprovider
 ```
 
 Expected: `12 failed, 84 passed, 338 deselected`. The failures are the working-file checks: the declaration digests of cuts 28–32, 35, 37, 38, 45 and 46, and the content pins of cuts 14 and 17. The commit-pin loops still pass because `git diff … HEAD` cannot see an uncommitted format, which is why the old code would fail them only after Task 4.
@@ -823,8 +829,8 @@ Expected: `34 files reformatted`, `34 files changed`, and the check passes. The 
 ```bash
 cd "$(pwd -P)"
 just test-one tests/test_frozen_guards.py tests/test_pin_equivalence.py tests/test_arm_staleness.py
-GUARDS=$(for n in 6 7 9 $(seq 11 46); do printf "tests/acceptance/test_n2_cut%s.py " $n; done)
-just test-one $GUARDS -k "frozen or byte_exact or unchanged" -p no:cacheprovider
+GUARDS=(); for n in 6 7 9 $(seq 11 46); do GUARDS+=("tests/acceptance/test_n2_cut$n.py"); done
+just test-one "${GUARDS[@]}" -k "frozen or byte_exact or unchanged" -p no:cacheprovider
 ```
 
 Expected: `42 passed`, then `96 passed, 338 deselected`.
@@ -962,8 +968,8 @@ Expected: exit 0, and the summary lines show the portable, N2 and TypeScript pha
 
 ```bash
 cd "$(pwd -P)/python"
-GUARDS=$(for n in 6 7 9 $(seq 11 46); do printf "tests/acceptance/test_n2_cut%s.py " $n; done)
-cd .. && just test-one tests/test_frozen_guards.py && just test-one $GUARDS -k "frozen or byte_exact or unchanged" -p no:cacheprovider
+GUARDS=(); for n in 6 7 9 $(seq 11 46); do GUARDS+=("tests/acceptance/test_n2_cut$n.py"); done
+cd .. && just test-one tests/test_frozen_guards.py && just test-one "${GUARDS[@]}" -k "frozen or byte_exact or unchanged" -p no:cacheprovider
 ```
 
 `test_every_pin_in_a_live_guard_holds` and `test_every_pin_the_registry_records_as_falsified_really_is` passing on `HEAD` is the "new reader after the format commit" point. The `f134ee9` point is recorded in **Measured inputs** above. The Task 2 Step 4 run is the middle point.
