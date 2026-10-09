@@ -6,9 +6,7 @@ from importlib import resources
 def test_qualify_source_is_generated_from_the_shared_shape() -> None:
     shared = resources.files("beliefs.intents").joinpath("holdings.py").read_bytes()
     generated = resources.files("beliefs.holdings").joinpath("qualify.py").read_bytes()
-    header, _, body = generated.partition(
-        b"\n# Edit the source and regenerate; hand edits here are discarded.\n"
-    )
+    header, _, body = generated.partition(b"\n# Edit the source and regenerate; hand edits here are discarded.\n")
     assert header.startswith(b"# GENERATED from beliefs/intents/holdings.py")
     assert body == shared
 

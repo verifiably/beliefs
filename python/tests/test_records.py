@@ -71,10 +71,20 @@ class TestTheFacetDigest:
 
         base = assessment()
         assert base.facet_digest() != assessment(estimate=Decimal("0.4")).facet_digest()
-        assert assessment(estimate=Decimal("0.4")).facet_digest() != assessment(estimate=Decimal("0.4"), uncertainty=Interval(Decimal("0.1"), Decimal("0.7"), Decimal("0.95"))).facet_digest()
-        assert assessment(estimate=Decimal("0.4"), uncertainty=StandardError(Decimal("0.1"))).facet_digest() != assessment(estimate=Decimal("0.4")).facet_digest()
+        assert (
+            assessment(estimate=Decimal("0.4")).facet_digest()
+            != assessment(
+                estimate=Decimal("0.4"), uncertainty=Interval(Decimal("0.1"), Decimal("0.7"), Decimal("0.95"))
+            ).facet_digest()
+        )
+        assert (
+            assessment(estimate=Decimal("0.4"), uncertainty=StandardError(Decimal("0.1"))).facet_digest()
+            != assessment(estimate=Decimal("0.4")).facet_digest()
+        )
         assert base.facet_digest() != assessment(estimand=typed_estimand(reference=Decimal(1))).facet_digest()
-        adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
+        adults = typed_applicability(
+            {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))}
+        )
         assert base.facet_digest() != assessment(applicability=adults).facet_digest()
 
     def test_typed_projection_carries_estimand_and_applicability_always_and_the_optionals_only_when_present(self):
@@ -126,9 +136,16 @@ class TestTheStoredReaderRefusesWhatTheConstructorWould:
         from beliefs.identity import v1
 
         node = stored.assessment_node(
-            "a1", title="a1", spec="spec-1", run="run:run-1", proposition="prop-1",
-            outcome="supported", interpretation_rule="rule-1",
-            estimand=typed_estimand(), applicability=typed_applicability(), estimate=Decimal("0.4"),
+            "a1",
+            title="a1",
+            spec="spec-1",
+            run="run:run-1",
+            proposition="prop-1",
+            outcome="supported",
+            interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+            estimate=Decimal("0.4"),
         )
         typed = cast(dict, v1.decode(node.facets[stored.ASSESSMENT_FACET]["typed"].encode("utf-8")))
         typed["uncertainty"] = {"kind": "standard-error", "value": Decimal("-0.1")}
@@ -150,9 +167,16 @@ class TestTheStoredReaderRefusesWhatTheConstructorWould:
         # error above does — the same `UncertaintyRefused`, two call sites, one
         # decoder (the concern `uncertainty_from_mapping` exists to close).
         node = stored.assessment_node(
-            "a1", title="a1", spec="spec-1", run="run:run-1", proposition="prop-1",
-            outcome="supported", interpretation_rule="rule-1",
-            estimand=typed_estimand(), applicability=typed_applicability(), estimate=Decimal("0.4"),
+            "a1",
+            title="a1",
+            spec="spec-1",
+            run="run:run-1",
+            proposition="prop-1",
+            outcome="supported",
+            interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+            estimate=Decimal("0.4"),
         )
         typed = cast(dict, v1.decode(node.facets[stored.ASSESSMENT_FACET]["typed"].encode("utf-8")))
         typed["uncertainty"] = {"kind": "confidence-band", "value": Decimal("0.1")}
@@ -167,9 +191,15 @@ class TestTheStoredReaderRefusesWhatTheConstructorWould:
         from beliefs.errors import PreGrammarAssessment
 
         node = stored.assessment_node(
-            "a1", title="a1", spec="spec-1", run="run:run-1", proposition="prop-1",
-            outcome="supported", interpretation_rule="rule-1",
-            estimand=typed_estimand(), applicability=typed_applicability(),
+            "a1",
+            title="a1",
+            spec="spec-1",
+            run="run:run-1",
+            proposition="prop-1",
+            outcome="supported",
+            interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
         del node.facets[stored.ASSESSMENT_FACET]["typed"]
         node.facets[stored.ASSESSMENT_FACET]["estimand"] = "the effect of x on y"

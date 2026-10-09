@@ -47,13 +47,20 @@ def inputs(case, acceptance):
     world, _roots, epoch, a, b, profile = case
     view = open_world_view(world, epoch)
     kwargs = world_kwargs(view, profile, a, b)
-    return gather(view, "proposition:p", **{key: kwargs[key] for key in ("context", "profile", "resolution", "binding")}, acceptance=acceptance)
+    return gather(
+        view,
+        "proposition:p",
+        **{key: kwargs[key] for key in ("context", "profile", "resolution", "binding")},
+        acceptance=acceptance,
+    )
 
 
 def answer(case, acceptance):
     world, _roots, epoch, a, b, profile = case
     view = open_world_view(world, epoch)
-    return evaluate_over_traced(view, "proposition:p", **over_kwargs(world_kwargs(view, profile, a, b)), acceptance=acceptance)
+    return evaluate_over_traced(
+        view, "proposition:p", **over_kwargs(world_kwargs(view, profile, a, b)), acceptance=acceptance
+    )
 
 
 def published(case):
@@ -86,13 +93,29 @@ def test_verification_twin_edges(case):
     writer = _writer(roots[a], profile, world)
     rejected = twin(writer)
     identity = stored.assessment_value(rejected, profile=profile).identity()
-    failure = writer.add(stored.verification_node("failure", title="failure", assessment=identity,
-        assessment_ref=rejected.id, scope="clean-environment", verdict="failed"))
+    failure = writer.add(
+        stored.verification_node(
+            "failure",
+            title="failure",
+            assessment=identity,
+            assessment_ref=rejected.id,
+            scope="clean-environment",
+            verdict="failed",
+        )
+    )
     case = published(case)
     _result, admission = answer(case, policy(rejected.id))
     assert isinstance(admission, Reached) and identity not in admission.admitted
-    passed = writer.add(stored.verification_node("pass-twin", title="pass", assessment=identity,
-        assessment_ref=rejected.id, scope="clean-environment", verdict="passed"))
+    passed = writer.add(
+        stored.verification_node(
+            "pass-twin",
+            title="pass",
+            assessment=identity,
+            assessment_ref=rejected.id,
+            scope="clean-environment",
+            verdict="passed",
+        )
+    )
     case = published(case)
     _result, admission = answer(case, policy(rejected.id, failure.id, "verification:v-1"))
     assert isinstance(admission, Reached) and identity in admission.admitted
@@ -105,13 +128,36 @@ def test_node_and_route_corrections(case):
     root = writer.retract(retracts(writer.read_view.get("assessment:a-1"), "node"))
     case = published(case)
     assert len(inputs(case, policy(root.id)).assessments) == len(inputs(case, policy()).assessments) + 1
-    dataset = writer.add(stored.dataset_node(title="derived", resources=pinned("cut45-derived"),
-        basis={"tag": "single", "routes": [{"identity": "route:one", "run": "run:run-a",
-            "ancestor": dataset_ref("d-a"), "transforms": [dataset_ref("d-a")]}]}))
+    dataset = writer.add(
+        stored.dataset_node(
+            title="derived",
+            resources=pinned("cut45-derived"),
+            basis={
+                "tag": "single",
+                "routes": [
+                    {
+                        "identity": "route:one",
+                        "run": "run:run-a",
+                        "ancestor": dataset_ref("d-a"),
+                        "transforms": [dataset_ref("d-a")],
+                    }
+                ],
+            },
+        )
+    )
     digest = stored.stored_semantic_hash(dataset)
     assert digest is not None
-    route = writer.retract(stored.retraction_node(title="route", target=stored.RouteTarget(dataset.id, dataset.id, digest, "route:one"),
-        reason="wrong-route", rationale="fixture", grounds=("verification:v-1",), actor=ACTOR, event_token="route"))
+    route = writer.retract(
+        stored.retraction_node(
+            title="route",
+            target=stored.RouteTarget(dataset.id, dataset.id, digest, "route:one"),
+            reason="wrong-route",
+            rationale="fixture",
+            grounds=("verification:v-1",),
+            actor=ACTOR,
+            event_token="route",
+        )
+    )
     case = published(case)
     view = open_world_view(world, case[2])
     kwargs = world_kwargs(view, profile, a, b)
@@ -134,8 +180,13 @@ def test_counter_and_receipt_fidelity(case):
     unrelated = writer.retract(retracts(writer.read_view.get("assessment:a-2"), "unrelated"))
     case = published(case)
     view = open_world_view(world, case[2])
-    enumeration = replace(view.retraction_enumeration(), found=tuple(
-        (ref, RETRACTION_UPHELD if ref == root.id else resolution) for ref, resolution in view.retraction_enumeration().found))
+    enumeration = replace(
+        view.retraction_enumeration(),
+        found=tuple(
+            (ref, RETRACTION_UPHELD if ref == root.id else resolution)
+            for ref, resolution in view.retraction_enumeration().found
+        ),
+    )
     # Adversarial packaging fixture; honest counters above use durable retract.
     receipt = document(case[2], "retraction-receipt.yaml")
     receipt["enumeration"] = derive.retraction_enumeration_projection(enumeration)
@@ -167,16 +218,20 @@ def test_snapshot_filter_and_history(case):
 
 def test_completed_and_incomplete_reports(case, monkeypatch):
     a = case[3]
+
     def early(*_args, **_kwargs):
         raise FacetUndeclared("early")
+
     with monkeypatch.context() as patch:
         patch.setattr(stored, "assessment_value", early)
         result, admission = answer(case, policy("verification:v-2"))
         assert isinstance(result, Refused) and result.reason == "early"
         assert result.acceptance == AcceptanceContext("durable policy", (), False)
         assert admission == NotReached()
+
     def late(**_kwargs):
         raise ContractDisagreement("late")
+
     monkeypatch.setattr(evaluation, "consulted_contracts", late)
     result, admission = answer(case, policy("verification:v-2"))
     assert isinstance(result, Refused) and result.reason == "consulted-contracts-disagree: late"
@@ -199,11 +254,17 @@ def test_accept_all_refusal_parity(case):
     before, before_admission = answer(case, None)
     after, after_admission = answer(case, policy())
     assert isinstance(before, Belief) and isinstance(after, Belief)
-    assert (before.value, before.policy_binding, before_admission) == (after.value, after.policy_binding, after_admission)
+    assert (before.value, before.policy_binding, before_admission) == (
+        after.value,
+        after.policy_binding,
+        after_admission,
+    )
     world, roots, epoch, a, b, profile = case
     kwargs = over_kwargs(world_kwargs(open_world_view(world, epoch), profile, a, b))
     make_absent(roots, b)
     view = open_world_view(world, epoch)
     outcomes = [evaluate_over_traced(view, "proposition:p", **kwargs, acceptance=p) for p in (None, policy())]
-    assert all(isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent" and admission == NotReached()
-               for result, admission in outcomes)
+    assert all(
+        isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent" and admission == NotReached()
+        for result, admission in outcomes
+    )

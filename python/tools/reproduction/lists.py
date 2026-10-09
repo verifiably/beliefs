@@ -37,7 +37,12 @@ LISTS: dict[str, tuple[str, list[str]]] = {
     "measures": ("mm30-measures.txt", ["measure:rna-seq-tpm"]),
     "identifications": (
         "mm30-identifications.txt",
-        ["identification:interventional", "identification:longitudinal", "identification:observational", "identification:structural"],
+        [
+            "identification:interventional",
+            "identification:longitudinal",
+            "identification:observational",
+            "identification:structural",
+        ],
     ),
 }
 TITLES = {

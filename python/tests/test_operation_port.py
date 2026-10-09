@@ -96,9 +96,7 @@ def _registered_port(root):
 def _registrations(root):
     chain = science_root._log_seam().inspect_registered(root)
     assert type(chain) is WellFormedView
-    return [
-        entry for entry in chain.entries if type(entry) is RegisteredEntryView
-    ]
+    return [entry for entry in chain.entries if type(entry) is RegisteredEntryView]
 
 
 class TestTheStructuralPort:
@@ -208,10 +206,10 @@ class TestTheDurablePort:
         assert (mapped.value.index, mapped.value.applied) == (None, applied)
         assert mapped.value.__cause__ is raised
 
-    @pytest.mark.parametrize("mutation", ["append_intent", "execute", "execute_fulfilling", "execute_fulfilling_guarded"])
-    def test_every_mutation_takes_the_roots_operation_lock(
-        self, tmp_path, monkeypatch, mutation
-    ) -> None:
+    @pytest.mark.parametrize(
+        "mutation", ["append_intent", "execute", "execute_fulfilling", "execute_fulfilling_guarded"]
+    )
+    def test_every_mutation_takes_the_roots_operation_lock(self, tmp_path, monkeypatch, mutation) -> None:
         monkeypatch.setattr(science_root, "append_intent", lambda *_args: FULFILLS)
         monkeypatch.setattr(science_root.DurableExecutor, "execute", lambda *_args: None)
         port = durable_port(tmp_path)
@@ -230,9 +228,7 @@ class TestTheDurablePort:
 
 def test_execute_publishes_fulfilling_nothing(certified_work) -> None:
     port = _registered_port(certified_work)
-    port.execute(
-        [CreateOp(path="act-report/" + "a" * 64 + ".md", content=b"content")]
-    )
+    port.execute([CreateOp(path="act-report/" + "a" * 64 + ".md", content=b"content")])
     (registration,) = _registrations(certified_work)
     assert registration.fulfills is None
     assert (certified_work / "act-report" / ("a" * 64 + ".md")).read_bytes() == b"content"
@@ -295,13 +291,9 @@ def test_execute_surfaces_an_execution_failure_as_execution_error(certified_work
 def test_oversized_postimage_refuses_before_any_write(certified_work) -> None:
     port = _registered_port(certified_work)
     boundary = b"x" * RECORD_CEILING
-    port.execute(
-        [CreateOp(path="act-report/" + "c" * 64 + ".md", content=boundary)]
-    )
+    port.execute([CreateOp(path="act-report/" + "c" * 64 + ".md", content=boundary)])
     with pytest.raises(PlanRefusedError):
-        port.execute(
-            [CreateOp(path="act-report/" + "d" * 64 + ".md", content=boundary + b"x")]
-        )
+        port.execute([CreateOp(path="act-report/" + "d" * 64 + ".md", content=boundary + b"x")])
     with pytest.raises(PlanRefusedError):
         port.execute_fulfilling(
             [CreateOp(path="run/" + "e" * 64 + ".md", content=boundary + b"x")],

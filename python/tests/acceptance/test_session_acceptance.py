@@ -167,7 +167,9 @@ def test_a_store_root_without_a_genesis_refuses_before_any_ledger(work_directory
     store.mkdir()
     ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
     with pytest.raises(SessionRefused, match="store root"):
-        session_module.open_attended_session(config_for(work_directory, root), ops, write_root=root, profile=WITH_BIOLOGY, store_root=store)
+        session_module.open_attended_session(
+            config_for(work_directory, root), ops, write_root=root, profile=WITH_BIOLOGY, store_root=store
+        )
     assert not (ops / "sessions").exists()
 
 
@@ -365,7 +367,9 @@ def test_j1_coordination_writes_commit_as_operations(work_directory, base_contra
     ]
     session.close()
     # Negative: the two coordination methods through the ordinary CorpusWriter append no intent.
-    library = open_corpus(root, authority=FULL, coordination_resolver=CoordinationResolver({root: profile}), profile=profile)
+    library = open_corpus(
+        root, authority=FULL, coordination_resolver=CoordinationResolver({root: profile}), profile=profile
+    )
     minted = len(intents(root))
     other = library.mint_coordination("project", content=content_for("project", name="third"))
     library.revise_coordination(
@@ -376,14 +380,14 @@ def test_j1_coordination_writes_commit_as_operations(work_directory, base_contra
     )
     assert len(intents(root)) == minted
     # Negative: without the launcher's profile the two methods refuse at the act, as an unmounted writer does.
-    plain, _ = attended(work_directory, adopted(work_directory, "coord-plain", pins=pins_for(profile), profile=profile), profile=profile)
+    plain, _ = attended(
+        work_directory, adopted(work_directory, "coord-plain", pins=pins_for(profile), profile=profile), profile=profile
+    )
     unmounted = fresh(plain, "A", RequiredCapabilities.coordination())
     with pytest.raises(CoordinationUnavailable):
         unmounted.mint_coordination("project", content=content_for("project"))
     with pytest.raises(CoordinationUnavailable):
-        unmounted.revise_coordination(
-            "project", address, predecessors=[project.uid], content=content_for("project")
-        )
+        unmounted.revise_coordination("project", address, predecessors=[project.uid], content=content_for("project"))
     plain.close()
 
 
@@ -395,7 +399,9 @@ def test_j3_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(sess
     source = stored.source_node(title="s1", identifiers={"doi": "10.1234/s"})
     with pytest.raises(PermitExceeded) as caught:
         w.add(source)
-    assert caught.value.requirement == PermitFact("kind", "source") and caught.value.capability.kinds == ("proposition",)
+    assert caught.value.requirement == PermitFact("kind", "source") and caught.value.capability.kinds == (
+        "proposition",
+    )
     assert session.invocation_acts("A") == () and chain(root).tip == head
     with pytest.raises(PermitExceeded) as coordination:
         fresh(session, "B", RequiredCapabilities.coordination()).add(proposition("p"))
@@ -524,11 +530,21 @@ def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
     ):
         ops2 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
         with pytest.raises(SessionRefused):
-            open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), roots), ops2, write_root=roots[0] if roots else root, profile=WITH_BIOLOGY)
+            open_attended_session(
+                WorldConfig(work_directory / "w", secrets.token_hex(16), roots),
+                ops2,
+                write_root=roots[0] if roots else root,
+                profile=WITH_BIOLOGY,
+            )
         assert not (ops2 / "sessions").exists(), description
     ops3 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
     with pytest.raises(SessionRefused):
-        open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), (chainless,)), ops3, write_root=chainless, profile=WITH_BIOLOGY)
+        open_attended_session(
+            WorldConfig(work_directory / "w", secrets.token_hex(16), (chainless,)),
+            ops3,
+            write_root=chainless,
+            profile=WITH_BIOLOGY,
+        )
     assert not (ops3 / "sessions").exists()
     # An unreadable prior ledger — a directory where the file should be — is a finding, never a refusal to open.
     ops4 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
@@ -551,17 +567,17 @@ def test_j10_a_session_write_is_indistinguishable_on_ordinary_read(work_director
     a = {p.relative_to(twin_a).as_posix(): p.read_bytes() for p in twin_a.rglob("*.md")}
     b = {p.relative_to(twin_b).as_posix(): p.read_bytes() for p in twin_b.rglob("*.md")}
     assert a == b and a
-    assert corpus_check(open_corpus(twin_a, authority=FULL, profile=WITH_BIOLOGY).read_view, profile=WITH_BIOLOGY) == corpus_check(
-        open_corpus(twin_b, authority=FULL, profile=WITH_BIOLOGY).read_view
-    , profile=WITH_BIOLOGY)
+    assert corpus_check(
+        open_corpus(twin_a, authority=FULL, profile=WITH_BIOLOGY).read_view, profile=WITH_BIOLOGY
+    ) == corpus_check(open_corpus(twin_b, authority=FULL, profile=WITH_BIOLOGY).read_view, profile=WITH_BIOLOGY)
     assert inventory(twin_a) == inventory(twin_b)
     fresh(session, "B").delete("proposition:p1")
     (twin_b / "proposition" / "p1.md").unlink()
     assert {p.name for p in twin_a.rglob("*.md")} == {p.name for p in twin_b.rglob("*.md")}
     assert inventory(twin_a) == inventory(twin_b) == []
-    assert corpus_check(open_corpus(twin_a, authority=FULL, profile=WITH_BIOLOGY).read_view, profile=WITH_BIOLOGY) == corpus_check(
-        open_corpus(twin_b, authority=FULL, profile=WITH_BIOLOGY).read_view
-    , profile=WITH_BIOLOGY)
+    assert corpus_check(
+        open_corpus(twin_a, authority=FULL, profile=WITH_BIOLOGY).read_view, profile=WITH_BIOLOGY
+    ) == corpus_check(open_corpus(twin_b, authority=FULL, profile=WITH_BIOLOGY).read_view, profile=WITH_BIOLOGY)
     # Negative: the chains differ by exactly what the session added — two intents, and the
     # delete's registration and settlement that a raw unlink never appends.
     assert len(chain(twin_a).entries) == len(chain(twin_b).entries) + 4
@@ -579,7 +595,9 @@ def test_j11_a_writer_is_bound_to_one_invocation_durably(session_rig):
 
     def ledgered(invocation: str) -> list[str]:
         """The act lines the *file* holds for one invocation, read through a fresh reader."""
-        return [act.invocation for act in open_ledger_reader(ops, session.session_id).acts() if act.invocation == invocation]
+        return [
+            act.invocation for act in open_ledger_reader(ops, session.session_id).acts() if act.invocation == invocation
+        ]
 
     a = session.scoped(PROPOSITIONS, "A")
     head = chain(root).tip
@@ -620,7 +638,11 @@ def assessment_grounds(root: Path) -> None:
     session's own write is the assessment alone."""
     library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
     dataset = library.add(
-        stored.dataset_node(title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": FULL.actor})
+        stored.dataset_node(
+            title="raw",
+            resources=PINNED,
+            empirical_observation={"locator": "instrument:fixture", "attested_by": FULL.actor},
+        )
     )
     library.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
     library.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -658,7 +680,9 @@ def halting_session(work_directory: Path, root: Path) -> tuple[WriterSession, Ha
             authority=authority,
             profile=WITH_BIOLOGY,
         )
-        return CorpusWriter(root, durable_executor_factory(), authority=authority, operation_port=port, profile=WITH_BIOLOGY)
+        return CorpusWriter(
+            root, durable_executor_factory(), authority=authority, operation_port=port, profile=WITH_BIOLOGY
+        )
 
     session = WriterSession(
         session_id=session_id,
@@ -728,7 +752,9 @@ def test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_c
     # The next write settles first and sees the record.
     w.add(proposition("p2"))
     assert state_of(root).unresolved is False
-    assert open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view.get("proposition:p1").id == "proposition:p1"
+    assert (
+        open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view.get("proposition:p1").id == "proposition:p1"
+    )
 
 
 def test_j2_a_post_commit_rebuild_failure_on_delete_leaves_the_root_unresolved(session_rig, monkeypatch):
@@ -779,7 +805,11 @@ def test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(sessio
     findings = reconcile_sessions(config_for(ops.parent, root), ops)
     assert ("session-outcome-unknown", registration.digest) in [(f.code, f.ref) for f in findings]
     w.add(proposition("p2"))  # settles first and sees p1
-    assert state.unresolved is False and open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view.get("proposition:p1").id == "proposition:p1"
+    assert (
+        state.unresolved is False
+        and open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view.get("proposition:p1").id
+        == "proposition:p1"
+    )
 
 
 def test_j2_a_ledger_write_failure_after_commit_leaves_the_registration_uncovered(work_directory, monkeypatch):
@@ -924,7 +954,8 @@ def test_j2_the_halting_backends_skip_count_names_the_records_publish(work_direc
         storage=PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(root),
         authority=FULL,
-     profile=WITH_BIOLOGY)
+        profile=WITH_BIOLOGY,
+    )
     # The kind directory has to exist already: a transaction that must create it publishes
     # it too, one publish *before* the record's, which is why every arm that arms the halt
     # writes a record of the same kind first.
@@ -950,7 +981,8 @@ def test_j2_the_halting_backends_skip_count_names_the_records_publish(work_direc
         storage=PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(fresh_root),
         authority=FULL,
-     profile=WITH_BIOLOGY)
+        profile=WITH_BIOLOGY,
+    )
     first = fresh_port.append_intent(b"{}")
     fresh_backend.calls.clear()
     fresh_port._execute_fulfilling([CreateOp(path="proposition/first.md", content=b"first")], first)
@@ -971,9 +1003,9 @@ def test_j2_continuation_after_unresolved_effects_recovers_before_the_prepare(wo
     assert len(intents(root)) == intents_before + 1  # the intent landed; it is the transaction that halted
     view = chain(root)
     assert pending_registrations(root), "the halt must leave a pending registration"
-    assert any(
-        r.fulfills == intents_of_chain(view)[-1] for r in view.entries if type(r) is RegisteredEntryView
-    ), "the pending registration fulfills the new intent"
+    assert any(r.fulfills == intents_of_chain(view)[-1] for r in view.entries if type(r) is RegisteredEntryView), (
+        "the pending registration fulfills the new intent"
+    )
     # The engine unwinds its own staging on the way out but cannot publish its settlement, so what
     # stays staged is the chain entry itself — the bytes recovery resolves.
     stage = root / ".#~chain" / ".#~stage"
@@ -1119,8 +1151,12 @@ def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
     order.clear()
     other = open_corpus(adopted(work_directory, "other"), authority=FULL, profile=WITH_BIOLOGY)
     with pytest.raises(RelocationTargetMissing):
-        move(library, other, "proposition:mover", observer="o", instrument="i", opened_at=OPENED_AT, closed_at=CLOSED_AT)
-    assert order[0] == "settle" and "preflight-add" not in order  # settled first; the missing source refused before any preflight
+        move(
+            library, other, "proposition:mover", observer="o", instrument="i", opened_at=OPENED_AT, closed_at=CLOSED_AT
+        )
+    assert (
+        order[0] == "settle" and "preflight-add" not in order
+    )  # settled first; the missing source refused before any preflight
     # Mixed handle with staged effects: a portless durable writer over the same root recovers a halted
     # transaction through the factory's capability before its prepare.
     halted_root = adopted(work_directory, "halted-handle")
@@ -1349,7 +1385,9 @@ def test_a_holdings_write_through_the_scoped_writer_is_ledgered_against_the_chai
     session, ops = attended(work_directory, root, store_root=store)
     session.claim_invocation("A", "dataset", "d" * 64)
     writer = session.scoped(RequiredCapabilities.for_kinds({"holdings-observation"}, {}), "A")
-    published = write(writer.holdings_context(instrument="acceptance"), StoreLocator(writer.store_id, "held.bin"), b"held")
+    published = write(
+        writer.holdings_context(instrument="acceptance"), StoreLocator(writer.store_id, "held.bin"), b"held"
+    )
     (act,) = session.invocation_acts("A")
     session.close_invocation("A", {"done": [list(pair) for pair in act.record_ids]})
     session.close()
@@ -1372,10 +1410,14 @@ def test_a_run_publication_through_the_operation_port_is_ledgered_against_the_ch
     root = adopted(work_directory, "run-route")
     session, ops = attended(work_directory, root)
     session.claim_invocation("A", "run", "d" * 64)
-    writer = session.scoped(RequiredCapabilities.for_kinds({"run", "act-report"}, {"run": "run", "act-report": "run"}), "A")
+    writer = session.scoped(
+        RequiredCapabilities.for_kinds({"run", "act-report"}, {"run": "run", "act-report": "run"}), "A"
+    )
     port = writer.operation_port()
     closure = assessment_closure(freeze(spec_draft(), held_rules=spec_rules()))
-    intent = port.append_intent(v1.encode({"spec_identity": closure.recipe.spec_identity, "event_token": "tok", "actor": writer.actor}))
+    intent = port.append_intent(
+        v1.encode({"spec_identity": closure.recipe.spec_identity, "event_token": "tok", "actor": writer.actor})
+    )
     _address, _produces, plan = publication_plan(closure)
     entry = port.execute_fulfilling(plan, intent)
     (act,) = session.invocation_acts("A")

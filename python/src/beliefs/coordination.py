@@ -67,9 +67,7 @@ class CoordinationAddress:
             ("revision", self.revision),
         ):
             if value is not None and _HEX.fullmatch(value) is None:
-                raise ValueError(
-                    f"coordination address {name} must be 32 lowercase hexadecimal characters"
-                )
+                raise ValueError(f"coordination address {name} must be 32 lowercase hexadecimal characters")
 
     @classmethod
     def parse(cls, value: str) -> CoordinationAddress:
@@ -208,10 +206,7 @@ def coordination_facet_malformed(node: Node) -> bool:
 def standing_tips(revisions: Sequence[CoordinationRevision]) -> tuple[CoordinationRevision, ...]:
     by_id = {revision.node.id: revision for revision in revisions}
     superseded = {
-        predecessor
-        for revision in revisions
-        for predecessor in revision.predecessors
-        if predecessor in by_id
+        predecessor for revision in revisions for predecessor in revision.predecessors if predecessor in by_id
     }
     return tuple(
         sorted(
@@ -376,7 +371,9 @@ def _created_anywhere(view: WellFormedView, seam: MomentSeam) -> frozenset[str]:
     )
 
 
-def present_records(bound: ChainBound, prefix: str, seam: MomentSeam) -> tuple[tuple[str, bytes], ...] | PositionRefused:
+def present_records(
+    bound: ChainBound, prefix: str, seam: MomentSeam
+) -> tuple[tuple[str, bytes], ...] | PositionRefused:
     """Every inventoried path's bytes, read and matched; every unaccounted file
     classified by a re-read of the chain (spec §6): a file some registration in
     the re-read creates — pending, rolled back, or committed after the bound —
@@ -397,7 +394,11 @@ def present_records(bound: ChainBound, prefix: str, seam: MomentSeam) -> tuple[t
         found.append((path, data))
     directory, _, stem = prefix.rpartition("/")
     listed = (
-        sorted(f"{directory}/{candidate.name}" for candidate in (bound.root / directory).glob(f"{stem}*") if candidate.is_file())
+        sorted(
+            f"{directory}/{candidate.name}"
+            for candidate in (bound.root / directory).glob(f"{stem}*")
+            if candidate.is_file()
+        )
         if (bound.root / directory).is_dir()
         else []
     )

@@ -113,7 +113,9 @@ def validated_outcome(outcome: object) -> dict[str, object]:
             raise ValueError("refusal message must be a string")
         if not isinstance(refusal["data"], Mapping):
             raise ValueError("refusal data must be a JSON object")
-        return {"refusal": {"code": refusal["code"], "message": refusal["message"], "data": deepcopy(dict(refusal["data"]))}}
+        return {
+            "refusal": {"code": refusal["code"], "message": refusal["message"], "data": deepcopy(dict(refusal["data"]))}
+        }
     raise ValueError("an outcome is done or refusal")
 
 
@@ -275,11 +277,19 @@ class LedgerReader:
             if kind == "invocation-open":
                 invocation = str(line["invocation"])
                 self._order.append(invocation)
-                self._records[invocation] = InvocationRecord(invocation, str(line["command"]), str(line["input_digest"]), (), None, None)
+                self._records[invocation] = InvocationRecord(
+                    invocation, str(line["command"]), str(line["input_digest"]), (), None, None
+                )
                 acts[invocation] = []
             elif kind == "act":
                 invocation = str(line["invocation"])
-                act = ActLine(invocation, str(line["corpus"]), str(line["entry"]), str(line["intent"]), _pairs(line["records"], "act records"))
+                act = ActLine(
+                    invocation,
+                    str(line["corpus"]),
+                    str(line["entry"]),
+                    str(line["intent"]),
+                    _pairs(line["records"], "act records"),
+                )
                 acts[invocation].append(act)
                 attributed.append((act, standing))
             elif kind == "select":
@@ -289,10 +299,17 @@ class LedgerReader:
             elif kind == "invocation-close":
                 invocation = str(line["invocation"])
                 current = self._records[invocation]
-                self._records[invocation] = InvocationRecord(invocation, current.command, current.input_digest, (), validated_outcome(line["outcome"]), None)
+                self._records[invocation] = InvocationRecord(
+                    invocation, current.command, current.input_digest, (), validated_outcome(line["outcome"]), None
+                )
         for invocation, record in list(self._records.items()):
             self._records[invocation] = InvocationRecord(
-                invocation, record.command, record.input_digest, tuple(acts.get(invocation, ())), record.outcome, selections.get(invocation)
+                invocation,
+                record.command,
+                record.input_digest,
+                tuple(acts.get(invocation, ())),
+                record.outcome,
+                selections.get(invocation),
             )
         self._attributed = tuple(attributed)
 
@@ -363,7 +380,9 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
             elif kind == "invocation-close":
                 invocation = str(validated["invocation"])
                 if invocation not in opened:
-                    raise LedgerMalformed(f"line {number}: invocation-close names invocation {invocation!r}, never opened")
+                    raise LedgerMalformed(
+                        f"line {number}: invocation-close names invocation {invocation!r}, never opened"
+                    )
                 if invocation in closed:
                     raise LedgerMalformed(f"line {number}: invocation {invocation!r} is already closed")
                 closed.add(invocation)
@@ -426,7 +445,9 @@ def read_ledger_evidence(operations_root: Path, session_id: str) -> LedgerEviden
         raw = path.read_bytes()
     except FileNotFoundError:
         return LedgerMissing(session_id)
-    except OSError as caught:  # a directory in the file's place, a permission or device error: evidence, not an exception
+    except (
+        OSError
+    ) as caught:  # a directory in the file's place, a permission or device error: evidence, not an exception
         return LedgerUnreadable(session_id, f"{type(caught).__name__}: {caught}")
     if not raw:
         return LedgerEmpty(session_id)

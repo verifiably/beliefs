@@ -56,7 +56,9 @@ def consulted_contracts(
     closure_nodes: tuple[str, ...],
     facets_read: Mapping[str, tuple[str, ...]] = MappingProxyType({}),
 ) -> tuple[tuple[str, str], ...]:
-    corpora = sorted({corpus for node in closure_nodes if node in node_corpus for corpus in node_corpus[node]}) or sorted(pins)
+    corpora = sorted(
+        {corpus for node in closure_nodes if node in node_corpus for corpus in node_corpus[node]}
+    ) or sorted(pins)
     if not corpora:
         raise MalformedRecord("a derivation consults at least one corpus's pins")
     unpinned_corpora = sorted(set(corpora) - set(pins))
@@ -103,7 +105,12 @@ def consulted_contracts(
     for estimand in estimands.values():
         declaration = profile.estimand(estimand.operator)
         read.add(declaration.contract)
-        for sort in (declaration.measure_sort, declaration.identification_sort, declaration.conditioning_sort, *declaration.level_sorts.values()):
+        for sort in (
+            declaration.measure_sort,
+            declaration.identification_sort,
+            declaration.conditioning_sort,
+            *declaration.level_sorts.values(),
+        ):
             read.add(profile.sorts[sort].contract)
     for node, keys in facets_read.items():
         if node not in closure_nodes:

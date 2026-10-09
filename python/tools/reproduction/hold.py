@@ -53,7 +53,9 @@ def main() -> int:
     digest = "sha256:" + sha256(content).hexdigest()
     st = state.load()
     relative = f"{target['dataset_id'].split(':', 1)[1]}/{held.name}"
-    ctx = ActContext(paths.CORPUS_ROOT, paths.STORE_ROOT, OBSERVER, INSTRUMENT, AUTHORITY, holdings_seam(), profile=profile())
+    ctx = ActContext(
+        paths.CORPUS_ROOT, paths.STORE_ROOT, OBSERVER, INSTRUMENT, AUTHORITY, holdings_seam(), profile=profile()
+    )
     published = write(ctx, StoreLocator(st["store_id"], relative), content, expected=digest)
     node, address = dataset_record(
         name=held.name,

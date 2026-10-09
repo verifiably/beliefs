@@ -219,9 +219,7 @@ def current_epoch(world: registry.World) -> epoch.Epoch:
 # --- receipt validation (§7.5, §8.2) ------------------------------------------
 
 
-def validate_receipt(
-    world: registry.World, published: epoch.Epoch, kind: derive.ReceiptKind
-) -> derive.ReceiptOutcome:
+def validate_receipt(world: registry.World, published: epoch.Epoch, kind: derive.ReceiptKind) -> derive.ReceiptOutcome:
     """§7.5's verdict on one receipt of one opened epoch.
 
     Three phases, and the order between them is the contract.
@@ -281,9 +279,7 @@ def validate_receipt(
     # Past this point the five identity members are present and well formed,
     # so the reads below can name them without re-checking that they exist.
     named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)
-    binding = rules.RuleBinding(
-        cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity)
-    )
+    binding = rules.RuleBinding(cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity))
     with registry._locked_barrier(world) as world_root:
         try:
             held = rules._locked_resolve_rule_binding(world_root, binding)
@@ -422,9 +418,7 @@ def reported_receipt(
 _member_for = epoch._member_for
 
 
-def _contract_fault(
-    kind: str, member: str, receipt: epoch._ReceiptCarrier, published: epoch.Epoch
-) -> str | None:
+def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier, published: epoch.Epoch) -> str | None:
     """§7.5's receipt contract, checked against carrier and subject bytes, or `None`.
 
     This is the sole enforcer of `epoch.RECEIPT_KEYS`. The carrier layer
@@ -445,10 +439,7 @@ def _contract_fault(
     declared = epoch.RECEIPT_KEYS[member]
     keys = {str(key) for key in receipt.document}
     if keys != set(declared):
-        return (
-            f"the document carries {sorted(keys)}, not the closed key set {sorted(declared)} "
-            f"that {member} declares"
-        )
+        return f"the document carries {sorted(keys)}, not the closed key set {sorted(declared)} that {member} declares"
     if receipt.missing:
         return f"the document writes no value for {list(receipt.missing)}"
     if receipt.kind != epoch.RECEIPT_KINDS[member]:
@@ -698,9 +689,7 @@ class Unknown:
     stamp: BoundStamp
 
 
-def resolve_address(
-    world: registry.World, published: epoch.Epoch, address: str
-) -> Resolved | NotPresent | Unknown:
+def resolve_address(world: registry.World, published: epoch.Epoch, address: str) -> Resolved | NotPresent | Unknown:
     """§8.3: resolve one address through one publication, bound to it.
 
     The epoch's address map decides the first question and the world decides
@@ -829,9 +818,7 @@ def coreference_edge(world: registry.World, published: epoch.Epoch, left: str, r
     endpoints = _endpoint_pair(left, right)
     stamp, missing, outcome = _edge_context(world, published)
     if missing or not outcome.validated:
-        return EdgeAnswer(
-            "indeterminate", stamp, missing, None if outcome.validated else outcome.outcome
-        )
+        return EdgeAnswer("indeterminate", stamp, missing, None if outcome.validated else outcome.outcome)
     balance = _reduced_pairs(published).get(endpoints)
     return EdgeAnswer("active" if balance is not None and balance > 0 else "inactive", stamp)
 
@@ -893,15 +880,11 @@ def _edge_context(
     """
     outcome = validate_receipt(world, published, "coreference-reduction")
     covered = {corpus_id for corpus_id, _state in published.coverage}
-    missing = tuple(
-        corpus_id for corpus_id in registry._live_corpus_ids(world.registry()) if corpus_id not in covered
-    )
+    missing = tuple(corpus_id for corpus_id in registry._live_corpus_ids(world.registry()) if corpus_id not in covered)
     return _stamp(published), missing, outcome
 
 
-def _indeterminate_message(
-    published: epoch.Epoch, missing: tuple[str, ...], outcome: derive.ReceiptOutcome
-) -> str:
+def _indeterminate_message(published: epoch.Epoch, missing: tuple[str, ...], outcome: derive.ReceiptOutcome) -> str:
     """Every unestablished input, named. A generic indeterminacy message would
     be a refusal nobody can clear."""
     unestablished: list[str] = []

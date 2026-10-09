@@ -53,11 +53,23 @@ def main() -> int:
     vocabulary._document.cache_clear()
     world.adopt()
     st = state.load()
-    ctx = ActContext(paths.CORPUS_ROOT, paths.STORE_ROOT, OBSERVER, INSTRUMENT, AUTHORITY, holdings_seam(), profile=vocabulary.profile())
+    ctx = ActContext(
+        paths.CORPUS_ROOT,
+        paths.STORE_ROOT,
+        OBSERVER,
+        INSTRUMENT,
+        AUTHORITY,
+        holdings_seam(),
+        profile=vocabulary.profile(),
+    )
     write(ctx, StoreLocator(st["store_id"], f"mm30-concepts/{RESOURCE}"), content, expected=digest)
     minted = world.open_writer().add(node)
     state.save(concepts_ref=minted.id)
-    findings.record(1, "closed", f"held {count} concept identifiers as {digest}; dataset {minted.id}; the line format is the tool's (design §6.3)")
+    findings.record(
+        1,
+        "closed",
+        f"held {count} concept identifiers as {digest}; dataset {minted.id}; the line format is the tool's (design §6.3)",
+    )
     print(f"held {count} concepts as {digest}; dataset {minted.id}")
     return 0
 

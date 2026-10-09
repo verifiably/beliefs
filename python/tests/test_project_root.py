@@ -75,4 +75,3 @@ def test_the_project_root_holds_no_unlisted_directory() -> None:
         "runner's DEFAULT_WORK there). Add a name to EXPECTED only for something that "
         "is not scratch."
     )
-

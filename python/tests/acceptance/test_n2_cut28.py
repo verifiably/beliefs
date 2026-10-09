@@ -226,12 +226,13 @@ def test_the_declaration_is_byte_exact_against_its_own_commit() -> None:
 
 def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
     # Live matcher migration, 2026-09-14 (slice 5): normalize only W1-a.
-    assert tuple(
-        frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
-        for live, frozen in zip(
-            CUT25_ARMS[: len(FROZEN_CUT25_ARMS)], FROZEN_CUT25_ARMS, strict=True
+    assert (
+        tuple(
+            frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
+            for live, frozen in zip(CUT25_ARMS[: len(FROZEN_CUT25_ARMS)], FROZEN_CUT25_ARMS, strict=True)
         )
-    ) == FROZEN_CUT25_ARMS
+        == FROZEN_CUT25_ARMS
+    )
     for path, pin in FROZEN_PRIOR_CUT_FILES.items():
         completed = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],

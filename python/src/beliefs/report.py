@@ -91,7 +91,16 @@ ACT_REPORT_DOMAIN = "science.act-report.v1"
 # only beside them, because it opens through its domain intent alone
 # (publication-records design, decision 10). The literal below is cut 19 J1e's
 # pinned sabotage `before`: keep it byte-exact on one line, and derive beside it.
-_DOMAINLESS_OPERATION_KINDS = ("acquisition", "audit", "consolidate", "corpus-write", "import", "move", "re-check", "run-attempt")
+_DOMAINLESS_OPERATION_KINDS = (
+    "acquisition",
+    "audit",
+    "consolidate",
+    "corpus-write",
+    "import",
+    "move",
+    "re-check",
+    "run-attempt",
+)
 OPERATION_KINDS: tuple[str, ...] = tuple(sorted((*_DOMAINLESS_OPERATION_KINDS, "publish")))
 UNFINISHED = "unfinished"
 INDETERMINATE = "indeterminate"
@@ -348,7 +357,11 @@ def binding_outcome_from_facet(
     typed constructors — so the stored mirror and the values share one rule set
     (32 lowercase hex, the closed reason set, strictly ascending unique tips, a
     bool `remotely_revealed`). Raises `MalformedRecord` on anything else."""
-    if not isinstance(outcome, dict) or type(outcome.get("type")) is not str or outcome["type"] not in _BINDING_OUTCOMES:
+    if (
+        not isinstance(outcome, dict)
+        or type(outcome.get("type")) is not str
+        or outcome["type"] not in _BINDING_OUTCOMES
+    ):
         raise MalformedRecord("a publication-binding outcome names one of its three types")
     kind = _BINDING_OUTCOMES[outcome["type"]]
     names = {field.name for field in dataclasses.fields(kind)}
@@ -361,7 +374,15 @@ def binding_outcome_from_facet(
         values["tips"] = tuple(values["tips"])
     return kind(**values)
 
-REQUEST_CORRUPT_REASONS = ("undecodable", "intent-disagrees", "snapshot-missing", "snapshot-mismatch", "snapshot-undecodable", "snapshot-pin-disagrees")
+
+REQUEST_CORRUPT_REASONS = (
+    "undecodable",
+    "intent-disagrees",
+    "snapshot-missing",
+    "snapshot-mismatch",
+    "snapshot-undecodable",
+    "snapshot-pin-disagrees",
+)
 STAGING_CORRUPT_REASONS = ("pins-foreign", "hole", "extra", "bytes", "marker")
 REVEAL_REFUSED_VERDICTS = ("refuted", "unresolvable", "malformed")
 TRANSPORT_INCOMPLETE_REASONS = ("abandoned", "listing-mismatch", "export-damaged")
@@ -404,7 +425,11 @@ class StagingCorrupt:
         _require_hex32(self.corpus_id, "staging-corrupt corpus id")
         if self.reason not in STAGING_CORRUPT_REASONS:
             raise MalformedRecord(f"staging-corrupt reason {self.reason!r} is outside {STAGING_CORRUPT_REASONS}")
-        if type(self.refs) is not tuple or len(self.refs) > 1 or any(type(ref) is not str or not ref for ref in self.refs):
+        if (
+            type(self.refs) is not tuple
+            or len(self.refs) > 1
+            or any(type(ref) is not str or not ref for ref in self.refs)
+        ):
             raise MalformedRecord("staging-corrupt refs are a tuple of at most one record id")
 
 
@@ -484,7 +509,9 @@ class TransportIncomplete:
         _require_hex32(self.corpus_id, "transport-incomplete corpus id")
         _require_hex32(self.marker, "transport-incomplete marker")
         if self.reason not in TRANSPORT_INCOMPLETE_REASONS:
-            raise MalformedRecord(f"transport-incomplete reason {self.reason!r} is outside {TRANSPORT_INCOMPLETE_REASONS}")
+            raise MalformedRecord(
+                f"transport-incomplete reason {self.reason!r} is outside {TRANSPORT_INCOMPLETE_REASONS}"
+            )
 
 
 Outcome: TypeAlias = (
@@ -616,6 +643,7 @@ class PublicationBindingEntry:
     def __post_init__(self) -> None:
         _require_str(self.subject, "publication binding entry subject")
         _require_outcome(self, self.outcome)
+
 
 @sealed
 @final
@@ -807,7 +835,12 @@ def lifecycle_outcome_from_facet(kind: str, outcome: object) -> Outcome:
     so the stored mirror and the values share one rule set. Raises
     `MalformedRecord` on anything else."""
     types = _LIFECYCLE_OUTCOMES.get(kind)
-    if types is None or not isinstance(outcome, dict) or type(outcome.get("type")) is not str or outcome["type"] not in types:
+    if (
+        types is None
+        or not isinstance(outcome, dict)
+        or type(outcome.get("type")) is not str
+        or outcome["type"] not in types
+    ):
         raise MalformedRecord(f"a {kind} outcome names one of {sorted(types or ())}")
     value_type = types[outcome["type"]]
     names = {field.name for field in dataclasses.fields(value_type)}
@@ -827,7 +860,12 @@ def publish_entries_from_facet(rows: object) -> tuple[Entry, ...]:
         raise MalformedRecord("a publish report's entries are a list")
     decoded: list[Entry] = []
     for row in rows:
-        if not isinstance(row, dict) or set(row) != {"kind", "subject", "outcome"} or type(row["kind"]) is not str or type(row["subject"]) is not str:
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"kind", "subject", "outcome"}
+            or type(row["kind"]) is not str
+            or type(row["subject"]) is not str
+        ):
             raise MalformedRecord("a publish entry carries exactly kind, subject and outcome")
         if row["kind"] == "publication-binding":
             decoded.append(PublicationBindingEntry(row["subject"], binding_outcome_from_facet(row["outcome"])))

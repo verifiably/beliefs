@@ -145,7 +145,13 @@ class TestTheBoundary:
 
     def test_add_still_refuses_a_nested_history(self, writer):
         with pytest.raises(ValidationRefused):
-            writer.add(raw_source(B, history=[entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="o1")])], deprecated=[ADDR_A]))
+            writer.add(
+                raw_source(
+                    B,
+                    history=[entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="o1")])],
+                    deprecated=[ADDR_A],
+                )
+            )
 
     def test_a_dataset_without_content_identity_still_refuses(self, writer):
         node = stored.governed_node("dataset", "d", "d", {stored.DATASET_FACET: {"resources": []}}, ())
@@ -204,7 +210,6 @@ class TestTheReadSide:
             and finding.detail == stored.IDENTIFIER_CORRECTION_FACET
             for finding in findings
         )
-
 
 
 def minted_a(writer):
@@ -326,7 +331,12 @@ class TestTheSeamEffects:
         assert corrected.uid == minted.uid and corrected.id == ADDR_B
         assert corrected.deprecated_ids == [ADDR_A]
         (correction,) = stored.identifier_corrections(corrected)
-        assert (dict(correction.from_identifiers), dict(correction.to_identifiers), correction.actor, correction.grounds) == (A, B, ACTOR, "checked the PDF")
+        assert (
+            dict(correction.from_identifiers),
+            dict(correction.to_identifiers),
+            correction.actor,
+            correction.grounds,
+        ) == (A, B, ACTOR, "checked the PDF")
         assert writer.read_view.resolve(ADDR_A) == ADDR_B
         assert writer.read_view.get(ADDR_B).facets == corrected.facets
 
@@ -352,7 +362,9 @@ class TestTheSeamEffects:
         back = writer.correct_identifier(ADDR_B, A, grounds="g2")
         assert back.id == ADDR_A and back.uid == minted.uid
         assert back.deprecated_ids == [ADDR_B]
-        assert [c.event_token for c in stored.identifier_corrections(back)] and len(stored.identifier_corrections(back)) == 2
+        assert [c.event_token for c in stored.identifier_corrections(back)] and len(
+            stored.identifier_corrections(back)
+        ) == 2
         assert writer.read_view.resolve(ADDR_B) == ADDR_A
 
     def test_a_deprecated_ref_names_the_live_subject(self, writer):
@@ -460,7 +472,9 @@ class TestRelocation:
             writer.correct_identifier(ADDR_A, B, grounds=grounds)
         (keep_entry,) = stored.identifier_corrections(left.read_view.get(ADDR_B))
         (other_entry,) = stored.identifier_corrections(right.read_view.get(ADDR_B))
-        survivor, keep_report, other_report = consolidate((left, ADDR_B), (right, ADDR_B), rationale="one paper", **REPORT)
+        survivor, keep_report, other_report = consolidate(
+            (left, ADDR_B), (right, ADDR_B), rationale="one paper", **REPORT
+        )
         spine, merged = stored.identifier_corrections(survivor)
         assert spine == keep_entry
         assert merged.from_identifiers == B and merged.to_identifiers == B
@@ -570,7 +584,9 @@ class TestRelocation:
         left.add(stored.source_node(title="p", identifiers=A))
         corrected = left.correct_identifier(ADDR_A, B, grounds="g")
         (held,) = stored.identifier_corrections(corrected)
-        reused = raw_source(B, history=[entry(A, B, token=held.event_token, grounds="other grounds")], deprecated=[ADDR_A])
+        reused = raw_source(
+            B, history=[entry(A, B, token=held.event_token, grounds="other grounds")], deprecated=[ADDR_A]
+        )
         right.import_bundle([reused], **REPORT)
         before = (left.read_view.get(ADDR_B), right.read_view.get(ADDR_B))
         intents_before = {id(w): list(_recording_port(w).intents) for w in (left, right)}

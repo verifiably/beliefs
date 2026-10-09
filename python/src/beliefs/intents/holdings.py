@@ -10,7 +10,9 @@ HOLDINGS_INTENT_DOMAIN = "science.holdings-intent.v1"
 
 
 def _lower_hex(value, width):
-    return isinstance(value, str) and len(value) == width and all(character in "0123456789abcdef" for character in value)
+    return (
+        isinstance(value, str) and len(value) == width and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 def _store_path(value):
@@ -20,7 +22,9 @@ def _store_path(value):
         value.encode("utf-8")
     except UnicodeEncodeError:
         return False
-    return all(component and component not in (".", "..") and not component.startswith(".#~") for component in value.split("/"))
+    return all(
+        component and component not in (".", "..") and not component.startswith(".#~") for component in value.split("/")
+    )
 
 
 def _url(value):
@@ -86,7 +90,7 @@ def holdings_layout_path(path):
         isinstance(path, str)
         and path.startswith(prefix)
         and path.endswith(suffix)
-        and _lower_hex(path[len(prefix):-len(suffix)], 64)
+        and _lower_hex(path[len(prefix) : -len(suffix)], 64)
     )
 
 
@@ -109,7 +113,10 @@ def qualify_intent(intent, registrations, observations_by_path):
                 continue
             observation = observations_by_path.get(path)
             if observation is not None:
-                if observation["location"] == intent["location"] and observation["event_token"] == intent["event_token"]:
+                if (
+                    observation["location"] == intent["location"]
+                    and observation["event_token"] == intent["event_token"]
+                ):
                     return "matched"
             elif holdings_layout_path(path):
                 unresolved = True

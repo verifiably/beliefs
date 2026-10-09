@@ -99,7 +99,9 @@ class TestTheOneAlgorithmsSharedBehaviour:
     def test_an_unresolvable_step_is_skipped_and_reported_with_its_source_and_position(self, tmp_path):
         view = seed(
             tmp_path,
-            discussion("a", relations=[cites("discussion:a", "discussion:gone"), cites("discussion:a", "discussion:b")]),
+            discussion(
+                "a", relations=[cites("discussion:a", "discussion:gone"), cites("discussion:a", "discussion:b")]
+            ),
             discussion("b"),
         )
         walk = relation_walk(view, "discussion:a")
@@ -113,13 +115,16 @@ class TestTheOneAlgorithmsSharedBehaviour:
         # produce one identical entry and two defects deduplicate into one.
         view = seed(
             tmp_path,
-            discussion("a", relations=[cites("discussion:a", "discussion:b"), cites("discussion:a", "discussion:gone")]),
+            discussion(
+                "a", relations=[cites("discussion:a", "discussion:b"), cites("discussion:a", "discussion:gone")]
+            ),
             discussion("b", relations=[cites("discussion:b", "discussion:gone")]),
         )
         walk = relation_walk(view, "discussion:a")
-        assert [
-            (entry.source, entry.position) for entry in walk.unresolved if isinstance(entry, RelationEntry)
-        ] == [("discussion:a", 1), ("discussion:b", 0)]
+        assert [(entry.source, entry.position) for entry in walk.unresolved if isinstance(entry, RelationEntry)] == [
+            ("discussion:a", 1),
+            ("discussion:b", 0),
+        ]
 
 
 class TestTheRelationAdapter:
@@ -175,8 +180,12 @@ class TestTheLineageAdapter:
     def test_the_basis_chain_is_walked_as_a_facet(self, tmp_path):
         view = seed(
             tmp_path,
-            stored.dataset_node(title="c", resources=pinned("c"), basis=self.basis(self.route("run:r", dataset_ref("b")))),
-            stored.dataset_node(title="b", resources=pinned("b"), basis=self.basis(self.route("run:r", dataset_ref("a")))),
+            stored.dataset_node(
+                title="c", resources=pinned("c"), basis=self.basis(self.route("run:r", dataset_ref("b")))
+            ),
+            stored.dataset_node(
+                title="b", resources=pinned("b"), basis=self.basis(self.route("run:r", dataset_ref("a")))
+            ),
             stored.dataset_node(title="a", resources=pinned("a")),
             stored.run_node("r", title="r", spec="analysis-spec:s"),
         )
@@ -185,7 +194,10 @@ class TestTheLineageAdapter:
     def test_a_conflict_basis_yields_every_route(self, tmp_path):
         view = seed(
             tmp_path,
-            stored.dataset_node(title="c", resources=pinned("c"), basis=self.basis(
+            stored.dataset_node(
+                title="c",
+                resources=pinned("c"),
+                basis=self.basis(
                     self.route("run:r", dataset_ref("a")),
                     self.route("run:s", dataset_ref("b")),
                     tag="conflict",
@@ -201,7 +213,9 @@ class TestTheLineageAdapter:
     def test_an_unresolvable_ancestor_is_reported_at_its_route_position(self, tmp_path):
         view = seed(
             tmp_path,
-            stored.dataset_node(title="c", resources=pinned("c"), basis=self.basis(self.route("run:r", "dataset:gone"))),
+            stored.dataset_node(
+                title="c", resources=pinned("c"), basis=self.basis(self.route("run:r", "dataset:gone"))
+            ),
             stored.run_node("r", title="r", spec="analysis-spec:s"),
         )
         assert closure(dataset_ref("c"), LineageAdjacency(view)).unresolved == (
@@ -213,7 +227,9 @@ class TestTheLineageAdapter:
         # substrate §5 step 2 decides on.
         view = seed(
             tmp_path,
-            stored.dataset_node(title="c", resources=pinned("c"), basis=self.basis(self.route("run:gone", dataset_ref("a")))),
+            stored.dataset_node(
+                title="c", resources=pinned("c"), basis=self.basis(self.route("run:gone", dataset_ref("a")))
+            ),
             stored.dataset_node(title="a", resources=pinned("a")),
         )
         walk = closure(dataset_ref("c"), LineageAdjacency(view))
@@ -223,7 +239,9 @@ class TestTheLineageAdapter:
     def test_a_resolvable_producing_run_is_checked_and_not_walked_into(self, tmp_path):
         view = seed(
             tmp_path,
-            stored.dataset_node(title="c", resources=pinned("c"), basis=self.basis(self.route("run:r", dataset_ref("a")))),
+            stored.dataset_node(
+                title="c", resources=pinned("c"), basis=self.basis(self.route("run:r", dataset_ref("a")))
+            ),
             stored.dataset_node(title="a", resources=pinned("a")),
             stored.run_node("r", title="r", spec="analysis-spec:s"),
         )
@@ -241,7 +259,9 @@ class TestTheLineageAdapter:
         view = seed(
             tmp_path,
             discussion("a", relations=[cites("discussion:a", "discussion:a")]),
-            stored.dataset_node(title="c", resources=pinned("c"), basis=self.basis(self.route("run:r", dataset_ref("c")))),
+            stored.dataset_node(
+                title="c", resources=pinned("c"), basis=self.basis(self.route("run:r", dataset_ref("c")))
+            ),
             stored.run_node("r", title="r", spec="analysis-spec:s"),
         )
         assert closure("discussion:a", RelationAdjacency(view, CITES, "outbound")).reached == ()
@@ -324,7 +344,9 @@ class TestTheFacadesNodeReadPath:
 class TestTheCorpusCheck:
     def test_the_check_takes_the_profile_and_reports_facet_findings(self, tmp_path):
         bad = stored.dataset_node(title="b", resources=PINNED, empirical_observation={"boundary": "x"})
-        assert [(f.code, f.ref) for f in corpus_check(seed(tmp_path, bad), BASE)] == [("facet-payload-malformed", bad.id)]
+        assert [(f.code, f.ref) for f in corpus_check(seed(tmp_path, bad), BASE)] == [
+            ("facet-payload-malformed", bad.id)
+        ]
 
     def test_a_raw_written_bearer_conflict_is_reported_once(self, tmp_path):
         d = observed_dataset()
@@ -334,10 +356,13 @@ class TestTheCorpusCheck:
 
     def test_an_unknown_kind_and_an_undeclared_key_are_reported(self, tmp_path):
         from nodes.core.node import Node
+
         stray = Node(id="divergence:x", kind="divergence", title="x", facets={})
         keyed = stored.proposition_node("p", title="p", claim={"operator": "affects"})
         keyed.facets["biology/gene-axis"] = {}
-        codes = {(f.code, f.ref) for f in corpus_check(seed(tmp_path, stray, stored.stamp_semantic_identity(keyed)), BASE)}
+        codes = {
+            (f.code, f.ref) for f in corpus_check(seed(tmp_path, stray, stored.stamp_semantic_identity(keyed)), BASE)
+        }
         assert ("kind-unknown", "divergence:x") in codes and ("facet-unexpected", keyed.id) in codes
 
     def test_a_stale_neighbour_is_a_finding_not_a_raise(self, tmp_path):
@@ -350,15 +375,21 @@ class TestTheCorpusCheck:
 
     def test_a_domain_only_mismatch_withholds_namespaced_judgments_and_keeps_base_ones(self, tmp_path):
         from profiles import WITH_BIOLOGY
+
         bad = stored.dataset_node(title="b", resources=PINNED, empirical_observation={"boundary": "x"})
         bad.facets["biology/gene-axis"] = {"axis": "rows"}
         findings = corpus_check(seed(tmp_path, stored.stamp_semantic_identity(bad), pins=pins_for(WITH_BIOLOGY)), BASE)
         codes = [f.code for f in findings]
-        assert codes.count("profile-mismatch") == 1 and "facet-payload-malformed" in codes and "facet-unexpected" not in codes
+        assert (
+            codes.count("profile-mismatch") == 1
+            and "facet-payload-malformed" in codes
+            and "facet-unexpected" not in codes
+        )
 
     def test_a_coordination_pin_disagreement_withholds_only_what_needs_the_contract(self, tmp_path):
         from coordination_fixtures import coordination_profile  # the profile compiled with the coordination contract
         from nodes.core.node import Node
+
         pins = pins_for(coordination_profile(None))
         assert "coordination" in pins.domains
         malformed_task = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
@@ -375,7 +406,9 @@ class TestTheCorpusCheck:
     def test_a_base_mismatch_withholds_everything_but_the_mismatch(self, tmp_path):
         node = observed_dataset()
         del node.facets[stored.SEMANTIC_IDENTITY_FACET]
-        assert [f.code for f in corpus_check(seed(tmp_path, node, science_contract="science:" + "f" * 64), BASE)] == ["profile-mismatch"]
+        assert [f.code for f in corpus_check(seed(tmp_path, node, science_contract="science:" + "f" * 64), BASE)] == [
+            "profile-mismatch"
+        ]
 
     def test_a_malformed_manifest_is_two_findings_and_no_judgment(self, tmp_path):
         node = observed_dataset()
@@ -388,9 +421,21 @@ class TestTheCorpusCheck:
         good = observed_dataset()
         bad = stored.dataset_node(title="b", resources=PINNED, empirical_observation={"boundary": "x"})
         view = seed(
-            tmp_path, good, bad,
+            tmp_path,
+            good,
+            bad,
             stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[good.id, bad.id]),
-            stored.assessment_node("a1", title="a1", spec="analysis-spec:s1", run="run:r1", proposition="proposition:p1", outcome="supported", interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()),
+            stored.assessment_node(
+                "a1",
+                title="a1",
+                spec="analysis-spec:s1",
+                run="run:r1",
+                proposition="proposition:p1",
+                outcome="supported",
+                interpretation_rule="rule:threshold",
+                estimand=typed_estimand(),
+                applicability=typed_applicability(),
+            ),
             stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
         )
         codes = [f.code for f in corpus_check(view, BASE)]
@@ -434,7 +479,11 @@ class TestTheCorpusCheck:
         assert "no-empirical-observation-facet" in findings[0].message
 
     def test_an_observes_input_with_an_invalid_facet_is_reported_distinctly(self, tmp_path):
-        plain = stored.dataset_node(title="plain", resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}], empirical_observation={"boundary": "x"})
+        plain = stored.dataset_node(
+            title="plain",
+            resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}],
+            empirical_observation={"boundary": "x"},
+        )
         view = seed(
             tmp_path,
             plain,
@@ -482,22 +531,16 @@ class TestTheCorpusCheck:
 
         findings = corpus_check(reopen(tmp_path), BASE)
 
-        assert [(finding.severity, finding.code) for finding in findings] == [
-            ("error", "display-malformed")
-        ]
+        assert [(finding.severity, finding.code) for finding in findings] == [("error", "display-malformed")]
 
     def test_a_raw_written_supersession_to_a_missing_target_is_reported(self, tmp_path):
         node = stored.proposition_node("new", title="new", claim={"operator": "affects"})
-        node.relations.append(
-            Relation(source=node.id, predicate=stored.SUPERSEDES, target="proposition:missing")
-        )
+        node.relations.append(Relation(source=node.id, predicate=stored.SUPERSEDES, target="proposition:missing"))
         raw_write(tmp_path, node)
 
         findings = corpus_check(reopen(tmp_path), BASE)
 
-        assert [(finding.severity, finding.code) for finding in findings] == [
-            ("error", "supersession-target-missing")
-        ]
+        assert [(finding.severity, finding.code) for finding in findings] == [("error", "supersession-target-missing")]
 
     def test_findings_are_ordered_by_ref_then_code_then_detail(self, tmp_path):
         stale = observed_dataset()
@@ -517,6 +560,7 @@ def test_a_dataset_the_corpus_does_not_hold_is_eligibility_unresolved(tmp_path):
         ("warning", "eligibility-unresolved", "assessment:a1", dataset_ref("elsewhere"))
     ]
 
+
 def test_an_unheld_run_is_eligibility_unresolved(tmp_path):
     """Review Focus 4."""
     view = admissible_corpus(tmp_path)
@@ -527,6 +571,7 @@ def test_an_unheld_run_is_eligibility_unresolved(tmp_path):
     assert ("warning", "eligibility-unresolved", "assessment:a1", "run:elsewhere") in [
         (f.severity, f.code, f.ref, f.detail) for f in findings
     ]
+
 
 def test_one_held_invalid_and_one_unheld_dataset_is_unresolved(tmp_path):
     """J18-b's check."""
@@ -543,10 +588,15 @@ class TestTheSnapshotWalk:
     def test_the_inspected_set_is_the_root_plus_its_closure(self, tmp_path):
         view = seed(
             tmp_path,
-            stored.dataset_node(title="b", resources=pinned("b"), basis=self.basis({"run": "run:r", "ancestor": dataset_ref("a"), "transforms": [dataset_ref("a")]}),
+            stored.dataset_node(
+                title="b",
+                resources=pinned("b"),
+                basis=self.basis({"run": "run:r", "ancestor": dataset_ref("a"), "transforms": [dataset_ref("a")]}),
             ),
             stored.dataset_node(title="a", resources=pinned("a")),
-            stored.run_node("r", title="r", spec="analysis-spec:s", transforms=[dataset_ref("a")], produces=[dataset_ref("b")]),
+            stored.run_node(
+                "r", title="r", spec="analysis-spec:s", transforms=[dataset_ref("a")], produces=[dataset_ref("b")]
+            ),
         )
         snapshot = lineage_snapshot(view, [dataset_ref("b")])
         assert set(snapshot.producers) == {dataset_ref("a"), dataset_ref("b")}
@@ -555,7 +605,10 @@ class TestTheSnapshotWalk:
     def test_a_conflict_tag_short_circuits_to_lineage_divergent(self, tmp_path):
         view = seed(
             tmp_path,
-            stored.dataset_node(title="b", resources=pinned("b"), basis=self.basis(
+            stored.dataset_node(
+                title="b",
+                resources=pinned("b"),
+                basis=self.basis(
                     {"run": "run:r", "ancestor": dataset_ref("a"), "transforms": []},
                     {"run": "run:s", "ancestor": dataset_ref("a2"), "transforms": []},
                     tag="conflict",
@@ -566,7 +619,9 @@ class TestTheSnapshotWalk:
             stored.run_node("r", title="r", spec="analysis-spec:s"),
             stored.run_node("s", title="s", spec="analysis-spec:s"),
         )
-        certification = certify(lineage_snapshot(view, [dataset_ref("b")]), (dataset_ref("b"),), (dataset_ref("other"),))
+        certification = certify(
+            lineage_snapshot(view, [dataset_ref("b")]), (dataset_ref("b"),), (dataset_ref("other"),)
+        )
         assert certification.state == "not-certified"
         assert certification.findings == ("lineage-divergent",)
 
@@ -598,7 +653,10 @@ class TestTheSnapshotWalk:
     def test_an_unresolvable_basis_entry_yields_lineage_incomplete_and_no_certificate(self, tmp_path):
         view = seed(
             tmp_path,
-            stored.dataset_node(title="b", resources=pinned("b"), basis=self.basis({"run": "run:r", "ancestor": "dataset:gone", "transforms": []}),
+            stored.dataset_node(
+                title="b",
+                resources=pinned("b"),
+                basis=self.basis({"run": "run:r", "ancestor": "dataset:gone", "transforms": []}),
             ),
             stored.run_node("r", title="r", spec="analysis-spec:s"),
         )
@@ -609,7 +667,10 @@ class TestTheSnapshotWalk:
     def test_an_unresolvable_entry_with_an_empty_closure_still_yields_incomplete(self, tmp_path):
         view = seed(
             tmp_path,
-            stored.dataset_node(title="b", resources=pinned("b"), basis=self.basis({"run": "run:gone", "ancestor": "dataset:gone", "transforms": []}),
+            stored.dataset_node(
+                title="b",
+                resources=pinned("b"),
+                basis=self.basis({"run": "run:gone", "ancestor": "dataset:gone", "transforms": []}),
             ),
         )
         snapshot = lineage_snapshot(view, [dataset_ref("b")])
@@ -637,9 +698,7 @@ class TestTheDerivedFromView:
                 "r", title="r", spec="analysis-spec:s", transforms=[dataset_ref("in")], produces=[dataset_ref("out")]
             ),
         )
-        predicates = {
-            relation.predicate for node in view.iter_stored() for relation in node.relations
-        }
+        predicates = {relation.predicate for node in view.iter_stored() for relation in node.relations}
         assert "derived_from" not in predicates
 
     def test_independence_follows_the_stamped_basis_not_the_composition(self, tmp_path):
@@ -648,7 +707,13 @@ class TestTheDerivedFromView:
         # walks the basis, so the certification follows `other`.
         view = seed(
             tmp_path,
-            stored.dataset_node(title="out", resources=pinned("out"), basis={"tag": "single", "routes": [{"run": "run:r", "ancestor": dataset_ref("other"), "transforms": []}]},
+            stored.dataset_node(
+                title="out",
+                resources=pinned("out"),
+                basis={
+                    "tag": "single",
+                    "routes": [{"run": "run:r", "ancestor": dataset_ref("other"), "transforms": []}],
+                },
             ),
             stored.dataset_node(title="in", resources=pinned("in")),
             stored.dataset_node(title="other", resources=pinned("other")),
@@ -687,7 +752,15 @@ def test_profile_mismatch_compares_manifest_pins_at_the_root(tmp_path, manifest)
         path.unlink()
         path.symlink_to("missing.yaml")
     scope, detail, disagreeing = profile_mismatch(tmp_path, profile)
-    expected = "domains" if manifest in {"extra", "missing", "changed"} else "base" if manifest == "base" else "malformed" if manifest in {"malformed", "symlink"} else "none"
+    expected = (
+        "domains"
+        if manifest in {"extra", "missing", "changed"}
+        else "base"
+        if manifest == "base"
+        else "malformed"
+        if manifest in {"malformed", "symlink"}
+        else "none"
+    )
     assert scope == expected
     assert bool(detail) == (scope != "none")
     assert disagreeing == (frozenset({"biology"}) if scope == "domains" else frozenset())
@@ -707,15 +780,22 @@ def test_namespaced_payload_judgments_require_agreeing_domain_pins(tmp_path, agr
 def test_missing_base_facet_is_reported_even_without_a_stamp(tmp_path):
     node = Node(id="dataset:missing", kind="dataset", title="missing", facets={})
     findings = corpus_check(seed(tmp_path, node), BASE)
-    assert {(f.code, f.detail) for f in findings} == {("facet-missing", "dataset"), ("semantic-hash-missing", "unstamped")}
+    assert {(f.code, f.detail) for f in findings} == {
+        ("facet-missing", "dataset"),
+        ("semantic-hash-missing", "unstamped"),
+    }
 
 
 @pytest.mark.parametrize("retrieval", ["absent", "wrong", "stale-acquisition"])
 def test_retrieval_checks_use_unvalidated_neighbours(tmp_path, retrieval):
     node = observed_dataset()
     node.facets[stored.EMPIRICAL_OBSERVATION_FACET]["retrieval"] = "act-report:retrieval"
-    neighbour = Node(id="act-report:retrieval", kind="act-report", title="retrieval",
-                     facets={"act-report": {"operation": "acquisition" if retrieval == "stale-acquisition" else "delete"}})
+    neighbour = Node(
+        id="act-report:retrieval",
+        kind="act-report",
+        title="retrieval",
+        facets={"act-report": {"operation": "acquisition" if retrieval == "stale-acquisition" else "delete"}},
+    )
     view = seed(tmp_path, stored.stamp_semantic_identity(node), *(() if retrieval == "absent" else (neighbour,)))
     findings = corpus_check(view, BASE)
     own_codes = [f.code for f in findings if f.ref == node.id]
@@ -727,12 +807,18 @@ def test_retrieval_checks_use_unvalidated_neighbours(tmp_path, retrieval):
 def test_produces_reports_a_malformed_bearer_by_alias_once(tmp_path):
     node = stored.dataset_node(title="b", resources=PINNED, empirical_observation={"boundary": "x"})
     node.deprecated_ids = ["dataset:old"]
-    producer = discussion("producer", relations=[
-        Relation(source="discussion:producer", predicate=stored.PRODUCES, target=target)
-        for target in (node.id, "dataset:old")
-    ])
+    producer = discussion(
+        "producer",
+        relations=[
+            Relation(source="discussion:producer", predicate=stored.PRODUCES, target=target)
+            for target in (node.id, "dataset:old")
+        ],
+    )
     findings = corpus_check(seed(tmp_path, node, producer), BASE)
-    assert [(f.code, f.ref) for f in findings] == [("facet-bearer-produced", node.id), ("facet-payload-malformed", node.id)]
+    assert [(f.code, f.ref) for f in findings] == [
+        ("facet-bearer-produced", node.id),
+        ("facet-payload-malformed", node.id),
+    ]
 
 
 def test_biology_mismatch_does_not_withhold_coordination_checks(tmp_path):
@@ -741,7 +827,10 @@ def test_biology_mismatch_does_not_withhold_coordination_checks(tmp_path):
     profile = coordination_profile(None)
     pins = replace(pins_for(profile), domains={**pins_for(profile).domains, "biology": "biology:" + "f" * 64})
     node = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
-    assert [f.code for f in corpus_check(seed(tmp_path, node, pins=pins), profile)] == ["profile-mismatch", "coordination-facet-malformed"]
+    assert [f.code for f in corpus_check(seed(tmp_path, node, pins=pins), profile)] == [
+        "profile-mismatch",
+        "coordination-facet-malformed",
+    ]
 
 
 @pytest.mark.parametrize("agree", [True, False])
@@ -775,8 +864,10 @@ def test_coordination_mismatch_preserves_base_supersession_findings(tmp_path, st
     pins = pins_for(coordination_profile(None))
     assert "coordination" in pins.domains
     findings = corpus_check(seed(tmp_path, stored.stamp_semantic_identity(node), pins=pins), BASE)
-    expected = {("profile-mismatch", "corpus.yaml", "domains"),
-                ("supersession-target-missing", node.id, "dataset:missing")}
+    expected = {
+        ("profile-mismatch", "corpus.yaml", "domains"),
+        ("supersession-target-missing", node.id, "dataset:missing"),
+    }
     if stray_coordination:
         expected.add(("facet-unexpected", node.id, stored.COORDINATION_FACET))
     assert {(f.code, f.ref, f.detail) for f in findings} == expected

@@ -21,7 +21,11 @@ def test_the_fixture_declares_two_estimands(parse, testing_document):
     assert set(contract.estimands) == {"affects", "correlates-with"}
     decl = contract.estimands["affects"]
     assert decl.level_sorts == {"0": "level"}
-    assert (decl.measure_sort, decl.identification_sort, decl.conditioning_sort) == ("measure", "identification", "entity")
+    assert (decl.measure_sort, decl.identification_sort, decl.conditioning_sort) == (
+        "measure",
+        "identification",
+        "entity",
+    )
 
 
 def test_a_key_naming_an_undeclared_operator_is_refused(parse, testing_document):
@@ -47,8 +51,19 @@ def test_a_non_decimal_level_sort_key_is_refused(parse, testing_document):
 
 def test_an_arity_zero_operator_admits_no_declaration(parse, testing_document):
     document = copy.deepcopy(testing_document)
-    document["operators"]["holds"] = {"arity": 0, "arg_sorts": [], "sign_apt": False, "layers": ["structural"], "dimensions": []}
-    document["estimands"]["holds"] = {"level_sorts": {}, "measure_sort": "measure", "identification_sort": "identification", "conditioning_sort": "entity"}
+    document["operators"]["holds"] = {
+        "arity": 0,
+        "arg_sorts": [],
+        "sign_apt": False,
+        "layers": ["structural"],
+        "dimensions": [],
+    }
+    document["estimands"]["holds"] = {
+        "level_sorts": {},
+        "measure_sort": "measure",
+        "identification_sort": "identification",
+        "conditioning_sort": "entity",
+    }
     with pytest.raises(MalformedContract, match="arity 0"):
         parse(document)
 
@@ -73,7 +88,10 @@ def test_the_projection_sorts_level_sort_keys(parse, testing_document):
     document["estimands"]["affects"]["level_sorts"] = {"1": "level", "0": "level"}
     reordered = copy.deepcopy(document)
     reordered["estimands"]["affects"]["level_sorts"] = {"0": "level", "1": "level"}
-    assert parse(document).estimands["affects"].schema_projection() == parse(reordered).estimands["affects"].schema_projection()
+    assert (
+        parse(document).estimands["affects"].schema_projection()
+        == parse(reordered).estimands["affects"].schema_projection()
+    )
     assert parse(document).content_identity == parse(reordered).content_identity
 
 
@@ -90,14 +108,20 @@ class TestSuccession:
         successor = self._successor(testing_document, prior)
         contract = parse(successor, predecessor=prior)
         assert "correlates-with" in contract.estimands
-        assert contract.operators["correlates-with"].schema_projection() == prior.operators["correlates-with"].schema_projection()
+        assert (
+            contract.operators["correlates-with"].schema_projection()
+            == prior.operators["correlates-with"].schema_projection()
+        )
 
-    @pytest.mark.parametrize("member,value", [
-        ("level_sorts", {}),
-        ("measure_sort", "entity"),
-        ("identification_sort", "entity"),
-        ("conditioning_sort", "outcome"),
-    ])
+    @pytest.mark.parametrize(
+        "member,value",
+        [
+            ("level_sorts", {}),
+            ("measure_sort", "entity"),
+            ("identification_sort", "entity"),
+            ("conditioning_sort", "outcome"),
+        ],
+    )
     def test_changing_any_member_is_a_redefinition(self, parse, testing_document, member, value):
         prior = parse(testing_document)
         successor = self._successor(testing_document, prior)
@@ -147,8 +171,13 @@ class TestCompile:
 
         changed = copy.deepcopy(testing_document)
         changed["estimands"]["affects"]["conditioning_sort"] = "outcome"
-        one = compile_profile(base_contract, [domain.parse_domain_contract(testing_document, source="<a>", base=base_contract, predecessor=None)])
-        two = compile_profile(base_contract, [domain.parse_domain_contract(changed, source="<b>", base=base_contract, predecessor=None)])
+        one = compile_profile(
+            base_contract,
+            [domain.parse_domain_contract(testing_document, source="<a>", base=base_contract, predecessor=None)],
+        )
+        two = compile_profile(
+            base_contract, [domain.parse_domain_contract(changed, source="<b>", base=base_contract, predecessor=None)]
+        )
         assert one.compiled_identity != two.compiled_identity
 
     def test_a_cross_contract_sort_resolves_or_refuses_by_namespace(self, base_contract, testing_document):

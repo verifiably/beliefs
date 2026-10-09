@@ -285,7 +285,9 @@ def test_r8_changing_a_root_seed_mints_a_successor_spec():
 
 def test_g4_an_unreferenced_successor_to_a_recorded_failed_replay_is_refused():
     original = freeze(draft(), held_rules=held_rules())
-    unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())  # supersedes=None
+    unreferenced = freeze(
+        draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules()
+    )  # supersedes=None
     verdict = admit_successor(unreferenced, original, frozenset({original.identity}), frozenset())
     assert isinstance(verdict, SuccessorRefused)
 
@@ -298,7 +300,9 @@ def test_g4_a_referencing_successor_is_admitted():
         held_rules=held_rules(),
         recorded_failures=frozenset({original.identity}),
     )
-    assert isinstance(admit_successor(successor, original, frozenset({original.identity}), frozenset()), SuccessorAdmitted)
+    assert isinstance(
+        admit_successor(successor, original, frozenset({original.identity}), frozenset()), SuccessorAdmitted
+    )
 
 
 def test_g4_a_discarded_failed_attempt_is_undetectable():
@@ -330,7 +334,10 @@ def test_g4_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
 def test_g4_a_referencing_successor_lifts_both_classes():
     original = freeze(draft(), held_rules=held_rules())
     successor = revise(
-        original, edits={"estimand": typed_estimand(reference=Decimal(1))}, held_rules=held_rules(), recorded_failures=frozenset()
+        original,
+        edits={"estimand": typed_estimand(reference=Decimal(1))},
+        held_rules=held_rules(),
+        recorded_failures=frozenset(),
     )
     both = frozenset({original.identity})
     assert isinstance(admit_successor(successor, original, both, both), SuccessorAdmitted)
@@ -377,7 +384,11 @@ def _rich_spec():
     draft = spec_draft(
         input_roles=(
             SpecInput(role="observes", dataset="dataset:" + "1" * 64),
-            SpecInput(role="reads", dataset="dataset:" + "2" * 64, exclusion=ExclusionCertification(rationale="r", attribution="a")),
+            SpecInput(
+                role="reads",
+                dataset="dataset:" + "2" * 64,
+                exclusion=ExclusionCertification(rationale="r", attribution="a"),
+            ),
         ),
         parameters={"alpha": Decimal("0.05"), "iterations": 10, "labels": ["a", "b"], "nested": {"k": Decimal("1.5")}},
     )
@@ -463,7 +474,10 @@ def test_v8_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
         restore(spec.identity, text + b"\n", profile=TESTING_PROFILE)
     with pytest.raises(MalformedRecord):
         restore(spec.identity, v1.encode({"estimand_grammar": ESTIMAND_GRAMMAR}), profile=TESTING_PROFILE)
-    mapping = {**frozen_projection(freeze(spec_draft(), held_rules=spec_rules())), "nondeterminism": StochasticUnseeded(rationale="urandom").projection()}
+    mapping = {
+        **frozen_projection(freeze(spec_draft(), held_rules=spec_rules())),
+        "nondeterminism": StochasticUnseeded(rationale="urandom").projection(),
+    }
     identity, text = _identified(mapping)
     with pytest.raises(UnfreezableSpec):
         restore(identity, text, profile=TESTING_PROFILE)
@@ -489,18 +503,26 @@ def test_a_string_estimand_is_refused_at_the_draft():
         draft(estimand="the effect of x on y")
 
 
-@pytest.mark.parametrize("override", [
-    {"contrast": __import__("beliefs.estimand", fromlist=["LevelsContrast"]).LevelsContrast(
-        slot=0,
-        baseline=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:pd"),
-        comparison=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:ndmm"),
-    )},
-    {"reference": Decimal("0.5")},
-])
+@pytest.mark.parametrize(
+    "override",
+    [
+        {
+            "contrast": __import__("beliefs.estimand", fromlist=["LevelsContrast"]).LevelsContrast(
+                slot=0,
+                baseline=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:pd"),
+                comparison=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:ndmm"),
+            )
+        },
+        {"reference": Decimal("0.5")},
+    ],
+)
 def test_each_estimand_member_moves_the_spec_identity(override):
     from fixtures_cut3 import typed_estimand
 
-    assert freeze(draft(), held_rules=held_rules()).identity != freeze(draft(estimand=typed_estimand(**override)), held_rules=held_rules()).identity
+    assert (
+        freeze(draft(), held_rules=held_rules()).identity
+        != freeze(draft(estimand=typed_estimand(**override)), held_rules=held_rules()).identity
+    )
 
 
 def test_applicability_moves_the_spec_identity():
@@ -509,7 +531,10 @@ def test_applicability_moves_the_spec_identity():
     from beliefs.claim import Qualifier, Referent
 
     adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
-    assert freeze(draft(), held_rules=held_rules()).identity != freeze(draft(applicability=adults), held_rules=held_rules()).identity
+    assert (
+        freeze(draft(), held_rules=held_rules()).identity
+        != freeze(draft(applicability=adults), held_rules=held_rules()).identity
+    )
 
 
 def test_restore_round_trips_the_typed_members():
@@ -569,6 +594,11 @@ def test_revise_copies_the_typed_members():
     from fixtures_cut3 import typed_estimand
 
     original = freeze(draft(), held_rules=held_rules())
-    successor = revise(original, edits={"estimand": typed_estimand(reference=Decimal(1))}, held_rules=held_rules(), recorded_failures=frozenset())
+    successor = revise(
+        original,
+        edits={"estimand": typed_estimand(reference=Decimal(1))},
+        held_rules=held_rules(),
+        recorded_failures=frozenset(),
+    )
     assert successor.supersedes == original.identity and successor.estimand.reference == Decimal(1)
     assert dict(successor.applicability) == dict(original.applicability)

@@ -99,7 +99,9 @@ def test_an_assessment_whose_run_the_corpus_does_not_hold_refuses(tmp_path):
     profile = profile_with()
     root = tmp_path / "c"
     root.mkdir()
-    (root / "corpus.yaml").write_bytes(registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(profile))))
+    (root / "corpus.yaml").write_bytes(
+        registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(profile)))
+    )
     nodes = seed_nodes()
     for node in nodes:
         if node.id != "run:run-a":

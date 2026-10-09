@@ -90,10 +90,7 @@ _LIVE_SABOTAGES = {
             "        self._refuse_family_kinds(node, admitted_kind=node.kind)\n"
             "        self._refuse_source(node, provenance=True)\n"
         ),
-        after=(
-            "        self._refuse_family_kinds(node)\n"
-            "        self._refuse_source(node, provenance=True)\n"
-        ),
+        after=("        self._refuse_family_kinds(node)\n        self._refuse_source(node, provenance=True)\n"),
     ),
     "W5a": Sabotage(
         module="relocation.py",

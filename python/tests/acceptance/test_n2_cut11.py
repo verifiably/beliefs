@@ -83,11 +83,7 @@ def _report(reason: str, findings: tuple, verdict: str) -> None:
     offending = [finding for finding in findings if finding.verdict == verdict]
     if offending:
         raise MalformedArm(
-            reason
-            + "\n"
-            + "\n".join(
-                f"  {finding.arm.label}\n    {finding.detail}" for finding in offending
-            )
+            reason + "\n" + "\n".join(f"  {finding.arm.label}\n    {finding.detail}" for finding in offending)
         )
 
 
@@ -140,10 +136,7 @@ class TestTheDeclarationTable:
         assert tuple(map(int, total.groups())) == (13, 13, 26)
         pairs = re.search(r"Selected units: ((?:[A-Z]+\d+ \d+(?:, )?)+)", flattened)
         assert pairs is not None
-        assert {
-            row: int(count)
-            for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))
-        } == ROW_UNITS
+        assert {row: int(count) for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))} == ROW_UNITS
 
     def test_the_frozen_cut_names_the_commit_this_audit_reads(self):
         completed = subprocess.run(
@@ -243,9 +236,7 @@ def test_the_partition_accounts_exactly_the_26_frozen_units() -> None:
     arm_units = {unit_of(arm.row) for arm in CUT11_ARMS}
     citation_units = set(ATOMS_CITATIONS_BY_UNIT)
     assert not arm_units & citation_units
-    expected = {f"L7u{number}" for number in range(1, 14)} | {
-        f"J{number}" for number in range(1, 14)
-    }
+    expected = {f"L7u{number}" for number in range(1, 14)} | {f"J{number}" for number in range(1, 14)}
     assert arm_units | citation_units == expected
     assert citation_units == {"L7u5"}
 

@@ -138,7 +138,7 @@ def _seed(
     if reads:
         nodes.append(
             stored.dataset_node(
-                                title="d-e",
+                title="d-e",
                 resources=_resources("e"),
                 empirical_observation=EMPIRICAL,
             )
@@ -146,7 +146,7 @@ def _seed(
     for letter in ("a", "b", "c"):
         nodes.append(
             stored.dataset_node(
-                                title=f"d-{letter}",
+                title=f"d-{letter}",
                 resources=_resources(letter),
                 empirical_observation=EMPIRICAL,
             )
@@ -253,9 +253,29 @@ def seed_assessed_proposition(writer, proposition_ref: str, *, slug: str, outcom
     if not writer.read_view.holds(address):
         writer.add(stored.dataset_node(title="d-a", resources=_resources("a"), empirical_observation=EMPIRICAL))
     run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
-    assessment = writer.add(stored.assessment_node(slug, title=slug, spec=f"spec-{slug}", run=run.id, proposition=proposition_ref, outcome=outcome, interpretation_rule="rule-1", **typed))
+    assessment = writer.add(
+        stored.assessment_node(
+            slug,
+            title=slug,
+            spec=f"spec-{slug}",
+            run=run.id,
+            proposition=proposition_ref,
+            outcome=outcome,
+            interpretation_rule="rule-1",
+            **typed,
+        )
+    )
     value = stored.assessment_value(writer.read_view.get(assessment.id), profile=writer.profile)
-    writer.add(stored.verification_node(f"v-{slug}", title=slug, assessment=value.identity(), assessment_ref=assessment.id, scope="clean-environment", verdict="passed"))
+    writer.add(
+        stored.verification_node(
+            f"v-{slug}",
+            title=slug,
+            assessment=value.identity(),
+            assessment_ref=assessment.id,
+            scope="clean-environment",
+            verdict="passed",
+        )
+    )
     return address
 
 
@@ -271,7 +291,10 @@ def _fixture(
         from domain_facet_fixtures import LOCAL_CORPUS_ID
 
         from beliefs.world import registry
-        (corpus / "corpus.yaml").write_bytes(registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(PROFILE))))
+
+        (corpus / "corpus.yaml").write_bytes(
+            registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(PROFILE)))
+        )
     view, values = _seed(corpus, proposition_ref, reads=reads, assesses_target=assesses_target)
     matched = (values["assessment:a-1"], values["assessment:a-2"])
     context = SuppliedContext(
@@ -323,6 +346,7 @@ def divergent_fixture(tmp_path) -> CorpusFixture:
 
 def test_evaluate_over_is_the_corpus_backed_path_and_yields_a_belief(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
+
     result = evaluate_over(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.kwargs))
     assert isinstance(result, Belief)
     assert result.value == 2  # two independent supports, as test_belief's scenario publishes
@@ -330,6 +354,7 @@ def test_evaluate_over_is_the_corpus_backed_path_and_yields_a_belief(corpus_fixt
 
 def test_evaluate_over_maps_a_profile_pin_mismatch_to_refused(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
+
     context = replace(
         corpus_fixture.context,
         pins={"c1": replace(pins_for(PROFILE), science_contract="science:" + "0" * 64)},
@@ -345,6 +370,7 @@ def test_evaluate_over_maps_a_profile_pin_mismatch_to_refused(corpus_fixture):
 
 def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
+
     inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
     assert inputs.claim is not None
     # π_claim accepts it — the brand chain survived the restore — and it
@@ -360,6 +386,7 @@ def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixtu
 
 def test_m1_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
+
     inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
     assert set(inputs.read_trace) <= inputs.declared_refs()
     assert {kind for kind, _ in inputs.read_trace} == set(READ_KINDS) - {
@@ -382,6 +409,7 @@ def test_m1_every_read_through_the_resolver_is_inside_the_declared_closure(corpu
 
 def test_the_records_are_already_proposition_scoped(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
+
     inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
     assert all(a.proposition == corpus_fixture.proposition for a in inputs.assessments)
     assert {a.identity() for a in inputs.assessments} == {a.identity() for a in corpus_fixture.assessments}
@@ -395,6 +423,7 @@ def test_the_records_are_already_proposition_scoped(corpus_fixture):
 
 def test_m1_sabotage_shape_an_unrelated_verification_read_fails_containment(corpus_fixture, monkeypatch):
     from domain_facet_fixtures import over_kwargs
+
     """The sabotage N2 declares: `gather` reads one verification belonging to a
     different proposition; the digest is unchanged and the check fails."""
     from beliefs import evaluation
@@ -402,7 +431,9 @@ def test_m1_sabotage_shape_an_unrelated_verification_read_fails_containment(corp
     honest = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
     monkeypatch.setattr(evaluation, "_verification_selected", lambda value, ids: True)
     resolve = corpus_fixture.view.resolve
-    monkeypatch.setattr(corpus_fixture.view, "resolve", lambda ref: "assessment:a-1" if ref == "assessment:a-3" else resolve(ref))
+    monkeypatch.setattr(
+        corpus_fixture.view, "resolve", lambda ref: "assessment:a-1" if ref == "assessment:a-3" else resolve(ref)
+    )
     leaky = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
 
     assert {v.ref for v in leaky.verifications} > {v.ref for v in honest.verifications}
@@ -431,7 +462,10 @@ def test_a_proposition_with_no_claim_record_still_reaches_its_assessments_estima
     # carries a typed estimand under `testing/affects`, so `testing` is
     # consulted through it alone (estimand-typing §5.4, D6's third trigger).
     from domain_facet_fixtures import over_kwargs
-    inputs = gather(claimless_fixture.view, claimless_fixture.proposition, **over_kwargs(claimless_fixture.gather_kwargs))
+
+    inputs = gather(
+        claimless_fixture.view, claimless_fixture.proposition, **over_kwargs(claimless_fixture.gather_kwargs)
+    )
     assert inputs.claim is None
     assert dict(inputs.records().claims) == {}
     assert inputs.consulted == (
@@ -454,6 +488,7 @@ def test_a_divergent_assesses_edge_is_selected_before_decode(divergent_fixture):
 
 def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
     from domain_facet_fixtures import over_kwargs
+
     """M1's second bound, pinned rather than hidden: `run_value` hands out the
     declaration of every input role, and the resolver traces only `observes` —
     because the closure declares dataset refs only under `observes` and
@@ -499,10 +534,12 @@ def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(c
     refused = evaluate_over(
         corpus_fixture.view,
         corpus_fixture.proposition,
-        **over_kwargs({
-            **corpus_fixture.kwargs,
-            "availability": replace(corpus_fixture.availability, implementations={BELIEF_V1.identity: broken}),
-        }),
+        **over_kwargs(
+            {
+                **corpus_fixture.kwargs,
+                "availability": replace(corpus_fixture.availability, implementations={BELIEF_V1.identity: broken}),
+            }
+        ),
     )
     assert isinstance(refused, Refused) and refused.reason.startswith("implementation-fails-fixtures")
 

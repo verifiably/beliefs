@@ -22,7 +22,9 @@ def biology(description: str):
     document = load_document(FIXTURE, source=str(FIXTURE))
     assert isinstance(document, dict)
     document["description"] = description
-    return parse_domain_contract(document, source=f"{FIXTURE}#{description}", base=shipped_base_contract(), predecessor=None)
+    return parse_domain_contract(
+        document, source=f"{FIXTURE}#{description}", base=shipped_base_contract(), predecessor=None
+    )
 
 
 BASE: ProfileSpec = shipped_base()

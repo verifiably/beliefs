@@ -100,9 +100,7 @@ def test_union_lineage_bases_unions_two_conflicts():
 
 
 def test_a_conflict_with_fewer_than_two_routes_is_unconstructible():
-    malformed = _dataset(
-        "other", {"tag": "conflict", "routes": [_route("only")]}
-    )
+    malformed = _dataset("other", {"tag": "conflict", "routes": [_route("only")]})
 
     with pytest.raises(MalformedRecord, match="conflict"):
         stored.union_lineage_bases(_dataset("kept"), malformed)
@@ -176,8 +174,15 @@ def test_v2_assessment_value_hands_back_the_bare_run_and_refuses_an_untyped_one(
     from beliefs import stored
 
     node = stored.assessment_node(
-        "a1", title="a1", spec="s", run="run:r1", proposition="proposition:p", outcome="supported",
-        interpretation_rule="rule-1", estimand=typed_estimand(), applicability=typed_applicability(),
+        "a1",
+        title="a1",
+        spec="s",
+        run="run:r1",
+        proposition="proposition:p",
+        outcome="supported",
+        interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     # `AssessmentRef` reads only the three world-identity members — no
     # profile is needed to hand back the bare run (estimand-typing §9).
@@ -236,9 +241,13 @@ def test_v8_a_renamed_or_falsely_identified_record_is_malformed(tmp_path):
     renamed = node.model_copy(update={"id": "analysis-spec:elsewhere"})
     with pytest.raises(MalformedRecord, match="not the spec identity"):
         stored.analysis_spec_value(renamed, profile=TESTING_PROFILE)
-    node.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = node.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace("fit the model", "fit another model")
+    node.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = node.facets[stored.ANALYSIS_SPEC_FACET][
+        "projection"
+    ].replace("fit the model", "fit another model")
     stored.stamp_semantic_identity(node)  # the stamp passes; restoration is what detects the mismatch
     with pytest.raises(MalformedRecord):
         stored.analysis_spec_value(node, profile=TESTING_PROFILE)
     with pytest.raises(MalformedRecord):
-        stored.analysis_spec_value(stored.proposition_node("p", title="p", claim={"operator": "affects"}), profile=TESTING_PROFILE)
+        stored.analysis_spec_value(
+            stored.proposition_node("p", title="p", claim={"operator": "affects"}), profile=TESTING_PROFILE
+        )

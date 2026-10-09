@@ -31,21 +31,20 @@ from beliefs.world.view import open_world_view
 
 
 def root_tree(root: Path) -> dict[str, bytes]:
-    return {
-        str(path.relative_to(root)): path.read_bytes()
-        for path in sorted(root.rglob("*"))
-        if path.is_file()
-    }
+    return {str(path.relative_to(root)): path.read_bytes() for path in sorted(root.rglob("*")) if path.is_file()}
 
 
 def conflict_world(tmp_path: Path, *, coverage=(ALPHA, BETA), twin_of=DATASET_A, same_address=True, same_uid=False):
     """Two admitted corpora, BETA holding a twin of ALPHA's record."""
     world, recorder, bindings, roots = admitted_world(tmp_path, coverage)
     original = Corpus(roots[coverage[0]]).get(twin_of)
-    twin = original.model_copy(deep=True, update={
-        "id": original.id if same_address else dataset_ref("twin"),
-        "uid": original.uid if same_uid else "d" * 32,
-    })
+    twin = original.model_copy(
+        deep=True,
+        update={
+            "id": original.id if same_address else dataset_ref("twin"),
+            "uid": original.uid if same_uid else "d" * 32,
+        },
+    )
     raw_write(roots[coverage[1]], twin)
     return world, recorder, bindings, roots, original, twin
 
@@ -58,9 +57,7 @@ class TestW8DuplicateLocation:
             publish(world, (ALPHA, BETA), bindings)
         finding = caught.value.finding
         assert finding.code == "duplicate-location" and finding.ref == original.id
-        assert finding.detail == (
-            f"corpus/uid claims=(('{ALPHA}', '{original.uid}'), ('{BETA}', '{_twin.uid}'))"
-        )
+        assert finding.detail == (f"corpus/uid claims=(('{ALPHA}', '{original.uid}'), ('{BETA}', '{_twin.uid}'))")
         assert "resolve with consolidate" in finding.message and str(roots[ALPHA]) not in finding.detail
         assert epochs_tree(world) == before
 
@@ -74,7 +71,11 @@ class TestW8DuplicateLocation:
             with pytest.raises(AddressMapConflict) as caught:
                 publish(world, (ALPHA, BETA), derivation_bindings(world))
             findings.append(caught.value.finding)
-        assert (findings[0].code, findings[0].ref, findings[0].detail) == (findings[1].code, findings[1].ref, findings[1].detail)
+        assert (findings[0].code, findings[0].ref, findings[0].detail) == (
+            findings[1].code,
+            findings[1].ref,
+            findings[1].detail,
+        )
         assert findings[0].code == "duplicate-location"
 
     @pytest.mark.parametrize("keep_first", [True, False])
@@ -103,7 +104,9 @@ class TestW8DuplicateLocation:
         record = stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
         left.add(record)
         right.add(record.model_copy(deep=True))
-        before = {id(writer): (root_tree(writer.root), list(_recording_port(writer).intents)) for writer in (left, right)}
+        before = {
+            id(writer): (root_tree(writer.root), list(_recording_port(writer).intents)) for writer in (left, right)
+        }
         with pytest.raises(DuplicateLocation):
             relocation.move(left, right, record.id, **MOVE_FIELDS)
         for writer in (left, right):
@@ -156,7 +159,9 @@ class TestW8b:
         left = _writer(tmp_path / "left")
         right = _writer(tmp_path / "right")
         keep = left.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/kept"}))
-        other = right.add(stored.source_node(title="other", identifiers={"doi": "10.1234/other"}).model_copy(update={"uid": keep.uid}))
+        other = right.add(
+            stored.source_node(title="other", identifiers={"doi": "10.1234/other"}).model_copy(update={"uid": keep.uid})
+        )
         with pytest.raises(AddressDisagreement):
             relocation.consolidate((left, keep.id), (right, other.id), **CONSOLIDATE_FIELDS)
 
@@ -168,7 +173,9 @@ class TestW8b:
         assert (caught.value.finding.code, caught.value.finding.ref) == ("duplicate-location", original.id)
 
     def test_corruption_outranks_duplication(self, tmp_path):
-        world, _r, bindings, roots, original, _twin = conflict_world(tmp_path, coverage=(ALPHA, BETA, GAMMA), same_uid=True)
+        world, _r, bindings, roots, original, _twin = conflict_world(
+            tmp_path, coverage=(ALPHA, BETA, GAMMA), same_uid=True
+        )
         third = original.model_copy(deep=True, update={"id": dataset_ref("third")})
         raw_write(roots[GAMMA], third)
         with pytest.raises(AddressMapConflict) as caught:

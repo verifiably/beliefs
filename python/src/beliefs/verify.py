@@ -130,7 +130,9 @@ class ComparisonReport:
     diagnostics: tuple[str, ...]
 
     def __init__(self, *args: object, **kwargs: object) -> None:
-        raise TypeError("ComparisonReport values are minted only by build_verification and restored by decode_verification")
+        raise TypeError(
+            "ComparisonReport values are minted only by build_verification and restored by decode_verification"
+        )
 
     def projection(self) -> dict[str, object]:
         """The canonical mapping `identity()` digests — and what a published
@@ -402,7 +404,9 @@ def decode_verification(node: Node) -> StoredVerification | None:
     if len(edges) > 1:
         raise MalformedRecord(f"{node.id}: a verification carries at most one verifies edge")
     if ("assessment" in facet) != bool(edges):
-        raise MalformedRecord(f"{node.id}: the assessment member and the verifies edge are present together or not at all")
+        raise MalformedRecord(
+            f"{node.id}: the assessment member and the verifies edge are present together or not at all"
+        )
     for name in ("rule", "scope_rule", "scope", "verdict"):
         if type(facet[name]) is not str:
             raise MalformedRecord(f"{node.id}: verification {name} must be a string")
@@ -636,7 +640,9 @@ def build_verification(
         published, index = citation
         entry = cite(published, index)
         embedded_citation = EmbeddedCitation(report_ref=published.identity(), index=index, content=_entry_facet(entry))
-    derived = _derive(original, replayed, specs=specs, held_rules=held_rules, certification=certification, citation=embedded_citation)
+    derived = _derive(
+        original, replayed, specs=specs, held_rules=held_rules, certification=certification, citation=embedded_citation
+    )
     common = {
         "original": original.address(),
         "replayed": replayed.address(),

@@ -26,7 +26,9 @@ def _writer(root, profile=BASE):
 
 def _rewrite_biology_pin(root):
     text = (root / "corpus.yaml").read_text()
-    (root / "corpus.yaml").write_text(text.replace(pins_for(WITH_BIOLOGY).domains["biology"], pins_for(WITH_BIOLOGY_OTHER).domains["biology"]))
+    (root / "corpus.yaml").write_text(
+        text.replace(pins_for(WITH_BIOLOGY).domains["biology"], pins_for(WITH_BIOLOGY_OTHER).domains["biology"])
+    )
 
 
 def test_a_writer_requires_a_compiled_profile_and_a_port_agreeing_with_it(tmp_path):
@@ -47,7 +49,9 @@ def test_adopt_manifest_writes_only_the_held_profiles_pins(tmp_path):
     assert list(tmp_path.rglob("*")) == []
 
 
-@pytest.mark.parametrize("path", ["add", "delete", "revise", "correct-identifier", "import", "intent", "port-execute", "port-fulfilling"])
+@pytest.mark.parametrize(
+    "path", ["add", "delete", "revise", "correct-identifier", "import", "intent", "port-execute", "port-fulfilling"]
+)
 def test_every_write_path_rechecks_the_pins_after_a_manifest_change(tmp_path, path):
     tmp_path = tmp_path / path
     writer, port = _writer(tmp_path, WITH_BIOLOGY)
@@ -87,7 +91,15 @@ def test_relocation_rechecks_at_the_destination(tmp_path):
     node = source.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
     _rewrite_biology_pin(tmp_path / "d")
     with pytest.raises(ContractMismatch):
-        relocation.move(source, destination, node.id, observer="o", instrument="i", opened_at="2026-09-05T00:00:00Z", closed_at="2026-09-05T00:00:01Z")
+        relocation.move(
+            source,
+            destination,
+            node.id,
+            observer="o",
+            instrument="i",
+            opened_at="2026-09-05T00:00:00Z",
+            closed_at="2026-09-05T00:00:01Z",
+        )
     assert source.read_view.holds(node.id) and not destination.read_view.holds(node.id)
 
 
@@ -121,7 +133,9 @@ def test_a_prose_kind_is_admitted_with_display_only(tmp_path):
 
 def test_a_malformed_schema_facet_is_refused_at_add(tmp_path):
     writer, _ = _writer(tmp_path)
-    node = stored.dataset_node(title="d", resources=PINNED,
+    node = stored.dataset_node(
+        title="d",
+        resources=PINNED,
         empirical_observation={"boundary": "acquisition", "source": "dataset:gse", "asserted_by": "driver"},
     )
     with pytest.raises(FacetPayloadRefused, match="unknown key"):
@@ -187,8 +201,14 @@ def test_durable_port_rechecks_under_its_lock_before_engine_calls(tmp_path, monk
     monkeypatch.setattr(root, "_operation_lock_for", change_pins_at_lock_entry)
     monkeypatch.setattr(root, "append_intent", lambda *args: calls.append(args))
     monkeypatch.setattr(root.DurableExecutor, "execute", lambda *args: calls.append(args))
-    port = root.DurableOperationPort(tmp_path, backend=root._PRODUCTION_BACKEND, storage=root.PRODUCTION_STORAGE,
-                                     metadata_root=tmp_path / "metadata", authority=FULL, profile=WITH_BIOLOGY)
+    port = root.DurableOperationPort(
+        tmp_path,
+        backend=root._PRODUCTION_BACKEND,
+        storage=root.PRODUCTION_STORAGE,
+        metadata_root=tmp_path / "metadata",
+        authority=FULL,
+        profile=WITH_BIOLOGY,
+    )
     assert port.profile is WITH_BIOLOGY
     with pytest.raises(ContractMismatch):
         if method == "append_intent":
@@ -231,14 +251,18 @@ def holdings_context(tmp_path):
         return "cd" * 32
 
     state = FileStateView("sha256:" + "1" * 64)
-    seam = StoreActSeam(corpus_lock=corpus_lock, append_intent=append, publish_fulfilling=publish,
-                       read_path=lambda *_: PathObservedView(state),
-                       store_write=lambda _root, path, _bytes: StoreOutcomeView("tx", ((path, state),)),
-                       store_delete=lambda *_: StoreOutcomeView("unused", ()),
-                       store_move=lambda *_: StoreOutcomeView("unused", ()),
-                       store_genesis=lambda _: b'{"domain":"science.store-root.v1","store_id":"11111111111111111111111111111111"}',
-                       # This fake never raises `ExecutionError`, so the predicate is never reached.
-                       store_refusal=lambda _caught: False)
+    seam = StoreActSeam(
+        corpus_lock=corpus_lock,
+        append_intent=append,
+        publish_fulfilling=publish,
+        read_path=lambda *_: PathObservedView(state),
+        store_write=lambda _root, path, _bytes: StoreOutcomeView("tx", ((path, state),)),
+        store_delete=lambda *_: StoreOutcomeView("unused", ()),
+        store_move=lambda *_: StoreOutcomeView("unused", ()),
+        store_genesis=lambda _: b'{"domain":"science.store-root.v1","store_id":"11111111111111111111111111111111"}',
+        # This fake never raises `ExecutionError`, so the predicate is never reached.
+        store_refusal=lambda _caught: False,
+    )
     ctx = ActContext(tmp_path / "corpus", tmp_path / "store", "o", "i", FULL, seam, WITH_BIOLOGY)
     return ctx, intents, published
 
@@ -290,8 +314,14 @@ def test_durable_port_requires_a_compiled_profile(tmp_path):
     from beliefs import root
 
     with pytest.raises(TypeError, match="ProfileSpec"):
-        root.DurableOperationPort(tmp_path, backend=root._PRODUCTION_BACKEND, storage=root.PRODUCTION_STORAGE,
-                                  metadata_root=tmp_path / "metadata", authority=FULL, profile=None)  # type: ignore[arg-type]
+        root.DurableOperationPort(
+            tmp_path,
+            backend=root._PRODUCTION_BACKEND,
+            storage=root.PRODUCTION_STORAGE,
+            metadata_root=tmp_path / "metadata",
+            authority=FULL,
+            profile=None,  # type: ignore[arg-type]
+        )
 
 
 @pytest.mark.parametrize("operation", ["add", "import", "move", "consolidate"])
@@ -320,8 +350,15 @@ def test_provenance_reaches_facet_validation(tmp_path, monkeypatch, operation):
     elif operation == "move":
         relocation.move(source, destination, node.id, observer="o", instrument="i", opened_at="T0", closed_at="T1")
     else:
-        relocation.consolidate((destination, node.id), (source, node.id), rationale="keep",
-                               observer="o", instrument="i", opened_at="T0", closed_at="T1")
+        relocation.consolidate(
+            (destination, node.id),
+            (source, node.id),
+            rationale="keep",
+            observer="o",
+            instrument="i",
+            opened_at="T0",
+            closed_at="T1",
+        )
     expected = [(node.id, operation != "add")] * (2 if operation in {"move", "consolidate"} else 1)
     assert seen == expected
 
@@ -367,7 +404,9 @@ def _bytes(root):
 
 @pytest.mark.parametrize("session_mediated", [False, True])
 @pytest.mark.parametrize("changed_during_recovery", [False, True])
-def test_unresolved_entry_checks_pins_before_recovery_and_before_settled(tmp_path, session_mediated, changed_during_recovery):
+def test_unresolved_entry_checks_pins_before_recovery_and_before_settled(
+    tmp_path, session_mediated, changed_during_recovery
+):
     from beliefs.permit import RequiredCapabilities
     from beliefs.session import WriterSession
     from beliefs.session.ledger import LedgerWriter, ledger_path
@@ -401,8 +440,15 @@ def test_unresolved_entry_checks_pins_before_recovery_and_before_settled(tmp_pat
             port.authority = authority
             return CorpusWriter(root, factory, authority=authority, profile=WITH_BIOLOGY, operation_port=port)
 
-        session = WriterSession(session_id="a" * 32, world_id="b" * 32, corpus_root=root, corpus_id="a" * 32,
-                                operations_root=tmp_path / "ops", ledger=LedgerWriter(ledger), writer_factory=writer_factory)
+        session = WriterSession(
+            session_id="a" * 32,
+            world_id="b" * 32,
+            corpus_root=root,
+            corpus_id="a" * 32,
+            operations_root=tmp_path / "ops",
+            ledger=LedgerWriter(ledger),
+            writer_factory=writer_factory,
+        )
         session.claim_invocation("A", "add", "c" * 64)
         target = session.scoped(RequiredCapabilities.for_kinds({"proposition"}, {}), "A")
     else:
@@ -424,7 +470,9 @@ def test_unresolved_entry_checks_pins_before_recovery_and_before_settled(tmp_pat
 
 
 @pytest.mark.parametrize("manifest", ["matching", "malformed", "absent"])
-def test_foreign_profile_stops_check_and_audit_before_semantic_judgment(tmp_path, foreign_profile, monkeypatch, manifest):
+def test_foreign_profile_stops_check_and_audit_before_semantic_judgment(
+    tmp_path, foreign_profile, monkeypatch, manifest
+):
     from beliefs import audit
     from beliefs.corpus import corpus_check
 
@@ -439,10 +487,15 @@ def test_foreign_profile_stops_check_and_audit_before_semantic_judgment(tmp_path
 
     monkeypatch.setattr(stored, "semantic_hash_missing", forbidden)
     monkeypatch.setattr(audit, "check_lineage_basis", forbidden)
-    for check in (corpus_check, lambda view, *, profile: audit.audit_corpus(view, profile=profile, evidence=audit.NO_EVIDENCE)):
+    for check in (
+        corpus_check,
+        lambda view, *, profile: audit.audit_corpus(view, profile=profile, evidence=audit.NO_EVIDENCE),
+    ):
         findings = check(ReadView(Corpus(tmp_path)), profile=foreign_profile)
         assert [(f.code, f.detail) for f in findings if f.code == "profile-mismatch"] == [("profile-mismatch", "base")]
-        assert [f.code for f in findings] == (["manifest-malformed"] if manifest == "malformed" else []) + ["profile-mismatch"]
+        assert [f.code for f in findings] == (["manifest-malformed"] if manifest == "malformed" else []) + [
+            "profile-mismatch"
+        ]
 
 
 @pytest.mark.parametrize("method", ["append_intent", "execute", "execute_fulfilling"])
@@ -454,8 +507,14 @@ def test_direct_durable_port_refuses_matching_foreign_pins(tmp_path, foreign_pro
     calls = []
     monkeypatch.setattr(root, "append_intent", lambda *a, **k: calls.append("intent"))
     monkeypatch.setattr(root.DurableExecutor, "execute", lambda *a, **k: calls.append("execute"))
-    port = root.DurableOperationPort(tmp_path, backend=root._PRODUCTION_BACKEND, storage=root.PRODUCTION_STORAGE,
-                                     metadata_root=tmp_path / "metadata", authority=FULL, profile=foreign_profile)
+    port = root.DurableOperationPort(
+        tmp_path,
+        backend=root._PRODUCTION_BACKEND,
+        storage=root.PRODUCTION_STORAGE,
+        metadata_root=tmp_path / "metadata",
+        authority=FULL,
+        profile=foreign_profile,
+    )
     with pytest.raises(ContractMismatch):
         if method == "append_intent":
             port.append_intent(b"intent")
@@ -482,7 +541,9 @@ def test_holdings_refuses_matching_foreign_pins(holdings_context, foreign_profil
 
 
 @pytest.mark.parametrize("mismatch", ["foreign", "mounted", "adopted"])
-def test_attended_session_refuses_incompatible_profiles_before_creating_operations(tmp_path, foreign_profile, monkeypatch, mismatch):
+def test_attended_session_refuses_incompatible_profiles_before_creating_operations(
+    tmp_path, foreign_profile, monkeypatch, mismatch
+):
     from types import SimpleNamespace
 
     from test_session_reconcile import view
@@ -496,7 +557,12 @@ def test_attended_session_refuses_incompatible_profiles_before_creating_operatio
     config = WorldConfig(tmp_path / "world", "b" * 32, (root,))
     before = _bytes(tmp_path)
     with pytest.raises(ContractMismatch):
-        open_attended_session(config, tmp_path / "ops", write_root=root, profile=foreign_profile if mismatch == "foreign" else BASE,
-                              mounts={root: WITH_BIOLOGY} if mismatch == "mounted" else None)
+        open_attended_session(
+            config,
+            tmp_path / "ops",
+            write_root=root,
+            profile=foreign_profile if mismatch == "foreign" else BASE,
+            mounts={root: WITH_BIOLOGY} if mismatch == "mounted" else None,
+        )
     assert not (tmp_path / "ops").exists()
     assert _bytes(tmp_path) == before

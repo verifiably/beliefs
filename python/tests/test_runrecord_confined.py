@@ -36,8 +36,7 @@ def test_k4_a_confined_projection_round_trips_and_recomputes_under_run_v2():
     parsed = cast(Any, decode_projection(projection_text(run)))
     receipt = parsed["occurrence"]["receipt"]
     assert all(
-        set(receipt[launch]) >= {"instance", "rendered_environment", "mounts"}
-        for launch in ("planning", "execution")
+        set(receipt[launch]) >= {"instance", "rendered_environment", "mounts"} for launch in ("planning", "execution")
     )
     assert v1.digest(run_domain_for(recipe_v2=True, confined=True), parsed) == run.address()
     assert v1.digest(run_domain_for(recipe_v2=True, confined=False), parsed) != run.address()
@@ -111,7 +110,12 @@ def _with_recomputed_mount_identity(receipt: dict) -> dict:
     "mutate, match",
     [
         (lambda r: r["capabilities"].insert(0, r["capabilities"][0]), "capabilities"),
-        (lambda r: _with_recomputed_mount_identity(r)["instance"]["mounts"].insert(0, list(r["instance"]["mounts"][0])), "mounts"),
+        (
+            lambda r: _with_recomputed_mount_identity(r)["instance"]["mounts"].insert(
+                0, list(r["instance"]["mounts"][0])
+            ),
+            "mounts",
+        ),
         (lambda r: _with_recomputed_mount_identity(r)["instance"]["mounts"][0].__setitem__(2, "rx"), "mounts"),
         (lambda r: r["rendered_environment"][0].__setitem__(1, "directory"), "rendered_environment"),
     ],

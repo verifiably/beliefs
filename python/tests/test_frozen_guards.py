@@ -49,10 +49,10 @@ def test_the_pin_checker_reports_a_table_the_tree_has_falsified(tmp_path, git_ch
     """
     guard = tmp_path / "test_n2_cut99.py"
     guard.write_text(
-        'FROZEN_PRIOR_CUT_FILES = {\n'
+        "FROZEN_PRIOR_CUT_FILES = {\n"
         '    "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",\n'
         '    "python/tests/n2_arms_cut3.py": "1e92471",\n'
-        '}\n',
+        "}\n",
         encoding="utf-8",
     )
 

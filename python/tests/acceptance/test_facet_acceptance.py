@@ -1,4 +1,5 @@
 """Cut 20: the declared facet boundary over registered durable corpora."""
+
 from __future__ import annotations
 
 import copy
@@ -45,6 +46,7 @@ from beliefs.root import init_corpus_root, metadata_root_for, open_corpus
 @pytest.fixture()
 def corpora(work_directory):
     roots = []
+
     def make(*, authority=FULL, profile=BASE):
         root = Path(tempfile.mkdtemp(prefix="facet-", dir=work_directory))
         roots.append(root)
@@ -52,6 +54,7 @@ def corpora(work_directory):
         writer = open_corpus(root, authority=authority, profile=profile)
         writer.adopt_manifest(profile=pins_for(profile))
         return writer
+
     yield make
     for root in roots:
         shutil.rmtree(root)
@@ -76,6 +79,7 @@ def test_d2_interpretation_is_separable_from_identity_durably(corpora):
 
     from beliefs.dataset import dataset_address
     from beliefs.world import corpus_state_identity
+
     w = corpora(profile=WITH_BIOLOGY)
     original = w.add(acquired("d", ACTOR))
     address = dataset_address(stored.dataset_declaration(original))
@@ -98,23 +102,36 @@ def test_d4_one_kindspec_per_kind_compiled_from_the_profile(corpora, monkeypatch
     w = corpora()
     calls = []
     register = Registry.register
+
     def counted(self, spec):
         calls.append(spec.name)
         return register(self, spec)
+
     monkeypatch.setattr(Registry, "register", counted)
     domain = parse_domain_contract(testing_document, source="fixture", base=shipped_base_contract(), predecessor=None)
     profile = compile_profile(shipped_base_contract(), [domain], coordination=coordination_contract())
     assert "testing/axis" in profile.facets_of("dataset")
     assert sorted(calls) == sorted(profile.kinds) and len(calls) == len(set(calls))
     for kind, compiled in profile.kinds.items():
-        profile.validate_document(Node(id=f"{kind}:x", kind=kind, title="x", facets={key: {} for key, use in compiled.facets.items() if use.required}))
+        profile.validate_document(
+            Node(
+                id=f"{kind}:x",
+                kind=kind,
+                title="x",
+                facets={key: {} for key, use in compiled.facets.items() if use.required},
+            )
+        )
     with pytest.raises(UnknownKindError):
         profile.validate_document(Node(id="divergence:x", kind="divergence", title="x"))
-    assert set(stored.WORLD_RELATIONS) == {name for name, decl in shipped_base_contract().relations.items() if decl.group == "world"}
+    assert set(stored.WORLD_RELATIONS) == {
+        name for name, decl in shipped_base_contract().relations.items() if decl.group == "world"
+    }
     assert "WORLD_KINDS: tuple[str, ...] = tuple(" in Path(stored.__file__).read_text()
     changed_document = copy.deepcopy(testing_document)
     changed_document["facets"]["axis"]["attaches_to"] = ["dataset", "proposition"]
-    changed_domain = parse_domain_contract(changed_document, source="fixture", base=shipped_base_contract(), predecessor=None)
+    changed_domain = parse_domain_contract(
+        changed_document, source="fixture", base=shipped_base_contract(), predecessor=None
+    )
     changed_profile = compile_profile(shipped_base_contract(), [changed_domain], coordination=coordination_contract())
     assert changed_profile.compiled_identity != profile.compiled_identity
     assert "testing/axis" in changed_profile.facets_of("proposition")
@@ -127,6 +144,7 @@ def test_d5_manifest_pin_projection_and_refusals(corpora, tmp_path):
     from beliefs.contract.document import load_document
     from beliefs.errors import ManifestMalformed
     from beliefs.world import corpus_state_identity, load_manifest
+
     duplicate = tmp_path / "duplicate.yaml"
     duplicate.write_text("facets: {}\nfacets: {}\n")
     with pytest.raises(MalformedContract, match="duplicate"):
@@ -152,7 +170,11 @@ def test_d5_manifest_pin_projection_and_refusals(corpora, tmp_path):
     path.write_text(yaml.safe_dump(changed))
     assert corpus_state_identity(w.root) != state
     good = yaml.safe_dump(original)
-    for malformed in (good + "extra: refused\n", good.replace("biology:", "biology: ignored\n    biology:"), good.replace(pins_for(BASE).science_contract, "science:bad")):
+    for malformed in (
+        good + "extra: refused\n",
+        good.replace("biology:", "biology: ignored\n    biology:"),
+        good.replace(pins_for(BASE).science_contract, "science:bad"),
+    ):
         path.write_text(malformed)
         with pytest.raises(ManifestMalformed):
             corpus_state_identity(w.root)
@@ -182,6 +204,7 @@ def test_d8_contributions_compose_without_collision(corpora, testing_document):
 def test_d9_practices_carry_no_vocabulary(corpora, tmp_path):
     import yaml
     from test_practice import GOOD
+
     w = corpora()
     for section in ("vocabulary", "sorts", "dimensions", "operators", "facets", "kinds", "relations"):
         with refused(w, MalformedContract):
@@ -211,11 +234,14 @@ def test_g5_no_divergence_kind_exists(corpora):
 def test_f1_payload_contract_enforced_at_every_entry(corpora):
     malformed = [
         {"locator": "url:x", "attested_by": ACTOR, "extra": "x"},
-        {"attested_by": ACTOR}, {"locator": 3, "attested_by": ACTOR},
-        {"locator": "ftp:x", "attested_by": ACTOR}, {"locator": "url:", "attested_by": ACTOR},
+        {"attested_by": ACTOR},
+        {"locator": 3, "attested_by": ACTOR},
+        {"locator": "ftp:x", "attested_by": ACTOR},
+        {"locator": "url:", "attested_by": ACTOR},
         {"boundary": "acquisition", "source": "dataset:gse179929", "asserted_by": "mm30-reproduction"},
     ]
     from beliefs import relocation
+
     for payload in malformed:
         w, target = corpora(), corpora()
         good = w.add(acquired("good", ACTOR))
@@ -250,7 +276,10 @@ def test_f2_bearer_invariant_over_resulting_state(corpora, tmp_path):
     other.add(producing("r", dataset_ref("d")))
     with refused(other, AcquisitionBoundaryRefused):
         other.add(acquired("d", ACTOR))
-    for members in ([acquired("x", "foreign"), producing("r", dataset_ref("x"))], [producing("r", dataset_ref("x")), acquired("x", "foreign")]):
+    for members in (
+        [acquired("x", "foreign"), producing("r", dataset_ref("x"))],
+        [producing("r", dataset_ref("x")), acquired("x", "foreign")],
+    ):
         target = corpora()
         with pytest.raises(ImportRefused) as caught:
             target.import_bundle(members, **IMPORT)
@@ -275,10 +304,17 @@ def test_f3_attestation_bound_and_preserved(corpora):
     target.import_bundle([changed], **IMPORT)
     assert reopen(target.root).get(d.id).facets == changed.facets
     from beliefs import relocation
+
     moved = corpora()
     relocation.move(target, moved, d.id, **IMPORT)
     assert reopen(moved.root).get(d.id).facets == changed.facets
-    own = w.add(stored.dataset_node(title="own", resources=[{"name": "n", "digest": "sha256:" + "2" * 64}], empirical_observation={"locator": "url:x", "attested_by": "alice"}))
+    own = w.add(
+        stored.dataset_node(
+            title="own",
+            resources=[{"name": "n", "digest": "sha256:" + "2" * 64}],
+            empirical_observation={"locator": "url:x", "attested_by": "alice"},
+        )
+    )
     own = w.revise(revised(own, **{"empirical-observation": {"locator": "url:y", "attested_by": "alice"}}))
     kept = bob.revise(own.model_copy(update={"title": "Bob edits prose"}))
     assert kept.facets["empirical-observation"] == own.facets["empirical-observation"]
@@ -305,11 +341,22 @@ def test_f4_eligibility_reads_the_validity_predicate(corpora, acquisition_report
             w.import_bundle([report], **IMPORT)
             bad.facets["empirical-observation"]["retrieval"] = report.id
             from fixtures_cut4 import path_for
+
             path_for(w.root, report.id).unlink()
             expected = "facet-retrieval-unresolved"
         raw_write(w.root, stored.stamp_semantic_identity(bad))
         run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s", observes=[bad.id]))
-        assessment = stored.assessment_node("a", title="a", spec="analysis-spec:s", run=run.id, proposition="proposition:p", outcome="supported", interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability())
+        assessment = stored.assessment_node(
+            "a",
+            title="a",
+            spec="analysis-spec:s",
+            run=run.id,
+            proposition="proposition:p",
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+        )
         reason = eligibility_refusal(reopen(w.root), assessment, BASE)
         assert reason is not None and expected in reason
         run.relations.append(Relation(source=run.id, predicate="observes", target=good.id))
@@ -337,18 +384,33 @@ def test_f5_profile_agreement_rechecked_under_the_lock(corpora, tmp_path, monkey
     path = domain.root / "corpus.yaml"
     pin = pins_for(WITH_BIOLOGY).domains["biology"]
     path.write_text(path.read_text().replace(pin, "biology:" + "e" * 64))
-    assert {"profile-mismatch", "semantic-hash-stale"} <= {f.code for f in corpus_check(reopen(domain.root), WITH_BIOLOGY)}
+    assert {"profile-mismatch", "semantic-hash-stale"} <= {
+        f.code for f in corpus_check(reopen(domain.root), WITH_BIOLOGY)
+    }
 
 
 def test_f6_dataset_revision_changes_interpretation_and_prose_only(corpora):
     from test_dataset_revision import test_every_preserved_field_is_refused_when_moved
 
     from beliefs.errors import RevisionTargetMissing
+
     w = corpora(authority=ALICE, profile=WITH_BIOLOGY)
     d = w.add(acquired("d", "alice"))
-    for field in ("id", "uid", "kind", "coordination-kind", "relations", "deprecated_ids", "metadata", "dataset", "lineage-basis"):
+    for field in (
+        "id",
+        "uid",
+        "kind",
+        "coordination-kind",
+        "relations",
+        "deprecated_ids",
+        "metadata",
+        "dataset",
+        "lineage-basis",
+    ):
         before = contents(w.root)
-        test_every_preserved_field_is_refused_when_moved((w, d), field, RevisionTargetMissing if field in ("id", "uid") else ReviseOutsideAllowlist)
+        test_every_preserved_field_is_refused_when_moved(
+            (w, d), field, RevisionTargetMissing if field in ("id", "uid") else ReviseOutsideAllowlist
+        )
         assert contents(w.root) == before
     with refused(w, ReviseOutsideAllowlist):
         w.revise(revised(d, **{"empirical-observation": None}))
@@ -364,7 +426,9 @@ def test_f6_dataset_revision_changes_interpretation_and_prose_only(corpora):
     produced = produced_writer.add(stored.dataset_node(title="produced", resources=PINNED))
     produced_writer.add(producing("r", produced.id))
     with refused(produced_writer, AcquisitionBoundaryRefused):
-        produced_writer.revise(revised(produced, **{"empirical-observation": {"locator": "url:x", "attested_by": "alice"}}))
+        produced_writer.revise(
+            revised(produced, **{"empirical-observation": {"locator": "url:x", "attested_by": "alice"}})
+        )
 
 
 def test_f7_retrieval_resolves_or_refuses(corpora, acquisition_report):
@@ -391,31 +455,62 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
     from beliefs.resolution import build_snapshot
     from beliefs.runrecord import projection_text
     from beliefs.spec import freeze
+
     profile = compile_profile(shipped_base_contract(), [], coordination=coordination_contract())
     w = corpora(profile=profile)
-    coordinated = open_corpus(w.root, authority=FULL, profile=profile, coordination_resolver=CoordinationResolver({w.root: profile}))
+    coordinated = open_corpus(
+        w.root, authority=FULL, profile=profile, coordination_resolver=CoordinationResolver({w.root: profile})
+    )
     closure = make_closure()
     builders = {
         "governed_node": stored.governed_node("source", "g", "g", {"source": {"identifiers": {"doi": "x"}}}, ()),
         "act_report_node": stored.act_report_node(acquisition_report),
-        "proposition_node": stored.proposition_node("p", title="p", claim={"operator": "affects"}, display_statement="shown"),
+        "proposition_node": stored.proposition_node(
+            "p", title="p", claim={"operator": "affects"}, display_statement="shown"
+        ),
         "source_node": stored.source_node(title="s", identifiers={"doi": "10.1234/x"}),
         "dataset_node": acquired("d", ACTOR),
         "run_node": producing("r", dataset_ref("x")),
-        "run_publication_node": stored.run_publication_node("rp", title="rp", projection=projection_text(closure).decode(), spec="analysis-spec:s"),
-        "assessment_node": stored.assessment_node("a", title="a", spec="analysis-spec:s", run="run:r", proposition="proposition:p", outcome="supported", interpretation_rule="rule:r", estimand=typed_estimand(), applicability=typed_applicability()),
-        "verification_node": stored.verification_node("v", title="v", assessment="a", assessment_ref="assessment:a", scope="same-environment", verdict="passed"),
+        "run_publication_node": stored.run_publication_node(
+            "rp", title="rp", projection=projection_text(closure).decode(), spec="analysis-spec:s"
+        ),
+        "assessment_node": stored.assessment_node(
+            "a",
+            title="a",
+            spec="analysis-spec:s",
+            run="run:r",
+            proposition="proposition:p",
+            outcome="supported",
+            interpretation_rule="rule:r",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+        ),
+        "verification_node": stored.verification_node(
+            "v", title="v", assessment="a", assessment_ref="assessment:a", scope="same-environment", verdict="passed"
+        ),
         "analysis_spec_node": stored.analysis_spec_node(freeze(spec_draft(), held_rules=spec_rules())),
-        "retraction_node": stored.retraction_node(title="r", target=stored.NodeTarget(dataset_ref("d"), dataset_ref("d"), "1" * 64), reason="authored-error", rationale="wrong", grounds=["source:s"], actor=ACTOR, event_token="e"),
+        "retraction_node": stored.retraction_node(
+            title="r",
+            target=stored.NodeTarget(dataset_ref("d"), dataset_ref("d"), "1" * 64),
+            reason="authored-error",
+            rationale="wrong",
+            grounds=["source:s"],
+            actor=ACTOR,
+            event_token="e",
+        ),
         "holdings_observation_node": stored.holdings_observation_node(observation()),
         # A composite is built, never authored, and its node set is resolved against a
         # profile that declares the sorts — so the value comes from the fixture profile
         # while the facet it carries is the base contract's, which is what F8 reads.
         "composite_node": stored.composite_node(
             build_composite(
-                WITH_BIOLOGY, w.read_view, shape="dag",
-                nodes=[CompositeNode("biology/gene", "EX:a")], members=[],
-                snapshot=build_snapshot(), slug="c",
+                WITH_BIOLOGY,
+                w.read_view,
+                shape="dag",
+                nodes=[CompositeNode("biology/gene", "EX:a")],
+                members=[],
+                snapshot=build_snapshot(),
+                slug="c",
             )[0],
             title="c",
         ),
@@ -428,7 +523,11 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
             event_token="coref",
         ),
     }
-    assert set(builders) == {name for name, value in vars(stored).items() if name.endswith("_node") and not name.startswith("_") and callable(value)}
+    assert set(builders) == {
+        name
+        for name, value in vars(stored).items()
+        if name.endswith("_node") and not name.startswith("_") and callable(value)
+    }
     for node in builders.values():
         profile.validate_document(node)
     profile.validate_document(coordinated.mint_coordination("project", content=content_for("project")))
@@ -446,6 +545,7 @@ def test_d1_installed_nodes_takes_no_domain_argument(corpora):
 
 def test_boundary_no_read_entry_point_gained_an_argument(corpora):
     from beliefs.corpus import ReadView, standing_in_local_view
+
     corpora()
     for callable in (ReadView.get, ReadView.iter_stored, standing_in_local_view):
         assert not {"profile", "domain", "contract", "vocabulary"} & inspect.signature(callable).parameters.keys()
@@ -456,18 +556,29 @@ def _durable_production_collision(corpora, tmp_path):
     from fixtures_cut3 import DATA_ADDRESS, READS_ADDRESS, MemoryPort, run_production
 
     from beliefs.boundary import RunMinted, RunRefused
+
     first = run_production(tmp_path / "first", port=MemoryPort())
     assert isinstance(first, RunMinted)
     w = corpora()
-    bearer = w.add(stored.dataset_node(title="bearer", resources=[{"name": n, "digest": d} for n, d in first.run.result.outputs], empirical_observation={"locator": "url:x", "attested_by": ACTOR}))
+    bearer = w.add(
+        stored.dataset_node(
+            title="bearer",
+            resources=[{"name": n, "digest": d} for n, d in first.run.result.outputs],
+            empirical_observation={"locator": "url:x", "attested_by": ACTOR},
+        )
+    )
     before = contents(w.root)
     held_before = contents(tmp_path / "first" / "held")
     assert held_before
     start = len(chain_entries(w.root))
-    result = run_production(tmp_path / "second", port=w._operation_port, held_inputs={
-        DATA_ADDRESS: tmp_path / "first" / "held" / "data.txt",
-        READS_ADDRESS: tmp_path / "first" / "held" / "palette.txt",
-    })
+    result = run_production(
+        tmp_path / "second",
+        port=w._operation_port,
+        held_inputs={
+            DATA_ADDRESS: tmp_path / "first" / "held" / "data.txt",
+            READS_ADDRESS: tmp_path / "first" / "held" / "palette.txt",
+        },
+    )
     assert isinstance(result, RunRefused) and result.reason == "acquisition-boundary"
     entries = chain_entries(w.root)[start:]
     intents = [(digest, entry) for digest, entry in entries if isinstance(entry, IntentEntry)]
@@ -486,17 +597,20 @@ def _durable_production_collision(corpora, tmp_path):
 def _pin_change_after_intent(corpora, tmp_path, monkeypatch):
     from atoms.chain.model import IntentEntry, RegisteredEntry
     from fixtures_cut3 import run_production
+
     w = corpora()
     port = w._operation_port
     assert port is not None
     append = port.append_intent
     snapshot = []
+
     def changed(payload):
         digest = append(payload)
         path = w.root / "corpus.yaml"
         path.write_text(path.read_text().replace(pins_for(BASE).science_contract, "science:" + "f" * 64))
         snapshot.append(contents(w.root))
         return digest
+
     monkeypatch.setattr(port, "append_intent", changed)
     start = len(chain_entries(w.root))
     with pytest.raises(ContractMismatch):

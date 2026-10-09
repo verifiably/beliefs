@@ -32,8 +32,13 @@ def test_absence_and_invalidity_are_distinct_reasons(tmp_path):
 
 
 def test_a_lineage_basis_disqualifies_even_with_a_valid_facet(tmp_path):
-    node = stored.dataset_node(title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []})
-    assert validity_refusal(seed(tmp_path, node), node, BASE) == "facet-bearer-produced: the dataset carries a lineage basis"
+    node = stored.dataset_node(
+        title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []}
+    )
+    assert (
+        validity_refusal(seed(tmp_path, node), node, BASE)
+        == "facet-bearer-produced: the dataset carries a lineage basis"
+    )
 
 
 def test_a_producer_disqualifies(tmp_path):
@@ -46,7 +51,10 @@ def test_a_dangling_producer_edge_counts_before_the_dataset_exists(tmp_path):
     run = stored.run_node("r", title="r", spec="analysis-spec:s", produces=[dataset_ref("d")])
     view = seed(tmp_path, run)
     assert view.producers(dataset_ref("d")) == (run.id,)
-    assert bearer_refusal(view, acquired()) == f"{dataset_ref('d')}: carries the empirical-observation facet and is produced by {run.id}"
+    assert (
+        bearer_refusal(view, acquired())
+        == f"{dataset_ref('d')}: carries the empirical-observation facet and is produced by {run.id}"
+    )
 
 
 def test_an_alias_reaches_the_producer(tmp_path):
@@ -67,7 +75,10 @@ def test_the_bearer_invariant_reads_the_edge_whatever_its_carrier(tmp_path):
     view = seed(tmp_path, node)
     source = stored.source_node(title="s", identifiers={"doi": "10.1234/x"})
     source.relations.append(Relation(source=source.id, predicate="produces", target=node.id))
-    assert bearer_refusal(view, source) == f"{source.id}: produces {node.id}, which carries the empirical-observation facet"
+    assert (
+        bearer_refusal(view, source)
+        == f"{source.id}: produces {node.id}, which carries the empirical-observation facet"
+    )
 
 
 def test_a_new_dataset_producing_itself_is_refused_by_id_and_by_alias(tmp_path):
@@ -76,7 +87,10 @@ def test_a_new_dataset_producing_itself_is_refused_by_id_and_by_alias(tmp_path):
         node = acquired()
         node.deprecated_ids = ["dataset:old"]
         node.relations.append(Relation(source=node.id, predicate="produces", target=target))
-        assert bearer_refusal(view, node) == f"{dataset_ref('d')}: carries the empirical-observation facet and produces itself"
+        assert (
+            bearer_refusal(view, node)
+            == f"{dataset_ref('d')}: carries the empirical-observation facet and produces itself"
+        )
 
 
 def test_a_non_acquisition_report_disqualifies(tmp_path):
@@ -90,8 +104,13 @@ def test_a_non_acquisition_report_disqualifies(tmp_path):
 
 
 def test_a_lineage_basis_breaks_the_bearer_invariant(tmp_path):
-    node = stored.dataset_node(title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []})
-    assert bearer_refusal(seed(tmp_path), node) == f"{node.id}: carries the empirical-observation facet and a lineage basis"
+    node = stored.dataset_node(
+        title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []}
+    )
+    assert (
+        bearer_refusal(seed(tmp_path), node)
+        == f"{node.id}: carries the empirical-observation facet and a lineage basis"
+    )
 
 
 def test_producers_are_unique_sorted_and_ignore_other_edges(tmp_path):
@@ -110,9 +129,15 @@ def test_eligibility_is_existential_and_reports_invalidity(tmp_path):
     good = acquired("good")
     bad = acquired("bad", retrieval="act-report:" + "0" * 64)
     assessment = stored.assessment_node(
-        "a", title="a", spec="analysis-spec:s", run="run:r", proposition="proposition:p",
-        outcome="supported", interpretation_rule="rule:threshold",
-        estimand=typed_estimand(), applicability=typed_applicability(),
+        "a",
+        title="a",
+        spec="analysis-spec:s",
+        run="run:r",
+        proposition="proposition:p",
+        outcome="supported",
+        interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     run = stored.run_node("r", title="r", spec="analysis-spec:s", observes=["dataset:missing", bad.id])
     view = seed(tmp_path / "bad", bad, run)

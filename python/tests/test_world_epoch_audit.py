@@ -209,9 +209,7 @@ def test_a_consistent_omission_is_contradicted_under_its_own_subject(tmp_path):
     assert published_subject is not None
     assert states[receipt["subject"]] == "contradicted"
     assert states[published_subject] == "checked"
-    assert ("snapshot-contradicted", receipt["subject"]) in [
-        (finding.code, finding.ref) for finding in audit.findings
-    ]
+    assert ("snapshot-contradicted", receipt["subject"]) in [(finding.code, finding.ref) for finding in audit.findings]
     assert ("receipt-refuted", omitted.packaging_identity) in [
         (finding.code, finding.ref) for finding in audit.findings
     ]
@@ -280,6 +278,7 @@ def test_a_retracted_subject_is_reported_and_is_not_a_finding(tmp_path):
 def test_retracted_precedes_availability(tmp_path):
     """BI-3: the retraction write moved ALPHA's state; a phase after availability would answer unresolvable."""
     from beliefs.world import read
+
     world, _roots, _b, published, *_ = retracted_world(tmp_path)
     assert read.validate_receipt(world, published, "producer").outcome == "retracted"
     assert read.validate_receipt(world, published, "retraction-enumeration").outcome == "unresolvable"
@@ -295,6 +294,7 @@ def test_a_counter_retraction_leaves_the_subject_unchecked_not_retracted(tmp_pat
 def test_an_unreadable_chain_is_an_unresolvable_outcome_and_a_finding_and_the_reports_return(tmp_path):
     from fixtures_cut4 import raw_write
     from test_snapshot_retraction import broken_counter
+
     world, roots, _b, _published, identity, _w, r, _c = retracted_world(tmp_path)
     broken = broken_counter(r)
     raw_write(roots[ALPHA], broken)

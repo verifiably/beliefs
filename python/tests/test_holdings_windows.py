@@ -40,7 +40,9 @@ def setup(root: Path):
     )
     world.admit(corpus_root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
-    context = ActContext(corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=WITH_BIOLOGY)
+    context = ActContext(
+        corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=WITH_BIOLOGY
+    )
     return context, store_id, manifest.corpus_id, world, binding
 
 
@@ -84,18 +86,14 @@ def test_the_kill_window_reads_unsettled_until_a_fulfilled_recheck_lifts_it(cert
     chain = projection["corpora"][0]["chain"]
     intents = [row["digest"] for row in chain if row["entry"]["kind"] == "intent"]
     fulfillments = [
-        row["entry"]["fulfills"]
-        for row in chain
-        if row["entry"]["kind"] == "registered" and "fulfills" in row["entry"]
+        row["entry"]["fulfills"] for row in chain if row["entry"]["kind"] == "registered" and "fulfills" in row["entry"]
     ]
     assert intents[0] not in fulfillments
     assert intents[1] in fulfillments
 
 
 @pytest.mark.parametrize("case", ["wrong-location", "wrong-token", "no-observation"])
-def test_nonqualifying_fulfillments_are_committed_and_leave_the_intent_unsettled(
-    certified_work, case
-):
+def test_nonqualifying_fulfillments_are_committed_and_leave_the_intent_unsettled(certified_work, case):
     context, store_id, corpus_id, world, binding = setup(certified_work)
     location = StoreLocator(store_id, "held.bin")
     token = "intended-token"
@@ -125,10 +123,7 @@ def test_nonqualifying_fulfillments_are_committed_and_leave_the_intent_unsettled
 
     viewed = science_root._log_seam().inspect_registered(context.observer_root)
     assert isinstance(viewed, logmodel.WellFormedView)
-    assert any(
-        isinstance(entry, logmodel.RegisteredEntryView) and entry.fulfills == intent
-        for entry in viewed.entries
-    )
+    assert any(isinstance(entry, logmodel.RegisteredEntryView) and entry.fulfills == intent for entry in viewed.entries)
     blocked = reduce(context, corpus_id, world, binding)["blocked"]
     assert len(blocked) == 1
     assert blocked[0]["location"] == location.canonical()
@@ -157,6 +152,7 @@ def test_the_three_move_windows_read_exactly(certified_work):
 
             killed = replace(context, seam=replace(context.seam, append_intent=append))
         elif name == "before-mutation":
+
             def store_move(_root, _source, _destination):
                 raise RuntimeError("kill")
 
@@ -177,10 +173,12 @@ def test_the_three_move_windows_read_exactly(certified_work):
         with pytest.raises(RuntimeError, match="kill"):
             move(killed, source, destination)
         result = reduce(context, corpus_id, world, binding)
-        readings.append((
-            [entry["location"] for entry in result["blocked"]],
-            [member["location"] for member in result["active"]],
-        ))
+        readings.append(
+            (
+                [entry["location"] for entry in result["blocked"]],
+                [member["location"] for member in result["active"]],
+            )
+        )
         if name == "between-appends":
             expected.append(([source.canonical()], []))
         elif name == "before-mutation":

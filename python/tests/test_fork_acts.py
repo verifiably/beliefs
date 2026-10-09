@@ -70,9 +70,7 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
             facets={},
         )
     ).encode("utf-8")
-    science_root.durable_executor_factory()(root).execute(
-        [CreateOp("discussion/logged.md", logged)]
-    )
+    science_root.durable_executor_factory()(root).execute([CreateOp("discussion/logged.md", logged)])
     genesis, head = _head_of(root)
     assert head != genesis
     return root
@@ -84,9 +82,7 @@ def _head_of(root: Path) -> tuple[str, str]:
 
 def _record(corpus_id: str, genesis: str, head: str) -> verify.RegistryCarrier:
     return verify.RegistryCarrier.from_record(
-        anchors.LogHeadRecord(
-            anchors.CorpusSubject(corpus_id), genesis, head, anchors.AnchorActOrigin("alice")
-        )
+        anchors.LogHeadRecord(anchors.CorpusSubject(corpus_id), genesis, head, anchors.AnchorActOrigin("alice"))
     )
 
 
@@ -116,9 +112,7 @@ def _genesis_entry(root: Path) -> GenesisEntry:
 
 
 class TestForkCorpus:
-    def test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name(
-        self, certified_work
-    ):
+    def test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name(self, certified_work):
         parent = _parent_corpus(certified_work)
         first = fork_corpus(parent, certified_work / "child-one", authority=FULL)
         second = fork_corpus(parent, certified_work / "child-two", authority=FULL)
@@ -140,9 +134,7 @@ class TestForkCorpus:
         assert stored == minted
         assert stored.forked_from is not None
 
-    def test_fork_genesis_carries_parent_digests_and_nonempty_baseline(
-        self, certified_work
-    ):
+    def test_fork_genesis_carries_parent_digests_and_nonempty_baseline(self, certified_work):
         parent = _parent_corpus(certified_work)
         parent_genesis, parent_head = _head_of(parent)
         child = certified_work / "child"
@@ -163,9 +155,7 @@ class TestForkCorpus:
             payload=science_root.GENESIS_PAYLOAD,
             baseline=(("corpus.yaml", ("kind", "file")),),
         )
-        view = logmodel.WellFormedView(
-            genesis=genesis, entries=(genesis,), tip=genesis.digest, pending=()
-        )
+        view = logmodel.WellFormedView(genesis=genesis, entries=(genesis,), tip=genesis.digest, pending=())
         report = verify.evaluate_log(
             anchors.CorpusSubject(PARENT_ID),
             view,
@@ -177,9 +167,7 @@ class TestForkCorpus:
             science_root._log_seam().state_facts,
         )
         assert report.outcome == "malformed"
-        assert any(
-            finding.code == "genesis-form-invalid" for finding in report.findings
-        )
+        assert any(finding.code == "genesis-form-invalid" for finding in report.findings)
 
     def test_source_moved_between_derivation_and_fork_refuses(self, certified_work):
         parent = _parent_corpus(certified_work)
@@ -187,9 +175,7 @@ class TestForkCorpus:
         # The head moves after derivation.
         from nodes.core.write_plan import CreateOp
 
-        science_root.durable_executor_factory()(parent).execute(
-            [CreateOp("verification/late.md", b"# late\n")]
-        )
+        science_root.durable_executor_factory()(parent).execute([CreateOp("verification/late.md", b"# late\n")])
         child = certified_work / "child"
 
         with pytest.raises(SourceSnapshotMoved):
@@ -201,9 +187,7 @@ class TestForkCorpus:
                 str(metadata_root_for(child)),
                 science_root.PRODUCTION_STORAGE,
                 expected_source_head=head,
-                genesis_payload=science_root._fork_corpus_genesis_payload(
-                    (_genesis, head)
-                ),
+                genesis_payload=science_root._fork_corpus_genesis_payload((_genesis, head)),
                 surface_paths=("corpus.yaml",),
                 dest_overrides=(),
             )
@@ -225,9 +209,7 @@ class TestForkRetry:
         monkeypatch.setattr(atoms_lifecycle, seam, failing)
         return Cut, lambda: monkeypatch.setattr(atoms_lifecycle, seam, real)
 
-    def test_fork_retry_reuses_the_original_child_identity(
-        self, certified_work, monkeypatch
-    ):
+    def test_fork_retry_reuses_the_original_child_identity(self, certified_work, monkeypatch):
         parent = _parent_corpus(certified_work)
         child = certified_work / "child"
         cut, restore = self._interrupt(monkeypatch, "_complete_root_operation")
@@ -255,9 +237,7 @@ class TestForkRetry:
                 dest_overrides=(),
             )
 
-    def test_fork_resume_reads_pending_claim_before_lifecycle_stamp(
-        self, certified_work, monkeypatch
-    ):
+    def test_fork_resume_reads_pending_claim_before_lifecycle_stamp(self, certified_work, monkeypatch):
         parent = _parent_corpus(certified_work)
         child = certified_work / "child"
         cut, restore = self._interrupt(monkeypatch, "_stamp_copy_destination")
@@ -273,9 +253,7 @@ class TestForkRetry:
         assert science_root._fork_pending(child) is None
         assert claimed is not None
 
-    def test_fork_resume_reads_pending_operation_after_lifecycle_stamp(
-        self, certified_work, monkeypatch
-    ):
+    def test_fork_resume_reads_pending_operation_after_lifecycle_stamp(self, certified_work, monkeypatch):
         parent = _parent_corpus(certified_work)
         child = certified_work / "child"
         cut, restore = self._interrupt(monkeypatch, "_copy_tree")
@@ -289,9 +267,7 @@ class TestForkRetry:
         assert registry.load_manifest(child).corpus_id == minted.corpus_id
         assert read_lifecycle_state(child) is LifecycleState.WRITABLE
 
-    def test_fork_resume_after_genesis_does_not_need_the_source(
-        self, certified_work, monkeypatch
-    ):
+    def test_fork_resume_after_genesis_does_not_need_the_source(self, certified_work, monkeypatch):
         parent = _parent_corpus(certified_work)
         child = certified_work / "child"
         cut, restore = self._interrupt(monkeypatch, "_complete_root_operation")
@@ -305,9 +281,7 @@ class TestForkRetry:
         assert registry.load_manifest(child).corpus_id == minted.corpus_id
         assert read_lifecycle_state(child) is LifecycleState.WRITABLE
 
-    def test_fork_resume_refuses_wrong_or_completed_operation_id(
-        self, certified_work
-    ):
+    def test_fork_resume_refuses_wrong_or_completed_operation_id(self, certified_work):
         parent = _parent_corpus(certified_work)
         child = certified_work / "child"
         fork_corpus(parent, child, authority=FULL)
@@ -344,11 +318,7 @@ class TestTheL6Lift:
         child = work / "child"
         minted = fork_corpus(parent, child, authority=FULL)
         genesis, head = _head_of(child)
-        member = next(
-            path
-            for path, _state in _genesis_entry(child).baseline
-            if path.endswith(".md")
-        )
+        member = next(path for path, _state in _genesis_entry(child).baseline if path.endswith(".md"))
         return child, minted.corpus_id, genesis, head, member
 
     def test_l6_anchored_baseline_deletion_refutes(self, certified_work):
@@ -375,9 +345,7 @@ class TestTheL6Lift:
 
         # The consistent rewrite: genesis, baseline, and chain omit the member.
         original = _genesis_entry(copy)
-        kept = tuple(
-            (path, state) for path, state in original.baseline if path != member
-        )
+        kept = tuple((path, state) for path, state in original.baseline if path != member)
         rewritten = encode_entry(None, GenesisEntry(original.payload, kept))
         shutil.rmtree(copy / ".#~chain")
         (copy / ".#~chain").mkdir()
@@ -393,9 +361,7 @@ class TestTheL6Lift:
         assert report.outcome == "unresolvable"
         assert report.outcome not in ("validated", "refuted")
 
-    def test_parent_anchor_never_compared_in_fork_subject_evaluation(
-        self, certified_work
-    ):
+    def test_parent_anchor_never_compared_in_fork_subject_evaluation(self, certified_work):
         parent = _parent_corpus(certified_work)
         parent_genesis, parent_head = _head_of(parent)
         child = certified_work / "child"
@@ -420,9 +386,7 @@ class TestTheL6Lift:
         # A self-consistent chain under a different fork genesis, same child
         # subject: the forked_from head differs, everything else stands.
         original = _genesis_entry(copy)
-        other_payload = science_root._fork_corpus_genesis_payload(
-            ("d" * 64, "c" * 64)
-        )
+        other_payload = science_root._fork_corpus_genesis_payload(("d" * 64, "c" * 64))
         replaced = encode_entry(None, GenesisEntry(other_payload, original.baseline))
         shutil.rmtree(copy / ".#~chain")
         (copy / ".#~chain").mkdir()

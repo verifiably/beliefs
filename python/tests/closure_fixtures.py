@@ -43,9 +43,7 @@ def make_closure(
         shape=shape,
         spec_identity=spec if shape == "assessment" else None,
         code_identity="sha256:" + "5" * 64,
-        environment=EnvironmentManifest(
-            artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "6" * 64),)
-        ),
+        environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "6" * 64),)),
         workflow_definition=WorkflowDefinitionSnapshot(
             snakefile_digest="sha256:" + "7" * 64,
             family_streams={},
@@ -58,13 +56,9 @@ def make_closure(
             declared_outputs=("out-a", "out-b"),
         ),
         inputs=inputs,
-        parameters=(
-            parameters if parameters is not None else {"threshold": Decimal("0.5")}
-        ),
+        parameters=(parameters if parameters is not None else {"threshold": Decimal("0.5")}),
         nondeterminism=Deterministic(),
-        boundary_policy=BoundaryPolicy(
-            identity="boundary-policy/minimal-v1", scope_rule="scope-derivation/v1"
-        ),
+        boundary_policy=BoundaryPolicy(identity="boundary-policy/minimal-v1", scope_rule="scope-derivation/v1"),
         rule_bindings=(("rule:eq", "impl-1"),),
     )
     result = ResultManifest(
@@ -95,9 +89,7 @@ def make_closure(
 
 
 def sample_report(*, operation: str = "run-attempt", token: str = "tok") -> ActReport:
-    entries: tuple[Entry, ...] = (
-        RunAttemptEntry("subject", RunRefusal("execution-failed")),
-    )
+    entries: tuple[Entry, ...] = (RunAttemptEntry("subject", RunRefusal("execution-failed")),)
     return _mint_report(
         operation=operation,
         event_token=token,

@@ -66,12 +66,7 @@ def unopenable_directory_at_open(
     opened: list[str] = []
 
     def open_path(path, flags: int, mode: int = 0o777, *, dir_fd: int | None = None):
-        if (
-            not opened
-            and path == target.name
-            and dir_fd is not None
-            and flags & os.O_DIRECTORY
-        ):
+        if not opened and path == target.name and dir_fd is not None and flags & os.O_DIRECTORY:
             target.chmod(0)
             assert _mode(target) == 0
             opened.append(target.name)

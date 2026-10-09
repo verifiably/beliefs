@@ -250,9 +250,7 @@ def test_non_fork_provenance_refuses_a_fork_manifest(tmp_path):
     # (§6.2), so the fork-manifest refusal is armed over the predicate the
     # shared core applies on either route.
     with pytest.raises(ProvenanceMismatch):
-        world_module._validate_provenance(
-            world_module.load_manifest(corpus), world_module.ReplicaOf("1" * 32)
-        )
+        world_module._validate_provenance(world_module.load_manifest(corpus), world_module.ReplicaOf("1" * 32))
 
     assert registry_paths(instance) == ()
 

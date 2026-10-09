@@ -17,8 +17,11 @@ from beliefs.report import LocatorEntry, OperationIntent, RetrievalFailed
 def _report(writer, token: str):
     now = "2026-09-22T00:00:00Z"
     return boundary_values._mint_acquisition_report(
-        OperationIntent("acquisition", token, writer.authority.actor), observer="o", instrument="i",
-        opened_at=now, closed_at=now,
+        OperationIntent("acquisition", token, writer.authority.actor),
+        observer="o",
+        instrument="i",
+        opened_at=now,
+        closed_at=now,
         entries=(LocatorEntry("url:https://example.org/a", RetrievalFailed("status 500"), ()),),
     )
 

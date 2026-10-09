@@ -119,7 +119,9 @@ def main() -> int:
         f"({chosen['dataset_bytes']} bytes)"
     )
     for c in ordered[:5]:
-        print(f"  {c['proposition_id']}  layer={c['claim_layer']}  dataset={c['dataset_id']}  bytes={c['dataset_bytes']}")
+        print(
+            f"  {c['proposition_id']}  layer={c['claim_layer']}  dataset={c['dataset_id']}  bytes={c['dataset_bytes']}"
+        )
     return 0
 
 

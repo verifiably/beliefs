@@ -34,7 +34,9 @@ class ReportView(Protocol):
     def get(self, ref: str) -> Node: ...
 
 
-def validity_refusal(view: ProducerView, node: Node, profile: ProfileSpec, *, reports: ReportView | None = None) -> str | None:
+def validity_refusal(
+    view: ProducerView, node: Node, profile: ProfileSpec, *, reports: ReportView | None = None
+) -> str | None:
     """`None` when `node` carries a valid acquisition-boundary declaration. The
     retrieval report is read through `reports`, the dataset's own corpus, when
     given (mount-citations decision 3a)."""

@@ -227,6 +227,7 @@ class _IntentRecord:
 
 class _HashingOperationPort:
     profile = WITH_BIOLOGY
+
     def __init__(self, root: Path, authority=FULL):
         self._inner = DefaultExecutor(root)
         self.authority = authority
@@ -292,7 +293,8 @@ class _Attempt:
 def _writer(root: Path) -> CorpusWriter:
     writer = CorpusWriter(
         root,
-        DefaultExecutor, authority=FULL,
+        DefaultExecutor,
+        authority=FULL,
         operation_port=_HashingOperationPort(root),
         profile=WITH_BIOLOGY,
     )

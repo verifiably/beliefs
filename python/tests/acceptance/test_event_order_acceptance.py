@@ -139,8 +139,8 @@ def world(work_directory):
     class Built:
         def __init__(self):
             first, second = corpus(), corpus()
-            (self.a, self.alpha, self.writer_a, self.target_a), (self.b, self.beta, self.writer_b, self.target_b) = sorted(
-                (first, second), key=lambda c: c[0]
+            (self.a, self.alpha, self.writer_a, self.target_a), (self.b, self.beta, self.writer_b, self.target_b) = (
+                sorted((first, second), key=lambda c: c[0])
             )
             path = Path(mkdtemp(prefix="cut36-world-", dir=work_directory))
             roots.append(path)
@@ -161,7 +161,9 @@ def world(work_directory):
             in A through an operation write. The event is the registration; its
             moment is the committed settlement."""
             self.freezes += 1
-            spec = freeze(spec_draft(target=self.target_a, method=f"fit the model {self.freezes}"), held_rules=spec_rules())
+            spec = freeze(
+                spec_draft(target=self.target_a, method=f"fit the model {self.freezes}"), held_rules=spec_rules()
+            )
             commit = self.writer_a.operations.add(stored.analysis_spec_node(spec))
             assert type(view_of(self.alpha).entries[-1]) is SettledEntryView
             assert settlement_of(self.alpha, commit.entry_digest).committed
@@ -188,11 +190,16 @@ def world(work_directory):
             commit = self.writer_b.operations.add(
                 stored.source_node(title="b", identifiers={"doi": f"10.1234/b{len(view_of(self.beta).entries)}"})
             )
-            assert type(next(e for e in view_of(self.beta).entries if e.digest == commit.intent_digest)) is IntentEntryView
+            assert (
+                type(next(e for e in view_of(self.beta).entries if e.digest == commit.intent_digest)) is IntentEntryView
+            )
             return Event(self.b, commit.intent_digest)
 
         def freeze_in_b(self) -> Event:
-            spec = freeze(spec_draft(target=self.target_b, method=f"fit the model b{len(view_of(self.beta).entries)}"), held_rules=spec_rules())
+            spec = freeze(
+                spec_draft(target=self.target_b, method=f"fit the model b{len(view_of(self.beta).entries)}"),
+                held_rules=spec_rules(),
+            )
             return Event(self.b, self.writer_b.operations.add(stored.analysis_spec_node(spec)).entry_digest)
 
         def order(self, x: Event, y: Event) -> str:
@@ -227,8 +234,11 @@ def seam_with_view(root: Path, view) -> verify.LogSeam:
     production = log_seam()
     return replace(
         production,
-        inspect_registered=lambda target: view if Path(target).resolve() == root.resolve() else production.inspect_registered(target),
+        inspect_registered=lambda target: (
+            view if Path(target).resolve() == root.resolve() else production.inspect_registered(target)
+        ),
     )
+
 
 def overlapping_builds(world) -> tuple[Event, Event, str, str, str, str]:
     """Spec §4.3: E3 preflights at h0 and captures A; `a` commits; E1
@@ -259,9 +269,9 @@ def overlapping_builds(world) -> tuple[Event, Event, str, str, str, str]:
     try:
         thread.start()
         assert reached_b.wait(60), "E3 never reached B's capture"
-        a = world.freeze()          # after E3's A capture, before E1's
-        e1 = world.build()          # preflight at h0: nothing is published yet
-        b = world.intent()          # after E1's B capture, before E3's
+        a = world.freeze()  # after E3's A capture, before E1's
+        e1 = world.build()  # preflight at h0: nothing is published yet
+        b = world.intent()  # after E1's B capture, before E3's
     finally:
         # Whatever failed above, the gated thread is released and joined
         # before the fixture tears the roots down under it.
@@ -280,11 +290,20 @@ def overlapping_builds(world) -> tuple[Event, Event, str, str, str, str]:
     a_moment, b_moment = events.moment(live_a, a.digest), events.moment(live_b, b.digest)
     assert a_moment is not None and b_moment is not None
     for identity, on_a, on_b in ((e1, True, False), (e3, False, True)):
-        pa = events.place(live_a, genesis_digest=world.anchor_for(identity, world.a).genesis_digest, head_digest=world.anchor_for(identity, world.a).head_digest)
-        pb = events.place(live_b, genesis_digest=world.anchor_for(identity, world.b).genesis_digest, head_digest=world.anchor_for(identity, world.b).head_digest)
+        pa = events.place(
+            live_a,
+            genesis_digest=world.anchor_for(identity, world.a).genesis_digest,
+            head_digest=world.anchor_for(identity, world.a).head_digest,
+        )
+        pb = events.place(
+            live_b,
+            genesis_digest=world.anchor_for(identity, world.b).genesis_digest,
+            head_digest=world.anchor_for(identity, world.b).head_digest,
+        )
         assert pa is not None and pb is not None
         assert events.contains(pa, a_moment) is on_a and events.contains(pb, b_moment) is on_b
     return a, b, e1, e2, e3, e4
+
 
 def test_l8a_a_freeze_before_a_run_intent_across_ordered_cuts_orders_and_is_antisymmetric_durably(world):
     a = world.freeze()
@@ -321,12 +340,12 @@ def test_l8c_epoch_sequence_numbers_are_read_by_nothing_durably(world):
 
 def test_l8d_a_cut_covering_one_corpus_establishes_nothing_durably(world):
     a = world.freeze()
-    world.build(world.a)          # A only: no anchor for B
+    world.build(world.a)  # A only: no anchor for B
     b = world.intent()
-    world.build(world.a)          # A only again
+    world.build(world.a)  # A only again
     unordered_both_ways(world, a, b)
     c = world.freeze()
-    world.build()                 # both: the covering pair begins
+    world.build()  # both: the covering pair begins
     d = world.intent()
     world.build()
     assert world.order(c, d) == "a-precedes-b"
@@ -340,14 +359,14 @@ def test_l8e_a_chain_replaced_under_another_fork_genesis_establishes_nothing_dur
     world.build()
     assert world.order(a, b) == "a-precedes-b"
     replace_chain_under_another_fork_genesis(world.alpha)
-    a2 = world.freeze()            # appends under the new genesis
-    e3 = world.build()             # E3 places A (new genesis) and B; holds both
+    a2 = world.freeze()  # appends under the new genesis
+    e3 = world.build()  # E3 places A (new genesis) and B; holds both
     live_genesis = view_of(world.alpha).genesis.digest
     assert world.anchor_for(e3, world.a).genesis_digest == live_genesis
     assert world.anchor_for(e1, world.a).genesis_digest != live_genesis
     unordered_both_ways(world, a2, b)
     with pytest.raises(EventUnknown):
-        world.order(a, b)          # the old chain's registration is gone
+        world.order(a, b)  # the old chain's registration is gone
 
 
 def test_l8f_the_double_witness_is_unordered_durably(world):
@@ -358,15 +377,18 @@ def test_l8f_the_double_witness_is_unordered_durably(world):
 def test_l8g_valid_prefix_truncation_invalidates_every_witness_and_unknowns_the_removed_event_durably(world):
     a = world.freeze()
     a_settled = settlement_of(world.alpha, a.digest).digest
-    later = world.freeze()         # E1's A head will sit after this
+    later = world.freeze()  # E1's A head will sit after this
     e1 = world.build()
     b = world.intent()
     e2 = world.build()
     assert world.order(a, b) == "a-precedes-b"
-    truncate_after(world.alpha, keep_through=a_settled)   # every cut's A head is now beyond the tip
+    truncate_after(world.alpha, keep_through=a_settled)  # every cut's A head is now beyond the tip
     for identity in (e1, e2):
         anchor = world.anchor_for(identity, world.a)
-        assert events.place(view_of(world.alpha), genesis_digest=anchor.genesis_digest, head_digest=anchor.head_digest) is None
+        assert (
+            events.place(view_of(world.alpha), genesis_digest=anchor.genesis_digest, head_digest=anchor.head_digest)
+            is None
+        )
     unordered_both_ways(world, a, b)
     with pytest.raises(EventUnknown):
         world.order(later, b)
@@ -404,13 +426,13 @@ def test_l8j_same_chain_independence_from_a_malformed_carrier_and_world_chain_du
     second = world.freeze()
     identity = world.build()
     b = world.intent()
-    (world.config.world_root / "epochs" / identity / "anchors.yaml").unlink()   # a malformed retained carrier
+    (world.config.world_root / "epochs" / identity / "anchors.yaml").unlink()  # a malformed retained carrier
     assert world.order(first, second) == "a-precedes-b"
     with pytest.raises(EpochMalformed):
         world.order(first, b)
     aside = Path(mkdtemp(prefix="cut36-aside-", dir=work_directory))
     shutil.move(str(world.config.world_root / "epochs" / identity), str(aside / identity))  # out of `epochs/`
-    rewrite_an_interior_entry(world.config.world_root)                            # a malformed world chain
+    rewrite_an_interior_entry(world.config.world_root)  # a malformed world chain
     assert world.order(first, second) == "a-precedes-b"
     assert world.order(first, b) == "unordered"
     shutil.rmtree(aside, ignore_errors=True)
@@ -422,15 +444,18 @@ def test_l8k_the_refusals_and_a_terminal_corpus_durably(world, work_directory):
     with pytest.raises(EventCorpusUnknown):
         world.order(Event("0" * 32, first.digest), second)
     with pytest.raises(EventUnknown):
-        world.order(Event(world.a, world.intent().digest), second)      # B's digest asked of A
+        world.order(Event(world.a, world.intent().digest), second)  # B's digest asked of A
     twin = Path(mkdtemp(prefix="cut36-twin-", dir=work_directory))
-    shutil.copytree(world.alpha, twin, dirs_exist_ok=True, symlinks=True)   # a second root claiming A's id
+    shutil.copytree(world.alpha, twin, dirs_exist_ok=True, symlinks=True)  # a second root claiming A's id
     try:
         with pytest.raises(EventCorpusUnresolvable):
             event_order(replace(world.config, corpus_roots=(*world.config.corpus_roots, twin)), first, second)
     finally:
         shutil.rmtree(twin, ignore_errors=True)
-    assert event_order(replace(world.config, corpus_roots=(*world.config.corpus_roots, world.alpha)), first, second) == "a-precedes-b"
+    assert (
+        event_order(replace(world.config, corpus_roots=(*world.config.corpus_roots, world.alpha)), first, second)
+        == "a-precedes-b"
+    )
     with pytest.raises(EventCorpusUnresolvable):
         event_order(replace(world.config, corpus_roots=(world.beta,)), first, second)
     with _operation_lock_for(world.alpha).capture(), pytest.raises(BuildHold):
@@ -448,9 +473,12 @@ def test_l4a_a_deleted_chain_refutes_against_its_registry_anchor_bound_by_corpus
     observers = verify.ObserverSet(tuple(verify.RegistryCarrier.from_record(record) for record in records))
     report = audit_log(world.config, anchors.CorpusSubject(world.a), world.alpha, observers, actor="alice")
     assert report.outcome == "refuted"
-    assert report.observer_bound and all(world.a in label for label in report.observer_bound)  # bound to A's subject, never B's
+    assert report.observer_bound and all(
+        world.a in label for label in report.observer_bound
+    )  # bound to A's subject, never B's
     sibling = audit_log(world.config, anchors.CorpusSubject(world.b), world.beta, observers, actor="alice")
     assert sibling.outcome == "validated"
+
 
 def test_l10a_a_replica_under_a_fresh_manifest_refuses_subject_mismatch_at_arrival_durably(world, work_directory):
     """Relabel unit; cut 8's L10u1 construction: replicate A, rewrite the copy's
@@ -468,6 +496,7 @@ def test_l10a_a_replica_under_a_fresh_manifest_refuses_subject_mismatch_at_arriv
         shutil.rmtree(copy.parent, ignore_errors=True)
         shutil.rmtree(metadata_root_for(copy), ignore_errors=True)
 
+
 def test_bi1_recovery_precedes_resolution_on_both_paths_durably(world, monkeypatch):
     first, second = world.freeze(), world.freeze()
     b = world.intent()
@@ -475,7 +504,10 @@ def test_bi1_recovery_precedes_resolution_on_both_paths_durably(world, monkeypat
     production = log_seam()
     seam = replace(
         production,
-        inspect_registered=lambda root: order.append("inspect-world" if Path(root).resolve() == world.config.world_root else "inspect-corpus") or production.inspect_registered(root),
+        inspect_registered=lambda root: (
+            order.append("inspect-world" if Path(root).resolve() == world.config.world_root else "inspect-corpus")
+            or production.inspect_registered(root)
+        ),
     )
     original = registry._scan_registry
     monkeypatch.setattr(registry, "_scan_registry", lambda root: order.append("scan") or original(root))
@@ -508,7 +540,10 @@ def test_bi2_one_world_inspection_and_the_world_lock_released_before_sorted_unne
             corpus_free.append(_operation_lock_for(other)._holder is None)
         return production.inspect_registered(root)
 
-    assert verify._event_order(world.config, a, b, seam=replace(production, inspect_registered=inspect_registered)) == "a-precedes-b"
+    assert (
+        verify._event_order(world.config, a, b, seam=replace(production, inspect_registered=inspect_registered))
+        == "a-precedes-b"
+    )
     assert seen.count(world.config.world_root) == 1
     assert world_free == [True, True]
     assert corpus_free == [True, True]

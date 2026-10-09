@@ -48,9 +48,7 @@ def require_canonical_digest(value: str, where: str) -> None:
         raise MalformedRecord(f"{where}: {value!r} is not `<algorithm>:<lowercase hex>`")
     width = ALGORITHM_WIDTHS.get(match.group("algorithm"))
     if width is not None and len(match.group("hex")) != width:
-        raise MalformedRecord(
-            f"{where}: {value!r} does not carry {match.group('algorithm')}'s exact width of {width}"
-        )
+        raise MalformedRecord(f"{where}: {value!r} does not carry {match.group('algorithm')}'s exact width of {width}")
 
 
 def require_store_relative_path(value: str) -> None:
@@ -192,7 +190,9 @@ class UrlLocator:
 
     def __post_init__(self) -> None:
         if _canonical_url(self.url) != self.url:
-            raise MalformedRecord(f"url locator {self.url!r} is not the canonical spelling; construct it with url_locator")
+            raise MalformedRecord(
+                f"url locator {self.url!r} is not the canonical spelling; construct it with url_locator"
+            )
 
     def canonical(self) -> str:
         return f"url:{self.url}"
@@ -248,7 +248,10 @@ class HoldingsObservation:
             raise MalformedRecord("a url location never establishes absent; only a store dereference can")
         if self.expected is not None:
             require_canonical_digest(self.expected, "a holdings observation's expected digest")
-            if isinstance(self.outcome, Found) and self.expected.split(":", 1)[0] != self.outcome.digest.split(":", 1)[0]:
+            if (
+                isinstance(self.outcome, Found)
+                and self.expected.split(":", 1)[0] != self.outcome.digest.split(":", 1)[0]
+            ):
                 raise MalformedRecord("a found observation's expected digest must use the found digest's algorithm")
         for name in ("observer", "instrument", "event_token"):
             value = getattr(self, name)
@@ -310,7 +313,9 @@ def holdings_observation(
 ) -> HoldingsObservation:
     if not isinstance(location, (StoreLocator, UrlLocator)):
         raise MalformedRecord("a holdings observation names a store or url locator")
-    if not isinstance(supersedes, tuple) or not all(isinstance(predecessor, HoldingsObservation) for predecessor in supersedes):
+    if not isinstance(supersedes, tuple) or not all(
+        isinstance(predecessor, HoldingsObservation) for predecessor in supersedes
+    ):
         raise MalformedRecord("holdings observation predecessors are HoldingsObservation values")
     if any(predecessor.location.canonical() != location.canonical() for predecessor in supersedes):
         raise MalformedRecord("a holdings observation supersedes only records at its canonical location")

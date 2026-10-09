@@ -109,7 +109,9 @@ class CompositeFacet:
 def composite_identity(facet: CompositeFacet) -> str:
     """The content identity, taken over exactly what `stored.semantic_projection`
     digests for the node `composite_node` writes, so the stamp agrees."""
-    return v1.digest(COMPOSITE_DOMAIN, {"kind": "composite", "present": ["composite"], "facets": {"composite": facet.projection()}})
+    return v1.digest(
+        COMPOSITE_DOMAIN, {"kind": "composite", "present": ["composite"], "facets": {"composite": facet.projection()}}
+    )
 
 
 @sealed
@@ -170,7 +172,9 @@ def require_node_sorts(profile: ProfileSpec, nodes: Sequence[CompositeNode]) -> 
     since no member's claim ever names them and nothing else would look."""
     for index, node in enumerate(nodes):
         if node.sort not in profile.sorts:
-            raise CompositeError("composite-node-sort", f"node {index}: {node.sort!r} is not a sort this profile declares")
+            raise CompositeError(
+                "composite-node-sort", f"node {index}: {node.sort!r} is not a sort this profile declares"
+            )
 
 
 def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, Claim]) -> tuple[Edge, ...]:
@@ -179,7 +183,10 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
     node-set contract is checked here, because this is the one function the
     constructor, the boundary and the audit share."""
     if facet.shape not in profile.composite_grammar.shapes:
-        raise CompositeError("composite-shape", f"{facet.shape!r} is not a shape the base contract declares ({profile.composite_grammar.shapes})")
+        raise CompositeError(
+            "composite-shape",
+            f"{facet.shape!r} is not a shape the base contract declares ({profile.composite_grammar.shapes})",
+        )
     require_node_sorts(profile, facet.nodes)
     declared = {(n.sort, n.term): n for n in facet.nodes}
     edges: list[Edge] = []
@@ -187,17 +194,28 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
         claim = claims[member]
         edge = profile.edges.get(claim.operator)
         if edge is None:
-            raise CompositeError("composite-member-undeclared", f"member {member}: operator {claim.operator!r} declares no edge")
+            raise CompositeError(
+                "composite-member-undeclared", f"member {member}: operator {claim.operator!r} declares no edge"
+            )
         if edge.retired:
-            raise CompositeError("composite-member-retired", f"member {member}: the edge declaration for {claim.operator!r} is retired; a retired row types history and admits no new structure (§7.3a)")
+            raise CompositeError(
+                "composite-member-retired",
+                f"member {member}: the edge declaration for {claim.operator!r} is retired; a retired row types history and admits no new structure (§7.3a)",
+            )
         if claim.layer != "causal":
-            raise CompositeError("composite-member-layer", f"member {member}: layer {claim.layer!r} forms no edge in a dag; the inhabited fragment is the causal layer")
+            raise CompositeError(
+                "composite-member-layer",
+                f"member {member}: layer {claim.layer!r} forms no edge in a dag; the inhabited fragment is the causal layer",
+            )
         # Every argument must be a declared node, not only the two the edge
         # reads: a ternary operator's third slot is part of the claim the
         # composite asserts over these nodes.
         for slot, referent in enumerate(claim.args):
             if (referent.sort, referent.term) not in declared:
-                raise CompositeError("composite-member-outside-nodes", f"member {member}: argument {slot} ({referent.sort}, {referent.term}) is not a declared node")
+                raise CompositeError(
+                    "composite-member-outside-nodes",
+                    f"member {member}: argument {slot} ({referent.sort}, {referent.term}) is not a declared node",
+                )
         cause, effect = (declared[(claim.args[slot].sort, claim.args[slot].term)] for slot in (edge.cause, edge.effect))
         edges.append(Edge(cause=cause, effect=effect, sign=claim.polarity, member=member))
     _refuse_cycle(facet.nodes, edges)
@@ -234,7 +252,7 @@ def _refuse_cycle(nodes: Sequence[CompositeNode], edges: Sequence[Edge]) -> None
                 stack.pop()
                 continue
             if state.get(successor) == 1:
-                cycle = path[path.index(successor):] + [successor]
+                cycle = path[path.index(successor) :] + [successor]
                 raise CompositeError("composite-cyclic", "cycle " + " -> ".join(f"({n.sort}, {n.term})" for n in cycle))
             if successor not in state:
                 state[successor] = 1
@@ -242,7 +260,14 @@ def _refuse_cycle(nodes: Sequence[CompositeNode], edges: Sequence[Edge]) -> None
                 stack.append((successor, iter(out[successor])))
 
 
-def restore_members(view: object, expect: Sequence[str] | None, refs: Sequence[str], *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> dict[str, Claim]:
+def restore_members(
+    view: object,
+    expect: Sequence[str] | None,
+    refs: Sequence[str],
+    *,
+    profile: ProfileSpec,
+    snapshot: ResolutionSnapshot,
+) -> dict[str, Claim]:
     """Resolve each member ref to a proposition and restore its claim; refuse a
     non-proposition, an unresolvable ref, or an unrestorable claim. Shared by
     the constructor, the boundary, the audit (`EMPTY_SNAPSHOT`) and the reading,
@@ -260,7 +285,9 @@ def restore_members(view: object, expect: Sequence[str] | None, refs: Sequence[s
         try:
             node = view.get(ref)  # type: ignore[attr-defined]
         except RefError as caught:
-            raise CompositeError("composite-member-unresolvable", f"member {ref} does not resolve in this corpus") from caught
+            raise CompositeError(
+                "composite-member-unresolvable", f"member {ref} does not resolve in this corpus"
+            ) from caught
         if node.kind != "proposition":
             raise CompositeError("composite-member-kind", f"member {ref} is a {node.kind!r}, not a proposition")
         try:
@@ -272,7 +299,10 @@ def restore_members(view: object, expect: Sequence[str] | None, refs: Sequence[s
             # `RecordError`, so each is translated here or it escapes the audit.
             raise CompositeError("composite-member-unrestorable", f"member {ref}: {caught}") from caught
         if expect is not None and claim_identity(claim) != member:
-            raise CompositeError("composite-member-mismatch", f"member {ref} carries claim {claim_identity(claim)}, the facet names {member}")
+            raise CompositeError(
+                "composite-member-mismatch",
+                f"member {ref} carries claim {claim_identity(claim)}, the facet names {member}",
+            )
         claims[member] = claim
     return claims
 
@@ -307,12 +337,18 @@ def build_composite(
     if not isinstance(profile, ProfileSpec):
         raise CompositeError("composite-profile", f"profile is a {type(profile).__name__}, not a compiled ProfileSpec")
     if not isinstance(snapshot, ResolutionSnapshot):
-        raise CompositeError("composite-snapshot", f"snapshot is a {type(snapshot).__name__}, not a ResolutionSnapshot — use build_snapshot(...); availability is a parameter, never ambient")
+        raise CompositeError(
+            "composite-snapshot",
+            f"snapshot is a {type(snapshot).__name__}, not a ResolutionSnapshot — use build_snapshot(...); availability is a parameter, never ambient",
+        )
     if type(slug) is not str or not slug:
         raise CompositeError("composite-slug", "a composite's local id is a non-empty string")
     canonical_nodes = _canonical_nodes(nodes)
     if shape not in profile.composite_grammar.shapes:
-        raise CompositeError("composite-shape", f"{shape!r} is not a shape the base contract declares ({profile.composite_grammar.shapes})")
+        raise CompositeError(
+            "composite-shape",
+            f"{shape!r} is not a shape the base contract declares ({profile.composite_grammar.shapes})",
+        )
 
     refs = list(members)
     if len(set(refs)) != len(refs):
@@ -370,11 +406,17 @@ class MemberRow:
         return {
             "member": self.member,
             "ref": self.ref,
-            "role": {"cause": self.role.cause.projection(), "effect": self.role.effect.projection(), "sign": self.role.sign},
+            "role": {
+                "cause": self.role.cause.projection(),
+                "effect": self.role.effect.projection(),
+                "sign": self.role.sign,
+            },
             "claim": project_claim(self.claim),
             "resolution": self.resolution.projection(),
             "belief": _answer_projection(self.belief),
-            "identification": "not-reached" if isinstance(self.identification, NotReached) else list(self.identification),
+            "identification": "not-reached"
+            if isinstance(self.identification, NotReached)
+            else list(self.identification),
         }
 
 
@@ -423,7 +465,12 @@ class CompositeReading:
 
 def _answer_projection(answer: Belief | NoBelief | Refused) -> dict[str, object]:
     if isinstance(answer, Belief):
-        return {"kind": "Belief", "value": answer.value, "belief_input_digest": answer.belief_input_digest, "policy_binding": [answer.policy_binding.rule, answer.policy_binding.implementation]}
+        return {
+            "kind": "Belief",
+            "value": answer.value,
+            "belief_input_digest": answer.belief_input_digest,
+            "policy_binding": [answer.policy_binding.rule, answer.policy_binding.implementation],
+        }
     if isinstance(answer, NoBelief):
         return {"kind": "NoBelief", "reason": answer.reason, "detail": answer.detail}
     return {"kind": "Refused", "reason": answer.reason}
@@ -448,7 +495,10 @@ def read_composite(
     belief is `evaluate_over_traced`'s answer for the member, and the
     identification column is read from the same traced admission."""
     if not isinstance(resolution, ResolutionSnapshot):
-        raise CompositeError("composite-snapshot", "read_composite takes a ResolutionSnapshot; availability is a parameter, never ambient")
+        raise CompositeError(
+            "composite-snapshot",
+            "read_composite takes a ResolutionSnapshot; availability is a parameter, never ambient",
+        )
     try:
         node = view.get(ref)  # type: ignore[attr-defined]
     except RefError as caught:
@@ -474,17 +524,26 @@ def read_composite(
     for member, member_ref in zip(facet.members, refs, strict=True):
         answer, admission, inputs = _evaluate_over_inputs(
             view,  # type: ignore[arg-type]
-            member_ref, availability=availability, context=context, profile=profile, resolution=resolution, binding=binding,
+            member_ref,
+            availability=availability,
+            context=context,
+            profile=profile,
+            resolution=resolution,
+            binding=binding,
         )
         if isinstance(admission, NotReached):
             identification: tuple[str, ...] | NotReached = admission
         else:
             assert inputs is not None  # admission was reached over these gathered values
-            identification = tuple(sorted({
-                value.estimand.control.identification.term
-                for value in inputs.assessments
-                if value.identity() in admission.admitted
-            }))
+            identification = tuple(
+                sorted(
+                    {
+                        value.estimand.control.identification.term
+                        for value in inputs.assessments
+                        if value.identity() in admission.admitted
+                    }
+                )
+            )
         rows.append(
             MemberRow(
                 member=member,

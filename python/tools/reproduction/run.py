@@ -82,7 +82,11 @@ def main() -> int:
     }
     # Step 5
     original = execute_assessment_run(
-        spec=frozen, boundary_policy=CONFINED_POLICY, started_at=now(), scratch_base=paths.SCRATCH / "original", **common
+        spec=frozen,
+        boundary_policy=CONFINED_POLICY,
+        started_at=now(),
+        scratch_base=paths.SCRATCH / "original",
+        **common,
     )
     if isinstance(original, RunRefused):
         malformed = original.reason == "execution-failed" and "malformed input" in (original.detail or "")

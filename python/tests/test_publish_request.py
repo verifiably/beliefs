@@ -80,7 +80,9 @@ def test_closure_reads_both_endpoints_and_resolves_aliases():
 def test_a_composite_missing_a_member_is_closure_incomplete():
     """The 2026-09-16 amendment: `composes` is a world relation, read by the one rule."""
     p1 = stored.proposition_node("p1", title="p1", claim={"terms": []})
-    composite = stored.proposition_node("c", title="c", claim={"terms": []}).model_copy(update={"kind": "composite", "id": "composite:c"})
+    composite = stored.proposition_node("c", title="c", claim={"terms": []}).model_copy(
+        update={"kind": "composite", "id": "composite:c"}
+    )
     composite.relations.append(Relation(source=composite.id, predicate="composes", target=p1.id))
     assert closure_missing(FakeView([p1, composite]), (composite.id,)) == (p1.id,)
 
@@ -101,12 +103,35 @@ def test_pins_union_domains_and_add_the_written_coordination_pin():
 @pytest.mark.parametrize(
     "manifests, written, reason, field",
     [
-        ({"a" * 32: CorpusPins(BASE_PIN, {}), "b" * 32: CorpusPins("science:" + "c" * 64, {})}, CorpusPins(BASE_PIN, {"coordination": V2}), "pins-disagree", "science_contract"),
-        ({"a" * 32: CorpusPins(BASE_PIN, {"biology": "biology:1"}), "b" * 32: CorpusPins(BASE_PIN, {"biology": "biology:2"})}, CorpusPins(BASE_PIN, {"coordination": V2}), "pins-disagree", "biology"),
+        (
+            {"a" * 32: CorpusPins(BASE_PIN, {}), "b" * 32: CorpusPins("science:" + "c" * 64, {})},
+            CorpusPins(BASE_PIN, {"coordination": V2}),
+            "pins-disagree",
+            "science_contract",
+        ),
+        (
+            {
+                "a" * 32: CorpusPins(BASE_PIN, {"biology": "biology:1"}),
+                "b" * 32: CorpusPins(BASE_PIN, {"biology": "biology:2"}),
+            },
+            CorpusPins(BASE_PIN, {"coordination": V2}),
+            "pins-disagree",
+            "biology",
+        ),
         ({"a" * 32: CorpusPins(BASE_PIN, {})}, CorpusPins(BASE_PIN, {}), "coordination-unpinned", ""),
         ({"a" * 32: CorpusPins(BASE_PIN, {})}, CorpusPins(BASE_PIN, {"coordination": V1}), "coordination-unpinned", ""),
-        ({"a" * 32: CorpusPins(BASE_PIN, {"coordination": V1})}, CorpusPins(BASE_PIN, {"coordination": V2}), "pins-disagree", "coordination"),
-        ({"a" * 32: CorpusPins(BASE_PIN, {})}, CorpusPins("science:" + "c" * 64, {"coordination": V2}), "pins-disagree", "science_contract"),
+        (
+            {"a" * 32: CorpusPins(BASE_PIN, {"coordination": V1})},
+            CorpusPins(BASE_PIN, {"coordination": V2}),
+            "pins-disagree",
+            "coordination",
+        ),
+        (
+            {"a" * 32: CorpusPins(BASE_PIN, {})},
+            CorpusPins("science:" + "c" * 64, {"coordination": V2}),
+            "pins-disagree",
+            "science_contract",
+        ),
     ],
     ids=["contract", "domain", "no-coordination", "v1-coordination", "coordination-disagrees", "written-contract"],
 )
@@ -123,9 +148,15 @@ def test_destination_checks(tmp_path):
         directory.mkdir()
     (tmp_path / "file").write_bytes(b"")
     (tmp_path / "link").symlink_to(dest)
-    assert require_usable(ops, Destination.local(str(dest)), forbidden=(corpus,)) == (ops.resolve(), Destination.local(str(dest.resolve())))
+    assert require_usable(ops, Destination.local(str(dest)), forbidden=(corpus,)) == (
+        ops.resolve(),
+        Destination.local(str(dest.resolve())),
+    )
     # finding 4: a symlinked destination answers its resolved target, which step 0 freezes
-    assert require_usable(ops, Destination.local(str(tmp_path / "link")), forbidden=(corpus,)) == (ops.resolve(), Destination.local(str(dest.resolve())))
+    assert require_usable(ops, Destination.local(str(tmp_path / "link")), forbidden=(corpus,)) == (
+        ops.resolve(),
+        Destination.local(str(dest.resolve())),
+    )
     for bad in (tmp_path / "missing", tmp_path / "file", ops, ops / "inner", corpus / "inner"):
         if bad == ops / "inner":
             bad.mkdir()
@@ -172,10 +203,12 @@ def test_a_record_with_hand_edited_prose_is_accepted_and_round_trips():
         lambda s: replace(s, records=()),
         lambda s: replace(s, records=tuple(reversed(s.records))),
         lambda s: replace(s, records=(s.records[0], s.records[0])),
-        lambda s: replace(s, records=((s.records[0][0], s.records[1][1]), s.records[1])),     # text is another id's
+        lambda s: replace(s, records=((s.records[0][0], s.records[1][1]), s.records[1])),  # text is another id's
         # parses to the same id but is not the canonical rendering: an extra
         # space after `title:` is legal YAML and does not survive re-encoding
-        lambda s: replace(s, records=((s.records[0][0], s.records[0][1].replace("\ntitle:", "\ntitle: ", 1)), s.records[1])),
+        lambda s: replace(
+            s, records=((s.records[0][0], s.records[0][1].replace("\ntitle:", "\ntitle: ", 1)), s.records[1])
+        ),
         lambda s: replace(s, event_token="x"),
     ],
 )
@@ -211,11 +244,11 @@ def test_the_request_round_trips():
     "changes",
     [
         {"event_token": "E" * 32},
-        {"view": CoordinationAddress("a" * 32, "b" * 32)},       # unpinned
+        {"view": CoordinationAddress("a" * 32, "b" * 32)},  # unpinned
         {"epoch": "f" * 63},
         {"world_id": "d" * 31},
         {"selection": "0" * 63},
-        {"staging_world_id": "1" * 32},                           # not the token's
+        {"staging_world_id": "1" * 32},  # not the token's
     ],
 )
 def test_a_malformed_request_is_refused(changes):
@@ -234,7 +267,14 @@ REMOTE = Destination.remote("https://remote.test/pub")
 
 
 def _mark(**changes) -> TransportMark:
-    values = {"event_token": "d" * 32, "destination": REMOTE, "corpus_id": "1" * 32, "marker": "2" * 32, "artifact": "3" * 64, "records": 2}
+    values = {
+        "event_token": "d" * 32,
+        "destination": REMOTE,
+        "corpus_id": "1" * 32,
+        "marker": "2" * 32,
+        "artifact": "3" * 64,
+        "records": 2,
+    }
     values.update(changes)
     return TransportMark(**values)
 

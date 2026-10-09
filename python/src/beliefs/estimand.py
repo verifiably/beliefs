@@ -66,7 +66,9 @@ ESTIMAND_ERRORS = (EstimandError, UnboundReferent)
 
 def _finite(value: object, where: str, error: type[EstimandError]) -> Decimal:
     if type(value) is not Decimal:
-        raise error(f"{where}: expected a Decimal, found {type(value).__name__} — binary floats are refused at the boundary")
+        raise error(
+            f"{where}: expected a Decimal, found {type(value).__name__} — binary floats are refused at the boundary"
+        )
     if not value.is_finite():
         raise error(f"{where}: {value} is not finite")
     return value
@@ -91,7 +93,9 @@ class LevelsContrast:
         _require_slot(self.slot)
         for name in ("baseline", "comparison"):
             if not isinstance(getattr(self, name), Referent):
-                raise UntypedEstimandMember(f"contrast.{name} holds {type(getattr(self, name)).__name__}, not a Referent")
+                raise UntypedEstimandMember(
+                    f"contrast.{name} holds {type(getattr(self, name)).__name__}, not a Referent"
+                )
 
 
 @sealed
@@ -195,7 +199,9 @@ class Estimand:
         if isinstance(contrast, LevelsContrast):
             level_sort = declaration.level_sorts.get(str(contrast.slot))
             if level_sort is None:
-                raise ContrastRefused(f"contrast: slot {contrast.slot} of {operator!r} declares no level sort; only a continuous contrast is admitted there")
+                raise ContrastRefused(
+                    f"contrast: slot {contrast.slot} of {operator!r} declares no level sort; only a continuous contrast is admitted there"
+                )
             for name in ("baseline", "comparison"):
                 _require_sort(getattr(contrast, name), level_sort, f"contrast.{name}")
             if contrast.baseline.term == contrast.comparison.term:
@@ -206,7 +212,9 @@ class Estimand:
             raise UntypedEstimandMember(f"measure holds {type(measure).__name__}")
         _require_sort(measure.quantity, declaration.measure_sort, "measure.quantity")
         if measure.scale not in grammar.scales:
-            raise MeasureRefused(f"measure.scale {measure.scale!r} is outside the kernel's closed set {list(grammar.scales)}")
+            raise MeasureRefused(
+                f"measure.scale {measure.scale!r} is outside the kernel's closed set {list(grammar.scales)}"
+            )
         reference = _finite(reference, "reference", ReferenceRefused)
         if measure.scale not in SUPPORTED_SCALES:
             raise MeasureRefused(f"scale {measure.scale!r} is not operable")
@@ -218,7 +226,14 @@ class Estimand:
         for index, member in enumerate(control.conditioning):
             _require_sort(member, declaration.conditioning_sort, f"control.conditioning[{index}]")
         estimand = object.__new__(cls)
-        for name, value in (("claim", claim), ("operator", operator), ("contrast", contrast), ("measure", measure), ("reference", reference), ("control", control)):
+        for name, value in (
+            ("claim", claim),
+            ("operator", operator),
+            ("contrast", contrast),
+            ("measure", measure),
+            ("reference", reference),
+            ("control", control),
+        ):
             object.__setattr__(estimand, name, value)
         return estimand
 
@@ -244,8 +259,13 @@ def _referent_positions(estimand: Estimand) -> dict[str, Referent]:
     return positions
 
 
-def _resolve_all(profile: ProfileSpec, snapshot: ResolutionSnapshot, positions: Mapping[str, Referent]) -> dict[str, TermOutcome]:
-    outcomes = {label: snapshot.resolve(profile.sorts[referent.sort].vocabulary, referent.term) for label, referent in positions.items()}
+def _resolve_all(
+    profile: ProfileSpec, snapshot: ResolutionSnapshot, positions: Mapping[str, Referent]
+) -> dict[str, TermOutcome]:
+    outcomes = {
+        label: snapshot.resolve(profile.sorts[referent.sort].vocabulary, referent.term)
+        for label, referent in positions.items()
+    }
     refused = sorted(label for label, outcome in outcomes.items() if outcome.refuses)
     if refused:
         raise UnboundReferent(
@@ -280,8 +300,20 @@ def build_estimand(
     if not isinstance(snapshot, ResolutionSnapshot):
         raise UntypedEstimandMember("snapshot is not a ResolutionSnapshot — availability is a parameter, never ambient")
     identity = claim_identity(claim)
-    estimand = Estimand._checked(profile, claim=identity, operator=claim.operator, contrast=contrast, measure=measure, reference=reference, control=control)
-    outcomes = _resolve_all(profile, snapshot, {ReferentPosition.estimand(part).label(): r for part, r in _referent_positions(estimand).items()})
+    estimand = Estimand._checked(
+        profile,
+        claim=identity,
+        operator=claim.operator,
+        contrast=contrast,
+        measure=measure,
+        reference=reference,
+        control=control,
+    )
+    outcomes = _resolve_all(
+        profile,
+        snapshot,
+        {ReferentPosition.estimand(part).label(): r for part, r in _referent_positions(estimand).items()},
+    )
     return estimand, _emit_receipt(identity, snapshot, outcomes)
 
 
@@ -294,9 +326,13 @@ def build_applicability(
     if not isinstance(claim, Claim):
         raise UntypedEstimandMember(f"applicability is built against a Claim, found {type(claim).__name__}")
     polarity = None if claim.polarity == profile.claim_grammar.sign_inapt_tag else claim.polarity
-    checked = Claim._checked(profile, operator=claim.operator, args=claim.args, qualifiers=qualifiers, polarity=polarity, layer=claim.layer)
+    checked = Claim._checked(
+        profile, operator=claim.operator, args=claim.args, qualifiers=qualifiers, polarity=polarity, layer=claim.layer
+    )
     outcomes = _resolve_all(
-        profile, snapshot, {ReferentPosition.restriction(d).label(): q.restriction for d, q in checked.qualifiers.items()}
+        profile,
+        snapshot,
+        {ReferentPosition.restriction(d).label(): q.restriction for d, q in checked.qualifiers.items()},
     )
     return MappingProxyType(dict(checked.qualifiers)), _emit_receipt(claim_identity(claim), snapshot, outcomes)
 
@@ -311,9 +347,17 @@ def estimand_projection(estimand: Estimand) -> dict[str, object]:
     `Decimal`; identity v1 renders them canonically at encode."""
     contrast: dict[str, object] = {"slot": estimand.contrast.slot}
     if isinstance(estimand.contrast, LevelsContrast):
-        contrast |= {"kind": "levels", "baseline": _referent(estimand.contrast.baseline), "comparison": _referent(estimand.contrast.comparison)}
+        contrast |= {
+            "kind": "levels",
+            "baseline": _referent(estimand.contrast.baseline),
+            "comparison": _referent(estimand.contrast.comparison),
+        }
     else:
-        contrast |= {"kind": "continuous", "quantity": _referent(estimand.contrast.quantity), "increment": estimand.contrast.increment}
+        contrast |= {
+            "kind": "continuous",
+            "quantity": _referent(estimand.contrast.quantity),
+            "increment": estimand.contrast.increment,
+        }
     return {
         "claim": estimand.claim,
         "operator": estimand.operator,
@@ -354,12 +398,16 @@ def uncertainty_from_mapping(mapping: object, *, estimate: Decimal | None, scale
     kind = mapping.get("kind")
     if kind == "interval" and set(mapping) == {"kind", "low", "high", "level"}:
         uncertainty: Interval | StandardError = Interval(
-            low=cast(Decimal, mapping["low"]), high=cast(Decimal, mapping["high"]), level=cast(Decimal, mapping["level"])
+            low=cast(Decimal, mapping["low"]),
+            high=cast(Decimal, mapping["high"]),
+            level=cast(Decimal, mapping["level"]),
         )
     elif kind == "standard-error" and set(mapping) == {"kind", "value"}:
         uncertainty = StandardError(value=cast(Decimal, mapping["value"]))
     else:
-        raise UncertaintyRefused(f"uncertainty kind {kind!r} with members {sorted(mapping)} is neither interval nor standard-error")
+        raise UncertaintyRefused(
+            f"uncertainty kind {kind!r} with members {sorted(mapping)} is neither interval nor standard-error"
+        )
     if estimate is None:
         raise UncertaintyRefused("an uncertainty with no estimate to be uncertain about")
     check_uncertainty(uncertainty, estimate, scale)
@@ -401,7 +449,9 @@ def check_uncertainty(uncertainty: Interval | StandardError, estimate: Decimal, 
     if scale not in SUPPORTED_SCALES:
         raise UncertaintyRefused(f"scale {scale!r} is not operable")
     if isinstance(uncertainty, Interval):
-        low, high, level = (_finite(getattr(uncertainty, n), f"uncertainty.{n}", UncertaintyRefused) for n in ("low", "high", "level"))
+        low, high, level = (
+            _finite(getattr(uncertainty, n), f"uncertainty.{n}", UncertaintyRefused) for n in ("low", "high", "level")
+        )
         if not (low <= estimate <= high):
             raise UncertaintyRefused(f"uncertainty: the interval [{low}, {high}] excludes the estimate {estimate}")
         if not (0 < level < 1):

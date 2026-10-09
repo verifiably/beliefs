@@ -67,9 +67,7 @@ def test_stale_stamp_is_undecodable(assessment_closure) -> None:
 
 
 def test_act_report_decodes_operation_and_token(sample_act_report) -> None:
-    payload = node_to_markdown(stored.act_report_node(sample_act_report)).encode(
-        "utf-8"
-    )
+    payload = node_to_markdown(stored.act_report_node(sample_act_report)).encode("utf-8")
     decoded = evidence.decode_record(
         f"act-report/{sample_act_report.identity()}.md",
         payload,
@@ -96,9 +94,7 @@ def test_holdings_observation_decodes_location_and_token(
                 "payload": (
                     b'{"actor":"a","domain":"science.holdings-intent.v1",'
                     b'"event_token":"event-1","kind":"re-check","location":'
-                    b'{"relative_path":"payload/data.csv","store_id":"'
-                    + b"a" * 32
-                    + b'","type":"store"}}'
+                    b'{"relative_path":"payload/data.csv","store_id":"' + b"a" * 32 + b'","type":"store"}}'
                 ).hex()
             },
         }
@@ -109,8 +105,12 @@ def test_holdings_observation_decodes_location_and_token(
 
 def test_a_url_observation_decodes_to_url_evidence():
     record = holdings_observation(
-        location=url_locator("https://example.org/data"), outcome=Found("sha256:" + "ab" * 32),
-        observer="o", instrument="i", event_token="tok", observed_at="2026-09-20T00:00:00Z",
+        location=url_locator("https://example.org/data"),
+        outcome=Found("sha256:" + "ab" * 32),
+        observer="o",
+        instrument="i",
+        event_token="tok",
+        observed_at="2026-09-20T00:00:00Z",
     )
     node = stored.holdings_observation_node(record)
     decoded = evidence.decode_record(f"holdings-observation/{record.identity()}.md", node_to_markdown(node).encode())
@@ -145,9 +145,7 @@ def test_a_url_intent_decodes_through_the_shared_shape_and_matches_its_observati
 def test_a_record_under_the_wrong_path_or_name_is_undecodable(
     sample_act_report,
 ) -> None:
-    payload = node_to_markdown(stored.act_report_node(sample_act_report)).encode(
-        "utf-8"
-    )
+    payload = node_to_markdown(stored.act_report_node(sample_act_report)).encode("utf-8")
     identity = sample_act_report.identity()
     with pytest.raises(RecordUndecodable):
         evidence.decode_record(f"run/{identity}.md", payload)
@@ -158,9 +156,7 @@ def test_a_record_under_the_wrong_path_or_name_is_undecodable(
 def test_a_malformed_act_report_entry_is_undecodable(sample_act_report) -> None:
     node = stored.act_report_node(sample_act_report)
     node.facets["act-report"]["entries"].append({"kind": "not-an-entry"})
-    node.facets["semantic-identity"] = {
-        "digest": stored.recompute_semantic_hash(node)
-    }
+    node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
     payload = node_to_markdown(node).encode("utf-8")
     with pytest.raises(RecordUndecodable):
         evidence.decode_record(

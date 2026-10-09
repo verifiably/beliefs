@@ -293,7 +293,9 @@ class WriterSession:
             if entry.selection is not None:
                 raise SessionProtocolError(f"{invocation} already recorded its selection")
             pinned = None if address is None else resolve_project(self._coordination_resolver, address)
-            self._ledger.append({"line": "select", "invocation": invocation, "project": None if pinned is None else str(pinned)})
+            self._ledger.append(
+                {"line": "select", "invocation": invocation, "project": None if pinned is None else str(pinned)}
+            )
             entry.selection = SelectLine(invocation, pinned)
             return pinned
 
@@ -431,8 +433,14 @@ class ScopedWriter:
 
         ctx = self.holdings_context(instrument=instrument)
         return run_acquisition(
-            ctx, self._writer, request, seam=url_seam() if seam is None else seam, scratch=scratch,
-            standing=standing, port=self.operation_port(), hold=self._closing_hold,
+            ctx,
+            self._writer,
+            request,
+            seam=url_seam() if seam is None else seam,
+            scratch=scratch,
+            standing=standing,
+            port=self.operation_port(),
+            hold=self._closing_hold,
         )
 
     def audit(self, *, instrument: str, evidence: DerivationEvidence) -> AuditOutcome:
@@ -443,8 +451,12 @@ class ScopedWriter:
         from beliefs.audit_operation import audit as run_audit
 
         return run_audit(
-            self._writer, observer=self._session.actor, instrument=instrument, evidence=evidence,
-            port=self.operation_port(), hold=self._closing_hold,
+            self._writer,
+            observer=self._session.actor,
+            instrument=instrument,
+            evidence=evidence,
+            port=self.operation_port(),
+            hold=self._closing_hold,
         )
 
     def recheck(
@@ -462,7 +474,12 @@ class ScopedWriter:
 
         ctx = self.holdings_context(instrument=instrument)
         return recheck_locations(
-            ctx, self._writer, locations, standing=standing, port=self.operation_port(), hold=self._closing_hold,
+            ctx,
+            self._writer,
+            locations,
+            standing=standing,
+            port=self.operation_port(),
+            hold=self._closing_hold,
         )
 
     @contextmanager

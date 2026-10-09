@@ -42,7 +42,9 @@ def bind(config: Mapping[str, object]) -> Callable[[object, object, str], int]:
     def seed(rule: object, wildcards: object, stream: str) -> int:
         if stream not in roots:
             raise MalformedClosure(f"stream {stream!r} has no rendered root")
-        pairs = tuple(sorted((str(key), str(value)) for key, value in dict(cast(Mapping[object, object], wildcards)).items()))
+        pairs = tuple(
+            sorted((str(key), str(value)) for key, value in dict(cast(Mapping[object, object], wildcards)).items())
+        )
         key = job_key(str(rule), pairs)
         value = derive_seed(roots[stream], key, stream)
         record = {

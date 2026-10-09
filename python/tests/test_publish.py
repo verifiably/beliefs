@@ -73,7 +73,9 @@ def test_every_record_without_the_marker_is_still_a_prefix(staging):
 def test_a_hole_is_corrupt(staging):
     writer, corpus_id, snapshot, marker, _ = staging
     writer._stage_record(snapshot.records[1][1])
-    assert _population(writer, corpus_id, snapshot, marker) == StagingCorrupt(corpus_id, "hole", (snapshot.records[0][0],))
+    assert _population(writer, corpus_id, snapshot, marker) == StagingCorrupt(
+        corpus_id, "hole", (snapshot.records[0][0],)
+    )
 
 
 def test_an_extra_record_is_corrupt(staging):
@@ -198,7 +200,9 @@ def _writer(tmp_path):
     root = tmp_path / "written"
     root.mkdir()
     return CorpusWriter(
-        root, DefaultExecutor, authority=scoped_authority(RequiredCapabilities.publishes(), ACTOR),
+        root,
+        DefaultExecutor,
+        authority=scoped_authority(RequiredCapabilities.publishes(), ACTOR),
         profile=coordination_profile(None, version=2),
     )
 
@@ -206,8 +210,16 @@ def _writer(tmp_path):
 def _call_publish(writer, destination, transport):
     none = cast(Any, None)
     return act.publish(
-        writer, none, none, view=none, destination=destination, operations_root=none, staging_profile=none,
-        clock=none, seam=none, transport=transport,
+        writer,
+        none,
+        none,
+        view=none,
+        destination=destination,
+        operations_root=none,
+        staging_profile=none,
+        clock=none,
+        seam=none,
+        transport=transport,
     )
 
 
@@ -221,15 +233,25 @@ def test_a_local_destination_with_a_transport_refuses_first(tmp_path):
         _call_publish(_writer(tmp_path), Destination.local(str(tmp_path)), DirectoryTransport(tmp_path / "remote"))
 
 
-@pytest.mark.parametrize("destination, transport", [(REMOTE, None), ("local", "fake")], ids=["remote-without", "local-with"])
+@pytest.mark.parametrize(
+    "destination, transport", [(REMOTE, None), ("local", "fake")], ids=["remote-without", "local-with"]
+)
 def test_resume_applies_the_seam_rule_to_the_intents_destination(tmp_path, monkeypatch, destination, transport):
     target = Destination.local(str(tmp_path)) if destination == "local" else destination
     opened = SimpleNamespace(intent=SimpleNamespace(destination=target, actor=ACTOR, event_token=TOKEN))
-    monkeypatch.setattr(act, "attempt_reading", lambda *_: SimpleNamespace(opened=opened, reading="unfinished", outcome=None))
+    monkeypatch.setattr(
+        act, "attempt_reading", lambda *_: SimpleNamespace(opened=opened, reading="unfinished", outcome=None)
+    )
     none = cast(Any, None)
     with pytest.raises(ValidationRefused):
         act.resume_publish(
-            _writer(tmp_path), none, event_token=TOKEN, operations_root=tmp_path, staging_profile=none, clock=none, seam=none,
+            _writer(tmp_path),
+            none,
+            event_token=TOKEN,
+            operations_root=tmp_path,
+            staging_profile=none,
+            clock=none,
+            seam=none,
             transport=DirectoryTransport(tmp_path / "remote") if transport == "fake" else None,
         )
 
@@ -323,8 +345,10 @@ def test_export_enumeration_damage_after_the_mark_never_pushes(tmp_path, monkeyp
     elif damage == "missing-sibling":
         (remote.op / "export" / f"{CID}.head-artifact.v1").unlink()
     else:
+
         def unreadable(*_args):
             raise PermissionError("cannot scan export")
+
         monkeypatch.setattr(act, "transport_files", unreadable)
     assert act._transport(remote, mark) == TransportIncomplete(CID, "2" * 32, "export-damaged")
     assert fake.pushes == 0
@@ -333,16 +357,23 @@ def test_export_enumeration_damage_after_the_mark_never_pushes(tmp_path, monkeyp
 @pytest.mark.parametrize("damage", ["symlink", "scan-error"])
 def test_export_enumeration_refuses_before_creating_the_mark(tmp_path, monkeypatch, damage):
     remote, mark, _ = _remote(tmp_path, monkeypatch)
-    attempt = cast(Any, SimpleNamespace(
-        token=TOKEN, op=remote.op, request=SimpleNamespace(destination=REMOTE),
-        snapshot=SimpleNamespace(records=("record",)),
-    ))
+    attempt = cast(
+        Any,
+        SimpleNamespace(
+            token=TOKEN,
+            op=remote.op,
+            request=SimpleNamespace(destination=REMOTE),
+            snapshot=SimpleNamespace(records=("record",)),
+        ),
+    )
     error = MalformedRecord
     if damage == "symlink":
         (remote.op / "export" / CID / "link").symlink_to("run/a.md")
     else:
+
         def unreadable(*_args):
             raise PermissionError("cannot scan export")
+
         monkeypatch.setattr(act, "transport_files", unreadable)
         error = PermissionError
     with pytest.raises(error):

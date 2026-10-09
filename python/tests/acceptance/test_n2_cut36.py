@@ -295,7 +295,22 @@ def test_row_parser_accepts_only_exact_declared_units() -> None:
         assert unit_of(unit) == unit
     assert unit_of("L8-a1") == unit_of("L8-a2") == "L8-a"
     assert unit_of("L8-j1") == unit_of("L8-j2") == "L8-j"
-    for row in ("", "L8", "L8-l", "L8-aa", "L8-b1", "L8-a3", "L4-a1", "BI", "BI-4", "BI-1a", "BI-11", "BI-1-a", "H4-a", "U1"):
+    for row in (
+        "",
+        "L8",
+        "L8-l",
+        "L8-aa",
+        "L8-b1",
+        "L8-a3",
+        "L4-a1",
+        "BI",
+        "BI-4",
+        "BI-1a",
+        "BI-11",
+        "BI-1-a",
+        "H4-a",
+        "U1",
+    ):
         with pytest.raises(ValueError, match="is not a cut-36 row"):
             unit_of(row)
 

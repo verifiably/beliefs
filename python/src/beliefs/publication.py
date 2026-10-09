@@ -42,7 +42,17 @@ _BINDING_FIELDS = frozenset(
     {"project", "local", "author", "at", "event_token", "view", "destination", "corpus_id", "marker", "artifact"}
 )
 _MARKER_FIELDS = frozenset(
-    {"project", "local", "author", "at", "event_token", "published_from", "destination", "selection", "supersedes_markers"}
+    {
+        "project",
+        "local",
+        "author",
+        "at",
+        "event_token",
+        "published_from",
+        "destination",
+        "selection",
+        "supersedes_markers",
+    }
 )
 
 
@@ -75,10 +85,22 @@ def _node(
 ) -> Node:
     from beliefs.corpus import CorpusWriter
 
-    content = {"name": kind, "body": "", **{name: value for name, value in facet.items() if name not in {"project", "local"}}}
+    content = {
+        "name": kind,
+        "body": "",
+        **{name: value for name, value in facet.items() if name not in {"project", "local"}},
+    }
     # `_coordination_node` reads only each predecessor's id, to build its supersedes edge
     predecessor_nodes = tuple(
-        Node(id=f"{kind}:{address.project}.{address.local}.{tip}", uid=tip, kind=kind, title=kind, body="", facets={}, relations=[])
+        Node(
+            id=f"{kind}:{address.project}.{address.local}.{tip}",
+            uid=tip,
+            kind=kind,
+            title=kind,
+            body="",
+            facets={},
+            relations=[],
+        )
         for tip in predecessors
     )
     return CorpusWriter._coordination_node(kind, address, uid, content, predecessors=predecessor_nodes)
@@ -105,7 +127,11 @@ def binding_record(intent: PublishIntent, *, corpus_id: str, marker: str, artifa
 
 
 def marker_record(
-    intent: PublishIntent, *, world_id: str, epoch: str, selection: tuple[str, ...],
+    intent: PublishIntent,
+    *,
+    world_id: str,
+    epoch: str,
+    selection: tuple[str, ...],
     attributions: tuple[tuple[str, str, str], ...] | None = None,
 ) -> Node:
     if type(intent) is not PublishIntent:
@@ -113,8 +139,7 @@ def marker_record(
     if type(selection) is not tuple:  # before `list(...)`: None raises TypeError, a list or str would pass through
         raise MalformedRecord("a marker's selection is a tuple of world record ids")
     if attributions is not None and (
-        type(attributions) is not tuple
-        or any(type(row) is not tuple for row in attributions)
+        type(attributions) is not tuple or any(type(row) is not tuple for row in attributions)
     ):
         raise MalformedRecord("a marker's attributions are a tuple of tuples")
     source: dict[str, object] = {"world_id": world_id, "epoch": epoch, "view": str(intent.view)}
@@ -166,10 +191,13 @@ def _attributions_malformed(value: object, selection: tuple[str, ...]) -> bool:
         return True
     for row in value:
         if (
-            type(row) is not list or len(row) != 3
+            type(row) is not list
+            or len(row) != 3
             or any(type(member) is not str for member in row)
-            or not _world_record_id(row[0]) or row[0] not in selection
-            or _HEX32.fullmatch(row[1]) is None or _HEX32.fullmatch(row[2]) is None
+            or not _world_record_id(row[0])
+            or row[0] not in selection
+            or _HEX32.fullmatch(row[1]) is None
+            or _HEX32.fullmatch(row[2]) is None
         ):
             return True
     addresses = [row[0] for row in value]
@@ -209,7 +237,10 @@ def publication_content_malformed(node: Node) -> bool:
             return True
         return (
             view.revision is not None
-            or any(type(facet[name]) is not str or _HEX32.fullmatch(facet[name]) is None for name in ("corpus_id", "marker"))
+            or any(
+                type(facet[name]) is not str or _HEX32.fullmatch(facet[name]) is None
+                for name in ("corpus_id", "marker")
+            )
             or type(facet["artifact"]) is not str
             or _HEX64.fullmatch(facet["artifact"]) is None
             or binding_address(view, destination) != revision.address
@@ -218,7 +249,10 @@ def publication_content_malformed(node: Node) -> bool:
     if set(facet) != _MARKER_FIELDS or node.relations:
         return True
     source = facet["published_from"]
-    if type(source) is not dict or set(source) not in ({"world_id", "epoch", "view"}, {"world_id", "epoch", "view", "attributions"}):
+    if type(source) is not dict or set(source) not in (
+        {"world_id", "epoch", "view"},
+        {"world_id", "epoch", "view", "attributions"},
+    ):
         return True
     try:
         view = CoordinationAddress.parse(source["view"])

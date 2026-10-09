@@ -40,8 +40,15 @@ Q_AT_R2 = f"coord:{Q}@{R2}"
 
 def open_line(**project):
     """The session-open line; `open_line(project=...)` adds the post-amendment key."""
-    return {"line": "session-open", "session": SESSION, "actor": ACTOR, "world": WORLD,
-            "permit": {"kinds": ["proposition"], "act_families": ["corpus-write"], "ungoverned": False}, "at": AT, **project}
+    return {
+        "line": "session-open",
+        "session": SESSION,
+        "actor": ACTOR,
+        "world": WORLD,
+        "permit": {"kinds": ["proposition"], "act_families": ["corpus-write"], "ungoverned": False},
+        "at": AT,
+        **project,
+    }
 
 
 def invocation_open(name):
@@ -74,7 +81,14 @@ def lines():
     return [
         open_line(),
         {"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT},
-        {"line": "act", "invocation": "A", "corpus": WORLD, "entry": ENTRY, "intent": INTENT, "records": [["u1", "proposition:p1"]]},
+        {
+            "line": "act",
+            "invocation": "A",
+            "corpus": WORLD,
+            "entry": ENTRY,
+            "intent": INTENT,
+            "records": [["u1", "proposition:p1"]],
+        },
         {"line": "invocation-close", "invocation": "A", "outcome": {"done": [["u1", "proposition:p1"]]}},
         {"line": "session-close", "at": AT},
     ]
@@ -118,7 +132,13 @@ def test_the_reader_round_trips_every_line(tmp_path):
         writer.append(line)
     writer.close()
     reader = open_ledger_reader(tmp_path, SESSION)
-    assert (reader.session_id, reader.actor, reader.world_id, reader.closed, reader.torn_tail) == (SESSION, ACTOR, WORLD, True, False)
+    assert (reader.session_id, reader.actor, reader.world_id, reader.closed, reader.torn_tail) == (
+        SESSION,
+        ACTOR,
+        WORLD,
+        True,
+        False,
+    )
     assert reader.open_invocations == ()
     (record,) = reader.invocations()
     assert record.command == "mint" and record.input_digest == DIGEST
@@ -133,8 +153,16 @@ def test_open_invocations_lists_every_unclosed_one_in_order(tmp_path):
     writer = LedgerWriter(path)
     writer.append(open_line())
     for name in ("A", "B", "C"):
-        writer.append({"line": "invocation-open", "invocation": name, "command": "mint", "input_digest": DIGEST, "at": AT})
-    writer.append({"line": "invocation-close", "invocation": "B", "outcome": {"refusal": {"code": "x", "message": "m", "data": {}}}})
+        writer.append(
+            {"line": "invocation-open", "invocation": name, "command": "mint", "input_digest": DIGEST, "at": AT}
+        )
+    writer.append(
+        {
+            "line": "invocation-close",
+            "invocation": "B",
+            "outcome": {"refusal": {"code": "x", "message": "m", "data": {}}},
+        }
+    )
     writer.close()
     reader = open_ledger_reader(tmp_path, SESSION)
     assert reader.open_invocations == ("A", "C") and reader.closed is False
@@ -158,7 +186,12 @@ def test_a_torn_tail_is_reported_and_every_complete_line_is_read(tmp_path):
     [
         (b"not json\n", "line 2"),
         (b'{"line":"unknown-kind"}\n', "line 2"),
-        (b'{"line":"act","invocation":"A","corpus":"x","entry":"short","intent":"' + b"e" * 64 + b'","records":[]}\n', "line 2"),
+        (
+            b'{"line":"act","invocation":"A","corpus":"x","entry":"short","intent":"'
+            + b"e" * 64
+            + b'","records":[]}\n',
+            "line 2",
+        ),
     ],
 )
 def test_a_malformed_interior_line_is_refused_naming_its_number(tmp_path, bad, message):
@@ -188,22 +221,32 @@ def test_a_first_line_that_is_not_session_open_is_malformed(tmp_path):
         ),
         pytest.param(
             encode_line(open_line())
-            + encode_line({"line": "act", "invocation": "A", "corpus": WORLD, "entry": ENTRY, "intent": INTENT, "records": []}),
+            + encode_line(
+                {"line": "act", "invocation": "A", "corpus": WORLD, "entry": ENTRY, "intent": INTENT, "records": []}
+            ),
             "line 2",
             id="act-never-opened",
         ),
         pytest.param(
             encode_line(open_line())
-            + encode_line({"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT})
+            + encode_line(
+                {"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT}
+            )
             + encode_line({"line": "invocation-close", "invocation": "A", "outcome": {"done": []}})
-            + encode_line({"line": "act", "invocation": "A", "corpus": WORLD, "entry": ENTRY, "intent": INTENT, "records": []}),
+            + encode_line(
+                {"line": "act", "invocation": "A", "corpus": WORLD, "entry": ENTRY, "intent": INTENT, "records": []}
+            ),
             "line 4",
             id="act-after-its-invocation-closed",
         ),
         pytest.param(
             encode_line(open_line())
-            + encode_line({"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT})
-            + encode_line({"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT}),
+            + encode_line(
+                {"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT}
+            )
+            + encode_line(
+                {"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT}
+            ),
             "line 3",
             id="invocation-open-reopened",
         ),
@@ -215,14 +258,15 @@ def test_a_first_line_that_is_not_session_open_is_malformed(tmp_path):
             id="line-after-session-close",
         ),
         pytest.param(
-            encode_line(open_line())
-            + encode_line(open_line()),
+            encode_line(open_line()) + encode_line(open_line()),
             "line 2",
             id="a-second-session-open",
         ),
         pytest.param(
             encode_line(open_line())
-            + encode_line({"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT})
+            + encode_line(
+                {"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT}
+            )
             + encode_line({"line": "invocation-close", "invocation": "A", "outcome": {"done": []}})
             + encode_line({"line": "invocation-close", "invocation": "A", "outcome": {"done": []}}),
             "line 4",
@@ -318,7 +362,14 @@ def test_validated_outcome_accepts_the_two_shapes_and_nothing_else():
     assert validated_outcome({"done": [["u", "proposition:p"]]}) == {"done": [["u", "proposition:p"]]}
     refusal = validated_outcome({"refusal": {"code": "c", "message": "m", "data": {"k": 1}}})["refusal"]
     assert isinstance(refusal, Mapping) and refusal["code"] == "c"
-    for bad in ({}, {"done": [], "refusal": {}}, {"done": [["u"]]}, {"refusal": {"code": 1, "message": "m", "data": {}}}, {"refusal": {"code": "c", "message": "m", "data": []}}, {"other": 1}):
+    for bad in (
+        {},
+        {"done": [], "refusal": {}},
+        {"done": [["u"]]},
+        {"refusal": {"code": 1, "message": "m", "data": {}}},
+        {"refusal": {"code": "c", "message": "m", "data": []}},
+        {"other": 1},
+    ):
         with pytest.raises(ValueError):
             validated_outcome(bad)
 
@@ -374,8 +425,7 @@ def test_a_torn_select_leaves_the_previous_selection_standing(tmp_path):
     path = ledger_path(tmp_path, SESSION)
     path.parent.mkdir(parents=True)
     path.write_bytes(
-        ledger_bytes(open_line(project=P_AT_R1), invocation_open("A"))
-        + encode_line(select("A", Q_AT_R2))[:25]
+        ledger_bytes(open_line(project=P_AT_R1), invocation_open("A")) + encode_line(select("A", Q_AT_R2))[:25]
     )
     reader = open_ledger_reader(tmp_path, SESSION)
     assert reader.torn_tail is True
@@ -389,7 +439,9 @@ def test_a_torn_select_leaves_the_previous_selection_standing(tmp_path):
         pytest.param(select("A", f"coord:{P}"), id="unpinned"),
         pytest.param(select("A", f"coord:{P}/{L}@{R1}"), id="subordinate"),
         pytest.param(select("A", "project-health"), id="not-an-address"),
-        pytest.param(select("A", f"coord:{'A' * 32}@{R1}"), id="uppercase-hex"),  # alphabetic hex: P's digits have no case
+        pytest.param(
+            select("A", f"coord:{'A' * 32}@{R1}"), id="uppercase-hex"
+        ),  # alphabetic hex: P's digits have no case
         pytest.param(select("A", f"coord:{P}@{R1}@{R2}"), id="extra-segment"),
         pytest.param(select("A", 5), id="not-a-string"),
         pytest.param({**select("A", P_AT_R1), "at": AT}, id="extra-key"),
@@ -419,27 +471,46 @@ def test_a_malformed_session_open_project_is_refused(tmp_path, project):
     [
         pytest.param(
             ledger_bytes(open_line(project=None), invocation_open("A"), invocation_open("B"), select("A", P_AT_R1)),
-            "line 4", id="select-names-an-abandoned-invocation",
+            "line 4",
+            id="select-names-an-abandoned-invocation",
         ),
         pytest.param(
-            ledger_bytes(open_line(project=None), invocation_open("A"), invocation_open("B"), invocation_close("B"), select("A", P_AT_R1)),
-            "line 5", id="select-while-no-invocation-is-current",
+            ledger_bytes(
+                open_line(project=None),
+                invocation_open("A"),
+                invocation_open("B"),
+                invocation_close("B"),
+                select("A", P_AT_R1),
+            ),
+            "line 5",
+            id="select-while-no-invocation-is-current",
         ),
         pytest.param(
             ledger_bytes(open_line(project=None), invocation_open("A"), invocation_close("A"), select("A", P_AT_R1)),
-            "line 4", id="select-after-its-invocation-closed",
+            "line 4",
+            id="select-after-its-invocation-closed",
         ),
         pytest.param(
             ledger_bytes(open_line(project=None), select("A", P_AT_R1)),
-            "line 2", id="select-names-an-unopened-invocation",
+            "line 2",
+            id="select-names-an-unopened-invocation",
         ),
         pytest.param(
             ledger_bytes(open_line(project=None), invocation_open("A"), select("A", P_AT_R1), select("A", None)),
-            "line 4", id="a-second-select-in-one-invocation",
+            "line 4",
+            id="a-second-select-in-one-invocation",
         ),
         pytest.param(
-            ledger_bytes(open_line(project=None), invocation_open("A"), act("A"), invocation_open("B"), select("A", P_AT_R1), act("B")),
-            "line 5", id="an-invalid-select-cannot-reattribute-a-later-act",
+            ledger_bytes(
+                open_line(project=None),
+                invocation_open("A"),
+                act("A"),
+                invocation_open("B"),
+                select("A", P_AT_R1),
+                act("B"),
+            ),
+            "line 5",
+            id="an-invalid-select-cannot-reattribute-a-later-act",
         ),
     ],
 )

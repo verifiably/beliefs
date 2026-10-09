@@ -52,7 +52,7 @@ _LIVE_SABOTAGES = {
         before="    absent.extend((entry.ref, entry.corpus_id) for entry in absences(snapshot))\n",
         after="    absent.extend((entry.ref, entry.corpus_id) for entry in absences(snapshot))\n"
         "    absent.extend(\n"
-        "        (node.id, \"composite\")\n"
+        '        (node.id, "composite")\n'
         "        for node in view.iter_stored()\n"
         '        if node.kind == "composite" and any(relation.target in set(proposition_refs) for relation in node.relations)\n'
         "    )  # the composites naming the proposition reach the belief inputs\n",
@@ -330,12 +330,13 @@ def test_the_declaration_is_byte_exact_against_its_pinned_digest() -> None:
 
 
 def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
-    assert tuple(
-        frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
-        for live, frozen in zip(
-            CUT25_ARMS[: len(FROZEN_CUT25_ARMS)], FROZEN_CUT25_ARMS, strict=True
+    assert (
+        tuple(
+            frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
+            for live, frozen in zip(CUT25_ARMS[: len(FROZEN_CUT25_ARMS)], FROZEN_CUT25_ARMS, strict=True)
         )
-    ) == FROZEN_CUT25_ARMS
+        == FROZEN_CUT25_ARMS
+    )
     for path, pin in FROZEN_PRIOR_CUT_FILES.items():
         completed = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],

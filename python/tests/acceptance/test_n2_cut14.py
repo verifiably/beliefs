@@ -84,9 +84,7 @@ def findings(tmp_path_factory):
 def test_no_cut14_arm_is_vacuous_mixed_uncollected_or_stale(findings):
     for verdict in ("vacuous", "mixed", "uncollected", "stale"):
         offending = [finding for finding in findings if finding.verdict == verdict]
-        assert not offending, "\n".join(
-            f"{finding.arm.label}: {finding.detail}" for finding in offending
-        )
+        assert not offending, "\n".join(f"{finding.arm.label}: {finding.detail}" for finding in offending)
 
 
 def test_every_declared_check_passes_without_sabotage():

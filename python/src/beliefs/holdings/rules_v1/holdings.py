@@ -99,9 +99,7 @@ def _head_reasons(heads):
 def _unsettled(corpus, observations_by_path):
     chain = corpus["chain"]
     settlements = {
-        row["entry"]["registration"]: row["entry"]["outcome"]
-        for row in chain
-        if row["entry"]["kind"] == "settled"
+        row["entry"]["registration"]: row["entry"]["outcome"] for row in chain if row["entry"]["kind"] == "settled"
     }
     intents = []
     for index, row in enumerate(chain):
@@ -115,10 +113,12 @@ def _unsettled(corpus, observations_by_path):
     for row in chain:
         entry = row["entry"]
         if entry["kind"] == "registered" and "fulfills" in entry:
-            registrations.setdefault(entry["fulfills"], []).append({
-                "settlement": settlements.get(row["digest"]),
-                "final": entry["final"],
-            })
+            registrations.setdefault(entry["fulfills"], []).append(
+                {
+                    "settlement": settlements.get(row["digest"]),
+                    "final": entry["final"],
+                }
+            )
     statuses = {
         value["digest"]: qualify_intent(value, registrations.get(value["digest"], ()), observations_by_path)
         for value in intents
@@ -165,7 +165,9 @@ def reduce_holdings(capture):
     heads = {}
     for location, members in by_location.items():
         superseded = {ref for member in members for ref in member["supersedes"] if ref in observations}
-        heads[location] = sorted((member for member in members if member["ref"] not in superseded), key=lambda item: item["ref"])
+        heads[location] = sorted(
+            (member for member in members if member["ref"] not in superseded), key=lambda item: item["ref"]
+        )
         reasons[location] = _head_reasons(heads[location])
     for corpus, observations_by_path in zip(capture["corpora"], paths_by_corpus):
         for location in _unsettled(corpus, observations_by_path):

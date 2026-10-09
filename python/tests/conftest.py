@@ -35,9 +35,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         if info is None:
             continue
         scopes = {
-            definitions[-1].scope
-            for name in info.names_closure
-            if (definitions := info.name2fixturedefs.get(name))
+            definitions[-1].scope for name in info.names_closure if (definitions := info.name2fixturedefs.get(name))
         }
         if "module" in scopes:
             group = item.nodeid.split("::", 1)[0]

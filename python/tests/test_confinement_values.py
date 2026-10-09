@@ -157,14 +157,20 @@ def test_k4_a_confined_receipt_makes_a_v2_run():
     confined = confined_closure()
     assert minimal.address() == v1.digest(
         "science.run.v3",
-        {"recipe": minimal.recipe._projection(), "result": [["outputs/result.txt", minimal.result.outputs[0][1]]],
-         "occurrence": _occurrence_projection(minimal.occurrence)},
+        {
+            "recipe": minimal.recipe._projection(),
+            "result": [["outputs/result.txt", minimal.result.outputs[0][1]]],
+            "occurrence": _occurrence_projection(minimal.occurrence),
+        },
     )
     assert confined.address() != minimal.address()
     assert confined.address() == v1.digest(
         "science.run.v4",
-        {"recipe": confined.recipe._projection(), "result": [["outputs/result.txt", confined.result.outputs[0][1]]],
-         "occurrence": _occurrence_projection(confined.occurrence)},
+        {
+            "recipe": confined.recipe._projection(),
+            "result": [["outputs/result.txt", confined.result.outputs[0][1]]],
+            "occurrence": _occurrence_projection(confined.occurrence),
+        },
     )
 
 

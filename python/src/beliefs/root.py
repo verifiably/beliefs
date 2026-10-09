@@ -404,9 +404,7 @@ def _decode_store_genesis(payload: bytes) -> tuple[str, tuple[str, str] | None]:
     try:
         return parse_store_genesis(payload)
     except ValueError as caught:
-        raise CorpusRootRefused(
-            f"store genesis payload is malformed: {caught}"
-        ) from caught
+        raise CorpusRootRefused(f"store genesis payload is malformed: {caught}") from caught
 
 
 def store_identity(store_root: Path) -> str | None:
@@ -443,10 +441,7 @@ def init_store_root(store_root: Path, *, authority: Authority) -> str:
     authority.require("lifecycle")
     store_root = Path(store_root)
     if store_root.exists() and not store_root.is_dir():
-        raise CorpusRootRefused(
-            f"{str(store_root)!r} exists and is not a directory, so it cannot "
-            "be a store root"
-        )
+        raise CorpusRootRefused(f"{str(store_root)!r} exists and is not a directory, so it cannot be a store root")
     store_root.mkdir(parents=True, exist_ok=True)
     existing = store_identity(store_root)
     if existing is not None:
@@ -483,10 +478,7 @@ def init_store_root(store_root: Path, *, authority: Authority) -> str:
         return existing
     populated = registered_surface_paths(store_root, "store")
     if populated:
-        raise CorpusRootRefused(
-            f"{str(store_root)!r} holds payload {populated[0]!r}; a store "
-            "initializes empty"
-        )
+        raise CorpusRootRefused(f"{str(store_root)!r} holds payload {populated[0]!r}; a store initializes empty")
     store_id = secrets.token_hex(16)
     register_root(
         _PRODUCTION_BACKEND,
@@ -691,9 +683,7 @@ def fork_corpus(source_root: Path, dest_root: Path, *, authority: Authority) -> 
         parent_manifest.profile,
         _registry.ForkedFrom(parent_manifest.corpus_id, corpus_state),
     )
-    surface = tuple(
-        sorted(set(registered_surface_paths(source, "corpus")) | {"corpus.yaml"})
-    )
+    surface = tuple(sorted(set(registered_surface_paths(source, "corpus")) | {"corpus.yaml"}))
     _fork_root_callback(
         _PRODUCTION_BACKEND,
         str(source),
@@ -704,11 +694,7 @@ def fork_corpus(source_root: Path, dest_root: Path, *, authority: Authority) -> 
         expected_source_head=head,
         genesis_payload=_fork_corpus_genesis_payload((genesis_digest, head)),
         surface_paths=surface,
-        dest_overrides=(
-            DestinationOverride(
-                "corpus.yaml", _registry.manifest_bytes(child_manifest), 0o644
-            ),
-        ),
+        dest_overrides=(DestinationOverride("corpus.yaml", _registry.manifest_bytes(child_manifest), 0o644),),
     )
     return child_manifest
 
@@ -730,9 +716,7 @@ def fork_store(source_root: Path, dest_root: Path, *, authority: Authority) -> s
         _fork_resume(dest, pending)
         resumed = store_identity(dest)
         if resumed is None:
-            raise CorpusRootRefused(
-                f"{str(dest)!r} resumed a fork but carries no store genesis"
-            )
+            raise CorpusRootRefused(f"{str(dest)!r} resumed a fork but carries no store genesis")
         return resumed
 
     genesis_digest, head = _chain_head(source)
@@ -764,9 +748,7 @@ def write_intent_projection(plan: WritePlan) -> list[dict[str, str]]:
     projection: list[dict[str, str]] = []
     for op in plan:
         if isinstance(op, CreateOp):
-            projection.append(
-                {"op": "create", "path": op.path, "content_sha256": sha256(op.content).hexdigest()}
-            )
+            projection.append({"op": "create", "path": op.path, "content_sha256": sha256(op.content).hexdigest()})
         elif isinstance(op, ReplaceOp):
             projection.append(
                 {
@@ -874,6 +856,7 @@ def _mapped_submit(
     payloads: _PlanPayloads,
 ) -> TransactionOutcome:
     """Submit through the executor's one conservative engine-error mapping."""
+
     def submit() -> TransactionOutcome:
         try:
             return run_transaction(
@@ -1016,7 +999,14 @@ class DurableExecutor:
 
 class DurableOperationPort:
     def __init__(
-        self, root: Path, *, backend: Backend, storage: StorageProfile, metadata_root: Path, authority: Authority, profile: ProfileSpec
+        self,
+        root: Path,
+        *,
+        backend: Backend,
+        storage: StorageProfile,
+        metadata_root: Path,
+        authority: Authority,
+        profile: ProfileSpec,
     ) -> None:
         if type(authority) is not Authority:
             raise TypeError("a port binds an Authority")
@@ -1126,7 +1116,9 @@ def _registration_for(root: Path, backend: Backend, storage: StorageProfile, met
     except Exception as caught:
         # Every engine shape maps to the seam's one failure type.
         raise ExecutionError(f"registration readback failed: {caught}", index=None, applied=None) from caught
-    matches = [digest for digest, entry in view.entries if type(entry) is RegisteredEntry and entry.fulfills == fulfills]
+    matches = [
+        digest for digest, entry in view.entries if type(entry) is RegisteredEntry and entry.fulfills == fulfills
+    ]
     if len(matches) != 1:
         raise ExecutionError(
             f"expected exactly one registration fulfilling {fulfills}, found {len(matches)}", index=None, applied=None
@@ -1448,7 +1440,9 @@ class _DurableExecutorFactory:
             return
         except Exception as caught:
             # An I/O failure proves nothing about the root; the flag stays set.
-            raise ExecutionError(f"lifecycle read failed before recovery: {caught}", index=None, applied=None) from caught
+            raise ExecutionError(
+                f"lifecycle read failed before recovery: {caught}", index=None, applied=None
+            ) from caught
         if state is not LifecycleState.WRITABLE:
             return  # an unregistered (metadata-less) or read-only root has nothing to recover; the write itself refuses
         try:
@@ -1576,9 +1570,7 @@ def _state_facts(state: object) -> tuple[tuple[str, str], ...]:
 
 def _entry_view(digest: str, entry: Entry) -> EntryView:
     if type(entry) is GenesisEntry:
-        return GenesisEntryView(
-            digest=digest, payload=entry.payload, baseline=_surface_view(entry.baseline)
-        )
+        return GenesisEntryView(digest=digest, payload=entry.payload, baseline=_surface_view(entry.baseline))
     if type(entry) is RegisteredEntry:
         return RegisteredEntryView(
             digest=digest,
@@ -1616,9 +1608,7 @@ def _chain_view(inspection: ChainInspection) -> ChainView:
         genesis = entries[0] if entries else None
         if type(genesis) is not GenesisEntryView:
             raise ProtocolError("a well-formed chain's first entry is not its genesis")
-        return WellFormedView(
-            genesis=genesis, entries=entries, tip=inspection.tip, pending=inspection.pending
-        )
+        return WellFormedView(genesis=genesis, entries=entries, tip=inspection.tip, pending=inspection.pending)
     raise ProtocolError(f"unknown chain inspection result: {type(inspection).__name__}")
 
 
@@ -1641,9 +1631,7 @@ def _inspect_escapes() -> Iterator[None]:
 
 def _inspect_registered(root: Path) -> ChainView:
     with _inspect_escapes():
-        inspection = inspect_chain(
-            _PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE
-        )
+        inspection = inspect_chain(_PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE)
     return _chain_view(inspection)
 
 
@@ -1705,9 +1693,7 @@ def _read_head(root: Path) -> ChainHead:
     made to agree.
     """
     with _inspect_escapes():
-        view = read_chain(
-            _PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE
-        )
+        view = read_chain(_PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE)
     genesis = view.entries[0][1] if view.entries else None
     if type(genesis) is not GenesisEntry:
         raise ProtocolError("a validated chain's first entry is not its genesis")
@@ -1732,7 +1718,9 @@ def _store_refusal(caught: Exception) -> bool:
     stdlib-only `Callable[[Exception], bool]`; every caller passes an
     `ExecutionError`, and the `isinstance` guard keeps that an assumption this
     function checks rather than merely relies on."""
-    return isinstance(caught, ExecutionError) and caught.applied == 0 and type(caught.__cause__) in _STORE_ROUTINE_REFUSALS
+    return (
+        isinstance(caught, ExecutionError) and caught.applied == 0 and type(caught.__cause__) in _STORE_ROUTINE_REFUSALS
+    )
 
 
 @contextmanager
@@ -1884,9 +1872,7 @@ def audit_log(
     and an **explicit** target root, which is never associated to the subject
     by reading its manifest.
     """
-    return _audit_log(
-        config, subject, target_root, observers, actor=actor, history=history, seam=_log_seam()
-    )
+    return _audit_log(config, subject, target_root, observers, actor=actor, history=history, seam=_log_seam())
 
 
 def admit_arrival(
@@ -1952,7 +1938,11 @@ def durable_operation_port(root: Path, authority: Authority, *, profile: Profile
 
 
 def open_corpus(
-    corpus_root: Path, *, authority: Authority, profile: ProfileSpec, coordination_resolver: CoordinationResolver | None = None
+    corpus_root: Path,
+    *,
+    authority: Authority,
+    profile: ProfileSpec,
+    coordination_resolver: CoordinationResolver | None = None,
 ) -> CorpusWriter:
     """The composition root's product: a write API bound to one corpus root,
     writing through the certified engine.

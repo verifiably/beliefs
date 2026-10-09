@@ -85,7 +85,10 @@ def route(run: str, ancestor: str, transforms=()) -> dict[str, object]:
 
 
 def observed_dataset(seed: str = "raw"):
-    return stored.dataset_node(title=seed, resources=pinned_for_seed(seed), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
+    return stored.dataset_node(
+        title=seed,
+        resources=pinned_for_seed(seed),
+        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
 
 

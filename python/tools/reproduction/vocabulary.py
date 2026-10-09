@@ -110,7 +110,9 @@ def operator_for(plan_: dict, predicate: str, subject_kind: str, object_kind: st
         return rows[(predicate, subject_kind, object_kind)]
     if (predicate, None, None) in rows:
         return rows[(predicate, None, None)]
-    raise KeyError(f"no plan row for {predicate} {subject_kind}→{object_kind}; a shape with no row is refused, never nearest-typed")
+    raise KeyError(
+        f"no plan row for {predicate} {subject_kind}→{object_kind}; a shape with no row is refused, never nearest-typed"
+    )
 
 
 def pins() -> CorpusPins:
@@ -131,7 +133,12 @@ def concept_binding() -> VocabularyBinding:
 
 # Every held list, by the `state.json` prefix its step saved and the sort the
 # contract binds it to. One snapshot covers all four (design §9).
-HELD_SORTS = {"concepts": "concept", "levels": "stage-level", "measures": "measure", "identifications": "identification"}
+HELD_SORTS = {
+    "concepts": "concept",
+    "levels": "stage-level",
+    "measures": "measure",
+    "identifications": "identification",
+}
 
 
 def checked_lines(declared: DatasetDeclaration, content: bytes, binding: VocabularyBinding) -> list[str]:

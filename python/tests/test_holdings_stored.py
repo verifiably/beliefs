@@ -62,12 +62,17 @@ def test_the_stored_path_is_kind_first(tmp_path):
     value = observation()
     node = stored.holdings_observation_node(value)
 
-    assert Store(tmp_path).path_for(node.id).relative_to(tmp_path).as_posix() == f"holdings-observation/{value.identity()}.md"
+    assert (
+        Store(tmp_path).path_for(node.id).relative_to(tmp_path).as_posix()
+        == f"holdings-observation/{value.identity()}.md"
+    )
 
 
 def test_direct_authoring_through_the_writer_is_refused(tmp_path):
     with pytest.raises(WriteRefused, match="a holdings observation is minted only by the acts boundary"):
-        CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE).add(stored.holdings_observation_node(observation()))
+        CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE).add(
+            stored.holdings_observation_node(observation())
+        )
 
 
 def test_the_kind_joins_no_epoch_map():
@@ -106,8 +111,12 @@ def test_a_decoded_malformed_facet_refuses():
 
 def test_a_url_observation_round_trips_through_the_stored_codec():
     record = holdings_observation(
-        location=url_locator("https://example.org/data"), outcome=Found("sha256:" + "ab" * 32),
-        observer="o", instrument="i", event_token="t", observed_at="2026-09-20T00:00:00Z",
+        location=url_locator("https://example.org/data"),
+        outcome=Found("sha256:" + "ab" * 32),
+        observer="o",
+        instrument="i",
+        event_token="t",
+        observed_at="2026-09-20T00:00:00Z",
     )
     node = stored.holdings_observation_node(record)
     assert stored.holdings_observation_value(node) == record
@@ -124,8 +133,12 @@ def test_a_url_observation_round_trips_through_the_stored_codec():
 )
 def test_the_codec_refuses_a_location_outside_the_two_arms(location):
     record = holdings_observation(
-        location=url_locator("https://example.org/data"), outcome=Found("sha256:" + "ab" * 32),
-        observer="o", instrument="i", event_token="t", observed_at="2026-09-20T00:00:00Z",
+        location=url_locator("https://example.org/data"),
+        outcome=Found("sha256:" + "ab" * 32),
+        observer="o",
+        instrument="i",
+        event_token="t",
+        observed_at="2026-09-20T00:00:00Z",
     )
     node = stored.holdings_observation_node(record)
     facet = dict(node.facets["holdings-observation"])

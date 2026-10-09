@@ -31,7 +31,9 @@ def test_a_reason_publishes_the_fallback_and_returns_it(tmp_path):
     _, port = corpus(tmp_path)
     _, _, plan = publication_plan(make_closure(shape="dataset-production"))
     marker = [("fallback", ())]
-    reason = port.execute_fulfilling_guarded(plan, "ab" * 32, guard=lambda view: "acquisition-boundary", fallback=lambda r: marker)
+    reason = port.execute_fulfilling_guarded(
+        plan, "ab" * 32, guard=lambda view: "acquisition-boundary", fallback=lambda r: marker
+    )
     assert reason == "acquisition-boundary" and port.fulfilling[-1][0] == marker
 
 
@@ -54,11 +56,13 @@ def test_the_acquisition_guard_reads_the_produced_address(tmp_path):
     writer, _ = corpus(tmp_path)
     closure = make_closure(shape="dataset-production")
     assert acquisition_guard(closure)(writer.read_view) is None
-    writer.add(stored.dataset_node(
-                title="bearer",
-        resources=[{"name": name, "digest": digest} for name, digest in closure.result.outputs],
-        empirical_observation={"locator": "url:x", "attested_by": ACTOR},
-    ))
+    writer.add(
+        stored.dataset_node(
+            title="bearer",
+            resources=[{"name": name, "digest": digest} for name, digest in closure.result.outputs],
+            empirical_observation={"locator": "url:x", "attested_by": ACTOR},
+        )
+    )
     assert acquisition_guard(closure)(writer.read_view) == "acquisition-boundary"
 
 
@@ -70,11 +74,13 @@ def test_production_publishes_a_refusal_when_the_guard_finds_a_bearer(tmp_path, 
     first = run_production(tmp_path / "first", port=MemoryPort())
     assert isinstance(first, RunMinted)
     writer, port = corpus(tmp_path / "corpus")
-    writer.add(stored.dataset_node(
-                title="bearer",
-        resources=[{"name": name, "digest": digest} for name, digest in first.run.result.outputs],
-        empirical_observation={"locator": "url:x", "attested_by": ACTOR},
-    ))
+    writer.add(
+        stored.dataset_node(
+            title="bearer",
+            resources=[{"name": name, "digest": digest} for name, digest in first.run.result.outputs],
+            empirical_observation={"locator": "url:x", "attested_by": ACTOR},
+        )
+    )
     assert acquisition_guard(first.run)(writer.read_view) == "acquisition-boundary"
     monkeypatch.setattr("beliefs.boundary._execute_run", lambda **kwargs: first)
 

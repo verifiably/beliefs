@@ -83,13 +83,17 @@ def intent(
     payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     store, store_id, relative_path = location.split(":", 2)
-    value = payload if payload is not None else {
-        "actor": "actor",
-        "domain": "science.holdings-intent.v1",
-        "event_token": token,
-        "kind": kind,
-        "location": {"relative_path": relative_path, "store_id": store_id, "type": store},
-    }
+    value = (
+        payload
+        if payload is not None
+        else {
+            "actor": "actor",
+            "domain": "science.holdings-intent.v1",
+            "event_token": token,
+            "kind": kind,
+            "location": {"relative_path": relative_path, "store_id": store_id, "type": store},
+        }
+    )
     return {
         "digest": digest,
         "entry": {
@@ -160,8 +164,15 @@ def invoke(value: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def member(ref: str, *, location: str = LOCATION, finding: str = "found", digest: str = "sha256:" + "1" * 64,
-           expected: str | None = None, history: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def member(
+    ref: str,
+    *,
+    location: str = LOCATION,
+    finding: str = "found",
+    digest: str = "sha256:" + "1" * 64,
+    expected: str | None = None,
+    history: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     outcome: dict[str, Any] = {"finding": finding}
     if finding == "found":
         outcome["digest"] = digest
@@ -201,13 +212,15 @@ def test_the_bundle_installs_through_the_fixture_bound_admission(tmp_path):
 def test_no_timestamp_ordering():
     first = capture(corpus(records=[observation(REF_A), observation(REF_B, observed_at="2026-12-31T00:00:00Z")]))
     swapped = deepcopy(first)
-    first_facets = [json.loads(row["canonical"])["facets"]["holdings-observation"] for row in first["corpora"][0]["records"]]
+    first_facets = [
+        json.loads(row["canonical"])["facets"]["holdings-observation"] for row in first["corpora"][0]["records"]
+    ]
     swapped_facets = [
-        json.loads(row["canonical"])["facets"]["holdings-observation"]
-        for row in swapped["corpora"][0]["records"]
+        json.loads(row["canonical"])["facets"]["holdings-observation"] for row in swapped["corpora"][0]["records"]
     ]
     swapped_facets[0]["observed_at"], swapped_facets[1]["observed_at"] = (
-        swapped_facets[1]["observed_at"], swapped_facets[0]["observed_at"]
+        swapped_facets[1]["observed_at"],
+        swapped_facets[0]["observed_at"],
     )
     for row, facet in zip(swapped["corpora"][0]["records"], swapped_facets, strict=True):
         document = json.loads(row["canonical"])
@@ -232,20 +245,26 @@ def test_disagreeing_heads_block_as_contested():
 
     assert result == {
         "active": [],
-        "blocked": [{
-            "location": LOCATION,
-            "reasons": ["contested"],
-            "heads": [member(REF_A), member(REF_B, finding="absent")],
-        }],
+        "blocked": [
+            {
+                "location": LOCATION,
+                "reasons": ["contested"],
+                "heads": [member(REF_A), member(REF_B, finding="absent")],
+            }
+        ],
     }
 
 
 def test_a_cycle_refuses_the_whole_projection():
-    value = capture(corpus(records=[
-        observation(REF_A, supersedes=(REF_B,)),
-        observation(REF_B, supersedes=(REF_A,)),
-        observation(REF_C, location=OTHER_LOCATION),
-    ]))
+    value = capture(
+        corpus(
+            records=[
+                observation(REF_A, supersedes=(REF_B,)),
+                observation(REF_B, supersedes=(REF_A,)),
+                observation(REF_C, location=OTHER_LOCATION),
+            ]
+        )
+    )
 
     with pytest.raises(ValueError, match=f"^supersession cycle at {LOCATION}$"):
         invoke(value)
@@ -267,24 +286,30 @@ def test_unmatched_and_unresolved_intents_block_distinctly_and_a_later_recheck_l
 
     repaired = deepcopy(value)
     repaired["corpora"][0]["records"] = [observation(REF_A, location=LOCATION, token="repair")]
-    repaired["corpora"][0]["chain"].extend([
-        intent("4" * 64, kind="re-check", token="repair"),
-        registration("5" * 64, "4" * 64, final=[file_row(f"holdings-observation/{REF_A}.md")]),
-        settlement("6" * 64, "5" * 64),
-    ])
+    repaired["corpora"][0]["chain"].extend(
+        [
+            intent("4" * 64, kind="re-check", token="repair"),
+            registration("5" * 64, "4" * 64, final=[file_row(f"holdings-observation/{REF_A}.md")]),
+            settlement("6" * 64, "5" * 64),
+        ]
+    )
 
-    assert invoke(repaired)["blocked"] == [
-        {"location": OTHER_LOCATION, "reasons": ["unsettled"], "heads": []}
-    ]
+    assert invoke(repaired)["blocked"] == [{"location": OTHER_LOCATION, "reasons": ["unsettled"], "heads": []}]
 
 
 def test_agreeing_heads_all_stay_active_with_their_expectations():
     first_expected = "sha256:" + "2" * 64
     second_expected = "sha256:" + "3" * 64
-    result = invoke(capture(corpus(records=[
-        observation(REF_A, expected=first_expected),
-        observation(REF_B, expected=second_expected),
-    ])))
+    result = invoke(
+        capture(
+            corpus(
+                records=[
+                    observation(REF_A, expected=first_expected),
+                    observation(REF_B, expected=second_expected),
+                ]
+            )
+        )
+    )
 
     assert result == {
         "active": [member(REF_A, expected=first_expected), member(REF_B, expected=second_expected)],
@@ -293,37 +318,60 @@ def test_agreeing_heads_all_stay_active_with_their_expectations():
 
 
 def test_algorithm_mixed_found_pair_is_incommensurable():
-    result = invoke(capture(corpus(records=[
-        observation(REF_A),
-        observation(REF_B, digest="sha512:" + "4" * 128),
-    ])))
+    result = invoke(
+        capture(
+            corpus(
+                records=[
+                    observation(REF_A),
+                    observation(REF_B, digest="sha512:" + "4" * 128),
+                ]
+            )
+        )
+    )
 
     assert result["active"] == []
     assert result["blocked"][0]["reasons"] == ["incommensurable"]
 
 
 def test_same_algorithm_disagreement_and_mixed_algorithms_carry_both_reasons():
-    result = invoke(capture(corpus(records=[
-        observation(REF_A, digest="sha256:" + "1" * 64),
-        observation(REF_B, digest="sha256:" + "2" * 64),
-        observation(REF_C, digest="sha512:" + "3" * 128),
-    ])))
+    result = invoke(
+        capture(
+            corpus(
+                records=[
+                    observation(REF_A, digest="sha256:" + "1" * 64),
+                    observation(REF_B, digest="sha256:" + "2" * 64),
+                    observation(REF_C, digest="sha512:" + "3" * 128),
+                ]
+            )
+        )
+    )
 
     assert result["blocked"][0]["reasons"] == ["contested", "incommensurable"]
 
 
 def test_the_walk_carries_deduplicated_sorted_history():
-    result = invoke(capture(corpus(records=[
-        observation(REF_A),
-        observation(REF_B, supersedes=(REF_A,)),
-        observation(REF_C, supersedes=(REF_A, REF_B)),
-    ])))
+    result = invoke(
+        capture(
+            corpus(
+                records=[
+                    observation(REF_A),
+                    observation(REF_B, supersedes=(REF_A,)),
+                    observation(REF_C, supersedes=(REF_A, REF_B)),
+                ]
+            )
+        )
+    )
 
     assert result == {
-        "active": [member(REF_C, history=[
-            {"ref": REF_A, "outcome": {"finding": "found", "digest": "sha256:" + "1" * 64}},
-            {"ref": REF_B, "outcome": {"finding": "found", "digest": "sha256:" + "1" * 64}},
-        ])],
+        "active": [
+            member(
+                REF_C,
+                history=[
+                    {"ref": REF_A, "outcome": {"finding": "found", "digest": "sha256:" + "1" * 64}},
+                    {"ref": REF_B, "outcome": {"finding": "found", "digest": "sha256:" + "1" * 64}},
+                ],
+            )
+        ],
         "blocked": [],
     }
 
@@ -335,10 +383,14 @@ def test_a_dangling_predecessor_keeps_the_record_as_a_head_with_an_unseen_tail()
 
 
 def test_a_cross_location_predecessor_refuses_the_whole_projection():
-    value = capture(corpus(records=[
-        observation(REF_A, supersedes=(REF_B,)),
-        observation(REF_B, location=OTHER_LOCATION),
-    ]))
+    value = capture(
+        corpus(
+            records=[
+                observation(REF_A, supersedes=(REF_B,)),
+                observation(REF_B, location=OTHER_LOCATION),
+            ]
+        )
+    )
 
     with pytest.raises(ValueError, match=f"^supersession crosses locations at {LOCATION}$"):
         invoke(value)
@@ -363,10 +415,12 @@ def test_an_intent_cannot_qualify_against_another_corpus_record():
 def test_an_identical_record_in_two_corpora_is_one_active_head():
     record = observation(REF_A)
 
-    assert invoke(capture(
-        corpus(records=[record], corpus_id="corpus-a"),
-        corpus(records=[deepcopy(record)], corpus_id="corpus-b"),
-    )) == {"active": [member(REF_A)], "blocked": []}
+    assert invoke(
+        capture(
+            corpus(records=[record], corpus_id="corpus-a"),
+            corpus(records=[deepcopy(record)], corpus_id="corpus-b"),
+        )
+    ) == {"active": [member(REF_A)], "blocked": []}
 
 
 @pytest.mark.parametrize(
@@ -378,10 +432,12 @@ def test_an_identical_record_in_two_corpora_is_one_active_head():
 )
 def test_the_same_reference_with_different_canonical_content_refuses(changed):
     with pytest.raises(ValueError, match=f"^holdings observation reference collision at {REF_A}$"):
-        invoke(capture(
-            corpus(records=[observation(REF_A)], corpus_id="corpus-a"),
-            corpus(records=[changed], corpus_id="corpus-b"),
-        ))
+        invoke(
+            capture(
+                corpus(records=[observation(REF_A)], corpus_id="corpus-a"),
+                corpus(records=[changed], corpus_id="corpus-b"),
+            )
+        )
 
 
 @pytest.mark.parametrize(
@@ -405,12 +461,15 @@ def test_a_missing_record_at_a_holdings_layout_row_is_unresolved():
     assert qualify_intent({"location": LOCATION, "event_token": "token"}, [registration_value], {}) == "unresolved"
 
 
-@pytest.mark.parametrize("path", [
-    f"holdings-observation/x/{REF_A}.md",
-    "holdings-observation/readme.md",
-    f"holdings-observation/{REF_A.upper()}.md",
-    f"holdings-observation/{'a' * 63}.md",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        f"holdings-observation/x/{REF_A}.md",
+        "holdings-observation/readme.md",
+        f"holdings-observation/{REF_A.upper()}.md",
+        f"holdings-observation/{'a' * 63}.md",
+    ],
+)
 def test_the_layout_grammar_is_exact(path):
     registration_value = {"settlement": "committed", "final": [file_row(path)]}
     assert qualify_intent({"location": LOCATION, "event_token": "token"}, [registration_value], {}) == "unmatched"
@@ -420,22 +479,31 @@ def test_qualify_intent_never_collapses_unresolved():
     intent_value = {"location": LOCATION, "event_token": "token"}
     deriving = {f"holdings-observation/{REF_A}.md": {"location": LOCATION, "event_token": "token"}}
     assert qualify_intent(intent_value, [{"settlement": None, "final": []}], {}) == "unresolved"
-    assert qualify_intent(
-        intent_value,
-        [{"settlement": "committed", "final": [file_row(f"holdings-observation/{REF_A}.md")]}],
-        {},
-    ) == "unresolved"
+    assert (
+        qualify_intent(
+            intent_value,
+            [{"settlement": "committed", "final": [file_row(f"holdings-observation/{REF_A}.md")]}],
+            {},
+        )
+        == "unresolved"
+    )
     assert qualify_intent(intent_value, [{"settlement": "rolled-back", "final": object()}], {}) == "unmatched"
-    assert qualify_intent(
-        intent_value,
-        [{"settlement": "committed", "final": [file_row("outside.md")]}],
-        {},
-    ) == "unmatched"
-    assert qualify_intent(
-        intent_value,
-        [{"settlement": "committed", "final": [file_row(f"holdings-observation/{REF_A}.md")]}],
-        deriving,
-    ) == "matched"
+    assert (
+        qualify_intent(
+            intent_value,
+            [{"settlement": "committed", "final": [file_row("outside.md")]}],
+            {},
+        )
+        == "unmatched"
+    )
+    assert (
+        qualify_intent(
+            intent_value,
+            [{"settlement": "committed", "final": [file_row(f"holdings-observation/{REF_A}.md")]}],
+            deriving,
+        )
+        == "matched"
+    )
 
 
 def test_a_settlement_less_registration_is_an_inspected_well_formed_chain(tmp_path):
@@ -451,17 +519,19 @@ def test_a_settlement_less_registration_is_an_inspected_well_formed_chain(tmp_pa
     assert isinstance(view, logmodel.WellFormedView)
     assert view.pending == (("tx-pending", registration_ref),)
     assert any(
-        isinstance(entry, logmodel.RegisteredEntryView) and entry.fulfills == intent_ref
-        for entry in view.entries
+        isinstance(entry, logmodel.RegisteredEntryView) and entry.fulfills == intent_ref for entry in view.entries
     )
 
 
 def test_a_rolled_back_registration_is_resolved_with_rows_unconsulted():
-    assert qualify_intent(
-        {"location": LOCATION, "event_token": "token"},
-        [{"settlement": "rolled-back", "final": object()}],
-        {},
-    ) == "unmatched"
+    assert (
+        qualify_intent(
+            {"location": LOCATION, "event_token": "token"},
+            [{"settlement": "rolled-back", "final": object()}],
+            {},
+        )
+        == "unmatched"
+    )
 
 
 @pytest.mark.parametrize(
@@ -516,9 +586,7 @@ def test_a_mixed_coverage_keys_url_and_store_heads_by_their_canonical_forms():
     url_record = observation(REF_A, location={"type": "url", "url": "https://example.org/data"})
     store_record = observation(REF_B)
     result = invoke(capture(corpus(records=[url_record, store_record])))
-    assert sorted(head["location"] for head in result["active"]) == sorted(
-        ["url:https://example.org/data", LOCATION]
-    )
+    assert sorted(head["location"] for head in result["active"]) == sorted(["url:https://example.org/data", LOCATION])
 
 
 def test_the_bundle_concatenates_the_helper_source():

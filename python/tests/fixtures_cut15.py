@@ -217,16 +217,24 @@ def run_workflow(
         family_streams=family_streams if family_streams is not None else {},
         checkpoint_expanded_families=tuple(checkpoint_expanded_families),
     )
-    supplied = held_inputs if held_inputs is not None else {
-        DATA_ADDRESS: held / "data.txt",
-        READS_ADDRESS: held / "palette.txt",
-    }
-    authored = inputs if inputs is not None else (
-        RecipeInput(
-            role="transforms",
-            dataset=DATA_ADDRESS,
-            content="sha256:" + sha256(supplied[DATA_ADDRESS].read_bytes()).hexdigest(),
-        ),
+    supplied = (
+        held_inputs
+        if held_inputs is not None
+        else {
+            DATA_ADDRESS: held / "data.txt",
+            READS_ADDRESS: held / "palette.txt",
+        }
+    )
+    authored = (
+        inputs
+        if inputs is not None
+        else (
+            RecipeInput(
+                role="transforms",
+                dataset=DATA_ADDRESS,
+                content="sha256:" + sha256(supplied[DATA_ADDRESS].read_bytes()).hexdigest(),
+            ),
+        )
     )
     return execute_production_run(
         inputs=authored,

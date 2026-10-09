@@ -223,6 +223,7 @@ def used_facet_namespaces(node: Node) -> frozenset[str]:
     """The domain namespaces named by this node's namespaced facet keys."""
     return frozenset(key.partition("/")[0] for key in node.facets if "/" in key)
 
+
 # --- kernel §4.1's closed relation signatures --------------------------------
 
 ASSESSES = "assesses"
@@ -276,7 +277,7 @@ def local_id(kind: str, ref: str) -> str:
     prefix = f"{kind}:"
     if type(ref) is not str or not ref.startswith(prefix) or len(ref) == len(prefix):
         raise MalformedRecord(f"{ref!r} is not a typed {kind} reference")
-    return ref[len(prefix):]
+    return ref[len(prefix) :]
 
 
 RETRACTION_REASONS = (
@@ -403,9 +404,7 @@ def _source_identifiers(node: Node) -> Mapping[str, Any]:
 
 def source_basis(node: Node) -> tuple[str, str] | None:
     """The selected `(scheme, value)` of a stored source, or `None`."""
-    return source_basis_projection.basis(
-        {k: v for k, v in _source_identifiers(node).items() if isinstance(v, str)}
-    )
+    return source_basis_projection.basis({k: v for k, v in _source_identifiers(node).items() if isinstance(v, str)})
 
 
 def source_address_of(node: Node) -> str | None:
@@ -510,9 +509,7 @@ def identifier_corrections(node: Node) -> tuple[IdentifierCorrection, ...]:
         return ()
     facet = node.facets[IDENTIFIER_CORRECTION_FACET]
     if not isinstance(facet, dict) or set(facet) != {"entries"}:
-        raise MalformedRecord(
-            f"{node.id}: identifier-correction is a mapping holding a non-empty `entries` list"
-        )
+        raise MalformedRecord(f"{node.id}: identifier-correction is a mapping holding a non-empty `entries` list")
     corrections = _read_chain(facet["entries"], f"{node.id}: identifier-correction", {})
     if dict(corrections[-1].to_identifiers) != dict(_source_identifiers(node)):
         raise MalformedRecord(f"{node.id}: the last correction does not end at the current identifiers")
@@ -626,9 +623,7 @@ def display_facet_malformed(node: Node) -> bool:
         return False
     facet = node.facets[DISPLAY_FACET]
     return not (
-        isinstance(facet, dict)
-        and set(facet) == {"display_statement"}
-        and isinstance(facet["display_statement"], str)
+        isinstance(facet, dict) and set(facet) == {"display_statement"} and isinstance(facet["display_statement"], str)
     )
 
 
@@ -695,13 +690,22 @@ def assessment_value(node: Node, *, profile: ProfileSpec) -> AssessmentValue:
             "Refused, never coerced (estimand-typing decision 10)."
         )
     if set(facet) != _ASSESSMENT_FACET_KEYS or any(type(facet[k]) is not str for k in _ASSESSMENT_FACET_KEYS):
-        raise MalformedRecord(f"{node.id}: an assessment facet is exactly {sorted(_ASSESSMENT_FACET_KEYS)}, every member text")
+        raise MalformedRecord(
+            f"{node.id}: an assessment facet is exactly {sorted(_ASSESSMENT_FACET_KEYS)}, every member text"
+        )
     try:
         typed = v1.decode(facet["typed"].encode("utf-8"))
     except CanonicalTextRefused as refused:
         raise MalformedRecord(f"{node.id}: the typed member is not canonical text: {refused}") from refused
-    if not isinstance(typed, dict) or not {"estimand", "applicability"} <= set(typed) <= {"estimand", "applicability", "estimate", "uncertainty"}:
-        raise MalformedRecord(f"{node.id}: the typed member carries estimand, applicability, and optionally estimate and uncertainty")
+    if not isinstance(typed, dict) or not {"estimand", "applicability"} <= set(typed) <= {
+        "estimand",
+        "applicability",
+        "estimate",
+        "uncertainty",
+    }:
+        raise MalformedRecord(
+            f"{node.id}: the typed member carries estimand, applicability, and optionally estimate and uncertainty"
+        )
     try:
         estimand = estimand_from_stored(typed["estimand"], profile=profile)
         applicability = applicability_from_stored(typed["applicability"], profile=profile, operator=estimand.operator)
@@ -710,13 +714,21 @@ def assessment_value(node: Node, *, profile: ProfileSpec) -> AssessmentValue:
     uncertainty = None
     if "uncertainty" in typed:
         try:
-            uncertainty = uncertainty_from_mapping(typed["uncertainty"], estimate=typed.get("estimate"), scale=estimand.measure.scale)
+            uncertainty = uncertainty_from_mapping(
+                typed["uncertainty"], estimate=typed.get("estimate"), scale=estimand.measure.scale
+            )
         except UncertaintyRefused as refused:
             raise MalformedRecord(f"{node.id}: {refused}") from refused
     return AssessmentValue(
-        spec=facet["spec"], run=local_id("run", facet["run"]), proposition=facet["proposition"], outcome=facet["outcome"],
-        interpretation_rule=facet["interpretation_rule"], estimand=estimand, applicability=applicability,
-        estimate=typed.get("estimate"), uncertainty=uncertainty,
+        spec=facet["spec"],
+        run=local_id("run", facet["run"]),
+        proposition=facet["proposition"],
+        outcome=facet["outcome"],
+        interpretation_rule=facet["interpretation_rule"],
+        estimand=estimand,
+        applicability=applicability,
+        estimate=typed.get("estimate"),
+        uncertainty=uncertainty,
     )
 
 
@@ -770,8 +782,10 @@ def _tagged_basis_routes(node: Node) -> list[dict[str, Any]]:
     if not isinstance(basis, dict) or set(basis) != {"tag", "routes"}:
         raise MalformedRecord(f"{node.id}: malformed tagged lineage basis")
     tag, routes = basis["tag"], basis["routes"]
-    if tag not in ("single", "conflict") or not isinstance(routes, list) or not all(
-        isinstance(route, dict) for route in routes
+    if (
+        tag not in ("single", "conflict")
+        or not isinstance(routes, list)
+        or not all(isinstance(route, dict) for route in routes)
     ):
         raise MalformedRecord(f"{node.id}: malformed tagged lineage basis")
     try:
@@ -780,22 +794,14 @@ def _tagged_basis_routes(node: Node) -> list[dict[str, Any]]:
         raise MalformedRecord(f"{node.id}: malformed lineage route") from caught
     if tag == "single" and len(routes) != 1:
         raise MalformedRecord(f"{node.id}: a single lineage basis holds exactly one route")
-    if tag == "conflict" and (
-        len(routes) < 2 or len(set(keys)) != len(keys) or keys != sorted(keys)
-    ):
-        raise MalformedRecord(
-            f"{node.id}: a conflict lineage basis holds at least two distinct sorted routes"
-        )
+    if tag == "conflict" and (len(routes) < 2 or len(set(keys)) != len(keys) or keys != sorted(keys)):
+        raise MalformedRecord(f"{node.id}: a conflict lineage basis holds at least two distinct sorted routes")
     return routes
 
 
 def union_lineage_bases(survivor: Node, loser: Node) -> dict[str, dict]:
     """Keep survivor facets and replace only its lineage basis with the union."""
-    encoded_routes = {
-        v1.encode(route)
-        for node in (survivor, loser)
-        for route in _tagged_basis_routes(node)
-    }
+    encoded_routes = {v1.encode(route) for node in (survivor, loser) for route in _tagged_basis_routes(node)}
     facets = dict(survivor.facets)
     if encoded_routes:
         ordered = []
@@ -919,9 +925,7 @@ def _valid_report_entry(entry: object) -> bool:
     if kind == "pure-look":
         inputs = entry["instrument_inputs"]
         if not isinstance(inputs, list) or any(
-            not isinstance(pair, list)
-            or len(pair) != 2
-            or any(type(member) is not str for member in pair)
+            not isinstance(pair, list) or len(pair) != 2 or any(type(member) is not str for member in pair)
             for pair in inputs
         ):
             return False
@@ -931,7 +935,13 @@ def _valid_report_entry(entry: object) -> bool:
         except MalformedRecord:
             return False
         return True
-    if kind in ("publication-request", "publication-staging", "publication-export", "publication-reveal", "publication-transport"):
+    if kind in (
+        "publication-request",
+        "publication-staging",
+        "publication-export",
+        "publication-reveal",
+        "publication-transport",
+    ):
         try:
             report_values.lifecycle_outcome_from_facet(kind, entry.get("outcome"))
         except MalformedRecord:
@@ -950,9 +960,7 @@ def _valid_report_entry(entry: object) -> bool:
     for field in fields:
         value = outcome[field]
         if outcome_type == "imported-records" or field == "retired_uids":
-            if not isinstance(value, list) or any(
-                type(member) is not str for member in value
-            ):
+            if not isinstance(value, list) or any(type(member) is not str for member in value):
                 return False
         elif type(value) is not str:
             return False
@@ -1000,9 +1008,7 @@ def act_report_facet(node: Node) -> Mapping[str, Any]:
     except IdentityError as caught:
         raise MalformedRecord(f"{node.id}: malformed act-report facet") from caught
     if node.id != f"act-report:{expected}":
-        raise MalformedRecord(
-            f"{node.id}: act-report address disagrees with its identity"
-        )
+        raise MalformedRecord(f"{node.id}: act-report address disagrees with its identity")
     return facet
 
 
@@ -1064,9 +1070,7 @@ def act_report_node(report: report_values.ActReport) -> Node:
     return _node("act-report", slug, f"{report.operation} report", {"act-report": facet}, ())
 
 
-def proposition_node(
-    slug: str, *, title: str, claim: Mapping[str, Any], display_statement: str | None = None
-) -> Node:
+def proposition_node(slug: str, *, title: str, claim: Mapping[str, Any], display_statement: str | None = None) -> Node:
     """A proposition carrying the typed claim projection. Prose is not an
     identity input: `title` and an authored display statement are display only."""
     facets: dict[str, Any] = {PROPOSITION_FACET: dict(claim)}
@@ -1080,9 +1084,7 @@ def source_node(*, title: str, identifiers: Mapping[str, object]) -> Node:
     canonical, the id the digest over the selected basis. No slug — a handle
     never participates in an address. Refuses an empty basis itself, since no
     id exists without one; the boundary refuses it again for hand-built records."""
-    canonical = source_basis_projection.normalized_identifiers(
-        cast(Mapping[object, object], identifiers)
-    )
+    canonical = source_basis_projection.normalized_identifiers(cast(Mapping[object, object], identifiers))
     address = source_basis_projection.source_address(canonical)
     if address is None:
         raise BasisMissing(
@@ -1199,17 +1201,29 @@ def assessment_node(
     uncertainty: Interval | StandardError | None = None,
 ) -> Node:
     value = AssessmentValue(
-        spec=spec, run=local_id("run", run), proposition=proposition, outcome=outcome,
-        interpretation_rule=interpretation_rule, estimand=estimand, applicability=applicability,
-        estimate=estimate, uncertainty=uncertainty,
+        spec=spec,
+        run=local_id("run", run),
+        proposition=proposition,
+        outcome=outcome,
+        interpretation_rule=interpretation_rule,
+        estimand=estimand,
+        applicability=applicability,
+        estimate=estimate,
+        uncertainty=uncertainty,
     )
     node_id = f"assessment:{slug}"
     facet: dict[str, Any] = {
-        "spec": spec, "run": run, "proposition": proposition, "outcome": outcome,
+        "spec": spec,
+        "run": run,
+        "proposition": proposition,
+        "outcome": outcome,
         "interpretation_rule": interpretation_rule,
         "typed": v1.encode(value.typed_projection()).decode("utf-8"),
     }
-    relations = [Relation(source=node_id, predicate=ASSESSES, target=proposition), Relation(source=node_id, predicate=PRODUCED_BY, target=run)]
+    relations = [
+        Relation(source=node_id, predicate=ASSESSES, target=proposition),
+        Relation(source=node_id, predicate=PRODUCED_BY, target=run),
+    ]
     return _node("assessment", slug, title, {ASSESSMENT_FACET: facet}, relations)
 
 
@@ -1264,7 +1278,12 @@ def analysis_spec_value(node: Node, *, profile: ProfileSpec) -> FrozenSpec:
     if node.kind != "analysis-spec":
         raise MalformedRecord(f"{node.id}: not an analysis-spec record")
     facet = _facet(node, ANALYSIS_SPEC_FACET)
-    if facet is None or set(facet) != {"identity", "projection"} or type(facet["identity"]) is not str or type(facet["projection"]) is not str:
+    if (
+        facet is None
+        or set(facet) != {"identity", "projection"}
+        or type(facet["identity"]) is not str
+        or type(facet["projection"]) is not str
+    ):
         raise MalformedRecord(f"{node.id}: an analysis-spec facet is exactly {{identity, projection}}")
     spec = restore(facet["identity"], facet["projection"].encode("utf-8"), profile=profile)
     if node.id != typed_ref("analysis-spec", spec.identity):
@@ -1377,7 +1396,9 @@ def _coreference_text(value: object, location: str) -> str:
 
 def _coreference_fields(facet: Mapping[str, Any]) -> CoreferenceAttestation:
     if set(facet) != {"endpoints", "stance", "actor", "grounds", "event_token"}:
-        raise MalformedRecord("a coreference attestation facet carries exactly endpoints, stance, actor, grounds and event_token")
+        raise MalformedRecord(
+            "a coreference attestation facet carries exactly endpoints, stance, actor, grounds and event_token"
+        )
     endpoints = facet["endpoints"]
     if type(endpoints) is not list or len(endpoints) != 2:
         raise MalformedRecord("a coreference attestation names exactly two endpoints")
@@ -1411,20 +1432,28 @@ def composite_value(node: Node) -> CompositeFacet:
     if facet is None:
         raise MalformedRecord(f"{node.id}: a composite carries a {COMPOSITE_FACET!r} facet")
     if set(facet) != {"grammar", "shape", "nodes", "members"}:
-        raise MalformedRecord(f"{node.id}: composite facet keys are grammar, shape, nodes, members; found {sorted(facet)}")
+        raise MalformedRecord(
+            f"{node.id}: composite facet keys are grammar, shape, nodes, members; found {sorted(facet)}"
+        )
     raw_nodes, raw_members = facet["nodes"], facet["members"]
     if not isinstance(raw_nodes, list) or not isinstance(raw_members, list):
         raise MalformedRecord(f"{node.id}: nodes and members are lists")
     nodes = []
     for entry in raw_nodes:
-        if not isinstance(entry, dict) or set(entry) != {"sort", "term"} or not all(isinstance(entry[k], str) for k in entry):
+        if (
+            not isinstance(entry, dict)
+            or set(entry) != {"sort", "term"}
+            or not all(isinstance(entry[k], str) for k in entry)
+        ):
             raise MalformedRecord(f"{node.id}: a node is {{sort, term}} of strings")
         try:
             nodes.append(CompositeNode(entry["sort"], entry["term"]))
         except ClaimError as caught:  # the identifier checks are `Referent`'s, a ClaimError family
             raise MalformedRecord(f"{node.id}: {caught}") from caught
     try:
-        return CompositeFacet(grammar=facet["grammar"], shape=facet["shape"], nodes=tuple(nodes), members=tuple(raw_members))
+        return CompositeFacet(
+            grammar=facet["grammar"], shape=facet["shape"], nodes=tuple(nodes), members=tuple(raw_members)
+        )
     except MalformedRecord as caught:
         raise MalformedRecord(f"{node.id}: {caught}") from caught
 

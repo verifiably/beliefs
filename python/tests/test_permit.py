@@ -1,4 +1,5 @@
 """E1 at value level, E4 and E5 (design §3, §7)."""
+
 from __future__ import annotations
 
 import pytest
@@ -266,7 +267,9 @@ def test_the_publication_permit_covers_every_call_the_act_makes():
         lambda: RequiredCapabilities.for_kinds(["publication-binding"], {}),
         lambda: RequiredCapabilities(WritePermit(frozenset({"publication-binding"}), frozenset({"publish"}))),
         lambda: RequiredCapabilities(
-            WritePermit(frozenset({"publication-binding", "act-report", "task"}), frozenset({"publish", "corpus-write"}))
+            WritePermit(
+                frozenset({"publication-binding", "act-report", "task"}), frozenset({"publish", "corpus-write"})
+            )
         ),
         # the kernel requirement's exact permit, reached through an ordinary route
         # (science's `mints:` write class compiles through `for_kinds`): decision 7

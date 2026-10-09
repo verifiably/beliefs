@@ -50,7 +50,7 @@ _LIVE_SABOTAGES = {
         module="world/read.py",
         before=(
             "    fault = _contract_fault(kind, member, receipt, published)\n"
-            '    if fault is not None:\n'
+            "    if fault is not None:\n"
             '        return derive.ReceiptOutcome(kind, "malformed", fault)\n'
             "    if kind == derive.BELIEF_INPUT_KIND:\n"
             "        standing = _snapshot_standing(world, receipt)\n"
@@ -93,7 +93,7 @@ _LIVE_SABOTAGES = {
             '                f"the exact pair this receipt names is not held here: {caught}",\n'
             "            )\n"
             "    fault = _contract_fault(kind, member, receipt, published)\n"
-            '    if fault is not None:\n'
+            "    if fault is not None:\n"
             '        return derive.ReceiptOutcome(kind, "malformed", fault)\n'
         ),
     ),
@@ -106,8 +106,7 @@ _LIVE_SABOTAGES = {
     "R23-a": Sabotage(
         module="world/importing.py",
         before=(
-            '(("malformed-receipt", "malformed"), ("retracted-snapshot", "retracted"), '
-            '("refuted-receipt", "refuted"))'
+            '(("malformed-receipt", "malformed"), ("retracted-snapshot", "retracted"), ("refuted-receipt", "refuted"))'
         ),
         after='(("malformed-receipt", "malformed"), ("retracted-snapshot", "retracted"))',
     ),
@@ -301,12 +300,13 @@ def test_the_declaration_is_byte_exact_against_its_own_commit() -> None:
 
 def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
     # Live matcher migration, 2026-09-14 (slice 5): normalize only W1-a.
-    assert tuple(
-        frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
-        for live, frozen in zip(
-            CUT25_ARMS[: len(FROZEN_CUT25_ARMS)], FROZEN_CUT25_ARMS, strict=True
+    assert (
+        tuple(
+            frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
+            for live, frozen in zip(CUT25_ARMS[: len(FROZEN_CUT25_ARMS)], FROZEN_CUT25_ARMS, strict=True)
         )
-    ) == FROZEN_CUT25_ARMS
+        == FROZEN_CUT25_ARMS
+    )
     for path, pin in FROZEN_PRIOR_CUT_FILES.items():
         completed = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],

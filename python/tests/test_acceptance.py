@@ -184,16 +184,23 @@ def test_g13_j_capture_integrity(tmp_path):
             assert admission == belief.NotReached()
 
 
-@pytest.mark.parametrize("case", ("clean", "counter", "split", "corrupt", "malformed", "drift", "snapshot", "absent", "binding"))
+@pytest.mark.parametrize(
+    "case", ("clean", "counter", "split", "corrupt", "malformed", "drift", "snapshot", "absent", "binding")
+)
 def test_g12_l_accept_all_refusal_parity(tmp_path, case):
     from test_world_view import make_absent
+
     length = 2 if case in {"counter", "split"} else 1 if case == "corrupt" else 0
     world, roots, published, chain = _ordinary_chain(tmp_path, length)
     if case == "split":
-        move(writer_at(roots[ALPHA], profile_with()), writer_at(roots[BETA], profile_with()), chain[1].id, **MOVE_FIELDS)
+        move(
+            writer_at(roots[ALPHA], profile_with()), writer_at(roots[BETA], profile_with()), chain[1].id, **MOVE_FIELDS
+        )
         published = publish(world, (ALPHA, BETA), hold_shipped(world))
     elif case == "corrupt":
-        enumeration = replace(open_world_view(world, published).retraction_enumeration(), found=((chain[0].id, RETRACTION_OVERTURNED),))
+        enumeration = replace(
+            open_world_view(world, published).retraction_enumeration(), found=((chain[0].id, RETRACTION_OVERTURNED),)
+        )
         receipt = document(published, "retraction-receipt.yaml")
         receipt["enumeration"] = derive.retraction_enumeration_projection(enumeration)
         receipt["subject"] = derive.retraction_enumeration_identity(enumeration)
@@ -235,12 +242,15 @@ def test_rejected_malformed_verification_and_local_correction(tmp_path, monkeypa
     correction = Node(id="retraction:bad", kind="retraction", title="bad")
     raw_write(tmp_path, correction)
     original = stored.verification_value
+
     def decode(node):
         assert node.id != verification.id, "rejected verification decoded"
         return original(node)
+
     monkeypatch.setattr(stored, "verification_value", decode)
-    inputs = gather(reopen(tmp_path), PROPOSITION_REF, **fixture.gather_kwargs,
-                    acceptance=_policy(verification.id, correction.id))
+    inputs = gather(
+        reopen(tmp_path), PROPOSITION_REF, **fixture.gather_kwargs, acceptance=_policy(verification.id, correction.id)
+    )
     assert inputs.acceptance is not None and inputs.acceptance.complete
     assert not inputs.retractions.found
     assert verification.id not in {v.ref for v in inputs.verifications}
@@ -256,20 +266,30 @@ def test_canonical_correction_alias_decides_once(tmp_path, monkeypatch):
     monkeypatch.setattr(type(view), "retraction_enumeration", lambda _self: enumeration)
     seen = []
     kwargs = world_kwargs(view, profile_with())
-    inputs = gather(view, PROPOSITION_REF, context=kwargs["context"], profile=profile_with(),
-                    resolution=kwargs["resolution"], binding=kwargs["binding"],
-                    acceptance=belief.AcceptancePolicy(lambda c, r: seen.append((c, r)) or True, "policy"))
+    inputs = gather(
+        view,
+        PROPOSITION_REF,
+        context=kwargs["context"],
+        profile=profile_with(),
+        resolution=kwargs["resolution"],
+        binding=kwargs["binding"],
+        acceptance=belief.AcceptancePolicy(lambda c, r: seen.append((c, r)) or True, "policy"),
+    )
     assert seen.count((ALPHA, root.id)) == 1
     assert (ALPHA, alias) not in seen and root.id in dict(inputs.retractions.found)
 
 
 def test_excluded_evidence_holder_still_serves_dependencies(tmp_path):
     from dataset_fixtures import dataset_ref
-    world, _roots, published = split_evaluation_world(tmp_path, beta_refs=("proposition:p", dataset_ref("d-a"), "assessment:a-2"))
+
+    world, _roots, published = split_evaluation_world(
+        tmp_path, beta_refs=("proposition:p", dataset_ref("d-a"), "assessment:a-2")
+    )
     view = open_world_view(world, published)
     kwargs = over_kwargs(world_kwargs(view, profile_with()))
-    answer, admission = evaluate_over_traced(view, PROPOSITION_REF, **kwargs,
-        acceptance=belief.AcceptancePolicy(lambda c, _r: c != BETA, "alpha evidence"))
+    answer, admission = evaluate_over_traced(
+        view, PROPOSITION_REF, **kwargs, acceptance=belief.AcceptancePolicy(lambda c, _r: c != BETA, "alpha evidence")
+    )
     assert isinstance(answer, belief.Belief) and isinstance(admission, belief.Reached)
     assert answer.acceptance is not None and (BETA, "assessment:a-2") in answer.acceptance.excluded
 
@@ -689,10 +709,12 @@ def test_g12_g_mapped_oracle(tmp_path, monkeypatch):
     monkeypatch.setattr(type(view), "snapshot_standing", lambda _self, **_kwargs: standing)
     original = _CapturedCheckView.resolve
     calls = []
+
     def resolve(self, ref):
         if self is view._captured_views[ALPHA]:
             calls.append(ref)
         return original(self, ref)
+
     monkeypatch.setattr(_CapturedCheckView, "resolve", resolve)
     selected = _gather_world(view)
     assert dict(selected.retractions.found)[root.id] == RETRACTION_OVERTURNED

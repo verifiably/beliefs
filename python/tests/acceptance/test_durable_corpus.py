@@ -99,9 +99,7 @@ class TestW3Durably:
         assert not any(n.kind == "source" for n in reopen(durable_root).iter_stored())
 
     def test_a_dataset_with_no_content_identity_is_refused_before_it_lands(self, durable_writer, durable_root):
-        unpinned = stored.governed_node(
-            "dataset", "d1", "DepMap", {stored.DATASET_FACET: {"resources": []}}, ()
-        )
+        unpinned = stored.governed_node("dataset", "d1", "DepMap", {stored.DATASET_FACET: {"resources": []}}, ())
         with pytest.raises(BasisMissing):
             durable_writer.add(unpinned)
         assert not path_for(durable_root, "dataset:d1").exists()
@@ -116,9 +114,7 @@ class TestW3Durably:
 class TestG9DurablyMintedWithNoBytesHeld:
     def test_a_declared_dataset_is_minted_and_is_referenceable(self, durable_writer, durable_root):
         declared = durable_writer.add(stored.dataset_node(title="DepMap 24Q2", resources=pinned()))
-        durable_writer.add(
-            stored.run_node("r9", title="r9", spec=SPEC, reads=[declared.id])
-        )
+        durable_writer.add(stored.run_node("r9", title="r9", spec=SPEC, reads=[declared.id]))
         view = reopen(durable_root)
         # Addressable, referenceable, and resolved as a reference by this cut's
         # traversal — while its bytes are held nowhere and no holding check ran.
@@ -170,9 +166,7 @@ class TestS7BothBoundariesDurably:
             ),
         )
         findings = corpus_check(reopen(durable_root), BASE)
-        assert [(f.severity, f.code, f.ref) for f in findings] == [
-            ("error", "eligibility-unmet", "assessment:a2")
-        ]
+        assert [(f.severity, f.code, f.ref) for f in findings] == [("error", "eligibility-unmet", "assessment:a2")]
 
     def test_the_check_is_silent_on_the_minted_corpus(self, durable_writer, durable_root):
         mint_records(durable_writer)
@@ -231,8 +225,7 @@ class TestTheUncertifiedTupleFailsClosed:
         shm = Path("/dev/shm")
         if not shm.is_dir():
             raise AssertionError(
-                "/dev/shm is unavailable, so the uncertified-tuple negative cannot run; "
-                "this is an error and not a skip"
+                "/dev/shm is unavailable, so the uncertified-tuple negative cannot run; this is an error and not a skip"
             )
         root = shm / f"science-uncertified-{id(self)}"
         try:

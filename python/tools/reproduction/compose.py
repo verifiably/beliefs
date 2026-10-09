@@ -21,7 +21,10 @@ def main() -> int:
     spine_claim = build_claim(
         profile,
         operator="mm30/affects-molecular-entity-concept",
-        args=(Referent("biology/molecular-entity", "protein:PHF19"), Referent("mm30/concept", "concept:overall-survival")),
+        args=(
+            Referent("biology/molecular-entity", "protein:PHF19"),
+            Referent("mm30/concept", "concept:overall-survival"),
+        ),
         layer="causal",
         polarity="negative",
     )
@@ -40,15 +43,27 @@ def main() -> int:
     ]
     try:
         value, receipt = build_composite(
-            profile, writer.read_view, shape="dag", nodes=nodes, members=[st["proposition_ref"], spine.id],
-            snapshot=vocabulary.snapshot(), slug=COMPOSITE_SLUG,
+            profile,
+            writer.read_view,
+            shape="dag",
+            nodes=nodes,
+            members=[st["proposition_ref"], spine.id],
+            snapshot=vocabulary.snapshot(),
+            slug=COMPOSITE_SLUG,
         )
     except CompositeError as refused:
-        findings.record(11, "design-gap" if refused.code == "composite-node-not-member" else "defect", f"build_composite refused: {refused}", filed="composite-claims design §9")
+        findings.record(
+            11,
+            "design-gap" if refused.code == "composite-node-not-member" else "defect",
+            f"build_composite refused: {refused}",
+            filed="composite-claims design §9",
+        )
         state.save(spine_ref=spine.id, composite_refusal=f"{refused.code}: {refused}")
         print(f"REFUSED: {refused}")
         return 2
-    minted = writer.add(stored.composite_node(value, title="h1-prognosis fragment: disease stage → PHF19 ⊣ overall survival"))
+    minted = writer.add(
+        stored.composite_node(value, title="h1-prognosis fragment: disease stage → PHF19 ⊣ overall survival")
+    )
     state.save(
         spine_ref=spine.id,
         composite_ref=minted.id,
@@ -60,7 +75,11 @@ def main() -> int:
     # `biology/molecular-entity` unconsulted, so PHF19 — node:0, since "biology" sorts before "mm30" —
     # resolves `not-consulted`, and the two concepts `member` (design §4.1: a check not performed is not a finding).
     expected = {"node:0": "not-consulted", "node:1": "member", "node:2": "member"}
-    findings.record(11, "closed" if outcomes == expected else "defect", f"composed {minted.id} ({value.identity[:16]}…) over {len(value.edges)} edges; node outcomes {outcomes} (expected {expected})")
+    findings.record(
+        11,
+        "closed" if outcomes == expected else "defect",
+        f"composed {minted.id} ({value.identity[:16]}…) over {len(value.edges)} edges; node outcomes {outcomes} (expected {expected})",
+    )
     print(f"composed {minted.id}; edges {[(e.cause.term, e.effect.term, e.sign) for e in value.edges]}")
     return 0
 

@@ -245,14 +245,15 @@ def _capture(carriers: Mapping[str, Path]) -> tuple[dict[str, tuple[Node, ...]],
     return captured, states, damaged
 
 
-def _address_map(
-    captured: Mapping[str, tuple[Node, ...]], states: Mapping[str, str]
-) -> Mapping[str, tuple[str, str]]:
+def _address_map(captured: Mapping[str, tuple[Node, ...]], states: Mapping[str, str]) -> Mapping[str, tuple[str, str]]:
     """Decisions 6 and 7: publish's own `derive.address_map` over the captured
     world-kind records, so its `AddressMapConflict` — `uid-corruption` before
     `duplicate-location` — reaches the caller unchanged."""
     located = [
-        (corpus_id, node) for corpus_id in sorted(captured) for node in captured[corpus_id] if node.kind in stored.WORLD_KINDS
+        (corpus_id, node)
+        for corpus_id in sorted(captured)
+        for node in captured[corpus_id]
+        if node.kind in stored.WORLD_KINDS
     ]
     return derive.address_map(
         derive.Capture(

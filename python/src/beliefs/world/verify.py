@@ -131,9 +131,7 @@ def _unwired_state_facts(state: object) -> tuple[tuple[str, str], ...]:
     )
 
 
-def _unwired_read_preimage(
-    root: Path, txid: str, path: str, max_bytes: int
-) -> PreimageEvidence:
+def _unwired_read_preimage(root: Path, txid: str, path: str, max_bytes: int) -> PreimageEvidence:
     raise AssertionError(
         f"{root}: this seam wires no preimage reader; the audit is the one consumer and the "
         "composition root wires one explicitly"
@@ -390,9 +388,7 @@ def committed_removals(view: WellFormedView, absent_state: object) -> tuple[Remo
     preimages for exactly this set and the policy pass classifies exactly this
     set, so the two name one inventory (spec §3.1).
     """
-    committed = {
-        entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed
-    }
+    committed = {entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed}
     removals: list[Removal] = []
     for entry in view.entries:
         if type(entry) is not RegisteredEntryView or entry.digest not in committed:
@@ -404,9 +400,7 @@ def committed_removals(view: WellFormedView, absent_state: object) -> tuple[Remo
     return tuple(removals)
 
 
-def _file_facts(
-    state: object, state_facts: Callable[[object], tuple[tuple[str, str], ...]]
-) -> tuple[str, int] | None:
+def _file_facts(state: object, state_facts: Callable[[object], tuple[tuple[str, str], ...]]) -> tuple[str, int] | None:
     """`(digest, byte_len)` of a file state as the seam's codec renders it, or
     `None` for any other kind. The one place the policy pass touches a state's
     facts, and it touches them through the engine-owned codec."""
@@ -416,9 +410,7 @@ def _file_facts(
     return f"sha256:{facts['content_hash']}", int(facts["byte_len"])
 
 
-def removed_digest(
-    state: object, state_facts: Callable[[object], tuple[tuple[str, str], ...]]
-) -> str | None:
+def removed_digest(state: object, state_facts: Callable[[object], tuple[tuple[str, str], ...]]) -> str | None:
     """The content digest a removed file state declares, in `history`'s key
     form, or `None` for a pre-state that is not a file (spec §3.2)."""
     facts = _file_facts(state, state_facts)
@@ -518,9 +510,7 @@ def replay(
         findings.extend(_removal_findings(removal, held, preimages, state_facts))
 
     modeled: dict[str, object] = dict(view.genesis.baseline)
-    committed = {
-        entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed
-    }
+    committed = {entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed}
     diverged: tuple[str, ...] = ()
     for entry in view.entries:
         if type(entry) is not RegisteredEntryView or entry.digest not in committed:
@@ -765,9 +755,7 @@ class RegistryCarrier:
         from beliefs.world import anchors
 
         if type(record) is not anchors.LogHeadRecord:
-            raise ObserverCarrierInvalid(
-                f"a registry carrier holds a LogHeadRecord, not {type(record).__name__}"
-            )
+            raise ObserverCarrierInvalid(f"a registry carrier holds a LogHeadRecord, not {type(record).__name__}")
         try:
             decoded = anchors.parse_log_head_record(anchors.log_head_projection(record))
         # The codec's own refusals and nothing wider: the projection raises
@@ -777,9 +765,7 @@ class RegistryCarrier:
             raise ObserverCarrierInvalid(f"the log-head record does not satisfy its grammar: {caught}") from caught
         if decoded != record:
             raise ObserverCarrierInvalid("the log-head record is not what its own projection decodes to")
-        observed = (
-            _ObservedAnchor(record.subject, record.genesis, record.head, "named-local", "registry-record"),
-        )
+        observed = (_ObservedAnchor(record.subject, record.genesis, record.head, "named-local", "registry-record"),)
         return RegistryCarrier(_FACTORY_TOKEN, record, observed)
 
 
@@ -1070,9 +1056,7 @@ def evaluate_log(
     if type(disk) is not tuple:
         raise TypeError("disk is the captured surface as a tuple of (path, state) pairs")
     if type(records) is not tuple:
-        raise TypeError(
-            "records is the captured published-record surface as a tuple of (path, payload) pairs"
-        )
+        raise TypeError("records is the captured published-record surface as a tuple of (path, payload) pairs")
     if not callable(state_facts):
         raise TypeError("state_facts is the seam's engine-owned state codec")
 
@@ -1400,8 +1384,7 @@ def _absence_findings(bound: tuple[_ObservedAnchor, ...]) -> tuple[Finding, ...]
             code="anchor-chain-absent",
             ref=anchor.head,
             detail=f"carrier={anchor.carrier} provenance={anchor.provenance}",
-            message="an anchor states a head for a chain that is wholly absent: the removal the anchor makes "
-            "evident",
+            message="an anchor states a head for a chain that is wholly absent: the removal the anchor makes evident",
         )
         for anchor in bound
     )
@@ -1540,7 +1523,9 @@ def _extent(
     the whole chain, which is the same statement `unanchored_tail` makes for a
     chain nothing anchors.
     """
-    placed = [positions[anchor.head] for anchor in bound if anchor.genesis == chain_genesis and anchor.head in positions]
+    placed = [
+        positions[anchor.head] for anchor in bound if anchor.genesis == chain_genesis and anchor.head in positions
+    ]
     if not placed:
         return None, digests
     top = max(placed)
@@ -1627,14 +1612,8 @@ def _audit_log(
     _configured_target(config, kind, root)
     root_kind: RootKind = kind
     with _subject_hold(seam, root_kind, root):
-        view, disk, records, presented = _assemble_evaluation_inputs(
-            seam, root_kind, root, config
-        )
-        preimages = (
-            _read_preimages(seam, root, view)
-            if type(view) is WellFormedView
-            else NO_PREIMAGES
-        )
+        view, disk, records, presented = _assemble_evaluation_inputs(seam, root_kind, root, config)
+        preimages = _read_preimages(seam, root, view) if type(view) is WellFormedView else NO_PREIMAGES
     return evaluate_log(
         subject,
         view,
@@ -1689,9 +1668,7 @@ def _read_preimages(seam: LogSeam, root: Path, view: WellFormedView) -> Preimage
         if facts is None:
             continue
         _digest, byte_len = facts
-        evidence[(removal.txid, removal.path)] = seam.read_preimage(
-            root, removal.txid, removal.path, byte_len
-        )
+        evidence[(removal.txid, removal.path)] = seam.read_preimage(root, removal.txid, removal.path, byte_len)
     return MappingProxyType(evidence)
 
 
@@ -1762,9 +1739,7 @@ def _restore_root(
             seam.absent_state,
             seam.state_facts,
         )
-        if report.outcome == "validated" and _restore_subject_agrees(
-            subject, kind, view, presented
-        ):
+        if report.outcome == "validated" and _restore_subject_agrees(subject, kind, view, presented):
             grant(root)
     return report
 
@@ -1803,9 +1778,7 @@ def _configured_target(config: WorldConfig, kind: SubjectKind, root: Path) -> No
         )
 
 
-def _presented_identity(
-    config: WorldConfig | None, kind: RootKind, root: Path
-) -> PresentedIdentity | None:
+def _presented_identity(config: WorldConfig | None, kind: RootKind, root: Path) -> PresentedIdentity | None:
     """What the root under audit *claims* to be, read from where it is written.
 
     Called after the inspection and before the capture, so the claim is the one
@@ -1946,11 +1919,7 @@ def _admit_arrival(
         # read-only-serviceable copy earned the coherent registered read;
         # every other non-writable state — unserviceable, metadata-less,
         # binding-mismatched — is detached, its pending honestly unresolved.
-        inspect = (
-            seam.inspect_registered
-            if state == "read-only-serviceable"
-            else seam.inspect_detached
-        )
+        inspect = seam.inspect_registered if state == "read-only-serviceable" else seam.inspect_detached
         view = inspect(root)
         manifest = registry.load_manifest(root)
         disk = seam.capture(root, registered_surface_paths(root, "corpus"))

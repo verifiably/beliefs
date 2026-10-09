@@ -214,7 +214,9 @@ def _named_capture(
         if type(chain) is not list:
             return None
         try:
-            end = next(index for index, row in enumerate(chain) if type(row) is dict and row.get("digest") == chain_head)
+            end = next(
+                index for index, row in enumerate(chain) if type(row) is dict and row.get("digest") == chain_head
+            )
         except StopIteration:
             return None
         prefix = dict(corpus)

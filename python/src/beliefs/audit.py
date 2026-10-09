@@ -99,7 +99,13 @@ __all__ = [
 
 
 MALFORMEDNESS_CODES = frozenset(
-    {"semantic-hash-missing", "semantic-hash-stale", "coordination-facet-malformed", "derivation-malformed", "facet-payload-malformed"}
+    {
+        "semantic-hash-missing",
+        "semantic-hash-stale",
+        "coordination-facet-malformed",
+        "derivation-malformed",
+        "facet-payload-malformed",
+    }
 )
 """Ω_valid's codes, and only those. A record one of these names is not read
 again below the classification. A record flagged for anything **else** — a
@@ -144,6 +150,7 @@ class WorldAudit:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "corpora", MappingProxyType(dict(self.corpora)))
+
 
 _COMPARABLE_ASSESSMENT_MEMBERS = (
     "outcome",
@@ -191,7 +198,9 @@ def check_verification(
     """Recompute a stored verification's derivation from the two runs it names —
     verdict and assessment identity always; rule, scope rule, scope and report
     identity when the record carries its report (design §6)."""
-    decoded = decode_verification(node)  # MalformedRecord propagates: a present, malformed report is refused, never repaired
+    decoded = decode_verification(
+        node
+    )  # MalformedRecord propagates: a present, malformed report is refused, never repaired
     derivation = stored.verification_derivation(node)
     if derivation is None:
         return _unchecked("no derivation member")
@@ -207,8 +216,12 @@ def check_verification(
     citation = None if decoded is None else decoded.report.citation
     try:
         derived = _derive(
-            original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
-            certification=certification, citation=citation,
+            original,
+            replayed,
+            specs=evidence.specs,
+            held_rules=evidence.held_rules,
+            certification=certification,
+            citation=citation,
         )
     except RuleUnbound as unbound:
         return _unchecked(str(unbound))
@@ -278,9 +291,7 @@ def _assessment_disagreements(stored_value: AssessmentValue, derived: Assessment
     alone.
     """
     disagreements = [
-        name
-        for name in _COMPARABLE_ASSESSMENT_MEMBERS
-        if getattr(stored_value, name) != getattr(derived, name)
+        name for name in _COMPARABLE_ASSESSMENT_MEMBERS if getattr(stored_value, name) != getattr(derived, name)
     ]
     if stored_value.run != derived.run:
         disagreements.append("run")
@@ -322,7 +333,9 @@ def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> Derivatio
     )
 
 
-def check_spec_target(view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
+def check_spec_target(
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
+) -> DerivationOutcome:
     """The boundary's estimand-target comparison, over a stored record (§7.2)."""
     from beliefs.decode import claim_from_stored
     from beliefs.projection import claim_identity
@@ -343,13 +356,21 @@ def check_spec_target(view: ReadView | _ImportView | WorldReadView, node: Node, 
     if not disagreements:
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(
-        checked=True, reason="",
-        contradiction=Finding(severity="error", code="spec-target-contradicted", ref=node.id, detail=",".join(disagreements),
-                              message=f"{node.id}: the spec's estimand does not answer the claim its target carries"),
+        checked=True,
+        reason="",
+        contradiction=Finding(
+            severity="error",
+            code="spec-target-contradicted",
+            ref=node.id,
+            detail=",".join(disagreements),
+            message=f"{node.id}: the spec's estimand does not answer the claim its target carries",
+        ),
     )
 
 
-def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
+def check_composite(
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
+) -> DerivationOutcome:
     """Design §4.3: the boundary's four steps over the stored record, reported
     rather than raised. Form only — the audit holds no snapshot."""
     from beliefs import composite as composite_module
@@ -360,7 +381,9 @@ def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *,
         return DerivationOutcome(
             checked=True,
             reason="",
-            contradiction=Finding(severity="error", code=code, ref=node.id, detail=detail, message=f"{node.id}: {detail}"),
+            contradiction=Finding(
+                severity="error", code=code, ref=node.id, detail=detail, message=f"{node.id}: {detail}"
+            ),
         )
 
     facet = stored.composite_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
@@ -412,7 +435,9 @@ def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *,
     return DerivationOutcome(checked=True, reason="", contradiction=None)
 
 
-def check_supersedes_kinds(view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec) -> Finding | None:
+def check_supersedes_kinds(
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
+) -> Finding | None:
     """Design §3.1's `same_kind` rule, under audit: a raw-written edge the
     shared path would have refused.
 
@@ -432,7 +457,13 @@ def check_supersedes_kinds(view: ReadView | _ImportView | WorldReadView, node: N
         target = view.get(relation.target)
         if target.kind != node.kind:
             detail = f"a {node.kind!r} names a {target.kind!r} predecessor ({relation.target})"
-            return Finding(severity="error", code="supersedes-cross-kind", ref=node.id, detail=detail, message=f"{node.id}: {detail}")
+            return Finding(
+                severity="error",
+                code="supersedes-cross-kind",
+                ref=node.id,
+                detail=detail,
+                message=f"{node.id}: {detail}",
+            )
     return None
 
 
@@ -519,12 +550,24 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
                 continue
         except PreGrammarSpec as refused:
             findings.append(
-                Finding(severity="error", code="spec-pre-grammar", ref=node.id, detail=str(refused), message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)")
+                Finding(
+                    severity="error",
+                    code="spec-pre-grammar",
+                    ref=node.id,
+                    detail=str(refused),
+                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",
+                )
             )
             continue
         except PreGrammarAssessment as refused:
             findings.append(
-                Finding(severity="error", code="assessment-pre-grammar", ref=node.id, detail=str(refused), message=f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)")
+                Finding(
+                    severity="error",
+                    code="assessment-pre-grammar",
+                    ref=node.id,
+                    detail=str(refused),
+                    message=f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)",
+                )
             )
             continue
         except RecordError as refused:
@@ -564,8 +607,14 @@ class _CapturedCitations:
     """Decision 8's total reader over the captured world, for one citing corpus:
     own corpus first, then the epoch's map; never a live read, never a raise."""
 
-    def __init__(self, view: WorldReadView, citing: str, readable: Mapping[str, _CapturedCheckView],
-                 causes: Mapping[str, str], malformed: Mapping[str, Mapping[str, str]]) -> None:
+    def __init__(
+        self,
+        view: WorldReadView,
+        citing: str,
+        readable: Mapping[str, _CapturedCheckView],
+        causes: Mapping[str, str],
+        malformed: Mapping[str, Mapping[str, str]],
+    ) -> None:
         self._view = view
         self._citing = citing
         self._own = readable[citing]
@@ -697,7 +746,9 @@ def audit_world(
             continue
         captured = _CapturedCheckView(view.captured_records(corpus_id))
         eligible[corpus_id] = (captured, scope, disagreeing)
-        findings.extend(f for f in _record_findings(captured, profile, scope, disagreeing) if f.code not in ELIGIBILITY_CODES)
+        findings.extend(
+            f for f in _record_findings(captured, profile, scope, disagreeing) if f.code not in ELIGIBILITY_CODES
+        )
         malformed[corpus_id] = {finding.ref for finding in findings if finding.code in MALFORMEDNESS_CODES}
         malformed_codes[corpus_id] = {f.ref: f.code for f in findings if f.code in MALFORMEDNESS_CODES}
         if report is not None:
@@ -768,12 +819,24 @@ def audit_world(
             continue
         except PreGrammarSpec as refused:
             corpora[corpus_id].append(
-                Finding("error", "spec-pre-grammar", node.id, str(refused), f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)")
+                Finding(
+                    "error",
+                    "spec-pre-grammar",
+                    node.id,
+                    str(refused),
+                    f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",
+                )
             )
             continue
         except PreGrammarAssessment as refused:
             corpora[corpus_id].append(
-                Finding("error", "assessment-pre-grammar", node.id, str(refused), f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)")
+                Finding(
+                    "error",
+                    "assessment-pre-grammar",
+                    node.id,
+                    str(refused),
+                    f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)",
+                )
             )
             continue
         except RecordError as refused:
@@ -879,7 +942,7 @@ def _world_findings(
     for corpus_id, _state in published.coverage:
         if corpus_id in view.absent() or corpus_id in excluded:
             continue
-        for node in view.captured_records(corpus_id):      # unmapped post-build records included (§7.4)
+        for node in view.captured_records(corpus_id):  # unmapped post-build records included (§7.4)
             if node.kind != "retraction":
                 continue
             try:
@@ -911,7 +974,9 @@ def _world_findings(
         if target["subject_identity"] not in retained:
             faults.append(f"no retained epoch carries producer snapshot {target['subject_identity']}")
         elif corpus_id not in retained[target["subject_identity"]]:
-            faults.append(f"corpus {corpus_id} is outside the coverage of producer snapshot {target['subject_identity']}")
+            faults.append(
+                f"corpus {corpus_id} is outside the coverage of producer snapshot {target['subject_identity']}"
+            )
         successor = node.facets[stored.RETRACTION_FACET].get("successor")
         if successor is not None and successor not in retained:
             faults.append(f"successor {successor} is not a retained producer snapshot")

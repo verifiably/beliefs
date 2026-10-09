@@ -510,9 +510,7 @@ def check_checkpoint_declaration(
 ) -> None:
     declared = set(snapshot.checkpoint_expanded_families)
     if unknown := sorted(declared - set(snapshot.family_streams)):
-        raise CheckpointDeclarationUnmet(
-            f"checkpoint-expanded families the definition does not contain: {unknown}"
-        )
+        raise CheckpointDeclarationUnmet(f"checkpoint-expanded families the definition does not contain: {unknown}")
     if declared and not any(job.is_checkpoint for job in planned):
         raise CheckpointDeclarationUnmet(
             f"checkpoint-expanded families {sorted(declared)} declared, but the plan contains no checkpoint"
@@ -525,11 +523,7 @@ def resolve_targets(
 ) -> tuple[str, ...]:
     resolved: list[str] = []
     for target in targets:
-        matches = [
-            job
-            for job in planned
-            if job.job_key == job_key(target, ()) or target in job.outputs
-        ]
+        matches = [job for job in planned if job.job_key == job_key(target, ()) or target in job.outputs]
         if not matches:
             raise TargetUnresolvable(f"the plan names no job for target {target!r}")
         if len(matches) > 1:
@@ -949,9 +943,18 @@ def _execute_confined(
         inner_argv=execution_argv,
         captured=captured,
     )
-    check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured, inputs=output_root / "inputs", inputs_fingerprint=inputs_before)
+    check_closure_intact(
+        bundle=bundle,
+        code_identity=code_identity,
+        snapshot=snapshot,
+        captured=captured,
+        inputs=output_root / "inputs",
+        inputs_fingerprint=inputs_before,
+    )
     if launched.returncode != 0:
-        return _refused("execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:])
+        return _refused(
+            "execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:]
+        )
     trace = read_trace(output_root / TRACE_DIR / "events.jsonl")
     realized_seeds = read_realized_seeds(output_root)
     execution_launch = _confined_attestation(
@@ -1126,7 +1129,9 @@ def execute_production_run(
         def _fallback(reason: str) -> WritePlan:
             return _report_plan(_refused(reason, "absent", actor, observer, started_at, intent).report)
 
-        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback)
+        reason = port.execute_fulfilling_guarded(
+            plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback
+        )
         if reason is not None:
             result = _refused(reason, "absent", actor, observer, started_at, intent)
     else:

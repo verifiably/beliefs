@@ -68,7 +68,11 @@ def synthetic(tmp_path: Path) -> CapturedEnvironment:
     }
     rendered = (
         (f"{SANDBOX_VENV}/bin/python", "symlink", interpreter),
-        (f"{SANDBOX_VENV}/pyvenv.cfg", "file", "home = /science/env/python/bin\ninclude-system-site-packages = false\n"),
+        (
+            f"{SANDBOX_VENV}/pyvenv.cfg",
+            "file",
+            "home = /science/env/python/bin\ninclude-system-site-packages = false\n",
+        ),
     )
     loader_map = ((interpreter, "libc.so.6", f"{SANDBOX_LIB}/libc.so.6"),)
     return CapturedEnvironment(
@@ -193,7 +197,12 @@ def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_and_chan
 
     def check() -> None:
         check_closure_intact(
-            bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured, inputs=inputs, inputs_fingerprint=before
+            bundle=bundle,
+            code_identity=code_identity,
+            snapshot=snapshot,
+            captured=captured,
+            inputs=inputs,
+            inputs_fingerprint=before,
         )
 
     check()
@@ -265,7 +274,9 @@ def test_fingerprints_move_with_content_and_symlink_targets(tmp_path):
 
 # --- the mount plan and the canonical comparison (K6) -------------------------
 def _plan(tmp_path: Path) -> MountPlan:
-    return mount_plan(snapshot=tmp_path / "snap", loader=LOADER, bundle=tmp_path / "bundle", output_root=tmp_path / "out")
+    return mount_plan(
+        snapshot=tmp_path / "snap", loader=LOADER, bundle=tmp_path / "bundle", output_root=tmp_path / "out"
+    )
 
 
 def test_the_mount_plan_rows_are_canonical_and_identity_bearing(tmp_path):
@@ -282,7 +293,11 @@ def test_the_mount_plan_rows_are_canonical_and_identity_bearing(tmp_path):
     )
     assert plan.identity() == mount_plan_identity(plan.rows)
     assert plan.expected == tuple(sorted(plan.rows))
-    assert plan.role_of(BUNDLE_ROOT) == "bundle" and plan.role_of("/dev/null") == "device" and plan.role_of("/etc") == UNPLANNED
+    assert (
+        plan.role_of(BUNDLE_ROOT) == "bundle"
+        and plan.role_of("/dev/null") == "device"
+        and plan.role_of("/etc") == UNPLANNED
+    )
     assert dict(plan.host_mapping())[BUNDLE_ROOT] == str(tmp_path / "bundle")
     assert dict(plan.host_mapping())[SANDBOX_ENV] == str(tmp_path / "snap" / "science" / "env")
     assert dict(plan.host_mapping())[LOADER] == str(tmp_path / "snap" / LOADER.lstrip("/"))
@@ -326,7 +341,8 @@ def test_k6_a_mount_table_unequal_to_the_plan_refuses(tmp_path):
     with pytest.raises(ConfinementNotEstablished, match="inputs"):
         judge_instance(missing, plan)
     writable_root = InstanceFacts(
-        distinct=NAMESPACES, mounts=tuple(sorted(("/", "root", "rw") if row[0] == "/" else row for row in plan.expected))
+        distinct=NAMESPACES,
+        mounts=tuple(sorted(("/", "root", "rw") if row[0] == "/" else row for row in plan.expected)),
     )
     with pytest.raises(ConfinementNotEstablished):
         judge_instance(writable_root, plan)
@@ -361,13 +377,24 @@ def _entry(report: dict) -> dict:
     return report["loader"][next(iter(report["loader"]))]
 
 
-INNER = ("/science/env/venv/bin/python", "-m", "snakemake", "--snakefile", f"{BUNDLE_ROOT}/code/workflow/Snakefile", "--", "outputs/result.txt")
+INNER = (
+    "/science/env/venv/bin/python",
+    "-m",
+    "snakemake",
+    "--snakefile",
+    f"{BUNDLE_ROOT}/code/workflow/Snakefile",
+    "--",
+    "outputs/result.txt",
+)
 
 
 def test_a_good_report_yields_every_capability(tmp_path):
     captured = synthetic(tmp_path)
     environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
-    assert judge_report(good_report(captured, environment), environment=environment, captured=captured, inner_argv=INNER) == CAPABILITIES
+    assert (
+        judge_report(good_report(captured, environment), environment=environment, captured=captured, inner_argv=INNER)
+        == CAPABILITIES
+    )
 
 
 @pytest.mark.parametrize(
@@ -380,11 +407,22 @@ def test_a_good_report_yields_every_capability(tmp_path):
         (lambda r: r["filesystem"].update({f"write:{BUNDLE_ROOT}": "OK"}), "filesystem"),
         (lambda r: r["network"].update({"ipv4": "ECONNREFUSED"}), "network"),
         (lambda r: r["network"].update({"ipv6": "CONNECTED"}), "network"),
-        (lambda r: _entry(r)["resolved"].update({"libc.so.6": [f"{SANDBOX_LIB}/libc.so.6", _digest(b"other")]}), "loader"),
-        (lambda r: _entry(r)["resolved"].update({"libc.so.6": ["/science/env/python/lib/libc.so.6", _digest(b"libc")]}), "loader"),
+        (
+            lambda r: _entry(r)["resolved"].update({"libc.so.6": [f"{SANDBOX_LIB}/libc.so.6", _digest(b"other")]}),
+            "loader",
+        ),
+        (
+            lambda r: _entry(r)["resolved"].update(
+                {"libc.so.6": ["/science/env/python/lib/libc.so.6", _digest(b"libc")]}
+            ),
+            "loader",
+        ),
         (lambda r: r["loader"].clear(), "loader"),  # an omitted ELF
         (lambda r: _entry(r)["resolved"].clear(), "loader"),  # an omitted SONAME
-        (lambda r: _entry(r)["resolved"].update({"libm.so.6": [f"{SANDBOX_LIB}/libm.so.6", _digest(b"m")]}), "loader"),  # an extra SONAME
+        (
+            lambda r: _entry(r)["resolved"].update({"libm.so.6": [f"{SANDBOX_LIB}/libm.so.6", _digest(b"m")]}),
+            "loader",
+        ),  # an extra SONAME
         (lambda r: _entry(r)["unresolved"].append("libm.so.6 => not found"), "loader"),  # not found
         (lambda r: _entry(r).update({"returncode": 127}), "loader"),  # a nonzero loader exit
         (lambda r: r["loader"].update({"/science/env/site/extra.so": dict(_entry(r))}), "loader"),  # an extra ELF
@@ -407,7 +445,14 @@ def test_an_engine_argv_whose_snakefile_is_outside_the_bundle_refuses(tmp_path):
         judge_report(good_report(captured, environment), environment=environment, captured=captured, inner_argv=outside)
 
 
-@pytest.mark.parametrize("broken", [lambda r: r.pop("network"), lambda r: r.update({"environ": "not a mapping"}), lambda r: r.update({"loader": None})])
+@pytest.mark.parametrize(
+    "broken",
+    [
+        lambda r: r.pop("network"),
+        lambda r: r.update({"environ": "not a mapping"}),
+        lambda r: r.update({"loader": None}),
+    ],
+)
 def test_a_malformed_report_shape_is_not_a_traceback_of_its_own(tmp_path, broken):
     """judge_report may raise KeyError or TypeError on a malformed shape; the
     launch wraps those (below). Here: it never returns capabilities for one."""
@@ -444,7 +489,13 @@ def test_k6_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_p
     with pytest.raises(ConfinementNotEstablished, match="loader"):
         judge_report(omitted, environment=environment, captured=captured, inner_argv=INNER)
 
-    extra = {**report, "loader": {**report["loader"], leaf: {"returncode": 0, "resolved": {"libx.so.1": ["/x", "sha256:00"]}, "unresolved": []}}}
+    extra = {
+        **report,
+        "loader": {
+            **report["loader"],
+            leaf: {"returncode": 0, "resolved": {"libx.so.1": ["/x", "sha256:00"]}, "unresolved": []},
+        },
+    }
     with pytest.raises(ConfinementNotEstablished, match="loader"):
         judge_report(extra, environment=environment, captured=captured, inner_argv=INNER)
 
@@ -556,10 +607,12 @@ def test_the_bwrap_argv_binds_then_remounts_the_root_read_only_and_gates_through
     assert argv[remount + 1] == "/"
     assert max(index for index, part in enumerate(argv) if part in ("--ro-bind", "--bind", "--dev-bind")) < remount
     assert argv[argv.index("--chdir") + 1] == OUTPUT_ROOT
-    assert ("--setenv", "PYTHONSAFEPATH", "1") == argv[argv.index("PYTHONSAFEPATH") - 1 : argv.index("PYTHONSAFEPATH") + 2]
+    assert ("--setenv", "PYTHONSAFEPATH", "1") == argv[
+        argv.index("PYTHONSAFEPATH") - 1 : argv.index("PYTHONSAFEPATH") + 2
+    ]
     separator = argv.index("--")
     assert argv[separator + 1 : separator + 4] == (f"{SANDBOX_VENV}/bin/python", "-m", "beliefs.probe")
-    assert argv[-len(INNER):] == INNER
+    assert argv[-len(INNER) :] == INNER
     assert ("--report-fd", "8") == argv[argv.index("--report-fd") : argv.index("--report-fd") + 2]
     assert ("--go-fd", "9") == argv[argv.index("--go-fd") : argv.index("--go-fd") + 2]
     assert "--proc" not in argv and "--dev" not in argv

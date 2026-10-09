@@ -61,14 +61,13 @@ from beliefs.identity import v1
 from beliefs.world import derive, epoch, read, registry
 
 
-def test_coordination_bytes_move_corpus_state_but_never_become_captured_world_records(
-    tmp_path, base_contract
-):
+def test_coordination_bytes_move_corpus_state_but_never_become_captured_world_records(tmp_path, base_contract):
     profile = coordination_profile(base_contract)
     root = mounted_root(tmp_path, profile)
     writer = CorpusWriter(
         root,
-        DefaultExecutor, authority=FULL,
+        DefaultExecutor,
+        authority=FULL,
         coordination_resolver=CoordinationResolver({root: profile}),
         profile=profile,
     )
@@ -89,12 +88,14 @@ def test_world_records_are_still_captured_beside_coordination_records(tmp_path, 
     Corpus(root).add(node)
     writer = CorpusWriter(
         root,
-        DefaultExecutor, authority=FULL,
+        DefaultExecutor,
+        authority=FULL,
         coordination_resolver=CoordinationResolver({root: profile}),
         profile=profile,
     )
     writer.mint_coordination("project", content=content_for("project"))
     assert {record.address for record in epoch._captured_records(root)} == {node.id}
+
 
 # --- the harness -------------------------------------------------------------
 
@@ -231,9 +232,7 @@ def epochs_tree(world: registry.World) -> dict[str, bytes]:
     base = world.config.world_root / "epochs"
     if not base.exists():
         return {}
-    return {
-        str(path.relative_to(base)): path.read_bytes() for path in sorted(base.rglob("*")) if path.is_file()
-    }
+    return {str(path.relative_to(base)): path.read_bytes() for path in sorted(base.rglob("*")) if path.is_file()}
 
 
 def document(world: registry.World, packaging_identity: str, member: str) -> dict[str, Any]:
@@ -260,10 +259,13 @@ def formula_packaging_identity(members: dict[str, bytes]) -> str:
 def test_build_reports_world_identity_conflicts_without_publishing(tmp_path, same_address, same_uid, code):
     world, recorder, bindings, roots = admitted_world(tmp_path, (ALPHA, BETA))
     original = Corpus(roots[ALPHA]).get(dataset_ref("a"))
-    twin = original.model_copy(deep=True, update={
-        "id": original.id if same_address else dataset_ref("twin"),
-        "uid": original.uid if same_uid else "d" * 32,
-    })
+    twin = original.model_copy(
+        deep=True,
+        update={
+            "id": original.id if same_address else dataset_ref("twin"),
+            "uid": original.uid if same_uid else "d" * 32,
+        },
+    )
     raw_write(roots[BETA], twin)
 
     # Each corpus alone is publishable: this is a world invariant, not a
@@ -413,8 +415,7 @@ class TestTheDeterministicCarrier:
             {"corpus_id": corpus_id, "corpus_state": state} for corpus_id, state in published.coverage
         ]
         assert {
-            member: document(world, published.packaging_identity, member)["kind"]
-            for member in epoch.RECEIPT_KINDS
+            member: document(world, published.packaging_identity, member)["kind"] for member in epoch.RECEIPT_KINDS
         } == dict(epoch.RECEIPT_KINDS)
 
     def test_an_empty_declared_coverage_is_not_publishable(self, tmp_path):
@@ -702,9 +703,7 @@ class TestOpening:
             ),
         ],
     )
-    def test_an_unstamped_coverage_entry_does_not_escape_the_declaration_checks(
-        self, tmp_path, coverage, fault
-    ):
+    def test_an_unstamped_coverage_entry_does_not_escape_the_declaration_checks(self, tmp_path, coverage, fault):
         """The bound stamp's source is checked entry by entry, not entry by
         entry *that happens to carry a state*.
 
@@ -719,9 +718,9 @@ class TestOpening:
         world, _recorder, bindings, _roots = admitted_world(tmp_path, (ALPHA, BETA))
         published = publish(world, (ALPHA, BETA), bindings)
         members = dict(carrier_bytes(world, published.packaging_identity))
-        members["coverage.yaml"] = yaml.safe_dump(
-            {"coverage": coverage}, sort_keys=True, allow_unicode=True
-        ).encode("utf-8")
+        members["coverage.yaml"] = yaml.safe_dump({"coverage": coverage}, sort_keys=True, allow_unicode=True).encode(
+            "utf-8"
+        )
         forged = formula_packaging_identity(members)
         directory = world.config.world_root / "epochs" / forged
         directory.mkdir()
@@ -783,7 +782,9 @@ class TestOpening:
             if name.startswith(("set", "add", "write", "replace", "delete", "update"))
         ] == []
 
-        members = {f"epochs/{one.packaging_identity}/{member}" for one in (first, second) for member in epoch.EPOCH_MEMBERS}
+        members = {
+            f"epochs/{one.packaging_identity}/{member}" for one in (first, second) for member in epoch.EPOCH_MEMBERS
+        }
         for plan in recorder.epoch_plans:
             for operation in plan:
                 if operation.path == f"epochs/{epoch.CURRENT_POINTER}":
@@ -888,9 +889,7 @@ class TestOpening:
 
 
 class TestTheLockedOpen:
-    def test_open_epoch_locks_before_the_barrier_and_holds_it_through_every_read(
-        self, monkeypatch, tmp_path
-    ):
+    def test_open_epoch_locks_before_the_barrier_and_holds_it_through_every_read(self, monkeypatch, tmp_path):
         heads = ChainHeads()
         world, _recorder, bindings, _roots = admitted_world(tmp_path, chain_head=heads)
         published = publish(world, (ALPHA,), bindings)
@@ -924,16 +923,14 @@ class TestTheLockedOpen:
         read.open_epoch(world, published.packaging_identity)
 
         assert order[0] == ("barrier", True), "the barrier ran before the lock was taken"
-        assert [stage for stage, _locked in order] == ["barrier", "carrier"] + ["parse"] * 5 + [
-            "receipt"
-        ] * 4 + ["parse"] * 2
+        assert [stage for stage, _locked in order] == ["barrier", "carrier"] + ["parse"] * 5 + ["receipt"] * 4 + [
+            "parse"
+        ] * 2
         assert {locked for _stage, locked in order} == {True}
         assert not world._state.lock.locked()
         assert heads.roots[-1] == world.config.world_root
 
-    def test_current_epoch_makes_one_acquisition_and_recovers_before_the_pointer(
-        self, monkeypatch, tmp_path
-    ):
+    def test_current_epoch_makes_one_acquisition_and_recovers_before_the_pointer(self, monkeypatch, tmp_path):
         """§8.1's `current_epoch`: one lock, the barrier, the pointer, then the
         *same* private locked loader `open_epoch` uses. A second acquisition
         would deadlock on the non-reentrant lock, so counting is what turns
@@ -1016,9 +1013,7 @@ class TestTheLockedOpen:
         try:
             assert halfway.wait(JOIN_TIMEOUT), "the publication never reached its transaction"
             directory = world.config.world_root / "epochs"
-            partial = next(
-                path for path in directory.iterdir() if path.is_dir() and len(list(path.iterdir())) == 5
-            )
+            partial = next(path for path in directory.iterdir() if path.is_dir() and len(list(path.iterdir())) == 5)
             consumer = threading.Thread(target=reader, name="reader")
             consumer.start()
             assert arrived.wait(JOIN_TIMEOUT), "the reader never started"

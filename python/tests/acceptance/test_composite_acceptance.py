@@ -153,7 +153,9 @@ def _estimand_with(claim, identification: str):
         WITH_BIOLOGY,
         claim,
         snapshot=UNCONSULTED,
-        contrast=LevelsContrast(slot=0, baseline=Referent("biology/level", "EX:lo"), comparison=Referent("biology/level", "EX:hi")),
+        contrast=LevelsContrast(
+            slot=0, baseline=Referent("biology/level", "EX:lo"), comparison=Referent("biology/level", "EX:hi")
+        ),
         measure=Measure(quantity=Referent("biology/measure", "EX:expr"), scale="additive"),
         reference=Decimal(0),
         control=Control(identification=Referent("biology/identification", identification), conditioning=()),
@@ -166,19 +168,32 @@ def _seed_assessment(writer, proposition_ref: str, *, slug: str, letter: str, ou
     named, so two assessments of one proposition can rest on different bytes."""
     address = _address(letter)
     if not writer.read_view.holds(address):
-        writer.add(stored.dataset_node(title=f"d-{letter}", resources=_resources(letter), empirical_observation=EMPIRICAL))
+        writer.add(
+            stored.dataset_node(title=f"d-{letter}", resources=_resources(letter), empirical_observation=EMPIRICAL)
+        )
     run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
     assessment = writer.add(
         stored.assessment_node(
-            slug, title=slug, spec=f"spec-{slug}", run=run.id, proposition=proposition_ref,
-            outcome=outcome, interpretation_rule="rule-1", estimand=estimand, applicability={},
+            slug,
+            title=slug,
+            spec=f"spec-{slug}",
+            run=run.id,
+            proposition=proposition_ref,
+            outcome=outcome,
+            interpretation_rule="rule-1",
+            estimand=estimand,
+            applicability={},
         )
     )
     value = stored.assessment_value(writer.read_view.get(assessment.id), profile=writer.profile)
     writer.add(
         stored.verification_node(
-            f"v-{slug}", title=slug, assessment=value.identity(), assessment_ref=assessment.id,
-            scope="clean-environment", verdict="passed",
+            f"v-{slug}",
+            title=slug,
+            assessment=value.identity(),
+            assessment_ref=assessment.id,
+            scope="clean-environment",
+            verdict="passed",
         )
     )
     return address
@@ -193,8 +208,15 @@ def _typed_assessment(writer, slug: str, target: str):
         writer.add(stored.dataset_node(title="d-a", resources=_resources("a"), empirical_observation=EMPIRICAL))
     run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
     return stored.assessment_node(
-        slug, title=slug, spec=f"spec-{slug}", run=run.id, proposition=target, outcome="supported",
-        interpretation_rule="rule-1", estimand=_estimand(_claim("EX:a", "EX:b")), applicability={},
+        slug,
+        title=slug,
+        spec=f"spec-{slug}",
+        run=run.id,
+        proposition=target,
+        outcome="supported",
+        interpretation_rule="rule-1",
+        estimand=_estimand(_claim("EX:a", "EX:b")),
+        applicability={},
     )
 
 
@@ -224,7 +246,12 @@ def test_u1_grammar_kind_and_relations(corpora):
     assert not kind.facets["display"].covered
     assert len([k for k in base.kinds.values() if k.role == "world"]) == 14
     composes = base.relations["composes"]
-    assert (composes.group, composes.sources, composes.targets, composes.same_kind) == ("world", ("composite",), ("proposition",), False)
+    assert (composes.group, composes.sources, composes.targets, composes.same_kind) == (
+        "world",
+        ("composite",),
+        ("proposition",),
+        False,
+    )
     supersedes = base.relations["supersedes"]
     assert set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite"} and supersedes.same_kind
     # `assesses` keeps its one target kind — the boundary invariant U4 rests on.
@@ -247,7 +274,11 @@ def test_u1_grammar_kind_and_relations(corpora):
         parse_base_contract(unequal, source="<composes>")
     # The signature rule itself: every pair below names declared kinds, so
     # kind-existence admits each one and only `composes`' own signature refuses.
-    for sources, targets in ((["composite", "proposition"], ["proposition"]), (["composite"], ["proposition", "composite"]), (["proposition"], ["composite"])):
+    for sources, targets in (
+        (["composite", "proposition"], ["proposition"]),
+        (["composite"], ["proposition", "composite"]),
+        (["proposition"], ["composite"]),
+    ):
         signature = copy.deepcopy(document)
         signature["relations"]["composes"]["sources"] = sources
         signature["relations"]["composes"]["targets"] = targets
@@ -282,7 +313,13 @@ def test_u2_edges_declared_and_never_redefined(corpora, base_contract, testing_d
 
     profile = compile_profile(base_contract, [genesis])
     edge = profile.edges["testing/affects"]
-    assert (edge.operator, edge.cause, edge.effect, edge.retired, edge.contract) == ("testing/affects", 0, 1, False, "testing")
+    assert (edge.operator, edge.cause, edge.effect, edge.retired, edge.contract) == (
+        "testing/affects",
+        0,
+        1,
+        False,
+        "testing",
+    )
     assert "testing/correlates-with" not in profile.edges
     assert "affects" not in profile.edges  # keyed by namespaced operator, never the bare name
     writer = corpora()
@@ -304,7 +341,14 @@ def test_u2_edges_declared_and_never_redefined(corpora, base_contract, testing_d
     non_causal["edges"]["correlates-with"] = {"cause": 0, "effect": 1}
     with pytest.raises(MalformedContract, match="causal"):
         parse(non_causal)
-    for body in ({"cause": 0, "effect": 0}, {"cause": 0, "effect": 2}, {"cause": -1, "effect": 1}, {"cause": True, "effect": 1}, {"cause": 0}, {"cause": 0, "effect": 1, "sign": "+"}):
+    for body in (
+        {"cause": 0, "effect": 0},
+        {"cause": 0, "effect": 2},
+        {"cause": -1, "effect": 1},
+        {"cause": True, "effect": 1},
+        {"cause": 0},
+        {"cause": 0, "effect": 1, "sign": "+"},
+    ):
         malformed = copy.deepcopy(testing_document)
         malformed["edges"]["affects"] = body
         with pytest.raises(MalformedContract):
@@ -383,7 +427,11 @@ def test_u3_form_classification_and_vocabulary_arms(corpora):
     # --- the same rows at `add`, re-derived from the stored record ----------
     cycle = _hand_built(
         writer,
-        [claim_identity(_claim("EX:a", "EX:b")), claim_identity(_claim("EX:b", "EX:c", "negative")), claim_identity(_claim("EX:c", "EX:a"))],
+        [
+            claim_identity(_claim("EX:a", "EX:b")),
+            claim_identity(_claim("EX:b", "EX:c", "negative")),
+            claim_identity(_claim("EX:c", "EX:a")),
+        ],
         ["proposition:ab", "proposition:bc", "proposition:ca"],
         slug="cyc",
     )
@@ -411,7 +459,10 @@ def test_u3_form_classification_and_vocabulary_arms(corpora):
     # `MalformedRecord`, not the constructor's — measured, and recorded in the
     # cut document's §8.4.
     for mutate, defect in (
-        (lambda f: f.__setitem__("nodes", [{"sort": GENE, "term": "EX:a"}, {"sort": GENE, "term": "EX:a"}]), "distinct"),
+        (
+            lambda f: f.__setitem__("nodes", [{"sort": GENE, "term": "EX:a"}, {"sort": GENE, "term": "EX:a"}]),
+            "distinct",
+        ),
         (lambda f: f.__setitem__("members", sorted(f["members"]) * 2), "sorted and distinct"),
         (lambda f: f.__setitem__("nodes", []), "at least one node"),
     ):
@@ -425,24 +476,44 @@ def test_u3_form_classification_and_vocabulary_arms(corpora):
     testing = corpora(profile=_testing_profile())
     entity, outcome = CompositeNode("testing/entity", "EX:a"), CompositeNode("testing/outcome", "EX:y")
     stat = build_claim(
-        testing.profile, operator="testing/correlates-with",
+        testing.profile,
+        operator="testing/correlates-with",
         args=(Referent("testing/entity", "EX:a"), Referent("testing/outcome", "EX:y")),
-        layer="statistical", polarity="positive",
+        layer="statistical",
+        polarity="positive",
     )
     declared = build_claim(
-        testing.profile, operator="testing/affects",
+        testing.profile,
+        operator="testing/affects",
         args=(Referent("testing/entity", "EX:a"), Referent("testing/outcome", "EX:y")),
-        layer="causal", polarity="positive",
+        layer="causal",
+        polarity="positive",
     )
     testing.add(stored.proposition_node("stat", title="stat", claim=project_claim(stat)))
     testing.add(stored.proposition_node("aff", title="aff", claim=project_claim(declared)))
     with pytest.raises(CompositeError) as caught:
-        build_composite(testing.profile, testing.read_view, shape="dag", nodes=[entity, outcome], members=["proposition:stat"], snapshot=UNCONSULTED, slug="x")
+        build_composite(
+            testing.profile,
+            testing.read_view,
+            shape="dag",
+            nodes=[entity, outcome],
+            members=["proposition:stat"],
+            snapshot=UNCONSULTED,
+            slug="x",
+        )
     assert caught.value.code == "composite-member-undeclared"
     # And at `add`: built over the operator that does declare an edge, then
     # re-pointed at the one that does not, so the boundary's own `classify` is
     # what refuses rather than the constructor's.
-    admissible, _ = build_composite(testing.profile, testing.read_view, shape="dag", nodes=[entity, outcome], members=["proposition:aff"], snapshot=UNCONSULTED, slug="u")
+    admissible, _ = build_composite(
+        testing.profile,
+        testing.read_view,
+        shape="dag",
+        nodes=[entity, outcome],
+        members=["proposition:aff"],
+        snapshot=UNCONSULTED,
+        slug="u",
+    )
     undeclared = stored.composite_node(admissible, title="u")
     undeclared.facets[stored.COMPOSITE_FACET]["members"] = [claim_identity(stat)]
     undeclared.relations = [Relation(source=undeclared.id, predicate=stored.COMPOSES, target="proposition:stat")]
@@ -454,15 +525,34 @@ def test_u3_form_classification_and_vocabulary_arms(corpora):
     # --- a declared edge's operator asserted at another layer ---------------
     widened = corpora(profile=_widened_profile())
     at_layer = build_claim(
-        widened.profile, operator="biology/affects",
-        args=(Referent(GENE, "EX:a"), Referent(GENE, "EX:b")), layer="statistical", polarity="positive",
+        widened.profile,
+        operator="biology/affects",
+        args=(Referent(GENE, "EX:a"), Referent(GENE, "EX:b")),
+        layer="statistical",
+        polarity="positive",
     )
     _proposition(widened, "causal", _claim("EX:a", "EX:b"))
     widened.add(stored.proposition_node("stat", title="stat", claim=project_claim(at_layer)))
     with pytest.raises(CompositeError) as caught:
-        build_composite(widened.profile, widened.read_view, shape="dag", nodes=[A, B], members=["proposition:stat"], snapshot=UNCONSULTED, slug="x")
+        build_composite(
+            widened.profile,
+            widened.read_view,
+            shape="dag",
+            nodes=[A, B],
+            members=["proposition:stat"],
+            snapshot=UNCONSULTED,
+            slug="x",
+        )
     assert caught.value.code == "composite-member-layer"
-    value, _ = build_composite(widened.profile, widened.read_view, shape="dag", nodes=[A, B], members=["proposition:causal"], snapshot=UNCONSULTED, slug="l")
+    value, _ = build_composite(
+        widened.profile,
+        widened.read_view,
+        shape="dag",
+        nodes=[A, B],
+        members=["proposition:causal"],
+        snapshot=UNCONSULTED,
+        slug="l",
+    )
     stored_layer = stored.composite_node(value, title="l")
     stored_layer.facets[stored.COMPOSITE_FACET]["members"] = [claim_identity(at_layer)]
     stored_layer.relations = [Relation(source=stored_layer.id, predicate=stored.COMPOSES, target="proposition:stat")]
@@ -474,13 +564,36 @@ def test_u3_form_classification_and_vocabulary_arms(corpora):
     # --- vocabulary: construction and reading refuse, `add` admits ----------
     excluding = build_snapshot(readable={EX: ["EX:a", "EX:b", "EX:c"]})
     with pytest.raises(CompositeError) as caught:
-        build_composite(WITH_BIOLOGY, view, shape="dag", nodes=[A, B, ISOLATED], members=["proposition:ab"], snapshot=excluding, slug="iso")
+        build_composite(
+            WITH_BIOLOGY,
+            view,
+            shape="dag",
+            nodes=[A, B, ISOLATED],
+            members=["proposition:ab"],
+            snapshot=excluding,
+            slug="iso",
+        )
     assert caught.value.code == "composite-node-not-member" and "EX:z" in str(caught.value)
-    isolated, receipt = build_composite(WITH_BIOLOGY, view, shape="dag", nodes=[A, B, ISOLATED], members=["proposition:ab"], snapshot=UNCONSULTED, slug="iso")
+    isolated, receipt = build_composite(
+        WITH_BIOLOGY,
+        view,
+        shape="dag",
+        nodes=[A, B, ISOLATED],
+        members=["proposition:ab"],
+        snapshot=UNCONSULTED,
+        slug="iso",
+    )
     assert receipt.outcomes["node:2"] == TermOutcome.NOT_CONSULTED and receipt.snapshot_identity == UNCONSULTED.identity
     held = writer.add(stored.composite_node(isolated, title="iso"))  # the boundary holds no snapshot (§4.2 step 1)
     assert writer.read_view.get(held.id).kind == "composite"
-    address = _seed_assessment(writer, "proposition:ab", slug="a-ab", letter="a", outcome="supported", estimand=_estimand(_claim("EX:a", "EX:b")))
+    address = _seed_assessment(
+        writer,
+        "proposition:ab",
+        slug="a-ab",
+        letter="a",
+        outcome="supported",
+        estimand=_estimand(_claim("EX:a", "EX:b")),
+    )
     with pytest.raises(CompositeError) as caught:
         read_composite(writer.read_view, held.id, **{**_inputs(writer, address), "resolution": excluding})
     assert caught.value.code == "composite-node-not-member"
@@ -496,7 +609,14 @@ def test_u4_belief_inert(corpora):
     moves no byte of that proposition's belief input digest, and `assesses`
     cannot target a composite — at `add` and at `import_bundle` alike."""
     writer = _seeded(corpora())
-    address = _seed_assessment(writer, "proposition:ab", slug="a-ab", letter="a", outcome="supported", estimand=_estimand(_claim("EX:a", "EX:b")))
+    address = _seed_assessment(
+        writer,
+        "proposition:ab",
+        slug="a-ab",
+        letter="a",
+        outcome="supported",
+        estimand=_estimand(_claim("EX:a", "EX:b")),
+    )
 
     def digest() -> str:
         answer = evaluate_over(writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address)))
@@ -506,7 +626,9 @@ def test_u4_belief_inert(corpora):
     before = digest()
     first = writer.add(stored.composite_node(_build(writer, ["proposition:ab"], slug="v1"), title="v1"))
     assert digest() == before
-    second = writer.supersede(stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"], slug="v2"), title="v2"), of=first.id)
+    second = writer.supersede(
+        stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"], slug="v2"), title="v2"), of=first.id
+    )
     assert digest() == before
     writer.delete(second.id)
     assert digest() == before
@@ -520,7 +642,9 @@ def test_u4_belief_inert(corpora):
     with pytest.raises(SignatureRefused, match="assesses-target-kind"):
         writer.add(assessment)
     other = corpora()
-    members = tuple(n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "composite", "dataset", "run"}) + (assessment,)
+    members = tuple(
+        n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "composite", "dataset", "run"}
+    ) + (assessment,)
     with pytest.raises(ImportRefused, match="assesses-target-kind"):
         other.import_bundle(members, **IMPORT)
 
@@ -530,7 +654,9 @@ def test_u4_belief_inert(corpora):
     with pytest.raises(SignatureRefused, match="assesses-target-unresolvable"):
         writer.add(unresolvable)
     third = corpora()
-    bundle = tuple(n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "dataset", "run"}) + (unresolvable,)
+    bundle = tuple(n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "dataset", "run"}) + (
+        unresolvable,
+    )
     with pytest.raises(ImportRefused, match="assesses-target-unresolvable"):
         third.import_bundle(bundle, **IMPORT)
 
@@ -543,9 +669,33 @@ def test_u5_identity(corpora):
     move it, a node with no member does, display prose does not."""
     writer = _seeded(corpora())
     view = writer.read_view
-    one, _ = build_composite(WITH_BIOLOGY, view, shape="dag", nodes=[C, B, A], members=["proposition:bc", "proposition:ab"], snapshot=SNAPSHOT, slug="one")
-    two, _ = build_composite(WITH_BIOLOGY, view, shape="dag", nodes=[A, B, C], members=["proposition:ab", "proposition:bc"], snapshot=SNAPSHOT, slug="two")
-    three, _ = build_composite(WITH_BIOLOGY, view, shape="dag", nodes=[A, B, C, ISOLATED], members=["proposition:ab", "proposition:bc"], snapshot=UNCONSULTED, slug="three")
+    one, _ = build_composite(
+        WITH_BIOLOGY,
+        view,
+        shape="dag",
+        nodes=[C, B, A],
+        members=["proposition:bc", "proposition:ab"],
+        snapshot=SNAPSHOT,
+        slug="one",
+    )
+    two, _ = build_composite(
+        WITH_BIOLOGY,
+        view,
+        shape="dag",
+        nodes=[A, B, C],
+        members=["proposition:ab", "proposition:bc"],
+        snapshot=SNAPSHOT,
+        slug="two",
+    )
+    three, _ = build_composite(
+        WITH_BIOLOGY,
+        view,
+        shape="dag",
+        nodes=[A, B, C, ISOLATED],
+        members=["proposition:ab", "proposition:bc"],
+        snapshot=UNCONSULTED,
+        slug="three",
+    )
     assert one.identity == two.identity != three.identity
     plain = stored.composite_node(two, title="a plain title")
     prose = stored.composite_node(two, title="an altogether different display title")
@@ -569,11 +719,31 @@ def test_u6_boundary_resolution_and_identity(corpora):
 
     dataset = writer.add(stored.dataset_node(title="d", resources=[{"name": "m", "digest": "sha256:" + "1" * 64}]))
     rows = (
-        ("swapped", lambda n: n.relations.__setitem__(0, Relation(source=n.id, predicate=stored.COMPOSES, target="proposition:bc")), "composite-member-mismatch"),
-        ("dataset", lambda n: n.relations.__setitem__(0, Relation(source=n.id, predicate=stored.COMPOSES, target=dataset.id)), "composite-member-kind"),
-        ("missing", lambda n: n.relations.__setitem__(0, Relation(source=n.id, predicate=stored.COMPOSES, target="proposition:missing")), "composite-member-unresolvable"),
+        (
+            "swapped",
+            lambda n: n.relations.__setitem__(
+                0, Relation(source=n.id, predicate=stored.COMPOSES, target="proposition:bc")
+            ),
+            "composite-member-mismatch",
+        ),
+        (
+            "dataset",
+            lambda n: n.relations.__setitem__(0, Relation(source=n.id, predicate=stored.COMPOSES, target=dataset.id)),
+            "composite-member-kind",
+        ),
+        (
+            "missing",
+            lambda n: n.relations.__setitem__(
+                0, Relation(source=n.id, predicate=stored.COMPOSES, target="proposition:missing")
+            ),
+            "composite-member-unresolvable",
+        ),
         ("popped", lambda n: n.relations.pop(), "composite-relations-mismatch"),
-        ("extra", lambda n: n.relations.append(Relation(source=n.id, predicate=stored.COMPOSES, target="proposition:bc")), "composite-relations-mismatch"),
+        (
+            "extra",
+            lambda n: n.relations.append(Relation(source=n.id, predicate=stored.COMPOSES, target="proposition:bc")),
+            "composite-relations-mismatch",
+        ),
     )
     for slug, mutate, code in rows:
         node = stored_composite(mutate, slug)
@@ -597,7 +767,9 @@ def test_u7_audit_codes(corpora):
     minted = writer.add(stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"]), title="g"))
 
     def codes():
-        return sorted((f.code, f.ref) for f in audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=writer.profile))
+        return sorted(
+            (f.code, f.ref) for f in audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=writer.profile)
+        )
 
     assert codes() == []
 
@@ -605,7 +777,10 @@ def test_u7_audit_codes(corpora):
     cross.relations.append(Relation(source=cross.id, predicate=stored.SUPERSEDES, target=minted.id))
     raw_write(writer.root, cross)
     assert ("supersedes-cross-kind", "proposition:ab") in codes()
-    assert check_supersedes_kinds(reopen(writer.root), reopen(writer.root).get("proposition:ab"), profile=writer.profile) is not None
+    assert (
+        check_supersedes_kinds(reopen(writer.root), reopen(writer.root).get("proposition:ab"), profile=writer.profile)
+        is not None
+    )
 
     mismatched = writer.read_view.get("proposition:bc")
     mismatched.facets[stored.PROPOSITION_FACET]["polarity"] = "positive"
@@ -627,7 +802,9 @@ def test_u7_audit_codes(corpora):
     third = _seeded(corpora())
     deleted = third.add(stored.composite_node(_build(third, ["proposition:ab", "proposition:bc"]), title="g"))
     third.delete("proposition:bc")
-    findings = sorted((f.code, f.ref) for f in audit_corpus(reopen(third.root), evidence=NO_EVIDENCE, profile=third.profile))
+    findings = sorted(
+        (f.code, f.ref) for f in audit_corpus(reopen(third.root), evidence=NO_EVIDENCE, profile=third.profile)
+    )
     assert ("composite-member-unresolvable", deleted.id) in findings
     assert not any(code in audit_module.MALFORMEDNESS_CODES for code, _ in findings)
 
@@ -637,7 +814,9 @@ def test_u7_audit_codes(corpora):
     # the successor would report `profile-mismatch` and stop before the arm this
     # row is about — the classification, not the pins.
     fourth = _seeded(corpora())
-    retired_composite = fourth.add(stored.composite_node(_build(fourth, ["proposition:ab", "proposition:bc"]), title="g"))
+    retired_composite = fourth.add(
+        stored.composite_node(_build(fourth, ["proposition:ab", "proposition:bc"]), title="g")
+    )
     document = load_document(FIXTURE, source=str(FIXTURE))
     assert isinstance(document, dict)
     successor = copy.deepcopy(document)
@@ -645,14 +824,21 @@ def test_u7_audit_codes(corpora):
     successor["lineage"] = {"successor": biology("fixture").content_identity}
     successor["edges"]["affects"]["retired"] = True
     base = shipped_base_contract()
-    retired = compile_profile(base, [parse_domain_contract(successor, source="<retired>", base=base, predecessor=biology("fixture"))])
+    retired = compile_profile(
+        base, [parse_domain_contract(successor, source="<retired>", base=base, predecessor=biology("fixture"))]
+    )
     outcome = check_composite(reopen(fourth.root), reopen(fourth.root).get(retired_composite.id), profile=retired)
     assert outcome.checked and outcome.contradiction is not None
     assert outcome.contradiction.code == "composite-malformed"
     assert "composite-member-retired" in outcome.contradiction.detail
     # Read again, under the profile the corpus pins: the record is a record, and
     # the contradiction is the successor's reading of it, not damage to it.
-    assert check_composite(reopen(fourth.root), reopen(fourth.root).get(retired_composite.id), profile=fourth.profile).contradiction is None
+    assert (
+        check_composite(
+            reopen(fourth.root), reopen(fourth.root).get(retired_composite.id), profile=fourth.profile
+        ).contradiction
+        is None
+    )
 
     # The same code from the other direction — a raw edit that drops a node the
     # members name — so `composite-malformed` is read through `audit_corpus`'s
@@ -664,7 +850,9 @@ def test_u7_audit_codes(corpora):
     stored.stamp_semantic_identity(node)
     raw_write(fifth.root, node)
     reported = {f.code: f for f in audit_corpus(reopen(fifth.root), evidence=NO_EVIDENCE, profile=fifth.profile)}
-    assert "composite-malformed" in reported and "composite-member-outside-nodes" in reported["composite-malformed"].detail
+    assert (
+        "composite-malformed" in reported and "composite-member-outside-nodes" in reported["composite-malformed"].detail
+    )
     # Read again, by the dispatch the audit shares with `_recompute`.
     outcome = check_composite(reopen(fifth.root), reopen(fifth.root).get(stale.id), profile=fifth.profile)
     assert outcome.checked and outcome.contradiction is not None
@@ -717,8 +905,18 @@ def test_u8_reading_equals_the_wrapper(corpora):
     member under the same arguments, the identification column is drawn from
     the same traced admission, and two processes agree byte for byte."""
     writer = _seeded(corpora())
-    ac2 = writer.supersede(stored.proposition_node("ca2", title="ca2", claim=project_claim(_claim("EX:c", "EX:a", "negative"))), of="proposition:ca")
-    address = _seed_assessment(writer, "proposition:ab", slug="a-ab", letter="a", outcome="supported", estimand=_estimand(_claim("EX:a", "EX:b")))
+    ac2 = writer.supersede(
+        stored.proposition_node("ca2", title="ca2", claim=project_claim(_claim("EX:c", "EX:a", "negative"))),
+        of="proposition:ca",
+    )
+    address = _seed_assessment(
+        writer,
+        "proposition:ab",
+        slug="a-ab",
+        letter="a",
+        outcome="supported",
+        estimand=_estimand(_claim("EX:a", "EX:b")),
+    )
     minted = writer.add(stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"]), title="g"))
 
     reading = read_composite(writer.read_view, minted.id, **_inputs(writer, address))
@@ -748,7 +946,9 @@ def test_u8_reading_equals_the_wrapper(corpora):
     # --- the withholding arms ----------------------------------------------
     unheld = read_composite(writer.read_view, minted.id, **_inputs(writer, address, hold=False))
     unheld_row = next(r for r in unheld.rows if r.ref == "proposition:ab")
-    assert unheld_row.belief == evaluate_over(writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address, hold=False)))
+    assert unheld_row.belief == evaluate_over(
+        writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address, hold=False))
+    )
     assert isinstance(unheld_row.belief, NoBelief) and unheld_row.identification == ()
     no_policy = read_composite(writer.read_view, minted.id, **_inputs(writer, address, with_policy=False))
     no_policy_row = next(r for r in no_policy.rows if r.ref == "proposition:ab")
@@ -768,18 +968,38 @@ def test_u8_reading_equals_the_wrapper(corpora):
 
     # --- the admitted set is not the digest's keyed set ---------------------
     _seed_assessment(
-        writer, "proposition:ab", slug="a-other", letter="b", outcome="supported",
+        writer,
+        "proposition:ab",
+        slug="a-other",
+        letter="b",
+        outcome="supported",
         estimand=_estimand_with(_claim("EX:a", "EX:b"), "EX:experimental"),
     )
     only_a = read_composite(writer.read_view, minted.id, **_inputs(writer, address))
     only_a_row = next(r for r in only_a.rows if r.ref == "proposition:ab")
-    assert only_a_row.belief == evaluate_over(writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address)))
+    assert only_a_row.belief == evaluate_over(
+        writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address))
+    )
     assert only_a_row.identification == ("EX:observational",)  # the `b`-held assessment is keyed, not admitted
 
     # --- two admitted `inconclusive` assessments keep their terms -----------
     inconclusive = _seeded(corpora())
-    address_i = _seed_assessment(inconclusive, "proposition:bc", slug="i-1", letter="a", outcome="inconclusive", estimand=_estimand(_claim("EX:b", "EX:c", polarity="negative")))
-    _seed_assessment(inconclusive, "proposition:bc", slug="i-2", letter="a", outcome="inconclusive", estimand=_estimand_with(_claim("EX:b", "EX:c", polarity="negative"), "EX:experimental"))
+    address_i = _seed_assessment(
+        inconclusive,
+        "proposition:bc",
+        slug="i-1",
+        letter="a",
+        outcome="inconclusive",
+        estimand=_estimand(_claim("EX:b", "EX:c", polarity="negative")),
+    )
+    _seed_assessment(
+        inconclusive,
+        "proposition:bc",
+        slug="i-2",
+        letter="a",
+        outcome="inconclusive",
+        estimand=_estimand_with(_claim("EX:b", "EX:c", polarity="negative"), "EX:experimental"),
+    )
     two_way = inconclusive.add(stored.composite_node(_build(inconclusive, ["proposition:bc"]), title="i"))
     row = read_composite(inconclusive.read_view, two_way.id, **_inputs(inconclusive, address_i)).rows[0]
     assert row.belief == NoBelief("no-directional-outcome")
@@ -789,9 +1009,13 @@ def test_u8_reading_equals_the_wrapper(corpora):
     _assert_one_admission(writer, minted.id, address)
 
     # --- a memberless composite, and an unresolvable member ----------------
-    memberless, _ = build_composite(WITH_BIOLOGY, writer.read_view, shape="dag", nodes=[A, ISOLATED], members=[], snapshot=UNCONSULTED, slug="m")
+    memberless, _ = build_composite(
+        WITH_BIOLOGY, writer.read_view, shape="dag", nodes=[A, ISOLATED], members=[], snapshot=UNCONSULTED, slug="m"
+    )
     empty = writer.add(stored.composite_node(memberless, title="m"))
-    empty_reading = read_composite(writer.read_view, empty.id, **{**_inputs(writer, address), "resolution": UNCONSULTED})
+    empty_reading = read_composite(
+        writer.read_view, empty.id, **{**_inputs(writer, address), "resolution": UNCONSULTED}
+    )
     assert empty_reading.rows == ()
     assert empty_reading.node_outcomes == {"node:0": TermOutcome.NOT_CONSULTED, "node:1": TermOutcome.NOT_CONSULTED}
     assert v1.encode(empty_reading.projection())
@@ -846,13 +1070,22 @@ def test_u9_supersession(corpora, base_contract):
     refused on unequal endpoint sets by both parsers."""
     writer = _seeded(corpora())
     first = writer.add(stored.composite_node(_build(writer, ["proposition:ab"], slug="v1"), title="v1"))
-    second = writer.supersede(stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"], slug="v2"), title="v2"), of=first.id)
+    second = writer.supersede(
+        stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"], slug="v2"), title="v2"), of=first.id
+    )
     assert superseded_by(writer.read_view, first.id) == (second.id,)
-    assert any(r.predicate == stored.SUPERSEDES and r.target == first.id for r in writer.read_view.get(second.id).relations)
+    assert any(
+        r.predicate == stored.SUPERSEDES and r.target == first.id for r in writer.read_view.get(second.id).relations
+    )
     with pytest.raises(SupersedeIdentityUnchanged):
-        writer.supersede(stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"], slug="v3"), title="v3"), of=second.id)
+        writer.supersede(
+            stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"], slug="v3"), title="v3"),
+            of=second.id,
+        )
     with pytest.raises(FamilyKindUnsupported):
-        writer.supersede(stored.proposition_node("p2", title="p2", claim=project_claim(_claim("EX:a", "EX:c"))), of=first.id)
+        writer.supersede(
+            stored.proposition_node("p2", title="p2", claim=project_claim(_claim("EX:a", "EX:c"))), of=first.id
+        )
 
     for direction in ("composite-over-proposition", "proposition-over-composite"):
         staging = _seeded(corpora())
@@ -868,7 +1101,9 @@ def test_u9_supersession(corpora, base_contract):
         with pytest.raises(SignatureRefused, match="supersedes-cross-kind"):
             staging.add(record)
         other = corpora()
-        members = tuple(n for n in staging.read_view.iter_stored() if n.kind in {"proposition", "composite"}) + (record,)
+        members = tuple(n for n in staging.read_view.iter_stored() if n.kind in {"proposition", "composite"}) + (
+            record,
+        )
         with pytest.raises(ImportRefused, match="supersedes-cross-kind") as caught:
             other.import_bundle(members, **IMPORT)
         assert caught.value.member == record.id
@@ -903,13 +1138,18 @@ def test_u10_reproduction():
     )
     state = json.loads(STATE.read_text(encoding="utf-8"))
     if "composite_refusal" in state:
-        pytest.skip(f"the reproduction's compose step refused: {state['composite_refusal']} — U10's arm is unrun and the row partial")
+        pytest.skip(
+            f"the reproduction's compose step refused: {state['composite_refusal']} — U10's arm is unrun and the row partial"
+        )
     assert state["reading_equal"] is True
     assert state["composite_receipt"] == {"node:0": "not-consulted", "node:1": "member", "node:2": "member"}
     rows = state["reading_rows"]
     assert rows["proposition:concept-disease-stage-affects-protein-phf19"][0] == "positive"
     assert rows["proposition:protein-phf19-affects-concept-overall-survival"][0] == "negative"
-    assert rows["proposition:concept-disease-stage-affects-protein-phf19"][1:] == ["NoBelief", ["identification:observational"]]
+    assert rows["proposition:concept-disease-stage-affects-protein-phf19"][1:] == [
+        "NoBelief",
+        ["identification:observational"],
+    ]
     assert rows["proposition:protein-phf19-affects-concept-overall-survival"][1:] == ["NoBelief", []]
     assert state["belief_answer"]["kind"] == "NoBelief" and state["belief_answer"]["reason"] == "no-directional-outcome"
     assert state["corpus_check_findings"] == 0 and state["audit_findings"] == 0

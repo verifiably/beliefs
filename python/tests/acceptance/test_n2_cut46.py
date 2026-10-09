@@ -179,7 +179,44 @@ def findings(tmp_path_factory):
 
 
 def test_the_inventory_is_exactly_the_frozen_rows_units() -> None:
-    assert DECLARATION_UNITS == ('Y5-c', 'Y5-d', 'Y5-e', 'Y17-a', 'Y17-b', 'Y17-c', 'Y17-d', 'Y17-e', 'Y17-f', 'Y17-g', 'Y17-h', 'Y17-i', 'Y17-j', 'Y17-k', 'Y17-l', 'Y17-m', 'Y17-n', 'Y17-o', 'Y17-p', 'Y18-a', 'Y18-b', 'Y18-c', 'Y18-d', 'Y18-e', 'Y18-f', 'Y18-g', 'Y18-h', 'Y18-i', 'Y18-j', 'Y18-k', 'Y18-l', 'Y18-m', 'Y18-n', 'Y18-o', 'Y18-p', 'Y18-q')
+    assert DECLARATION_UNITS == (
+        "Y5-c",
+        "Y5-d",
+        "Y5-e",
+        "Y17-a",
+        "Y17-b",
+        "Y17-c",
+        "Y17-d",
+        "Y17-e",
+        "Y17-f",
+        "Y17-g",
+        "Y17-h",
+        "Y17-i",
+        "Y17-j",
+        "Y17-k",
+        "Y17-l",
+        "Y17-m",
+        "Y17-n",
+        "Y17-o",
+        "Y17-p",
+        "Y18-a",
+        "Y18-b",
+        "Y18-c",
+        "Y18-d",
+        "Y18-e",
+        "Y18-f",
+        "Y18-g",
+        "Y18-h",
+        "Y18-i",
+        "Y18-j",
+        "Y18-k",
+        "Y18-l",
+        "Y18-m",
+        "Y18-n",
+        "Y18-o",
+        "Y18-p",
+        "Y18-q",
+    )
     assert (FROZEN_ARMS, FROZEN_UNITS) == (36, 36)
     assert len(CUT46_ARMS) == FROZEN_ARMS and len(DECLARATION_UNITS) == FROZEN_UNITS
     assert all(arm.sabotage.package == "beliefs" for arm in CUT46_ARMS)

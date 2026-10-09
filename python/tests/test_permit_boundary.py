@@ -125,9 +125,7 @@ SEAM_MODULES = (
     "world/anchors.py",
     "relocation.py",
 )
-READ_ONLY_ACTOR_EXCEPTIONS = frozenset(
-    {"root.py:audit_log", "holdings/boundary.py:intent_payload"}
-)
+READ_ONLY_ACTOR_EXCEPTIONS = frozenset({"root.py:audit_log", "holdings/boundary.py:intent_payload"})
 ACTOR_BEARING_RECORDS = frozenset(
     {
         "AdmissionRecord",
@@ -141,27 +139,29 @@ ACTOR_BEARING_RECORDS = frozenset(
         "RunRefused",
     }
 )
-EFFECTS_BEFORE_CHECK = PRIMITIVE_ATTRIBUTES | PRIMITIVE_NAMES | {
-    "mkdir",
-    "write_bytes",
-    "write_text",
-    "unlink",
-    "rmdir",
-    "rmtree",
-    "rename",
-    "symlink_to",
-    "chmod",
-    "touch",
-    "makedirs",
-    "remove",
-    "copy",
-    "copy2",
-    "copytree",
-    "move",
-}
-RUN_FAMILY_TRY_SHAPE = frozenset(
-    {"boundary.py:execute_assessment_run", "boundary.py:execute_production_run"}
+EFFECTS_BEFORE_CHECK = (
+    PRIMITIVE_ATTRIBUTES
+    | PRIMITIVE_NAMES
+    | {
+        "mkdir",
+        "write_bytes",
+        "write_text",
+        "unlink",
+        "rmdir",
+        "rmtree",
+        "rename",
+        "symlink_to",
+        "chmod",
+        "touch",
+        "makedirs",
+        "remove",
+        "copy",
+        "copy2",
+        "copytree",
+        "move",
+    }
 )
+RUN_FAMILY_TRY_SHAPE = frozenset({"boundary.py:execute_assessment_run", "boundary.py:execute_production_run"})
 
 
 def modules() -> list[Path]:
@@ -185,11 +185,7 @@ def _is_primitive_call(node: ast.AST) -> bool:
     if isinstance(func, ast.Attribute):
         if func.attr in PRIMITIVE_ATTRIBUTES:
             return True
-        return (
-            func.attr == "add"
-            and isinstance(func.value, ast.Attribute)
-            and func.value.attr == "_corpus"
-        )
+        return func.attr == "add" and isinstance(func.value, ast.Attribute) and func.value.attr == "_corpus"
     return False
 
 
@@ -214,9 +210,7 @@ def definitions(tree: ast.Module):
 def _own_statements(function: ast.AST):
     """Yield nodes owned by a definition, excluding nested definitions."""
     for child in ast.iter_child_nodes(function):
-        if isinstance(
-            child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda
-        ):
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
             continue
         yield child
         yield from _own_statements(child)
@@ -242,11 +236,7 @@ def _require_statement(statement: ast.stmt) -> ast.Call | None:
 
 
 def _family_literal(call: ast.Call) -> str | None:
-    if (
-        call.args
-        and isinstance(call.args[0], ast.Constant)
-        and isinstance(call.args[0].value, str)
-    ):
+    if call.args and isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str):
         return call.args[0].value
     return None
 
@@ -268,11 +258,7 @@ def _run_shape(statement: ast.stmt) -> ast.Call | None:
     ):
         return None
     value = handler.body[0].value
-    if not (
-        isinstance(value, ast.Call)
-        and isinstance(value.func, ast.Name)
-        and value.func.id == "RunRefused"
-    ):
+    if not (isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "RunRefused"):
         return None
     return call
 
@@ -281,21 +267,13 @@ def _has_effect(statement: ast.stmt) -> bool:
     for node in ast.walk(statement):
         if isinstance(node, ast.Call):
             func = node.func
-            name = (
-                func.id
-                if isinstance(func, ast.Name)
-                else func.attr
-                if isinstance(func, ast.Attribute)
-                else None
-            )
+            name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
             if name in EFFECTS_BEFORE_CHECK or _is_primitive_call(node):
                 return True
     return False
 
 
-def requires_before_writing(
-    function: ast.AST, family: str, *, run_shape: bool
-) -> str | None:
+def requires_before_writing(function: ast.AST, family: str, *, run_shape: bool) -> str | None:
     body = list(function.body)  # type: ignore[attr-defined]
     if (
         body
@@ -340,9 +318,7 @@ def authority_constructions(tree: ast.Module) -> int:
     return sum(
         1
         for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "Authority"
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "Authority"
     )
 
 
@@ -355,8 +331,7 @@ def test_the_inventory_is_closed_in_both_directions():
         defined |= {f"{name}:{qualified}" for qualified, _ in definitions(tree)}
     present = {name for name in defined if name in PRIMITIVE_IMPLEMENTATIONS}
     assert present == PRIMITIVE_IMPLEMENTATIONS, (
-        "implementation exclusions name definitions the tree lacks: "
-        f"{sorted(PRIMITIVE_IMPLEMENTATIONS - defined)}"
+        f"implementation exclusions name definitions the tree lacks: {sorted(PRIMITIVE_IMPLEMENTATIONS - defined)}"
     )
     callers = found - PRIMITIVE_IMPLEMENTATIONS
     assert callers == set(WRITE_ENTRY_POINTS), (
@@ -384,9 +359,7 @@ def test_every_entry_point_requires_before_it_writes():
 
 
 def test_the_run_shape_is_admitted_only_for_the_run_family():
-    assert RUN_FAMILY_TRY_SHAPE == frozenset(
-        key for key, family in WRITE_ENTRY_POINTS.items() if family == "run"
-    )
+    assert RUN_FAMILY_TRY_SHAPE == frozenset(key for key, family in WRITE_ENTRY_POINTS.items() if family == "run")
 
 
 def test_no_entry_point_or_public_seam_function_takes_an_actor():
@@ -396,24 +369,14 @@ def test_no_entry_point_or_public_seam_function_takes_an_actor():
         found = actor_parameters(parsed(module), name)
         offending |= {key for key in found if key in WRITE_ENTRY_POINTS}
         if name in SEAM_MODULES:
-            public = {
-                key
-                for key in found
-                if not key.split(":")[1].split(".")[-1].startswith("_")
-            }
-            records = {
-                key
-                for key in public
-                if key.split(":")[1].split(".")[0] in ACTOR_BEARING_RECORDS
-            }
+            public = {key for key in found if not key.split(":")[1].split(".")[-1].startswith("_")}
+            records = {key for key in public if key.split(":")[1].split(".")[0] in ACTOR_BEARING_RECORDS}
             offending |= public - records - READ_ONLY_ACTOR_EXCEPTIONS
     assert offending == set(), sorted(offending)
     present = set()
     for module in modules():
         present |= {
-            key
-            for key in actor_parameters(parsed(module), relative(module))
-            if key in READ_ONLY_ACTOR_EXCEPTIONS
+            key for key in actor_parameters(parsed(module), relative(module)) if key in READ_ONLY_ACTOR_EXCEPTIONS
         }
     assert present == READ_ONLY_ACTOR_EXCEPTIONS
 
@@ -422,33 +385,28 @@ def test_authority_is_constructed_only_in_permit():
     definitions = {
         relative(module)
         for module in modules()
-        if any(
-            isinstance(node, ast.ClassDef) and node.name == "Authority"
-            for node in ast.walk(parsed(module))
-        )
+        if any(isinstance(node, ast.ClassDef) and node.name == "Authority" for node in ast.walk(parsed(module)))
     }
     assert definitions == {"permit.py"}
     for module in modules():
         count = authority_constructions(parsed(module))
-        assert count == 0 or relative(module) == "permit.py", (
-            f"{relative(module)} constructs an Authority"
-        )
+        assert count == 0 or relative(module) == "permit.py", f"{relative(module)} constructs an Authority"
 
 
-SATISFIED = '''
+SATISFIED = """
 def act(ctx, node):
     ctx.authority.require("corpus-write", (node.kind,))
     with ctx.lock:
         return ctx._corpus.add(node)
-'''
-SATISFIED_WITH_PARSING = '''
+"""
+SATISFIED_WITH_PARSING = """
 def act(ctx, records):
     bundle = tuple(records)
     kinds = tuple(record.kind for record in bundle)
     ctx.authority.require("corpus-write", kinds)
     ctx.port.append_intent(b"x")
-'''
-SATISFIED_RUN = '''
+"""
+SATISFIED_RUN = """
 def execute(port):
     try:
         port.authority.require("run", ("run", "act-report"))
@@ -456,61 +414,90 @@ def execute(port):
         return RunRefused("permit-exceeded", None, None, None, str(exceeded))
     actor = port.authority.actor
     port.append_intent(b"x")
-'''
+"""
 OFFENDERS = {
-    "no require": ("act", '''
+    "no require": (
+        "act",
+        """
 def act(ctx, node):
     ctx.port.append_intent(b"x")
-'''),
-    "require after the append": ("act", '''
+""",
+    ),
+    "require after the append": (
+        "act",
+        """
 def act(ctx, node):
     ctx.port.append_intent(b"x")
     ctx.authority.require("corpus-write")
-'''),
-    "require under an if": ("act", '''
+""",
+    ),
+    "require under an if": (
+        "act",
+        """
 def act(ctx, node):
     if node is not None:
         ctx.authority.require("corpus-write")
     ctx.port.append_intent(b"x")
-'''),
-    "require behind flag and": ("act", '''
+""",
+    ),
+    "require behind flag and": (
+        "act",
+        """
 def act(ctx, node, flag):
     flag and ctx.authority.require("corpus-write")
     ctx.port.append_intent(b"x")
-'''),
-    "mkdir before the require": ("act", '''
+""",
+    ),
+    "mkdir before the require": (
+        "act",
+        """
 def act(ctx, root):
     root.mkdir(parents=True, exist_ok=True)
     ctx.authority.require("lifecycle")
     register_root(root)
-'''),
-    "wrong family": ("act", '''
+""",
+    ),
+    "wrong family": (
+        "act",
+        """
 def act(ctx, node):
     ctx.authority.require("run")
     ctx.port.append_intent(b"x")
-'''),
-    "family not a literal": ("act", '''
+""",
+    ),
+    "family not a literal": (
+        "act",
+        """
 def act(ctx, node, family):
     ctx.authority.require(family)
     ctx.port.append_intent(b"x")
-'''),
-    "try with a second statement": ("execute", '''
+""",
+    ),
+    "try with a second statement": (
+        "execute",
+        """
 def execute(port):
     try:
         port.authority.require("run")
         port.append_intent(b"x")
     except PermitExceeded as exceeded:
         return RunRefused("permit-exceeded", None, None, None, str(exceeded))
-'''),
-    "handler without a binding": ("execute", '''
+""",
+    ),
+    "handler without a binding": (
+        "execute",
+        """
 def execute(port):
     try:
         port.authority.require("run")
     except PermitExceeded:
         return RunRefused("permit-exceeded", None, None, None, "")
     port.append_intent(b"x")
-'''),
-    "handler does more than return": ("execute", '''
+""",
+    ),
+    "handler does more than return": (
+        "execute",
+        """
 def execute(port):
     try:
         port.authority.require("run")
@@ -518,7 +505,8 @@ def execute(port):
         port.append_intent(b"x")
         return RunRefused("permit-exceeded", None, None, None, str(exceeded))
     port.append_intent(b"x")
-'''),
+""",
+    ),
 }
 
 
@@ -527,12 +515,7 @@ def _only_definition(source: str, name: str):
 
 
 def test_the_satisfied_modules_pass():
-    assert (
-        requires_before_writing(
-            _only_definition(SATISFIED, "act"), "corpus-write", run_shape=False
-        )
-        is None
-    )
+    assert requires_before_writing(_only_definition(SATISFIED, "act"), "corpus-write", run_shape=False) is None
     assert (
         requires_before_writing(
             _only_definition(SATISFIED_WITH_PARSING, "act"),
@@ -541,40 +524,21 @@ def test_the_satisfied_modules_pass():
         )
         is None
     )
-    assert (
-        requires_before_writing(
-            _only_definition(SATISFIED_RUN, "execute"), "run", run_shape=True
-        )
-        is None
-    )
+    assert requires_before_writing(_only_definition(SATISFIED_RUN, "execute"), "run", run_shape=True) is None
     assert primitive_callers(ast.parse(SATISFIED), "m.py") == {"m.py:act"}
 
 
 @pytest.mark.parametrize("label", sorted(OFFENDERS))
 def test_each_offender_is_caught(label):
     name, source = OFFENDERS[label]
-    family = (
-        "run"
-        if name == "execute"
-        else "lifecycle"
-        if "mkdir" in label
-        else "corpus-write"
+    family = "run" if name == "execute" else "lifecycle" if "mkdir" in label else "corpus-write"
+    assert requires_before_writing(_only_definition(source, name), family, run_shape=name == "execute") is not None, (
+        label
     )
-    assert (
-        requires_before_writing(
-            _only_definition(source, name), family, run_shape=name == "execute"
-        )
-        is not None
-    ), label
 
 
 def test_the_run_shape_under_a_non_run_family_is_caught():
-    assert (
-        requires_before_writing(
-            _only_definition(SATISFIED_RUN, "execute"), "run", run_shape=False
-        )
-        is not None
-    )
+    assert requires_before_writing(_only_definition(SATISFIED_RUN, "execute"), "run", run_shape=False) is not None
 
 
 def test_an_actor_parameter_is_caught_and_a_read_only_exception_must_exist():
