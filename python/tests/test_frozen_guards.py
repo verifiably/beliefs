@@ -19,6 +19,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import tomllib
+from hashlib import sha256
 from pathlib import Path
 
 import cited_not_run
@@ -154,6 +155,160 @@ def test_every_pin_the_registry_records_as_falsified_really_is(git_checkout) -> 
         broken = {pin.target for pin in frozen_guards.broken_pins(guard, repo_root=REPO_ROOT)}
 
         assert set(entry.falsified_pins) == broken, module
+
+
+UNFORMATTED = b"ARMS = ('a',\n    'b')\n"
+FORMATTED = b'ARMS = ("a", "b")\n'
+CHANGED = b'ARMS = ("a", "c")\n'
+
+
+def _git(root: Path, *args: str) -> str:
+    completed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=pin-test",
+            "-c",
+            "user.email=pin-test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            *args,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
+
+
+def _commit(root: Path, files: dict[str, bytes | None]) -> str:
+    """Write (or, for None, delete) each file, commit everything, and return the commit."""
+    for name, data in files.items():
+        path = root / name
+        if data is None:
+            path.unlink()
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "--allow-empty", "-m", "step")
+    return _git(root, "rev-parse", "HEAD")
+
+
+@pytest.fixture
+def scratch_repo(tmp_path) -> Path:
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    return root
+
+
+def test_a_commit_pin_holds_through_formatting_and_breaks_on_a_change(scratch_repo) -> None:
+    pin = _commit(scratch_repo, {"arms.py": UNFORMATTED})
+    _commit(scratch_repo, {"arms.py": FORMATTED})
+    assert frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
+
+    (scratch_repo / "arms.py").write_bytes(CHANGED)  # the working file, uncommitted
+    assert not frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
+
+
+def test_an_absence_pin_holds_only_while_the_target_stays_absent(scratch_repo) -> None:
+    pin = _commit(scratch_repo, {"other.py": FORMATTED})
+    assert frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
+
+    (scratch_repo / "arms.py").symlink_to("missing.py")  # dangling, yet an entry exists
+    assert not frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
+
+    (scratch_repo / "arms.py").unlink()
+    (scratch_repo / "arms.py").write_bytes(FORMATTED)
+    assert not frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
+
+
+def test_a_present_target_that_was_deleted_breaks(scratch_repo) -> None:
+    pin = _commit(scratch_repo, {"arms.py": FORMATTED})
+    _commit(scratch_repo, {"arms.py": None})
+    assert not frozen_guards.commit_pin_holds(scratch_repo, "arms.py", pin)
+
+
+def test_a_commit_that_does_not_resolve_is_broken_not_absent(scratch_repo) -> None:
+    _commit(scratch_repo, {"other.py": FORMATTED})
+    assert not frozen_guards.commit_pin_holds(scratch_repo, "arms.py", "0" * 40)
+
+
+def test_a_content_pin_resolves_its_original_from_history(scratch_repo) -> None:
+    digest = sha256(UNFORMATTED).hexdigest()
+    _commit(scratch_repo, {"arms.py": UNFORMATTED})
+    _commit(scratch_repo, {"arms.py": FORMATTED})
+    assert frozen_guards.content_pin_holds(scratch_repo, "arms.py", digest)
+
+    (scratch_repo / "arms.py").write_bytes(CHANGED)  # the cache holds the original, not a verdict
+    assert not frozen_guards.content_pin_holds(scratch_repo, "arms.py", digest)
+
+
+def test_a_content_pin_no_version_matches_is_broken(scratch_repo) -> None:
+    _commit(scratch_repo, {"arms.py": FORMATTED})
+    assert not frozen_guards.content_pin_holds(scratch_repo, "arms.py", sha256(UNFORMATTED).hexdigest())
+
+
+def test_a_content_pin_on_a_deleted_target_is_broken(scratch_repo) -> None:
+    _commit(scratch_repo, {"arms.py": FORMATTED})
+    digest = sha256(FORMATTED).hexdigest()
+    (scratch_repo / "arms.py").unlink()
+    assert not frozen_guards.content_pin_holds(scratch_repo, "arms.py", digest)
+
+
+def test_resolution_in_one_repository_is_not_evidence_about_another(tmp_path) -> None:
+    first, second = tmp_path / "first", tmp_path / "second"
+    for root in (first, second):
+        root.mkdir()
+        _git(root, "init", "-q")
+    digest = sha256(UNFORMATTED).hexdigest()
+    _commit(first, {"arms.py": UNFORMATTED})
+    _commit(first, {"arms.py": FORMATTED})
+    _commit(second, {"arms.py": FORMATTED})
+
+    assert frozen_guards.content_pin_holds(first, "arms.py", digest)
+    assert not frozen_guards.content_pin_holds(second, "arms.py", digest)
+
+
+def test_the_scalar_declaration_readers_find_the_digest_and_commit(tmp_path) -> None:
+    guard = tmp_path / "test_n2_cut99.py"
+    guard.write_text(
+        'FROZEN_DECLARATION = "python/tests/n2_arms_cut99.py"\n'
+        'CUT99_DECLARATION_SHA256 = "' + "a" * 64 + '"\n'
+        'CUT99_DECLARATION_COMMIT = "abc1234"\n'
+        'CUT99_FROZEN_SHA256 = "' + "b" * 64 + '"\n',
+        encoding="utf-8",
+    )
+
+    assert frozen_guards.declaration_digest(guard) == "a" * 64
+    assert frozen_guards.declaration_commit(guard) == "abc1234"
+
+
+def test_every_declaration_pin_in_a_live_guard_holds(git_checkout) -> None:
+    """The scalar freeze: each live guard's `FROZEN_DECLARATION` against its digest and,
+    for cuts 27-30, its declaring commit. Formatting touches ten of these files, and no
+    portable check read them before doctrine §8."""
+    checked, broken = 0, []
+    for guard in frozen_guards.live_guards(REPO_ROOT):
+        declaration = frozen_guards.declaration_pin(guard)
+        if declaration is None:
+            continue
+        digest = frozen_guards.declaration_digest(guard)
+        assert digest is not None, f"{guard.name} names FROZEN_DECLARATION without its digest"
+        checked += 1
+        if not frozen_guards.content_pin_holds(REPO_ROOT, declaration, digest):
+            broken.append(f"{guard.name}::digest")
+        commit = frozen_guards.declaration_commit(guard)
+        if commit is not None and not frozen_guards.commit_pin_holds(REPO_ROOT, declaration, commit):
+            broken.append(f"{guard.name}::commit")
+
+    assert checked >= 21  # cuts 26-46 at the time of writing
+    assert not broken
 
 
 PYPROJECT = REPO_ROOT / "python" / "pyproject.toml"
