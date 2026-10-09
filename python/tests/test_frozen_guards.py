@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import cited_not_run
@@ -153,3 +154,68 @@ def test_every_pin_the_registry_records_as_falsified_really_is(git_checkout) -> 
         broken = {pin.target for pin in frozen_guards.broken_pins(guard, repo_root=REPO_ROOT)}
 
         assert set(entry.falsified_pins) == broken, module
+
+
+PYPROJECT = REPO_ROOT / "python" / "pyproject.toml"
+
+
+def test_the_protected_set_reads_both_freeze_forms_and_cited_surfaces(tmp_path) -> None:
+    """A freeze claims a file by table pin or by `FROZEN_DECLARATION`; either one protects it.
+
+    The synthetic tree holds one guard using both forms. Cited-not-run surfaces are read from
+    the real registry and filtered to files that exist, so none appears here.
+    """
+    python = tmp_path / "python"
+    (python / "tests" / "acceptance").mkdir(parents=True)
+    (python / "tools").mkdir()
+    for name in ("tests/n2_arms_cut99.py", "tests/acceptance/test_n2_cut98.py", "tools/cut98_acceptance.py"):
+        (python / name).write_text("x = 1\n", encoding="utf-8")
+    (python / "tests" / "acceptance" / "test_n2_cut99.py").write_text(
+        'FROZEN_DECLARATION = "python/tests/n2_arms_cut99.py"\n'
+        "FROZEN_PRIOR_CUT_FILES = {\n"
+        '    "python/tests/acceptance/test_n2_cut98.py": "abc1234",\n'
+        '    "python/tools/cut98_acceptance.py": "abc1234",\n'
+        '    "python/tests/n2_arms_cut97.py": "abc1234",\n'
+        '    "docs/plans/cut-98-results.md": "abc1234",\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    assert frozen_guards.declaration_pin(python / "tests" / "acceptance" / "test_n2_cut99.py") == (
+        "python/tests/n2_arms_cut99.py"
+    )
+    assert frozen_guards.protected_paths(tmp_path) == frozenset(
+        {"tests/n2_arms_cut99.py", "tests/acceptance/test_n2_cut98.py", "tools/cut98_acceptance.py"}
+    )
+
+
+def test_the_format_exclude_is_exactly_the_protected_set() -> None:
+    """Formatting must not touch a file a freeze claims (spec 2026-10-09 §3.1).
+
+    Pins are byte-exact, so ruff format excludes every file a guard pins, by table or by its
+    scalar `FROZEN_DECLARATION`, plus every cited-not-run surface the doctrine makes evidence
+    whether or not a pin names it. beliefs-ea5ec7 retires this list and this test together.
+    """
+    ruff = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["tool"]["ruff"]
+    exclude = ruff["format"]["exclude"]
+    protected = frozen_guards.protected_paths(REPO_ROOT)
+
+    assert ruff["force-exclude"] is True
+    assert exclude == sorted(set(exclude))
+    assert "tests/n2_arms_cut46.py" in protected  # the scalar form: no table pins it
+    assert "tests/acceptance/test_n2_cut4.py" in protected  # cited, and no pin names it
+    assert "tests/n2_arms_cut25.py" not in protected  # a falsified pin on a removed file
+    assert set(exclude) == protected
+
+
+def test_an_explicit_path_cannot_format_a_protected_file() -> None:
+    """An editor formats by explicit path; `force-exclude` keeps the exclude in force there."""
+    completed = subprocess.run(
+        [sys.executable, "-m", "ruff", "format", "--check", "tests/n2_arms_cut46.py"],
+        cwd=REPO_ROOT / "python",
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
