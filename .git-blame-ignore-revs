@@ -2,3 +2,5 @@
 # local blame, run once: git config blame.ignoreRevsFile .git-blame-ignore-revs
 # ruff format over python/, excluding freeze-protected files (beliefs-a555d6)
 03d91bd4ced210e8935f3101da1dc59fe1eef7b3
+# ruff format over the freeze-protected files; pins hold modulo formatting (beliefs-ea5ec7)
+ea6393ac7104dbaa80bdbd40f995c9cf199696b2
