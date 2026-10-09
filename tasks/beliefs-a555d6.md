@@ -8,10 +8,11 @@ complexity: high
 process: planned
 owner: main
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:01:36Z
+updated: 2026-10-09T17:10:29Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
+spec: docs/superpowers/specs/2026-10-09-ruff-format-gate-design.md
 ---
 
 Why: the gate runs ruff check but not ruff format, so formatting drifts silently. On 2026-10-09 (main cb354e1), 347 of 566 Python files under python/ would be reformatted: 70 src, 180 tests, 79 tests/acceptance, 18 tools. Line length is 120, from [tool.ruff] in python/pyproject.toml. Decision 2026-10-09 (user): option (c), reformat once and enforce. Rejected: (a) keep format out of the gate, and (b) a ratchet with an exclude list of the drifted files.
@@ -47,3 +48,4 @@ Verification:
 - 2026-10-09T15:44:39Z (main): follow-up beliefs-ea5ec7 filed: freeze pins hold modulo formatting (AST + comments; 31/31 reformatted pinned files pass), which retires this task's format exclude
 - 2026-10-09T17:01:36Z (main): started
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T17:08:57Z (chore/ruff-format-gate): pilot 2026-10-09 (worktree, discarded): exclude = 52 existing pinned python/ targets + cut 4's unpinned cited surface (guard, declaration, runner) = 56 files; ruff format touches 314 others; pins all hold; 70 audited arms stale across 27 live guards, 3 newly stale cited arms (cut 10); 5 displaced suppression comments (2 noqa, 3 type: ignore); test-fast otherwise green; all 70 re-targets derive mechanically with exact equivalence (format(sabotaged pre-format) == re-targeted arm applied to formatted)
