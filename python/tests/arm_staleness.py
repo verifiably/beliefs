@@ -10,7 +10,7 @@ discharge. This module measures staleness without running any audit, the way
 
 What is measured is what the guard runs, not what the declaration file says. A live
 guard may carry a `_LIVE_SABOTAGES` table that re-targets a frozen declaration at the
-landed source — the declaration file stays byte-exact under its pins, the guard's
+landed source — the declaration file stays unchanged under its pins, the guard's
 `CUTN_ARMS` is the re-targeted tuple — and a guard whose module names a
 `CUTN_SOURCE_COMMIT` audits against that commit's tree rather than the working tree. A
 cited-not-run guard cannot be imported on a tree that has moved past it, so its arms are
