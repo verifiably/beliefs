@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: freeze-pins-modulo-format
 created: 2026-10-09T15:44:29Z
-updated: 2026-10-09T21:18:03Z
+updated: 2026-10-09T21:18:49Z
 started: 2026-10-09T20:39:57Z
 depends: [beliefs-a555d6]
 tags: [hygiene, conformance]
@@ -53,3 +53,5 @@ Verification:
 - 2026-10-09T21:07:49Z (freeze-pins-modulo-format): resumed
   provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-09T21:07:49Z (freeze-pins-modulo-format): review: spec round 2 — verdict: accept; findings: none; reviewer: human
+- 2026-10-09T21:18:49Z (freeze-pins-modulo-format): parked (waiting on user, review): user reviews plan docs/superpowers/plans/2026-10-09-freeze-pins-modulo-formatting.md (commit 28f1a52 in .worktrees/freeze-pins-modulo-format) and picks execution (recommended: native); agent then starts Task 1 beliefs-d9839d
+  provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
