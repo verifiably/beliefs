@@ -91,7 +91,7 @@ tests/n2_arms_cut7.py
 - Consumes: nothing.
 - Produces: `pin_equivalence.equivalent(original: bytes, current: bytes, *, path: str) -> bool`. It returns `True` for identical bytes. For a non-`.py` path it is otherwise `False`. For a `.py` path it is `True` only when the encoding, the tree (docstrings via `inspect.cleandoc`), comment attachment and directive lines all agree (spec §3), and every failure is `False`.
 
-- [ ] **Step 1: Write the failing tests** in `python/tests/test_pin_equivalence.py`:
+- [x] **Step 1: Write the failing tests** in `python/tests/test_pin_equivalence.py`:
 
 ```python
 """The formatting-equivalence comparator behind every `.py` freeze pin (doctrine §8)."""
@@ -202,12 +202,12 @@ def test_unparseable_input_breaks() -> None:
     assert not same(b"x = 1\n", b"x = 1\0\n")
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `just test-one tests/test_pin_equivalence.py`
 Expected: a collection error, `ModuleNotFoundError: No module named 'pin_equivalence'`.
 
-- [ ] **Step 3: Write the comparator** in `python/tests/pin_equivalence.py`:
+- [x] **Step 3: Write the comparator** in `python/tests/pin_equivalence.py`:
 
 ```python
 """Whether two versions of a frozen Python file differ only by formatting.
@@ -323,12 +323,12 @@ def _anchor(statements: list[ast.stmt], line: int) -> Anchor:
     return ("before", following)
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `just test-one tests/test_pin_equivalence.py`
 Expected: `14 passed`.
 
-- [ ] **Step 5: Confirm the comparator accepts the real reformat.** This measures without changing the tree: it formats a scratch copy and compares all 34 files.
+- [x] **Step 5: Confirm the comparator accepts the real reformat.** This measures without changing the tree: it formats a scratch copy and compares all 34 files.
 
 ```bash
 cd "$(pwd -P)"
@@ -349,7 +349,7 @@ rm -rf "$scratch"
 
 Expected: `34 reformatted; not equivalent: []`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 just test-fast
@@ -372,7 +372,7 @@ git commit -m "test(n2): compare frozen Python files modulo formatting"
   - `declaration_commit(guard: Path) -> str | None` reads the `CUT\d+_DECLARATION_COMMIT` constant. Both readers raise `ValueError` when a guard declares more than one.
   - `holds(pin, *, repo_root)` keeps its signature and delegates to the two predicates.
 
-- [ ] **Step 1: Write the failing tests.** In `python/tests/test_frozen_guards.py`, add `from hashlib import sha256` to the imports (after `import tomllib`). Then insert this block immediately before the line `PYPROJECT = REPO_ROOT / "python" / "pyproject.toml"`:
+- [x] **Step 1: Write the failing tests.** In `python/tests/test_frozen_guards.py`, add `from hashlib import sha256` to the imports (after `import tomllib`). Then insert this block immediately before the line `PYPROJECT = REPO_ROOT / "python" / "pyproject.toml"`:
 
 ```python
 UNFORMATTED = b"ARMS = ('a',\n    'b')\n"
@@ -529,12 +529,12 @@ def test_every_declaration_pin_in_a_live_guard_holds(git_checkout) -> None:
     assert not broken
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `just test-one tests/test_frozen_guards.py`
 Expected: the ten new tests fail with `AttributeError: module 'frozen_guards' has no attribute 'commit_pin_holds'` (or `content_pin_holds`, `declaration_digest`). The ten existing tests pass.
 
-- [ ] **Step 3: Implement.** In `python/tests/frozen_guards.py`, replace the import block and constants:
+- [x] **Step 3: Implement.** In `python/tests/frozen_guards.py`, replace the import block and constants:
 
 ```python
 import ast
@@ -658,12 +658,12 @@ Both are`. Re-wrap the paragraph at the module's width.
 - In `declaration_pin`'s docstring, replace `and pin it byte-exact with a scalar digest`
 with `and pin it with a scalar digest`.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `just test-one tests/test_frozen_guards.py tests/test_pin_equivalence.py`
 Expected: `34 passed`. The pre-existing pin-map tests pass under the new reader: every live pin holds, and the cited registry is exact. That is the spec's "new reader before the format commit" equality point.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd "$(pwd -P)/python" && uv run --frozen ruff check tests && uv run --frozen ruff format --check tests && uv run --frozen pyright tests/frozen_guards.py tests/test_frozen_guards.py tests/pin_equivalence.py; cd ..
@@ -692,7 +692,7 @@ The rewrite is mechanical, so a one-off script does it (not committed). It has f
 
 Checks over docs (`FROZEN_CUT` bodies and `CUTN_FROZEN_SHA256`) are untouched, as is cut 7's `assert_cut5_matcher_migration`, which compares two historical commits.
 
-- [ ] **Step 1: Make the RED tree.** Format the 34 files in the working tree only (not committed). The rewritten checks read the working file, so this tree exercises every pin over formatted bytes.
+- [x] **Step 1: Make the RED tree.** Format the 34 files in the working tree only (not committed). The rewritten checks read the working file, so this tree exercises every pin over formatted bytes.
 
 ```bash
 cd "$(pwd -P)/python"
@@ -702,7 +702,7 @@ git diff --stat | tail -1
 
 Expected: `34 files changed`.
 
-- [ ] **Step 2: Run the pin-check selection to verify it fails**
+- [x] **Step 2: Run the pin-check selection to verify it fails**
 
 ```bash
 cd "$(pwd -P)"
@@ -712,7 +712,7 @@ just test-one "${GUARDS[@]}" -k "frozen or byte_exact or unchanged" -p no:cachep
 
 Expected: `12 failed, 84 passed, 338 deselected`. The failures are the working-file checks: the declaration digests of cuts 28–32, 35, 37, 38, 45 and 46, and the content pins of cuts 14 and 17. The commit-pin loops still pass because `git diff … HEAD` cannot see an uncommitted format, which is why the old code would fail them only after Task 4.
 
-- [ ] **Step 3: Rewrite the checks**
+- [x] **Step 3: Rewrite the checks**
 
 ```bash
 cd "$(pwd -P)/python"
@@ -771,7 +771,7 @@ uv run --frozen ruff check --fix --select F401 tests/acceptance/
 
 Expected: 37 `rewrote test_n2_cutN.py` lines, then `Found 3 errors (3 fixed, 0 remaining).` (the `sha256`/`subprocess` imports the rewrite orphaned).
 
-- [ ] **Step 4: Confirm nothing byte-exact is left over a `.py` target**
+- [x] **Step 4: Confirm nothing byte-exact is left over a `.py` target**
 
 ```bash
 cd "$(pwd -P)/python"
@@ -780,12 +780,12 @@ for n in 6 7 9 $(seq 11 46); do f=tests/acceptance/test_n2_cut$n.py; grep -Hn '"
 
 Expected: no output.
 
-- [ ] **Step 5: Run the selection to verify it passes on the formatted tree**
+- [x] **Step 5: Run the selection to verify it passes on the formatted tree**
 
 Run the Step 2 command again.
 Expected: `96 passed, 338 deselected`. Then run `just test-one tests/test_frozen_guards.py tests/test_pin_equivalence.py tests/test_arm_staleness.py` and expect `42 passed`. That is the pin map under the new reader over formatted bytes.
 
-- [ ] **Step 6: Restore the 34 files and re-run on the unformatted tree**
+- [x] **Step 6: Restore the 34 files and re-run on the unformatted tree**
 
 ```bash
 cd "$(pwd -P)/python"
@@ -795,7 +795,7 @@ git status --short | grep -v '^ M tests/acceptance/test_n2_cut' ; cd ..
 
 Expected: only `tasks/` lines, if any. Then run the Step 2 command again: `96 passed, 338 deselected`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd "$(pwd -P)/python" && uv run --frozen ruff check . && uv run --frozen ruff format --check . && uv run --frozen pyright; cd ..
@@ -813,7 +813,7 @@ git commit -m "test(n2): live guards check their pins modulo formatting"
 - Consumes: Tasks 1–3 committed.
 - Produces: the format commit `F`. Task 5 cites `F` and `F^` (the last byte-exact commit).
 
-- [ ] **Step 1: Format the 34 files while the exclude still lists them**
+- [x] **Step 1: Format the 34 files while the exclude still lists them**
 
 ```bash
 cd "$(pwd -P)/python"
@@ -824,7 +824,7 @@ uv run --frozen ruff format --check .
 
 Expected: `34 files reformatted`, `34 files changed`, and the check passes. The exclude still skips these paths, which is spec §7 step 2.
 
-- [ ] **Step 2: Verify the pins over the formatted bytes before committing**
+- [x] **Step 2: Verify the pins over the formatted bytes before committing**
 
 ```bash
 cd "$(pwd -P)"
@@ -835,7 +835,7 @@ just test-one "${GUARDS[@]}" -k "frozen or byte_exact or unchanged" -p no:cachep
 
 Expected: `42 passed`, then `96 passed, 338 deselected`.
 
-- [ ] **Step 3: Commit only the formatter output**
+- [x] **Step 3: Commit only the formatter output**
 
 ```bash
 git add python/tests/ python/tools/
@@ -845,7 +845,7 @@ git commit -m "style(n2): format the frozen Python files (pins hold modulo forma
 
 Expected: the cached stat shows `34 files changed`. The pre-commit hook passes.
 
-- [ ] **Step 4: Re-run the selection on the committed tree, then close the child in a record-only commit**
+- [x] **Step 4: Re-run the selection on the committed tree, then close the child in a record-only commit**
 
 Run the Step 2 commands again and expect the same counts. This is the old code's failure point, `git diff … HEAD`, and the rewritten checks now pass it. Then:
 
@@ -868,7 +868,7 @@ git add tasks/ && git commit -m "chore(tasks): close the frozen-file format comm
   `F=$(git log --format=%H -1 --grep='^style(n2): format the frozen Python files')`, and check that `git show --stat "$F" | tail -1` reads `34 files changed`.
 - Produces: nothing new.
 
-- [ ] **Step 1: Remove the exclude, its test and its derivation (spec §7 step 3)**
+- [x] **Step 1: Remove the exclude, its test and its derivation (spec §7 step 3)**
   - `python/pyproject.toml`: delete everything from the comment line `# Freeze-protected files: byte-exact under a guard's pin, or cited-not-run evidence.` through the `]` that closes `exclude`, including the `[tool.ruff.format]` header. Leave `[tool.ruff]` with `line-length = 120` and `force-exclude = true`, then one blank line, then the existing `[tool.pyright]` table.
   - `python/tests/test_frozen_guards.py`: delete `test_the_protected_set_reads_both_freeze_forms_and_cited_surfaces`, `test_the_format_exclude_is_exactly_the_protected_set` and `test_an_explicit_path_cannot_format_a_protected_file`, plus the `PYPROJECT = …` line and `import tomllib`.
   - `python/tests/frozen_guards.py`: delete `protected_paths` and `from cited_not_run import CITED_NOT_RUN`.
@@ -888,7 +888,7 @@ Expected: ruff reports `All checks passed!` and every file formatted, `0 errors`
 git add python/ && git commit -m "build(check): retire the freeze-protected format exclude"
 ```
 
-- [ ] **Step 2: Add the format commit to `.git-blame-ignore-revs`** by appending:
+- [x] **Step 2: Add the format commit to `.git-blame-ignore-revs`** by appending:
 
 ```text
 # ruff format over the freeze-protected files; pins hold modulo formatting (beliefs-ea5ec7)
@@ -897,7 +897,7 @@ git add python/ && git commit -m "build(check): retire the freeze-protected form
 
 Verify with `git blame --ignore-revs-file .git-blame-ignore-revs python/tests/n2_arms_cut46.py | grep -c "^$(git rev-parse --short=8 "$F")" || true`, which should print `0`.
 
-- [ ] **Step 3: Amend the doctrine.** Append this to `docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md`. Then fill in the last byte-exact commit with `sed -i "s/<F^>/$(git rev-parse "$F^")/g" docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md`.
+- [x] **Step 3: Amend the doctrine.** Append this to `docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md`. Then fill in the last byte-exact commit with `sed -i "s/<F^>/$(git rev-parse "$F^")/g" docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md`.
 
 ```markdown
 ## 8. Pins hold modulo formatting — dated amendment, 2026-10-09
@@ -932,11 +932,11 @@ The design is `docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-d
 
 Also update the doctrine's header line `**Enforced by:**` by adding `python/tests/pin_equivalence.py` to the list of enforcing modules.
 
-- [ ] **Step 4: Correct the current-facing claims**
+- [x] **Step 4: Correct the current-facing claims**
   - `AGENTS.md`, in the Repository gates bullet: replace `Formatting excludes the freeze-protected files that `python/tests/test_frozen_guards.py` holds equal to the guards’ pins (beliefs-ea5ec7 retires the exclude); `.git-blame-ignore-revs` lists the reformat.` with `Freeze pins on Python files hold modulo formatting (frozen guard doctrine §8), so formatting covers every file; `.git-blame-ignore-revs` lists both reformats.`
   - `docs/superpowers/specs/2026-10-09-ruff-format-gate-design.md`: after its `**Doctrine:**` header line, add `**Status:** the format exclude this design adds (§3.1) was retired on 2026-10-09 by `beliefs-ea5ec7`; see `docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md`.`
 
-- [ ] **Step 5: Verify the doctrine's recovery claim on one real record.** `tests/n2_arms_cut46.py` is pinned by `CUT46_DECLARATION_SHA256`:
+- [x] **Step 5: Verify the doctrine's recovery claim on one real record.** `tests/n2_arms_cut46.py` is pinned by `CUT46_DECLARATION_SHA256`:
 
 ```bash
 test "$(git show "$F^":python/tests/n2_arms_cut46.py | sha256sum | cut -d' ' -f1)" = "$(grep -oP 'CUT46_DECLARATION_SHA256 = "\K[0-9a-f]{64}' python/tests/acceptance/test_n2_cut46.py)" && echo recovered
@@ -944,7 +944,7 @@ test "$(git show "$F^":python/tests/n2_arms_cut46.py | sha256sum | cut -d' ' -f1
 
 Expected: `recovered`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 just test-fast
@@ -956,7 +956,7 @@ git commit -m "docs(doctrine): freeze pins hold modulo formatting"
 
 **Files:** none (the plan's execution amendments and task records).
 
-- [ ] **Step 1: Run the full gate**, in the background with `run_in_background: true` and a 3600000 ms timeout:
+- [x] **Step 1: Run the full gate**, in the background with `run_in_background: true` and a 3600000 ms timeout:
 
 ```bash
 cd "$(pwd -P)" && mkdir -p .work/freeze-pins-modulo-format && set -o pipefail && just gate 2>&1 | tee .work/freeze-pins-modulo-format/gate.log
@@ -964,7 +964,7 @@ cd "$(pwd -P)" && mkdir -p .work/freeze-pins-modulo-format && set -o pipefail &&
 
 Expected: exit 0, and the summary lines show the portable, N2 and TypeScript phases passing. Report the counts from the log's pytest summary lines, not from `tail`.
 
-- [ ] **Step 2: Re-measure the three equality points** from the spec's §8:
+- [x] **Step 2: Re-measure the three equality points** from the spec's §8:
 
 ```bash
 cd "$(pwd -P)/python"
@@ -974,12 +974,50 @@ cd .. && just test-one tests/test_frozen_guards.py && just test-one "${GUARDS[@]
 
 `test_every_pin_in_a_live_guard_holds` and `test_every_pin_the_registry_records_as_falsified_really_is` passing on `HEAD` is the "new reader after the format commit" point. The `f134ee9` point is recorded in **Measured inputs** above. The Task 2 Step 4 run is the middle point.
 
-- [ ] **Step 3: Whole-branch review.** Dispatch a fresh reviewer on `f134ee9..HEAD` with the spec and this plan, then run the corrective rounds the global instructions describe. Record each round in **Execution amendments** below and as a `review: impl round <n> …` task note.
+- [x] **Step 3: Whole-branch review.** Dispatch a fresh reviewer on `f134ee9..HEAD` with the spec and this plan, then run the corrective rounds the global instructions describe. Record each round in **Execution amendments** below and as a `review: impl round <n> …` task note.
 
-- [ ] **Step 4: Land.** This is a personal-profile checkout, so it merges locally: `git -C <main checkout> merge --no-ff freeze-pins-modulo-format`. Then run `just check` on `main`, `tasks done beliefs-ea5ec7 "<one line>"` in that merge's follow-up commit, and `tt-report` before removing the worktree.
+- [x] **Step 4: Land.** This is a personal-profile checkout, so it merges locally: `git -C <main checkout> merge --no-ff freeze-pins-modulo-format`. Then run `just check` on `main`, `tasks done beliefs-ea5ec7 "<one line>"` in that merge's follow-up commit, and `tt-report` before removing the worktree.
 
 ## Task records
 
 Task 1 `beliefs-d9839d`, Task 2 `beliefs-c09b8f`, Task 3 `beliefs-6c52aa`, Task 4 `beliefs-92bd6f`, Task 5 `beliefs-d9dadf`, Task 6 `beliefs-acbf7e`; parent `beliefs-ea5ec7`.
 
 ## Execution amendments
+
+Executed 2026-10-09 by subagent-driven development (Claude Code subagents), from `53b7484`.
+
+- **Tasks 1–5** ran as written. Every count the plan predicts matched: 14 comparator tests;
+  `34 reformatted; not equivalent: []`; 34 then 36 frozen-guard tests (36 after the round below);
+  RED `12 failed, 84 passed, 338 deselected` and GREEN `96 passed, 338 deselected` with no
+  hand edits to the 37 rewritten guards; the format commit `ea6393a` has 34 files, each one
+  byte-identical to a fresh `ruff format --no-force-exclude` of its parent `3ae5a96`, which is
+  the last byte-exact commit. No task review had a Critical or Important finding.
+- **Final review, corrective round 1** (`10a90c3`, `7f39e7a`, `8b1e522`). The reviewer found one
+  Important issue: the comment anchor was too coarse. A comment moved between sibling statements
+  of a `def` or class body, from an `if` body to its `else`, between arms of one `ARMS` tuple, or
+  between entries of a `FROZEN_*` dict still held, against spec §3 rule 3. The anchor now records
+  the innermost containing statement, the next statement and the next positioned node to start
+  after the comment, and the count of `else`/`finally` keywords before it. The reviewer's
+  three-part anchor missed the `if`/`else` move, so the fix added the fourth part. The five
+  probes are tests. All 34 reformats still hold, and 24 of their 203 comments have a non-zero
+  keyword count. Doctrine §8 and spec §3 now state the anchor as built. That includes the gap
+  that remains: a comment moved among a function's decorators above its `def` line still holds.
+  The scoped re-review found every finding addressed, with nothing new. One round of the five
+  allowed was used.
+- **Rulings.**
+  - Task 4 was reviewed by reproducing ruff's output rather than by reading its 5,000-line diff.
+  - The round also fixed §8's wording on lines 10 and 197, so §8 stays accurate in one change.
+  - The design spec §3 was amended to describe the anchor as built.
+- **Deferred minors**, filed as one follow-up task:
+  - Memoize `equivalent`. The all-pins check repeats 36 distinct comparisons 687 times: 12.9 s
+    against 4.3 s for the old `git diff` loop, under load 12.
+  - `_DIRECTIVE.match` misses a directive written after other comment text; it should be
+    `.search`.
+  - Tests are missing for the `else`/`finally` part outside `if`/`else`, for the decorator gap,
+    for a whitespace change in a non-docstring triple-quoted string, for class and function
+    docstrings, for the header-line clause in isolation, and for the declaration readers'
+    `ValueError`.
+  - A lookup miss in `_original_with_digest` is cached without that being documented.
+  - A `RecursionError` propagates instead of returning `False`.
+  - A test docstring's "ten of these files" count can go stale.
+  - `beliefs-bd85d0` cites a line number in `n2_arms_cut38.py`, which is now read at `3ae5a96`.
