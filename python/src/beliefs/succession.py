@@ -83,9 +83,7 @@ def admit_spec_successor(
         if surface.uninspectable:
             raise AdmissionEvidenceRefused("namespace uninspectable", surface.uninspectable[0])
         records = dict(surface.records)
-        unfinished, report_failures = _chain_classes(
-            superseded.identity, view, records, seam.state_facts
-        )
+        unfinished, report_failures = _chain_classes(superseded.identity, view, records, seam.state_facts)
         recorded_failures = _recorded_failures(surface, records) | report_failures
         return admit_successor(candidate, superseded, recorded_failures, unfinished)
 
@@ -122,9 +120,7 @@ def _chain_classes(
         spec_identity = _spec_identity(row, intents[row.digest])
         if row.status == "unresolvable":
             if spec_identity == superseded_identity:
-                raise AdmissionEvidenceRefused(
-                    "qualification unresolved for the superseded spec", row.digest
-                )
+                raise AdmissionEvidenceRefused("qualification unresolved for the superseded spec", row.digest)
         elif row.status == "attempt-without-recorded-outcome":
             unfinished.add(spec_identity)
         elif row.status == "matched":
@@ -161,22 +157,12 @@ def _recorded_failures(surface: CapturedSurface, records: Mapping[str, bytes]) -
             raise AdmissionEvidenceRefused("record collision", ref)
 
     failing = {path: value for path, value in verifications.items() if value.verdict == "failed"}
-    blockers = {value.ref for value in failing.values()} | {
-        ref for ref in withheld if ref.startswith("verification:")
-    }
-    gated = {
-        path: value
-        for path, value in verifications.items()
-        if path in failing or value.supersedes in blockers
-    }
+    blockers = {value.ref for value in failing.values()} | {ref for ref in withheld if ref.startswith("verification:")}
+    gated = {path: value for path, value in verifications.items() if path in failing or value.supersedes in blockers}
     by_uid = {node.uid: path for path, node in nodes.items()}
     targets: dict[str, AssessmentRef] = {}
     for path, value in gated.items():
-        edges = [
-            edge
-            for edge in index.outbound_edges(nodes[path].uid)
-            if edge.relation.predicate == stored.VERIFIES
-        ]
+        edges = [edge for edge in index.outbound_edges(nodes[path].uid) if edge.relation.predicate == stored.VERIFIES]
         if len(edges) != 1:
             raise AdmissionEvidenceRefused("verification edge cardinality", path)
         edge = edges[0]
@@ -191,9 +177,7 @@ def _recorded_failures(surface: CapturedSurface, records: Mapping[str, bytes]) -
         targets[path] = target
 
     for ref, path in withheld.items():
-        if ref.startswith("verification:") and not any(
-            value.supersedes == ref for value in gated.values()
-        ):
+        if ref.startswith("verification:") and not any(value.supersedes == ref for value in gated.values()):
             raise AdmissionEvidenceRefused("verification oversized", path)
 
     active = {value.ref for value in verification_module.active(tuple(verifications.values()))}

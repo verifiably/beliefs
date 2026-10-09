@@ -214,9 +214,7 @@ class LineageSnapshot:
 def retire(snapshot: LineageSnapshot, retired: Mapping[str, Iterable[str]]) -> LineageSnapshot:
     """Return the snapshot with canonical retirements for datasets carrying a basis."""
     kept = {
-        dataset: tuple(sorted(set(identities)))
-        for dataset, identities in retired.items()
-        if dataset in snapshot.bases
+        dataset: tuple(sorted(set(identities))) for dataset, identities in retired.items() if dataset in snapshot.bases
     }
     return LineageSnapshot(
         roots=snapshot.roots,

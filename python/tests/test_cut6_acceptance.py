@@ -46,9 +46,7 @@ def test_probe_refusal_returns_the_certification_error(tmp_path: Path, monkeypat
 
 
 @pytest.mark.parametrize("returncode", [0, 7])
-def test_pytest_receives_the_certified_run_directory_and_its_result(
-    tmp_path: Path, monkeypatch, returncode: int
-):
+def test_pytest_receives_the_certified_run_directory_and_its_result(tmp_path: Path, monkeypatch, returncode: int):
     n2 = _n2_module(tmp_path)
     monkeypatch.setattr(cut6_acceptance, "ACCEPTANCE", tmp_path)
     monkeypatch.setattr(cut6_acceptance, "work_directory", lambda: tmp_path)

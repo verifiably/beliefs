@@ -5,6 +5,7 @@ authority every write entry point requires of before its first effect. This
 module imports nothing that writes: `errors` and the identity encoding only,
 so every seam can import it without a cycle.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
@@ -178,7 +179,6 @@ class Authority:
                 permitted = self.permit.ungoverned and family == "corpus-write"
             if not permitted:
                 raise PermitExceeded(PermitFact("kind", kind), self.permit.summary())
-
 
 
 # The read door's authority (§16): the empty permit, so every act on a `World`

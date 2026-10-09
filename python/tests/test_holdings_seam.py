@@ -251,9 +251,7 @@ def test_read_path_maps_an_unestablished_value(monkeypatch, tmp_path):
         lambda *_args: ReadUnestablished(UnestablishedReason.IO_FAILURE, "read failed"),
     )
 
-    assert holdings_seam().read_path(tmp_path, "payload.bin") == ReadUnestablishedView(
-        "io-failure", "read failed"
-    )
+    assert holdings_seam().read_path(tmp_path, "payload.bin") == ReadUnestablishedView("io-failure", "read failed")
 
 
 def test_read_path_propagates_the_identical_exception(monkeypatch, tmp_path):

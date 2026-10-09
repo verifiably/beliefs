@@ -70,11 +70,15 @@ def test_preflight_refuses_a_non_public_address():
 
 def test_preflight_approves_with_the_faithful_target_and_authority():
     approved = preflight("https://example.org:8443/data?", lambda _h, _p: [PUBLIC])
-    assert approved == Approved(host="example.org", port=8443, target="/data?", authority="example.org:8443", address=PUBLIC)
+    assert approved == Approved(
+        host="example.org", port=8443, target="/data?", authority="example.org:8443", address=PUBLIC
+    )
     relative = preflight("https://example.org/a/b/", lambda _h, _p: [PUBLIC])
     assert isinstance(relative, Approved) and relative.authority == "example.org"
     literal = preflight("https://[2606:4700:4700::1111]:8443/x", lambda _h, _p: [PUBLIC])
-    assert literal == Approved(host="2606:4700:4700::1111", port=8443, target="/x", authority="[2606:4700:4700::1111]:8443", address=PUBLIC)
+    assert literal == Approved(
+        host="2606:4700:4700::1111", port=8443, target="/x", authority="[2606:4700:4700::1111]:8443", address=PUBLIC
+    )
     bracketed = preflight("https://[2606:4700:4700::1111]/x", lambda _h, _p: [PUBLIC])
     assert isinstance(bracketed, Approved) and bracketed.authority == "[2606:4700:4700::1111]"
 
@@ -90,7 +94,7 @@ def test_preflight_refuses_an_unsplittable_url_as_malformed_without_its_bytes(ur
 def test_the_request_transmits_the_canonical_locator_faithfully(tmp_path):
     result, log = fetch({"/data?": ok(b"x")}, url_locator("https://example.org:8443/data?"), tmp_path=tmp_path)
     assert isinstance(result, Retrieved)
-    (method, target, headers), = log.requests
+    ((method, target, headers),) = log.requests
     assert (method, target) == ("GET", "/data?")
     assert headers["Host"] == "example.org:8443"
     assert headers["Accept-Encoding"] == "identity"
@@ -118,7 +122,9 @@ def test_the_pinned_connection_dials_the_validated_address_and_validates_the_nam
             wrapped.append(server_hostname)
             return sentinel
 
-    monkeypatch.setattr(transport.socket, "create_connection", lambda address, timeout: dialled.append(address) or sentinel)
+    monkeypatch.setattr(
+        transport.socket, "create_connection", lambda address, timeout: dialled.append(address) or sentinel
+    )
     connection = PinnedHTTPSConnection("host.example", PUBLIC, 443, 5.0, FakeContext())  # type: ignore[arg-type]
     connection.connect()
     assert dialled == [(PUBLIC, 443)]
@@ -157,7 +163,9 @@ def test_a_relative_location_is_joined_before_it_is_revalidated(tmp_path):
 @pytest.mark.parametrize("hop", [SIGNED_HOP, TOKEN_HOST_HOP])
 def test_a_refused_hop_is_failed_by_ordinal_and_category_and_never_by_its_bytes(tmp_path, hop):
     seam, log = scripted_seam({"/data": Scripted(302, {"Location": hop})})
-    private = transport.UrlSeam(resolve=lambda host, _p: ["10.1.1.1"] if host != "example.org" else [PUBLIC], connect=seam.connect)
+    private = transport.UrlSeam(
+        resolve=lambda host, _p: ["10.1.1.1"] if host != "example.org" else [PUBLIC], connect=seam.connect
+    )
     result = retrieve(DATA, BOUNDS, private, tmp_path)
     assert result == Failed("redirect hop 1 refused: non-public-address")
     assert isinstance(result, Failed)
@@ -204,7 +212,10 @@ def test_a_redirect_without_a_location_is_failed(tmp_path):
     [
         (Scripted(404, {}, (b"",)), "status 404"),
         (Scripted(500, {}, (b"",)), "status 500"),
-        (Scripted(200, {"Content-Length": "4", "Content-Encoding": "gzip"}, (b"abcd",)), "content-encoding is not identity"),
+        (
+            Scripted(200, {"Content-Length": "4", "Content-Encoding": "gzip"}, (b"abcd",)),
+            "content-encoding is not identity",
+        ),
         (Scripted(200, {"Content-Length": "8"}, (b"abcd",)), "body shorter than content-length 8"),
         (Scripted(200, {"Content-Length": "2"}, (b"abcd",)), "body longer than content-length 2"),
         (Scripted(200, {}, (b"ab",), raise_on_read=TimeoutError("timed out")), "transport failure: timeout"),
@@ -293,7 +304,12 @@ def test_over_tls_a_complete_body_is_retrieved_and_the_request_arrives_faithfull
     assert isinstance(result, Retrieved)
     assert result.digest == "sha256:" + sha256(b"payload").hexdigest() and result.size == 7
     ((method, target, headers),) = log.requests
-    assert (method, target, headers["Host"], headers["Accept-Encoding"]) == ("GET", "/data?", "example.org:8443", "identity")
+    assert (method, target, headers["Host"], headers["Accept-Encoding"]) == (
+        "GET",
+        "/data?",
+        "example.org:8443",
+        "identity",
+    )
     assert log.dialled == [("example.org", PUBLIC, 8443)]
     result.path.unlink()
 
@@ -322,7 +338,10 @@ def test_over_tls_a_redirect_is_followed_and_each_hop_revalidated(tmp_path):
         seam, log = tls_seam(server)
         result = retrieve(DATA, BOUNDS, seam, tmp_path)
     assert isinstance(result, Retrieved) and result.size == 5
-    assert [(target, headers["Host"]) for _m, target, headers in log.requests] == [("/data", "example.org"), ("/moved", "mirror.example.org")]
+    assert [(target, headers["Host"]) for _m, target, headers in log.requests] == [
+        ("/data", "example.org"),
+        ("/moved", "mirror.example.org"),
+    ]
     assert [host for host, _a, _p in log.dialled] == ["example.org", "mirror.example.org"]
     result.path.unlink()
 

@@ -96,7 +96,9 @@ def draft() -> SpecDraft:
         ),
         measure=Measure(quantity=Referent("mm30/measure", "measure:rna-seq-tpm"), scale="additive"),
         reference=Decimal(0),
-        control=Control(identification=Referent("mm30/identification", "identification:observational"), conditioning=()),
+        control=Control(
+            identification=Referent("mm30/identification", "identification:observational"), conditioning=()
+        ),
     )
     applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
     return SpecDraft(

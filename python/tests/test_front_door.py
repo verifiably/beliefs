@@ -66,7 +66,11 @@ def test_push_refs_choose_the_gate(hook_repo: Path, remote: str, refs: tuple[str
     stdin = "".join(f"refs/heads/{ref} {'a' * 40} refs/heads/{ref} {'b' * 40}\n" for ref in refs)
     result = subprocess.run(
         [str(ROOT / ".githooks/pre-push"), remote, "https://example.test/repo"],
-        cwd=hook_repo, input=stdin, text=True, capture_output=True, check=True,
+        cwd=hook_repo,
+        input=stdin,
+        text=True,
+        capture_output=True,
+        check=True,
     )
     assert result.stdout == f"{recipe}\n{stdin}"
 

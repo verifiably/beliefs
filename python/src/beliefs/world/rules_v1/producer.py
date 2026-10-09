@@ -20,8 +20,6 @@ def derive_producer_snapshot(capture):
         for dataset in record["produces"]:
             producers.setdefault(dataset, set()).add(record["address"])
     return {
-        "producers": [
-            {"dataset": dataset, "runs": sorted(runs)} for dataset, runs in sorted(producers.items())
-        ],
+        "producers": [{"dataset": dataset, "runs": sorted(runs)} for dataset, runs in sorted(producers.items())],
         "coverage": sorted(capture["coverage"]),
     }

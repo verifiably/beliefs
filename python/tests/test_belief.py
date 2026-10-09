@@ -115,8 +115,13 @@ def _run(ref: str, spec: str, dataset: DatasetDeclaration) -> RunValue:
 
 def _assessment(spec: str, run: str, outcome: str = "supported") -> AssessmentValue:
     return AssessmentValue(
-        spec=spec, run=run, proposition=PROPOSITION, outcome=outcome, interpretation_rule="rule-1",
-        estimand=typed_estimand(), applicability=typed_applicability(),
+        spec=spec,
+        run=run,
+        proposition=PROPOSITION,
+        outcome=outcome,
+        interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
 
@@ -202,9 +207,7 @@ def test_w18j_a_coordination_pin_never_enters_the_belief_input_digest():
             domains={**pin.domains, "coordination": "coordination:" + "c" * 64},
         )
     }
-    second = evaluate(
-        **scenario(context=replace(ordinary["context"], pins=with_coordination))
-    )
+    second = evaluate(**scenario(context=replace(ordinary["context"], pins=with_coordination)))
     assert isinstance(first, Belief) and isinstance(second, Belief)
     assert second.belief_input_digest == first.belief_input_digest
 
@@ -314,7 +317,11 @@ class TestP6NoMagnitudeBearingRead:
             ("estimand", {"estimand": typed_estimand(reference=Decimal(1))}),
             (
                 "applicability",
-                {"applicability": typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})},
+                {
+                    "applicability": typed_applicability(
+                        {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))}
+                    )
+                },
             ),
         ],
     )
@@ -337,7 +344,15 @@ class TestP6NoMagnitudeBearingRead:
 class TestP7BeliefIsAComputedView:
     def test_the_evaluator_accepts_no_prior_value_and_no_prior_digest(self):
         parameters = inspect.signature(evaluate).parameters
-        assert set(parameters) == {"proposition", "records", "availability", "context", "retractions", "binding", "profile"}
+        assert set(parameters) == {
+            "proposition",
+            "records",
+            "availability",
+            "context",
+            "retractions",
+            "binding",
+            "profile",
+        }
         assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in parameters.values())
         assert all(p.default is inspect.Parameter.empty for p in parameters.values())
 
@@ -543,19 +558,32 @@ class TestQ8TheEstimandWalk:
         )
         proposition = claim_identity(claim)
         estimand, _receipt = build_estimand(
-            profile, claim, snapshot=UNCONSULTED,
+            profile,
+            claim,
+            snapshot=UNCONSULTED,
             contrast=LevelsContrast(0, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
-            measure=Measure(Referent("measures/assay", "EX:m"), "additive"), reference=Decimal(0),
+            measure=Measure(Referent("measures/assay", "EX:m"), "additive"),
+            reference=Decimal(0),
             control=Control(Referent("testing/identification", "EX:obs"), ()),
         )
         applicability, _receipt = build_applicability(profile, claim, {}, snapshot=UNCONSULTED)
         a1 = AssessmentValue(
-            spec="spec-q8-a", run="run-q8-a", proposition=proposition, outcome="supported",
-            interpretation_rule="rule-1", estimand=estimand, applicability=applicability,
+            spec="spec-q8-a",
+            run="run-q8-a",
+            proposition=proposition,
+            outcome="supported",
+            interpretation_rule="rule-1",
+            estimand=estimand,
+            applicability=applicability,
         )
         a2 = AssessmentValue(
-            spec="spec-q8-b", run="run-q8-b", proposition=proposition, outcome="supported",
-            interpretation_rule="rule-1", estimand=estimand, applicability=applicability,
+            spec="spec-q8-b",
+            run="run-q8-b",
+            proposition=proposition,
+            outcome="supported",
+            interpretation_rule="rule-1",
+            estimand=estimand,
+            applicability=applicability,
         )
         runs = {
             "run-q8-a": _run("run-q8-a", "spec-q8-a", DATASET_A),
@@ -566,7 +594,11 @@ class TestQ8TheEstimandWalk:
             Verification(ref="v-q8-b", assessment=a2.identity(), scope="clean-environment", verdict="passed"),
         )
         records = Records(
-            claims={proposition: claim}, assessments=(a1, a2), runs=runs, source_assertions=(), verifications=verifications,
+            claims={proposition: claim},
+            assessments=(a1, a2),
+            runs=runs,
+            source_assertions=(),
+            verifications=verifications,
         )
         availability = Availability(
             observations=_held(DATASET_A, DATASET_B),
@@ -654,7 +686,11 @@ class TestPolicyBindingRefuses:
 
 def test_evaluate_is_the_first_projection_of_evaluate_traced():
     # P1–P9 carry the proof that the first projection is the answer; this pins only that the tuple's first member is what `evaluate` returns.
-    for overrides in ({}, {"binding": None}, {"availability": scenario()["availability"].__class__(observations={}, implementations={}, fixtures={})}):
+    for overrides in (
+        {},
+        {"binding": None},
+        {"availability": scenario()["availability"].__class__(observations={}, implementations={}, fixtures={})},
+    ):
         kwargs = scenario(**overrides)
         answer, _ = evaluate_traced(**kwargs)
         assert evaluate(**kwargs) == answer
@@ -679,19 +715,36 @@ def test_admission_is_not_reached_when_the_answer_precedes_the_gate():
     # The identity-contradiction arm sits inside step 5, before the gate, and keeps its existing answer.
     base = scenario()
     twin = _assessment("spec-a", "run-a", outcome="refuted")  # same (spec, run, proposition) as a1, different facet
-    records = Records(claims=base["records"].claims, assessments=(*base["records"].assessments, twin), runs=base["records"].runs, source_assertions=(), verifications=base["records"].verifications)
+    records = Records(
+        claims=base["records"].claims,
+        assessments=(*base["records"].assessments, twin),
+        runs=base["records"].runs,
+        source_assertions=(),
+        verifications=base["records"].verifications,
+    )
     answer, admission = evaluate_traced(**scenario(records=records))
-    assert isinstance(answer, Refused) and answer.reason.startswith("assessment-identity-contradicted") and admission == NotReached()
+    assert (
+        isinstance(answer, Refused)
+        and answer.reason.startswith("assessment-identity-contradicted")
+        and admission == NotReached()
+    )
     assert evaluate(**scenario(records=records)) == answer
 
 
 def test_the_admitted_set_is_not_the_digest_keyed_set():
     kwargs = scenario()
     a1, a2 = kwargs["records"].assessments
-    held_only_a = Availability(observations=_held(DATASET_A), implementations=kwargs["availability"].implementations, fixtures=kwargs["availability"].fixtures)
+    held_only_a = Availability(
+        observations=_held(DATASET_A),
+        implementations=kwargs["availability"].implementations,
+        fixtures=kwargs["availability"].fixtures,
+    )
     _answer, admission = evaluate_traced(**scenario(availability=held_only_a))
     assert isinstance(admission, Reached) and admission.admitted == {a1.identity()}
-    assert {a.identity() for a in kwargs["records"].assessments} == {a1.identity(), a2.identity()}  # the closure keys both
+    assert {a.identity() for a in kwargs["records"].assessments} == {
+        a1.identity(),
+        a2.identity(),
+    }  # the closure keys both
 
 
 def test_admission_runs_exactly_once_in_the_evaluator(monkeypatch):

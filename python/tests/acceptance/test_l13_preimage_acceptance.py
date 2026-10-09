@@ -75,7 +75,9 @@ FAILED = _verification("failed")
 OTHER_VERSION = _verification("passed")
 """The same record — same id, so the same claimed path — rendered with another
 verdict and never stored: what R16's path match would have resolved."""
-SEED = node_to_markdown(Node(id="discussion:seed", uid="2" * 32, kind="discussion", title="the seeded record", facets={})).encode("utf-8")
+SEED = node_to_markdown(
+    Node(id="discussion:seed", uid="2" * 32, kind="discussion", title="the seeded record", facets={})
+).encode("utf-8")
 
 
 @pytest.fixture
@@ -118,9 +120,13 @@ def _observers(root: Path) -> verify.ObserverSet:
     return verify.ObserverSet((_carrier(root),))
 
 
-def _audit(base: Path, root: Path, *, history: dict[str, bytes] | None = None, observers: verify.ObserverSet | None = None) -> verify.LogReport:
+def _audit(
+    base: Path, root: Path, *, history: dict[str, bytes] | None = None, observers: verify.ObserverSet | None = None
+) -> verify.LogReport:
     config = science_root.WorldConfig(base / "audit-world", WORLD_ID, (root,))
-    return science_root.audit_log(config, anchors.CorpusSubject(CORPUS_ID), root, observers or _observers(root), actor="alice", history=history)
+    return science_root.audit_log(
+        config, anchors.CorpusSubject(CORPUS_ID), root, observers or _observers(root), actor="alice", history=history
+    )
 
 
 def _restored(base: Path, source: Path, name: str = "restored") -> Path:

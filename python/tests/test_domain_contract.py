@@ -584,7 +584,17 @@ class TestEdges:
         with pytest.raises(MalformedContract, match="causal"):
             parse(testing_document)
 
-    @pytest.mark.parametrize("body", [{"cause": 0, "effect": 0}, {"cause": 0, "effect": 2}, {"cause": -1, "effect": 1}, {"cause": True, "effect": 1}, {"cause": 0}, {"cause": 0, "effect": 1, "sign": "+"}])
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"cause": 0, "effect": 0},
+            {"cause": 0, "effect": 2},
+            {"cause": -1, "effect": 1},
+            {"cause": True, "effect": 1},
+            {"cause": 0},
+            {"cause": 0, "effect": 1, "sign": "+"},
+        ],
+    )
     def test_a_malformed_slot_pair_is_refused(self, parse, testing_document, body):
         testing_document["edges"]["affects"] = body
         with pytest.raises(MalformedContract):

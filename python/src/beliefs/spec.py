@@ -301,8 +301,12 @@ class SpecDraft:
         ):
             raise MalformedSpec("input_roles holds SpecInput values only")
         if type(self.estimand) is not Estimand:
-            raise MalformedSpec(f"estimand is a typed Estimand built by build_estimand, found {type(self.estimand).__name__}")
-        if not isinstance(self.applicability, Mapping) or not all(isinstance(q, Qualifier) for q in self.applicability.values()):
+            raise MalformedSpec(
+                f"estimand is a typed Estimand built by build_estimand, found {type(self.estimand).__name__}"
+            )
+        if not isinstance(self.applicability, Mapping) or not all(
+            isinstance(q, Qualifier) for q in self.applicability.values()
+        ):
             raise MalformedSpec("applicability is a mapping of dimension → Qualifier built by build_applicability")
         object.__setattr__(self, "applicability", MappingProxyType(dict(self.applicability)))
         object.__setattr__(
@@ -442,8 +446,19 @@ def frozen_projection(spec: FrozenSpec) -> dict[str, object]:
 
 _FROZEN_MEMBERS = frozenset(
     {
-        "target", "estimand_grammar", "estimand", "method", "assumptions", "falsification", "input_roles", "applicability",
-        "interpretation_rule", "equivalence_rule", "parameters", "nondeterminism", "rule_bindings",
+        "target",
+        "estimand_grammar",
+        "estimand",
+        "method",
+        "assumptions",
+        "falsification",
+        "input_roles",
+        "applicability",
+        "interpretation_rule",
+        "equivalence_rule",
+        "parameters",
+        "nondeterminism",
+        "rule_bindings",
     }
 )
 _TEXT_MEMBERS = ("target", "method", "assumptions", "falsification", "interpretation_rule", "equivalence_rule")
@@ -464,7 +479,9 @@ def _restore_input(entry: object, where: str) -> SpecInput:
         claim = entry["exclusion"]
         if not isinstance(claim, dict) or set(claim) != {"rationale", "attribution"}:
             raise MalformedRecord(f"{where}: an exclusion names exactly rationale and attribution")
-        exclusion = ExclusionCertification(rationale=_text(claim, "rationale", where), attribution=_text(claim, "attribution", where))
+        exclusion = ExclusionCertification(
+            rationale=_text(claim, "rationale", where), attribution=_text(claim, "attribution", where)
+        )
     return SpecInput(role=_text(entry, "role", where), dataset=_text(entry, "dataset", where), exclusion=exclusion)
 
 
@@ -485,9 +502,18 @@ def _restore_nondeterminism(value: object, where: str) -> NondeterminismContract
             raise MalformedRecord(f"{where}: seed plan streams are strings")
         if not isinstance(roots, dict) or any(type(k) is not str or type(v) is not int for k, v in roots.items()):
             raise MalformedRecord(f"{where}: seed plan roots map stream keys to integers")
-        if not isinstance(stream_roots, dict) or any(type(k) is not str or type(v) is not str for k, v in stream_roots.items()):
+        if not isinstance(stream_roots, dict) or any(
+            type(k) is not str or type(v) is not str for k, v in stream_roots.items()
+        ):
             raise MalformedRecord(f"{where}: seed plan stream roots map strings to strings")
-        return Seeded(plan=SeedPlan(derivation_rule=_text(plan, "derivation_rule", where), streams=tuple(streams), roots=dict(roots), stream_roots=dict(stream_roots)))
+        return Seeded(
+            plan=SeedPlan(
+                derivation_rule=_text(plan, "derivation_rule", where),
+                streams=tuple(streams),
+                roots=dict(roots),
+                stream_roots=dict(stream_roots),
+            )
+        )
     raise MalformedRecord(f"{where}: nondeterminism variant {variant!r} is not one of the three")
 
 

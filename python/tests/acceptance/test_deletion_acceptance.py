@@ -176,6 +176,7 @@ def _adopted(writer: CorpusWriter, pins: CorpusPins = DEFAULT_PINS, *, corpus_id
         writer.adopt_manifest(profile=pins)
     else:
         from types import SimpleNamespace
+
         # Alternative histories of one logical corpus retain the coverage member.
         with pytest.MonkeyPatch.context() as patch:
             patch.setattr("beliefs.corpus.secrets", SimpleNamespace(token_hex=lambda _: corpus_id))
@@ -201,7 +202,13 @@ def _durable_corpora(
             root = work / f"cut18-{os.getpid()}-{next(_COUNTER)}-{label}"
             init_corpus_root(root, authority=FULL)
             roots.append(root)
-            writers.append(_adopted(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY if pins == PINS else TESTING_PROFILE), pins, corpus_id=corpus_id))
+            writers.append(
+                _adopted(
+                    open_corpus(root, authority=FULL, profile=WITH_BIOLOGY if pins == PINS else TESTING_PROFILE),
+                    pins,
+                    corpus_id=corpus_id,
+                )
+            )
         yield tuple(writers)
     finally:
         for root in roots:
@@ -216,7 +223,11 @@ def _reloaded(scenario: Scenario) -> Scenario:
     indexes at construction, so an assertion made on it is an assertion about
     the process's memory. This one is about the committed bytes.
     """
-    return Scenario(writer=open_corpus(scenario.writer.root, authority=FULL, profile=scenario.writer.profile), values=scenario.values, roots=scenario.roots)
+    return Scenario(
+        writer=open_corpus(scenario.writer.root, authority=FULL, profile=scenario.writer.profile),
+        values=scenario.values,
+        roots=scenario.roots,
+    )
 
 
 def _assert_delete_chain(root: Path, before: int, path: str) -> None:
@@ -331,8 +342,12 @@ def test_g2c_lifecycle_walk_over_durable_records(durable_writer):
         after_belief = restored.belief()
         assert after_belief.value == 2
         assert after_belief.belief_input_digest != before_belief.belief_input_digest
-        assert corpus_check(restored.view, restored.writer.profile) == (), "the removal is invisible to the read-side check"
-        assert audit_corpus(restored.view, evidence=NO_EVIDENCE, profile=restored.writer.profile) == (), "and to the corpus-local audit"
+        assert corpus_check(restored.view, restored.writer.profile) == (), (
+            "the removal is invisible to the read-side check"
+        )
+        assert audit_corpus(restored.view, evidence=NO_EVIDENCE, profile=restored.writer.profile) == (), (
+            "and to the corpus-local audit"
+        )
 
 
 # --- G8 and C6: the log half (§5 obligation 4) --------------------------------
@@ -374,7 +389,11 @@ def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, 
         assert raw_view.lifecycle(ASSESSMENTS[0]) == managed_view.lifecycle(ASSESSMENTS[0]) == ADMITTED
         assert raw_view.belief().value == managed_view.belief().value == 2
         assert raw_view.belief().belief_input_digest == managed_view.belief().belief_input_digest
-        assert corpus_check(raw_view.view, raw_view.writer.profile) == corpus_check(managed_view.view, managed_view.writer.profile) == ()
+        assert (
+            corpus_check(raw_view.view, raw_view.writer.profile)
+            == corpus_check(managed_view.view, managed_view.writer.profile)
+            == ()
+        )
 
         raw_report = _audit_log(raw_writer, history=history["raw"])
         managed_report = _audit_log(managed_writer, history=history["managed"])
@@ -393,9 +412,7 @@ def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, 
 
 
 R5_CONTENT = b"the observed bytes cut 18 unholds"
-R5_DECLARATION = DatasetDeclaration(
-    (ResourceDeclaration("data", f"sha256:{sha256(R5_CONTENT).hexdigest()}"),)
-)
+R5_DECLARATION = DatasetDeclaration((ResourceDeclaration("data", f"sha256:{sha256(R5_CONTENT).hexdigest()}"),))
 """The observed dataset, declared at the digest the store act will establish, so
 the reduction's head and the declaration join and the input reads **held**."""
 
@@ -405,10 +422,17 @@ def _r5_records() -> Records:
     its admitting verification: the smallest corpus in which unholding the
     input is unholding the **last** directional one (P9)."""
     assessment = AssessmentValue(
-        spec="spec-a", run="run-a", proposition=PROPOSITION, outcome="supported", interpretation_rule="rule-1",
-        estimand=typed_estimand(), applicability=typed_applicability(),
+        spec="spec-a",
+        run="run-a",
+        proposition=PROPOSITION,
+        outcome="supported",
+        interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
-    run = RunValue(ref=stored.typed_ref("run", "run-a"), spec="spec-a", inputs=(RunInput(role="observes", dataset=R5_DECLARATION),))
+    run = RunValue(
+        ref=stored.typed_ref("run", "run-a"), spec="spec-a", inputs=(RunInput(role="observes", dataset=R5_DECLARATION),)
+    )
     verification = Verification(
         ref="v-a", assessment=assessment.identity(), scope="clean-environment", verdict="passed"
     )
@@ -494,9 +518,12 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
     removed = holdings_delete(context, location, standing=(published.record,))
 
     assert removed.record.outcome == Absent(), "the managed act published the absent observation"
-    assert stored.holdings_observation_value(
-        reopen(corpus_root).get(f"holdings-observation:{removed.record.identity()}")
-    ).outcome == Absent(), "and it is that published record the reduction reads"
+    assert (
+        stored.holdings_observation_value(
+            reopen(corpus_root).get(f"holdings-observation:{removed.record.identity()}")
+        ).outcome
+        == Absent()
+    ), "and it is that published record the reduction reads"
     after = observations()
     assert after == DatasetAnswer(()), "the dataset is no longer held"
     state = admission_state(R5_DECLARATION, after.observations)
@@ -565,7 +592,13 @@ def test_r23_deletion_and_audit_clauses_durably(durable_writer):
     §7, the absence of the semantic code, never of all findings."""
     work = durable_writer.root.parent
     labels = ("r23-ancestor", "r23-second", "r23-residue", "r23-never", "r23-forged")
-    with _durable_corpora(work, *labels, corpus_id="c1" + "0" * 30) as (ancestor, second, residue, never_writer, forged):
+    with _durable_corpora(work, *labels, corpus_id="c1" + "0" * 30) as (
+        ancestor,
+        second,
+        residue,
+        never_writer,
+        forged,
+    ):
         separated = (
             (PRODUCER, "producing_run", _adopted(durable_writer)),
             (BASIS_ANCESTOR, "ancestor", ancestor),
@@ -642,9 +675,7 @@ def test_w16_conflict_survives_deleting_either_producer_durably(work_directory):
     the dataset `lineage-divergent`, and independence over it `not-certified`.
     Unlike the single-basis case, the deletion resolves nothing."""
     for doomed in CONFLICT_ROUTES:
-        with _durable_corpora(
-            work_directory, f"w16-{doomed}-keep", f"w16-{doomed}-other", pins=PINS
-        ) as writers:
+        with _durable_corpora(work_directory, f"w16-{doomed}-keep", f"w16-{doomed}-other", pins=PINS) as writers:
             # The record construction is `test_relocation_rows`' own; only the
             # two corpora are this module's, so it needs no scratch path.
             keep_writer, other_writer, keep, other = _duplicate_datasets(None, writers=writers)
@@ -665,9 +696,7 @@ def test_w16_conflict_survives_deleting_either_producer_durably(work_directory):
                         produces=[survivor.id],
                     )
                 )
-            sibling = keep_writer.add(
-                stored.dataset_node(title="sibling", resources=_resources("f"))
-            )
+            sibling = keep_writer.add(stored.dataset_node(title="sibling", resources=_resources("f")))
             roots = (survivor.id, sibling.id)
             divergent = Certification(state="not-certified", findings=("lineage-divergent",))
             assert certify(lineage_snapshot(reopen(keep_writer.root), roots), (survivor.id,), (sibling.id,)) == (
@@ -681,9 +710,7 @@ def test_w16_conflict_survives_deleting_either_producer_durably(work_directory):
             node = view.get(survivor.id)
             basis = stored.lineage_basis(node)
             assert basis is not None and basis["tag"] == "conflict"
-            assert [route["run"] for route in stored.basis_routes(node)] == [
-                f"run:{name}" for name in CONFLICT_ROUTES
-            ]
+            assert [route["run"] for route in stored.basis_routes(node)] == [f"run:{name}" for name in CONFLICT_ROUTES]
             snapshot = lineage_snapshot(view, roots)
             assert _projected(snapshot, "divergence", survivor.id) == "divergent"
             assert certify(snapshot, (survivor.id,), (sibling.id,)) == divergent
@@ -901,8 +928,7 @@ def test_r19_import_validation_and_transition_b_durably(durable_writer):
         )
         report = w.import_bundle([transition_forgery], evidence=unmounted.evidence, **IMPORT_FIELDS)
         assert any(
-            finding.startswith(f"derivation-unchecked: {transition_forgery.id}")
-            for finding in _report_findings(report)
+            finding.startswith(f"derivation-unchecked: {transition_forgery.id}") for finding in _report_findings(report)
         )
         assert _admission(_view_writer(w), identity) == ADMITTED
         assert audit_corpus(reopen(w.root), evidence=unmounted.evidence, profile=w.profile) == ()
@@ -936,16 +962,15 @@ def test_r19_import_validation_and_transition_b_durably(durable_writer):
             finding.ref for finding in audit_corpus(reopen(w.root), evidence=unmounted.evidence, profile=w.profile)
         ] == [transition_forgery.id]
 
-        raw_forgery = _stored_from(
-            derived.verification, slug="raw-forged", verdict=_flip(derived.verification.verdict)
-        )
+        raw_forgery = _stored_from(derived.verification, slug="raw-forged", verdict=_flip(derived.verification.verdict))
         raw_write(writer.root, raw_forgery)
 
         view = reopen(writer.root)
         assert view.get(raw_forgery.id).kind == "verification", "not refused, not detected on read"
         assert corpus_check(view, writer.profile) == (), "the corpus check says nothing"
         assert ("verification-derivation-contradicted", raw_forgery.id) in {
-            (finding.code, finding.ref) for finding in audit_corpus(view, evidence=derived.evidence, profile=writer.profile)
+            (finding.code, finding.ref)
+            for finding in audit_corpus(view, evidence=derived.evidence, profile=writer.profile)
         }
         assert _audit_log(writer).outcome == "refuted", "the log sees the write the read path cannot"
 
@@ -1021,7 +1046,9 @@ def test_m1_containment_over_a_durable_corpus(durable_writer):
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(evaluation, "_verification_selected", lambda value, ids: True)
         resolve = fixture.view.resolve
-        patch.setattr(fixture.view, "resolve", lambda ref: "assessment:a-1" if ref == "assessment:a-3" else resolve(ref))
+        patch.setattr(
+            fixture.view, "resolve", lambda ref: "assessment:a-1" if ref == "assessment:a-3" else resolve(ref)
+        )
         leaky = gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
 
     assert {v.ref for v in leaky.verifications} > {v.ref for v in honest.verifications}
@@ -1039,7 +1066,11 @@ def test_m3_audit_classification_and_admission_order_durably(work_directory):
     then the negative: no topological rank is stored anywhere, so the same
     records admitted in two orders leave every stored identity and the belief
     digest unchanged."""
-    with _durable_corpora(work_directory, "m3-cyclic", "m3-first", "m3-second", corpus_id="c1" + "0" * 30) as (cyclic, first, second):
+    with _durable_corpora(work_directory, "m3-cyclic", "m3-first", "m3-second", corpus_id="c1" + "0" * 30) as (
+        cyclic,
+        first,
+        second,
+    ):
         raw_cyclic_retraction_pair(cyclic)
 
         with pytest.MonkeyPatch.context() as patch:

@@ -125,7 +125,9 @@ def names_of(tree: ast.Module, *, exclude_stdlib_copy: bool = False) -> set[str]
 def test_raw_write_scan_distinguishes_stdlib_copy_from_shutil_copy():
     stdlib_only = ast.parse("import copy\ncopy.deepcopy({})\ncopy.copy({})\n")
     assert names_of(stdlib_only, exclude_stdlib_copy=True) & {"copy"} == set()
-    with_filesystem_copy = ast.parse("import copy\nimport shutil\ncopy.deepcopy({})\ncopy.copy({})\nshutil.copy('a', 'b')\n")
+    with_filesystem_copy = ast.parse(
+        "import copy\nimport shutil\ncopy.deepcopy({})\ncopy.copy({})\nshutil.copy('a', 'b')\n"
+    )
     assert names_of(with_filesystem_copy, exclude_stdlib_copy=True) & {"copy"} == {"copy"}
 
 
@@ -136,9 +138,7 @@ def defined_names(tree: ast.Module) -> set[str]:
     is ever used. A ban that read uses alone would pass over the class itself.
     """
     return {
-        node.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
     }
 
 
@@ -186,9 +186,7 @@ def composition_root_imports(tree: ast.Module) -> list[str]:
         if module == submodule or module.startswith(submodule + "."):
             offending.append(statement)
         elif module == package:
-            offending.extend(
-                f"{statement} import {alias.name}" for alias in node.names if alias.name == "root"
-            )
+            offending.extend(f"{statement} import {alias.name}" for alias in node.names if alias.name == "root")
     return offending
 
 
@@ -196,9 +194,9 @@ class TestS8TheMutableCorpusHandleHasOneHolder:
     @pytest.mark.parametrize("module", [path for path in modules() if relative(path) != WRITE_API], ids=relative)
     def test_no_module_outside_the_write_api_names_the_mutable_corpus(self, module):
         tree = parsed(module)
-        assert not any(
-            imported == "nodes.core.corpus" for imported in imported_modules(tree)
-        ), f"{relative(module)} imports the mutable corpus"
+        assert not any(imported == "nodes.core.corpus" for imported in imported_modules(tree)), (
+            f"{relative(module)} imports the mutable corpus"
+        )
         assert "Corpus" not in names_of(tree), f"{relative(module)} names Corpus"
 
     def test_the_write_api_is_the_one_module_that_does(self):
@@ -228,9 +226,7 @@ class TestS8TheMutableCorpusHandleHasOneHolder:
 
 
 class TestTheCompositionRootIsTheOneAtomsImporter:
-    @pytest.mark.parametrize(
-        "module", [path for path in modules() if relative(path) != COMPOSITION_ROOT], ids=relative
-    )
+    @pytest.mark.parametrize("module", [path for path in modules() if relative(path) != COMPOSITION_ROOT], ids=relative)
     def test_no_module_outside_the_composition_root_imports_atoms(self, module):
         offending = [
             imported
@@ -243,9 +239,7 @@ class TestTheCompositionRootIsTheOneAtomsImporter:
         imported = imported_modules(parsed(PACKAGE / COMPOSITION_ROOT))
         assert any(name == "atoms" or name.startswith("atoms.") for name in imported)
 
-    @pytest.mark.parametrize(
-        "module", [path for path in modules() if relative(path) != COMPOSITION_ROOT], ids=relative
-    )
+    @pytest.mark.parametrize("module", [path for path in modules() if relative(path) != COMPOSITION_ROOT], ids=relative)
     def test_no_module_outside_the_composition_root_names_an_engine_command(self, module):
         named = names_of(parsed(module)) & set(ENGINE_COMMANDS)
         assert named == set(), f"{relative(module)} names {sorted(named)}"
@@ -536,11 +530,7 @@ def call_sites(tree: ast.Module, command: str) -> list[str]:
             if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                 walk(child, (*scope, child.name))
                 continue
-            if (
-                isinstance(child, ast.Call)
-                and isinstance(child.func, ast.Name)
-                and child.func.id == command
-            ):
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id == command:
                 found.append(".".join(scope))
             walk(child, scope)
 
@@ -594,9 +584,15 @@ def test_no_cooperative_mutation_path_skips_registration():
             f"{relative(module)} writes bytes itself: {sorted(named)}"
         )
     assert set(RAW_WRITE_ALLOWLIST) == {
-        "adapter.py", "boundary.py", "confinement.py", "probe.py",
-        "holdings/boundary.py", "holdings/acquire.py", "holdings/transport.py",
-        "durable.py", "publish.py",
+        "adapter.py",
+        "boundary.py",
+        "confinement.py",
+        "probe.py",
+        "holdings/boundary.py",
+        "holdings/acquire.py",
+        "holdings/transport.py",
+        "durable.py",
+        "publish.py",
     }
 
 
@@ -616,8 +612,7 @@ def test_science_fingerprints_only_through_the_engine_read_commands():
         elsewhere = [
             relative(module)
             for module in modules()
-            if relative(module) != COMPOSITION_ROOT
-            and name in names_of(parsed(module)) | defined_names(parsed(module))
+            if relative(module) != COMPOSITION_ROOT and name in names_of(parsed(module)) | defined_names(parsed(module))
         ]
         assert elsewhere == [], f"{name} is named or defined outside the composition root by {elsewhere}"
     # The composition root does name the members it uses — the ban above would
@@ -651,7 +646,5 @@ def test_science_fingerprints_only_through_the_engine_read_commands():
 
     # ...and the one construction is over bytes, never over a path.
     signature = inspect.signature(composition._file_state)
-    assert [(name, parameter.annotation) for name, parameter in signature.parameters.items()] == [
-        ("content", "bytes")
-    ]
+    assert [(name, parameter.annotation) for name, parameter in signature.parameters.items()] == [("content", "bytes")]
     assert signature.return_annotation == "FileState"

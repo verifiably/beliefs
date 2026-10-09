@@ -357,7 +357,7 @@ _M7 = [
         # the compiled profile.
         sabotage=Sabotage(
             module="profile.py",
-            before='''        compiled_identity=v1.digest(
+            before="""        compiled_identity=v1.digest(
             PROFILE_DOMAIN,
             _projection(
                 base.claim_grammar,
@@ -373,8 +373,8 @@ _M7 = [
                 edges=edges,
                 coordination=coordination_projection,
             ),
-        ),''',
-            after='''        compiled_identity=v1.digest(
+        ),""",
+            after="""        compiled_identity=v1.digest(
             PROFILE_DOMAIN,
             {
                 **_projection(
@@ -393,7 +393,7 @@ _M7 = [
                 ),
                 "activated": {ns: c.content_identity for ns, c in seen.items()},
             },
-        ),''',
+        ),""",
         ),
         # `test_the_compiler_contributes_no_input` is deliberately **not** named
         # here: its own docstring records that it cannot fail, since the encoder

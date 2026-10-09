@@ -124,6 +124,9 @@ def main(inp: str, stats_out: str, outcome_out: str, value_row: str, group_separ
 
 if __name__ == "__main__":
     if len(sys.argv) != 7:
-        print("usage: assoc.py <matrix> <stats.tsv> <outcome.txt> <value_row> <group_separator> <positive_level>", file=sys.stderr)
+        print(
+            "usage: assoc.py <matrix> <stats.tsv> <outcome.txt> <value_row> <group_separator> <positive_level>",
+            file=sys.stderr,
+        )
         sys.exit(2)
     sys.exit(main(*sys.argv[1:7]))

@@ -25,7 +25,13 @@ from beliefs.publication import (
 from beliefs.root import admit_arrival
 from beliefs.world import ReplicaOf, load_manifest
 
-__all__ = ["CurrentPublication", "DivergentPublication", "admit_publication", "publication_tip", "require_publication_layout"]
+__all__ = [
+    "CurrentPublication",
+    "DivergentPublication",
+    "admit_publication",
+    "publication_tip",
+    "require_publication_layout",
+]
 
 _CAPTURE_DAMAGE = (OSError, NodesValidationError, PlacementError, CollisionError)
 

@@ -108,7 +108,9 @@ class TestEvaluation:
         assert (live.selected, live.stamp.coverage, live.absent, live.complete) == ((), (), (), True)
 
     def test_a_corpus_holding_only_coordination_records_is_captured_and_contributes_nothing(self, tmp_path):
-        roots = corpora(tmp_path, {ALPHA: (raw_coordination_node("project", PROJECT, "4" * 32),), BETA: datasets("d-b")})
+        roots = corpora(
+            tmp_path, {ALPHA: (raw_coordination_node("project", PROJECT, "4" * 32),), BETA: datasets("d-b")}
+        )
         live = evaluate_live_query(world_over(tmp_path, roots), DATASETS)
         assert live.selected == (dataset_ref("d-b"),) and live.contributing == (BETA,)
         assert set(dict(live.stamp.coverage)) == {ALPHA, BETA}

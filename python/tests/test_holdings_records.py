@@ -54,7 +54,28 @@ def test_store_locator_refuses_rather_than_normalizes_the_path(path: str):
 
 @pytest.mark.parametrize(
     "path",
-    ["a", "a/b", "a-b_c.1", "unicode/é", " space ", "a/.hidden", ".#~reserved", "a/.#~reserved", "", "/a", "a/", "a//b", "./a", "a/./b", "../a", "a/../b", "a\x00b", ".#~", "a/.#~", "a/.#~b/c"],
+    [
+        "a",
+        "a/b",
+        "a-b_c.1",
+        "unicode/é",
+        " space ",
+        "a/.hidden",
+        ".#~reserved",
+        "a/.#~reserved",
+        "",
+        "/a",
+        "a/",
+        "a//b",
+        "./a",
+        "a/./b",
+        "../a",
+        "a/../b",
+        "a\x00b",
+        ".#~",
+        "a/.#~",
+        "a/.#~b/c",
+    ],
 )
 def test_the_path_grammar_agrees_with_the_engine(path: str):
     def accepted(requirement) -> bool:
@@ -174,7 +195,9 @@ def test_expected_must_share_the_found_algorithm():
     assert observation(outcome=Absent(), expected="sha512:" + "a" * 40).expected == "sha512:" + "a" * 40
 
 
-@pytest.mark.parametrize("observed_at", ["2026-08-24T12:00:00+00:00", "2026-08-24T12:00:00.000Z", "2026-13-40T12:00:00Z"])
+@pytest.mark.parametrize(
+    "observed_at", ["2026-08-24T12:00:00+00:00", "2026-08-24T12:00:00.000Z", "2026-13-40T12:00:00Z"]
+)
 def test_observed_at_is_the_one_canonical_utc_encoding(observed_at: str):
     assert observation().observed_at == "2026-08-24T12:00:00Z"
     with pytest.raises(MalformedRecord):

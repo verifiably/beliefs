@@ -258,7 +258,9 @@ def _parse_edge(name: str, value: object, where: str, operators: Mapping[str, Op
     effect = _slot(body["effect"], operator.arity, f"{where}: effect")
     if cause == effect:
         raise MalformedContract(f"{where}: cause and effect must be distinct slots, both are {cause}")
-    return EdgeDecl(operator=name, cause=cause, effect=effect, retired=_bool(body.get("retired", False), f"{where}: retired"))
+    return EdgeDecl(
+        operator=name, cause=cause, effect=effect, retired=_bool(body.get("retired", False), f"{where}: retired")
+    )
 
 
 @sealed
@@ -384,7 +386,9 @@ class DomainContract:
         """
         return frozenset(key for key, decl in self._declarations() if decl.retired)
 
-    def _declarations(self) -> tuple[tuple[str, SortDecl | DimensionDecl | OperatorDecl | EstimandDecl | EdgeDecl], ...]:
+    def _declarations(
+        self,
+    ) -> tuple[tuple[str, SortDecl | DimensionDecl | OperatorDecl | EstimandDecl | EdgeDecl], ...]:
         return (
             *((f"sort:{name}", decl) for name, decl in self.sorts.items()),
             *((f"dimension:{name}", decl) for name, decl in self.dimensions.items()),
@@ -464,8 +468,7 @@ def _parse_operator(name: str, value: object, where: str) -> OperatorDecl:
     if not isinstance(raw_sorts, list):
         raise MalformedContract(f"{where}: arg_sorts must be a list, found {raw_sorts!r}")
     arg_sorts = tuple(
-        item if isinstance(item, str) else _name(item, f"{where}: arg_sorts[{i}]")
-        for i, item in enumerate(raw_sorts)
+        item if isinstance(item, str) else _name(item, f"{where}: arg_sorts[{i}]") for i, item in enumerate(raw_sorts)
     )
     if len(arg_sorts) != arity:
         raise MalformedContract(
@@ -507,9 +510,7 @@ def _no_duplicates(values: tuple[str, ...], where: str) -> None:
         seen.add(value)
 
 
-def _sort_reference(
-    value: object, where: str, *, namespace: str, base_name: str, sorts: Mapping[str, SortDecl]
-) -> str:
+def _sort_reference(value: object, where: str, *, namespace: str, base_name: str, sorts: Mapping[str, SortDecl]) -> str:
     """§4.1–§4.2: validate a local or deferred cross-contract sort reference."""
     if not isinstance(value, str) or not value:
         raise MalformedContract(f"{where}: {value!r} is not a sort reference")
@@ -535,7 +536,12 @@ def _sort_reference(
 
 
 def _parse_estimand_decl(
-    name: str, value: object, where: str, *, operators: Mapping[str, OperatorDecl], resolve: Callable[[object, str], str]
+    name: str,
+    value: object,
+    where: str,
+    *,
+    operators: Mapping[str, OperatorDecl],
+    resolve: Callable[[object, str], str],
 ) -> EstimandDecl:
     body = _mapping(value, where)
     _fields(body, _ESTIMAND_FIELDS, frozenset({"description"}), where)
@@ -546,7 +552,9 @@ def _parse_estimand_decl(
         )
     arity = operators[name].arity
     if arity == 0:
-        raise MalformedContract(f"{where}: {name!r} has arity 0 and admits no estimand — a contrast needs a slot to name")
+        raise MalformedContract(
+            f"{where}: {name!r} has arity 0 and admits no estimand — a contrast needs a slot to name"
+        )
     raw_levels = _mapping(body["level_sorts"], f"{where}: level_sorts")
     level_sorts: dict[str, str] = {}
     for key, sort in raw_levels.items():
@@ -692,7 +700,9 @@ def parse_domain_contract(
 
     estimands: dict[str, EstimandDecl] = {}
     for name, body in _declarations(root.get("estimands", {}), f"{source}: estimands").items():
-        estimands[name] = _parse_estimand_decl(name, body, f"{source}: estimands.{name}", operators=operators, resolve=resolve)
+        estimands[name] = _parse_estimand_decl(
+            name, body, f"{source}: estimands.{name}", operators=operators, resolve=resolve
+        )
 
     contract = DomainContract._parsed(
         _MINT,

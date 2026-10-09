@@ -89,9 +89,7 @@ class Heads:
         self.probe: Callable[[Path], None] | None = None
 
     def set(self, root: Path, genesis: str, tip: str, payload: bytes = CORPUS_GENESIS_PAYLOAD) -> None:
-        self.heads[Path(root).resolve()] = logmodel.ChainHead(
-            genesis_digest=genesis, genesis_payload=payload, tip=tip
-        )
+        self.heads[Path(root).resolve()] = logmodel.ChainHead(genesis_digest=genesis, genesis_payload=payload, tip=tip)
 
     def __call__(self, root: Path) -> logmodel.ChainHead:
         resolved = Path(root).resolve()
@@ -384,6 +382,7 @@ class TestTheAnchorAct:
         assert held.acquire(blocking=False) is True
         held.release()
 
+
 # --- the exported head artifact (§3.2) ----------------------------------------
 
 
@@ -591,18 +590,16 @@ class TestThePublicWrappers:
         monkeypatch.setattr(
             science_root,
             "_anchor_heads",
-            lambda world, corpus_ids, *, store_roots, seam: seen.append(
-                ("anchor", world, corpus_ids, store_roots, seam)
-            )
-            or (),
+            lambda world, corpus_ids, *, store_roots, seam: (
+                seen.append(("anchor", world, corpus_ids, store_roots, seam)) or ()
+            ),
         )
         monkeypatch.setattr(
             science_root,
             "_export_head_artifact",
-            lambda world, subject, *, store_root, seam: seen.append(
-                ("export", world, subject, store_root, seam)
-            )
-            or b"",
+            lambda world, subject, *, store_root, seam: (
+                seen.append(("export", world, subject, store_root, seam)) or b""
+            ),
         )
         world, _recorder, _heads, _roots = anchorable_world(tmp_path, ALPHA)
 
@@ -649,9 +646,9 @@ def test_the_record_bytes_are_the_registry_grammar(tmp_path):
 
     content = anchors.log_head_record_bytes(record)
 
-    assert content == yaml.safe_dump(
-        anchors.log_head_projection(record), sort_keys=True, allow_unicode=True
-    ).encode("utf-8")
+    assert content == yaml.safe_dump(anchors.log_head_projection(record), sort_keys=True, allow_unicode=True).encode(
+        "utf-8"
+    )
     assert anchors.parse_log_head_record(yaml.safe_load(content.decode("utf-8"))) == record
 
 
@@ -759,9 +756,7 @@ def test_anchor_act_refusals_idempotency_and_terminal_corpora(tmp_path):
     retirement or departure cleanup is the archetypal use of the act (§3.1,
     §3.3).
     """
-    unknown, _recorder, unknown_heads, _unknown_roots = anchorable_world(
-        tmp_path / "unknown", ALPHA, admitted=()
-    )
+    unknown, _recorder, unknown_heads, _unknown_roots = anchorable_world(tmp_path / "unknown", ALPHA, admitted=())
     with pytest.raises(AnchorSubjectUnknown):
         anchor(unknown, unknown_heads, ALPHA)
     assert stored_log_heads(unknown) == ()

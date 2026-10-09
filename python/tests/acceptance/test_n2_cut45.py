@@ -176,7 +176,42 @@ def findings(tmp_path_factory):
 
 
 def test_the_inventory_is_exactly_the_frozen_rows_units() -> None:
-    assert DECLARATION_UNITS == ('G10-a', 'G10-b', 'G10-c', 'G10-d', 'G10-e', 'G10-f', 'G11-a', 'G11-b', 'G11-c', 'G11-d', 'G11-e', 'G11-f', 'G12-a', 'G12-b', 'G12-c', 'G12-d', 'G12-e', 'G12-f', 'G12-g', 'G12-h', 'G12-i', 'G12-j', 'G12-k', 'G12-l', 'G13-a', 'G13-b', 'G13-c', 'G13-d', 'G13-e', 'G13-f', 'G13-g', 'G13-h', 'G13-i', 'G13-j')
+    assert DECLARATION_UNITS == (
+        "G10-a",
+        "G10-b",
+        "G10-c",
+        "G10-d",
+        "G10-e",
+        "G10-f",
+        "G11-a",
+        "G11-b",
+        "G11-c",
+        "G11-d",
+        "G11-e",
+        "G11-f",
+        "G12-a",
+        "G12-b",
+        "G12-c",
+        "G12-d",
+        "G12-e",
+        "G12-f",
+        "G12-g",
+        "G12-h",
+        "G12-i",
+        "G12-j",
+        "G12-k",
+        "G12-l",
+        "G13-a",
+        "G13-b",
+        "G13-c",
+        "G13-d",
+        "G13-e",
+        "G13-f",
+        "G13-g",
+        "G13-h",
+        "G13-i",
+        "G13-j",
+    )
     assert (FROZEN_ARMS, FROZEN_UNITS) == (34, 34)
     assert len(CUT45_ARMS) == FROZEN_ARMS and len(DECLARATION_UNITS) == FROZEN_UNITS
     assert all(arm.sabotage.package == "beliefs" for arm in CUT45_ARMS)
@@ -335,8 +370,10 @@ def test_pilot_arms_fail_under_sabotage(tmp_path_factory):
     chosen = tuple(arm for arm in CUT45_ARMS if arm.row in {"G10-a", "G11-d", "G12-i", "G13-d"})
     assert {arm.row for arm in chosen} == {"G10-a", "G11-d", "G12-i", "G13-d"}
     workspace = tmp_path_factory.mktemp("cut45-pilot")
+
     def run(arm):
         return arm, baseline(arm), audit(arm, workspace / arm.row)
+
     with ThreadPoolExecutor(max_workers=workers()) as pool:
         for arm, normal, mutated in pool.map(run, chosen):
             assert normal.verdict == "resolved", (arm.row, normal.detail)

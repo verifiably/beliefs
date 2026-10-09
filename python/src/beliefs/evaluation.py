@@ -578,7 +578,9 @@ def _gather(
             if ref in taken:
                 continue
             target = cast(Mapping[str, str], facet["target"])
-            key = None if target["arm"] == "snapshot" else target["resolved"]   # a snapshot arm is never in scope (decision 8)
+            key = (
+                None if target["arm"] == "snapshot" else target["resolved"]
+            )  # a snapshot arm is never in scope (decision 8)
             if key is not None and (key in scope or key in taken):
                 taken.add(ref)
                 grew = True
@@ -603,7 +605,9 @@ def _gather(
     ledger: dict[str, list[str]] = {}
     for row in rows:
         ledger.setdefault(row.address, []).append(row.key)
-    observed_addresses = tuple(sorted({row.address for row in rows} | {ref for kind, ref in trace if kind == "dataset"}))
+    observed_addresses = tuple(
+        sorted({row.address for row in rows} | {ref for kind, ref in trace if kind == "dataset"})
+    )
     node_corpus = (
         {node: tuple(sorted(corpora)) for node, corpora in attribution.items()} if world else context.node_corpus
     )
@@ -686,7 +690,15 @@ def _evaluate_over_inputs(
         return Refused(f"input-outside-corpus: {exc}", acceptance=selection.report), NotReached(), None
     if inputs.absent:
         corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
-        return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}", acceptance=selection.report), NotReached(), None
+        return (
+            NoBelief(
+                "unavailable-corpus-absent",
+                detail=f"inputs recorded in absent corpora: {corpora}",
+                acceptance=selection.report,
+            ),
+            NotReached(),
+            None,
+        )
     context = replace(context, node_corpus=inputs.node_corpus, snapshot=inputs.snapshot, acceptance=inputs.acceptance)
     answer, admission = evaluate_traced(
         proposition=proposition,

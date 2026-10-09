@@ -665,7 +665,11 @@ def compile_profile(
             operators[contract.term(name)] = _compile_operator(contract, operator, sorts)
         for name, edge in contract.edges.items():
             edges[contract.term(name)] = CompiledEdge(
-                operator=contract.term(name), cause=edge.cause, effect=edge.effect, retired=edge.retired, contract=namespace
+                operator=contract.term(name),
+                cause=edge.cause,
+                effect=edge.effect,
+                retired=edge.retired,
+                contract=namespace,
             )
         for name, decl in contract.estimands.items():
             estimands[contract.term(name)] = _compile_estimand(contract, decl, sorts)
@@ -787,9 +791,7 @@ def _projection(
     return projection
 
 
-def _resolve_sort(
-    contract: DomainContract, name: str, sorts: Mapping[str, CompiledSort], *, where: str
-) -> str:
+def _resolve_sort(contract: DomainContract, name: str, sorts: Mapping[str, CompiledSort], *, where: str) -> str:
     term = name if "/" in name else contract.term(name)
     if term not in sorts:
         namespace = term.partition("/")[0]
@@ -832,7 +834,9 @@ def _compile_estimand(
             }
         ),
         measure_sort=_resolve_sort(contract, decl.measure_sort, sorts, where=f"{where}: measure_sort"),
-        identification_sort=_resolve_sort(contract, decl.identification_sort, sorts, where=f"{where}: identification_sort"),
+        identification_sort=_resolve_sort(
+            contract, decl.identification_sort, sorts, where=f"{where}: identification_sort"
+        ),
         conditioning_sort=_resolve_sort(contract, decl.conditioning_sort, sorts, where=f"{where}: conditioning_sort"),
         contract=contract.namespace,
     )

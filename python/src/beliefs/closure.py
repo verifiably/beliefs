@@ -49,8 +49,13 @@ from beliefs.sealed import sealed
 from beliefs.verification import Verification, active
 
 __all__ = [
-    "BELIEF_INPUT_DOMAIN", "RETRACTION_OVERTURNED", "RETRACTION_RESOLUTIONS", "RETRACTION_UPHELD",
-    "Closure", "RetractionEnumeration", "build_closure",
+    "BELIEF_INPUT_DOMAIN",
+    "RETRACTION_OVERTURNED",
+    "RETRACTION_RESOLUTIONS",
+    "RETRACTION_UPHELD",
+    "Closure",
+    "RetractionEnumeration",
+    "build_closure",
 ]
 
 BELIEF_INPUT_DOMAIN = "science.belief-input.v1"

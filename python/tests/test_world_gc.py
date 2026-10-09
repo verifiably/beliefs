@@ -266,6 +266,7 @@ class TestRefusalOrder:
         assert epochs_tree(world) == before
         assert len(recorder.epoch_plans) == submitted
 
+
 # --- Step 2: the whole epoch, and the sever report ----------------------------
 
 
@@ -348,9 +349,7 @@ class TestWholeEpochDeletion:
         assert report.snapshot is not None and report.snapshot.retained_elsewhere is False
         assert [entry.retained_elsewhere for entry in report.receipts] == [False] * 4
         assert report.severed == tuple(
-            sorted(
-                {report.snapshot.identity, *(entry.identity for entry in report.receipts)}
-            )
+            sorted({report.snapshot.identity, *(entry.identity for entry in report.receipts)})
         )
         assert len(report.severed) == 5
 
@@ -410,9 +409,7 @@ class TestWholeEpochDeletion:
 
         epoch.delete_epoch(world, first.packaging_identity)
 
-        assert epochs_tree(world) == {
-            name: content for name, content in before.items() if name not in removed
-        }
+        assert epochs_tree(world) == {name: content for name, content in before.items() if name not in removed}
         assert second.packaging_identity in str(sorted(epochs_tree(world)))
         assert third.packaging_identity in str(sorted(epochs_tree(world)))
 

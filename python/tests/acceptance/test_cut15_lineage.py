@@ -51,7 +51,7 @@ def two_producers(durable_root, durable_writer, tmp_path, *, second_input=INPUT_
     again = mint_dataset(second.run, existing_bases={minted.address: minted.basis})
     durable_writer.add(
         stored.dataset_node(
-                        title="produced",
+            title="produced",
             resources=[{"name": name, "digest": digest} for name, digest in first.run.result.outputs],
             basis=basis(route(run_ref(first.run.address()), INPUT_A, [INPUT_A])),
         )
@@ -66,18 +66,14 @@ def test_two_runs_produce_one_address_by_different_routes(durable_root, durable_
     assert again.stamped is False
 
 
-def test_the_composition_sees_both_producers_while_the_basis_names_the_first(
-    durable_root, durable_writer, tmp_path
-):
+def test_the_composition_sees_both_producers_while_the_basis_names_the_first(durable_root, durable_writer, tmp_path):
     first, second, minted, again, view = two_producers(durable_root, durable_writer, tmp_path)
     snapshot = lineage_snapshot(view, (minted.address,))
     assert {producer.stored_run for producer in snapshot.producers[minted.address]} == {
         run_ref(first.run.address()),
         run_ref(second.run.address()),
     }
-    assert {route.stored_run for route in snapshot.bases[minted.address].routes} == {
-        run_ref(first.run.address())
-    }
+    assert {route.stored_run for route in snapshot.bases[minted.address].routes} == {run_ref(first.run.address())}
     assert set(derived_from(view, minted.address).reached) == {INPUT_A, INPUT_B}
     assert again.basis.run == first.run.address()
 
@@ -92,9 +88,7 @@ def test_independence_walks_the_basis_and_not_the_composition(durable_root, dura
 
 
 def test_the_replay_case_is_not_divergence_and_still_certifies(durable_root, durable_writer, tmp_path):
-    _first, _second, minted, _again, view = two_producers(
-        durable_root, durable_writer, tmp_path, second_input=INPUT_A
-    )
+    _first, _second, minted, _again, view = two_producers(durable_root, durable_writer, tmp_path, second_input=INPUT_A)
     snapshot = lineage_snapshot(view, (minted.address,))
     assert len(snapshot.producers[minted.address]) == 2
     assert divergence_state(snapshot, minted.address) == "undiverged"

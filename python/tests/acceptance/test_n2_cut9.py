@@ -105,9 +105,7 @@ def findings(tmp_path_factory) -> tuple:
     """The 30 arms, audited against the present tree in both directions."""
     root_path = tmp_path_factory.mktemp("n2-cut9")
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        return tuple(
-            pool.map(lambda pair: audit(pair[1], root_path / f"arm{pair[0]}"), enumerate(CUT9_ARMS))
-        )
+        return tuple(pool.map(lambda pair: audit(pair[1], root_path / f"arm{pair[0]}"), enumerate(CUT9_ARMS)))
 
 
 def _report(reason: str, findings: tuple, verdict: str) -> None:
@@ -167,19 +165,12 @@ class TestTheDeclarationTable:
     def test_the_frozen_cut_states_the_same_accounting(self):
         text = FROZEN_CUT.read_text(encoding="utf-8")
         flattened = re.sub(r"\s+", " ", text)
-        total = re.search(
-            r"\*\*(\d+) selected \+ (\d+) labeled = (\d+) declaration units\*\*", flattened
-        )
+        total = re.search(r"\*\*(\d+) selected \+ (\d+) labeled = (\d+) declaration units\*\*", flattened)
         assert total is not None
         assert tuple(map(int, total.groups())) == (19, 11, 30)
-        pairs = re.search(
-            r"Selected units by row: ((?:[A-Z]+\d+ \d+(?:, )?)+)", flattened
-        )
+        pairs = re.search(r"Selected units by row: ((?:[A-Z]+\d+ \d+(?:, )?)+)", flattened)
         assert pairs is not None
-        stated = {
-            row: int(count)
-            for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))
-        }
+        stated = {row: int(count) for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))}
         assert stated == ROW_UNITS
 
     def test_every_arm_has_one_source_mutation_and_exact_check_nodes(self):
@@ -239,9 +230,7 @@ class TestTheAtomsCitationsAreMetadataNotChecks:
             assert unit in declared, unit
             assert citations, unit
             for citation in citations:
-                assert re.fullmatch(
-                    r"tests/test_lifecycle_commands\.py::test_[A-Za-z0-9_]+", citation
-                ), citation
+                assert re.fullmatch(r"tests/test_lifecycle_commands\.py::test_[A-Za-z0-9_]+", citation), citation
                 assert citation not in checks, citation
 
 

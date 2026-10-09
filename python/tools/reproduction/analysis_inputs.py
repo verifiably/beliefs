@@ -66,7 +66,9 @@ def row_for_symbol(rows: Iterable[dict], symbol: str, *, key: str, symbol_column
     return hits[0]
 
 
-def analysis_inputs(target: dict, declaration: dict, dataset_front: dict, header: list[str], crosswalk: Iterable[dict]) -> dict:
+def analysis_inputs(
+    target: dict, declaration: dict, dataset_front: dict, header: list[str], crosswalk: Iterable[dict]
+) -> dict:
     protein, concept = measured_and_group(target)
     symbol = protein.partition(":")[2]
     gene = ((dataset_front.get("identity_context") or {}).get("molecular_ids") or {}).get("gene")
@@ -91,7 +93,11 @@ def analysis_inputs(target: dict, declaration: dict, dataset_front: dict, header
 
 
 def _open(path: Path):
-    return gzip.open(path, "rt", encoding="utf-8", newline="") if path.name.endswith(".gz") else path.open(encoding="utf-8", newline="")
+    return (
+        gzip.open(path, "rt", encoding="utf-8", newline="")
+        if path.name.endswith(".gz")
+        else path.open(encoding="utf-8", newline="")
+    )
 
 
 def matrix_header(path: Path) -> list[str]:
@@ -127,7 +133,9 @@ def main() -> int:
             crosswalk = list(csv.DictReader(handle, delimiter="\t"))
         inputs = analysis_inputs(target, declaration, record, matrix_header(held), crosswalk)
         if (hits := row_hits(held, inputs["value_row"])) != 1:
-            raise InputsRefused(f"row {inputs['value_row']} ({inputs['value_row_symbol']}) appears {hits} times in {held.name}")
+            raise InputsRefused(
+                f"row {inputs['value_row']} ({inputs['value_row_symbol']}) appears {hits} times in {held.name}"
+            )
     except (InputsRefused, KeyError) as refused:
         print(f"REFUSED: {type(refused).__name__}: {refused}")
         return 2

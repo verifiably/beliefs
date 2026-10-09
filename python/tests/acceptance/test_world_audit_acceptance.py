@@ -191,9 +191,7 @@ def test_an_unresolvable_receipt_imports_with_a_finding_and_a_later_audit_evalua
 def test_a_moved_corpus_and_one_of_two_moving_are_unresolvable_durably(chain):
     world, roots, published, a, b = chain
     unchanged = registry.corpus_state_identity(roots[a])
-    open_corpus(roots[b], authority=FULL, profile=BASE).add(
-        stored.dataset_node(title="late", resources=pinned())
-    )
+    open_corpus(roots[b], authority=FULL, profile=BASE).add(stored.dataset_node(title="late", resources=pinned()))
     for kind in KINDS:
         outcome = read.validate_receipt(world, published, kind)
         assert outcome.outcome == "unresolvable" and b in outcome.detail

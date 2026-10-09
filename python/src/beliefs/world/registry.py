@@ -183,9 +183,7 @@ _WORLD_STATES_LOCK = threading.Lock()
 
 def _world_state_for(world_root: Path) -> _WorldState:
     with _WORLD_STATES_LOCK:
-        return _WORLD_STATES.setdefault(
-            str(Path(world_root).resolve()), _WorldState(threading.Lock(), RegistryView())
-        )
+        return _WORLD_STATES.setdefault(str(Path(world_root).resolve()), _WorldState(threading.Lock(), RegistryView()))
 
 
 def _forget_worlds_under(directory: Path) -> None:

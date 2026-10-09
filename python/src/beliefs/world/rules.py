@@ -364,10 +364,7 @@ def _member_bytes(bundle: RuleBundle, binding: RuleBinding) -> tuple[tuple[str, 
     directory = f"rules/{binding.rule_identity}"
     return (
         (f"{directory}/rule.yaml", rule_document_bytes(bundle.symbol)),
-        *(
-            (f"{directory}/fixtures/{name}", content)
-            for name, content in _ordered(bundle.fixtures)
-        ),
+        *((f"{directory}/fixtures/{name}", content) for name, content in _ordered(bundle.fixtures)),
         (f"{directory}/implementations/{binding.implementation_identity}", bundle.implementation),
     )
 
@@ -418,9 +415,7 @@ def _locked_resolve_rule_binding(world_root: Path, binding: RuleBinding) -> _Hel
     return _HeldRule(binding, stored.symbol, stored.source, invoke)
 
 
-def _locked_resolve_rule_bindings(
-    world_root: Path, bindings: Mapping[str, RuleBinding]
-) -> Mapping[str, _HeldRule]:
+def _locked_resolve_rule_bindings(world_root: Path, bindings: Mapping[str, RuleBinding]) -> Mapping[str, _HeldRule]:
     """Every named exact pair, resolved under one already-held world lock.
 
     A build resolves its four bindings at preflight and the same four again
@@ -604,8 +599,7 @@ def _delete_plan(stored: _StoredRule, held: Sequence[str]) -> WritePlan:
     plan = [DeleteOp(f"{prefix}/implementations/{implementation}", member_content_digest(stored.source))]
     if tuple(held) == (implementation,):
         plan.extend(
-            DeleteOp(f"{prefix}/fixtures/{name}", member_content_digest(content))
-            for name, content in stored.fixtures
+            DeleteOp(f"{prefix}/fixtures/{name}", member_content_digest(content)) for name, content in stored.fixtures
         )
         plan.append(DeleteOp(f"{prefix}/rule.yaml", member_content_digest(stored.document)))
     return plan

@@ -238,7 +238,7 @@ def _path_tree_excluded(parts: tuple[str, ...]) -> bool:
 
 
 def _import_names(line: str) -> list[str]:
-    body = line[len("import"):].split(";", 1)[0]
+    body = line[len("import") :].split(";", 1)[0]
     return [part.strip().split(" as ")[0].strip().split(".")[0] for part in body.split(",") if part.strip()]
 
 
@@ -297,7 +297,9 @@ class _Closure:
             return sandbox
         if located.is_symlink():
             target = os.readlink(located)
-            target_host = self._located(Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target)))
+            target_host = self._located(
+                Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target))
+            )
             root = self.root_of(located)
             target_root = self.root_of(target_host)
             if target_root is None:
@@ -327,7 +329,9 @@ class _Closure:
             seen.add(located)
             self.add(located)
             target = os.readlink(located)
-            located = self._located(Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target)))
+            located = self._located(
+                Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target))
+            )
         return self.add(located)
 
     def check_links(self) -> None:
@@ -336,10 +340,16 @@ class _Closure:
         for sandbox, (kind, content) in sorted(self.rows.items()):
             if kind != "symlink":
                 continue
-            resolved = content if content.startswith("/") else posixpath.normpath(posixpath.join(posixpath.dirname(sandbox), content))
+            resolved = (
+                content
+                if content.startswith("/")
+                else posixpath.normpath(posixpath.join(posixpath.dirname(sandbox), content))
+            )
             if resolved in self.rows or any(row.startswith(resolved + "/") for row in self.rows):
                 continue
-            raise ClosureUnsupported(f"symlink {sandbox} -> {content!r} resolves to {resolved}, which is not a closure row")
+            raise ClosureUnsupported(
+                f"symlink {sandbox} -> {content!r} resolves to {resolved}, which is not a closure row"
+            )
 
     def add_tree(self, root: Path, *, excluded: Callable[[tuple[str, ...]], bool]) -> None:
         root_depth = len(root.parts)
@@ -354,7 +364,9 @@ class _Closure:
             name = dist.metadata["Name"]
             record = dist.read_text("RECORD")
             if not record:
-                raise MalformedClosure(f"distribution {name!r} has no readable RECORD — its inventory cannot be enumerated")
+                raise MalformedClosure(
+                    f"distribution {name!r} has no readable RECORD — its inventory cannot be enumerated"
+                )
             for row in csv.reader(record.splitlines()):
                 if not row or not row[0]:
                     raise MalformedClosure(f"distribution {name!r} has a malformed RECORD entry")
@@ -368,7 +380,11 @@ class _Closure:
 
     def add_pth(self, purelib: Path) -> None:
         for pth in sorted(purelib.glob("*.pth")):
-            lines = [line for line in pth.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")]
+            lines = [
+                line
+                for line in pth.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.startswith("#")
+            ]
             imports = [line for line in lines if line.startswith(("import ", "import\t"))]
             paths = [line for line in lines if line not in imports]
             if imports and paths:
@@ -388,7 +404,10 @@ class _Closure:
             self.add(pth)
             for line in imports:
                 for module in _import_names(line):
-                    if f"{SANDBOX_SITE}/{module}.py" in self.rows or f"{SANDBOX_SITE}/{module}/__init__.py" in self.rows:
+                    if (
+                        f"{SANDBOX_SITE}/{module}.py" in self.rows
+                        or f"{SANDBOX_SITE}/{module}/__init__.py" in self.rows
+                    ):
                         continue
                     candidate = purelib / f"{module}.py"
                     if candidate.is_file():
@@ -447,7 +466,11 @@ class _Closure:
         foreign-encoding or foreign-machine file stays an ordinary row: it
         cannot execute in the sandbox regardless, its program interpreter
         being outside the closure."""
-        reference = self.native_arch if self.native_arch is not None else _elf_architecture(Path(os.path.realpath(sys.executable)))
+        reference = (
+            self.native_arch
+            if self.native_arch is not None
+            else _elf_architecture(Path(os.path.realpath(sys.executable)))
+        )
         return [
             (path, self.plan[path])
             for path, (kind, _) in sorted(self.rows.items())
@@ -683,12 +706,17 @@ def _walk_closure() -> CapturedEnvironment:
     walker.plan[loader] = Path(loader)
     walker.check_links()
     version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
-    walker.rendered[f"{SANDBOX_VENV}/pyvenv.cfg"] = ("file", f"home = {SANDBOX_PYTHON}/bin\ninclude-system-site-packages = false\n")
+    walker.rendered[f"{SANDBOX_VENV}/pyvenv.cfg"] = (
+        "file",
+        f"home = {SANDBOX_PYTHON}/bin\ninclude-system-site-packages = false\n",
+    )
     if f"{SANDBOX_VENV}/bin/python" not in walker.rows:
         walker.rendered[f"{SANDBOX_VENV}/bin/python"] = ("symlink", interpreter)
     walker.rendered[f"{SANDBOX_VENV}/lib/{version_dir}/site-packages"] = ("symlink", SANDBOX_SITE)
     return CapturedEnvironment(
-        manifest=EnvironmentManifest(artifacts=tuple(sorted((path, kind, content) for path, (kind, content) in walker.rows.items()))),
+        manifest=EnvironmentManifest(
+            artifacts=tuple(sorted((path, kind, content) for path, (kind, content) in walker.rows.items()))
+        ),
         plan=walker.plan,
         rendered=tuple(sorted((path, kind, content) for path, (kind, content) in walker.rendered.items())),
         loader=loader,

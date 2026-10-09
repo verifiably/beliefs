@@ -51,9 +51,7 @@ def test_supersede_mints_a_successor_and_one_owned_edge(writer):
 
     new = writer.supersede(prop("in-all-humans", claim_op="causes"), of=old.id)
 
-    assert new.relations == [
-        stored.Relation(source=new.id, predicate=stored.SUPERSEDES, target=old.id)
-    ]
+    assert new.relations == [stored.Relation(source=new.id, predicate=stored.SUPERSEDES, target=old.id)]
     assert all(isinstance(op, CreateOp) for op in Recorder.plans[-1])
     assert writer.read_view.get(old.id).model_dump(mode="json") == predecessor
 
@@ -92,11 +90,7 @@ def test_supersede_refuses_a_fresh_pair_before_a_caller_authored_edge(writer):
     old = writer.add(prop("old"))
     minted = writer.add(prop("new", claim_op="causes"))
     candidate = minted.model_copy(
-        update={
-            "relations": [
-                stored.Relation(source=minted.id, predicate=stored.SUPERSEDES, target=old.id)
-            ]
-        }
+        update={"relations": [stored.Relation(source=minted.id, predicate=stored.SUPERSEDES, target=old.id)]}
     )
 
     with pytest.raises(RecordAlreadyMinted):
@@ -107,11 +101,7 @@ def test_supersede_refuses_a_caller_authored_edge_before_equal_identity(writer):
     old = writer.add(prop("p"))
     candidate = prop("p-copy")
     candidate = candidate.model_copy(
-        update={
-            "relations": [
-                stored.Relation(source=candidate.id, predicate=stored.SUPERSEDES, target=old.id)
-            ]
-        }
+        update={"relations": [stored.Relation(source=candidate.id, predicate=stored.SUPERSEDES, target=old.id)]}
     )
 
     with pytest.raises(ValidationRefused):
@@ -130,9 +120,7 @@ def test_supersede_refuses_an_unvalidated_relation_shape(writer):
 
 def test_supersede_refuses_an_unencodable_covered_facet_value(writer):
     old = writer.add(prop("old"))
-    candidate = prop("new", claim_op="causes").model_copy(
-        update={"facets": {stored.PROPOSITION_FACET: {"op": 0.1}}}
-    )
+    candidate = prop("new", claim_op="causes").model_copy(update={"facets": {stored.PROPOSITION_FACET: {"op": 0.1}}})
 
     with pytest.raises(ValidationRefused):
         writer.supersede(candidate, of=old.id)

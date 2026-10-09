@@ -104,9 +104,7 @@ class TestS1TheRelationFixtureWalkedOutOfTheStore:
             facets={MEMBERSHIP: {"members": members}},
         )
         for seed, member in zip(("member-a", "member-b"), members, strict=True):
-            container.relations.append(
-                stored.Relation(source=container.id, predicate=stored.MEMBER_OF, target=member)
-            )
+            container.relations.append(stored.Relation(source=container.id, predicate=stored.MEMBER_OF, target=member))
             durable_writer.add(stored.dataset_node(title=member, resources=seed_pinned(seed)))
         # `membership` is a nodes structural facet, not a facet admitted by the
         # beliefs base profile; install this substrate fixture through the raw seam.
@@ -218,15 +216,11 @@ class TestR23DerivedFromIsAView:
         composed = durable_writer.add(stored.dataset_node(title="composed", resources=seed_pinned("composed")))
         stamped = durable_writer.add(stored.dataset_node(title="stamped", resources=seed_pinned("stamped")))
         out_ref = dataset_ref("out")
-        durable_writer.add(
-            stored.run_node(
-                "r23", title="r23", spec=SPEC, transforms=[composed.id], produces=[out_ref]
-            )
-        )
+        durable_writer.add(stored.run_node("r23", title="r23", spec=SPEC, transforms=[composed.id], produces=[out_ref]))
         # The route records what the producing run transformed, so the only
         # disagreement is the one this arm is about: the ancestor.
         disagreeing = stored.dataset_node(
-                        title="out",
+            title="out",
             resources=seed_pinned("out"),
             basis=basis(route("run:r23", stamped.id, [composed.id])),
         )

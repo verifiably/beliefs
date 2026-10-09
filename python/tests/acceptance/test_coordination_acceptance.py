@@ -35,7 +35,11 @@ from beliefs.world import derive, epoch, load_manifest
 def writers(case: tuple[tuple[Path, Path], ProfileSpec]):
     roots, profile = case
     resolver = CoordinationResolver(dict.fromkeys(roots, profile))
-    return roots, resolver, tuple(open_corpus(root, authority=FULL, coordination_resolver=resolver, profile=profile) for root in roots)
+    return (
+        roots,
+        resolver,
+        tuple(open_corpus(root, authority=FULL, coordination_resolver=resolver, profile=profile) for root in roots),
+    )
 
 
 def test_w11a_view_queries_reject_coordination_addresses():
@@ -59,19 +63,13 @@ def test_w11b_coordination_fields_reject_world_addresses(durable_coordination_ro
         )
 
 
-def test_w12_renaming_a_project_preserves_every_subordinate_address(
-    durable_coordination_roots, monkeypatch
-):
+def test_w12_renaming_a_project_preserves_every_subordinate_address(durable_coordination_roots, monkeypatch):
     _roots, resolver, (writer, _other) = writers(durable_coordination_roots)
     values = iter(("a" * 32, "b" * 32, "c" * 32, "d" * 32, "e" * 32))
     monkeypatch.setattr("beliefs.corpus.secrets", SimpleNamespace(token_hex=lambda _: next(values)))
-    project = writer.mint_coordination(
-        "project", content=content_for("project", name="a" * 32)
-    )
+    project = writer.mint_coordination("project", content=content_for("project", name="a" * 32))
     project_address = coordination_revision(project).address
-    task = writer.mint_coordination(
-        "task", project=project_address, content=content_for("task")
-    )
+    task = writer.mint_coordination("task", project=project_address, content=content_for("task"))
     renamed = writer.revise_coordination(
         "project",
         project_address,
@@ -143,9 +141,7 @@ def test_w17c_import_refuses_and_names_the_coordination_member(durable_coordinat
     member = source.mint_coordination("project", content=content_for("project"))
     source.profile.validate_document(member)
     with pytest.raises(ImportRefused, match="coordination records are replicated") as caught:
-        writer.import_bundle(
-            [member], observer="o", instrument="i", opened_at=AT, closed_at=AT
-        )
+        writer.import_bundle([member], observer="o", instrument="i", opened_at=AT, closed_at=AT)
     assert caught.value.member == member.id
 
 
@@ -156,9 +152,7 @@ def test_w17d_coordination_door_refuses_world_kinds(durable_coordination_roots):
             writer.mint_coordination(kind, content=content_for("project"))
 
 
-def test_w17e_reusing_an_existing_revision_pair_refuses_before_a_plan(
-    durable_coordination_roots, monkeypatch
-):
+def test_w17e_reusing_an_existing_revision_pair_refuses_before_a_plan(durable_coordination_roots, monkeypatch):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     values = iter(("a" * 32, "b" * 32, "a" * 32, "b" * 32))
     monkeypatch.setattr("beliefs.corpus.secrets", SimpleNamespace(token_hex=lambda _: next(values)))
@@ -192,9 +186,7 @@ def test_w17g_continuity_refuses_a_standing_predecessor_of_another_address_or_ki
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     project = writer.mint_coordination("project", content=content_for("project"))
     other = writer.mint_coordination("project", content=content_for("project", name="other"))
-    task = writer.mint_coordination(
-        "task", project=coordination_revision(project).address, content=content_for("task")
-    )
+    task = writer.mint_coordination("task", project=coordination_revision(project).address, content=content_for("task"))
     for predecessor in (other.uid, task.uid):
         with pytest.raises(PredecessorMismatch):
             writer.revise_coordination(
@@ -207,7 +199,9 @@ def test_w17g_continuity_refuses_a_standing_predecessor_of_another_address_or_ki
 
 def divergent(case):
     (left, right), profile = case
-    left_writer = open_corpus(left, authority=FULL, coordination_resolver=CoordinationResolver({left: profile}), profile=profile)
+    left_writer = open_corpus(
+        left, authority=FULL, coordination_resolver=CoordinationResolver({left: profile}), profile=profile
+    )
     genesis = left_writer.mint_coordination("project", content=content_for("project"))
     Corpus(right).add(genesis.model_copy(deep=True))
     address = coordination_revision(genesis).address
@@ -217,7 +211,9 @@ def divergent(case):
         predecessors=(genesis.uid,),
         content=content_for("project", name="left"),
     )
-    right_writer = open_corpus(right, authority=FULL, coordination_resolver=CoordinationResolver({right: profile}), profile=profile)
+    right_writer = open_corpus(
+        right, authority=FULL, coordination_resolver=CoordinationResolver({right: profile}), profile=profile
+    )
     right_tip = right_writer.revise_coordination(
         "project",
         address,
@@ -258,12 +254,8 @@ def test_w17j_a_raw_cycle_has_no_tip_and_an_audit_finding(durable_coordination_r
     root, profile = durable_coordination_roots[0][0], durable_coordination_roots[1]
     first = raw_coordination_node("project", "a" * 32, "b" * 32)
     second = raw_coordination_node("project", "a" * 32, "c" * 32)
-    first.relations = [
-        Relation(source=first.id, predicate=stored.SUPERSEDES, target=second.id)
-    ]
-    second.relations = [
-        Relation(source=second.id, predicate=stored.SUPERSEDES, target=first.id)
-    ]
+    first.relations = [Relation(source=first.id, predicate=stored.SUPERSEDES, target=second.id)]
+    second.relations = [Relation(source=second.id, predicate=stored.SUPERSEDES, target=first.id)]
     raw_add(root, first, second)
     assert CoordinationResolver({root: profile}).resolve(CoordinationAddress("a" * 32)) is None
     assert any(
@@ -288,9 +280,7 @@ def test_w17k_a_malformed_facet_is_reported_and_excluded(durable_coordination_ro
 def test_w17l_a_subordinate_under_a_missing_project_refuses(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     with pytest.raises(ProjectNotResolvable) as caught:
-        writer.mint_coordination(
-            "task", project=CoordinationAddress("a" * 32), content=content_for("task")
-        )
+        writer.mint_coordination("task", project=CoordinationAddress("a" * 32), content=content_for("task"))
     assert caught.value.tips == ()
 
 
@@ -365,12 +355,8 @@ def test_w18i_coordination_moves_epoch_identity_not_world_maps_or_belief_input(
         before.documents["certification-receipt.yaml"]["inventory"]
         == after.documents["certification-receipt.yaml"]["inventory"]
     )
-    before_snapshot = derive.producer_snapshot(
-        yaml.safe_load(before.members["producer-snapshot.yaml"])
-    ).identity()
-    after_snapshot = derive.producer_snapshot(
-        yaml.safe_load(after.members["producer-snapshot.yaml"])
-    ).identity()
+    before_snapshot = derive.producer_snapshot(yaml.safe_load(before.members["producer-snapshot.yaml"])).identity()
+    after_snapshot = derive.producer_snapshot(yaml.safe_load(after.members["producer-snapshot.yaml"])).identity()
     assert before_snapshot == after_snapshot
     ordinary = belief_scenario()
     pin = ordinary["context"].pins["c1"]
@@ -379,8 +365,7 @@ def test_w18i_coordination_moves_epoch_identity_not_world_maps_or_belief_input(
             pin.science_contract,
             {
                 **pin.domains,
-                "coordination": "coordination:"
-                + profile.activated_contracts["coordination"],
+                "coordination": "coordination:" + profile.activated_contracts["coordination"],
             },
         )
     }

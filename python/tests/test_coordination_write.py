@@ -40,7 +40,9 @@ A, B, C, D = (character * 32 for character in "abcd")
 def writer_with_resolver(root, profile, *, authority=FULL):
     mounted_root(root, profile)
     resolver = CoordinationResolver({root: profile})
-    return CorpusWriter(root, DefaultExecutor, authority=authority, coordination_resolver=resolver, profile=profile), resolver
+    return CorpusWriter(
+        root, DefaultExecutor, authority=authority, coordination_resolver=resolver, profile=profile
+    ), resolver
 
 
 def writer_with_document(root, base_contract, document):
@@ -99,13 +101,13 @@ def test_a_raw_local_cycle_has_no_tip_and_has_an_audit_finding(tmp_path, base_co
     assert CoordinationResolver({root: profile}).resolve(CoordinationAddress(A)) is None
     assert any(
         finding.code == "coordination-supersession-cycle"
-        for finding in corpus_check(CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile).read_view, profile)
+        for finding in corpus_check(
+            CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile).read_view, profile
+        )
     )
 
 
-def test_resolver_requires_the_mounted_base_and_activated_contracts(
-    tmp_path, base_contract, base_contract_path
-):
+def test_resolver_requires_the_mounted_base_and_activated_contracts(tmp_path, base_contract, base_contract_path):
     profile = coordination_profile(base_contract)
     root = mounted_root(tmp_path, profile)
 
@@ -115,7 +117,9 @@ def test_resolver_requires_the_mounted_base_and_activated_contracts(
 
     changed_base = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
     changed_base["version"] += 1
-    wrong_base = compile_profile(parse_base_contract(changed_base, source="<changed-base>"), [], coordination=coordination_contract())
+    wrong_base = compile_profile(
+        parse_base_contract(changed_base, source="<changed-base>"), [], coordination=coordination_contract()
+    )
 
     for supplied in (wrong_coordination, wrong_base):
         with pytest.raises(ContractMismatch):
@@ -128,9 +132,7 @@ def test_project_and_subordinate_genesis_have_adapter_owned_shape(tmp_path, base
     values = iter((A, B, C, D))
     monkeypatch.setattr("beliefs.corpus.secrets.token_hex", lambda _: next(values))
     project = writer.mint_coordination("project", content=content_for("project", name="Old name"))
-    question = writer.mint_coordination(
-        "question", project=CoordinationAddress(A), content=content_for("question")
-    )
+    question = writer.mint_coordination("question", project=CoordinationAddress(A), content=content_for("question"))
     assert (project.id, project.uid, project.relations) == (f"project:{A}.{B}", B, [])
     assert (question.id, question.uid, question.relations) == (f"question:{A}.{C}.{D}", D, [])
     assert set(project.facets) == {stored.COORDINATION_FACET}
@@ -142,7 +144,9 @@ def test_a_coordination_call_without_a_destination_mount_plans_nothing(tmp_path,
     profile = coordination_profile(base_contract)
     mounted_root(tmp_path, profile, Recorder)
     Recorder.plans = []
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, coordination_resolver=CoordinationResolver({}), profile=profile)
+    writer = CorpusWriter(
+        tmp_path, Recorder, authority=FULL, coordination_resolver=CoordinationResolver({}), profile=profile
+    )
     with pytest.raises(CoordinationUnavailable):
         writer.mint_coordination("project", content=content_for("project"))
     assert Recorder.plans == []
@@ -153,7 +157,8 @@ def test_a_mounted_profile_without_a_coordination_contract_authorizes_nothing(tm
     mounted_root(tmp_path, profile)
     writer = CorpusWriter(
         tmp_path,
-        DefaultExecutor, authority=FULL,
+        DefaultExecutor,
+        authority=FULL,
         coordination_resolver=CoordinationResolver({tmp_path: profile}),
         profile=profile,
     )
@@ -257,7 +262,8 @@ def test_an_earlier_contract_version_authorizes_nothing_added_later(tmp_path, ba
     mounted_root(tmp_path, old_profile)
     writer = CorpusWriter(
         tmp_path,
-        DefaultExecutor, authority=FULL,
+        DefaultExecutor,
+        authority=FULL,
         coordination_resolver=CoordinationResolver({tmp_path: old_profile}),
         profile=old_profile,
     )
@@ -270,9 +276,7 @@ def test_an_earlier_contract_version_authorizes_nothing_added_later(tmp_path, ba
         )
 
 
-def test_revision_is_a_new_whole_record_and_the_old_revision_remains_pinnable(
-    tmp_path, base_contract
-):
+def test_revision_is_a_new_whole_record_and_the_old_revision_remains_pinnable(tmp_path, base_contract):
     profile = coordination_profile(base_contract)
     writer, resolver = writer_with_resolver(tmp_path, profile)
     project = writer.mint_coordination("project", content=content_for("project", name="Old"))
@@ -324,9 +328,7 @@ def test_a_superseded_predecessor_refuses_at_commit(tmp_path, base_contract):
         )
 
 
-def test_revision_requires_an_unpinned_address_and_distinct_nonempty_predecessors(
-    tmp_path, base_contract
-):
+def test_revision_requires_an_unpinned_address_and_distinct_nonempty_predecessors(tmp_path, base_contract):
     profile = coordination_profile(base_contract)
     writer, _ = writer_with_resolver(tmp_path, profile)
     first = writer.mint_coordination("project", content=content_for("project"))
@@ -346,15 +348,14 @@ def test_revision_requires_an_unpinned_address_and_distinct_nonempty_predecessor
             )
 
 
-def test_two_roots_diverge_and_one_all_tip_revision_repairs_without_deleting_siblings(
-    tmp_path, base_contract
-):
+def test_two_roots_diverge_and_one_all_tip_revision_repairs_without_deleting_siblings(tmp_path, base_contract):
     profile = coordination_profile(base_contract)
     left = mounted_root(tmp_path / "left", profile)
     right = mounted_root(tmp_path / "right", profile)
     left_writer = CorpusWriter(
         left,
-        DefaultExecutor, authority=FULL,
+        DefaultExecutor,
+        authority=FULL,
         coordination_resolver=CoordinationResolver({left: profile}),
         profile=profile,
     )
@@ -369,7 +370,8 @@ def test_two_roots_diverge_and_one_all_tip_revision_repairs_without_deleting_sib
     )
     right_writer = CorpusWriter(
         right,
-        DefaultExecutor, authority=FULL,
+        DefaultExecutor,
+        authority=FULL,
         coordination_resolver=CoordinationResolver({right: profile}),
         profile=profile,
     )
@@ -380,9 +382,7 @@ def test_two_roots_diverge_and_one_all_tip_revision_repairs_without_deleting_sib
         content=content_for("project", name="right"),
     )
     resolver = CoordinationResolver({left: profile, right: profile})
-    assert resolver.resolve(address) == CoordinationRefused(
-        "divergent-view", (left_tip.uid, right_tip.uid)
-    )
+    assert resolver.resolve(address) == CoordinationRefused("divergent-view", (left_tip.uid, right_tip.uid))
     repair_writer = CorpusWriter(left, DefaultExecutor, authority=FULL, coordination_resolver=resolver, profile=profile)
     repair = repair_writer.revise_coordination(
         "project",
@@ -396,13 +396,13 @@ def test_two_roots_diverge_and_one_all_tip_revision_repairs_without_deleting_sib
     assert [relation.target for relation in repair.relations] == sorted((left_tip.id, right_tip.id))
     assert not any(
         finding.code == "supersession-target-missing"
-        for finding in corpus_check(CorpusWriter(left, DefaultExecutor, authority=FULL, profile=profile).read_view, profile)
+        for finding in corpus_check(
+            CorpusWriter(left, DefaultExecutor, authority=FULL, profile=profile).read_view, profile
+        )
     )
 
 
-def test_superseding_only_one_standing_sibling_is_lawful_and_remains_divergent(
-    tmp_path, base_contract
-):
+def test_superseding_only_one_standing_sibling_is_lawful_and_remains_divergent(tmp_path, base_contract):
     profile = coordination_profile(base_contract)
     left = mounted_root(tmp_path / "left", profile)
     right = mounted_root(tmp_path / "right", profile)
@@ -423,9 +423,7 @@ def test_superseding_only_one_standing_sibling_is_lawful_and_remains_divergent(
     )
 
 
-def test_a_subordinate_revision_refuses_while_its_project_is_divergent(
-    tmp_path, base_contract
-):
+def test_a_subordinate_revision_refuses_while_its_project_is_divergent(tmp_path, base_contract):
     profile = coordination_profile(base_contract)
     left = mounted_root(tmp_path / "left", profile)
     right = mounted_root(tmp_path / "right", profile)
@@ -436,9 +434,7 @@ def test_a_subordinate_revision_refuses_while_its_project_is_divergent(
     resolver = CoordinationResolver({left: profile, right: profile})
     writer = CorpusWriter(left, DefaultExecutor, authority=FULL, coordination_resolver=resolver, profile=profile)
     with pytest.raises(ProjectNotResolvable) as caught:
-        writer.mint_coordination(
-            "task", project=CoordinationAddress(A), content=content_for("task")
-        )
+        writer.mint_coordination("task", project=CoordinationAddress(A), content=content_for("task"))
     assert caught.value.tips == (C, D)
 
 
@@ -475,9 +471,7 @@ def test_the_coordination_door_refuses_every_world_kind(tmp_path, base_contract,
         writer.mint_coordination(kind, content=content_for("project"))
 
 
-def test_w17e_an_already_minted_revision_pair_refuses_before_plan(
-    tmp_path, base_contract, monkeypatch
-):
+def test_w17e_an_already_minted_revision_pair_refuses_before_plan(tmp_path, base_contract, monkeypatch):
     profile = coordination_profile(base_contract)
     mounted_root(tmp_path, profile, Recorder)
     resolver = CoordinationResolver({tmp_path: profile})

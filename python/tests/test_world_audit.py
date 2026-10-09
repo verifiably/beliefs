@@ -143,9 +143,7 @@ def test_a_recomputation_reaching_a_damaged_corpus_is_unreachable(tmp_path):
 
     assert ("derivation-unreachable", BETA) in codes(audit.corpora[ALPHA])
     assert any(
-        finding.code == "derivation-unreachable"
-        and finding.ref == published.node.id
-        and finding.detail == BETA
+        finding.code == "derivation-unreachable" and finding.ref == published.node.id and finding.detail == BETA
         for finding in audit.corpora[ALPHA]
     )
 
@@ -279,9 +277,7 @@ def test_the_audited_epochs_receipts_are_reported_on_the_world(tmp_path):
 
     audit = audit_world(world, forged, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
-    assert ("receipt-malformed", "producer: ") in [
-        (f.code, f.detail[: len("producer: ")]) for f in audit.world
-    ]
+    assert ("receipt-malformed", "producer: ") in [(f.code, f.detail[: len("producer: ")]) for f in audit.world]
     assert audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY).world == ()
 
 
@@ -304,7 +300,6 @@ def test_a_malformed_attestation_is_a_per_record_finding_and_the_audit_completes
 
     assert any(f.ref == broken.id and f.code == "semantic-hash-stale" for f in audit.corpora[ALPHA])
     assert not any(f.ref == broken.id for f in audit.world)
-
 
 
 def test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues(tmp_path):
@@ -341,23 +336,48 @@ def test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_a
 
     spec_node = stored.stamp_semantic_identity(
         stored._node(
-            "analysis-spec", "old", "old",
-            {stored.ANALYSIS_SPEC_FACET: {"identity": "old", "projection": v1.encode({
-                "target": "proposition:p", "estimand": "prose", "method": "m", "assumptions": "a",
-                "falsification": "f", "input_roles": [], "applicability": "prose",
-                "interpretation_rule": "r", "equivalence_rule": "e", "parameters": {},
-                "nondeterminism": {"variant": "deterministic"}, "rule_bindings": [],
-            }).decode()}},
+            "analysis-spec",
+            "old",
+            "old",
+            {
+                stored.ANALYSIS_SPEC_FACET: {
+                    "identity": "old",
+                    "projection": v1.encode(
+                        {
+                            "target": "proposition:p",
+                            "estimand": "prose",
+                            "method": "m",
+                            "assumptions": "a",
+                            "falsification": "f",
+                            "input_roles": [],
+                            "applicability": "prose",
+                            "interpretation_rule": "r",
+                            "equivalence_rule": "e",
+                            "parameters": {},
+                            "nondeterminism": {"variant": "deterministic"},
+                            "rule_bindings": [],
+                        }
+                    ).decode(),
+                }
+            },
             (),
         )
     )
     assessment_node = stored.stamp_semantic_identity(
         stored._node(
-            "assessment", "old", "old",
-            {stored.ASSESSMENT_FACET: {
-                "spec": "old", "run": "run:x", "proposition": "proposition:p",
-                "outcome": "supported", "interpretation_rule": "r", "estimand": "prose",
-            }},
+            "assessment",
+            "old",
+            "old",
+            {
+                stored.ASSESSMENT_FACET: {
+                    "spec": "old",
+                    "run": "run:x",
+                    "proposition": "proposition:p",
+                    "outcome": "supported",
+                    "interpretation_rule": "r",
+                    "estimand": "prose",
+                }
+            },
             (),
         )
     )
@@ -442,9 +462,7 @@ def test_a_composite_member_in_an_absent_corpus_is_unchecked_not_a_raise(tmp_pat
     from beliefs.world.view import open_world_view
 
     composite, members = _composite_across(tmp_path)
-    world, roots, published = _world_of(
-        tmp_path, {ALPHA: (composite, members["ab"]), BETA: (members["bc"],)}
-    )
+    world, roots, published = _world_of(tmp_path, {ALPHA: (composite, members["ab"]), BETA: (members["bc"],)})
     make_absent(roots, BETA)
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
@@ -476,7 +494,8 @@ def test_a_dangling_composite_is_reported_through_the_world_audits_recompute(tmp
     `audit_world`'s `_recompute` dispatch rather than through `audit_corpus`."""
     composite, members = _composite_across(tmp_path)
     world, _roots, published = _world_of(
-        tmp_path, {ALPHA: (composite, members["ab"]), BETA: (stored.dataset_node(title="beta", resources=pinned("beta")),)}
+        tmp_path,
+        {ALPHA: (composite, members["ab"]), BETA: (stored.dataset_node(title="beta", resources=pinned("beta")),)},
     )
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
@@ -509,9 +528,7 @@ def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recomput
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=TESTING_PROFILE)
 
-    assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [
-        ("spec-target-contradicted", spec.id)
-    ]
+    assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [("spec-target-contradicted", spec.id)]
 
 
 def test_a_raw_written_snapshot_retraction_naming_nothing_retained_is_reported_from_captured_records(tmp_path):
@@ -524,7 +541,7 @@ def test_a_raw_written_snapshot_retraction_naming_nothing_retained_is_reported_f
     from beliefs.corpus import ReadView, corpus_check
 
     world, _b, roots, published = published_world(tmp_path, (ALPHA,))
-    node = snapshot_retraction(S)                       # S is retained nowhere
+    node = snapshot_retraction(S)  # S is retained nowhere
     raw_write(roots[ALPHA], node)
     report = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
     assert ("retraction-target-invalid", node.id) in [(f.code, f.ref) for f in report.world]
@@ -540,13 +557,15 @@ def test_an_unreadable_retained_inventory_is_a_finding_and_the_audit_returns(tmp
 
     world, _b, roots, published = published_world(tmp_path, (ALPHA,))
     (world.config.world_root / "epochs" / "stray").write_text("not a carrier", encoding="utf-8")
-    clean = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)      # no snapshot arm: no new finding
+    clean = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)  # no snapshot arm: no new finding
     assert "retained-epochs-unreadable" not in [f.code for f in clean.world]
     node = snapshot_retraction(S)
     raw_write(roots[ALPHA], node)
     report = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
     codes_ = [f.code for f in report.world]
-    assert "retained-epochs-unreadable" in codes_ and ("retraction-target-invalid", node.id) not in [(f.code, f.ref) for f in report.world]
+    assert "retained-epochs-unreadable" in codes_ and ("retraction-target-invalid", node.id) not in [
+        (f.code, f.ref) for f in report.world
+    ]
 
 
 def test_a_raw_written_snapshot_retraction_outside_the_targets_coverage_is_reported(tmp_path):
@@ -566,7 +585,7 @@ def test_a_raw_written_snapshot_retraction_outside_the_targets_coverage_is_repor
     assert narrow_id is not None
 
     node = snapshot_retraction(narrow_id)
-    raw_write(roots[BETA], node)                          # narrow's coverage is ALPHA alone
+    raw_write(roots[BETA], node)  # narrow's coverage is ALPHA alone
 
     report = audit_world(world, wide, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
@@ -592,7 +611,7 @@ def test_a_raw_written_snapshot_retraction_naming_an_unretained_successor_is_rep
     successor = "c" * 64
 
     node = snapshot_retraction(wide_id, successor=successor)
-    raw_write(roots[ALPHA], node)                          # the target's own coverage includes ALPHA
+    raw_write(roots[ALPHA], node)  # the target's own coverage includes ALPHA
 
     report = audit_world(world, wide, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
@@ -634,9 +653,17 @@ def _cross_world(tmp_path, *, dataset=None, beta_extra=(), alpha_extra=(), cover
     d = dataset or _observed("d")
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
     run = stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id])
-    a = stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
-                               outcome="supported", interpretation_rule="rule:threshold",
-                               estimand=typed_estimand(), applicability=typed_applicability())
+    a = stored.assessment_node(
+        "a",
+        title="a",
+        spec="analysis-spec:s1",
+        run=run.id,
+        proposition=p.id,
+        outcome="supported",
+        interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
+    )
     roots = corpora(tmp_path, {ALPHA: (run, a, *alpha_extra), BETA: (d, REPORT, p, *beta_extra)})
     world = world_over(tmp_path, roots)
     return world, roots, publish(world, cover, hold_shipped(world)), d
@@ -656,7 +683,11 @@ def test_j19_b_an_absent_holder_is_unresolved(tmp_path):
     make_absent(roots, BETA)
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
     (finding,) = [f for f in audit.corpora[ALPHA] if f.code.startswith("eligibility")]
-    assert (finding.severity, finding.code) == ("warning", "eligibility-unresolved") and BETA in finding.detail and "absent" in finding.detail
+    assert (
+        (finding.severity, finding.code) == ("warning", "eligibility-unresolved")
+        and BETA in finding.detail
+        and "absent" in finding.detail
+    )
 
 
 def test_j19_c_the_judgment_reads_the_capture_not_the_live_carrier(tmp_path, monkeypatch):
@@ -681,7 +712,7 @@ def test_j19_d_a_damaged_holder_is_unresolved_and_the_audit_continues(tmp_path):
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
     (finding,) = [f for f in audit.corpora[ALPHA] if f.code.startswith("eligibility")]
     assert finding.code == "eligibility-unresolved" and "damaged:construction" in finding.detail
-    assert ("corpus-damaged" in {f.code for f in audit.corpora[BETA]})
+    assert "corpus-damaged" in {f.code for f in audit.corpora[BETA]}
 
 
 def test_j19_d_the_audit_still_judges_w_and_ms_readable_remainder(tmp_path):
@@ -724,9 +755,17 @@ def test_j19_e_an_absent_producer_keeps_the_dataset_produced(tmp_path):
     d = _observed("own")
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
     run = stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id])
-    a = stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
-                               outcome="supported", interpretation_rule="rule:threshold",
-                               estimand=typed_estimand(), applicability=typed_applicability())
+    a = stored.assessment_node(
+        "a",
+        title="a",
+        spec="analysis-spec:s1",
+        run=run.id,
+        proposition=p.id,
+        outcome="supported",
+        interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
+    )
     producer = stored.run_node("rm", title="rm", spec="analysis-spec:s1", produces=[d.id])
     roots = corpora(tmp_path, {ALPHA: (d, REPORT, p, run, a), BETA: (producer,)})
     world = world_over(tmp_path, roots)
@@ -745,7 +784,9 @@ def test_j19_a_malformed_held_record_is_unresolved(tmp_path):
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
     (finding,) = [f for f in audit.corpora[ALPHA] if f.code.startswith("eligibility")]
     assert finding.code == "eligibility-unresolved" and "malformed:semantic-hash-stale" in finding.detail
-    assert ("semantic-hash-stale", d.id) in [(f.code, f.ref) for f in audit.corpora[BETA]]  # BETA's own finding beside it
+    assert ("semantic-hash-stale", d.id) in [
+        (f.code, f.ref) for f in audit.corpora[BETA]
+    ]  # BETA's own finding beside it
 
 
 def test_j19_a_malformed_record_cited_by_an_alias_is_unresolved(tmp_path):
@@ -754,9 +795,17 @@ def test_j19_a_malformed_record_cited_by_an_alias_is_unresolved(tmp_path):
     aliased = stored.stamp_semantic_identity(aliased)
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
     run = stored.run_node("r", title="r", spec="analysis-spec:s1", observes=["dataset:old-alias"])
-    a = stored.assessment_node("a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id,
-                               outcome="supported", interpretation_rule="rule:threshold",
-                               estimand=typed_estimand(), applicability=typed_applicability())
+    a = stored.assessment_node(
+        "a",
+        title="a",
+        spec="analysis-spec:s1",
+        run=run.id,
+        proposition=p.id,
+        outcome="supported",
+        interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
+    )
     roots = corpora(tmp_path, {ALPHA: (run, a), BETA: (aliased, REPORT, p)})
     world = world_over(tmp_path, roots)
     published = publish(world, (ALPHA, BETA), hold_shipped(world))
@@ -774,9 +823,21 @@ def test_j19_a_known_producer_decides_an_unmapped_dataset_while_a_corpus_is_abse
     raw_add(roots[ALPHA], late, stored.run_node("rl", title="rl", spec="analysis-spec:s1", produces=[late.id]))
     make_absent(roots, BETA)
     run = stored.run_node("r2", title="r2", spec="analysis-spec:s1", observes=[late.id])
-    raw_add(roots[ALPHA], run, stored.assessment_node(
-        "a2", title="a2", spec="analysis-spec:s1", run=run.id, proposition="proposition:p", outcome="supported",
-        interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()))
+    raw_add(
+        roots[ALPHA],
+        run,
+        stored.assessment_node(
+            "a2",
+            title="a2",
+            spec="analysis-spec:s1",
+            run=run.id,
+            proposition="proposition:p",
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+        ),
+    )
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
     assert ("error", "eligibility-unmet", "assessment:a2") in _eligibility(audit)
 
@@ -785,20 +846,48 @@ def test_j19_an_unknown_producer_is_unresolved_per_dataset_and_the_scan_continue
     """Plan review 1, P2: an incomplete dataset does not hide a later valid one."""
     good = _observed("good", retrieval=REPORT.id)
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
-    roots = corpora(tmp_path, {ALPHA: (good, REPORT, p), BETA: (stored.proposition_node("q", title="q", claim={"operator": "affects"}),)})
+    roots = corpora(
+        tmp_path,
+        {ALPHA: (good, REPORT, p), BETA: (stored.proposition_node("q", title="q", claim={"operator": "affects"}),)},
+    )
     world = world_over(tmp_path, roots)
     published = publish(world, (ALPHA, BETA), hold_shipped(world))
     drift = _observed("drift", retrieval=REPORT.id)
     run = stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[drift.id, good.id])
-    raw_add(roots[ALPHA], drift, run, stored.assessment_node(
-        "a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id, outcome="supported",
-        interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()))
+    raw_add(
+        roots[ALPHA],
+        drift,
+        run,
+        stored.assessment_node(
+            "a",
+            title="a",
+            spec="analysis-spec:s1",
+            run=run.id,
+            proposition=p.id,
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+        ),
+    )
     make_absent(roots, BETA)
     assert _eligibility(audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)) == []
     lonely = stored.run_node("r3", title="r3", spec="analysis-spec:s1", observes=[drift.id])
-    raw_add(roots[ALPHA], lonely, stored.assessment_node(
-        "a3", title="a3", spec="analysis-spec:s1", run=lonely.id, proposition=p.id, outcome="supported",
-        interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()))
+    raw_add(
+        roots[ALPHA],
+        lonely,
+        stored.assessment_node(
+            "a3",
+            title="a3",
+            spec="analysis-spec:s1",
+            run=lonely.id,
+            proposition=p.id,
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+        ),
+    )
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
     (finding,) = [f for f in audit.corpora[ALPHA] if f.ref == "assessment:a3" and f.code.startswith("eligibility")]
     assert finding.code == "eligibility-unresolved" and "producers-incomplete" in finding.detail
@@ -808,17 +897,34 @@ def test_j19_an_unmapped_dataset_that_fails_on_its_own_is_unmet_while_a_corpus_i
     """Plan review 2, P2: incompleteness applies only to a dataset that would otherwise pass."""
     good_report = REPORT
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
-    roots = corpora(tmp_path, {ALPHA: (good_report, p), BETA: (stored.proposition_node("q", title="q", claim={"operator": "affects"}),)})
+    roots = corpora(
+        tmp_path,
+        {ALPHA: (good_report, p), BETA: (stored.proposition_node("q", title="q", claim={"operator": "affects"}),)},
+    )
     world = world_over(tmp_path, roots)
     published = publish(world, (ALPHA, BETA), hold_shipped(world))
     plain = _observed("plain-drift", facet=False)
     run = stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[plain.id])
-    raw_add(roots[ALPHA], plain, run, stored.assessment_node(
-        "a", title="a", spec="analysis-spec:s1", run=run.id, proposition=p.id, outcome="supported",
-        interpretation_rule="rule:threshold", estimand=typed_estimand(), applicability=typed_applicability()))
+    raw_add(
+        roots[ALPHA],
+        plain,
+        run,
+        stored.assessment_node(
+            "a",
+            title="a",
+            spec="analysis-spec:s1",
+            run=run.id,
+            proposition=p.id,
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
+        ),
+    )
     make_absent(roots, BETA)
     assert ("error", "eligibility-unmet", "assessment:a") in _eligibility(
-        audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY))
+        audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+    )
 
 
 def test_j19_an_unobserving_dataset_elsewhere_is_unmet(tmp_path):

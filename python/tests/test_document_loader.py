@@ -15,7 +15,9 @@ def test_a_top_level_duplicate_key_is_refused(tmp_path):
 
 def test_a_nested_duplicate_key_is_refused(tmp_path):
     path = tmp_path / "c.yaml"
-    path.write_text("facets:\n  x:\n    fields:\n      locator: {type: string, required: true}\n      locator: {type: string, required: true}\n")
+    path.write_text(
+        "facets:\n  x:\n    fields:\n      locator: {type: string, required: true}\n      locator: {type: string, required: true}\n"
+    )
     with pytest.raises(MalformedContract, match="duplicate key 'locator'"):
         load_document(path, source="<test>")
 

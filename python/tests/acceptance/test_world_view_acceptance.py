@@ -131,9 +131,13 @@ def test_the_world_closure_is_complete_and_the_local_one_truncates_durably(chain
     local = ReadView.opened_at(roots[a])
     truncated = closure(dataset_ref("d2"), LineageAdjacency(local))
     assert not truncated.reached and truncated.unresolved
-    assert "lineage-incomplete" in certify(lineage_snapshot(local, [dataset_ref("d2")]), (dataset_ref("d2"),), ()).findings
+    assert (
+        "lineage-incomplete" in certify(lineage_snapshot(local, [dataset_ref("d2")]), (dataset_ref("d2"),), ()).findings
+    )
     assert certify(lineage_snapshot(view, [dataset_ref("d2")]), (dataset_ref("d2"),), ()).state == "independent"
-    assert {e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"} == {"run:r2"}
+    assert {e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"} == {
+        "run:r2"
+    }
 
 
 def test_the_relation_and_lineage_chains_cross_the_edge_durably(chain):
@@ -194,7 +198,10 @@ def split_producer(durable_world):
     d0 = stored.dataset_node(title="d0", resources=seed_pinned("split-d0"))
     d3_ref = dataset_ref("d3")
     r3 = stored.run_node("r3", title="r3", spec="s", transforms=[d0.id], produces=[d3_ref])
-    d3 = stored.dataset_node(title="d3", resources=seed_pinned("d3"), basis={"tag": "single", "routes": [{"run": r3.id, "ancestor": d0.id, "transforms": [d0.id]}]}
+    d3 = stored.dataset_node(
+        title="d3",
+        resources=seed_pinned("d3"),
+        basis={"tag": "single", "routes": [{"run": r3.id, "ancestor": d0.id, "transforms": [d0.id]}]},
     )
     return durable_world((d0, d3), (r3,))
 
@@ -325,7 +332,9 @@ def evaluation_world(durable_world, beta_refs=(DATASET_D_A,), *, extra=(), role=
     nodes.extend(extra)
     if role is not None:
         run = next(n for n in nodes if n.id == "run:run-b")
-        run.relations.append(Relation(source=run.id, predicate=role, target=next(n.id for n in extra if n.title == "d-t")))
+        run.relations.append(
+            Relation(source=run.id, predicate=role, target=next(n.id for n in extra if n.title == "d-t"))
+        )
         stored.stamp_semantic_identity(run)
     return (
         *durable_world(

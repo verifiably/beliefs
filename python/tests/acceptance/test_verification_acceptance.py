@@ -27,7 +27,9 @@ from beliefs.root import open_corpus
 from beliefs.verification import INVALIDATED, active, lifecycle_state
 from beliefs.verify import _mint_verification, publication_node
 
-KINDS = RequiredCapabilities.for_kinds({"verification"}, {})  # [R8] runs, datasets and the assessment go through the library writer
+KINDS = RequiredCapabilities.for_kinds(
+    {"verification"}, {}
+)  # [R8] runs, datasets and the assessment go through the library writer
 TESTS = Path(__file__).resolve().parents[1]
 
 
@@ -72,14 +74,20 @@ def test_v2_and_v3_admission_over_the_corpus_and_the_belief_moves_with_the_recor
     root, session, writer = _session_over(work_directory)
     try:
         published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
-        _, before = admission_over(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original)
+        _, before = admission_over(
+            open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original
+        )
         assert isinstance(before, NoBelief)
         node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
-        verdict, belief = admission_over(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original)
+        verdict, belief = admission_over(
+            open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original
+        )
         assert isinstance(verdict, Admitted) and isinstance(belief, Belief)
         digest_here = belief.belief_input_digest
         writer.delete(node.id)
-        _, after = admission_over(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original)
+        _, after = admission_over(
+            open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original
+        )
         assert isinstance(after, NoBelief)
         writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
     finally:
@@ -100,8 +108,14 @@ def test_v3_a_superseding_failed_verification_invalidates_through_the_session(wo
         derived = published.derived
         writer.add(publication_node(derived, assessment_ref=published.assessment.id))
         failed = _mint_verification(
-            original=derived.original, replayed=derived.replayed, assessment=derived.assessment, rule=derived.rule,
-            report=derived.report, scope_rule=derived.scope_rule, scope=derived.scope, verdict="failed",
+            original=derived.original,
+            replayed=derived.replayed,
+            assessment=derived.assessment,
+            rule=derived.rule,
+            report=derived.report,
+            scope_rule=derived.scope_rule,
+            scope=derived.scope,
+            verdict="failed",
             supersedes=derived.identity(),
         )
         successor = writer.add(publication_node(failed, assessment_ref=published.assessment.id))

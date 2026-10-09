@@ -73,7 +73,10 @@ def _fold_chain(tmp_path, rows, *, corrupt: bytes | None = None, report_token: s
         }[kind]
         report = boundary._mint_publish_report(
             value if report_token is None else replace(value, event_token=report_token),
-            observer=value.actor, instrument="beliefs.publish", opened_at=value.at, closed_at=value.at,
+            observer=value.actor,
+            instrument="beliefs.publish",
+            opened_at=value.at,
+            closed_at=value.at,
             entry=PublicationBindingEntry("coord:" + "a" * 32 + "/" + "d" * 32, outcome),
         )
         node = stored.act_report_node(report)
@@ -81,7 +84,10 @@ def _fold_chain(tmp_path, rows, *, corrupt: bytes | None = None, report_token: s
         data = corrupt if corrupt is not None else node_to_markdown(node).encode("utf-8")
         (root / path).write_bytes(data)
         created = RegisteredEntryView(
-            digest=digest(f"fold-reg-{k}"), txid=f"fold-{k}", initial=((path, ABSENT),), final=((path, file_state(data)),),
+            digest=digest(f"fold-reg-{k}"),
+            txid=f"fold-{k}",
+            initial=((path, ABSENT),),
+            final=((path, file_state(data)),),
             fulfills=opened.digest,
         )
         entries += [opened, created, settlement(digest(f"fold-set-{k}"), created.digest, f"fold-{k}", committed=True)]
@@ -90,7 +96,14 @@ def _fold_chain(tmp_path, rows, *, corrupt: bytes | None = None, report_token: s
 
 def _fold(root, view):
     return marker_tips_at(
-        {root: "9" * 32}, VIEW, HERE, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}), binding_tips=()
+        {root: "9" * 32},
+        VIEW,
+        HERE,
+        written=root,
+        position=view.tip,
+        anchors=(),
+        seam=seam_over({root: view}),
+        binding_tips=(),
     )
 
 
@@ -101,19 +114,42 @@ def _fold(root, view):
     "reports, expected",
     [
         # (outcome of each publish in chain order, the intent's marker_tips) -> the orphans the fold returns
-        ([("evidence-refused", True, ())], {("1" * 32, "a" * 32)}),                            # remote reveal, refused: an orphan
-        ([("predecessor-not-standing", True, ())], {("1" * 32, "a" * 32)}),                    # any refusal reason
-        ([("evidence-refused", False, ())], set()),                                           # local reveal: never an orphan
-        ([("evidence-refused", True, ()), ("bound", False, (("1" * 32, "a" * 32),))], set()),  # retired by a bound publish carrying it
-        ([("evidence-refused", True, ()), ("evidence-refused", True, (("1" * 32, "a" * 32),))], {("1" * 32, "b" * 32)}),  # retired by a shared refusal; the second is itself an orphan
-        ([("evidence-refused", True, ()), ("evidence-refused", False, (("1" * 32, "a" * 32),))], {("1" * 32, "a" * 32)}),  # a local refusal retires nothing
+        ([("evidence-refused", True, ())], {("1" * 32, "a" * 32)}),  # remote reveal, refused: an orphan
+        ([("predecessor-not-standing", True, ())], {("1" * 32, "a" * 32)}),  # any refusal reason
+        ([("evidence-refused", False, ())], set()),  # local reveal: never an orphan
+        (
+            [("evidence-refused", True, ()), ("bound", False, (("1" * 32, "a" * 32),))],
+            set(),
+        ),  # retired by a bound publish carrying it
+        (
+            [("evidence-refused", True, ()), ("evidence-refused", True, (("1" * 32, "a" * 32),))],
+            {("1" * 32, "b" * 32)},
+        ),  # retired by a shared refusal; the second is itself an orphan
+        (
+            [("evidence-refused", True, ()), ("evidence-refused", False, (("1" * 32, "a" * 32),))],
+            {("1" * 32, "a" * 32)},
+        ),  # a local refusal retires nothing
     ],
-    ids=["remote-refusal", "any-reason", "local-refusal", "retired-by-bound", "retired-by-shared-refusal", "not-retired-by-local"],
+    ids=[
+        "remote-refusal",
+        "any-reason",
+        "local-refusal",
+        "retired-by-bound",
+        "retired-by-shared-refusal",
+        "not-retired-by-local",
+    ],
 )
 def test_the_orphan_fold(tmp_path, reports, expected):
     root, view = _fold_chain(tmp_path, reports)
     folded = marker_tips_at(
-        {root: "9" * 32}, VIEW, HERE, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}), binding_tips=()
+        {root: "9" * 32},
+        VIEW,
+        HERE,
+        written=root,
+        position=view.tip,
+        anchors=(),
+        seam=seam_over({root: view}),
+        binding_tips=(),
     )
     assert type(folded) is tuple and set(folded) == expected
 
@@ -147,25 +183,46 @@ def test_an_intent_with_two_committed_fulfilments_refuses(tmp_path):
     assert type(opened) is IntentEntryView
     value = decode_publish_intent(opened.payload)
     report = boundary._mint_publish_report(
-        value, observer=value.actor, instrument="beliefs.publish", opened_at=value.at, closed_at="2026-09-22T00:00:01Z",
-        entry=PublicationBindingEntry("coord:" + "a" * 32 + "/" + "d" * 32, BindingEvidenceRefused("1" * 32, "a" * 32, False, "mounts-changed")),
+        value,
+        observer=value.actor,
+        instrument="beliefs.publish",
+        opened_at=value.at,
+        closed_at="2026-09-22T00:00:01Z",
+        entry=PublicationBindingEntry(
+            "coord:" + "a" * 32 + "/" + "d" * 32, BindingEvidenceRefused("1" * 32, "a" * 32, False, "mounts-changed")
+        ),
     )
     node = stored.act_report_node(report)
     second, data = path_for_node_id(node.id), node_to_markdown(node).encode("utf-8")
     (root / second).write_bytes(data)
     again = RegisteredEntryView(
-        digest=digest("fold-reg-again"), txid="fold-again", initial=((second, ABSENT),), final=((second, file_state(data)),),
+        digest=digest("fold-reg-again"),
+        txid="fold-again",
+        initial=((second, ABSENT),),
+        final=((second, file_state(data)),),
         fulfills=opened.digest,
     )
-    doubled = chain(view.genesis, *view.entries[1:], again, settlement(digest("fold-set-again"), again.digest, "fold-again", committed=True))
+    doubled = chain(
+        view.genesis,
+        *view.entries[1:],
+        again,
+        settlement(digest("fold-set-again"), again.digest, "fold-again", committed=True),
+    )
     folded = _fold(root, doubled)
     assert type(folded) is PositionRefused and folded.reason == "revision-malformed"
+
 
 def test_an_intent_for_another_destination_does_not_fold(tmp_path):
     root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())])
     folded = marker_tips_at(
-        {root: "9" * 32}, VIEW, Destination.local("/srv/published/other"), written=root, position=view.tip, anchors=(),
-        seam=seam_over({root: view}), binding_tips=(),
+        {root: "9" * 32},
+        VIEW,
+        Destination.local("/srv/published/other"),
+        written=root,
+        position=view.tip,
+        anchors=(),
+        seam=seam_over({root: view}),
+        binding_tips=(),
     )
     assert folded == ()
 
@@ -175,7 +232,14 @@ def test_the_fold_reads_only_up_to_the_position(tmp_path):
     root, view = _fold_chain(tmp_path, [("evidence-refused", True, ())])
     intent_entry = view.entries[1]
     folded = marker_tips_at(
-        {root: "9" * 32}, VIEW, HERE, written=root, position=intent_entry.digest, anchors=(), seam=seam_over({root: view}), binding_tips=()
+        {root: "9" * 32},
+        VIEW,
+        HERE,
+        written=root,
+        position=intent_entry.digest,
+        anchors=(),
+        seam=seam_over({root: view}),
+        binding_tips=(),
     )
     assert folded == ()
 
@@ -233,10 +297,14 @@ def mount(root: Path, corpus_id: str, profile=V2) -> Path:
 class Doors:
     """The written root `w` and any other mounts, each other mount's chain a lone genesis."""
 
-    def __init__(self, tmp_path: Path, *, others: dict[str, str] | None = None, profile=V2, project: bool = True) -> None:
+    def __init__(
+        self, tmp_path: Path, *, others: dict[str, str] | None = None, profile=V2, project: bool = True
+    ) -> None:
         self.root = mount((tmp_path / "w").resolve(), WRITTEN_ID, profile)
         self.others = {
-            mount((tmp_path / name).resolve(), corpus_id, profile): chain(genesis_entry(corpus_id.encode(), label=f"other-{name}"))
+            mount((tmp_path / name).resolve(), corpus_id, profile): chain(
+                genesis_entry(corpus_id.encode(), label=f"other-{name}")
+            )
             for name, corpus_id in (others or {}).items()
         }
         self.resolver = CoordinationResolver({self.root: profile, **{other: profile for other in self.others}})
@@ -248,8 +316,12 @@ class Doors:
     def writer(self, authority=FULL) -> CorpusWriter:
         self.port.authority = authority  # a writer's own port binds its authority
         return CorpusWriter(
-            self.root, DefaultExecutor, authority=authority, operation_port=self.port,
-            coordination_resolver=self.resolver, profile=self.profile,
+            self.root,
+            DefaultExecutor,
+            authority=authority,
+            operation_port=self.port,
+            coordination_resolver=self.resolver,
+            profile=self.profile,
         )
 
     def seam(self, *, written=None, other=None):
@@ -266,8 +338,15 @@ class Doors:
 
     def bind(self, opened, authority=FULL, *, remotely_revealed=False, seam=None):
         return _bind_publication(
-            self.writer(authority), self.resolver, opened, corpus_id="1" * 32, marker="2" * 32, artifact="9" * 64,
-            remotely_revealed=remotely_revealed, clock=Advancing(), seam=seam or self.seam(),
+            self.writer(authority),
+            self.resolver,
+            opened,
+            corpus_id="1" * 32,
+            marker="2" * 32,
+            artifact="9" * 64,
+            remotely_revealed=remotely_revealed,
+            clock=Advancing(),
+            seam=seam or self.seam(),
         )
 
     def appended(self) -> list[bytes]:
@@ -287,7 +366,9 @@ def _raises_log_evidence(_path):
 
 def test_a_v1_pinned_writer_refuses_before_the_intent(tmp_path):
     doors = Doors(tmp_path, profile=coordination_profile(None))
-    with pytest.raises(ValidationRefused, match="publication-binding is not declared by the mounted coordination contract"):
+    with pytest.raises(
+        ValidationRefused, match="publication-binding is not declared by the mounted coordination contract"
+    ):
         doors.open()
     assert doors.port.calls == []
 
@@ -319,7 +400,9 @@ def test_an_authority_without_publish_refuses_before_the_intent(tmp_path):
 def test_a_position_refusal_from_the_judgment_refuses_before_the_intent(tmp_path):
     """An unregistered binding revision at the address: the step-0 judgment refuses."""
     doors = Doors(tmp_path)
-    stray = intent(view=CoordinationAddress(PROJECT, None, REVISION), destination=HERE, binding_tips=(), marker_tips=(), anchors=())
+    stray = intent(
+        view=CoordinationAddress(PROJECT, None, REVISION), destination=HERE, binding_tips=(), marker_tips=(), anchors=()
+    )
     place_file(doors.root, binding_record(stray, corpus_id="1" * 32, marker="2" * 32, artifact="9" * 64))
     with pytest.raises(PublicationRefused) as caught:
         doors.open()
@@ -340,7 +423,9 @@ _MALFORMED = MalformedView(DefectView("cycle", digest("x"), "a cycle"))
 
 
 @pytest.mark.parametrize("inspector", ["written", "other"])
-@pytest.mark.parametrize("answer, reason", [(AbsentView(), "chain-absent"), (_MALFORMED, "chain-malformed")], ids=["absent", "malformed"])
+@pytest.mark.parametrize(
+    "answer, reason", [(AbsentView(), "chain-absent"), (_MALFORMED, "chain-malformed")], ids=["absent", "malformed"]
+)
 def test_an_unreadable_chain_refuses_before_the_intent(tmp_path, inspector, answer, reason):
     doors = Doors(tmp_path, others={"a-other": "e" * 32})
     with pytest.raises(PublicationRefused) as caught:
@@ -444,16 +529,23 @@ def test_the_binding_door_commits_the_binding_and_its_report_in_one_fulfilment(t
     assert binding == binding_record(opened.intent, corpus_id="1" * 32, marker="2" * 32, artifact="9" * 64)
     report = outcome.report
     assert (report.operation, report.event_token, report.observer, report.instrument) == (
-        "publish", opened.intent.event_token, opened.intent.actor, PUBLISH_INSTRUMENT,
+        "publish",
+        opened.intent.event_token,
+        opened.intent.actor,
+        PUBLISH_INSTRUMENT,
     )
     assert report.entries == (
         PublicationBindingEntry(
-            str(binding_address(opened.intent.view, opened.intent.destination)), BindingBound(binding.uid, "1" * 32, "2" * 32)
+            str(binding_address(opened.intent.view, opened.intent.destination)),
+            BindingBound(binding.uid, "1" * 32, "2" * 32),
         ),
     )
     kind, (plan, fulfills) = doors.port.calls[-1]
     assert (kind, fulfills) == ("execute_fulfilling", opened.digest)
-    assert [op.path for op in plan] == [path_for_node_id(binding.id), path_for_node_id(stored.act_report_node(report).id)]
+    assert [op.path for op in plan] == [
+        path_for_node_id(binding.id),
+        path_for_node_id(stored.act_report_node(report).id),
+    ]
     assert (doors.root / path_for_node_id(binding.id)).read_bytes() == node_to_markdown(binding).encode("utf-8")
 
 
@@ -567,7 +659,10 @@ def _sequence_chain(tmp_path, sequences):
         data = node_to_markdown(node).encode("utf-8")
         (root / path).write_bytes(data)
         created = RegisteredEntryView(
-            digest=digest(f"seq-reg-{k}"), txid=f"seq-{k}", initial=((path, ABSENT),), final=((path, file_state(data)),),
+            digest=digest(f"seq-reg-{k}"),
+            txid=f"seq-{k}",
+            initial=((path, ABSENT),),
+            final=((path, file_state(data)),),
             fulfills=opened.digest,
         )
         entries += [opened, created, settlement(digest(f"seq-set-{k}"), created.digest, f"seq-{k}", committed=True)]
@@ -605,7 +700,7 @@ def _staging_corrupt(_marker):
 
 def test_a_full_success_report_folds_as_its_binding(tmp_path):
     root, view = _sequence_chain(tmp_path, [_full])
-    assert _fold(root, view) == ()          # bound, not remote: no orphan; no binding tips passed
+    assert _fold(root, view) == ()  # bound, not remote: no orphan; no binding tips passed
 
 
 def test_a_pre_binding_refusal_folds_to_nothing_and_does_not_refuse(tmp_path):
@@ -632,7 +727,13 @@ def test_a_view_revised_before_the_lock_refuses_and_appends_nothing(tmp_path):
     stale = PROJECT_VIEW.pinned("0" * 32)
     with pytest.raises(PublicationRefused) as caught:
         _open_publication(
-            doors.writer(), doors.resolver, view=PROJECT_VIEW, destination=HERE, clock=clock, seam=doors.seam(), expected_view=stale
+            doors.writer(),
+            doors.resolver,
+            view=PROJECT_VIEW,
+            destination=HERE,
+            clock=clock,
+            seam=doors.seam(),
+            expected_view=stale,
         )
     assert caught.value.reason == "view-revised"
     assert doors.port.calls == []
@@ -642,7 +743,13 @@ def test_a_view_pinned_to_the_resolved_revision_opens(tmp_path):
     doors = Doors(tmp_path)
     expected = PROJECT_VIEW.pinned(REVISION)
     opened = _open_publication(
-        doors.writer(), doors.resolver, view=PROJECT_VIEW, destination=HERE, clock=clock, seam=doors.seam(), expected_view=expected
+        doors.writer(),
+        doors.resolver,
+        view=PROJECT_VIEW,
+        destination=HERE,
+        clock=clock,
+        seam=doors.seam(),
+        expected_view=expected,
     )
     assert opened.intent.view == expected and len(doors.appended()) == 1
 
@@ -669,8 +776,16 @@ def test_the_binding_carries_its_lifecycle_before_the_binding_entry(tmp_path):
     opened = doors.open()
     lifecycle = _lifecycle(str(binding_address(opened.intent.view, HERE)))
     outcome = _bind_publication(
-        doors.writer(), doors.resolver, opened, corpus_id="1" * 32, marker="2" * 32, artifact="9" * 64,
-        remotely_revealed=False, clock=clock, seam=doors.seam(), lifecycle=lifecycle,
+        doors.writer(),
+        doors.resolver,
+        opened,
+        corpus_id="1" * 32,
+        marker="2" * 32,
+        artifact="9" * 64,
+        remotely_revealed=False,
+        clock=clock,
+        seam=doors.seam(),
+        lifecycle=lifecycle,
     )
     assert outcome.binding is not None
     assert outcome.report.entries[:3] == lifecycle and type(outcome.report.entries[3]) is PublicationBindingEntry
@@ -683,8 +798,16 @@ def test_a_refused_binding_carries_its_lifecycle_too(tmp_path):
     stale = _tampered(doors, opened, binding_tips=("3" * 32,))
     lifecycle = _lifecycle(str(binding_address(stale.intent.view, HERE)))
     outcome = _bind_publication(
-        doors.writer(), doors.resolver, stale, corpus_id="1" * 32, marker="2" * 32, artifact="9" * 64,
-        remotely_revealed=True, clock=clock, seam=doors.seam(), lifecycle=lifecycle,
+        doors.writer(),
+        doors.resolver,
+        stale,
+        corpus_id="1" * 32,
+        marker="2" * 32,
+        artifact="9" * 64,
+        remotely_revealed=True,
+        clock=clock,
+        seam=doors.seam(),
+        lifecycle=lifecycle,
     )
     assert outcome.binding is None
     assert outcome.report.entries[:3] == lifecycle
@@ -694,7 +817,11 @@ def test_a_refused_binding_carries_its_lifecycle_too(tmp_path):
 def _staging_corrupt_on(opened):
     from beliefs.report import PublicationStagingEntry, StagingCorrupt
 
-    return (PublicationStagingEntry(str(binding_address(opened.intent.view, HERE)), StagingCorrupt("1" * 32, "extra", ("run:x",))),)
+    return (
+        PublicationStagingEntry(
+            str(binding_address(opened.intent.view, HERE)), StagingCorrupt("1" * 32, "extra", ("run:x",))
+        ),
+    )
 
 
 def test_the_pre_binding_refusal_writes_its_report_alone_and_fulfils(tmp_path):
@@ -706,7 +833,10 @@ def test_the_pre_binding_refusal_writes_its_report_alone_and_fulfils(tmp_path):
     report = _refuse_publication(doors.writer(), opened, entries, clock=clock)
     assert report.entries == entries
     assert (report.operation, report.event_token, report.observer, report.instrument) == (
-        "publish", opened.intent.event_token, opened.intent.actor, PUBLISH_INSTRUMENT,
+        "publish",
+        opened.intent.event_token,
+        opened.intent.actor,
+        PUBLISH_INSTRUMENT,
     )
     fulfilled = [args for kind, args in doors.port.calls if kind == "execute_fulfilling"]
     ((plan, fulfills),) = fulfilled
@@ -724,10 +854,15 @@ def test_the_pre_binding_refusal_refuses_a_binding_entry_before_any_effect(tmp_p
     subject = str(binding_address(opened.intent.view, HERE))
     with pytest.raises(MalformedRecord):
         _refuse_publication(
-            doors.writer(), opened, (PublicationBindingEntry(subject, BindingBound("c" * 32, "1" * 32, "2" * 32)),), clock=clock
+            doors.writer(),
+            opened,
+            (PublicationBindingEntry(subject, BindingBound("c" * 32, "1" * 32, "2" * 32)),),
+            clock=clock,
         )
     with pytest.raises(PermitExceeded):
-        _refuse_publication(doors.writer(lacking(families=("publish",))), opened, _staging_corrupt_on(opened), clock=clock)
+        _refuse_publication(
+            doors.writer(lacking(families=("publish",))), opened, _staging_corrupt_on(opened), clock=clock
+        )
     assert doors.port.calls == calls and doors.files("act-report") == []
 
 
@@ -745,10 +880,14 @@ def test_the_attempt_reading_is_none_for_an_unknown_token_and_unfinished_before_
     doors = Doors(tmp_path)
     opened = doors.open()
     assert attempt_reading(doors.writer(), "0" * 32, doors.seam()) is None
-    assert attempt_reading(doors.writer(), opened.intent.event_token, doors.seam()) == AttemptReading(opened, "unfinished", None)
+    assert attempt_reading(doors.writer(), opened.intent.event_token, doors.seam()) == AttemptReading(
+        opened, "unfinished", None
+    )
 
 
-@pytest.mark.parametrize("build, expected", [(_staging_corrupt, "staging-corrupt"), (_full, "bound")], ids=["pre-binding", "bound"])
+@pytest.mark.parametrize(
+    "build, expected", [(_staging_corrupt, "staging-corrupt"), (_full, "bound")], ids=["pre-binding", "bound"]
+)
 def test_the_attempt_reading_is_closed_with_the_last_outcome(tmp_path, build, expected):
     from beliefs.publication_doors import attempt_reading
 
@@ -796,18 +935,27 @@ def _lifecycle_to_reveal():
 
 def _transported_bound(marker):
     s = _subject()
-    return (*_lifecycle_to_reveal(), PublicationTransportEntry(s, Transported("1" * 32, "e" * 64)),
-            PublicationBindingEntry(s, BindingBound("c" * 32, "1" * 32, marker)))
+    return (
+        *_lifecycle_to_reveal(),
+        PublicationTransportEntry(s, Transported("1" * 32, "e" * 64)),
+        PublicationBindingEntry(s, BindingBound("c" * 32, "1" * 32, marker)),
+    )
 
 
 def _incomplete(marker):
-    return (*_lifecycle_to_reveal(), PublicationTransportEntry(_subject(), TransportIncomplete("1" * 32, marker, "abandoned")))
+    return (
+        *_lifecycle_to_reveal(),
+        PublicationTransportEntry(_subject(), TransportIncomplete("1" * 32, marker, "abandoned")),
+    )
 
 
 def _remote_refused(marker):
     s = _subject()
-    return (*_lifecycle_to_reveal(), PublicationTransportEntry(s, Transported("1" * 32, "e" * 64)),
-            PublicationBindingEntry(s, BindingEvidenceRefused("1" * 32, marker, True, "mounts-changed")))
+    return (
+        *_lifecycle_to_reveal(),
+        PublicationTransportEntry(s, Transported("1" * 32, "e" * 64)),
+        PublicationBindingEntry(s, BindingEvidenceRefused("1" * 32, marker, True, "mounts-changed")),
+    )
 
 
 def _remote_chain(tmp_path, rows, *, destination=REMOTE, unfulfilled=()):
@@ -835,10 +983,17 @@ def _remote_chain(tmp_path, rows, *, destination=REMOTE, unfulfilled=()):
         data = node_to_markdown(node).encode("utf-8")
         (root / path).write_bytes(data)
         created = RegisteredEntryView(
-            digest=digest(f"remote-reg-{k}"), txid=f"remote-{k}", initial=((path, ABSENT),), final=((path, file_state(data)),),
+            digest=digest(f"remote-reg-{k}"),
+            txid=f"remote-{k}",
+            initial=((path, ABSENT),),
+            final=((path, file_state(data)),),
             fulfills=opened.digest,
         )
-        entries += [opened, created, settlement(digest(f"remote-set-{k}"), created.digest, f"remote-{k}", committed=True)]
+        entries += [
+            opened,
+            created,
+            settlement(digest(f"remote-set-{k}"), created.digest, f"remote-{k}", committed=True),
+        ]
     for n, (token, view, target) in enumerate(unfulfilled):
         bare = intent(event_token=token, binding_tips=(), marker_tips=(), destination=target, view=view)
         entries.append(IntentEntryView(digest=digest(f"remote-bare-{n}"), payload=encode_publish_intent(bare)))
@@ -879,25 +1034,43 @@ A, B = ("1" * 32, "a" * 32), ("1" * 32, "b" * 32)
         ([(_incomplete, ()), (_remote_refused, (A,))], {B}),
         ([(_incomplete, ()), (_transported_bound, (A,))], set()),
     ],
-    ids=["pre-binding", "incomplete", "incomplete-retires-nothing", "remote-refusal", "shared-refusal-retires", "bound-retires"],
+    ids=[
+        "pre-binding",
+        "incomplete",
+        "incomplete-retires-nothing",
+        "remote-refusal",
+        "shared-refusal-retires",
+        "bound-retires",
+    ],
 )
 def test_the_remote_orphan_fold(tmp_path, rows, expected):
     root, view = _remote_chain(tmp_path, rows)
     folded = marker_tips_at(
-        {root: "9" * 32}, VIEW, REMOTE, written=root, position=view.tip, anchors=(), seam=seam_over({root: view}), binding_tips=()
+        {root: "9" * 32},
+        VIEW,
+        REMOTE,
+        written=root,
+        position=view.tip,
+        anchors=(),
+        seam=seam_over({root: view}),
+        binding_tips=(),
     )
     assert type(folded) is tuple and set(folded) == expected
 
 
 def test_unfinished_attempts_list_only_unfulfilled_intents_for_the_pair(tmp_path):
-    root, view = _remote_chain(tmp_path, [(_incomplete, ())], unfulfilled=[("7" * 32, VIEW, REMOTE), ("6" * 32, VIEW, REMOTE)])
+    root, view = _remote_chain(
+        tmp_path, [(_incomplete, ())], unfulfilled=[("7" * 32, VIEW, REMOTE), ("6" * 32, VIEW, REMOTE)]
+    )
     assert unfinished_attempts(_reader_over(root), VIEW, REMOTE, seam_over({root: view})) == ("6" * 32, "7" * 32)
 
 
 def test_unfinished_attempts_are_per_view_and_destination(tmp_path):
     other_view = CoordinationAddress("a" * 32, "e" * 32, "c" * 32)
     root, view = _remote_chain(
-        tmp_path, [], unfulfilled=[("7" * 32, other_view, REMOTE), ("6" * 32, VIEW, Destination.remote("https://remote.test/other"))]
+        tmp_path,
+        [],
+        unfulfilled=[("7" * 32, other_view, REMOTE), ("6" * 32, VIEW, Destination.remote("https://remote.test/other"))],
     )
     assert unfinished_attempts(_reader_over(root), VIEW, REMOTE, seam_over({root: view})) == ()
 
@@ -906,7 +1079,9 @@ def test_unfinished_attempts_refuse_a_chain_that_is_not_well_formed(tmp_path):
     root = (tmp_path / "written").resolve()
     root.mkdir()
     with pytest.raises(MalformedRecord):
-        unfinished_attempts(_reader_over(root), VIEW, REMOTE, fake_seam(lambda _root: AbsentView(), lambda _root: AbsentView()))
+        unfinished_attempts(
+            _reader_over(root), VIEW, REMOTE, fake_seam(lambda _root: AbsentView(), lambda _root: AbsentView())
+        )
 
 
 def test_publication_refused_carries_its_blocking_tokens():

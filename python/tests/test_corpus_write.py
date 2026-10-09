@@ -200,7 +200,9 @@ class TestE2AuthorityBindsOnceAtConstruction:
 class TestE1CorpusWriteRequiresBeforeAnyEffect:
     def test_add_under_a_permit_lacking_the_family_refuses_and_writes_nothing(self, tmp_path):
         Recorder.plans = []
-        writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("proposition",), families=("run",)), profile=BASE)
+        writer = CorpusWriter(
+            tmp_path, Recorder, authority=narrowed(kinds=("proposition",), families=("run",)), profile=BASE
+        )
         with pytest.raises(PermitExceeded) as caught:
             writer.add(observed_dataset())
         assert caught.value.requirement == PermitFact("family", "corpus-write")
@@ -209,7 +211,9 @@ class TestE1CorpusWriteRequiresBeforeAnyEffect:
     def test_add_under_a_permit_lacking_the_kind_names_the_kind(self, tmp_path):
         Recorder.plans = []
         writer = CorpusWriter(
-            tmp_path, Recorder, authority=narrowed(kinds=("proposition",), families=("corpus-write",)),
+            tmp_path,
+            Recorder,
+            authority=narrowed(kinds=("proposition",), families=("corpus-write",)),
             profile=BASE,
         )
         with pytest.raises(PermitExceeded) as caught:
@@ -218,7 +222,9 @@ class TestE1CorpusWriteRequiresBeforeAnyEffect:
         assert Recorder.plans == []
 
     def test_add_under_the_exact_requirement_mints(self, tmp_path):
-        writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("dataset",), families=("corpus-write",)), profile=BASE)
+        writer = CorpusWriter(
+            tmp_path, Recorder, authority=narrowed(kinds=("dataset",), families=("corpus-write",)), profile=BASE
+        )
         assert writer.add(observed_dataset()).kind == "dataset"
 
     def test_adopt_manifest_is_a_lifecycle_act(self, tmp_path):
@@ -254,7 +260,9 @@ class TestE3TheActorIsBound:
         _, _, (operation,) = publication_plan(minted_closure())
         node = node_from_markdown(operation.content.decode("utf-8"))
         writer = CorpusWriter(
-            tmp_path, Recorder, authority=narrowed(kinds=("run",), families=("corpus-write",), actor="tester"),
+            tmp_path,
+            Recorder,
+            authority=narrowed(kinds=("run",), families=("corpus-write",), actor="tester"),
             profile=BASE,
         )
         assert writer.add(node).kind == "run"
@@ -320,16 +328,17 @@ def test_publish_operation_report_fulfills_once_stores_and_reconstructs(tmp_path
 
 
 def observed_dataset(seed="raw"):
-    return stored.dataset_node(title=seed, resources=pinned(seed), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
+    return stored.dataset_node(
+        title=seed,
+        resources=pinned(seed),
+        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
 
 
 def admissible(writer: CorpusWriter, *, observes=True):
     dataset = observed_dataset()
     writer.add(dataset)
-    run = stored.run_node(
-        "r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id] if observes else []
-    )
+    run = stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id] if observes else [])
     writer.add(run)
     writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
     return stored.assessment_node(
@@ -423,9 +432,12 @@ def test_the_locked_seams_carry_a_retraction(writer, second_writer):
 def test_the_locked_seams_still_refuse_an_act_report(writer):
     report = stored.act_report_node(mint_report())
 
-    with writer._operation, pytest.raises(
-        WriteRefused,
-        match="an act-report is minted by the boundary and stored by import",
+    with (
+        writer._operation,
+        pytest.raises(
+            WriteRefused,
+            match="an act-report is minted by the boundary and stored by import",
+        ),
     ):
         writer._add_locked(report)
 
@@ -433,11 +445,7 @@ def test_the_locked_seams_still_refuse_an_act_report(writer):
 def test_replace_locked_runs_the_eligibility_check(writer):
     node = writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     ineligible = node.model_copy(
-        update={
-            "relations": [
-                stored.Relation(source=node.id, predicate=stored.ASSESSES, target="proposition:p1")
-            ]
-        }
+        update={"relations": [stored.Relation(source=node.id, predicate=stored.ASSESSES, target="proposition:p1")]}
     )
 
     with writer._operation, pytest.raises(EligibilityUnmet):
@@ -681,9 +689,7 @@ class TestTheRefusalsWrapAndOrder:
         # A dataset with no content identity and an assesses edge it could not
         # support either: the earlier refusal is the one raised.
         node = stored.governed_node("dataset", "d1", "d1", {stored.DATASET_FACET: {"resources": []}}, ())
-        node.relations.append(
-            stored.Relation(source=node.id, predicate=stored.ASSESSES, target="proposition:p1")
-        )
+        node.relations.append(stored.Relation(source=node.id, predicate=stored.ASSESSES, target="proposition:p1"))
         with pytest.raises(BasisMissing):
             writer.add(node)
 
@@ -856,10 +862,7 @@ class TestTheOperationLock:
             except BaseException as caught:  # noqa: BLE001 - the outcome is the assertion
                 failures.append(caught)
 
-        threads = [
-            threading.Thread(target=add, args=(writer, node))
-            for writer, node in zip(writers, nodes)
-        ]
+        threads = [threading.Thread(target=add, args=(writer, node)) for writer, node in zip(writers, nodes)]
         for thread in threads:
             thread.start()
         for thread in threads:
@@ -986,7 +989,9 @@ class TestTheUnresolvedRoot:
         assert events == ["recover", "execute"]
         assert _root_state_for(tmp_path, factory).unresolved is False
 
-    def test_a_failed_index_update_after_a_successful_submission_leaves_the_root_unresolved(self, tmp_path, monkeypatch):
+    def test_a_failed_index_update_after_a_successful_submission_leaves_the_root_unresolved(
+        self, tmp_path, monkeypatch
+    ):
         from beliefs.corpus import _root_state_for
 
         writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE)
@@ -1056,7 +1061,12 @@ class TestTheUnresolvedRoot:
         # `_SettlingHold.__enter__` is the one place the bare OperationLock is entered from the
         # write API; every `with self._operation:` in the bodies goes through it.
         assert len(entries) == 1, entries
-        withs = [ast.unparse(item.context_expr) for node in ast.walk(tree) if isinstance(node, ast.With) for item in node.items]
+        withs = [
+            ast.unparse(item.context_expr)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.With)
+            for item in node.items
+        ]
         assert "self._state.lock" not in withs and "self._lock" not in withs
 
 
@@ -1241,7 +1251,13 @@ class TestEstimandTargetMatch:
 
         from beliefs.claim import Referent, build_claim
 
-        other = build_claim(TESTING_PROFILE, operator="testing/affects", args=(Referent("testing/entity", "EX:gene-z"), Referent("testing/outcome", "EX:pheno-y")), layer="causal", polarity="positive")
+        other = build_claim(
+            TESTING_PROFILE,
+            operator="testing/affects",
+            args=(Referent("testing/entity", "EX:gene-z"), Referent("testing/outcome", "EX:pheno-y")),
+            layer="causal",
+            polarity="positive",
+        )
         target = self._proposition(typed_writer, other)
         spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())  # estimand built against TESTING_CLAIM
         with pytest.raises(ValidationRefused, match="estimand-target-mismatch"):
@@ -1267,11 +1283,20 @@ class TestEstimandTargetMatch:
         from beliefs.spec import SPEC_DOMAIN, frozen_projection
 
         target = self._proposition(typed_writer, TESTING_CLAIM)
-        correlates = build_claim(TESTING_PROFILE, operator="testing/correlates-with", args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")), layer="statistical", polarity="positive")
+        correlates = build_claim(
+            TESTING_PROFILE,
+            operator="testing/correlates-with",
+            args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")),
+            layer="statistical",
+            polarity="positive",
+        )
         foreign, _ = build_estimand(
-            TESTING_PROFILE, correlates, snapshot=UNCONSULTED,
+            TESTING_PROFILE,
+            correlates,
+            snapshot=UNCONSULTED,
             contrast=ContinuousContrast(0, Referent("testing/measure", "EX:tpm"), Decimal(1)),
-            measure=Measure(Referent("testing/measure", "EX:tpm"), "additive"), reference=Decimal(0),
+            measure=Measure(Referent("testing/measure", "EX:tpm"), "additive"),
+            reference=Decimal(0),
             control=Control(Referent("testing/identification", "EX:observational"), ()),
         )  # correlates-with declares level_sorts {}, so the contrast is continuous, not levels
         spec = freeze(spec_draft(target=target.id, estimand=foreign), held_rules=spec_rules())
@@ -1279,7 +1304,13 @@ class TestEstimandTargetMatch:
         projection["estimand"]["claim"] = claim_identity(TESTING_CLAIM)  # type: ignore[index]  # the target's true hash, another operator
         text = v1.encode(projection)
         identity = v1.digest(SPEC_DOMAIN, projection)
-        node = stored._node("analysis-spec", identity, "forged", {stored.ANALYSIS_SPEC_FACET: {"identity": identity, "projection": text.decode()}}, ())
+        node = stored._node(
+            "analysis-spec",
+            identity,
+            "forged",
+            {stored.ANALYSIS_SPEC_FACET: {"identity": identity, "projection": text.decode()}},
+            (),
+        )
         with pytest.raises(ValidationRefused, match="estimand-target-mismatch.*operator"):
             typed_writer.add(node)
 
@@ -1297,7 +1328,9 @@ def _staging_writer(tmp_path):
 
 def test_stage_record_writes_the_snapshot_text_byte_for_byte(tmp_path):
     writer = _staging_writer(tmp_path)
-    node = stored.run_node("r", title="r", spec="s", produces=["dataset:elsewhere"])  # its target is not staged: no view check
+    node = stored.run_node(
+        "r", title="r", spec="s", produces=["dataset:elsewhere"]
+    )  # its target is not staged: no view check
     text = node_to_markdown(node)
     writer._stage_record(text)
     assert (writer.root / writer._relative_path(node)).read_text() == text
@@ -1394,7 +1427,9 @@ def test_the_staging_doors_require_their_permits_first(tmp_path):
     narrow = CorpusWriter(writer.root, DefaultExecutor, authority=lacking(kinds=("run",)), profile=writer.profile)
     with pytest.raises(PermitExceeded):
         narrow._stage_record(node_to_markdown(node))
-    unpublishing = CorpusWriter(writer.root, DefaultExecutor, authority=lacking(families=("publish",)), profile=writer.profile)
+    unpublishing = CorpusWriter(
+        writer.root, DefaultExecutor, authority=lacking(families=("publish",)), profile=writer.profile
+    )
     with pytest.raises(PermitExceeded):
         unpublishing._stage_marker(marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",)))
     assert not (writer.root / "run").exists() and not (writer.root / "publication").exists()

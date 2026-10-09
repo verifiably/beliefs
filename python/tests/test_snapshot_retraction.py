@@ -1,4 +1,5 @@
 """The snapshot target arm (correction-remainder slice 2)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -57,20 +58,32 @@ class TestTheStoredShape:
         assert snapshot_retraction().id != snapshot_retraction(S2).id
         assert snapshot_retraction().id != snapshot_retraction(successor=S2).id
 
-    @pytest.mark.parametrize("kind", ["retraction-enumeration", "certification-enumeration", "coreference-reduction", ""])
+    @pytest.mark.parametrize(
+        "kind", ["retraction-enumeration", "certification-enumeration", "coreference-reduction", ""]
+    )
     def test_only_the_producer_kind_constructs(self, kind):
         with pytest.raises(MalformedRecord):
             stored.retraction_node(
-                title="t", target=stored.SnapshotTarget(kind, S), reason="authored-error", rationale="r",
-                grounds=("verification:v1",), actor=ACTOR, event_token="t",
+                title="t",
+                target=stored.SnapshotTarget(kind, S),
+                reason="authored-error",
+                rationale="r",
+                grounds=("verification:v1",),
+                actor=ACTOR,
+                event_token="t",
             )
 
     @pytest.mark.parametrize("identity", ["a" * 63, "A" * 64, "g" * 64, ""])
     def test_the_identity_is_sixty_four_lower_hex(self, identity):
         with pytest.raises(MalformedRecord):
             stored.retraction_node(
-                title="t", target=stored.SnapshotTarget("producer", identity), reason="authored-error",
-                rationale="r", grounds=("verification:v1",), actor=ACTOR, event_token="t",
+                title="t",
+                target=stored.SnapshotTarget("producer", identity),
+                reason="authored-error",
+                rationale="r",
+                grounds=("verification:v1",),
+                actor=ACTOR,
+                event_token="t",
             )
 
     def test_the_arm_set_is_named_once(self):
@@ -123,8 +136,12 @@ def writer_at(root: Path, profile=BASE, *, resolver=None) -> CorpusWriter:
     from authority import FULL
 
     writer = CorpusWriter(
-        root, DefaultExecutor, authority=FULL, profile=profile,
-        operation_port=OperationRecorder(root, authority=FULL, profile=profile), snapshot_resolver=resolver,
+        root,
+        DefaultExecutor,
+        authority=FULL,
+        profile=profile,
+        operation_port=OperationRecorder(root, authority=FULL, profile=profile),
+        snapshot_resolver=resolver,
     )
     if not (Path(root) / "corpus.yaml").exists():
         writer.adopt_manifest(profile=pins_for(profile))
@@ -308,10 +325,14 @@ class TestSnapshotStanding:
         assert len(standing.history[S]) == 3 and (cc.id, RETRACTION_UPHELD) in standing.history[S]
 
     def test_two_corpora_union(self, tmp_path):
-        a = writer_at(tmp_path / "a"); b = writer_at(tmp_path / "b")
-        ra = StubResolver({S: (a.corpus_id,)}); rb = StubResolver({S2: (b.corpus_id,)})
-        a = writer_at(tmp_path / "a", resolver=ra); b = writer_at(tmp_path / "b", resolver=rb)
-        a.retract(snapshot_retraction(S)); b.retract(snapshot_retraction(S2, token="t2"))
+        a = writer_at(tmp_path / "a")
+        b = writer_at(tmp_path / "b")
+        ra = StubResolver({S: (a.corpus_id,)})
+        rb = StubResolver({S2: (b.corpus_id,)})
+        a = writer_at(tmp_path / "a", resolver=ra)
+        b = writer_at(tmp_path / "b", resolver=rb)
+        a.retract(snapshot_retraction(S))
+        b.retract(snapshot_retraction(S2, token="t2"))
         standing = snapshot_standing({a.corpus_id: a.read_view, b.corpus_id: b.read_view})
         assert standing.retracted == {S, S2}
 
@@ -320,7 +341,7 @@ class TestSnapshotStanding:
 
         writer = writer_at(tmp_path / "c")
         raw = raw_retraction("retraction:raw", "assessment:x")
-        del raw.facets[stored.RETRACTION_FACET]["grounds"]      # raw_retraction alone is shape-valid; this is not
+        del raw.facets[stored.RETRACTION_FACET]["grounds"]  # raw_retraction alone is shape-valid; this is not
         raw_write(tmp_path / "c", raw)
         with pytest.raises(RetractionUnreadable):
             snapshot_standing({writer.corpus_id: ReadView.opened_at(tmp_path / "c")})
@@ -328,7 +349,7 @@ class TestSnapshotStanding:
     def test_a_broken_counter_retraction_refuses_rather_than_restores(self, tmp_path):
         resolver, cid = self._resolver(tmp_path / "c")
         _writer, (r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
-        broken = broken_counter(r)                       # canonical shape, wrong target identity
+        broken = broken_counter(r)  # canonical shape, wrong target identity
         raw_write(tmp_path / "c", broken)
         with pytest.raises(RetractionUnreadable) as caught:
             snapshot_standing({cid: ReadView.opened_at(tmp_path / "c")})
@@ -356,8 +377,12 @@ class TestSnapshotStanding:
         resolver, cid = self._resolver(tmp_path / "c")
         _writer, (_r,) = corpus_with(tmp_path / "c", snapshot_retraction(), resolver=resolver)
         unrelated = stored.retraction_node(
-            title="elsewhere", target=stored.NodeTarget("assessment:nobody", "assessment:nobody", "0" * 64),
-            reason="defective-code", rationale="names nothing", grounds=("verification:v1",), actor=ACTOR,
+            title="elsewhere",
+            target=stored.NodeTarget("assessment:nobody", "assessment:nobody", "0" * 64),
+            reason="defective-code",
+            rationale="names nothing",
+            grounds=("verification:v1",),
+            actor=ACTOR,
             event_token="elsewhere",
         )
         raw_write(tmp_path / "c", unrelated)
@@ -384,7 +409,10 @@ def retracted_world(tmp_path, *, counter=False):
     # `_require_pins_agree` before any write — matching test_world_audit.py's and
     # test_world_build.py's own writers over the same fixture corpora.
     writer = CorpusWriter(
-        roots[ALPHA], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY,
+        roots[ALPHA],
+        DefaultExecutor,
+        authority=FULL,
+        profile=WITH_BIOLOGY,
         operation_port=OperationRecorder(roots[ALPHA], authority=FULL, profile=WITH_BIOLOGY),
         snapshot_resolver=RetainedSnapshots(world),
     )

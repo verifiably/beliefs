@@ -62,7 +62,14 @@ POLICY = BoundaryPolicy(identity="boundary-policy/minimal-v1", scope_rule="scope
 _TESTING = Path(__file__).resolve().parents[2] / "fixtures" / "contracts" / "testing.yaml"
 TESTING_PROFILE = compile_profile(
     shipped_base_contract(),
-    [parse_domain_contract(load_document(_TESTING, source=str(_TESTING)), source=str(_TESTING), base=shipped_base_contract(), predecessor=None)],
+    [
+        parse_domain_contract(
+            load_document(_TESTING, source=str(_TESTING)),
+            source=str(_TESTING),
+            base=shipped_base_contract(),
+            predecessor=None,
+        )
+    ],
 )
 TESTING_CLAIM = build_claim(
     TESTING_PROFILE,
@@ -76,7 +83,9 @@ UNCONSULTED = build_snapshot(readable={})
 
 def typed_estimand(**overrides):
     fields = {
-        "contrast": LevelsContrast(slot=0, baseline=Referent("testing/level", "EX:ndmm"), comparison=Referent("testing/level", "EX:pd")),
+        "contrast": LevelsContrast(
+            slot=0, baseline=Referent("testing/level", "EX:ndmm"), comparison=Referent("testing/level", "EX:pd")
+        ),
         "measure": Measure(quantity=Referent("testing/measure", "EX:tpm"), scale="additive"),
         "reference": Decimal(0),
         "control": Control(identification=Referent("testing/identification", "EX:observational"), conditioning=()),
@@ -87,7 +96,9 @@ def typed_estimand(**overrides):
 
 
 def typed_applicability(qualifiers=None):
-    applicability, _receipt = build_applicability(TESTING_PROFILE, TESTING_CLAIM, qualifiers or {}, snapshot=UNCONSULTED)
+    applicability, _receipt = build_applicability(
+        TESTING_PROFILE, TESTING_CLAIM, qualifiers or {}, snapshot=UNCONSULTED
+    )
     return applicability
 
 
@@ -157,7 +168,9 @@ def recipe(**overrides) -> Recipe:
         "shape": "assessment",
         "spec_identity": "spec-" + "11" * 8,
         "code_identity": "sha256:" + "cc" * 32,
-        "environment": EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
+        "environment": EnvironmentManifest(
+            artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)
+        ),
         "workflow_definition": definition().snapshot(),
         "invocation": invocation(),
         "inputs": (RecipeInput(role="observes", dataset=dataset_ref("closure-input"), content=D_IN),),
@@ -286,11 +299,7 @@ def closure_with(
                     for job in jobs
                 )
             ),
-            target_keys=(
-                target_keys
-                if target_keys is not None
-                else ()
-            ),
+            target_keys=(target_keys if target_keys is not None else ()),
             realized_seeds=RealizedSeeds(seeds=realized or {}),
         ),
     )
@@ -328,7 +337,11 @@ def interp(outcome="supported", fail=False):
     def evaluate(manifest):
         if fail:
             raise ValueError("unparseable payload")
-        return {"outcome": outcome, "estimate": Decimal("0.4"), "uncertainty": {"kind": "standard-error", "value": Decimal("0.1")}}
+        return {
+            "outcome": outcome,
+            "estimate": Decimal("0.4"),
+            "uncertainty": {"kind": "standard-error", "value": Decimal("0.1")},
+        }
 
     return {"impl-interp-1": RuleImplementation(identity="impl-interp-1", evaluate=evaluate, fixtures=())}
 
@@ -400,14 +413,14 @@ SNAKEFILE_SEED_VIOLATING = SNAKEFILE_DETERMINISTIC.replace(
     "import json\nfrom beliefs.seeds import bind, record_digest_of",
 ).replace(
     '        value = seed(rule, wildcards, "model-initialization")',
-    '''        value = seed(rule, wildcards, "model-initialization")
+    """        value = seed(rule, wildcards, "model-initialization")
         claim = next(pathlib.Path(".seeds").glob("*.json"))
         record = json.loads(claim.read_text())
         claim.unlink()
         value += 1
         record["seed"] = value
         (claim.parent / f"{record_digest_of(record)}.json").write_text(
-            json.dumps(record, sort_keys=True, separators=(",", ":")))''',
+            json.dumps(record, sort_keys=True, separators=(",", ":")))""",
 )
 
 # Byte-nondeterministic output, urandom staying inside the scratch root. Used

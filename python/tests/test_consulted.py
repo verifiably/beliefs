@@ -55,9 +55,7 @@ def test_an_activated_coordination_contract_is_never_a_belief_input(profile, pin
         science_contract=ordinary.science_contract,
         domains={**ordinary.domains, "coordination": "coordination:" + "c" * 64},
     )
-    without = consulted_contracts(
-        claims={}, profile=profile, node_corpus={}, pins={"c1": ordinary}, closure_nodes=()
-    )
+    without = consulted_contracts(claims={}, profile=profile, node_corpus={}, pins={"c1": ordinary}, closure_nodes=())
     with_pin = consulted_contracts(
         claims={},
         profile=profile,
@@ -176,7 +174,15 @@ class TestAgreement:
         import inspect
 
         parameters = inspect.signature(consulted_contracts).parameters
-        assert set(parameters) == {"claims", "estimands", "profile", "node_corpus", "pins", "closure_nodes", "facets_read"}
+        assert set(parameters) == {
+            "claims",
+            "estimands",
+            "profile",
+            "node_corpus",
+            "pins",
+            "closure_nodes",
+            "facets_read",
+        }
 
 
 class TestSlotSorts:
@@ -249,7 +255,11 @@ class TestPinAgreement:
     def test_the_base_pin_must_agree_with_the_profile(self, profile, pins):
         with pytest.raises(ContractMismatch, match="profile-pin-mismatch: science"):
             consulted_contracts(
-                claims={}, profile=profile, node_corpus={}, pins={"c1": pins(science="science:" + "0" * 64)}, closure_nodes=()
+                claims={},
+                profile=profile,
+                node_corpus={},
+                pins={"c1": pins(science="science:" + "0" * 64)},
+                closure_nodes=(),
             )
 
     def test_a_consulted_namespace_pinned_to_another_identity_refuses(self, profile, claim, pins):
@@ -267,9 +277,14 @@ class TestPinAgreement:
 
     def test_an_unconsulted_pin_is_not_compared(self, profile, pins):
         consulted = consulted_contracts(
-            claims={}, profile=profile, node_corpus={}, pins={"c1": pins(unrelated="unrelated:" + "2" * 64)}, closure_nodes=()
+            claims={},
+            profile=profile,
+            node_corpus={},
+            pins={"c1": pins(unrelated="unrelated:" + "2" * 64)},
+            closure_nodes=(),
         )
         assert dict(consulted) == {"science": pins_for(profile).science_contract}
+
 
 def _biology_pins() -> dict[str, CorpusPins]:
     p = pins_for(WITH_BIOLOGY)
@@ -355,16 +370,35 @@ def test_an_estimand_reaches_a_contract_no_claim_reaches(measured, claim):
     from beliefs.claim import Referent
     from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
 
-    claim = build_claim(profile=measured, operator="testing/affects", args=claim.args, qualifiers={}, polarity="positive", layer="causal")
+    claim = build_claim(
+        profile=measured,
+        operator="testing/affects",
+        args=claim.args,
+        qualifiers={},
+        polarity="positive",
+        layer="causal",
+    )
     estimand, _ = build_estimand(
-        measured, claim, snapshot=UNCONSULTED,
+        measured,
+        claim,
+        snapshot=UNCONSULTED,
         contrast=LevelsContrast(0, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
-        measure=Measure(Referent("measures/assay", "EX:m"), "additive"), reference=Decimal(0),
+        measure=Measure(Referent("measures/assay", "EX:m"), "additive"),
+        reference=Decimal(0),
         control=Control(Referent("testing/identification", "EX:obs"), ()),
     )
     pins = pins_for(measured)
-    claim_only = consulted_contracts(claims={"p": claim}, profile=measured, node_corpus={}, pins={"c1": pins}, closure_nodes=())
-    with_estimand = consulted_contracts(claims={"p": claim}, estimands={"a1": estimand}, profile=measured, node_corpus={}, pins={"c1": pins}, closure_nodes=())
+    claim_only = consulted_contracts(
+        claims={"p": claim}, profile=measured, node_corpus={}, pins={"c1": pins}, closure_nodes=()
+    )
+    with_estimand = consulted_contracts(
+        claims={"p": claim},
+        estimands={"a1": estimand},
+        profile=measured,
+        node_corpus={},
+        pins={"c1": pins},
+        closure_nodes=(),
+    )
     assert "measures" not in dict(claim_only) and dict(with_estimand)["measures"] == pins.domains["measures"]
 
 
@@ -391,13 +425,18 @@ def test_an_estimand_under_an_unpinned_namespace_refuses(base_contract, testing_
         layer="causal",
     )
     estimand, _ = build_estimand(
-        profile, claim, snapshot=UNCONSULTED,
+        profile,
+        claim,
+        snapshot=UNCONSULTED,
         contrast=LevelsContrast(0, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
-        measure=Measure(Referent("biology/gene", "EX:g"), "additive"), reference=Decimal(0),
+        measure=Measure(Referent("biology/gene", "EX:g"), "additive"),
+        reference=Decimal(0),
         control=Control(Referent("testing/identification", "EX:obs"), ()),
     )
     real = pins_for(profile)
-    pins_without_biology = CorpusPins(science_contract=real.science_contract, domains={"testing": real.domains["testing"]})
+    pins_without_biology = CorpusPins(
+        science_contract=real.science_contract, domains={"testing": real.domains["testing"]}
+    )
     with pytest.raises(ContractDisagreement, match="'biology' is consulted but pinned by no corpus"):
         consulted_contracts(
             claims={"p": claim},

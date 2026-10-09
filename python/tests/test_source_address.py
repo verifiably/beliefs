@@ -17,7 +17,18 @@ CANONICAL_DOI = "10.1234/abc.def"
 
 
 class TestNormalizeDoi:
-    @pytest.mark.parametrize("spelling", ["10.1234/abc.DEF", "  10.1234/abc.def  ", "doi:10.1234/abc.def", "DOI:10.1234/ABC.DEF", "https://doi.org/10.1234/abc.def", "http://dx.doi.org/10.1234/abc.def", "HTTPS://DOI.ORG/10.1234/abc.def"])
+    @pytest.mark.parametrize(
+        "spelling",
+        [
+            "10.1234/abc.DEF",
+            "  10.1234/abc.def  ",
+            "doi:10.1234/abc.def",
+            "DOI:10.1234/ABC.DEF",
+            "https://doi.org/10.1234/abc.def",
+            "http://dx.doi.org/10.1234/abc.def",
+            "HTTPS://DOI.ORG/10.1234/abc.def",
+        ],
+    )
     def test_every_spelling_folds_to_one_canonical_form(self, spelling):
         assert source.normalize("doi", spelling) == CANONICAL_DOI
 
@@ -84,7 +95,10 @@ class TestRefusalOrder:
             source.normalize("doi", 5)
         assert caught.value.reason == "not-a-string"
 
-    @pytest.mark.parametrize("scheme,value", [("doi", ""), ("doi", "   "), ("doi", "doi:"), ("pmid", "PMID:"), ("isbn", "isbn:--"), ("accession", " ")])
+    @pytest.mark.parametrize(
+        "scheme,value",
+        [("doi", ""), ("doi", "   "), ("doi", "doi:"), ("pmid", "PMID:"), ("isbn", "isbn:--"), ("accession", " ")],
+    )
     def test_empty_after_trim_and_prefix_strip(self, scheme, value):
         with pytest.raises(IdentifierMalformed) as caught:
             source.normalize(scheme, value)
@@ -135,7 +149,10 @@ class TestBasisAndAddress:
         assert source.source_address({"doi": CANONICAL_DOI, "pmid": "1"}) == f"source:{expected}"
 
     def test_pinned_digest(self):
-        assert source.source_address({"pmid": "12345"}) == "source:8e2aa77202899912130944e03f698206f93ec6faaf4d8c1e6847b9eec5e65db9"
+        assert (
+            source.source_address({"pmid": "12345"})
+            == "source:8e2aa77202899912130944e03f698206f93ec6faaf4d8c1e6847b9eec5e65db9"
+        )
         assert source.SOURCE_ADDRESS_DOMAIN == "science.source-address.v1"
 
     def test_two_records_with_different_selected_bases_are_two_addresses(self):
@@ -148,14 +165,8 @@ class TestTheBuilder:
             title="A paper",
             identifiers={"doi": "https://doi.org/10.1234/ABC.def", "pmid": "pmid:7"},
         )
-        assert node.facets[stored.SOURCE_FACET] == {
-            "identifiers": {"doi": CANONICAL_DOI, "pmid": "7"}
-        }
-        assert (
-            node.id
-            == source.source_address({"doi": CANONICAL_DOI})
-            == stored.source_address_of(node)
-        )
+        assert node.facets[stored.SOURCE_FACET] == {"identifiers": {"doi": CANONICAL_DOI, "pmid": "7"}}
+        assert node.id == source.source_address({"doi": CANONICAL_DOI}) == stored.source_address_of(node)
         assert stored.IDENTIFIER_CORRECTION_FACET not in node.facets
 
     def test_two_spellings_are_one_facet_one_stamp_one_address(self):
@@ -292,14 +303,35 @@ class TestReaders:
         [
             ([dict(entry(A, B, token="t1"), absorbed=[entry(B, A, token="o1")])], "changes nothing"),
             ([entry(A, B, token="t1"), consolidation(B, [])], "non-empty list"),
-            ([entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry({"pmid": "9"}, B, token="o2")])], "continue"),
+            (
+                [
+                    entry(A, B, token="t1"),
+                    consolidation(B, [entry(A, C, token="o1"), entry({"pmid": "9"}, B, token="o2")]),
+                ],
+                "continue",
+            ),
             ([entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1")])], "does not end at the entry"),
-            ([entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="t1", grounds="other")])], "two different events"),
-            ([entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry(C, B, token="o1")])], "repeats"),
+            (
+                [entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="t1", grounds="other")])],
+                "two different events",
+            ),
+            (
+                [entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry(C, B, token="o1")])],
+                "repeats",
+            ),
             ([entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="o1", grounds="\udcff")])], "encodable"),
             ([entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="o1")], token="t1")], "repeats"),
         ],
-        ids=["six-keys-unequal", "empty-absorbed", "absorbed-discontinuous", "absorbed-ends-elsewhere", "conflicting-reuse", "repeat-inside-absorbed", "unencodable-inside-absorbed", "entry-token-repeats-spine"],
+        ids=[
+            "six-keys-unequal",
+            "empty-absorbed",
+            "absorbed-discontinuous",
+            "absorbed-ends-elsewhere",
+            "conflicting-reuse",
+            "repeat-inside-absorbed",
+            "unencodable-inside-absorbed",
+            "entry-token-repeats-spine",
+        ],
     )
     def test_malformed_consolidation_shapes_refuse(self, history, match):
         node = raw_source(B, history=history, deprecated=[ADDR_A])
@@ -333,11 +365,7 @@ class TestReaders:
         with pytest.raises(MalformedRecord):
             stored.validate_source_history(node)
         assert (
-            len(
-                stored.validate_source_history(
-                    raw_source(two, history=history, deprecated=sorted([ADDR_A, ADDR_B]))
-                )
-            )
+            len(stored.validate_source_history(raw_source(two, history=history, deprecated=sorted([ADDR_A, ADDR_B]))))
             == 2
         )
 
@@ -427,7 +455,11 @@ class TestReconcile:
         merged = self.merge(keep, other)
         assert merged[:3] == keep
         assert merged[3] == {
-            "from": B, "to": B, "actor": "me", "grounds": "one paper", "event_token": "op",
+            "from": B,
+            "to": B,
+            "actor": "me",
+            "grounds": "one paper",
+            "event_token": "op",
             "absorbed": other[1:],
         }
 
@@ -465,7 +497,10 @@ class TestReconcile:
         "keep, other",
         [
             ([entry(A, B, token="a")], [entry(A, B, token="b")]),
-            ([entry(A, B, token="a"), entry(B, C, token="e1"), entry(C, B, token="e2")], [entry(A, B, token="a"), entry(B, C, token="o1"), entry(C, B, token="o2")]),
+            (
+                [entry(A, B, token="a"), entry(B, C, token="e1"), entry(C, B, token="e2")],
+                [entry(A, B, token="a"), entry(B, C, token="o1"), entry(C, B, token="o2")],
+            ),
             ([entry(A, B, token="a")], [entry(A, B, token="a"), entry(B, C, token="e1"), entry(C, B, token="e2")]),
         ],
         ids=["no-prefix", "common-prefix", "fast-forward"],

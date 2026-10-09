@@ -66,8 +66,7 @@ _LIVE_SABOTAGES = {
             "                raise RetractionResolutionDisagreement(ref, recorded, computed)"
         ),
         after=(
-            "            if False:\n"
-            "                raise RetractionResolutionDisagreement(ref, recorded, computed)"
+            "            if False:\n                raise RetractionResolutionDisagreement(ref, recorded, computed)"
         ),
     ),
     "C3-b": Sabotage(

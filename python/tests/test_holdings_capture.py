@@ -191,7 +191,7 @@ def test_the_projection_matches_the_closed_schema(
     manifest = writer.adopt_manifest(profile=PINS)
     dataset = writer.add(
         stored.dataset_node(
-                        title="Dataset",
+            title="Dataset",
             resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
         )
     )
@@ -199,13 +199,8 @@ def test_the_projection_matches_the_closed_schema(
     store_id = science_root.init_store_root(store_root, authority=FULL)
     published = recheck(
         ActContext(
-            corpus_root,
-            store_root,
-            "observer",
-            "instrument",
-            FULL,
-            science_root.holdings_seam(),
-         profile=WITH_BIOLOGY),
+            corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=WITH_BIOLOGY
+        ),
         StoreLocator(store_id, "missing.bin"),
     )
     assert isinstance(published, PublishedObservation)

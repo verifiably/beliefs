@@ -229,7 +229,9 @@ def refuse_scratch_root(scratch: Path, roots: tuple[Path, ...]) -> None:
             raise MalformedRecord(f"scratch root {str(scratch)!r} lies under a corpus or store root {str(root)!r}")
 
 
-def retrieve(locator: UrlLocator, bounds: RetrievalBounds, seam: UrlSeam, scratch: Path) -> Retrieved | NotAttempted | Failed:
+def retrieve(
+    locator: UrlLocator, bounds: RetrievalBounds, seam: UrlSeam, scratch: Path
+) -> Retrieved | NotAttempted | Failed:
     """One GET of the declared URL, every hop revalidated, the body streamed to scratch and hashed as it arrives."""
     if type(locator) is not UrlLocator:
         raise MalformedRecord("retrieve takes a UrlLocator")
@@ -285,7 +287,9 @@ def _stream(response: Any, declared_length: str | None, bounds: RetrievalBounds,
     return outcome
 
 
-def _stream_into(response: Any, declared_length: str | None, bounds: RetrievalBounds, target: Path) -> Retrieved | Failed:
+def _stream_into(
+    response: Any, declared_length: str | None, bounds: RetrievalBounds, target: Path
+) -> Retrieved | Failed:
     hasher = hashlib.sha256()
     size = 0
     with target.open("wb") as handle:

@@ -17,7 +17,12 @@ from beliefs.permit import Authority, WritePermit
 
 PINNED = [{"name": "m", "digest": "sha256:" + "1" * 64}]
 ALICE = Authority(WritePermit.full(), "alice")
-IMPORT: dict[str, Any] = {"observer": "o", "instrument": "i", "opened_at": "2026-09-05T00:00:00Z", "closed_at": "2026-09-05T00:00:01Z"}
+IMPORT: dict[str, Any] = {
+    "observer": "o",
+    "instrument": "i",
+    "opened_at": "2026-09-05T00:00:00Z",
+    "closed_at": "2026-09-05T00:00:01Z",
+}
 
 
 def writer(root, authority=FULL):
@@ -29,7 +34,9 @@ def writer(root, authority=FULL):
 
 
 def acquired(slug, attester, **extra):
-    return stored.dataset_node(title=slug, resources=pinned(slug), empirical_observation={"locator": "url:x", "attested_by": attester, **extra})
+    return stored.dataset_node(
+        title=slug, resources=pinned(slug), empirical_observation={"locator": "url:x", "attested_by": attester, **extra}
+    )
 
 
 def producing(slug, target):
@@ -38,12 +45,18 @@ def producing(slug, target):
 
 class TestF1:
     def test_the_reproductions_authored_payload_is_refused(self, tmp_path):
-        node = stored.dataset_node(title="d", resources=PINNED, empirical_observation={"boundary": "acquisition", "source": "dataset:gse", "asserted_by": "driver"})
+        node = stored.dataset_node(
+            title="d",
+            resources=PINNED,
+            empirical_observation={"boundary": "acquisition", "source": "dataset:gse", "asserted_by": "driver"},
+        )
         with pytest.raises(FacetPayloadRefused, match="unknown key"):
             writer(tmp_path).add(node)
 
     def test_import_wraps_the_refusal_naming_the_member(self, tmp_path):
-        node = stored.dataset_node(title="d", resources=PINNED, empirical_observation={"locator": "ftp:x", "attested_by": "k"})
+        node = stored.dataset_node(
+            title="d", resources=PINNED, empirical_observation={"locator": "ftp:x", "attested_by": "k"}
+        )
         with pytest.raises(ImportRefused) as caught:
             writer(tmp_path).import_bundle([node], **IMPORT)
         assert caught.value.member == node.id

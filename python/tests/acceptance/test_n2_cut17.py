@@ -136,9 +136,12 @@ def test_every_declared_unit_is_carried_by_at_least_one_arm() -> None:
 
 
 def test_every_check_resolves_and_passes_without_sabotage() -> None:
-    every = Arm(row="N2", asserts="every cut-17 check passes against the real package",
-                sabotage=CUT17_ARMS[0].sabotage,
-                checks=tuple(dict.fromkeys(check for arm in CUT17_ARMS for check in arm.checks)))
+    every = Arm(
+        row="N2",
+        asserts="every cut-17 check passes against the real package",
+        sabotage=CUT17_ARMS[0].sabotage,
+        checks=tuple(dict.fromkeys(check for arm in CUT17_ARMS for check in arm.checks)),
+    )
     finding = baseline(every)
     assert finding.verdict == "resolved", finding.detail
 
@@ -156,9 +159,18 @@ def _section(text: str, heading: str) -> str:
 
 def test_the_frozen_cut_and_the_amendment_are_ancestors_and_the_frozen_sections_are_byte_exact() -> None:
     for commit in (CUT17_FREEZE_COMMIT, IMPLEMENTATION_AMENDMENT_COMMIT, RENUMBERING_AMENDMENT_COMMIT):
-        assert subprocess.run(["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", commit, "HEAD"], check=False).returncode == 0
-    frozen = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"{CUT17_FREEZE_COMMIT}:{FROZEN_CUT.relative_to(REPO_ROOT)}"],
-                            check=True, capture_output=True, text=True).stdout
+        assert (
+            subprocess.run(
+                ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", commit, "HEAD"], check=False
+            ).returncode
+            == 0
+        )
+    frozen = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "show", f"{CUT17_FREEZE_COMMIT}:{FROZEN_CUT.relative_to(REPO_ROOT)}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
     text = FROZEN_CUT.read_text(encoding="utf-8")
     for heading in ("## 7. Guarantees", "## 9. Conformance cut 16"):
         assert _section(text, heading) == _section(frozen, heading), heading
@@ -179,7 +191,12 @@ def test_every_arm_has_one_source_mutation_and_exact_check_nodes() -> None:
 
 def test_prior_declarations_and_the_whole_cited_cut10_surface_are_unchanged() -> None:
     for path, pin in FROZEN_PRIOR_CUT_FILES.items():
-        assert subprocess.run(["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path], check=False).returncode == 0, path
+        assert (
+            subprocess.run(
+                ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path], check=False
+            ).returncode
+            == 0
+        ), path
     for path, expected in FROZEN_CUT10_SHA256.items():
         assert sha256((REPO_ROOT / path).read_bytes()).hexdigest() == expected, path
     prior = {check for arm in PRIOR_ARMS for check in arm.checks}

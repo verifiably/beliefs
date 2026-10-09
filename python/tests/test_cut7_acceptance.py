@@ -130,9 +130,7 @@ def test_every_phase_runs_in_order_beneath_one_certified_run_directory(tmp_path:
 
 
 @pytest.mark.parametrize("failing", [0, 1])
-def test_a_failing_prefix_stops_the_command_before_cut_sevens_arms(
-    tmp_path: Path, monkeypatch, capsys, failing: int
-):
+def test_a_failing_prefix_stops_the_command_before_cut_sevens_arms(tmp_path: Path, monkeypatch, capsys, failing: int):
     _surface(tmp_path)
     _staged(tmp_path, monkeypatch)
     monkeypatch.setattr(cut7_acceptance, "probe", lambda _run: None)
@@ -203,9 +201,7 @@ def test_probe_initializes_both_roots_and_removes_them_with_their_metadata(tmp_p
         assert not root.metadata_root_for(probed).exists()
 
 
-def test_a_refusing_corpus_registration_is_reported_even_when_the_world_registers(
-    tmp_path: Path, monkeypatch
-):
+def test_a_refusing_corpus_registration_is_reported_even_when_the_world_registers(tmp_path: Path, monkeypatch):
     """A host can certify one act and refuse the other, and cut 7 writes to both."""
     from beliefs import root
 

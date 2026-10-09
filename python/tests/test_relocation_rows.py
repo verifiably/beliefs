@@ -39,16 +39,11 @@ def _world_for(tmp_path, *writers):
 
 
 def _belief_digest(published):
-    snapshot = derive.producer_snapshot(
-        yaml.safe_load(published.members["producer-snapshot.yaml"])
-    )
+    snapshot = derive.producer_snapshot(yaml.safe_load(published.members["producer-snapshot.yaml"]))
     assert yaml.safe_load(published.members["producers-map.yaml"]) == (
         derive.producers_map_projection(snapshot.producers)
     )
-    assert (
-        published.receipts["producer-receipt.yaml"].subject_identity
-        == snapshot.identity()
-    )
+    assert published.receipts["producer-receipt.yaml"].subject_identity == snapshot.identity()
     ordinary = belief_scenario()
     result = evaluate(
         **{
@@ -83,7 +78,7 @@ def _duplicate_datasets(tmp_path, *, writers=None):
         _writer(tmp_path / "other", domains=PINS.domains),
     )
     keep = stored.dataset_node(
-                title="kept title",
+        title="kept title",
         resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         basis={"tag": "single", "routes": [_basis_route("z")]},
     ).model_copy(update={"deprecated_ids": ["dataset:old-a"]})
@@ -97,7 +92,7 @@ def _duplicate_datasets(tmp_path, *, writers=None):
         ),
     ]
     other = stored.dataset_node(
-                title="other title",
+        title="other title",
         resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         basis={"tag": "single", "routes": [_basis_route("a")]},
     ).model_copy(update={"deprecated_ids": ["dataset:old-b"]})
@@ -118,7 +113,7 @@ def _move_published_dataset(tmp_path):
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
     dataset = source.add(
         stored.dataset_node(
-                        title="moved",
+            title="moved",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         )
     )
@@ -132,25 +127,15 @@ def _move_published_dataset(tmp_path):
     )
     world, coverage, bindings = _world_for(tmp_path, source, destination)
     before = publish(world, coverage, bindings)
-    states_before = {
-        writer.corpus_id: registry.corpus_state_identity(writer.root)
-        for writer in (source, destination)
-    }
+    states_before = {writer.corpus_id: registry.corpus_state_identity(writer.root) for writer in (source, destination)}
 
-    moved, destination_report, source_report = relocation.move(
-        source, destination, dataset.id, **MOVE_FIELDS
-    )
+    moved, destination_report, source_report = relocation.move(source, destination, dataset.id, **MOVE_FIELDS)
 
     after = publish(world, coverage, bindings)
-    states_after = {
-        writer.corpus_id: registry.corpus_state_identity(writer.root)
-        for writer in (source, destination)
-    }
+    states_after = {writer.corpus_id: registry.corpus_state_identity(writer.root) for writer in (source, destination)}
     expected_producers = {dataset.id: (run.id,)}
     for published in (before, after):
-        snapshot = derive.producer_snapshot(
-            yaml.safe_load(published.members["producer-snapshot.yaml"])
-        )
+        snapshot = derive.producer_snapshot(yaml.safe_load(published.members["producer-snapshot.yaml"]))
         assert dict(snapshot.producers) == expected_producers
         assert yaml.safe_load(published.members["producers-map.yaml"]) == {
             "producers": [{"dataset": dataset.id, "runs": [run.id]}]
@@ -224,23 +209,19 @@ def test_w5_a_producers_map_member_moves_without_moving_the_digest(tmp_path):
     assert before.members["address-map.yaml"] != after.members["address-map.yaml"]
     assert moved["states_before"] != moved["states_after"]
     assert all(
-        moved["states_before"][corpus_id] != moved["states_after"][corpus_id]
-        for corpus_id in moved["states_before"]
+        moved["states_before"][corpus_id] != moved["states_after"][corpus_id] for corpus_id in moved["states_before"]
     )
-    assert before.receipts["producer-receipt.yaml"].subject_identity == after.receipts[
-        "producer-receipt.yaml"
-    ].subject_identity
-    assert before.receipts["producer-receipt.yaml"].identity != after.receipts[
-        "producer-receipt.yaml"
-    ].identity
+    assert (
+        before.receipts["producer-receipt.yaml"].subject_identity
+        == after.receipts["producer-receipt.yaml"].subject_identity
+    )
+    assert before.receipts["producer-receipt.yaml"].identity != after.receipts["producer-receipt.yaml"].identity
     assert _belief_digest(before) == _belief_digest(after)
 
 
 def test_g3_location_is_not_a_closure_member(tmp_path):
     moved = _move_published_dataset(tmp_path)
-    assert moved["before"].members["address-map.yaml"] != moved["after"].members[
-        "address-map.yaml"
-    ]
+    assert moved["before"].members["address-map.yaml"] != moved["after"].members["address-map.yaml"]
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
@@ -270,9 +251,7 @@ def test_d7_move_refuses_a_base_contract_for_a_facetless_node(tmp_path):
         tmp_path / "destination",
         domains=PINS.domains,
     )
-    node = source.add(
-        stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"})
-    )
+    node = source.add(stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"}))
 
     manifest = destination.root / "corpus.yaml"
     manifest.write_text(manifest.read_text().replace(PINS.science_contract, "science:" + "c" * 64))
@@ -297,19 +276,13 @@ def test_c3_an_in_coverage_move_leaves_the_digest_and_moves_the_receipt(tmp_path
     moved = _move_published_dataset(tmp_path)
     before, after = moved["before"], moved["after"]
     assert _belief_digest(before) == _belief_digest(after)
-    assert before.receipts["producer-receipt.yaml"].corpus_states == tuple(
-        sorted(moved["states_before"].items())
-    )
-    assert after.receipts["producer-receipt.yaml"].corpus_states == tuple(
-        sorted(moved["states_after"].items())
-    )
+    assert before.receipts["producer-receipt.yaml"].corpus_states == tuple(sorted(moved["states_before"].items()))
+    assert after.receipts["producer-receipt.yaml"].corpus_states == tuple(sorted(moved["states_after"].items()))
 
 
 def test_r23_location_is_not_evidence(tmp_path):
     moved = _move_published_dataset(tmp_path)
-    assert moved["before"].members["producers-map.yaml"] == moved["after"].members[
-        "producers-map.yaml"
-    ]
+    assert moved["before"].members["producers-map.yaml"] == moved["after"].members["producers-map.yaml"]
     assert moved["states_before"] != moved["states_after"]
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
@@ -370,9 +343,7 @@ def test_consolidate_unions_relations_and_preserves_both_bases(tmp_path):
             id="discussion:inbound",
             kind="discussion",
             title="inbound",
-            relations=[
-                Relation(source="discussion:inbound", predicate="cites", target=keep.id)
-            ],
+            relations=[Relation(source="discussion:inbound", predicate="cites", target=keep.id)],
         )
     )
     inbound_before = keep_writer.read_view.get(inbound.id)
@@ -436,12 +407,8 @@ def test_d7_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
         domains=PINS.domains,
     )
     other_writer = _writer(tmp_path / "base" / "other", domains=PINS.domains)
-    keep = keep_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
-    )
-    other = other_writer.add(
-        stored.source_node(title="other", identifiers={"doi": "10.1234/abc"})
-    )
+    keep = keep_writer.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"}))
+    other = other_writer.add(stored.source_node(title="other", identifiers={"doi": "10.1234/abc"}))
 
     manifest = keep_writer.root / "corpus.yaml"
     manifest.write_text(manifest.read_text().replace(PINS.science_contract, "science:" + "c" * 64))
@@ -480,19 +447,13 @@ def test_m3_consolidating_equal_basis_retraction_replicas_leaves_the_counter_ret
     for writer in (keep_writer, other_writer):
         observed = writer.add(
             stored.dataset_node(
-                                title="raw",
+                title="raw",
                 resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
         )
-        run = writer.add(
-            stored.run_node(
-                "r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]
-            )
-        )
-        proposition = writer.add(
-            stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
-        )
+        run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]))
+        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         targets.append(
             writer.add(
                 stored.assessment_node(
@@ -580,9 +541,7 @@ def test_consolidate_is_idempotent_over_an_already_unioned_survivor(tmp_path):
     assert repeated == survivor
 
 
-def test_t2_a_consolidate_is_one_intent_and_one_report_in_each_root(
-    tmp_path, monkeypatch
-):
+def test_t2_a_consolidate_is_one_intent_and_one_report_in_each_root(tmp_path, monkeypatch):
     keep_writer, other_writer, keep, other = _duplicate_datasets(tmp_path)
     report_operations = {}
     for label, writer in (("keep", keep_writer), ("other", other_writer)):
@@ -627,7 +586,7 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
     observation = source.add(
         stored.dataset_node(
-                        title="observation",
+            title="observation",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
@@ -642,9 +601,7 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
         )
     )
     destination.add(run)
-    proposition = source.add(
-        stored.proposition_node("claim", title="claim", claim={"operator": "affects"})
-    )
+    proposition = source.add(stored.proposition_node("claim", title="claim", claim={"operator": "affects"}))
     destination.add(proposition)
     target = source.add(
         stored.assessment_node(
@@ -680,12 +637,8 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
 def test_supersede_refuses_a_predecessor_moved_away(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
-    predecessor = source.add(
-        stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
-    )
-    successor = stored.proposition_node(
-        "p2", title="p2", claim={"operator": "inhibits"}
-    )
+    predecessor = source.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+    successor = stored.proposition_node("p2", title="p2", claim={"operator": "inhibits"})
     relocation.move(source, destination, predecessor.id, **MOVE_FIELDS)
 
     with pytest.raises(RelocationTargetMissing) as caught:

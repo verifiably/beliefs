@@ -236,9 +236,7 @@ class TestEstimandGrammar:
             ("scales", ["additive"], "multiplicative"),
         ],
     )
-    def test_a_closed_set_must_exactly_match_the_tags_the_kernel_operates(
-        self, document, closed_set, tags, unoperable
-    ):
+    def test_a_closed_set_must_exactly_match_the_tags_the_kernel_operates(self, document, closed_set, tags, unoperable):
         document["estimand_grammar"][closed_set] = tags
         with pytest.raises(MalformedContract, match=unoperable):
             parse(document)

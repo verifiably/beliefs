@@ -69,9 +69,7 @@ def _report(reason: str, findings: tuple, verdict: str) -> None:
     offending = [finding for finding in findings if finding.verdict == verdict]
     if offending:
         raise MalformedArm(
-            reason
-            + "\n"
-            + "\n".join(f"  {finding.arm.label}\n    {finding.detail}" for finding in offending)
+            reason + "\n" + "\n".join(f"  {finding.arm.label}\n    {finding.detail}" for finding in offending)
         )
 
 
@@ -122,9 +120,7 @@ class TestTheDeclarationTable:
         assert tuple(map(int, total.groups())) == (15, 7, 22)
         pairs = re.search(r"Selected units: ((?:[A-Z]+\d+ \d+(?:, )?)+)", flattened)
         assert pairs is not None
-        assert {
-            row: int(count) for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))
-        } == ROW_UNITS
+        assert {row: int(count) for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))} == ROW_UNITS
 
     def test_the_frozen_cut_names_the_commit_this_audit_reads(self):
         completed = subprocess.run(

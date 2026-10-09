@@ -128,9 +128,7 @@ def test_fork_product_admits_through_the_fork_of_path(certified_work):
     assert minted.forked_from is not None
     record = world.admit(
         child,
-        provenance=registry.ForkOf(
-            minted.forked_from.corpus_id, minted.forked_from.corpus_state
-        ),
+        provenance=registry.ForkOf(minted.forked_from.corpus_id, minted.forked_from.corpus_state),
     )
 
     assert record.corpus_id == minted.corpus_id
@@ -160,7 +158,8 @@ def test_arrival_registered_mode_on_serviceable(certified_work, monkeypatch):
                 ),
             )
         ),
-     authority=FULL)
+        authority=FULL,
+    )
     assert "preimage" not in calls
     assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_SERVICEABLE
 
@@ -173,9 +172,7 @@ def test_arrival_registered_mode_on_serviceable(certified_work, monkeypatch):
     assert "preimage" not in calls
 
 
-def test_arrival_detached_on_unserviceable_metadata_less_and_mismatched(
-    certified_work, monkeypatch
-):
+def test_arrival_detached_on_unserviceable_metadata_less_and_mismatched(certified_work, monkeypatch):
     parent = _parent_corpus(certified_work)
 
     # Unserviceable: a completed replica, unrestored.
@@ -243,7 +240,8 @@ def test_restored_arrival_requires_restore_first(certified_work, monkeypatch):
                 ),
             )
         ),
-     authority=FULL)
+        authority=FULL,
+    )
     assert read_lifecycle_state(copy) is LifecycleState.READ_ONLY_SERVICEABLE
 
     second_world = _world_over(certified_work, "world-after", copy)

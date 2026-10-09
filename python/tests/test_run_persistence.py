@@ -117,9 +117,7 @@ def test_kill_between_append_and_start_leaves_intent_only(certified_work, monkey
     assert not (root / "run").exists() and not (root / "act-report").exists()
 
 
-def test_kill_between_append_and_start_leaves_intent_only_operation_kind(
-    certified_work, monkeypatch
-) -> None:
+def test_kill_between_append_and_start_leaves_intent_only_operation_kind(certified_work, monkeypatch) -> None:
     root, inner = _observer_port(certified_work)
 
     class KilledAfterAppend:

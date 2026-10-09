@@ -119,7 +119,9 @@ def _observer(certified_work: Path, name: str) -> Observer:
     observer_root, store_root = certified_work / name, certified_work / f"{name}-store"
     init_corpus_root(observer_root, authority=FULL)
     store_id = init_store_root(store_root, authority=FULL)
-    ctx = ActContext(observer_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=BASE)
+    ctx = ActContext(
+        observer_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=BASE
+    )
     writer = open_corpus(observer_root, authority=FULL, profile=BASE)
     writer.adopt_manifest(profile=pins_for(BASE))
     return Observer(ctx, store_id, writer)
@@ -182,7 +184,11 @@ def observation_files(root: Path) -> list[Path]:
 
 
 def observation_values(writer: CorpusWriter):
-    return [stored.holdings_observation_value(node) for node in writer.read_view.iter_stored() if node.kind == "holdings-observation"]
+    return [
+        stored.holdings_observation_value(node)
+        for node in writer.read_view.iter_stored()
+        if node.kind == "holdings-observation"
+    ]
 
 
 def read_only_store(ctx, certified_work: Path):
@@ -204,7 +210,9 @@ def world_over(certified_work: Path, *roots: Path):
 
 def reduce(world, corpus_id: str, binding):
     seam = science_root._log_seam()
-    return derive_holdings(world, frozenset({corpus_id}), binding, chain_view=seam.inspect_registered, state_facts=seam.state_facts)
+    return derive_holdings(
+        world, frozenset({corpus_id}), binding, chain_view=seam.inspect_registered, state_facts=seam.state_facts
+    )
 
 
 def _raise_publish(_root, _plan, _fulfills):
@@ -225,7 +233,12 @@ def test_h4a_an_established_remote_found_publishes_or_the_look_raises(observer, 
         result.retrieved.path.unlink()
         assert len(observation_files(ctx.observer_root)) == 1
         ((method, target, headers),) = log.requests
-        assert (method, target, headers["Host"], headers["Accept-Encoding"]) == ("GET", "/data", "example.org", "identity")
+        assert (method, target, headers["Host"], headers["Accept-Encoding"]) == (
+            "GET",
+            "/data",
+            "example.org",
+            "identity",
+        )
 
         # The publication failure, through the durable session's ledgered context.
         session.claim_invocation("A", "acquire", DIGEST)
@@ -270,11 +283,41 @@ def test_h4b_an_inconclusive_remote_attempt_mints_nothing_and_never_absent(obser
         private = replace(seam, resolve=lambda host, _p: [PUBLIC] if host == "example.org" else ["10.0.0.1"])
         attempts = [
             ("timeout", timeout, DATA, BOUNDS, InconclusiveLook("retrieval-failed", "transport failure: timeout")),
-            ("truncated", seam, url_locator("https://example.org/partial"), BOUNDS, InconclusiveLook("retrieval-failed", "transport failure: protocol")),
-            ("ceiling", seam, url_locator("https://example.org/five"), RetrievalBounds(5.0, 4, 3), InconclusiveLook("retrieval-failed", "exceeded the 4-byte streaming ceiling")),
-            ("404", seam, url_locator("https://example.org/missing"), BOUNDS, InconclusiveLook("retrieval-failed", "status 404")),
-            ("500", seam, url_locator("https://example.org/broken"), BOUNDS, InconclusiveLook("retrieval-failed", "status 500")),
-            ("refused hop", private, url_locator("https://example.org/hop"), BOUNDS, InconclusiveLook("retrieval-failed", "redirect hop 1 refused: non-public-address")),
+            (
+                "truncated",
+                seam,
+                url_locator("https://example.org/partial"),
+                BOUNDS,
+                InconclusiveLook("retrieval-failed", "transport failure: protocol"),
+            ),
+            (
+                "ceiling",
+                seam,
+                url_locator("https://example.org/five"),
+                RetrievalBounds(5.0, 4, 3),
+                InconclusiveLook("retrieval-failed", "exceeded the 4-byte streaming ceiling"),
+            ),
+            (
+                "404",
+                seam,
+                url_locator("https://example.org/missing"),
+                BOUNDS,
+                InconclusiveLook("retrieval-failed", "status 404"),
+            ),
+            (
+                "500",
+                seam,
+                url_locator("https://example.org/broken"),
+                BOUNDS,
+                InconclusiveLook("retrieval-failed", "status 500"),
+            ),
+            (
+                "refused hop",
+                private,
+                url_locator("https://example.org/hop"),
+                BOUNDS,
+                InconclusiveLook("retrieval-failed", "redirect hop 1 refused: non-public-address"),
+            ),
             ("unpinnable", unpinnable, DATA, BOUNDS, InconclusiveLook("byte-locator-untested", "unpinnable")),
         ]
         for label, attempt, locator, bounds, expected in attempts:
@@ -287,9 +330,14 @@ def test_h4b_an_inconclusive_remote_attempt_mints_nothing_and_never_absent(obser
             assert standing.record.identity() == identity
     for node in reopen(ctx.observer_root).iter_stored():
         if node.kind == "holdings-observation":
-            assert cast(dict[str, object], stored.holdings_observation_value(node).facet()["outcome"])["finding"] == "found"
+            assert (
+                cast(dict[str, object], stored.holdings_observation_value(node).facet()["outcome"])["finding"]
+                == "found"
+            )
     assert len(intents(ctx.observer_root)) == 1 + len(attempts)
-    assert len([e for e in registrations(ctx.observer_root) if e.fulfills is not None]) == 1  # the manifest's registration fulfills nothing
+    assert (
+        len([e for e in registrations(ctx.observer_root) if e.fulfills is not None]) == 1
+    )  # the manifest's registration fulfills nothing
     assert list(scratch.iterdir()) == []
 
 
@@ -334,7 +382,11 @@ def test_r10a_the_acquisition_records_dataset_provenance(observer, tmp_path):
     outcome = acquire(ctx, writer, req, seam=seam, scratch=tmp_path / "s")
     assert outcome.dataset is not None
     dataset = writer.read_view.get(outcome.dataset.id)
-    assert dataset.facets["empirical-observation"] == {"locator": req.locator, "attested_by": ctx.actor, "retrieval": outcome.report_ref}
+    assert dataset.facets["empirical-observation"] == {
+        "locator": req.locator,
+        "attested_by": ctx.actor,
+        "retrieval": outcome.report_ref,
+    }
     report = writer.read_view.get(outcome.report_ref)
     assert stored.act_report_facet(report)["operation"] == "acquisition"
     refs = [entry.outcome.ref for entry in outcome.report.entries if isinstance(entry.outcome, PublishedObservation)]
@@ -364,9 +416,19 @@ def test_t5b_a_preflight_refusal_and_a_post_stop_skip_spell_distinct_reasons(obs
     """T5-b: a preflight refusal and a post-stop skip: both `byte-locator-untested`, reasons distinct."""
     ctx, writer = observer.ctx, observer.writer
     seam, log = scripted_seam({}, unpinnable=True)
-    outcome = acquire(ctx, writer, request(resource("a", "a"), resource("b", "b"), resource("c", "c")), seam=seam, scratch=tmp_path / "s")
+    outcome = acquire(
+        ctx,
+        writer,
+        request(resource("a", "a"), resource("b", "b"), resource("c", "c")),
+        seam=seam,
+        scratch=tmp_path / "s",
+    )
     outcomes = [entry.outcome for entry in outcome.entries]
-    assert outcomes == [ByteLocatorUntested("unpinnable"), ByteLocatorUntested(SKIPPED_AFTER_STOP), ByteLocatorUntested(SKIPPED_AFTER_STOP)]
+    assert outcomes == [
+        ByteLocatorUntested("unpinnable"),
+        ByteLocatorUntested(SKIPPED_AFTER_STOP),
+        ByteLocatorUntested(SKIPPED_AFTER_STOP),
+    ]
     assert ByteLocatorUntested("unpinnable").reason != ByteLocatorUntested(SKIPPED_AFTER_STOP).reason
     assert log.requests == []
     assert kinds(ctx.observer_root) == ["acquisition", "re-check"]
@@ -391,13 +453,24 @@ def test_t5c_no_entry_outcome_constructs_an_observation(observer, tmp_path, monk
     assert "act-report" not in stored_kinds(writer)
     entry = operation_intent(ctx.observer_root)
     intent = OperationIntent("acquisition", json.loads(entry.payload)["event_token"], ctx.actor)
-    assert completion(intent, registrations_of(chain(ctx.observer_root), entry.digest, "act-report:" + "0" * 64), {}) == UNFINISHED
+    assert (
+        completion(intent, registrations_of(chain(ctx.observer_root), entry.digest, "act-report:" + "0" * 64), {})
+        == UNFINISHED
+    )
 
     monkeypatch.setattr(module, "look", real)
-    outcome = acquire(ctx, writer, request(resource("a", "a", store_id=observer.store_id)), seam=seam, scratch=tmp_path / "s")
+    outcome = acquire(
+        ctx, writer, request(resource("a", "a", store_id=observer.store_id)), seam=seam, scratch=tmp_path / "s"
+    )
     assert outcome.dataset is not None
-    tokens = {json.loads(e.payload)["event_token"] for e in intents(ctx.observer_root) if json.loads(e.payload).get("kind") in ("re-check", "write")}
-    published = [entry.outcome.ref for entry in outcome.report.entries if isinstance(entry.outcome, PublishedObservation)]
+    tokens = {
+        json.loads(e.payload)["event_token"]
+        for e in intents(ctx.observer_root)
+        if json.loads(e.payload).get("kind") in ("re-check", "write")
+    }
+    published = [
+        entry.outcome.ref for entry in outcome.report.entries if isinstance(entry.outcome, PublishedObservation)
+    ]
     assert len(published) == 2
     for ref in published:
         node = writer.read_view.get(ref)
@@ -412,7 +485,9 @@ def test_t7a_the_dataset_and_its_report_publish_in_one_transaction_in_one_root(o
     """T7-a: dataset and report in one registered transaction; a wrong-root writer refuses before the intent."""
     ctx, writer = observer.ctx, observer.writer
     seam, log = scripted_seam({"/a": ok(A)})
-    outcome = acquire(ctx, writer, request(resource("a", "a", store_id=observer.store_id)), seam=seam, scratch=tmp_path / "s")
+    outcome = acquire(
+        ctx, writer, request(resource("a", "a", store_id=observer.store_id)), seam=seam, scratch=tmp_path / "s"
+    )
     assert outcome.dataset is not None
     entries = chain(ctx.observer_root)
     intent = operation_intent(ctx.observer_root)
@@ -421,7 +496,10 @@ def test_t7a_the_dataset_and_its_report_publish_in_one_transaction_in_one_root(o
     closing = fulfilling[0]
     assert closing is [e for e in entries if isinstance(e, RegisteredEntryView)][-1]
     view = writer.read_view
-    assert {path for path, _ in closing.final} == {writer._relative_path(outcome.dataset), writer._relative_path(view.get(outcome.report_ref))}
+    assert {path for path, _ in closing.final} == {
+        writer._relative_path(outcome.dataset),
+        writer._relative_path(view.get(outcome.report_ref)),
+    }
 
     other_root = certified_work / "other"
     init_corpus_root(other_root, authority=FULL)
@@ -442,14 +520,29 @@ def test_t7b_the_address_is_unchanged_while_the_record_bytes_move(certified_work
     outcomes = []
     for index, observer in enumerate((one, two)):
         seam, _ = scripted_seam({"/a": ok(A)})
-        outcomes.append(acquire(observer.ctx, observer.writer, request(resource("a", "a")), seam=seam, scratch=tmp_path / f"s{index}"))
+        outcomes.append(
+            acquire(
+                observer.ctx, observer.writer, request(resource("a", "a")), seam=seam, scratch=tmp_path / f"s{index}"
+            )
+        )
     first, second = outcomes
     assert first.dataset is not None and second.dataset is not None
-    assert first.dataset.id == second.dataset.id == dataset_address(DatasetDeclaration((ResourceDeclaration("a", digest(A)),)))
+    assert (
+        first.dataset.id
+        == second.dataset.id
+        == dataset_address(DatasetDeclaration((ResourceDeclaration("a", digest(A)),)))
+    )
     assert first.report_ref != second.report_ref
-    assert first.dataset.facets["empirical-observation"]["retrieval"] != second.dataset.facets["empirical-observation"]["retrieval"]
-    assert node_to_markdown(one.writer.read_view.get(first.dataset.id)) != node_to_markdown(two.writer.read_view.get(second.dataset.id))
-    assert registry.corpus_state_identity(one.ctx.observer_root) != registry.corpus_state_identity(two.ctx.observer_root)
+    assert (
+        first.dataset.facets["empirical-observation"]["retrieval"]
+        != second.dataset.facets["empirical-observation"]["retrieval"]
+    )
+    assert node_to_markdown(one.writer.read_view.get(first.dataset.id)) != node_to_markdown(
+        two.writer.read_view.get(second.dataset.id)
+    )
+    assert registry.corpus_state_identity(one.ctx.observer_root) != registry.corpus_state_identity(
+        two.ctx.observer_root
+    )
 
 
 # --- T1 ----------------------------------------------------------------------------
@@ -463,8 +556,11 @@ def test_t1a_a_raw_written_report_is_undetected_on_read_and_refuted_under_anchor
     writer._append_operation_intent("acquisition", token, ctx.actor)
     now = "2026-09-20T00:00:00Z"
     report = boundary_values._mint_acquisition_report(
-        OperationIntent("acquisition", token, ctx.actor), observer=ctx.observer, instrument=ctx.instrument,
-        opened_at=now, closed_at=now,
+        OperationIntent("acquisition", token, ctx.actor),
+        observer=ctx.observer,
+        instrument=ctx.instrument,
+        opened_at=now,
+        closed_at=now,
         entries=(LocatorEntry("url:https://example.org/a", RetrievalFailed("status 500"), BOUNDS.instrument_inputs()),),
     )
     node = stored.act_report_node(report)
@@ -481,7 +577,9 @@ def test_t1a_a_raw_written_report_is_undetected_on_read_and_refuted_under_anchor
     assert anchored.outcome == "refuted"
     assert f"head:{relative}" in {finding.ref for finding in anchored.findings if finding.code == "replay-disagreement"}
     config = WorldConfig(writer.root.parent / f"{writer.root.name}-world", "f" * 32, (writer.root,))
-    unanchored = science_root.audit_log(config, anchors.CorpusSubject(writer.corpus_id), writer.root, verify.ObserverSet(()), actor="alice")
+    unanchored = science_root.audit_log(
+        config, anchors.CorpusSubject(writer.corpus_id), writer.root, verify.ObserverSet(()), actor="alice"
+    )
     assert unanchored.outcome == "unresolvable"
 
 
@@ -492,7 +590,9 @@ def test_t2a_an_acquisition_closes_through_exactly_one_report_after_its_intent(o
     """T2-a: acquisition to success: one intent, one qualifying report, closed, the intent before every act."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
-    outcome = acquire(ctx, writer, request(resource("a", "a", store_id=observer.store_id)), seam=seam, scratch=tmp_path / "s")
+    outcome = acquire(
+        ctx, writer, request(resource("a", "a", store_id=observer.store_id)), seam=seam, scratch=tmp_path / "s"
+    )
     assert outcome.dataset is not None
     reports = [node for node in writer.read_view.iter_stored() if node.kind == "act-report"]
     assert len(reports) == 1 and reports[0].id == outcome.report_ref
@@ -503,9 +603,15 @@ def test_t2a_an_acquisition_closes_through_exactly_one_report_after_its_intent(o
     assert len(fulfilling) == 1
     assert completion(intent, fulfilling, {outcome.report_ref: outcome.report}) == CLOSED
     position = entries.index(intent_entry)
-    acts = [i for i, e in enumerate(entries) if isinstance(e, IntentEntryView) and json.loads(e.payload).get("kind") in ("re-check", "write")]
+    acts = [
+        i
+        for i, e in enumerate(entries)
+        if isinstance(e, IntentEntryView) and json.loads(e.payload).get("kind") in ("re-check", "write")
+    ]
     registered = [i for i, e in enumerate(entries) if isinstance(e, RegisteredEntryView) and e.fulfills is not None]
-    assert acts and registered and position < min(acts) and position < min(registered)  # the manifest's registration precedes and fulfills nothing
+    assert (
+        acts and registered and position < min(acts) and position < min(registered)
+    )  # the manifest's registration precedes and fulfills nothing
 
 
 def test_t2b_root_selection_failure_begins_no_act(observer, tmp_path):
@@ -524,9 +630,18 @@ def test_t2b_root_selection_failure_begins_no_act(observer, tmp_path):
     portless = CorpusWriter(ctx.observer_root, durable_executor_factory(), authority=FULL, profile=BASE)
     before = chain(ctx.observer_root)
     with pytest.raises(AcquisitionRefused, match="no operation port"):
-        acquire(ctx, portless, request(resource("a", "a", store_id=observer.store_id)), seam=transport, scratch=tmp_path / "s")
+        acquire(
+            ctx,
+            portless,
+            request(resource("a", "a", store_id=observer.store_id)),
+            seam=transport,
+            scratch=tmp_path / "s",
+        )
     assert chain(ctx.observer_root) == before and log.requests == []
-    assert not any(node.kind in ("act-report", "dataset", "holdings-observation") for node in reopen(ctx.observer_root).iter_stored())
+    assert not any(
+        node.kind in ("act-report", "dataset", "holdings-observation")
+        for node in reopen(ctx.observer_root).iter_stored()
+    )
 
 
 class RefusingPort:
@@ -574,7 +689,10 @@ def test_t2c_intent_append_failure_begins_no_act(observer, tmp_path):
     assert log.requests == []
     assert chain(ctx.observer_root) == before
     assert sorted(p for p in ctx.observer_root.rglob("*") if p.is_file()) == files
-    assert not any(node.kind in ("act-report", "dataset", "holdings-observation") for node in reopen(ctx.observer_root).iter_stored())
+    assert not any(
+        node.kind in ("act-report", "dataset", "holdings-observation")
+        for node in reopen(ctx.observer_root).iter_stored()
+    )
 
 
 def test_t2d_a_second_fulfillment_is_refused_and_a_raw_one_is_malformed(observer, certified_work, tmp_path):
@@ -585,7 +703,9 @@ def test_t2d_a_second_fulfillment_is_refused_and_a_raw_one_is_malformed(observer
     outcome = acquire(ctx, writer, request(resource("a", "a")), seam=seam, scratch=tmp_path / "s")
     intent_digest = operation_intent(ctx.observer_root).digest
     with pytest.raises(ExecutionError, match="already fulfills"):
-        writer._publish_operation_report(outcome.report, intent_digest, operations=(writer._create_op(proposition("p")),))
+        writer._publish_operation_report(
+            outcome.report, intent_digest, operations=(writer._create_op(proposition("p")),)
+        )
     assert len([e for e in registrations(ctx.observer_root) if e.fulfills == intent_digest]) == 1
 
     copy = certified_work / "copy"
@@ -594,7 +714,9 @@ def test_t2d_a_second_fulfillment_is_refused_and_a_raw_one_is_malformed(observer
     forged.digests = [entry.digest for entry in chain(ctx.observer_root)]
     report_path = writer._relative_path(writer.read_view.get(outcome.report_ref))
     state = state_at(copy, report_path)
-    registration = forged.registration("tx-raw", ((report_path, state),), ((report_path, state),), fulfills=intent_digest)
+    registration = forged.registration(
+        "tx-raw", ((report_path, state),), ((report_path, state),), fulfills=intent_digest
+    )
     forged.append(SettledEntry(txid="tx-raw", registration=registration, outcome=ChainOutcome.COMMITTED))
     view = science_root._log_seam().inspect_registered(copy)
     assert isinstance(view, MalformedView), view
@@ -604,7 +726,9 @@ def test_t2d_a_second_fulfillment_is_refused_and_a_raw_one_is_malformed(observer
 # --- T4 ----------------------------------------------------------------------------
 
 
-def test_t4a_reports_leave_the_projection_unchanged_and_an_unfinished_operation_blocks_nothing(observer, certified_work, tmp_path):
+def test_t4a_reports_leave_the_projection_unchanged_and_an_unfinished_operation_blocks_nothing(
+    observer, certified_work, tmp_path
+):
     """T4-a: reports added and removed: reducer outputs byte-identical; an unmatched
     acquisition intent blocks nothing."""
     ctx, writer = observer.ctx, observer.writer
@@ -641,7 +765,9 @@ def test_t4a_reports_leave_the_projection_unchanged_and_an_unfinished_operation_
     assert output_digest(open_active) == digests[0]
 
 
-def test_t4b_deleting_a_referenced_observation_moves_the_active_set_and_not_the_report(observer, certified_work, tmp_path):
+def test_t4b_deleting_a_referenced_observation_moves_the_active_set_and_not_the_report(
+    observer, certified_work, tmp_path
+):
     """T4-b: deleting a referenced URL observation moves the active set; the report is
     byte-unchanged and `cite` resolves. The managed `delete` refuses a
     `holdings-observation` by static kind exclusion (families design §3.0) whether or
@@ -658,7 +784,11 @@ def test_t4b_deleting_a_referenced_observation_moves_the_active_set_and_not_the_
     ref = entry.outcome.ref
     world, binding = world_over(certified_work, ctx.observer_root)
     active, blocked, _ = reduce(world, writer.corpus_id, binding)
-    assert sorted(str(member["head"]) for member in active) == sorted((ref.partition(":")[2], unreferenced.record.identity())) and blocked == []
+    assert (
+        sorted(str(member["head"]) for member in active)
+        == sorted((ref.partition(":")[2], unreferenced.record.identity()))
+        and blocked == []
+    )
     report_bytes = node_to_markdown(writer.read_view.get(outcome.report_ref))
 
     for target in (ref, unreferenced.ref):  # the refusal is the kind's, referenced or not
@@ -718,14 +848,22 @@ def test_bi2_no_hop_bytes_enter_any_record_or_reason(observer, tmp_path):
     with served({"/a": Served(302, {"Location": TOKEN_HOST_HOP})}) as (seam, log):
         outcome = acquire(ctx, writer, request(resource("a", "a")), seam=seam, scratch=scratch)
     assert outcome.stop == Stop("a", "look", "transport failure: tls") and outcome.dataset is None
-    assert len(log.requests) == 1 and [host for host, _a, _p in log.dialled] == ["example.org", "tok3n-9f2a.example.net"]
+    assert len(log.requests) == 1 and [host for host, _a, _p in log.dialled] == [
+        "example.org",
+        "tok3n-9f2a.example.net",
+    ]
     _assert_no_secret(ctx, writer, outcome, secrets_, scratch)
 
 
 def _assert_no_secret(ctx, writer, outcome, secrets_, scratch: Path) -> None:
     (entry,) = outcome.entries
     assert isinstance(entry.outcome, RetrievalFailed)
-    haystacks = [entry.subject, entry.outcome.reason, outcome.stop.reason, node_to_markdown(writer.read_view.get(outcome.report_ref))]
+    haystacks = [
+        entry.subject,
+        entry.outcome.reason,
+        outcome.stop.reason,
+        node_to_markdown(writer.read_view.get(outcome.report_ref)),
+    ]
     for root in (ctx.observer_root, scratch):
         if root.exists():
             haystacks.extend(path.read_bytes().decode("utf-8", "replace") for path in root.rglob("*") if path.is_file())
@@ -749,12 +887,15 @@ def test_bi3_the_pinned_connection_dials_the_validated_address(observer, tmp_pat
             wrapped.append(server_hostname)
             return sentinel
 
-    monkeypatch.setattr(transport_module.socket, "create_connection", lambda address, timeout: dialled.append(address) or sentinel)
+    monkeypatch.setattr(
+        transport_module.socket, "create_connection", lambda address, timeout: dialled.append(address) or sentinel
+    )
     connection = PinnedHTTPSConnection("host.example", PUBLIC, 443, 5.0, FakeContext())  # type: ignore[arg-type]
     connection.connect()
     assert dialled == [(PUBLIC, 443)] and wrapped == ["host.example"]
 
     for check_hostname, verify_mode in ((False, ssl.CERT_REQUIRED), (True, ssl.CERT_NONE)):
+
         class Lax:
             pass
 
@@ -765,7 +906,9 @@ def test_bi3_the_pinned_connection_dials_the_validated_address(observer, tmp_pat
         with pytest.raises(PinningUnavailable):
             pinned_connection(Approved("host.example", 443, "/a", "host.example", PUBLIC), 5.0)
 
-    monkeypatch.setattr(transport_module.socket, "create_connection", lambda *a, **k: pytest.fail("a socket was opened"))
+    monkeypatch.setattr(
+        transport_module.socket, "create_connection", lambda *a, **k: pytest.fail("a socket was opened")
+    )
     ctx, writer = observer.ctx, observer.writer
     seam, log = scripted_seam({"/a": ok(A)}, unpinnable=True)
     outcome = acquire(ctx, writer, request(resource("a", "a")), seam=seam, scratch=tmp_path / "s")
@@ -842,7 +985,9 @@ def test_bi7_the_url_looks_intent_blocks_nothing(observer, certified_work, tmp_p
     row = {"digest": intent.digest, "entry": {"payload": intent.payload.hex(), "kind": "intent"}}
     decoded = qualify.decode_holdings_intent(row)
     assert decoded is not None and decoded["location"] == "url:https://example.org/a"
-    assert qualify.qualify_intent(decoded, (), {}) == "unmatched"  # the rule's own qualification over the chain: no registration, no unresolved row
+    assert (
+        qualify.qualify_intent(decoded, (), {}) == "unmatched"
+    )  # the rule's own qualification over the chain: no registration, no unresolved row
 
 
 def test_bi8_no_lock_is_held_across_the_request(observer, session, tmp_path, monkeypatch):
@@ -868,7 +1013,9 @@ def test_bi8_no_lock_is_held_across_the_request(observer, session, tmp_path, mon
         thread.join(5)
         return inner(approved, timeout)
 
-    outcome = acquire(ctx, writer, request(resource("a", "a")), seam=replace(seam, connect=probing), scratch=tmp_path / "s")
+    outcome = acquire(
+        ctx, writer, request(resource("a", "a")), seam=replace(seam, connect=probing), scratch=tmp_path / "s"
+    )
     assert outcome.dataset is not None and seen == [True]
 
     session.claim_invocation("A", "acquire", DIGEST)
@@ -896,7 +1043,12 @@ def test_bi8_no_lock_is_held_across_the_request(observer, session, tmp_path, mon
 
     partner = threading.Thread(target=add_while_open, daemon=True)
     partner.start()
-    routed = scoped.acquire(_acquisition_request(), instrument="inst", scratch=tmp_path / "s2", seam=replace(transport, connect=gated_connect))
+    routed = scoped.acquire(
+        _acquisition_request(),
+        instrument="inst",
+        scratch=tmp_path / "s2",
+        seam=replace(transport, connect=gated_connect),
+    )
     partner.join(30)
     assert not partner.is_alive() and routed.dataset is not None
     assert owned and all(owned)
@@ -907,7 +1059,9 @@ def test_bi8_no_lock_is_held_across_the_request(observer, session, tmp_path, mon
 
 def _show(path: str) -> bytes:
     repo = Path(__file__).resolve().parents[3]
-    return subprocess.run(["git", "-C", str(repo), "show", f"{CUT34_MERGE}:{path}"], check=True, capture_output=True).stdout
+    return subprocess.run(
+        ["git", "-C", str(repo), "show", f"{CUT34_MERGE}:{path}"], check=True, capture_output=True
+    ).stdout
 
 
 def _cut34_bundle() -> rules.RuleBundle:
@@ -932,7 +1086,12 @@ def test_bi9_the_successor_rule_keeps_old_receipts_validatable(observer, certifi
     world, binding = world_over(certified_work, ctx.observer_root, held.ctx.observer_root)
     seam_ = science_root._log_seam()
     new_receipt = reduce(world, writer.corpus_id, binding)[2]
-    assert validate_holdings_receipt(world, new_receipt, chain_view=seam_.inspect_registered, state_facts=seam_.state_facts).outcome == "validated"
+    assert (
+        validate_holdings_receipt(
+            world, new_receipt, chain_view=seam_.inspect_registered, state_facts=seam_.state_facts
+        ).outcome
+        == "validated"
+    )
 
     old_bundle = _cut34_bundle()
     assert any(name == "holdings.url.yaml" for name, _ in holdings_rule_bundle().fixtures)
@@ -944,7 +1103,12 @@ def test_bi9_the_successor_rule_keeps_old_receipts_validatable(observer, certifi
     assert old_binding == old_identity
     old_active, _, old_receipt = reduce(world, held.writer.corpus_id, old_binding)
     assert len(old_active) == 1 and old_receipt.rule_identity == old_identity.rule_identity
-    assert validate_holdings_receipt(world, old_receipt, chain_view=seam_.inspect_registered, state_facts=seam_.state_facts).outcome == "validated"
+    assert (
+        validate_holdings_receipt(
+            world, old_receipt, chain_view=seam_.inspect_registered, state_facts=seam_.state_facts
+        ).outcome
+        == "validated"
+    )
 
 
 def test_bi10_url_intents_and_observations_decode_and_reconcile(session, certified_work, tmp_path):
@@ -969,7 +1133,9 @@ def test_bi10_url_intents_and_observations_decode_and_reconcile(session, certifi
     (path,) = observation_files(session.corpus_root)
     relative = path.relative_to(session.corpus_root).as_posix()
     assert evidence.record_layout_path(relative)
-    assert evidence.decode_record(relative, path.read_bytes()) == ObservationEvidence("url:https://example.org/a", token)
+    assert evidence.decode_record(relative, path.read_bytes()) == ObservationEvidence(
+        "url:https://example.org/a", token
+    )
 
 
 def test_bi11_the_materialization_classification(observer, certified_work, tmp_path):
@@ -988,7 +1154,13 @@ def test_bi11_the_materialization_classification(observer, certified_work, tmp_p
     assert isinstance(cause, ExecutionError) and cause.applied == 0
     assert type(cause.__cause__) is PreconditionRefused  # the replica's refusal, in the routine set (decision 10)
     seam, log = scripted_seam({"/a": ok(A), "/b": ok(B)})
-    first = acquire(read_only, writer, request(resource("a", "a", store_id=store_id), resource("b", "b")), seam=seam, scratch=scratch)
+    first = acquire(
+        read_only,
+        writer,
+        request(resource("a", "a", store_id=store_id), resource("b", "b")),
+        seam=seam,
+        scratch=scratch,
+    )
     assert first.dataset is None
     assert first.stop is not None and (first.stop.resource, first.stop.phase) == ("a", "materialize")
     assert [type(e) for e in first.entries] == [LocatorEntry, LocatorEntry]
@@ -998,7 +1170,13 @@ def test_bi11_the_materialization_classification(observer, certified_work, tmp_p
 
     # (2) on the last resource: the earlier entries kept, nothing minted
     seam, log = scripted_seam({"/a": ok(A), "/b": ok(B)})
-    last = acquire(read_only, writer, request(resource("a", "a"), resource("b", "b", store_id=store_id)), seam=seam, scratch=scratch)
+    last = acquire(
+        read_only,
+        writer,
+        request(resource("a", "a"), resource("b", "b", store_id=store_id)),
+        seam=seam,
+        scratch=scratch,
+    )
     assert last.dataset is None and last.stop is not None
     assert (last.stop.resource, last.stop.phase) == ("b", "materialize")
     assert all(type(e.outcome) is PublishedObservation for e in last.entries) and len(log.requests) == 2
@@ -1023,7 +1201,10 @@ def test_bi11_the_materialization_classification(observer, certified_work, tmp_p
     assert stored_kinds(writer).count("act-report") == reports
     entry = [e for e in intents(ctx.observer_root) if json.loads(e.payload).get("kind") == "acquisition"][-1]
     intent = OperationIntent("acquisition", json.loads(entry.payload)["event_token"], ctx.actor)
-    assert completion(intent, registrations_of(chain(ctx.observer_root), entry.digest, "act-report:" + "0" * 64), {}) == UNFINISHED
+    assert (
+        completion(intent, registrations_of(chain(ctx.observer_root), entry.digest, "act-report:" + "0" * 64), {})
+        == UNFINISHED
+    )
     assert list(scratch.iterdir()) == []
 
     # (4) a terminal session failure propagates and is never a stop
@@ -1032,7 +1213,13 @@ def test_bi11_the_materialization_classification(observer, certified_work, tmp_p
 
     seam, _ = scripted_seam({"/a": ok(A)})
     with pytest.raises(SessionProtocolError):
-        acquire(replace(ctx, seam=replace(ctx.seam, store_write=closed)), writer, request(resource("a", "a", store_id=store_id)), seam=seam, scratch=scratch)
+        acquire(
+            replace(ctx, seam=replace(ctx.seam, store_write=closed)),
+            writer,
+            request(resource("a", "a", store_id=store_id)),
+            seam=seam,
+            scratch=scratch,
+        )
     assert stored_kinds(writer).count("act-report") == reports
 
     # (5) negative: an unexpected engine failure propagates and reads unfinished, never a stop
@@ -1041,6 +1228,12 @@ def test_bi11_the_materialization_classification(observer, certified_work, tmp_p
 
     seam, _ = scripted_seam({"/a": ok(A)})
     with pytest.raises(ExecutionError, match="internal"):
-        acquire(replace(ctx, seam=replace(ctx.seam, store_write=internal)), writer, request(resource("a", "a", store_id=store_id)), seam=seam, scratch=scratch)
+        acquire(
+            replace(ctx, seam=replace(ctx.seam, store_write=internal)),
+            writer,
+            request(resource("a", "a", store_id=store_id)),
+            seam=seam,
+            scratch=scratch,
+        )
     assert stored_kinds(writer).count("act-report") == reports
     assert "dataset" not in stored_kinds(writer)

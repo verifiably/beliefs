@@ -44,11 +44,11 @@ _LIVE_SABOTAGES = {
         module="corpus.py",
         before=(
             "        if node.id != address:\n"
-            "            raise SourceAddressDisagreement(f\"{node.id}: the identifiers derive {address}\")\n"
+            '            raise SourceAddressDisagreement(f"{node.id}: the identifiers derive {address}")\n'
         ),
         after=(
             "        if False:\n"
-            "            raise SourceAddressDisagreement(f\"{node.id}: the identifiers derive {address}\")\n"
+            '            raise SourceAddressDisagreement(f"{node.id}: the identifiers derive {address}")\n'
         ),
     )
 }

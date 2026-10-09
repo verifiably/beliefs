@@ -295,7 +295,8 @@ def test_coreference_between_retractions_closes_no_route_durably(durable_world, 
     nodes = []
     for ref in ("route-left", "route-right"):
         nodes.append(
-            stored.dataset_node(title=ref, resources=seed_pinned(ref), basis={"tag": "single", "routes": [{"identity": "route:one"}]}
+            stored.dataset_node(
+                title=ref, resources=seed_pinned(ref), basis={"tag": "single", "routes": [{"identity": "route:one"}]}
             )
         )
     world, roots, _published, a, b = durable_world((nodes[0],), (nodes[1],))

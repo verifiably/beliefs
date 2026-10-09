@@ -80,7 +80,11 @@ def recheck_locations(
     passes the one `ScopedWriter._act` takes first — entered before the root
     lock and never around an act (decision 6)."""
     # 1. Checks, before any effect (§4 step 1).
-    if type(locations) is not tuple or not locations or any(type(location) is not StoreLocator for location in locations):
+    if (
+        type(locations) is not tuple
+        or not locations
+        or any(type(location) is not StoreLocator for location in locations)
+    ):
         raise MalformedRecord("recheck_locations takes a non-empty tuple of StoreLocator values")
     canonicals = [location.canonical() for location in locations]
     if len(set(canonicals)) != len(canonicals):
@@ -90,7 +94,8 @@ def recheck_locations(
         if key not in canonicals:
             raise RecheckRefused(f"{key}: standing names a location this re-check does not request")
         if type(predecessors) is not tuple or any(
-            type(predecessor) is not HoldingsObservation or predecessor.location.canonical() != key for predecessor in predecessors
+            type(predecessor) is not HoldingsObservation or predecessor.location.canonical() != key
+            for predecessor in predecessors
         ):
             raise RecheckRefused(f"{key}: standing holds only HoldingsObservation values at that canonical location")
     ctx.authority.require("holdings", ("holdings-observation",))
@@ -98,7 +103,9 @@ def recheck_locations(
     _require_identity_text(ctx.observer, "observer")
     _require_identity_text(ctx.instrument, "instrument")
     if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():
-        raise RecheckRefused("the writer's root is not the act context's observer root; a re-check publishes in one root")
+        raise RecheckRefused(
+            "the writer's root is not the act context's observer root; a re-check publishes in one root"
+        )
     if port is None and writer._operation_port is None:
         raise RecheckRefused("this corpus has no operation port; re-check is a boundary operation")
     writer._require_bound_port(port)
@@ -118,7 +125,11 @@ def recheck_locations(
         result = recheck(ctx, location, standing=heads.get(canonical, ()))
         results.append(result)
         if isinstance(result, InconclusiveAttempt):
-            outcome = ByteLocatorUntested(result.reason) if result.report == "byte-locator-untested" else RetrievalFailed(result.reason)
+            outcome = (
+                ByteLocatorUntested(result.reason)
+                if result.report == "byte-locator-untested"
+                else RetrievalFailed(result.reason)
+            )
             entries.append(LocatorEntry(canonical, outcome))
             continue
         ref = f"holdings-observation:{result.record.identity()}"
@@ -133,7 +144,11 @@ def recheck_locations(
             if writer.read_view.resolve(ref) is None:
                 raise RecheckRefused(f"{ref}: the report would reference an observation no act published")
         report = boundary_values._mint_recheck_report(
-            intent, observer=ctx.observer, instrument=ctx.instrument, opened_at=opened_at, closed_at=closed_at,
+            intent,
+            observer=ctx.observer,
+            instrument=ctx.instrument,
+            opened_at=opened_at,
+            closed_at=closed_at,
             entries=tuple(entries),
         )
         report_ref = stored.act_report_node(report).id

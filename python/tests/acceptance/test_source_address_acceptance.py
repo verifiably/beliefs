@@ -156,9 +156,7 @@ def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
                 resources=d.facets[stored.DATASET_FACET]["resources"],
             )
         )
-    reheld = left.add(
-        stored.dataset_node(title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}])
-    )
+    reheld = left.add(stored.dataset_node(title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}]))
     assert reheld.id != d.id and stored.dataset_declaration(reheld) != stored.dataset_declaration(d)
     assert content_identity(reheld) != content_identity(d)
     # mint_eligible_assessment's run; AssessmentValue.run is the closure address, not the id
@@ -258,9 +256,7 @@ def test_refusals_leave_no_intent_or_file_effect(work_directory, case, exception
         elif case == "missing":
             ref = "source:missing"
         elif case == "not-source":
-            ref = w.add(
-                stored.dataset_node(title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
-            ).id
+            ref = w.add(stored.dataset_node(title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])).id
         elif case in ("raw-current", "successor-facets"):
 
             def corrupt(node):
@@ -468,9 +464,13 @@ def test_lifecycle_move_consolidate_delete(world):
     assert divergent is not None
     (left_entry,) = stored.identifier_corrections(left.read_view.get(divergent))
     (right_entry,) = stored.identifier_corrections(right.read_view.get(divergent))
-    merged, keep_report, _other_report = consolidate((left, divergent), (right, divergent), rationale="one paper", **REPORT)
+    merged, keep_report, _other_report = consolidate(
+        (left, divergent), (right, divergent), rationale="one paper", **REPORT
+    )
     spine, absorbed = stored.identifier_corrections(merged)
-    assert spine == left_entry and absorbed.absorbed == (right_entry,) and absorbed.event_token == keep_report.event_token
+    assert (
+        spine == left_entry and absorbed.absorbed == (right_entry,) and absorbed.event_token == keep_report.event_token
+    )
     assert merged.deprecated_ids == [other.id]
     assert not [finding for finding in corpus_check(left.read_view, BASE) if finding.ref == merged.id]
     assert right.read_view.resolve(divergent) is None

@@ -62,13 +62,17 @@ def ok(body: bytes) -> Scripted:
 
 def resource(name: str, path: str, *, expected=None, store_id=None) -> ResourceRequest:
     return ResourceRequest(
-        name=name, url=url_locator(f"https://example.org/{path}"), expected=expected,
+        name=name,
+        url=url_locator(f"https://example.org/{path}"),
+        expected=expected,
         materialize=None if store_id is None else StoreLocator(store_id, f"acquired/{name}.bin"),
     )
 
 
 def request(*resources: ResourceRequest, title="Dryad record 1") -> AcquisitionRequest:
-    return AcquisitionRequest(title=title, locator="url:https://example.org/dataset/1", resources=resources, bounds=BOUNDS)
+    return AcquisitionRequest(
+        title=title, locator="url:https://example.org/dataset/1", resources=resources, bounds=BOUNDS
+    )
 
 
 @pytest.fixture()
@@ -88,21 +92,29 @@ def chain(root):
 def registrations_of(entries, intent_digest: str, pointer: str) -> tuple[Registration, ...]:
     """The registrations fulfilling the operation intent, each pointing at the report the close published."""
     fulfilling = [e for e in entries if isinstance(e, RegisteredEntryView) and e.fulfills == intent_digest]
-    token = json.loads(next(e for e in entries if isinstance(e, IntentEntryView) and e.digest == intent_digest).payload)["event_token"]
+    token = json.loads(
+        next(e for e in entries if isinstance(e, IntentEntryView) and e.digest == intent_digest).payload
+    )["event_token"]
     return tuple(Registration(token, pointer) for _ in fulfilling)
 
 
 def test_the_happy_path_mints_the_dataset_beside_its_report_in_one_transaction(acquisition):
     ctx, store_id, writer, scratch = acquisition
     seam, log = scripted_seam({"/a": ok(A)})
-    assert not writer.read_view.holds("holdings-observation:" + "0" * 64)  # the index is built and cached before the looks publish past it
+    assert not writer.read_view.holds(
+        "holdings-observation:" + "0" * 64
+    )  # the index is built and cached before the looks publish past it
     outcome = acquire(ctx, writer, request(resource("a", "a", store_id=store_id)), seam=seam, scratch=scratch)
     assert outcome.stop is None and outcome.dataset is not None
     address = dataset_address(DatasetDeclaration((ResourceDeclaration("a", digest(A)),)))
     assert address is not None
     assert outcome.dataset.id == address
     facet = outcome.dataset.facets["empirical-observation"]
-    assert facet == {"locator": "url:https://example.org/dataset/1", "attested_by": ctx.actor, "retrieval": outcome.report_ref}
+    assert facet == {
+        "locator": "url:https://example.org/dataset/1",
+        "attested_by": ctx.actor,
+        "retrieval": outcome.report_ref,
+    }
     kinds = [type(entry) for entry in outcome.entries]
     assert kinds == [LocatorEntry, ManagedMutationEntry, DeclarationPinEntry]
     assert outcome.entries[0].subject == "url:https://example.org/a"
@@ -141,9 +153,13 @@ def test_a_failing_second_look_closes_with_no_dataset_and_a_look_stop(acquisitio
 def test_a_preflight_refusal_on_the_first_resource_skips_the_rest_with_zero_requests(acquisition):
     ctx, _, writer, scratch = acquisition
     seam, log = scripted_seam({}, unpinnable=True)
-    outcome = acquire(ctx, writer, request(resource("a", "a"), resource("b", "b"), resource("c", "c")), seam=seam, scratch=scratch)
+    outcome = acquire(
+        ctx, writer, request(resource("a", "a"), resource("b", "b"), resource("c", "c")), seam=seam, scratch=scratch
+    )
     assert [e.outcome for e in outcome.entries] == [
-        ByteLocatorUntested("unpinnable"), ByteLocatorUntested(SKIPPED_AFTER_STOP), ByteLocatorUntested(SKIPPED_AFTER_STOP)
+        ByteLocatorUntested("unpinnable"),
+        ByteLocatorUntested(SKIPPED_AFTER_STOP),
+        ByteLocatorUntested(SKIPPED_AFTER_STOP),
     ]
     assert log.requests == []
     assert [json.loads(i.payload).get("kind") for i in _intents(ctx.observer_root)] == ["acquisition", "re-check"]
@@ -160,7 +176,15 @@ def test_an_expectation_mismatch_mints_no_dataset_and_the_adapter_reports_mismat
     assert record.outcome == Found(digest(A)) and record.expected == digest(B)
     answer = dataset_observations(
         DatasetDeclaration((ResourceDeclaration("a", digest(B)),)),
-        [{"head": "h", "location": "url:https://example.org/a", "outcome": {"finding": "found", "digest": digest(A)}, "expected": digest(B), "history": []}],
+        [
+            {
+                "head": "h",
+                "location": "url:https://example.org/a",
+                "outcome": {"finding": "found", "digest": digest(A)},
+                "expected": digest(B),
+                "history": [],
+            }
+        ],
         [],
     )
     assert isinstance(answer, DatasetAnswer) and answer.observations[0].digest == digest(A)
@@ -212,20 +236,30 @@ def test_every_pre_intent_refusal_leaves_the_chain_and_corpus_untouched_and_issu
         req = request(replace(resource("a", "a"), materialize=StoreLocator("f" * 32, "x.bin")))
     elif spoil == "malformed-facet":
         req = AcquisitionRequest(
-            title="t", locator="url:https://example.org/dataset/1", resources=(resource("a", "a"),), bounds=BOUNDS,
-            domain_facets={"ns/x": {"k": object()}},  # namespaced, so the request accepts it; the profile's payload validation does not
+            title="t",
+            locator="url:https://example.org/dataset/1",
+            resources=(resource("a", "a"),),
+            bounds=BOUNDS,
+            domain_facets={
+                "ns/x": {"k": object()}
+            },  # namespaced, so the request accepts it; the profile's payload validation does not
         )
     with pytest.raises(refusal):
         acquire(ctx, writer, req, **kwargs)
     assert chain(ctx.observer_root) == before
     assert log.requests == []
-    assert not any(node.kind in ("act-report", "dataset", "holdings-observation") for node in writer.read_view.iter_stored())
+    assert not any(
+        node.kind in ("act-report", "dataset", "holdings-observation") for node in writer.read_view.iter_stored()
+    )
 
 
 def test_the_request_refuses_an_unnamespaced_domain_facet_as_a_value():
     with pytest.raises(MalformedRecord, match="namespaced"):
         AcquisitionRequest(
-            title="t", locator="url:https://example.org/d", resources=(resource("a", "a"),), bounds=BOUNDS,
+            title="t",
+            locator="url:https://example.org/d",
+            resources=(resource("a", "a"),),
+            bounds=BOUNDS,
             domain_facets={"unnamespaced": {"k": 1}},
         )
 
@@ -237,7 +271,13 @@ def test_a_registered_domain_facet_lands_on_the_minted_dataset(certified_work, t
     writer.adopt_manifest(profile=pins_for(WITH_BIOLOGY))
     seam, _ = scripted_seam({"/a": ok(A)})
     facets = REGISTERED_DOMAIN_FACETS
-    req = AcquisitionRequest(title="t", locator="url:https://example.org/d", resources=(resource("a", "a"),), bounds=BOUNDS, domain_facets=facets)
+    req = AcquisitionRequest(
+        title="t",
+        locator="url:https://example.org/d",
+        resources=(resource("a", "a"),),
+        bounds=BOUNDS,
+        domain_facets=facets,
+    )
     outcome = acquire(ctx, writer, req, seam=seam, scratch=tmp_path / "scratch")
     assert outcome.dataset is not None
     for key, payload in facets.items():
@@ -256,7 +296,9 @@ def test_a_store_refusal_on_the_first_resource_stops_skips_and_mints_nothing(acq
     ctx, store_id, writer, scratch = acquisition
     ctx = _read_only_store(ctx, certified_work)
     seam, log = scripted_seam({"/a": ok(A), "/b": ok(B)})
-    outcome = acquire(ctx, writer, request(resource("a", "a", store_id=store_id), resource("b", "b")), seam=seam, scratch=scratch)
+    outcome = acquire(
+        ctx, writer, request(resource("a", "a", store_id=store_id), resource("b", "b")), seam=seam, scratch=scratch
+    )
     assert outcome.dataset is None
     assert outcome.stop is not None and (outcome.stop.resource, outcome.stop.phase) == ("a", "materialize")
     assert [type(e) for e in outcome.entries] == [LocatorEntry, LocatorEntry]
@@ -270,7 +312,9 @@ def test_a_store_refusal_on_the_last_resource_keeps_the_earlier_entries_and_mint
     ctx, store_id, writer, scratch = acquisition
     ctx = _read_only_store(ctx, certified_work)
     seam, log = scripted_seam({"/a": ok(A), "/b": ok(B)})
-    outcome = acquire(ctx, writer, request(resource("a", "a"), resource("b", "b", store_id=store_id)), seam=seam, scratch=scratch)
+    outcome = acquire(
+        ctx, writer, request(resource("a", "a"), resource("b", "b", store_id=store_id)), seam=seam, scratch=scratch
+    )
     assert outcome.dataset is None and outcome.stop is not None
     assert outcome.stop.phase == "materialize" and outcome.stop.resource == "b"
     assert [type(e) for e in outcome.entries] == [LocatorEntry, LocatorEntry]

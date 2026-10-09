@@ -344,9 +344,7 @@ class TestStructure:
         """Structure strictly before anchors: the same anchor refutes a
         well-formed chain and is never consulted for a verdict here."""
         anchor = observers(record_carrier(STRANGER))
-        malformed = evaluate(
-            CorpusSubject(CORPUS_ID), MalformedView(DefectView("cycle", E1, "a cycle")), anchor
-        )
+        malformed = evaluate(CorpusSubject(CORPUS_ID), MalformedView(DefectView("cycle", E1, "a cycle")), anchor)
         well_formed = evaluate(CorpusSubject(CORPUS_ID), corpus_chain(), anchor)
         assert malformed.outcome == "malformed"
         assert well_formed.outcome == "refuted"
@@ -615,9 +613,7 @@ class TestAnchors:
 
 class TestEligibility:
     def test_a_named_local_epoch_anchors_a_corpus(self, tmp_path: Path) -> None:
-        report = evaluate(
-            CorpusSubject(CORPUS_ID), corpus_chain(), observers(local_epoch(tmp_path, corpus_head=E1))
-        )
+        report = evaluate(CorpusSubject(CORPUS_ID), corpus_chain(), observers(local_epoch(tmp_path, corpus_head=E1)))
         assert report.outcome == "validated"
         assert len(report.observer_bound) == 1
         assert "provenance=named-local" in report.observer_bound[0]
@@ -630,9 +626,7 @@ class TestEligibility:
     def test_a_named_local_epoch_anchors_no_world(self, tmp_path: Path) -> None:
         """L11's point: identical epoch bytes, different eligibility. No local
         act anchors the world chain."""
-        report = evaluate(
-            WorldSubject(WORLD_ID), world_chain(), observers(local_epoch(tmp_path, world_head=E1))
-        )
+        report = evaluate(WorldSubject(WORLD_ID), world_chain(), observers(local_epoch(tmp_path, world_head=E1)))
         assert report.outcome == "unresolvable"
         assert report.observer_bound == ()
         assert "observer-ineligible" in codes(report)
@@ -718,9 +712,7 @@ class TestReplay:
             removal,
             settlement("44" * 32, E3, "tx-2"),
         )
-        report = evaluate(
-            CorpusSubject(CORPUS_ID), view, observers(record_carrier(E1)), disk=()
-        )
+        report = evaluate(CorpusSubject(CORPUS_ID), view, observers(record_carrier(E1)), disk=())
         assert report.outcome == "validated"
         assert codes(report) == ["record-removed", "removal-unclassified"]
 
@@ -733,9 +725,7 @@ class TestReplay:
         assert report.findings == ()
 
     def test_the_maximal_anchor_is_by_ancestry_and_not_by_record_order(self) -> None:
-        report = evaluate(
-            CorpusSubject(CORPUS_ID), corpus_chain(), observers(record_carrier(E2), record_carrier(E1))
-        )
+        report = evaluate(CorpusSubject(CORPUS_ID), corpus_chain(), observers(record_carrier(E2), record_carrier(E1)))
         assert report.anchored_through == E2
         assert report.unanchored_tail == ()
 
@@ -770,16 +760,8 @@ class TestQualification:
             "intent-fulfillment-non-qualifying",
             "intent-payload-malformed",
         }
-        positions = [
-            index
-            for index, finding in enumerate(report.findings)
-            if finding.code in qual_codes
-        ]
-        others = [
-            index
-            for index, finding in enumerate(report.findings)
-            if finding.code not in qual_codes
-        ]
+        positions = [index for index, finding in enumerate(report.findings) if finding.code in qual_codes]
+        others = [index for index, finding in enumerate(report.findings) if finding.code not in qual_codes]
         assert positions
         assert others
         assert all(position > other for position in positions for other in others)
@@ -811,11 +793,7 @@ class TestQualification:
         )
         assert report.outcome == "unresolvable"
         assert report.qualification[0].status == "unresolvable"
-        assert not [
-            finding
-            for finding in report.findings
-            if finding.code.startswith("intent-fulfillment")
-        ]
+        assert not [finding for finding in report.findings if finding.code.startswith("intent-fulfillment")]
 
     def test_genesis_malformed_exit_carries_qualification(self) -> None:
         view = chain(genesis(payload=b"not the corpus genesis payload"), INTENT)
@@ -1012,19 +990,13 @@ def head_record(chain: Chain, head: str, *, corpus_id: str = CUT8_CORPUS_ID) -> 
 
 def head_export(chain: Chain, head: str, *, world_id: str = WORLD_ID) -> ArtifactCarrier:
     """An exported head artifact — L11's only eligible carrier for a world."""
-    return ArtifactCarrier.from_bytes(
-        head_artifact_bytes(HeadArtifact(WorldSubject(world_id), chain.digests[0], head))
-    )
+    return ArtifactCarrier.from_bytes(head_artifact_bytes(HeadArtifact(WorldSubject(world_id), chain.digests[0], head)))
 
 
 def logged_surface(view: WellFormedView) -> dict[str, object]:
     """The surface the chain's own committed transitions leave behind."""
     surface = dict(view.genesis.baseline)
-    committed = {
-        entry.registration
-        for entry in view.entries
-        if type(entry) is SettledEntryView and entry.committed
-    }
+    committed = {entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed}
     for entry in view.entries:
         if type(entry) is RegisteredEntryView and entry.digest in committed:
             surface.update(entry.final)
@@ -1069,9 +1041,7 @@ def test_duplicate_settlement_is_malformed_at_step_one(tmp_path: Path) -> None:
     assert report.anchored_through is None
 
 
-def test_copied_root_pending_is_unresolvable_in_both_variants(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_copied_root_pending_is_unresolvable_in_both_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """L2u4. A pending entry on a copied root is `unresolvable` at step 3 in
     **both** variants — the copy caught before apply (record absent) and after
     apply (record present) — never refuted as a disk mismatch, and never
@@ -1552,9 +1522,7 @@ def test_genesis_form_malformation_and_world_id_mismatch_split(tmp_path: Path) -
         assert report.outcome == "malformed", build.__name__
         assert codes(report) == ["genesis-form-invalid"], build.__name__
         assert report.anchored_through is None
-    assert "baseline" in judge(
-        populated_baseline(tmp_path / "again"), carriers=()
-    ).findings[0].message
+    assert "baseline" in judge(populated_baseline(tmp_path / "again"), carriers=()).findings[0].message
 
     other = foreign_world_genesis(tmp_path)
     well_formed(other)

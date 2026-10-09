@@ -143,9 +143,7 @@ def test_an_unregistered_directory_is_an_absent_chain_and_refuses(certified_work
     _refuses(root, unreferenced, original, "chain not well-formed")
 
 
-def test_an_unenumerable_namespace_refuses_for_verification_and_for_run(
-    certified_work, monkeypatch
-) -> None:
+def test_an_unenumerable_namespace_refuses_for_verification_and_for_run(certified_work, monkeypatch) -> None:
     assert os.geteuid() != 0, "this arm needs a non-root user"
     original, unreferenced, _ = specs()
     for namespace in ("verification", "run"):
@@ -480,9 +478,7 @@ def test_yaml_valid_malformed_relation_shapes_refuse_in_either_namespace(
     assert _refuses(root, unreferenced, original, reason).ref == path
 
 
-def test_an_unreadable_regular_file_refuses_in_either_namespace(
-    certified_work, monkeypatch
-) -> None:
+def test_an_unreadable_regular_file_refuses_in_either_namespace(certified_work, monkeypatch) -> None:
     assert os.geteuid() != 0, "this arm needs a non-root user"
     original, unreferenced, _ = specs()
     for namespace, reason in (

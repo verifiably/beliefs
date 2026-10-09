@@ -50,7 +50,13 @@ def affects():
 
 
 def stored_proposition(wire) -> Node:
-    facet = {"operator": wire.operator, "args": list(wire.args), "qualifiers": {k: dict(v) for k, v in wire.qualifiers.items()}, "polarity": wire.polarity, "layer": wire.layer}
+    facet = {
+        "operator": wire.operator,
+        "args": list(wire.args),
+        "qualifiers": {k: dict(v) for k, v in wire.qualifiers.items()},
+        "polarity": wire.polarity,
+        "layer": wire.layer,
+    }
     return stored.proposition_node("p", title="p", claim=facet)
 
 
@@ -83,7 +89,7 @@ class TestM13Opacity:
         claim, _ = claim_from_stored(stored_proposition(affects()), profile=profile, snapshot=readable)
         direct, _ = decode_claim(affects(), profile=profile, snapshot=readable)
         assert project_claim(claim) == project_claim(direct)
-        assert claim_identity(claim) == claim_identity(direct)   # π_claim accepts it; the brand chain is intact
+        assert claim_identity(claim) == claim_identity(direct)  # π_claim accepts it; the brand chain is intact
 
     def test_the_wire_type_stays_confined(self):
         # The existing scan in test_decode.py asserts no signature outside decode mentions WireClaim;
@@ -142,15 +148,17 @@ class TestM11FunctionOfItsArguments:
     @pytest.mark.parametrize(
         "mutate",
         [
-            lambda f: {k: v for k, v in f.items() if k != "polarity"},        # missing field
-            lambda f: {**f, "extra": "x"},                                   # extra field
-            lambda f: {**f, "args": "not-a-list"},                          # malformed field
+            lambda f: {k: v for k, v in f.items() if k != "polarity"},  # missing field
+            lambda f: {**f, "extra": "x"},  # extra field
+            lambda f: {**f, "args": "not-a-list"},  # malformed field
             lambda f: {**f, "qualifiers": {"dim": {"quantifier": "all"}}},  # malformed qualifier body
         ],
     )
     def test_refuses_before_delegation_and_mints_nothing(self, profile, readable, affects, monkeypatch, mutate):
         node = stored_proposition(affects())
-        bad = node.model_copy(update={"facets": {stored.PROPOSITION_FACET: mutate(node.facets[stored.PROPOSITION_FACET])}})
+        bad = node.model_copy(
+            update={"facets": {stored.PROPOSITION_FACET: mutate(node.facets[stored.PROPOSITION_FACET])}}
+        )
         monkeypatch.setattr(decode, "decode_claim", lambda *a, **k: pytest.fail("delegated on malformed input"))
         with pytest.raises(MalformedWireClaim):
             claim_from_stored(bad, profile=profile, snapshot=readable)
@@ -158,7 +166,9 @@ class TestM11FunctionOfItsArguments:
     def test_a_wrong_kind_refuses_before_delegation(self, profile, readable, monkeypatch):
         monkeypatch.setattr(decode, "decode_claim", lambda *a, **k: pytest.fail("delegated"))
         with pytest.raises(MalformedWireClaim):
-            claim_from_stored(stored.source_node(title="s", identifiers={"doi": "10.1234/x"}), profile=profile, snapshot=readable)
+            claim_from_stored(
+                stored.source_node(title="s", identifiers={"doi": "10.1234/x"}), profile=profile, snapshot=readable
+            )
 
     def test_no_key_error_or_attribute_error_escapes(self, profile, readable, affects):
         node = stored_proposition(affects()).model_copy(update={"facets": {}})

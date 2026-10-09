@@ -86,7 +86,11 @@ def build_assessment(
         if estimate is not None:
             estimate = check_estimate(cast(Decimal, estimate), scale)
         uncertainty_body = derived.get("uncertainty")
-        uncertainty = None if uncertainty_body is None else uncertainty_from_mapping(uncertainty_body, estimate=estimate, scale=scale)
+        uncertainty = (
+            None
+            if uncertainty_body is None
+            else uncertainty_from_mapping(uncertainty_body, estimate=estimate, scale=scale)
+        )
         return AssessmentValue(
             spec=spec.identity,
             run=run_address,

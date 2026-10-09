@@ -239,7 +239,9 @@ class Records:
                     f"observed_facets carries a {type(row).__name__}, not a FacetRead; only the reader mints one"
                 )
         if list(self.observed_facets) != sorted(self.observed_facets, key=FacetRead.projection):
-            raise MalformedRecord("observed_facets is sorted by (address, key, digest); an unsorted carrier is not the reader's")
+            raise MalformedRecord(
+                "observed_facets is sorted by (address, key, digest); an unsorted carrier is not the reader's"
+            )
 
 
 @sealed
@@ -309,8 +311,13 @@ def evaluate_traced(
 ) -> tuple[Belief | NoBelief | Refused, Admission]:
     """Evaluate selected inputs and accompany every answer with its selection."""
     answer, admission = _evaluate_traced(
-        proposition=proposition, records=records, availability=availability,
-        context=context, retractions=retractions, binding=binding, profile=profile,
+        proposition=proposition,
+        records=records,
+        availability=availability,
+        context=context,
+        retractions=retractions,
+        binding=binding,
+        profile=profile,
     )
     if context.acceptance is not None:
         answer = replace(answer, acceptance=context.acceptance)
@@ -332,7 +339,9 @@ def _evaluate_traced(
     before step 5 completed (design §6.2)."""
     # 1. The binding is exact, or nothing computes (P1).
     if not isinstance(binding, PolicyBinding):
-        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"), NotReached()
+        return Refused(
+            f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"
+        ), NotReached()
 
     if context.acceptance is not None and not context.acceptance.complete:
         return Refused("acceptance-selection-incomplete"), NotReached()
@@ -359,7 +368,9 @@ def _evaluate_traced(
             }
         )
     )
-    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed
+    closure_nodes = (
+        tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed
+    )
     ledger: dict[str, list[str]] = {}
     for row in records.observed_facets:
         ledger.setdefault(row.address, []).append(row.key)

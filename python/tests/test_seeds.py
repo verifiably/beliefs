@@ -22,9 +22,7 @@ def test_the_seed_is_the_v1_derivation_over_this_job_key(tmp_path, monkeypatch) 
 def test_two_instances_of_one_family_draw_different_seeds(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     seed = bind(CONFIG)
-    assert seed("fit", {"sample": "a"}, "model-initialization") != seed(
-        "fit", {"sample": "b"}, "model-initialization"
-    )
+    assert seed("fit", {"sample": "a"}, "model-initialization") != seed("fit", {"sample": "b"}, "model-initialization")
 
 
 def test_the_claim_is_written_under_a_digest_name_carrying_its_own_tuple(tmp_path, monkeypatch) -> None:

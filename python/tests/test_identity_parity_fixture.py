@@ -9,7 +9,9 @@ import pytest
 from beliefs import errors
 from beliefs.identity import v1
 
-FIXTURE = json.loads((Path(__file__).resolve().parents[2] / "fixtures" / "identity-v1.json").read_text(encoding="utf-8"))
+FIXTURE = json.loads(
+    (Path(__file__).resolve().parents[2] / "fixtures" / "identity-v1.json").read_text(encoding="utf-8")
+)
 
 
 def rebuild(component):
@@ -35,7 +37,14 @@ def rebuild(component):
 
 def test_the_fixture_is_about_this_encoding():
     assert FIXTURE["identity_contract"] == "science.identity.v1"
-    assert {row["name"] for row in FIXTURE["vector"]} >= {"decimal-zero", "integer-zero", "escape-table", "astral-key-order", "namespaced-facet-key", "binary-float-refused"}
+    assert {row["name"] for row in FIXTURE["vector"]} >= {
+        "decimal-zero",
+        "integer-zero",
+        "escape-table",
+        "astral-key-order",
+        "namespaced-facet-key",
+        "binary-float-refused",
+    }
 
 
 @pytest.mark.parametrize("row", [r for r in FIXTURE["vector"] if "refusal" not in r], ids=lambda r: r["name"])
