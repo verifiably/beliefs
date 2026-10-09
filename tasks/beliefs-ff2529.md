@@ -1,10 +1,10 @@
 ---
 id: beliefs-ff2529
 title: "Realize the coordination task kind through the tasks CLI: a commands-as-tools seam, not a second task system"
-status: idea
+status: dropped
 priority: 2
 created: 2026-09-16T21:45:25Z
-updated: 2026-10-09T11:37:52Z
+updated: 2026-10-09T13:57:44Z
 depends: []
 parent: beliefs-614364
 tags: [coordination, contract]
@@ -16,3 +16,7 @@ The user/autonomy design (docs/superpowers/specs/2026-08-29-user-and-autonomy-la
 ## Notes
 
 - 2026-10-09T11:37:51Z (main): scope: briefed; science's coordination command set (2026-09-24, parts 1–3 landed by 2026-09-30) now mints task and decision records in the corpus, so realizing task through tasks records means amending landed work; kept idea under goal beliefs-614364; existing research tasks-96b215 still wakes it; the convergence choice is the user's; brief: docs/notes/2026-10-09-coordination-outside-the-kernel-brief.md
+- 2026-10-09T13:57:44Z (main): dropped
+  provenance: {"harness_session":"claude-code:71ad28fa-752d-40c3-aeea-120a500a83a3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T13:57:44Z (main): Rejected by the user's 2026-10-09 decision to keep research tasks (science coordination kinds) and dev tasks (the tasks CLI) as two systems joined by opaque references; realizing task through tasks records would reverse landed science work for no measured need. tasks-96b215's finding now bears only on a read-only bridge; brief: docs/notes/2026-10-09-coordination-outside-the-kernel-brief.md
+  provenance: {"harness_session":"claude-code:71ad28fa-752d-40c3-aeea-120a500a83a3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

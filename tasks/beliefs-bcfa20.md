@@ -7,9 +7,9 @@ size: s
 complexity: mid
 process: direct
 created: 2026-10-09T11:37:42Z
-updated: 2026-10-09T13:48:25Z
+updated: 2026-10-09T13:57:55Z
 depends: []
-parent: beliefs-614364
+parent: beliefs-44c0fd
 tags: [coordination]
 source: docs/notes/2026-10-09-coordination-outside-the-kernel-brief.md
 ---
