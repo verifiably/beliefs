@@ -104,6 +104,25 @@ _LIVE_SABOTAGES = {
         before="                    resolved_run=view.resolve(run),\n",
         after="                    resolved_run=run,\n",
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "M13": Sabotage(
+        module="decode.py",
+        before=("def claim_from_stored(\n    node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot\n"),
+        after=(
+            "def claim_from_stored(  # the seam is bound at import, so the call never reaches the module\n"
+            "    node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot, decode_claim=decode_claim\n"
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "R19": Sabotage(
+        module="corpus.py",
+        before='                raise ImportRefused(f"{contradiction.message}: {contradiction.detail}", member=record.id)\n',
+        after='                findings.add(f"derivation-contradicted: {record.id}: {contradiction.message}")\n',
+    ),
 }
 CUT18_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT18_ARMS

@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T18:11:14Z
+updated: 2026-10-09T18:26:47Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -83,3 +83,4 @@ Verification:
   provenance: {"harness_session":"codex:01a121a7-aedd-7b71-942e-be84b87b9ce4","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-09T17:58:58Z (chore/ruff-format-gate): execution: inline in .worktrees/ruff-format-gate by codex; fresh whole-branch reviewer at the end; no push
 - 2026-10-09T18:11:14Z (chore/ruff-format-gate): reformat commit REFORMAT=03d91bd4ced210e8935f3101da1dc59fe1eef7b3, BASE=f87cb460b5279a744a76c0d0c521190d30b7d715; 313 files; 56 protected paths unchanged; declarations/pins identical including post-commit comparison; fast red only in 3 staleness tests; four suppression comments moved
+- 2026-10-09T18:26:47Z (chore/ruff-format-gate): re-targets: 70 derived, 0 refused, verify 0 problems; static guard tests 287 passed; cut-46 mutation pilot 13 passed in 15.52 s; cut 10 records 3 stale arms; occupied-anchor widening preserves cut-46 uniqueness without weakening its gate

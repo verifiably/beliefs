@@ -74,7 +74,14 @@ def ruff_formatter(module: str) -> Formatter:
     return format_source
 
 
-def derive_one(original: str, formatted: str, before: str, after: str, format_source: Formatter) -> tuple[str, str]:
+def derive_one(
+    original: str,
+    formatted: str,
+    before: str,
+    after: str,
+    format_source: Formatter,
+    occupied: frozenset[str] = frozenset(),
+) -> tuple[str, str]:
     """The `(before, after)` that applied to `formatted` yields `format_source(original.replace(before, after))`."""
     occurrences = original.count(before)
     if occurrences != 1:
@@ -94,7 +101,7 @@ def derive_one(original: str, formatted: str, before: str, after: str, format_so
     start, old_end, new_end = head, len(old) - tail, len(new) - tail
     while True:
         derived_before = "".join(old[start:old_end])
-        if derived_before and formatted.count(derived_before) == 1:
+        if derived_before and formatted.count(derived_before) == 1 and derived_before not in occupied:
             break
         if start == 0 and old_end == len(old):
             raise RetargetRefused("no unique region of the formatted source carries the sabotage")
@@ -139,6 +146,7 @@ def derive(base: str) -> tuple[tuple[Retarget, ...], tuple[str, ...]]:
     refusals: list[str] = []
     for guard in frozen_guards.live_guards(REPO_ROOT):
         arms = arm_staleness.audited_arms(guard, repo_root=REPO_ROOT)
+        befores = [arm.sabotage.before for arm in arms]
         audited = arm_staleness.audited_tree(guard, repo_root=REPO_ROOT)
         for stale in arm_staleness.stale_arms(guard.name, arms, audited):
             index = int(stale.key.rpartition("[")[2].removesuffix("]"))
@@ -155,6 +163,7 @@ def derive(base: str) -> tuple[tuple[Retarget, ...], tuple[str, ...]]:
                     sabotage.before,
                     sabotage.after,
                     ruff_formatter(sabotage.module),
+                    frozenset(before for i, before in enumerate(befores) if i != index),
                 )
             except RetargetRefused as refused:
                 refusals.append(f"{guard.name}::{stale.key}: {refused}")
@@ -171,6 +180,7 @@ def derive(base: str) -> tuple[tuple[Retarget, ...], tuple[str, ...]]:
                     after=after,
                 )
             )
+            befores[index] = before
     return tuple(entries), tuple(refusals)
 
 
@@ -179,6 +189,12 @@ def verify(base: str, entries: Sequence[Retarget]) -> tuple[str, ...]:
     arm_staleness, _ = _machinery()
     working = arm_staleness.working_tree(REPO_ROOT)
     problems: list[str] = []
+    befores: dict[str, list[str]] = {}
+    for entry in entries:
+        if entry.guard not in befores:
+            arms = arm_staleness.audited_arms(ACCEPTANCE / entry.guard, repo_root=REPO_ROOT)
+            befores[entry.guard] = [arm.sabotage.before for arm in arms]
+        befores[entry.guard][entry.index] = entry.original_before
     for entry in entries:
         label = f"{entry.guard}[{entry.index}] {entry.row}"
         try:
@@ -188,6 +204,7 @@ def verify(base: str, entries: Sequence[Retarget]) -> tuple[str, ...]:
                 entry.original_before,
                 entry.original_after,
                 ruff_formatter(entry.module),
+                frozenset(before for i, before in enumerate(befores[entry.guard]) if i != entry.index),
             )
         except RetargetRefused as refused:
             problems.append(f"{label}: {refused}")
@@ -198,6 +215,7 @@ def verify(base: str, entries: Sequence[Retarget]) -> tuple[str, ...]:
         landed = (arm.row, arm.sabotage.module, arm.sabotage.before, arm.sabotage.after)
         if landed != (entry.row, entry.module, entry.before, entry.after):
             problems.append(f"{label}: the guard audits a different sabotage than the derived one")
+        befores[entry.guard][entry.index] = expected[0]
     return tuple(problems)
 
 

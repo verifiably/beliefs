@@ -51,6 +51,87 @@ _LIVE_SABOTAGES = {
         before="            self._session._require_current(self._invocation)\n            commit = perform()\n",
         after="            pass\n            commit = perform()\n",
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J1a": Sabotage(
+        module="corpus.py",
+        before=(
+            "        try:\n"
+            "            scope.port.preflight(plan)\n"
+            "        except PlanRefusedError as caught:\n"
+            "            raise PlanRefused(str(caught)) from caught\n"
+            "        scope.submitted = True  # the refusals are behind us; the intent is the first effect\n"
+            "        self._state.unresolved = True\n"
+            "        token = secrets.token_hex(16)\n"
+            '        intent_digest = scope.port.append_intent(_encode_operation_intent("corpus-write", token, scope.authority.actor))\n'
+        ),
+        after=(
+            "        scope.submitted = True  # the refusals are behind us; the intent is the first effect\n"
+            "        self._state.unresolved = True\n"
+            "        token = secrets.token_hex(16)\n"
+            '        intent_digest = scope.port.append_intent(_encode_operation_intent("corpus-write", token, scope.authority.actor))\n'
+            "        try:\n"
+            "            scope.port.preflight(plan)\n"
+            "        except PlanRefusedError as caught:\n"
+            "            raise PlanRefused(str(caught)) from caught\n"
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J1e": Sabotage(
+        module="report.py",
+        before=(
+            "_DOMAINLESS_OPERATION_KINDS = (\n"
+            '    "acquisition",\n'
+            '    "audit",\n'
+            '    "consolidate",\n'
+            '    "corpus-write",\n'
+            '    "import",\n'
+            '    "move",\n'
+            '    "re-check",\n'
+            '    "run-attempt",\n'
+            ")\n"
+        ),
+        after='_DOMAINLESS_OPERATION_KINDS = ("acquisition", "audit", "consolidate", "import", "move", "re-check", "run-attempt")\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J2j": Sabotage(
+        module="corpus.py",
+        before='        intent_digest = scope.port.append_intent(_encode_operation_intent("corpus-write", token, scope.authority.actor))\n',
+        after='        intent_digest = "0" * 64\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J4": Sabotage(
+        module="corpus.py",
+        before=(
+            "        token = secrets.token_hex(16)\n"
+            '        intent_digest = scope.port.append_intent(_encode_operation_intent("corpus-write", token, scope.authority.actor))\n'
+            "        entry_digest = scope.port.execute_fulfilling(plan, intent_digest)\n"
+        ),
+        after=(
+            "        token = secrets.token_hex(16)\n"
+            '        intent_digest = scope.port.append_intent(_encode_operation_intent("corpus-write", token, "library"))\n'
+            "        entry_digest = scope.port.execute_fulfilling(plan, intent_digest)\n"
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J8g": Sabotage(
+        module="session/ledger.py",
+        before=(
+            "    except (\n"
+            "        OSError\n"
+            "    ) as caught:  # a directory in the file's place, a permission or device error: evidence, not an exception\n"
+        ),
+        after="    except FileExistsError as caught:\n",
+    ),
 }
 CUT19_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT19_ARMS

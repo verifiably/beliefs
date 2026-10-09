@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -62,6 +63,116 @@ from n2_arms_cut46 import (
 from test_n2 import audit, baseline, workers
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y17-i": Sabotage(
+        module="publish.py",
+        before=(
+            "    for holder in sorted(grouped):\n"
+            "        if holder not in admissions:\n"
+            "            raise PublicationRefused(\n"
+            '                "attribution-holder-unregistered",\n'
+            "                corpus_ids=(holder,),\n"
+            "                refs=tuple(sorted(grouped[holder])),\n"
+            "            )\n"
+            "    replicas = tuple(holder for holder in sorted(grouped) if type(admissions[holder].provenance) is ReplicaOf)\n"
+        ),
+        after=(
+            "    replicas = tuple(\n"
+            "        holder\n"
+            "        for holder in sorted(grouped)\n"
+            "        if holder in admissions and type(admissions[holder].provenance) is ReplicaOf\n"
+            "    )\n"
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y17-n": Sabotage(
+        module="publish.py",
+        before=(
+            "        selection=tuple(i for i, _ in a.snapshot.records),\n"
+            "        attributions=a.snapshot.attributions,\n"
+            "    )\n"
+        ),
+        after=(
+            "        selection=tuple(i for i, _ in a.snapshot.records),\n"
+            '        attributions=None if a.opened.intent.destination.type == "remote" else a.snapshot.attributions,\n'
+            "    )\n"
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y18-a": Sabotage(
+        module="publication.py",
+        before=(
+            "    if type(source) is not dict or set(source) not in (\n"
+            '        {"world_id", "epoch", "view"},\n'
+            '        {"world_id", "epoch", "view", "attributions"},\n'
+            "    ):\n"
+        ),
+        after="    if type(source) is not dict:\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y18-d": Sabotage(
+        module="publication.py",
+        before="            or row[0] not in selection\n",
+        after="",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y18-j": Sabotage(
+        module="corpus.py",
+        before=(
+            "            if (\n"
+            "                node.kind != MARKER_KIND\n"
+            "                or publication_content_malformed(node)\n"
+            "                or not marker_consistent(node)\n"
+            "                or _marker_release_malformed(\n"
+            "                    node,\n"
+            '                    ("coordination:" + self._profile.activated_contracts["coordination"])\n'
+            '                    if "coordination" in self._profile.activated_contracts\n'
+            "                    else None,\n"
+            "                )\n"
+            "            ):\n"
+        ),
+        after="            if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node):\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y18-k": Sabotage(
+        module="corpus.py",
+        before=(
+            "    return publication_content_malformed(node) or (\n"
+            "        node.kind == MARKER_KIND and _marker_release_malformed(node, coordination_pin)\n"
+            "    )\n"
+        ),
+        after="    return publication_content_malformed(node)\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y18-o": Sabotage(
+        module="publish.py",
+        before=(
+            "    return not _marker_release_malformed(\n"
+            '        node, load_manifest(_remote_export(r.op, mark.corpus_id)).profile.domains.get("coordination")\n'
+            "    )\n"
+        ),
+        after="    return True\n",
+    ),
+}
+CUT46_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT46_ARMS
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-10-02-conformance-cut-46.md"

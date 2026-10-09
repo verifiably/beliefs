@@ -45,7 +45,7 @@
 **Interfaces:**
 - Produces: `frozen_guards.module_constants(tree: ast.Module) -> dict[str, str]`; `frozen_guards.declaration_pin(guard: Path) -> str | None` (a repository-relative path such as `"python/tests/n2_arms_cut46.py"`); `frozen_guards.protected_paths(repo_root: Path) -> frozenset[str]` (paths relative to `python/`, existing `.py` files only, e.g. `"tests/n2_arms_cut46.py"`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `python/tests/test_frozen_guards.py`, adding `import tomllib` to the imports (alphabetical, after `import sys`):
 
@@ -115,12 +115,12 @@ def test_an_explicit_path_cannot_format_a_protected_file() -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `just test-one tests/test_frozen_guards.py -k "protected or exclude or explicit_path"`
 Expected: 3 failed — `AttributeError: module 'frozen_guards' has no attribute 'declaration_pin'`, `KeyError: 'format'`, and the explicit-path test reporting `Would reformat: tests/n2_arms_cut46.py`.
 
-- [ ] **Step 3: Implement the protected set**
+- [x] **Step 3: Implement the protected set**
 
 In `python/tests/frozen_guards.py`, rename `_module_constants` to `module_constants` (its one caller is `pins_in`), add `from cited_not_run import CITED_NOT_RUN` after the stdlib imports, and append:
 
@@ -166,7 +166,7 @@ def protected_paths(repo_root: Path) -> frozenset[str]:
     )
 ```
 
-- [ ] **Step 4: Add the exclude to `python/pyproject.toml`**
+- [x] **Step 4: Add the exclude to `python/pyproject.toml`**
 
 Replace the `[tool.ruff]` table with:
 
@@ -241,12 +241,12 @@ exclude = [
 
 The list is in Python `sorted` order (byte order), which the test asserts. If the tree has moved since 2026-10-09 and the equality assertion reports a difference, the protected set is the authority: regenerate the list from `frozen_guards.protected_paths` and note the change on the task.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `just test-one tests/test_frozen_guards.py`
 Expected: all pass, including the three new tests. Also run `cd python && uv run --frozen ruff check . && uv run --frozen pyright` — expected `All checks passed!` and `0 errors`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add python/tests/frozen_guards.py python/tests/test_frozen_guards.py python/pyproject.toml
@@ -274,7 +274,7 @@ git commit -m "test(guards): derive the freeze-protected set and exclude it from
   - `render(entries: Sequence[Retarget]) -> str`
   - CLI: `derive --base <commit> --out <json> [--python]`, `verify --base <commit> --entries <json>`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `python/tests/test_retarget_formatted_arms.py`:
 
@@ -368,12 +368,12 @@ def test_render_spells_entries_that_evaluate_back_to_themselves() -> None:
     }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `just test-one tests/test_retarget_formatted_arms.py`
 Expected: collection error, `ModuleNotFoundError: No module named 'retarget_formatted_arms'`.
 
-- [ ] **Step 3: Write the tool**
+- [x] **Step 3: Write the tool**
 
 Create `python/tools/retarget_formatted_arms.py`:
 
@@ -639,17 +639,17 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `just test-one tests/test_retarget_formatted_arms.py`
 Expected: 9 passed. Then `cd python && uv run --frozen ruff check . && uv run --frozen pyright` — expected clean (pyright does not check `tools/`, but the test module is checked).
 
-- [ ] **Step 5: Smoke the CLI on today's tree**
+- [x] **Step 5: Smoke the CLI on today's tree**
 
 Run, from `python/`: `mkdir -p ../.work/ruff-format-gate && uv run --frozen python tools/retarget_formatted_arms.py derive --base HEAD --out ../.work/ruff-format-gate/smoke.json`
 Expected: `0 arms derived, 0 refused` and exit 0 — before the reformat no live arm is stale.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add python/tools/retarget_formatted_arms.py python/tests/test_retarget_formatted_arms.py
@@ -668,7 +668,7 @@ git commit -m "feat(tools): derive formatted twins of stale live N2 arms"
 - Consumes: Task 1's exclude (must already be committed).
 - Produces: the reformat commit, whose full hash (`REFORMAT`) Tasks 4 and 5 cite, and whose parent (`BASE`) Task 4 derives from.
 
-- [ ] **Step 1: Snapshot the declared arms and broken pins before formatting**
+- [x] **Step 1: Snapshot the declared arms and broken pins before formatting**
 
 From `python/`:
 
@@ -703,7 +703,7 @@ uv run --frozen python ../.work/ruff-format-gate/snapshot.py ../.work/ruff-forma
 
 Expected: `43 guards`.
 
-- [ ] **Step 2: Format**
+- [x] **Step 2: Format**
 
 From `python/`: `uv run --frozen ruff format .`
 Expected: `313 files reformatted, 197 files left unchanged` (counts may differ if `main` moved; record the actual). Then confirm no protected file changed:
@@ -716,7 +716,7 @@ xargs git diff --quiet -- < ../.work/ruff-format-gate/protected.txt && echo "no 
 
 Expected: `56` (one path per line, so each is its own pathspec), then `no protected file changed`. The list goes through a file and `xargs` rather than an unquoted variable, because zsh does not word-split `$VAR` and would hand git one nonexistent combined path that never differs.
 
-- [ ] **Step 3: Move the displaced suppression comments back**
+- [x] **Step 3: Move the displaced suppression comments back**
 
 Run from `python/`: `uv run --frozen ruff check .` and `uv run --frozen pyright`. Expected before fixing: 2 `RUF022` errors and 3 pyright errors, each on a line whose suppression the formatter moved onto a closing bracket. For each, move only the suppression comment onto the line the tool reports, leaving every other token as ruff wrote it. Example from `tests/test_estimand.py`:
 
@@ -737,7 +737,7 @@ Run from `python/`: `uv run --frozen ruff check .` and `uv run --frozen pyright`
 
 and in `tests/verification_fixtures.py` the `# noqa: RUF022` moves from the closing `]` onto the `__all__ = [` line ruff reports, keeping the `# re-exported for the acceptance module` comment where it was. Re-run both tools until `All checks passed!` and `0 errors`, then `uv run --frozen ruff format --check .` — expected `… files already formatted` with no file to reformat (the moved comments must not themselves need formatting).
 
-- [ ] **Step 4: Prove formatting changed no declaration and no pin**
+- [x] **Step 4: Prove formatting changed no declaration and no pin**
 
 From `python/`:
 
@@ -748,12 +748,12 @@ cmp ../.work/ruff-format-gate/before.json ../.work/ruff-format-gate/after.json &
 
 Expected: `43 guards` then `identical`.
 
-- [ ] **Step 5: Confirm the expected red, and only it**
+- [x] **Step 5: Confirm the expected red, and only it**
 
 Run: `just test-fast`
 Expected: exactly 3 failures, all in `tests/test_arm_staleness.py` (`test_every_arm_a_live_guard_audits_applies_exactly_once`, `test_every_arm_the_registry_records_as_stale_really_is_and_no_other`, `test_a_live_guard_re_targets_every_declaration_the_tree_has_outgrown`). Any other failure stops the task: analyse it before going on.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A python
@@ -810,7 +810,7 @@ The 2026-10-09 pilot measured these stale audited arms (`row[index]`); the deriv
 | cut 45 | G13-e[28] | new table |
 | cut 46 | Y17-i[11], Y17-n[16], Y18-a[19], Y18-d[22], Y18-j[28], Y18-k[29], Y18-o[33] | new table |
 
-- [ ] **Step 1: Derive**
+- [x] **Step 1: Derive**
 
 From `python/`, with `BASE` from Task 3:
 
@@ -821,7 +821,7 @@ uv run --frozen python tools/retarget_formatted_arms.py derive --base "$BASE" \
 
 Expected on stderr: `70 arms derived, 0 refused`, exit 0. A refusal stops the task: the arm cannot be carried mechanically, and it is analysed and noted on the task before anything is hand-written.
 
-- [ ] **Step 2: Write the comment once**
+- [x] **Step 2: Write the comment once**
 
 Every new or replaced entry is preceded by this comment (an earlier comment on a replaced entry stays, and this one is appended below it):
 
@@ -833,7 +833,7 @@ Every new or replaced entry is preceded by this comment (an earlier comment on a
 
 Use the date of this commit if it is not 2026-10-09.
 
-- [ ] **Step 3: Guards with an existing table (15)**
+- [x] **Step 3: Guards with an existing table (15)**
 
 For each guard marked "existing table", paste its items from `retargets.txt` into its `_LIVE_SABOTAGES` dictionary: add an item for a new row, or replace the `before`/`after` of the row's existing item (keep its `module`). For cut 7, also add `("X10", 20)` to `_LIVE_SABOTAGE_INDICES`, so the three other X10 arms keep their declared sabotage:
 
@@ -841,7 +841,7 @@ For each guard marked "existing table", paste its items from `retargets.txt` int
 _LIVE_SABOTAGE_INDICES = {("X12", 25), ("W8a", 33), ("X10", 20)}
 ```
 
-- [ ] **Step 4: Guards gaining a table (13)**
+- [x] **Step 4: Guards gaining a table (13)**
 
 For each guard marked "new table", add `from dataclasses import replace` and `Sabotage` to its `from n2_arms import …` line where absent, then insert directly after the import block, in cut 16's shape (cut 46 shown):
 
@@ -864,7 +864,7 @@ CUT46_ARMS = tuple(
 
 The items are the pasted `retargets.txt` lines verbatim; the `...` above marks where they go, not text to keep. Each of these 13 guards has one arm per stale row (the pilot checked), so row keys are safe.
 
-- [ ] **Step 5: Record cut 10's arms in the registry**
+- [x] **Step 5: Record cut 10's arms in the registry**
 
 In `python/tests/cited_not_run.py`, after `MOVED_BY_WORKTREE_ROOT`, add (with `REFORMAT`'s first 7 characters):
 
@@ -885,7 +885,7 @@ and add to the `stale_arms` of the `"test_n2_cut10.py"` entry:
 
 The derive output does not list these (cited guards are evidence); the staleness test names them if the set differs.
 
-- [ ] **Step 6: Format the edited files and verify the transcription**
+- [x] **Step 6: Format the edited files and verify the transcription**
 
 From `python/`:
 
@@ -897,12 +897,12 @@ uv run --frozen python tools/retarget_formatted_arms.py verify --base "$BASE" \
 
 Expected: `70 entries verified, 0 problems`, exit 0.
 
-- [ ] **Step 7: Run the staleness and pin tests**
+- [x] **Step 7: Run the staleness and pin tests**
 
 Run: `just test-one tests/test_arm_staleness.py tests/test_frozen_guards.py tests/test_retarget_formatted_arms.py`
 Expected: all pass.
 
-- [ ] **Step 8: Run every live guard's static tests (the scalar-pin backstop)**
+- [x] **Step 8: Run every live guard's static tests (the scalar-pin backstop)**
 
 From the worktree root, after `cd "$(pwd -P)"`:
 
@@ -915,17 +915,17 @@ xargs just test-one -k "not sabotage and not pilot_arm and not live_check and no
 
 Expected: `39` guard modules, then 0 failed (about 290 selected, about 3 minutes). As in Task 3, the list goes through `xargs`, so each module is its own argument under bash and zsh alike. Every pin form a guard enforces — table, scalar digest, scalar commit, results-record check — runs here.
 
-- [ ] **Step 9: Run the mutation pilot**
+- [x] **Step 9: Run the mutation pilot**
 
 Run: `just test-one tests/acceptance/test_n2_cut46.py`
 Expected: 13 passed in about 15 s — 36 arms, 7 of them re-targeted here, each through baseline, sabotage, check execution and a `sound` verdict. A failure stops here and is analysed before the chain (Task 6).
 
-- [ ] **Step 10: Run the fast suite and the checks**
+- [x] **Step 10: Run the fast suite and the checks**
 
 Run: `just test-fast`, then `just check`.
 Expected: test-fast green (0 failed); check clean.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add python/tests docs/plans/2026-10-09-ruff-format-retargets.json
@@ -1075,3 +1075,19 @@ git commit -m "chore(tasks): close beliefs-a555d6"
 ```
 
 `tasks done beliefs-a555d6` refuses while any child is open, so every other child must already be done (each closed with its task). `tasks check` must print nothing; report any warning. Then remove the worktree under the global rules: `tt-report`, the ignored-file check, `git worktree unlock`, `git worktree remove`.
+
+## Execution amendments — 2026-10-09
+
+- Task 3 moved four suppression comments: one `noqa` generated RUF022 and RUF100;
+  two `type: ignore` comments and one `pyright: ignore` generated the three type errors.
+  The dataset-address comprehension was then formatter-wrapped again with its comment
+  on the iterable line. No program token changed in these repairs.
+- Task 4's static backstop found that the smallest region for cut 46's Y17-n reused
+  Y17-m's `before`. The derivation now widens regions occupied by another arm in the
+  same guard, preserving the existing uniqueness check and exact mutation equivalence.
+  Verification replays the original anchor inventory and derivation order. A new
+  regression failed before this support and passed afterwards; the tool now has ten
+  synthetic cases. The resulting 70 entries remain in
+  `docs/plans/2026-10-09-ruff-format-retargets.json`.
+- Codex runs long checks through tracked exec sessions with shell timeouts and bounded
+  waits, the equivalent of the plan's Claude-specific background Bash mechanism.

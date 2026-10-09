@@ -45,6 +45,11 @@ MOVED_BY_VERIFICATION_PUBLICATION = (
 )
 MOVED_BY_WORKTREE_ROOT = "moved at 117e97e, when runners resolved certified work roots beside the main checkout"
 
+MOVED_BY_REFORMAT = (
+    "moved at 03d91bd, when ruff format re-wrapped the kernel; the cited "
+    "declaration is excluded from formatting and left byte-identical (beliefs-a555d6)"
+)
+
 CITED_NOT_RUN: dict[str, CitedNotRun] = {
     "test_n2_cut4.py": CitedNotRun(
         cut=4,
@@ -142,6 +147,9 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
         ),
         falsified_pins={"python/tests/n2_arms_cut5.py": MOVED_BY_VERIFICATION_PUBLICATION},
         stale_arms={
+            "H1u1[0]": MOVED_BY_REFORMAT,
+            "H2u1[3]": MOVED_BY_REFORMAT,
+            "L7u1[16]": MOVED_BY_REFORMAT,
             "H4u1[12]": "moved at 67750d6, when holdings acts began requiring the holdings permit",
             "J8[27]": "moved at 67750d6, when holdings acts began requiring the holdings permit",
             "J3[22]": (

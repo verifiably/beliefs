@@ -61,10 +61,20 @@ from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
 # Cut 46 extends the frozen snapshot probe with origins. Keep Y6-a's existing
 # assertion and check, reselecting the texts after intent only under sabotage.
 _LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "Y6-a": Sabotage(
         module="publish.py",
-        before="    records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)\n    _require_snapshot_records(read, records, attributions=attributions)\n    opened = _open_publication(\n        writer, resolver, view=view.unpinned(), destination=destination, clock=clock, seam=seam, port=port, expected_view=pinned,\n    )",
-        after="    records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)\n    _require_snapshot_records(read, records, attributions=attributions)\n    opened = _open_publication(\n        writer, resolver, view=view.unpinned(), destination=destination, clock=clock, seam=seam, port=port, expected_view=pinned,\n    )\n    records = tuple((address, node_to_markdown(open_world_view(world, current_epoch(world)).get(address))) for address in evaluate_query(open_world_view(world, current_epoch(world)), query).selected)",
+        before=("    )\n    token = opened.intent.event_token\n"),
+        after=(
+            "    )\n"
+            "    records = tuple(\n"
+            "        (address, node_to_markdown(open_world_view(world, current_epoch(world)).get(address)))\n"
+            "        for address in evaluate_query(open_world_view(world, current_epoch(world)), query).selected\n"
+            "    )\n"
+            "    token = opened.intent.event_token\n"
+        ),
     ),
 }
 CUT40_ARMS = tuple(

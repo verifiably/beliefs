@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -48,6 +49,105 @@ from n2_arms_cut38 import CO_CITED, CUT38_ARMS, DECLARATION_UNITS, UNIT_CHECKS, 
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "T2-g1": Sabotage(
+        module="holdings/recheck.py",
+        before=(
+            "    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n"
+            "        raise RecheckRefused(\n"
+            "            \"the writer's root is not the act context's observer root; a re-check publishes in one root\"\n"
+            "        )\n"
+        ),
+        after="    pass  # the one-root check dropped: the intent lands in the writer's root while the acts publish in the observer's\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "T2-j": Sabotage(
+        module="holdings/recheck.py",
+        before=(
+            "    for key, predecessors in heads.items():\n"
+            "        if key not in canonicals:\n"
+            '            raise RecheckRefused(f"{key}: standing names a location this re-check does not request")\n'
+            "        if type(predecessors) is not tuple or any(\n"
+            "            type(predecessor) is not HoldingsObservation or predecessor.location.canonical() != key\n"
+            "            for predecessor in predecessors\n"
+            "        ):\n"
+            '            raise RecheckRefused(f"{key}: standing holds only HoldingsObservation values at that canonical location")\n'
+            '    ctx.authority.require("holdings", ("holdings-observation",))\n'
+            '    ctx.authority.require("corpus-write", ("act-report",))\n'
+            '    _require_identity_text(ctx.observer, "observer")\n'
+            '    _require_identity_text(ctx.instrument, "instrument")\n'
+            "    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n"
+            "        raise RecheckRefused(\n"
+            "            \"the writer's root is not the act context's observer root; a re-check publishes in one root\"\n"
+            "        )\n"
+            "    if port is None and writer._operation_port is None:\n"
+            '        raise RecheckRefused("this corpus has no operation port; re-check is a boundary operation")\n'
+            "    writer._require_bound_port(port)\n"
+            "    store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))\n"
+            "    for location in locations:\n"
+            "        if location.store_id != store_id:\n"
+            '            raise RecheckRefused(f"{location.canonical()}: names store {location.store_id}, not the bound {store_id}")\n'
+            "    # 2. Open.\n"
+            '    intent = OperationIntent("re-check", secrets.token_hex(16), ctx.actor)\n'
+            "    opened_at = _now()\n"
+            "    intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)\n"
+        ),
+        after=(
+            '    ctx.authority.require("holdings", ("holdings-observation",))\n'
+            '    ctx.authority.require("corpus-write", ("act-report",))\n'
+            "    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n"
+            "        raise RecheckRefused(\n"
+            "            \"the writer's root is not the act context's observer root; a re-check publishes in one root\"\n"
+            "        )\n"
+            "    if port is None and writer._operation_port is None:\n"
+            '        raise RecheckRefused("this corpus has no operation port; re-check is a boundary operation")\n'
+            "    writer._require_bound_port(port)\n"
+            "    store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))\n"
+            "    for location in locations:\n"
+            "        if location.store_id != store_id:\n"
+            '            raise RecheckRefused(f"{location.canonical()}: names store {location.store_id}, not the bound {store_id}")\n'
+            "    # 2. Open.\n"
+            '    intent = OperationIntent("re-check", secrets.token_hex(16), ctx.actor)\n'
+            "    opened_at = _now()\n"
+            "    intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)\n"
+            '    _require_identity_text(ctx.observer, "observer")\n'
+            '    _require_identity_text(ctx.instrument, "instrument")\n'
+            "    for key, predecessors in heads.items():\n"
+            "        if key not in canonicals:\n"
+            '            raise RecheckRefused(f"{key}: standing names a location this re-check does not request")\n'
+            "        if type(predecessors) is not tuple or any(\n"
+            "            type(predecessor) is not HoldingsObservation or predecessor.location.canonical() != key\n"
+            "            for predecessor in predecessors\n"
+            "        ):\n"
+            '            raise RecheckRefused(f"{key}: standing holds only HoldingsObservation values at that canonical location")\n'
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "BI-3": Sabotage(
+        module="session/writer.py",
+        before=(
+            "            evidence=evidence,\n"
+            "            port=self.operation_port(),\n"
+            "            hold=self._closing_hold,\n"
+        ),
+        after=(
+            "            evidence=evidence,\n"
+            "            port=self._writer._operation_port,\n"
+            "            hold=self._closing_hold,\n"
+        ),
+    ),
+}
+CUT38_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT38_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

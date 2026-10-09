@@ -124,8 +124,24 @@ _LIVE_SABOTAGES = {
             "    fault = _contract_fault(kind, member, receipt, published)"
         ),
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "X10": Sabotage(
+        module="world/read.py",
+        before=(
+            "    stamp, missing, outcome = _edge_context(world, published)\n"
+            "    if missing or not outcome.validated:\n"
+            '        return EdgeAnswer("indeterminate", stamp, missing, None if outcome.validated else outcome.outcome)\n'
+        ),
+        after=(
+            "    stamp, missing, outcome = _edge_context(world, published)\n"
+            "    if missing:\n"
+            '        return EdgeAnswer("indeterminate", stamp, missing, None if outcome.validated else outcome.outcome)\n'
+        ),
+    ),
 }
-_LIVE_SABOTAGE_INDICES = {("X12", 25), ("W8a", 33)}
+_LIVE_SABOTAGE_INDICES = {("X10", 20), ("X12", 25), ("W8a", 33)}
 CUT7_ARMS = tuple(
     dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if (arm.row, index) in _LIVE_SABOTAGE_INDICES else arm
     for index, arm in enumerate(CUT7_ARMS)

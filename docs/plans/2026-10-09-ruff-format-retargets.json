@@ -1,0 +1,702 @@
+[
+ {
+  "guard": "test_n2_cut7.py",
+  "index": 20,
+  "row": "X10",
+  "module": "world/read.py",
+  "original_before": "    if missing or not outcome.validated:\n        return EdgeAnswer(\n            \"indeterminate\", stamp, missing, None if outcome.validated else outcome.outcome\n        )",
+  "original_after": "    if missing:\n        return EdgeAnswer(\n            \"indeterminate\", stamp, missing, None if outcome.validated else outcome.outcome\n        )",
+  "before": "    stamp, missing, outcome = _edge_context(world, published)\n    if missing or not outcome.validated:\n        return EdgeAnswer(\"indeterminate\", stamp, missing, None if outcome.validated else outcome.outcome)\n",
+  "after": "    stamp, missing, outcome = _edge_context(world, published)\n    if missing:\n        return EdgeAnswer(\"indeterminate\", stamp, missing, None if outcome.validated else outcome.outcome)\n"
+ },
+ {
+  "guard": "test_n2_cut9.py",
+  "index": 13,
+  "row": "L10u9",
+  "module": "world/verify.py",
+  "original_before": "        if report.outcome == \"validated\" and _restore_subject_agrees(\n            subject, kind, view, presented\n        ):\n            grant(root)",
+  "original_after": "        if report.outcome == \"validated\" and _restore_subject_agrees(\n            subject, kind, view, presented\n        ):\n            pass",
+  "before": "            grant(root)\n",
+  "after": "            pass\n"
+ },
+ {
+  "guard": "test_n2_cut9.py",
+  "index": 23,
+  "row": "V5",
+  "module": "world/verify.py",
+  "original_before": "        if report.outcome == \"validated\" and _restore_subject_agrees(\n            subject, kind, view, presented\n        ):\n            grant(root)",
+  "original_after": "        if report.outcome == \"validated\" and _restore_subject_agrees(\n            subject, kind, view, presented\n        ):\n            pass",
+  "before": "        if report.outcome == \"validated\" and _restore_subject_agrees(subject, kind, view, presented):\n            grant(root)\n    return report\n",
+  "after": "        if report.outcome == \"validated\" and _restore_subject_agrees(subject, kind, view, presented):\n            pass\n    return report\n"
+ },
+ {
+  "guard": "test_n2_cut9.py",
+  "index": 26,
+  "row": "V8",
+  "module": "world/verify.py",
+  "original_before": "    if type(provenance) is not registry.ReplicaOf:\n        raise TypeError(\n            \"admit_arrival is the verified route for a replica: fresh and fork provenance are World.admit's\"\n        )\n    if history is not None:\n        validate_history(history)\n    subject = anchors.CorpusSubject(provenance.parent_corpus_id)\n    root = Path(corpus_root).resolve()\n    state = seam.lifecycle_state(root)\n    if state == \"writable\":\n        raise CorpusRootRefused(\n            f\"{root}: a writable root is this host's own live root, not an \"\n            \"arrival; nothing arrives at the root it already is\"\n        )\n    with seam.world_lock(world.config.world_root), seam.corpus_lock(root):\n        # The inspection mode follows the lifecycle state: a restored,\n        # read-only-serviceable copy earned the coherent registered read;\n        # every other non-writable state \u2014 unserviceable, metadata-less,\n        # binding-mismatched \u2014 is detached, its pending honestly unresolved.\n        inspect = (\n            seam.inspect_registered\n            if state == \"read-only-serviceable\"\n            else seam.inspect_detached\n        )",
+  "original_after": "    if history is not None:\n        validate_history(history)\n    subject = anchors.CorpusSubject(provenance.parent_corpus_id)\n    root = Path(corpus_root).resolve()\n    state = seam.lifecycle_state(root)\n    with seam.world_lock(world.config.world_root), seam.corpus_lock(root):\n        inspect = (\n            seam.inspect_detached\n            if state == \"read-only-serviceable\"\n            else seam.inspect_registered\n        )",
+  "before": "    if type(provenance) is not registry.ReplicaOf:\n        raise TypeError(\n            \"admit_arrival is the verified route for a replica: fresh and fork provenance are World.admit's\"\n        )\n    if history is not None:\n        validate_history(history)\n    subject = anchors.CorpusSubject(provenance.parent_corpus_id)\n    root = Path(corpus_root).resolve()\n    state = seam.lifecycle_state(root)\n    if state == \"writable\":\n        raise CorpusRootRefused(\n            f\"{root}: a writable root is this host's own live root, not an \"\n            \"arrival; nothing arrives at the root it already is\"\n        )\n    with seam.world_lock(world.config.world_root), seam.corpus_lock(root):\n        # The inspection mode follows the lifecycle state: a restored,\n        # read-only-serviceable copy earned the coherent registered read;\n        # every other non-writable state \u2014 unserviceable, metadata-less,\n        # binding-mismatched \u2014 is detached, its pending honestly unresolved.\n        inspect = seam.inspect_registered if state == \"read-only-serviceable\" else seam.inspect_detached\n",
+  "after": "    if history is not None:\n        validate_history(history)\n    subject = anchors.CorpusSubject(provenance.parent_corpus_id)\n    root = Path(corpus_root).resolve()\n    state = seam.lifecycle_state(root)\n    with seam.world_lock(world.config.world_root), seam.corpus_lock(root):\n        inspect = seam.inspect_detached if state == \"read-only-serviceable\" else seam.inspect_registered\n"
+ },
+ {
+  "guard": "test_n2_cut11.py",
+  "index": 18,
+  "row": "J1d",
+  "module": "world/verify.py",
+  "original_before": "if type(records) is not tuple:\n        raise TypeError(\n            \"records is the captured published-record surface as a tuple of (path, payload) pairs\"\n        )",
+  "original_after": "if False:\n        raise TypeError(\n            \"records is the captured published-record surface as a tuple of (path, payload) pairs\"\n        )",
+  "before": "    if type(records) is not tuple:\n",
+  "after": "    if False:\n"
+ },
+ {
+  "guard": "test_n2_cut11.py",
+  "index": 45,
+  "row": "J7b",
+  "module": "boundary.py",
+  "original_before": "        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback)\n",
+  "original_after": "        port.execute(plan)\n        reason = None\n",
+  "before": "        reason = port.execute_fulfilling_guarded(\n            plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback\n        )\n",
+  "after": "        port.execute(plan)\n        reason = None\n"
+ },
+ {
+  "guard": "test_n2_cut11.py",
+  "index": 57,
+  "row": "J8j",
+  "module": "identity/v1.py",
+  "original_before": "except IdentityError as caught:\n        raise CanonicalTextRefused(\n            f\"re-encoding refused ({type(caught).__name__}): {caught}\"\n        ) from caught",
+  "original_after": "except IdentityError:\n        raise",
+  "before": "    except IdentityError as caught:\n        raise CanonicalTextRefused(f\"re-encoding refused ({type(caught).__name__}): {caught}\") from caught\n",
+  "after": "    except IdentityError:\n        raise\n"
+ },
+ {
+  "guard": "test_n2_cut11.py",
+  "index": 60,
+  "row": "J9c",
+  "module": "runrecord.py",
+  "original_before": "if shape == \"assessment\":\n        if run_facet != {\"spec\": spec_identity}:\n            raise MalformedRecord(\n                f\"{node.id}: the run facet is exactly \"\n                \"{'spec': <the closure's spec>}\"\n            )\n    elif run_facet != {}:\n        raise MalformedRecord(f\"{node.id}: a production run facet is exactly {{}}\")",
+  "original_after": "if False:\n        raise MalformedRecord(\"run-facet agreement disabled\")",
+  "before": "    if shape == \"assessment\":\n        if run_facet != {\"spec\": spec_identity}:\n            raise MalformedRecord(f\"{node.id}: the run facet is exactly {{'spec': <the closure's spec>}}\")\n    elif run_facet != {}:\n        raise MalformedRecord(f\"{node.id}: a production run facet is exactly {{}}\")\n",
+  "after": "    if False:\n        raise MalformedRecord(\"run-facet agreement disabled\")\n"
+ },
+ {
+  "guard": "test_n2_cut11.py",
+  "index": 64,
+  "row": "J12b",
+  "module": "holdings/qualify.py",
+  "original_before": "if observation[\"location\"] == intent[\"location\"] and observation[\"event_token\"] == intent[\"event_token\"]:",
+  "original_after": "if observation[\"location\"] == intent[\"location\"]:",
+  "before": "                if (\n                    observation[\"location\"] == intent[\"location\"]\n                    and observation[\"event_token\"] == intent[\"event_token\"]\n                ):\n",
+  "after": "                if observation[\"location\"] == intent[\"location\"]:\n"
+ },
+ {
+  "guard": "test_n2_cut13.py",
+  "index": 1,
+  "row": "R15u2",
+  "module": "boundary.py",
+  "original_before": "    check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured, inputs=output_root / \"inputs\", inputs_fingerprint=inputs_before)",
+  "original_after": "    pass",
+  "before": "    check_closure_intact(\n        bundle=bundle,\n        code_identity=code_identity,\n        snapshot=snapshot,\n        captured=captured,\n        inputs=output_root / \"inputs\",\n        inputs_fingerprint=inputs_before,\n    )\n",
+  "after": "    pass\n"
+ },
+ {
+  "guard": "test_n2_cut13.py",
+  "index": 15,
+  "row": "K1a",
+  "module": "recipe.py",
+  "original_before": "        if (policy.identity, policy.scope_rule, frozenset(policy.capabilities)) == (known.identity, known.scope_rule, frozenset(known.capabilities)):",
+  "original_after": "        if (policy.identity, frozenset(policy.capabilities)) == (known.identity, frozenset(known.capabilities)):",
+  "before": "        if (policy.identity, policy.scope_rule, frozenset(policy.capabilities)) == (\n            known.identity,\n            known.scope_rule,\n            frozenset(known.capabilities),\n        ):\n",
+  "after": "        if (policy.identity, frozenset(policy.capabilities)) == (known.identity, frozenset(known.capabilities)):\n"
+ },
+ {
+  "guard": "test_n2_cut14.py",
+  "index": 0,
+  "row": "W11a",
+  "module": "view_query.py",
+  "original_before": "    if (\n        separator != \":\"\n        or kind not in stored.WORLD_KINDS\n        or not local\n        or value.startswith(\"coord:\")\n    ):\n        raise ValueError(f\"view query {where} must be a world-tier address\")",
+  "original_after": "    if False:\n        raise ValueError(f\"view query {where} must be a world-tier address\")",
+  "before": "    if separator != \":\" or kind not in stored.WORLD_KINDS or not local or value.startswith(\"coord:\"):\n",
+  "after": "    if False:\n"
+ },
+ {
+  "guard": "test_n2_cut14.py",
+  "index": 6,
+  "row": "W17c",
+  "module": "corpus.py",
+  "original_before": "            if record.kind in COORDINATION_KINDS:\n                raise ImportRefused(f\"{record.id}: coordination records are replicated with their corpus, never imported\", member=record.id)",
+  "original_after": "            if False:\n                raise ImportRefused(f\"{record.id}: coordination records are replicated with their corpus, never imported\", member=record.id)",
+  "before": "            if record.kind in COORDINATION_KINDS:\n",
+  "after": "            if False:\n"
+ },
+ {
+  "guard": "test_n2_cut14.py",
+  "index": 10,
+  "row": "W17g",
+  "module": "corpus.py",
+  "original_before": "                if predecessor.node.kind != kind or predecessor.address != address:\n                    raise PredecessorMismatch(f\"revision {predecessor.node.uid} belongs to {predecessor.node.kind} {predecessor.address}, not {kind} {address}\")",
+  "original_after": "                if False:\n                    raise PredecessorMismatch(f\"revision {predecessor.node.uid} belongs to {predecessor.node.kind} {predecessor.address}, not {kind} {address}\")",
+  "before": "                if predecessor.node.kind != kind or predecessor.address != address:\n",
+  "after": "                if False:\n"
+ },
+ {
+  "guard": "test_n2_cut14.py",
+  "index": 12,
+  "row": "W17i",
+  "module": "coordination.py",
+  "original_before": "        for predecessor in revision.predecessors",
+  "original_after": "        for predecessor in revision.predecessors[:1]",
+  "before": "        predecessor for revision in revisions for predecessor in revision.predecessors if predecessor in by_id\n",
+  "after": "        predecessor for revision in revisions for predecessor in revision.predecessors[:1] if predecessor in by_id\n"
+ },
+ {
+  "guard": "test_n2_cut16.py",
+  "index": 6,
+  "row": "W16e",
+  "module": "stored.py",
+  "original_before": "    if tag == \"conflict\" and (\n        len(routes) < 2 or len(set(keys)) != len(keys) or keys != sorted(keys)\n    ):\n",
+  "original_after": "    if tag == \"conflict\" and (\n        len(set(keys)) != len(keys) or keys != sorted(keys)\n    ):\n",
+  "before": "    if tag == \"conflict\" and (len(routes) < 2 or len(set(keys)) != len(keys) or keys != sorted(keys)):\n",
+  "after": "    if tag == \"conflict\" and (len(set(keys)) != len(keys) or keys != sorted(keys)):\n"
+ },
+ {
+  "guard": "test_n2_cut16.py",
+  "index": 11,
+  "row": "C3",
+  "module": "world/epoch.py",
+  "original_before": "        \"corpus_states\": [\n            {\"corpus_id\": corpus_id, \"corpus_state\": corpus_state}\n            for corpus_id, corpus_state in receipt.corpus_states\n        ],\n",
+  "original_after": "        \"corpus_states\": [\n            {\"corpus_id\": corpus_id, \"corpus_state\": \"0\" * 64}\n            for corpus_id, _corpus_state in receipt.corpus_states\n        ],\n",
+  "before": "            {\"corpus_id\": corpus_id, \"corpus_state\": corpus_state} for corpus_id, corpus_state in receipt.corpus_states\n",
+  "after": "            {\"corpus_id\": corpus_id, \"corpus_state\": \"0\" * 64} for corpus_id, _corpus_state in receipt.corpus_states\n"
+ },
+ {
+  "guard": "test_n2_cut16.py",
+  "index": 17,
+  "row": "M3b",
+  "module": "relocation.py",
+  "original_before": "        other_writer._delete_locked(other_node.id)\n        keep_writer._publish_operation_report(\n",
+  "original_after": "        other_writer._delete_locked(other_node.id)\n        keep_writer._replace_locked(\n            next(\n                node\n                for node in keep_writer.read_view.iter_stored()\n                if node.kind == \"retraction\" and node.id != keep_node.id\n            )\n        )\n        keep_writer._publish_operation_report(\n",
+  "before": "        other_writer._delete_locked(other_node.id)\n        keep_writer._publish_operation_report(keep_report, keep_intent, operation=keep_report_op)\n",
+  "after": "        other_writer._delete_locked(other_node.id)\n        keep_writer._replace_locked(\n            next(\n                node\n                for node in keep_writer.read_view.iter_stored()\n                if node.kind == \"retraction\" and node.id != keep_node.id\n            )\n        )\n        keep_writer._publish_operation_report(keep_report, keep_intent, operation=keep_report_op)\n"
+ },
+ {
+  "guard": "test_n2_cut16.py",
+  "index": 19,
+  "row": "T2b",
+  "module": "relocation.py",
+  "original_before": "        destination_intent = destination._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        source_intent = source._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        moved = destination._add_locked(node, provenance=True)\n        source._delete_locked(node.id)\n",
+  "original_after": "        moved = destination._add_locked(node, provenance=True)\n        source._delete_locked(node.id)\n        destination_intent = destination._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        source_intent = source._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n",
+  "before": "        destination_intent = destination._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n        source_intent = source._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n        moved = destination._add_locked(node, provenance=True)\n        source._delete_locked(node.id)\n",
+  "after": "        moved = destination._add_locked(node, provenance=True)\n        source._delete_locked(node.id)\n        destination_intent = destination._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n        source_intent = source._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+ },
+ {
+  "guard": "test_n2_cut16.py",
+  "index": 20,
+  "row": "T2c",
+  "module": "relocation.py",
+  "original_before": "        keep_intent = keep_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        other_intent = other_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        survivor = keep_writer._replace_locked(merged, provenance=True)\n        other_writer._delete_locked(other_node.id)\n",
+  "original_after": "        survivor = keep_writer._replace_locked(merged, provenance=True)\n        other_writer._delete_locked(other_node.id)\n        keep_intent = keep_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        other_intent = other_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n",
+  "before": "        keep_intent = keep_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n        other_intent = other_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n        survivor = keep_writer._replace_locked(merged, provenance=True)\n        other_writer._delete_locked(other_node.id)\n",
+  "after": "        survivor = keep_writer._replace_locked(merged, provenance=True)\n        other_writer._delete_locked(other_node.id)\n        keep_intent = keep_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n        other_intent = other_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+ },
+ {
+  "guard": "test_n2_cut18.py",
+  "index": 10,
+  "row": "M13",
+  "module": "decode.py",
+  "original_before": "def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> tuple[Claim, BindingCheckReceipt]:\n",
+  "original_after": "def claim_from_stored(  # the seam is bound at import, so the call never reaches the module\n    node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot, decode_claim=decode_claim\n) -> tuple[Claim, BindingCheckReceipt]:\n",
+  "before": "def claim_from_stored(\n    node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot\n",
+  "after": "def claim_from_stored(  # the seam is bound at import, so the call never reaches the module\n    node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot, decode_claim=decode_claim\n"
+ },
+ {
+  "guard": "test_n2_cut18.py",
+  "index": 13,
+  "row": "R19",
+  "module": "corpus.py",
+  "original_before": "            contradiction = outcome.contradiction\n            if contradiction is not None:\n                raise ImportRefused(\n                    f\"{contradiction.message}: {contradiction.detail}\", member=record.id\n                )\n",
+  "original_after": "            contradiction = outcome.contradiction\n            if contradiction is not None:\n                findings.add(f\"derivation-contradicted: {record.id}: {contradiction.message}\")\n",
+  "before": "                raise ImportRefused(f\"{contradiction.message}: {contradiction.detail}\", member=record.id)\n",
+  "after": "                findings.add(f\"derivation-contradicted: {record.id}: {contradiction.message}\")\n"
+ },
+ {
+  "guard": "test_n2_cut19.py",
+  "index": 0,
+  "row": "J1a",
+  "module": "corpus.py",
+  "original_before": "        try:\n            scope.port.preflight(plan)\n        except PlanRefusedError as caught:\n            raise PlanRefused(str(caught)) from caught\n        scope.submitted = True  # the refusals are behind us; the intent is the first effect\n        self._state.unresolved = True\n        token = secrets.token_hex(16)\n        intent_digest = scope.port.append_intent(\n            _encode_operation_intent(\"corpus-write\", token, scope.authority.actor)\n        )\n",
+  "original_after": "        scope.submitted = True  # the refusals are behind us; the intent is the first effect\n        self._state.unresolved = True\n        token = secrets.token_hex(16)\n        intent_digest = scope.port.append_intent(\n            _encode_operation_intent(\"corpus-write\", token, scope.authority.actor)\n        )\n        try:\n            scope.port.preflight(plan)\n        except PlanRefusedError as caught:\n            raise PlanRefused(str(caught)) from caught\n",
+  "before": "        try:\n            scope.port.preflight(plan)\n        except PlanRefusedError as caught:\n            raise PlanRefused(str(caught)) from caught\n        scope.submitted = True  # the refusals are behind us; the intent is the first effect\n        self._state.unresolved = True\n        token = secrets.token_hex(16)\n        intent_digest = scope.port.append_intent(_encode_operation_intent(\"corpus-write\", token, scope.authority.actor))\n",
+  "after": "        scope.submitted = True  # the refusals are behind us; the intent is the first effect\n        self._state.unresolved = True\n        token = secrets.token_hex(16)\n        intent_digest = scope.port.append_intent(_encode_operation_intent(\"corpus-write\", token, scope.authority.actor))\n        try:\n            scope.port.preflight(plan)\n        except PlanRefusedError as caught:\n            raise PlanRefused(str(caught)) from caught\n"
+ },
+ {
+  "guard": "test_n2_cut19.py",
+  "index": 4,
+  "row": "J1e",
+  "module": "report.py",
+  "original_before": "OPERATION_KINDS = (\"acquisition\", \"audit\", \"consolidate\", \"corpus-write\", \"import\", \"move\", \"re-check\", \"run-attempt\")",
+  "original_after": "OPERATION_KINDS = (\"acquisition\", \"audit\", \"consolidate\", \"import\", \"move\", \"re-check\", \"run-attempt\")",
+  "before": "_DOMAINLESS_OPERATION_KINDS = (\n    \"acquisition\",\n    \"audit\",\n    \"consolidate\",\n    \"corpus-write\",\n    \"import\",\n    \"move\",\n    \"re-check\",\n    \"run-attempt\",\n)\n",
+  "after": "_DOMAINLESS_OPERATION_KINDS = (\"acquisition\", \"audit\", \"consolidate\", \"import\", \"move\", \"re-check\", \"run-attempt\")\n"
+ },
+ {
+  "guard": "test_n2_cut19.py",
+  "index": 17,
+  "row": "J2j",
+  "module": "corpus.py",
+  "original_before": "        intent_digest = scope.port.append_intent(\n            _encode_operation_intent(\"corpus-write\", token, scope.authority.actor)\n        )\n",
+  "original_after": "        intent_digest = \"0\" * 64\n",
+  "before": "        intent_digest = scope.port.append_intent(_encode_operation_intent(\"corpus-write\", token, scope.authority.actor))\n",
+  "after": "        intent_digest = \"0\" * 64\n"
+ },
+ {
+  "guard": "test_n2_cut19.py",
+  "index": 21,
+  "row": "J4",
+  "module": "corpus.py",
+  "original_before": "            _encode_operation_intent(\"corpus-write\", token, scope.authority.actor)\n",
+  "original_after": "            _encode_operation_intent(\"corpus-write\", token, \"library\")\n",
+  "before": "        token = secrets.token_hex(16)\n        intent_digest = scope.port.append_intent(_encode_operation_intent(\"corpus-write\", token, scope.authority.actor))\n        entry_digest = scope.port.execute_fulfilling(plan, intent_digest)\n",
+  "after": "        token = secrets.token_hex(16)\n        intent_digest = scope.port.append_intent(_encode_operation_intent(\"corpus-write\", token, \"library\"))\n        entry_digest = scope.port.execute_fulfilling(plan, intent_digest)\n"
+ },
+ {
+  "guard": "test_n2_cut19.py",
+  "index": 37,
+  "row": "J8g",
+  "module": "session/ledger.py",
+  "original_before": "    except OSError as caught:  # a directory in the file's place, a permission or device error: evidence, not an exception\n",
+  "original_after": "    except FileExistsError as caught:\n",
+  "before": "    except (\n        OSError\n    ) as caught:  # a directory in the file's place, a permission or device error: evidence, not an exception\n",
+  "after": "    except FileExistsError as caught:\n"
+ },
+ {
+  "guard": "test_n2_cut20.py",
+  "index": 4,
+  "row": "F4",
+  "module": "corpus.py",
+  "original_before": "        reason = validity_refusal(judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref))\n",
+  "original_after": "        reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else \"absent\"\n",
+  "before": "        reason = validity_refusal(\n            judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref)\n        )\n",
+  "after": "        reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else \"absent\"\n"
+ },
+ {
+  "guard": "test_n2_cut21.py",
+  "index": 7,
+  "row": "V2f",
+  "module": "stored.py",
+  "original_before": "    return ref[len(prefix):]\n",
+  "original_after": "    return ref\n",
+  "before": "    return ref[len(prefix) :]\n",
+  "after": "    return ref\n"
+ },
+ {
+  "guard": "test_n2_cut22.py",
+  "index": 15,
+  "row": "D6a",
+  "module": "belief.py",
+  "original_before": "    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref(\"run\", a.run) for a in matched) + observed\n",
+  "original_after": "    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref(\"run\", a.run) for a in matched)\n",
+  "before": "    closure_nodes = (\n        tuple(a.identity() for a in matched) + tuple(stored.typed_ref(\"run\", a.run) for a in matched) + observed\n    )\n",
+  "after": "    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref(\"run\", a.run) for a in matched)\n"
+ },
+ {
+  "guard": "test_n2_cut23.py",
+  "index": 22,
+  "row": "R19e",
+  "module": "evaluation.py",
+  "original_before": "        return NoBelief(\"unavailable-corpus-absent\", detail=f\"inputs recorded in absent corpora: {corpora}\", acceptance=selection.report), NotReached(), None\n",
+  "original_after": "        return NoBelief(\"unavailable-input-unheld\", detail=f\"inputs recorded in absent corpora: {corpora}\", acceptance=selection.report), NotReached(), None\n",
+  "before": "                \"unavailable-corpus-absent\",\n",
+  "after": "                \"unavailable-input-unheld\",\n"
+ },
+ {
+  "guard": "test_n2_cut24.py",
+  "index": 10,
+  "row": "W15k",
+  "module": "world/read.py",
+  "original_before": "    missing = tuple(\n        corpus_id for corpus_id in registry._live_corpus_ids(world.registry()) if corpus_id not in covered\n    )\n",
+  "original_after": "    missing = ()\n",
+  "before": "    missing = tuple(corpus_id for corpus_id in registry._live_corpus_ids(world.registry()) if corpus_id not in covered)\n",
+  "after": "    missing = ()\n"
+ },
+ {
+  "guard": "test_n2_cut27.py",
+  "index": 0,
+  "row": "W8a-a",
+  "module": "world/read.py",
+  "original_before": "    fault = _contract_fault(kind, member, receipt, published)\n    if fault is not None:\n        return derive.ReceiptOutcome(kind, \"malformed\", fault)\n    if kind == derive.BELIEF_INPUT_KIND:\n        standing = _snapshot_standing(world, receipt)\n        if standing is not None:\n            return standing\n    # Past this point the five identity members are present and well formed,\n    # so the reads below can name them without re-checking that they exist.\n    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n    binding = rules.RuleBinding(\n        cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity)\n    )\n    with registry._locked_barrier(world) as world_root:\n        try:\n            held = rules._locked_resolve_rule_binding(world_root, binding)\n        except RuleNotHeld as caught:\n            return derive.ReceiptOutcome(\n                kind,\n                \"unresolvable\",\n                f\"the exact pair this receipt names is not held here: {caught}\",\n            )\n",
+  "original_after": "    if kind == derive.BELIEF_INPUT_KIND:\n        standing = _snapshot_standing(world, receipt)\n        if standing is not None:\n            return standing\n    # Past this point the five identity members are present and well formed,\n    # so the reads below can name them without re-checking that they exist.\n    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n    binding = rules.RuleBinding(\n        cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity)\n    )\n    with registry._locked_barrier(world) as world_root:\n        try:\n            held = rules._locked_resolve_rule_binding(world_root, binding)\n        except RuleNotHeld as caught:\n            return derive.ReceiptOutcome(\n                kind,\n                \"unresolvable\",\n                f\"the exact pair this receipt names is not held here: {caught}\",\n            )\n    fault = _contract_fault(kind, member, receipt, published)\n    if fault is not None:\n        return derive.ReceiptOutcome(kind, \"malformed\", fault)\n",
+  "before": "    fault = _contract_fault(kind, member, receipt, published)\n    if fault is not None:\n        return derive.ReceiptOutcome(kind, \"malformed\", fault)\n    if kind == derive.BELIEF_INPUT_KIND:\n        standing = _snapshot_standing(world, receipt)\n        if standing is not None:\n            return standing\n    # Past this point the five identity members are present and well formed,\n    # so the reads below can name them without re-checking that they exist.\n    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n    binding = rules.RuleBinding(cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity))\n    with registry._locked_barrier(world) as world_root:\n        try:\n            held = rules._locked_resolve_rule_binding(world_root, binding)\n        except RuleNotHeld as caught:\n            return derive.ReceiptOutcome(\n                kind,\n                \"unresolvable\",\n                f\"the exact pair this receipt names is not held here: {caught}\",\n            )\n",
+  "after": "    if kind == derive.BELIEF_INPUT_KIND:\n        standing = _snapshot_standing(world, receipt)\n        if standing is not None:\n            return standing\n    # Past this point the five identity members are present and well formed,\n    # so the reads below can name them without re-checking that they exist.\n    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n    binding = rules.RuleBinding(cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity))\n    with registry._locked_barrier(world) as world_root:\n        try:\n            held = rules._locked_resolve_rule_binding(world_root, binding)\n        except RuleNotHeld as caught:\n            return derive.ReceiptOutcome(\n                kind,\n                \"unresolvable\",\n                f\"the exact pair this receipt names is not held here: {caught}\",\n            )\n    fault = _contract_fault(kind, member, receipt, published)\n    if fault is not None:\n        return derive.ReceiptOutcome(kind, \"malformed\", fault)\n"
+ },
+ {
+  "guard": "test_n2_cut28.py",
+  "index": 7,
+  "row": "W7-h",
+  "module": "world/selection.py",
+  "original_before": "            if edge.source_uid is None:\n                steps.append(\n                    Step(\n                        stored=edge.relation.source,\n                        resolved=None,\n                        entry=RelationEntry(source=ref, position=position, predicate=self._predicate, target=edge.relation.source),\n                    )\n                )\n                continue",
+  "original_after": "            if edge.source_uid is None:\n                continue",
+  "before": "                steps.append(\n                    Step(\n                        stored=edge.relation.source,\n                        resolved=None,\n                        entry=RelationEntry(\n                            source=ref, position=position, predicate=self._predicate, target=edge.relation.source\n                        ),\n                    )\n                )\n",
+  "after": ""
+ },
+ {
+  "guard": "test_n2_cut28.py",
+  "index": 16,
+  "row": "W8-a",
+  "module": "world/derive.py",
+  "original_before": "        if len(locations) > 1:\n            raise AddressMapConflict(Finding(\n                severity=\"error\",\n                code=\"duplicate-location\",",
+  "original_after": "        if False:\n            raise AddressMapConflict(Finding(\n                severity=\"error\",\n                code=\"duplicate-location\",",
+  "before": "        if len(locations) > 1:\n",
+  "after": "        if False:\n"
+ },
+ {
+  "guard": "test_n2_cut28.py",
+  "index": 18,
+  "row": "W8-c",
+  "module": "relocation.py",
+  "original_before": "        if destination.read_view.resolve(node.id) == node.id:\n            raise DuplicateLocation(\n                f\"{node.id}: destination already holds this canonical address\"\n            )",
+  "original_after": "        if False:\n            pass",
+  "before": "        if destination.read_view.resolve(node.id) == node.id:\n            raise DuplicateLocation(f\"{node.id}: destination already holds this canonical address\")\n",
+  "after": "        if False:\n            pass\n"
+ },
+ {
+  "guard": "test_n2_cut28.py",
+  "index": 20,
+  "row": "W8b-b",
+  "module": "world/derive.py",
+  "original_before": "    for uid, locations in by_uid.items():\n        if len({address for _, address in locations}) > 1:\n            raise AddressMapConflict(Finding(\n                severity=\"error\",\n                code=\"uid-corruption\",\n                ref=uid,\n                detail=f\"corpus/address claims={tuple(locations)!r}\",\n                message=\"one uid names different canonical addresses; no repair is offered\",\n            ))\n    for address, locations in by_address.items():\n        if len(locations) > 1:\n            raise AddressMapConflict(Finding(\n                severity=\"error\",\n                code=\"duplicate-location\",\n                ref=address,\n                detail=f\"corpus/uid claims={tuple(locations)!r}\",\n                message=\"one canonical address is held in multiple corpora; resolve with consolidate\",\n            ))",
+  "original_after": "    for address, locations in by_address.items():\n        if len(locations) > 1:\n            raise AddressMapConflict(Finding(\n                severity=\"error\", code=\"duplicate-location\", ref=address, detail=f\"corpus/uid claims={tuple(locations)!r}\", message=\"duplicate\"\n            ))\n    for uid, locations in by_uid.items():\n        if len({address for _, address in locations}) > 1:\n            raise AddressMapConflict(Finding(\n                severity=\"error\", code=\"uid-corruption\", ref=uid, detail=f\"corpus/address claims={tuple(locations)!r}\", message=\"corrupt\"\n            ))",
+  "before": "    for uid, locations in by_uid.items():\n        if len({address for _, address in locations}) > 1:\n            raise AddressMapConflict(\n                Finding(\n                    severity=\"error\",\n                    code=\"uid-corruption\",\n                    ref=uid,\n                    detail=f\"corpus/address claims={tuple(locations)!r}\",\n                    message=\"one uid names different canonical addresses; no repair is offered\",\n                )\n            )\n    for address, locations in by_address.items():\n        if len(locations) > 1:\n            raise AddressMapConflict(\n                Finding(\n                    severity=\"error\",\n                    code=\"duplicate-location\",\n                    ref=address,\n                    detail=f\"corpus/uid claims={tuple(locations)!r}\",\n                    message=\"one canonical address is held in multiple corpora; resolve with consolidate\",\n",
+  "after": "    for address, locations in by_address.items():\n        if len(locations) > 1:\n            raise AddressMapConflict(\n                Finding(\n                    severity=\"error\",\n                    code=\"duplicate-location\",\n                    ref=address,\n                    detail=f\"corpus/uid claims={tuple(locations)!r}\",\n                    message=\"duplicate\",\n                )\n            )\n    for uid, locations in by_uid.items():\n        if len({address for _, address in locations}) > 1:\n            raise AddressMapConflict(\n                Finding(\n                    severity=\"error\",\n                    code=\"uid-corruption\",\n                    ref=uid,\n                    detail=f\"corpus/address claims={tuple(locations)!r}\",\n                    message=\"corrupt\",\n"
+ },
+ {
+  "guard": "test_n2_cut31.py",
+  "index": 8,
+  "row": "Q3-d",
+  "module": "estimand.py",
+  "original_before": "    if type(value) is not Decimal:\n        raise error(f\"{where}: expected a Decimal, found {type(value).__name__} \u2014 binary floats are refused at the boundary\")\n",
+  "original_after": "    if type(value) is not Decimal:\n        value = Decimal(str(value))  # the binary float coerced instead of refused\n",
+  "before": "        raise error(\n            f\"{where}: expected a Decimal, found {type(value).__name__} \u2014 binary floats are refused at the boundary\"\n        )\n",
+  "after": "        value = Decimal(str(value))  # the binary float coerced instead of refused\n"
+ },
+ {
+  "guard": "test_n2_cut31.py",
+  "index": 12,
+  "row": "Q4-a",
+  "module": "estimand.py",
+  "original_before": "    checked = Claim._checked(profile, operator=claim.operator, args=claim.args, qualifiers=qualifiers, polarity=polarity, layer=claim.layer)\n",
+  "original_after": "    checked = type(\"_Unchecked\", (), {\"qualifiers\": MappingProxyType(dict(qualifiers))})  # routed around Claim._checked\n",
+  "before": "    checked = Claim._checked(\n        profile, operator=claim.operator, args=claim.args, qualifiers=qualifiers, polarity=polarity, layer=claim.layer\n    )\n",
+  "after": "    checked = type(\"_Unchecked\", (), {\"qualifiers\": MappingProxyType(dict(qualifiers))})  # routed around Claim._checked\n"
+ },
+ {
+  "guard": "test_n2_cut31.py",
+  "index": 20,
+  "row": "Q7-b",
+  "module": "estimand.py",
+  "original_before": "        contrast |= {\"kind\": \"continuous\", \"quantity\": _referent(estimand.contrast.quantity), \"increment\": estimand.contrast.increment}\n",
+  "original_after": "        contrast |= {\"kind\": \"continuous\", \"quantity\": _referent(estimand.contrast.quantity)}\n",
+  "before": "        contrast |= {\n            \"kind\": \"continuous\",\n            \"quantity\": _referent(estimand.contrast.quantity),\n            \"increment\": estimand.contrast.increment,\n        }\n",
+  "after": "        contrast |= {\"kind\": \"continuous\", \"quantity\": _referent(estimand.contrast.quantity)}\n"
+ },
+ {
+  "guard": "test_n2_cut31.py",
+  "index": 25,
+  "row": "Q10-b",
+  "module": "audit.py",
+  "original_before": "                Finding(severity=\"error\", code=\"spec-pre-grammar\", ref=node.id, detail=str(refused), message=f\"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)\")\n",
+  "original_after": "                Finding(severity=\"error\", code=\"derivation-malformed\", ref=node.id, detail=str(refused), message=f\"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)\")\n",
+  "before": "                continue\n        except PreGrammarSpec as refused:\n            findings.append(\n                Finding(\n                    severity=\"error\",\n                    code=\"spec-pre-grammar\",\n                    ref=node.id,\n                    detail=str(refused),\n                    message=f\"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)\",\n                )\n            )\n",
+  "after": "                continue\n        except PreGrammarSpec as refused:\n            findings.append(\n                Finding(\n                    severity=\"error\",\n                    code=\"derivation-malformed\",\n                    ref=node.id,\n                    detail=str(refused),\n                    message=f\"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)\",\n                )\n            )\n"
+ },
+ {
+  "guard": "test_n2_cut32.py",
+  "index": 3,
+  "row": "U3-a",
+  "module": "composite.py",
+  "original_before": "        if claim.layer != \"causal\":\n            raise CompositeError(\"composite-member-layer\", f\"member {member}: layer {claim.layer!r} forms no edge in a dag; the inhabited fragment is the causal layer\")\n",
+  "original_after": "        if False:  # any layer forms an edge\n            raise CompositeError(\"composite-member-layer\", f\"member {member}: layer {claim.layer!r} forms no edge in a dag; the inhabited fragment is the causal layer\")\n",
+  "before": "        if claim.layer != \"causal\":\n",
+  "after": "        if False:  # any layer forms an edge\n"
+ },
+ {
+  "guard": "test_n2_cut32.py",
+  "index": 11,
+  "row": "U5-a",
+  "module": "composite.py",
+  "original_before": "    return v1.digest(COMPOSITE_DOMAIN, {\"kind\": \"composite\", \"present\": [\"composite\"], \"facets\": {\"composite\": facet.projection()}})\n",
+  "original_after": "    projection = facet.projection()\n    projection.pop(\"nodes\")  # the node set dropped from the identity\n    return v1.digest(COMPOSITE_DOMAIN, {\"kind\": \"composite\", \"present\": [\"composite\"], \"facets\": {\"composite\": projection}})\n",
+  "before": "    return v1.digest(\n        COMPOSITE_DOMAIN, {\"kind\": \"composite\", \"present\": [\"composite\"], \"facets\": {\"composite\": facet.projection()}}\n",
+  "after": "    projection = facet.projection()\n    projection.pop(\"nodes\")  # the node set dropped from the identity\n    return v1.digest(\n        COMPOSITE_DOMAIN, {\"kind\": \"composite\", \"present\": [\"composite\"], \"facets\": {\"composite\": projection}}\n"
+ },
+ {
+  "guard": "test_n2_cut32.py",
+  "index": 17,
+  "row": "U8-b",
+  "module": "composite.py",
+  "original_before": "            identification = tuple(sorted({\n                value.estimand.control.identification.term\n                for value in inputs.assessments\n                if value.identity() in admission.admitted\n            }))\n",
+  "original_after": "            identification = tuple(sorted({\n                value.estimand.control.identification.term\n                for value in inputs.assessments\n                if value.identity() in admission.admitted\n            })) or (\"identification:observational\",)\n",
+  "before": "                )\n            )\n        rows.append(\n",
+  "after": "                )\n            ) or (\"identification:observational\",)\n        rows.append(\n"
+ },
+ {
+  "guard": "test_n2_cut32.py",
+  "index": 20,
+  "row": "U8-e",
+  "module": "composite.py",
+  "original_before": "            identification = tuple(sorted({\n                value.estimand.control.identification.term\n                for value in inputs.assessments\n                if value.identity() in admission.admitted\n            }))\n",
+  "original_after": "            from beliefs.admission import Admitted as _Admitted, admit as _admit\n            identification = tuple(sorted({\n                value.estimand.control.identification.term\n                for value in inputs.assessments\n                if isinstance(_admit(value, inputs.runs[value.run], availability.observations, ()), _Admitted)\n            }))  # a separate admission decision for the identification column\n",
+  "before": "            identification = tuple(\n                sorted(\n                    {\n                        value.estimand.control.identification.term\n                        for value in inputs.assessments\n                        if value.identity() in admission.admitted\n                    }\n                )\n            )\n",
+  "after": "            from beliefs.admission import Admitted as _Admitted, admit as _admit\n\n            identification = tuple(\n                sorted(\n                    {\n                        value.estimand.control.identification.term\n                        for value in inputs.assessments\n                        if isinstance(_admit(value, inputs.runs[value.run], availability.observations, ()), _Admitted)\n                    }\n                )\n            )  # a separate admission decision for the identification column\n"
+ },
+ {
+  "guard": "test_n2_cut34.py",
+  "index": 12,
+  "row": "BI-5",
+  "module": "evaluation.py",
+  "original_before": "            key = None if target[\"arm\"] == \"snapshot\" else target[\"resolved\"]   # a snapshot arm is never in scope (decision 8)",
+  "original_after": "            key = f\"producer-snapshot:{target['subject_identity']}\" if target[\"arm\"] == \"snapshot\" else target[\"resolved\"]\n            scope = scope | ({key} if target[\"arm\"] == \"snapshot\" else set())",
+  "before": "                None if target[\"arm\"] == \"snapshot\" else target[\"resolved\"]\n            )  # a snapshot arm is never in scope (decision 8)\n",
+  "after": "                f\"producer-snapshot:{target['subject_identity']}\" if target[\"arm\"] == \"snapshot\" else target[\"resolved\"]\n            )\n            scope = scope | ({key} if target[\"arm\"] == \"snapshot\" else set())\n"
+ },
+ {
+  "guard": "test_n2_cut34.py",
+  "index": 13,
+  "row": "BI-6",
+  "module": "audit.py",
+  "original_before": "        for node in view.captured_records(corpus_id):      # unmapped post-build records included (\u00a77.4)",
+  "original_after": "        for node in ():",
+  "before": "        for node in view.captured_records(corpus_id):  # unmapped post-build records included (\u00a77.4)\n",
+  "after": "        for node in ():\n"
+ },
+ {
+  "guard": "test_n2_cut35.py",
+  "index": 2,
+  "row": "G9-a",
+  "module": "holdings/adapter.py",
+  "original_before": "        if (found := _joined(member, declared)) is not None",
+  "original_after": "        if not cast(str, member[\"location\"]).startswith(\"url:\") and (found := _joined(member, declared)) is not None",
+  "before": "        (found, cast(str, member[\"location\"])) for member in active if (found := _joined(member, declared)) is not None\n",
+  "after": "        (found, cast(str, member[\"location\"]))\n        for member in active\n        if not cast(str, member[\"location\"]).startswith(\"url:\") and (found := _joined(member, declared)) is not None\n"
+ },
+ {
+  "guard": "test_n2_cut35.py",
+  "index": 3,
+  "row": "R10-a",
+  "module": "holdings/acquire.py",
+  "original_before": "                empirical_observation={\"locator\": request.locator, \"attested_by\": ctx.actor, \"retrieval\": report_node.id},",
+  "original_after": "                empirical_observation={\"locator\": request.locator, \"attested_by\": ctx.actor},",
+  "before": "                empirical_observation={\n                    \"locator\": request.locator,\n                    \"attested_by\": ctx.actor,\n                    \"retrieval\": report_node.id,\n                },\n",
+  "after": "                empirical_observation={\"locator\": request.locator, \"attested_by\": ctx.actor},\n"
+ },
+ {
+  "guard": "test_n2_cut35.py",
+  "index": 23,
+  "row": "BI-8",
+  "module": "holdings/acquire.py",
+  "original_before": "        result = look(\n            ctx, resource.url, bounds=request.bounds, seam=seam, scratch=scratch,\n            expected=resource.expected, standing=heads.get(subject) or (),\n        )",
+  "original_after": "        with writer._operation:\n            result = look(ctx, resource.url, bounds=request.bounds, seam=seam, scratch=scratch, expected=resource.expected, standing=heads.get(subject) or ())",
+  "before": "        result = look(\n            ctx,\n            resource.url,\n            bounds=request.bounds,\n            seam=seam,\n            scratch=scratch,\n            expected=resource.expected,\n            standing=heads.get(subject) or (),\n        )\n",
+  "after": "        with writer._operation:\n            result = look(\n                ctx,\n                resource.url,\n                bounds=request.bounds,\n                seam=seam,\n                scratch=scratch,\n                expected=resource.expected,\n                standing=heads.get(subject) or (),\n            )\n"
+ },
+ {
+  "guard": "test_n2_cut35.py",
+  "index": 27,
+  "row": "BI-11b",
+  "module": "root.py",
+  "original_before": "    return isinstance(caught, ExecutionError) and caught.applied == 0 and type(caught.__cause__) in _STORE_ROUTINE_REFUSALS",
+  "original_after": "    return True",
+  "before": "    return (\n        isinstance(caught, ExecutionError) and caught.applied == 0 and type(caught.__cause__) in _STORE_ROUTINE_REFUSALS\n    )\n",
+  "after": "    return True\n"
+ },
+ {
+  "guard": "test_n2_cut37.py",
+  "index": 2,
+  "row": "L13-b2",
+  "module": "world/verify.py",
+  "original_before": "        evidence[(removal.txid, removal.path)] = seam.read_preimage(\n            root, removal.txid, removal.path, byte_len\n        )",
+  "original_after": "        evidence[(removal.txid, removal.path)] = seam.read_preimage(\n            root, removal.txid, removal.path, 0\n        )",
+  "before": "        evidence[(removal.txid, removal.path)] = seam.read_preimage(root, removal.txid, removal.path, byte_len)\n",
+  "after": "        evidence[(removal.txid, removal.path)] = seam.read_preimage(root, removal.txid, removal.path, 0)\n"
+ },
+ {
+  "guard": "test_n2_cut37.py",
+  "index": 12,
+  "row": "BI-1",
+  "module": "world/verify.py",
+  "original_before": "        preimages = (\n            _read_preimages(seam, root, view)\n            if type(view) is WellFormedView\n            else NO_PREIMAGES\n        )\n    return evaluate_log(",
+  "original_after": "    preimages = (\n        _read_preimages(seam, root, view)\n        if type(view) is WellFormedView\n        else NO_PREIMAGES\n    )\n    return evaluate_log(",
+  "before": "        preimages = _read_preimages(seam, root, view) if type(view) is WellFormedView else NO_PREIMAGES\n",
+  "after": "    preimages = _read_preimages(seam, root, view) if type(view) is WellFormedView else NO_PREIMAGES\n"
+ },
+ {
+  "guard": "test_n2_cut38.py",
+  "index": 2,
+  "row": "T2-g1",
+  "module": "holdings/recheck.py",
+  "original_before": "    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n        raise RecheckRefused(\"the writer's root is not the act context's observer root; a re-check publishes in one root\")",
+  "original_after": "    pass  # the one-root check dropped: the intent lands in the writer's root while the acts publish in the observer's",
+  "before": "    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n        raise RecheckRefused(\n            \"the writer's root is not the act context's observer root; a re-check publishes in one root\"\n        )\n",
+  "after": "    pass  # the one-root check dropped: the intent lands in the writer's root while the acts publish in the observer's\n"
+ },
+ {
+  "guard": "test_n2_cut38.py",
+  "index": 7,
+  "row": "T2-j",
+  "module": "holdings/recheck.py",
+  "original_before": "    heads: dict[str, tuple[HoldingsObservation, ...]] = {} if standing is None else dict(standing)\n    for key, predecessors in heads.items():\n        if key not in canonicals:\n            raise RecheckRefused(f\"{key}: standing names a location this re-check does not request\")\n        if type(predecessors) is not tuple or any(\n            type(predecessor) is not HoldingsObservation or predecessor.location.canonical() != key for predecessor in predecessors\n        ):\n            raise RecheckRefused(f\"{key}: standing holds only HoldingsObservation values at that canonical location\")\n    ctx.authority.require(\"holdings\", (\"holdings-observation\",))\n    ctx.authority.require(\"corpus-write\", (\"act-report\",))\n    _require_identity_text(ctx.observer, \"observer\")\n    _require_identity_text(ctx.instrument, \"instrument\")\n    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n        raise RecheckRefused(\"the writer's root is not the act context's observer root; a re-check publishes in one root\")\n    if port is None and writer._operation_port is None:\n        raise RecheckRefused(\"this corpus has no operation port; re-check is a boundary operation\")\n    writer._require_bound_port(port)\n    store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))\n    for location in locations:\n        if location.store_id != store_id:\n            raise RecheckRefused(f\"{location.canonical()}: names store {location.store_id}, not the bound {store_id}\")\n    # 2. Open.\n    intent = OperationIntent(\"re-check\", secrets.token_hex(16), ctx.actor)\n    opened_at = _now()\n    intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)",
+  "original_after": "    heads: dict[str, tuple[HoldingsObservation, ...]] = {} if standing is None else dict(standing)\n    ctx.authority.require(\"holdings\", (\"holdings-observation\",))\n    ctx.authority.require(\"corpus-write\", (\"act-report\",))\n    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n        raise RecheckRefused(\"the writer's root is not the act context's observer root; a re-check publishes in one root\")\n    if port is None and writer._operation_port is None:\n        raise RecheckRefused(\"this corpus has no operation port; re-check is a boundary operation\")\n    writer._require_bound_port(port)\n    store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))\n    for location in locations:\n        if location.store_id != store_id:\n            raise RecheckRefused(f\"{location.canonical()}: names store {location.store_id}, not the bound {store_id}\")\n    # 2. Open.\n    intent = OperationIntent(\"re-check\", secrets.token_hex(16), ctx.actor)\n    opened_at = _now()\n    intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)\n    _require_identity_text(ctx.observer, \"observer\")\n    _require_identity_text(ctx.instrument, \"instrument\")\n    for key, predecessors in heads.items():\n        if key not in canonicals:\n            raise RecheckRefused(f\"{key}: standing names a location this re-check does not request\")\n        if type(predecessors) is not tuple or any(\n            type(predecessor) is not HoldingsObservation or predecessor.location.canonical() != key for predecessor in predecessors\n        ):\n            raise RecheckRefused(f\"{key}: standing holds only HoldingsObservation values at that canonical location\")",
+  "before": "    for key, predecessors in heads.items():\n        if key not in canonicals:\n            raise RecheckRefused(f\"{key}: standing names a location this re-check does not request\")\n        if type(predecessors) is not tuple or any(\n            type(predecessor) is not HoldingsObservation or predecessor.location.canonical() != key\n            for predecessor in predecessors\n        ):\n            raise RecheckRefused(f\"{key}: standing holds only HoldingsObservation values at that canonical location\")\n    ctx.authority.require(\"holdings\", (\"holdings-observation\",))\n    ctx.authority.require(\"corpus-write\", (\"act-report\",))\n    _require_identity_text(ctx.observer, \"observer\")\n    _require_identity_text(ctx.instrument, \"instrument\")\n    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n        raise RecheckRefused(\n            \"the writer's root is not the act context's observer root; a re-check publishes in one root\"\n        )\n    if port is None and writer._operation_port is None:\n        raise RecheckRefused(\"this corpus has no operation port; re-check is a boundary operation\")\n    writer._require_bound_port(port)\n    store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))\n    for location in locations:\n        if location.store_id != store_id:\n            raise RecheckRefused(f\"{location.canonical()}: names store {location.store_id}, not the bound {store_id}\")\n    # 2. Open.\n    intent = OperationIntent(\"re-check\", secrets.token_hex(16), ctx.actor)\n    opened_at = _now()\n    intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)\n",
+  "after": "    ctx.authority.require(\"holdings\", (\"holdings-observation\",))\n    ctx.authority.require(\"corpus-write\", (\"act-report\",))\n    if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():\n        raise RecheckRefused(\n            \"the writer's root is not the act context's observer root; a re-check publishes in one root\"\n        )\n    if port is None and writer._operation_port is None:\n        raise RecheckRefused(\"this corpus has no operation port; re-check is a boundary operation\")\n    writer._require_bound_port(port)\n    store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))\n    for location in locations:\n        if location.store_id != store_id:\n            raise RecheckRefused(f\"{location.canonical()}: names store {location.store_id}, not the bound {store_id}\")\n    # 2. Open.\n    intent = OperationIntent(\"re-check\", secrets.token_hex(16), ctx.actor)\n    opened_at = _now()\n    intent_digest = writer._append_operation_intent(intent.kind, intent.event_token, intent.actor, port=port)\n    _require_identity_text(ctx.observer, \"observer\")\n    _require_identity_text(ctx.instrument, \"instrument\")\n    for key, predecessors in heads.items():\n        if key not in canonicals:\n            raise RecheckRefused(f\"{key}: standing names a location this re-check does not request\")\n        if type(predecessors) is not tuple or any(\n            type(predecessor) is not HoldingsObservation or predecessor.location.canonical() != key\n            for predecessor in predecessors\n        ):\n            raise RecheckRefused(f\"{key}: standing holds only HoldingsObservation values at that canonical location\")\n"
+ },
+ {
+  "guard": "test_n2_cut38.py",
+  "index": 13,
+  "row": "BI-3",
+  "module": "session/writer.py",
+  "original_before": "            port=self.operation_port(), hold=self._closing_hold,\n        )\n\n    def recheck(",
+  "original_after": "            port=self._writer._operation_port, hold=self._closing_hold,\n        )\n\n    def recheck(",
+  "before": "            evidence=evidence,\n            port=self.operation_port(),\n            hold=self._closing_hold,\n",
+  "after": "            evidence=evidence,\n            port=self._writer._operation_port,\n            hold=self._closing_hold,\n"
+ },
+ {
+  "guard": "test_n2_cut39.py",
+  "index": 1,
+  "row": "W17-p-b",
+  "module": "publication_doors.py",
+  "original_before": "        tips = standing_at(mounts, address, BINDING_KIND, written=written, position=opened.digest, anchors=intent.anchors, seam=seam)",
+  "original_after": "        tips = standing_at(mounts, address, BINDING_KIND, written=written, position=seam.inspect_written(written).tip, anchors=intent.anchors, seam=seam)",
+  "before": "            mounts, address, BINDING_KIND, written=written, position=opened.digest, anchors=intent.anchors, seam=seam\n",
+  "after": "            mounts,\n            address,\n            BINDING_KIND,\n            written=written,\n            position=seam.inspect_written(written).tip,\n            anchors=intent.anchors,\n            seam=seam,\n"
+ },
+ {
+  "guard": "test_n2_cut40.py",
+  "index": 2,
+  "row": "Y6-a",
+  "module": "publish.py",
+  "original_before": "    records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)\n    _require_snapshot_records(read, records, attributions=attributions)\n    opened = _open_publication(\n        writer, resolver, view=view.unpinned(), destination=destination, clock=clock, seam=seam, port=port, expected_view=pinned,\n    )",
+  "original_after": "    records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)\n    _require_snapshot_records(read, records, attributions=attributions)\n    opened = _open_publication(\n        writer, resolver, view=view.unpinned(), destination=destination, clock=clock, seam=seam, port=port, expected_view=pinned,\n    )\n    records = tuple((address, node_to_markdown(open_world_view(world, current_epoch(world)).get(address))) for address in evaluate_query(open_world_view(world, current_epoch(world)), query).selected)",
+  "before": "    )\n    token = opened.intent.event_token\n",
+  "after": "    )\n    records = tuple(\n        (address, node_to_markdown(open_world_view(world, current_epoch(world)).get(address)))\n        for address in evaluate_query(open_world_view(world, current_epoch(world)), query).selected\n    )\n    token = opened.intent.event_token\n"
+ },
+ {
+  "guard": "test_n2_cut41.py",
+  "index": 10,
+  "row": "Z5-b",
+  "module": "world/live.py",
+  "original_before": "    located = [\n        (corpus_id, node) for corpus_id in sorted(captured) for node in captured[corpus_id] if node.kind in stored.WORLD_KINDS\n    ]",
+  "original_after": "    located = list({\n        node.uid: (corpus_id, node) for corpus_id in sorted(captured) for node in captured[corpus_id] if node.kind in stored.WORLD_KINDS\n    }.values())",
+  "before": "    located = [\n        (corpus_id, node)\n        for corpus_id in sorted(captured)\n        for node in captured[corpus_id]\n        if node.kind in stored.WORLD_KINDS\n    ]\n",
+  "after": "    located = list(\n        {\n            node.uid: (corpus_id, node)\n            for corpus_id in sorted(captured)\n            for node in captured[corpus_id]\n            if node.kind in stored.WORLD_KINDS\n        }.values()\n    )\n"
+ },
+ {
+  "guard": "test_n2_cut42.py",
+  "index": 8,
+  "row": "Y14-b",
+  "module": "publish.py",
+  "original_before": "        blocking = tuple(token for token in unfinished_attempts(writer, view, destination, seam) if (_op_dir(operations_root, token) / \"transport.v1\").is_file())",
+  "original_after": "        blocking = tuple(unfinished_attempts(writer, view, destination, seam))",
+  "before": "        blocking = tuple(\n            token\n            for token in unfinished_attempts(writer, view, destination, seam)\n            if (_op_dir(operations_root, token) / \"transport.v1\").is_file()\n        )\n",
+  "after": "        blocking = tuple(unfinished_attempts(writer, view, destination, seam))\n"
+ },
+ {
+  "guard": "test_n2_cut42.py",
+  "index": 10,
+  "row": "Y15-b",
+  "module": "publish.py",
+  "original_before": "        remotely_revealed=remote, clock=a.clock, seam=a.seam, port=a.port,",
+  "original_after": "        remotely_revealed=False, clock=a.clock, seam=a.seam, port=a.port,",
+  "before": "        remotely_revealed=remote,\n",
+  "after": "        remotely_revealed=False,\n"
+ },
+ {
+  "guard": "test_n2_cut43.py",
+  "index": 7,
+  "row": "J15-b",
+  "module": "session/reconcile.py",
+  "original_before": "            acts: set[str] = {act.entry for act in reader.acts() if act.corpus == corpus_id} if reader is not None else set()",
+  "original_after": "            acts: set[str] = {act.entry for act in reader.acts()} if reader is not None else set()",
+  "before": "            acts: set[str] = (\n                {act.entry for act in reader.acts() if act.corpus == corpus_id} if reader is not None else set()\n            )\n",
+  "after": "            acts: set[str] = {act.entry for act in reader.acts()} if reader is not None else set()\n"
+ },
+ {
+  "guard": "test_n2_cut45.py",
+  "index": 28,
+  "row": "G13-e",
+  "module": "evaluation.py",
+  "original_before": "        return NoBelief(\"unavailable-corpus-absent\", detail=f\"inputs recorded in absent corpora: {corpora}\", acceptance=selection.report), NotReached(), None\n",
+  "original_after": "        return NoBelief(\"unavailable-corpus-absent\", detail=f\"inputs recorded in absent corpora: {corpora}\", acceptance=None if acceptance is None else AcceptanceContext(acceptance.statement, (), False)), NotReached(), None\n",
+  "before": "                detail=f\"inputs recorded in absent corpora: {corpora}\",\n                acceptance=selection.report,\n            ),\n",
+  "after": "                detail=f\"inputs recorded in absent corpora: {corpora}\",\n                acceptance=None if acceptance is None else AcceptanceContext(acceptance.statement, (), False),\n            ),\n"
+ },
+ {
+  "guard": "test_n2_cut46.py",
+  "index": 11,
+  "row": "Y17-i",
+  "module": "publish.py",
+  "original_before": "    for holder in sorted(grouped):\n        if holder not in admissions:\n            raise PublicationRefused(\n                \"attribution-holder-unregistered\", corpus_ids=(holder,), refs=tuple(sorted(grouped[holder])),\n            )\n    replicas = tuple(holder for holder in sorted(grouped) if type(admissions[holder].provenance) is ReplicaOf)\n",
+  "original_after": "    replicas = tuple(holder for holder in sorted(grouped) if holder in admissions and type(admissions[holder].provenance) is ReplicaOf)\n",
+  "before": "    for holder in sorted(grouped):\n        if holder not in admissions:\n            raise PublicationRefused(\n                \"attribution-holder-unregistered\",\n                corpus_ids=(holder,),\n                refs=tuple(sorted(grouped[holder])),\n            )\n    replicas = tuple(holder for holder in sorted(grouped) if type(admissions[holder].provenance) is ReplicaOf)\n",
+  "after": "    replicas = tuple(\n        holder\n        for holder in sorted(grouped)\n        if holder in admissions and type(admissions[holder].provenance) is ReplicaOf\n    )\n"
+ },
+ {
+  "guard": "test_n2_cut46.py",
+  "index": 16,
+  "row": "Y17-n",
+  "module": "publish.py",
+  "original_before": "        a.opened.intent, world_id=a.request.world_id, epoch=a.request.epoch, selection=tuple(i for i, _ in a.snapshot.records),\n        attributions=a.snapshot.attributions,\n",
+  "original_after": "        a.opened.intent, world_id=a.request.world_id, epoch=a.request.epoch, selection=tuple(i for i, _ in a.snapshot.records),\n        attributions=None if a.opened.intent.destination.type == \"remote\" else a.snapshot.attributions,\n",
+  "before": "        selection=tuple(i for i, _ in a.snapshot.records),\n        attributions=a.snapshot.attributions,\n    )\n",
+  "after": "        selection=tuple(i for i, _ in a.snapshot.records),\n        attributions=None if a.opened.intent.destination.type == \"remote\" else a.snapshot.attributions,\n    )\n"
+ },
+ {
+  "guard": "test_n2_cut46.py",
+  "index": 19,
+  "row": "Y18-a",
+  "module": "publication.py",
+  "original_before": "    if type(source) is not dict or set(source) not in ({\"world_id\", \"epoch\", \"view\"}, {\"world_id\", \"epoch\", \"view\", \"attributions\"}):\n",
+  "original_after": "    if type(source) is not dict:\n",
+  "before": "    if type(source) is not dict or set(source) not in (\n        {\"world_id\", \"epoch\", \"view\"},\n        {\"world_id\", \"epoch\", \"view\", \"attributions\"},\n    ):\n",
+  "after": "    if type(source) is not dict:\n"
+ },
+ {
+  "guard": "test_n2_cut46.py",
+  "index": 22,
+  "row": "Y18-d",
+  "module": "publication.py",
+  "original_before": "            or not _world_record_id(row[0]) or row[0] not in selection\n",
+  "original_after": "            or not _world_record_id(row[0])\n",
+  "before": "            or row[0] not in selection\n",
+  "after": ""
+ },
+ {
+  "guard": "test_n2_cut46.py",
+  "index": 28,
+  "row": "Y18-j",
+  "module": "corpus.py",
+  "original_before": "                or _marker_release_malformed(node, (\"coordination:\" + self._profile.activated_contracts[\"coordination\"]) if \"coordination\" in self._profile.activated_contracts else None)\n",
+  "original_after": "",
+  "before": "            if (\n                node.kind != MARKER_KIND\n                or publication_content_malformed(node)\n                or not marker_consistent(node)\n                or _marker_release_malformed(\n                    node,\n                    (\"coordination:\" + self._profile.activated_contracts[\"coordination\"])\n                    if \"coordination\" in self._profile.activated_contracts\n                    else None,\n                )\n            ):\n",
+  "after": "            if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node):\n"
+ },
+ {
+  "guard": "test_n2_cut46.py",
+  "index": 29,
+  "row": "Y18-k",
+  "module": "corpus.py",
+  "original_before": "    return publication_content_malformed(node) or (node.kind == MARKER_KIND and _marker_release_malformed(node, coordination_pin))\n",
+  "original_after": "    return publication_content_malformed(node)\n",
+  "before": "    return publication_content_malformed(node) or (\n        node.kind == MARKER_KIND and _marker_release_malformed(node, coordination_pin)\n    )\n",
+  "after": "    return publication_content_malformed(node)\n"
+ },
+ {
+  "guard": "test_n2_cut46.py",
+  "index": 33,
+  "row": "Y18-o",
+  "module": "publish.py",
+  "original_before": "    return not _marker_release_malformed(node, load_manifest(_remote_export(r.op, mark.corpus_id)).profile.domains.get(\"coordination\"))\n",
+  "original_after": "    return True\n",
+  "before": "    return not _marker_release_malformed(\n        node, load_manifest(_remote_export(r.op, mark.corpus_id)).profile.domains.get(\"coordination\")\n    )\n",
+  "after": "    return True\n"
+ }
+]

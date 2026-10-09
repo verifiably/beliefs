@@ -28,6 +28,38 @@ _LIVE_SABOTAGES = {
         before="    consulted: dict[str, str] = {BASE_NAMESPACE: base_identity}",
         after='    consulted: dict[str, str] = {BASE_NAMESPACE: base_identity}\n    if "coordination" in pins[corpora[0]].domains:\n        consulted["coordination"] = pins[corpora[0]].domains["coordination"]',
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W11a": Sabotage(
+        module="view_query.py",
+        before='    if separator != ":" or kind not in stored.WORLD_KINDS or not local or value.startswith("coord:"):\n',
+        after="    if False:\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W17c": Sabotage(
+        module="corpus.py",
+        before="            if record.kind in COORDINATION_KINDS:\n",
+        after="            if False:\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W17g": Sabotage(
+        module="corpus.py",
+        before="                if predecessor.node.kind != kind or predecessor.address != address:\n",
+        after="                if False:\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W17i": Sabotage(
+        module="coordination.py",
+        before="        predecessor for revision in revisions for predecessor in revision.predecessors if predecessor in by_id\n",
+        after="        predecessor for revision in revisions for predecessor in revision.predecessors[:1] if predecessor in by_id\n",
+    ),
 }
 CUT14_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT14_ARMS

@@ -45,9 +45,16 @@ _LIVE_SABOTAGES = {
         before="        if outside:\n            raise InputOutsideCorpus(a.identity(), ref, tuple(sorted(set(outside))))\n",
         after="",
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "D6a": Sabotage(
         module="belief.py",
-        before='    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed\n',
+        before=(
+            "    closure_nodes = (\n"
+            '        tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed\n'
+            "    )\n"
+        ),
         after='    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched)\n',
     ),
 }

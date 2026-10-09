@@ -136,6 +136,14 @@ _LIVE_SABOTAGES = {
         ),
         "        pass\n",
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "V2f": Sabotage(
+        module="stored.py",
+        before="    return ref[len(prefix) :]\n",
+        after="    return ref\n",
+    ),
 }
 RETARGETED_ROWS = frozenset(_LIVE_SABOTAGES)
 

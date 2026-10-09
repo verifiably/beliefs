@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -41,6 +42,82 @@ from n2_arms_cut31 import CO_CITED, CUT31_ARMS, DECLARATION_UNITS, UNIT_CHECKS, 
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Q3-d": Sabotage(
+        module="estimand.py",
+        before=(
+            "        raise error(\n"
+            '            f"{where}: expected a Decimal, found {type(value).__name__} — binary floats are refused at the boundary"\n'
+            "        )\n"
+        ),
+        after="        value = Decimal(str(value))  # the binary float coerced instead of refused\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Q4-a": Sabotage(
+        module="estimand.py",
+        before=(
+            "    checked = Claim._checked(\n"
+            "        profile, operator=claim.operator, args=claim.args, qualifiers=qualifiers, polarity=polarity, layer=claim.layer\n"
+            "    )\n"
+        ),
+        after='    checked = type("_Unchecked", (), {"qualifiers": MappingProxyType(dict(qualifiers))})  # routed around Claim._checked\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Q7-b": Sabotage(
+        module="estimand.py",
+        before=(
+            "        contrast |= {\n"
+            '            "kind": "continuous",\n'
+            '            "quantity": _referent(estimand.contrast.quantity),\n'
+            '            "increment": estimand.contrast.increment,\n'
+            "        }\n"
+        ),
+        after='        contrast |= {"kind": "continuous", "quantity": _referent(estimand.contrast.quantity)}\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Q10-b": Sabotage(
+        module="audit.py",
+        before=(
+            "                continue\n"
+            "        except PreGrammarSpec as refused:\n"
+            "            findings.append(\n"
+            "                Finding(\n"
+            '                    severity="error",\n'
+            '                    code="spec-pre-grammar",\n'
+            "                    ref=node.id,\n"
+            "                    detail=str(refused),\n"
+            '                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",\n'
+            "                )\n"
+            "            )\n"
+        ),
+        after=(
+            "                continue\n"
+            "        except PreGrammarSpec as refused:\n"
+            "            findings.append(\n"
+            "                Finding(\n"
+            '                    severity="error",\n'
+            '                    code="derivation-malformed",\n'
+            "                    ref=node.id,\n"
+            "                    detail=str(refused),\n"
+            '                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",\n'
+            "                )\n"
+            "            )\n"
+        ),
+    ),
+}
+CUT31_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT31_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
