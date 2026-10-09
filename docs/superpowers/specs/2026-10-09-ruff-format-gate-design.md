@@ -29,8 +29,21 @@ Measured on a scratch reformat in this worktree, then discarded:
   declaration (`n2_arms_cut4.py`) and its runner (`cut4_acceptance.py`) are
   cited-not-run evidence that doctrine §2 says is "never edited", but no pin names
   them. The surfaces of cuts 5, 8 and 10 are all pinned already.
-- With those 55 files excluded, `ruff format` rewrites 314 files (70 under `src/`). Every
-  pin holds.
+- **Scalar declaration pins.** Outside the `FROZEN_*` tables, 21 guards (cuts 26–46)
+  name their own arm declaration as a module-level `FROZEN_DECLARATION` path and pin it
+  with a scalar `CUTN_DECLARATION_SHA256` (byte identity); cuts 27–30 also carry a
+  `CUTN_DECLARATION_COMMIT`. `frozen_guards.pins_in` reads only the tables, so it misses them. All
+  but one are table-pinned by a later cut as well. The exception is
+  `python/tests/n2_arms_cut46.py`, the newest: formatting it changes its SHA-256 and
+  fails `test_the_declaration_is_byte_exact_against_its_pinned_digest`. (Spec review,
+  round 1, found this.) The scalar `CUTN_FROZEN_SHA256` constants hash Markdown cut
+  documents at their freeze commits, which formatting cannot reach.
+- With those 56 files excluded, `ruff format` rewrites 313 files (70 under `src/`). Every
+  table pin holds. The live guards' static tests, i.e. all of them except the mutation
+  audits and the live-check runs, pass 289 of the 290 selected, in under 3 minutes.
+  The one failure is cut 14's `test_no_cut14_arm_is_vacuous_mixed_uncollected_or_stale`,
+  an audit test the pilot's selection let through; it fails on the stale arms §3.3
+  repairs. The static tests are where every scalar pin is enforced.
 - **N2 arms.** 70 arms that live guards audit go stale, across 28 of the 38 live guards
   that audit the working tree (cut 6 audits a pinned historical tree and is unaffected):
   cut 46 has 7, cuts 11, 16 and 19 have 5 each, cuts 14, 28, 31, 32 and 35 have 4 each,
@@ -55,17 +68,23 @@ to `python/`, of the **protected set**:
 
 - every existing `python/` target of a freeze pin in any guard module
   (`frozen_guards.pins_in` over `frozen_guards.guard_modules`);
+- every guard module's `FROZEN_DECLARATION`, the scalar declaration pin. This is read
+  statically with `frozen_guards._module_constants`, made public as `module_constants`,
+  the way `pins_in` reads tables;
 - for every guard in `cited_not_run.CITED_NOT_RUN`, its guard module, its declaration
   `n2_arms_cutN.py` (under `tests/` or `tests/acceptance/`), and its runner
   `tools/cutN_acceptance.py`, wherever each exists.
 
-Today that is 55 paths. `ruff check` is unaffected, because the table is format-only.
+Today that is 56 paths. `ruff check` is unaffected, because the table is format-only.
 `[tool.ruff]` also gains `force-exclude = true`. Without it, a path passed explicitly,
 as an editor's format-on-save does, would be formatted despite the exclude.
 
 A portable test in `python/tests/test_frozen_guards.py` holds the exclude list equal to
-the protected set, computed live, in both directions. A new freeze that pins a file, or
-a new cited-not-run ruling, fails it until the exclude names the file. An exclude entry
+the protected set, computed live, in both directions. It also asserts that
+`python/tests/n2_arms_cut46.py` is in the protected set, so the scalar arm of the
+derivation cannot silently drop out. A new freeze that pins a file, whether by table or by
+`FROZEN_DECLARATION`, or a new cited-not-run ruling, fails the test until the exclude
+names the file. An exclude entry
 that nothing protects any more fails it too. The test reads the table with `tomllib`. It
 compares sets, so the order of the list in the file is free; the file keeps it sorted.
 
@@ -138,10 +157,12 @@ reformat, <the date of commit 5>: `ruff format` re-wrapped the anchored lines; d
 exactly the formatted declared sabotage." Where the entry replaces an earlier
 re-target, the earlier comment stays and this line is appended.
 
-No declaration file and no `FROZEN_*` table is edited. Declaration files that no pin
-protects, such as `n2_arms_cut46.py`, are reformatted like any other file. Formatting
-preserves the value of every string literal, so their declared arms do not change.
-Verification checks this (§5).
+No declaration file and no `FROZEN_*` table is edited. With §3.1's scalar arm, every
+canonical declaration is protected. What gets reformatted is the declaration plumbing:
+`tests/n2_arms.py` (the `Arm` and `Sabotage` types) and the acceptance re-export shims,
+such as `tests/acceptance/n2_arms_cut31.py`, whose content the guards check only by
+substring. Formatting preserves the value of every string literal, so no declared arm
+changes. Verification checks this (§5).
 
 ### 3.4 The cited-not-run arms
 
@@ -186,12 +207,19 @@ On 2026-10-09 all four other branches were 0 ahead of `main`.
 - `tests/test_arm_staleness.py` and `tests/test_frozen_guards.py` are green, and so is
   `just test-fast`.
 - `ruff format --check .` passes inside `just check`.
+- **Static guard tests.** At commit 5, every live guard's tests pass, apart from its
+  mutation audits and live-check runs. The command is `host-budget run -- uv run --frozen
+  python -m pytest <live guard modules> -k "<selection>"`, with the module list and `-k`
+  selection the plan fixes. Before the reformat this selection passed 290 tests in about
+  3 minutes. This is where every scalar pin is enforced, whatever its form. The portable
+  pin test (§3.1) reads only the forms it knows, so this step is the backstop that
+  catches the next unknown form. It also serves as the pilot for the chain below.
 - **Audit soundness.** The newest runner's chain, `host-budget run -- uv run --frozen
   python tools/cut46_acceptance.py`, passes with every arm `sound`. It is run from
   `python/` on the certified host, through background Bash with `tee`. At cut 46 the
   chain reported about 3713 s of pytest time. It runs every live guard, which covers all
   28 affected ones, and it also runs the non-N2 acceptance modules the reformat touched,
-  which the portable suite cannot see. A one-guard pilot runs first (the plan names it).
+  which the portable suite cannot see.
 - `just gate` on the certified host, at the branch tip.
 
 ## 6. Rejected alternatives
