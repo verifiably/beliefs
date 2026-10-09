@@ -6,9 +6,9 @@ priority: 3
 size: m
 complexity: high
 process: planned
-owner: main
+owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:11:05Z
+updated: 2026-10-09T17:25:52Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -52,3 +52,9 @@ Verification:
 - 2026-10-09T17:11:04Z (chore/ruff-format-gate): correction to the pilot note: the protected set is 55 existing files (52 pinned + cut 4's 3); the pilot's 56 included the removed n2_arms_cut25.py. 28 live guards affected, not 27.
 - 2026-10-09T17:11:04Z (chore/ruff-format-gate): parked (waiting on user, review): user reviews docs/superpowers/specs/2026-10-09-ruff-format-gate-design.md (commit 4f1addf in .worktrees/ruff-format-gate); on approval the agent writes the implementation plan
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T17:16:28Z (chore/ruff-format-gate): review: spec round 1 — verdict: revise; findings: P1 1; reviewer: codex
+- 2026-10-09T17:16:28Z (chore/ruff-format-gate): spec review P1: protected-set discovery misses scalar FROZEN_DECLARATION/CUT46_DECLARATION_SHA256. The focused cut-46 byte-identity check passes today; ruff 0.16.1 stdin formatting changes n2_arms_cut46.py sha256 from da3e36e19ecf87d3da17da009350bf0c82fcc29315323057f64e9c781cf6dc04 to cbce4b91e9e1a0ab29384322a765981c4b9b16c6dbfa890658a4d5dc52a889a8. Protect scalar declaration targets too (56 existing protected files today), correct section 3.3, and add portable coverage so future newest-cut declarations cannot escape the exclude.
+- 2026-10-09T17:17:11Z (chore/ruff-format-gate): resumed
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T17:17:11Z (chore/ruff-format-gate): review: spec round 1 — verdict: revise; findings: P1 1; reviewer: unknown (pasted by user)
+- 2026-10-09T17:25:52Z (chore/ruff-format-gate): spec round 1 P1 fixed: protected set gains each guard's FROZEN_DECLARATION (scalar CUTN_DECLARATION_SHA256/COMMIT pins, cuts 26-46); only n2_arms_cut46.py was not already table-pinned, so 56 files. Pilot with 56 excluded: 289/290 live-guard static tests pass, the 1 failure an audit test failing on the stale arms; verification gains that static run as the scalar-pin backstop.
