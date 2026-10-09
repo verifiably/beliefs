@@ -82,7 +82,7 @@ _MINT_ABSENT_FROM_NOT_ATTEMPTED = Sabotage(
     module="holdings/boundary.py",
     before=(
         "    if isinstance(view, ReadNotAttemptedView):\n"
-        "        return InconclusiveAttempt(\"byte-locator-untested\", view.reason, view.detail)"
+        '        return InconclusiveAttempt("byte-locator-untested", view.reason, view.detail)'
     ),
     after=(
         "    if isinstance(view, ReadNotAttemptedView):\n"
@@ -100,7 +100,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
             before="    record = holdings_observation(location=location, outcome=Found(state.content_hash), expected=expected,",
             after=(
                 "    record = holdings_observation(location=location, "
-                "outcome=Found(\"sha256:\" + __import__(\"hashlib\").sha256(content).hexdigest()), expected=expected,"
+                'outcome=Found("sha256:" + __import__("hashlib").sha256(content).hexdigest()), expected=expected,'
             ),
         ),
         checks=("test_holdings_boundary.py::test_write_records_the_engine_final_row_not_the_payload_digest",),
@@ -112,9 +112,9 @@ CUT10_ARMS: tuple[Arm, ...] = (
             module="holdings/boundary.py",
             before="    view = ctx.seam.read_path(ctx.store_root, location.relative_path)",
             after=(
-                "    detached = __import__(\"beliefs.root\", fromlist=[\"_log_seam\", \"_path_state_view\"])\n"
+                '    detached = __import__("beliefs.root", fromlist=["_log_seam", "_path_state_view"])\n'
                 "    captured = detached._log_seam().capture(ctx.store_root, (location.relative_path,))\n"
-                "    view = type(\"DetachedView\", (), {\"state\": detached._path_state_view(captured[0][1])})()"
+                '    view = type("DetachedView", (), {"state": detached._path_state_view(captured[0][1])})()'
             ),
         ),
         checks=("test_holdings_boundary.py::test_recheck_refuses_to_mint_from_a_detached_capture",),
@@ -127,7 +127,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
             before=(
                 "    state = _final(ctx.seam.store_delete(ctx.store_root, location.relative_path), location.relative_path)\n"
                 "    if not isinstance(state, AbsentStateView):\n"
-                "        raise TypeError(f\"store delete did not establish absence at {location.relative_path!r}\")\n"
+                '        raise TypeError(f"store delete did not establish absence at {location.relative_path!r}")\n'
                 "    return _publish(ctx, location, Absent(), token, intent, standing)"
             ),
             after=(
@@ -143,11 +143,11 @@ CUT10_ARMS: tuple[Arm, ...] = (
         sabotage=Sabotage(
             module="holdings/rules_v1/holdings.py",
             before=(
-                "        heads[location] = sorted((member for member in members if member[\"ref\"] not in superseded), key=lambda item: item[\"ref\"])"
+                '        heads[location] = sorted((member for member in members if member["ref"] not in superseded), key=lambda item: item["ref"])'
             ),
             after=(
-                "        heads[location] = sorted((member for member in members if member[\"ref\"] not in superseded), "
-                "key=lambda item: json.loads(canonical_by_ref[item[\"ref\"]])[\"facets\"][\"holdings-observation\"][\"observed_at\"])[-1:]"
+                '        heads[location] = sorted((member for member in members if member["ref"] not in superseded), '
+                'key=lambda item: json.loads(canonical_by_ref[item["ref"]])["facets"]["holdings-observation"]["observed_at"])[-1:]'
             ),
         ),
         checks=("test_holdings_reduce.py::test_no_timestamp_ordering",),
@@ -157,8 +157,8 @@ CUT10_ARMS: tuple[Arm, ...] = (
         asserts="found beside absent blocks as contested; the found never remains active",
         sabotage=Sabotage(
             module="holdings/rules_v1/holdings.py",
-            before="    if len(findings) > 1:\n        reasons.add(\"contested\")",
-            after="    if False:\n        reasons.add(\"contested\")",
+            before='    if len(findings) > 1:\n        reasons.add("contested")',
+            after='    if False:\n        reasons.add("contested")',
         ),
         checks=("test_holdings_reduce.py::test_disagreeing_heads_block_as_contested",),
     ),
@@ -167,7 +167,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
         asserts="an individually decodable raw-authored supersession cycle refuses the whole projection at the walk",
         sabotage=Sabotage(
             module="holdings/rules_v1/holdings.py",
-            before="    if ref in visiting:\n        raise ValueError(\"supersession cycle at \" + location)",
+            before='    if ref in visiting:\n        raise ValueError("supersession cycle at " + location)',
             after="    if ref in visiting:\n        return",
         ),
         checks=("test_holdings_reduce.py::test_a_cycle_refuses_the_whole_projection",),
@@ -197,8 +197,8 @@ CUT10_ARMS: tuple[Arm, ...] = (
         asserts="found heads under different algorithms block as incommensurable",
         sabotage=Sabotage(
             module="holdings/rules_v1/holdings.py",
-            before="    if len(by_algorithm) > 1:\n        reasons.add(\"incommensurable\")",
-            after="    if False:\n        reasons.add(\"incommensurable\")",
+            before='    if len(by_algorithm) > 1:\n        reasons.add("incommensurable")',
+            after='    if False:\n        reasons.add("incommensurable")',
         ),
         checks=("test_holdings_reduce.py::test_algorithm_mixed_found_pair_is_incommensurable",),
     ),
@@ -209,7 +209,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
             module="holdings/project.py",
             before=(
                 "    if not coverage:\n"
-                "        raise CoverageUnknown(\"a projection with no declared coverage is refused\")\n"
+                '        raise CoverageUnknown("a projection with no declared coverage is refused")\n'
                 "    carriers = epoch.resolve_coverage(world, coverage)"
             ),
             after=(
@@ -247,7 +247,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
                 "        CoverageUnresolvable,\n"
                 "        LogEvidenceRefused,\n"
                 "    ) as caught:\n"
-                "        return HoldingsReceiptOutcome(\"unresolvable\", f\"the named coverage cannot be produced here: {caught}\")\n"
+                '        return HoldingsReceiptOutcome("unresolvable", f"the named coverage cannot be produced here: {caught}")\n'
                 "    selected = _named_capture(current, checked.coverage)"
             ),
             after=(
@@ -267,7 +267,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
                 "        CoverageUnresolvable,\n"
                 "        LogEvidenceRefused,\n"
                 "    ) as caught:\n"
-                "        return HoldingsReceiptOutcome(\"unresolvable\", f\"the named coverage cannot be produced here: {caught}\")\n"
+                '        return HoldingsReceiptOutcome("unresolvable", f"the named coverage cannot be produced here: {caught}")\n'
                 "    selected = _named_capture(current, named)"
             ),
         ),
@@ -292,18 +292,18 @@ CUT10_ARMS: tuple[Arm, ...] = (
                 "def _publish(ctx: ActContext, location: StoreLocator, outcome: Found | Absent, token: str, intent: str,\n"
                 "             standing: tuple[HoldingsObservation, ...]) -> PublishedObservation:\n"
                 "    record = holdings_observation(location=location, outcome=outcome, observer=ctx.observer, instrument=ctx.instrument,\n"
-                "                                  event_token=token, observed_at=datetime.now(UTC).strftime(\"%Y-%m-%dT%H:%M:%SZ\"),\n"
+                '                                  event_token=token, observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),\n'
                 "                                  supersedes=standing)\n"
                 "    node = stored.holdings_observation_node(record)\n"
-                "    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f\"holdings-observation/{record.identity()}.md\",\n"
-                "                                                             node_to_markdown(node).encode(\"utf-8\")),), intent)\n"
+                '    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f"holdings-observation/{record.identity()}.md",\n'
+                '                                                             node_to_markdown(node).encode("utf-8")),), intent)\n'
                 "    return PublishedObservation(record)"
             ),
             after=(
                 "def _publish(ctx: ActContext, location: StoreLocator, outcome: Found | Absent, token: str, intent: str,\n"
                 "             standing: tuple[HoldingsObservation, ...]) -> PublishedObservation:\n"
                 "    record = holdings_observation(location=location, outcome=outcome, observer=ctx.observer, instrument=ctx.instrument,\n"
-                "                                  event_token=token, observed_at=datetime.now(UTC).strftime(\"%Y-%m-%dT%H:%M:%SZ\"),\n"
+                '                                  event_token=token, observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),\n'
                 "                                  supersedes=standing)\n"
                 "    node = stored.holdings_observation_node(record)\n"
                 "    return PublishedObservation(record)"
@@ -326,15 +326,15 @@ CUT10_ARMS: tuple[Arm, ...] = (
         sabotage=Sabotage(
             module="holdings/boundary.py",
             before=(
-                "    source_token, source_intent = _append(ctx, source, \"move-source\")\n"
-                "    destination_token, destination_intent = _append(ctx, destination, \"move-destination\")\n"
+                '    source_token, source_intent = _append(ctx, source, "move-source")\n'
+                '    destination_token, destination_intent = _append(ctx, destination, "move-destination")\n'
                 "    _bind(ctx, source)\n"
                 "    _bind(ctx, destination)\n"
                 "    outcome = ctx.seam.store_move(ctx.store_root, source.relative_path, destination.relative_path)"
             ),
             after=(
-                "    source_token, source_intent = \"sabotaged-source\", \"0\" * 64\n"
-                "    destination_token, destination_intent = \"sabotaged-destination\", \"1\" * 64\n"
+                '    source_token, source_intent = "sabotaged-source", "0" * 64\n'
+                '    destination_token, destination_intent = "sabotaged-destination", "1" * 64\n'
                 "    _bind(ctx, source)\n"
                 "    _bind(ctx, destination)\n"
                 "    outcome = ctx.seam.store_move(ctx.store_root, source.relative_path, destination.relative_path)"
@@ -354,11 +354,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
                 "        ):\n"
                 "            return found"
             ),
-            after=(
-                "    for digest in declared:\n"
-                "        if found is not None:\n"
-                "            return digest"
-            ),
+            after=("    for digest in declared:\n        if found is not None:\n            return digest"),
         ),
         checks=("test_holdings_adapter.py::test_a_different_digest_never_promotes_on_presence",),
     ),
@@ -369,13 +365,10 @@ CUT10_ARMS: tuple[Arm, ...] = (
             module="holdings/qualify.py",
             before=(
                 "            if observation is not None:\n"
-                "                if observation[\"location\"] == intent[\"location\"] and observation[\"event_token\"] == intent[\"event_token\"]:\n"
-                "                    return \"matched\""
+                '                if observation["location"] == intent["location"] and observation["event_token"] == intent["event_token"]:\n'
+                '                    return "matched"'
             ),
-            after=(
-                "            if observation is not None:\n"
-                "                return \"matched\""
-            ),
+            after=('            if observation is not None:\n                return "matched"'),
         ),
         checks=(
             "test_holdings_windows.py::test_nonqualifying_fulfillments_are_committed_and_leave_the_intent_unsettled",
@@ -387,14 +380,14 @@ CUT10_ARMS: tuple[Arm, ...] = (
         sabotage=Sabotage(
             module="holdings/boundary.py",
             before=(
-                "    token, intent = _append(ctx, location, \"write\")\n"
+                '    token, intent = _append(ctx, location, "write")\n'
                 "    _bind(ctx, location)\n"
                 "    state = _final(ctx.seam.store_write(ctx.store_root, location.relative_path, content), location.relative_path)"
             ),
             after=(
                 "    _bind(ctx, location)\n"
                 "    state = _final(ctx.seam.store_write(ctx.store_root, location.relative_path, content), location.relative_path)\n"
-                "    token, intent = _append(ctx, location, \"write\")"
+                '    token, intent = _append(ctx, location, "write")'
             ),
         ),
         checks=(
@@ -425,15 +418,15 @@ CUT10_ARMS: tuple[Arm, ...] = (
             module="holdings/boundary.py",
             before=(
                 "    if isinstance(view, ReadNotAttemptedView):\n"
-                "        return InconclusiveAttempt(\"byte-locator-untested\", view.reason, view.detail)\n"
+                '        return InconclusiveAttempt("byte-locator-untested", view.reason, view.detail)\n'
                 "    if isinstance(view, ReadUnestablishedView):\n"
-                "        return InconclusiveAttempt(\"retrieval-failed\", view.reason, view.detail)"
+                '        return InconclusiveAttempt("retrieval-failed", view.reason, view.detail)'
             ),
             after=(
                 "    if isinstance(view, ReadNotAttemptedView):\n"
-                "        return InconclusiveAttempt(\"retrieval-failed\", view.reason, view.detail)\n"
+                '        return InconclusiveAttempt("retrieval-failed", view.reason, view.detail)\n'
                 "    if isinstance(view, ReadUnestablishedView):\n"
-                "        return InconclusiveAttempt(\"byte-locator-untested\", view.reason, view.detail)"
+                '        return InconclusiveAttempt("byte-locator-untested", view.reason, view.detail)'
             ),
         ),
         checks=(
@@ -456,7 +449,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
         asserts="the locator union ships store-only and URL construction refuses with the named deferral",
         sabotage=Sabotage(
             module="holdings/records.py",
-            before="    raise UrlLocatorDeferred(f\"url locator {url!r} is deferred until the URL slice exists\")",
+            before='    raise UrlLocatorDeferred(f"url locator {url!r} is deferred until the URL slice exists")',
             after="    return None  # type: ignore[return-value]",
         ),
         checks=("test_holdings_records.py::test_url_locator_refuses_with_the_named_deferral",),
@@ -489,7 +482,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
             before="        return v1.digest(HOLDINGS_OBSERVATION_DOMAIN, self.facet())",
             after=(
                 "        facet = self.facet()\n"
-                "        del facet[\"event_token\"]\n"
+                '        del facet["event_token"]\n'
                 "        return v1.digest(HOLDINGS_OBSERVATION_DOMAIN, facet)"
             ),
         ),
@@ -517,19 +510,19 @@ CUT10_ARMS: tuple[Arm, ...] = (
                 "def _publish(ctx: ActContext, location: StoreLocator, outcome: Found | Absent, token: str, intent: str,\n"
                 "             standing: tuple[HoldingsObservation, ...]) -> PublishedObservation:\n"
                 "    record = holdings_observation(location=location, outcome=outcome, observer=ctx.observer, instrument=ctx.instrument,\n"
-                "                                  event_token=token, observed_at=datetime.now(UTC).strftime(\"%Y-%m-%dT%H:%M:%SZ\"),\n"
+                '                                  event_token=token, observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),\n'
                 "                                  supersedes=standing)\n"
                 "    node = stored.holdings_observation_node(record)\n"
-                "    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f\"holdings-observation/{record.identity()}.md\","
+                '    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f"holdings-observation/{record.identity()}.md",'
             ),
             after=(
                 "def _publish(ctx: ActContext, location: StoreLocator, outcome: Found | Absent, token: str, intent: str,\n"
                 "             standing: tuple[HoldingsObservation, ...]) -> PublishedObservation:\n"
                 "    record = holdings_observation(location=location, outcome=outcome, observer=ctx.observer, instrument=ctx.instrument,\n"
-                "                                  event_token=token, observed_at=datetime.now(UTC).strftime(\"%Y-%m-%dT%H:%M:%SZ\"),\n"
+                '                                  event_token=token, observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),\n'
                 "                                  supersedes=standing)\n"
                 "    node = stored.holdings_observation_node(record)\n"
-                "    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f\"misplaced/{record.identity()}.md\","
+                '    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f"misplaced/{record.identity()}.md",'
             ),
         ),
         checks=("test_holdings_boundary.py::test_the_published_transaction_registers_the_stored_path",),
@@ -540,14 +533,14 @@ CUT10_ARMS: tuple[Arm, ...] = (
         sabotage=Sabotage(
             module="holdings/boundary.py",
             before=(
-                "    source_token, source_intent = _append(ctx, source, \"move-source\")\n"
-                "    destination_token, destination_intent = _append(ctx, destination, \"move-destination\")"
+                '    source_token, source_intent = _append(ctx, source, "move-source")\n'
+                '    destination_token, destination_intent = _append(ctx, destination, "move-destination")'
             ),
             after=(
-                "    source_token, source_intent = _append(ctx, source, \"move-source\")\n"
+                '    source_token, source_intent = _append(ctx, source, "move-source")\n'
                 "    destination_token = source_token\n"
                 "    destination_intent = ctx.seam.append_intent(\n"
-                "        ctx.observer_root, intent_payload(location=destination, act_kind=\"move-destination\",\n"
+                '        ctx.observer_root, intent_payload(location=destination, act_kind="move-destination",\n'
                 "                                          event_token=destination_token, actor=ctx.actor)\n"
                 "    )"
             ),

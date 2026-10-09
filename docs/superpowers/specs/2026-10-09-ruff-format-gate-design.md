@@ -4,6 +4,7 @@
 **Task:** `beliefs-a555d6` (follow-up `beliefs-ea5ec7` retires the exclude this adds)
 **Measured against:** `main` at `9e3c67a`, ruff 0.16.1 (pinned by `python/uv.lock`)
 **Doctrine:** `docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md`
+**Status:** the format exclude this design adds (§3.1) was retired on 2026-10-09 by `beliefs-ea5ec7`; see `docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md`.
 
 This is hygiene, not a cut: it closes no guarantee row, adds no adoption-ledger row, and
 adds no `test_recent_cut_acceptance.py` row. It touches the N2 machinery only through

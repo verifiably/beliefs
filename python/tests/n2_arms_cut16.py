@@ -212,8 +212,7 @@ CUT16_ARMS = (
         sabotage=Sabotage(
             module="relocation.py",
             before=(
-                "        other_writer._delete_locked(other_node.id)\n"
-                "        keep_writer._publish_operation_report(\n"
+                "        other_writer._delete_locked(other_node.id)\n        keep_writer._publish_operation_report(\n"
             ),
             after=(
                 "        other_writer._delete_locked(other_node.id)\n"
@@ -310,10 +309,7 @@ CUT16_ARMS = (
         asserts="a refused consolidate retains its report and changes neither root log",
         sabotage=Sabotage(
             module="relocation.py",
-            before=(
-                "        _refuse_excluded_kind(keep_node)\n"
-                "        _refuse_excluded_kind(other_node)\n"
-            ),
+            before=("        _refuse_excluded_kind(keep_node)\n        _refuse_excluded_kind(other_node)\n"),
             after=(
                 "        keep_writer._delete_locked(keep_node.id)\n"
                 "        _refuse_excluded_kind(keep_node)\n"
@@ -328,10 +324,7 @@ CUT16_ARMS = (
         sabotage=Sabotage(
             module="relocation.py",
             before="        _refuse_excluded_kind(node)\n",
-            after=(
-                "        source._delete_locked(node.id)\n"
-                "        _refuse_excluded_kind(node)\n"
-            ),
+            after=("        source._delete_locked(node.id)\n        _refuse_excluded_kind(node)\n"),
         ),
         checks=(f"{_ACCEPTANCE}::test_t8_move_and_consolidate_refuse_act_reports",),
     ),

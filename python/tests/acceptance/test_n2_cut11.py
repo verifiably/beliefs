@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 
+import frozen_guards
 import pytest
 from n2_arms import Arm, Sabotage
 from n2_arms_cut5 import CUT5_ARMS
@@ -243,11 +244,7 @@ class TestNoPriorCutDeclarationIsRehomedOrEdited:
     def test_the_frozen_prior_declaration_files_are_byte_identical(self):
         assert_cut5_matcher_migration(REPO_ROOT)
         for path, pin in FROZEN_PRIOR_CUT_FILES.items():
-            completed = subprocess.run(
-                ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
-                check=False,
-            )
-            assert completed.returncode == 0, f"{path} moved since {pin}"
+            assert frozen_guards.commit_pin_holds(REPO_ROOT, path, pin), f"{path} moved since {pin}"
 
     def test_no_cut11_arm_claims_a_check_a_prior_cut_declared(self):
         prior = {

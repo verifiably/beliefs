@@ -62,9 +62,7 @@ CUT6_ARMS = (
             before="    return CorpusStatus(known, live, len(carriers) == 1, findings)",
             after="    return CorpusStatus(known, live, False, findings)",
         ),
-        checks=(
-            "test_world_registry.py::test_replica_restoration_recomputes_presence_without_admission",
-        ),
+        checks=("test_world_registry.py::test_replica_restoration_recomputes_presence_without_admission",),
     ),
     Arm(
         row="X6",
@@ -72,10 +70,7 @@ CUT6_ARMS = (
         sabotage=Sabotage(
             module="world.py",
             before="    live = known and not any(record.corpus_id == corpus_id for record in view.statuses)",
-            after=(
-                "    live = known and "
-                "(not view.statuses or view.statuses[-1].corpus_id != corpus_id)"
-            ),
+            after=("    live = known and (not view.statuses or view.statuses[-1].corpus_id != corpus_id)"),
         ),
         checks=("test_world_registry.py::test_status_reduction_is_record_order_invariant",),
     ),
@@ -96,7 +91,7 @@ CUT6_ARMS = (
             module="corpus.py",
             before=(
                 "            if manifest_path.exists() or manifest_path.is_symlink():\n"
-                "                raise ManifestAlreadyPresent(f\"{manifest_path}: manifest already present\")"
+                '                raise ManifestAlreadyPresent(f"{manifest_path}: manifest already present")'
             ),
             after=(
                 "            if manifest_path.exists() or manifest_path.is_symlink():\n"
@@ -200,9 +195,7 @@ CUT6_ARMS = (
             before="                if status_digest(record) == digest:",
             after="                if False:",
         ),
-        checks=(
-            "test_world_registry.py::test_status_retry_is_idempotent_and_differing_terminal_acts_refuse",
-        ),
+        checks=("test_world_registry.py::test_status_retry_is_idempotent_and_differing_terminal_acts_refuse",),
     ),
     Arm(
         row="labeled:initialization-idempotency",
@@ -218,9 +211,7 @@ CUT6_ARMS = (
                 '        raise WorldIdMismatch(f"{mirror}: matching world_id refused")'
             ),
         ),
-        checks=(
-            "acceptance/test_n2_cut6.py::test_world_initialization_recovers_between_genesis_and_mirror",
-        ),
+        checks=("acceptance/test_n2_cut6.py::test_world_initialization_recovers_between_genesis_and_mirror",),
     ),
     Arm(
         row="labeled:durable-mirror",
@@ -259,9 +250,7 @@ CUT6_ARMS = (
                 'if not path.startswith("registry/")),'
             ),
         ),
-        checks=(
-            "acceptance/test_n2_cut6.py::test_registry_registrations_name_each_record_path",
-        ),
+        checks=("acceptance/test_n2_cut6.py::test_registry_registrations_name_each_record_path",),
     ),
     Arm(
         row="labeled:duplicate-carrier",
@@ -292,8 +281,6 @@ CUT6_ARMS = (
             ),
             after="        except ManifestMalformed:\n            pass",
         ),
-        checks=(
-            "test_manifest.py::test_corpus_check_distinguishes_malformed_from_absent_manifest",
-        ),
+        checks=("test_manifest.py::test_corpus_check_distinguishes_malformed_from_absent_manifest",),
     ),
 )

@@ -43,9 +43,7 @@ FROZEN_PRIOR_CUT_FILES = {
 REBASED_PRIOR_CUT_DIGESTS = {
     # Intent-boundary ledger R15 rebases two verifier-shape sabotages while
     # preserving their cut-9 checks. Pin that successor content exactly.
-    "python/tests/acceptance/n2_arms_cut9.py": (
-        "4f81b2ee1a1d2c90d19002d3b11a6458938c6c32d3e931230d0d651054785f97"
-    ),
+    "python/tests/acceptance/n2_arms_cut9.py": ("4f81b2ee1a1d2c90d19002d3b11a6458938c6c32d3e931230d0d651054785f97"),
 }
 
 
@@ -65,11 +63,7 @@ def _report(reason: str, findings: tuple, verdict: str) -> None:
     offending = [finding for finding in findings if finding.verdict == verdict]
     if offending:
         raise MalformedArm(
-            reason
-            + "\n"
-            + "\n".join(
-                f"  {finding.arm.label}\n    {finding.detail}" for finding in offending
-            )
+            reason + "\n" + "\n".join(f"  {finding.arm.label}\n    {finding.detail}" for finding in offending)
         )
 
 
@@ -123,10 +117,7 @@ class TestTheDeclarationTable:
         assert tuple(map(int, total.groups())) == (20, 11, 31)
         pairs = re.search(r"Selected units by row: ((?:[A-Z]+\d+ \d+(?:, )?)+)", flattened)
         assert pairs is not None
-        assert {
-            row: int(count)
-            for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))
-        } == ROW_UNITS
+        assert {row: int(count) for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))} == ROW_UNITS
 
     def test_the_frozen_cut_names_the_commit_this_audit_reads(self):
         completed = subprocess.run(
@@ -164,9 +155,7 @@ class TestTheDeclarationTable:
 
 class TestTheAtomsCitationsAreMetadataNotChecks:
     def test_every_atoms_certified_unit_cites_the_design_and_test_file(self):
-        assert set(ATOMS_CITATIONS_BY_UNIT) == {
-            "H1u1", "H1u3", "H4u2", "L10u1", "L10u2", "J1", "J2"
-        }
+        assert set(ATOMS_CITATIONS_BY_UNIT) == {"H1u1", "H1u3", "H4u2", "L10u1", "L10u2", "J1", "J2"}
         declared = set(declared_units())
         checks = {check for arm in CUT10_ARMS for check in arm.checks}
         for unit, citations in ATOMS_CITATIONS_BY_UNIT.items():
@@ -178,8 +167,7 @@ class TestTheAtomsCitationsAreMetadataNotChecks:
             tests = [citation for citation in citations if citation.startswith("python/tests/")]
             assert tests
             assert all(
-                re.fullmatch(r"python/tests/test_[A-Za-z0-9_]+\.py::test_[A-Za-z0-9_]+", citation)
-                for citation in tests
+                re.fullmatch(r"python/tests/test_[A-Za-z0-9_]+\.py::test_[A-Za-z0-9_]+", citation) for citation in tests
             )
             assert not checks.intersection(citations)
 
@@ -199,18 +187,12 @@ class TestNoPriorCutDeclarationIsRehomedOrEdited:
             assert actual == digest, f"{path} moved since its successor rebase"
 
     def test_no_cut10_arm_claims_a_check_a_prior_cut_declared(self):
-        prior = {
-            check
-            for arm in (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS)
-            for check in arm.checks
-        }
+        prior = {check for arm in (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS) for check in arm.checks}
         ours = {check for arm in CUT10_ARMS for check in arm.checks}
         assert not prior & ours
 
     def test_the_j_prefix_names_no_frozen_prior_unit(self):
-        prior = {
-            arm.row for arm in (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS)
-        }
+        prior = {arm.row for arm in (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS)}
         assert not prior.intersection(LABELED_UNITS)
 
 
@@ -240,23 +222,51 @@ def test_g9_fails_while_g2b_r5_and_r10_pass_against_one_sabotaged_installation(t
 TESTS = Path(__file__).resolve().parents[1]
 
 _OBLIGATION_SOURCES: tuple[tuple[str, str, str], ...] = (
-    ("§5.1 fabricated records decode", "test_holdings_reduce.py", "stored.holdings_observation_value(Node.model_validate(json.loads(canonical)))"),
+    (
+        "§5.1 fabricated records decode",
+        "test_holdings_reduce.py",
+        "stored.holdings_observation_value(Node.model_validate(json.loads(canonical)))",
+    ),
     ("§5.2 H2u1 no references", "test_holdings_reduce.py", 'assert all(not facet["supersedes"]'),
     ("§5.2 H2u1 only timestamps differ", "test_holdings_reduce.py", "assert normalized_first == normalized_swapped"),
-    ("§5.3 H2u4 boundary append", "test_holdings_windows.py", "write(killed, location, b\"replacement\")"),
-    ("§5.3 H2u4 unresolved inspected chain", "test_holdings_reduce.py", "view.pending == ((\"tx-pending\", registration_ref),)"),
-    ("§5.4 H3u3 same corpus states", "test_holdings_receipt.py", "old_receipt.coverage[0][1] == new_receipt.coverage[0][1]"),
+    ("§5.3 H2u4 boundary append", "test_holdings_windows.py", 'write(killed, location, b"replacement")'),
+    (
+        "§5.3 H2u4 unresolved inspected chain",
+        "test_holdings_reduce.py",
+        'view.pending == (("tx-pending", registration_ref),)',
+    ),
+    (
+        "§5.4 H3u3 same corpus states",
+        "test_holdings_receipt.py",
+        "old_receipt.coverage[0][1] == new_receipt.coverage[0][1]",
+    ),
     ("§5.5 H4u2 standing unchanged", "test_holdings_boundary.py", "standing.record.identity() == standing_identity"),
     ("§5.6 L10u1 lifecycle", "test_holdings_boundary.py", "read_lifecycle_state(cold) is LifecycleState.METADATA_LESS"),
-    ("§5.6 L10u2 lifecycle", "test_holdings_boundary.py", "read_lifecycle_state(replica) is LifecycleState.READ_ONLY_UNSERVICEABLE"),
+    (
+        "§5.6 L10u2 lifecycle",
+        "test_holdings_boundary.py",
+        "read_lifecycle_state(replica) is LifecycleState.READ_ONLY_UNSERVICEABLE",
+    ),
     ("§5.7 G9 same installation", "acceptance/test_n2_cut10.py", "co_passing == (PASSED, PASSED, PASSED)"),
-    ("§5.7 G9 G2b gate", "test_holdings_adapter.py", "result = admit(assessment, run, {address: answer.observations}, (verification,))"),
-    ("§5.8 L7u2 boundary append", "test_holdings_boundary.py", "test_a_kill_between_intent_and_mutation_leaves_the_intent_unmatched"),
+    (
+        "§5.7 G9 G2b gate",
+        "test_holdings_adapter.py",
+        "result = admit(assessment, run, {address: answer.observations}, (verification,))",
+    ),
+    (
+        "§5.8 L7u2 boundary append",
+        "test_holdings_boundary.py",
+        "test_a_kill_between_intent_and_mutation_leaves_the_intent_unmatched",
+    ),
     ("§5.9 count claims", "acceptance/test_n2_cut10.py", "results record quote pytest's summary under pipefail"),
     ("§6 H1u2 undamaged", "test_holdings_boundary.py", "this construction keeps the store undamaged throughout"),
-    ("§6 H2u3 stored decode", "test_holdings_reduce.py", "stored.holdings_observation_value(Node.model_validate(json.loads(canonical)))"),
-    ("§6 L10 acts boundary", "test_holdings_boundary.py", "result = recheck(ctx, StoreLocator(store_id, \"held.bin\"))"),
-    ("§6 G9 adapter seam", "acceptance/test_n2_cut10.py", "_g9_independence(arm, tmp_path / \"g9\")"),
+    (
+        "§6 H2u3 stored decode",
+        "test_holdings_reduce.py",
+        "stored.holdings_observation_value(Node.model_validate(json.loads(canonical)))",
+    ),
+    ("§6 L10 acts boundary", "test_holdings_boundary.py", 'result = recheck(ctx, StoreLocator(store_id, "held.bin"))'),
+    ("§6 G9 adapter seam", "acceptance/test_n2_cut10.py", '_g9_independence(arm, tmp_path / "g9")'),
     ("§6 L7u1 committed", "test_holdings_windows.py", "entry.fulfills == intent"),
 )
 

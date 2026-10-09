@@ -187,9 +187,7 @@ CUT18_ARMS = (
                 'EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("act-report", "holdings-observation", '
                 "*COORDINATION_KINDS)\n"
             ),
-            after=(
-                'EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("holdings-observation", *COORDINATION_KINDS)\n'
-            ),
+            after=('EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("holdings-observation", *COORDINATION_KINDS)\n'),
         ),
         checks=(_T8,),
     ),
@@ -332,9 +330,7 @@ CUT18_ARMS = (
                 "                self._view.get(target_ref)\n"
             ),
             after=(
-                "            self._refuse(record, document_validated=True)\n"
-                "            try:\n"
-                "                pass\n"
+                "            self._refuse(record, document_validated=True)\n            try:\n                pass\n"
             ),
         ),
         checks=(_BOUNDARY,),

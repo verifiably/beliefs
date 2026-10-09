@@ -79,17 +79,16 @@ CUT37_ARMS = (
         "L13-c",
         "A held copy resolves a removal only when its digest matches the removed state.",
         "world/verify.py",
-        "    if digest in held:\n        return (removed, _classification(removal, digest, \"held-copy\", held[digest]))",
-        "    if held:\n        return (removed, _classification(removal, digest, \"held-copy\", next(iter(held.values()))))",
+        '    if digest in held:\n        return (removed, _classification(removal, digest, "held-copy", held[digest]))',
+        '    if held:\n        return (removed, _classification(removal, digest, "held-copy", next(iter(held.values()))))',
     ),
     _arm(
         "L13-d1",
         "An unavailable preimage is stated as refused rather than not consulted.",
         "world/verify.py",
         "    if type(evidence) is PreimageUnavailable:\n"
-        "        return (removed, _unclassified(removal, digest, \"refused\", evidence.reason))",
-        "    if False:\n"
-        "        return (removed, _unclassified(removal, digest, \"refused\", evidence.reason))",
+        '        return (removed, _unclassified(removal, digest, "refused", evidence.reason))',
+        '    if False:\n        return (removed, _unclassified(removal, digest, "refused", evidence.reason))',
     ),
     _arm(
         "L13-d2",
@@ -111,7 +110,7 @@ CUT37_ARMS = (
         "L13-d3",
         "A removal whose bytes cannot be resolved carries the stated absence finding.",
         "world/verify.py",
-        "    return (removed, _unclassified(removal, digest, \"not-consulted\", None))",
+        '    return (removed, _unclassified(removal, digest, "not-consulted", None))',
         "    return (removed,)",
     ),
     _arm(
@@ -119,7 +118,7 @@ CUT37_ARMS = (
         "Corrupt local preimage history refuses the act rather than becoming absent evidence.",
         "root.py",
         "    except MetadataStoreInvalid as caught:\n"
-        "        raise LogEvidenceRefused(\"preimage\", \"MetadataStoreInvalid\", str(caught)) from caught",
+        '        raise LogEvidenceRefused("preimage", "MetadataStoreInvalid", str(caught)) from caught',
         "    except MetadataStoreInvalid as caught:\n        return PreimageUnavailable(str(caught))",
     ),
     _arm(
@@ -128,25 +127,25 @@ CUT37_ARMS = (
         "root.py",
         "    except PreconditionRefused as caught:\n        return PreimageUnavailable(str(caught))",
         "    except PreconditionRefused as caught:\n"
-        "        raise LogEvidenceRefused(\"preimage\", \"PreconditionRefused\", str(caught)) from caught",
+        '        raise LogEvidenceRefused("preimage", "PreconditionRefused", str(caught)) from caught',
     ),
     _arm(
         "L13-f",
         "Resolved bytes of another record kind classify as that kind, never as a verification.",
         "world/verify.py",
-        "    if node.kind != \"verification\":\n        return Finding(",
+        '    if node.kind != "verification":\n        return Finding(',
         "    if False:\n        return Finding(",
     ),
     _arm(
         "L13-g",
         "Corpus retirement appends a status record and deletes no registry record.",
         "world/registry.py",
-        '            self._executor_factory(self.config.world_root).execute(\n'
+        "            self._executor_factory(self.config.world_root).execute(\n"
         '                [CreateOp(f"registry/{digest}.yaml", _record_bytes(status_projection(candidate)))]\n'
         "            )",
         '            for _prior in sorted((self.config.world_root / "registry").glob("*.yaml")):\n'
         "                _prior.unlink()\n"
-        '            self._executor_factory(self.config.world_root).execute(\n'
+        "            self._executor_factory(self.config.world_root).execute(\n"
         '                [CreateOp(f"registry/{digest}.yaml", _record_bytes(status_projection(candidate)))]\n'
         "            )",
     ),

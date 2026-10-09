@@ -7,7 +7,9 @@ when the tree falsifies one
 not run, 3 falsified pins
 **Enforced by:** `python/tests/frozen_guards.py`, `python/tests/cited_not_run.py` and
 `python/tests/test_frozen_guards.py`, in the portable suite; arm staleness (§7) by
-`python/tests/arm_staleness.py` and `python/tests/test_arm_staleness.py` beside them
+`python/tests/arm_staleness.py` and `python/tests/test_arm_staleness.py` beside them;
+pins modulo formatting (§8) by `python/tests/pin_equivalence.py` and
+`python/tests/test_pin_equivalence.py`
 
 This is method, not a boundary: it closes no guarantee row, adds no row to the adoption
 ledger, and changes no ranking. It rules one question the corpus has answered
@@ -167,3 +169,35 @@ of them stale before this amendment was written.
 On the tree this was measured against (`main` at `7d06e27`) every live guard was
 already clean under its re-targeting table, so the amendment changes no arm; it adds
 the measurement that would have reported the eight the day they went stale.
+
+## 8. Pins hold modulo formatting — dated amendment, 2026-10-09
+
+A pin's claim was byte-exact, so `ruff format` had to exclude every file a freeze claims
+(`beliefs-a555d6`), and that exclude grew with every freeze. Formatting changes no
+meaning, so the claim now holds up to formatting:
+
+- **A pin on a `.py` target** holds when the target is byte-identical to the pinned
+  original, or equivalent to it under `python/tests/pin_equivalence.py`. Equivalent means
+  the same detected encoding, the same syntax tree with docstrings compared after
+  `inspect.cleandoc`, every comment's text at the same position among the statements and
+  syntax nodes around it (its innermost statement, the next statement and node to start,
+  and the `else` and `finally` keywords before it), and every directive comment's
+  physical line unchanged. The comparator reads only the standard library and fails
+  closed. **Every other target stays byte-exact.**
+- **A commit pin** compares the working file with `git cat-file blob <commit>:<path>`.
+  A target absent at the pin holds while it stays absent, and a commit that no longer
+  resolves is broken. **A content pin** resolves its digest to the version of the
+  target in `HEAD`'s history with those bytes. When no version matches, the pin is
+  broken, never passed.
+- **A cited-not-run surface's bytes** are evidence up to formatting, on the same terms.
+- **Re-pinning is still forbidden.** The pins keep naming the bytes each cut audited, and
+  formatting is not a move §2 re-pins for. The comparator is what lets them hold.
+- **The last byte-exact commit is `3ae5a96c1932f401bbd431e923a3090f3fce83b5`.** A
+  SHA-256 that a frozen results record publishes for a file formatted after it is
+  checked with `git show 3ae5a96c1932f401bbd431e923a3090f3fce83b5:<path> | sha256sum`,
+  and line numbers a record cites in such a file are read at that commit.
+
+`python/tests/frozen_guards.py` (`commit_pin_holds`, `content_pin_holds`) applies this
+for the portable suite, and every live guard that checks a file pin calls the same two
+predicates at discharge.
+The design is `docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md`.
