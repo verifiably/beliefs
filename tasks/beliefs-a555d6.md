@@ -1,13 +1,15 @@
 ---
 id: beliefs-a555d6
 title: ruff format is not in the gate; 11 reproduction-lane files drift from it
-status: todo
+status: doing
 priority: 3
 size: m
 complexity: high
 process: planned
+owner: main
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T15:44:40Z
+updated: 2026-10-09T17:01:36Z
+started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
 ---
@@ -43,3 +45,5 @@ Verification:
 - 2026-10-09T14:39:36Z (main): scope: question; measured 347/566 files drifted and 63 of 1149 applying N2 arms broken by an src reformat; options and recommendation (keep format out, record why) under Open questions
 - 2026-10-09T15:27:47Z (main): scope: scoped; user chose (c) reformat once and enforce; added frozen-pin evidence (53 pinned python/ targets to exclude); rewrote body; todo P3/m/high/planned
 - 2026-10-09T15:44:39Z (main): follow-up beliefs-ea5ec7 filed: freeze pins hold modulo formatting (AST + comments; 31/31 reformatted pinned files pass), which retires this task's format exclude
+- 2026-10-09T17:01:36Z (main): started
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
