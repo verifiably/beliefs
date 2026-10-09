@@ -8,11 +8,12 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:34:25Z
+updated: 2026-10-09T17:42:08Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
 spec: docs/superpowers/specs/2026-10-09-ruff-format-gate-design.md
+plan: docs/superpowers/plans/2026-10-09-ruff-format-gate.md
 ---
 
 Why: the gate runs ruff check but not ruff format, so formatting drifts silently. On 2026-10-09 (main cb354e1), 347 of 566 Python files under python/ would be reformatted: 70 src, 180 tests, 79 tests/acceptance, 18 tools. Line length is 120, from [tool.ruff] in python/pyproject.toml. Decision 2026-10-09 (user): option (c), reformat once and enforce. Rejected: (a) keep format out of the gate, and (b) a ratchet with an exclude list of the drifted files.
@@ -65,3 +66,6 @@ Verification:
 - 2026-10-09T17:34:24Z (chore/ruff-format-gate): resumed
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-09T17:34:24Z (chore/ruff-format-gate): spec round 2 P2 fixed: section 5 keeps the static pin backstop (now via just test-one) and adds a mutation pilot, the whole cut-46 guard via just test-one (36 arms, 7 re-targeted; 13 passed in 15 s pre-reformat), before the chain
+- 2026-10-09T17:42:06Z (chore/ruff-format-gate): resumed
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T17:42:06Z (chore/ruff-format-gate): plan written: docs/superpowers/plans/2026-10-09-ruff-format-gate.md, 6 steps; dry run of its tool and tests: 9/9 tests pass, derive on a scratch reformat gives 70 derived, 0 refused
