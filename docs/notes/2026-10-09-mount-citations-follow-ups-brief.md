@@ -69,6 +69,14 @@ For `beliefs-d69102`, the one open decision:
 1. **Pass the proposition's corpus to `consulted_contracts` separately (lean).**
    Use the world view's `corpus_of`. `node_corpus` keeps its meaning (where
    the evidence lives), and only the pins needed for the claim are added.
+   The option must reach **both** walks. `gather` calls `consulted_contracts`
+   (`evaluation.py:610`), and the pure evaluator recomputes it from
+   `context.node_corpus` (`belief.py:368`). Fixing `gather` alone leaves
+   evaluation refusing the same shape. Carrying the proposition's corpus into
+   the evaluator puts it in the belief context, so this option may move the
+   context identity too. That is the same cost option 2 was rejected for, and
+   `beliefs-c6e2e4` measures it for both. (Added 2026-10-09 from a review of
+   this brief.)
 2. **Attribute the proposition in `node_corpus`.** This amends decision 10. It
    changes the attribution every world-read context records, and through it
    the derivation's reproducibility context.
@@ -87,9 +95,11 @@ The other four are ruled here:
 
 ## Unanswered questions
 
-- Does the `beliefs-d69102` shape actually refuse? Does option 1 or option 2
-  change the identity of any existing world-read derivation? Answered by
-  `beliefs-c6e2e4`.
+- Does the `beliefs-d69102` shape actually refuse, at `gather` and at the
+  evaluator's walk? Under each option, what happens when the proposition's
+  corpus pins no version of the namespace, or a version that disagrees with
+  the evidence corpora's pin? Does option 1 or option 2 change the identity of
+  any existing world-read derivation? Answered by `beliefs-c6e2e4`.
 - Is either cost in `beliefs-e02ef3` material at mm30 scale? Answered by that
   task's measurement.
 

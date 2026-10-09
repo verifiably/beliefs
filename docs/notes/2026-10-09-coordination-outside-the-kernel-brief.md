@@ -12,8 +12,10 @@ hand-written markdown. Two ideas ask that these converge: realize the
 coordination `task` kind through `tasks` records (ff2529), and give stack-less
 projects a small hypothesis/evidence/question profile that `beliefs` could later
 subsume (44c0fd). A third, splitting `contracts/coordination` and `domains/` out
-of `beliefs` (abf8e8), becomes live only if either convergence gives the
-coordination contract a second consumer. The outcome wanted is one decision on
+of `beliefs` (abf8e8), becomes live only when another component itself consumes
+the coordination contract, or a distinct constraint regime is documented. A
+science adapter that delegates writes to `tasks` does neither: `tasks` never
+reads the contract (§3). The outcome wanted is one decision on
 whether the three stay separate, joined by opaque references, or converge, and
 in which direction.
 
@@ -65,43 +67,64 @@ in which direction.
 
 ## 4. Alternatives
 
-1. **Stay separate, joined by opaque references.** Science's coordination kinds
-   serve research inside a world. `tasks` serves development work. Stack-less
-   projects keep markdown. Costs nothing, but the hand-kept pattern gets rebuilt
-   per project, and a research `task` and a dev task stay two systems.
-2. **A stack-less profile first, subsumed later (44c0fd).** A small nodes
-   profile with `hypothesis`, `evidence` and `question` kinds, and the kill
-   condition and reproducing command required by the profile's check. Science's
-   coordination contract later admits these as a lite tier. This needs the
-   contract's `hypothesis` to grow the kill condition, or the profile to map onto
-   it lossily.
-3. **Realize the coordination `task` through `tasks` records (ff2529).** A
-   versioned coordination-contract amendment: science's task writes shell out to
-   `tasks`, and the corpus-write adapter records the act with the task id. This
-   reverses part of what landed on 2026-09-24 and makes `tasks` the
-   coordination contract's second realization, which is the trigger abf8e8
-   waits for.
+**Research tasks and dev tasks: one system or two.** Science's coordination
+`task` is a governed record in a world's corpus. It is attributed, belief-inert,
+and reaches other worlds only through the corpus's own publication. A `tasks`
+record is a markdown file beside a checkout, outside both. Much of what makes
+`tasks` useful is behaviour rather than storage: the derived ready queue,
+claims and liveness, notes as attributed acts, shelving with a wake condition,
+and the scope and curate passes. Four ways to share it:
 
-**Current lean:** 1 for `task` until `tasks-96b215` reports, because
-alternative 3 now means unwinding landed science work and needs that format
-answer first. Take 2 only if the field mapping (below) shows the kill condition
-and reproducing command have no home in the v3 kinds, and only once a second
-project actually asks for it.
+1. **Two systems, joined by opaque references (lean).** Port a `tasks`
+   behaviour into science's coordination kinds only when a science measurement
+   asks for it, the rule the coordination command set already applies to
+   `topic`, `theme` and `note` (its §11). `tasks-96b215` may give a read-only
+   bridge: if nodes reads an unchanged task record, science can index dev tasks
+   with no dependency in either direction. The cost is duplication, and porting
+   on measured need keeps it to what is actually used.
+2. **Bring `tasks` into `verifiably`.** The twenty-odd projects that run `tasks`
+   daily would then follow verifiably's release cadence and
+   governance. The dependency points the wrong way.
+3. **An external dependency (ff2529).** Science's task writes shell out to
+   `tasks` through a versioned coordination-contract amendment. This reverses
+   part of what landed on 2026-09-24, and it moves a world's tasks out of its
+   corpus. Science still consumes the contract and `tasks` never reads it, so
+   this is not a second consumer and does not wake abf8e8.
+4. **A common core both build on.** `tasks` is Rust and science is Python, so
+   the core is either cross-language or duplicated anyway. Its home sits
+   outside one of the two boundaries whichever repository holds it. This is
+   the most work, for the least-measured need.
+
+The lean is 1, recommended to the user on 2026-10-09 and awaiting their answer. 2 and 4 are rejected:
+they put a cross-boundary dependency in place before any measurement asks for
+one. 3 stays open only until `tasks-96b215` reports.
+
+**The stack-less profile (44c0fd)** is shelved by the user's call on
+2026-10-09. One project uses the pattern, and its home is revisited when a
+second project builds or asks for it.
 
 ## 5. Unanswered questions
 
 | Question | Who or what answers it |
 |---|---|
 | Can the nodes standard read an unchanged task record, relations included? | `tasks-96b215` |
-| Which stack-less hypothesis/evidence/question fields have no home in coordination v3? | beliefs-bcfa20 |
-| Should research tasks and dev tasks be one system at all? | The user. It is a scope choice that no measurement settles. |
-| Where would a stack-less profile live: `beliefs`, a nodes example profile, or its own repository? | The user, after beliefs-bcfa20 |
+| Which stack-less hypothesis/evidence/question fields have no home in coordination v3? | beliefs-bcfa20, shelved with 44c0fd |
+| Should research tasks and dev tasks be one system at all? | The user. The lean is two systems (§4, alternative 1), pending their confirmation. |
+| Where would a stack-less profile live: `beliefs`, a nodes example profile, or its own repository? | Deferred. The user shelved it until a second project builds or asks for the pattern. |
 
 ## 6. Proposed decomposition
 
 - Goal beliefs-614364 owns this cluster.
 - `tasks-96b215` (existing, `tasks` project) → wakes beliefs-ff2529.
-- beliefs-bcfa20 (research, child of the goal) → wakes beliefs-44c0fd.
-- beliefs-abf8e8 is shelved until a second consumer is observed: `tasks` under
-  alternative 3, or a domain pack owned outside `beliefs`.
-- No design task yet. One follows only if the user picks alternative 2 or 3.
+- beliefs-44c0fd and its research child beliefs-bcfa20 are shelved until a
+  second project builds or asks for the hand-kept hypothesis/evidence/question
+  pattern. bcfa20 is the first step when they wake.
+- beliefs-abf8e8 is shelved until another component itself consumes the
+  coordination contract (not through science), or a distinct constraint regime
+  is documented, such as a domain pack whose owner and release cadence differ
+  from `beliefs`'.
+- No design task. One follows only if the user picks an alternative other than 1.
+
+(Revised 2026-10-09 after a review of this brief: §1 and §4's alternative 3 no
+longer treat delegated writes as a second consumer, and §4 records the user's
+answers on one system and on the stack-less profile.)

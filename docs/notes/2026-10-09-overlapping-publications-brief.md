@@ -55,6 +55,18 @@ Read on main at `8aefcbf`, 2026-10-09. No suites were run.
   kernel's conflict refusal (outcome 2) only has to stay explicit.
 - Neither violation is resolved by precedence (W8b). `uid-corruption` stays
   unconditional, and `consolidate` stays the exit for a real conflict.
+  `uid-corruption` here is `derive.address_map`'s rule: one uid under two
+  canonical addresses. The world view enforces a second, separate rule. Its
+  owners loop (`world/view.py:382`) refuses any uid held by two corpora,
+  whatever the address map says, and that is exactly the overlapping case.
+  Changing the map alone leaves this refusal standing, so the design must rule
+  on it explicitly: exempt equal-content holders, or keep it and say why.
+  `world/live.py`'s copy (`beliefs-0e1acb`) follows the same ruling.
+- Publishing chooses attribution through one holder. `_selected_attributions`
+  (`publish.py:232`) groups the selected refs by `read.corpus_of(ref)`, a
+  single corpus. Identical bytes can arrive through carriers with different
+  provenance, so choosing among several holders could change or drop the
+  attribution a republication carries.
 - A frozen cut is never edited. Any change to the address-map shape or to J17
   supersedes those rows by citation in a new cut. That cut also adds its
   `test_recent_cut_acceptance.py` row, and only `root.py` imports `atoms`.
@@ -93,13 +105,24 @@ Each is for the design task `beliefs-918fd2` to settle against the code.
   treats a shared address.
 - The epoch format change for `address-map.yaml`, and how readers of older
   epochs are handled.
+- Origin selection at publish: when several holders carry one record, which
+  holder's provenance does a republication attribute it to, and is that
+  choice independent of holder order? The design's arms include a publish →
+  adopt → republish case with the holders reordered, and the republished
+  attribution must not move.
+- Whether the view's owners check (`world/view.py:382`, one uid in two
+  corpora) admits equal-content holders, and how that stays distinct from
+  real uid corruption.
+
+(The last two questions were added 2026-10-09 from a review of this brief.)
 
 ## Proposed decomposition
 
 - `beliefs-918fd2` — Design overlapping-publication reads from this brief: the
   cut spec covering the three outcomes, J17 and the singular-map rule
-  superseded by citation, and the acceptance predicate's per-holder
-  evaluation. Planned, high complexity. On approval its plan implements it,
+  superseded by citation, the acceptance predicate's per-holder
+  evaluation, the view's owners check, and publication attribution's origin
+  selection. Planned, high complexity. On approval its plan implements it,
   and `beliefs-81367e` closes with that cut.
 - `beliefs-81367e` waits on it. `sci-9104fb` (milestone 1b) depends on
   `beliefs-81367e`.
