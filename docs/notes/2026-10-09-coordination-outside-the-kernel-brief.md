@@ -95,9 +95,10 @@ and the scope and curate passes. Four ways to share it:
    outside one of the two boundaries whichever repository holds it. This is
    the most work, for the least-measured need.
 
-The lean is 1, recommended to the user on 2026-10-09 and awaiting their answer. 2 and 4 are rejected:
+**Decided 2026-10-09 by the user: 1, two systems.** 2 and 4 are rejected:
 they put a cross-boundary dependency in place before any measurement asks for
-one. 3 stays open only until `tasks-96b215` reports.
+one. 3 is rejected with them, so beliefs-ff2529 is dropped. `tasks-96b215`
+now informs only the read-only bridge in alternative 1.
 
 **The stack-less profile (44c0fd)** is shelved by the user's call on
 2026-10-09. One project uses the pattern, and its home is revisited when a
@@ -107,15 +108,17 @@ second project builds or asks for it.
 
 | Question | Who or what answers it |
 |---|---|
-| Can the nodes standard read an unchanged task record, relations included? | `tasks-96b215` |
+| Can the nodes standard read an unchanged task record, relations included? | `tasks-96b215`. Its answer bears only on alternative 1's read-only bridge. |
 | Which stack-less hypothesis/evidence/question fields have no home in coordination v3? | beliefs-bcfa20, shelved with 44c0fd |
-| Should research tasks and dev tasks be one system at all? | The user. The lean is two systems (§4, alternative 1), pending their confirmation. |
+| Should research tasks and dev tasks be one system at all? | Answered 2026-10-09: no, two systems (§4, alternative 1). |
 | Where would a stack-less profile live: `beliefs`, a nodes example profile, or its own repository? | Deferred. The user shelved it until a second project builds or asks for the pattern. |
 
 ## 6. Proposed decomposition
 
-- Goal beliefs-614364 owns this cluster.
-- `tasks-96b215` (existing, `tasks` project) → wakes beliefs-ff2529.
+- Goal beliefs-614364 closed 2026-10-09 on the decision. The shelved ideas stand alone, with beliefs-bcfa20 under beliefs-44c0fd.
+- beliefs-ff2529 is dropped by the 2026-10-09 decision. `tasks-96b215`
+  (existing, `tasks` project) no longer wakes it. If its finding shows nodes
+  reads an unchanged task record, the bridge is filed then as a science idea.
 - beliefs-44c0fd and its research child beliefs-bcfa20 are shelved until a
   second project builds or asks for the hand-kept hypothesis/evidence/question
   pattern. bcfa20 is the first step when they wake.
@@ -123,7 +126,7 @@ second project builds or asks for it.
   coordination contract (not through science), or a distinct constraint regime
   is documented, such as a domain pack whose owner and release cadence differ
   from `beliefs`'.
-- No design task. One follows only if the user picks an alternative other than 1.
+- No design task: the decision needs none.
 
 (Revised 2026-10-09 after a review of this brief: §1 and §4's alternative 3 no
 longer treat delegated writes as a second consumer, and §4 records the user's

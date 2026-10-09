@@ -4,9 +4,8 @@ title: Split contracts/coordination and domains out of beliefs
 status: shelved
 priority: 2
 created: 2026-08-31T10:04:46Z
-updated: 2026-10-09T13:48:26Z
+updated: 2026-10-09T13:57:56Z
 depends: []
-parent: beliefs-614364
 tags: []
 ---
 
@@ -18,3 +17,4 @@ Projected, not observed: ledger §5 splits a distribution only on an observed se
 - 2026-10-09T11:37:51Z (main): scope: shelved; ledger §5 and user/autonomy §3.2 split only on an observed second consumer, and none exists: science is the coordination contract's one consumer, domains/ holds biology alone, natural-systems defers its pack route (ns-437ab5); parented under goal beliefs-614364; wake condition recorded by shelve; brief: docs/notes/2026-10-09-coordination-outside-the-kernel-brief.md
 - 2026-10-09T13:48:25Z (main): shelved: Wake when another component itself consumes the coordination contract (not through science), or a distinct constraint regime is documented that justifies a separate distribution, such as a domain pack whose owner and release cadence differ from beliefs'. Science delegating its task writes to the tasks CLI is not a second consumer: tasks never reads the contract.
 - 2026-10-09T13:48:25Z (main): Wake condition corrected 2026-10-09 after a review of the brief: the earlier wake named tasks realizing coordination task as a second consumer, but tasks never reads the contract, so science stays its one consumer; the wake now needs a component that itself consumes the contract, or a documented constraint regime
+- 2026-10-09T13:57:55Z (main): Detached from goal beliefs-614364 when it closed on 2026-10-09 (decided: two systems); stays shelved with its wake condition; brief: docs/notes/2026-10-09-coordination-outside-the-kernel-brief.md
