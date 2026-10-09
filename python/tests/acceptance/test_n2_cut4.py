@@ -30,17 +30,13 @@ def findings(tmp_path_factory) -> tuple:
     of the package, and each durable check its own corpus root."""
     root = tmp_path_factory.mktemp("n2-cut4")
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        return tuple(
-            pool.map(lambda pair: audit(pair[1], root / f"arm{pair[0]}"), enumerate(CUT4_ARMS))
-        )
+        return tuple(pool.map(lambda pair: audit(pair[1], root / f"arm{pair[0]}"), enumerate(CUT4_ARMS)))
 
 
 def _report(reason: str, findings: tuple, verdict: str) -> None:
     offending = [finding for finding in findings if finding.verdict == verdict]
     if offending:
-        raise MalformedArm(
-            reason + "\n" + "\n".join(f"  {f.arm.label}\n    {f.detail}" for f in offending)
-        )
+        raise MalformedArm(reason + "\n" + "\n".join(f"  {f.arm.label}\n    {f.detail}" for f in offending))
 
 
 class TestEveryCut4ArmAssertsSomething:
@@ -61,8 +57,7 @@ class TestEveryCut4ArmAssertsSomething:
 
     def test_no_sabotage_stops_a_check_from_running(self, findings):
         _report(
-            "these sabotages kept a named check from running at all, so the arm shows only that broken "
-            "code is broken:",
+            "these sabotages kept a named check from running at all, so the arm shows only that broken code is broken:",
             findings,
             "uncollected",
         )
