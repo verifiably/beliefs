@@ -254,7 +254,8 @@ The tiers below carry the ranking. Task dependencies encode prerequisites
 and serial lane order; `tasks ready` is eligibility, not the roadmap's
 priority or permission to open an off-path lane. Reuse these high-level tasks
 and add implementation children when each slice is designed. Ride-alongs share
-their lane's task, and tier-3 design questions remain `idea` tasks.
+their lane's task, and tier-3 design questions stay unclaimed tasks, shelved
+until a real case forces the question (each task names its wake condition).
 
 | id | rows it closes | tier | task |
 |---|---|---|---|
