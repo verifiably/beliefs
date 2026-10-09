@@ -492,9 +492,14 @@ def test_the_view_predicate_agrees_with_the_engine(tmp_path):
 
     twice = logmodel.WellFormedView(
         genesis=genesis,
-        entries=(genesis, registration, settlement, logmodel.SettledEntryView(
-            digest="9" * 64, txid=registration.txid, registration=registration.digest, committed=True
-        )),
+        entries=(
+            genesis,
+            registration,
+            settlement,
+            logmodel.SettledEntryView(
+                digest="9" * 64, txid=registration.txid, registration=registration.digest, committed=True
+            ),
+        ),
         tip="9" * 64,
         pending=(),
     )
@@ -513,12 +518,8 @@ def test_the_view_predicate_agrees_with_the_engine(tmp_path):
     assert view_defect(dangling) == engine_kind(fulfills_missing_intent, "fulfills-missing")
 
     intent = logmodel.IntentEntryView(digest="7" * 64, payload=b"an intent")
-    first = logmodel.RegisteredEntryView(
-        digest="6" * 64, txid="tx-a", initial=(), final=(), fulfills=intent.digest
-    )
-    second = logmodel.RegisteredEntryView(
-        digest="5" * 64, txid="tx-b", initial=(), final=(), fulfills=intent.digest
-    )
+    first = logmodel.RegisteredEntryView(digest="6" * 64, txid="tx-a", initial=(), final=(), fulfills=intent.digest)
+    second = logmodel.RegisteredEntryView(digest="5" * 64, txid="tx-b", initial=(), final=(), fulfills=intent.digest)
     doubled = logmodel.WellFormedView(
         genesis=genesis,
         entries=(
@@ -615,9 +616,7 @@ expose their own view construction — which is Task 9's reviewed arrival fixtur
 
 
 def test_the_view_factories_cover_every_stand_in_unit_and_only_those():
-    stand_in = {
-        unit for unit, reason in VIEW_LEVEL_UNITS.items() if reason.startswith("stand-in inspection")
-    }
+    stand_in = {unit for unit, reason in VIEW_LEVEL_UNITS.items() if reason.startswith("stand-in inspection")}
     assert set(VIEW_FACTORIES) == stand_in
     # The other ground reads no chain at all, so it supplies no view and needs
     # none: obligation 1 is inapplicable there rather than substituted for.
@@ -716,9 +715,7 @@ def test_freeze_obligation_the_remint_is_the_only_delta(tmp_path):
     assert type(view) is logmodel.WellFormedView
     surface = dict(view.genesis.baseline)
     committed = {
-        entry.registration
-        for entry in view.entries
-        if type(entry) is logmodel.SettledEntryView and entry.committed
+        entry.registration for entry in view.entries if type(entry) is logmodel.SettledEntryView and entry.committed
     }
     for entry in view.entries:
         if type(entry) is logmodel.RegisteredEntryView and entry.digest in committed:

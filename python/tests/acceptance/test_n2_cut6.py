@@ -355,9 +355,7 @@ class TestEveryCut6ArmAssertsSomething:
                 assert len(check.split("::")) >= 2, f"{arm.label}: {check}"
 
     def test_labeled_declarations_cite_their_frozen_specification(self):
-        assert all(
-            "specification §" in arm.asserts for arm in CUT6_ARMS if arm.row.startswith("labeled:")
-        )
+        assert all("specification §" in arm.asserts for arm in CUT6_ARMS if arm.row.startswith("labeled:"))
 
     def test_every_check_passes_against_the_unsabotaged_historical_package(self, historical_clean_runs):
         failed = [run for run in historical_clean_runs if run.returncode != test_n2.PASSED]

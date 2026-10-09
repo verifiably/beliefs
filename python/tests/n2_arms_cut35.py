@@ -104,7 +104,7 @@ CUT35_ARMS = (
         "    if isinstance(result, NotAttempted):\n"
         '        return InconclusiveLook("byte-locator-untested", result.reason)',
         "    if isinstance(result, NotAttempted):\n"
-        "        _publish_record(ctx, holdings_observation(location=location, outcome=Found(\"sha256:\" + \"0\" * 64), expected=expected, observer=ctx.observer, instrument=ctx.instrument, event_token=token, observed_at="
+        '        _publish_record(ctx, holdings_observation(location=location, outcome=Found("sha256:" + "0" * 64), expected=expected, observer=ctx.observer, instrument=ctx.instrument, event_token=token, observed_at='
         + _OBSERVED_AT
         + ", supersedes=standing), intent)\n"
         '        return InconclusiveLook("byte-locator-untested", result.reason)',
@@ -141,10 +141,8 @@ CUT35_ARMS = (
         "T5-c",
         "The close refuses a report whose published-observation ref resolves to no observation an act published.",
         "holdings/acquire.py",
-        "        for ref in sorted(published):\n"
-        "            if writer.read_view.resolve(ref) is None:",
-        "        for ref in ():\n"
-        "            if writer.read_view.resolve(ref) is None:",
+        "        for ref in sorted(published):\n            if writer.read_view.resolve(ref) is None:",
+        "        for ref in ():\n            if writer.read_view.resolve(ref) is None:",
     ),
     _arm(
         "T7-a",
@@ -209,8 +207,7 @@ CUT35_ARMS = (
         "T4-a",
         "An unmatched acquisition operation intent blocks nothing in the reduction.",
         "holdings/qualify.py",
-        '    if not isinstance(value, dict) or value.get("domain") != HOLDINGS_INTENT_DOMAIN:\n'
-        "        return None",
+        '    if not isinstance(value, dict) or value.get("domain") != HOLDINGS_INTENT_DOMAIN:\n        return None',
         '    if not isinstance(value, dict) or value.get("domain") != HOLDINGS_INTENT_DOMAIN:\n'
         '        return {"digest": row["digest"], "actor": "x", "event_token": str((value or {}).get("event_token", "")) if isinstance(value, dict) else "", "kind": "write", "location": "url:https://sabotage.example/"}',
     ),
@@ -284,8 +281,7 @@ CUT35_ARMS = (
         "holdings/boundary.py",
         '    token, intent = _append(ctx, location, "re-check")\n'
         "    result = retrieve(location, bounds, seam, scratch)",
-        '    token, intent = _append(ctx, location, "write")\n'
-        "    result = retrieve(location, bounds, seam, scratch)",
+        '    token, intent = _append(ctx, location, "write")\n    result = retrieve(location, bounds, seam, scratch)',
     ),
     _arm(
         "BI-8",
@@ -306,8 +302,7 @@ CUT35_ARMS = (
         '        if set(value) != {"type", "url"} or not _url(value["url"]):\n'
         "            return None\n"
         '        return "url:" + value["url"]',
-        '    if value["type"] == "url":\n'
-        "        return None",
+        '    if value["type"] == "url":\n        return None',
     ),
     _arm(
         "BI-10",

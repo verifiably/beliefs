@@ -93,7 +93,7 @@ _MALFORMED_JUDGES_ANCHORS = Sabotage(
     module="world/verify.py",
     before='        return _report("malformed", bound=labels, findings=tuple(findings) + (_defect_finding(view.defect),))',
     after=(
-        '        return _report(\n'
+        "        return _report(\n"
         '            "malformed",\n'
         '            anchored_through="a head no step judged",\n'
         "            bound=labels,\n"
@@ -365,7 +365,7 @@ _RETIREMENT_DELETES = Sabotage(
     after=(
         '            for _prior in sorted((self.config.world_root / "registry").glob("*.yaml")):\n'
         "                _prior.unlink()\n"
-        '            self._executor_factory(self.config.world_root).execute(\n'
+        "            self._executor_factory(self.config.world_root).execute(\n"
         '                [CreateOp(f"registry/{digest}.yaml", _record_bytes(status_projection(candidate)))]\n'
         "            )"
     ),
@@ -544,9 +544,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "the unreachable anchored head"
         ),
         sabotage=_UNREACHABLE_REF,
-        checks=(
-            "test_world_log_evaluator.py::test_valid_prefix_truncation_refutes_naming_the_unreachable_head",
-        ),
+        checks=("test_world_log_evaluator.py::test_valid_prefix_truncation_refutes_naming_the_unreachable_head",),
     ),
     Arm(
         row="L3u2",
@@ -636,9 +634,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "unresolvable"
         ),
         sabotage=_ABSENT_REFUTES,
-        checks=(
-            "test_world_log_evaluator.py::test_deletion_plus_remint_refutes_as_removal_under_selected_subject",
-        ),
+        checks=("test_world_log_evaluator.py::test_deletion_plus_remint_refutes_as_removal_under_selected_subject",),
     ),
     Arm(
         row="L5u1",
@@ -662,9 +658,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "with the exact defect class named"
         ),
         sabotage=_DEFECT_DETAIL,
-        checks=(
-            "test_world_log_evaluator.py::test_fulfills_naming_missing_or_nonancestor_intent_is_malformed",
-        ),
+        checks=("test_world_log_evaluator.py::test_fulfills_naming_missing_or_nonancestor_intent_is_malformed",),
     ),
     Arm(
         row="L7u2",
@@ -694,10 +688,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
         asserts="epoch sequence numbers are read by nothing — no member carries one and the predicate names none",
         sabotage=_EPOCH_SEQUENCE,
         checks=(
-            (
-                "test_world_log_audit.py::TestTheOrderedCutsPredicate::"
-                "test_epoch_sequence_numbers_are_read_by_nothing"
-            ),
+            ("test_world_log_audit.py::TestTheOrderedCutsPredicate::test_epoch_sequence_numbers_are_read_by_nothing"),
         ),
     ),
     Arm(
@@ -755,10 +746,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
         ),
         sabotage=_ELIGIBILITY,
         checks=(
-            (
-                "test_world_log_evaluator.py::"
-                "test_in_root_epoch_ineligible_for_world_subject_but_eligible_for_corpus"
-            ),
+            ("test_world_log_evaluator.py::test_in_root_epoch_ineligible_for_world_subject_but_eligible_for_corpus"),
         ),
     ),
     Arm(
@@ -777,9 +765,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "undetected — the surviving-observer negative, with all three carriers asserted truncated"
         ),
         sabotage=_UNBOUND_EXIT,
-        checks=(
-            "test_world_log_audit.py::test_coordinated_truncation_without_exported_holder_is_undetected",
-        ),
+        checks=("test_world_log_audit.py::test_coordinated_truncation_without_exported_holder_is_undetected",),
     ),
     Arm(
         row="L11u4",
@@ -818,9 +804,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "at step 2 as prefix truncation"
         ),
         sabotage=_ANCHOR_UNREACHABLE,
-        checks=(
-            "test_world_log_evaluator.py::test_raw_log_edit_within_anchored_prefix_is_malformed_or_refuted",
-        ),
+        checks=("test_world_log_evaluator.py::test_raw_log_edit_within_anchored_prefix_is_malformed_or_refuted",),
     ),
     Arm(
         row="L12u5",
@@ -838,9 +822,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "policy finding naming the deleted record"
         ),
         sabotage=_NO_REMOVAL_FINDING,
-        checks=(
-            "test_world_log_replay.py::test_cooperative_verification_removal_is_in_timeline_with_finding",
-        ),
+        checks=("test_world_log_replay.py::test_cooperative_verification_removal_is_in_timeline_with_finding",),
     ),
     Arm(
         row="L13u2",
@@ -849,9 +831,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "the finding names the matched digest (the match being path-based, R16)"
         ),
         sabotage=_NO_CLASSIFICATION,
-        checks=(
-            "test_world_log_replay.py::test_failing_classification_resolves_through_history_naming_digest",
-        ),
+        checks=("test_world_log_replay.py::test_failing_classification_resolves_through_history_naming_digest",),
     ),
     Arm(
         row="L13u3",
@@ -866,9 +846,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
         row="L13u4",
         asserts="corpus retirement appends a status event and deletes nothing",
         sabotage=_RETIREMENT_DELETES,
-        checks=(
-            "test_world_arrival.py::TestWhatIsAdmitted::test_retirement_appends_status_and_deletes_nothing",
-        ),
+        checks=("test_world_arrival.py::TestWhatIsAdmitted::test_retirement_appends_status_and_deletes_nothing",),
     ),
     Arm(
         row="L13u5",
@@ -887,9 +865,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "malformed (spec §4.2, §1.3)"
         ),
         sabotage=_GENESIS_FORM,
-        checks=(
-            "test_world_log_evaluator.py::test_genesis_form_malformation_and_world_id_mismatch_split",
-        ),
+        checks=("test_world_log_evaluator.py::test_genesis_form_malformation_and_world_id_mismatch_split",),
     ),
     Arm(
         row="D2",
@@ -898,9 +874,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "not from precedence steps (spec §6.2)"
         ),
         sabotage=_ARRIVAL_PENDING_CAUSE,
-        checks=(
-            "test_world_arrival.py::TestTheArrivalCauses::test_arrival_cause_ranking_from_report_fields",
-        ),
+        checks=("test_world_arrival.py::TestTheArrivalCauses::test_arrival_cause_ranking_from_report_fields",),
     ),
     Arm(
         row="D3",
@@ -909,9 +883,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "commits through the same admission core and the record's identity is unamended (spec §6.2)"
         ),
         sabotage=_BARE_ADMIT,
-        checks=(
-            "test_world_arrival.py::TestWhatIsAdmitted::test_bare_admit_refusal_and_shared_core_identity",
-        ),
+        checks=("test_world_arrival.py::TestWhatIsAdmitted::test_bare_admit_refusal_and_shared_core_identity",),
     ),
     Arm(
         row="D4",
@@ -977,9 +949,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
             "`sha256:<64 lowercase hex>`; every classified finding names the matched digest (spec §5.3)"
         ),
         sabotage=_HISTORY_KEY_FORM,
-        checks=(
-            "test_world_log_replay.py::test_history_validation_refusals_and_digest_named_findings",
-        ),
+        checks=("test_world_log_replay.py::test_history_validation_refusals_and_digest_named_findings",),
     ),
     Arm(
         row="D10",
