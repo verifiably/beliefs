@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-09
 **Task:** `beliefs-ea5ec7` (follows `beliefs-a555d6`, whose format exclude this retires)
-**Measured against:** `main` at `f134ee9` — 43 guard modules (38 live, 5 cited not run),
+**Measured against:** `main` at `f134ee9` — 43 guard modules (39 live, 4 cited not run),
 942 table pins, ruff 0.16.1
 **Amends:** `docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md` (new §8)
 
@@ -34,7 +34,8 @@ A scratch copy of `f134ee9` with the exclude removed, formatted with ruff 0.16.1
   is compared after `inspect.cleandoc`, and an equal sequence of `COMMENT` tokens.
 - **The live guards enforce these pins themselves.** The portable reader
   (`frozen_guards.holds`) mirrors checks that every live guard runs at discharge. 37 of
-  the 38 live guards (cuts 7, 9 and 11–46, except cut 20) loop over a `FROZEN_*` table
+  the 39 live guards (cuts 7, 9 and 11–46, except cut 20; cuts 6 and 20 run no file pin
+  check) loop over a `FROZEN_*` table
   with `git diff --quiet`. Cuts 14 and 17 also check content pins by SHA-256 (on cut 5's
   and cut 10's cited surfaces). Cuts 26–46 also pin their own declaration with
   `CUTN_DECLARATION_SHA256`, and some of them check the declaration against
@@ -162,7 +163,7 @@ arm declarations and assertion messages are unchanged:
   They are not `.py` and stay byte-exact.
 
 No `FROZEN_*` table, digest constant, cited-not-run guard or declaration is edited
-(doctrine §3). The five cited guards (cuts 4, 5, 6, 8, 10) are refused collection and
+(doctrine §3). The four cited guards (cuts 4, 5, 8, 10) are refused collection and
 keep their byte-exact code as evidence.
 
 `tests/acceptance` is ignored by `addopts`, so the plan names the invocation that runs

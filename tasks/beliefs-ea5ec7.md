@@ -8,12 +8,13 @@ complexity: high
 process: planned
 owner: freeze-pins-modulo-format
 created: 2026-10-09T15:44:29Z
-updated: 2026-10-09T21:04:15Z
+updated: 2026-10-09T21:18:03Z
 started: 2026-10-09T20:39:57Z
 depends: [beliefs-a555d6]
 tags: [hygiene, conformance]
 source: beliefs-a555d6
 spec: docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md
+plan: docs/superpowers/plans/2026-10-09-freeze-pins-modulo-formatting.md
 ---
 
 Why: beliefs-a555d6 excludes from ruff format every Python file a freeze pin names, because a pin's claim is byte-exact. Today that is 52 existing files: 48 commit pins checked with git diff --quiet <commit> HEAD, plus content pins as sha256 of the bytes (tests/frozen_guards.py::holds). Left alone, that exclude is permanent and grows with every freeze. The byte-exact rule exists so "a reader can tell that the record they are citing is the record that was made" (docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md §3). Formatting changes no meaning, so the freeze can hold that guarantee up to formatting, with the original bytes still recoverable from git.
@@ -49,3 +50,6 @@ Verification:
 - 2026-10-09T21:03:16Z (freeze-pins-modulo-format): spec round 1 revisions: comparator reads bytes under PEP 263, requires equal detected encoding, anchors each comment to its statement and directive comments to an unchanged physical line (prototype: 34/34 still equivalent, 4 negatives break); content cache keyed by repo root; four-commit order keeps pre-commit format check green
 - 2026-10-09T21:04:15Z (freeze-pins-modulo-format): parked (waiting on user, review): user reviews round-2 spec docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md (commit 89c9cf9 in .worktrees/freeze-pins-modulo-format); on approval, agent writes the implementation plan
   provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T21:07:49Z (freeze-pins-modulo-format): resumed
+  provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T21:07:49Z (freeze-pins-modulo-format): review: spec round 2 — verdict: accept; findings: none; reviewer: human
