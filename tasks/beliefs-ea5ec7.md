@@ -1,13 +1,15 @@
 ---
 id: beliefs-ea5ec7
 title: Let freeze pins hold modulo formatting so frozen modules can be formatted
-status: todo
+status: doing
 priority: 3
 size: m
 complexity: high
 process: planned
+owner: main
 created: 2026-10-09T15:44:29Z
-updated: 2026-10-09T15:44:29Z
+updated: 2026-10-09T20:39:57Z
+started: 2026-10-09T20:39:57Z
 depends: [beliefs-a555d6]
 tags: [hygiene, conformance]
 source: beliefs-a555d6
@@ -29,3 +31,8 @@ Verification:
 - Unit tests for the comparator: a formatting-only change holds; a changed string literal, a changed comment and a changed statement each break the pin; an unresolvable content pin breaks.
 - broken_pins over every guard is unchanged before and after the format commit; the already-falsified pins stay falsified.
 - ruff format --check passes with no exclude, and just gate is green.
+
+## Notes
+
+- 2026-10-09T20:39:57Z (main): started
+  provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
