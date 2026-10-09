@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:42:44Z
+updated: 2026-10-09T17:56:37Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -71,3 +71,8 @@ Verification:
 - 2026-10-09T17:42:06Z (chore/ruff-format-gate): plan written: docs/superpowers/plans/2026-10-09-ruff-format-gate.md, 6 steps; dry run of its tool and tests: 9/9 tests pass, derive on a scratch reformat gives 70 derived, 0 refused
 - 2026-10-09T17:42:44Z (chore/ruff-format-gate): parked (waiting on user, review): user reviews docs/superpowers/plans/2026-10-09-ruff-format-gate.md and picks the execution method; then the agent executes Task 1 in .worktrees/ruff-format-gate
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T17:53:09Z (chore/ruff-format-gate): review: plan round 1 — verdict: revise; findings: P2 2; reviewer: codex
+- 2026-10-09T17:53:09Z (chore/ruff-format-gate): plan review: nine proposed tool cases passed in a temporary probe through just test-one. P2: Tasks 3/4 use space-separated PROTECTED/MODS scalars; default zsh passes each as one path, so the protected-file diff can falsely pass and static guard collection fails (two-module collect-only reproduction exits 4). Use arrays with quoted expansion or explicitly execute those snippets under Bash. P2: Task 6 closes the parent before its own step child beliefs-3b1bb8 is complete; tasks done refuses open descendants. Finish and close the step children, including Task 6, before parent closure, with the final-review/merge order explicit.
+- 2026-10-09T17:56:36Z (chore/ruff-format-gate): resumed
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T17:56:36Z (chore/ruff-format-gate): plan round 1 fixed: path lists go one-per-line through a file and xargs (proved under zsh: 56 protected paths, clean tree passes, a touched cut-46 declaration is caught; 39 guard modules split into separate args); children close with their tasks, Task 3's in a record-only commit after the pure reformat; Task 6 orders verification note, final review, land, child done, parent done
