@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T19:40:31Z
+updated: 2026-10-09T19:43:11Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -90,3 +90,4 @@ Verification:
 - 2026-10-09T19:26:16Z (chore/ruff-format-gate): chain progress: cut 40/41 passed; cut 42 remote-publication acceptance running in tracked session 47983; no failure observed
 - 2026-10-09T19:34:30Z (chore/ruff-format-gate): full acceptance chain passed: all 39 live guards; evidence in .work/ruff-format-gate/cut46-chain.log; starting just gate with skip reporting, certified-host waiver unset
 - 2026-10-09T19:40:31Z (chore/ruff-format-gate): verification: cut-46 chain passed (76 pytest phases, 1172 tests, 3654.45 s pytest); just gate passed (6093 portable Python, 46 N2, 155 TypeScript; 1 causal-only fixture skip with other-layer coverage elsewhere), capability waiver unset
+- 2026-10-09T19:43:11Z (chore/ruff-format-gate): main advanced only at c99da06 (new task record); merged into the branch and proved all non-task files byte-identical to verified 8f91ef6; retaining reformat 03d91bd and all chain/gate evidence
