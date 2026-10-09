@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:25:52Z
+updated: 2026-10-09T17:26:22Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -58,3 +58,5 @@ Verification:
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-09T17:17:11Z (chore/ruff-format-gate): review: spec round 1 — verdict: revise; findings: P1 1; reviewer: unknown (pasted by user)
 - 2026-10-09T17:25:52Z (chore/ruff-format-gate): spec round 1 P1 fixed: protected set gains each guard's FROZEN_DECLARATION (scalar CUTN_DECLARATION_SHA256/COMMIT pins, cuts 26-46); only n2_arms_cut46.py was not already table-pinned, so 56 files. Pilot with 56 excluded: 289/290 live-guard static tests pass, the 1 failure an audit test failing on the stale arms; verification gains that static run as the scalar-pin backstop.
+- 2026-10-09T17:26:22Z (chore/ruff-format-gate): parked (waiting on user, review): user reviews revised spec docs/superpowers/specs/2026-10-09-ruff-format-gate-design.md (round 2) in .worktrees/ruff-format-gate; on approval the agent writes the plan
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
