@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: freeze-pins-modulo-format
 created: 2026-10-09T15:44:29Z
-updated: 2026-10-09T20:45:16Z
+updated: 2026-10-09T20:45:53Z
 started: 2026-10-09T20:39:57Z
 depends: [beliefs-a555d6]
 tags: [hygiene, conformance]
@@ -41,3 +41,5 @@ Verification:
   provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-09T20:40:13Z (freeze-pins-modulo-format): claimed by claude-code/claude-opus-5-5, worktree .worktrees/freeze-pins-modulo-format; trial: not enrolled
 - 2026-10-09T20:45:15Z (freeze-pins-modulo-format): spec drafted: 34 files reformat (31 table-pinned + 3), all equivalent; live guards (37) re-check pins byte-exact at discharge and 21 live pins assert absence of n2_arms_cut25.py — both outside the original done-list, now in scope
+- 2026-10-09T20:45:53Z (freeze-pins-modulo-format): parked (waiting on user, review): user reviews docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md (commit 00d625a in .worktrees/freeze-pins-modulo-format); on approval, agent writes the implementation plan
+  provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
