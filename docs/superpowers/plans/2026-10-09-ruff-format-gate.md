@@ -1047,7 +1047,7 @@ git add tasks/
 git commit -m "chore(tasks): record beliefs-a555d6 verification"
 ```
 
-- [ ] **Step 5: Final whole-branch review**
+- [x] **Step 5: Final whole-branch review**
 
 The executing skill's final review runs over `main..chore/ruff-format-gate`, with corrective rounds for its Critical and Important findings. A fix touching guards or the kernel reruns Task 4 Steps 6–10, and Steps 2–3 here, before landing.
 
@@ -1099,3 +1099,7 @@ git commit -m "chore(tasks): close beliefs-a555d6"
   Python tests, all 46 standalone N2 tests, and all 155 TypeScript tests. The one
   portable skip is `test_composite.py`'s causal-only fixture case, whose other layer
   is exercised by `test_composite_boundary`; the capability waiver was unset.
+- Fresh whole-branch review of `c99da06..3476d99` accepted with no Critical,
+  Important, or Minor findings and no declined judgments. The reviewer independently
+  compared all 313 formatting ASTs, all protected paths, all 70 retarget originals,
+  and the verification logs.
