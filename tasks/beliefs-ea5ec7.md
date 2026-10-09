@@ -6,13 +6,14 @@ priority: 3
 size: m
 complexity: high
 process: planned
-owner: main
+owner: freeze-pins-modulo-format
 created: 2026-10-09T15:44:29Z
-updated: 2026-10-09T20:39:57Z
+updated: 2026-10-09T20:45:16Z
 started: 2026-10-09T20:39:57Z
 depends: [beliefs-a555d6]
 tags: [hygiene, conformance]
 source: beliefs-a555d6
+spec: docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md
 ---
 
 Why: beliefs-a555d6 excludes from ruff format every Python file a freeze pin names, because a pin's claim is byte-exact. Today that is 52 existing files: 48 commit pins checked with git diff --quiet <commit> HEAD, plus content pins as sha256 of the bytes (tests/frozen_guards.py::holds). Left alone, that exclude is permanent and grows with every freeze. The byte-exact rule exists so "a reader can tell that the record they are citing is the record that was made" (docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md §3). Formatting changes no meaning, so the freeze can hold that guarantee up to formatting, with the original bytes still recoverable from git.
@@ -36,3 +37,7 @@ Verification:
 
 - 2026-10-09T20:39:57Z (main): started
   provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T20:40:04Z (freeze-pins-modulo-format): resumed
+  provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T20:40:13Z (freeze-pins-modulo-format): claimed by claude-code/claude-opus-5-5, worktree .worktrees/freeze-pins-modulo-format; trial: not enrolled
+- 2026-10-09T20:45:15Z (freeze-pins-modulo-format): spec drafted: 34 files reformat (31 table-pinned + 3), all equivalent; live guards (37) re-check pins byte-exact at discharge and 21 live pins assert absence of n2_arms_cut25.py — both outside the original done-list, now in scope
