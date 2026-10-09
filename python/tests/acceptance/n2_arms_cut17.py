@@ -60,7 +60,7 @@ CUT17_ARMS = (
         sabotage=Sabotage(
             module=_CORPUS,
             before='        self._authority.require("corpus-write", (node.kind,))\n        with self._operation:\n            self._refuse_family_kinds(node)\n            self._refuse(node)',
-            after='        with self._operation:\n            self._refuse_family_kinds(node)\n            self._refuse(node)',
+            after="        with self._operation:\n            self._refuse_family_kinds(node)\n            self._refuse(node)",
         ),
         checks=(
             f"{_C}::TestE1CorpusWriteRequiresBeforeAnyEffect::test_add_under_a_permit_lacking_the_family_refuses_and_writes_nothing",
@@ -87,7 +87,9 @@ CUT17_ARMS = (
             before="        if operation_port is not None and operation_port.authority != authority:",
             after="        if False:",
         ),
-        checks=(f"{_C}::TestE2AuthorityBindsOnceAtConstruction::test_a_port_bound_to_another_authority_refuses_construction",),
+        checks=(
+            f"{_C}::TestE2AuthorityBindsOnceAtConstruction::test_a_port_bound_to_another_authority_refuses_construction",
+        ),
     ),
     Arm(
         row="E3a",
@@ -204,8 +206,8 @@ CUT17_ARMS = (
         asserts="a widened run handler is caught statically",
         sabotage=Sabotage(
             module=_BOUNDARY,
-            before="    except PermitExceeded as exceeded:\n        return RunRefused(\"permit-exceeded\", None, None, None, str(exceeded))\n    actor = port.authority.actor\n    if type(spec) is not FrozenSpec:",
-            after="    except WriteRefused as exceeded:\n        return RunRefused(\"permit-exceeded\", None, None, None, str(exceeded))\n    actor = port.authority.actor\n    if type(spec) is not FrozenSpec:",
+            before='    except PermitExceeded as exceeded:\n        return RunRefused("permit-exceeded", None, None, None, str(exceeded))\n    actor = port.authority.actor\n    if type(spec) is not FrozenSpec:',
+            after='    except WriteRefused as exceeded:\n        return RunRefused("permit-exceeded", None, None, None, str(exceeded))\n    actor = port.authority.actor\n    if type(spec) is not FrozenSpec:',
         ),
         checks=(f"{_S}::test_every_entry_point_requires_before_it_writes",),
     ),
@@ -230,9 +232,7 @@ CUT17_ARMS = (
             before='        if intent_actor != self.authority.actor:\n            raise ActorMismatch(\n                f"the operation intent names actor {intent_actor!r}, not the bound {self.authority.actor!r}"\n            )\n',
             after="",
         ),
-        checks=(
-            "test_relocation.py::test_append_operation_intent_refuses_a_foreign_actor_before_append",
-        ),
+        checks=("test_relocation.py::test_append_operation_intent_refuses_a_foreign_actor_before_append",),
     ),
     Arm(
         row="E7b",
@@ -255,9 +255,7 @@ CUT17_ARMS = (
             before='        destination.authority.require("corpus-write", (node.kind, "act-report"))\n        source.authority.require("corpus-write", (node.kind, "act-report"))',
             after='        source.authority.require("corpus-write", (node.kind, "act-report"))',
         ),
-        checks=(
-            f"{_A}::test_e1_relocation_refuses_before_either_intent_then_succeeds",
-        ),
+        checks=(f"{_A}::test_e1_relocation_refuses_before_either_intent_then_succeeds",),
     ),
     Arm(
         row="E8a",
@@ -278,7 +276,7 @@ CUT17_ARMS = (
         sabotage=Sabotage(
             module=_HOLDINGS,
             before='    node = stored.holdings_observation_node(record)\n    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f"holdings-observation/{record.identity()}.md",\n                                                             node_to_markdown(node).encode("utf-8")),), intent)\n    return PublishedObservation(record)\n\n\ndef recheck(',
-            after='    node = stored.holdings_observation_node(record)\n    return PublishedObservation(record)\n\n\ndef recheck(',
+            after="    node = stored.holdings_observation_node(record)\n    return PublishedObservation(record)\n\n\ndef recheck(",
         ),
         checks=("test_holdings_boundary.py::test_publication_failure_after_an_established_outcome_raises",),
     ),
@@ -293,4 +291,6 @@ def unit_of(row: str) -> str:
 
 ROW_UNITS: dict[str, int] = {f"E{n}": 1 for n in range(1, 9)}
 LABELED_UNITS: tuple[str, ...] = ("K1",)
-CO_CITED: dict[str, tuple[str, ...]] = {"K1": ("test_holdings_boundary.py::test_publication_failure_after_an_established_outcome_raises",)}
+CO_CITED: dict[str, tuple[str, ...]] = {
+    "K1": ("test_holdings_boundary.py::test_publication_failure_after_an_established_outcome_raises",)
+}

@@ -62,9 +62,9 @@ CUT11_ARMS = (
         Sabotage(
             "intents/reduce.py",
             before=(
-                'if not record_paths:\n'
+                "if not record_paths:\n"
                 '            non_qualifying.append((registration.digest, "no-record"))\n'
-                '            continue'
+                "            continue"
             ),
             after=(
                 "return (\n                IntentQualification(intent.digest, intent.shape, "
@@ -143,9 +143,7 @@ CUT11_ARMS = (
                 "        port.execute(_report_plan(refused.report))"
             ),
         ),
-        (
-            "acceptance/test_intent_boundary_acceptance.py::test_u8_negative_discarded_attempt_is_indistinguishable",
-        ),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u8_negative_discarded_attempt_is_indistinguishable",),
     ),
     Arm(
         "L7u9",
@@ -157,13 +155,10 @@ CUT11_ARMS = (
                 '            return None if evidence.event_token == value.event_token else "wrong-token"'
             ),
             after=(
-                'if evidence.operation != value.kind:\n                return "wrong-kind"\n'
-                "            return None"
+                'if evidence.operation != value.kind:\n                return "wrong-kind"\n            return None'
             ),
         ),
-        (
-            "acceptance/test_intent_boundary_acceptance.py::test_u9_wrong_operation_token_fails_qualification",
-        ),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u9_wrong_operation_token_fails_qualification",),
     ),
     Arm(
         "L7u10",
@@ -184,15 +179,15 @@ CUT11_ARMS = (
         Sabotage(
             "intents/shapes.py",
             before=(
-                'if type(evidence) is ReportEvidence:\n'
-                '            if evidence.operation != value.kind:\n'
+                "if type(evidence) is ReportEvidence:\n"
+                "            if evidence.operation != value.kind:\n"
                 '                return "wrong-kind"\n'
                 '            return None if evidence.event_token == value.event_token else "wrong-token"\n'
                 '        return "wrong-purpose"'
             ),
             after=(
-                'if type(evidence) is ReportEvidence:\n'
-                '            if evidence.operation != value.kind:\n'
+                "if type(evidence) is ReportEvidence:\n"
+                "            if evidence.operation != value.kind:\n"
                 '                return "wrong-kind"\n'
                 '            return None if evidence.event_token == value.event_token else "wrong-token"\n'
                 '        return (None if evidence.event_token == value.event_token else "wrong-token") '
@@ -210,9 +205,9 @@ CUT11_ARMS = (
         Sabotage(
             "intents/reduce.py",
             before=(
-                'if not record_paths:\n'
+                "if not record_paths:\n"
                 '            non_qualifying.append((registration.digest, "no-record"))\n'
-                '            continue'
+                "            continue"
             ),
             after=(
                 "return (\n                IntentQualification(intent.digest, intent.shape, "
@@ -238,18 +233,14 @@ CUT11_ARMS = (
                 '    fulfills = "0" * 64  # append deferred'
             ),
         ),
-        (
-            "test_run_persistence.py::test_kill_between_append_and_start_leaves_intent_only_operation_kind",
-        ),
+        ("test_run_persistence.py::test_kill_between_append_and_start_leaves_intent_only_operation_kind",),
     ),
     Arm(
         "J1",
         "an absent record path is unresolvable, never silently resolved",
         Sabotage(
             "intents/reduce.py",
-            before=(
-                "if payload is None:\n            pointer_unresolved = True\n            continue"
-            ),
+            before=("if payload is None:\n            pointer_unresolved = True\n            continue"),
             after="if payload is None:\n            continue",
         ),
         ("test_intent_reduce.py::test_unresolvable_wins_over_non_qualifying_and_emits_nothing",),
@@ -272,7 +263,7 @@ CUT11_ARMS = (
         Sabotage(
             "world/verify.py",
             before='records = capture_records(root, "corpus")\n        report = evaluate_log(',
-            after='records = ()\n        report = evaluate_log(',
+            after="records = ()\n        report = evaluate_log(",
         ),
         (
             "test_world_arrival.py::TestTheHold::test_it_holds_both_locks_across_inspection_capture_and_the_transaction",
@@ -297,9 +288,7 @@ CUT11_ARMS = (
                 "        )"
             ),
         ),
-        (
-            "test_world_log_evaluator.py::TestQualification::test_records_is_required_and_typed",
-        ),
+        ("test_world_log_evaluator.py::TestQualification::test_records_is_required_and_typed",),
     ),
     Arm(
         "J1e",
@@ -319,9 +308,7 @@ CUT11_ARMS = (
             before="return view, disk, records, presented",
             after="return view, disk, (), presented",
         ),
-        (
-            "test_world_log_audit.py::TestTheAuditAct::test_the_shared_assembly_forwards_the_captured_records",
-        ),
+        ("test_world_log_audit.py::TestTheAuditAct::test_the_shared_assembly_forwards_the_captured_records",),
     ),
     Arm(
         "J2a",
@@ -382,10 +369,7 @@ CUT11_ARMS = (
         "the operation discriminator is closed over OPERATION_KINDS",
         Sabotage(
             "intents/shapes.py",
-            before=(
-                'if set(value) == {"kind", "event_token", "actor"} '
-                "and value.get(\"kind\") in OPERATION_KINDS:"
-            ),
+            before=('if set(value) == {"kind", "event_token", "actor"} and value.get("kind") in OPERATION_KINDS:'),
             after='if set(value) == {"kind", "event_token", "actor"}:',
         ),
         ("test_intent_gate.py::test_out_of_vocabulary_kind_is_domainless_unrecognized",),
@@ -522,9 +506,7 @@ CUT11_ARMS = (
             ),
             after="if not committed:\n            pass",
         ),
-        (
-            "test_intent_reduce.py::test_rolled_back_only_pointers_read_attempt_without_recorded_outcome",
-        ),
+        ("test_intent_reduce.py::test_rolled_back_only_pointers_read_attempt_without_recorded_outcome",),
     ),
     Arm(
         "J6a",
@@ -534,9 +516,7 @@ CUT11_ARMS = (
             before="findings + qual_findings",
             after="qual_findings + findings",
         ),
-        (
-            "test_world_log_evaluator.py::TestQualification::test_qualification_findings_are_appended_last",
-        ),
+        ("test_world_log_evaluator.py::TestQualification::test_qualification_findings_are_appended_last",),
     ),
     Arm(
         "J6b",
@@ -558,9 +538,7 @@ CUT11_ARMS = (
                 "            findings=tuple(findings) + (defect,),"
             ),
         ),
-        (
-            "test_world_log_evaluator.py::TestQualification::test_genesis_malformed_exit_carries_qualification",
-        ),
+        ("test_world_log_evaluator.py::TestQualification::test_genesis_malformed_exit_carries_qualification",),
     ),
     Arm(
         "J6c",
@@ -568,8 +546,7 @@ CUT11_ARMS = (
         Sabotage(
             "world/verify.py",
             before=(
-                'return _report("malformed", bound=labels, '
-                "findings=tuple(findings) + (_defect_finding(view.defect),))"
+                'return _report("malformed", bound=labels, findings=tuple(findings) + (_defect_finding(view.defect),))'
             ),
             after=(
                 "from beliefs.intents.reduce import IntentQualification\n"
@@ -582,19 +559,14 @@ CUT11_ARMS = (
                 "        )"
             ),
         ),
-        (
-            "test_world_log_evaluator.py::TestQualification::test_malformed_view_exit_carries_empty_qualification",
-        ),
+        ("test_world_log_evaluator.py::TestQualification::test_malformed_view_exit_carries_empty_qualification",),
     ),
     Arm(
         "J6d",
         "intents_unevaluated is retired with no alias",
         Sabotage(
             "world/verify.py",
-            before=(
-                "qualification: tuple[IntentQualification, ...]\n"
-                "    observer_bound: tuple[str, ...]"
-            ),
+            before=("qualification: tuple[IntentQualification, ...]\n    observer_bound: tuple[str, ...]"),
             after=(
                 "qualification: tuple[IntentQualification, ...]\n\n"
                 "    @property\n"
@@ -603,9 +575,7 @@ CUT11_ARMS = (
                 "    observer_bound: tuple[str, ...]"
             ),
         ),
-        (
-            "test_world_log_evaluator.py::TestQualification::test_intents_unevaluated_is_retired_with_no_alias",
-        ),
+        ("test_world_log_evaluator.py::TestQualification::test_intents_unevaluated_is_retired_with_no_alias",),
     ),
     Arm(
         "J6e",
@@ -615,73 +585,45 @@ CUT11_ARMS = (
             before="for entry in entries:\n        if type(entry) is not IntentEntryView:",
             after="for entry in entries[:1]:\n        if type(entry) is not IntentEntryView:",
         ),
-        (
-            "test_world_log_evaluator.py::TestQualification::test_qualification_is_total_and_in_chain_order",
-        ),
+        ("test_world_log_evaluator.py::TestQualification::test_qualification_is_total_and_in_chain_order",),
     ),
     Arm(
         "J6f",
         "unrecognized qualification rows carry no shape",
         Sabotage(
             "intents/reduce.py",
-            before=(
-                'rows.append(IntentQualification(entry.digest, None, "unrecognized", None))'
-            ),
-            after=(
-                'rows.append(IntentQualification(entry.digest, "operation", "unrecognized", None))'
-            ),
+            before=('rows.append(IntentQualification(entry.digest, None, "unrecognized", None))'),
+            after=('rows.append(IntentQualification(entry.digest, "operation", "unrecognized", None))'),
         ),
-        (
-            "test_intent_reduce.py::test_unrecognized_rows_carry_the_gate_finding_and_none_reduce",
-        ),
+        ("test_intent_reduce.py::test_unrecognized_rows_carry_the_gate_finding_and_none_reduce",),
     ),
     Arm(
         "J6g",
         "an unrecognized row never names a fulfiller",
         Sabotage(
             "intents/reduce.py",
-            before=(
-                'rows.append(IntentQualification(entry.digest, None, "unrecognized", None))'
-            ),
-            after=(
-                'rows.append(IntentQualification(entry.digest, None, "unrecognized", "fabricated"))'
-            ),
+            before=('rows.append(IntentQualification(entry.digest, None, "unrecognized", None))'),
+            after=('rows.append(IntentQualification(entry.digest, None, "unrecognized", "fabricated"))'),
         ),
-        (
-            "test_intent_reduce.py::test_unrecognized_rows_carry_the_gate_finding_and_none_reduce",
-        ),
+        ("test_intent_reduce.py::test_unrecognized_rows_carry_the_gate_finding_and_none_reduce",),
     ),
     Arm(
         "J6h",
         "an unresolvable row never names a fulfiller",
         Sabotage(
             "intents/reduce.py",
-            before=(
-                'IntentQualification(intent.digest, intent.shape, "unresolvable", None)'
-            ),
-            after=(
-                'IntentQualification(intent.digest, intent.shape, "unresolvable", "fabricated")'
-            ),
+            before=('IntentQualification(intent.digest, intent.shape, "unresolvable", None)'),
+            after=('IntentQualification(intent.digest, intent.shape, "unresolvable", "fabricated")'),
         ),
-        (
-            "test_intent_reduce.py::test_unresolvable_wins_over_non_qualifying_and_emits_nothing",
-        ),
+        ("test_intent_reduce.py::test_unresolvable_wins_over_non_qualifying_and_emits_nothing",),
     ),
     Arm(
         "J6i",
         "an unmatched row never names a fulfiller",
         Sabotage(
             "intents/reduce.py",
-            before=(
-                '"attempt-without-recorded-outcome",\n'
-                "        None,\n"
-                "    )"
-            ),
-            after=(
-                '"attempt-without-recorded-outcome",\n'
-                '        "fabricated",\n'
-                "    )"
-            ),
+            before=('"attempt-without-recorded-outcome",\n        None,\n    )'),
+            after=('"attempt-without-recorded-outcome",\n        "fabricated",\n    )'),
         ),
         ("test_intent_reduce.py::test_no_pointers_reads_attempt_without_recorded_outcome",),
     ),
@@ -690,14 +632,8 @@ CUT11_ARMS = (
         "the attempt-without-recorded-outcome finding is a warning",
         Sabotage(
             "intents/reduce.py",
-            before=(
-                'severity="warning",\n'
-                '            code="intent-attempt-without-recorded-outcome",'
-            ),
-            after=(
-                'severity="error",\n'
-                '            code="intent-attempt-without-recorded-outcome",'
-            ),
+            before=('severity="warning",\n            code="intent-attempt-without-recorded-outcome",'),
+            after=('severity="error",\n            code="intent-attempt-without-recorded-outcome",'),
         ),
         ("test_intent_reduce.py::test_no_pointers_reads_attempt_without_recorded_outcome",),
     ),
@@ -706,18 +642,10 @@ CUT11_ARMS = (
         "each non-qualifying fulfillment finding is a warning",
         Sabotage(
             "intents/reduce.py",
-            before=(
-                'severity="warning",\n'
-                '            code="intent-fulfillment-non-qualifying",'
-            ),
-            after=(
-                'severity="error",\n'
-                '            code="intent-fulfillment-non-qualifying",'
-            ),
+            before=('severity="warning",\n            code="intent-fulfillment-non-qualifying",'),
+            after=('severity="error",\n            code="intent-fulfillment-non-qualifying",'),
         ),
-        (
-            "test_intent_reduce.py::test_every_resolved_non_qualifying_pointer_is_named_with_its_reason",
-        ),
+        ("test_intent_reduce.py::test_every_resolved_non_qualifying_pointer_is_named_with_its_reason",),
     ),
     Arm(
         "J7a",
@@ -757,9 +685,7 @@ CUT11_ARMS = (
                 "        port.execute(plan)"
             ),
         ),
-        (
-            "test_run_persistence.py::test_production_sequence_publishes_fulfilling_with_one_produces_edge",
-        ),
+        ("test_run_persistence.py::test_production_sequence_publishes_fulfilling_with_one_produces_edge",),
     ),
     Arm(
         "J7c",
@@ -776,15 +702,8 @@ CUT11_ARMS = (
         "execute surfaces an encoder-valid execution failure as ExecutionError",
         Sabotage(
             "root.py",
-            before=(
-                "fulfills=None,\n"
-                "        ).execute(plan)"
-            ),
-            after=(
-                "fulfills=None,\n"
-                "        )\n"
-                "        return"
-            ),
+            before=("fulfills=None,\n        ).execute(plan)"),
+            after=("fulfills=None,\n        )\n        return"),
         ),
         ("test_operation_port.py::test_execute_surfaces_an_execution_failure_as_execution_error",),
     ),
@@ -797,10 +716,7 @@ CUT11_ARMS = (
                 'if _reproject(parsed) != parsed:\n        _refuse("$", '
                 '"an array the projection sorts is out of its canonical order")'
             ),
-            after=(
-                'if False:\n        _refuse("$", '
-                '"an array the projection sorts is out of its canonical order")'
-            ),
+            after=('if False:\n        _refuse("$", "an array the projection sorts is out of its canonical order")'),
         ),
         ("test_runrecord.py::test_reversed_result_pairs_fail_canonical_reprojection",),
     ),
@@ -830,7 +746,7 @@ CUT11_ARMS = (
                 '    if "." not in text:\n'
                 '        return text + ".0"  # a decimal always retains a fractional part\n'
                 '    integer, fraction = text.split(".")\n'
-                '    return f"{integer}.{fraction.rstrip(\'0\') or \'0\'}"'
+                "    return f\"{integer}.{fraction.rstrip('0') or '0'}\""
             ),
             after='return format(value.normalize(), "f")',
         ),
@@ -844,10 +760,7 @@ CUT11_ARMS = (
         "an assessment-shaped run never qualifies a production intent",
         Sabotage(
             "intents/shapes.py",
-            before=(
-                'if evidence.shape != "dataset-production":\n'
-                '                    return "wrong-shape"'
-            ),
+            before=('if evidence.shape != "dataset-production":\n                    return "wrong-shape"'),
             after='if False:\n                    return "wrong-shape"',
         ),
         ("test_intent_reduce.py::test_wrong_shape_both_directions",),
@@ -955,7 +868,7 @@ CUT11_ARMS = (
                 '        if run_facet != {"spec": spec_identity}:\n'
                 "            raise MalformedRecord(\n"
                 '                f"{node.id}: the run facet is exactly "\n'
-                '                "{\'spec\': <the closure\'s spec>}"\n'
+                "                \"{'spec': <the closure's spec>}\"\n"
                 "            )\n"
                 "    elif run_facet != {}:\n"
                 '        raise MalformedRecord(f"{node.id}: a production run facet is exactly {{}}")'
@@ -972,9 +885,7 @@ CUT11_ARMS = (
             before='return f"run:{address}"',
             after='return f"run-closure:{address}"',
         ),
-        (
-            "acceptance/test_intent_boundary_acceptance.py::test_bridge_resolves_assessment_ref_and_stamped_basis",
-        ),
+        ("acceptance/test_intent_boundary_acceptance.py::test_bridge_resolves_assessment_ref_and_stamped_basis",),
     ),
     Arm(
         "J11",
@@ -983,8 +894,7 @@ CUT11_ARMS = (
             "runrecord.py",
             before="if facet is None:\n        return None",
             after=(
-                'if facet is None:\n        raise MalformedRecord(f"{node.id}: '
-                'a run record carries the closure facet")'
+                'if facet is None:\n        raise MalformedRecord(f"{node.id}: a run record carries the closure facet")'
             ),
         ),
         (
@@ -1017,9 +927,7 @@ CUT11_ARMS = (
             ),
             after='if observation["location"] == intent["location"]:',
         ),
-        (
-            "test_consumer_agreement.py::test_holdings_matrix_agrees_across_both_consumers",
-        ),
+        ("test_consumer_agreement.py::test_holdings_matrix_agrees_across_both_consumers",),
     ),
     Arm(
         "J13",

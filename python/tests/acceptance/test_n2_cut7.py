@@ -59,6 +59,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 from pathlib import Path
 
+import frozen_guards
 import pytest
 import test_n2
 import test_world_build
@@ -1229,11 +1230,7 @@ class TestNoPriorCutDeclarationIsRehomedOrEdited:
     def test_the_frozen_prior_cut_files_are_byte_identical_to_their_pinned_versions(self):
         assert_cut5_matcher_migration(REPO_ROOT)
         for path, pin in FROZEN_PRIOR_CUT_FILES.items():
-            completed = subprocess.run(
-                ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
-                check=False,
-            )
-            assert completed.returncode == 0, (
+            assert frozen_guards.commit_pin_holds(REPO_ROOT, path, pin), (
                 f"{path} has moved since {pin}; cut 5's and cut 6's declarations, runners and pinned "
                 "audit are frozen, and cut 7 edits none of them"
             )

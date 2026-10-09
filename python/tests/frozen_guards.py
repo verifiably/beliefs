@@ -1,24 +1,31 @@
 """Reading a conformance guard's freeze pins without running it.
 
 A guard module pins prior-cut files two ways: by commit, where the claim is *this file
-has not changed since the commit named*, and by content, where the claim is *these exact
-bytes*. Both are module-level `FROZEN_*` dictionaries mapping a repository-relative path
-to the pin. Nothing here executes a guard — the modules this reads import the kernel and
-spawn audits, and a cited-not-run guard cannot be imported at all on a tree that has
-moved past it, which is the whole reason its pins have to be readable statically.
+has not changed since the commit named*, and by content, where the claim is *these
+bytes*. On a `.py` target both claims hold up to formatting (`pin_equivalence`, frozen
+guard doctrine §8). Both are module-level `FROZEN_*` dictionaries mapping a repository-
+relative path to the pin. Nothing here executes a guard — the modules this reads import
+the kernel and spawn audits, and a cited-not-run guard cannot be imported at all on a
+tree that has moved past it, which is the whole reason its pins have to be readable
+statically.
 """
 
 from __future__ import annotations
 
 import ast
+import os
+import re
 import subprocess
 from dataclasses import dataclass
+from functools import cache
 from hashlib import sha256
 from pathlib import Path
 
-from cited_not_run import CITED_NOT_RUN
+import pin_equivalence
 
 _SHA256_LENGTH = 64
+_DECLARATION_DIGEST = re.compile(r"CUT\d+_DECLARATION_SHA256")
+_DECLARATION_COMMIT = re.compile(r"CUT\d+_DECLARATION_COMMIT")
 
 
 @dataclass(frozen=True)
@@ -135,17 +142,76 @@ def live_guards(repo_root: Path) -> tuple[Path, ...]:
     return tuple(guard for guard in guard_modules(repo_root) if guard.name in inventory)
 
 
+def _git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(["git", "-C", str(repo_root), *args], check=False, capture_output=True)
+
+
+@cache
+def _commit_resolves(repo_root: Path, commit: str) -> bool:
+    return _git(repo_root, "cat-file", "-e", f"{commit}^{{commit}}").returncode == 0
+
+
+def _blob(repo_root: Path, commit: str, target: str) -> bytes | None:
+    shown = _git(repo_root, "cat-file", "blob", f"{commit}:{target}")
+    return shown.stdout if shown.returncode == 0 else None
+
+
+@cache
+def _original_with_digest(repo_root: Path, target: str, digest: str) -> bytes | None:
+    """The version of `target` in HEAD's history whose SHA-256 is `digest`, if any.
+
+    The key carries the resolved repository root: a blob found in one repository's
+    history is never evidence about another's.
+    """
+    listed = _git(repo_root, "rev-list", "--full-history", "HEAD", "--", target)
+    if listed.returncode != 0:
+        return None
+    for commit in listed.stdout.decode("ascii").split():
+        original = _blob(repo_root, commit, target)
+        if original is not None and sha256(original).hexdigest() == digest:
+            return original
+    return None
+
+
+def commit_pin_holds(repo_root: Path, target: str, commit: str) -> bool:
+    """Whether the working file still is, up to formatting, what `commit` held at `target`.
+
+    A target absent at the pin holds only while it stays absent; a commit that no longer
+    resolves is a broken pin, never an absent target.
+    """
+    root = repo_root.resolve()
+    if not _commit_resolves(root, commit):
+        return False
+    original = _blob(root, commit, target)
+    path = root / target
+    if original is None:
+        return not os.path.lexists(path)  # a dangling symlink is present
+    return path.is_file() and pin_equivalence.equivalent(original, path.read_bytes(), path=target)
+
+
+def content_pin_holds(repo_root: Path, target: str, digest: str) -> bool:
+    """Whether the working file still is, up to formatting, the bytes `digest` names.
+
+    Identical bytes hold without reading history. Otherwise the digest must resolve to a
+    version of `target` in HEAD's history, and the working file must be equivalent to it;
+    a digest no version matches is a broken pin.
+    """
+    root = repo_root.resolve()
+    path = root / target
+    if not path.is_file():
+        return False
+    current = path.read_bytes()
+    if sha256(current).hexdigest() == digest:
+        return True
+    original = _original_with_digest(root, target, digest)
+    return original is not None and pin_equivalence.equivalent(original, current, path=target)
+
+
 def holds(pin: Pin, *, repo_root: Path) -> bool:
-    """Whether the tree still satisfies the pin's own claim."""
-    path = repo_root / pin.target
+    """Whether the tree still satisfies the pin's own claim, up to formatting (doctrine §8)."""
     if pin.is_content_pin:
-        return path.is_file() and sha256(path.read_bytes()).hexdigest() == pin.pin
-    completed = subprocess.run(
-        ["git", "-C", str(repo_root), "diff", "--quiet", pin.pin, "HEAD", "--", pin.target],
-        check=False,
-        capture_output=True,
-    )
-    return completed.returncode == 0
+        return content_pin_holds(repo_root, pin.target, pin.pin)
+    return commit_pin_holds(repo_root, pin.target, pin.pin)
 
 
 def broken_pins(guard: Path, *, repo_root: Path) -> tuple[Pin, ...]:
@@ -157,38 +223,25 @@ def declaration_pin(guard: Path) -> str | None:
     """The guard's scalar freeze: the declaration file its `CUTN_DECLARATION_SHA256` holds.
 
     Cuts 26 onwards name their own arm declaration as a module-level `FROZEN_DECLARATION`
-    and pin it byte-exact with a scalar digest (cuts 27-30 add a `CUTN_DECLARATION_COMMIT`).
+    and pin it with a scalar digest (cuts 27-30 add a `CUTN_DECLARATION_COMMIT`).
     `pins_in` reads only the `FROZEN_*` tables, so this is the second form a freeze takes.
     """
     return module_constants(ast.parse(guard.read_text(encoding="utf-8"))).get("FROZEN_DECLARATION")
 
 
-def protected_paths(repo_root: Path) -> frozenset[str]:
-    """Every existing Python file a freeze claims, relative to `python/`.
+def _named_constant(guard: Path, pattern: re.Pattern[str]) -> str | None:
+    constants = module_constants(ast.parse(guard.read_text(encoding="utf-8")))
+    matches = [value for name, value in constants.items() if pattern.fullmatch(name)]
+    if len(matches) > 1:
+        raise ValueError(f"{guard.name} declares more than one {pattern.pattern}")
+    return matches[0] if matches else None
 
-    A file is claimed when a guard pins it by table or by its scalar declaration pin, or
-    when it is a cited-not-run surface (guard, declaration, runner), which doctrine §2
-    makes evidence whether or not a later cut pinned it. Formatting excludes exactly
-    this set (spec 2026-10-09 §3.1).
-    """
-    claimed: set[str] = set()
-    for guard in guard_modules(repo_root):
-        claimed.update(pin.target for pin in pins_in(guard))
-        declaration = declaration_pin(guard)
-        if declaration is not None:
-            claimed.add(declaration)
-    for name, standing in CITED_NOT_RUN.items():
-        cut = standing.cut
-        claimed.update(
-            {
-                f"python/tests/acceptance/{name}",
-                f"python/tests/n2_arms_cut{cut}.py",
-                f"python/tests/acceptance/n2_arms_cut{cut}.py",
-                f"python/tools/cut{cut}_acceptance.py",
-            }
-        )
-    return frozenset(
-        path.removeprefix("python/")
-        for path in claimed
-        if path.startswith("python/") and path.endswith(".py") and (repo_root / path).is_file()
-    )
+
+def declaration_digest(guard: Path) -> str | None:
+    """The SHA-256 the guard's scalar freeze pins its `FROZEN_DECLARATION` to."""
+    return _named_constant(guard, _DECLARATION_DIGEST)
+
+
+def declaration_commit(guard: Path) -> str | None:
+    """The commit cuts 27-30 also pin their `FROZEN_DECLARATION` to."""
+    return _named_constant(guard, _DECLARATION_COMMIT)

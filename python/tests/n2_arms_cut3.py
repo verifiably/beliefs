@@ -1021,8 +1021,7 @@ _T6 = [
                 "index=index, content=_entry_facet(entry))"
             ),
             after=(
-                "        embedded_citation = EmbeddedCitation(report_ref=published.identity(), "
-                "index=index, content={})"
+                "        embedded_citation = EmbeddedCitation(report_ref=published.identity(), index=index, content={})"
             ),
         ),
         checks=("test_verify.py::test_t6_r18_deleting_the_cited_report_leaves_the_verification_unchanged",),

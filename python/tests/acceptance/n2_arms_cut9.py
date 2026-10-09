@@ -62,15 +62,9 @@ LABELED_UNITS: tuple[str, ...] = (
 
 
 ATOMS_CITATIONS_BY_UNIT: dict[str, tuple[str, ...]] = {
-    "L10u4": (
-        "tests/test_lifecycle_commands.py::test_replicate_interrupted_after_stamp_is_read_only_unserviceable",
-    ),
-    "L10u5": (
-        "tests/test_lifecycle_commands.py::test_replicate_interrupted_before_stamp_is_metadata_less",
-    ),
-    "L10u7": (
-        "tests/test_lifecycle_commands.py::test_fork_interrupted_before_grant_is_read_only",
-    ),
+    "L10u4": ("tests/test_lifecycle_commands.py::test_replicate_interrupted_after_stamp_is_read_only_unserviceable",),
+    "L10u5": ("tests/test_lifecycle_commands.py::test_replicate_interrupted_before_stamp_is_metadata_less",),
+    "L10u7": ("tests/test_lifecycle_commands.py::test_fork_interrupted_before_grant_is_read_only",),
     "V1": (
         "tests/test_lifecycle_commands.py::test_interrupted_registration_matching_retry_grants",
         "tests/test_lifecycle_commands.py::test_bare_reregistration_over_an_existing_genesis_never_grants",
@@ -79,9 +73,7 @@ ATOMS_CITATIONS_BY_UNIT: dict[str, tuple[str, ...]] = {
         "tests/test_lifecycle_commands.py::test_host_delta_reads_binding_mismatched",
         "tests/test_lifecycle_commands.py::test_path_delta_reads_binding_mismatched",
     ),
-    "V3": (
-        "tests/test_lifecycle_commands.py::test_migration_authorized_success_grants_with_a_fresh_binding",
-    ),
+    "V3": ("tests/test_lifecycle_commands.py::test_migration_authorized_success_grants_with_a_fresh_binding",),
     "V4": (
         "tests/test_lifecycle_commands.py::test_fork_pregrant_retry_completes_with_identical_inputs",
         "tests/test_lifecycle_commands.py::test_fork_pregrant_retry_refuses_different_bytes",
@@ -92,9 +84,7 @@ ATOMS_CITATIONS_BY_UNIT: dict[str, tuple[str, ...]] = {
         "tests/test_lifecycle_commands.py::test_grant_creates_bookkeeping_for_a_metadata_less_root",
         "tests/test_lifecycle_commands.py::test_grant_is_idempotent_on_read_only_serviceable",
     ),
-    "V6": (
-        "tests/test_lifecycle_commands.py::test_metadata_less_tree_reads_metadata_less",
-    ),
+    "V6": ("tests/test_lifecycle_commands.py::test_metadata_less_tree_reads_metadata_less",),
 }
 """The atoms-certified interiors, cited per the cut's §1 principle. Metadata
 only: never passed to `baseline` or `audit`, never a check node."""
@@ -210,18 +200,8 @@ path is wrong, and every act that rests on the one derivation rule fails."""
 
 _UNANCHORED_VALIDATES = Sabotage(
     module="world/verify.py",
-    before=(
-        "    # Step 2 — anchors.\n"
-        "    if not bound:\n"
-        "        return _report(\n"
-        '            "unresolvable",'
-    ),
-    after=(
-        "    # Step 2 — anchors.\n"
-        "    if not bound:\n"
-        "        return _report(\n"
-        '            "validated",'
-    ),
+    before=('    # Step 2 — anchors.\n    if not bound:\n        return _report(\n            "unresolvable",'),
+    after=('    # Step 2 — anchors.\n    if not bound:\n        return _report(\n            "validated",'),
 )
 """An empty bound set stops being the honest non-answer: nothing anchors the
 chain and the evaluator vouches for it anyway."""
@@ -229,13 +209,13 @@ chain and the evaluator vouches for it anyway."""
 _GRANT_SKIPPED = Sabotage(
     module="world/verify.py",
     before=(
-        "        if report.outcome == \"validated\" and _restore_subject_agrees(\n"
+        '        if report.outcome == "validated" and _restore_subject_agrees(\n'
         "            subject, kind, view, presented\n"
         "        ):\n"
         "            grant(root)"
     ),
     after=(
-        "        if report.outcome == \"validated\" and _restore_subject_agrees(\n"
+        '        if report.outcome == "validated" and _restore_subject_agrees(\n'
         "            subject, kind, view, presented\n"
         "        ):\n"
         "            pass"
@@ -279,9 +259,7 @@ CUT9_ARMS: tuple[Arm, ...] = (
                 '            return _report("refuted", bound=labels, findings=tuple(findings) + _absence_findings(bound))'
             ),
         ),
-        checks=(
-            "test_store_subjects.py::test_store_audit_refuted_on_chain_removal_under_registry_anchor",
-        ),
+        checks=("test_store_subjects.py::test_store_audit_refuted_on_chain_removal_under_registry_anchor",),
     ),
     Arm(
         row="L4u2",
@@ -334,9 +312,7 @@ CUT9_ARMS: tuple[Arm, ...] = (
             before='            "forked_from": {"genesis": forked_from[0], "head": forked_from[1]},',
             after='            "forked_from": {"genesis": forked_from[0], "head": forked_from[0]},',
         ),
-        checks=(
-            "test_fork_acts.py::TestForkCorpus::test_fork_genesis_carries_parent_digests_and_nonempty_baseline",
-        ),
+        checks=("test_fork_acts.py::TestForkCorpus::test_fork_genesis_carries_parent_digests_and_nonempty_baseline",),
     ),
     Arm(
         row="L10u2",
@@ -346,18 +322,10 @@ CUT9_ARMS: tuple[Arm, ...] = (
         ),
         sabotage=Sabotage(
             module="world/verify.py",
-            before=(
-                "            if anchor.subject != subject:\n"
-                "                continue"
-            ),
-            after=(
-                "            if anchor.subject != subject and False:\n"
-                "                continue"
-            ),
+            before=("            if anchor.subject != subject:\n                continue"),
+            after=("            if anchor.subject != subject and False:\n                continue"),
         ),
-        checks=(
-            "test_fork_acts.py::TestTheL6Lift::test_parent_anchor_never_compared_in_fork_subject_evaluation",
-        ),
+        checks=("test_fork_acts.py::TestTheL6Lift::test_parent_anchor_never_compared_in_fork_subject_evaluation",),
     ),
     Arm(
         row="L10u3",
@@ -399,9 +367,7 @@ CUT9_ARMS: tuple[Arm, ...] = (
             "completed replica reads read-only unserviceable, never writable"
         ),
         sabotage=_UNSERVICEABLE_MISREAD,
-        checks=(
-            "test_lifecycle_wrappers.py::TestReplication::test_completed_replica_reads_read_only_unserviceable",
-        ),
+        checks=("test_lifecycle_wrappers.py::TestReplication::test_completed_replica_reads_read_only_unserviceable",),
     ),
     Arm(
         row="L10u5",
@@ -453,9 +419,7 @@ CUT9_ARMS: tuple[Arm, ...] = (
                 "    parent_manifest"
             ),
         ),
-        checks=(
-            "test_fork_acts.py::TestForkRetry::test_fork_retry_reuses_the_original_child_identity",
-        ),
+        checks=("test_fork_acts.py::TestForkRetry::test_fork_retry_reuses_the_original_child_identity",),
     ),
     Arm(
         row="L10u8",
@@ -497,9 +461,7 @@ CUT9_ARMS: tuple[Arm, ...] = (
             "empty and the root stays unserviceable"
         ),
         sabotage=_UNANCHORED_VALIDATES,
-        checks=(
-            "test_restore_root.py::TestStoreRestore::test_empty_observer_set_unresolvable_replay_not_reached",
-        ),
+        checks=("test_restore_root.py::TestStoreRestore::test_empty_observer_set_unresolvable_replay_not_reached",),
     ),
     Arm(
         row="L10u12",
@@ -528,18 +490,10 @@ CUT9_ARMS: tuple[Arm, ...] = (
         ),
         sabotage=Sabotage(
             module="root.py",
-            before=(
-                "    corpus_state = _registry.corpus_state_identity(source)\n"
-                "    child_id = secrets.token_hex(16)"
-            ),
-            after=(
-                "    corpus_state = _registry.corpus_state_identity(source)\n"
-                '    child_id = "c" * 32'
-            ),
+            before=("    corpus_state = _registry.corpus_state_identity(source)\n    child_id = secrets.token_hex(16)"),
+            after=('    corpus_state = _registry.corpus_state_identity(source)\n    child_id = "c" * 32'),
         ),
-        checks=(
-            "test_fork_acts.py::TestForkCorpus::test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name",
-        ),
+        checks=("test_fork_acts.py::TestForkCorpus::test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name",),
     ),
     Arm(
         row="W13u2",
@@ -571,10 +525,7 @@ CUT9_ARMS: tuple[Arm, ...] = (
                 "    store_root.mkdir(parents=True, exist_ok=True)\n"
                 "    existing = _read_existing_store_genesis(store_root)"
             ),
-            after=(
-                "    store_root.mkdir(parents=True, exist_ok=True)\n"
-                "    existing = None"
-            ),
+            after=("    store_root.mkdir(parents=True, exist_ok=True)\n    existing = None"),
         ),
         checks=(
             "test_store_root.py::TestInitStoreRoot::test_interrupted_init_retry_returns_the_original_store_id",
@@ -589,9 +540,7 @@ CUT9_ARMS: tuple[Arm, ...] = (
             "moved-root consequence is the path delta (atoms deltas cited)"
         ),
         sabotage=_MISMATCH_MISREAD,
-        checks=(
-            "test_lifecycle_wrappers.py::TestTheStateRead::test_binding_delta_reads_binding_mismatched",
-        ),
+        checks=("test_lifecycle_wrappers.py::TestTheStateRead::test_binding_delta_reads_binding_mismatched",),
     ),
     Arm(
         row="V3",
@@ -819,10 +768,7 @@ CUT9_ARMS: tuple[Arm, ...] = (
                 "        # and symlinks stay leaves here as everywhere.\n"
                 '        return tuple(sorted(_files_beneath(root, "")))'
             ),
-            after=(
-                '    if kind == "store":\n'
-                "        return ()"
-            ),
+            after=('    if kind == "store":\n        return ()'),
         ),
         checks=(
             "test_store_root.py::TestInitStoreRoot::test_init_store_root_refuses_a_populated_payload_root",

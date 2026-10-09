@@ -65,10 +65,10 @@ _S7 = [
             after="        reason = eligibility_refusal(self._view, node)\n        if False:",
         ),
         checks=(
-            "acceptance/test_durable_corpus.py::TestS7BothBoundariesDurably" +
-            "::test_the_add_path_refuses_an_inadmissible_assesses_edge",
-            "test_corpus_write.py::TestS7TheWriteBoundary" +
-            "::test_an_assesses_edge_whose_run_has_no_observes_input_refuses",
+            "acceptance/test_durable_corpus.py::TestS7BothBoundariesDurably"
+            + "::test_the_add_path_refuses_an_inadmissible_assesses_edge",
+            "test_corpus_write.py::TestS7TheWriteBoundary"
+            + "::test_an_assesses_edge_whose_run_has_no_observes_input_refuses",
         ),
     ),
     Arm(
@@ -80,10 +80,10 @@ _S7 = [
             after="        reason = eligibility_refusal(view, node)\n        if False:",
         ),
         checks=(
-            "acceptance/test_durable_corpus.py::TestS7BothBoundariesDurably" +
-            "::test_the_corpus_check_reports_a_raw_written_violation",
-            "test_read_side.py::TestTheCorpusCheck" +
-            "::test_an_assesses_edge_whose_run_has_no_observes_input_is_reported_eligibility_unmet",
+            "acceptance/test_durable_corpus.py::TestS7BothBoundariesDurably"
+            + "::test_the_corpus_check_reports_a_raw_written_violation",
+            "test_read_side.py::TestTheCorpusCheck"
+            + "::test_an_assesses_edge_whose_run_has_no_observes_input_is_reported_eligibility_unmet",
         ),
     ),
     Arm(
@@ -95,8 +95,8 @@ _S7 = [
             after="        if view.holds(dataset_ref):",
         ),
         checks=(
-            "test_read_side.py::TestTheCorpusCheck" +
-            "::test_an_observes_input_without_the_empirical_observation_facet_is_reported",
+            "test_read_side.py::TestTheCorpusCheck"
+            + "::test_an_observes_input_without_the_empirical_observation_facet_is_reported",
         ),
     ),
 ]
@@ -114,8 +114,8 @@ _S8 = [
             after="from nodes.core.corpus import Corpus\nfrom beliefs.corpus import CorpusWriter",
         ),
         checks=(
-            "test_capability_boundary.py::TestS8TheMutableCorpusHandleHasOneHolder" +
-            "::test_no_module_outside_the_write_api_names_the_mutable_corpus[root.py]",
+            "test_capability_boundary.py::TestS8TheMutableCorpusHandleHasOneHolder"
+            + "::test_no_module_outside_the_write_api_names_the_mutable_corpus[root.py]",
         ),
     ),
     Arm(
@@ -123,8 +123,8 @@ _S8 = [
         asserts="a raw write producing a valid node is read without refusal and reported by nothing — the bound",
         sabotage=_OVER_EAGER_CHECK,
         checks=(
-            "acceptance/test_durable_corpus.py::TestS8TheNegative" +
-            "::test_a_self_consistent_raw_write_passes_both_reads",
+            "acceptance/test_durable_corpus.py::TestS8TheNegative"
+            + "::test_a_self_consistent_raw_write_passes_both_reads",
         ),
     ),
     Arm(
@@ -136,8 +136,8 @@ _S8 = [
             after="        if False:\n            raise SemanticHashStale(",
         ),
         checks=(
-            "acceptance/test_durable_corpus.py::TestS8TheNegative" +
-            "::test_a_raw_write_that_moved_the_fields_alone_is_refused_on_read",
+            "acceptance/test_durable_corpus.py::TestS8TheNegative"
+            + "::test_a_raw_write_that_moved_the_fields_alone_is_refused_on_read",
             "test_read_side.py::TestTheFacadesNodeReadPath::test_a_stale_semantic_hash_is_refused_on_get",
         ),
     ),
@@ -156,10 +156,10 @@ _W3 = [
             after="        if False:",
         ),
         checks=(
-            "acceptance/test_durable_corpus.py::TestW3Durably" +
-            "::test_a_source_with_no_accepted_external_identifier_is_refused_before_it_lands",
-            "test_corpus_write.py::TestW3TheBasisRefusal" +
-            "::test_a_source_with_no_accepted_external_identifier_refuses",
+            "acceptance/test_durable_corpus.py::TestW3Durably"
+            + "::test_a_source_with_no_accepted_external_identifier_is_refused_before_it_lands",
+            "test_corpus_write.py::TestW3TheBasisRefusal"
+            + "::test_a_source_with_no_accepted_external_identifier_refuses",
         ),
     ),
     Arm(
@@ -171,8 +171,8 @@ _W3 = [
             after="        if False:",
         ),
         checks=(
-            "acceptance/test_durable_corpus.py::TestW3Durably" +
-            "::test_a_dataset_with_no_content_identity_is_refused_before_it_lands",
+            "acceptance/test_durable_corpus.py::TestW3Durably"
+            + "::test_a_dataset_with_no_content_identity_is_refused_before_it_lands",
             "test_corpus_write.py::TestW3TheBasisRefusal::test_a_dataset_with_one_unpinned_resource_refuses",
         ),
     ),
@@ -202,8 +202,8 @@ _G9 = [
             after='        if node.kind == "dataset":\n            raise BasisMissing(',
         ),
         checks=(
-            "acceptance/test_durable_corpus.py::TestG9DurablyMintedWithNoBytesHeld" +
-            "::test_a_declared_dataset_is_minted_and_is_referenceable",
+            "acceptance/test_durable_corpus.py::TestG9DurablyMintedWithNoBytesHeld"
+            + "::test_a_declared_dataset_is_minted_and_is_referenceable",
             "test_corpus_write.py::TestW3TheBasisRefusal::test_a_dataset_whose_bytes_are_held_nowhere_is_minted",
         ),
     ),
@@ -222,10 +222,10 @@ _ADD_ONLY = [
             after="        existing = self._corpus.index.by_uid.get(node.uid)\n        if False:",
         ),
         checks=(
-            "test_corpus_write.py::TestTheAddPathIsAddOnly" +
-            "::test_an_existing_uid_and_id_pair_refuses_before_plan_construction",
-            "test_corpus_write.py::TestTheAddPathIsAddOnly" +
-            "::test_no_plan_this_surface_emits_carries_a_replace_or_a_delete",
+            "test_corpus_write.py::TestTheAddPathIsAddOnly"
+            + "::test_an_existing_uid_and_id_pair_refuses_before_plan_construction",
+            "test_corpus_write.py::TestTheAddPathIsAddOnly"
+            + "::test_no_plan_this_surface_emits_carries_a_replace_or_a_delete",
         ),
     ),
     Arm(
@@ -236,9 +236,7 @@ _ADD_ONLY = [
             before="        with self._operation:\n            self._refuse(node)\n            return self._corpus.add(node)",
             after="        self._refuse(node)\n        return self._corpus.add(node)",
         ),
-        checks=(
-            "test_corpus_write.py::TestTheOperationLock::test_two_same_uid_adds_are_serialized_end_to_end",
-        ),
+        checks=("test_corpus_write.py::TestTheOperationLock::test_two_same_uid_adds_are_serialized_end_to_end",),
     ),
 ]
 
@@ -255,8 +253,8 @@ _S1 = [
             after="            if relation.source != node.id:",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore" +
-            "::test_an_unrelated_predicate_is_not_followed",
+            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore"
+            + "::test_an_unrelated_predicate_is_not_followed",
             "test_read_side.py::TestTheRelationAdapter::test_an_unrelated_predicate_is_not_followed",
         ),
     ),
@@ -269,8 +267,8 @@ _S1 = [
             after="        uid = self._corpus.index.id_to_uid.get(ref)",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore" +
-            "::test_a_deprecated_ref_resolves_to_the_live_node",
+            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore"
+            + "::test_a_deprecated_ref_resolves_to_the_live_node",
             "test_read_side.py::TestTheRelationAdapter::test_a_deprecated_ref_resolves_to_the_live_node",
         ),
     ),
@@ -299,10 +297,10 @@ _S1 = [
             "        for position, relation in enumerate(node.relations):",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore" +
-            "::test_an_undirected_relation_is_not_reached_from_its_stored_target",
-            "test_read_side.py::TestTheRelationAdapter" +
-            "::test_an_undirected_relation_is_not_reached_from_its_stored_target",
+            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore"
+            + "::test_an_undirected_relation_is_not_reached_from_its_stored_target",
+            "test_read_side.py::TestTheRelationAdapter"
+            + "::test_an_undirected_relation_is_not_reached_from_its_stored_target",
         ),
     ),
     Arm(
@@ -314,10 +312,10 @@ _S1 = [
             after="                        source=node.id,\n                        position=0,",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore" +
-            "::test_a_dangling_target_is_reported_with_its_source_and_position",
-            "test_read_side.py::TestTheOneAlgorithmsSharedBehaviour" +
-            "::test_two_dangling_edges_from_different_sources_are_two_entries",
+            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore"
+            + "::test_a_dangling_target_is_reported_with_its_source_and_position",
+            "test_read_side.py::TestTheOneAlgorithmsSharedBehaviour"
+            + "::test_two_dangling_edges_from_different_sources_are_two_entries",
         ),
     ),
 ]
@@ -336,8 +334,8 @@ _WALK = [
         ),
         checks=(
             "test_read_side.py::TestTheOneAlgorithmsSharedBehaviour::test_the_start_is_never_in_the_reached_set",
-            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet" +
-            "::test_one_algorithm_serves_both_adapters_over_this_store",
+            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet"
+            + "::test_one_algorithm_serves_both_adapters_over_this_store",
         ),
     ),
     Arm(
@@ -349,10 +347,10 @@ _WALK = [
             after="                pass",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore" +
-            "::test_a_dangling_target_is_reported_with_its_source_and_position",
-            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet" +
-            "::test_an_unresolvable_ancestor_is_reported_as_an_ancestor",
+            "acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore"
+            + "::test_a_dangling_target_is_reported_with_its_source_and_position",
+            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet"
+            + "::test_an_unresolvable_ancestor_is_reported_as_an_ancestor",
         ),
     ),
     Arm(
@@ -364,8 +362,8 @@ _WALK = [
             after="        reached=tuple(sorted(reached, reverse=True)),",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet" +
-            "::test_a_basis_chain_walks_transitively",
+            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet"
+            + "::test_a_basis_chain_walks_transitively",
             "test_read_side.py::TestTheOneAlgorithmsSharedBehaviour::test_a_chain_is_walked_transitively",
         ),
     ),
@@ -384,8 +382,8 @@ _S1a = [
             after='entry=LineageEntry(dataset=node.id, route=index, position="ancestor", target=run),',
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet" +
-            "::test_an_unresolvable_producing_run_is_told_apart_from_it",
+            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet"
+            + "::test_an_unresolvable_producing_run_is_told_apart_from_it",
         ),
     ),
     Arm(
@@ -397,10 +395,10 @@ _S1a = [
             after="                        follow=True,",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet" +
-            "::test_a_basis_chain_walks_transitively",
-            "test_read_side.py::TestTheLineageAdapter" +
-            "::test_a_resolvable_producing_run_is_checked_and_not_walked_into",
+            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet"
+            + "::test_a_basis_chain_walks_transitively",
+            "test_read_side.py::TestTheLineageAdapter"
+            + "::test_a_resolvable_producing_run_is_checked_and_not_walked_into",
         ),
     ),
     Arm(
@@ -412,8 +410,8 @@ _S1a = [
             after="        for index, route in enumerate(stored.basis_routes(node)[:1]):",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet" +
-            "::test_a_conflict_basis_yields_every_route",
+            "acceptance/test_durable_traversal.py::TestS1aTheLineageFixtureWalkedAsAFacet"
+            + "::test_a_conflict_basis_yields_every_route",
             "test_read_side.py::TestTheLineageAdapter::test_a_conflict_basis_yields_every_route",
         ),
     ),
@@ -432,10 +430,10 @@ _S5 = [
             after="        for dataset in closure(root, adjacency).reached:",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot" +
-            "::test_the_inspected_set_is_the_observed_root_plus_its_closure",
-            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot" +
-            "::test_a_conflict_tag_short_circuits_on_the_tag_alone",
+            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot"
+            + "::test_the_inspected_set_is_the_observed_root_plus_its_closure",
+            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot"
+            + "::test_a_conflict_tag_short_circuits_on_the_tag_alone",
         ),
     ),
     Arm(
@@ -447,8 +445,8 @@ _S5 = [
             after='            bases[dataset] = Basis(tag="single", routes=routes[:1])',
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot" +
-            "::test_a_conflict_tag_short_circuits_on_the_tag_alone",
+            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot"
+            + "::test_a_conflict_tag_short_circuits_on_the_tag_alone",
         ),
     ),
     Arm(
@@ -460,8 +458,8 @@ _S5 = [
             after='                resolved_ancestor=str(route.get("ancestor", "")),',
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot" +
-            "::test_an_unresolvable_basis_entry_yields_incomplete_and_no_certificate",
+            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot"
+            + "::test_an_unresolvable_basis_entry_yields_incomplete_and_no_certificate",
         ),
     ),
     Arm(
@@ -473,8 +471,8 @@ _S5 = [
             after="        if False:",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot" +
-            "::test_the_producer_set_comes_from_the_stores_produces_edges",
+            "acceptance/test_durable_traversal.py::TestS5TheWalkThatProducesTheSnapshot"
+            + "::test_the_producer_set_comes_from_the_stores_produces_edges",
         ),
     ),
 ]
@@ -488,14 +486,14 @@ _R23 = [
         asserts="`derived_from` resolves as a view over `produces ∘ transforms`, walked out of the store",
         sabotage=Sabotage(
             module="corpus.py",
-            before="            steps.extend(RelationAdjacency(self._view, stored.TRANSFORMS, \"outbound\").steps(producer.resolved))",
+            before='            steps.extend(RelationAdjacency(self._view, stored.TRANSFORMS, "outbound").steps(producer.resolved))',
             after="            pass",
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestR23DerivedFromIsAView" +
-            "::test_derived_from_resolves_over_produces_then_transforms",
-            "test_read_side.py::TestTheDerivedFromView" +
-            "::test_derived_from_resolves_as_a_view_over_produces_then_transforms",
+            "acceptance/test_durable_traversal.py::TestR23DerivedFromIsAView"
+            + "::test_derived_from_resolves_over_produces_then_transforms",
+            "test_read_side.py::TestTheDerivedFromView"
+            + "::test_derived_from_resolves_as_a_view_over_produces_then_transforms",
         ),
     ),
     Arm(
@@ -507,8 +505,8 @@ _R23 = [
             after='                resolved_ancestor=view.resolve(str(route.get("run", ""))),',
         ),
         checks=(
-            "acceptance/test_durable_traversal.py::TestR23DerivedFromIsAView" +
-            "::test_independence_follows_the_stamped_basis_not_the_composition",
+            "acceptance/test_durable_traversal.py::TestR23DerivedFromIsAView"
+            + "::test_independence_follows_the_stamped_basis_not_the_composition",
         ),
     ),
 ]
@@ -526,10 +524,10 @@ _R19 = [
             after="    @staticmethod\n    def _validated(node: Node) -> Node:\n        if True:",
         ),
         checks=(
-            "acceptance/test_durable_records.py::TestR19aTheGenuineAvailabilityTransition" +
-            "::test_the_record_reloads_and_is_not_refused",
-            "acceptance/test_durable_records.py::TestR19aTheGenuineAvailabilityTransition" +
-            "::test_reading_the_record_validates_nothing",
+            "acceptance/test_durable_records.py::TestR19aTheGenuineAvailabilityTransition"
+            + "::test_the_record_reloads_and_is_not_refused",
+            "acceptance/test_durable_records.py::TestR19aTheGenuineAvailabilityTransition"
+            + "::test_reading_the_record_validates_nothing",
         ),
     ),
     Arm(
@@ -537,12 +535,11 @@ _R19 = [
         asserts="a self-consistent forged verification and a raw-written run are not detected on read",
         sabotage=_OVER_EAGER_CHECK,
         checks=(
-            "acceptance/test_durable_records.py::TestR19deTheReadSideNegatives" +
-            "::test_reload_does_not_validate_it",
-            "acceptance/test_durable_records.py::TestR19deTheReadSideNegatives" +
-            "::test_a_self_consistent_raw_written_run_is_not_detected",
-            "acceptance/test_durable_records.py::TestR19deTheReadSideNegatives" +
-            "::test_an_unaudited_verification_is_indistinguishable_from_a_genuine_one",
+            "acceptance/test_durable_records.py::TestR19deTheReadSideNegatives" + "::test_reload_does_not_validate_it",
+            "acceptance/test_durable_records.py::TestR19deTheReadSideNegatives"
+            + "::test_a_self_consistent_raw_written_run_is_not_detected",
+            "acceptance/test_durable_records.py::TestR19deTheReadSideNegatives"
+            + "::test_an_unaudited_verification_is_indistinguishable_from_a_genuine_one",
         ),
     ),
 ]
@@ -560,8 +557,8 @@ _R22 = [
             after='    assessment_facets = sorted((a.identity(), "") for a in ours)',
         ),
         checks=(
-            "acceptance/test_durable_records.py::TestR22TheForgeryAtTheCorrectAddress" +
-            "::test_the_belief_digest_differs_from_the_correct_states",
+            "acceptance/test_durable_records.py::TestR22TheForgeryAtTheCorrectAddress"
+            + "::test_the_belief_digest_differs_from_the_correct_states",
         ),
     ),
     Arm(
@@ -569,14 +566,14 @@ _R22 = [
         asserts="the forged file is self-consistent, so neither read reports it — change detection, not truth detection",
         sabotage=Sabotage(
             module="stored.py",
-            before='    return stored is not None and stored != recompute_semantic_hash(node)',
+            before="    return stored is not None and stored != recompute_semantic_hash(node)",
             after="    return stored is not None",
         ),
         checks=(
-            "acceptance/test_durable_records.py::TestR22TheForgeryAtTheCorrectAddress" +
-            "::test_the_forgery_is_self_consistent_so_the_stale_hash_check_has_nothing_to_say",
-            "acceptance/test_durable_corpus.py::TestS8TheNegative" +
-            "::test_a_self_consistent_raw_write_passes_both_reads",
+            "acceptance/test_durable_records.py::TestR22TheForgeryAtTheCorrectAddress"
+            + "::test_the_forgery_is_self_consistent_so_the_stale_hash_check_has_nothing_to_say",
+            "acceptance/test_durable_corpus.py::TestS8TheNegative"
+            + "::test_a_self_consistent_raw_write_passes_both_reads",
         ),
     ),
 ]
@@ -600,15 +597,12 @@ _POST_FREEZE = [
             after="    return False",
         ),
         checks=(
-            "test_read_side.py::TestTheFacadesNodeReadPath" +
-            "::test_an_unstamped_governed_record_is_refused_on_get",
-            "test_read_side.py::TestTheCorpusCheck" +
-            "::test_an_unstamped_governed_record_is_reported_semantic_hash_missing",
+            "test_read_side.py::TestTheFacadesNodeReadPath" + "::test_an_unstamped_governed_record_is_refused_on_get",
+            "test_read_side.py::TestTheCorpusCheck"
+            + "::test_an_unstamped_governed_record_is_reported_semantic_hash_missing",
         ),
     ),
 ]
 
 
-CUT4_ARMS = (
-    *_S7, *_S8, *_W3, *_G9, *_ADD_ONLY, *_S1, *_WALK, *_S1a, *_S5, *_R23, *_R19, *_R22, *_POST_FREEZE
-)
+CUT4_ARMS = (*_S7, *_S8, *_W3, *_G9, *_ADD_ONLY, *_S1, *_WALK, *_S1a, *_S5, *_R23, *_R19, *_R22, *_POST_FREEZE)

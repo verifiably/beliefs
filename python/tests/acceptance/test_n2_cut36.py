@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 from pathlib import Path
 
+import frozen_guards
 import pytest
 from n2_arms import Arm
 from n2_arms_cut3 import CUT3_ARMS
@@ -264,8 +265,7 @@ def test_the_declaration_is_byte_exact_against_its_pinned_digest() -> None:
     edit to this digest cannot pass silently. The declaration is written after
     the freeze commit — the cut document names the table it will carry, and
     this is where the bytes are held."""
-    current = (REPO_ROOT / FROZEN_DECLARATION).read_bytes()
-    assert sha256(current).hexdigest() == CUT36_DECLARATION_SHA256
+    assert frozen_guards.content_pin_holds(REPO_ROOT, FROZEN_DECLARATION, CUT36_DECLARATION_SHA256)
     shim = (REPO_ROOT / "python" / "tests" / "acceptance" / "n2_arms_cut36.py").read_text(encoding="utf-8")
     assert "n2_arms_cut36.py" in shim  # the acceptance copy re-exports, never restates
 
@@ -279,11 +279,7 @@ def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
         == FROZEN_CUT25_ARMS
     )
     for path, pin in FROZEN_PRIOR_CUT_FILES.items():
-        completed = subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
-            check=False,
-        )
-        assert completed.returncode == 0, f"{path} moved since {pin}"
+        assert frozen_guards.commit_pin_holds(REPO_ROOT, path, pin), f"{path} moved since {pin}"
     prior = {check for arm in PRIOR_ARMS for check in arm.checks}
     for arm in CUT36_ARMS:
         reclaimed = set(arm.checks) & prior

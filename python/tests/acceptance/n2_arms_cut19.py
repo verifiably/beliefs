@@ -210,10 +210,7 @@ CUT19_ARMS = (
             after="    unresolved: bool = False\n",
         ),
         checks=(
-            (
-                f"{_CW}::TestTheUnresolvedRoot::"
-                "test_a_fresh_root_state_is_unresolved_and_the_first_write_settles_it"
-            ),
+            (f"{_CW}::TestTheUnresolvedRoot::test_a_fresh_root_state_is_unresolved_and_the_first_write_settles_it"),
         ),
     ),
     Arm(
@@ -270,10 +267,7 @@ CUT19_ARMS = (
             after="        corpus = Corpus(self._corpus.store.root, executor_factory=self._state.executor_factory)\n",
         ),
         checks=(
-            (
-                f"{_CW}::TestTheUnresolvedRoot::"
-                "test_the_root_state_binds_the_factory_recover_and_wraps_its_executors"
-            ),
+            (f"{_CW}::TestTheUnresolvedRoot::test_the_root_state_binds_the_factory_recover_and_wraps_its_executors"),
         ),
     ),
     Arm(

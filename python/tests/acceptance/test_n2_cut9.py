@@ -18,12 +18,12 @@ store units are the successor certification.
 from __future__ import annotations
 
 import re
-import subprocess
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 
+import frozen_guards
 import pytest
 from n2_arms import Arm, Sabotage
 from n2_arms_cut5 import CUT5_ARMS
@@ -299,11 +299,7 @@ class TestNoPriorCutDeclarationIsRehomedOrEdited:
     def test_the_frozen_prior_cut_files_are_byte_identical_to_their_pinned_versions(self):
         assert_cut5_matcher_migration(REPO_ROOT)
         for path, pin in FROZEN_PRIOR_CUT_FILES.items():
-            completed = subprocess.run(
-                ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
-                check=False,
-            )
-            assert completed.returncode == 0, (
+            assert frozen_guards.commit_pin_holds(REPO_ROOT, path, pin), (
                 f"{path} has moved since {pin}; cuts 5–8's declarations, runners and audits are frozen, "
                 "and cut 9 edits none of them"
             )

@@ -1,9 +1,9 @@
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from hashlib import sha256
 from pathlib import Path
 
+import frozen_guards
 import pytest
 from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
@@ -157,15 +157,9 @@ def test_the_design_freeze_and_approved_amendment_are_ancestors():
 
 def test_prior_declarations_and_the_whole_cited_cut5_surface_are_unchanged():
     for path, commit in FROZEN_PRIOR_CUT_FILES.items():
-        assert (
-            subprocess.run(
-                ["git", "-C", str(REPO_ROOT), "diff", "--quiet", commit, "HEAD", "--", path],
-                check=False,
-            ).returncode
-            == 0
-        )
+        assert frozen_guards.commit_pin_holds(REPO_ROOT, path, commit)
     for path, expected in FROZEN_CUT5_SHA256.items():
-        assert sha256((REPO_ROOT / path).read_bytes()).hexdigest() == expected
+        assert frozen_guards.content_pin_holds(REPO_ROOT, path, expected)
 
 
 def test_every_arm_has_one_source_mutation_and_exact_check_nodes():

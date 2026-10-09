@@ -84,15 +84,11 @@ passes vacuously. `RELOCATED_HEAD_WITNESS` is the check that demonstrates
 exactly that, and `test_n2_cut7.py` runs the demonstration.
 """
 
-RELOCATED_HEAD_CHECK = (
-    "test_world_build.py::test_chain_head_and_state_are_captured_in_one_hold"
-)
+RELOCATED_HEAD_CHECK = "test_world_build.py::test_chain_head_and_state_are_captured_in_one_hold"
 """The frozen check node this arm declares — instrumented, so it sees the
 relocation itself."""
 
-RELOCATED_HEAD_WITNESS = (
-    "acceptance/test_n2_cut7.py::test_anchored_head_describes_the_captured_corpus_view"
-)
+RELOCATED_HEAD_WITNESS = "acceptance/test_n2_cut7.py::test_anchored_head_describes_the_captured_corpus_view"
 """The uninstrumented witness: it compares the anchored head with the captured
 corpus state and therefore sees the *consequence* rather than the relocation.
 It passes under relocation alone and fails once the write is interposed."""
@@ -117,9 +113,7 @@ _RELOCATED_HEAD_AFTER = (
     "            if before != after:"
 )
 
-_RELOCATED_HEAD = Sabotage(
-    module="world/epoch.py", before=_RELOCATED_HEAD_BEFORE, after=_RELOCATED_HEAD_AFTER
-)
+_RELOCATED_HEAD = Sabotage(module="world/epoch.py", before=_RELOCATED_HEAD_BEFORE, after=_RELOCATED_HEAD_AFTER)
 
 
 CUT7_ARMS: tuple[Arm, ...] = (
@@ -147,9 +141,7 @@ CUT7_ARMS: tuple[Arm, ...] = (
                 '        object.__setattr__(self, "members", MappingProxyType(dict(self.members)))'
             ),
         ),
-        checks=(
-            "test_world_epoch.py::TestOpening::test_public_surface_has_no_individual_epoch_member_mutation",
-        ),
+        checks=("test_world_epoch.py::TestOpening::test_public_surface_has_no_individual_epoch_member_mutation",),
     ),
     Arm(
         row="X1",
@@ -172,7 +164,7 @@ CUT7_ARMS: tuple[Arm, ...] = (
             "write leaves `current` naming either the prior epoch or the new, complete epoch on the "
             "next entry through the recovery barrier — never nothing, never incomplete content; "
             "intra-transaction stages belong to the engine's certified recovery and are not "
-            "Science-observable, so the frozen \"every stage\" resolves to those boundaries"
+            'Science-observable, so the frozen "every stage" resolves to those boundaries'
         ),
         sabotage=Sabotage(
             module="world/epoch.py",
@@ -213,7 +205,7 @@ CUT7_ARMS: tuple[Arm, ...] = (
     Arm(
         row="X3",
         asserts=(
-            "a belief computation selecting \"current\" is unspellable — the closure's "
+            'a belief computation selecting "current" is unspellable — the closure\'s '
             "producer-snapshot input is a required explicit identity argument with no default and no "
             "current-accepting parameter, and no API composes `current_epoch` into a belief input"
         ),
@@ -221,11 +213,7 @@ CUT7_ARMS: tuple[Arm, ...] = (
             module="belief.py",
             before=("def evaluate(\n    *,\n    proposition: str,\n    records: Records,"),
             after=(
-                "def evaluate(\n"
-                "    *,\n"
-                "    proposition: str,\n"
-                "    current_epoch: object = None,\n"
-                "    records: Records,"
+                "def evaluate(\n    *,\n    proposition: str,\n    current_epoch: object = None,\n    records: Records,"
             ),
         ),
         checks=("test_world_read.py::TestTheBoundStamp::test_belief_has_no_current_epoch_input",),
@@ -252,7 +240,7 @@ CUT7_ARMS: tuple[Arm, ...] = (
         row="X5",
         asserts=(
             "two configured corpora carrying one `corpus_id` refuse a build whose coverage names it, "
-            "`CoverageUnresolvable` at preflight — the frozen cell's \"reported\""
+            '`CoverageUnresolvable` at preflight — the frozen cell\'s "reported"'
         ),
         sabotage=Sabotage(
             module="world/epoch.py",
@@ -413,7 +401,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
                 "            )"
             ),
         ),
-        checks=("test_world_receipts.py::TestReceiptOutcomes::test_removed_binding_makes_every_receipt_kind_unresolvable",),
+        checks=(
+            "test_world_receipts.py::TestReceiptOutcomes::test_removed_binding_makes_every_receipt_kind_unresolvable",
+        ),
     ),
     Arm(
         row="X10",
@@ -442,15 +432,11 @@ CUT7_ARMS: tuple[Arm, ...] = (
     Arm(
         row="X10",
         asserts=(
-            "a receipt naming a bare version string is `malformed`, decided with no corpus present "
-            "and no rule held"
+            "a receipt naming a bare version string is `malformed`, decided with no corpus present and no rule held"
         ),
         sabotage=Sabotage(
             module="world/read.py",
-            before=(
-                "    declared = epoch.RECEIPT_KEYS[member]\n"
-                "    keys = {str(key) for key in receipt.document}"
-            ),
+            before=("    declared = epoch.RECEIPT_KEYS[member]\n    keys = {str(key) for key in receipt.document}"),
             after=(
                 "    if receipt.implementation_identity is None:\n"
                 "        return None  # a bare rule version, read as a reference to be resolved leniently\n"
@@ -458,7 +444,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
                 "    keys = {str(key) for key in receipt.document}"
             ),
         ),
-        checks=("test_world_receipts.py::TestReceiptOutcomes::test_bare_version_receipt_is_malformed_without_availability",),
+        checks=(
+            "test_world_receipts.py::TestReceiptOutcomes::test_bare_version_receipt_is_malformed_without_availability",
+        ),
     ),
     Arm(
         row="X10",
@@ -571,7 +559,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
             "merely the membership"
         ),
         sabotage=_NO_REFUTATION,
-        checks=("test_world_receipts.py::TestReceiptOutcomes::test_nonzero_coreference_balance_refutes_empty_coverage",),
+        checks=(
+            "test_world_receipts.py::TestReceiptOutcomes::test_nonzero_coreference_balance_refutes_empty_coverage",
+        ),
     ),
     Arm(
         row="X12",
@@ -638,7 +628,7 @@ CUT7_ARMS: tuple[Arm, ...] = (
             after=(
                 "        operations.extend(\n"
                 '            ReplaceOp(f"epochs/{packaging_identity}/{member}", members[member],\n'
-                '                      rules.member_content_digest((directory / member).read_bytes()))\n'
+                "                      rules.member_content_digest((directory / member).read_bytes()))\n"
                 "            for member in EPOCH_MEMBERS\n"
                 "        )"
             ),
@@ -670,7 +660,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
                 "        }"
             ),
         ),
-        checks=("test_world_derive.py::TestSnapshotIsSemanticNotPositional::test_narrower_producer_coverage_moves_snapshot_and_belief",),
+        checks=(
+            "test_world_derive.py::TestSnapshotIsSemanticNotPositional::test_narrower_producer_coverage_moves_snapshot_and_belief",
+        ),
     ),
     Arm(
         row="W8a",
@@ -685,7 +677,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
             before="            [[corpus_id, corpus_state] for corpus_id, corpus_state in sorted(corpus_states)],",
             after="            [[corpus_id] for corpus_id, _corpus_state in sorted(corpus_states)],",
         ),
-        checks=("test_world_receipts.py::TestReceiptOutcomes::test_receipt_changes_when_location_states_move_but_snapshot_does_not",),
+        checks=(
+            "test_world_receipts.py::TestReceiptOutcomes::test_receipt_changes_when_location_states_move_but_snapshot_does_not",
+        ),
     ),
     Arm(
         row="W8a",
@@ -699,7 +693,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
             before="            rule_identity,\n            implementation_identity,\n        ],\n    )",
             after="            rule_identity,\n        ],\n    )",
         ),
-        checks=("test_world_receipts.py::TestReceiptOutcomes::test_rule_successor_mints_receipt_and_snapshot_only_on_subject_change",),
+        checks=(
+            "test_world_receipts.py::TestReceiptOutcomes::test_rule_successor_mints_receipt_and_snapshot_only_on_subject_change",
+        ),
     ),
     Arm(
         row="W8a",
@@ -753,7 +749,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
                 "        except RuleNotHeld as caught:"
             ),
         ),
-        checks=("test_world_receipts.py::TestReceiptOutcomes::test_rule_conformance_and_two_worlds_agree_within_availability",),
+        checks=(
+            "test_world_receipts.py::TestReceiptOutcomes::test_rule_conformance_and_two_worlds_agree_within_availability",
+        ),
     ),
     Arm(
         row="W8a",
@@ -767,7 +765,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
             before="    for corpus_id, corpus_state in named_states:",
             after="    for corpus_id, corpus_state in named_states[:1]:",
         ),
-        checks=("test_world_receipts.py::TestReceiptOutcomes::test_receipt_resolution_quantifies_each_corpus_and_rule",),
+        checks=(
+            "test_world_receipts.py::TestReceiptOutcomes::test_receipt_resolution_quantifies_each_corpus_and_rule",
+        ),
     ),
     Arm(
         row="W8a",
@@ -781,7 +781,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
             before="    producer_snapshot_identity: str,",
             after='    producer_snapshot_identity: str = "",',
         ),
-        checks=("test_world_read.py::TestTheBoundStamp::test_belief_is_invariant_to_availability_and_requires_snapshot",),
+        checks=(
+            "test_world_read.py::TestTheBoundStamp::test_belief_is_invariant_to_availability_and_requires_snapshot",
+        ),
     ),
     Arm(
         row="W8a",
@@ -795,7 +797,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
             before="        if not status.present:\n            return NotPresent(stamp)",
             after="        if not status.present:\n            return Unknown(stamp)",
         ),
-        checks=("test_world_read.py::TestBoundResolution::test_inside_coverage_absence_is_not_outside_coverage_unknown",),
+        checks=(
+            "test_world_read.py::TestBoundResolution::test_inside_coverage_absence_is_not_outside_coverage_unknown",
+        ),
     ),
     # --- the ten labeled declarations (§3.3) -----------------------------------
     Arm(
@@ -833,7 +837,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
                 "            continue"
             ),
         ),
-        checks=("test_world_rules.py::TestInstallation::test_rule_install_is_idempotent_and_refuses_collision_or_nonconformance",),
+        checks=(
+            "test_world_rules.py::TestInstallation::test_rule_install_is_idempotent_and_refuses_collision_or_nonconformance",
+        ),
     ),
     Arm(
         row="labeled:rule-removal",
@@ -930,7 +936,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
             before='        unestablished.append(f"the live corpora {list(missing)} are outside this epoch\'s coverage")',
             after='        unestablished.append("some live corpora are outside this epoch\'s coverage")',
         ),
-        checks=("test_world_read.py::TestCoreferenceEdges::test_edge_indeterminate_names_missing_span_and_receipt_outcome",),
+        checks=(
+            "test_world_read.py::TestCoreferenceEdges::test_edge_indeterminate_names_missing_span_and_receipt_outcome",
+        ),
     ),
     Arm(
         row="labeled:ungoverned-kind",

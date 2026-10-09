@@ -73,9 +73,7 @@ def _closure_digest(found: tuple[tuple[str, str], ...]) -> str:
 
 def test_semantic_change_branch_names_no_rename_path():
     tree = ast.parse(textwrap.dedent(inspect.getsource(CorpusWriter.supersede)))
-    assert "rename" not in {
-        node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
-    }
+    assert "rename" not in {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
 
 
 def test_scope_supersession_preserves_predecessor_evidence(durable_writer):
@@ -481,8 +479,7 @@ def test_verification_retractions_recompute_admission_and_belief(durable_writer)
         return tuple(
             value
             for value in all_values
-            if value is first_pass
-            or standing_in_local_view(durable_writer.read_view, node_for[value.ref].id)
+            if value is first_pass or standing_in_local_view(durable_writer.read_view, node_for[value.ref].id)
         )
 
     def current_belief():
@@ -538,9 +535,7 @@ def test_ineligible_node_target_kinds_refuse(durable_writer, kind):
 def findings(tmp_path_factory) -> tuple:
     root = tmp_path_factory.mktemp("n2-cut5")
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        return tuple(
-            pool.map(lambda pair: audit(pair[1], root / f"arm{pair[0]}"), enumerate(CUT5_ARMS))
-        )
+        return tuple(pool.map(lambda pair: audit(pair[1], root / f"arm{pair[0]}"), enumerate(CUT5_ARMS)))
 
 
 def _report(reason: str, findings: tuple, verdict: str) -> None:

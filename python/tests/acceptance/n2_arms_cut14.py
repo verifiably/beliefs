@@ -294,7 +294,7 @@ CUT14_ARMS = (
         "an activated coordination pin never enters a belief input digest",
         Sabotage(
             "consulted.py",
-            before='    consulted: dict[str, str] = {BASE_NAMESPACE: base_identities.pop()}',
+            before="    consulted: dict[str, str] = {BASE_NAMESPACE: base_identities.pop()}",
             after='    consulted: dict[str, str] = {BASE_NAMESPACE: base_identities.pop()}\n    if "coordination" in pins[corpora[0]].domains:\n        consulted["coordination"] = pins[corpora[0]].domains["coordination"]',
         ),
         ("test_belief.py::test_w18j_a_coordination_pin_never_enters_the_belief_input_digest",),
@@ -305,7 +305,7 @@ CUT14_ARMS = (
         Sabotage(
             _DOMAIN,
             before='    if namespace == "coordination":\n        raise MalformedContract(f"{source}: \'coordination\' is reserved for the coordination contract")',
-            after='    if False:\n        raise MalformedContract(f"{source}: \'coordination\' is reserved for the coordination contract")',
+            after="    if False:\n        raise MalformedContract(f\"{source}: 'coordination' is reserved for the coordination contract\")",
         ),
         ("test_domain_contract.py::test_a_domain_contract_cannot_claim_the_coordination_namespace",),
     ),

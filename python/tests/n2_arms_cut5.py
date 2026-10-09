@@ -131,14 +131,9 @@ _EXPLICIT_IMPORT = (
                 '                if record.kind == "act-report":\n'
                 "                    self._refuse_malformed_act_report(record)"
             ),
-            after=(
-                '                if record.kind == "act-report":\n'
-                "                    pass"
-            ),
+            after=('                if record.kind == "act-report":\n                    pass'),
         ),
-        checks=(
-            "acceptance/test_n2_cut5.py::test_foreign_act_report_is_attributed_inert_and_structurally_validated",
-        ),
+        checks=("acceptance/test_n2_cut5.py::test_foreign_act_report_is_attributed_inert_and_structurally_validated",),
     ),
     Arm(
         row="T2",
@@ -161,9 +156,7 @@ _EXPLICIT_IMPORT = (
             before="                self._operation_port.execute_fulfilling([self._create_op(report_node)], intent_digest)",
             after="                pass",
         ),
-        checks=(
-            "acceptance/test_n2_cut5.py::test_post_intent_refusal_writes_one_fulfilling_report_and_no_payload",
-        ),
+        checks=("acceptance/test_n2_cut5.py::test_post_intent_refusal_writes_one_fulfilling_report_and_no_payload",),
     ),
     Arm(
         row="T2",
@@ -175,15 +168,13 @@ _EXPLICIT_IMPORT = (
                 '                v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})\n'
                 "            )"
             ),
-            after=f'            intent_digest = {"0" * 64!r}',
+            after=f"            intent_digest = {'0' * 64!r}",
         ),
         checks=("acceptance/test_n2_cut5.py::test_intent_append_failure_begins_no_act",),
     ),
     Arm(
         row="M3",
-        asserts=(
-            "`standing_in_local_view` terminates stably over increasing chains, counters, and siblings"
-        ),
+        asserts=("`standing_in_local_view` terminates stably over increasing chains, counters, and siblings"),
         sabotage=Sabotage(
             module="corpus.py",
             before="    return tuple(ordered)\n\n\ndef _cycle_edges(",
@@ -265,7 +256,7 @@ _RETRACTION = (
         sabotage=Sabotage(
             module="stored.py",
             before=(
-                '    if type(reason) is not str:\n'
+                "    if type(reason) is not str:\n"
                 '        raise MalformedRecord("a retraction reason is a string")\n'
                 "    if reason not in RETRACTION_REASONS:\n"
                 '        raise MalformedRecord(f"retraction reason {reason!r} is outside the closed set {RETRACTION_REASONS}")\n'
@@ -320,9 +311,7 @@ _RETRACTION = (
     ),
     Arm(
         row="C6",
-        asserts=(
-            "retracting a false failure admits only while a standing pass remains; retracting the pass de-admits"
-        ),
+        asserts=("retracting a false failure admits only while a standing pass remains; retracting the pass de-admits"),
         sabotage=_STANDING_DISABLED,
         checks=("acceptance/test_n2_cut5.py::test_verification_retractions_recompute_admission_and_belief",),
     ),
@@ -345,13 +334,10 @@ _RETRACTION = (
         sabotage=Sabotage(
             module="corpus.py",
             before=(
-                "        if not any(route.get(\"identity\") == target[\"route_identity\"] for route in stored.basis_routes(dataset)):\n"
+                '        if not any(route.get("identity") == target["route_identity"] for route in stored.basis_routes(dataset)):\n'
                 "            raise RetractionTargetUnresolvable("
             ),
-            after=(
-                "        if False:\n"
-                "            raise RetractionTargetUnresolvable("
-            ),
+            after=("        if False:\n            raise RetractionTargetUnresolvable("),
         ),
         checks=("test_retract.py::test_retract_refuses_a_route_absent_from_the_stamped_basis",),
     ),
