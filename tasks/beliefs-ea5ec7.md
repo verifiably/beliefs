@@ -1,0 +1,31 @@
+---
+id: beliefs-ea5ec7
+title: Let freeze pins hold modulo formatting so frozen modules can be formatted
+status: todo
+priority: 3
+size: m
+complexity: high
+process: planned
+created: 2026-10-09T15:44:29Z
+updated: 2026-10-09T15:44:29Z
+depends: [beliefs-a555d6]
+tags: [hygiene, conformance]
+source: beliefs-a555d6
+---
+
+Why: beliefs-a555d6 excludes from ruff format every Python file a freeze pin names, because a pin's claim is byte-exact. Today that is 52 existing files: 48 commit pins checked with git diff --quiet <commit> HEAD, plus content pins as sha256 of the bytes (tests/frozen_guards.py::holds). Left alone, that exclude is permanent and grows with every freeze. The byte-exact rule exists so "a reader can tell that the record they are citing is the record that was made" (docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md §3). Formatting changes no meaning, so the freeze can hold that guarantee up to formatting, with the original bytes still recoverable from git.
+
+Evidence 2026-10-09: on a scratch copy, ruff format reformats 31 of the 52 pinned Python files that still exist. All 31 pass this equivalence: equal ast.dump with each docstring compared after inspect.cleandoc, and an equal sequence of COMMENT tokens. The 1 missing target (python/tests/n2_arms_cut25.py) is an already-falsified pin and is out of scope. The comparator uses only the stdlib, so a ruff upgrade cannot falsify a pin. String literals, including N2 before/after texts and implicit concatenations, compare by value, so frozen arm declarations keep their meaning.
+
+Done:
+- Amend the frozen guard doctrine. A pin holds when the target is byte-identical (unchanged), or when it is equivalent to the pinned original under the comparator above, for .py targets only. Non-Python targets (docs) stay byte-exact. The amendment names the last byte-exact commit, so a cited SHA-256 in a results record can be checked with git show <that commit>:<path>.
+- holds() changes to match:
+  - A commit pin compares git show <commit>:<path> with the working file.
+  - A content pin resolves its sha256 to the original bytes by scanning the target path's history for a matching blob, then applies the same comparison. Failing to resolve it is a broken pin, never a pass.
+- No FROZEN_* table, cited guard or declaration is edited (doctrine §3).
+- Remove beliefs-a555d6's format exclude and its pin-derived test, and format the 31 files in one commit added to .git-blame-ignore-revs.
+
+Verification:
+- Unit tests for the comparator: a formatting-only change holds; a changed string literal, a changed comment and a changed statement each break the pin; an unresolvable content pin breaks.
+- broken_pins over every guard is unchanged before and after the format commit; the already-falsified pins stay falsified.
+- ruff format --check passes with no exclude, and just gate is green.

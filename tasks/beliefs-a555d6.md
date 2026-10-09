@@ -7,7 +7,7 @@ size: m
 complexity: high
 process: planned
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T15:27:48Z
+updated: 2026-10-09T15:44:40Z
 depends: []
 tags: [hygiene]
 ---
@@ -16,6 +16,7 @@ Why: the gate runs ruff check but not ruff format, so formatting drifts silently
 
 Done:
 - python/pyproject.toml excludes, for formatting only ([tool.ruff.format] exclude), every file a freeze pin names. On 2026-10-09 frozen_guards.pins_in over the 43 guard modules found 942 pins on 57 distinct targets, 53 of them under python/ (9 content-pinned, 48 commit-pinned), such as the n2_arms_cutN declaration modules. Derive the list from frozen_guards, not by hand. Add a test asserting the exclude list equals the pinned python/ targets, so a new freeze cannot drift from it.
+  The exclude is temporary: beliefs-ea5ec7 makes pins hold up to formatting, then removes it and formats those files.
 - One isolated commit runs ruff format over everything else. Its hash goes in .git-blame-ignore-revs.
 - Every N2 arm whose before-text the reformat moves is restored, without editing any frozen declaration:
   - live guards re-target through their _LIVE_SABOTAGES (or RETARGETED_ROWS);
@@ -41,3 +42,4 @@ Verification:
 - 2026-09-16T10:03:27Z (main): 2026-09-16 doc review: 'ruff format --check .' from python/ now reports 273 files would be reformatted, 159 already formatted — the drift is repo-wide, not 11 reproduction-lane files. Scoping this means deciding format's place in the gate over the whole tree, and the one reformat commit would touch frozen-cut test modules, which is a supersession by citation, not an edit.
 - 2026-10-09T14:39:36Z (main): scope: question; measured 347/566 files drifted and 63 of 1149 applying N2 arms broken by an src reformat; options and recommendation (keep format out, record why) under Open questions
 - 2026-10-09T15:27:47Z (main): scope: scoped; user chose (c) reformat once and enforce; added frozen-pin evidence (53 pinned python/ targets to exclude); rewrote body; todo P3/m/high/planned
+- 2026-10-09T15:44:39Z (main): follow-up beliefs-ea5ec7 filed: freeze pins hold modulo formatting (AST + comments; 31/31 reformatted pinned files pass), which retires this task's format exclude
