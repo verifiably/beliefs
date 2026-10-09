@@ -114,7 +114,9 @@ formatted source, and `(b, a)` the arm's audited sabotage. Then:
 2. `T1 = ruff_format(S0.replace(b, a))`, run with the module's own path as
    `--stdin-filename`, so the project configuration applies.
 3. `(b', a')` is the smallest line-aligned differing region between `S1` and `T1`,
-   widened one line at a time on each side until `b'` occurs exactly once in `S1`.
+   widened one line at a time on each side until `b'` occurs exactly once in `S1`
+   and differs from every other arm's `before` in the same guard. The latter condition
+   preserves the guard's existing anchor-uniqueness check.
 4. The derivation is accepted only when `S1.replace(b', a') == T1`, byte for byte.
 
 The mutated program the audit runs after the reformat is therefore exactly the

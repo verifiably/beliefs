@@ -5,10 +5,11 @@ from __future__ import annotations
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -23,6 +24,43 @@ from test_n2 import MalformedArm, audit, baseline
 from test_n2_cut7 import assert_cut5_matcher_migration
 
 import beliefs.root as science_root
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "R15u2": Sabotage(
+        module="boundary.py",
+        before=(
+            "    check_closure_intact(\n"
+            "        bundle=bundle,\n"
+            "        code_identity=code_identity,\n"
+            "        snapshot=snapshot,\n"
+            "        captured=captured,\n"
+            '        inputs=output_root / "inputs",\n'
+            "        inputs_fingerprint=inputs_before,\n"
+            "    )\n"
+        ),
+        after="    pass\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "K1a": Sabotage(
+        module="recipe.py",
+        before=(
+            "        if (policy.identity, policy.scope_rule, frozenset(policy.capabilities)) == (\n"
+            "            known.identity,\n"
+            "            known.scope_rule,\n"
+            "            frozenset(known.capabilities),\n"
+            "        ):\n"
+        ),
+        after="        if (policy.identity, frozenset(policy.capabilities)) == (known.identity, frozenset(known.capabilities)):\n",
+    ),
+}
+CUT13_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT13_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

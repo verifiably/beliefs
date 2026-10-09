@@ -47,6 +47,67 @@ _LIVE_SABOTAGES = {
         before="    existing = store_identity(store_root)\n",
         after="    existing = None\n",
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "L10u9": Sabotage(
+        module="world/verify.py",
+        before="            grant(root)\n",
+        after="            pass\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "V5": Sabotage(
+        module="world/verify.py",
+        before=(
+            '        if report.outcome == "validated" and _restore_subject_agrees(subject, kind, view, presented):\n'
+            "            grant(root)\n"
+            "    return report\n"
+        ),
+        after=(
+            '        if report.outcome == "validated" and _restore_subject_agrees(subject, kind, view, presented):\n'
+            "            pass\n"
+            "    return report\n"
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "V8": Sabotage(
+        module="world/verify.py",
+        before=(
+            "    if type(provenance) is not registry.ReplicaOf:\n"
+            "        raise TypeError(\n"
+            '            "admit_arrival is the verified route for a replica: fresh and fork provenance are World.admit\'s"\n'
+            "        )\n"
+            "    if history is not None:\n"
+            "        validate_history(history)\n"
+            "    subject = anchors.CorpusSubject(provenance.parent_corpus_id)\n"
+            "    root = Path(corpus_root).resolve()\n"
+            "    state = seam.lifecycle_state(root)\n"
+            '    if state == "writable":\n'
+            "        raise CorpusRootRefused(\n"
+            '            f"{root}: a writable root is this host\'s own live root, not an "\n'
+            '            "arrival; nothing arrives at the root it already is"\n'
+            "        )\n"
+            "    with seam.world_lock(world.config.world_root), seam.corpus_lock(root):\n"
+            "        # The inspection mode follows the lifecycle state: a restored,\n"
+            "        # read-only-serviceable copy earned the coherent registered read;\n"
+            "        # every other non-writable state — unserviceable, metadata-less,\n"
+            "        # binding-mismatched — is detached, its pending honestly unresolved.\n"
+            '        inspect = seam.inspect_registered if state == "read-only-serviceable" else seam.inspect_detached\n'
+        ),
+        after=(
+            "    if history is not None:\n"
+            "        validate_history(history)\n"
+            "    subject = anchors.CorpusSubject(provenance.parent_corpus_id)\n"
+            "    root = Path(corpus_root).resolve()\n"
+            "    state = seam.lifecycle_state(root)\n"
+            "    with seam.world_lock(world.config.world_root), seam.corpus_lock(root):\n"
+            '        inspect = seam.inspect_detached if state == "read-only-serviceable" else seam.inspect_registered\n'
+        ),
+    ),
 }
 CUT9_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT9_ARMS

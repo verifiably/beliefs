@@ -47,6 +47,14 @@ _LIVE_SABOTAGES = {
         before='    "retraction",\n    "instrument-certification",\n    "composite",\n)\n',
         after='    "retraction",\n    "instrument-certification",\n    "composite",\n    "act-report",\n)\n',
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W15k": Sabotage(
+        module="world/read.py",
+        before="    missing = tuple(corpus_id for corpus_id in registry._live_corpus_ids(world.registry()) if corpus_id not in covered)\n",
+        after="    missing = ()\n",
+    ),
 }
 CUT24_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT24_ARMS

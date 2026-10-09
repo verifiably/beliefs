@@ -50,6 +50,16 @@ def test_a_region_that_is_not_unique_widens_until_it_is() -> None:
     )
 
 
+def test_a_region_another_arm_uses_widens_without_changing_the_mutation() -> None:
+    original = "def f():\n    return None\n"
+    before, after = derive_one(
+        original, FORMAT(original), "return None", "return 1", FORMAT, frozenset({"    return None\n"})
+    )
+
+    assert (before, after) == (original, "def f():\n    return 1\n")
+    assert FORMAT(original).replace(before, after) == FORMAT(original.replace("return None", "return 1"))
+
+
 @pytest.mark.parametrize(
     ("original", "occurrences"),
     [("y = 2\n", 0), ("x = 1\nx = 1\n", 2)],

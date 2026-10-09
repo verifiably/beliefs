@@ -32,15 +32,68 @@ import beliefs.root as science_root
 # Live matcher migration, 2026-09-07: frozen declarations above stay byte-exact.
 # The same sabotages now target guarded publication and compiled stamp coverage.
 _LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "J7b": Sabotage(
-        "boundary.py",
-        before="        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback)\n",
-        after="        port.execute(plan)\n        reason = None\n",
+        module="boundary.py",
+        before=(
+            "        reason = port.execute_fulfilling_guarded(\n"
+            "            plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback\n"
+            "        )\n"
+        ),
+        after=("        port.execute(plan)\n        reason = None\n"),
     ),
     "J9a": Sabotage(
         "stored.py",
         before="    {name: kind.covered for name, kind in _WORLD.items() if kind.domain is not None}\n",
         after='    {name: tuple(key for key in kind.covered if name != "run" or key != RUN_CLOSURE_FACET) for name, kind in _WORLD.items() if kind.domain is not None}\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J1d": Sabotage(
+        module="world/verify.py",
+        before="    if type(records) is not tuple:\n",
+        after="    if False:\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J8j": Sabotage(
+        module="identity/v1.py",
+        before=(
+            "    except IdentityError as caught:\n"
+            '        raise CanonicalTextRefused(f"re-encoding refused ({type(caught).__name__}): {caught}") from caught\n'
+        ),
+        after=("    except IdentityError:\n        raise\n"),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J9c": Sabotage(
+        module="runrecord.py",
+        before=(
+            '    if shape == "assessment":\n'
+            '        if run_facet != {"spec": spec_identity}:\n'
+            "            raise MalformedRecord(f\"{node.id}: the run facet is exactly {{'spec': <the closure's spec>}}\")\n"
+            "    elif run_facet != {}:\n"
+            '        raise MalformedRecord(f"{node.id}: a production run facet is exactly {{}}")\n'
+        ),
+        after=('    if False:\n        raise MalformedRecord("run-facet agreement disabled")\n'),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "J12b": Sabotage(
+        module="holdings/qualify.py",
+        before=(
+            "                if (\n"
+            '                    observation["location"] == intent["location"]\n'
+            '                    and observation["event_token"] == intent["event_token"]\n'
+            "                ):\n"
+        ),
+        after='                if observation["location"] == intent["location"]:\n',
     ),
 }
 CUT11_ARMS = tuple(

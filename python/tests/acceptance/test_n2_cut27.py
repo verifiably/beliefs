@@ -46,6 +46,9 @@ from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
 # sabotage still moves the fault decision past the availability lookup, now
 # around the new standing check, which stays where the kernel put it.
 _LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "W8a-a": Sabotage(
         module="world/read.py",
         before=(
@@ -59,9 +62,7 @@ _LIVE_SABOTAGES = {
             "    # Past this point the five identity members are present and well formed,\n"
             "    # so the reads below can name them without re-checking that they exist.\n"
             "    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n"
-            "    binding = rules.RuleBinding(\n"
-            "        cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity)\n"
-            "    )\n"
+            "    binding = rules.RuleBinding(cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity))\n"
             "    with registry._locked_barrier(world) as world_root:\n"
             "        try:\n"
             "            held = rules._locked_resolve_rule_binding(world_root, binding)\n"
@@ -80,9 +81,7 @@ _LIVE_SABOTAGES = {
             "    # Past this point the five identity members are present and well formed,\n"
             "    # so the reads below can name them without re-checking that they exist.\n"
             "    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n"
-            "    binding = rules.RuleBinding(\n"
-            "        cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity)\n"
-            "    )\n"
+            "    binding = rules.RuleBinding(cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity))\n"
             "    with registry._locked_barrier(world) as world_root:\n"
             "        try:\n"
             "            held = rules._locked_resolve_rule_binding(world_root, binding)\n"

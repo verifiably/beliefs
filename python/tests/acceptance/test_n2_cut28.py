@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -38,6 +39,99 @@ from n2_arms_cut28 import CO_CITED, CUT28_ARMS, DECLARATION_UNITS, UNIT_CHECKS, 
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W7-h": Sabotage(
+        module="world/selection.py",
+        before=(
+            "                steps.append(\n"
+            "                    Step(\n"
+            "                        stored=edge.relation.source,\n"
+            "                        resolved=None,\n"
+            "                        entry=RelationEntry(\n"
+            "                            source=ref, position=position, predicate=self._predicate, target=edge.relation.source\n"
+            "                        ),\n"
+            "                    )\n"
+            "                )\n"
+        ),
+        after="",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W8-a": Sabotage(
+        module="world/derive.py",
+        before="        if len(locations) > 1:\n",
+        after="        if False:\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W8-c": Sabotage(
+        module="relocation.py",
+        before=(
+            "        if destination.read_view.resolve(node.id) == node.id:\n"
+            '            raise DuplicateLocation(f"{node.id}: destination already holds this canonical address")\n'
+        ),
+        after=("        if False:\n            pass\n"),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W8b-b": Sabotage(
+        module="world/derive.py",
+        before=(
+            "    for uid, locations in by_uid.items():\n"
+            "        if len({address for _, address in locations}) > 1:\n"
+            "            raise AddressMapConflict(\n"
+            "                Finding(\n"
+            '                    severity="error",\n'
+            '                    code="uid-corruption",\n'
+            "                    ref=uid,\n"
+            '                    detail=f"corpus/address claims={tuple(locations)!r}",\n'
+            '                    message="one uid names different canonical addresses; no repair is offered",\n'
+            "                )\n"
+            "            )\n"
+            "    for address, locations in by_address.items():\n"
+            "        if len(locations) > 1:\n"
+            "            raise AddressMapConflict(\n"
+            "                Finding(\n"
+            '                    severity="error",\n'
+            '                    code="duplicate-location",\n'
+            "                    ref=address,\n"
+            '                    detail=f"corpus/uid claims={tuple(locations)!r}",\n'
+            '                    message="one canonical address is held in multiple corpora; resolve with consolidate",\n'
+        ),
+        after=(
+            "    for address, locations in by_address.items():\n"
+            "        if len(locations) > 1:\n"
+            "            raise AddressMapConflict(\n"
+            "                Finding(\n"
+            '                    severity="error",\n'
+            '                    code="duplicate-location",\n'
+            "                    ref=address,\n"
+            '                    detail=f"corpus/uid claims={tuple(locations)!r}",\n'
+            '                    message="duplicate",\n'
+            "                )\n"
+            "            )\n"
+            "    for uid, locations in by_uid.items():\n"
+            "        if len({address for _, address in locations}) > 1:\n"
+            "            raise AddressMapConflict(\n"
+            "                Finding(\n"
+            '                    severity="error",\n'
+            '                    code="uid-corruption",\n'
+            "                    ref=uid,\n"
+            '                    detail=f"corpus/address claims={tuple(locations)!r}",\n'
+            '                    message="corrupt",\n'
+        ),
+    ),
+}
+CUT28_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT28_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

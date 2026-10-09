@@ -39,9 +39,16 @@ import beliefs
 # report through `reports`. The `after` is the frozen one: eligibility reads the
 # facet's presence instead of the validity predicate.
 _LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "F4": Sabotage(
         module="corpus.py",
-        before="        reason = validity_refusal(judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref))\n",
+        before=(
+            "        reason = validity_refusal(\n"
+            "            judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref)\n"
+            "        )\n"
+        ),
         after='        reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else "absent"\n',
     ),
     "F8": Sabotage(
