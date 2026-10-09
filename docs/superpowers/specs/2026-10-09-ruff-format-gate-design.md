@@ -208,12 +208,18 @@ On 2026-10-09 all four other branches were 0 ahead of `main`.
   `just test-fast`.
 - `ruff format --check .` passes inside `just check`.
 - **Static guard tests.** At commit 5, every live guard's tests pass, apart from its
-  mutation audits and live-check runs. The command is `host-budget run -- uv run --frozen
-  python -m pytest <live guard modules> -k "<selection>"`, with the module list and `-k`
-  selection the plan fixes. Before the reformat this selection passed 290 tests in about
-  3 minutes. This is where every scalar pin is enforced, whatever its form. The portable
-  pin test (§3.1) reads only the forms it knows, so this step is the backstop that
-  catches the next unknown form. It also serves as the pilot for the chain below.
+  mutation audits and live-check runs. The command is `just test-one <live guard
+  modules> -k "<selection>"`, with the module list and `-k` selection the plan fixes.
+  Before the reformat this selection passed 290 tests in about 3 minutes. This is where
+  every scalar pin is enforced, whatever its form. The portable pin test (§3.1) reads
+  only the forms it knows, so this step is the backstop that catches the next unknown
+  form.
+- **Mutation pilot.** At commit 5, before the chain, run `just test-one
+  tests/acceptance/test_n2_cut46.py`, the whole cut-46 guard. It takes every one of its
+  36 arms through baseline, sabotage application, check execution and the `sound`
+  verdict. 7 of those arms are re-targeted by this change, in a guard that gains its
+  `_LIVE_SABOTAGES` table here. On 2026-10-09, before the reformat, it passed 13 tests in
+  15 s. A failure stops the run there and is analysed before anything longer starts.
 - **Audit soundness.** The newest runner's chain, `host-budget run -- uv run --frozen
   python tools/cut46_acceptance.py`, passes with every arm `sound`. It is run from
   `python/` on the certified host, through background Bash with `tee`. At cut 46 the

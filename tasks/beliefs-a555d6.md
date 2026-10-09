@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:26:22Z
+updated: 2026-10-09T17:34:25Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -60,3 +60,8 @@ Verification:
 - 2026-10-09T17:25:52Z (chore/ruff-format-gate): spec round 1 P1 fixed: protected set gains each guard's FROZEN_DECLARATION (scalar CUTN_DECLARATION_SHA256/COMMIT pins, cuts 26-46); only n2_arms_cut46.py was not already table-pinned, so 56 files. Pilot with 56 excluded: 289/290 live-guard static tests pass, the 1 failure an audit test failing on the stale arms; verification gains that static run as the scalar-pin backstop.
 - 2026-10-09T17:26:22Z (chore/ruff-format-gate): parked (waiting on user, review): user reviews revised spec docs/superpowers/specs/2026-10-09-ruff-format-gate-design.md (round 2) in .worktrees/ruff-format-gate; on approval the agent writes the plan
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T17:32:52Z (chore/ruff-format-gate): review: spec round 2 — verdict: revise; findings: P2 1; reviewer: codex
+- 2026-10-09T17:32:52Z (chore/ruff-format-gate): spec round 2: independently confirmed 21 scalar declaration targets and 56 protected existing files; the round-1 P1 is resolved. P2: section 5 replaces the one-guard mutation pilot with static tests that explicitly exclude mutation audits and live checks. Keep the static pin backstop and restore a bounded mutation pilot through baseline, sabotage application, check execution, and soundness verdict before the roughly hour-long chain, as required by the extended-run pilot rule. The plan should run focused guard tests through just test-one rather than the direct pytest command shown.
+- 2026-10-09T17:34:24Z (chore/ruff-format-gate): resumed
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T17:34:24Z (chore/ruff-format-gate): spec round 2 P2 fixed: section 5 keeps the static pin backstop (now via just test-one) and adds a mutation pilot, the whole cut-46 guard via just test-one (36 arms, 7 re-targeted; 13 passed in 15 s pre-reformat), before the chain
