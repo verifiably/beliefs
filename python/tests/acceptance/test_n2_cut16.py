@@ -8,6 +8,7 @@ from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
+import frozen_guards
 import pytest
 from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
@@ -315,11 +316,7 @@ def test_the_freeze_commit_and_sections_two_through_seven_are_pinned() -> None:
 
 def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
     for path, pin in FROZEN_PRIOR_CUT_FILES.items():
-        completed = subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
-            check=False,
-        )
-        assert completed.returncode == 0, f"{path} moved since {pin}"
+        assert frozen_guards.commit_pin_holds(REPO_ROOT, path, pin), f"{path} moved since {pin}"
     prior = {check for arm in PRIOR_ARMS for check in arm.checks}
     for arm in CUT16_ARMS:
         reclaimed = set(arm.checks) & prior

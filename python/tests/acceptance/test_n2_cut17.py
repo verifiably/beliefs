@@ -3,9 +3,9 @@
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from hashlib import sha256
 from pathlib import Path
 
+import frozen_guards
 import pytest
 from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
@@ -191,14 +191,9 @@ def test_every_arm_has_one_source_mutation_and_exact_check_nodes() -> None:
 
 def test_prior_declarations_and_the_whole_cited_cut10_surface_are_unchanged() -> None:
     for path, pin in FROZEN_PRIOR_CUT_FILES.items():
-        assert (
-            subprocess.run(
-                ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path], check=False
-            ).returncode
-            == 0
-        ), path
+        assert frozen_guards.commit_pin_holds(REPO_ROOT, path, pin), path
     for path, expected in FROZEN_CUT10_SHA256.items():
-        assert sha256((REPO_ROOT / path).read_bytes()).hexdigest() == expected, path
+        assert frozen_guards.content_pin_holds(REPO_ROOT, path, expected), path
     prior = {check for arm in PRIOR_ARMS for check in arm.checks}
     for arm in CUT17_ARMS:
         assert set(arm.checks) & prior <= set(CO_CITED.get(arm.row, ())), arm.row
