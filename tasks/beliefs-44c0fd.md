@@ -1,10 +1,10 @@
 ---
 id: beliefs-44c0fd
 title: "A lightweight hypothesis and evidence profile for work projects, from radiology's HY/EV pattern"
-status: idea
+status: shelved
 priority: 2
 created: 2026-09-16T21:45:25Z
-updated: 2026-10-09T11:37:52Z
+updated: 2026-10-09T13:48:26Z
 depends: []
 parent: beliefs-614364
 tags: [coordination]
@@ -16,3 +16,5 @@ radiology (cainex) built, by hand and in two markdown files, the thing a work pr
 ## Notes
 
 - 2026-10-09T11:37:51Z (main): scope: briefed; the hand-kept hypothesis/evidence/question pattern is still the one observed consumer (files grown to ~340/1,100/460 lines); coordination v3's hypothesis has no kill condition and there is no evidence kind; research beliefs-bcfa20 maps the fields; home (beliefs, nodes example profile, own repo) is the user's call after that; parented under goal beliefs-614364; brief: docs/notes/2026-10-09-coordination-outside-the-kernel-brief.md
+- 2026-10-09T13:48:25Z (main): shelved: Wake when a second project builds or asks for the hand-kept hypothesis/evidence/question pattern (a kill condition per hypothesis, a reproducing command per evidence entry); then run beliefs-bcfa20 first and decide the profile's home
+- 2026-10-09T13:48:25Z (main): Shelved 2026-10-09 by the user's call after the coordination brief: one project uses the pattern and the profile's home is undecided; revisit on a second use case; research beliefs-bcfa20 shelved with it; brief: docs/notes/2026-10-09-coordination-outside-the-kernel-brief.md
