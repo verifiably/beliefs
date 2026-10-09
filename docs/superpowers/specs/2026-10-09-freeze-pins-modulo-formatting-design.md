@@ -62,17 +62,40 @@ def equivalent(original: bytes, current: bytes, *, path: str) -> bool
 - If `original == current`, the result is `True`.
 - If `path` does not end in `.py`, the result is `False`: docs and every other target
   stay byte-exact.
-- Otherwise both sides are decoded as strict UTF-8 and parsed with `ast.parse`. They
-  are equivalent when both of these hold:
-  - `ast.dump` (no position attributes) is equal after normalisation, and the only
-    normalisation is this: the docstring of a module, class or function (the leading
-    `Expr` holding a `str` `Constant` in its body) is replaced by its `inspect.cleandoc`
-    form. Every other string literal compares by value, including N2 `before`/`after`
-    texts and implicit concatenations, so a frozen arm declaration keeps its meaning.
-  - The sequence of `tokenize` `COMMENT` token strings is equal, exactly.
+- Otherwise both sides are read as Python reads source, from bytes. `ast.parse` and
+  `tokenize.tokenize` both take the bytes and apply PEP 263 and the BOM themselves;
+  nothing is decoded as UTF-8 by assumption. The two sides are equivalent when all four
+  of these hold:
+  1. **Encoding.** `tokenize.detect_encoding` returns the same encoding for both. A
+     coding cookie that moves out of lines 1–2, or changes, breaks the pin even when the
+     tree happens to agree.
+  2. **Tree.** `ast.dump` (no position attributes) is equal after normalisation. The
+     only normalisation is this: the docstring of a module, class or function (the
+     leading `Expr` holding a `str` `Constant` in its body) is replaced by its
+     `inspect.cleandoc` form. Every other string literal compares by value, including N2
+     `before`/`after` texts and implicit concatenations, so a frozen arm declaration
+     keeps its meaning. Because the bytes are parsed under their own encoding, the
+     reviewer's latin-1 case (a moved cookie turning `'é'` into `'Ã©'`) differs here as
+     well as in rule 1.
+  3. **Comment attachment.** Each `COMMENT` token is reduced to its exact text plus an
+     anchor, and the two sequences must be equal. The anchor is the statement the
+     comment belongs to, named by its index in a pre-order walk of every `ast.stmt`
+     (both trees are equal, so the indexes correspond). It is the innermost statement
+     whose `lineno..end_lineno` contains the comment's line. A comment on a line no
+     statement covers is anchored *before* the first statement that starts after it, or
+     at the end of the module. A comment moved to a different statement therefore breaks
+     the pin. A comment on line 1 or 2 (a shebang or a cookie) also keeps its line number.
+  4. **Directive lines.** A directive comment is one whose text matches
+     `#\s*(type:|noqa|pyright:|mypy:|pragma|fmt:|isort:|ruff:)`, case-insensitively.
+     Its physical line's code, meaning the text before the comment decoded with the
+     detected encoding and right-stripped, must be identical on both sides. A tool reads
+     a directive by physical line, so a directive whose line formatting rewrote breaks
+     the pin even when its statement anchor is unchanged. The 34 files hold no directive
+     comments today; every match in them is inside an arm's string literal. The rule
+     exists for future freezes.
 - A decode, parse or tokenize failure on either side returns `False`. The comparator
-  fails closed: it can be stricter than formatting needs, but never looser than the
-  rule above.
+  fails closed: it can be stricter than formatting needs, but never looser than these
+  four rules.
 
 Both sides are parsed by the same interpreter, so a difference in `ast.dump` between
 Python 3.11 and 3.13 cannot split a verdict.
@@ -109,7 +132,9 @@ nothing else is read. Otherwise the original is resolved by scanning `target`'s 
 from `HEAD` (`git rev-list HEAD -- <target>`, then each commit's blob at that path,
 deduplicated) for a blob whose SHA-256 equals the digest. The pin holds when such a blob
 exists and `equivalent(blob, current, path=target)`. If no blob resolves, the pin is
-broken, never passed. Resolution is cached per `(target, digest)` within a process.
+broken, never passed. Resolution is cached within a process, keyed by
+`(repo_root.resolve(), target, digest)`: a blob found in one repository's history is
+never evidence about another's.
 
 **Scalar declaration pin.** It is a content pin over `FROZEN_DECLARATION` with the
 guard's `CUTN_DECLARATION_SHA256`. A new reader, `declaration_digest(guard)`, returns
@@ -163,6 +188,24 @@ Appended to the frozen guard doctrine:
 
 ## 7. Retiring the exclude
 
+The pre-commit hook runs `ruff format --check .`, so the exclude is removed only after
+the files it protects are already formatted. Every commit passes the gate as it stands,
+in this order:
+
+1. The comparator, the two predicates, the scalar check and the rewritten live-guard
+   checks, with the exclude still in place.
+2. The format commit: `ruff format --no-force-exclude` over exactly the 34 paths, and
+   nothing else. The exclude still lists them, so `ruff format --check .` skips them and
+   stays green. The tests that read the exclude also stay green: the exclude still
+   equals the protected set, and an explicit path is still skipped.
+3. Removal of the exclude, `protected_paths` and the three tests below. `ruff format
+   --check .` now reads the 34 files and finds them formatted.
+4. The format commit's SHA appended to `.git-blame-ignore-revs`, together with the
+   doctrine §8 amendment (§6), which names the format commit's parent as the last
+   byte-exact commit, and the `AGENTS.md` and ruff-format-gate spec updates.
+
+What step 3 removes:
+
 - `[tool.ruff.format] exclude` and its comment are removed from `python/pyproject.toml`.
   `force-exclude = true` stays: it keeps ruff's own exclusions in force for paths an
   editor passes explicitly.
@@ -172,20 +215,25 @@ Appended to the frozen guard doctrine:
   `test_the_protected_set_reads_both_freeze_forms_and_cited_surfaces`.
   `frozen_guards.protected_paths` goes with them; nothing else calls it.
   `declaration_pin` stays, because the new scalar check reads it.
-- The 34 files are formatted in one commit, which changes nothing else. A follow-up
-  commit appends its SHA to `.git-blame-ignore-revs`, as `beliefs-a555d6` did.
 - `AGENTS.md`'s formatting sentence and the ruff-format-gate spec's pointer to this
   task are updated to say the exclude is gone.
 
 ## 8. Verification
 
-- **Comparator unit tests:** a formatting-only change holds; a changed string literal,
-  a changed comment and a changed statement each break; a changed docstring's text
-  breaks while its re-indentation holds; a non-`.py` target that differs by one byte
-  breaks; unparseable input breaks.
+- **Comparator unit tests:**
+  - These hold: a formatting-only change, and a docstring that is only re-indented.
+  - These break: a changed string literal, comment, statement or docstring text; a
+    `# type: ignore[...]` moved to a different statement; a plain comment moved across a
+    statement boundary; a directive whose physical line was reformatted; and a
+    `# coding: latin-1` cookie moved below line 2 over a non-ASCII literal, the
+    reviewer's reproduction.
+  - These also break: a non-`.py` target that differs by one byte, and input that will
+    not parse.
 - **Resolution unit tests** on a scratch git repository: an absent→absent commit pin
   holds and absent→present breaks; a content pin whose blob is in history and is
-  equivalent holds; one whose digest matches no blob breaks.
+  equivalent holds; one whose digest matches no blob breaks. Two repositories with the
+  same target and digest, where only the first has the matching blob, give holds for the
+  first and broken for the second, in that order, in one process.
 - **Pin-map equality:** `{guard: broken_pins}` over all 43 guards is identical at three
   points: `f134ee9` with the old reader, the new reader before the format commit, and the
   new reader after it. That is the five cut-8 targets and the one cut-10 target, and
@@ -193,6 +241,7 @@ Appended to the frozen guard doctrine:
 - Every live guard's declaration pin holds before and after the format commit.
 - The rewritten pin-check tests in every live guard pass before and after the format
   commit.
+- The pre-commit hook passes on each of the four commits in §7, with no bypass.
 - `ruff format --check` passes with no exclude, and `just gate` is green.
 
 ## 9. Rejected alternatives
