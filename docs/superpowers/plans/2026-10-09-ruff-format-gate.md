@@ -946,7 +946,7 @@ tasks note beliefs-a555d6 "re-targets: 70 derived, 0 refused, verify 0 problems;
 - Consumes: `REFORMAT` from Task 3.
 - Produces: `just check` (and through it `hook-pre-commit` and `ci-python`) failing on any unformatted, unprotected Python file.
 
-- [ ] **Step 1: Show the gate is blind today**
+- [x] **Step 1: Show the gate is blind today**
 
 ```bash
 printf 'x = [1,\n 2]\n' > python/tests/_format_probe.py
@@ -955,7 +955,7 @@ just check
 
 Expected: passes — the gate does not see formatting (the RED).
 
-- [ ] **Step 2: Add the format check**
+- [x] **Step 2: Add the format check**
 
 In `justfile`, change line 32 to:
 
@@ -963,12 +963,12 @@ In `justfile`, change line 32 to:
 py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen ruff format --check . && uv run --frozen pyright)"
 ```
 
-- [ ] **Step 3: Show the gate now sees it, then remove the probe**
+- [x] **Step 3: Show the gate now sees it, then remove the probe**
 
 Run: `just check` — expected: fails, naming `tests/_format_probe.py` as `Would reformat`.
 Then `rm python/tests/_format_probe.py` and `just check` — expected: passes.
 
-- [ ] **Step 4: Record the reformat for blame**
+- [x] **Step 4: Record the reformat for blame**
 
 Create `.git-blame-ignore-revs`:
 
@@ -981,7 +981,7 @@ Create `.git-blame-ignore-revs`:
 
 Check: `git blame --ignore-revs-file .git-blame-ignore-revs python/tests/test_estimand.py | grep -c "<REFORMAT short hash>"` — expected `0` or only the hand-moved suppression lines.
 
-- [ ] **Step 5: Update AGENTS.md**
+- [x] **Step 5: Update AGENTS.md**
 
 Change the gate bullet's opening from `run \`just check\` (ruff, pyright, biome, tsc, \`tasks check\`)` to:
 
@@ -991,7 +991,7 @@ Change the gate bullet's opening from `run \`just check\` (ruff, pyright, biome,
 
 (Keep the rest of that bullet as it is.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add justfile .git-blame-ignore-revs AGENTS.md
@@ -1091,3 +1091,6 @@ git commit -m "chore(tasks): close beliefs-a555d6"
   `docs/plans/2026-10-09-ruff-format-retargets.json`.
 - Codex runs long checks through tracked exec sessions with shell timeouts and bounded
   waits, the equivalent of the plan's Claude-specific background Bash mechanism.
+- Task 5’s blame check recognizes the ignore entry. Nine newly split delimiter lines
+  in `test_estimand.py` remain attributable to the reformat because Git cannot map
+  them to earlier lines; `blame.markUnblamableLines=true` marks all nine with `*`.
