@@ -1,10 +1,10 @@
 ---
 id: beliefs-dbb0a4
 title: Decide whether the ts parity artifact should be a published package at all
-status: idea
+status: shelved
 priority: 2
 created: 2026-09-07T16:01:08Z
-updated: 2026-09-07T16:01:08Z
+updated: 2026-10-09T14:39:37Z
 depends: []
 tags: [hygiene]
 ---
@@ -16,3 +16,8 @@ Worth separating two things that look alike. private: true is a publish guard, n
 The substantive question is what the package is for. The README says ts carries only the one shared encoding — formal model limitation 9, M10 being the only cross-implementation row — which reads as a parity artifact rather than a library anyone should depend on. Publishing it invites use of something that is not meant to be used, and every published package is a support commitment. nodes ships its ts because that ts is a real implementation; beliefs' is not the same kind of thing.
 
 Recommendation on the table: keep private: true until there is a reason to ship, and decide this on what the artifact is for rather than on consistency with its siblings.
+
+## Notes
+
+- 2026-10-09T14:39:36Z (main): shelved: a release of the beliefs packages is planned, or a consumer asks to depend on the ts shared encoding
+- 2026-10-09T14:39:36Z (main): scope: shelved; ts/package.json is still @verifiably/beliefs 0.0.0 with private: true and no open release work exists, so the status quo already matches the recommendation (keep private until there is a reason to ship)
