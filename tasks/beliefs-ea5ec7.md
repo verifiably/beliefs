@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: freeze-pins-modulo-format
 created: 2026-10-09T15:44:29Z
-updated: 2026-10-09T21:03:16Z
+updated: 2026-10-09T21:04:15Z
 started: 2026-10-09T20:39:57Z
 depends: [beliefs-a555d6]
 tags: [hygiene, conformance]
@@ -47,3 +47,5 @@ Verification:
   provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-09T21:02:19Z (freeze-pins-modulo-format): review: spec round 1 — verdict: revise; findings: must-fix 1, should-fix 2; reviewer: unverified (pasted by user)
 - 2026-10-09T21:03:16Z (freeze-pins-modulo-format): spec round 1 revisions: comparator reads bytes under PEP 263, requires equal detected encoding, anchors each comment to its statement and directive comments to an unchanged physical line (prototype: 34/34 still equivalent, 4 negatives break); content cache keyed by repo root; four-commit order keeps pre-commit format check green
+- 2026-10-09T21:04:15Z (freeze-pins-modulo-format): parked (waiting on user, review): user reviews round-2 spec docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md (commit 89c9cf9 in .worktrees/freeze-pins-modulo-format); on approval, agent writes the implementation plan
+  provenance: {"harness_session":"claude-code:a233969f-f70d-44bc-b4af-5c85f11ac5bd","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
