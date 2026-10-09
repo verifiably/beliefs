@@ -1,18 +1,20 @@
 ---
 id: beliefs-ea5ec7
 title: Let freeze pins hold modulo formatting so frozen modules can be formatted
-status: doing
+status: done
 priority: 3
 size: m
 complexity: high
 process: planned
 owner: freeze-pins-modulo-format
 created: 2026-10-09T15:44:29Z
-updated: 2026-10-09T23:04:57Z
+updated: 2026-10-09T23:12:33Z
 started: 2026-10-09T20:39:57Z
+completed: 2026-10-09T23:12:33Z
 depends: [beliefs-a555d6]
 tags: [hygiene, conformance]
 source: beliefs-a555d6
+model: claude-opus-5-5
 spec: docs/superpowers/specs/2026-10-09-freeze-pins-modulo-formatting-design.md
 plan: docs/superpowers/plans/2026-10-09-freeze-pins-modulo-formatting.md
 ---
@@ -76,3 +78,7 @@ Verification:
 - 2026-10-09T22:40:47Z (freeze-pins-modulo-format): review: impl round 5 — verdict: accept; findings: minor 1; reviewer: claude-code/sonnet (Task 5 task review)
 - 2026-10-09T22:51:08Z (freeze-pins-modulo-format): review: impl round 6 — verdict: revise; findings: Important 1, Minor 5; reviewer: claude-code/opus (final whole-branch review)
 - 2026-10-09T23:04:57Z (freeze-pins-modulo-format): review: impl round 7 — verdict: accept; findings: minor 2; reviewer: claude-code/opus (final fix round 1 re-review)
+- 2026-10-09T23:12:33Z (main): done
+  provenance: {"harness_session":"claude-code:8ad0b7a1-bf19-44be-9f7f-422fa9ca7835","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-09T23:12:33Z (main): freeze pins on .py targets hold modulo formatting (pin_equivalence + frozen_guards predicates, 37 live guards); 34 frozen files formatted at ea6393a; format exclude retired; doctrine §8; merged at 88584ee
+  provenance: {"harness_session":"claude-code:8ad0b7a1-bf19-44be-9f7f-422fa9ca7835","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
