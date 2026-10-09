@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T18:26:47Z
+updated: 2026-10-09T19:40:31Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -84,3 +84,9 @@ Verification:
 - 2026-10-09T17:58:58Z (chore/ruff-format-gate): execution: inline in .worktrees/ruff-format-gate by codex; fresh whole-branch reviewer at the end; no push
 - 2026-10-09T18:11:14Z (chore/ruff-format-gate): reformat commit REFORMAT=03d91bd4ced210e8935f3101da1dc59fe1eef7b3, BASE=f87cb460b5279a744a76c0d0c521190d30b7d715; 313 files; 56 protected paths unchanged; declarations/pins identical including post-commit comparison; fast red only in 3 staleness tests; four suppression comments moved
 - 2026-10-09T18:26:47Z (chore/ruff-format-gate): re-targets: 70 derived, 0 refused, verify 0 problems; static guard tests 287 passed; cut-46 mutation pilot 13 passed in 15.52 s; cut 10 records 3 stale arms; occupied-anchor widening preserves cut-46 uniqueness without weakening its gate
+- 2026-10-09T18:31:41Z (chore/ruff-format-gate): full acceptance chain starting from a6c3123, after 287 static tests and cut-46 pilot 13/13 sound passed; certified-host waiver unset; tracked Codex exec session, 2-hour shell timeout
+- 2026-10-09T18:39:14Z (chore/ruff-format-gate): chain progress: cut 6/7/9/11/12 guards passed; tracked acceptance session still running through cut 17's inventory; no failure observed
+- 2026-10-09T19:03:54Z (chore/ruff-format-gate): chain progress: cut 27 and world-selection acceptance passed; cut 28 mutation audit running in tracked session 47983; no failure observed
+- 2026-10-09T19:26:16Z (chore/ruff-format-gate): chain progress: cut 40/41 passed; cut 42 remote-publication acceptance running in tracked session 47983; no failure observed
+- 2026-10-09T19:34:30Z (chore/ruff-format-gate): full acceptance chain passed: all 39 live guards; evidence in .work/ruff-format-gate/cut46-chain.log; starting just gate with skip reporting, certified-host waiver unset
+- 2026-10-09T19:40:31Z (chore/ruff-format-gate): verification: cut-46 chain passed (76 pytest phases, 1172 tests, 3654.45 s pytest); just gate passed (6093 portable Python, 46 N2, 155 TypeScript; 1 causal-only fixture skip with other-layer coverage elsewhere), capability waiver unset

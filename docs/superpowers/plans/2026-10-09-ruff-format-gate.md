@@ -1009,7 +1009,7 @@ git commit -m "build(check): enforce ruff format in the gate"
 - Consumes: the branch tip after Task 5.
 - Produces: the chain and gate evidence on the task, the task closed, the branch merged.
 
-- [ ] **Step 1: Check `main` has not moved and no lane is open**
+- [x] **Step 1: Check `main` has not moved and no lane is open**
 
 ```bash
 git rev-list --count HEAD..main
@@ -1019,7 +1019,7 @@ git worktree list
 
 Expected: `0` commits on `main` not in the branch; every other branch 0 ahead of `main`; no worktree but the main checkout and this one. If `main` has moved: rebase Tasks 1–2 onto it, then redo Task 3 by running the command again (never resolve a conflict in the reformat by hand), then redo Task 4 from Step 1 and Task 5. If another lane holds unmerged kernel work, park the task `--reason dependency` naming it.
 
-- [ ] **Step 2: Run the newest runner's chain**
+- [x] **Step 2: Run the newest runner's chain**
 
 From the worktree's `python/` after `cd "$(pwd -P)"`, through Bash with `run_in_background: true` and `timeout: 7200000`:
 
@@ -1029,7 +1029,7 @@ set -o pipefail && host-budget run -- uv run --frozen python tools/cut46_accepta
 
 Expected: exit 0, every phase passes, and the final line reads `declared arms: …`. At cut 46 the chain reported about 3713 s of pytest time. A cap kill (exit 144, truncated log) is not detached: park `--reason environment` naming the cap. A failure is analysed from the completed phases before any retry.
 
-- [ ] **Step 3: Run the full gate**
+- [x] **Step 3: Run the full gate**
 
 Through Bash with `run_in_background: true` and `timeout: 1800000`:
 
@@ -1039,7 +1039,7 @@ set -o pipefail && just gate 2>&1 | tee .work/ruff-format-gate/gate.log
 
 Expected: exit 0; record the pytest summary lines.
 
-- [ ] **Step 4: Record the verification**
+- [x] **Step 4: Record the verification**
 
 ```bash
 tasks note beliefs-a555d6 "verification: cut-46 chain passed (<phases> phases, <s> s pytest), just gate passed (<summary>)"
@@ -1094,3 +1094,8 @@ git commit -m "chore(tasks): close beliefs-a555d6"
 - Task 5’s blame check recognizes the ignore entry. Nine newly split delimiter lines
   in `test_estimand.py` remain attributable to the reformat because Git cannot map
   them to earlier lines; `blame.markUnblamableLines=true` marks all nine with `*`.
+- Task 6 verification at `a6c3123`: the complete cut-46 chain passed all 76 pytest
+  phases (1,172 tests; 3,654.45 s of pytest time). `just gate` passed 6,093 portable
+  Python tests, all 46 standalone N2 tests, and all 155 TypeScript tests. The one
+  portable skip is `test_composite.py`'s causal-only fixture case, whose other layer
+  is exercised by `test_composite_boundary`; the capability waiver was unset.
