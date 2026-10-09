@@ -4,7 +4,7 @@ title: "In-use test-fast runs a median of 111 s, above the 90 s warm target"
 status: idea
 priority: 3
 created: 2026-09-30T00:19:13Z
-updated: 2026-09-30T10:37:37Z
+updated: 2026-10-09T14:03:50Z
 depends: []
 tags: [testing]
 source: beliefs-0c1cc9
@@ -21,3 +21,4 @@ Scope first as a measurement: split the recorded runs by concurrency and by work
 
 - 2026-09-30T00:19:13Z (main): concerns: beliefs-9b248a extension — the 90 s target was defined warm on the certified host; recorded in-use runs sit at a 111 s median
 - 2026-09-30T10:37:37Z (main): data point 2026-09-30: test-fast took 879 s (5887 passed) when host-budget sized it to 1 worker under load avg ~10; the in-use median should say whether such runs are in or out of its sample
+- 2026-10-09T14:03:50Z (main): scope: drop; no task changes; proposal: covered by beliefs-04d696 (done; tt-latency verify on titan after 2026-09-30T19:25:13Z: test-fast median 80.01 s over 3 runs, limit 90 s). tt-report since 2026-09-30 shows test-fast median 89.1 s over 66 runs (p90 172.8 s). The loaded-host tail is handled by the tt-latency incident mechanism, not by this idea
