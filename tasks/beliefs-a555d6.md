@@ -1,15 +1,16 @@
 ---
 id: beliefs-a555d6
 title: ruff format is not in the gate; 11 reproduction-lane files drift from it
-status: doing
+status: done
 priority: 3
 size: m
 complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T19:50:59Z
+updated: 2026-10-09T19:56:57Z
 started: 2026-10-09T17:01:36Z
+completed: 2026-10-09T19:56:57Z
 depends: []
 tags: [hygiene]
 spec: docs/superpowers/specs/2026-10-09-ruff-format-gate-design.md
@@ -93,3 +94,7 @@ Verification:
 - 2026-10-09T19:43:11Z (chore/ruff-format-gate): main advanced only at c99da06 (new task record); merged into the branch and proved all non-task files byte-identical to verified 8f91ef6; retaining reformat 03d91bd and all chain/gate evidence
 - 2026-10-09T19:50:58Z (chore/ruff-format-gate): review: impl round 1 — verdict: accept; findings: none; reviewer: codex
 - 2026-10-09T19:50:58Z (chore/ruff-format-gate): fresh whole-branch review accepted: 313 formatting ASTs identical; all 56 protected files unchanged; 70 exact sabotage rows across 28 guards; recorded originals match base; current verify 70/0; no declined judgments or deferred findings
+- 2026-10-09T19:56:57Z (chore/ruff-format-gate): done
+  provenance: {"harness_session":"codex:01a121a7-aedd-7b71-942e-be84b87b9ce4","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-09T19:56:57Z (chore/ruff-format-gate): ruff format enforced in the gate; 313 files formatted at 03d91bd, 56 frozen files protected; 70 live arms re-targeted exactly, 3 cited arms recorded; chain/gate pass and fresh review accepted; merged locally
+  provenance: {"harness_session":"codex:01a121a7-aedd-7b71-942e-be84b87b9ce4","harness_session_source":"CODEX_THREAD_ID"}

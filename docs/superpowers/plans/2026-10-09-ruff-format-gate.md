@@ -1051,7 +1051,7 @@ git commit -m "chore(tasks): record beliefs-a555d6 verification"
 
 The executing skill's final review runs over `main..chore/ruff-format-gate`, with corrective rounds for its Critical and Important findings. A fix touching guards or the kernel reruns Task 4 Steps 6–10, and Steps 2–3 here, before landing.
 
-- [ ] **Step 6: Land**
+- [x] **Step 6: Land**
 
 Re-run Step 1's checks, then from the main checkout:
 
@@ -1062,7 +1062,7 @@ just check
 
 Expected: the merge applies cleanly and `just check` passes on `main`. The merge is a local merge in a personal repository; pushing is a separate step for the user.
 
-- [ ] **Step 7: Close the child, then the parent**
+- [x] **Step 7: Close the child, then the parent**
 
 From the main checkout, after the merge:
 
@@ -1103,3 +1103,6 @@ git commit -m "chore(tasks): close beliefs-a555d6"
   Important, or Minor findings and no declined judgments. The reviewer independently
   compared all 313 formatting ASTs, all protected paths, all 70 retarget originals,
   and the verification logs.
+- Landed locally at merge `3406f82`; `just check` passed on `main`. All six
+  children and `beliefs-a555d6` are closed. Final plan status and task records were
+  written in the isolated worktree and fast-forwarded to `main` after the merge.
