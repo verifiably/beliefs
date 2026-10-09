@@ -437,12 +437,10 @@ def test_a_disagreement_does_not_truncate_the_removal_inventory():
 def test_the_baseline_is_replayed_from_the_genesis():
     view = chain(genesis(("corpus.yaml", MANIFEST)))
 
-    assert not verify.replay(
-        view, (("corpus.yaml", MANIFEST),), ABSENT, None, state_facts=opaque_facts
-    ).refuted
-    assert verify.replay(
-        view, (("corpus.yaml", RECORD),), ABSENT, None, state_facts=opaque_facts
-    ).disagreements == ("head:corpus.yaml",)
+    assert not verify.replay(view, (("corpus.yaml", MANIFEST),), ABSENT, None, state_facts=opaque_facts).refuted
+    assert verify.replay(view, (("corpus.yaml", RECORD),), ABSENT, None, state_facts=opaque_facts).disagreements == (
+        "head:corpus.yaml",
+    )
 
 
 # --- the policy pass -----------------------------------------------------
@@ -630,9 +628,7 @@ def test_the_classification_table_over_both_channels(source):
 
     passing, digest = resolved(verification_bytes("v1", "passed"))
     assert passing.findings[1].code == "removal-classified"
-    assert passing.findings[1].detail == (
-        f"txid=tx-5 digest={digest} source={source} kind=verification verdict=passed"
-    )
+    assert passing.findings[1].detail == (f"txid=tx-5 digest={digest} source={source} kind=verification verdict=passed")
 
     unreadable = Node(
         id="verification:v1",
@@ -766,14 +762,10 @@ def test_rolled_back_creation_absence_is_not_refuted(tmp_path):
     chain = rolled_back_creation(tmp_path)
     view = cut8_view(chain)
     (creation,) = [
-        entry
-        for entry in view.entries
-        if type(entry) is RegisteredEntryView and RECORD_PATH in dict(entry.final)
+        entry for entry in view.entries if type(entry) is RegisteredEntryView and RECORD_PATH in dict(entry.final)
     ]
     settlements = [
-        entry
-        for entry in view.entries
-        if type(entry) is SettledEntryView and entry.registration == creation.digest
+        entry for entry in view.entries if type(entry) is SettledEntryView and entry.registration == creation.digest
     ]
     assert [entry.committed for entry in settlements] == [False]
     assert not (chain.root / RECORD_PATH).exists()
@@ -799,11 +791,7 @@ def test_committed_creation_raw_deleted_is_refuted(tmp_path):
     chain = populated_corpus(tmp_path)
     view = cut8_view(chain)
     assert (chain.root / RECORD_PATH).exists()
-    settled = [
-        entry
-        for entry in view.entries
-        if type(entry) is SettledEntryView and entry.committed
-    ]
+    settled = [entry for entry in view.entries if type(entry) is SettledEntryView and entry.committed]
     assert len(settled) == 2
 
     (chain.root / RECORD_PATH).unlink()
@@ -1045,7 +1033,10 @@ def test_history_validation_refusals_and_digest_named_findings(tmp_path, key):
         verify.replay(view, disk, ENGINE_ABSENT, {key: b"a record"}, state_facts=PRODUCTION_FACTS)
 
     # And every classification that *is* produced names the digest it matched.
-    for payload, code in ((removed_bytes, "failing-verification-removed"), (verification_bytes("v1", "passed"), "removal-unclassified")):
+    for payload, code in (
+        (removed_bytes, "failing-verification-removed"),
+        (verification_bytes("v1", "passed"), "removal-unclassified"),
+    ):
         history = held(payload)
         matched = next(iter(history))
         result = verify.replay(view, disk, ENGINE_ABSENT, history, state_facts=PRODUCTION_FACTS)

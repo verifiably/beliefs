@@ -37,9 +37,7 @@ def test_two_executions_of_one_recipe_differ_in_trace_and_job_ids(tmp_path) -> N
     wide = run_workflow(tmp_path / "wide", scratch_base=tmp_path / "base-one", **common)
     assert isinstance(narrow, RunMinted) and isinstance(wide, RunMinted)
     assert narrow.run.recipe.identity() == wide.run.recipe.identity()
-    assert {job.job_id for job in narrow.run.occurrence.trace} != {
-        job.job_id for job in wide.run.occurrence.trace
-    }
+    assert {job.job_id for job in narrow.run.occurrence.trace} != {job.job_id for job in wide.run.occurrence.trace}
     assert len(narrow.run.occurrence.trace) < len(wide.run.occurrence.trace)
     narrow_seeds = narrow.run.occurrence.realized_seeds.seeds
     wide_seeds = wide.run.occurrence.realized_seeds.seeds

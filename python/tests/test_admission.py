@@ -29,8 +29,13 @@ def run(*inputs: RunInput) -> RunValue:
 
 def assessment() -> AssessmentValue:
     return AssessmentValue(
-        spec="spec-1", run="run-1", proposition="prop-1", outcome="supported", interpretation_rule="rule-1",
-        estimand=typed_estimand(), applicability=typed_applicability(),
+        spec="spec-1",
+        run="run-1",
+        proposition="prop-1",
+        outcome="supported",
+        interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
 
@@ -142,8 +147,13 @@ def test_v2_admit_matches_a_typed_run_ref_to_the_bare_member():
     from beliefs.record import AssessmentValue, RunValue
 
     assessment = AssessmentValue(
-        spec="s", run="r1", proposition="p", outcome="supported", interpretation_rule="rule-1",
-        estimand=typed_estimand(), applicability=typed_applicability(),
+        spec="s",
+        run="r1",
+        proposition="p",
+        outcome="supported",
+        interpretation_rule="rule-1",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     other = RunValue(ref="run:r2", spec="s", inputs=())
     refused = admit(assessment, other, {}, ())

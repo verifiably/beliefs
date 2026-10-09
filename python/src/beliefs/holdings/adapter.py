@@ -40,8 +40,10 @@ def _found(member: Mapping[str, object]) -> str | None:
 
 def _matches(row: Mapping[str, object], declared: str) -> bool:
     found = _found(row)
-    return found is not None and _algorithm(found) == _algorithm(declared) and (
-        found == declared or row.get("expected") == declared
+    return (
+        found is not None
+        and _algorithm(found) == _algorithm(declared)
+        and (found == declared or row.get("expected") == declared)
     )
 
 
@@ -75,8 +77,6 @@ def dataset_observations(
         return DatasetBlocked(tuple(sorted(blocked_locations)), tuple(sorted(blocked_reasons)))
 
     observations = {
-        (found, cast(str, member["location"]))
-        for member in active
-        if (found := _joined(member, declared)) is not None
+        (found, cast(str, member["location"])) for member in active if (found := _joined(member, declared)) is not None
     }
     return DatasetAnswer(tuple(ByteObservation(digest, location) for digest, location in sorted(observations)))

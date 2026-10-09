@@ -206,9 +206,7 @@ class TestAbsenceGatesDivergence:
         snapshot = LineageSnapshot(
             roots=("d",),
             bases={"d": Basis(tag="single", routes=(route("d", "a", transforms=("a",)),))},
-            producers={
-                "d": (Producer(stored_run="run:gone", resolved_run=None, transforms=(), absent=("beta",)),)
-            },
+            producers={"d": (Producer(stored_run="run:gone", resolved_run=None, transforms=(), absent=("beta",)),)},
             not_present={"run:gone": "beta"},
         )
         assert divergence_state(snapshot, "d") == "incomplete"
@@ -323,8 +321,7 @@ class TestRetirement:
         assert effective_tag(conflict_snapshot(retired_routes={"x": ("route:a", "route:b")}), "x") == "retired"
         assert effective_tag(conflict_snapshot(retired_routes={"y": ("route:c",)}), "y") == "retired"
         assert [
-            r.stored_ancestor
-            for r in effective_routes(conflict_snapshot(retired_routes={"x": ("route:a",)}), "x")
+            r.stored_ancestor for r in effective_routes(conflict_snapshot(retired_routes={"x": ("route:a",)}), "x")
         ] == ["b"]
 
     def test_retiring_one_conflicting_route_certifies_over_the_survivor(self):
@@ -333,9 +330,7 @@ class TestRetirement:
         assert result.state == "independent" and result.findings == ()
 
     def test_retiring_every_route_is_incomplete_never_single(self):
-        result = certify(
-            conflict_snapshot(retired_routes={"x": ("route:a", "route:b")}), ("x",), ("y",)
-        )
+        result = certify(conflict_snapshot(retired_routes={"x": ("route:a", "route:b")}), ("x",), ("y",))
         assert result.state == "not-certified"
         assert "lineage-incomplete" in result.findings and "lineage-divergent" not in result.findings
 
@@ -366,9 +361,7 @@ class TestRetirement:
         assert cast(dict[str, str], both["divergence"])["x"] == "incomplete"
         assert plain != one != both
         no_identity = snapshot_projection(
-            LineageSnapshot(
-                roots=("z",), bases={"z": Basis(tag="single", routes=(route("z", "w"),))}, producers={}
-            )
+            LineageSnapshot(roots=("z",), bases={"z": Basis(tag="single", routes=(route("z", "w"),))}, producers={})
         )
         no_identity_bases = cast(dict[str, Any], no_identity["bases"])
         assert no_identity_bases["z"]["routes"][0]["identity"] == []
@@ -391,9 +384,7 @@ class TestRetirement:
             ),
         }
         original = retire(LineageSnapshot(roots=("x", "y"), bases=bases, producers={}), {"x": ("route:a",)})
-        swapped = retire(
-            LineageSnapshot(roots=("x", "y"), bases=swapped_bases, producers={}), {"x": ("route:a",)}
-        )
+        swapped = retire(LineageSnapshot(roots=("x", "y"), bases=swapped_bases, producers={}), {"x": ("route:a",)})
         assert [r.stored_ancestor for r in effective_routes(original, "x")] == ["b"]
         assert [r.stored_ancestor for r in effective_routes(swapped, "x")] == ["a"]
         assert certify(original, ("x",), ("y",)).state == "independent"
@@ -403,9 +394,7 @@ class TestRetirement:
         )
 
     def test_retire_keeps_only_datasets_with_a_basis_and_refuses_unsorted(self):
-        snapshot = retire(
-            conflict_snapshot(), {"x": ("route:b", "route:a"), "elsewhere": ("route:z",)}
-        )
+        snapshot = retire(conflict_snapshot(), {"x": ("route:b", "route:a"), "elsewhere": ("route:z",)})
         assert dict(snapshot.retired) == {"x": ("route:a", "route:b")}
         with pytest.raises(MalformedSnapshot):
             LineageSnapshot(roots=("x",), bases={}, producers={}, retired={"x": ("route:b", "route:a")})
@@ -433,9 +422,7 @@ class TestWalkAbsences:
         snapshot = LineageSnapshot(
             roots=("x",),
             bases={},
-            producers={
-                "x": (Producer(stored_run="run-x", resolved_run=None, transforms=(), absent=("c9",)),)
-            },
+            producers={"x": (Producer(stored_run="run-x", resolved_run=None, transforms=(), absent=("c9",)),)},
             not_present={"x": "c2"},
         )
         assert absences(snapshot) == (Absence("run-x", "c9"), Absence("x", "c2"))

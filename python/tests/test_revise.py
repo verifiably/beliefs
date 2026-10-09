@@ -90,9 +90,7 @@ def test_revise_display_statement_add_change_remove(writer):
 
 def test_revise_refuses_semantic_field_change(writer):
     old = writer.add(prop())
-    edited = old.model_copy(
-        update={"facets": {**old.facets, stored.PROPOSITION_FACET: {"op": "causes"}}}
-    )
+    edited = old.model_copy(update={"facets": {**old.facets, stored.PROPOSITION_FACET: {"op": "causes"}}})
 
     with pytest.raises(ReviseOutsideAllowlist):
         writer.revise(edited)
@@ -101,11 +99,7 @@ def test_revise_refuses_semantic_field_change(writer):
 def test_revise_refuses_relation_change(writer):
     old = writer.add(prop())
     edited = old.model_copy(
-        update={
-            "relations": [
-                stored.Relation(source=old.id, predicate="cites", target="source:elsewhere")
-            ]
-        }
+        update={"relations": [stored.Relation(source=old.id, predicate="cites", target="source:elsewhere")]}
     )
 
     with pytest.raises(ReviseOutsideAllowlist):
@@ -174,15 +168,11 @@ def test_revise_revalidates_a_forged_nested_model(writer):
 
 def test_revise_refuses_malformed_public_shapes(writer):
     old = writer.add(prop())
-    malformed_display = old.model_copy(
-        update={"facets": {**old.facets, stored.DISPLAY_FACET: {"extra": "field"}}}
-    )
+    malformed_display = old.model_copy(update={"facets": {**old.facets, stored.DISPLAY_FACET: {"extra": "field"}}})
     malformed_relation = old.model_copy(
         update={"relations": [{"source": old.id, "predicate": "cites", "target": "source:s"}]}
     )
-    unencodable_semantics = old.model_copy(
-        update={"facets": {**old.facets, stored.PROPOSITION_FACET: {"op": 0.1}}}
-    )
+    unencodable_semantics = old.model_copy(update={"facets": {**old.facets, stored.PROPOSITION_FACET: {"op": 0.1}}})
 
     for candidate in (malformed_display, malformed_relation, unencodable_semantics):
         with pytest.raises(ValidationRefused):

@@ -23,9 +23,7 @@ def test_display_statement_stored_uncovered():
     assert stored.stored_semantic_hash(node) == stored.stored_semantic_hash(bare)
 
 
-@pytest.mark.parametrize(
-    "facet", [{"extra": 1}, {}, {"display_statement": 1}, {"display_statement": "x", "extra": 1}]
-)
+@pytest.mark.parametrize("facet", [{"extra": 1}, {}, {"display_statement": 1}, {"display_statement": "x", "extra": 1}])
 def test_display_facet_shape_is_validated(facet):
     node = stored.proposition_node("p1", title="t", claim={"op": "affects"})
     raw = node.model_copy(update={"facets": {**node.facets, "display": facet}})

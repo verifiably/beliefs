@@ -23,9 +23,7 @@ COORDINATION_CONTRACT_DOMAIN = "science.coordination-contract.v1"
 _MINT = object()
 _NAME = re.compile(r"[a-z][a-z0-9-]*")
 _IDENTITY = re.compile(r"[0-9a-f]{64}")
-_ROOT_REQUIRED = frozenset(
-    {"contract", "version", "lineage", "address_root", "query_vocabulary", "kinds"}
-)
+_ROOT_REQUIRED = frozenset({"contract", "version", "lineage", "address_root", "query_vocabulary", "kinds"})
 
 
 @dataclass(frozen=True)
@@ -107,9 +105,7 @@ def _mapping(value: object, where: str) -> dict[str, object]:
     return value  # type: ignore[return-value]
 
 
-def _fields(
-    value: dict[str, object], required: frozenset[str], optional: frozenset[str], where: str
-) -> None:
+def _fields(value: dict[str, object], required: frozenset[str], optional: frozenset[str], where: str) -> None:
     if not required <= set(value) or set(value) - required - optional:
         raise MalformedContract(
             f"{where}: expected exactly {', '.join(sorted(required))}"
@@ -146,9 +142,7 @@ def parse_coordination_contract(
     predecessor: CoordinationContract | None,
 ) -> CoordinationContract:
     if predecessor is not None and not isinstance(predecessor, CoordinationContract):
-        raise UnparsedContract(
-            f"predecessor is a {type(predecessor).__name__}, not a parsed CoordinationContract"
-        )
+        raise UnparsedContract(f"predecessor is a {type(predecessor).__name__}, not a parsed CoordinationContract")
     root = _mapping(document, source)
     _fields(root, _ROOT_REQUIRED, frozenset({"description"}), source)
     if root["contract"] != "coordination":
@@ -170,9 +164,7 @@ def parse_coordination_contract(
         f"{source}: query_vocabulary",
     )
     query_kinds = _strings(vocabulary["kinds"], f"{source}: query_vocabulary.kinds")
-    query_relations = _strings(
-        vocabulary["relations"], f"{source}: query_vocabulary.relations"
-    )
+    query_relations = _strings(vocabulary["relations"], f"{source}: query_vocabulary.relations")
 
     raw_kinds = _mapping(root["kinds"], f"{source}: kinds")
     if not raw_kinds:
@@ -211,9 +203,7 @@ def parse_coordination_contract(
     return contract
 
 
-def check_coordination_succession(
-    contract: CoordinationContract, predecessor: CoordinationContract | None
-) -> None:
+def check_coordination_succession(contract: CoordinationContract, predecessor: CoordinationContract | None) -> None:
     if contract.predecessor is None:
         if predecessor is not None:
             raise SuccessionViolation("coordination genesis cannot have a supplied predecessor")
@@ -243,9 +233,7 @@ def check_coordination_succession(
         raise SuccessionViolation("coordination successor drops query relations")
 
 
-def load_coordination_contract(
-    path: Path, *, predecessor: CoordinationContract | None
-) -> CoordinationContract:
+def load_coordination_contract(path: Path, *, predecessor: CoordinationContract | None) -> CoordinationContract:
     from beliefs.contract.document import load_document
 
     document = load_document(path, source=str(path))

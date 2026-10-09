@@ -90,25 +90,85 @@ _LIVE_SABOTAGES = {
             "        self._refuse_family_kinds(node, admitted_kind=node.kind)\n"
             "        self._refuse_source(node, provenance=True)\n"
         ),
-        after=(
-            "        self._refuse_family_kinds(node)\n"
-            "        self._refuse_source(node, provenance=True)\n"
-        ),
+        after=("        self._refuse_family_kinds(node)\n        self._refuse_source(node, provenance=True)\n"),
     ),
     "W5a": Sabotage(
         module="relocation.py",
         before="        moved = destination._add_locked(node, provenance=True)\n",
         after='        moved = destination._add_locked(node.model_copy(update={"uid": "0" * 32}), provenance=True)\n',
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "T2b": Sabotage(
         module="relocation.py",
-        before="        destination_intent = destination._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        source_intent = source._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        moved = destination._add_locked(node, provenance=True)\n        source._delete_locked(node.id)\n",
-        after="        moved = destination._add_locked(node, provenance=True)\n        source._delete_locked(node.id)\n        destination_intent = destination._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        source_intent = source._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n",
+        before=(
+            "        destination_intent = destination._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+            "        source_intent = source._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+            "        moved = destination._add_locked(node, provenance=True)\n"
+            "        source._delete_locked(node.id)\n"
+        ),
+        after=(
+            "        moved = destination._add_locked(node, provenance=True)\n"
+            "        source._delete_locked(node.id)\n"
+            "        destination_intent = destination._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+            "        source_intent = source._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+        ),
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "T2c": Sabotage(
         module="relocation.py",
-        before="        keep_intent = keep_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        other_intent = other_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        survivor = keep_writer._replace_locked(merged, provenance=True)\n        other_writer._delete_locked(other_node.id)\n",
-        after="        survivor = keep_writer._replace_locked(merged, provenance=True)\n        other_writer._delete_locked(other_node.id)\n        keep_intent = keep_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        other_intent = other_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n",
+        before=(
+            "        keep_intent = keep_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+            "        other_intent = other_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+            "        survivor = keep_writer._replace_locked(merged, provenance=True)\n"
+            "        other_writer._delete_locked(other_node.id)\n"
+        ),
+        after=(
+            "        survivor = keep_writer._replace_locked(merged, provenance=True)\n"
+            "        other_writer._delete_locked(other_node.id)\n"
+            "        keep_intent = keep_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+            "        other_intent = other_writer._append_operation_intent(intent.kind, intent.event_token, intent.actor)\n"
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "W16e": Sabotage(
+        module="stored.py",
+        before='    if tag == "conflict" and (len(routes) < 2 or len(set(keys)) != len(keys) or keys != sorted(keys)):\n',
+        after='    if tag == "conflict" and (len(set(keys)) != len(keys) or keys != sorted(keys)):\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "C3": Sabotage(
+        module="world/epoch.py",
+        before='            {"corpus_id": corpus_id, "corpus_state": corpus_state} for corpus_id, corpus_state in receipt.corpus_states\n',
+        after='            {"corpus_id": corpus_id, "corpus_state": "0" * 64} for corpus_id, _corpus_state in receipt.corpus_states\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "M3b": Sabotage(
+        module="relocation.py",
+        before=(
+            "        other_writer._delete_locked(other_node.id)\n"
+            "        keep_writer._publish_operation_report(keep_report, keep_intent, operation=keep_report_op)\n"
+        ),
+        after=(
+            "        other_writer._delete_locked(other_node.id)\n"
+            "        keep_writer._replace_locked(\n"
+            "            next(\n"
+            "                node\n"
+            "                for node in keep_writer.read_view.iter_stored()\n"
+            '                if node.kind == "retraction" and node.id != keep_node.id\n'
+            "            )\n"
+            "        )\n"
+            "        keep_writer._publish_operation_report(keep_report, keep_intent, operation=keep_report_op)\n"
+        ),
     ),
 }
 CUT16_ARMS = tuple(

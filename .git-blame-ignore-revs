@@ -1,0 +1,4 @@
+# Formatting-only commits, skipped by `git blame`. GitHub reads this file by name; for
+# local blame, run once: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# ruff format over python/, excluding freeze-protected files (beliefs-a555d6)
+03d91bd4ced210e8935f3101da1dc59fe1eef7b3

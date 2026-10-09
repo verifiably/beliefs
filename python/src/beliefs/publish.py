@@ -168,7 +168,9 @@ class _Attempt:
     def remote(self) -> _Remote:
         """Steps 7–9's view of this attempt (decision 5)."""
         assert self.transport is not None
-        return _Remote(self.writer, self.resolver, self.opened, self.op, self.clock, self.seam, self.port, self.transport)
+        return _Remote(
+            self.writer, self.resolver, self.opened, self.op, self.clock, self.seam, self.port, self.transport
+        )
 
 
 @dataclass(frozen=True)
@@ -230,7 +232,10 @@ def _mark_nonregular(op: Path) -> bool:
 
 
 def _selected_attributions(
-    read: WorldReadView, registry: RegistryView, selected: tuple[str, ...], coordination_pin: str,
+    read: WorldReadView,
+    registry: RegistryView,
+    selected: tuple[str, ...],
+    coordination_pin: str,
 ) -> tuple[tuple[str, str, str], ...] | None:
     """Check all admissions first, then each replica's immutable captured layout."""
     grouped: dict[str, list[str]] = {}
@@ -242,7 +247,9 @@ def _selected_attributions(
     for holder in sorted(grouped):
         if holder not in admissions:
             raise PublicationRefused(
-                "attribution-holder-unregistered", corpus_ids=(holder,), refs=tuple(sorted(grouped[holder])),
+                "attribution-holder-unregistered",
+                corpus_ids=(holder,),
+                refs=tuple(sorted(grouped[holder])),
             )
     replicas = tuple(holder for holder in sorted(grouped) if type(admissions[holder].provenance) is ReplicaOf)
     if coordination_pin != V3_PIN:
@@ -260,7 +267,10 @@ def _selected_attributions(
                 raise PublicationArrivalRefused("marker-malformed")
         except PublicationArrivalRefused as refused:
             raise PublicationRefused(
-                "attribution-source-invalid", corpus_ids=(holder,), refs=tuple(sorted(grouped[holder])), field=refused.reason,
+                "attribution-source-invalid",
+                corpus_ids=(holder,),
+                refs=tuple(sorted(grouped[holder])),
+                field=refused.reason,
             ) from refused
         earlier = marker.facets[stored.COORDINATION_FACET]["published_from"].get("attributions", [])
         sources[holder] = (marker.uid, {row[0]: (row[0], row[1], row[2]) for row in earlier})
@@ -299,8 +309,21 @@ def publish(
     operations_root, destination = require_usable(operations_root, destination, forbidden=forbidden)
     if destination.type == "remote":
         # remote §4.1, decision 6: a stranded attempt that may have shared its marker blocks the pair
-        blocking = tuple(token for token in unfinished_attempts(writer, view, destination, seam) if (_op_dir(operations_root, token) / "transport.v1").is_file())
-        blocking = tuple(sorted(set(blocking) | {token for token in unfinished_attempts(writer, view, destination, seam) if _mark_nonregular(_op_dir(operations_root, token))}))
+        blocking = tuple(
+            token
+            for token in unfinished_attempts(writer, view, destination, seam)
+            if (_op_dir(operations_root, token) / "transport.v1").is_file()
+        )
+        blocking = tuple(
+            sorted(
+                set(blocking)
+                | {
+                    token
+                    for token in unfinished_attempts(writer, view, destination, seam)
+                    if _mark_nonregular(_op_dir(operations_root, token))
+                }
+            )
+        )
         if blocking:
             raise PublicationRefused("publish-unfinished", tokens=blocking)
     resolved = resolver.resolve(view.unpinned())
@@ -331,7 +354,14 @@ def publish(
     records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)
     _require_snapshot_records(read, records, attributions=attributions)
     opened = _open_publication(
-        writer, resolver, view=view.unpinned(), destination=destination, clock=clock, seam=seam, port=port, expected_view=pinned,
+        writer,
+        resolver,
+        view=view.unpinned(),
+        destination=destination,
+        clock=clock,
+        seam=seam,
+        port=port,
+        expected_view=pinned,
     )
     token = opened.intent.event_token
     snapshot = Snapshot(token, records, attributions)
@@ -365,7 +395,9 @@ before the real token exists, and the rule does not read the token's value."""
 
 
 def _require_snapshot_records(
-    read: _Captured, records: tuple[tuple[str, str], ...], *,
+    read: _Captured,
+    records: tuple[tuple[str, str], ...],
+    *,
     attributions: tuple[tuple[str, str, str], ...] | None = None,
 ) -> None:
     """Spec §4.3, asserted before the intent (§4.1 item 8): the records satisfy the
@@ -400,19 +432,27 @@ def _initialize(a: _Attempt) -> tuple[CorpusWriter, World, str] | StagingCorrupt
 
 def _expected_marker(a: _Attempt) -> Node:
     return marker_record(
-        a.opened.intent, world_id=a.request.world_id, epoch=a.request.epoch, selection=tuple(i for i, _ in a.snapshot.records),
+        a.opened.intent,
+        world_id=a.request.world_id,
+        epoch=a.request.epoch,
+        selection=tuple(i for i, _ in a.snapshot.records),
         attributions=a.snapshot.attributions,
     )
 
 
-def _population(staging: CorpusWriter, corpus_id: str, snapshot: Snapshot, marker: Node) -> _Population | StagingCorrupt:
+def _population(
+    staging: CorpusWriter, corpus_id: str, snapshot: Snapshot, marker: Node
+) -> _Population | StagingCorrupt:
     """Spec §5's classification: a true prefix, complete, or corrupt. A staging
     store `nodes` refuses to read — bytes that do not parse, a record off its
     mapped path, a duplicate uid — is neither a prefix nor complete: `bytes`,
     naming no record, since none can be read to name (Y7)."""
     root = Path(staging.root)
     try:
-        present = {node.id: (root / staging._relative_path(node)).read_bytes() for node in ReadView.opened_at(root).iter_stored()}
+        present = {
+            node.id: (root / staging._relative_path(node)).read_bytes()
+            for node in ReadView.opened_at(root).iter_stored()
+        }
     except (NodesValidationError, PlacementError, CollisionError):
         return StagingCorrupt(corpus_id, "bytes", ())
     order = [record_id for record_id, _ in snapshot.records]
@@ -510,16 +550,28 @@ def _restore(a: _Attempt, corpus_id: str) -> str:
     if _serviceable(export):
         return "validated"
     if report.outcome == "validated":
-        raise MalformedRecord(f"{export}: restore validated but granted nothing")  # the engine's to explain, not a verdict
+        raise MalformedRecord(
+            f"{export}: restore validated but granted nothing"
+        )  # the engine's to explain, not a verdict
     return report.outcome
 
 
-def _bind(a: _Attempt | _Remote, corpus_id: str, artifact_identity: str, entries: tuple[Entry, ...], *, remote: bool = False):
+def _bind(
+    a: _Attempt | _Remote, corpus_id: str, artifact_identity: str, entries: tuple[Entry, ...], *, remote: bool = False
+):
     """Step 8: the binding door, carrying the lifecycle entries. A remote reveal
     refused here is an orphan (remote §4.4)."""
     return _bind_publication(
-        a.writer, a.resolver, a.opened, corpus_id=corpus_id, marker=marker_uid(a.token), artifact=artifact_identity,
-        remotely_revealed=remote, clock=a.clock, seam=a.seam, port=a.port,
+        a.writer,
+        a.resolver,
+        a.opened,
+        corpus_id=corpus_id,
+        marker=marker_uid(a.token),
+        artifact=artifact_identity,
+        remotely_revealed=remote,
+        clock=a.clock,
+        seam=a.seam,
+        port=a.port,
         lifecycle=entries,
     )
 
@@ -574,7 +626,9 @@ def _mark(a: _Attempt, corpus_id: str, artifact_identity: str) -> TransportMark:
     """The durable record that a remote reveal may begin (decision 2): create-only,
     after step 6 validates and before the first `push`."""
     transport_files(a.op / "export", corpus_id)  # §3.1: refuse an invalid layout before the mark
-    mark = TransportMark(a.token, a.request.destination, corpus_id, marker_uid(a.token), artifact_identity, len(a.snapshot.records))
+    mark = TransportMark(
+        a.token, a.request.destination, corpus_id, marker_uid(a.token), artifact_identity, len(a.snapshot.records)
+    )
     write_create_only(a.op / "transport.v1", encode_mark(mark))
     return mark
 
@@ -651,7 +705,9 @@ def _transport_and_bind(r: _Remote, mark: TransportMark, entries: tuple[Entry, .
 def _marker_path(r: _Remote, mark: TransportMark) -> Path:
     """The export's marker file, by name: its id follows from the intent and the mark's uid."""
     address = marker_address(r.opened.intent.view, r.opened.intent.destination)
-    return _remote_export(r.op, mark.corpus_id) / path_for_node_id(f"{MARKER_KIND}:{address.project}.{address.local}.{mark.marker}")
+    return _remote_export(r.op, mark.corpus_id) / path_for_node_id(
+        f"{MARKER_KIND}:{address.project}.{address.local}.{mark.marker}"
+    )
 
 
 def _export_agrees(r: _Remote, mark: TransportMark) -> bool:
@@ -682,7 +738,11 @@ def _export_agrees(r: _Remote, mark: TransportMark) -> bool:
 def _mark_corrupt(r: _Remote, mark: TransportMark) -> bool:
     """§4.2: the mark agrees with its intent, then with its export's identity."""
     intent = r.opened.intent
-    if mark.event_token != intent.event_token or mark.destination != intent.destination or mark.marker != marker_uid(intent.event_token):
+    if (
+        mark.event_token != intent.event_token
+        or mark.destination != intent.destination
+        or mark.marker != marker_uid(intent.event_token)
+    ):
         return True
     return not _export_agrees(r, mark)
 
@@ -694,11 +754,18 @@ def _marker_agrees(r: _Remote, mark: TransportMark) -> bool:
         node = node_from_bytes(_marker_path(r, mark).read_bytes())
     except (OSError, NodesError):
         return False
-    if node.kind != MARKER_KIND or publication_content_malformed(node) or not marker_consistent(node) or node.uid != mark.marker:
+    if (
+        node.kind != MARKER_KIND
+        or publication_content_malformed(node)
+        or not marker_consistent(node)
+        or node.uid != mark.marker
+    ):
         return False
     if len(node.facets[stored.COORDINATION_FACET]["selection"]) != mark.records:
         return False
-    return not _marker_release_malformed(node, load_manifest(_remote_export(r.op, mark.corpus_id)).profile.domains.get("coordination"))
+    return not _marker_release_malformed(
+        node, load_manifest(_remote_export(r.op, mark.corpus_id)).profile.domains.get("coordination")
+    )
 
 
 def _resume_from_mark(r: _Remote) -> PublishOutcome:
@@ -718,7 +785,15 @@ def _resume_from_mark(r: _Remote) -> PublishOutcome:
         PublicationRevealEntry(r.subject, Revealed(mark.corpus_id)),
     )
     if _export_damaged(r, mark):
-        return _refused(r, (*entries, PublicationTransportEntry(r.subject, TransportIncomplete(mark.corpus_id, mark.marker, "export-damaged"))))
+        return _refused(
+            r,
+            (
+                *entries,
+                PublicationTransportEntry(
+                    r.subject, TransportIncomplete(mark.corpus_id, mark.marker, "export-damaged")
+                ),
+            ),
+        )
     if not _marker_agrees(r, mark):
         return PublishUnresolved(r.token, "transport-mark-corrupt")
     return _transport_and_bind(r, mark, entries)
@@ -739,7 +814,11 @@ def _load(op: Path, opened: OpenedPublication) -> tuple[PublishRequest, Snapshot
     except MalformedRecord:
         return RequestCorrupt("undecodable")
     intent = opened.intent
-    if request.event_token != intent.event_token or request.view != intent.view or request.destination != intent.destination:
+    if (
+        request.event_token != intent.event_token
+        or request.view != intent.view
+        or request.destination != intent.destination
+    ):
         return RequestCorrupt("intent-disagrees")
     if not (op / "selection.v1").is_file():
         return RequestCorrupt("snapshot-missing")
@@ -796,13 +875,24 @@ def resume_publish(
         return PublishUnresolved(event_token, "no-request")
     loaded = _load(op, reading.opened)
     if type(loaded) is RequestCorrupt:
-        report = _refuse_publication(writer, reading.opened, (PublicationRequestEntry(
-            str(binding_address(reading.opened.intent.view, reading.opened.intent.destination)), loaded),), clock=clock, port=port)
+        report = _refuse_publication(
+            writer,
+            reading.opened,
+            (
+                PublicationRequestEntry(
+                    str(binding_address(reading.opened.intent.view, reading.opened.intent.destination)), loaded
+                ),
+            ),
+            clock=clock,
+            port=port,
+        )
         return PublishRefused(event_token, outcome_type(report.entries[-1].outcome))
     request, snapshot = loaded
     if pins_of(staging_profile) != request.pins:
         raise ValidationRefused("a publish resumes only under a staging profile holding its request's pins")
-    return _run(_Attempt(writer, resolver, reading.opened, request, snapshot, op, staging_profile, clock, seam, port, transport))
+    return _run(
+        _Attempt(writer, resolver, reading.opened, request, snapshot, op, staging_profile, clock, seam, port, transport)
+    )
 
 
 def _published_from_disk(writer: CorpusWriter, opened: OpenedPublication) -> Published:
@@ -810,7 +900,13 @@ def _published_from_disk(writer: CorpusWriter, opened: OpenedPublication) -> Pub
     address = binding_address(opened.intent.view, opened.intent.destination)
     binding_id = f"{BINDING_KIND}:{address.project}.{address.local}.{binding_uid(opened.intent.event_token)}"
     facet = writer.read_view.get(binding_id).facets[stored.COORDINATION_FACET]
-    return Published(opened.intent.event_token, facet["corpus_id"], facet["marker"], binding_uid(opened.intent.event_token), facet["artifact"])
+    return Published(
+        opened.intent.event_token,
+        facet["corpus_id"],
+        facet["marker"],
+        binding_uid(opened.intent.event_token),
+        facet["artifact"],
+    )
 
 
 def pending_publishes(writer: CorpusWriter, *, operations_root: Path, seam: MomentSeam) -> tuple[str, ...]:

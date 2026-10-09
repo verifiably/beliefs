@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -45,6 +46,79 @@ from n2_arms_cut35 import CO_CITED, CUT35_ARMS, DECLARATION_UNITS, UNIT_CHECKS, 
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "G9-a": Sabotage(
+        module="holdings/adapter.py",
+        before='        (found, cast(str, member["location"])) for member in active if (found := _joined(member, declared)) is not None\n',
+        after=(
+            '        (found, cast(str, member["location"]))\n'
+            "        for member in active\n"
+            '        if not cast(str, member["location"]).startswith("url:") and (found := _joined(member, declared)) is not None\n'
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "R10-a": Sabotage(
+        module="holdings/acquire.py",
+        before=(
+            "                empirical_observation={\n"
+            '                    "locator": request.locator,\n'
+            '                    "attested_by": ctx.actor,\n'
+            '                    "retrieval": report_node.id,\n'
+            "                },\n"
+        ),
+        after='                empirical_observation={"locator": request.locator, "attested_by": ctx.actor},\n',
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "BI-8": Sabotage(
+        module="holdings/acquire.py",
+        before=(
+            "        result = look(\n"
+            "            ctx,\n"
+            "            resource.url,\n"
+            "            bounds=request.bounds,\n"
+            "            seam=seam,\n"
+            "            scratch=scratch,\n"
+            "            expected=resource.expected,\n"
+            "            standing=heads.get(subject) or (),\n"
+            "        )\n"
+        ),
+        after=(
+            "        with writer._operation:\n"
+            "            result = look(\n"
+            "                ctx,\n"
+            "                resource.url,\n"
+            "                bounds=request.bounds,\n"
+            "                seam=seam,\n"
+            "                scratch=scratch,\n"
+            "                expected=resource.expected,\n"
+            "                standing=heads.get(subject) or (),\n"
+            "            )\n"
+        ),
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "BI-11b": Sabotage(
+        module="root.py",
+        before=(
+            "    return (\n"
+            "        isinstance(caught, ExecutionError) and caught.applied == 0 and type(caught.__cause__) in _STORE_ROUTINE_REFUSALS\n"
+            "    )\n"
+        ),
+        after="    return True\n",
+    ),
+}
+CUT35_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT35_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

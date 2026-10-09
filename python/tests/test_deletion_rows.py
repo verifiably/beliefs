@@ -220,14 +220,18 @@ def _records(
             stored.dataset_node(
                 title=f"d-{letter}",
                 resources=_resources(letter),
-                empirical_observation=None if basis is not None and address == DERIVED else {"locator": "instrument:fixture", "attested_by": ACTOR},
+                empirical_observation=None
+                if basis is not None and address == DERIVED
+                else {"locator": "instrument:fixture", "attested_by": ACTOR},
                 basis=basis if address == DERIVED else None,
             ),
         )
         records[f"run-{letter}"] = (
             "add",
             stored.run_node(
-                f"run-{letter}", title=f"run-{letter}", spec=f"spec-{letter}",
+                f"run-{letter}",
+                title=f"run-{letter}",
+                spec=f"spec-{letter}",
                 observes=[address, ACQUISITION_WITNESS] if basis is not None and address == DERIVED else [address],
             ),
         )
@@ -417,7 +421,9 @@ def test_g2c_g8_c6_raw_deletion_restores_admission_undetected_on_read(tmp_path):
     assert restored.value == 2
     assert restored.belief_input_digest != invalidated.belief_input_digest
     assert corpus_check(scenario.view, scenario.writer.profile) == (), "the removal is invisible to the read-side check"
-    assert audit_corpus(scenario.view, evidence=NO_EVIDENCE, profile=scenario.writer.profile) == (), "and to the corpus-local audit"
+    assert audit_corpus(scenario.view, evidence=NO_EVIDENCE, profile=scenario.writer.profile) == (), (
+        "and to the corpus-local audit"
+    )
 
 
 # --- G8 and C6: the managed half reads the same; the log half is Task 8's -----
@@ -441,9 +447,7 @@ def test_g8_c6_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
     raw.writer._reconstruct()
     managed.writer.delete(failing["managed"].id)
 
-    assert sorted(node.id for node in raw.view.iter_stored()) == sorted(
-        node.id for node in managed.view.iter_stored()
-    )
+    assert sorted(node.id for node in raw.view.iter_stored()) == sorted(node.id for node in managed.view.iter_stored())
     assert raw.lifecycle(ASSESSMENTS[0]) == managed.lifecycle(ASSESSMENTS[0]) == ADMITTED
     assert raw.belief().value == managed.belief().value == 2
     assert raw.belief().belief_input_digest == managed.belief().belief_input_digest
@@ -476,15 +480,11 @@ def _lineage_corpus(corpus, *, second_producer: bool) -> Scenario:
     extra: list[Node] = [
         stored.dataset_node(title="origin", resources=_resources("c")),
         stored.dataset_node(title="other", resources=_resources("d")),
-        stored.run_node(
-            "origin", title="origin", spec="spec-origin", transforms=[ANCESTOR], produces=[DERIVED]
-        ),
+        stored.run_node("origin", title="origin", spec="spec-origin", transforms=[ANCESTOR], produces=[DERIVED]),
     ]
     if second_producer:
         extra.append(
-            stored.run_node(
-                "other", title="other", spec="spec-other", transforms=[OTHER_ANCESTOR], produces=[DERIVED]
-            )
+            stored.run_node("other", title="other", spec="spec-other", transforms=[OTHER_ANCESTOR], produces=[DERIVED])
         )
     route = {**_basis_route("origin"), "ancestor": ANCESTOR, "transforms": [ANCESTOR]}
     return _scenario(corpus, basis={"tag": "single", "routes": [route]}, extra=tuple(extra))
@@ -667,9 +667,7 @@ def test_w16_the_conflict_survives_deleting_either_producing_run(tmp_path, doome
     where the deletion is what makes the lineage incomplete, a `conflict` is
     decided on its tag and no API removes a route."""
     keep_writer, other_writer, keep, other = _duplicate_datasets(tmp_path / doomed)
-    survivor, _, _ = relocation.consolidate(
-        (keep_writer, keep.id), (other_writer, other.id), **CONSOLIDATE_FIELDS
-    )
+    survivor, _, _ = relocation.consolidate((keep_writer, keep.id), (other_writer, other.id), **CONSOLIDATE_FIELDS)
     assert stored.lineage_basis(survivor) == {
         "tag": "conflict",
         "routes": [_basis_route("a"), _basis_route("z")],
@@ -717,15 +715,31 @@ def _facet_members(value: Any) -> set[str]:
 
 
 ORDER_A = (
-    "p", "q",
-    "d-a", "run-a", "a-1", "v-1",
-    "d-b", "run-b", "a-2", "v-2",
-    "retraction", "counter",
+    "p",
+    "q",
+    "d-a",
+    "run-a",
+    "a-1",
+    "v-1",
+    "d-b",
+    "run-b",
+    "a-2",
+    "v-2",
+    "retraction",
+    "counter",
 )
 ORDER_B = (
-    "p", "q", "d-b", "run-b", "a-2", "v-2",
+    "p",
+    "q",
+    "d-b",
+    "run-b",
+    "a-2",
+    "v-2",
     "retraction",
-    "d-a", "run-a", "a-1", "v-1",
+    "d-a",
+    "run-a",
+    "a-1",
+    "v-1",
     "counter",
 )
 """Two admission orders over `_records(retraction_chain=True)`. Both respect the
@@ -773,8 +787,14 @@ QUALIFIED = {
 }
 M5_VARIANTS = {
     "qualified": QUALIFIED,
-    "restriction": {**QUALIFIED, "qualifiers": {"testing/population": {"quantifier": "generic", "restriction": CHILDREN}}},
-    "quantifier": {**QUALIFIED, "qualifiers": {"testing/population": {"quantifier": "universal", "restriction": ADULTS}}},
+    "restriction": {
+        **QUALIFIED,
+        "qualifiers": {"testing/population": {"quantifier": "generic", "restriction": CHILDREN}},
+    },
+    "quantifier": {
+        **QUALIFIED,
+        "qualifiers": {"testing/population": {"quantifier": "universal", "restriction": ADULTS}},
+    },
     "unqualified": {**QUALIFIED, "qualifiers": {}},
 }
 """One qualification difference each, against a claim otherwise byte-identical:

@@ -107,9 +107,7 @@ class TestTheEffectMapping:
         assert effect.pre.content_hash == "sha256:" + digest
 
     def test_effect_ids_are_derived_from_the_operations_position(self, tmp_path, submitted):
-        executor(tmp_path).execute(
-            [CreateOp(path="a.md", content=CONTENT), CreateOp(path="b.md", content=CONTENT)]
-        )
+        executor(tmp_path).execute([CreateOp(path="a.md", content=CONTENT), CreateOp(path="b.md", content=CONTENT)])
         assert [effect.effect_id for effect in submitted[0][2].effects] == ["op-0", "op-1"]
 
     def test_move_no_clobber_is_never_emitted(self, tmp_path, submitted):
@@ -163,9 +161,7 @@ class TestTheTimeline:
 
     def test_a_create_on_a_path_an_earlier_operation_made_present_is_refused(self, tmp_path, submitted):
         with pytest.raises(ExecutionError) as refused:
-            executor(tmp_path).execute(
-                [CreateOp(path="p.md", content=CONTENT), CreateOp(path="p.md", content=CONTENT)]
-            )
+            executor(tmp_path).execute([CreateOp(path="p.md", content=CONTENT), CreateOp(path="p.md", content=CONTENT)])
         assert (refused.value.index, refused.value.applied) == (1, 0)
         assert submitted == []
 

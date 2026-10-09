@@ -51,12 +51,24 @@ def profile(base_contract, testing_document):
 
 @pytest.fixture()
 def claim(profile):
-    return build_claim(profile, operator="testing/affects", args=(Referent(E, "EX:gene-x"), Referent(O, "EX:pheno-y")), layer="causal", polarity="positive")
+    return build_claim(
+        profile,
+        operator="testing/affects",
+        args=(Referent(E, "EX:gene-x"), Referent(O, "EX:pheno-y")),
+        layer="causal",
+        polarity="positive",
+    )
 
 
 @pytest.fixture()
 def other_claim(profile):
-    return build_claim(profile, operator="testing/affects", args=(Referent(E, "EX:gene-z"), Referent(O, "EX:pheno-y")), layer="causal", polarity="positive")
+    return build_claim(
+        profile,
+        operator="testing/affects",
+        args=(Referent(E, "EX:gene-z"), Referent(O, "EX:pheno-y")),
+        layer="causal",
+        polarity="positive",
+    )
 
 
 @pytest.fixture()
@@ -85,13 +97,28 @@ def test_a_levels_estimand_builds_and_names_its_claim(profile, claim, unconsulte
 
     estimand, receipt = build_estimand(profile, claim, snapshot=unconsulted, **parts())
     assert estimand.claim == claim_identity(claim) and estimand.operator == "testing/affects"
-    assert set(receipt.outcomes) == {"estimand:contrast.baseline", "estimand:contrast.comparison", "estimand:measure.quantity", "estimand:control.identification"}
+    assert set(receipt.outcomes) == {
+        "estimand:contrast.baseline",
+        "estimand:contrast.comparison",
+        "estimand:measure.quantity",
+        "estimand:control.identification",
+    }
     assert all(outcome is TermOutcome.NOT_CONSULTED for outcome in receipt.outcomes.values())
 
 
 def test_a_continuous_estimand_carries_quantity_and_increment(profile, claim, unconsulted):
-    estimand = build(profile, claim, unconsulted, contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:log2-tpm"), increment=Decimal(1)))
-    assert estimand_projection(estimand)["contrast"] == {"slot": 0, "kind": "continuous", "quantity": {"sort": M, "term": "EX:log2-tpm"}, "increment": Decimal(1)}
+    estimand = build(
+        profile,
+        claim,
+        unconsulted,
+        contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:log2-tpm"), increment=Decimal(1)),
+    )
+    assert estimand_projection(estimand)["contrast"] == {
+        "slot": 0,
+        "kind": "continuous",
+        "quantity": {"sort": M, "term": "EX:log2-tpm"},
+        "increment": Decimal(1),
+    }
 
 
 def test_estimand_has_no_public_constructor():
@@ -102,24 +129,92 @@ def test_estimand_has_no_public_constructor():
 # Every invalid value is built **inside** the assertion: the sealed values refuse
 # at construction, so a parametrization that constructed them at collection time
 # would fail before `pytest.raises` ran.
-@pytest.mark.parametrize("make,error,position", [
-    (lambda: {"contrast": LevelsContrast(slot=2, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))}, ContrastRefused, "slot 2"),
-    (lambda: {"contrast": LevelsContrast(slot=True, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))}, ContrastRefused, "integer"),
-    (lambda: {"contrast": ContinuousContrast(slot=0.5, quantity=Referent(M, "EX:q"), increment=Decimal(1))}, ContrastRefused, "integer"),  # type: ignore[arg-type]
-    (lambda: {"contrast": LevelsContrast(slot=1, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))}, ContrastRefused, "no level sort"),
-    (lambda: {"contrast": LevelsContrast(slot=0, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:a"))}, ContrastRefused, "distinct"),
-    (lambda: {"contrast": LevelsContrast(slot=0, baseline=Referent(E, "EX:a"), comparison=Referent(L, "EX:b"))}, EstimandSortMismatch, "contrast.baseline"),
-    (lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(0))}, ContrastRefused, "increment"),
-    (lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(-1))}, ContrastRefused, "increment"),
-    (lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(E, "EX:q"), increment=Decimal(1))}, EstimandSortMismatch, "contrast.quantity"),
-    (lambda: {"measure": Measure(quantity=Referent(E, "EX:tpm"), scale="additive")}, EstimandSortMismatch, "measure.quantity"),
-    (lambda: {"measure": Measure(quantity=Referent(M, "EX:tpm"), scale="ordinal")}, MeasureRefused, "scale"),
-    (lambda: {"measure": Measure(quantity=Referent(M, "EX:hr"), scale="multiplicative"), "reference": Decimal(0)}, ReferenceRefused, "multiplicative"),
-    (lambda: {"reference": Decimal("NaN")}, ReferenceRefused, "finite"),
-    (lambda: {"control": Control(identification=Referent(E, "EX:obs"), conditioning=())}, EstimandSortMismatch, "control.identification"),
-    (lambda: {"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(O, "EX:c"),))}, EstimandSortMismatch, "control.conditioning[0]"),
-    (lambda: {"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c"), Referent(E, "EX:c")))}, ControlRefused, "duplicate"),
-])
+@pytest.mark.parametrize(
+    "make,error,position",
+    [
+        (
+            lambda: {"contrast": LevelsContrast(slot=2, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))},
+            ContrastRefused,
+            "slot 2",
+        ),
+        (
+            lambda: {
+                "contrast": LevelsContrast(slot=True, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))
+            },
+            ContrastRefused,
+            "integer",
+        ),
+        (
+            lambda: {"contrast": ContinuousContrast(slot=0.5, quantity=Referent(M, "EX:q"), increment=Decimal(1))},  # type: ignore[arg-type]
+            ContrastRefused,
+            "integer",
+        ),
+        (
+            lambda: {"contrast": LevelsContrast(slot=1, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))},
+            ContrastRefused,
+            "no level sort",
+        ),
+        (
+            lambda: {"contrast": LevelsContrast(slot=0, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:a"))},
+            ContrastRefused,
+            "distinct",
+        ),
+        (
+            lambda: {"contrast": LevelsContrast(slot=0, baseline=Referent(E, "EX:a"), comparison=Referent(L, "EX:b"))},
+            EstimandSortMismatch,
+            "contrast.baseline",
+        ),
+        (
+            lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(0))},
+            ContrastRefused,
+            "increment",
+        ),
+        (
+            lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(-1))},
+            ContrastRefused,
+            "increment",
+        ),
+        (
+            lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(E, "EX:q"), increment=Decimal(1))},
+            EstimandSortMismatch,
+            "contrast.quantity",
+        ),
+        (
+            lambda: {"measure": Measure(quantity=Referent(E, "EX:tpm"), scale="additive")},
+            EstimandSortMismatch,
+            "measure.quantity",
+        ),
+        (lambda: {"measure": Measure(quantity=Referent(M, "EX:tpm"), scale="ordinal")}, MeasureRefused, "scale"),
+        (
+            lambda: {
+                "measure": Measure(quantity=Referent(M, "EX:hr"), scale="multiplicative"),
+                "reference": Decimal(0),
+            },
+            ReferenceRefused,
+            "multiplicative",
+        ),
+        (lambda: {"reference": Decimal("NaN")}, ReferenceRefused, "finite"),
+        (
+            lambda: {"control": Control(identification=Referent(E, "EX:obs"), conditioning=())},
+            EstimandSortMismatch,
+            "control.identification",
+        ),
+        (
+            lambda: {"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(O, "EX:c"),))},
+            EstimandSortMismatch,
+            "control.conditioning[0]",
+        ),
+        (
+            lambda: {
+                "control": Control(
+                    identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c"), Referent(E, "EX:c"))
+                )
+            },
+            ControlRefused,
+            "duplicate",
+        ),
+    ],
+)
 def test_each_refusal_names_its_position(profile, claim, unconsulted, make, error, position):
     # `position` is matched as a literal substring, not a hand-written regex: an
     # index like `control.conditioning[0]` names a `[0]` character class to an
@@ -134,7 +229,9 @@ def test_a_float_reference_is_refused_before_the_digest(profile, claim, unconsul
 
 
 def test_an_operator_without_a_declaration_refuses(profile, unconsulted):
-    structural = build_claim(profile, operator="testing/subtype-of", args=(Referent(E, "EX:a"), Referent(E, "EX:b")), layer="structural")
+    structural = build_claim(
+        profile, operator="testing/subtype-of", args=(Referent(E, "EX:a"), Referent(E, "EX:b")), layer="structural"
+    )
     with pytest.raises(ProfileError, match="declares no estimand"):
         build(profile, structural, unconsulted)
 
@@ -151,41 +248,74 @@ def test_not_member_refuses_and_not_consulted_mints(profile, claim, unconsulted)
     estimand, receipt = build_estimand(profile, claim, snapshot=readable, **parts())
     assert receipt.outcomes["estimand:contrast.baseline"] is TermOutcome.MEMBER
     with pytest.raises(UnboundReferent, match="estimand:contrast.comparison"):
-        build(profile, claim, readable, contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:ndmm"), comparison=Referent(L, "EX:mgus")))
+        build(
+            profile,
+            claim,
+            readable,
+            contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:ndmm"), comparison=Referent(L, "EX:mgus")),
+        )
     assert estimand_projection(build(profile, claim, unconsulted)) == estimand_projection(estimand)
 
 
 def test_the_fragment_refuses_a_second_measure_or_reference(profile, claim, unconsulted):
     with pytest.raises(EstimandFragmentRefused, match="one measure"):
-        build_estimand(profile, claim, snapshot=unconsulted, **parts(), measures=(parts()["measure"], parts()["measure"]))  # type: ignore[arg-type]
+        build_estimand(
+            profile, claim, snapshot=unconsulted, **parts(), measures=(parts()["measure"], parts()["measure"])
+        )  # type: ignore[arg-type]
 
 
 class TestProjection:
     def test_conditioning_order_is_inert(self, profile, claim, unconsulted):
-        a = build(profile, claim, unconsulted, control=Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c1"), Referent(E, "EX:c2"))))
-        b = build(profile, claim, unconsulted, control=Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c2"), Referent(E, "EX:c1"))))
+        a = build(
+            profile,
+            claim,
+            unconsulted,
+            control=Control(
+                identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c1"), Referent(E, "EX:c2"))
+            ),
+        )
+        b = build(
+            profile,
+            claim,
+            unconsulted,
+            control=Control(
+                identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c2"), Referent(E, "EX:c1"))
+            ),
+        )
         assert estimand_projection(a) == estimand_projection(b)
 
     def test_swapped_levels_are_two_estimands(self, profile, claim, unconsulted):
         a = build(profile, claim, unconsulted)
-        b = build(profile, claim, unconsulted, contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:pd"), comparison=Referent(L, "EX:ndmm")))
+        b = build(
+            profile,
+            claim,
+            unconsulted,
+            contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:pd"), comparison=Referent(L, "EX:ndmm")),
+        )
         assert estimand_projection(a) != estimand_projection(b)
 
-    @pytest.mark.parametrize("override", [
-        {"measure": Measure(quantity=Referent(M, "EX:other"), scale="additive")},
-        {"measure": Measure(quantity=Referent(M, "EX:tpm"), scale="multiplicative"), "reference": Decimal(1)},
-        {"reference": Decimal("0.5")},
-        {"control": Control(identification=Referent(I, "EX:longitudinal"), conditioning=())},
-        {"control": Control(identification=Referent(I, "EX:observational"), conditioning=(Referent(E, "EX:c"),))},
-    ])
+    @pytest.mark.parametrize(
+        "override",
+        [
+            {"measure": Measure(quantity=Referent(M, "EX:other"), scale="additive")},
+            {"measure": Measure(quantity=Referent(M, "EX:tpm"), scale="multiplicative"), "reference": Decimal(1)},
+            {"reference": Decimal("0.5")},
+            {"control": Control(identification=Referent(I, "EX:longitudinal"), conditioning=())},
+            {"control": Control(identification=Referent(I, "EX:observational"), conditioning=(Referent(E, "EX:c"),))},
+        ],
+    )
     def test_each_member_moves_the_projection(self, profile, claim, unconsulted, override):
-        assert estimand_projection(build(profile, claim, unconsulted)) != estimand_projection(build(profile, claim, unconsulted, **override))
+        assert estimand_projection(build(profile, claim, unconsulted)) != estimand_projection(
+            build(profile, claim, unconsulted, **override)
+        )
 
 
 class TestPredicates:
     def test_identification_alone_is_outside_the_key(self, profile, claim, unconsulted):
         a = build(profile, claim, unconsulted)
-        b = build(profile, claim, unconsulted, control=Control(identification=Referent(I, "EX:longitudinal"), conditioning=()))
+        b = build(
+            profile, claim, unconsulted, control=Control(identification=Referent(I, "EX:longitudinal"), conditioning=())
+        )
         assert commensurable(a, b)
 
     def test_two_claims_at_one_operator_are_two_keys(self, profile, claim, other_claim, unconsulted):
@@ -193,14 +323,34 @@ class TestPredicates:
 
     def test_swapped_levels_and_different_increments_are_not_commensurable(self, profile, claim, unconsulted):
         a = build(profile, claim, unconsulted)
-        b = build(profile, claim, unconsulted, contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:pd"), comparison=Referent(L, "EX:ndmm")))
+        b = build(
+            profile,
+            claim,
+            unconsulted,
+            contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:pd"), comparison=Referent(L, "EX:ndmm")),
+        )
         assert not commensurable(a, b)
-        c1 = build(profile, claim, unconsulted, contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(1)))
-        c10 = build(profile, claim, unconsulted, contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(10)))
+        c1 = build(
+            profile,
+            claim,
+            unconsulted,
+            contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(1)),
+        )
+        c10 = build(
+            profile,
+            claim,
+            unconsulted,
+            contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(10)),
+        )
         assert not commensurable(c1, c10)
 
     def test_the_scope_counterexample(self, profile, claim, unconsulted):
-        adults, _ = build_applicability(profile, claim, {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))}, snapshot=unconsulted)
+        adults, _ = build_applicability(
+            profile,
+            claim,
+            {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))},
+            snapshot=unconsulted,
+        )
         everyone, _ = build_applicability(profile, claim, {}, snapshot=unconsulted)
         a, b = build(profile, claim, unconsulted), build(profile, claim, unconsulted)
         assert commensurable(a, b) and not co_scoped(adults, everyone)
@@ -210,9 +360,13 @@ class TestPredicates:
         from beliefs.errors import RestrictionSortMismatch, UndeclaredDimension
 
         with pytest.raises(UndeclaredDimension):
-            build_applicability(profile, claim, {"testing/regime": Qualifier("generic", Referent(E, "EX:x"))}, snapshot=unconsulted)
+            build_applicability(
+                profile, claim, {"testing/regime": Qualifier("generic", Referent(E, "EX:x"))}, snapshot=unconsulted
+            )
         with pytest.raises(RestrictionSortMismatch):
-            build_applicability(profile, claim, {"testing/population": Qualifier("generic", Referent(E, "EX:x"))}, snapshot=unconsulted)
+            build_applicability(
+                profile, claim, {"testing/population": Qualifier("generic", Referent(E, "EX:x"))}, snapshot=unconsulted
+            )
 
 
 class TestEstimateAndUncertainty:
@@ -225,12 +379,15 @@ class TestEstimateAndUncertainty:
         with pytest.raises(UncertaintyRefused, match="multiplicative"):
             check_estimate(Decimal(0), "multiplicative")
 
-    @pytest.mark.parametrize("uncertainty,scale", [
-        (Interval(Decimal("0.5"), Decimal("0.3"), Decimal("0.95")), "additive"),
-        (Interval(Decimal(-1), Decimal(1), Decimal(1)), "additive"),
-        (Interval(Decimal(0), Decimal(2), Decimal("0.95")), "multiplicative"),
-        (StandardError(Decimal("-0.1")), "additive"),
-    ])
+    @pytest.mark.parametrize(
+        "uncertainty,scale",
+        [
+            (Interval(Decimal("0.5"), Decimal("0.3"), Decimal("0.95")), "additive"),
+            (Interval(Decimal(-1), Decimal(1), Decimal(1)), "additive"),
+            (Interval(Decimal(0), Decimal(2), Decimal("0.95")), "multiplicative"),
+            (StandardError(Decimal("-0.1")), "additive"),
+        ],
+    )
     def test_ill_formed_uncertainty_is_refused(self, uncertainty, scale):
         with pytest.raises(UncertaintyRefused):
             check_uncertainty(uncertainty, Decimal("0.4") if scale == "additive" else Decimal("1.1"), scale)
@@ -245,21 +402,28 @@ class TestEstimateAndUncertainty:
         # restored `typed` member decode identically and are checked identically.
         interval = uncertainty_from_mapping(
             {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal("0.95")},
-            estimate=Decimal("0.4"), scale="additive",
+            estimate=Decimal("0.4"),
+            scale="additive",
         )
         assert interval == Interval(Decimal("0.1"), Decimal("0.7"), Decimal("0.95"))
-        standard_error = uncertainty_from_mapping({"kind": "standard-error", "value": Decimal("0.2")}, estimate=Decimal("1.1"), scale="multiplicative")
+        standard_error = uncertainty_from_mapping(
+            {"kind": "standard-error", "value": Decimal("0.2")}, estimate=Decimal("1.1"), scale="multiplicative"
+        )
         assert standard_error == StandardError(Decimal("0.2"))
 
     def test_uncertainty_from_mapping_refuses_an_unrecognized_kind(self):
         with pytest.raises(UncertaintyRefused, match="neither interval nor standard-error"):
-            uncertainty_from_mapping({"kind": "confidence-band", "value": Decimal("0.1")}, estimate=Decimal("0.4"), scale="additive")
+            uncertainty_from_mapping(
+                {"kind": "confidence-band", "value": Decimal("0.1")}, estimate=Decimal("0.4"), scale="additive"
+            )
         with pytest.raises(UncertaintyRefused):
             uncertainty_from_mapping("not-a-mapping", estimate=Decimal("0.4"), scale="additive")
 
     def test_uncertainty_from_mapping_refuses_no_estimate(self):
         with pytest.raises(UncertaintyRefused, match="no estimate"):
-            uncertainty_from_mapping({"kind": "standard-error", "value": Decimal("0.1")}, estimate=None, scale="additive")
+            uncertainty_from_mapping(
+                {"kind": "standard-error", "value": Decimal("0.1")}, estimate=None, scale="additive"
+            )
 
     def test_uncertainty_from_mapping_refuses_what_check_uncertainty_refuses(self):
         # The shared decoder runs `check_uncertainty` itself — a decoded interval
@@ -268,5 +432,6 @@ class TestEstimateAndUncertainty:
         with pytest.raises(UncertaintyRefused, match="excludes"):
             uncertainty_from_mapping(
                 {"kind": "interval", "low": Decimal("0.5"), "high": Decimal("0.7"), "level": Decimal("0.95")},
-                estimate=Decimal("0.4"), scale="additive",
+                estimate=Decimal("0.4"),
+                scale="additive",
             )

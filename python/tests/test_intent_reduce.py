@@ -40,9 +40,7 @@ _OBSERVATION_VALUE = holdings_observation(
 )
 _OBSERVATION = (
     f"holdings-observation/{_OBSERVATION_VALUE.identity()}.md",
-    node_to_markdown(stored.holdings_observation_node(_OBSERVATION_VALUE)).encode(
-        "utf-8"
-    ),
+    node_to_markdown(stored.holdings_observation_node(_OBSERVATION_VALUE)).encode("utf-8"),
 )
 
 
@@ -95,11 +93,7 @@ ABSENT_ROW = object()
 
 
 def _facts(state: object) -> tuple[tuple[str, str], ...]:
-    return (
-        (("kind", "file"),)
-        if type(state) is FakeFile
-        else (("kind", "absent"),)
-    )
+    return (("kind", "file"),) if type(state) is FakeFile else (("kind", "absent"),)
 
 
 def _assessment_payload(spec: str = "s" * 64, token: str = "tok") -> bytes:
@@ -120,9 +114,7 @@ def _registration(
     *files: str,
     absent: tuple[str, ...] = (),
 ) -> RegisteredEntryView:
-    final = tuple((path, FakeFile(path)) for path in files) + tuple(
-        (path, ABSENT_ROW) for path in absent
-    )
+    final = tuple((path, FakeFile(path)) for path in files) + tuple((path, ABSENT_ROW) for path in absent)
     return RegisteredEntryView(
         digest=digest,
         txid="tx-" + digest,
@@ -155,9 +147,7 @@ def test_no_pointers_reads_attempt_without_recorded_outcome() -> None:
             None,
         ),
     )
-    assert [finding.code for finding in findings] == [
-        "intent-attempt-without-recorded-outcome"
-    ]
+    assert [finding.code for finding in findings] == ["intent-attempt-without-recorded-outcome"]
     assert findings[0].severity == "warning"
     assert findings[0].ref == "i1"
 
@@ -183,9 +173,7 @@ def test_reduce_chain_exposes_the_matched_registration_reduction(
         _settled("r1"),
     )
     reduced = reduce_chain(entries, {run_path: run_bytes}, state_facts=_facts)
-    assert reduced.rows == (
-        IntentQualification("i1", "assessment-run", "matched", "r1"),
-    )
+    assert reduced.rows == (IntentQualification("i1", "assessment-run", "matched", "r1"),)
     assert reduced.findings == ()
     assert len(reduced.matched_reductions) == 1
     registration, registration_reduction = reduced.matched_reductions[0]
@@ -245,9 +233,7 @@ def test_unresolvable_wins_over_non_qualifying_and_emits_nothing(run_path) -> No
         _settled("r2"),
     ]
     rows, findings = _qualify(entries, {})
-    assert rows == (
-        IntentQualification("i1", "assessment-run", "unresolvable", None),
-    )
+    assert rows == (IntentQualification("i1", "assessment-run", "unresolvable", None),)
     assert findings == ()
 
 
@@ -354,9 +340,7 @@ def _decoded(payload: bytes = _assessment_payload()) -> shapes.DecodedIntent:
 
 
 def test_record_paths_of_keeps_record_layout_files_in_final_order(run_path) -> None:
-    registration = _registration(
-        "r1", "i1", "notes/memo.md", run_path, absent=("run/gone.md",)
-    )
+    registration = _registration("r1", "i1", "notes/memo.md", run_path, absent=("run/gone.md",))
     assert record_paths_of(registration, _facts) == [run_path]
 
 
@@ -372,9 +356,7 @@ def test_reduce_registration_first_match_in_order_wins(
     assert reduction.unresolved is False
 
 
-def test_reduce_registration_names_an_undecodable_sibling_beside_a_later_match(
-    run_path, run_bytes
-) -> None:
+def test_reduce_registration_names_an_undecodable_sibling_beside_a_later_match(run_path, run_bytes) -> None:
     records = {"run/bad.md": b"not a record", run_path: run_bytes}
     reduction = reduce_registration(_decoded(), ["run/bad.md", run_path], records)
     assert reduction.match is not None and reduction.match[0] == run_path
@@ -391,12 +373,8 @@ def test_reduce_registration_with_no_match_returns_every_reason_in_order(
         wrong_spec_run_path: wrong_spec_run_bytes,
         production_run_path: production_run_bytes,
     }
-    reduction = reduce_registration(
-        _decoded(), [production_run_path, wrong_spec_run_path], records
-    )
-    assert reduction == RegistrationReduction(
-        None, False, ("wrong-shape", "wrong-spec")
-    )
+    reduction = reduce_registration(_decoded(), [production_run_path, wrong_spec_run_path], records)
+    assert reduction == RegistrationReduction(None, False, ("wrong-shape", "wrong-spec"))
 
 
 def test_reduce_registration_marks_a_missing_payload_unresolved() -> None:
@@ -450,7 +428,10 @@ def test_a_rolled_back_corpus_write_registration_is_an_attempt_without_recorded_
     )
     rows, findings = qualify_chain(entries, records={}, state_facts=_corpus_write_facts)
     assert rows[0].status == "attempt-without-recorded-outcome"
-    assert {f.code for f in findings} == {"intent-attempt-without-recorded-outcome", "intent-fulfillment-non-qualifying"}
+    assert {f.code for f in findings} == {
+        "intent-attempt-without-recorded-outcome",
+        "intent-fulfillment-non-qualifying",
+    }
 
 
 def test_an_unsettled_corpus_write_registration_is_unresolvable():

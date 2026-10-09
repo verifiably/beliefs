@@ -86,7 +86,9 @@ def main() -> int:
                 9,
                 "corpus-work" if own else "design-gap",
                 f"audit_log[{shape}]: {line}",
-                filed="the exercise performed no anchor act; measured under the head carrier instead" if own else "unfiled",
+                filed="the exercise performed no anchor act; measured under the head carrier instead"
+                if own
+                else "unfiled",
             )
     state.save(corpus_check_findings=len(checks), audit_findings=len(audits), log_verdict=logs)
     print(f"corpus_check: {len(checks)}; audit_corpus: {len(audits)}")

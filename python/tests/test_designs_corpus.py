@@ -52,9 +52,28 @@ GUARANTEE_TABLES: dict[str, tuple[str, ...]] = {
     "J": tuple(f"J{n}" for n in range(1, 22)),
     "V": tuple(f"V{n}" for n in range(1, 9)),
     "B": tuple(f"B{n}" for n in range(1, 8)),
-        "Q": tuple(f"Q{n}" for n in range(1, 11)),
+    "Q": tuple(f"Q{n}" for n in range(1, 11)),
     "U": tuple(f"U{n}" for n in range(1, 11)),
-    "Y": ("Y1", "Y2", "Y3", "Y4", "Y5", "Y6", "Y7", "Y8", "Y9", "Y10", "Y11", "Y12", "Y13", "Y14", "Y15", "Y16", "Y17", "Y18"),
+    "Y": (
+        "Y1",
+        "Y2",
+        "Y3",
+        "Y4",
+        "Y5",
+        "Y6",
+        "Y7",
+        "Y8",
+        "Y9",
+        "Y10",
+        "Y11",
+        "Y12",
+        "Y13",
+        "Y14",
+        "Y15",
+        "Y16",
+        "Y17",
+        "Y18",
+    ),
     "Z": tuple(f"Z{n}" for n in range(1, 6)),
 }
 
@@ -79,7 +98,7 @@ TABLE_OWNERS = {
     "J": "2026-09-05-writer-session-design.md",
     "V": "2026-09-06-verification-publication-design.md",
     "B": "2026-09-08-biology-pack-design.md",
-        "Q": "2026-09-12-estimand-typing-design.md",
+    "Q": "2026-09-12-estimand-typing-design.md",
     "U": "2026-09-12-composite-claims-design.md",
     "Y": "2026-09-22-publication-design.md",
     "Z": "2026-09-24-live-query-evaluation-design.md",
@@ -241,7 +260,20 @@ def test_the_readme_states_the_corpus_row_total() -> None:
     # The README hard-wraps its prose, so a phrase can straddle a line break.
     readme = re.sub(r"\s+", " ", _text(README))
     assert f"{total} rows" in readme, f"the README does not state the corpus total of {total} rows"
-    table_words = {11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one", 22: "twenty-two"}
+    table_words = {
+        11: "eleven",
+        12: "twelve",
+        13: "thirteen",
+        14: "fourteen",
+        15: "fifteen",
+        16: "sixteen",
+        17: "seventeen",
+        18: "eighteen",
+        19: "nineteen",
+        20: "twenty",
+        21: "twenty-one",
+        22: "twenty-two",
+    }
     assert f"{table_words[tables]} frozen tables" in readme, (
         f"the README does not state that the rows sit in {tables} tables"
     )
@@ -401,11 +433,7 @@ def test_every_cross_reference_resolves() -> None:
 
 
 def _newest_results_record() -> tuple[int, Path]:
-    records = {
-        int(m.group(1)): path
-        for path in PLANS.glob("*.md")
-        if (m := _RESULTS_RECORD.match(path.name))
-    }
+    records = {int(m.group(1)): path for path in PLANS.glob("*.md") if (m := _RESULTS_RECORD.match(path.name))}
     assert records, f"no conformance-cut results record under {PLANS}"
     return max(records.items())
 
@@ -436,8 +464,7 @@ def test_the_ledger_summary_names_the_newest_remaining_boundary() -> None:
     assert f"cut {cut}" in summary, f"the ledger's Current state does not name cut {cut}"
     missing = sorted(labels - set(_PROSE_LABEL.findall(summary)))
     assert not missing, (
-        f"the ledger's Current state does not name {', '.join(missing)}, "
-        f"which {newest.name} leaves open"
+        f"the ledger's Current state does not name {', '.join(missing)}, which {newest.name} leaves open"
     )
 
 
@@ -474,8 +501,8 @@ def test_the_roadmap_and_ledger_name_the_same_boundaries() -> None:
     assert ledger is not None, "the ledger has no `Current state` section"
     ledger_ids = _BOUNDARY_ID.findall(ledger)
     assert ledger_ids, "the ledger's Current state table carries no boundary ids"
-    assert len(ledger_ids) == len(set(ledger_ids)), (
-        "duplicate ids in the ledger: " + ", ".join(sorted({i for i in ledger_ids if ledger_ids.count(i) > 1}))
+    assert len(ledger_ids) == len(set(ledger_ids)), "duplicate ids in the ledger: " + ", ".join(
+        sorted({i for i in ledger_ids if ledger_ids.count(i) > 1})
     )
 
     assert ROADMAP.exists(), f"{ROADMAP.name} is absent"
@@ -483,15 +510,14 @@ def test_the_roadmap_and_ledger_name_the_same_boundaries() -> None:
     assert index is not None, f"{ROADMAP.name} has no `Boundary index` section"
     roadmap_ids = _BOUNDARY_ID.findall(index)
     assert roadmap_ids, f"{ROADMAP.name}'s Boundary index carries no ids"
-    assert len(roadmap_ids) == len(set(roadmap_ids)), (
-        "duplicate ids in the roadmap: " + ", ".join(sorted({i for i in roadmap_ids if roadmap_ids.count(i) > 1}))
+    assert len(roadmap_ids) == len(set(roadmap_ids)), "duplicate ids in the roadmap: " + ", ".join(
+        sorted({i for i in roadmap_ids if roadmap_ids.count(i) > 1})
     )
 
     only_ledger = sorted(set(ledger_ids) - set(roadmap_ids))
     only_roadmap = sorted(set(roadmap_ids) - set(ledger_ids))
     assert not only_ledger and not only_roadmap, (
-        f"in the ledger but not the roadmap: {only_ledger}; "
-        f"in the roadmap but not the ledger: {only_roadmap}"
+        f"in the ledger but not the roadmap: {only_ledger}; in the roadmap but not the ledger: {only_roadmap}"
     )
 
     cut, newest = _newest_results_record()

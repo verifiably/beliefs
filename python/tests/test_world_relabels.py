@@ -79,7 +79,9 @@ class TestW13:
 
         roots[BETA] = replica
         world = registry.World(
-            registry.WorldConfig(world.config.world_root, world.config.world_id, (roots[ALPHA], replica, tmp_path / "moved-forged")),
+            registry.WorldConfig(
+                world.config.world_root, world.config.world_id, (roots[ALPHA], replica, tmp_path / "moved-forged")
+            ),
             DefaultExecutor,
             chain_head=ChainHeads(),
             corpus_executor_factory=DefaultExecutor,
@@ -89,8 +91,14 @@ class TestW13:
             read.validate_receipt(world, published, kind).outcome == "validated" for kind in TEST_RECEIPT_KINDS
         )  # the replica validates
         scan = registry._scan_registry(world.config.world_root)
-        assert {a.manifest.corpus_id for a in scan.admissions} == {ALPHA, BETA, forged_id}  # two admissions, as a fork's registry reads
-        assert not any(a.manifest.forked_from for a in scan.admissions if a.manifest.corpus_id == forged_id)  # and no assertion ties them
+        assert {a.manifest.corpus_id for a in scan.admissions} == {
+            ALPHA,
+            BETA,
+            forged_id,
+        }  # two admissions, as a fork's registry reads
+        assert not any(
+            a.manifest.forked_from for a in scan.admissions if a.manifest.corpus_id == forged_id
+        )  # and no assertion ties them
 
     def test_raw_deleting_an_admission_evades_nothing(self, tmp_path):
         """Cut 6 read the undetected half; the build's refusal is the other half."""
@@ -146,4 +154,6 @@ class TestR23Divergence:
         published_without = publish(world_without, coverage, hold_shipped(world_without))
         without_r2 = snapshot_projection(lineage_snapshot(open_world_view(world_without, published_without), [d1.id]))
         assert with_r2 != without_r2  # the lineage member moves with the producer set
-        assert _belief_digest(published) != _belief_digest(published_without)  # and so does kernel §5.1's digest: the snapshot covers the producer set
+        assert _belief_digest(published) != _belief_digest(
+            published_without
+        )  # and so does kernel §5.1's digest: the snapshot covers the producer set

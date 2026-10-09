@@ -78,7 +78,12 @@ def test_a_clean_corpus_closes_through_one_report_with_no_entries(tmp_path):
     ((plan, fulfills),) = fulfilling(port)
     assert fulfills == "1" * 60 + "0001"  # the digest the append returned
     assert len(plan) == 1 and plan[0].path == f"act-report/{outcome.report.identity()}.md"
-    assert completion(intent, (Registration(intent.event_token, outcome.report_ref),), {outcome.report_ref: outcome.report}) == CLOSED
+    assert (
+        completion(
+            intent, (Registration(intent.event_token, outcome.report_ref),), {outcome.report_ref: outcome.report}
+        )
+        == CLOSED
+    )
     assert stored.act_report_facet(writer.read_view.get(outcome.report_ref))["event_token"] == intent.event_token
 
 
@@ -126,7 +131,9 @@ def test_the_evaluator_runs_after_the_append_completes_and_before_the_close(tmp_
         ("evidence-type", MalformedRecord),
     ],
 )
-def test_every_pre_intent_refusal_appends_nothing_and_runs_the_evaluator_zero_times(tmp_path, spoil, refusal, monkeypatch):
+def test_every_pre_intent_refusal_appends_nothing_and_runs_the_evaluator_zero_times(
+    tmp_path, spoil, refusal, monkeypatch
+):
     calls: list[object] = []
     monkeypatch.setattr(audit_operation, "audit_corpus", lambda *a, **k: calls.append(a) or ())
     writer, port = writer_over(tmp_path)
@@ -215,11 +222,29 @@ def test_the_mint_helper_refuses_the_wrong_intent_kind_and_the_wrong_entry_kind(
     now = "2026-09-22T00:00:00Z"
     entry = SubjectEvaluationEntry("proposition:" + "a" * 64, EvaluationFinding("{}"))
     with pytest.raises(MalformedRecord, match="audit operation intent"):
-        boundary_values._mint_audit_report(OperationIntent("re-check", "t", "alice"), observer="o", instrument="i", opened_at=now, closed_at=now, entries=(entry,))
+        boundary_values._mint_audit_report(
+            OperationIntent("re-check", "t", "alice"),
+            observer="o",
+            instrument="i",
+            opened_at=now,
+            closed_at=now,
+            entries=(entry,),
+        )
     with pytest.raises(MalformedRecord, match="subject-evaluation entries only"):
         boundary_values._mint_audit_report(
-            OperationIntent("audit", "t", "alice"), observer="o", instrument="i", opened_at=now, closed_at=now,
+            OperationIntent("audit", "t", "alice"),
+            observer="o",
+            instrument="i",
+            opened_at=now,
+            closed_at=now,
             entries=(LocatorEntry("url:https://example.org/a", RetrievalFailed("x")),),
         )
-    report = boundary_values._mint_audit_report(OperationIntent("audit", "t", "alice"), observer="o", instrument="i", opened_at=now, closed_at=now, entries=(entry,))
+    report = boundary_values._mint_audit_report(
+        OperationIntent("audit", "t", "alice"),
+        observer="o",
+        instrument="i",
+        opened_at=now,
+        closed_at=now,
+        entries=(entry,),
+    )
     assert report.operation == "audit" and report.entries == (entry,)

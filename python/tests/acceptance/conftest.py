@@ -103,10 +103,7 @@ def durable_coordination_roots(work_directory, base_contract):
     from coordination_fixtures import coordination_profile, pins_for
 
     profile = coordination_profile(base_contract)
-    roots = tuple(
-        work_directory / f"coordination-{os.getpid()}-{next(_counter)}-{side}"
-        for side in ("left", "right")
-    )
+    roots = tuple(work_directory / f"coordination-{os.getpid()}-{next(_counter)}-{side}" for side in ("left", "right"))
     try:
         for root in roots:
             init_corpus_root(root, authority=FULL)
@@ -150,8 +147,7 @@ def minted_corpus(work_directory) -> Iterator[Path]:
         init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
-            f"the durable acceptance arms need a certified volume under {work_directory}; "
-            f"the engine refused: {refused}"
+            f"the durable acceptance arms need a certified volume under {work_directory}; the engine refused: {refused}"
         ) from refused
     mint_cut4_corpus(open_corpus(root, authority=FULL, profile=BASE))
     yield root

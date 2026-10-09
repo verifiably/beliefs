@@ -202,11 +202,15 @@ def test_an_unencodable_or_raising_reduction_is_refuted(tmp_path, replacement):
     world, binding, _roots, chains = admitted_world(tmp_path, ALPHA)
     _active, _blocked, receipt = derive(world, {ALPHA}, binding, chains)
     shipped = holdings_rule_bundle()
-    source = shipped.implementation + b"\n\n_original_reduce_holdings = reduce_holdings\n" + (
-        b"def reduce_holdings(capture):\n"
-        b'    if capture["corpora"] and capture["corpora"][0]["corpus_id"] == "' + ALPHA.encode() + b'":\n'
-        b"        " + replacement + b"\n"
-        b"    return _original_reduce_holdings(capture)\n"
+    source = (
+        shipped.implementation
+        + b"\n\n_original_reduce_holdings = reduce_holdings\n"
+        + (
+            b"def reduce_holdings(capture):\n"
+            b'    if capture["corpora"] and capture["corpora"][0]["corpus_id"] == "' + ALPHA.encode() + b'":\n'
+            b"        " + replacement + b"\n"
+            b"    return _original_reduce_holdings(capture)\n"
+        )
     )
     adversarial = rules.install_rule_binding(
         world,
@@ -303,9 +307,7 @@ def test_chain_heads_are_committed_inputs(tmp_path):
     assert old_receipt.identity() != new_receipt.identity()
     assert (old_active, old_blocked) == ([], [])
     assert new_active == []
-    assert new_blocked == [
-        {"location": f"store:{STORE}:held.bin", "reasons": ["unsettled"], "heads": []}
-    ]
+    assert new_blocked == [{"location": f"store:{STORE}:held.bin", "reasons": ["unsettled"], "heads": []}]
 
 
 def test_chain_head_alone_participates_in_receipt_identity(tmp_path):
@@ -371,9 +373,7 @@ def test_chain_heads_are_committed_inputs_through_the_production_seam(certified_
     assert old_receipt.coverage[0][2] != new_receipt.coverage[0][2]
     assert old_receipt.identity() != new_receipt.identity()
     assert new_active == []
-    assert new_blocked == [
-        {"location": f"store:{STORE}:held.bin", "reasons": ["unsettled"], "heads": []}
-    ]
+    assert new_blocked == [{"location": f"store:{STORE}:held.bin", "reasons": ["unsettled"], "heads": []}]
 
 
 def test_a_missing_or_non_ancestor_head_is_unresolvable(tmp_path):

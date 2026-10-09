@@ -97,7 +97,9 @@ class ScriptedConnection:
         pass
 
 
-def scripted_seam(script: dict[str, Scripted], *, log: RequestLog | None = None, unpinnable: bool = False) -> tuple[UrlSeam, RequestLog]:
+def scripted_seam(
+    script: dict[str, Scripted], *, log: RequestLog | None = None, unpinnable: bool = False
+) -> tuple[UrlSeam, RequestLog]:
     log = RequestLog() if log is None else log
 
     def connect(approved: Approved, timeout: float) -> Any:

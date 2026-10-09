@@ -198,9 +198,7 @@ def producer_successor(*, behavioural: bool) -> rules.RuleBundle:
     fixture and still disagrees with its sibling on the sample corpus.
     """
     bundle = next(
-        candidate
-        for candidate in rules.shipped_rule_bundles()
-        if candidate.symbol == "derive_producer_snapshot"
+        candidate for candidate in rules.shipped_rule_bundles() if candidate.symbol == "derive_producer_snapshot"
     )
     source = bundle.implementation.decode("utf-8")
     if behavioural:
@@ -244,16 +242,11 @@ class TestReceiptOutcomes:
         ):
             rules.remove_rule_binding(world, binding)
             assert outcomes(world, published) == {
-                candidate: "unresolvable" if candidate == kind else "validated"
-                for candidate in epoch.DERIVATION_KINDS
+                candidate: "unresolvable" if candidate == kind else "validated" for candidate in epoch.DERIVATION_KINDS
             }
             rules.install_rule_binding(
                 world,
-                next(
-                    bundle
-                    for bundle in rules.shipped_rule_bundles()
-                    if rules.binding_for(bundle) == binding
-                ),
+                next(bundle for bundle in rules.shipped_rule_bundles() if rules.binding_for(bundle) == binding),
             )
             assert outcomes(world, published) == dict.fromkeys(epoch.DERIVATION_KINDS, "validated")
 
@@ -402,8 +395,7 @@ class TestReceiptOutcomes:
             raise AssertionError("availability was consulted before well-formedness")
 
         broken_carriers = [
-            repackage(world, published, {"producer-receipt.yaml": receipt})
-            for receipt in malformed_documents.values()
+            repackage(world, published, {"producer-receipt.yaml": receipt}) for receipt in malformed_documents.values()
         ]
         # All three seams, not two. Resolving carriers is the *first* thing the
         # availability phase does per corpus, and it has an `unresolvable`
@@ -492,9 +484,7 @@ class TestReceiptOutcomes:
             document(published, "coreference-receipt.yaml"),
             subject=derive.subject_identity("coreference-reduction", pairs),
         )
-        claimed = repackage(
-            world, published, {"coreference-map.yaml": pairs, "coreference-receipt.yaml": receipt}
-        )
+        claimed = repackage(world, published, {"coreference-map.yaml": pairs, "coreference-receipt.yaml": receipt})
 
         assert read.validate_receipt(world, claimed, "coreference-reduction").outcome == "refuted"
         assert outcomes(world, claimed) == {
@@ -514,9 +504,7 @@ class TestReceiptOutcomes:
         so its projection — and therefore the belief input — is byte-identical.
         """
         dataset = stored.dataset_node(title="dataset moved", resources=pinned("moved"))
-        run = stored.run_node(
-            "moved", title="run moved", spec="analysis-spec:moved", produces=[dataset.id]
-        )
+        run = stored.run_node("moved", title="run moved", spec="analysis-spec:moved", produces=[dataset.id])
         placements = {
             "left": {ALPHA: (dataset, run), BETA: ()},
             "right": {ALPHA: (), BETA: (dataset, run)},
@@ -529,9 +517,7 @@ class TestReceiptOutcomes:
 
         left, right = built["left"], built["right"]
         assert left.coverage != right.coverage
-        assert [corpus_id for corpus_id, _state in left.coverage] == [
-            corpus_id for corpus_id, _state in right.coverage
-        ]
+        assert [corpus_id for corpus_id, _state in left.coverage] == [corpus_id for corpus_id, _state in right.coverage]
         # The subject is unmoved…
         assert left.members["producer-snapshot.yaml"] == right.members["producer-snapshot.yaml"]
         assert (
@@ -581,13 +567,9 @@ class TestReceiptOutcomes:
             assert successor.packaging_identity != published.packaging_identity
 
         assert cosmetic.members["producer-snapshot.yaml"] == published.members["producer-snapshot.yaml"]
-        assert (
-            cosmetic.receipts["producer-receipt.yaml"].subject_identity == original.subject_identity
-        )
+        assert cosmetic.receipts["producer-receipt.yaml"].subject_identity == original.subject_identity
         assert behavioural.members["producer-snapshot.yaml"] != published.members["producer-snapshot.yaml"]
-        assert (
-            behavioural.receipts["producer-receipt.yaml"].subject_identity != original.subject_identity
-        )
+        assert behavioural.receipts["producer-receipt.yaml"].subject_identity != original.subject_identity
         # All three epochs are retained and all three validate: a successor is
         # a sibling, never a replacement.
         for retained in (published, cosmetic, behavioural):
@@ -731,6 +713,7 @@ class TestReceiptOutcomes:
     def _refuse_availability(self, monkeypatch):
         """Every availability read refuses, so a `malformed` verdict proves the
         order and not only the outcome (spec decision 9)."""
+
         def refuse(*_args, **_kwargs):
             raise AssertionError("availability consulted before well-formedness")
 
@@ -760,7 +743,8 @@ class TestReceiptOutcomes:
         anchors = document(published, "anchors.yaml")
         anchors["corpora"] = [entry for entry in anchors["corpora"] if entry["subject"] == ALPHA]
         skewed = repackage(
-            world, published,
+            world,
+            published,
             {"producer-receipt.yaml": receipt, "coverage.yaml": coverage, "anchors.yaml": anchors},
         )
 

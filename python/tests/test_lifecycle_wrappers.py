@@ -159,9 +159,7 @@ class TestReplication:
         second = replicate_root(source, replica, authority=FULL)
         assert first == second
 
-    def test_replicate_refuses_pairwise_overlapping_root_and_metadata_paths(
-        self, certified_work
-    ):
+    def test_replicate_refuses_pairwise_overlapping_root_and_metadata_paths(self, certified_work):
         source = certified_work / "store"
         init_store_root(source, authority=FULL)
 
@@ -170,9 +168,7 @@ class TestReplication:
 
 
 class TestTheWritabilityGate:
-    def test_metadata_less_copy_refuses_mutation_at_the_writability_gate(
-        self, certified_work
-    ):
+    def test_metadata_less_copy_refuses_mutation_at_the_writability_gate(self, certified_work):
         source = _seeded_corpus(certified_work)
         copy = certified_work / "copy"
         shutil.copytree(source, copy, symlinks=True)
@@ -209,9 +205,7 @@ class TestTheWritabilityGate:
         assert report.outcome == "unresolvable"
         assert pending in report.pending
 
-    def test_writable_pending_root_still_refuses_pending_unresolved(
-        self, certified_work
-    ):
+    def test_writable_pending_root_still_refuses_pending_unresolved(self, certified_work):
         root = _seeded_corpus(certified_work)
         _unsettle(root)
 
@@ -221,9 +215,7 @@ class TestTheWritabilityGate:
         with pytest.raises(ExecutionError, match="unsettled registrations"):
             _executor(root).execute([CreateOp("verification/v2.md", b"# more\n")])
 
-    def test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation(
-        self, certified_work
-    ):
+    def test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation(self, certified_work):
         source = certified_work / "store"
         init_store_root(source, authority=FULL)
         (source / "payload.bin").write_bytes(b"opaque payload")
@@ -233,9 +225,7 @@ class TestTheWritabilityGate:
         assert read_lifecycle_state(copy) is LifecycleState.METADATA_LESS
         from atoms.coordinator.commands import append_intent
 
-        with pytest.raises(
-            PreconditionRefused, match="does not grant writability"
-        ):
+        with pytest.raises(PreconditionRefused, match="does not grant writability"):
             append_intent(
                 LinuxBackend(),
                 str(copy),
@@ -262,9 +252,7 @@ class TestTheStateRead:
         root = certified_work / "store"
         init_store_root(root, authority=FULL)
 
-        monkeypatch.setattr(
-            atoms_lifecycle, "_read_machine_identity", lambda: _OTHER_MACHINE
-        )
+        monkeypatch.setattr(atoms_lifecycle, "_read_machine_identity", lambda: _OTHER_MACHINE)
         assert read_lifecycle_state(root) is LifecycleState.BINDING_MISMATCHED
         monkeypatch.undo()
 
@@ -275,9 +263,7 @@ class TestTheStateRead:
 
 
 class TestMigration:
-    def test_migration_refuses_metadata_less_and_mismatched(
-        self, certified_work, monkeypatch
-    ):
+    def test_migration_refuses_metadata_less_and_mismatched(self, certified_work, monkeypatch):
         from atoms.coordinator import lifecycle as atoms_lifecycle
 
         bare = certified_work / "bare"
@@ -287,9 +273,7 @@ class TestMigration:
 
         root = certified_work / "store"
         init_store_root(root, authority=FULL)
-        monkeypatch.setattr(
-            atoms_lifecycle, "_read_machine_identity", lambda: _OTHER_MACHINE
-        )
+        monkeypatch.setattr(atoms_lifecycle, "_read_machine_identity", lambda: _OTHER_MACHINE)
         with pytest.raises(PreconditionRefused, match="mismatch"):
             migrate_root_to_lifecycle_v3(root, authority=FULL)
 

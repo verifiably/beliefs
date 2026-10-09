@@ -1,4 +1,5 @@
 """Cut 20 inventory, immutable freeze, and twelve real sabotages."""
+
 from __future__ import annotations
 
 import subprocess
@@ -38,9 +39,16 @@ import beliefs
 # report through `reports`. The `after` is the frozen one: eligibility reads the
 # facet's presence instead of the validity predicate.
 _LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "F4": Sabotage(
         module="corpus.py",
-        before="        reason = validity_refusal(judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref))\n",
+        before=(
+            "        reason = validity_refusal(\n"
+            "            judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref)\n"
+            "        )\n"
+        ),
         after='        reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else "absent"\n',
     ),
     "F8": Sabotage(
@@ -55,7 +63,7 @@ _LIVE_SABOTAGES = {
             "        if section in root:\n"
             "            raise MalformedContract(\n"
             '                f"{source}: a domain contract declares no {section}; a kernel kind or relation signature is the "\n'
-            "                \"base contract's, and a domain contributes facets to kinds that already exist (D §3.3, D8) — refused\"\n"
+            '                "base contract\'s, and a domain contributes facets to kinds that already exist (D §3.3, D8) — refused"\n'
             "            )\n"
             "    _fields(root, _CONTRACT_FIELDS, _CONTRACT_OPTIONAL, source)\n"
         ),
@@ -73,7 +81,26 @@ CUT20_FROZEN_SHA256 = "3bf154b032c696c1b62954936262ff14137b1af055cc887c49fc0aa60
 
 
 def test_the_inventory_is_exactly_the_eighteen_frozen_units():
-    assert DECLARATION_UNITS == ("D1", "D2", "D4", "D5", "D8", "D9", "D10", "G5", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "parity-fixture-2", "boundary-no-read-entry-point-gained-an-argument")
+    assert DECLARATION_UNITS == (
+        "D1",
+        "D2",
+        "D4",
+        "D5",
+        "D8",
+        "D9",
+        "D10",
+        "G5",
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "parity-fixture-2",
+        "boundary-no-read-entry-point-gained-an-argument",
+    )
     assert len(set(DECLARATION_UNITS)) == 18
     assert set(UNIT_CHECKS) == set(DECLARATION_UNITS)
     assert len(CUT20_ARMS) == len({arm.row for arm in CUT20_ARMS}) == 12
@@ -90,10 +117,17 @@ def test_each_sabotage_names_one_real_source_site():
 
 def test_the_freeze_commit_and_frozen_body_are_pinned():
     subprocess.run(["git", "merge-base", "--is-ancestor", CUT20_FREEZE_COMMIT, "HEAD"], cwd=ROOT, check=True)
-    frozen = subprocess.run(["git", "show", f"{CUT20_FREEZE_COMMIT}:{FROZEN_CUT.relative_to(ROOT)}"], cwd=ROOT, check=True, capture_output=True).stdout
+    frozen = subprocess.run(
+        ["git", "show", f"{CUT20_FREEZE_COMMIT}:{FROZEN_CUT.relative_to(ROOT)}"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout
     assert sha256(frozen).hexdigest() == CUT20_FROZEN_SHA256
+
     def body(data):
-        return data[data.index(b"## 2."):]
+        return data[data.index(b"## 2.") :]
+
     assert body(FROZEN_CUT.read_bytes()) == body(frozen)
 
 

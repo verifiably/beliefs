@@ -76,9 +76,7 @@ def _forked_form_store(work: Path, name: str = "forked-store") -> tuple[Path, st
         target.write_bytes(content)
         target.chmod(0o644)
         digest = hashlib.sha256(content).hexdigest()
-        baseline.append(
-            (path, state_to_json(FileState(f"sha256:{digest}", 0o644, len(content))))
-        )
+        baseline.append((path, state_to_json(FileState(f"sha256:{digest}", 0o644, len(content)))))
     store_id = "5" * 32
     payload = science_root._store_genesis_payload(store_id, ("f" * 64, "e" * 64))
     chain = root / ".#~chain"
@@ -103,17 +101,13 @@ def _detached_head(root: Path) -> tuple[str, str]:
 
 def _store_record(store_id: str, genesis: str, head: str) -> verify.RegistryCarrier:
     return verify.RegistryCarrier.from_record(
-        anchors.LogHeadRecord(
-            anchors.StoreSubject(store_id), genesis, head, anchors.AnchorActOrigin("alice")
-        )
+        anchors.LogHeadRecord(anchors.StoreSubject(store_id), genesis, head, anchors.AnchorActOrigin("alice"))
     )
 
 
 def _corpus_record(corpus_id: str, genesis: str, head: str) -> verify.RegistryCarrier:
     return verify.RegistryCarrier.from_record(
-        anchors.LogHeadRecord(
-            anchors.CorpusSubject(corpus_id), genesis, head, anchors.AnchorActOrigin("alice")
-        )
+        anchors.LogHeadRecord(anchors.CorpusSubject(corpus_id), genesis, head, anchors.AnchorActOrigin("alice"))
     )
 
 
@@ -122,9 +116,7 @@ def _restore_store(root: Path, store_id: str, *carriers) -> verify.LogReport:
 
 
 class TestStoreRestore:
-    def test_malformed_copy_returns_malformed_and_stays_unserviceable(
-        self, certified_work
-    ):
+    def test_malformed_copy_returns_malformed_and_stays_unserviceable(self, certified_work):
         source, store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
         replicate_root(source, replica, authority=FULL)
@@ -177,8 +169,8 @@ class TestStoreRestore:
         carrier = verify.ArtifactCarrier.from_bytes(artifact)
 
         report = restore_root(
-            replica, anchors.StoreSubject(OTHER_STORE_ID), verify.ObserverSet((carrier,))
-        , authority=FULL)
+            replica, anchors.StoreSubject(OTHER_STORE_ID), verify.ObserverSet((carrier,)), authority=FULL
+        )
 
         # Asserted, so replay refutation cannot discharge the arm vacuously.
         assert report.outcome == "validated"
@@ -203,9 +195,7 @@ class TestStoreRestore:
         # only difference the verdict can turn on.
         complete = certified_work / "complete"
         shutil.copytree(source, complete, symlinks=True)
-        report = _restore_store(
-            complete, store_id, _store_record(store_id, genesis, head)
-        )
+        report = _restore_store(complete, store_id, _store_record(store_id, genesis, head))
         assert report.outcome == "validated"
 
         incomplete = certified_work / "incomplete"
@@ -213,9 +203,7 @@ class TestStoreRestore:
         # One payload file the chain's surface names, omitted — never chain
         # damage (the cut §6 obligation).
         (incomplete / "blob.bin").unlink()
-        report = _restore_store(
-            incomplete, store_id, _store_record(store_id, genesis, head)
-        )
+        report = _restore_store(incomplete, store_id, _store_record(store_id, genesis, head))
 
         assert report.outcome != "validated"
         assert read_lifecycle_state(incomplete) is LifecycleState.METADATA_LESS
@@ -293,9 +281,7 @@ class TestCorpusRestore:
         _executor(root).execute([CreateOp("verification/v1.md", b"# a record\n")])
         return root
 
-    def test_validated_with_corpus_manifest_mismatch_does_not_admit(
-        self, certified_work
-    ):
+    def test_validated_with_corpus_manifest_mismatch_does_not_admit(self, certified_work):
         root = self._seeded_corpus(certified_work)
         # The slice-3 §1.2 case: the identity rewrite is cooperatively logged,
         # so replay validates and replay alone is not the guard.
@@ -320,7 +306,8 @@ class TestCorpusRestore:
             replica,
             anchors.CorpusSubject(CORPUS_A),
             verify.ObserverSet((_corpus_record(CORPUS_A, genesis, head),)),
-         authority=FULL)
+            authority=FULL,
+        )
 
         assert report.outcome == "validated"
         assert any(finding.code == "subject-mismatch" for finding in report.findings)
@@ -336,16 +323,15 @@ class TestCorpusRestore:
             replica,
             anchors.CorpusSubject(CORPUS_A),
             verify.ObserverSet((_corpus_record(CORPUS_A, genesis, head),)),
-         authority=FULL)
+            authority=FULL,
+        )
 
         assert report.outcome == "validated"
         assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_SERVICEABLE
 
 
 class TestTheHeldBoundary:
-    def test_restore_holds_one_boundary_across_evaluate_and_grant(
-        self, tmp_path, monkeypatch
-    ):
+    def test_restore_holds_one_boundary_across_evaluate_and_grant(self, tmp_path, monkeypatch):
         root = tmp_path / "store"
         (root / "artifacts").mkdir(parents=True)
         (root / "artifacts" / "head.json").write_bytes(b"{}")
@@ -382,9 +368,7 @@ class TestTheHeldBoundary:
         report = verify._restore_root(
             root,
             anchors.StoreSubject("5" * 32),
-            verify.ObserverSet(
-                (_store_record("5" * 32, view.genesis.digest, view.tip),)
-            ),
+            verify.ObserverSet((_store_record("5" * 32, view.genesis.digest, view.tip),)),
             seam=make_seam(inspections, captures),
             grant=grant,
         )
@@ -422,26 +406,18 @@ class TestDivergentCopies:
         self.store_id = store_id
         return first, second, common_genesis, head_one, head_two, store_id
 
-    def test_divergent_copies_assembled_in_one_root_are_sibling_malformed(
-        self, certified_work
-    ):
-        first, second, genesis, head_one, head_two, store_id = self._divergent_pair(
-            certified_work
-        )
+    def test_divergent_copies_assembled_in_one_root_are_sibling_malformed(self, certified_work):
+        first, second, genesis, head_one, head_two, store_id = self._divergent_pair(certified_work)
         # Assemble both tails in one chain directory: two successors of one
         # parent digest.
         shutil.copy(second / ".#~chain" / head_two, first / ".#~chain" / head_two)
 
-        report = _restore_store(
-            first, store_id, _store_record(store_id, genesis, head_one)
-        )
+        report = _restore_store(first, store_id, _store_record(store_id, genesis, head_one))
         assert report.outcome == "malformed"
         assert read_lifecycle_state(first) is LifecycleState.READ_ONLY_UNSERVICEABLE
 
     def test_both_divergent_heads_in_one_observer_set_refute(self, certified_work):
-        first, _second, genesis, head_one, head_two, store_id = self._divergent_pair(
-            certified_work
-        )
+        first, _second, genesis, head_one, head_two, store_id = self._divergent_pair(certified_work)
         report = _restore_store(
             first,
             store_id,
@@ -452,9 +428,7 @@ class TestDivergentCopies:
         assert read_lifecycle_state(first) is LifecycleState.READ_ONLY_UNSERVICEABLE
 
     def test_divergent_copies_verified_separately_each_validate(self, certified_work):
-        first, second, genesis, head_one, head_two, store_id = self._divergent_pair(
-            certified_work
-        )
+        first, second, genesis, head_one, head_two, store_id = self._divergent_pair(certified_work)
         # The pinned surviving-observer negative IS the claim: with only its
         # own head supplied, each divergent copy validates — nothing in a
         # separate verification names the sibling head it cannot see.

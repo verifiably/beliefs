@@ -151,7 +151,14 @@ class EpochImportRefused(ScienceError):
 
     def __init__(
         self,
-        reason: Literal["malformed-carrier", "foreign-world", "malformed-receipt", "refuted-receipt", "retracted-snapshot", "unreadable-standing"],
+        reason: Literal[
+            "malformed-carrier",
+            "foreign-world",
+            "malformed-receipt",
+            "refuted-receipt",
+            "retracted-snapshot",
+            "unreadable-standing",
+        ],
         message: str,
         *,
         outcomes: tuple["ReceiptOutcome", ...] = (),
@@ -363,12 +370,10 @@ ArrivalCause: TypeAlias = Literal["malformed", "refuted", "pending", "chainless"
 
 _ARRIVAL_REMEDIES: Mapping[ArrivalCause, str] = MappingProxyType(
     {
-        "malformed": "recopy from the origin; a structurally damaged chain is not repairable by evidence "
-        "supplied here",
+        "malformed": "recopy from the origin; a structurally damaged chain is not repairable by evidence supplied here",
         "refuted": "recopy from the origin, or supply the observers that account for the disagreement",
         "pending": "settlement evidence from the origin, or recopy",
-        "chainless": "recopy carrying the chain; a replica that did not carry its chain is not an "
-        "unanchored arrival",
+        "chainless": "recopy carrying the chain; a replica that did not carry its chain is not an unanchored arrival",
     }
 )
 """The remedy each cause names, so that "the remedy named" (§6.2) is a property
@@ -424,7 +429,6 @@ class SubjectMismatch(ScienceError):
     checked **before** the admission transaction, so no mismatched subject is
     ever admitted and then reported.
     """
-
 
 
 class ObserverCarrierInvalid(ScienceError):
@@ -899,7 +903,9 @@ class InputOutsideCorpus(MalformedRecord):
 
     def __init__(self, assessment: str, run: str, inputs: tuple[str, ...]) -> None:
         self.assessment, self.run, self.inputs = assessment, run, inputs
-        super().__init__(f"{assessment} rests on {run}, which names {', '.join(inputs)}; this corpus does not hold them")
+        super().__init__(
+            f"{assessment} rests on {run}, which names {', '.join(inputs)}; this corpus does not hold them"
+        )
 
 
 class RecipeVersionUnsupported(RecordError):
@@ -1186,7 +1192,13 @@ class PublicationRefused(WriteRefused):
     """A publish door refused before its intent (publication-records design §6)."""
 
     def __init__(
-        self, reason: str, *, tips: tuple[str, ...] = (), refs: tuple[str, ...] = (), corpus_ids: tuple[str, ...] = (), field: str = "",
+        self,
+        reason: str,
+        *,
+        tips: tuple[str, ...] = (),
+        refs: tuple[str, ...] = (),
+        corpus_ids: tuple[str, ...] = (),
+        field: str = "",
         tokens: tuple[str, ...] = (),
     ) -> None:
         detail = ", ".join(part for part in (",".join(refs), ",".join(corpus_ids), field, ",".join(tokens)) if part)

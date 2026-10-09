@@ -40,8 +40,15 @@ def proposition(slug: str, operator: str = "affects") -> Node:
 def retraction(target: Node, ground: str, actor: str) -> Node:
     identity = stored.stored_semantic_hash(target)
     assert identity is not None
-    return stored.retraction_node(title="retraction", target=stored.NodeTarget(target.id, target.id, identity),
-                                  reason="defective-code", rationale="invalid", grounds=(ground,), actor=actor, event_token="e1")
+    return stored.retraction_node(
+        title="retraction",
+        target=stored.NodeTarget(target.id, target.id, identity),
+        reason="defective-code",
+        rationale="invalid",
+        grounds=(ground,),
+        actor=actor,
+        event_token="e1",
+    )
 
 
 class RecordingPort:
@@ -80,6 +87,7 @@ class RecordingPort:
 
     def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
         from beliefs.corpus import ReadView
+
         reason = guard(ReadView.opened_at(self.root))
         self.execute_fulfilling(plan if reason is None else fallback(reason), fulfills)
         return reason
@@ -164,11 +172,27 @@ def test_a_permit_refusal_appends_nothing(tmp_path, authority):
 
 # One root per case: pytest hands every parameter of a long-named test the same `tmp_path`,
 # and a shared root would carry the previous case's records into this one.
-@pytest.mark.parametrize("case, build", [
-    ("add-act-report", lambda w: (w.add, w.operations.add, proposition("p1").model_copy(update={"kind": "act-report"}))),
-    ("add-retraction", lambda w: (w.add, w.operations.add, retraction(mint_eligible_assessment(w), "proposition:x", ACTOR))),
-    ("retract-foreign-actor", lambda w: (w.retract, w.operations.retract, retraction(mint_eligible_assessment(w), "proposition:x", "someone-else"))),
-])
+@pytest.mark.parametrize(
+    "case, build",
+    [
+        (
+            "add-act-report",
+            lambda w: (w.add, w.operations.add, proposition("p1").model_copy(update={"kind": "act-report"})),
+        ),
+        (
+            "add-retraction",
+            lambda w: (w.add, w.operations.add, retraction(mint_eligible_assessment(w), "proposition:x", ACTOR)),
+        ),
+        (
+            "retract-foreign-actor",
+            lambda w: (
+                w.retract,
+                w.operations.retract,
+                retraction(mint_eligible_assessment(w), "proposition:x", "someone-else"),
+            ),
+        ),
+    ],
+)
 def test_the_twin_refuses_exactly_as_the_ordinary_method_and_appends_nothing(tmp_path, case, build):
     root = tmp_path / case
     root.mkdir()
@@ -230,7 +254,9 @@ def test_the_scope_binds_the_calling_writers_authority_and_port(tmp_path):
     narrow_port = RecordingPort(narrow, tmp_path)
     narrow_writer = CorpusWriter(tmp_path, DefaultExecutor, authority=narrow, operation_port=narrow_port, profile=BASE)
     narrow_writer.operations.add(proposition("p1"))
-    assert primitive_calls(narrow_port) == ["preflight", "append_intent", "execute_fulfilling"] and wide_port.calls == []
+    assert (
+        primitive_calls(narrow_port) == ["preflight", "append_intent", "execute_fulfilling"] and wide_port.calls == []
+    )
     assert intents_of(narrow_port)[0].actor == ACTOR
 
 
@@ -294,14 +320,23 @@ def test_the_requirement_is_the_effective_permit_at_the_act(tmp_path):
     writer.operations.add(proposition("p1"))
     with pytest.raises(PermitExceeded) as caught:
         writer.operations.add(stored.source_node(title="s1", identifiers={"doi": "10.1234/s1"}))
-    assert caught.value.requirement == PermitFact("kind", "source") and caught.value.capability.kinds == ("proposition",)
-    assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]  # only the first write reached the seam
+    assert caught.value.requirement == PermitFact("kind", "source") and caught.value.capability.kinds == (
+        "proposition",
+    )
+    assert primitive_calls(port) == [
+        "preflight",
+        "append_intent",
+        "execute_fulfilling",
+    ]  # only the first write reached the seam
 
 
 def test_commit_fulfilling_requires_the_kinds_the_plan_emits():
     from beliefs.corpus import _plan_kinds
 
-    assert _plan_kinds([CreateOp("proposition/p1.md", b"x"), DeleteOp("source/s1.md", expected_digest="0" * 64)]) == ("proposition", "source")
+    assert _plan_kinds([CreateOp("proposition/p1.md", b"x"), DeleteOp("source/s1.md", expected_digest="0" * 64)]) == (
+        "proposition",
+        "source",
+    )
     with pytest.raises(PlanRefused):
         _plan_kinds([CreateOp("corpus.yaml", b"x")])
 
@@ -355,4 +390,8 @@ def test_v5_each_forgery_is_refused_before_the_intent(tmp_path):
         assert not [c for c in port.calls if c[0] == "append_intent"], node.id
         assert writer.read_view.resolve(node.id) is None
     commit = writer.operations.add(publication_node(published.derived, assessment_ref=published.assessment.id))
-    assert commit.record is not None and primitive_calls(port)[-3:] == ["preflight", "append_intent", "execute_fulfilling"]
+    assert commit.record is not None and primitive_calls(port)[-3:] == [
+        "preflight",
+        "append_intent",
+        "execute_fulfilling",
+    ]

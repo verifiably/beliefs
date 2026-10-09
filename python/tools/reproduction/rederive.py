@@ -43,7 +43,11 @@ def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
     decoded = decode_verification(node)
     report: dict = {
         "inputs": {
-            "corpus": ["verification record (basis, comparison report, scope, verdict read)", "two run publications", "analysis-spec record"],
+            "corpus": [
+                "verification record (basis, comparison report, scope, verdict read)",
+                "two run publications",
+                "analysis-spec record",
+            ],
             "in_process": ["interpretation and equivalence RuleImplementations"],
         },
         "comparison_report_stored": decoded is not None,
@@ -58,7 +62,11 @@ def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
         "audit_check": None,
     }
     if decoded is not None:
-        report["scope_read"], report["verdict_read"], report["report_identity_read"] = decoded.scope, decoded.verdict, decoded.report.identity()
+        report["scope_read"], report["verdict_read"], report["report_identity_read"] = (
+            decoded.scope,
+            decoded.verdict,
+            decoded.report.identity(),
+        )
     derivation = stored.verification_derivation(node)
     if derivation is not None:
         report["derivation_named"] = True
@@ -68,11 +76,19 @@ def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
         scope = derive_scope(original, replayed, certification=certification)
         report["scope_recomputed"], report["scope_equal"] = scope, scope == stored_value.scope
         rebuilt = build_verification(
-            original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
-            contract_identity="none-consulted", epoch="none-published", certification=certification,
+            original,
+            replayed,
+            specs=evidence.specs,
+            held_rules=evidence.held_rules,
+            contract_identity="none-consulted",
+            epoch="none-published",
+            certification=certification,
         )
         if isinstance(rebuilt, AssessmentVerification):
-            report["verdict_recomputed"], report["verdict_equal"] = rebuilt.verdict, rebuilt.verdict == stored_value.verdict
+            report["verdict_recomputed"], report["verdict_equal"] = (
+                rebuilt.verdict,
+                rebuilt.verdict == stored_value.verdict,
+            )
             if decoded is not None:
                 report["report_identity_equal"] = rebuilt.report.identity() == decoded.report.identity()
         if view.holds(st["spec_ref"]):
@@ -82,7 +98,9 @@ def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
     report["audit_check"] = {
         "checked": outcome.checked,
         "reason": outcome.reason,
-        "contradiction": None if outcome.contradiction is None else {"code": outcome.contradiction.code, "detail": outcome.contradiction.detail},
+        "contradiction": None
+        if outcome.contradiction is None
+        else {"code": outcome.contradiction.code, "detail": outcome.contradiction.detail},
     }
     return report
 

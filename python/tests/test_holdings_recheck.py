@@ -82,7 +82,17 @@ class ScriptedStore:
         def unused(*_):
             raise AssertionError("not reached")
 
-        return StoreActSeam(corpus_lock, append_intent, publish_fulfilling, read_path, unused, unused, unused, lambda _root: GENESIS, lambda _caught: False)
+        return StoreActSeam(
+            corpus_lock,
+            append_intent,
+            publish_fulfilling,
+            read_path,
+            unused,
+            unused,
+            unused,
+            lambda _root: GENESIS,
+            lambda _caught: False,
+        )
 
 
 def portable(tmp_path, views=None):
@@ -105,24 +115,45 @@ def test_two_locations_close_through_one_report_after_one_operation_intent(tmp_p
     a, b = location("a.bin"), location("b.bin")
     outcome = recheck_locations(ctx, writer, (a, b))
     assert isinstance(outcome, RecheckOutcome)
-    assert seam.events == ["appended", "holdings-intent", "read", "published", "holdings-intent", "read", "published", "closed"]
+    assert seam.events == [
+        "appended",
+        "holdings-intent",
+        "read",
+        "published",
+        "holdings-intent",
+        "read",
+        "published",
+        "closed",
+    ]
     (intent,) = intents_of(port)
     assert intent == OperationIntent("re-check", outcome.report.event_token, FULL.actor)
     assert len(seam.intents) == 2 and all(json.loads(i)["kind"] == "re-check" for i in seam.intents)
     assert [e.subject for e in outcome.entries] == [a.canonical(), b.canonical()]
-    assert all(type(e) is LocatorEntry and type(e.outcome) is PublishedObservation and e.instrument_inputs == () for e in outcome.entries)
+    assert all(
+        type(e) is LocatorEntry and type(e.outcome) is PublishedObservation and e.instrument_inputs == ()
+        for e in outcome.entries
+    )
     for entry in outcome.entries:
         assert isinstance(entry.outcome, PublishedObservation)
         assert writer.read_view.holds(entry.outcome.ref)
     assert writer.read_view.holds(outcome.report_ref)
     ((_plan, fulfills),) = [payload for kind, payload in port.calls if kind == "execute_fulfilling"]
     assert fulfills == "1" * 60 + "0001"
-    assert completion(intent, (Registration(intent.event_token, outcome.report_ref),), {outcome.report_ref: outcome.report}) == CLOSED
+    assert (
+        completion(
+            intent, (Registration(intent.event_token, outcome.report_ref),), {outcome.report_ref: outcome.report}
+        )
+        == CLOSED
+    )
     assert outcome.report.entries == outcome.entries
 
 
 def test_an_inconclusive_location_is_an_entry_with_the_reason_only_and_the_operation_still_closes(tmp_path):
-    views = {"b.bin": ReadNotAttemptedView(reason="lease-refused", lifecycle_state=None, detail="/secret/path must not enter the record")}
+    views = {
+        "b.bin": ReadNotAttemptedView(
+            reason="lease-refused", lifecycle_state=None, detail="/secret/path must not enter the record"
+        )
+    }
     ctx, seam, writer, _ = portable(tmp_path, views)
     a, b = location("a.bin"), location("b.bin")
     outcome = recheck_locations(ctx, writer, (a, b))
@@ -201,8 +232,12 @@ def test_every_pre_intent_refusal_appends_no_intent_of_either_grain_and_reads_no
         ctx = replace(ctx, observer="\udcff")
     elif spoil == "standing-elsewhere":
         elsewhere = holdings_observation(
-            location=location("b.bin"), outcome=Found("sha256:" + "0" * 64), observer="o", instrument="i",
-            event_token="t", observed_at="2026-09-22T00:00:00Z",
+            location=location("b.bin"),
+            outcome=Found("sha256:" + "0" * 64),
+            observer="o",
+            instrument="i",
+            event_token="t",
+            observed_at="2026-09-22T00:00:00Z",
         )
         kwargs["standing"] = {a.canonical(): (elsewhere,)}
     elif spoil == "standing-unrequested":
@@ -254,11 +289,29 @@ def test_the_mint_helper_refuses_the_wrong_intent_kind_and_the_wrong_entry_kind(
     now = "2026-09-22T00:00:00Z"
     entry = LocatorEntry(location("x.bin").canonical(), RetrievalFailed("x"))
     with pytest.raises(MalformedRecord, match="re-check operation intent"):
-        boundary_values._mint_recheck_report(OperationIntent("audit", "t", "alice"), observer="o", instrument="i", opened_at=now, closed_at=now, entries=(entry,))
+        boundary_values._mint_recheck_report(
+            OperationIntent("audit", "t", "alice"),
+            observer="o",
+            instrument="i",
+            opened_at=now,
+            closed_at=now,
+            entries=(entry,),
+        )
     with pytest.raises(MalformedRecord, match="locator entries only"):
         boundary_values._mint_recheck_report(
-            OperationIntent("re-check", "t", "alice"), observer="o", instrument="i", opened_at=now, closed_at=now,
+            OperationIntent("re-check", "t", "alice"),
+            observer="o",
+            instrument="i",
+            opened_at=now,
+            closed_at=now,
             entries=(SubjectEvaluationEntry("proposition:" + "a" * 64, EvaluationFinding("{}")),),
         )
-    report = boundary_values._mint_recheck_report(OperationIntent("re-check", "t", "alice"), observer="o", instrument="i", opened_at=now, closed_at=now, entries=(entry,))
+    report = boundary_values._mint_recheck_report(
+        OperationIntent("re-check", "t", "alice"),
+        observer="o",
+        instrument="i",
+        opened_at=now,
+        closed_at=now,
+        entries=(entry,),
+    )
     assert report.operation == "re-check" and report.entries == (entry,)

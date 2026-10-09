@@ -41,7 +41,10 @@ def specs() -> tuple[FrozenSpec, FrozenSpec, FrozenSpec]:
     original = freeze(spec_draft(), held_rules=spec_rules())
     unreferenced = freeze(spec_draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=spec_rules())
     referencing = revise(
-        original, edits={"estimand": typed_estimand(reference=Decimal(1))}, held_rules=spec_rules(), recorded_failures=frozenset()
+        original,
+        edits={"estimand": typed_estimand(reference=Decimal(1))},
+        held_rules=spec_rules(),
+        recorded_failures=frozenset(),
     )
     return original, unreferenced, referencing
 

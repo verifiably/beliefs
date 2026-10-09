@@ -48,7 +48,24 @@ from beliefs import root
         (cut45, 45, (34, 34, 4)),
         (cut46, 46, (36, 36, 3)),
     ),
-    ids=("cut23", "cut24", "cut33", "cut34", "cut35", "cut36", "cut37", "cut38", "cut39", "cut40", "cut41", "cut42", "cut43", "cut44", "cut45", "cut46"),
+    ids=(
+        "cut23",
+        "cut24",
+        "cut33",
+        "cut34",
+        "cut35",
+        "cut36",
+        "cut37",
+        "cut38",
+        "cut39",
+        "cut40",
+        "cut41",
+        "cut42",
+        "cut43",
+        "cut44",
+        "cut45",
+        "cut46",
+    ),
 )
 def test_recent_runner_preserves_commands_environment_and_cleanup(
     runner, cut: int, accounting: tuple[int, int, int], tmp_path: Path, monkeypatch, capsys
@@ -64,8 +81,7 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
     monkeypatch.setattr(
         subprocess,
         "run",
-        lambda command, **kwargs: calls.append((command, kwargs))
-        or subprocess.CompletedProcess(command, 0),
+        lambda command, **kwargs: calls.append((command, kwargs)) or subprocess.CompletedProcess(command, 0),
     )
 
     assert runner.main(["-k", "one"]) == 0
@@ -91,7 +107,10 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
     if cut == 45:
         assert "guarantee rows exercised: 4 (4 newly closed: G10, G11, G12, G13)" in output
     assert [f"[cut{cut} phase {phase}/3]" in output for phase in range(1, 4)] == [True, True, True]
-    assert f"declared arms: {accounting[0]} (= {accounting[1]} declaration units; {accounting[2]} guarantee rows)" in output
+    assert (
+        f"declared arms: {accounting[0]} (= {accounting[1]} declaration units; {accounting[2]} guarantee rows)"
+        in output
+    )
 
     if cut == 33:
         assert "guarantee rows exercised: 3 (2 newly closed: C7, C3; C10 remains partial)" in output
@@ -100,12 +119,16 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
     if cut == 35:
         assert "guarantee rows exercised: 8 (6 newly closed: H4, G9, R10, T5, T1, T4; T2 and T7 partial)" in output
     if cut == 36:
-        assert "guarantee rows exercised: 3 (3 newly closed: L8, L4, L10; L1 re-homed to persistence-cut, partial)" in output
+        assert (
+            "guarantee rows exercised: 3 (3 newly closed: L8, L4, L10; L1 re-homed to persistence-cut, partial)"
+            in output
+        )
     if cut == 37:
         assert "guarantee rows exercised: 1 (1 newly closed: L13; row 5 partial for L1 under persistence-cut)" in output
     if cut == 38:
         assert (
-            "guarantee rows exercised: 3 (1 newly closed: T2; T5 and T6 re-read for the new kinds; T7 partial under cross-root-publication)" in output
+            "guarantee rows exercised: 3 (1 newly closed: T2; T5 and T6 re-read for the new kinds; T7 partial under cross-root-publication)"
+            in output
         )
     if cut == 39:
         assert "guarantee rows exercised: 5 (5 newly closed: W17, Y1, Y2, Y3, Y4)" in output

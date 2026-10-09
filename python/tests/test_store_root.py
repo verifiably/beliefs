@@ -92,9 +92,7 @@ class TestInitStoreRoot:
         assert science_root._decode_store_genesis(payload) == (first, None)
         assert surface == ()
 
-    def test_init_store_root_refuses_a_populated_payload_root(
-        self, tmp_path, monkeypatch
-    ):
+    def test_init_store_root_refuses_a_populated_payload_root(self, tmp_path, monkeypatch):
         def trapped(*_args):
             raise AssertionError("a refused init must not register")
 
@@ -107,15 +105,11 @@ class TestInitStoreRoot:
             init_store_root(store_root, authority=FULL)
         assert not (store_root / ".#~chain").exists()
 
-    def test_interrupted_init_retry_returns_the_original_store_id(
-        self, tmp_path, monkeypatch
-    ):
+    def test_interrupted_init_retry_returns_the_original_store_id(self, tmp_path, monkeypatch):
         store_root = tmp_path / "store"
         store_root.mkdir()
         original = "ab" * 16
-        _fabricate_genesis(
-            store_root, science_root._store_genesis_payload(original, None)
-        )
+        _fabricate_genesis(store_root, science_root._store_genesis_payload(original, None))
         monkeypatch.setattr(
             science_root,
             "_read_lifecycle_state_callback",
@@ -128,14 +122,10 @@ class TestInitStoreRoot:
         # The retry re-registers the durable genesis's own id, never a re-mint.
         assert calls[0][2] == science_root._store_genesis_payload(original, None)
 
-    def test_cold_existing_store_root_refuses_reinitialization(
-        self, tmp_path, monkeypatch
-    ):
+    def test_cold_existing_store_root_refuses_reinitialization(self, tmp_path, monkeypatch):
         store_root = tmp_path / "store"
         store_root.mkdir()
-        _fabricate_genesis(
-            store_root, science_root._store_genesis_payload("cd" * 16, None)
-        )
+        _fabricate_genesis(store_root, science_root._store_genesis_payload("cd" * 16, None))
         monkeypatch.setattr(
             science_root,
             "_read_lifecycle_state_callback",
@@ -143,26 +133,18 @@ class TestInitStoreRoot:
         )
 
         def refusing(*_args):
-            raise PreconditionRefused(
-                "matching genesis has no local initialization operation"
-            )
+            raise PreconditionRefused("matching genesis has no local initialization operation")
 
         monkeypatch.setattr(science_root, "register_root", refusing)
 
-        with pytest.raises(
-            CorpusRootRefused, match="restored or forked, never re-initialized"
-        ):
+        with pytest.raises(CorpusRootRefused, match="restored or forked, never re-initialized"):
             init_store_root(store_root, authority=FULL)
 
-    def test_completed_init_is_idempotent_without_reregistering(
-        self, tmp_path, monkeypatch
-    ):
+    def test_completed_init_is_idempotent_without_reregistering(self, tmp_path, monkeypatch):
         store_root = tmp_path / "store"
         store_root.mkdir()
         original = "ef" * 16
-        _fabricate_genesis(
-            store_root, science_root._store_genesis_payload(original, None)
-        )
+        _fabricate_genesis(store_root, science_root._store_genesis_payload(original, None))
         monkeypatch.setattr(
             science_root,
             "_read_lifecycle_state_callback",
@@ -191,9 +173,7 @@ class TestStoreGenesisPayload:
 
         malformed = (
             v1.encode({"domain": science_root.STORE_GENESIS_DOMAIN}),
-            v1.encode(
-                {"domain": science_root.STORE_GENESIS_DOMAIN, "store_id": "zz"}
-            ),
+            v1.encode({"domain": science_root.STORE_GENESIS_DOMAIN, "store_id": "zz"}),
             v1.encode(
                 {
                     "domain": science_root.STORE_GENESIS_DOMAIN,

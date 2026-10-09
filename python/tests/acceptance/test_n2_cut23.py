@@ -82,16 +82,13 @@ _LIVE_SABOTAGES = {
     # the answer paired with `NotReached()`. Final review retains gathered
     # inputs as a third internal result (`None` on absence). The row is unchanged; the arm
     # still flips the banked reason — and the declaration stays byte-exact.
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
     "R19e": Sabotage(
         module="evaluation.py",
-        before=(
-            '        return NoBelief("unavailable-corpus-absent", '
-            'detail=f"inputs recorded in absent corpora: {corpora}", acceptance=selection.report), NotReached(), None\n'
-        ),
-        after=(
-            '        return NoBelief("unavailable-input-unheld", '
-            'detail=f"inputs recorded in absent corpora: {corpora}", acceptance=selection.report), NotReached(), None\n'
-        ),
+        before='                "unavailable-corpus-absent",\n',
+        after='                "unavailable-input-unheld",\n',
     ),
 }
 CUT23_ARMS = tuple(

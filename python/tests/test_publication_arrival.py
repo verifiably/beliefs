@@ -19,7 +19,11 @@ from beliefs.publication_arrival import admit_publication
 @pytest.fixture()
 def arriving(tmp_path, monkeypatch):
     calls = []
-    monkeypatch.setattr(publication_arrival, "admit_arrival", lambda *args, **kwargs: calls.append((args, kwargs)) or ("record", "report"))
+    monkeypatch.setattr(
+        publication_arrival,
+        "admit_arrival",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or ("record", "report"),
+    )
     profile = coordination_profile(None, version=2)
     writer = CorpusWriter(tmp_path / "arriving", lambda root: DefaultExecutor(root), authority=FULL, profile=profile)
     writer.adopt_manifest(profile=pins_for(profile))
@@ -50,7 +54,9 @@ def test_no_marker_refuses_before_admission(arriving):
 def test_two_markers_refuse(arriving):
     writer, run, calls = arriving
     writer._stage_marker(_marker((run.id,)))
-    raw_add(writer.root, marker_record(intent(event_token="9" * 32), world_id="d" * 32, epoch="f" * 64, selection=(run.id,)))
+    raw_add(
+        writer.root, marker_record(intent(event_token="9" * 32), world_id="d" * 32, epoch="f" * 64, selection=(run.id,))
+    )
     with pytest.raises(PublicationArrivalRefused) as caught:
         admit_publication("world", writer.root, "observers")
     assert caught.value.reason == "marker-duplicated" and calls == []
@@ -121,7 +127,9 @@ def _publish_into(writer: CorpusWriter, token: str, *, carried=(), records=("r",
     for node in nodes:
         writer._stage_record(node_to_markdown(node))
     value = intent(event_token=token, marker_tips=tuple(carried), destination=destination)
-    writer._stage_marker(marker_record(value, world_id="d" * 32, epoch="f" * 64, selection=tuple(sorted(n.id for n in nodes))))
+    writer._stage_marker(
+        marker_record(value, world_id="d" * 32, epoch="f" * 64, selection=tuple(sorted(n.id for n in nodes)))
+    )
     return writer.root, load_manifest(writer.root).corpus_id, marker_uid(token)
 
 
@@ -188,7 +196,12 @@ _R = stored.run_node("r", title="r", spec="s", produces=[])
 
 def _two_markers(writer):
     _publish_into(writer, "1" * 32)
-    raw_add(writer.root, marker_record(intent(event_token="9" * 32, destination=REMOTE), world_id="d" * 32, epoch="f" * 64, selection=(_R.id,)))
+    raw_add(
+        writer.root,
+        marker_record(
+            intent(event_token="9" * 32, destination=REMOTE), world_id="d" * 32, epoch="f" * 64, selection=(_R.id,)
+        ),
+    )
 
 
 def _beyond_selection(writer):
@@ -198,19 +211,25 @@ def _beyond_selection(writer):
 
 def _binding(writer):
     _publish_into(writer, "1" * 32)
-    raw_add(writer.root, binding_record(intent(destination=REMOTE), corpus_id="1" * 32, marker="2" * 32, artifact="3" * 64))
+    raw_add(
+        writer.root, binding_record(intent(destination=REMOTE), corpus_id="1" * 32, marker="2" * 32, artifact="3" * 64)
+    )
 
 
 def _malformed(writer):
     writer._stage_record(node_to_markdown(_R))
-    node = marker_record(intent(event_token="1" * 32, destination=REMOTE), world_id="d" * 32, epoch="f" * 64, selection=(_R.id,))
+    node = marker_record(
+        intent(event_token="1" * 32, destination=REMOTE), world_id="d" * 32, epoch="f" * 64, selection=(_R.id,)
+    )
     node.facets[stored.COORDINATION_FACET]["selection"] = ["not an id"]
     raw_add(writer.root, node)
 
 
 def _inconsistent(writer):
     writer._stage_record(node_to_markdown(_R))
-    node = marker_record(intent(event_token="1" * 32, destination=REMOTE), world_id="d" * 32, epoch="f" * 64, selection=(_R.id,))
+    node = marker_record(
+        intent(event_token="1" * 32, destination=REMOTE), world_id="d" * 32, epoch="f" * 64, selection=(_R.id,)
+    )
     node.facets[stored.COORDINATION_FACET]["event_token"] = "8" * 32
     raw_add(writer.root, node)
 

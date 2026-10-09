@@ -69,7 +69,11 @@ VECTOR = [
     Row("nfc-at-encode", "decomposed input, NFC-composed canonical output", "café"),
     Row("astral-key-order", "an astral key sorts after a high BMP key by code point", {"𐀀": 1, "￿": 2}),
     Row("plain-key-order", "keys sort by code point", {"b": 1, "a": 2, "B": 3}),
-    Row("namespaced-facet-key", "D4's parity arm: a namespaced facet key round-trips", {"facets": {"biology/gene-axis": {"axis": "rows"}}}),
+    Row(
+        "namespaced-facet-key",
+        "D4's parity arm: a namespaced facet key round-trips",
+        {"facets": {"biology/gene-axis": {"axis": "rows"}}},
+    ),
     Row("nested", "arrays and objects nest", {"a": [1, {"b": [Decimal("2.5"), "c"]}]}),
     Row("binary-float-refused", "binary floats are refused at the boundary", 0.1, BinaryFloatRefused),
     Row("null-refused", "null is refused, not pruned", {"a": None}, NullRefused),
@@ -80,7 +84,12 @@ VECTOR = [
 def main() -> None:
     rows = []
     for row in VECTOR:
-        entry: dict[str, object] = {"name": row.name, "covers": row.covers, "domain": DOMAIN, "value": tagged(row.value)}
+        entry: dict[str, object] = {
+            "name": row.name,
+            "covers": row.covers,
+            "domain": DOMAIN,
+            "value": tagged(row.value),
+        }
         if row.refusal is None:
             entry["canonical_bytes"] = v1.encode(row.value).decode("utf-8")
             entry["digest"] = v1.digest(DOMAIN, row.value)
@@ -94,7 +103,17 @@ def main() -> None:
                 raise SystemExit(f"{row.name}: expected {row.refusal.__name__}, got an encoding")
         rows.append(entry)
     OUTPUT.write_text(
-        json.dumps({"fixture": "identity-v1", "identity_contract": "science.identity.v1", "note": "A conformance oracle, frozen. Regenerate deliberately with tools/generate_identity_fixture.py and review the diff.", "vector": rows}, indent=2, ensure_ascii=True) + "\n",
+        json.dumps(
+            {
+                "fixture": "identity-v1",
+                "identity_contract": "science.identity.v1",
+                "note": "A conformance oracle, frozen. Regenerate deliberately with tools/generate_identity_fixture.py and review the diff.",
+                "vector": rows,
+            },
+            indent=2,
+            ensure_ascii=True,
+        )
+        + "\n",
         encoding="utf-8",
     )
 

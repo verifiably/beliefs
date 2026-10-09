@@ -294,9 +294,7 @@ class CapturedRecord:
                 else {"target": self.retraction.target, "resolution": self.retraction.resolution}
             ),
             "certification": (
-                None
-                if self.certification is None
-                else {"kind": self.certification.kind, "ref": self.certification.ref}
+                None if self.certification is None else {"kind": self.certification.kind, "ref": self.certification.ref}
             ),
             "coreference": (
                 None
@@ -423,22 +421,26 @@ def address_map(capture: Capture) -> Mapping[str, tuple[str, str]]:
         by_address.setdefault(record.address, []).append((corpus_id, record.uid))
     for uid, locations in by_uid.items():
         if len({address for _, address in locations}) > 1:
-            raise AddressMapConflict(Finding(
-                severity="error",
-                code="uid-corruption",
-                ref=uid,
-                detail=f"corpus/address claims={tuple(locations)!r}",
-                message="one uid names different canonical addresses; no repair is offered",
-            ))
+            raise AddressMapConflict(
+                Finding(
+                    severity="error",
+                    code="uid-corruption",
+                    ref=uid,
+                    detail=f"corpus/address claims={tuple(locations)!r}",
+                    message="one uid names different canonical addresses; no repair is offered",
+                )
+            )
     for address, locations in by_address.items():
         if len(locations) > 1:
-            raise AddressMapConflict(Finding(
-                severity="error",
-                code="duplicate-location",
-                ref=address,
-                detail=f"corpus/uid claims={tuple(locations)!r}",
-                message="one canonical address is held in multiple corpora; resolve with consolidate",
-            ))
+            raise AddressMapConflict(
+                Finding(
+                    severity="error",
+                    code="duplicate-location",
+                    ref=address,
+                    detail=f"corpus/uid claims={tuple(locations)!r}",
+                    message="one canonical address is held in multiple corpora; resolve with consolidate",
+                )
+            )
     mapping: dict[str, tuple[str, str]] = {}
     for corpus_id, record in located:
         for address in (record.address, *record.deprecated_ids):
@@ -482,11 +484,7 @@ def retraction_discovery_map(capture: Capture) -> Mapping[str, tuple[str, ...]]:
 
 def retraction_discovery_map_projection(mapping: Mapping[str, tuple[str, ...]]) -> dict[str, object]:
     """The `retraction-discovery-map.yaml` member's projection, sorted."""
-    return {
-        "targets": [
-            {"target": target, "retractions": sorted(refs)} for target, refs in sorted(mapping.items())
-        ]
-    }
+    return {"targets": [{"target": target, "retractions": sorted(refs)} for target, refs in sorted(mapping.items())]}
 
 
 # --- the four receipt subjects -----------------------------------------------
@@ -527,9 +525,7 @@ def producers_map_projection(producers: Mapping[str, tuple[str, ...]]) -> dict[s
     declares what it was built over — a map carrying its own coverage would be
     a second, unreceipted place for the declaration to live.
     """
-    return {
-        "producers": [{"dataset": dataset, "runs": sorted(runs)} for dataset, runs in sorted(producers.items())]
-    }
+    return {"producers": [{"dataset": dataset, "runs": sorted(runs)} for dataset, runs in sorted(producers.items())]}
 
 
 def producer_snapshot(produced: object) -> ProducerSnapshot:
@@ -595,9 +591,7 @@ class CertificationInventory:
 
     def projection(self) -> dict[str, object]:
         return {
-            "by_kind": [
-                {"kind": kind, "refs": sorted(refs)} for kind, refs in sorted(self.by_kind.items())
-            ],
+            "by_kind": [{"kind": kind, "refs": sorted(refs)} for kind, refs in sorted(self.by_kind.items())],
             "coverage": sorted(self.coverage),
         }
 

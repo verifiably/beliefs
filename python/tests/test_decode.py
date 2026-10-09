@@ -846,11 +846,13 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
         # Built through §6.3's raw route, which stands in for the one now closed.
         snapshot = ResolutionSnapshot._built(
             resolution._MINT,
-            bindings={EX: resolution._BoundVocabulary(
-                state="readable",
-                terms=frozenset([1]),  # type: ignore[arg-type]
-                absent=(),
-            )},
+            bindings={
+                EX: resolution._BoundVocabulary(
+                    state="readable",
+                    terms=frozenset([1]),  # type: ignore[arg-type]
+                    absent=(),
+                )
+            },
             identity="unchecked",
         )
         assert snapshot.resolve(EX, "1") is TermOutcome.NOT_MEMBER

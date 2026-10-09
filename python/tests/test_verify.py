@@ -587,7 +587,13 @@ def _node_for(verification: AssessmentVerification, *, facet: dict | None = None
 def test_v1_projection_is_what_identity_digests(pair):
     report = verification_of(pair).report
     assert report.identity() == v1.digest(COMPARISON_REPORT_DOMAIN, report.projection())
-    assert set(report.projection()) == {"original_conformance", "replay_conformance", "receipts", "rule_bindings", "diagnostics"}
+    assert set(report.projection()) == {
+        "original_conformance",
+        "replay_conformance",
+        "receipts",
+        "rule_bindings",
+        "diagnostics",
+    }
 
 
 def test_v1_decode_restores_the_basis_and_the_report_by_identity(pair):
@@ -605,7 +611,19 @@ def test_v1_a_report_less_verification_decodes_as_absent(pair):
     facet = _facet_for(verification)
     del facet["report"]
     assert decode_verification(_node_for(verification, facet=facet)) is None
-    assert decode_verification(stored.verification_node("v", title="v", assessment="x", assessment_ref="assessment:a", scope="same-environment", verdict="passed")) is None
+    assert (
+        decode_verification(
+            stored.verification_node(
+                "v",
+                title="v",
+                assessment="x",
+                assessment_ref="assessment:a",
+                scope="same-environment",
+                verdict="passed",
+            )
+        )
+        is None
+    )
 
 
 def test_v1_a_certified_and_cited_report_round_trips_field_wise(pair):
@@ -631,7 +649,17 @@ def test_v1_a_certified_and_cited_report_round_trips_field_wise(pair):
 
 def test_v3_stored_verification_has_no_public_constructor():
     with pytest.raises(TypeError):
-        StoredVerification(original="a", replayed="b", assessment=None, rule="r", report=None, scope_rule="s", scope="bogus", verdict="bogus", supersedes=None)  # type: ignore[call-arg]
+        StoredVerification(
+            original="a",
+            replayed="b",
+            assessment=None,
+            rule="r",
+            report=None,
+            scope_rule="s",
+            scope="bogus",
+            verdict="bogus",
+            supersedes=None,
+        )  # type: ignore[call-arg]
 
 
 def test_v5_a_record_id_that_does_not_recompute_is_malformed(pair):
@@ -692,8 +720,12 @@ from beliefs.verify import publication_node  # DatasetProductionVerification is 
 def _production_verification(production_pair) -> DatasetProductionVerification:
     first, second = production_pair
     verification = build_verification(
-        first.run, second.run, specs={}, held_rules={"impl-dataset-eq-1": DATASET_CONTENT_EQUALITY},
-        contract_identity="contract-1", epoch="epoch-1",
+        first.run,
+        second.run,
+        specs={},
+        held_rules={"impl-dataset-eq-1": DATASET_CONTENT_EQUALITY},
+        contract_identity="contract-1",
+        epoch="epoch-1",
     )
     assert isinstance(verification, DatasetProductionVerification)
     return verification
@@ -705,7 +737,10 @@ def test_v1_publication_node_round_trips_through_the_reader(pair):
     assert node.id == f"verification:{verification.identity()}"
     assert [(r.predicate, r.target) for r in node.relations] == [(stored.VERIFIES, "assessment:a")]
     facet = node.facets[stored.VERIFICATION_FACET]
-    assert facet["derivation"] == {"original": f"run:{verification.original}", "replayed": f"run:{verification.replayed}"}
+    assert facet["derivation"] == {
+        "original": f"run:{verification.original}",
+        "replayed": f"run:{verification.replayed}",
+    }
     assert facet["report"] == verification.report.projection() and "supersedes" not in facet
     assert not stored.semantic_hash_missing(node) and not stored.semantic_hash_disagrees(node)
     decoded = decode_verification(node)
@@ -715,9 +750,15 @@ def test_v1_publication_node_round_trips_through_the_reader(pair):
 def test_v3_a_superseding_verification_publishes_its_typed_predecessor(pair):
     verification = verification_of(pair)
     successor = _mint_verification(
-        original=verification.original, replayed=verification.replayed, assessment=verification.assessment,
-        rule=verification.rule, report=verification.report, scope_rule=verification.scope_rule,
-        scope=verification.scope, verdict="failed", supersedes=verification.identity(),
+        original=verification.original,
+        replayed=verification.replayed,
+        assessment=verification.assessment,
+        rule=verification.rule,
+        report=verification.report,
+        scope_rule=verification.scope_rule,
+        scope=verification.scope,
+        verdict="failed",
+        supersedes=verification.identity(),
     )
     node = publication_node(successor, assessment_ref="assessment:a")
     assert node.facets[stored.VERIFICATION_FACET]["supersedes"] == f"verification:{verification.identity()}"

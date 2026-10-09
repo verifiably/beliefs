@@ -57,7 +57,13 @@ def observed(seed: str, *, actor: str = ACTOR, retrieval: str | None = None):
 
 
 def run_over(slug: str, *datasets, produces=()):
-    return stored.run_node(slug, title=slug, spec="analysis-spec:s1", observes=[d if isinstance(d, str) else d.id for d in datasets], produces=list(produces))
+    return stored.run_node(
+        slug,
+        title=slug,
+        spec="analysis-spec:s1",
+        observes=[d if isinstance(d, str) else d.id for d in datasets],
+        produces=list(produces),
+    )
 
 
 def proposition(slug: str):
@@ -66,9 +72,15 @@ def proposition(slug: str):
 
 def assessment(slug: str, run, prop):
     return stored.assessment_node(
-        slug, title=slug, spec="analysis-spec:s1", run=run.id, proposition=prop.id if not isinstance(prop, str) else prop,
-        outcome="supported", interpretation_rule="rule:threshold",
-        estimand=typed_estimand(), applicability=typed_applicability(),
+        slug,
+        title=slug,
+        spec="analysis-spec:s1",
+        run=run.id,
+        proposition=prop.id if not isinstance(prop, str) else prop,
+        outcome="supported",
+        interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
 
@@ -200,14 +212,25 @@ def test_the_session_overlay_resolves_into_mounts_and_unions_producers(roots):
         view.close()
 
 
-IMPORT: dict[str, Any] = {"observer": "o", "instrument": "i", "opened_at": "2026-10-01T00:00:00Z", "closed_at": "2026-10-01T00:00:01Z"}
+IMPORT: dict[str, Any] = {
+    "observer": "o",
+    "instrument": "i",
+    "opened_at": "2026-10-01T00:00:00Z",
+    "closed_at": "2026-10-01T00:00:01Z",
+}
 
 
 def mounted_writer(roots, *names, profile=TYPED, port=False):
     root = roots["w"]
     operation_port = OperationRecorder(root, authority=FULL, profile=profile) if port else None
-    return CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile, operation_port=operation_port,
-                        read_mounts=[roots[name] for name in names])
+    return CorpusWriter(
+        root,
+        DefaultExecutor,
+        authority=FULL,
+        profile=profile,
+        operation_port=operation_port,
+        read_mounts=[roots[name] for name in names],
+    )
 
 
 def test_an_assessment_over_a_mount_dataset_and_proposition_is_written(roots):
@@ -300,8 +323,13 @@ def test_a_dataset_whose_retrieval_report_is_in_a_mount_refuses(roots):
     """J16-k's check: retrieval reports stay with their dataset."""
     m = adopted(roots["m"], TYPED)
     report = stored.act_report_node(acquisition_report(operation="acquisition"))
-    m_port = CorpusWriter(roots["m"], DefaultExecutor, authority=FULL, profile=TYPED,
-                          operation_port=OperationRecorder(roots["m"], authority=FULL, profile=TYPED))
+    m_port = CorpusWriter(
+        roots["m"],
+        DefaultExecutor,
+        authority=FULL,
+        profile=TYPED,
+        operation_port=OperationRecorder(roots["m"], authority=FULL, profile=TYPED),
+    )
     m_port.import_bundle([report], **IMPORT)
     w = mounted_writer(roots, "m")
     with pytest.raises(FacetPayloadRefused, match="facet-retrieval-unresolved"):
@@ -314,8 +342,13 @@ def test_an_assessment_over_a_raw_split_dataset_refuses(roots):
     from fixtures_cut4 import raw_write
 
     report = stored.act_report_node(acquisition_report(operation="acquisition"))
-    CorpusWriter(roots["m"], DefaultExecutor, authority=FULL, profile=TYPED,
-                 operation_port=OperationRecorder(roots["m"], authority=FULL, profile=TYPED)).import_bundle([report], **IMPORT)
+    CorpusWriter(
+        roots["m"],
+        DefaultExecutor,
+        authority=FULL,
+        profile=TYPED,
+        operation_port=OperationRecorder(roots["m"], authority=FULL, profile=TYPED),
+    ).import_bundle([report], **IMPORT)
     split = observed("split", retrieval=report.id)
     raw_write(roots["w"], split)
     p = adopted(roots["m"]).add(proposition("p"))
@@ -361,8 +394,12 @@ def test_a_corpus_local_read_of_an_assessment_over_a_mount_run_refuses(roots):
     view = ReadView.opened_at(roots["w"])
     assert not view.holds(run.id)
     read: dict[str, Any] = {
-        "context": SuppliedContext(snapshot=lineage_snapshot(view, ()), producer_snapshot_identity="producer-snapshot-1",
-                                   node_corpus={}, pins={view.corpus_id: pins_for(TYPED)}),
+        "context": SuppliedContext(
+            snapshot=lineage_snapshot(view, ()),
+            producer_snapshot_identity="producer-snapshot-1",
+            node_corpus={},
+            pins={view.corpus_id: pins_for(TYPED)},
+        ),
         "profile": TYPED,
         "resolution": build_snapshot(readable={EX: [GENE, PHENO, OTHER_GENE]}),
         "binding": PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
@@ -370,8 +407,9 @@ def test_a_corpus_local_read_of_an_assessment_over_a_mount_run_refuses(roots):
     with pytest.raises(InputOutsideCorpus) as refused:
         gather(view, p.id, **read)
     assert refused.value.run == run.id and refused.value.inputs == (run.id,)
-    availability = Availability(observations={}, implementations={BELIEF_V1.identity: BELIEF_V1},
-                                fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES})
+    availability = Availability(
+        observations={}, implementations={BELIEF_V1.identity: BELIEF_V1}, fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES}
+    )
     answer = evaluate_over(view, p.id, availability=availability, **read)
     assert isinstance(answer, Refused) and answer.reason.startswith("input-outside-corpus:")
 
@@ -486,7 +524,9 @@ def test_a_spec_targeting_a_mount_proposition_is_written(tmp_path):
 
     w_root, m_root = (tmp_path / "w").resolve(), (tmp_path / "m").resolve()
     adopted(w_root, TESTING_PROFILE)
-    target = adopted(m_root, TESTING_PROFILE).add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+    target = adopted(m_root, TESTING_PROFILE).add(
+        stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM))
+    )
     spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
     w = CorpusWriter(w_root, DefaultExecutor, authority=FULL, profile=TESTING_PROFILE, read_mounts=[m_root])
     held = w.add(stored.analysis_spec_node(spec))
@@ -507,8 +547,15 @@ def test_a_composite_over_mount_propositions_is_written(tmp_path):
     m = adopted(m_root, WITH_BIOLOGY)
     _proposition(m, "ab", _claim("EX:a", "EX:b"))
     _proposition(m, "bc", _claim("EX:b", "EX:c", polarity="negative"))
-    value, _ = build_composite(WITH_BIOLOGY, m.read_view, shape="dag", nodes=[A, B, C],
-                               members=["proposition:ab", "proposition:bc"], snapshot=SNAPSHOT, slug="g")
+    value, _ = build_composite(
+        WITH_BIOLOGY,
+        m.read_view,
+        shape="dag",
+        nodes=[A, B, C],
+        members=["proposition:ab", "proposition:bc"],
+        snapshot=SNAPSHOT,
+        slug="g",
+    )
     w = CorpusWriter(w_root, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY, read_mounts=[m_root])
     minted = w.add(stored.composite_node(value, title="a→b⊣c"))
     node = ReadView.opened_at(w_root).get(minted.id)

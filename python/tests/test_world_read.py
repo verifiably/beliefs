@@ -88,9 +88,7 @@ def recorded(published: epoch.Epoch) -> dict[str, tuple[str, str]]:
 def an_address_in(published: epoch.Epoch, corpus_id: str) -> str:
     """One recorded address the named corpus carries. Sorted, so an arm that
     fails names the same address every run."""
-    return min(
-        address for address, (carrier, _uid) in recorded(published).items() if carrier == corpus_id
-    )
+    return min(address for address, (carrier, _uid) in recorded(published).items() if carrier == corpus_id)
 
 
 def retired_world(tmp_path: Path):
@@ -298,8 +296,7 @@ class TestTheBoundStamp:
         world, _bindings, roots, published = retired_world(tmp_path)
         expected = read.BoundStamp(published.packaging_identity, published.coverage)
         assert published.coverage == tuple(
-            (entry["corpus_id"], entry["corpus_state"])
-            for entry in document(published, "coverage.yaml")["coverage"]
+            (entry["corpus_id"], entry["corpus_state"]) for entry in document(published, "coverage.yaml")["coverage"]
         )
 
         answers: list[read.Resolved | read.NotPresent | read.Unknown | read.EdgeAnswer] = [
@@ -465,12 +462,9 @@ def linked_nodes(slug: str) -> tuple[Node, ...]:
     """Three datasets and two attestations, `a ~ b` and `a ~ c`: a
     three-endpoint chain the reduction turns into two pairs."""
     a, b, c = (
-        stored.dataset_node(title=f"dataset {slug}", resources=pinned(slug)
-        ),
-        stored.dataset_node(title=f"dataset {slug} b", resources=pinned(f"{slug}-b")
-        ),
-        stored.dataset_node(title=f"dataset {slug} c", resources=pinned(f"{slug}-c")
-        ),
+        stored.dataset_node(title=f"dataset {slug}", resources=pinned(slug)),
+        stored.dataset_node(title=f"dataset {slug} b", resources=pinned(f"{slug}-b")),
+        stored.dataset_node(title=f"dataset {slug} c", resources=pinned(f"{slug}-c")),
     )
     attest = lambda left, right, token: stored.coreference_attestation_node(
         title="coreference",
@@ -513,9 +507,7 @@ class TestCoreferenceEdges:
         """
         from beliefs.world import rules
 
-        world, bindings, _roots, published = coreference_world(
-            tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,)
-        )
+        world, bindings, _roots, published = coreference_world(tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,))
         assert pairs_of(published) == [[dataset_ref("a"), dataset_ref("a-b")], [dataset_ref("a"), dataset_ref("a-c")]]
         assert read.validate_receipt(world, published, "coreference-reduction").outcome == "validated"
 
@@ -549,11 +541,7 @@ class TestCoreferenceEdges:
         carriers["malformed"] = repackage(
             world,
             published,
-            {
-                "coreference-receipt.yaml": dict(
-                    document(published, "coreference-receipt.yaml"), invented="value"
-                )
-            },
+            {"coreference-receipt.yaml": dict(document(published, "coreference-receipt.yaml"), invented="value")},
         )
 
         for outcome, carrier in carriers.items():
@@ -590,12 +578,8 @@ class TestCoreferenceEdges:
         """
         from beliefs.world import derive
 
-        world, _bindings, _roots, published = coreference_world(
-            tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,)
-        )
-        reduction = {
-            "pairs": [{"endpoints": ["invented-a", "invented-b"], "balance": -1, "distinct_key_count": 1}]
-        }
+        world, _bindings, _roots, published = coreference_world(tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,))
+        reduction = {"pairs": [{"endpoints": ["invented-a", "invented-b"], "balance": -1, "distinct_key_count": 1}]}
         refuted = repackage(
             world,
             published,
@@ -643,9 +627,7 @@ class TestCoreferenceEdges:
         expansion that refuses by name rather than by whatever the registry
         happened to raise.
         """
-        world, _bindings, roots, published = coreference_world(
-            tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,)
-        )
+        world, _bindings, roots, published = coreference_world(tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,))
         assert read.coreference_edge(world, published, dataset_ref("a"), dataset_ref("a-b")).state == "active"
 
         (roots[ALPHA] / "corpus.yaml").write_bytes(b"corpus_id: []\n")

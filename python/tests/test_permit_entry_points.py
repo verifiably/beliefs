@@ -5,6 +5,7 @@ performs every setup effect under a full authority; `act` performs exactly the
 protected call under the authority being judged; `probe` reads the state a
 refused act must leave unchanged. The tests derive E1's three directions.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -32,7 +33,7 @@ class Case:
     family: str
     kinds: tuple[str, ...]
     needs_volume: bool
-    prepare: Callable[[Path, object], None]   # (work, request): setup effects under a full authority
+    prepare: Callable[[Path, object], None]  # (work, request): setup effects under a full authority
     act: Callable[[Authority, Path], object]
     probe: Callable[[Path], object]
     extra_families: tuple[str, ...] = ()
@@ -60,8 +61,11 @@ def _tree(root: Path) -> list[tuple[str, str, str]]:
     if not root.exists():
         return []
     return sorted(
-        (p.relative_to(root).as_posix(), "f" if p.is_file() else "d" if p.is_dir() else "o",
-         sha256(p.read_bytes()).hexdigest() if p.is_file() else "")
+        (
+            p.relative_to(root).as_posix(),
+            "f" if p.is_file() else "d" if p.is_dir() else "o",
+            sha256(p.read_bytes()).hexdigest() if p.is_file() else "",
+        )
         for p in root.rglob("*")
     )
 
@@ -71,6 +75,7 @@ def _nothing(_work: Path, _request) -> None:
 
 
 # --- corpus-write family, in-memory executor -------------------------------------
+
 
 def _writer(authority: Authority, work: Path, *, port: bool = False) -> CorpusWriter:
     from test_corpus_write import Recorder
@@ -142,12 +147,8 @@ def _retract(authority, work):
 def _mint_pair(writer):
     from beliefs import stored
 
-    left = writer.add(
-        stored.dataset_node(title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
-    )
-    right = writer.add(
-        stored.dataset_node(title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}])
-    )
+    left = writer.add(stored.dataset_node(title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]))
+    right = writer.add(stored.dataset_node(title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
     return (left, right)
 
 
@@ -170,9 +171,7 @@ def _attest(authority, work):
 def _supersede(authority, work):
     from test_supersede import prop
 
-    return _writer(authority, work).supersede(
-        prop("p2", claim_op="causes"), of=_STATE[work]["target"].id
-    )
+    return _writer(authority, work).supersede(prop("p2", claim_op="causes"), of=_STATE[work]["target"].id)
 
 
 def _correct_identifier(authority, work):
@@ -269,7 +268,13 @@ def _coordination_writer(authority: Authority, work: Path) -> CorpusWriter:
         DefaultExecutor,  # the executor `writer_with_resolver` binds; same class, same root state
     )
 
-    return CorpusWriter(work / "corpus", DefaultExecutor, authority=authority, coordination_resolver=_STATE[work]["resolver"], profile=_STATE[work]["resolver"].profile(work / "corpus"))
+    return CorpusWriter(
+        work / "corpus",
+        DefaultExecutor,
+        authority=authority,
+        coordination_resolver=_STATE[work]["resolver"],
+        profile=_STATE[work]["resolver"].profile(work / "corpus"),
+    )
 
 
 def _mint_coordination(authority, work):
@@ -308,7 +313,13 @@ def _import_bundle(authority, work):
     from test_corpus_write import Recorder
     from test_import_bundle import FakePort, prop
 
-    writer = CorpusWriter(work / "corpus", Recorder, authority=authority, operation_port=FakePort(work / "corpus", authority=authority), profile=BASE)
+    writer = CorpusWriter(
+        work / "corpus",
+        Recorder,
+        authority=authority,
+        operation_port=FakePort(work / "corpus", authority=authority),
+        profile=BASE,
+    )
     return writer.import_bundle([prop("p1")], observer="o", instrument="i", opened_at="T0", closed_at="T1")
 
 
@@ -326,6 +337,7 @@ def _adopt_manifest(authority, work):
 
 
 # --- run family, memory port ---------------------------------------------------------
+
 
 class _Port:
     def __init__(self, authority: Authority) -> None:
@@ -381,11 +393,14 @@ def _run_probe(work: Path) -> list:
 
 # --- holdings family, certified volume ----------------------------------------------
 
+
 def _context(authority: Authority, work: Path):
     from beliefs.holdings.boundary import ActContext
     from beliefs.root import holdings_seam
 
-    return ActContext(work / "observer", work / "store", "observer", "instrument", authority, holdings_seam(), profile=BASE)
+    return ActContext(
+        work / "observer", work / "store", "observer", "instrument", authority, holdings_seam(), profile=BASE
+    )
 
 
 def _prepare_holdings(held: tuple[str, ...] = (), *, intent: bool = False):
@@ -437,14 +452,25 @@ def _holdings(act: str):
         if act == "move":
             return boundary.move(ctx, StoreLocator(store_id, "held.bin"), StoreLocator(store_id, "moved.bin"))
         if act == "_publish_record":
-            record = holdings_observation(location=StoreLocator(store_id, "held.bin"),
-                                          outcome=Found("sha256:" + "1" * 64), observer="observer", instrument="instrument",
-                                          event_token=_STATE[work]["token"], observed_at="2026-09-05T00:00:00Z")
+            record = holdings_observation(
+                location=StoreLocator(store_id, "held.bin"),
+                outcome=Found("sha256:" + "1" * 64),
+                observer="observer",
+                instrument="instrument",
+                event_token=_STATE[work]["token"],
+                observed_at="2026-09-05T00:00:00Z",
+            )
             return boundary._publish_record(ctx, record, _STATE[work]["intent"])
         if act == "_append":
             return boundary._append(ctx, StoreLocator(store_id, "held.bin"), "write")
-        return boundary._publish(ctx, StoreLocator(store_id, "held.bin"), Found("sha256:" + "1" * 64),
-                                 _STATE[work]["token"], _STATE[work]["intent"], ())
+        return boundary._publish(
+            ctx,
+            StoreLocator(store_id, "held.bin"),
+            Found("sha256:" + "1" * 64),
+            _STATE[work]["token"],
+            _STATE[work]["intent"],
+            (),
+        )
 
     return run
 
@@ -455,10 +481,14 @@ def _holdings_probe(work: Path):
 
 # --- registry and epoch families, default executor ----------------------------------
 
+
 def _rebind(world: registry.World, authority: Authority) -> registry.World:
     return registry.World(
-        world.config, world._executor_factory, chain_head=world._chain_head,
-        corpus_executor_factory=world._corpus_executor_factory, authority=authority,
+        world.config,
+        world._executor_factory,
+        chain_head=world._chain_head,
+        corpus_executor_factory=world._corpus_executor_factory,
+        authority=authority,
     )
 
 
@@ -501,7 +531,9 @@ def _build_epoch(authority, work):
     from beliefs.world import epoch
 
     state = _STATE[work]
-    return epoch.build_epoch(_rebind(state["world"], authority), coverage=frozenset(state["roots"]), bindings=state["bindings"])
+    return epoch.build_epoch(
+        _rebind(state["world"], authority), coverage=frozenset(state["roots"]), bindings=state["bindings"]
+    )
 
 
 def _prepare_epoch_import(work: Path, _request) -> None:
@@ -565,6 +597,7 @@ def _world_probe(work: Path):
 
 # --- lifecycle family, certified volume ----------------------------------------------
 
+
 def _prepare_lifecycle(act: str):
     def prepare(work: Path, _request) -> None:
         from test_fork_acts import _parent_corpus
@@ -618,8 +651,12 @@ def _lifecycle(act: str):
         if act == "fork_store":
             return fork_store(work / "parent-store", work / "child-store", authority=authority)
         state = _STATE[work]
-        return restore_root(work / "restored", anchors.StoreSubject(state["store_id"]),
-                            verify.ObserverSet((state["carrier"],)), authority=authority)
+        return restore_root(
+            work / "restored",
+            anchors.StoreSubject(state["store_id"]),
+            verify.ObserverSet((state["carrier"],)),
+            authority=authority,
+        )
 
     return run
 
@@ -694,8 +731,12 @@ def _prepare_publication(work: Path, _request) -> None:
     writer = _publication_writer(lacking(), work)
     project = writer.mint_coordination("project", content=content_for("project"))
     _STATE[work]["opened"] = _open_publication(
-        writer, resolver, view=coordination_revision(project).address, destination=Destination.local("/srv/published/entry"),
-        clock=lambda: _PUBLICATION_AT, seam=science_root.moment_seam(),
+        writer,
+        resolver,
+        view=coordination_revision(project).address,
+        destination=Destination.local("/srv/published/entry"),
+        clock=lambda: _PUBLICATION_AT,
+        seam=science_root.moment_seam(),
     )
     _reset_recorder()
 
@@ -705,8 +746,15 @@ def _bind_publication(authority, work):
 
     state = _STATE[work]
     return bind(
-        _publication_writer(authority, work), state["resolver"], state["opened"], corpus_id="1" * 32, marker="2" * 32,
-        artifact="9" * 64, remotely_revealed=False, clock=lambda: _PUBLICATION_AT, seam=science_root.moment_seam(),
+        _publication_writer(authority, work),
+        state["resolver"],
+        state["opened"],
+        corpus_id="1" * 32,
+        marker="2" * 32,
+        artifact="9" * 64,
+        remotely_revealed=False,
+        clock=lambda: _PUBLICATION_AT,
+        seam=science_root.moment_seam(),
     )
 
 
@@ -723,7 +771,9 @@ def _refuse(authority, work):
     opened = _STATE[work]["opened"]
     subject = str(binding_address(opened.intent.view, opened.intent.destination))
     return _refuse_publication(
-        _publication_writer(authority, work), opened, (PublicationStagingEntry(subject, StagingCorrupt("1" * 32, "extra", ("run:x",))),),
+        _publication_writer(authority, work),
+        opened,
+        (PublicationStagingEntry(subject, StagingCorrupt("1" * 32, "extra", ("run:x",))),),
         clock=lambda: _PUBLICATION_AT,
     )
 
@@ -770,33 +820,241 @@ def _staging_probe(work: Path):
 
 CASES = (
     Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _prepare_corpus(), _add, _corpus_probe),
-    Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_corpus(_mint_eligible), _retract, _corpus_probe),
-    Case("corpus.py:CorpusWriter.attest_coreference", "corpus-write", ("coreference-attestation",), False, _prepare_corpus(_mint_pair), _attest, _corpus_probe),
+    Case(
+        "corpus.py:CorpusWriter.retract",
+        "corpus-write",
+        ("retraction",),
+        False,
+        _prepare_corpus(_mint_eligible),
+        _retract,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter.attest_coreference",
+        "corpus-write",
+        ("coreference-attestation",),
+        False,
+        _prepare_corpus(_mint_pair),
+        _attest,
+        _corpus_probe,
+    ),
     # 2026-09-11 slice 2b: cover the new seam's family, source kind and exact permit.
-    Case("corpus.py:CorpusWriter.correct_identifier", "corpus-write", ("source",), False, _prepare_corpus(_mint_source), _correct_identifier, _corpus_probe),
-    Case("corpus.py:CorpusWriter.supersede", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_predecessor), _supersede, _corpus_probe),
-    Case("corpus.py:CorpusWriter.revise", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _revise, _corpus_probe),
-    Case("corpus.py:CorpusWriter.mint_coordination", "corpus-write", ("project",), False, _prepare_coordination(False), _mint_coordination, _coordination_probe),
-    Case("corpus.py:CorpusWriter.revise_coordination", "corpus-write", ("project",), False, _prepare_coordination(True), _revise_coordination, _coordination_probe),
-    Case("corpus.py:CorpusWriter.import_bundle", "corpus-write", ("proposition", "act-report"), False, _prepare_import, _import_bundle, _import_probe),
-    Case("corpus.py:CorpusWriter.adopt_manifest", "lifecycle", (), False, _prepare_corpus(), _adopt_manifest, _corpus_probe),
-    Case("corpus.py:CorpusWriter._add_locked", "corpus-write", ("proposition",), False, _prepare_corpus(), _add_locked, _corpus_probe),
-    Case("corpus.py:CorpusWriter._replace_locked", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _replace_locked, _corpus_probe),
-    Case("corpus.py:CorpusWriter._revise_dataset_locked", "corpus-write", ("dataset",), False, _prepare_corpus(_mint_dataset), _revise_dataset_locked, _corpus_probe),
-    Case("corpus.py:CorpusWriter._delete_locked", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _delete_locked, _corpus_probe),
-    Case("corpus.py:CorpusWriter._append_operation_intent", "corpus-write", ("act-report",), False, _prepare_corpus(port=True), _append_operation_intent, _corpus_probe),
-    Case("corpus.py:CorpusWriter._publish_operation_report", "corpus-write", ("act-report",), False, _prepare_corpus(port=True), _publish_operation_report, _corpus_probe),
-    Case("corpus.py:_RoutedExecutor.commit_fulfilling", "corpus-write", ("proposition",), False, _prepare_corpus(port=True), _commit_fulfilling, _corpus_probe),
-    Case("boundary.py:execute_assessment_run", "run", ("run", "act-report"), False, _nothing, _run("assessment"), _run_probe),
-    Case("boundary.py:execute_production_run", "run", ("run", "act-report"), False, _nothing, _run("production"), _run_probe),
-    Case("holdings/boundary.py:recheck", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("recheck"), _holdings_probe),
-    Case("holdings/boundary.py:look", "holdings", ("holdings-observation",), True, _prepare_holdings(), _holdings("look"), _holdings_probe),
-    Case("holdings/boundary.py:write", "holdings", ("holdings-observation",), True, _prepare_holdings(), _holdings("write"), _holdings_probe),
-    Case("holdings/boundary.py:delete", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("delete"), _holdings_probe),
-    Case("holdings/boundary.py:move", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("move"), _holdings_probe),
-    Case("holdings/boundary.py:_append", "holdings", ("holdings-observation",), True, _prepare_holdings(), _holdings("_append"), _holdings_probe),
-    Case("holdings/boundary.py:_publish_record", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",), intent=True), _holdings("_publish_record"), _holdings_probe),
-    Case("holdings/boundary.py:_publish", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",), intent=True), _holdings("_publish"), _holdings_probe),
+    Case(
+        "corpus.py:CorpusWriter.correct_identifier",
+        "corpus-write",
+        ("source",),
+        False,
+        _prepare_corpus(_mint_source),
+        _correct_identifier,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter.supersede",
+        "corpus-write",
+        ("proposition",),
+        False,
+        _prepare_corpus(_mint_predecessor),
+        _supersede,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter.revise",
+        "corpus-write",
+        ("proposition",),
+        False,
+        _prepare_corpus(_mint_proposition),
+        _revise,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter.mint_coordination",
+        "corpus-write",
+        ("project",),
+        False,
+        _prepare_coordination(False),
+        _mint_coordination,
+        _coordination_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter.revise_coordination",
+        "corpus-write",
+        ("project",),
+        False,
+        _prepare_coordination(True),
+        _revise_coordination,
+        _coordination_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter.import_bundle",
+        "corpus-write",
+        ("proposition", "act-report"),
+        False,
+        _prepare_import,
+        _import_bundle,
+        _import_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter.adopt_manifest",
+        "lifecycle",
+        (),
+        False,
+        _prepare_corpus(),
+        _adopt_manifest,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter._add_locked",
+        "corpus-write",
+        ("proposition",),
+        False,
+        _prepare_corpus(),
+        _add_locked,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter._replace_locked",
+        "corpus-write",
+        ("proposition",),
+        False,
+        _prepare_corpus(_mint_proposition),
+        _replace_locked,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter._revise_dataset_locked",
+        "corpus-write",
+        ("dataset",),
+        False,
+        _prepare_corpus(_mint_dataset),
+        _revise_dataset_locked,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter._delete_locked",
+        "corpus-write",
+        ("proposition",),
+        False,
+        _prepare_corpus(_mint_proposition),
+        _delete_locked,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter._append_operation_intent",
+        "corpus-write",
+        ("act-report",),
+        False,
+        _prepare_corpus(port=True),
+        _append_operation_intent,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter._publish_operation_report",
+        "corpus-write",
+        ("act-report",),
+        False,
+        _prepare_corpus(port=True),
+        _publish_operation_report,
+        _corpus_probe,
+    ),
+    Case(
+        "corpus.py:_RoutedExecutor.commit_fulfilling",
+        "corpus-write",
+        ("proposition",),
+        False,
+        _prepare_corpus(port=True),
+        _commit_fulfilling,
+        _corpus_probe,
+    ),
+    Case(
+        "boundary.py:execute_assessment_run",
+        "run",
+        ("run", "act-report"),
+        False,
+        _nothing,
+        _run("assessment"),
+        _run_probe,
+    ),
+    Case(
+        "boundary.py:execute_production_run",
+        "run",
+        ("run", "act-report"),
+        False,
+        _nothing,
+        _run("production"),
+        _run_probe,
+    ),
+    Case(
+        "holdings/boundary.py:recheck",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(("held.bin",)),
+        _holdings("recheck"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:look",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(),
+        _holdings("look"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:write",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(),
+        _holdings("write"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:delete",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(("held.bin",)),
+        _holdings("delete"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:move",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(("held.bin",)),
+        _holdings("move"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:_append",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(),
+        _holdings("_append"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:_publish_record",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(("held.bin",), intent=True),
+        _holdings("_publish_record"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:_publish",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(("held.bin",), intent=True),
+        _holdings("_publish"),
+        _holdings_probe,
+    ),
     Case("world/registry.py:_locked_admit", "registry", (), False, _prepare_fresh, _admit, _world_probe),
     Case("world/registry.py:World._terminal", "registry", (), False, _prepare_admitted, _retire, _world_probe),
     Case("world/anchors.py:_anchor_heads", "registry", (), False, _prepare_anchor, _anchor, _world_probe),
@@ -813,11 +1071,45 @@ CASES = (
     _lifecycle_case("restore_root.grant", "restore_root"),
     _lifecycle_case("fork_corpus", "fork_corpus"),
     _lifecycle_case("fork_store", "fork_store"),
-    Case("publication_doors.py:_bind_publication", "publish", ("publication-binding", "act-report"), True, _prepare_publication, _bind_publication, _publication_probe, ("corpus-write",)),
+    Case(
+        "publication_doors.py:_bind_publication",
+        "publish",
+        ("publication-binding", "act-report"),
+        True,
+        _prepare_publication,
+        _bind_publication,
+        _publication_probe,
+        ("corpus-write",),
+    ),
     # 2026-09-23 cut 40: the staging doors and the pre-binding refusal.
-    Case("corpus.py:CorpusWriter._stage_record", "corpus-write", ("run",), False, _prepare_staging, _stage_record, _staging_probe),
-    Case("corpus.py:CorpusWriter._stage_marker", "publish", ("publication",), False, _prepare_staging, _stage_marker, _staging_probe),
-    Case("publication_doors.py:_refuse_publication", "publish", ("publication-binding", "act-report"), True, _prepare_publication, _refuse, _publication_probe, ("corpus-write",)),
+    Case(
+        "corpus.py:CorpusWriter._stage_record",
+        "corpus-write",
+        ("run",),
+        False,
+        _prepare_staging,
+        _stage_record,
+        _staging_probe,
+    ),
+    Case(
+        "corpus.py:CorpusWriter._stage_marker",
+        "publish",
+        ("publication",),
+        False,
+        _prepare_staging,
+        _stage_marker,
+        _staging_probe,
+    ),
+    Case(
+        "publication_doors.py:_refuse_publication",
+        "publish",
+        ("publication-binding", "act-report"),
+        True,
+        _prepare_publication,
+        _refuse,
+        _publication_probe,
+        ("corpus-write",),
+    ),
 )
 
 

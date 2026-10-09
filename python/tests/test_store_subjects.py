@@ -52,15 +52,11 @@ def store_root(tmp_path: Path, name: str = "store") -> Path:
 
 
 def store_record(genesis: str, head: str, actor: str = "alice") -> anchors.LogHeadRecord:
-    return anchors.LogHeadRecord(
-        anchors.StoreSubject(STORE_ID), genesis, head, anchors.AnchorActOrigin(actor)
-    )
+    return anchors.LogHeadRecord(anchors.StoreSubject(STORE_ID), genesis, head, anchors.AnchorActOrigin(actor))
 
 
 def store_observer(view: logmodel.WellFormedView) -> verify.RegistryCarrier:
-    return verify.RegistryCarrier.from_record(
-        store_record(view.genesis.digest, view.tip)
-    )
+    return verify.RegistryCarrier.from_record(store_record(view.genesis.digest, view.tip))
 
 
 # --- the anchor and export acts ---------------------------------------------
@@ -171,9 +167,7 @@ def store_audit(
 def test_store_audit_validated(tmp_path):
     root = store_root(tmp_path)
     view = surfaced(root, "store", store_payload())
-    report = store_audit(
-        tmp_path, root, view, observers=(store_observer(view),)
-    )
+    report = store_audit(tmp_path, root, view, observers=(store_observer(view),))
     assert report.outcome == "validated"
     assert not [finding for finding in report.findings if finding.severity == "error"]
 
@@ -189,9 +183,7 @@ def test_store_audit_refuted_on_truncation(tmp_path):
         tip=view.entries[-2].digest,
         pending=(),
     )
-    report = store_audit(
-        tmp_path, root, truncated, observers=(store_observer(view),)
-    )
+    report = store_audit(tmp_path, root, truncated, observers=(store_observer(view),))
     assert report.outcome == "refuted"
 
 
@@ -200,9 +192,7 @@ def test_store_audit_refuted_on_chain_removal_under_registry_anchor(tmp_path):
     # by store_id still in the observer set.
     root = store_root(tmp_path)
     view = surfaced(root, "store", store_payload())
-    report = store_audit(
-        tmp_path, root, logmodel.AbsentView(), observers=(store_observer(view),)
-    )
+    report = store_audit(tmp_path, root, logmodel.AbsentView(), observers=(store_observer(view),))
     assert report.outcome == "refuted"
     assert any(finding.code == "anchor-chain-absent" for finding in report.findings)
 
@@ -210,12 +200,8 @@ def test_store_audit_refuted_on_chain_removal_under_registry_anchor(tmp_path):
 def test_store_audit_malformed_on_interior_damage(tmp_path):
     root = store_root(tmp_path)
     view = surfaced(root, "store", store_payload())
-    damaged = logmodel.MalformedView(
-        logmodel.DefectView("cycle", view.tip, "an entry is its own ancestor")
-    )
-    report = store_audit(
-        tmp_path, root, damaged, observers=(store_observer(view),)
-    )
+    damaged = logmodel.MalformedView(logmodel.DefectView("cycle", view.tip, "an entry is its own ancestor"))
+    report = store_audit(tmp_path, root, damaged, observers=(store_observer(view),))
     assert report.outcome == "malformed"
 
 
@@ -260,9 +246,7 @@ def test_store_genesis_form_is_validated(tmp_path):
     # payload is not a store genesis at all.
     root = store_root(tmp_path)
     view = surfaced(root, "store", science_root.GENESIS_PAYLOAD)
-    report = store_audit(
-        tmp_path, root, view, observers=(store_observer(view),)
-    )
+    report = store_audit(tmp_path, root, view, observers=(store_observer(view),))
     assert report.outcome == "malformed"
     assert any(finding.code == "genesis-form-invalid" for finding in report.findings)
 
@@ -270,9 +254,7 @@ def test_store_genesis_form_is_validated(tmp_path):
 def test_store_genesis_id_mismatch_is_a_subject_finding(tmp_path):
     root = store_root(tmp_path)
     view = surfaced(root, "store", store_payload(OTHER_STORE_ID))
-    report = store_audit(
-        tmp_path, root, view, observers=(store_observer(view),)
-    )
+    report = store_audit(tmp_path, root, view, observers=(store_observer(view),))
     assert any(finding.code == "subject-mismatch" for finding in report.findings)
 
 

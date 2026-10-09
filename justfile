@@ -29,7 +29,7 @@ tt := "python3 tools/tt"
 # once already. The gate is the whole project or it is not the gate.
 py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py)"
 py_test_cmd := py_fast_cmd + " && (cd python && uv run --frozen pytest tests/test_n2.py)"
-py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen pyright)"
+py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen ruff format --check . && uv run --frozen pyright)"
 
 # `npm ci` is installation, not a gate, so it stays out of the gate recipes and lives in
 # `setup` below. `npx --no-install` so that a missing install fails here and says so,

@@ -170,9 +170,7 @@ class Preimages:
     def set(self, txid: str, path: str, evidence: verify.PreimageEvidence) -> None:
         self.evidence[(txid, path)] = evidence
 
-    def __call__(
-        self, root: Path, txid: str, path: str, max_bytes: int
-    ) -> verify.PreimageEvidence:
+    def __call__(self, root: Path, txid: str, path: str, max_bytes: int) -> verify.PreimageEvidence:
         self.calls.append((Path(root).resolve(), txid, path, max_bytes))
         if callable(self.probe):
             self.probe(Path(root).resolve())
@@ -294,9 +292,7 @@ def registration(
     )
 
 
-def settlement(
-    entry_digest: str, registration_digest: str, txid: str, *, committed: bool
-) -> logmodel.SettledEntryView:
+def settlement(entry_digest: str, registration_digest: str, txid: str, *, committed: bool) -> logmodel.SettledEntryView:
     return logmodel.SettledEntryView(
         digest=entry_digest, txid=txid, registration=registration_digest, committed=committed
     )
@@ -402,9 +398,7 @@ def world_anchor(view: logmodel.WellFormedView, world_id: str = WORLD_ID) -> ver
     """An exported head artifact anchoring `view`'s tip — the only eligible
     carrier for a world subject (L11)."""
     return verify.ArtifactCarrier.from_bytes(
-        anchors.head_artifact_bytes(
-            anchors.HeadArtifact(anchors.WorldSubject(world_id), view.genesis.digest, view.tip)
-        )
+        anchors.head_artifact_bytes(anchors.HeadArtifact(anchors.WorldSubject(world_id), view.genesis.digest, view.tip))
     )
 
 
@@ -422,9 +416,7 @@ def tree(*roots: Path) -> dict[str, bytes]:
 
 
 class TestTheAuditAct:
-    def test_the_shared_assembly_forwards_the_captured_records(
-        self, tmp_path, monkeypatch
-    ):
+    def test_the_shared_assembly_forwards_the_captured_records(self, tmp_path, monkeypatch):
         root = corpus_root(tmp_path)
         inspections, captures = Inspections(), Captures()
         inspections.set(root, surfaced(root, "corpus", science_root.GENESIS_PAYLOAD))
@@ -594,9 +586,7 @@ class TestTheAuditAct:
         payload = science_root._store_genesis_payload("5" * 32, None)
         inspections.set(root, surfaced(root, "store", payload))
 
-        report = audit(
-            config_for(tmp_path, root), anchors.StoreSubject("5" * 32), root, inspections, captures
-        )
+        report = audit(config_for(tmp_path, root), anchors.StoreSubject("5" * 32), root, inspections, captures)
 
         assert report.outcome == "unresolvable"
         assert inspections.roots == [root]
@@ -631,9 +621,7 @@ class TestTheAuditAct:
 
         assert tree(root, world) == before
 
-    def test_it_holds_the_corpus_operation_lock_across_inspection_and_capture(
-        self, tmp_path, monkeypatch
-    ):
+    def test_it_holds_the_corpus_operation_lock_across_inspection_and_capture(self, tmp_path, monkeypatch):
         root = corpus_root(tmp_path)
         inspections, captures = Inspections(), Captures()
         inspections.set(root, surfaced(root, "corpus", science_root.GENESIS_PAYLOAD))
@@ -669,9 +657,7 @@ class TestTheAuditAct:
         ]
         assert held._holder is None
 
-    def test_it_holds_the_world_lock_across_inspection_and_capture(
-        self, tmp_path, monkeypatch
-    ):
+    def test_it_holds_the_world_lock_across_inspection_and_capture(self, tmp_path, monkeypatch):
         root = world_root(tmp_path)
         inspections, captures = Inspections(), Captures()
         inspections.set(root, surfaced(root, "world", science_root._world_genesis_payload(WORLD_ID)))
@@ -741,11 +727,7 @@ class TestTheAuditAct:
         inspections, captures = Inspections(), Captures()
         inspections.set(
             root,
-            chain(
-                logmodel.GenesisEntryView(
-                    digest=digest("g"), payload=science_root.GENESIS_PAYLOAD, baseline=()
-                )
-            ),
+            chain(logmodel.GenesisEntryView(digest=digest("g"), payload=science_root.GENESIS_PAYLOAD, baseline=())),
         )
 
         with pytest.raises(FileNotFoundError):
@@ -903,16 +885,12 @@ class TestThePreimageReads:
             genesis_entry(science_root.GENESIS_PAYLOAD, label="preimage-genesis"),
             created,
             settlement(digest("settle-0"), created.digest, "tx-0", committed=True),
-            registration(
-                digest("r"), "tx-1", ((removed, state(removed)),), ((removed, ABSENT),)
-            ),
+            registration(digest("r"), "tx-1", ((removed, state(removed)),), ((removed, ABSENT),)),
             settlement(digest("s"), digest("r"), "tx-1", committed=True),
         )
         return root, removed, payload, view
 
-    def test_one_read_per_committed_removal_with_the_chains_txid_path_and_byte_len(
-        self, tmp_path
-    ):
+    def test_one_read_per_committed_removal_with_the_chains_txid_path_and_byte_len(self, tmp_path):
         root, removed, payload, view = self._removed(tmp_path)
         inspections, captures, preimages = Inspections(), Captures(), Preimages()
         inspections.set(root, view)
@@ -936,9 +914,7 @@ class TestThePreimageReads:
         assert report.findings[1].detail.endswith("source=preimage")
         del FACT_BYTES[removed]
 
-    def test_the_reads_are_made_under_the_writer_hold_after_the_captures(
-        self, tmp_path, monkeypatch
-    ):
+    def test_the_reads_are_made_under_the_writer_hold_after_the_captures(self, tmp_path, monkeypatch):
         root, removed, payload, view = self._removed(tmp_path)
         inspections, captures, preimages = Inspections(), Captures(), Preimages()
         inspections.set(root, view)
@@ -984,9 +960,7 @@ class TestThePreimageReads:
         assert held._holder is None
         del FACT_BYTES[removed]
 
-    def test_no_read_for_a_malformed_or_absent_view_and_reads_for_a_pending_one(
-        self, tmp_path
-    ):
+    def test_no_read_for_a_malformed_or_absent_view_and_reads_for_a_pending_one(self, tmp_path):
         root, removed, _payload, view = self._removed(tmp_path)
         inspections, captures, preimages = Inspections(), Captures(), Preimages()
         for bad in (
@@ -1055,18 +1029,14 @@ class TestThePreimageReads:
             root,
             verify.ObserverSet((corpus_anchor(view),)),
             actor="alice",
-            seam=make_seam(
-                inspections, captures, preimages=preimages, state_facts=facts
-            ),
+            seam=make_seam(inspections, captures, preimages=preimages, state_facts=facts),
         )
 
         assert preimages.calls == []
         assert [finding.code for finding in report.findings][-1] == "removal-unclassified"
         assert report.findings[-1].detail.endswith("digest=none preimage=not-consulted")
 
-    def test_a_preimage_refusal_propagates_untranslated_and_no_report_is_made(
-        self, tmp_path
-    ):
+    def test_a_preimage_refusal_propagates_untranslated_and_no_report_is_made(self, tmp_path):
         root, removed, _payload, view = self._removed(tmp_path)
         inspections, captures = Inspections(), Captures()
         inspections.set(root, view)
@@ -1081,9 +1051,7 @@ class TestThePreimageReads:
                 root,
                 verify.ObserverSet((corpus_anchor(view),)),
                 actor="alice",
-                seam=make_seam(
-                    inspections, captures, preimages=cast(Preimages, refusing)
-                ),
+                seam=make_seam(inspections, captures, preimages=cast(Preimages, refusing)),
             )
         assert caught.value.phase == "preimage"
         assert caught.value.engine_error == "MetadataStoreInvalid"
@@ -1102,21 +1070,13 @@ class TestThePreimageReads:
             return read
 
         monkeypatch.setattr(science_root, "read_preimage", lambda *a, **k: b"bytes")
-        assert science_root._read_preimage(Path("/r"), "t", "p", 5) == verify.PreimageRead(
-            b"bytes"
-        )
+        assert science_root._read_preimage(Path("/r"), "t", "p", 5) == verify.PreimageRead(b"bytes")
         monkeypatch.setattr(
             science_root,
             "read_preimage",
-            raising(
-                PreconditionRefused(
-                    "root lifecycle state read-only-serviceable does not grant writability"
-                )
-            ),
+            raising(PreconditionRefused("root lifecycle state read-only-serviceable does not grant writability")),
         )
-        assert science_root._read_preimage(
-            Path("/r"), "t", "p", 5
-        ) == verify.PreimageUnavailable(
+        assert science_root._read_preimage(Path("/r"), "t", "p", 5) == verify.PreimageUnavailable(
             "root lifecycle state read-only-serviceable does not grant writability"
         )
         for error, name in (
@@ -1129,15 +1089,11 @@ class TestThePreimageReads:
                 science_root._read_preimage(Path("/r"), "t", "p", 5)
             assert (caught.value.phase, caught.value.engine_error) == ("preimage", name)
             assert caught.value.__cause__ is error
-        monkeypatch.setattr(
-            science_root, "read_preimage", raising(ProtocolError("wrong type"))
-        )
+        monkeypatch.setattr(science_root, "read_preimage", raising(ProtocolError("wrong type")))
         with pytest.raises(ProtocolError):
             science_root._read_preimage(Path("/r"), "t", "p", 5)
 
-    def test_the_production_seam_wires_the_reader_and_the_wrapper_passes_the_chain_arguments(
-        self, monkeypatch
-    ):
+    def test_the_production_seam_wires_the_reader_and_the_wrapper_passes_the_chain_arguments(self, monkeypatch):
         seen: list[tuple] = []
 
         def read(backend, project_root, metadata_root, storage, txid, path, *, max_bytes):
@@ -1304,9 +1260,7 @@ class Sequence:
 
     def __init__(self, tmp_path: Path) -> None:
         self.heads = MovingWorldHead(tmp_path / "world")
-        self.world, _recorder, self.bindings, _roots = admitted_world(
-            tmp_path, (ALPHA,), chain_head=self.heads
-        )
+        self.world, _recorder, self.bindings, _roots = admitted_world(tmp_path, (ALPHA,), chain_head=self.heads)
         self.heads.tip = WORLD_GENESIS
         self.first = publish(self.world, (ALPHA,), self.bindings).packaging_identity
         self.heads.tip = FIRST_SETTLEMENT
@@ -1323,9 +1277,7 @@ class Sequence:
 
     def recorded_head(self, packaging_identity: str) -> str:
         with registry._world_lock_for(self.config.world_root):
-            return epoch._locked_open_epoch(
-                self.config.world_root, packaging_identity
-            ).world_anchor.head_digest
+            return epoch._locked_open_epoch(self.config.world_root, packaging_identity).world_anchor.head_digest
 
 
 def world_chain(first_identity: str, *, committed: bool = True, trailing: bool = False) -> logmodel.WellFormedView:
@@ -1356,7 +1308,12 @@ class TestTheOrderedCutsPredicate:
         view = world_chain(sequence.first)
         assert verify._ordered_by_descent(view, sequence.first, FIRST_SETTLEMENT, ABSENT) == "ordered"
         assert verify._ordered_by_descent(view, sequence.first, WORLD_GENESIS, ABSENT) == "unordered"
-        assert verify._ordered_by_descent(world_chain(sequence.first, committed=False), sequence.first, FIRST_SETTLEMENT, ABSENT) == "unordered"
+        assert (
+            verify._ordered_by_descent(
+                world_chain(sequence.first, committed=False), sequence.first, FIRST_SETTLEMENT, ABSENT
+            )
+            == "unordered"
+        )
         assert verify._ordered_by_descent(view, sequence.first, digest("not-in-the-chain"), ABSENT) == "unordered"
 
         seen: list[tuple[str, str]] = []
@@ -1421,9 +1378,7 @@ class TestTheOrderedCutsPredicate:
         sequence = Sequence(tmp_path)
 
         assert ordered(sequence.config, sequence.first, sequence.second, logmodel.AbsentView()) == "unordered"
-        malformed = logmodel.MalformedView(
-            logmodel.DefectView(kind="cycle", subject=digest("x"), detail="a cycle")
-        )
+        malformed = logmodel.MalformedView(logmodel.DefectView(kind="cycle", subject=digest("x"), detail="a cycle"))
         assert ordered(sequence.config, sequence.first, sequence.second, malformed) == "unordered"
 
     def test_an_unknown_second_epoch_refuses(self, tmp_path):
@@ -1561,7 +1516,11 @@ class Relation:
         entries: list[logmodel.EntryView] = []
         for index, identity in enumerate(published, start=1):
             entries.append(publication(digest(f"registration-{index}"), f"tx-{index}", identity))
-            entries.append(settlement(digest(f"settlement-{index}"), digest(f"registration-{index}"), f"tx-{index}", committed=True))
+            entries.append(
+                settlement(
+                    digest(f"settlement-{index}"), digest(f"registration-{index}"), f"tx-{index}", committed=True
+                )
+            )
         return chain(genesis, *entries)
 
     def order(self, a: Event, b: Event, *, world_view: logmodel.ChainView | None = None) -> str:
@@ -1600,7 +1559,9 @@ class TestTheEventLevelRelation:
 
     def test_a_cut_missing_one_corpus_establishes_nothing(self, tmp_path):
         relation = Relation(tmp_path)
-        e1 = relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest, coverage=(ALPHA,))
+        e1 = relation.build(
+            world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest, coverage=(ALPHA,)
+        )
         e2 = relation.build(world_tip=FIRST_SETTLEMENT, a_head=A_LATER.digest, b_head=B_INTENT.digest)
         a, b = A(ALPHA, A_REG.digest), A(BETA, B_INTENT.digest)
         assert relation.order(a, b, world_view=relation.world_chain(e1, e2)) == "unordered"
@@ -1670,9 +1631,16 @@ class TestTheEventLevelRelation:
         relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest)
         opened: list[str] = []
         original = epoch._locked_open_epoch
-        monkeypatch.setattr(epoch, "_locked_open_epoch", lambda root, identity: opened.append(identity) or original(root, identity))
+        monkeypatch.setattr(
+            epoch, "_locked_open_epoch", lambda root, identity: opened.append(identity) or original(root, identity)
+        )
         defect = logmodel.DefectView(kind="cycle", subject=None, detail="fabricated")
-        assert relation.order(A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), world_view=logmodel.MalformedView(defect=defect)) == "a-precedes-b"
+        assert (
+            relation.order(
+                A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), world_view=logmodel.MalformedView(defect=defect)
+            )
+            == "a-precedes-b"
+        )
         assert opened == []
         assert relation.order(A(ALPHA, A_INTENT.digest), A(BETA, B_INTENT.digest)) == "unordered"
         assert opened  # the cross-chain question opened the retained epoch
@@ -1708,7 +1676,9 @@ class TestTheEventLevelRelation:
         assert relation.order(a, b, world_view=relation.world_chain(e1, e2)) == "a-precedes-b"
         assert relation.inspections.roots.count(relation.world.config.world_root) == 1
         assert held_during_corpus == [False, False]  # the world lock was free at each corpus inspection
-        assert corpus_roots == sorted((relation.alpha, relation.beta), key=lambda root: {relation.alpha: ALPHA, relation.beta: BETA}[root])
+        assert corpus_roots == sorted(
+            (relation.alpha, relation.beta), key=lambda root: {relation.alpha: ALPHA, relation.beta: BETA}[root]
+        )
 
     def test_refusals_are_caller_input_facts(self, tmp_path):
         relation = Relation(tmp_path)
@@ -1718,18 +1688,40 @@ class TestTheEventLevelRelation:
             relation.order(A(ALPHA, digest("never")), A(ALPHA, A_LATER.digest))
         twin = corpus_at(tmp_path / "twin", ALPHA)
         two_carriers = registry.WorldConfig(
-            relation.world.config.world_root, relation.world.config.world_id, (*relation.world.config.corpus_roots, twin)
+            relation.world.config.world_root,
+            relation.world.config.world_id,
+            (*relation.world.config.corpus_roots, twin),
         )
         relation.inspections.set(relation.world.config.world_root, relation.world_chain())
         with pytest.raises(EventCorpusUnresolvable):
-            verify._event_order(two_carriers, A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), seam=make_seam(relation.inspections, relation.captures))
+            verify._event_order(
+                two_carriers,
+                A(ALPHA, A_INTENT.digest),
+                A(ALPHA, A_LATER.digest),
+                seam=make_seam(relation.inspections, relation.captures),
+            )
         repeated = registry.WorldConfig(
-            relation.world.config.world_root, relation.world.config.world_id, (*relation.world.config.corpus_roots, relation.alpha)
+            relation.world.config.world_root,
+            relation.world.config.world_id,
+            (*relation.world.config.corpus_roots, relation.alpha),
         )
-        assert verify._event_order(repeated, A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), seam=make_seam(relation.inspections, relation.captures)) == "a-precedes-b"
+        assert (
+            verify._event_order(
+                repeated,
+                A(ALPHA, A_INTENT.digest),
+                A(ALPHA, A_LATER.digest),
+                seam=make_seam(relation.inspections, relation.captures),
+            )
+            == "a-precedes-b"
+        )
         none = registry.WorldConfig(relation.world.config.world_root, relation.world.config.world_id, (relation.beta,))
         with pytest.raises(EventCorpusUnresolvable):
-            verify._event_order(none, A(ALPHA, A_INTENT.digest), A(ALPHA, A_LATER.digest), seam=make_seam(relation.inspections, relation.captures))
+            verify._event_order(
+                none,
+                A(ALPHA, A_INTENT.digest),
+                A(ALPHA, A_LATER.digest),
+                seam=make_seam(relation.inspections, relation.captures),
+            )
 
     def test_a_terminal_corpus_still_answers(self, tmp_path):
         relation = Relation(tmp_path)
@@ -1739,7 +1731,9 @@ class TestTheEventLevelRelation:
     def test_the_reads_own_refusals_propagate(self, tmp_path, monkeypatch):
         relation, a, b, e1, e2 = l8_pair(tmp_path)
         view = relation.world_chain(e1, e2)
-        monkeypatch.setattr(epoch, "_locked_open_epoch", lambda root, identity: (_ for _ in ()).throw(EpochMalformed(identity)))
+        monkeypatch.setattr(
+            epoch, "_locked_open_epoch", lambda root, identity: (_ for _ in ()).throw(EpochMalformed(identity))
+        )
         with pytest.raises(EpochMalformed):
             relation.order(a, b, world_view=view)
         monkeypatch.undo()
@@ -2155,15 +2149,11 @@ def test_exported_w1_head_refutes_rewritten_world(tmp_path):
     chain = rewritten_world(tmp_path)
     w1_genesis, w1_head = chain.removed[0], chain.anchor
     exported_w1 = verify.ArtifactCarrier.from_bytes(
-        anchors.head_artifact_bytes(
-            anchors.HeadArtifact(anchors.WorldSubject(CUT8_WORLD_ID), w1_genesis, w1_head)
-        )
+        anchors.head_artifact_bytes(anchors.HeadArtifact(anchors.WorldSubject(CUT8_WORLD_ID), w1_genesis, w1_head))
     )
     exported_w2 = verify.ArtifactCarrier.from_bytes(
         anchors.head_artifact_bytes(
-            anchors.HeadArtifact(
-                anchors.WorldSubject(CUT8_OTHER_WORLD_ID), chain.digests[0], chain.tip
-            )
+            anchors.HeadArtifact(anchors.WorldSubject(CUT8_OTHER_WORLD_ID), chain.digests[0], chain.tip)
         )
     )
     assert w1_genesis != chain.digests[0]
@@ -2184,9 +2174,7 @@ def test_exported_w1_head_refutes_rewritten_world(tmp_path):
 
     assert about_w1.outcome == "refuted"
     assert "anchor-genesis-mismatch" in codes_of(about_w1)
-    assert [finding.ref for finding in about_w1.findings if finding.code == "anchor-genesis-mismatch"] == [
-        w1_head
-    ]
+    assert [finding.ref for finding in about_w1.findings if finding.code == "anchor-genesis-mismatch"] == [w1_head]
 
     assert about_w2.outcome == "validated"
     assert len(about_w2.observer_bound) == 1
@@ -2219,9 +2207,7 @@ def test_coordinated_truncation_without_exported_holder_is_undetected(tmp_path):
     assert chain.anchor in chain.removed
     assert verify.registered_surface_paths(chain.root, "world") == (WORLD_MIRROR,)
 
-    truncated = real_audit(
-        world_config_at(chain.root, CUT8_WORLD_ID), anchors.WorldSubject(CUT8_WORLD_ID), chain.root
-    )
+    truncated = real_audit(world_config_at(chain.root, CUT8_WORLD_ID), anchors.WorldSubject(CUT8_WORLD_ID), chain.root)
     untouched_chain = settled_world(tmp_path / "untouched")
     untouched = real_audit(
         world_config_at(untouched_chain.root, CUT8_WORLD_ID),

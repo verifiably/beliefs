@@ -394,9 +394,7 @@ def test_build_refuses_duplicate_carrier_coverage(tmp_path):
 
 
 class TestPreflightOrder:
-    def test_preflight_uses_the_lock_held_coverage_core_inside_its_outer_hold(
-        self, monkeypatch, tmp_path
-    ):
+    def test_preflight_uses_the_lock_held_coverage_core_inside_its_outer_hold(self, monkeypatch, tmp_path):
         world, bindings, _roots = admitted_world(tmp_path)
         original = epoch._locked_resolve_coverage
         calls = 0
@@ -838,9 +836,7 @@ class TestSerialCapture:
         world, bindings, roots = admitted_world(tmp_path, (ALPHA,))
         passes: list[Path] = []
         enumerate_records = epoch._captured_records
-        monkeypatch.setattr(
-            epoch, "_captured_records", lambda root: (passes.append(root), enumerate_records(root))[1]
-        )
+        monkeypatch.setattr(epoch, "_captured_records", lambda root: (passes.append(root), enumerate_records(root))[1])
 
         draft = build(world, (ALPHA,), bindings)
 
@@ -929,9 +925,7 @@ class TestSerialCapture:
         dataset, run, verification, _sound = sample_nodes()
         drifted = stored.retraction_node(
             title="drifted retraction",
-            target=stored.NodeTarget(
-                ref=verification.id, resolved=verification.id, content_identity="d" * 64
-            ),
+            target=stored.NodeTarget(ref=verification.id, resolved=verification.id, content_identity="d" * 64),
             reason="authored-error",
             rationale="the verification moved under this retraction",
             grounds=[dataset.id],
@@ -1036,7 +1030,9 @@ class TestUngovernedKindsAreRefusedNotAssumed:
 
     def test_a_governed_enumerated_kind_is_admitted(self, tmp_path):
         assert set(epoch.ENUMERATED_SOURCE_KINDS) & set(stored.SEMANTIC_DOMAINS) == {
-            "retraction", "run", "coreference-attestation"
+            "retraction",
+            "run",
+            "coreference-attestation",
         }
 
 
@@ -1066,9 +1062,7 @@ class TestThePrePublicationRecheck:
             "_locked_resolve_rule_bindings",
             lambda world_root, held: (locked.append(world._state.lock.locked()), resolve(world_root, held))[1],
         )
-        monkeypatch.setattr(
-            registry, "corpus_state_identity", lambda root: pytest.fail("the recheck read a corpus")
-        )
+        monkeypatch.setattr(registry, "corpus_state_identity", lambda root: pytest.fail("the recheck read a corpus"))
         monkeypatch.setattr(epoch, "_captured_records", lambda root: pytest.fail("the recheck read a corpus"))
         generation = lock_for(roots[ALPHA])._capture_generation
 
@@ -1158,7 +1152,10 @@ def test_delete_and_rebuild_reconstructs_all_four_maps(tmp_path):
         assert rebuilt.members[member] == before[member], member
     assert yaml.safe_load(rebuilt.members["producers-map.yaml"]) == {
         "producers": [
-                {"dataset": dataset_ref(slug_for(corpus_id, (ALPHA, BETA))), "runs": [f"run:{slug_for(corpus_id, (ALPHA, BETA))}"]}
+            {
+                "dataset": dataset_ref(slug_for(corpus_id, (ALPHA, BETA))),
+                "runs": [f"run:{slug_for(corpus_id, (ALPHA, BETA))}"],
+            }
             for corpus_id in (ALPHA, BETA)
         ]
     }

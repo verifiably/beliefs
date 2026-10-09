@@ -54,9 +54,7 @@ def unrelated_contract(description: str):
     document = _fixture_document("testing")
     document["contract"] = "unrelated"
     document["description"] = description
-    return domain.parse_domain_contract(
-        document, source="<unrelated>", base=shipped_base_contract(), predecessor=None
-    )
+    return domain.parse_domain_contract(document, source="<unrelated>", base=shipped_base_contract(), predecessor=None)
 
 
 def profile_with(
@@ -95,7 +93,7 @@ def seed_nodes(
     nodes: list[Node] = [stored.proposition_node("p", title="p", claim=claim or CLAIM_FACET)]
     nodes.append(
         stored.dataset_node(
-                        title="d-a",
+            title="d-a",
             resources=pinned("d-a"),
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             domain_facets=domain_facets,
@@ -103,7 +101,7 @@ def seed_nodes(
     )
     nodes.append(
         stored.dataset_node(
-                        title="d-b",
+            title="d-b",
             resources=pinned("d-b"),
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
@@ -119,14 +117,26 @@ def seed_nodes(
     nodes.append(stored.run_node("run-b", title="run-b", spec="spec-b", observes=[dataset_ref("d-b")]))
     assessments = [
         stored.assessment_node(
-            "a-1", title="a-1", spec="spec-a", run="run:run-a", proposition=proposition,
-            outcome=outcomes[0], interpretation_rule="rule-1",
-            estimand=typed_estimand(), applicability=typed_applicability(),
+            "a-1",
+            title="a-1",
+            spec="spec-a",
+            run="run:run-a",
+            proposition=proposition,
+            outcome=outcomes[0],
+            interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         ),
         stored.assessment_node(
-            "a-2", title="a-2", spec="spec-b", run="run:run-b", proposition=proposition,
-            outcome=outcomes[1], interpretation_rule="rule-1",
-            estimand=typed_estimand(), applicability=typed_applicability(),
+            "a-2",
+            title="a-2",
+            spec="spec-b",
+            run="run:run-b",
+            proposition=proposition,
+            outcome=outcomes[1],
+            interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         ),
     ]
     nodes.extend(assessments)
@@ -134,8 +144,12 @@ def seed_nodes(
         value = stored.assessment_reference(node)
         nodes.append(
             stored.verification_node(
-                f"v-{index}", title=f"v-{index}", assessment=value.identity(), assessment_ref=node.id,
-                scope="clean-environment", verdict="passed"
+                f"v-{index}",
+                title=f"v-{index}",
+                assessment=value.identity(),
+                assessment_ref=node.id,
+                scope="clean-environment",
+                verdict="passed",
             )
         )
     return nodes
@@ -158,7 +172,9 @@ def seed(
             corpus.add(node)
         return corpus.read_view
     corpus.mkdir(parents=True, exist_ok=True)
-    (corpus / "corpus.yaml").write_bytes(registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(profile_with()))))
+    (corpus / "corpus.yaml").write_bytes(
+        registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(profile_with())))
+    )
     for node in nodes:
         raw_write(corpus, node)
     return reopen(corpus)

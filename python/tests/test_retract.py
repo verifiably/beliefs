@@ -42,7 +42,10 @@ def content_identity(node: Node) -> str:
 
 def mint_eligible_assessment(writer: CorpusWriter) -> Node:
     dataset = writer.add(
-        stored.dataset_node(title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": writer.authority.actor}
+        stored.dataset_node(
+            title="raw",
+            resources=PINNED,
+            empirical_observation={"locator": "instrument:fixture", "attested_by": writer.authority.actor},
         )
     )
     run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
@@ -78,8 +81,11 @@ def test_e3_a_retraction_naming_another_actor_is_refused(tmp_path):
     writer = CorpusWriter(
         tmp_path,
         Recorder,
-        authority=narrowed(kinds=("assessment", "dataset", "proposition", "retraction", "run"),
-                           families=("corpus-write",), actor="not-tester"),
+        authority=narrowed(
+            kinds=("assessment", "dataset", "proposition", "retraction", "run"),
+            families=("corpus-write",),
+            actor="not-tester",
+        ),
         profile=BASE,
     )
     target = mint_eligible_assessment(writer)
@@ -91,8 +97,9 @@ def test_e3_a_retraction_under_its_own_actor_mints(tmp_path):
     writer = CorpusWriter(
         tmp_path,
         Recorder,
-        authority=narrowed(kinds=("assessment", "dataset", "proposition", "retraction", "run"),
-                           families=("corpus-write",)),
+        authority=narrowed(
+            kinds=("assessment", "dataset", "proposition", "retraction", "run"), families=("corpus-write",)
+        ),
         profile=BASE,
     )
     target = mint_eligible_assessment(writer)
@@ -184,7 +191,7 @@ def test_retract_refuses_an_ineligible_kind_before_resolution(writer):
 def test_retract_accepts_an_exact_route_identity(writer):
     dataset = writer.add(
         stored.dataset_node(
-                        title="derived",
+            title="derived",
             resources=PINNED,
             basis={
                 "tag": "single",
@@ -227,7 +234,7 @@ def test_retract_accepts_an_exact_route_identity(writer):
 def test_retract_refuses_a_route_absent_from_the_stamped_basis(writer):
     dataset = writer.add(
         stored.dataset_node(
-                        title="derived",
+            title="derived",
             resources=PINNED,
             basis={"tag": "single", "routes": [{"identity": "route:one"}]},
         )
@@ -249,7 +256,7 @@ def test_retract_refuses_a_route_absent_from_the_stamped_basis(writer):
 def test_retract_refuses_a_route_dataset_with_the_wrong_content_identity(writer):
     dataset = writer.add(
         stored.dataset_node(
-                        title="derived",
+            title="derived",
             resources=PINNED,
             basis={"tag": "single", "routes": [{"identity": "route:one"}]},
         )

@@ -108,12 +108,16 @@ class AssessmentValue:
             raise MalformedRecord(f"outcome {self.outcome!r} is outside the closed set {OUTCOMES}")
         if type(self.estimand) is not Estimand:
             raise MalformedRecord(f"estimand is a typed Estimand, found {type(self.estimand).__name__}")
-        if not isinstance(self.applicability, Mapping) or not all(isinstance(q, Qualifier) for q in self.applicability.values()):
+        if not isinstance(self.applicability, Mapping) or not all(
+            isinstance(q, Qualifier) for q in self.applicability.values()
+        ):
             raise MalformedRecord("applicability is a mapping of dimension → Qualifier")
         if self.estimate is not None and type(self.estimate) is not Decimal:
             raise MalformedRecord(f"estimate is a Decimal or absent, found {type(self.estimate).__name__}")
         if self.uncertainty is not None and not isinstance(self.uncertainty, (Interval, StandardError)):
-            raise MalformedRecord(f"uncertainty is an Interval, a StandardError or absent, found {type(self.uncertainty).__name__}")
+            raise MalformedRecord(
+                f"uncertainty is an Interval, a StandardError or absent, found {type(self.uncertainty).__name__}"
+            )
         # The numerical invariants (estimand-typing §6) hold at **every**
         # construction — the constructor's, the stored reader's, a test's — so a
         # stored record cannot carry a negative standard error or an interval
@@ -151,7 +155,12 @@ class AssessmentValue:
     def facet_digest(self) -> str:
         return v1.digest(
             ASSESSMENT_FACET_DOMAIN,
-            {"proposition": self.proposition, "outcome": self.outcome, "interpretation_rule": self.interpretation_rule, **self.typed_projection()},
+            {
+                "proposition": self.proposition,
+                "outcome": self.outcome,
+                "interpretation_rule": self.interpretation_rule,
+                **self.typed_projection(),
+            },
         )
 
 

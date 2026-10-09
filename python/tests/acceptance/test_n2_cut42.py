@@ -5,11 +5,12 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -58,6 +59,34 @@ from n2_arms_cut42 import (
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y14-b": Sabotage(
+        module="publish.py",
+        before=(
+            "        blocking = tuple(\n"
+            "            token\n"
+            "            for token in unfinished_attempts(writer, view, destination, seam)\n"
+            '            if (_op_dir(operations_root, token) / "transport.v1").is_file()\n'
+            "        )\n"
+        ),
+        after="        blocking = tuple(unfinished_attempts(writer, view, destination, seam))\n",
+    ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "Y15-b": Sabotage(
+        module="publish.py",
+        before="        remotely_revealed=remote,\n",
+        after="        remotely_revealed=False,\n",
+    ),
+}
+CUT42_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT42_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

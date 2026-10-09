@@ -99,9 +99,7 @@ def test_record_mutation_entry_projects_its_corpus_and_outcome():
     entry = report_values.RecordMutationEntry(
         subject="dataset:d1",
         corpus="corpus-a",
-        outcome=report_values.Moved(
-            source_corpus="corpus-a", destination_corpus="corpus-b", ref="dataset:d1"
-        ),
+        outcome=report_values.Moved(source_corpus="corpus-a", destination_corpus="corpus-b", ref="dataset:d1"),
     )
     facet = report_values._entry_facet(entry)
     assert facet["kind"] == "record-mutation"
@@ -164,12 +162,21 @@ def test_an_acquisition_report_requires_an_acquisition_intent_and_keeps_entry_or
     from beliefs.boundary import _mint_acquisition_report
 
     entries = (
-        LocatorEntry("url:https://example.org/a", PublishedObservation("holdings-observation:" + "a" * 64), (("timeout_seconds", "5.0"),)),
+        LocatorEntry(
+            "url:https://example.org/a",
+            PublishedObservation("holdings-observation:" + "a" * 64),
+            (("timeout_seconds", "5.0"),),
+        ),
         ManagedMutationEntry("store:" + "d" * 32 + ":a.bin", PublishedObservation("holdings-observation:" + "b" * 64)),
         DeclarationPinEntry("dataset:sha256:" + "c" * 64, PinnedDeclaration("dataset:sha256:" + "c" * 64)),
     )
     intent = OperationIntent("acquisition", "tok", "actor:a")
-    fields = {"observer": "o", "instrument": "i", "opened_at": "2026-09-20T00:00:00Z", "closed_at": "2026-09-20T00:00:01Z"}
+    fields = {
+        "observer": "o",
+        "instrument": "i",
+        "opened_at": "2026-09-20T00:00:00Z",
+        "closed_at": "2026-09-20T00:00:01Z",
+    }
     report = _mint_acquisition_report(intent, entries=entries, **fields)
     assert report.operation == "acquisition" and report.entries == entries
     permuted = _mint_acquisition_report(intent, entries=(entries[1], entries[0], entries[2]), **fields)
@@ -504,7 +511,6 @@ def test_the_publish_report_seam_mints_one_binding_entry_for_a_publish_intent_on
 # --- publish-act-local §7: the lifecycle entries and the ordered sequence ------
 
 
-
 @pytest.fixture
 def publish_intent_value():
     return _publish_intent()
@@ -538,7 +544,7 @@ def _binding():
         _lifecycle("export"),
         _lifecycle("reveal"),
         (*_lifecycle(), _binding()),
-        (_binding(),),                                     # cut 39's lone binding entry
+        (_binding(),),  # cut 39's lone binding entry
     ],
     ids=["request", "staging", "export", "reveal", "bound", "lone-binding"],
 )
@@ -550,10 +556,10 @@ def test_the_admitted_publish_sequences(entries):
     "entries",
     [
         (),
-        _lifecycle(),                                      # every lifecycle entry succeeded, no binding
-        (_lifecycle()[1], _lifecycle()[0], _lifecycle()[2], _binding()),   # out of order
-        (*_lifecycle("staging"), _lifecycle()[1]),         # an entry after a refusal
-        (_lifecycle()[0], _binding()),                     # a binding after a partial lifecycle
+        _lifecycle(),  # every lifecycle entry succeeded, no binding
+        (_lifecycle()[1], _lifecycle()[0], _lifecycle()[2], _binding()),  # out of order
+        (*_lifecycle("staging"), _lifecycle()[1]),  # an entry after a refusal
+        (_lifecycle()[0], _binding()),  # a binding after a partial lifecycle
         (PublicationRequestEntry(_S, RequestCorrupt("undecodable")), _binding()),
         (PublicationStagingEntry("coord:other", Staged(_C, 1)), *_lifecycle()[1:], _binding()),  # two subjects
     ],
@@ -595,7 +601,12 @@ def test_the_stored_form_decodes_to_the_same_sequence():
 def test_the_publish_report_mints_the_lifecycle_before_the_binding(publish_intent_value):
     from beliefs.boundary import _mint_publish_refusal, _mint_publish_report
 
-    times = {"observer": "o", "instrument": "beliefs.publish", "opened_at": "2026-09-23T00:00:00Z", "closed_at": "2026-09-23T00:00:01Z"}
+    times = {
+        "observer": "o",
+        "instrument": "beliefs.publish",
+        "opened_at": "2026-09-23T00:00:00Z",
+        "closed_at": "2026-09-23T00:00:01Z",
+    }
     report = _mint_publish_report(publish_intent_value, entry=_binding(), lifecycle=_lifecycle(), **times)
     assert report.entries == (*_lifecycle(), _binding())
     refused = _mint_publish_refusal(publish_intent_value, entries=_lifecycle("export"), **times)

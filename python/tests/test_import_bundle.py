@@ -115,9 +115,7 @@ def _narrowed_writer(tmp_path, authority):
 
 
 def test_e8_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path):
-    writer = _narrowed_writer(
-        tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",))
-    )
+    writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",)))
     with pytest.raises(PermitExceeded) as caught:
         _import(writer, [prop("p1"), stored.source_node(title="s", identifiers={"doi": "10.1234/x"})])
     assert caught.value.requirement == PermitFact("kind", "source")
@@ -133,9 +131,7 @@ def test_e8_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
 
 
 def test_e8_every_member_kind_plus_act_report_imports_with_one_fulfilling_report(tmp_path):
-    writer = _narrowed_writer(
-        tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",))
-    )
+    writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",)))
     report = _import(writer, [prop("p1")])
     assert report.actor == ACTOR
     assert len(FakePort.intents) == 1 and len(FakePort.fulfilling) == 1
@@ -291,9 +287,7 @@ def test_bundle_member_live_id_cannot_also_be_deprecated(writer_with_port):
 
 
 def test_bundle_member_cannot_repeat_a_deprecated_id(writer_with_port):
-    malformed = prop("duplicate-alias").model_copy(
-        update={"deprecated_ids": ["proposition:old", "proposition:old"]}
-    )
+    malformed = prop("duplicate-alias").model_copy(update={"deprecated_ids": ["proposition:old", "proposition:old"]})
 
     with pytest.raises(ImportRefused) as caught:
         import_records(writer_with_port, [malformed])
@@ -305,7 +299,7 @@ def test_bundle_member_cannot_repeat_a_deprecated_id(writer_with_port):
 
 def test_bundle_relation_resolves_through_an_arriving_deprecated_id(writer_with_port):
     dataset = stored.dataset_node(
-                title="current",
+        title="current",
         resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
     ).model_copy(update={"deprecated_ids": ["dataset:previous"]})
     run = stored.run_node("run", title="run", spec="analysis-spec:s", observes=["dataset:previous"])
@@ -403,7 +397,7 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(tmp_path, monkeypat
     # precedent `_refuse_r20_contradiction`'s tests use for a spec).
     writer_with_port = _testing_profile_writer(tmp_path, monkeypatch)
     dataset = stored.dataset_node(
-                title="observed",
+        title="observed",
         resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
         empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
@@ -550,7 +544,9 @@ def test_malformed_intent_digest_refuses_before_payload_or_report(tmp_path):
         intent_digest = "bad"
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=MalformedDigestPort(tmp_path), profile=BASE)
+    writer = CorpusWriter(
+        tmp_path, Recorder, authority=FULL, operation_port=MalformedDigestPort(tmp_path), profile=BASE
+    )
 
     with pytest.raises(ExecutionError, match="intent digest"):
         import_records(writer, [prop("not-written")])

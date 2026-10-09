@@ -27,7 +27,10 @@ class _UniqueKeyLoader(yaml.SafeLoader):
             key = self.construct_object(key_node, deep=deep)
             if not isinstance(key, str):
                 raise ConstructorError(
-                    "while constructing a mapping", node.start_mark, f"mapping key {key!r} is not a string", key_node.start_mark
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"mapping key {key!r} is not a string",
+                    key_node.start_mark,
                 )
             if key in seen:
                 raise ConstructorError(

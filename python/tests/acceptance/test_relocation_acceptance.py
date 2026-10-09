@@ -69,7 +69,7 @@ _COREFERENCE_BALANCE = {
         }
     ]
 }
-_COREFERENCE_SOURCE = b'''def reduce_coreference(capture):
+_COREFERENCE_SOURCE = b"""def reduce_coreference(capture):
     return {
         "pairs": [
             {
@@ -79,7 +79,7 @@ _COREFERENCE_SOURCE = b'''def reduce_coreference(capture):
             }
         ]
     }
-'''
+"""
 
 
 @pytest.fixture()
@@ -185,7 +185,7 @@ def _move_produced_dataset(durable_factory):
     destination = writer("move-destination")
     dataset = source.add(
         stored.dataset_node(
-                        title="moved",
+            title="moved",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         )
     )
@@ -233,7 +233,7 @@ def _route(name: str) -> dict[str, object]:
 
 def _dataset(name: str, routes: list[str], *, tag: str = "single"):
     return stored.dataset_node(
-                title=name,
+        title=name,
         resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         basis={"tag": tag, "routes": [_route(route) for route in routes]},
     )
@@ -249,8 +249,7 @@ def _registrations_for_path(corpus_root: Path, path: str):
     return tuple(
         entry
         for entry in _entries(corpus_root)
-        if type(entry) is RegisteredEntryView
-        and path in {name for name, _state in (*entry.initial, *entry.final)}
+        if type(entry) is RegisteredEntryView and path in {name for name, _state in (*entry.initial, *entry.final)}
     )
 
 
@@ -291,7 +290,7 @@ def _produce_single_basis(
     _record_id, _path, (run_operation,) = runrecord.publication_plan(outcome.run)
     run_node = node_from_markdown(run_operation.content.decode())
     candidate = stored.dataset_node(
-                title="duplicate",
+        title="duplicate",
         resources=[{"name": name, "digest": value} for name, value in outcome.run.result.outputs],
         basis=basis(
             route(
@@ -553,8 +552,11 @@ def test_d7_each_public_relocation_refuses_contract_disagreement(durable_factory
 
     source_pins = PINS
     destination_pins = OTHER_PINS if fault == "domain" else pins_for(BASE) if fault == "missing" else PINS
-    node = (_node("biology/gene-axis") if fault != "base"
-            else stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"}))
+    node = (
+        _node("biology/gene-axis")
+        if fault != "base"
+        else stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"})
+    )
 
     source = writer(f"d7-{operation}-{fault}-source", source_pins)
     destination = writer(f"d7-{operation}-{fault}-destination", destination_pins)
@@ -590,7 +592,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
     for corpus in (keep, other):
         observed = corpus.add(
             stored.dataset_node(
-                                title="raw",
+                title="raw",
                 resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
@@ -742,7 +744,7 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
     destination = writer("reresolve-retract-destination")
     observed = source.add(
         stored.dataset_node(
-                        title="observation",
+            title="observation",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )

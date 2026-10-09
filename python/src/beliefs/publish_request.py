@@ -113,7 +113,9 @@ def _inside(path: Path, other: Path) -> bool:
     return path == other or other in path.parents
 
 
-def require_usable(operations_root: Path, destination: Destination, *, forbidden: Sequence[Path]) -> tuple[Path, Destination]:
+def require_usable(
+    operations_root: Path, destination: Destination, *, forbidden: Sequence[Path]
+) -> tuple[Path, Destination]:
     """The resolved operations root and the destination the intent freezes
     (publish-act-local §4.1 item 7; publish-act-remote §4.1): the operations root
     is an existing directory outside every mounted corpus root and the world root
@@ -208,7 +210,11 @@ def _decoded(data: bytes, where: str) -> dict:
 
 def decode_snapshot(data: bytes) -> Snapshot:
     value = _decoded(data, "a snapshot")
-    if set(value) not in ({"domain", "event_token", "records"}, {"domain", "event_token", "records", "attributions"}) or value["domain"] != SELECTION_DOMAIN or type(value["records"]) is not list:
+    if (
+        set(value) not in ({"domain", "event_token", "records"}, {"domain", "event_token", "records", "attributions"})
+        or value["domain"] != SELECTION_DOMAIN
+        or type(value["records"]) is not list
+    ):
         raise MalformedRecord("a snapshot carries exactly its closed field set under its domain")
     if any(type(row) is not dict or set(row) != {"id", "text"} for row in value["records"]):
         raise MalformedRecord("a snapshot record carries exactly id and text")
@@ -264,7 +270,9 @@ class PublishRequest:
         }
 
 
-_REQUEST_FIELDS = frozenset({"domain", "event_token", "view", "destination", "epoch", "world_id", "pins", "selection", "staging_world_id"})
+_REQUEST_FIELDS = frozenset(
+    {"domain", "event_token", "view", "destination", "epoch", "world_id", "pins", "selection", "staging_world_id"}
+)
 
 
 def encode_request(request: PublishRequest) -> bytes:

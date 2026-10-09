@@ -222,7 +222,9 @@ RECIPE_MUTATIONS = [
     (
         "environment",
         lambda: recipe(
-            environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "ba" * 32),))
+            environment=EnvironmentManifest(
+                artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "ba" * 32),)
+            )
         ),
     ),
     (
@@ -505,7 +507,9 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
         spec,
         held={DATA_ADDRESS: D_IN},
         code_identity="sha256:" + "cc" * 32,
-        environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
+        environment=EnvironmentManifest(
+            artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)
+        ),
         workflow_definition=definition().snapshot(),
         invocation=invocation(),
         boundary_policy=POLICY,
@@ -531,7 +535,9 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
         certified,
         held={DATA_ADDRESS: D_IN, READS_ADDRESS: "sha256:" + "34" * 32},
         code_identity="sha256:" + "cc" * 32,
-        environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
+        environment=EnvironmentManifest(
+            artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)
+        ),
         workflow_definition=definition().snapshot(),
         invocation=invocation(),
         boundary_policy=POLICY,
@@ -546,7 +552,9 @@ def test_r17_projection_refuses_a_declared_input_that_is_not_held():
             spec,
             held={},
             code_identity="sha256:" + "cc" * 32,
-            environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
+            environment=EnvironmentManifest(
+                artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)
+            ),
             workflow_definition=definition().snapshot(),
             invocation=invocation(),
             boundary_policy=POLICY,

@@ -101,8 +101,8 @@ from beliefs.world import derive, epoch, read, registry, rules
 _LIVE_SABOTAGES = {
     "X12": Sabotage(
         "world/read.py",
-        before="        if before != corpus_state:\n                return f\"this corpus no longer stands at the state {corpus_state} the receipt named\"",
-        after="        if False:\n                return f\"this corpus no longer stands at the state {corpus_state} the receipt named\"",
+        before='        if before != corpus_state:\n                return f"this corpus no longer stands at the state {corpus_state} the receipt named"',
+        after='        if False:\n                return f"this corpus no longer stands at the state {corpus_state} the receipt named"',
     ),
     "W8a": Sabotage(
         "world/read.py",
@@ -124,12 +124,26 @@ _LIVE_SABOTAGES = {
             "    fault = _contract_fault(kind, member, receipt, published)"
         ),
     ),
+    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
+    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
+    # the formatted source is exactly the formatted declared sabotage.
+    "X10": Sabotage(
+        module="world/read.py",
+        before=(
+            "    stamp, missing, outcome = _edge_context(world, published)\n"
+            "    if missing or not outcome.validated:\n"
+            '        return EdgeAnswer("indeterminate", stamp, missing, None if outcome.validated else outcome.outcome)\n'
+        ),
+        after=(
+            "    stamp, missing, outcome = _edge_context(world, published)\n"
+            "    if missing:\n"
+            '        return EdgeAnswer("indeterminate", stamp, missing, None if outcome.validated else outcome.outcome)\n'
+        ),
+    ),
 }
-_LIVE_SABOTAGE_INDICES = {("X12", 25), ("W8a", 33)}
+_LIVE_SABOTAGE_INDICES = {("X10", 20), ("X12", 25), ("W8a", 33)}
 CUT7_ARMS = tuple(
-    dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
-    if (arm.row, index) in _LIVE_SABOTAGE_INDICES
-    else arm
+    dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if (arm.row, index) in _LIVE_SABOTAGE_INDICES else arm
     for index, arm in enumerate(CUT7_ARMS)
 )
 
@@ -138,10 +152,10 @@ CUT7_ARMS = tuple(
 # frozen at 8ca085e and the X9 arm interposes the same real corpus write.
 LIVE_INTERPOSED_WRITE = (
     '        __import__("nodes.core.corpus", fromlist=["Corpus"]).Corpus(carrier).add(\n'
-    '            stored.dataset_node(\n'
+    "            stored.dataset_node(\n"
     '                title="interposed",\n'
     '                resources=[{"name": "interposed", "digest": "sha256:" + __import__("uuid").uuid4().hex * 2}],\n'
-    '            )\n'
+    "            )\n"
     "        )\n"
 )
 _X9_RELOCATED_HEAD_INDEX = 15
@@ -232,10 +246,7 @@ def test_the_duplicated_symbol_kind_join_still_agrees_with_its_original():
 def shipped_bindings(world: registry.World) -> epoch.DerivationBindings:
     """Hold this package's four rules in `world` and name them as one build input."""
     root.install_shipped_world_rules(world)
-    held = {
-        SYMBOL_KINDS[bundle.symbol]: rules.binding_for(bundle)
-        for bundle in rules.shipped_rule_bundles()
-    }
+    held = {SYMBOL_KINDS[bundle.symbol]: rules.binding_for(bundle) for bundle in rules.shipped_rule_bundles()}
     return epoch.DerivationBindings(
         producer=held["producer"],
         retraction=held["retraction-enumeration"],
@@ -476,9 +487,7 @@ def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
     assert isinstance(absent, read.NotPresent)
     assert absent.stamp == stamp
     assert isinstance(read.resolve_address(journey.world, journey.current, dataset_ref("a")), read.Resolved)
-    assert isinstance(
-        read.resolve_address(journey.world, journey.current, "dataset:never-observed"), read.Unknown
-    )
+    assert isinstance(read.resolve_address(journey.world, journey.current, "dataset:never-observed"), read.Unknown)
 
 
 def test_edges_answer_active_inactive_and_indeterminate(journey: Journey):
@@ -681,9 +690,7 @@ def _target_identity(world, corpus_id: str, bindings: epoch.DerivationBindings) 
     each killed attempt so the attempt can be judged against a name rather than
     against whatever it happened to leave behind.
     """
-    draft = epoch._capture_build_inputs(
-        world, coverage=frozenset({corpus_id}), bindings=bindings.by_kind()
-    )
+    draft = epoch._capture_build_inputs(world, coverage=frozenset({corpus_id}), bindings=bindings.by_kind())
     return epoch.packaging_identity_of(epoch._derived_members(draft))
 
 
@@ -787,9 +794,7 @@ def test_recovery_barrier_never_selects_partial_epoch(durable_world):
     """
     case = durable_world
     bindings = shipped_bindings(case["world"])
-    first = epoch.build_epoch(
-        case["world"], coverage=frozenset({case["corpus_id"]}), bindings=bindings
-    )
+    first = epoch.build_epoch(case["world"], coverage=frozenset({case["corpus_id"]}), bindings=bindings)
     assert read.current_epoch(case["world"]).packaging_identity == first.packaging_identity
 
     _extra_record(case["corpus_root"], "before-the-commit-side")
@@ -838,28 +843,30 @@ def test_publication_registration_names_epoch_and_current(durable_world):
     pointer = f"epochs/{epoch.CURRENT_POINTER}"
 
     before = chain_entries(case["world_root"])
-    first = epoch.build_epoch(
-        case["world"], coverage=frozenset({case["corpus_id"]}), bindings=bindings
-    )
+    first = epoch.build_epoch(case["world"], coverage=frozenset({case["corpus_id"]}), bindings=bindings)
     (created,) = _registrations(chain_entries(case["world_root"])[len(before) :])
     created_records = {path for path in dict(created.final) if path.startswith("registry/")}
     assert len(created_records) == 1
-    assert set(dict(created.final)) == {
-        f"epochs/{first.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS
-    } | {pointer} | created_records
+    assert (
+        set(dict(created.final))
+        == {f"epochs/{first.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS}
+        | {pointer}
+        | created_records
+    )
 
     _extra_record(case["corpus_root"], "second-publication")
     before = chain_entries(case["world_root"])
-    second = epoch.build_epoch(
-        case["world"], coverage=frozenset({case["corpus_id"]}), bindings=bindings
-    )
+    second = epoch.build_epoch(case["world"], coverage=frozenset({case["corpus_id"]}), bindings=bindings)
     assert second.packaging_identity != first.packaging_identity
     (replaced,) = _registrations(chain_entries(case["world_root"])[len(before) :])
     replaced_records = {path for path in dict(replaced.final) if path.startswith("registry/")}
     assert len(replaced_records) == 1 and replaced_records != created_records
-    assert set(dict(replaced.final)) == {
-        f"epochs/{second.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS
-    } | {pointer} | replaced_records
+    assert (
+        set(dict(replaced.final))
+        == {f"epochs/{second.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS}
+        | {pointer}
+        | replaced_records
+    )
     assert read.current_epoch(case["world"]).packaging_identity == second.packaging_identity
 
 
@@ -921,9 +928,7 @@ def test_published_anchors_name_the_committed_chains(durable_world):
 
     # The captured state and the anchored head describe one view of one corpus,
     # which is what the portable witness above asserts against a stub.
-    assert dict(published.coverage) == {
-        case["corpus_id"]: registry.corpus_state_identity(case["corpus_root"])
-    }
+    assert dict(published.coverage) == {case["corpus_id"]: registry.corpus_state_identity(case["corpus_root"])}
 
 
 def test_world_transactions_register_every_path(durable_world):
@@ -959,9 +964,7 @@ def test_world_transactions_register_every_path(durable_world):
     before = chain_entries(world_root)
     epoch.delete_epoch(world, first.packaging_identity)
     (deleted,) = _registrations(chain_entries(world_root)[len(before) :])
-    assert set(dict(deleted.final)) == {
-        f"epochs/{first.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS
-    }
+    assert set(dict(deleted.final)) == {f"epochs/{first.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS}
 
     before = chain_entries(world_root)
     removed = rules.remove_rule_binding(world, bindings.coreference)
@@ -1137,9 +1140,7 @@ def frozen_row_states() -> dict[str, tuple[str, ...]]:
     for line in FROZEN_CUT.read_text(encoding="utf-8").splitlines():
         entry = ACCOUNTING_ROW.match(line)
         if entry:
-            rows = () if entry.group(2).strip() == "—" else tuple(
-                name.strip() for name in entry.group(2).split(",")
-            )
+            rows = () if entry.group(2).strip() == "—" else tuple(name.strip() for name in entry.group(2).split(","))
             assert len(rows) == int(entry.group(3)), line
             states[entry.group(1)] = rows
     return states
@@ -1178,9 +1179,7 @@ class TestTheCut7InventoryIsExact:
         assert len(set(labels)) == 10
 
     def test_labeled_declarations_cite_their_frozen_specification(self):
-        assert all(
-            "specification §" in arm.asserts for arm in CUT7_ARMS if arm.row.startswith("labeled:")
-        )
+        assert all("specification §" in arm.asserts for arm in CUT7_ARMS if arm.row.startswith("labeled:"))
 
     def test_every_arm_has_one_source_mutation_and_one_exact_check_node(self):
         for arm in CUT7_ARMS:

@@ -30,9 +30,7 @@ def test_cut14_has_no_aggregate_prefix_and_the_exact_frozen_phase_order():
     assert cut14.PHASE_MODULES == EXPECTED
 
 
-def test_every_phase_receives_one_probed_environment_and_only_n2_receives_arguments(
-    tmp_path, monkeypatch
-):
+def test_every_phase_receives_one_probed_environment_and_only_n2_receives_arguments(tmp_path, monkeypatch):
     acceptance = tmp_path / "acceptance"
     acceptance.mkdir()
     for module in EXPECTED:
@@ -44,8 +42,7 @@ def test_every_phase_receives_one_probed_environment_and_only_n2_receives_argume
     monkeypatch.setattr(
         cut14.subprocess,
         "run",
-        lambda command, **kwargs: calls.append((command, kwargs))
-        or subprocess.CompletedProcess(command, 0),
+        lambda command, **kwargs: calls.append((command, kwargs)) or subprocess.CompletedProcess(command, 0),
     )
     monkeypatch.setattr(cut14, "declared_arm_count", lambda: 29)
     assert cut14.main(["-k", "one"]) == 0
@@ -53,9 +50,7 @@ def test_every_phase_receives_one_probed_environment_and_only_n2_receives_argume
     assert calls[-1][0][-2:] == ["-k", "one"]
     assert all(call[1]["env"]["SCIENCE_CUT14_ROOT"] for call in calls)
     assert all(
-        Path(call[1]["env"]["XDG_CACHE_HOME"])
-        == Path(call[1]["env"]["SCIENCE_CUT14_ROOT"]) / "cache"
-        for call in calls
+        Path(call[1]["env"]["XDG_CACHE_HOME"]) == Path(call[1]["env"]["SCIENCE_CUT14_ROOT"]) / "cache" for call in calls
     )
 
 
