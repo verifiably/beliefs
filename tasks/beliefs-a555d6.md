@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: chore/ruff-format-gate
 created: 2026-09-10T22:01:42Z
-updated: 2026-10-09T17:56:37Z
+updated: 2026-10-09T17:57:09Z
 started: 2026-10-09T17:01:36Z
 depends: []
 tags: [hygiene]
@@ -76,3 +76,5 @@ Verification:
 - 2026-10-09T17:56:36Z (chore/ruff-format-gate): resumed
   provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-09T17:56:36Z (chore/ruff-format-gate): plan round 1 fixed: path lists go one-per-line through a file and xargs (proved under zsh: 56 protected paths, clean tree passes, a touched cut-46 declaration is caught; 39 guard modules split into separate args); children close with their tasks, Task 3's in a record-only commit after the pure reformat; Task 6 orders verification note, final review, land, child done, parent done
+- 2026-10-09T17:57:09Z (chore/ruff-format-gate): parked (waiting on user, review): user reviews the revised plan docs/superpowers/plans/2026-10-09-ruff-format-gate.md (round 2) and picks the execution method; then the agent executes Task 1 in .worktrees/ruff-format-gate
+  provenance: {"harness_session":"claude-code:0bad1686-0d62-4fbe-b728-4897c6863fa5","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
