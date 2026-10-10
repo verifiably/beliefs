@@ -174,8 +174,9 @@ at the run boundary, each frozen before any of its code existed and each read
 adversarially by a second reviewer before the freeze. Every cut since has
 followed the same discipline.
 
-The row corpus grows as designs bank new tables; the repository README keeps
-the current count, and the ledger the number closed.
+The row corpus grows as designs bank new tables; the
+[designs index](../designs/README.md) keeps the current count, and the ledger the
+number closed.
 
 ### How a cut runs
 

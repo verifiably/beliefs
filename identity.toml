@@ -1,0 +1,11 @@
+# What this project is. `tools/ops-docs write` renders it into the identity region of
+# README.md and AGENTS.md; `tools/ops-docs check` refuses a commit while they differ.
+# Design: ops docs/specs/2026-09-22-project-guides-design.md §3.
+name = "beliefs"
+aliases = []
+purpose = "The epistemic kernel of verifiably: recording scientific belief"
+abstract = """
+Records scientific belief and the evidence it rests on: typed claims, datasets and holdings, analysis runs and their verification, belief computed on request under a named policy, the world index, additive correction and the mutation log, each guaranteed by a frozen conformance cut. Built on nodes and atoms; consumed by science and autonomy.
+"""
+authority = ["docs/designs/2026-08-02-epistemic-kernel-design.md", "docs/designs/2026-08-03-redesign-adoption-ledger.md"]
+subsystems = []

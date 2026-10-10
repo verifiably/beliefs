@@ -7,7 +7,7 @@ lives in many documents while being owned by none of them:
   implemented; this file names every live document that still gates on a
   completed Plan A stage.
 * **The guarantee-row inventory.** Thirteen frozen tables carry the acceptance
-  criteria. Their counts are quoted in the README and in the review-disposition
+  criteria. Their counts are quoted in the designs index and in the review-disposition
   record, and nothing recomputed them when the belief policy added a table.
 * **Cross-references.** Designs cite each other by filename. A rename or a typo is
   invisible to a reader who does not follow the link.
@@ -27,6 +27,8 @@ ROOT = Path(__file__).parents[2]
 DESIGNS = ROOT / "docs" / "designs"
 GUIDE = ROOT / "docs" / "guide"
 README = ROOT / "README.md"
+#: The designs index: the reading-order table, the design count and the row total.
+DESIGNS_INDEX = DESIGNS / "README.md"
 
 #: A digest as §6.2's projection folds it: the algorithm, then lowercase hex.
 _ALGORITHM_QUALIFIED = re.compile(r"\A[a-z0-9][a-z0-9_-]*:[0-9a-f]+\Z")
@@ -182,7 +184,7 @@ def _h2_section(text: str, prefix: str) -> str | None:
 
 
 def design_documents() -> list[Path]:
-    docs = sorted(DESIGNS.glob("*.md"))
+    docs = sorted(p for p in DESIGNS.glob("*.md") if p != DESIGNS_INDEX)
     assert docs, f"no design documents under {DESIGNS}"
     return docs
 
@@ -194,7 +196,7 @@ def _text(path: Path) -> str:
 def test_no_live_document_gates_on_an_atoms_plan_a_stage() -> None:
     """Plan A is complete; live claims do not gate on a completed Plan A stage."""
     stale: list[str] = []
-    paths = [README, *design_documents(), *sorted(GUIDE.glob("*.md"))]
+    paths = [README, DESIGNS_INDEX, *design_documents(), *sorted(GUIDE.glob("*.md"))]
     for path in paths:
         for line_no, line in enumerate(_text(path).splitlines(), start=1):
             clauses = re.split(r"[.;|]", line)
@@ -235,7 +237,7 @@ def test_every_design_declares_a_status() -> None:
 def test_every_guarantee_table_is_complete_in_the_document_that_owns_it() -> None:
     """A table's owner must carry every row the inventory claims, and no others.
 
-    The inventory is quoted as a count in the README and in the disposition record;
+    The inventory is quoted as a count in the designs index and in the disposition record;
     without this, a table can grow a row that no count ever hears about.
     """
     for prefix, expected in GUARANTEE_TABLES.items():
@@ -249,17 +251,17 @@ def test_every_guarantee_table_is_complete_in_the_document_that_owns_it() -> Non
         )
 
 
-def test_the_readme_states_the_corpus_row_total() -> None:
+def test_the_index_states_the_corpus_row_total() -> None:
     """126 was the total on 2026-08-05 and is now the frozen denominator of cut 1.
 
-    The corpus total moved when the belief policy added P1–P9, and the README is
-    where a reader learns it. Both numbers must appear, doing their own jobs.
+    The corpus total moved when the belief policy added P1–P9, and the designs
+    index is where a reader learns it. Both numbers must appear, doing their own jobs.
     """
     total = sum(len(rows) for rows in GUARANTEE_TABLES.values())
     tables = len(GUARANTEE_TABLES)
-    # The README hard-wraps its prose, so a phrase can straddle a line break.
-    readme = re.sub(r"\s+", " ", _text(README))
-    assert f"{total} rows" in readme, f"the README does not state the corpus total of {total} rows"
+    # The index hard-wraps its prose, so a phrase can straddle a line break.
+    index = re.sub(r"\s+", " ", _text(DESIGNS_INDEX))
+    assert f"{total} rows" in index, f"the designs index does not state the corpus total of {total} rows"
     table_words = {
         11: "eleven",
         12: "twelve",
@@ -274,21 +276,20 @@ def test_the_readme_states_the_corpus_row_total() -> None:
         21: "twenty-one",
         22: "twenty-two",
     }
-    assert f"{table_words[tables]} frozen tables" in readme, (
-        f"the README does not state that the rows sit in {tables} tables"
+    assert f"{table_words[tables]} frozen tables" in index, (
+        f"the designs index does not state that the rows sit in {tables} tables"
     )
 
 
-def test_the_readme_lists_every_design_document() -> None:
-    readme = _text(README)
-    listed = set(_BACKTICKED_DOC.findall(readme))
+def test_the_index_lists_every_design_document() -> None:
+    listed = set(_BACKTICKED_DOC.findall(_text(DESIGNS_INDEX)))
     present = {p.name for p in design_documents()}
     assert listed == present, (
-        f"README design table out of step: missing {sorted(present - listed)}, stale {sorted(listed - present)}"
+        f"designs index table out of step: missing {sorted(present - listed)}, stale {sorted(listed - present)}"
     )
 
 
-#: How the README spells its design count. Written out, as the prose does.
+#: How the designs index spells its design count. Written out, as the prose does.
 _COUNT_WORDS = {
     16: "Sixteen",
     17: "Seventeen",
@@ -362,7 +363,7 @@ _COUNT_WORDS = {
 }
 
 
-def test_the_readme_states_how_many_designs_there_are() -> None:
+def test_the_index_states_how_many_designs_there_are() -> None:
     """The sentence above the table counts the table, and drifts silently.
 
     It read "Sixteen documents ... through 2026-08-08" while the table listed
@@ -374,12 +375,12 @@ def test_the_readme_states_how_many_designs_there_are() -> None:
     count = len(present)
     word = _COUNT_WORDS.get(count)
     assert word is not None, f"extend _COUNT_WORDS: {count} designs and no spelling for it"
-    readme = re.sub(r"\s+", " ", _text(README))
-    assert f"{word} documents" in readme, (
-        f"the README says something other than '{word} documents' for its {count} designs"
+    index = re.sub(r"\s+", " ", _text(DESIGNS_INDEX))
+    assert f"{word} documents" in index, (
+        f"the designs index says something other than '{word} documents' for its {count} designs"
     )
     newest = max(p.name[:10] for p in present)
-    assert f"through {newest}" in readme, f"the README's date range does not end at the newest design, {newest}"
+    assert f"through {newest}" in index, f"the designs index's date range does not end at the newest design, {newest}"
 
 
 def test_every_guarantee_range_names_rows_that_exist() -> None:
