@@ -64,6 +64,9 @@ contracts + corpus manifest → compiled profile ──governs every boundary ab
 6. [Contracts and adoption](contracts-and-adoption.md) — how the design becomes
    tested code, and how work is ordered.
 
+The [designs index](../designs/README.md) lists every banked design, cut and ruling in
+reading order.
+
 Every topic page opens with **In brief**: a plain-language summary and its key
 takeaways. Skimming those six openings is a fair ten-minute tour.
 

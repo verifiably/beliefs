@@ -42,7 +42,7 @@ fast_cmd := py_fast_cmd + " && " + ts_fast_cmd
 test_cmd := py_test_cmd + " && " + ts_test_cmd
 # Focused pytest selection, relative to python/. Override one_cmd for Vitest (AGENTS.md).
 one_cmd := "cd python && uv run --frozen pytest"
-hygiene_cmd := "python3 tools/ops-check"
+hygiene_cmd := "python3 tools/ops-check && python3 tools/ops-docs check"
 check_cmd := hygiene_cmd + " && " + py_check_cmd + " && " + ts_check_cmd + " && tasks check"
 
 # Only agent guidance and task records take the docs-only path. README.md and docs/
