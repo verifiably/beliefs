@@ -7,7 +7,7 @@ size: s
 complexity: mid
 process: direct
 created: 2026-10-09T11:13:41Z
-updated: 2026-10-09T13:48:15Z
+updated: 2026-10-11T15:42:45Z
 depends: []
 parent: beliefs-7e341d
 tags: [world-read]
@@ -19,7 +19,7 @@ Question: Does a world read where corpus M holds only the proposition, whose cla
 Where to start: python/src/beliefs/consulted.py consulted_contracts; evaluation.py's world-read node_corpus attribution and its consulted_contracts call (:610); belief.py's evaluator walk (:368) and the BeliefContext fields it reads; test_world_view.py's split_evaluation_world and the J20 test; mount-citations design decision 10 and §13 (J20 note); the brief docs/notes/2026-10-09-mount-citations-follow-ups-brief.md (option 1 now names both walks).
 Bound: World-read tests over that shape with a test-local contract only M pins: refusal at each walk; the missing-pin and disagreeing-pin cases under each option; a comparison of context identities for J20's split under both options. No product-code change.
 Expected result: Record, per walk and per pin case, whether it refuses, the identity effect of each option, and a recommendation, on this task and in the brief's Alternatives.
-Ideas it wakes: On completion, run tasks note on beliefs-d69102 with the finding, in the same commit as this result.
+Ideas it wakes: On completion, run tasks note on beliefs-d69102 with the finding, before the result's branch merges.
 
 ## Notes
 

@@ -72,7 +72,7 @@ No existing open research task found in this checkout owns the recipe inventory.
   wrong-verdict failures.
 - `beliefs-b9c3ea`: P3/s/mid/direct research; inventory current recreation inputs,
   invocations and verdict. Completion updates this brief and writes a finding
-  note on `beliefs-9e0b42` in the same commit.
+  note on `beliefs-9e0b42` before the result's branch merges.
 - `beliefs-9e0b42`: scoped 2026-09-30, P3/m/mid/direct; a prior-archive
   override, a read-only verdict step, a `just` recipe over the sequence below,
   and one certified-host run into a fresh directory.

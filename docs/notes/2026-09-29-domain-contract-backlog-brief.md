@@ -80,7 +80,7 @@ were searched; no overlapping open endpoint-inventory research was found.
 
 - `beliefs-9c375c` — P3, small, mid complexity, direct: inventory endpoint checks
   and record two representative probes, with a policy recommendation. Its
-  completion must add a finding note to `beliefs-e803cc` in the same commit.
+  completion must add a finding note to `beliefs-e803cc` before the result's branch merges.
 - `beliefs-e803cc` — briefed, remains an idea awaiting that evidence. No
   implementation task or extra design task is filed before the inventory.
 - `beliefs-8ecbb5` — shelved until a workflow requires standing for a held

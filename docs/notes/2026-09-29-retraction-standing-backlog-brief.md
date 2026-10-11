@@ -78,8 +78,7 @@ identity treatment. No priority increase follows merely from an unknown.
 ## Proposed decomposition
 
 - `beliefs-ae33ff` — P3, small, mid complexity, direct: input/identity inventory
-  and recommendation; completion adds a finding note to `beliefs-c800ef` in
-  the same commit. No successor-rule implementation is authorized by it.
+  and recommendation; completion adds a finding note to `beliefs-c800ef` before the result's branch merges. No successor-rule implementation is authorized by it.
 - `beliefs-c800ef` — briefed; remains an idea pending that finding.
 - `beliefs-2d5ada` — shelved until a consumer needs an explicit audit comparison
   of stored and retirement-adjusted certification.
