@@ -7,7 +7,7 @@ size: l
 complexity: high
 process: planned
 created: 2026-10-12T12:10:22Z
-updated: 2026-10-12T12:10:22Z
+updated: 2026-10-12T15:59:09Z
 depends: []
 tags: []
 source: autonomy-250f4d
@@ -24,3 +24,7 @@ The kernel slice the autonomy envelope (sub-project 6) needs; design it here and
 - reconcile's act matching by digest across written chains, not by the corpus field, so store-root acts verify.
 - The belief-policy and contract identities the basis reads; the confinement denied-set extension (envelope's denied set, except the kernel's own <ops>/scratch/<invocation> staging).
 - Note: SettledEntryView does not record whether recovery appended a settlement; the envelope no longer needs it.
+
+## Notes
+
+- 2026-10-12T15:59:09Z (main): the envelope spec is merged on autonomy main: docs/specs/2026-10-12-envelope-design.md (§4 lists this slice's asks, §12 its rows)
