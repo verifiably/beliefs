@@ -3,8 +3,9 @@ id: beliefs-d69102
 title: "World read: consulted contracts ignore a corpus that holds only the proposition"
 status: idea
 priority: 2
+reviewed: true
 created: 2026-10-01T17:35:30Z
-updated: 2026-10-09T11:14:10Z
+updated: 2026-10-12T18:18:57Z
 depends: []
 parent: beliefs-7e341d
 tags: [world-read]
