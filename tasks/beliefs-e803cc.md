@@ -4,8 +4,9 @@ title: Decide enforcement of declared relation endpoints
 status: idea
 priority: 3
 size: m
+reviewed: true
 created: 2026-09-07T17:15:37Z
-updated: 2026-09-29T22:42:52Z
+updated: 2026-10-12T18:19:05Z
 depends: []
 parent: beliefs-d58675
 tags: [domain, design]
