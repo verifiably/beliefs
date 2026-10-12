@@ -3,8 +3,9 @@ id: beliefs-872a2a
 title: "ts inner loop has no recipe: 25 npm test/vitest bypasses in the audit's after-week"
 status: idea
 priority: 2
+reviewed: true
 created: 2026-09-19T12:08:11Z
-updated: 2026-09-29T22:34:01Z
+updated: 2026-10-12T18:19:03Z
 depends: []
 parent: beliefs-287026
 tags: [testing]
