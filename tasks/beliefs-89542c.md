@@ -3,8 +3,9 @@ id: beliefs-89542c
 title: "arm_staleness measures only an arm's before block, so a stale after scores uncollected"
 status: idea
 priority: 2
+reviewed: true
 created: 2026-09-16T20:09:06Z
-updated: 2026-10-09T14:03:51Z
+updated: 2026-10-12T18:18:55Z
 depends: [beliefs-f64cf1]
 parent: beliefs-287026
 tags: [conformance, testing]
