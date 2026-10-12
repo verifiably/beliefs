@@ -3,8 +3,9 @@ id: beliefs-c800ef
 title: "Roadmap: a world-wide standing fold at derivation, not capture"
 status: idea
 priority: 2
+reviewed: true
 created: 2026-09-17T10:38:46Z
-updated: 2026-09-29T22:50:05Z
+updated: 2026-10-12T18:19:01Z
 depends: []
 parent: beliefs-0c50ed
 tags: [conformance, world-read]
