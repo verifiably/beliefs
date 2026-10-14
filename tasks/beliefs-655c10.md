@@ -4,8 +4,9 @@ title: "World view: a witness that mapped content and manifests are unchanged si
 status: idea
 priority: 2
 created: 2026-10-01T22:21:05Z
-updated: 2026-10-01T22:21:05Z
+updated: 2026-10-14T01:27:44Z
 depends: []
+parent: beliefs-03d483
 tags: [world-read]
 source: sci-dc0381
 agent: claude-code/claude-opus-5-5
