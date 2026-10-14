@@ -4,8 +4,9 @@ title: "The contract names stored.source_assertion_value, which does not exist"
 status: idea
 priority: 2
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-11T11:42:27Z
+updated: 2026-10-14T01:35:21Z
 depends: []
+parent: beliefs-9396cf
 tags: [contract]
 ---
 
