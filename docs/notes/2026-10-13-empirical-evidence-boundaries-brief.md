@@ -40,6 +40,16 @@ Static evidence checked at main `31f8ad9`, 2026-10-13:
   are not a runtime dispatcher. `evaluation.py` supplies an empty source
   assertion tuple. The gap was explicitly deferred in
   [world-resolution slice 2b](../superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md).
+- **Nothing consumes stored source assertions yet.** On 2026-10-14 a search
+  of the science, multiple-myeloma, sun and lit sources for `source-assertion`,
+  `source_assertion` and `SourceAssertion` found no caller that mints or reads
+  one. The stored path's urgency therefore rests on the contract's dangling
+  reader label and on the annotation question below, not on a consumer.
+- **Annotations and source assertions may share a representation.**
+  `beliefs-91bce7` calls an annotation the same kind of thing as a source
+  assertion in data form: an attributed claim with an annotator. Whether an
+  annotation record can be a source assertion over a dataset or source span is
+  open, and its answer constrains the stored projection.
 - **Observation-first remains a direction.** The
   [guide's open questions](../guide/open-questions.md) asks how characterization
   reaches belief. Existing specs freeze before execution; they do not prove
@@ -68,12 +78,26 @@ conditions. No duplicate endpoint research or weighting project is needed.
 1. **Work from explicit cases, then design the smallest boundary (lean).**
    Separate primary measurements, external predictions, mixed datasets and
    run-produced characterization; use existing workflow objects where they fit.
-   Give stored source assertions their own reviewed representation.
+   Give stored source assertions their own reviewed representation, designed
+   after the worked cases say whether annotations reuse it.
 2. **Introduce an annotation kind or provenance facet immediately.** It can
    express attribution, but cannot by itself settle mixed data, `reads`
    influence, truthful declarations, or propositions about annotators.
 3. **Keep annotation treatment solely in consumer guidance.** Useful now,
    but insufficient if the requirement is kernel-enforced exclusion.
+
+For the stored source-assertion path alone:
+
+- **Design it after the worked cases (lean).** The case matrix may show that
+  annotations need the same attributed-claim projection; designing first risks
+  reopening it. With no consumer, waiting costs nothing.
+- **Correct the contract and shelve the design.** Remove the dangling
+  `stored.source_assertion_value` label, or mark the reader unimplemented, and
+  wake the design when a consumer must mint source assertions. Cheaper, but it
+  amends both contract copies ahead of `beliefs-eacbe2`, and it would be
+  premature if the annotation design turns out to need the projection.
+- **Design it now, independently.** Rejected: no consumer forces it, and it
+  could fix a projection before the annotation cases are known.
 
 ## Unanswered questions
 
@@ -83,7 +107,10 @@ conditions. No duplicate endpoint research or weighting project is needed.
   worked workflow and at most three focused probes.
 - What stored projection carries a source span, attribution, proposition and
   sign while preserving inertness, identity and source correction?
-  `beliefs-595a53` owns the reviewed design, informed by `beliefs-9c375c`.
+  Can an annotation record be a source assertion over a dataset or source
+  span? `beliefs-1d023a` answers the second question as part of its case
+  matrix; `beliefs-595a53` owns the reviewed design, informed by both
+  `beliefs-1d023a` and `beliefs-9c375c`.
 - Does observation-first need a kernel change, and does it actually require
   unequal weights or inherited standing? Decide from the worked case rather
   than making either shelved design an automatic prerequisite.
@@ -96,8 +123,11 @@ Goal `beliefs-9396cf` groups all three ideas, preserving their bodies and source
   `beliefs-1d023a` (P2, medium, mid complexity, direct research). Its result
   updates this brief and wakes both with `tasks note <id> --no-reviewed`
   before the result's branch merges.
-- `beliefs-a1a767`: **briefed**, depends on `beliefs-595a53` (P2, medium,
-  high complexity, planned design). That task depends on the existing
-  endpoint matrix `beliefs-9c375c`; its reviewed handoff wakes this idea
-  with `--no-reviewed` before merging. Spec and plan reviews precede any
-  implementation.
+- `beliefs-a1a767`: **briefed**, depends on `beliefs-595a53` (P3, medium,
+  high complexity, planned design). That task depends on `beliefs-1d023a` and
+  on the existing endpoint matrix `beliefs-9c375c` (P3); its reviewed handoff
+  wakes this idea with `--no-reviewed` before merging. Spec and plan reviews
+  precede any implementation. It was lowered from P2 on 2026-10-14 because no
+  consumer needs stored source assertions yet, which also matches the P3
+  endpoint matrix it waits on. Raise it if `beliefs-1d023a` finds that
+  annotations need the projection.
