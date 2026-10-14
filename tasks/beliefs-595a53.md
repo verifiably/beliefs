@@ -7,7 +7,7 @@ size: m
 complexity: high
 process: planned
 created: 2026-10-14T01:34:45Z
-updated: 2026-10-14T08:55:27Z
+updated: 2026-10-14T08:55:31Z
 depends: [beliefs-9c375c, beliefs-1d023a]
 parent: beliefs-9396cf
 tags: [contract]
@@ -24,3 +24,7 @@ Done when: The design records accepted and rejected representations, named imple
 Where: python/src/beliefs/record.py, stored.py, contract/facets.py, facets.py, corpus.py, evaluation.py; contracts/science/CONTRACT.yaml and python/src/beliefs/contracts/science/CONTRACT.yaml; tests/test_records.py, test_belief.py, test_facet_validation.py; docs/designs/2026-08-02-epistemic-kernel-design.md; docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md. Specs belong in docs/superpowers/specs/.
 
 Ideas it wakes: Before this result's branch merges, run tasks note beliefs-a1a767 --no-reviewed "<reviewed design and implementation handoff>".
+
+## Notes
+
+- 2026-10-14T08:55:31Z (main): 2026-10-14 brief review: lowered P2→P3 and made it wait on beliefs-1d023a. No consumer in science, mm, sun or lit mints or reads source assertions; beliefs-91bce7 treats annotations as attributed claims, so the case matrix decides whether the stored projection must also carry annotations. P3 also matches the endpoint matrix beliefs-9c375c it waits on. Raise it if 1d023a finds annotations need the projection.
