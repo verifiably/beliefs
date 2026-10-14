@@ -4,8 +4,8 @@ title: Manifest safety over nodes 2.0's collecting construction is buildable and
 status: idea
 priority: 2
 created: 2026-09-16T10:03:27Z
-updated: 2026-10-14T01:27:23Z
-depends: []
+updated: 2026-10-14T01:27:25Z
+depends: [beliefs-2a2224]
 parent: beliefs-03d483
 tags: [conformance, world-read]
 agent: claude-code/claude-opus-5
