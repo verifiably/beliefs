@@ -4,7 +4,7 @@ title: "Store the declared executes, targets and spec-input edges as node relati
 status: shelved
 priority: 2
 created: 2026-09-23T11:40:35Z
-updated: 2026-10-14T02:15:03Z
+updated: 2026-10-14T02:15:05Z
 depends: []
 tags: []
 agent: claude-code/claude-fable-5-1
@@ -15,3 +15,4 @@ Kernel §4.1 declares Run --executes--> AnalysisSpec and AnalysisSpec --targets-
 ## Notes
 
 - 2026-10-14T02:15:03Z (main): shelved: Revisit when a worked findings view or the second-project measurement records costly explicit address enumeration and demonstrates the missing executes/targets/spec-input traversal it needs. Bring that consumer evidence and the current endpoint-enforcement research (beliefs-9c375c); do not claim pre-run traversal from only two edges.
+- 2026-10-14T02:15:05Z (main): scope: shelved; at c1418e7 stored.py run_node and run_publication_node still store spec only in a facet and analysis_spec_node emits no relations; contracts/science/CONTRACT.yaml declares executes/targets but no spec-input signature. Keep the full three-edge proposal until a measured consumer needs it; endpoint-policy research beliefs-9c375c is related, not duplicate implementation work. The external science milestone/spec was not read in this fixed-checkout pass, so its completion and measurements remain unknown.
