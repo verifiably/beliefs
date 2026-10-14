@@ -7,8 +7,8 @@ size: m
 complexity: high
 process: planned
 created: 2026-10-14T01:34:45Z
-updated: 2026-10-14T08:55:24Z
-depends: [beliefs-9c375c]
+updated: 2026-10-14T08:55:27Z
+depends: [beliefs-9c375c, beliefs-1d023a]
 parent: beliefs-9396cf
 tags: [contract]
 source: docs/notes/2026-10-13-empirical-evidence-boundaries-brief.md
