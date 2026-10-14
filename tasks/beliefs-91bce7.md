@@ -4,8 +4,8 @@ title: "Annotations are not observations: a dataset of labels made by people or 
 status: idea
 priority: 2
 created: 2026-10-12T11:22:20Z
-updated: 2026-10-14T01:35:07Z
-depends: []
+updated: 2026-10-14T01:35:09Z
+depends: [beliefs-1d023a]
 parent: beliefs-9396cf
 tags: []
 source: sun-08c8ea
