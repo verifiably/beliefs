@@ -3,8 +3,9 @@ id: beliefs-91bce7
 title: "Annotations are not observations: a dataset of labels made by people or models must not bear on empirical belief"
 status: idea
 priority: 2
+reviewed: true
 created: 2026-10-12T11:22:20Z
-updated: 2026-10-14T01:35:09Z
+updated: 2026-10-14T01:35:12Z
 depends: [beliefs-1d023a]
 parent: beliefs-9396cf
 tags: []
@@ -23,3 +24,7 @@ Questions for a design:
 - How this reads beside existing kinds: whether an annotation record is a sibling of source-assertion, and whether the nine dagger labels' 'leave the classifications as annotations' (docs/guide/open-questions.md) uses the word in the same sense.
 
 The sun program has written the rule into its own framing (§4.3, 'Annotations are not primary data') and will meet the first worked case in its phase 2b characterization of event catalogs.
+
+## Notes
+
+- 2026-10-14T01:35:12Z (main): scope: briefed; heldness alone does not establish eligibility: acquisition.validity_refusal checks declaration shape, producers and lineage, while kernel limitation 8 explicitly leaves observational nature unproved. Shared worked-case research beliefs-1d023a will distinguish external annotations, mixed data and reads influence before choosing a provenance/eligibility design; original source and body preserved; checked main 31f8ad9; brief: docs/notes/2026-10-13-empirical-evidence-boundaries-brief.md
