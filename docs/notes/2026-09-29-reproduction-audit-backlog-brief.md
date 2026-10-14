@@ -2,89 +2,87 @@
 
 ## Problem
 
-The mm30 driver should reproduce its recorded measurements with explicit inputs and
-a checkable verdict. Goal: `beliefs-cde4d9`. Restore the missing cut-31 transition
-check first; establish a recipe's prerequisites before implementing it. Retained
-audit reports need a concrete consumer before changing the measured artifact.
+The mm30 recreation should detect contract drift through a fresh execution with a
+checked verdict. Goal: `beliefs-cde4d9`. The recipe and transition measurement have
+landed; `beliefs-a49ab4` now asks for a repeat cadence. Establish what evidence must
+survive each run before making repeated execution routine.
 
 ## Current behaviour and evidence
 
-Inspected main at `b5225b2` on 2026-09-29; no recreation was run in this pass.
+Checked against main at `c1418e7` on 2026-10-13.
 
-- `python/tools/reproduction/rederive.py::prior_state` reads the cut-22 archive.
-  `cut31_corpus_state` appears only in `state.py` documentation within the driver;
-  no committed test reads it. The reproduction record §11.5 and cut-32 results
-  §3.3 describe the missing measurement: exactly `profile-mismatch: base`, zero
-  records read. `audit_corpus` still returns early on that base mismatch.
-- `justfile` has no reproduction recipe. `world.main` refuses an existing world;
-  `paths.PRIOR` requires a sibling cut-22 archive. Later steps include `compose`
-  and `read` followed by a separate `read --again` process. `close`, `rederive`
-  and `read` can record a defect and still return zero, so a successful shell
-  loop alone would not prove the measurement passed.
-- `close.py` calls the bare evaluator. `audit_operation.py::audit`, introduced
-  at `12a17b6`, appends an intent and publishes a report under the root lock.
-  Cut-38 design decisions 2 and 12 deliberately limit that operation to one
-  corpus and preserve the reproduction's read-only close step.
-- `audit.py::audit_world` already returns a bound result with findings grouped
-  by corpus. Persisting that result is the unresolved extension. Relocation
-  (`634a3e9`) leaves the reproduction fixture in place and creates a separate
-  research world; it is not part of recreating the fixture.
+- `just mm30-recreate` landed at `a819f23` (`beliefs-9e0b42`). It requires a
+  fresh canonical work path, predecessor data and cut-22/cut-31 archives; it
+  runs the driver steps and terminal verdict, checks the tracked Snakefile,
+  and deletes nothing. It is outside the test gates.
+- Reproduction record §25 reports one passing fresh run on 2026-09-30:
+  53 s and about 423 MB. §25.3 does not establish a second agreeing run;
+  §26 reads the existing fixture under cut 44, which is a different check.
+- `reproduction.verdict` reads only `state.json` and `findings.jsonl`.
+  Rechecking those saved assertions does not execute the current kernel.
+  The earlier inventory below records absolute paths in retained state;
+  verdict readability alone does not prove replay or diagnostic completeness.
+- `beliefs-6f2c2b` owns the missing `composite_identity` pin. Its 2026-09-30
+  note explicitly keeps `.work/reproduction/mm30-fresh-2026-09-30` for a
+  read-only verdict check. That directory is excluded from future cleanup.
+- `beliefs-0c1cc9` delivered the transition measurement. The audit evaluator
+  remains read-only; retained operation reports are separate, shelved work.
 
 ## Constraints
 
-Preserve frozen cuts, archived predecessor corpora and historical measurements.
-The adoption ledger and roadmap remain the status and delivery authorities.
-Use the certified host for live capability-dependent measurements; do not infer
-those results from unit tests. Driver scripts remain exercise instruments under
-reproduction design §8. A small recipe is the intended ceiling.
+Preserve frozen cuts, historical measurements, fixtures, predecessor data and
+cut archives. The existing recipe's no-deletion contract remains intact.
+Live capability evidence requires the certified host and volume. No live
+recreation or retention experiment was performed by this scope pass.
 
-Read-only evaluators gain no writes. A retained audit changes corpus and chain
-state. A world report requires choosing root-local reports under a shared token
-or corpus-qualified entries, with the corresponding act-report amendment.
-No existing open research task found in this checkout owns the recipe inventory.
+The driver remains an exercise instrument under reproduction design §8.
+Use existing task recurrence rather than introducing a scheduler. This project
+has no declared shared-resource needs; a future quiet-host requirement would
+need an explicit vocabulary entry before a task can carry that need.
 
 ## Alternatives
 
-1. Restore the transition check and inventory a minimal recipe with an explicit
-   final verdict. This is the current lean: it addresses observed repeatability gaps.
-2. Continue using the documented manual sequence. It avoids new orchestration,
-   but leaves order and final assertions to each operator.
-3. Expand reproduction to retain audit reports and design world report storage.
-   Defer until a named consumer needs those artifacts; the existing evaluator
-   already supplies read-only findings.
+1. A recurring tracker task, with a fresh directory per run and retention
+   defined from the artifact inventory. Current lean: this decouples the
+   measurement from cut publication and uses existing tooling.
+2. A fresh recreation at every cut discharge. This checks every transition,
+   but adds host prerequisites and retained output to every discharge.
+3. Keep the current manual cadence. It requires no new procedure, but leaves
+   drift detection dependent on someone remembering to recreate the corpus.
 
 ## Unanswered questions
 
-- What inputs, invocation order and final assertions make the current driver
-  reproducible by one recipe? Answered by `beliefs-b9c3ea`; see "Recipe
-  inventory" below.
-- Is the preserved cut-31 archive available and readable on the execution host?
-  Answered by `beliefs-0c1cc9` on 2026-09-29: `.work/reproduction/mm30.cut31`
-  is present on this host and reads; reproduction record §24 has the run.
-- Which consumer needs reports retained in the corpus or across a world?
-  A future reproduction requirement or multi-corpus consumer supplies the wake
-  condition. This pass found no such requirement in the inspected sources.
+- Which artifacts are needed for diagnosis or replay beyond the two files
+  read by the verdict, and which depend on their original paths?
+  `beliefs-566bad` will trace their consumers and record an explicit table.
+- Can future passing runs retain bounded evidence safely, while failures
+  remain inspectable? The same research will recommend a retention boundary;
+  it will not delete data or treat historical directories as disposable.
+- What interval is justified once retention is known? Re-scope
+  `beliefs-a49ab4` with the research recommendation before enabling recurrence.
+  No cadence is installed by this brief.
+- Which consumer needs persisted audit reports? Still the wake condition for
+  the two shelved audit ideas; recurrence alone does not establish that need.
 
 ## Proposed decomposition
 
-- `beliefs-0c1cc9`: done 2026-09-29; the repeatable transition measurement is
-  `python/tools/reproduction/transition.py`, with explicit missing-input and
-  wrong-verdict failures.
-- `beliefs-b9c3ea`: P3/s/mid/direct research; inventory current recreation inputs,
-  invocations and verdict. Completion updates this brief and writes a finding
-  note on `beliefs-9e0b42` before the result's branch merges.
-- `beliefs-9e0b42`: scoped 2026-09-30, P3/m/mid/direct; a prior-archive
-  override, a read-only verdict step, a `just` recipe over the sequence below,
-  and one certified-host run into a fresh directory.
-- `beliefs-b36632`: shelved until a reproduction measurement requires retained
-  audit reports and accepts their mutation of the measured artifact.
-- `beliefs-9d2b68`: shelved until a named consumer needs persisted world audit
-  reports beyond the current read-only result.
+- `beliefs-566bad`: P3/s/mid/direct, inventory retention and path dependencies
+  read-only, update this brief, and wake `beliefs-a49ab4` with an explicit
+  `--no-reviewed` finding before merging its result.
+- `beliefs-a49ab4`: briefed, remains an idea depending on `beliefs-566bad`.
+  Preserve its original source material; re-scope once retention is settled.
+- `beliefs-6f2c2b`: existing P3/xs/low/direct verdict-pin task, unchanged.
+- `beliefs-0c1cc9`, `beliefs-b9c3ea`, `beliefs-9e0b42`: completed transition,
+  invocation inventory and recreation recipe; do not duplicate them.
+- `beliefs-b36632` and `beliefs-9d2b68`: remain shelved until a named consumer
+  requires retained corpus or world audit reports.
 
-The detached-runner exit-code idea `beliefs-7be4f1` was inspected but left
-untouched: it concerns conformance process supervision, outside this cluster.
+### Recipe inventory (`beliefs-b9c3ea`, 2026-09-29)
 
-## Recipe inventory (`beliefs-b9c3ea`, 2026-09-29)
+The inventory below preserves the pre-implementation evidence. Its missing
+recipe and override landed at `a819f23`; its composite-identity classification
+was corrected by `beliefs-6f2c2b`'s finding, whose code change remains open.
+The dated limitations describe that inventory pass, not the current recipe.
 
 Traced at `5a6db10` by reading every module under `python/tools/reproduction/`,
 `python/tests/test_reproduction_driver.py`, the two acceptance arms that read
@@ -93,7 +91,7 @@ the recorded state, the reproduction design's §4, §13 and §14, and the record
 their `state.json` and `findings.jsonl` read. No driver step, preflight or
 confined run was executed, and nothing under `.work/reproduction/` was written.
 
-### The sequence
+#### The sequence
 
 From `python/`, each line its own process, stopping at the first non-zero exit:
 
@@ -130,7 +128,7 @@ the estimand-typing and composite-claims plans omit `analysis_inputs`, and
 The fixture's first pass on 2026-09-16 ran steps 1 to 12 in about 100 seconds
 by its `findings.jsonl` timestamps (15:03:58Z to 15:05:34Z).
 
-### Inputs that must exist first
+#### Inputs that must exist first
 
 | input | where | state on this host, 2026-09-29 |
 |---|---|---|
@@ -157,7 +155,7 @@ Recorded state is bound to absolute paths. `held_file` and the four
 therefore readable through `ReadView` but is not a directory the snapshot
 steps can run in after it moves.
 
-### What an exit code does and does not prove
+#### What an exit code does and does not prove
 
 | step | non-zero exit | recorded, exit still zero |
 |---|---|---|
@@ -174,7 +172,7 @@ A loop that stops at the first non-zero exit can therefore finish with a
 corpus that failed its own checks. Five steps carry the measurement in
 `state.json` and `findings.jsonl` alone.
 
-### The minimal terminal verdict
+#### The minimal terminal verdict
 
 One read-only step over the fresh directory's `state.json` and
 `findings.jsonl`, exiting non-zero and naming each failed line. Everything
@@ -223,7 +221,7 @@ fixture. They cannot be the recipe's verdict: Q10 pins the fixture's
 run-derived `assessment_identity_derived`, which a fresh run moves, and both
 are frozen cut modules.
 
-### Recommendation
+#### Recommendation
 
 A recipe alone does not suffice. It needs two small additions to the driver,
 both inside the design's "small recipe" ceiling and neither a runner
