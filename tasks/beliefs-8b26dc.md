@@ -4,8 +4,9 @@ title: "Design direction: observation-first analysis — characterize datasets w
 status: idea
 priority: 2
 created: 2026-09-26T19:35:34Z
-updated: 2026-09-26T19:35:34Z
+updated: 2026-10-14T01:35:14Z
 depends: []
+parent: beliefs-9396cf
 tags: [design]
 agent: claude-code/claude-opus-5-5
 ---
