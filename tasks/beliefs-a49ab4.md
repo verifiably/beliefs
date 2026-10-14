@@ -3,8 +3,9 @@ id: beliefs-a49ab4
 title: Re-run the mm30 recreation on a cadence to catch contract drift
 status: idea
 priority: 2
+reviewed: true
 created: 2026-09-30T10:37:37Z
-updated: 2026-10-14T02:16:21Z
+updated: 2026-10-14T02:16:23Z
 depends: [beliefs-566bad]
 parent: beliefs-cde4d9
 tags: [reproduction]
@@ -18,3 +19,7 @@ Open before scoping: retention. Each run leaves ~423 MB under .work/reproduction
 ## Scoping context (2026-10-13)
 
 The recipe landed at a819f23 and still deletes nothing. The terminal verdict reads only state.json and findings.jsonl; that does not establish what must be retained for diagnosis or replay. The 2026-09-30 directory was explicitly kept for beliefs-6f2c2b and is excluded from any future cleanup. Reuse the reproduction goal and handoff: docs/notes/2026-09-29-reproduction-audit-backlog-brief.md. Establish the minimal retained evidence and safe cleanup boundary before choosing a cadence. Current lean: a recurring tracker task, rather than adding the recreation to every cut or test gate. No schedule or deletion is authorized by this scope pass.
+
+## Notes
+
+- 2026-10-14T02:16:23Z (main): scope: briefed; a819f23 supplies the recipe and one fresh passing run, while retention for diagnosis/replay is unresolved; reused goal beliefs-cde4d9 and the existing brief; added read-only research beliefs-566bad and its dependency/wake edge; preserve the explicitly kept 2026-09-30 directory; brief: docs/notes/2026-09-29-reproduction-audit-backlog-brief.md
