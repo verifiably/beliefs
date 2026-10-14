@@ -4,8 +4,8 @@ title: Re-run the mm30 recreation on a cadence to catch contract drift
 status: idea
 priority: 2
 created: 2026-09-30T10:37:37Z
-updated: 2026-10-14T02:15:08Z
-depends: []
+updated: 2026-10-14T02:16:21Z
+depends: [beliefs-566bad]
 parent: beliefs-cde4d9
 tags: [reproduction]
 agent: claude-code/claude-opus-5-5
