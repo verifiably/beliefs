@@ -6,9 +6,9 @@ priority: 0
 size: m
 complexity: high
 process: planned
-owner: main
+owner: perf/ce9d05-test-latency
 created: 2026-10-16T20:01:01Z
-updated: 2026-10-17T21:03:56Z
+updated: 2026-10-17T21:04:14Z
 started: 2026-10-17T21:03:56Z
 depends: []
 tags: [halt, test-latency, testing]
@@ -23,4 +23,6 @@ Process: planned
 
 - 2026-10-16T20:01:03Z (main): breach: titan window 2026-10-09T20:00:58Z..2026-10-16T20:00:58Z: test-fast median 92.287 s, limit 90 s, 8 runs on 3 days
 - 2026-10-17T21:03:56Z (main): started
+  provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-17T21:04:14Z (perf/ce9d05-test-latency): resumed
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
