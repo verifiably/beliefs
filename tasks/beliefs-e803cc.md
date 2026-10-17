@@ -6,8 +6,8 @@ priority: 3
 size: m
 reviewed: true
 created: 2026-09-07T17:15:37Z
-updated: 2026-10-12T18:19:05Z
-depends: []
+updated: 2026-10-17T20:35:52Z
+depends: [beliefs-9c375c]
 parent: beliefs-d58675
 tags: [domain, design]
 ---
