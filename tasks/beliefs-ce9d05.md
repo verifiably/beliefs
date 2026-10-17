@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/ce9d05-test-latency
 created: 2026-10-16T20:01:01Z
-updated: 2026-10-17T22:07:56Z
+updated: 2026-10-17T22:07:59Z
 started: 2026-10-17T21:03:56Z
 depends: []
 tags: [halt, test-latency, testing]
@@ -34,3 +34,4 @@ Process: planned
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-17T22:07:56Z (perf/ce9d05-test-latency): resumed
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-17T22:07:59Z (perf/ce9d05-test-latency): review: spec round 2 — verdict: revise; findings: measurement protocol 1; reviewer: human
