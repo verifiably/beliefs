@@ -4,8 +4,9 @@ title: "Roadmap: a world-wide standing fold at derivation, not capture"
 status: idea
 priority: 2
 reviewed: true
+reviewed_at: 2026-10-17T13:01:48Z
 created: 2026-09-17T10:38:46Z
-updated: 2026-10-17T13:01:44Z
+updated: 2026-10-17T13:01:48Z
 depends: [beliefs-ae33ff]
 parent: beliefs-0c50ed
 tags: [conformance, world-read]
@@ -21,3 +22,4 @@ Current capture still folds per corpus; the v1 rule only enumerates captured res
 ## Notes
 
 - 2026-09-29T22:50:05Z (main): scope: briefed; confirmed the per-corpus fold and fail-closed split; research beliefs-ae33ff will inventory derivation inputs and identity obligations; brief: docs/notes/2026-09-29-retraction-standing-backlog-brief.md
+- 2026-10-17T13:01:48Z (main): scope: briefed; re-checked at 4580964: epoch._standing_retractions (world/epoch.py:1262) still folds per corpus and test_world_standing.py:189 still expects RetractionResolutionDisagreement; recorded the wait on research beliefs-ae33ff as a dep edge (it was named only in that task's Ideas it wakes); brief: docs/notes/2026-09-29-retraction-standing-backlog-brief.md
