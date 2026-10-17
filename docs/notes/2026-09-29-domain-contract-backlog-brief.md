@@ -38,6 +38,23 @@ Evidence was read in the main checkout at `90cf0ca`; no runtime probe was run.
   and `profile._shipped_coordination` loads shipped v1 before v2 (`a312745`).
   `python/tests/test_shipped_biology.py` covers the current packaged genesis.
 
+Rerun 2026-10-17 at `b9c52ee` (endpoint idea only; read, no probe):
+
+- `errors.CoreferenceEndpointRefused` (`dc28583`, 2026-09-10) predates this
+  brief and was missed: the coreference seam already refuses endpoints with a
+  closed reason set (`self-pair`, `kind-mismatch`, `unresolved`,
+  `inadmissible-kind`) carrying an optional `corpus_id`. It is a working
+  precedent for a typed endpoint refusal and belongs in the matrix.
+- Mount citations (`cf75aea`, beliefs-9ce6e4, 2026-10-01) give "cross-corpus
+  target" a concrete meaning: a writer cites read mounts through
+  `corpus.MountCitations`, and `corpus_check` reports `eligibility-unresolved`.
+  The missing-target policy should be stated against that view.
+- `beliefs-9c375c` is still open and unclaimed, and now also gates the
+  source-assertion design `beliefs-595a53`
+  (`docs/notes/2026-10-13-empirical-evidence-boundaries-brief.md`). The first
+  pass did not record `beliefs-e803cc`'s wait on it, so the idea came back as
+  stranded; the dependency is now recorded.
+
 ## Constraints
 
 The adoption ledger and roadmap remain authoritative; this pass adds no
