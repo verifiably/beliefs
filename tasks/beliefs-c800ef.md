@@ -5,8 +5,8 @@ status: idea
 priority: 2
 reviewed: true
 created: 2026-09-17T10:38:46Z
-updated: 2026-10-12T18:19:01Z
-depends: []
+updated: 2026-10-17T13:01:44Z
+depends: [beliefs-ae33ff]
 parent: beliefs-0c50ed
 tags: [conformance, world-read]
 agent: codex/gpt-6
