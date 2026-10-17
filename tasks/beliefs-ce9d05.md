@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/ce9d05-test-latency
 created: 2026-10-16T20:01:01Z
-updated: 2026-10-17T21:09:10Z
+updated: 2026-10-17T21:09:13Z
 started: 2026-10-17T21:03:56Z
 depends: []
 tags: [halt, test-latency, testing]
@@ -28,3 +28,4 @@ Process: planned
 - 2026-10-17T21:04:14Z (perf/ce9d05-test-latency): resumed
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-17T21:06:41Z (perf/ce9d05-test-latency): Investigation: not trial-enrolled; locked and hydrated .worktrees/ce9d05-test-latency. Diagnostic 16-worker test-fast passed 6119 tests, 1 skip in 84.743 s by tt (pytest 82.54 s), with 993.25 reported worker-seconds. Top files: boundary 172.10 s, replay 116.12 s, cut15 workflows 101.67 s; live frozen-pin check alone 20.83 s. No code changes; profiling representative costs before design.
+- 2026-10-17T21:09:13Z (perf/ce9d05-test-latency): Root-cause profile: live-pin check calls equivalent 905 times, spending 29.672 cumulative seconds under cProfile; 931 live pins cover 69 distinct target/pin pairs. Proposed narrow remedy is bounded lru_cache over actual original/current bytes and path, preserving fresh reads and all comparison semantics. Reuses only the memoization item from beliefs-0180e2; remaining follow-ups stay there. Draft spec linked; fresh read-only builder review dispatched. No implementation changes.
