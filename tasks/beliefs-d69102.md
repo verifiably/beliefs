@@ -4,8 +4,9 @@ title: "World read: consulted contracts ignore a corpus that holds only the prop
 status: idea
 priority: 2
 reviewed: true
+reviewed_at: 2026-10-17T13:01:55Z
 created: 2026-10-01T17:35:30Z
-updated: 2026-10-17T13:01:53Z
+updated: 2026-10-17T13:01:55Z
 depends: [beliefs-c6e2e4]
 parent: beliefs-7e341d
 tags: [world-read]
@@ -17,3 +18,4 @@ consulted_contracts (python/src/beliefs/consulted.py:59) takes its corpora only 
 ## Notes
 
 - 2026-10-09T11:14:09Z (main): scope: briefed; parented under goal beliefs-7e341d, research beliefs-c6e2e4 reproduces the refusal and compares passing the proposition's corpus separately (lean) with attributing it in node_corpus; brief: docs/notes/2026-10-09-mount-citations-follow-ups-brief.md
+- 2026-10-17T13:01:55Z (main): scope: briefed; re-checked at 4580964: consulted_contracts still draws corpora only from node_corpus-attributed closure nodes and refuses an unpinned namespace (consulted.py:128 after the ruff reformat, formerly :121); recorded the wait on research beliefs-c6e2e4 as a dep edge; brief: docs/notes/2026-10-09-mount-citations-follow-ups-brief.md
