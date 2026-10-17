@@ -1,13 +1,15 @@
 ---
 id: beliefs-ce9d05
 title: "Test latency over limit: test-fast 92.287 s against 90 s"
-status: todo
+status: doing
 priority: 0
 size: m
 complexity: high
 process: planned
+owner: main
 created: 2026-10-16T20:01:01Z
-updated: 2026-10-16T20:01:03Z
+updated: 2026-10-17T21:03:56Z
+started: 2026-10-17T21:03:56Z
 depends: []
 tags: [halt, test-latency, testing]
 source: "tt-latency:titan:2026-10-16T20:00:58Z"
@@ -20,3 +22,5 @@ Process: planned
 ## Notes
 
 - 2026-10-16T20:01:03Z (main): breach: titan window 2026-10-09T20:00:58Z..2026-10-16T20:00:58Z: test-fast median 92.287 s, limit 90 s, 8 runs on 3 days
+- 2026-10-17T21:03:56Z (main): started
+  provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
