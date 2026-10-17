@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/ce9d05-test-latency
 created: 2026-10-16T20:01:01Z
-updated: 2026-10-17T21:10:54Z
+updated: 2026-10-17T22:07:56Z
 started: 2026-10-17T21:03:56Z
 depends: []
 tags: [halt, test-latency, testing]
@@ -31,4 +31,6 @@ Process: planned
 - 2026-10-17T21:09:13Z (perf/ce9d05-test-latency): Root-cause profile: live-pin check calls equivalent 905 times, spending 29.672 cumulative seconds under cProfile; 931 live pins cover 69 distinct target/pin pairs. Proposed narrow remedy is bounded lru_cache over actual original/current bytes and path, preserving fresh reads and all comparison semantics. Reuses only the memoization item from beliefs-0180e2; remaining follow-ups stay there. Draft spec linked; fresh read-only builder review dispatched. No implementation changes.
 - 2026-10-17T21:09:50Z (perf/ce9d05-test-latency): review: spec round 1 — verdict: accept; findings: none; reviewer: codex
 - 2026-10-17T21:10:54Z (perf/ce9d05-test-latency): parked (waiting on user, review): User reviews docs/superpowers/specs/2026-10-17-pin-comparison-latency-design.md in .worktrees/ce9d05-test-latency; after approval the agent writes the implementation plan for review there. Design committed at 2dc3360; no implementation changes.
+  provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-17T22:07:56Z (perf/ce9d05-test-latency): resumed
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
