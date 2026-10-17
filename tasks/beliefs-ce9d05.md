@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/ce9d05-test-latency
 created: 2026-10-16T20:01:01Z
-updated: 2026-10-17T21:04:14Z
+updated: 2026-10-17T21:06:41Z
 started: 2026-10-17T21:03:56Z
 depends: []
 tags: [halt, test-latency, testing]
@@ -26,3 +26,4 @@ Process: planned
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-17T21:04:14Z (perf/ce9d05-test-latency): resumed
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-17T21:06:41Z (perf/ce9d05-test-latency): Investigation: not trial-enrolled; locked and hydrated .worktrees/ce9d05-test-latency. Diagnostic 16-worker test-fast passed 6119 tests, 1 skip in 84.743 s by tt (pytest 82.54 s), with 993.25 reported worker-seconds. Top files: boundary 172.10 s, replay 116.12 s, cut15 workflows 101.67 s; live frozen-pin check alone 20.83 s. No code changes; profiling representative costs before design.
