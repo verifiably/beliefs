@@ -2,7 +2,8 @@
 
 **Date:** 2026-10-17  
 **Task:** `beliefs-ce9d05` (P0 test-latency halt)  
-**Status:** draft for review; no implementation approved  
+**Status:** design approved; implementation plan awaiting review
+
 **Workspace:** `.worktrees/ce9d05-test-latency`
 
 ## Outcome
