@@ -5,8 +5,8 @@ status: idea
 priority: 2
 reviewed: true
 created: 2026-10-01T17:35:30Z
-updated: 2026-10-12T18:18:57Z
-depends: []
+updated: 2026-10-17T13:01:51Z
+depends: [beliefs-c6e2e4]
 parent: beliefs-7e341d
 tags: [world-read]
 agent: claude-code/claude-opus-5-5
