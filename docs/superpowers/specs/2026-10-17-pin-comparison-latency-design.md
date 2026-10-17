@@ -122,17 +122,21 @@ the cache, then run it green with the focused suite.
 
 Run the smallest focused pilot to its verdict before a sweep. It must retain
 all verdicts and substantially reduce repeated parsing and live-pin check
-time. Then take three comparable warm, unprofiled `just test-fast` runs before
-and three after the change at a 16-worker grant. Read aggregate worker time
-from one comparable instrumented run on each version. The full selection and
-existing skip count must match, apart from explicitly added regression tests.
+time. Then take six comparable warm, unprofiled `just test-fast` runs as three
+consecutive alternating baseline/candidate pairs: B1, C1, B2, C2, B3, C3, each
+at a 16-worker grant. Record host load and background activity for each run;
+if conditions change materially within a pair, invalidate and repeat that
+whole pair. Read aggregate worker time from one comparable instrumented run
+on each version. The full selection and existing skip count must match,
+apart from explicitly added regression tests.
 
-Keep the change only if correctness passes, the post-change `tt` median is at
-most 90 seconds, and the end-to-end improvement exceeds observed run-to-run
-noise. A large focused improvement alone is insufficient. If comparable
-before/after ranges overlap enough to leave the gain uncertain, do one
-additional alternating before/after pair; if still inconclusive, revert and
-record the residual. Do not keep an unproven cache merely because it is small.
+Keep the change only if correctness passes, the three candidate `tt` times
+have a median of at most 90 seconds, and every candidate is faster than its
+paired baseline. Record all three paired reductions. Their median must also
+exceed the larger of the baseline and candidate timing ranges (maximum minus
+minimum), a conservative noise check. A large focused improvement or separated
+batch ranges alone is insufficient. If these conditions do not hold, revert
+and record the residual. Do not keep an unproven cache merely because it is small.
 
 Run `just check` and the required `just test-fast` before the implementation
 commit. A complete certified `just test` run is warranted once because the
