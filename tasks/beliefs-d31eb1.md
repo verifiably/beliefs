@@ -6,9 +6,9 @@ priority: 0
 size: s
 complexity: low
 process: direct
-owner: perf/ce9d05-test-latency
+owner: main
 created: 2026-10-17T23:27:00Z
-updated: 2026-10-18T02:31:33Z
+updated: 2026-10-18T02:31:38Z
 started: 2026-10-18T02:31:33Z
 depends: [beliefs-cf48c5]
 parent: beliefs-ce9d05
@@ -23,4 +23,6 @@ After the proven remedy and whole-branch review pass, integrate locally, move au
 ## Notes
 
 - 2026-10-18T02:31:33Z (perf/ce9d05-test-latency): started
+  provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-18T02:31:38Z (main): resumed
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
