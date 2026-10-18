@@ -1,7 +1,7 @@
 # Pin-comparison latency results
 
 **Task:** `beliefs-ce9d05`; implementation `beliefs-cf48c5`, verification `beliefs-d31eb1`.
-**Status:** worktree proof and whole-branch review passed; main verification pending.
+**Status:** implemented and verified; incident and both implementation/verification tasks closed.
 **Design:** [approved design](../superpowers/specs/2026-10-17-pin-comparison-latency-design.md).
 **Plan:** [approved inline plan](../superpowers/plans/2026-10-17-pin-comparison-latency.md).
 **Workspace:** `.worktrees/ce9d05-test-latency`.
@@ -96,9 +96,24 @@ implementation commit hook passed. A fresh read-only Codex reviewer accepted
 the paired timing proof and retained source snapshots. The full review is
 retained in the plan workspace; its disposition is recorded on the incident.
 
-The integrated revision, three fresh main-checkout fast runs, and verifier
-result will be recorded here before incident closure. Full verifier output
-belongs in the incident record. Worktree pilots do not count toward that gate.
+The reviewed branch was fast-forwarded locally into main at `d5dc102`, whose
+UTC commit timestamp, **2026-10-18T02:31:33Z**, is the remedy floor. Claims and
+the execution ledger moved to main before incident verification.
+
+| Fresh main run | Recorded wall time (s) | Python passed | Existing skips |
+| --- | ---: | ---: | ---: |
+| 1 | 67.182 | 6,123 | 1 |
+| 2 | 68.671 | 6,123 | 1 |
+| 3 | 71.800 | 6,123 | 1 |
+
+All three started strictly after the remedy floor, had observed 16-worker
+grants, and succeeded with unchanged affected TypeScript selection. The
+verifier accepted all three as uncontended and unwidened. Their median was
+**68.671 s**, below 90 s. `tt-latency verify beliefs-ce9d05 --after
+2026-10-18T02:31:33Z` exited **0** and reported **every obligation met**.
+The incident names one host; its identity and the full successful verifier
+output are retained in [the incident record](../../tasks/beliefs-ce9d05.md).
+Worktree pilots were excluded from this post-integration verification.
 
 Execution ruling: review the whole branch before the plan's integration
 task, because incident verification must follow integration. If that task
