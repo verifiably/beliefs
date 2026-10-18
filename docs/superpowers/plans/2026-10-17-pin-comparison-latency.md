@@ -1,6 +1,6 @@
 # Pin Comparison Latency Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan inline. Steps use checkbox (`- [ ]`) syntax for tracking. Inline execution is the author's recommendation; implementation awaits user review of this plan.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan inline. Steps use checkbox (`- [ ]`) syntax for tracking. The user approved this plan and inline execution.
 
 **Goal:** Retain a bounded comparator cache only after three alternating baseline/candidate pairs prove an end-to-end gain and a candidate median of at most 90 seconds, then verify and close `beliefs-ce9d05`.
 
@@ -131,4 +131,4 @@ def test_the_comparison_cache_is_bounded_and_eviction_recomputes():
 
 ## Plan self-review
 
-Spec coverage: Task 1 covers the four cache regressions, fresh pin reads, unchanged semantics, focused pilot, six alternating pairs, noise threshold, worker attribution, certified full suite, and keep/revert record. Task 2 covers review-before-integration, fresh main evidence, every named host, verifier output, closure, and evidence retention. Signatures match the existing code; no caller or export changes are required. Review Focus cases have either a new regression or an explicit existing check above. No implementation or performance run is authorized until the user reviews this plan.
+Spec coverage: Task 1 covers the four cache regressions, fresh pin reads, unchanged semantics, focused pilot, six alternating pairs, noise threshold, worker attribution, certified full suite, and keep/revert record. Task 2 covers review-before-integration, fresh main evidence, verifier output on every named host, closure, and evidence retention. Signatures match the existing code; no caller or export changes are required. Review Focus cases have either a new regression or an explicit existing check above. The user approved the plan for inline execution.

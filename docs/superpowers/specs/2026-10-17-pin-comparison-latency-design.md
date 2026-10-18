@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-17  
 **Task:** `beliefs-ce9d05` (P0 test-latency halt)  
-**Status:** design approved; implementation plan awaiting review
+**Status:** design and implementation plan approved; inline execution started
 
 **Workspace:** `.worktrees/ce9d05-test-latency`
 
@@ -152,5 +152,5 @@ Pre-integration pilots do not count. Run `tt-latency verify` there and retain
 its full output in the task completion message. If verification refuses or
 misses the limit, leave the halt open and investigate its measured reason.
 
-The written design and implementation plan each require user review before
-the next phase. No performance claim above authorizes implementation yet.
+The user approved both the written design and implementation plan, including
+inline execution. Retention and integration remain subject to the evidence above.
