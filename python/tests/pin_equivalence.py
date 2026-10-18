@@ -16,6 +16,7 @@ import io
 import re
 import tokenize
 from collections.abc import Iterator
+from functools import lru_cache
 
 # A comment a tool reads by physical line: the line's code must survive unchanged.
 _DIRECTIVE = re.compile(r"#\s*(type:|noqa|pyright:|mypy:|pragma|fmt:|isort:|ruff:)", re.IGNORECASE)
@@ -30,6 +31,7 @@ Anchor = tuple[int | None, int, int, int]
 Comment = tuple[str, Anchor, int | None, str | None]
 
 
+@lru_cache(maxsize=128)
 def equivalent(original: bytes, current: bytes, *, path: str) -> bool:
     """Whether `current` keeps every meaning `original` had.
 

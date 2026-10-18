@@ -263,3 +263,15 @@ What step 3 removes:
   configuration.
 - **Keep a cited-only exclude** for the two unpinned cited surfaces. That keeps a
   standing exclude for no benefit, since the comparator covers them like any other file.
+
+## 10. Implementation note — bounded comparison reuse, 2026-10-17
+
+`equivalent` now retains up to 128 comparison results per process using
+`functools.lru_cache`. Both complete byte strings and the complete path form
+the key; pin resolution still reads the working file before every comparison.
+Changes to either input therefore cannot reuse a stale verdict. The bound
+limits entries, not total bytes. Encoding, tree, comment, directive, and
+non-Python comparison rules above are unchanged.
+
+The paired performance proof and certified suite result are recorded in
+[the latency results](../../plans/2026-10-17-pin-comparison-latency-results.md).

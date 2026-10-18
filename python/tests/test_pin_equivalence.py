@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pin_equivalence
 
 ORIGINAL = b'''"""A frozen declaration.
@@ -36,6 +38,41 @@ def f(a, b):
 
 def same(original: bytes, current: bytes) -> bool:
     return pin_equivalence.equivalent(original, current, path="python/tests/n2_arms_cut99.py")
+
+
+def test_identical_comparisons_parse_only_once() -> None:
+    with patch.object(pin_equivalence, "_tree", wraps=pin_equivalence._tree) as tree:
+        assert pin_equivalence.equivalent(ORIGINAL, FORMATTED, path="reuse.py")
+        assert tree.call_count == 2
+        assert pin_equivalence.equivalent(ORIGINAL, FORMATTED, path="reuse.py")
+        assert tree.call_count == 2
+
+
+def test_changing_either_byte_string_recomputes_the_verdict() -> None:
+    compare = pin_equivalence.equivalent
+    assert compare(ORIGINAL, FORMATTED, path="bytes.py")
+    assert not compare(ORIGINAL, FORMATTED.replace(b"a + b", b"a - b"), path="bytes.py")
+    assert not compare(ORIGINAL.replace(b"a+b", b"a-b"), FORMATTED, path="bytes.py")
+    assert compare(ORIGINAL, FORMATTED, path="bytes.py")
+
+
+def test_the_path_is_part_of_the_comparison_key() -> None:
+    assert pin_equivalence.equivalent(ORIGINAL, FORMATTED, path="path.py")
+    assert not pin_equivalence.equivalent(ORIGINAL, FORMATTED, path="path.md")
+
+
+def test_the_comparison_cache_is_bounded_and_eviction_recomputes() -> None:
+    compare = pin_equivalence.equivalent
+    compare.cache_clear()
+    try:
+        for index in range(129):
+            assert compare(b"x=1\n", b"x = 1\n", path=f"bounded-{index}.py")
+        info = compare.cache_info()
+        assert (info.currsize, info.maxsize) == (128, 128)
+        assert compare(b"x=1\n", b"x = 1\n", path="bounded-0.py")
+        assert compare.cache_info().misses == info.misses + 1
+    finally:
+        compare.cache_clear()
 
 
 def test_identical_bytes_hold_for_any_target() -> None:
