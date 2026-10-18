@@ -7,7 +7,7 @@ size: s
 complexity: low
 process: direct
 created: 2026-10-09T23:10:48Z
-updated: 2026-10-09T23:10:48Z
+updated: 2026-10-18T02:23:28Z
 depends: []
 tags: [hygiene, conformance]
 agent: claude-code/claude-opus-5-5
@@ -23,3 +23,7 @@ Done:
 - Spec §3 / doctrine §8: the decorator gap is anywhere among the decorators above the def line (FunctionDef.lineno is the def line), not only 'between a decorator and its def'.
 - test_every_declaration_pin_in_a_live_guard_holds docstring: drop the 'ten of these files' count.
 - beliefs-bd85d0 cites n2_arms_cut38.py:256; note that the line is read at 3ae5a96 (doctrine §8).
+
+## Notes
+
+- 2026-10-18T02:23:28Z (perf/ce9d05-test-latency): Memoization item implemented and proven under beliefs-ce9d05: direct bounded lru_cache over exact original/current bytes and path, with four regressions, three alternating pairs passing the noise rule, and certified full suite. Whole-branch review and incident verification still pending. Keep this task open for all remaining directive, edge-test, documentation, and historical-citation follow-ups.
