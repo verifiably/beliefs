@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: perf/ce9d05-test-latency
 created: 2026-10-17T23:26:50Z
-updated: 2026-10-18T01:58:59Z
+updated: 2026-10-18T02:04:03Z
 started: 2026-10-18T01:58:59Z
 depends: []
 parent: beliefs-ce9d05
@@ -24,3 +24,4 @@ Execute the approved plan in the existing .worktrees/ce9d05-test-latency workspa
 
 - 2026-10-18T01:58:59Z (perf/ce9d05-test-latency): started
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-18T02:04:03Z (perf/ce9d05-test-latency): Steps 1–4: fresh 16-worker baseline passed 6119 tests/1 skip in 78.773 s by tt. Reuse regression failed as planned (4 parser calls, expected 2), then cache plus four regressions passed all 40 focused tests. Unprofiled live-pin call dropped 13.10 to 5.02 s. Pilot accepted for alternating six-run end-to-end trial; no retention claim yet.
