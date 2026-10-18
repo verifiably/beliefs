@@ -1,7 +1,7 @@
 # Pin-comparison latency results
 
 **Task:** `beliefs-ce9d05`; implementation `beliefs-cf48c5`, verification `beliefs-d31eb1`.
-**Status:** worktree proof passed; whole-branch review and main verification pending.
+**Status:** worktree proof and whole-branch review passed; main verification pending.
 **Design:** [approved design](../superpowers/specs/2026-10-17-pin-comparison-latency-design.md).
 **Plan:** [approved inline plan](../superpowers/plans/2026-10-17-pin-comparison-latency.md).
 **Workspace:** `.worktrees/ce9d05-test-latency`.
@@ -90,10 +90,19 @@ memoization item, using exact byte keys rather than a digest-only cache.
 
 ## Review, integration, and incident verification
 
-The final checks, whole-branch review, integrated revision, three fresh
-main-checkout fast runs, and `tt-latency verify` output will be recorded here
-before incident closure. Worktree pilots do not count toward that gate.
+The final `just check`, post-documentation `just test-fast` (67.030 s), and
+implementation commit hook passed. A fresh read-only Codex reviewer accepted
+`533025e..c56b0c2` with no Critical, Important, or Minor findings, including
+the paired timing proof and retained source snapshots. The full review is
+retained in the plan workspace; its disposition is recorded on the incident.
+
+The integrated revision, three fresh main-checkout fast runs, and verifier
+result will be recorded here before incident closure. Full verifier output
+belongs in the incident record. Worktree pilots do not count toward that gate.
 
 Execution ruling: review the whole branch before the plan's integration
 task, because incident verification must follow integration. If that task
-changes code, it needs another review. No deferred minor findings so far.
+changes code, it needs another review. Post-integration closure is proved
+separately; existing comparator-rule follow-ups and other latency bottlenecks
+remain outside this reuse remedy. Their existing limitations/costs remain;
+this change claims no improvement to them. No deferred minor findings.
