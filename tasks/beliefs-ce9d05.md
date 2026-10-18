@@ -1,15 +1,17 @@
 ---
 id: beliefs-ce9d05
 title: "Test latency over limit: test-fast 92.287 s against 90 s"
-status: doing
+status: done
 priority: 0
 size: m
 complexity: high
 process: planned
 owner: main
 created: 2026-10-16T20:01:01Z
-updated: 2026-10-18T02:36:20Z
+updated: 2026-10-18T02:37:50Z
 started: 2026-10-17T21:03:56Z
+completed: 2026-10-18T02:37:50Z
+closed: 2026-10-18T02:37:50Z
 depends: []
 tags: [halt, test-latency, testing]
 source: "tt-latency:titan:2026-10-16T20:00:58Z"
@@ -53,3 +55,7 @@ Process: planned
 - 2026-10-18T02:31:36Z (main): resumed
   provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-18T02:36:20Z (main): verified: titan after 2026-10-18T02:31:33Z: test-fast median 68.671 s, limit 90 s, 3 runs
+- 2026-10-18T02:37:50Z (main): done
+  provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-18T02:37:50Z (main): Implemented and reviewed bounded exact-byte/path pin comparison reuse; merged locally. Alternating proof: 73.369 -> 65.141 s median, all paired improvements positive; median gain 8.228 s > 3.279 s noise. Certified full suite: 6324 passed, one existing skip, 213.675 s. Fresh main verification: 67.182, 68.671, 71.800 s; median 68.671 s. Every breach-host obligation passed; remaining comparator follow-ups stay open on beliefs-0180e2. Full successful tt-latency verify stdout (JSON string, exact newlines preserved): "  titan     test-fast           met (median 68.7 s, 3 runs, limit 90 s)\nnoted: verified: titan after 2026-10-18T02:31:33Z: test-fast median 68.671 s, limit 90 s, 3 runs\nverified: every obligation is met\n"
+  provenance: {"harness_session":"codex:01a14bac-fd82-7f12-9cbf-35cafc4359ef","harness_session_source":"CODEX_THREAD_ID"}
