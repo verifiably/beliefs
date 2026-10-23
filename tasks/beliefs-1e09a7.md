@@ -1,15 +1,17 @@
 ---
 id: beliefs-1e09a7
 title: "Task 6: `require_publishes`, `hold`, and `publication_preview`"
-status: doing
+status: done
 priority: 1
 size: m
 complexity: mid
 process: direct
 owner: feat/f24fe9-session-doors
 created: 2026-10-23T09:04:23Z
-updated: 2026-10-23T12:41:44Z
+updated: 2026-10-23T12:41:47Z
 started: 2026-10-23T11:57:29Z
+completed: 2026-10-23T12:41:47Z
+closed: 2026-10-23T12:41:47Z
 depends: []
 parent: beliefs-f24fe9
 tags: [publication]
@@ -23,3 +25,7 @@ step: "Task 6: `require_publishes`, `hold`, and `publication_preview`"
 - 2026-10-23T11:57:29Z (feat/f24fe9-session-doors): started
   provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-23T12:41:44Z (feat/f24fe9-session-doors): review: impl round 1 — verdict: accept; findings: minor 5; reviewer: claude-code/claude-opus-5-5
+- 2026-10-23T12:41:47Z (feat/f24fe9-session-doors): done
+  provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-23T12:41:47Z (feat/f24fe9-session-doors): require_publishes, hold, publication_preview (80230ca); review accepted
+  provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
