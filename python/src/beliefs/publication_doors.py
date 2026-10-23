@@ -417,7 +417,7 @@ def _bind_publication(
         return [writer._create_op(stored.act_report_node(report_of(judged["outcome"])))]
 
     writer._state.unresolved = True
-    reason = operation_port.execute_fulfilling_guarded(plan, opened.digest, guard=guard, fallback=fallback)
+    reason = operation_port.execute_fulfilling_guarded(plan, opened.digest, guard=guard, fallback=fallback).reason
     writer._reconstruct()
     if reason is None:
         return BindingOutcome(success, binding)

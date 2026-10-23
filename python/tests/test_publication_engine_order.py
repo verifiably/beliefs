@@ -118,8 +118,9 @@ def test_a_rolled_back_fulfilment_leaves_the_intent_open_for_a_retry(durable_roo
     before = _fulfilling(durable_root, digest)
     assert [committed for _, committed in before] == [False]
     retry_refused = None
+    commit = None
     try:
-        port.execute_fulfilling_guarded(plan, digest, guard=lambda _view: None, fallback=lambda _reason: plan)
+        commit = port.execute_fulfilling_guarded(plan, digest, guard=lambda _view: None, fallback=lambda _reason: plan)
     except ExecutionError as caught:  # recorded, not swallowed: the verdict below reads it
         retry_refused = caught
     after = _fulfilling(durable_root, digest)
@@ -128,6 +129,8 @@ def test_a_rolled_back_fulfilment_leaves_the_intent_open_for_a_retry(durable_roo
         assert after == before, f"the retry failed after registering: {retry_refused!r}"
         pytest.fail(f"RETRY_AFTER_ROLLBACK = fresh intent: {retry_refused!r}")
     assert [committed for _, committed in after] == [False, True]
+    # The guarded readback names the committed registration, not the rolled-back one.
+    assert commit is not None and (commit.entry, commit.reason) == (after[1][0], None)
     assert (durable_root / "probe/c.md").read_bytes() == b"one\n"
 
 

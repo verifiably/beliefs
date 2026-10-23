@@ -41,6 +41,7 @@ from beliefs.recipe import (
 # the public surface must not offer one, and Task 11 pins that (T1).
 from beliefs.report import Entry, LocatorEntry, PublishedObservation, RunAttemptEntry, RunRefusal, _mint_report
 from beliefs.resolution import build_snapshot
+from beliefs.runrecord import GuardedCommit
 from beliefs.spec import (
     Deterministic,
     RealizedSeeds,
@@ -506,7 +507,7 @@ class MemoryPort:
         return "r" * 64
 
     def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
-        return None
+        return GuardedCommit(self.execute_fulfilling(plan, fulfills), None)
 
 
 MEMORY_PORT = MemoryPort()

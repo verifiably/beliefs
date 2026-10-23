@@ -1131,7 +1131,7 @@ def execute_production_run(
 
         reason = port.execute_fulfilling_guarded(
             plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback
-        )
+        ).reason
         if reason is not None:
             result = _refused(reason, "absent", actor, observer, started_at, intent)
     else:

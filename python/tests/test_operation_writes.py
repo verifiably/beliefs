@@ -30,6 +30,7 @@ from beliefs.errors import (
 from beliefs.intents.shapes import DecodedIntent, decode_intent
 from beliefs.permit import Authority, WritePermit
 from beliefs.report import OperationIntent
+from beliefs.runrecord import GuardedCommit
 from beliefs.world.records import RECORD_CEILING
 
 
@@ -89,8 +90,7 @@ class RecordingPort:
         from beliefs.corpus import ReadView
 
         reason = guard(ReadView.opened_at(self.root))
-        self.execute_fulfilling(plan if reason is None else fallback(reason), fulfills)
-        return reason
+        return GuardedCommit(self.execute_fulfilling(plan if reason is None else fallback(reason), fulfills), reason)
 
 
 def writer_over(tmp_path, authority: Authority = FULL) -> tuple[CorpusWriter, RecordingPort]:

@@ -154,6 +154,7 @@ from beliefs.holdings.seam import WritePlan as SeamWritePlan
 from beliefs.identity import v1
 from beliefs.permit import READ_ONLY, Authority
 from beliefs.profile import ProfileSpec
+from beliefs.runrecord import GuardedCommit
 from beliefs.world import (
     AdmissionRecord,
     CorpusSubject,
@@ -1083,14 +1084,15 @@ class DurableOperationPort:
             self._execute_fulfilling(plan, fulfills)
             return _registration_for(self.root, self._backend, self._storage, self._metadata_root, fulfills)
 
-    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback) -> GuardedCommit:
         from beliefs.corpus import ReadView
 
         with _operation_lock_for(self.root):
             require_pins_agree(self.root, self._profile)
             reason = guard(ReadView.opened_at(self.root))
             self._execute_fulfilling(plan if reason is None else fallback(reason), fulfills)
-            return reason
+            entry = _committed_registration_for(self.root, self._backend, self._storage, self._metadata_root, fulfills)
+            return GuardedCommit(entry, reason)
 
     def _execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
         require_pins_agree(self.root, self._profile)
@@ -1122,6 +1124,38 @@ def _registration_for(root: Path, backend: Backend, storage: StorageProfile, met
     if len(matches) != 1:
         raise ExecutionError(
             f"expected exactly one registration fulfilling {fulfills}, found {len(matches)}", index=None, applied=None
+        )
+    return matches[0]
+
+
+def _committed_registration_for(
+    root: Path, backend: Backend, storage: StorageProfile, metadata_root: Path, fulfills: str
+) -> str:
+    """The digest of the one registration fulfilling `fulfills` whose settlement
+    committed, read back from the chain (sharing-doors design §4.6). A rolled-back
+    fulfilment leaves the intent open for a retry under the same intent (cut 39's
+    `RETRY_AFTER_ROLLBACK`), so the chain may hold earlier registrations for it;
+    the engine refuses a second committed one, so exactly one is required."""
+    try:
+        view = read_chain(backend, str(root), str(metadata_root), storage)
+    except Exception as caught:
+        # Every engine shape maps to the seam's one failure type.
+        raise ExecutionError(f"registration readback failed: {caught}", index=None, applied=None) from caught
+    committed = {
+        entry.registration
+        for _, entry in view.entries
+        if type(entry) is SettledEntry and entry.outcome is ChainOutcome.COMMITTED
+    }
+    matches = [
+        digest
+        for digest, entry in view.entries
+        if type(entry) is RegisteredEntry and entry.fulfills == fulfills and digest in committed
+    ]
+    if len(matches) != 1:
+        raise ExecutionError(
+            f"expected exactly one committed registration fulfilling {fulfills}, found {len(matches)}",
+            index=None,
+            applied=None,
         )
     return matches[0]
 

@@ -14,7 +14,7 @@ from beliefs.errors import SessionProtocolError
 from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
-from beliefs.runrecord import OperationPort
+from beliefs.runrecord import GuardedCommit, OperationPort
 
 if TYPE_CHECKING:
     from beliefs.session.writer import WriterSession
@@ -81,8 +81,26 @@ class LedgeredPort:
         *,
         guard: Callable[[Any], str | None],
         fallback: Callable[[str], WritePlan],
-    ) -> str | None:
-        raise SessionProtocolError("the guarded execution path is outside the session routes")
+    ) -> GuardedCommit:
+        """The guarded commit (sharing-doors design §2 decision 8): each plan's
+        records are read and validated before it reaches the inner port — the
+        primary's before delegation, the fallback's inside the delegated call
+        after the guard chose it — and one act line names the plan that
+        committed."""
+        with self._session._lock:
+            self._session._require_current(self._invocation)
+            records = plan_records(plan)
+            chosen: list[tuple[tuple[str, str], ...]] = []
+
+            def checked_fallback(reason: str) -> WritePlan:
+                fallback_plan = fallback(reason)
+                chosen.append(plan_records(fallback_plan))
+                return fallback_plan
+
+            commit = self._inner.execute_fulfilling_guarded(plan, fulfills, guard=guard, fallback=checked_fallback)
+            committed = records if commit.reason is None else chosen[0]
+            self._session._record_committed(self._invocation, intent=fulfills, entry=commit.entry, records=committed)
+            return commit
 
 
 def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) -> StoreActSeam:

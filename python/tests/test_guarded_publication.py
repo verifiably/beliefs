@@ -23,18 +23,18 @@ def corpus(tmp_path):
 def test_the_guard_runs_under_the_lock_and_selects_the_plan(tmp_path):
     _, port = corpus(tmp_path)
     _, _, plan = publication_plan(make_closure(shape="dataset-production"))
-    reason = port.execute_fulfilling_guarded(plan, "ab" * 32, guard=lambda view: None, fallback=lambda r: ())
-    assert reason is None and port.fulfilling[-1][0] == list(plan)
+    commit = port.execute_fulfilling_guarded(plan, "ab" * 32, guard=lambda view: None, fallback=lambda r: ())
+    assert commit.reason is None and port.fulfilling[-1][0] == list(plan)
 
 
 def test_a_reason_publishes_the_fallback_and_returns_it(tmp_path):
     _, port = corpus(tmp_path)
     _, _, plan = publication_plan(make_closure(shape="dataset-production"))
     marker = [("fallback", ())]
-    reason = port.execute_fulfilling_guarded(
+    commit = port.execute_fulfilling_guarded(
         plan, "ab" * 32, guard=lambda view: "acquisition-boundary", fallback=lambda r: marker
     )
-    assert reason == "acquisition-boundary" and port.fulfilling[-1][0] == marker
+    assert commit.reason == "acquisition-boundary" and port.fulfilling[-1][0] == marker
 
 
 def test_a_pin_mismatch_under_the_lock_publishes_neither_plan(tmp_path):

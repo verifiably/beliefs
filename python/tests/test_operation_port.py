@@ -36,6 +36,7 @@ from beliefs.root import (
     init_store_root,
     open_corpus,
 )
+from beliefs.runrecord import GuardedCommit
 from beliefs.world.logmodel import RegisteredEntryView, WellFormedView
 from beliefs.world.records import RECORD_CEILING
 
@@ -332,6 +333,22 @@ class TestPreflightReadbackAndRecovery:
         digest = port.execute_fulfilling([CreateOp("proposition/p1.md", b"---\nid: proposition:p1\n---\n")], intent)
         (registration,) = _registrations(root)
         assert digest == registration.digest and registration.fulfills == intent
+
+    @pytest.mark.parametrize("reason", [None, "stale"])
+    def test_the_guarded_commit_returns_the_registration_digest_the_chain_holds(self, certified_work, reason):
+        root = certified_work
+        port = _registered_port(root)
+        intent = port.append_intent(PAYLOAD)
+        primary = [CreateOp("proposition/p1.md", b"---\nid: proposition:p1\n---\n")]
+        fallback = [CreateOp("act-report/" + "a" * 64 + ".md", b"refusal")]
+        commit = port.execute_fulfilling_guarded(
+            primary, intent, guard=lambda _view: reason, fallback=lambda _r: fallback
+        )
+        (registration,) = _registrations(root)
+        assert type(commit) is GuardedCommit
+        assert (commit.entry, commit.reason) == (registration.digest, reason) and registration.fulfills == intent
+        assert (root / primary[0].path).exists() is (reason is None)
+        assert (root / fallback[0].path).exists() is (reason is not None)
 
     def test_the_durable_factory_carries_recover_and_the_default_executor_does_not(self):
         from nodes.core.write_plan import DefaultExecutor

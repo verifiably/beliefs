@@ -10,16 +10,17 @@ from typing import Any
 
 import pytest
 from authority import FULL
-from fixtures_cut3 import run_assessment
+from fixtures_cut3 import run_assessment, run_production
 from holdings_transport_fixtures import Scripted, scripted_seam
-from nodes.core.frontmatter import node_to_markdown
+from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import CreateOp, DeleteOp
 from profiles import BASE, pins_for
 from test_boundary import _assessment
 from test_operation_writes import proposition
 from test_session_writer import DIGEST, make_session
 
-from beliefs.boundary import RunRefused
+from beliefs import root as science_root
+from beliefs.boundary import RunMinted, RunRefused
 from beliefs.corpus import _operation_lock_for
 from beliefs.errors import SessionProtocolError
 from beliefs.holdings.acquire import AcquisitionRequest, ResourceRequest
@@ -29,9 +30,11 @@ from beliefs.holdings.seam import FileStateView, PathObservedView, StoreActSeam,
 from beliefs.holdings.transport import RetrievalBounds
 from beliefs.permit import RequiredCapabilities
 from beliefs.report import PublishedObservation
-from beliefs.root import init_corpus_root, init_store_root, open_corpus
-from beliefs.session import open_attended_session, open_ledger_reader
+from beliefs.root import init_corpus_root, init_store_root, init_world_root, open_corpus
+from beliefs.runrecord import GuardedCommit
+from beliefs.session import open_attended_session, open_ledger_reader, reconcile_sessions
 from beliefs.session.routes import plan_records
+from beliefs.world.logmodel import RegisteredEntryView, WellFormedView
 from beliefs.world.registry import WorldConfig
 
 RUNS = RequiredCapabilities.for_kinds({"run", "act-report"}, {"run": "run", "act-report": "run"})
@@ -114,15 +117,183 @@ def test_execute_fulfilling_ledgers_an_act_with_the_plan_records(tmp_path):
     assert [kind for kind, _ in inner.calls] == ["append_intent", "execute_fulfilling"]
 
 
-def test_execute_and_the_guarded_form_are_refused_before_the_inner_port(tmp_path):
+def test_execute_is_refused_before_the_inner_port(tmp_path):
     _session, _writer, port, inner = _run_port(tmp_path)
     with pytest.raises(SessionProtocolError, match="fulfilling"):
         port.execute(_plan(proposition("p")))
-    with pytest.raises(SessionProtocolError, match="guarded"):
-        port.execute_fulfilling_guarded(
-            _plan(proposition("p")), INTENT, guard=lambda _v: None, fallback=lambda _reason: ()
-        )
     assert inner.calls == []
+
+
+# --- the guarded ledgered commit (sharing-doors design §2 decision 8, §4.6) ----------
+
+
+def test_the_guarded_form_ledgers_the_primary_plan_when_the_guard_passes(tmp_path):
+    session, _writer, port, inner = _run_port(tmp_path)
+    node = proposition("p")
+    fulfills = port.append_intent(b"intent")
+    commit = port.execute_fulfilling_guarded(_plan(node), fulfills, guard=lambda _v: None, fallback=lambda _r: ())
+    assert type(commit) is GuardedCommit
+    (act,) = session.invocation_acts("A")
+    assert commit.reason is None
+    assert (act.intent, act.entry, act.record_ids) == (fulfills, commit.entry, ((node.uid, node.id),))
+    assert inner.calls[-1] == ("execute_fulfilling", (_plan(node), fulfills))
+
+
+def test_the_guarded_form_ledgers_the_fallback_plan_when_the_guard_refuses(tmp_path):
+    session, _writer, port, inner = _run_port(tmp_path)
+    node, other = proposition("p"), proposition("q")
+    fulfills = port.append_intent(b"intent")
+    reasons: list[str] = []
+
+    def fallback(reason: str):
+        reasons.append(reason)
+        return _plan(other)
+
+    commit = port.execute_fulfilling_guarded(_plan(node), fulfills, guard=lambda _v: "stale", fallback=fallback)
+    (act,) = session.invocation_acts("A")
+    assert commit.reason == "stale" and reasons == ["stale"]
+    assert (act.intent, act.entry, act.record_ids) == (fulfills, commit.entry, ((other.uid, other.id),))
+    assert inner.calls[-1] == ("execute_fulfilling", (_plan(other), fulfills))
+
+
+def test_a_non_current_invocation_refuses_the_guarded_form_before_the_inner_port(tmp_path):
+    session, _writer, port, inner = _run_port(tmp_path)
+    session.close_invocation("A", {"done": []})
+    guarded: list[object] = []
+    with pytest.raises(SessionProtocolError, match="current invocation"):
+        port.execute_fulfilling_guarded(
+            _plan(proposition("p")), INTENT, guard=lambda view: guarded.append(view), fallback=lambda _r: ()
+        )
+    assert inner.calls == [] and guarded == []
+    assert session.invocation_acts("A") == ()
+
+
+def test_a_non_create_primary_plan_is_refused_before_the_inner_port(tmp_path):
+    session, _writer, port, inner = _run_port(tmp_path)
+    guarded: list[object] = []
+    with pytest.raises(SessionProtocolError, match="creates only"):
+        port.execute_fulfilling_guarded(
+            (DeleteOp("x.md", expected_digest="a" * 64),),
+            INTENT,
+            guard=lambda view: guarded.append(view),
+            fallback=lambda _r: (),
+        )
+    assert inner.calls == [] and guarded == []
+    assert session.invocation_acts("A") == () and session.current_invocation == "A"
+
+
+def test_a_non_create_fallback_plan_is_refused_before_it_commits(tmp_path):
+    session, _writer, port, inner = _run_port(tmp_path)
+    fulfills = port.append_intent(b"intent")
+    with pytest.raises(SessionProtocolError, match="creates only"):
+        port.execute_fulfilling_guarded(
+            _plan(proposition("p")),
+            fulfills,
+            guard=lambda _v: "r",
+            fallback=lambda _r: [DeleteOp("x.md", expected_digest="a" * 64)],
+        )
+    assert "execute_fulfilling" not in [kind for kind, _ in inner.calls]
+    assert session.invocation_acts("A") == () and session.current_invocation == "A"
+
+
+def test_a_raising_guard_commits_and_ledgers_nothing(tmp_path):
+    session, _writer, port, inner = _run_port(tmp_path)
+    fulfills = port.append_intent(b"intent")
+
+    def guard(_view):
+        raise RuntimeError("the guard failed")
+
+    with pytest.raises(RuntimeError, match="the guard failed"):
+        port.execute_fulfilling_guarded(_plan(proposition("p")), fulfills, guard=guard, fallback=lambda _r: ())
+    assert "execute_fulfilling" not in [kind for kind, _ in inner.calls]
+    assert session.invocation_acts("A") == () and session.current_invocation == "A"
+
+
+def durable_session(work: Path):
+    """A durable attended session over one adopted corpus root, invocation "A"
+    claimed and scoped to RUNS, and its ledgered operation port."""
+    root = work / "corpus"
+    init_corpus_root(root, authority=FULL)
+    open_corpus(root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
+    config = WorldConfig(work / "world", "e" * 32, (root,))
+    init_world_root(config, authority=FULL)
+    session = open_attended_session(config, work / "ops", write_root=root, profile=BASE, mounts={root: BASE})
+    session.claim_invocation("A", "run", DIGEST)
+    writer = session.scoped(RUNS, "A")
+    return session, writer, writer.operation_port()
+
+
+def _registrations(root: Path) -> list[RegisteredEntryView]:
+    view = science_root.log_seam().inspect_detached(root)
+    assert type(view) is WellFormedView
+    return [entry for entry in view.entries if type(entry) is RegisteredEntryView]
+
+
+def _registered(root: Path, fulfills: str) -> list[RegisteredEntryView]:
+    return [entry for entry in _registrations(root) if entry.fulfills == fulfills]
+
+
+def _record_path(root: Path, node) -> Path:
+    return root / node.kind / f"{node.id.split(':', 1)[1]}.md"
+
+
+def test_a_production_run_through_the_session_port_commits_and_ledgers(certified_work):
+    session, _writer, port = durable_session(certified_work)
+    root = session.corpus_root
+    result = run_production(certified_work / "work", port=port)
+    assert type(result) is RunMinted
+    registrations = [entry for entry in _registrations(root) if entry.fulfills is not None]
+    (act,) = session.invocation_acts("A")
+    assert [(r.digest, r.fulfills) for r in registrations] == [(act.entry, act.intent)]
+    node = node_from_markdown((root / "run" / f"{result.run.address()}.md").read_text())
+    assert act.record_ids == ((node.uid, node.id),)
+    session.close_invocation("A", {"done": [list(pair) for pair in act.record_ids]})
+    session.close()
+    config = WorldConfig(certified_work / "world", "e" * 32, (root,))
+    assert reconcile_sessions(config, certified_work / "ops") == ()
+
+
+def test_the_ledgered_guarded_commit_over_the_durable_port_ledgers_the_primary_plan(certified_work):
+    session, _writer, port = durable_session(certified_work)
+    root = session.corpus_root
+    node = proposition("p")
+    fulfills = port.append_intent(b"intent")
+    commit = port.execute_fulfilling_guarded(_plan(node), fulfills, guard=lambda _v: None, fallback=lambda _r: ())
+    assert [entry.digest for entry in _registered(root, fulfills)] == [commit.entry] and commit.reason is None
+    (act,) = session.invocation_acts("A")
+    assert (act.entry, act.intent, act.record_ids) == (commit.entry, fulfills, ((node.uid, node.id),))
+    assert _record_path(root, node).exists()
+
+
+def test_the_ledgered_guarded_commit_over_the_durable_port_ledgers_the_fallback_plan(certified_work):
+    session, _writer, port = durable_session(certified_work)
+    root = session.corpus_root
+    node, other = proposition("p"), proposition("q")
+    fulfills = port.append_intent(b"intent")
+    commit = port.execute_fulfilling_guarded(
+        _plan(node), fulfills, guard=lambda _v: "stale", fallback=lambda _r: _plan(other)
+    )
+    assert [entry.digest for entry in _registered(root, fulfills)] == [commit.entry] and commit.reason == "stale"
+    (act,) = session.invocation_acts("A")
+    assert (act.entry, act.intent, act.record_ids) == (commit.entry, fulfills, ((other.uid, other.id),))
+    assert _record_path(root, other).exists() and not _record_path(root, node).exists()
+
+
+def test_an_invalid_fallback_over_the_durable_port_commits_registers_and_ledgers_nothing(certified_work):
+    session, _writer, port = durable_session(certified_work)
+    root = session.corpus_root
+    node = proposition("p")
+    fulfills = port.append_intent(b"intent")
+    with pytest.raises(SessionProtocolError, match="creates only"):
+        port.execute_fulfilling_guarded(
+            _plan(node),
+            fulfills,
+            guard=lambda _v: "stale",
+            fallback=lambda _r: [DeleteOp(f"{node.kind}/x.md", expected_digest="a" * 64)],
+        )
+    assert _registered(root, fulfills) == []
+    assert not _record_path(root, node).exists() and not (root / node.kind / "x.md").exists()
+    assert session.invocation_acts("A") == () and session.current_invocation == "A"
 
 
 def test_a_non_create_plan_is_refused_before_the_inner_port(tmp_path):
