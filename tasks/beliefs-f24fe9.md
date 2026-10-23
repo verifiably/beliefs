@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T10:15:58Z
+updated: 2026-10-23T10:17:51Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
@@ -62,3 +62,5 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 - 2026-10-23T10:15:56Z (feat/f24fe9-session-doors): Plan approved for execution at ddcb955 (status line added at cfe3bc2). Execution handoff: a fresh session in .worktrees/f24fe9-session-doors runs the deferred full-suite baseline first (just test; record the command and the pytest summary count on the task), then superpowers:subagent-driven-development from Task 1 (beliefs-5ef652) through Task 8 (beliefs-c8317e), sequential, every implementer and reviewer dispatched foreground-only (600000 ms, one turn) carrying the plan's Global Constraints.
 - 2026-10-23T10:15:58Z (feat/f24fe9-session-doors): parked (waiting on agent, session): In .worktrees/f24fe9-session-doors (branch feat/f24fe9-session-doors, plan at cfe3bc2): tasks start beliefs-f24fe9; run the deferred full-suite baseline with just test and note the command and summary count; then invoke superpowers:subagent-driven-development on docs/superpowers/plans/2026-10-23-session-sharing-and-publish-doors.md from Task 1 (beliefs-5ef652), sequential and foreground-only dispatches.
   provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-23T10:17:51Z (feat/f24fe9-session-doors): resumed
+  provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
