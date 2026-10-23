@@ -43,6 +43,7 @@ from beliefs.session.ledger import (
     SharingLine,
     require_hex,
     require_invocation_id,
+    require_utf8,
     utc_now,
     validated_outcome,
 )
@@ -389,6 +390,7 @@ class WriterSession:
             raise ValueError(f"transition must be one of {list(TRANSITIONS)}: {transition!r}")
         if type(verdict) is not str or not verdict:
             raise ValueError("verdict must be a non-empty string")
+        require_utf8(verdict, "verdict")
         with self._lock:
             self._require_live()
             self._require_current(invocation)

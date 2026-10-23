@@ -3,6 +3,7 @@ reader's refusals, the torn tail, and the terminal LedgerFailed state."""
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Mapping
 
@@ -696,6 +697,35 @@ def test_sharing_evidence_validates_each_field():
             SharingEvidence(**{**good, field: value})
     with pytest.raises(TypeError, match="source"):
         SharingEvidence(**{**good, "source": 3})
+
+
+@pytest.mark.parametrize("field", ["source", "location"])
+def test_sharing_evidence_refuses_text_that_cannot_encode_as_utf8(field):
+    """An isolated surrogate is a `str` the ledger cannot encode; the evidence
+    refuses it at construction, before any door can act on it."""
+    good = {
+        "corpus": CORPUS,
+        "marker": "5" * 32,
+        "artifact": "6" * 64,
+        "world": WORLD,
+        "view": VIEW,
+        "source": "provider:https://remote.test/a",
+        "location": "https://remote.test/a",
+    }
+    with pytest.raises(ValueError, match=f"{field} must encode as UTF-8"):
+        SharingEvidence(**{**good, field: "copy-\udcff"})
+
+
+@pytest.mark.parametrize("field", ["source", "location", "verdict"])
+def test_a_sharing_line_holding_an_escaped_surrogate_is_refused(tmp_path, field):
+    """A hand-written ledger can escape a surrogate the writer never emits;
+    the reader holds the line to the same encodability rule."""
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    escaped = json.dumps(sharing("A", **{field: "copy-\udcff"}), sort_keys=True, separators=(",", ":"))
+    path.write_bytes(ledger_bytes(open_line(), invocation_open("A")) + escaped.encode("ascii") + b"\n")
+    with pytest.raises(LedgerMalformed, match=f"line 3.*{field} must encode as UTF-8"):
+        open_ledger_reader(tmp_path, SESSION)
 
 
 def test_line_kinds_gains_sharing():

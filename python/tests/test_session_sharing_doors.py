@@ -241,6 +241,26 @@ def test_mismatched_evidence_refuses_naming_the_field_before_the_act(certified_w
     assert x.session.invocation_sharing("A") == ()
 
 
+@pytest.mark.parametrize("door", ["restore_root", "admit_publication"])
+@pytest.mark.parametrize("field", ["source", "location"])
+def test_evidence_that_cannot_encode_refuses_before_either_door_acts(certified_work, field, door):
+    """The ledger encodes a line only after the act; evidence it could not
+    encode would leave a transition with no line. The evidence refuses first,
+    so neither door is reached and the copy, the registry and the ledger
+    are untouched."""
+    x = shared(certified_work)
+    before = (tree(x.copy), admissions(x))
+    with pytest.raises(ValueError, match=f"{field} must encode as UTF-8"):
+        evidence = dataclasses.replace(x.evidence, **{field: "copy-\udcff"})
+        if door == "restore_root":
+            x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=evidence)
+        else:
+            x.writer.admit_publication(x.copy, x.observers, evidence=evidence)
+    assert read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
+    assert (tree(x.copy), admissions(x)) == before
+    assert x.session.invocation_sharing("A") == ()
+
+
 def test_a_subject_naming_another_corpus_refuses_on_the_corpus_field(certified_work):
     x = shared(certified_work)
     with pytest.raises(SharingEvidenceDisagrees) as caught:
