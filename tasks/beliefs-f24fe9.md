@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T13:33:07Z
+updated: 2026-10-23T14:24:18Z
 started: 2026-10-23T01:11:23Z
 completed: 2026-10-23T13:33:07Z
 closed: 2026-10-23T13:33:07Z
@@ -74,3 +74,4 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
   provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-23T13:33:07Z (main): session sharing and publish doors merged at b923277; full suite green on merged main
   provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-23T14:24:18Z (main): review: impl round 3 — verdict: revise; findings: must-fix 1; reviewer: codex/gpt-6.1-sol
