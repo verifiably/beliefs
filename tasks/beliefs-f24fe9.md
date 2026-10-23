@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T01:43:31Z
+updated: 2026-10-23T01:52:31Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
@@ -30,4 +30,6 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 - 2026-10-23T01:31:01Z (feat/f24fe9-session-doors): Design draft at docs/superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md (worktree .worktrees/f24fe9-session-doors). Rulings: resume keeps the intent's-actor rule (cut 40 decision 9) and a successor-actor resume is follow-up work, so a stranded remote attempt blocks its pair until then; publication_preview raises closure-incomplete like the act rather than returning closure_missing; the sharing act doors are named restore_root and admit_publication, SharingEvidence carries the seven pin facts and the doors determine transition and verdict; the ledgered port learns the guarded commit via a GuardedCommit return; no conformance cut, as the selection amendment.
 - 2026-10-23T01:43:29Z (feat/f24fe9-session-doors): Builder check (claude-code/claude-fable-5-1 subagent) on the draft: two false claims fixed (the marker's view may be subordinate, so the sharing line admits any pinned view address; execute_fulfilling_guarded has a second caller, execute_production_run, which becomes ledgered through a session port, now stated and tested); four questions settled in the spec (view form; production-run consequence accepted; profile-disagrees moves behind the attribution refusals, stated; both act doors require their family up front). Spec frozen at 2b7549d on feat/f24fe9-session-doors.
 - 2026-10-23T01:43:31Z (feat/f24fe9-session-doors): parked (waiting on user, review): Review docs/superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md at 2b7549d (branch feat/f24fe9-session-doors, .worktrees/f24fe9-session-doors). On approval: tasks start there, invoke superpowers:writing-plans for the implementation plan, then run the deferred full-suite baseline (just test) at execution's Setup before the first code change.
+  provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-23T01:52:31Z (feat/f24fe9-session-doors): resumed
   provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
