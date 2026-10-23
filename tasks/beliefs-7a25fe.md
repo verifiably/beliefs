@@ -1,13 +1,15 @@
 ---
 id: beliefs-7a25fe
 title: Reject sharing evidence that cannot encode as UTF-8 before either sharing door acts
-status: todo
+status: doing
 priority: 1
 size: xs
 complexity: low
 process: direct
+owner: fix/7a25fe-sharing-encoding
 created: 2026-10-23T14:24:20Z
-updated: 2026-10-23T14:24:23Z
+updated: 2026-10-23T14:24:42Z
+started: 2026-10-23T14:24:42Z
 depends: []
 tags: [publication]
 agent: claude-code
@@ -18,3 +20,5 @@ SharingEvidence accepts source or location holding an isolated surrogate (e.g. "
 ## Notes
 
 - 2026-10-23T14:24:23Z (main): concerns: beliefs-f24fe9 defect — sharing doors act before discovering that the evidence cannot be encoded into the ledger line
+- 2026-10-23T14:24:42Z (fix/7a25fe-sharing-encoding): started
+  provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
