@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T13:23:05Z
+updated: 2026-10-23T13:33:04Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
@@ -67,3 +67,4 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 - 2026-10-23T10:22:26Z (feat/f24fe9-session-doors): baseline: just test at 0e9fbfb — non-N2 6123 passed, 1 skipped; N2 46 passed; TypeScript 155 passed (7 files); exit 0
 - 2026-10-23T13:16:46Z (feat/f24fe9-session-doors): review: impl round 1 — verdict: revise; findings: Important 1, Minor 5; reviewer: claude-code/claude-opus-5-5
 - 2026-10-23T13:23:05Z (feat/f24fe9-session-doors): review: impl round 2 — verdict: accept; findings: none; reviewer: claude-code/claude-sonnet-5-5
+- 2026-10-23T13:33:04Z (main): merged to main at b923277; just test on the merged tree: non-N2 6222 passed, 1 skipped; N2 46 passed; TypeScript 155 passed. Deferred minors filed as beliefs-9f83f7; execution ledger docs/plans/2026-10-23-session-doors-execution-ledger.md
