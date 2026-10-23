@@ -1326,7 +1326,12 @@ that names either family or compiles to that permit still refuses;
 `SharingEvidence(corpus, marker, artifact, world, view, source, location)` is the
 seven facts a caller knows before an act; `SharingLine` adds `invocation`,
 `verdict`, `transition` and `at` in the ledger's field order, and
-`InvocationRecord.sharing` holds an invocation's lines. A line is appended by the
+`InvocationRecord.sharing` holds an invocation's lines. `source` and `location`
+must encode as UTF-8, checked when the evidence is constructed, and so is
+`record_sharing`'s `verdict`, checked before its append: a line is encoded only after
+its act, so text holding an isolated surrogate would otherwise leave a transition
+with no line (beliefs-7a25fe); the reader holds a written line to the same rule. A
+line is appended by the
 invocation that made the transition, under the session lock, after the act; the
 index learns it after the append returns, and a failed append is §3.2's terminal
 `LedgerFailed` state. `WriterSession.invocation_sharing(invocation_id)` reads the

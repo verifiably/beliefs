@@ -1082,6 +1082,16 @@ def test_record_sharing_refuses_an_empty_verdict(tmp_path):
         session.scoped(SHARING, "A").record_sharing(EVIDENCE, transition="bound", verdict="")
 
 
+def test_record_sharing_refuses_a_verdict_that_cannot_encode_as_utf8(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "bind", DIGEST)
+    before = ledger_file(session).read_bytes()
+    with pytest.raises(ValueError, match="verdict must encode as UTF-8"):
+        session.scoped(SHARING, "A").record_sharing(EVIDENCE, transition="bound", verdict="ok-\udcff")
+    assert session.invocation_sharing("A") == ()
+    assert ledger_file(session).read_bytes() == before
+
+
 @pytest.mark.parametrize("fault", ["write", "flush", "fsync"])
 def test_a_failed_sharing_append_leaves_the_index_unchanged_and_ends_the_session(tmp_path, monkeypatch, fault):
     session, _ = make_session(tmp_path)

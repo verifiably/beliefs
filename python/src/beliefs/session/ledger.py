@@ -41,6 +41,7 @@ __all__ = [
     "require_invocation_id",
     "require_selection",
     "require_sharing_view",
+    "require_utf8",
     "utc_now",
     "validated_outcome",
 ]
@@ -106,6 +107,16 @@ def require_sharing_view(value: object, what: str) -> CoordinationAddress:
 def _require_str(value: object, what: str) -> str:
     if type(value) is not str or not value:
         raise ValueError(f"{what} must be a non-empty string")
+    return value
+
+
+def require_utf8(value: str, what: str) -> str:
+    """A `str` can hold an isolated surrogate the ledger's UTF-8 line cannot
+    encode; such text is refused where it enters, never at the append."""
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as caught:
+        raise ValueError(f"{what} must encode as UTF-8: {value!r}") from caught
     return value
 
 
@@ -183,7 +194,8 @@ class SharingEvidence:
         require_sharing_view(self.view, "view")
         if type(self.source) is not str:
             raise TypeError("source must be a string")
-        _require_str(self.location, "location")
+        require_utf8(self.source, "source")
+        require_utf8(_require_str(self.location, "location"), "location")
 
 
 @sealed
@@ -327,8 +339,9 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
             require_sharing_view(line["view"], "view")
             if type(line["source"]) is not str:
                 raise ValueError("source must be a string")
-            _require_str(line["location"], "location")
-            _require_str(line["verdict"], "verdict")
+            require_utf8(line["source"], "source")
+            require_utf8(_require_str(line["location"], "location"), "location")
+            require_utf8(_require_str(line["verdict"], "verdict"), "verdict")
             if line["transition"] not in TRANSITIONS:
                 raise ValueError(f"transition must be one of {list(TRANSITIONS)}: {line['transition']!r}")
             _require_str(line["at"], "at")
