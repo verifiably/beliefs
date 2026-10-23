@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md` (approved for planning 2026-10-23 at `f2d75d6`).
 
-**Revision:** 2026-10-23, after plan review round 1 (unrestored admission, the durable composition proof, the `J7b` and `Y6-a` probe migrations, the stale-writer fixtures, Review Focus 4, the guarded-publication assertions, the fixture's `resolver`).
+**Revision:** 2026-10-23, after plan review round 1 (unrestored admission, the durable composition proof, the `J7b` and `Y6-a` probe migrations, the stale-writer fixtures, Review Focus 4, the guarded-publication assertions, the fixture's `resolver`) and round 2 (`Y6-a` re-evaluates the selection after the intent; the one-arm audits are selectable tests through `just test-one`).
 
 ## Global Constraints
 
@@ -257,11 +257,20 @@ def test_an_invalid_fallback_over_the_durable_port_commits_registers_and_ledgers
 
 Two existing assertions migrate: `test_guarded_publication.py:26-37` read the bare value from `OperationRecorder` and now read `.reason` (`commit.reason is None`, `commit.reason == "acquisition-boundary"`).
 
-Cut 11's live probe `J7b` (`tests/acceptance/test_n2_cut11.py:39-47`, in its `_LIVE_SABOTAGES`) anchors on the three `boundary.py:1132-1134` lines this task changes. Re-target its `before` to the formatted text after the change (the call now ends `).reason`), keep its `after` (`port.execute(plan)` then `reason = None`), and leave the frozen declaration `n2_arms_cut11.py` untouched. Verify both halves: `just test-one tests/test_arm_staleness.py` (the `before` matches exactly once), and the arm's own behaviour by running `audit(arm, workspace)` from `test_n2.py` for that one arm (from `python/`, with `tests/` and `tests/acceptance/` on `sys.path`, under `host-budget run --`), expecting the finding `test_every_arm_fails_under_its_own_sabotage` asserts for a live arm.
+Cut 11's live probe `J7b` (`tests/acceptance/test_n2_cut11.py:39-47`, in its `_LIVE_SABOTAGES`) anchors on the three `boundary.py:1132-1134` lines this task changes. Re-target its `before` to the formatted text after the change (the call now ends `).reason`), keep its `after` (`port.execute(plan)` then `reason = None`), and leave the frozen declaration `n2_arms_cut11.py` untouched. Verify both halves through the test front door: `just test-one tests/test_arm_staleness.py` (the `before` matches exactly once), and a new selectable test in `tests/acceptance/test_n2_cut11.py`:
+
+```python
+def test_the_retargeted_j7b_arm_is_sound_alone(tmp_path):
+    (arm,) = [arm for arm in CUT11_ARMS if arm.row == "J7b"]
+    finding = audit(arm, tmp_path / "j7b")
+    assert finding.verdict == "sound", finding.detail
+```
+
+run as `just test-one tests/acceptance/test_n2_cut11.py -k j7b` (the recipe supplies the host budget and the timing route). The module's `findings` fixture and `test_every_arm_fails_under_its_own_sabotage` stay as they are.
 
 - [ ] **Step 2: Run**: `just test-one tests/test_session_routes.py tests/test_operation_port.py -k guarded` — FAIL.
 - [ ] **Step 3: Implement**: `GuardedCommit` and the protocol in `runrecord.py`; `root.py` returns it; `routes.py` per the Interfaces block (drop the `SessionProtocolError("... guarded ...")`); `publication_doors.py` `reason = operation_port.execute_fulfilling_guarded(...).reason`; `boundary.py:1132` likewise; every double returns `GuardedCommit(self.execute_fulfilling(...)/synthetic digest, reason)`; `test_permit_boundary.py` route exemptions gain the ledgered guarded form; `test_guarded_publication.py`'s two assertions and cut 11's `J7b` live matcher as Step 1 says.
-- [ ] **Step 4: Run** `just test-one tests/test_session_routes.py tests/test_operation_port.py tests/test_guarded_publication.py tests/test_publication_doors.py tests/test_boundary.py tests/test_permit_boundary.py tests/test_permit_entry_points.py tests/test_corpus_write.py tests/test_import_bundle.py tests/test_relocation_recovery.py tests/test_arm_staleness.py` — PASS; the one-arm `J7b` audit as Step 1 says; `just check` (pyright sees the protocol change).
+- [ ] **Step 4: Run** `just test-one tests/test_session_routes.py tests/test_operation_port.py tests/test_guarded_publication.py tests/test_publication_doors.py tests/test_boundary.py tests/test_permit_boundary.py tests/test_permit_entry_points.py tests/test_corpus_write.py tests/test_import_bundle.py tests/test_relocation_recovery.py tests/test_arm_staleness.py` — PASS; `just test-one tests/acceptance/test_n2_cut11.py -k j7b` — PASS; `just check` (pyright sees the protocol change).
 - [ ] **Step 5: `just test-fast`; commit** `feat(session): the ledgered port commits the guarded form and returns GuardedCommit`.
 
 ---
@@ -343,8 +352,17 @@ In `test_publish.py`, add `test_profile_disagrees_follows_the_preview(monkeypatc
 - [ ] **Step 2: Run**: `just test-one tests/test_session_publish_door.py tests/test_publish.py -k "preview or require_publishes or follows"` — FAIL.
 - [ ] **Step 3: Implement** per the Interfaces block. Keep every private step function name (`_initialize`, `_populate`, ... are monkeypatched by the acceptance tests).
 
-Cut 40's live probe `Y6-a` (`tests/acceptance/test_n2_cut40.py:68-80`, in its `_LIVE_SABOTAGES`) anchors on `"    )\n    token = opened.intent.event_token\n"` and its `after` recomputes a local `records` from `query`, which step 0 no longer holds. Re-target it, leaving `n2_arms_cut40.py` frozen: `before` becomes the formatted `token = opened.intent.event_token` line (with the line that precedes it after the hold block), and `after` inserts, before that line, `records = tuple((address, node_to_markdown(open_world_view(world, current_epoch(world)).get(address))) for address in preview.selected)` — the same proof, the texts reselected after the intent from a fresh view, now from the preview's addresses. Verify as Task 4 does for `J7b`: `just test-one tests/test_arm_staleness.py`, and the one-arm `audit` under `host-budget run --`, expecting the live-arm finding.
-- [ ] **Step 4: Run** `just test-one tests/test_publish.py tests/test_publication_attribution.py tests/test_publish_request.py tests/test_publish_intent.py tests/test_session_publish_door.py tests/test_permit_boundary.py tests/test_arm_staleness.py` — PASS; the one-arm `Y6-a` audit as Step 3 says. Then, because the acceptance modules are outside `addopts`, run `just test-one tests/acceptance/test_publish_act_acceptance.py tests/acceptance/test_publish_remote_acceptance.py tests/acceptance/test_publication_attribution_acceptance.py` once — PASS (they pin the act's refusals and crash points).
+Cut 40's live probe `Y6-a` (`tests/acceptance/test_n2_cut40.py:68-80`, in its `_LIVE_SABOTAGES`) anchors on `"    )\n    token = opened.intent.event_token\n"` and its `after` recomputes a local `records` from `query`, which step 0 no longer holds. Re-target it, leaving `n2_arms_cut40.py` frozen: `before` becomes the formatted `token = opened.intent.event_token` line (with the line that precedes it after the hold block), and `after` inserts, before that line, `records = publication_preview(world, resolver, view, own_pins=load_manifest(writer.root).profile).records` — the selection re-evaluated after the intent. The arm's test (`test_y6_a_...`, `test_publish_act_acceptance.py:367`) drifts the world after the intent and expects the crash it injected; only `evaluate_query` refuses `corpus-drifted`, so a sabotage that re-reads the already selected addresses with `.get()` would still pass and score `vacuous`. Under this sabotage the second preview raises `SelectionRefused("corpus-drifted")` in place of the crash, which is the failure the row proves. Verify through the test front door as Task 4 does for `J7b`: `just test-one tests/test_arm_staleness.py`, and a new selectable test in `tests/acceptance/test_n2_cut40.py`:
+
+```python
+def test_the_retargeted_y6_a_arm_is_sound_alone(tmp_path):
+    (arm,) = [arm for arm in CUT40_ARMS if arm.row == "Y6-a"]
+    finding = audit(arm, tmp_path / "y6a")
+    assert finding.verdict == "sound", finding.detail
+```
+
+run as `just test-one tests/acceptance/test_n2_cut40.py -k y6_a`; then confirm the failure mode once by applying the `after` text to a scratch copy of `publish.py` and running the arm's test, expecting `SelectionRefused` with reason `corpus-drifted` where `Crash` was expected.
+- [ ] **Step 4: Run** `just test-one tests/test_publish.py tests/test_publication_attribution.py tests/test_publish_request.py tests/test_publish_intent.py tests/test_session_publish_door.py tests/test_permit_boundary.py tests/test_arm_staleness.py` — PASS; `just test-one tests/acceptance/test_n2_cut40.py -k y6_a` — PASS, and the corpus-drifted confirmation of Step 3. Then, because the acceptance modules are outside `addopts`, run `just test-one tests/acceptance/test_publish_act_acceptance.py tests/acceptance/test_publish_remote_acceptance.py tests/acceptance/test_publication_attribution_acceptance.py` once — PASS (they pin the act's refusals and crash points).
 - [ ] **Step 5: `just test-fast`; commit** `feat(publish): publication_preview as step 0's one computation; hold at the intent; require_publishes`.
 
 ---
