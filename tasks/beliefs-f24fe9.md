@@ -1,15 +1,17 @@
 ---
 id: beliefs-f24fe9
 title: Session doors and ledger evidence for the publish and sharing acts (science commons 1a)
-status: doing
+status: done
 priority: 1
 size: m
 complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T13:33:04Z
+updated: 2026-10-23T13:33:07Z
 started: 2026-10-23T01:11:23Z
+completed: 2026-10-23T13:33:07Z
+closed: 2026-10-23T13:33:07Z
 depends: []
 tags: [publication]
 source: sci-13050a
@@ -68,3 +70,7 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 - 2026-10-23T13:16:46Z (feat/f24fe9-session-doors): review: impl round 1 — verdict: revise; findings: Important 1, Minor 5; reviewer: claude-code/claude-opus-5-5
 - 2026-10-23T13:23:05Z (feat/f24fe9-session-doors): review: impl round 2 — verdict: accept; findings: none; reviewer: claude-code/claude-sonnet-5-5
 - 2026-10-23T13:33:04Z (main): merged to main at b923277; just test on the merged tree: non-N2 6222 passed, 1 skipped; N2 46 passed; TypeScript 155 passed. Deferred minors filed as beliefs-9f83f7; execution ledger docs/plans/2026-10-23-session-doors-execution-ledger.md
+- 2026-10-23T13:33:07Z (main): done
+  provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-23T13:33:07Z (main): session sharing and publish doors merged at b923277; full suite green on merged main
+  provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
