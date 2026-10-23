@@ -1,6 +1,8 @@
 # Session doors and ledger evidence for the publish and sharing acts — design
 
-**Status:** draft for review, 2026-10-22. **Task:** `beliefs-f24fe9`.
+**Status:** draft for review, 2026-10-22; revised the same day after review round 1
+(the door entry checks, the evidence binding, and the guarded port's record order).
+**Task:** `beliefs-f24fe9`.
 **Requested by:** science's commons design
 (`science docs/specs/2026-09-30-science-commons-design.md` §5, §7.4, §11), the command
 framework's §3.3 and §4.4 amendments of 2026-10-01, and science's milestone 1a plan
@@ -87,6 +89,31 @@ does not have.
    `record_sharing(evidence, *, transition, verdict)` admits only `bound` and `mounted`:
    `fetched` and `admitted` are act-backed and come only from their doors, and
    `retired` is backed by `World.retire`, whose door is milestone 1b's (§8).
+
+   **Which facts a door verifies, and which it takes on attestation.** The two act
+   doors bind the evidence to the root they act on before any effect, and refuse
+   `SharingEvidenceDisagrees(field, claimed, found)` (a `WriteRefused`) on the first
+   disagreement, in this order:
+   - `corpus` equals the subject's corpus id (`restore_root`) and the root's manifest
+     corpus id (both doors; the copy's `corpus.yaml` is readable before any grant);
+   - `artifact` equals the sha256 of the canonical bytes of one carrier in `observers`
+     whose decoded head artifact's subject is `CorpusSubject(corpus)` — the identity
+     the binding and the transport mark already record (`ArtifactCarrier.data` retains
+     the bytes);
+   - `marker`, `world` and `view` equal the root's own marker: the door reads the root's
+     records, requires the publication layout (`require_publication_layout`, which
+     `admit_publication` already runs and which the restore door now runs first,
+     refusing `PublicationArrivalRefused` before the act when the layout is wrong),
+     and compares the marker's `uid` and its `published_from` `world_id` and `view`.
+   `source` and `location` are the caller's attestations: the kernel holds no record
+   of where bytes came from or which binding sourced them. A `record_sharing` line
+   (`bound`, `mounted`) is attestation in every field; its truth is science's
+   ledger-versus-registry comparison to establish (decision 11).
+   *Rejected:* taking the evidence on trust in the act doors. Well-formed evidence
+   naming publication B beside publication A's root would admit A and ledger B, and
+   replay would rebuild a pin the act never established. *Also rejected:* verifying
+   `marker`, `world` and `view` only after a validated restore. A disagreement found
+   after the grant would leave a transition with no line.
    *Rejected:* one evidence value carrying all nine fields into every door. A caller
    cannot know an act's verdict before the act, and a door that overwrote a supplied
    verdict would be defensive where it should be explicit.
@@ -102,9 +129,12 @@ does not have.
    its grant, which a refusing evaluation never reaches; `admit_arrival` requires at
    the admission core, after the layout and chain checks), so without the door's own
    check a writer scoped to less would ledger a refusing verdict, or fail a layout
-   check, in place of `PermitExceeded`. Both hold the session lock across the act and the line, exactly as `_act`
-   does, so a close or re-claim cannot fall between a committed transition and its
-   line. The lock order stays session, then the act's own locks (the copy's root, the
+   check, in place of `PermitExceeded`. Each door's order is: the session lock;
+   liveness and currency (`SessionProtocolError` for a stale, abandoned or closed
+   writer, before any read of the copy); the family check; the evidence binding of
+   decision 4; the act; the line; release. Both hold the session lock across the act
+   and the line, exactly as `_act` does, so a close or re-claim cannot fall between a
+   committed transition and its line. The lock order stays session, then the act's own locks (the copy's root, the
    world root); nothing takes either before the session lock.
    *Rejected:* a door that takes a caller-opened `World`. The caller holds no authority
    to open one with, and a `World` opened under another authority would stamp another
@@ -127,8 +157,21 @@ does not have.
    without one refuses `CoordinationUnavailable`), a `World` opened under the scoped
    authority (decision 6), this invocation's ledgered operation port, the ledger's UTC
    clock, the production moment seam, and the caller's transport. The acts' own permit
-   checks run unchanged, so a writer scoped to anything less than `publishes()` refuses
-   `PermitExceeded` before any effect. The door ledgers what reaches the write root
+   checks run unchanged. Before delegating, each door takes the session lock and
+   requires liveness and currency, then requires the publication permit of the scoped
+   authority — `publish.require_publishes(authority)`, the act's own check made public
+   — and only then opens the world, because `open_world` resolves recovery on the
+   world root before the act's check would run; the lock is released before the act
+   runs. A stale writer therefore refuses `SessionProtocolError` before it can touch
+   the operations root, and `resume_publish` in particular cannot reach
+   `transport.push` (which `_resume_from_mark` runs before any port call) or discard a
+   completed attempt's operation directory (which the closed-and-bound path does
+   without the port) under an invocation that is no longer current. What remains is
+   the window every route has between a check and its next ledgered write: an
+   invocation closed by another thread after the entry check and before the port is
+   reached is refused at the port, after any upload that step 7 made in between, and
+   the attempt stays `unfinished` with its mark, exactly as a crash there would leave
+   it. The door ledgers what reaches the write root
    through the port — the refusal report, or the binding revision with its report — as
    `act` lines, and nothing from the staging root, the export, or the publication
    corpus: those are not the session's corpus, and science's ledger-rebuilt report
@@ -140,8 +183,13 @@ does not have.
    returns `GuardedCommit(entry: str, reason: str | None)`: the registration digest read
    back from the chain, as `execute_fulfilling` already reads it, and the guard's reason
    when the fallback plan committed. `LedgeredPort` implements it under the session
-   lock: currency, the inner commit with a fallback wrapped to remember the plan it
-   returned, then one `act` line whose records are read from whichever plan committed.
+   lock: currency; the primary plan's records read and validated by `plan_records`
+   before delegation, as `execute_fulfilling` does; the inner commit with the fallback
+   wrapped so that the records of the plan it returns are read and validated before
+   the plan reaches the durable port; then one `act` line carrying the records of
+   whichever plan committed. A plan the route refuses (a non-create operation,
+   record bytes that do not parse) is refused before any commit on either branch,
+   never after it.
    The two production callers read `.reason` where they read the bare value:
    `_bind_publication`, and `execute_production_run` (`boundary.py`, the acquisition
    guard). The second is a consequence this design accepts: a production run through a
@@ -309,21 +357,38 @@ def resume_publish(self, *, event_token: str, operations_root: Path, staging_pro
   `PermitExceeded` naming the first missing family), and refuses a `transition` outside
   `bound` and `mounted` with `ValueError`. It appends under the session lock and
   returns the line.
-- `restore_root` and `admit_publication` take the session lock, check currency, run the
-  act, append the line and return it. `restore_root`'s verdict is the report's
+- `restore_root` and `admit_publication` take the session lock, check liveness and
+  currency, require their family, bind the evidence (decision 4), run the act, append
+  the line and return it. `restore_root`'s verdict is the report's
   `outcome`; the copy's lifecycle state, not the line, is what says whether the root
   is serviceable. `admit_publication`'s verdict is the arrival report's `outcome`; a
   refusal raised by the layout check or by verified arrival propagates and appends
   nothing, because no transition was made. `admit_publication` opens the session's
   world under the scoped authority (decision 6).
-- `publish` and `resume_publish` compose the act as decision 7 says and return its
-  outcome unchanged. Their refusals are the act's own.
+- `publish` and `resume_publish` check liveness, currency and the publication permit
+  under the session lock, open the world, release the lock, and compose the act as
+  decision 7 says, returning its outcome unchanged. Their other refusals are the
+  act's own. `beliefs.publish.require_publishes(authority: Authority)` is the public
+  form of today's `_require_publishes(writer)`, which the act keeps calling.
 
 `pending_publishes` keeps its `CorpusWriter` parameter: it reads the written chain and
 the operations root and writes nothing, so a reader that holds no permit opens a corpus
 under `scoped_authority(RequiredCapabilities.none(), actor)` and calls it.
 
-### 4.5 The routes — `beliefs/session/routes.py`, `beliefs/runrecord.py`
+### 4.5 Errors — `beliefs/errors.py`
+
+```python
+class SharingEvidenceDisagrees(WriteRefused):
+    field: str      # corpus | artifact | marker | world | view
+    claimed: str    # the evidence's value
+    found: str      # the root's, the subject's or the carrier's value
+```
+
+Raised by the two act doors before any effect (decision 4). `SessionProtocolError`,
+`PermitExceeded`, `PublicationArrivalRefused` and the acts' own refusals keep their
+meanings.
+
+### 4.6 The routes — `beliefs/session/routes.py`, `beliefs/runrecord.py`
 
 ```python
 @sealed @final @dataclass(frozen=True)
@@ -341,7 +406,7 @@ ledgers one `act` line with `intent=fulfills`, `entry=commit.entry`, and the rec
 the plan that committed. `_bind_publication` adapts to the new return value. Every test
 double that implements the port follows the protocol.
 
-### 4.6 The act — `beliefs/publish.py`
+### 4.7 The act — `beliefs/publish.py`
 
 ```python
 @dataclass(frozen=True)
@@ -421,15 +486,23 @@ In `test_permit.py`, `test_session_ledger.py`, `test_session_writer.py`,
   nothing. `admit_publication` through the same writer admits the restored copy into
   the session's world as `ReplicaOf` with the session actor on the admission record,
   and ledgers `admitted`; a copy missing its marker raises `PublicationArrivalRefused`
-  and appends nothing. A writer scoped to `coordination()` refuses both doors
-  `PermitExceeded` before any effect. A session opened without a world configuration
+  from either door before the act, and appends nothing. A writer scoped to
+  `coordination()` refuses both doors `PermitExceeded` before any effect; a stale or
+  closed writer refuses `SessionProtocolError` before reading the copy. Mismatched
+  evidence, one case per verified field — a corpus naming another publication's root,
+  an artifact that is no carrier's identity, a marker uid, world id or view that is
+  not the root's marker's — refuses `SharingEvidenceDisagrees` naming the field,
+  before the act: the copy stays unserviceable, the world's registry is unchanged,
+  and no line is appended. A session opened without a world configuration
   refuses `admit_publication` with `SessionProtocolError`.
 - **The guarded ledgered commit.** Through `LedgeredPort` over a durable port: a guard
   returning `None` commits the plan and ledgers its records with the committed
   registration's digest; a guard returning a reason commits the fallback and ledgers
   the fallback's records with that registration's digest; `GuardedCommit.reason`
   carries the reason; a non-current invocation refuses before the inner port is
-  reached. `execute` still refuses. A production run through the session's port
+  reached; a primary plan holding a `DeleteOp`, and a fallback plan holding one,
+  each refuse `SessionProtocolError` with nothing committed (the inner port records
+  no call). `execute` still refuses. A production run through the session's port
   (`execute_production_run` with the acquisition guard, over the cut-3 fixtures
   `test_session_routes.py` already uses for the assessment run) commits and ledgers
   its records, and reconciliation reports no finding. Every port double under
@@ -443,8 +516,13 @@ In `test_permit.py`, `test_session_ledger.py`, `test_session_writer.py`,
   `reconcile_sessions` reports no finding for the session. A refused publish (an
   export collision) ledgers one `act` line for the refusal report. `resume_publish`
   through a second invocation of the same session, after a crash injected at a step
-  boundary, binds and ledgers under that invocation. A writer scoped to
-  `coordination()` refuses `PermitExceeded` with nothing written and no line. A
+  boundary, binds and ledgers under that invocation. A writer retained after its
+  invocation closed, and one from a closed session, refuse `SessionProtocolError` on
+  both doors: a transport spy records no `push`, and the operation directory's files
+  (the request, the snapshot, a transport mark) are byte-for-byte unchanged, a
+  completed attempt's directory included. A writer scoped to `coordination()`
+  refuses `PermitExceeded` with nothing written, no line, and no recovery resolved on
+  the world root (the world is not opened). A
   session with no coordination resolver refuses `CoordinationUnavailable`.
 - **The preview.** `publication_preview` over the same fixture returns the pinned view,
   the epoch identity, the selection, the derived pins, `None` attributions under v2 and
@@ -464,7 +542,10 @@ In `test_permit.py`, `test_session_ledger.py`, `test_session_writer.py`,
   on the guarded ledgered commit; the publish-act-local design a note on `hold` and
   the preview.
 - The adoption ledger gets a line under the session work naming this amendment.
-- Science's milestone 1a plan adapts its assumed names: `restore` is `restore_root`;
+- Science's milestone 1a plan adapts its assumed names and one ordering: `restore` is
+  `restore_root`, and it requires the publication layout before the act, so the
+  layout refusal its Task 8 places after the restore (step 7) now arrives from the
+  restore door with no pin written;
   `SharingEvidence` carries seven fields and `record_sharing` takes `transition` and
   `verdict` as keywords; `publication_preview` takes `own_pins` and raises
   `closure-incomplete` rather than returning `closure_missing`; `pending_publishes`
@@ -473,8 +554,10 @@ In `test_permit.py`, `test_session_ledger.py`, `test_session_writer.py`,
 ## 8. Follow-up work filed
 
 - A successor-actor resume for a publish stranded by a session that will never
-  resume it (decision 12), as its own design against cut 40's actor rows.
+  resume it (decision 12), as its own design against cut 40's actor rows:
+  `beliefs-b427db`.
 - The `retired` transition's door, `World.retire` under the scoped authority, for
-  science's milestone 1b; `record_sharing` admits `retired` only once that door exists.
+  science's milestone 1b; `record_sharing` admits `retired` only once that door exists:
+  `beliefs-a989fb`.
 - The existing follow-up from the selection design: the reader holds `act` and
   `invocation-close` to the writer's currency rule.
