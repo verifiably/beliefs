@@ -1,7 +1,9 @@
 # Session doors and ledger evidence for the publish and sharing acts — design
 
-**Status:** draft for review, 2026-10-22; revised the same day after review round 1
-(the door entry checks, the evidence binding, and the guarded port's record order).
+**Status:** approved for planning 2026-10-23 (review round 2); revised 2026-10-22 after
+round 1 (the door entry checks, the evidence binding, and the guarded port's record
+order) and 2026-10-23 for round 2's three minor corrections (the exception contract,
+the restore door's subject, the fallback test's observation).
 **Task:** `beliefs-f24fe9`.
 **Requested by:** science's commons design
 (`science docs/specs/2026-09-30-science-commons-design.md` §5, §7.4, §11), the command
@@ -339,11 +341,16 @@ def _record_sharing(self, invocation: str, evidence: SharingEvidence, *, transit
 when `invocation` is not current), the append with the ledger's discipline, then the
 index. `invocation_sharing` requires a live session, as `invocation_acts` does.
 
+The exception contract every door and route already holds is unchanged: a
+non-current invocation (abandoned, closed, or another's) is `SessionProtocolError`; a
+closed session is `SessionClosed`; a session whose ledger failed is
+`SessionLedgerFailed`. The new doors raise the same three from the same conditions.
+
 ### 4.4 The scoped writer — `beliefs/session/writer.py`
 
 ```python
 def record_sharing(self, evidence: SharingEvidence, *, transition: str, verdict: str) -> SharingLine
-def restore_root(self, copy: Path, subject: CorpusSubject | StoreSubject, observers: ObserverSet,
+def restore_root(self, copy: Path, subject: CorpusSubject, observers: ObserverSet,
                  *, evidence: SharingEvidence) -> SharingLine
 def admit_publication(self, root: Path, observers: ObserverSet, *, evidence: SharingEvidence) -> SharingLine
 def publish(self, *, view: CoordinationAddress, destination: Destination, operations_root: Path,
@@ -359,7 +366,10 @@ def resume_publish(self, *, event_token: str, operations_root: Path, staging_pro
   returns the line.
 - `restore_root` and `admit_publication` take the session lock, check liveness and
   currency, require their family, bind the evidence (decision 4), run the act, append
-  the line and return it. `restore_root`'s verdict is the report's
+  the line and return it. `restore_root` takes a `CorpusSubject` only and refuses any
+  other subject type with `TypeError` before any check: the evidence binding needs a
+  corpus id, a corpus manifest and a publication marker, which a store has none of.
+  The kernel's `restore_root` keeps its store arm for callers outside the session. `restore_root`'s verdict is the report's
   `outcome`; the copy's lifecycle state, not the line, is what says whether the root
   is serviceable. `admit_publication`'s verdict is the arrival report's `outcome`; a
   refusal raised by the layout check or by verified arrival propagates and appends
@@ -487,8 +497,10 @@ In `test_permit.py`, `test_session_ledger.py`, `test_session_writer.py`,
   the session's world as `ReplicaOf` with the session actor on the admission record,
   and ledgers `admitted`; a copy missing its marker raises `PublicationArrivalRefused`
   from either door before the act, and appends nothing. A writer scoped to
-  `coordination()` refuses both doors `PermitExceeded` before any effect; a stale or
-  closed writer refuses `SessionProtocolError` before reading the copy. Mismatched
+  `coordination()` refuses both doors `PermitExceeded` before any effect; a writer
+  whose invocation is not current refuses `SessionProtocolError`, and one whose
+  session is closed refuses `SessionClosed`, before reading the copy; a
+  `StoreSubject` refuses `TypeError`. Mismatched
   evidence, one case per verified field — a corpus naming another publication's root,
   an artifact that is no carrier's identity, a marker uid, world id or view that is
   not the root's marker's — refuses `SharingEvidenceDisagrees` naming the field,
@@ -500,9 +512,11 @@ In `test_permit.py`, `test_session_ledger.py`, `test_session_writer.py`,
   registration's digest; a guard returning a reason commits the fallback and ledgers
   the fallback's records with that registration's digest; `GuardedCommit.reason`
   carries the reason; a non-current invocation refuses before the inner port is
-  reached; a primary plan holding a `DeleteOp`, and a fallback plan holding one,
-  each refuse `SessionProtocolError` with nothing committed (the inner port records
-  no call). `execute` still refuses. A production run through the session's port
+  reached; a primary plan holding a `DeleteOp` refuses `SessionProtocolError` before
+  the inner port is called; a fallback plan holding one refuses `SessionProtocolError`
+  from inside the delegated guarded call, after the guard ran and before the fallback
+  plan reaches the durable port — asserted as no commit, no registration fulfilling
+  the intent on the chain, and no ledger line. `execute` still refuses. A production run through the session's port
   (`execute_production_run` with the acquisition guard, over the cut-3 fixtures
   `test_session_routes.py` already uses for the assessment run) commits and ledgers
   its records, and reconciliation reports no finding. Every port double under
@@ -517,8 +531,8 @@ In `test_permit.py`, `test_session_ledger.py`, `test_session_writer.py`,
   export collision) ledgers one `act` line for the refusal report. `resume_publish`
   through a second invocation of the same session, after a crash injected at a step
   boundary, binds and ledgers under that invocation. A writer retained after its
-  invocation closed, and one from a closed session, refuse `SessionProtocolError` on
-  both doors: a transport spy records no `push`, and the operation directory's files
+  invocation closed refuses `SessionProtocolError`, and one from a closed session
+  refuses `SessionClosed`, on both doors: a transport spy records no `push`, and the operation directory's files
   (the request, the snapshot, a transport mark) are byte-for-byte unchanged, a
   completed attempt's directory included. A writer scoped to `coordination()`
   refuses `PermitExceeded` with nothing written, no line, and no recovery resolved on
