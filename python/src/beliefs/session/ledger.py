@@ -21,6 +21,7 @@ from beliefs.sealed import sealed
 
 __all__ = [
     "LINE_KINDS",
+    "TRANSITIONS",
     "ActLine",
     "InvocationRecord",
     "LedgerEmpty",
@@ -30,6 +31,8 @@ __all__ = [
     "LedgerUnreadable",
     "LedgerWriter",
     "SelectLine",
+    "SharingEvidence",
+    "SharingLine",
     "encode_line",
     "ledger_path",
     "open_ledger_reader",
@@ -37,11 +40,13 @@ __all__ = [
     "require_hex",
     "require_invocation_id",
     "require_selection",
+    "require_sharing_view",
     "utc_now",
     "validated_outcome",
 ]
 
-LINE_KINDS = ("session-open", "invocation-open", "act", "invocation-close", "session-close", "select")
+LINE_KINDS = ("session-open", "invocation-open", "act", "invocation-close", "session-close", "select", "sharing")
+TRANSITIONS = ("bound", "fetched", "admitted", "mounted", "retired")
 LEDGER_FILE = "ledger.v1"
 _INVOCATION = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _HEX = "0123456789abcdef"
@@ -81,6 +86,20 @@ def require_selection(value: object, what: str) -> CoordinationAddress | None:
     address = CoordinationAddress.parse(value)
     if address.local is not None or address.revision is None:
         raise ValueError(f"{what} must be a project address pinned to a revision: {value!r}")
+    return address
+
+
+def require_sharing_view(value: object, what: str) -> CoordinationAddress:
+    """A sharing line's view: a view address pinned to its revision, `local` set or
+    not (sharing design decision 2)."""
+    if type(value) is not str:
+        raise ValueError(f"{what} must be a view address pinned to a revision")
+    try:
+        address = CoordinationAddress.parse(value)
+    except ValueError as caught:
+        raise ValueError(f"{what} is not a view address: {caught}") from caught
+    if address.revision is None:
+        raise ValueError(f"{what} must be a view address pinned to a revision")
     return address
 
 
@@ -144,6 +163,51 @@ class SelectLine:
 @sealed
 @final
 @dataclass(frozen=True)
+class SharingEvidence:
+    """What a sharing step records about the artifact it handled; the form of each
+    field is the `sharing` line's (§3 of the sharing design)."""
+
+    corpus: str
+    marker: str
+    artifact: str
+    world: str
+    view: str
+    source: str
+    location: str
+
+    def __post_init__(self) -> None:
+        require_hex(self.corpus, 32, "corpus id")
+        require_hex(self.marker, 32, "marker")
+        require_hex(self.artifact, 64, "artifact")
+        require_hex(self.world, 32, "world id")
+        require_sharing_view(self.view, "view")
+        if type(self.source) is not str:
+            raise TypeError("source must be a string")
+        _require_str(self.location, "location")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class SharingLine:
+    """One `sharing` line, in the field order science's protocol fixes."""
+
+    invocation: str
+    corpus: str
+    marker: str
+    artifact: str
+    world: str
+    view: str
+    source: str
+    location: str
+    verdict: str
+    transition: str
+    at: str
+
+
+@sealed
+@final
+@dataclass(frozen=True)
 class InvocationRecord:
     invocation: str
     command: str
@@ -151,6 +215,7 @@ class InvocationRecord:
     acts: tuple[ActLine, ...]
     outcome: Mapping[str, object] | None
     selection: SelectLine | None
+    sharing: tuple[SharingLine, ...]
 
 
 class LedgerWriter:
@@ -207,6 +272,20 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
             "invocation-close": {"line", "invocation", "outcome"},
             "session-close": {"line", "at"},
             "select": {"line", "invocation", "project"},
+            "sharing": {
+                "line",
+                "invocation",
+                "corpus",
+                "marker",
+                "artifact",
+                "world",
+                "view",
+                "source",
+                "location",
+                "verdict",
+                "transition",
+                "at",
+            },
         }[kind]
         if kind == "session-open" and "project" in line:
             expected = expected | {"project"}  # a pre-amendment session-open omits it (selection design decision 6)
@@ -239,6 +318,20 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
         elif kind == "select":
             require_invocation_id(line["invocation"])
             require_selection(line["project"], "select project")
+        elif kind == "sharing":
+            require_invocation_id(line["invocation"])
+            require_hex(line["corpus"], 32, "corpus id")
+            require_hex(line["marker"], 32, "marker")
+            require_hex(line["artifact"], 64, "artifact")
+            require_hex(line["world"], 32, "world id")
+            require_sharing_view(line["view"], "view")
+            if type(line["source"]) is not str:
+                raise ValueError("source must be a string")
+            _require_str(line["location"], "location")
+            _require_str(line["verdict"], "verdict")
+            if line["transition"] not in TRANSITIONS:
+                raise ValueError(f"transition must be one of {list(TRANSITIONS)}: {line['transition']!r}")
+            _require_str(line["at"], "at")
         else:
             _require_str(line["at"], "at")
     except (ValueError, TypeError) as caught:
@@ -270,6 +363,8 @@ class LedgerReader:
         self._order: list[str] = []
         acts: dict[str, list[ActLine]] = {}
         selections: dict[str, SelectLine] = {}
+        shared: dict[str, list[SharingLine]] = {}
+        sharing_order: list[SharingLine] = []
         attributed: list[tuple[ActLine, CoordinationAddress | None]] = []
         standing = self.initial_project
         for line in lines[1:]:
@@ -278,9 +373,10 @@ class LedgerReader:
                 invocation = str(line["invocation"])
                 self._order.append(invocation)
                 self._records[invocation] = InvocationRecord(
-                    invocation, str(line["command"]), str(line["input_digest"]), (), None, None
+                    invocation, str(line["command"]), str(line["input_digest"]), (), None, None, ()
                 )
                 acts[invocation] = []
+                shared[invocation] = []
             elif kind == "act":
                 invocation = str(line["invocation"])
                 act = ActLine(
@@ -296,11 +392,28 @@ class LedgerReader:
                 invocation = str(line["invocation"])
                 standing = require_selection(line["project"], "select project")
                 selections[invocation] = SelectLine(invocation, standing)
+            elif kind == "sharing":
+                invocation = str(line["invocation"])
+                record = SharingLine(
+                    invocation,
+                    str(line["corpus"]),
+                    str(line["marker"]),
+                    str(line["artifact"]),
+                    str(line["world"]),
+                    str(line["view"]),
+                    str(line["source"]),
+                    str(line["location"]),
+                    str(line["verdict"]),
+                    str(line["transition"]),
+                    str(line["at"]),
+                )
+                shared[invocation].append(record)
+                sharing_order.append(record)
             elif kind == "invocation-close":
                 invocation = str(line["invocation"])
                 current = self._records[invocation]
                 self._records[invocation] = InvocationRecord(
-                    invocation, current.command, current.input_digest, (), validated_outcome(line["outcome"]), None
+                    invocation, current.command, current.input_digest, (), validated_outcome(line["outcome"]), None, ()
                 )
         for invocation, record in list(self._records.items()):
             self._records[invocation] = InvocationRecord(
@@ -310,8 +423,10 @@ class LedgerReader:
                 tuple(acts.get(invocation, ())),
                 record.outcome,
                 selections.get(invocation),
+                tuple(shared.get(invocation, ())),
             )
         self._attributed = tuple(attributed)
+        self._sharing = tuple(sharing_order)
 
     @property
     def open_invocations(self) -> tuple[str, ...]:
@@ -325,6 +440,10 @@ class LedgerReader:
         latest `select` before it, else session-open's value (selection design
         decision 4)."""
         return self._attributed
+
+    def sharing(self) -> tuple[SharingLine, ...]:
+        """Every sharing line in ledger order, across invocations."""
+        return self._sharing
 
     def invocations(self) -> tuple[InvocationRecord, ...]:
         return tuple(self._records[i] for i in self._order)
@@ -399,6 +518,14 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
                 if invocation in selected:
                     raise LedgerMalformed(f"line {number}: invocation {invocation!r} already holds a select")
                 selected.add(invocation)
+            elif kind == "sharing":
+                invocation = str(validated["invocation"])
+                if invocation not in opened:
+                    raise LedgerMalformed(f"line {number}: sharing names invocation {invocation!r}, never opened")
+                if invocation != current:
+                    raise LedgerMalformed(
+                        f"line {number}: sharing names invocation {invocation!r}, not the current invocation ({current!r})"
+                    )
             elif kind == "session-close":
                 session_closed_at = number
             elif kind == "session-open":

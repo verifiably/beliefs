@@ -12,12 +12,15 @@ from beliefs.coordination import CoordinationAddress
 from beliefs.errors import LedgerMalformed, SessionLedgerFailed
 from beliefs.session.ledger import (
     LINE_KINDS,
+    TRANSITIONS,
     ActLine,
     LedgerEmpty,
     LedgerMissing,
     LedgerUnreadable,
     LedgerWriter,
     SelectLine,
+    SharingEvidence,
+    SharingLine,
     encode_line,
     ledger_path,
     open_ledger_reader,
@@ -110,7 +113,15 @@ def fsyncs(monkeypatch):
 def test_lines_are_canonical_json_one_per_line():
     encoded = encode_line({"z": 1, "a": [1, 2], "line": "act"})
     assert encoded == b'{"a":[1,2],"line":"act","z":1}\n'
-    assert set(LINE_KINDS) == {"session-open", "invocation-open", "act", "invocation-close", "session-close", "select"}
+    assert set(LINE_KINDS) == {
+        "session-open",
+        "invocation-open",
+        "act",
+        "invocation-close",
+        "session-close",
+        "select",
+        "sharing",
+    }
 
 
 def test_each_append_is_fsynced_once_and_lands_before_return(tmp_path, fsyncs):
@@ -531,3 +542,169 @@ def test_the_session_package_exports_the_selection_record_beside_the_other_ledge
 
     assert "SelectLine" in session_package.__all__
     assert session_package.SelectLine is SelectLine
+
+
+CORPUS = "4" * 32
+VIEW = f"coord:{'1' * 32}@{'2' * 32}"
+SUBORDINATE = f"coord:{'1' * 32}/{'3' * 32}@{'2' * 32}"
+
+
+def sharing(name, **changes):
+    line = {
+        "line": "sharing",
+        "invocation": name,
+        "corpus": CORPUS,
+        "marker": "5" * 32,
+        "artifact": "6" * 64,
+        "world": WORLD,
+        "view": VIEW,
+        "source": "provider:https://remote.test/a",
+        "location": "https://remote.test/a",
+        "verdict": "validated",
+        "transition": "fetched",
+        "at": AT,
+    }
+    line.update(changes)
+    return line
+
+
+def write_ledger(tmp_path, *raw):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(ledger_bytes(*raw))
+
+
+def test_sharing_lines_round_trip_in_ledger_order_per_invocation_and_overall(tmp_path):
+    write_ledger(
+        tmp_path,
+        open_line(),
+        invocation_open("A"),
+        sharing("A", transition="bound"),
+        sharing("A", transition="fetched", view=SUBORDINATE),
+        sharing("A", transition="admitted"),
+        invocation_close("A"),
+        invocation_open("B"),
+        sharing("B", transition="mounted"),
+    )
+    reader = open_ledger_reader(tmp_path, SESSION)
+    record_a = reader.invocation("A")
+    assert record_a is not None
+    assert [line.transition for line in record_a.sharing] == ["bound", "fetched", "admitted"]
+    assert record_a.sharing[1].view == SUBORDINATE
+    assert [line.transition for line in reader.sharing()] == ["bound", "fetched", "admitted", "mounted"]
+    record_b = reader.invocation("B")
+    assert record_b is not None
+    assert record_b.sharing[0] == SharingLine(
+        "B",
+        CORPUS,
+        "5" * 32,
+        "6" * 64,
+        WORLD,
+        VIEW,
+        "provider:https://remote.test/a",
+        "https://remote.test/a",
+        "validated",
+        "mounted",
+        AT,
+    )
+
+
+@pytest.mark.parametrize(
+    ("bad", "message"),
+    [
+        (sharing("A", extra=1), "carries exactly"),
+        ({k: v for k, v in sharing("A").items() if k != "verdict"}, "carries exactly"),
+        (sharing("A", corpus="5" * 31), "corpus id"),
+        (sharing("A", artifact="6" * 63), "artifact"),
+        (sharing("A", marker="x" * 32), "marker"),
+        (sharing("A", world="7" * 33), "world id"),
+        (sharing("A", view=f"coord:{'1' * 32}"), "pinned"),
+        (sharing("A", view="not-an-address"), "view"),
+        (sharing("A", location=""), "location"),
+        (sharing("A", verdict=""), "verdict"),
+        (sharing("A", transition="inspected"), "transition"),
+        (sharing("A", source=3), "source"),
+        (sharing("A", at=""), "at"),
+    ],
+)
+def test_a_malformed_sharing_line_is_refused_naming_its_number(tmp_path, bad, message):
+    write_ledger(tmp_path, open_line(), invocation_open("A"), bad)
+    with pytest.raises(LedgerMalformed, match=f"line 3.*{message}"):
+        open_ledger_reader(tmp_path, SESSION)
+
+
+def test_a_sharing_source_may_be_empty(tmp_path):
+    write_ledger(tmp_path, open_line(), invocation_open("A"), sharing("A", source=""))
+    assert open_ledger_reader(tmp_path, SESSION).sharing()[0].source == ""
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        ([open_line(), sharing("A")], "never opened"),
+        ([open_line(), invocation_open("A"), invocation_close("A"), sharing("A")], "not the current invocation"),
+        ([open_line(), invocation_open("A"), invocation_open("B"), sharing("A")], "not the current invocation"),
+        (
+            [
+                open_line(),
+                invocation_open("A"),
+                invocation_close("A"),
+                {"line": "session-close", "at": AT},
+                sharing("A"),
+            ],
+            "no line follows session-close",
+        ),
+    ],
+)
+def test_a_sharing_line_the_writer_cannot_produce_is_refused(tmp_path, raw, message):
+    write_ledger(tmp_path, *raw)
+    with pytest.raises(LedgerMalformed, match=message):
+        open_ledger_reader(tmp_path, SESSION)
+    evidence = read_ledger_evidence(tmp_path, SESSION)
+    assert type(evidence) is LedgerUnreadable and message in evidence.error
+
+
+def test_a_pre_amendment_session_open_still_parses_with_sharing_lines(tmp_path):
+    write_ledger(tmp_path, open_line(), invocation_open("A"), sharing("A"), sharing("A", transition="admitted"))
+    reader = open_ledger_reader(tmp_path, SESSION)
+    assert reader.initial_project is None
+    assert len(reader.sharing()) == 2
+
+
+def test_sharing_evidence_validates_each_field():
+    good = {
+        "corpus": CORPUS,
+        "marker": "5" * 32,
+        "artifact": "6" * 64,
+        "world": WORLD,
+        "view": VIEW,
+        "source": "",
+        "location": "https://remote.test/a",
+    }
+    assert SharingEvidence(**good).view == VIEW
+    assert SharingEvidence(**{**good, "view": SUBORDINATE}).view == SUBORDINATE
+    for field, value in [
+        ("corpus", "5" * 31),
+        ("marker", "X" * 32),
+        ("artifact", "6" * 32),
+        ("world", "7" * 31),
+        ("view", f"coord:{'1' * 32}"),
+        ("view", "nope"),
+        ("location", ""),
+    ]:
+        with pytest.raises(ValueError, match=field):
+            SharingEvidence(**{**good, field: value})
+    with pytest.raises(TypeError, match="source"):
+        SharingEvidence(**{**good, "source": 3})
+
+
+def test_line_kinds_gains_sharing():
+    assert LINE_KINDS[-1] == "sharing"
+
+
+def test_the_session_package_exports_the_sharing_records():
+    import beliefs.session as session_package
+
+    for name in ("SharingEvidence", "SharingLine", "TRANSITIONS"):
+        assert name in session_package.__all__
+    assert session_package.TRANSITIONS == TRANSITIONS == ("bound", "fetched", "admitted", "mounted", "retired")
