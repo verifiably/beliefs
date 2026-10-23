@@ -203,6 +203,14 @@ def test_scoped_refuses_an_uncovered_requirement_before_any_writer_exists(tmp_pa
     assert ports == []
 
 
+def test_scoped_sharing_under_a_ceiling_lacking_registry_refuses_naming_registry(tmp_path):
+    session, ports = make_session(tmp_path, ceiling=narrowed(kinds=set(), families={"lifecycle"}).permit)
+    with pytest.raises(PermitExceeded) as caught:
+        session.scoped(RequiredCapabilities.sharing(), "A")
+    assert caught.value.requirement == PermitFact("family", "registry")
+    assert ports == []
+
+
 def test_the_act_time_refusal_comes_from_the_kernel_with_the_requirements_summary(tmp_path):
     session, _ = make_session(tmp_path)
     writer = session.scoped(PROPOSITIONS, "A")

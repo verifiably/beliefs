@@ -127,13 +127,15 @@ _PUBLICATION_PERMIT = WritePermit(
     frozenset({"publication-binding", "publication", "act-report", *_WORLD_KINDS}),
     frozenset({"publish", "corpus-write", "lifecycle", "registry"}),
 )
-KERNEL_REQUIREMENTS: frozenset[WritePermit] = frozenset({_PUBLICATION_PERMIT})
-"""The one closed exception to command reachability (decision 7): the
-publication requirement the publish doors cite. Every other permit naming a
-non-command-reachable family is refused, exactly as before."""
+_SHARING_PERMIT = WritePermit(frozenset(), frozenset({"lifecycle", "registry"}))
+KERNEL_REQUIREMENTS: frozenset[WritePermit] = frozenset({_PUBLICATION_PERMIT, _SHARING_PERMIT})
+"""The two closed exceptions to command reachability: the publication
+requirement the publish doors cite (decision 7) and the sharing requirement over
+the lifecycle and registry families (session-sharing design, decision 1). Every
+other permit naming a non-command-reachable family is refused, exactly as before."""
 
 _MINTING_KERNEL_REQUIREMENT: ContextVar[bool] = ContextVar("_MINTING_KERNEL_REQUIREMENT", default=False)
-"""Set only while `RequiredCapabilities.publishes()` runs: the kernel exception
+"""Set only while `RequiredCapabilities.publishes()` or `.sharing()` runs: the kernel exception
 is admitted by the route that constructs it, never by permit equality alone
 (decision 7) — an ordinary declaration that happens to compile to the same
 permit still refuses."""
@@ -242,6 +244,11 @@ class RequiredCapabilities:
     @_mints_the_kernel_requirement
     def publishes(cls) -> RequiredCapabilities:
         return cls(_PUBLICATION_PERMIT)
+
+    @classmethod
+    @_mints_the_kernel_requirement
+    def sharing(cls) -> RequiredCapabilities:
+        return cls(_SHARING_PERMIT)
 
 
 def scoped_authority(required: RequiredCapabilities, actor: str) -> Authority:
