@@ -7,7 +7,7 @@ import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias, final
 
@@ -31,14 +31,18 @@ from beliefs.profile import ProfileSpec
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.session.ledger import (
+    TRANSITIONS,
     ActLine,
     LedgerWriter,
     SelectLine,
+    SharingEvidence,
+    SharingLine,
     require_hex,
     require_invocation_id,
     utc_now,
     validated_outcome,
 )
+from beliefs.world import WorldConfig
 
 if TYPE_CHECKING:
     from beliefs.audit_operation import AuditOutcome
@@ -110,6 +114,7 @@ class _Invocation:
     acts: list[ActLine]
     outcome: Mapping[str, object] | None
     selection: SelectLine | None = None
+    sharing: list[SharingLine] = field(default_factory=list)
 
 
 def require_project_address(address: object) -> CoordinationAddress:
@@ -157,10 +162,17 @@ class WriterSession:
         holdings_seam: StoreActSeam | None = None,
         coordination_resolver: CoordinationResolver | None = None,
         project: CoordinationAddress | None = None,
+        world_config: WorldConfig | None = None,
     ) -> None:
         self.session_id = require_hex(session_id, 32, "session id")
         self.actor = f"session:{self.session_id}"  # derived, never supplied (J4)
         self.world_id = require_hex(world_id, 32, "world id")
+        if world_config is not None:
+            if type(world_config) is not WorldConfig:
+                raise TypeError("world_config must be an exact WorldConfig")
+            if world_config.world_id != self.world_id:
+                raise ValueError(f"world_config names world {world_config.world_id}, not {self.world_id}")
+        self.world_config = world_config
         self.corpus_root = Path(corpus_root)
         self.corpus_id = require_hex(corpus_id, 32, "corpus id")
         self.operations_root = Path(operations_root)
@@ -306,6 +318,62 @@ class WriterSession:
             found = self._index.get(invocation)
             return None if found is None else found.selection
 
+    # --- sharing (sharing design §4.3) ---------------------------------------------------
+    def _record_sharing(
+        self, invocation: str, evidence: SharingEvidence, *, transition: str, verdict: str
+    ) -> SharingLine:
+        """Ledger one sharing step for the current invocation. The index learns
+        it only after the append returns; a failed append is terminal and leaves
+        the index unchanged."""
+        if type(evidence) is not SharingEvidence:
+            raise TypeError("record_sharing takes a SharingEvidence")
+        if transition not in TRANSITIONS:
+            raise ValueError(f"transition must be one of {list(TRANSITIONS)}: {transition!r}")
+        if type(verdict) is not str or not verdict:
+            raise ValueError("verdict must be a non-empty string")
+        with self._lock:
+            self._require_live()
+            self._require_current(invocation)
+            at = utc_now()
+            self._ledger.append(
+                {
+                    "line": "sharing",
+                    "invocation": invocation,
+                    "corpus": evidence.corpus,
+                    "marker": evidence.marker,
+                    "artifact": evidence.artifact,
+                    "world": evidence.world,
+                    "view": evidence.view,
+                    "source": evidence.source,
+                    "location": evidence.location,
+                    "verdict": verdict,
+                    "transition": transition,
+                    "at": at,
+                }
+            )
+            line = SharingLine(
+                invocation,
+                evidence.corpus,
+                evidence.marker,
+                evidence.artifact,
+                evidence.world,
+                evidence.view,
+                evidence.source,
+                evidence.location,
+                verdict,
+                transition,
+                at,
+            )
+            self._index[invocation].sharing.append(line)
+            return line
+
+    def invocation_sharing(self, invocation_id: str) -> tuple[SharingLine, ...]:
+        invocation = require_invocation_id(invocation_id)
+        with self._lock:
+            self._require_live()
+            entry = self._index.get(invocation)
+            return () if entry is None else tuple(entry.sharing)
+
     def _require_current(self, invocation: str) -> None:
         with self._lock:
             self._require_live()
@@ -387,6 +455,17 @@ class ScopedWriter:
         if store_id is None:
             raise SessionProtocolError("this session was opened with no store root; the holdings route has no store")
         return store_id
+
+    def record_sharing(self, evidence: SharingEvidence, *, transition: str, verdict: str) -> SharingLine:
+        """Ledger one sharing step this invocation took: `bound` or `mounted`."""
+        self._authority.require("lifecycle")
+        self._authority.require("registry")
+        if transition not in ("bound", "mounted"):
+            raise ValueError(
+                "record_sharing admits bound and mounted; fetched and admitted come from their doors, "
+                "retired from World.retire's"
+            )
+        return self._session._record_sharing(self._invocation, evidence, transition=transition, verdict=verdict)
 
     def operation_port(self) -> OperationPort:
         """Return this invocation's durable, act-ledgered run route."""

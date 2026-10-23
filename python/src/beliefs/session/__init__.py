@@ -194,6 +194,7 @@ def open_attended_session(
         holdings_seam=holdings_seam() if store_root is not None else None,
         coordination_resolver=resolver,
         project=pinned,
+        world_config=world_config,
     )
     # §3.1: session-open is written (by the constructor) before reconciliation runs.
     session.findings = reconcile_sessions(world_config, operations_root, exclude=session_id)
