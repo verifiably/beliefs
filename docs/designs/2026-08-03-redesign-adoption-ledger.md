@@ -151,6 +151,12 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   per-act attribution
   ([selection design](../superpowers/specs/2026-09-24-session-selection-ledger-design.md)).
   Built; no conformance cut.
+- **Session sharing and publish doors** — `RequiredCapabilities.sharing()`; the
+  `sharing` ledger line with `restore_root`, `admit_publication` and
+  `record_sharing` doors binding their evidence; `publish`/`resume_publish` doors
+  over the ledgered port, which commits the guarded form; `publication_preview`
+  ([design](../superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md)).
+  Built; no conformance cut.
 - **Facet contracts** — base and domain contracts declare closed facet schemas;
   profiles compile kinds, relations and facets; every write seam validates the
   caller-held profile; and the empirical-observation acquisition boundary is

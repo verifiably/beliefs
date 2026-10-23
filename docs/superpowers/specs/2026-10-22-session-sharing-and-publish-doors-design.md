@@ -575,3 +575,26 @@ In `test_permit.py`, `test_session_ledger.py`, `test_session_writer.py`,
   `beliefs-a989fb`.
 - The existing follow-up from the selection design: the reader holds `act` and
   `invocation-close` to the writer's currency rule.
+
+## Amendment — 2026-10-23 (execution)
+
+Three points were settled while building; the body above is unchanged.
+
+- **§4.6's readback (R6).** The durable port's guarded readback is
+  `root.py`'s `_committed_registration_for`, not `_registration_for`: it returns the
+  one registration fulfilling the intent whose settlement committed, requiring
+  exactly one (`ExecutionError` otherwise). The engine refuses a second committed
+  fulfilment of one intent, so this is exact and fails early where "latest" would
+  pick an uncommitted registration if settlement lagged. `execute_fulfilling` is
+  unchanged.
+- **Decision 5's parameter name (R10).** The restore door is
+  `restore_root(root, subject, observers, *, evidence)`: `copy` is a byte-mutation
+  name the capability boundary's raw-write scan rejects. Science's Interfaces adapt.
+  The subject `TypeError` and argument-type checks run before the session lock, and
+  `admit_publication` refuses a missing world configuration before the evidence
+  binding (both before any effect).
+- **Decision 7's resume door (R16).** `resume_publish`'s door opens the session's
+  world, which the act's `resume_publish` does not use, so it needs a world
+  configuration. Decision 7's guarantee is at entry only: a writer stale at door
+  entry refuses before any effect; an invocation closed by another thread after
+  entry is the accepted window.

@@ -1299,3 +1299,102 @@ unpinned available documents never activate. A well-formed unresolved pin raises
 `MountPinUnresolved` naming root, namespace and pin; malformed manifests retain
 their own refusal. Every mount still requires the shipped base, there is no cache,
 and ordinary writes remain within the selected write corpus.
+
+## Sharing and publish doors amendment — 2026-10-23
+
+The session gains a `sharing` ledger line, doors for the two sharing acts and the
+publish act, and a second kernel requirement
+([design](../superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md),
+`beliefs-f24fe9`). Built; no conformance cut. §3.2's table gains one row:
+
+| `line` | fields |
+|---|---|
+| `sharing` | `invocation`; `corpus` (32 hex); `marker` (32 hex); `artifact` (64 hex, the head artifact's sha256); `world` (32 hex); `view` (a view address pinned to its revision, with or without a subordinate part); `source` (a string the kernel does not interpret, possibly empty); `location` (non-empty); `verdict` (non-empty); `transition` (`bound`, `fetched`, `admitted`, `mounted` or `retired`); `at` (UTC `%Y-%m-%dT%H:%M:%SZ`) |
+
+`LINE_KINDS` gains `sharing`; the other shapes do not change, so earlier ledgers
+parse as before. The reader requires a `sharing` line to name the invocation
+current at its line and refuses one after `session-close`, each as
+`LedgerMalformed`; an invocation may hold any number. Reconciliation skips
+`sharing` lines as it skips `select`, and the kernel adds no registry comparison:
+`LedgerReader.sharing()` and the world's `status` and `registry()` are the two
+sides of science's write-audit rule. `RequiredCapabilities.sharing()` is a second
+kernel requirement beside `publishes()`: no kinds, the `lifecycle` and `registry`
+families, minted under the construction route's context variable, so a declaration
+that names either family or compiles to that permit still refuses;
+`COMMAND_REACHABLE_FAMILIES` is unchanged.
+
+`SharingEvidence(corpus, marker, artifact, world, view, source, location)` is the
+seven facts a caller knows before an act; `SharingLine` adds `invocation`,
+`verdict`, `transition` and `at` in the ledger's field order, and
+`InvocationRecord.sharing` holds an invocation's lines. A line is appended by the
+invocation that made the transition, under the session lock, after the act; the
+index learns it after the append returns, and a failed append is §3.2's terminal
+`LedgerFailed` state. `WriterSession.invocation_sharing(invocation_id)` reads the
+index and, like `invocation_acts`, requires a live session. The session takes
+`world_config: WorldConfig | None = None`, whose `world_id` must equal the
+session's; the admit and publish doors open a world from it per call under the
+scoped authority, and a session without one refuses them with
+`SessionProtocolError`.
+
+`ScopedWriter` gains, beyond the nine corpus-write methods and the two routes:
+
+- `record_sharing(evidence, *, transition, verdict) -> SharingLine` requires
+  `lifecycle` and `registry` and admits only `bound` and `mounted`; `fetched` and
+  `admitted` come from their doors, and `retired` waits for a `World.retire` door
+  (`beliefs-a989fb`). Every field is the caller's attestation.
+- `restore_root(root, subject, observers, *, evidence) -> SharingLine` runs
+  `beliefs.root.restore_root` under the scoped authority and ledgers `fetched`
+  with the restore report's `outcome` as the verdict. Its first parameter is
+  `root`, not the design's `copy`: the capability boundary's raw-write scan rejects
+  `copy` as a byte-mutation name, so science's Interfaces adapt. The subject must
+  be a `CorpusSubject`.
+- `admit_publication(root, observers, *, evidence) -> SharingLine` opens the
+  session's world under the scoped authority, runs
+  `beliefs.publication_arrival.admit_publication` and ledgers `admitted` with the
+  arrival report's `outcome`, so the admission record carries the session actor.
+
+Each act door's order is: argument types (`TypeError` for a subject that is not a
+`CorpusSubject`, a root that is not a `Path`, observers that are not an exact
+`ObserverSet`, or evidence that is not an exact `SharingEvidence`), all before the
+session lock; then the session lock; liveness and currency
+(`SessionProtocolError`); the family check (`lifecycle` for the restore door,
+`registry` for the admit door); for the admit door the world configuration, whose
+absence refuses `SessionProtocolError` before the evidence binding; the evidence
+binding; the act; the line. The lock is held across the act and the line, as
+`_act` holds it, and the act's own root and world locks nest inside it.
+
+The binding refuses `SharingEvidenceDisagrees(field, claimed, found)`, a
+`WriteRefused`, on the first disagreeing field before any effect, in this order:
+`corpus` (against the subject, then the root's manifest), `artifact` (the sha256
+of one carrier in `observers` whose decoded head artifact's subject is that
+corpus), then, after `require_publication_layout`, `marker`, `world` and `view`
+against the root's own marker. The restore door therefore refuses
+`PublicationArrivalRefused` for a wrong layout before the act. `source` and
+`location` are attestations. Both doors check their family before any effect
+because the acts' own checks sit after verification, so a writer scoped to less
+would otherwise ledger a refusing verdict in place of `PermitExceeded`.
+
+`publish(*, view, destination, operations_root, staging_profile, transport=None)`
+and `resume_publish(*, event_token, operations_root, staging_profile,
+transport=None)` call the publish act with the scoped `CorpusWriter`, the
+session's coordination resolver (`CoordinationUnavailable` without one), a world
+opened under the scoped authority, this invocation's ledgered operation port, the
+ledger's UTC clock and the production moment seam. Before delegating, each door
+takes the session lock, requires liveness and currency, then
+`publish.require_publishes(authority)`, then the resolver and the world
+configuration, and only then opens the world (which resolves recovery on the world
+root), and releases the lock before the act runs. The resume door opens the
+session's world although the act's `resume_publish` takes none, so a session
+without a world configuration cannot resume as it cannot publish.
+
+The guarantee is at entry only: a writer that is stale, closed or under-permitted
+at door entry refuses before it touches the world root, the operations root or a
+transport. An invocation closed by another thread after the entry check and before
+the act reaches the port is refused at the port, after any upload that step 7 made
+in between, and the attempt stays `unfinished` with its mark, exactly as a crash
+there would leave it; this window is accepted. The doors ledger what reaches the
+write root through the port, the refusal report or the binding revision with its
+report, as `act` lines, and nothing from the staging root, the export or the
+publication corpus. `resume_publish` still requires the intent's actor, so a
+remote attempt stranded by a session that never resumes it leaves its pair
+refusing `publish-unfinished` (`beliefs-b427db`).

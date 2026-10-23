@@ -873,3 +873,32 @@ orphans and Ruling 12, and the recipient's `divergent-publication`.
     - Y10-b's sabotage checks selection membership one way only.
   - **The destination and the operations root are resolved once, at entry**
     (`Path.resolve()`), and neither may lie inside the other.
+
+## Amendment — 2026-10-23 (session doors)
+
+The sharing and publish doors design
+([design](2026-10-22-session-sharing-and-publish-doors-design.md), decisions 7, 9 and
+10, `beliefs-f24fe9`) changes step 0 in four ways; no reason, field or message
+changes, and no conformance row moves.
+
+- **`hold`.** `publish` takes `hold: Callable[[], AbstractContextManager[object]] | None = None`,
+  as `acquire`, `audit` and `recheck` do, and appends step 0's intent inside it.
+  The session's publish door passes its `_closing_hold`, so the intent's root lock
+  is taken under the session lock, the one order every route takes. Steps 1-9 take
+  no hold: their write-root commits go through the ledgered port.
+- **`publication_preview`.** `publication_preview(world, resolver, view, *, own_pins)
+  -> PublicationPreview` is step 0 up to the intent: resolve the view, evaluate the
+  selection at the current epoch, check closure, derive the pins, compute the
+  attribution entries, render the records and assert the snapshot rule. It writes
+  nothing and needs no authority, and `publish` calls it, so a dry run raises the
+  refusal the act would raise or shows the facts the act would freeze. It refuses
+  `closure-incomplete` with the missing refs rather than returning them as data.
+- **Order.** `profile-disagrees`, a check on the caller's staging profile that no
+  dry run holds, preceded the attribution refusals and the snapshot rule; it now
+  follows the preview, so those refusals precede it. The intent opens with the preview's pinned view as
+  `expected_view` and freezes the preview's records and attributions.
+- **`require_publishes`.** `beliefs.publish.require_publishes(authority)` is the
+  act's own permit check made public (publish, corpus-write, lifecycle and
+  registry); the session door calls it before opening a world, because
+  `open_world` resolves recovery on the world root before the act's check would
+  run.
