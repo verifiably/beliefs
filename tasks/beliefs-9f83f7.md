@@ -7,7 +7,7 @@ size: s
 complexity: mid
 process: direct
 created: 2026-10-23T13:32:56Z
-updated: 2026-10-23T14:01:00Z
+updated: 2026-10-23T14:24:25Z
 depends: []
 tags: [publication]
 agent: claude-code
@@ -18,3 +18,4 @@ Deferred at beliefs-f24fe9's final review (docs/plans/2026-10-23-session-doors-e
 ## Notes
 
 - 2026-10-23T14:01:00Z (main): Also from the final review, on ruling R16: the resume_publish door opens the session's world although the act does not use it, so a world root that refuses to open (e.g. mid-recovery) blocks a resume the act could run. Decide whether resume should skip the open (one line in writer.py _publishing plus a spec note) or keep it for symmetry with publish.
+- 2026-10-23T14:24:25Z (main): Correction (codex/gpt-6.1-sol review): item (3) is wrong as written. load_manifest already raises typed ManifestMissing / ManifestMalformed (world/registry.py:500-509); mapping it to capture-damaged would only normalize the API, not fix an untyped escape.
