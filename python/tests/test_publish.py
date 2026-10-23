@@ -379,3 +379,48 @@ def test_export_enumeration_refuses_before_creating_the_mark(tmp_path, monkeypat
     with pytest.raises(error):
         act._mark(attempt, CID, mark.artifact)
     assert not (remote.op / "transport.v1").exists()
+
+
+# --- sharing design §2 decision 10: step 0 is the preview, then the profile ---------
+
+
+@pytest.mark.parametrize(
+    "writer_version, staging_version, reason",
+    [(2, 3, "attribution-contract-unpinned"), (3, 2, "profile-disagrees")],
+    ids=["attribution-wins", "profile-alone"],
+)
+def test_profile_disagrees_follows_the_preview(tmp_path, monkeypatch, writer_version, staging_version, reason):
+    """A staging profile whose pins differ refuses only after the preview's
+    attribution refusals: with both present the attribution refusal wins."""
+    from coordination_fixtures import raw_coordination_node
+    from test_publication_attribution import wrapper_fixture
+
+    from beliefs.coordination import coordination_revision
+    from beliefs.errors import PublicationRefused
+
+    s = wrapper_fixture(tmp_path, monkeypatch, writer_version=writer_version)
+    project = raw_coordination_node("project", "f" * 32, "d" * 32)  # the wrapper fixture's view
+    staging = coordination_profile(None, version=staging_version)
+    assert act.pins_of(staging) != act.pins_of(coordination_profile(None, version=writer_version))
+    with pytest.raises(PublicationRefused) as caught:
+        act.publish(
+            s.writer,
+            cast(Any, SimpleNamespace(mounted=lambda: (s.writer.root,), resolve=lambda address: project)),
+            cast(Any, s.world),
+            view=coordination_revision(project).address,
+            destination=Destination.local(str(tmp_path / "dest")),
+            operations_root=s.ops,
+            staging_profile=staging,
+            clock=lambda: "2026-10-02T00:00:00Z",
+            seam=cast(Any, None),
+        )
+    assert caught.value.reason == reason
+    assert s.calls == ["scan"] and list(s.ops.iterdir()) == []
+
+
+def test_require_publishes_is_the_acts_check():
+    from beliefs.errors import PermitExceeded
+
+    with pytest.raises(PermitExceeded) as caught:
+        act.require_publishes(scoped_authority(RequiredCapabilities.coordination(), "a"))
+    assert caught.value.requirement.name == "publish"
