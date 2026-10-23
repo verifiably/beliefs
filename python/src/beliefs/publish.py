@@ -10,10 +10,11 @@ from __future__ import annotations
 import shutil
 import stat
 from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, final
 
 from nodes.core.errors import CollisionError, NodesError, PlacementError
 from nodes.core.errors import ValidationError as NodesValidationError
@@ -22,6 +23,7 @@ from nodes.core.node import Node
 from nodes.core.paths import path_for_node_id
 
 from beliefs import stored
+from beliefs.consulted import CorpusPins
 from beliefs.coordination import CoordinationAddress, CoordinationRefused, MomentSeam
 from beliefs.corpus import CoordinationResolver, CorpusWriter, ReadView
 from beliefs.durable import ensure_directory, write_create_only
@@ -34,6 +36,7 @@ from beliefs.errors import (
     ValidationRefused,
 )
 from beliefs.intents.publish import Destination
+from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
 from beliefs.publication import (
     BINDING_KIND,
@@ -106,6 +109,7 @@ from beliefs.root import (
     restore_root,
 )
 from beliefs.runrecord import OperationPort
+from beliefs.sealed import sealed
 from beliefs.transport import Transport, TransportAbandoned, listing_identity, local_listing, transport_files
 from beliefs.view_query import stored_query
 from beliefs.world import Fresh, RegistryView, ReplicaOf, WorldConfig, load_manifest
@@ -116,7 +120,17 @@ from beliefs.world.selection import evaluate_query
 from beliefs.world.verify import ArtifactCarrier, ObserverSet
 from beliefs.world.view import WorldReadView, open_world_view
 
-__all__ = ["PublishRefused", "PublishUnresolved", "Published", "pending_publishes", "publish", "resume_publish"]
+__all__ = [
+    "PublicationPreview",
+    "PublishRefused",
+    "PublishUnresolved",
+    "Published",
+    "pending_publishes",
+    "publication_preview",
+    "publish",
+    "require_publishes",
+    "resume_publish",
+]
 
 
 @dataclass(frozen=True)
@@ -210,11 +224,13 @@ def _require_transport(destination: Destination, transport: Transport | None) ->
         raise ValidationRefused("a local destination takes no transport")
 
 
-def _require_publishes(writer: CorpusWriter) -> None:
-    writer.authority.require("publish", (BINDING_KIND, MARKER_KIND))
-    writer.authority.require("corpus-write", ("act-report", *stored.WORLD_KINDS))
-    writer.authority.require("lifecycle")
-    writer.authority.require("registry")
+def require_publishes(authority: Authority) -> None:
+    """The publication permit the act requires before any effect (sharing design
+    decision 7): the session's publish door checks it before it opens a world."""
+    authority.require("publish", (BINDING_KIND, MARKER_KIND))
+    authority.require("corpus-write", ("act-report", *stored.WORLD_KINDS))
+    authority.require("lifecycle")
+    authority.require("registry")
 
 
 def _op_dir(operations_root: Path, event_token: str) -> Path:
@@ -287,6 +303,71 @@ def _selected_attributions(
 # --- step 0 ------------------------------------------------------------------
 
 
+@sealed
+@final
+@dataclass(frozen=True)
+class PublicationPreview:
+    """What step 0 freezes, computed before the intent (sharing design §4.7)."""
+
+    view: CoordinationAddress  # pinned to the revision the selection was evaluated against
+    epoch: str  # the published epoch's packaging identity
+    world_id: str
+    selected: tuple[str, ...]
+    contributing: tuple[str, ...]
+    pins: CorpusPins  # the derived pins the staging profile must hold
+    attributions: tuple[tuple[str, str, str], ...] | None  # None under a v2 coordination pin
+    records: tuple[tuple[str, str], ...]  # (address, canonical text) in selection order
+
+
+def publication_preview(
+    world: World,
+    resolver: CoordinationResolver,
+    view: CoordinationAddress,
+    *,
+    own_pins: CorpusPins,
+) -> PublicationPreview:
+    """Step 0 up to the intent (sharing design decision 10): resolve the view,
+    evaluate the selection at the current epoch, check closure, derive the pins,
+    compute the attribution entries and render the records, refusing exactly as
+    `publish` refuses there. It writes nothing and needs no authority; `publish`
+    calls it, so a dry run cannot disagree with the act."""
+    resolved = resolver.resolve(view.unpinned())
+    if resolved is None:
+        raise PublicationRefused("view-unresolved")
+    if type(resolved) is CoordinationRefused:
+        raise PublicationRefused("divergent-view", tips=resolved.tips)
+    assert type(resolved) is Node
+    pinned = view.unpinned().pinned(resolved.uid)
+    query = stored_query(resolved)
+    published = current_epoch(world)
+    read = open_world_view(world, published)
+    selection = evaluate_query(read, query)
+    if not selection.complete:
+        absent = {*selection.absent, *(step.corpus_id for step in selection.unresolved if step.corpus_id is not None)}
+        raise PublicationRefused("selection-incomplete", corpus_ids=tuple(sorted(absent)))
+    if not selection.selected:
+        raise PublicationRefused("empty-selection")
+    if missing := closure_missing(read, selection.selected):
+        raise PublicationRefused("closure-incomplete", refs=missing)
+    pins = derive_pins(
+        {corpus_id: read.captured_manifest(corpus_id).profile for corpus_id in selection.contributing},
+        own_pins,
+    )
+    attributions = _selected_attributions(read, world.registry(), selection.selected, pins.domains["coordination"])
+    records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)
+    _require_snapshot_records(read, records, attributions=attributions)
+    return PublicationPreview(
+        view=pinned,
+        epoch=published.packaging_identity,
+        world_id=world.config.world_id,
+        selected=selection.selected,
+        contributing=selection.contributing,
+        pins=pins,
+        attributions=attributions,
+        records=records,
+    )
+
+
 def publish(
     writer: CorpusWriter,
     resolver: CoordinationResolver,
@@ -300,9 +381,11 @@ def publish(
     seam: MomentSeam,
     port: OperationPort | None = None,
     transport: Transport | None = None,
+    hold: Callable[[], AbstractContextManager[object]] | None = None,
 ) -> PublishOutcome:
-    """Publish `view` to `destination` (local and remote specs §3–§8)."""
-    _require_publishes(writer)
+    """Publish `view` to `destination` (local and remote specs §3–§8). The intent
+    is appended under the caller's `hold` (sharing design decision 9)."""
+    require_publishes(writer.authority)
     _require_transport(destination, transport)
     forbidden = (*resolver.mounted(), *world.config.corpus_roots, world.config.world_root)
     # local §4.1 item 7, remote §4.1: the returned destination is the one the intent and the request freeze
@@ -326,52 +409,30 @@ def publish(
         )
         if blocking:
             raise PublicationRefused("publish-unfinished", tokens=blocking)
-    resolved = resolver.resolve(view.unpinned())
-    if resolved is None:
-        raise PublicationRefused("view-unresolved")
-    if type(resolved) is CoordinationRefused:
-        raise PublicationRefused("divergent-view", tips=resolved.tips)
-    assert type(resolved) is Node
-    pinned = view.unpinned().pinned(resolved.uid)
-    query = stored_query(resolved)
-    published = current_epoch(world)
-    read = open_world_view(world, published)
-    selection = evaluate_query(read, query)
-    if not selection.complete:
-        absent = {*selection.absent, *(step.corpus_id for step in selection.unresolved if step.corpus_id is not None)}
-        raise PublicationRefused("selection-incomplete", corpus_ids=tuple(sorted(absent)))
-    if not selection.selected:
-        raise PublicationRefused("empty-selection")
-    if missing := closure_missing(read, selection.selected):
-        raise PublicationRefused("closure-incomplete", refs=missing)
-    pins = derive_pins(
-        {corpus_id: read.captured_manifest(corpus_id).profile for corpus_id in selection.contributing},
-        load_manifest(writer.root).profile,
-    )
-    if pins_of(staging_profile) != pins:
+    preview = publication_preview(world, resolver, view, own_pins=load_manifest(writer.root).profile)
+    if pins_of(staging_profile) != preview.pins:
         raise PublicationRefused("profile-disagrees")
-    attributions = _selected_attributions(read, world.registry(), selection.selected, pins.domains["coordination"])
-    records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)
-    _require_snapshot_records(read, records, attributions=attributions)
-    opened = _open_publication(
-        writer,
-        resolver,
-        view=view.unpinned(),
-        destination=destination,
-        clock=clock,
-        seam=seam,
-        port=port,
-        expected_view=pinned,
-    )
+    records = preview.records
+    with nullcontext() if hold is None else hold():
+        opened = _open_publication(
+            writer,
+            resolver,
+            view=view.unpinned(),
+            destination=destination,
+            clock=clock,
+            seam=seam,
+            port=port,
+            expected_view=preview.view,
+        )
     token = opened.intent.event_token
-    snapshot = Snapshot(token, records, attributions)
+    snapshot = Snapshot(token, records, preview.attributions)
     request = PublishRequest(
         event_token=token,
         view=opened.intent.view,
         destination=destination,
-        epoch=published.packaging_identity,
-        world_id=world.config.world_id,
-        pins=pins,
+        epoch=preview.epoch,
+        world_id=preview.world_id,
+        pins=preview.pins,
         selection=snapshot.identity(),
         staging_world_id=staging_world_id_for(token),
     )
@@ -847,7 +908,7 @@ def resume_publish(
     transport: Transport | None = None,
 ) -> PublishOutcome:
     """Resume from its request, or a remote transport mark (local §9, remote §4.2)."""
-    _require_publishes(writer)
+    require_publishes(writer.authority)
     reading = attempt_reading(writer, event_token, seam)
     if reading is None:
         raise ValidationRefused(f"no publish intent carries token {event_token}")

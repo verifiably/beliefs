@@ -21,6 +21,7 @@ from beliefs import root as science_root
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import PermitExceeded, PermitFact
 from beliefs.permit import Authority
+from beliefs.runrecord import GuardedCommit
 from beliefs.world import registry
 
 _STATE: dict[Path, dict] = {}
@@ -364,6 +365,7 @@ class _Port:
 
     def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
         self.appended.append(plan)
+        return GuardedCommit("r" * 64, None)
 
 
 def _fact_from(detail: str) -> PermitFact:

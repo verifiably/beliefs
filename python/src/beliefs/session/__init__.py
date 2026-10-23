@@ -24,11 +24,14 @@ from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
 from beliefs.root import durable_executor_factory, durable_operation_port, holdings_seam, log_seam, store_identity
 from beliefs.session.ledger import (
+    TRANSITIONS,
     ActLine,
     InvocationRecord,
     LedgerReader,
     LedgerWriter,
     SelectLine,
+    SharingEvidence,
+    SharingLine,
     ledger_path,
     open_ledger_reader,
     read_ledger_evidence,
@@ -50,6 +53,7 @@ from beliefs.world import WorldConfig, load_manifest
 from beliefs.world.logmodel import ChainView, WellFormedView
 
 __all__ = [
+    "TRANSITIONS",
     "ActLine",
     "Claim",
     "ClaimDone",
@@ -61,6 +65,8 @@ __all__ = [
     "LedgerReader",
     "ScopedWriter",
     "SelectLine",
+    "SharingEvidence",
+    "SharingLine",
     "WriterSession",
     "open_attended_session",
     "open_ledger_reader",
@@ -188,6 +194,7 @@ def open_attended_session(
         holdings_seam=holdings_seam() if store_root is not None else None,
         coordination_resolver=resolver,
         project=pinned,
+        world_config=world_config,
     )
     # §3.1: session-open is written (by the constructor) before reconciliation runs.
     session.findings = reconcile_sessions(world_config, operations_root, exclude=session_id)

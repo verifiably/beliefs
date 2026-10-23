@@ -247,8 +247,47 @@ def test_publishes_constructs_exactly_the_kernel_requirement():
         frozenset({"publication-binding", "publication", "act-report", *stored.WORLD_KINDS}),
         frozenset({"publish", "corpus-write", "lifecycle", "registry"}),
     )
-    assert KERNEL_REQUIREMENTS == frozenset({required.permit})
+    assert KERNEL_REQUIREMENTS == frozenset({required.permit, RequiredCapabilities.sharing().permit})
     assert scoped_authority(required, "publisher").permit == required.permit
+
+
+def test_sharing_constructs_exactly_the_second_kernel_requirement():
+    required = RequiredCapabilities.sharing()
+    assert required.permit == WritePermit(frozenset(), frozenset({"lifecycle", "registry"}))
+    assert KERNEL_REQUIREMENTS == frozenset({RequiredCapabilities.publishes().permit, required.permit})
+    authority = scoped_authority(required, "sharer")
+    authority.require("lifecycle")
+    authority.require("registry")
+    with pytest.raises(PermitExceeded):
+        authority.require("corpus-write")
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: RequiredCapabilities(WritePermit(frozenset(), frozenset({"lifecycle", "registry"}))),
+        lambda: RequiredCapabilities(WritePermit(frozenset(), frozenset({"lifecycle"}))),
+        lambda: RequiredCapabilities(
+            WritePermit(frozenset({"task"}), frozenset({"lifecycle", "registry", "corpus-write"}))
+        ),
+    ],
+    ids=["exact", "lifecycle-alone", "widened"],
+)
+def test_every_ordinary_route_naming_lifecycle_or_registry_still_refuses(build):
+    with pytest.raises(ValueError, match="a requirement names only command-reachable families"):
+        build()
+
+
+def test_no_for_kinds_route_can_compile_to_the_sharing_permit():
+    """`for_kinds` takes its families from `KIND_ACTS` routes alone, and no kind
+    admits `lifecycle` or `registry`, so no declaration can name them; the
+    closest reachable route, the empty declaration, compiles to the empty permit."""
+    assert not any({"lifecycle", "registry"} & routes for routes in KIND_ACTS.values())
+    assert RequiredCapabilities.for_kinds([], {}).permit != RequiredCapabilities.sharing().permit
+    for kind in KIND_ACTS:
+        for family in ("lifecycle", "registry"):
+            with pytest.raises(ValueError, match="does not admit route"):
+                RequiredCapabilities.for_kinds([kind], {kind: family})
 
 
 def test_the_publication_permit_covers_every_call_the_act_makes():

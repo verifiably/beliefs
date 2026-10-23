@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     from beliefs.corpus import ReadView
 
 __all__ = [
+    "GuardedCommit",
     "OperationPort",
     "RunPublication",
     "bare_address",
@@ -90,6 +91,24 @@ def bare_address(ref: str) -> str:
     if not _CLOSURE_ADDRESS.fullmatch(address):
         raise MalformedRecord(f"{ref!r} does not name a closure address")
     return address
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class GuardedCommit:
+    """What a guarded fulfilling commit committed: the registration digest read
+    back from the chain, and the guard's reason when the fallback plan committed
+    (`None` when the primary plan did)."""
+
+    entry: str
+    reason: str | None
+
+    def __post_init__(self) -> None:
+        if type(self.entry) is not str:
+            raise TypeError("a guarded commit's entry is a registration digest string")
+        if self.reason is not None and type(self.reason) is not str:
+            raise TypeError("a guarded commit's reason is a string or None")
 
 
 class OperationPort(Protocol):
@@ -128,7 +147,12 @@ class OperationPort(Protocol):
         *,
         guard: Callable[[ReadView], str | None],
         fallback: Callable[[str], WritePlan],
-    ) -> str | None: ...
+    ) -> GuardedCommit:
+        """Under the root's operation lock, run `guard` over the root's view and
+        commit the plan when it returns `None`, or `fallback(reason)` when it
+        returns a reason, fulfilling `fulfills`; return the registration digest
+        read from the chain and the reason (sharing-doors design §4.6)."""
+        ...
 
 
 @sealed

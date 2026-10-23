@@ -55,6 +55,7 @@ PRIMITIVE_IMPLEMENTATIONS = frozenset(
         "root.py:_fork_resume",
         "session/routes.py:LedgeredPort.append_intent",
         "session/routes.py:LedgeredPort.execute_fulfilling",
+        "session/routes.py:LedgeredPort.execute_fulfilling_guarded",
         "session/routes.py:ledgered_seam.publish_fulfilling",
     }
 )

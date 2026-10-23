@@ -476,3 +476,35 @@ recording port and a fake seam):
 The plan (`../plans/2026-09-09-session-routes.md`) attaches one step per
 section to these tasks. The adoption ledger gains its row when the work
 lands.
+
+## Guarded ledgered commit note — 2026-10-23
+
+`OperationPort.execute_fulfilling_guarded(plan, fulfills, *, guard, fallback)` now
+returns `GuardedCommit(entry, reason)` (`beliefs/runrecord.py`): the registration
+digest read back from the chain and the guard's reason when the fallback plan
+committed, `None` when the primary did
+([sharing and publish doors design](../superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md)
+§2 decision 8, `beliefs-f24fe9`). `LedgeredPort` implements it under the session
+lock, so the ledgered port, which refused the guarded form, commits and ledgers
+both branches. The primary plan's records are read and validated by `plan_records`
+before delegation; the fallback is wrapped so that the records of the plan it
+returns are read and validated before the plan reaches the durable port; one `act`
+line then carries the records of whichever plan committed. A plan the route
+refuses is therefore refused before any commit on either branch, never after it.
+`execute` stays refused.
+
+The durable port's readback is `root.py`'s `_committed_registration_for`, not the
+design's `_registration_for`: it returns the one registration fulfilling the
+intent whose settlement committed and requires exactly one (`ExecutionError`
+otherwise). The engine refuses a second committed fulfilment of one intent, so
+"the committed one" is exact and keeps a fail-early check, where taking the latest
+registration would silently pick an uncommitted one if settlement ever lagged.
+`execute_fulfilling` keeps its exactly-one rule unchanged.
+
+The two production callers read `.reason` where they read the bare value:
+`_bind_publication` and `execute_production_run`. A production run through a
+session's operation port is now reachable: it commits and ledgers its records as
+the assessment run does, and a test holds it to that on the durable session. The
+protocol's return type binds only the test doubles that return a value: of the
+twelve in the tree, four return a value and change, three forward the inner value,
+and five never return.

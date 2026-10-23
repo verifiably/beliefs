@@ -65,15 +65,17 @@ _LIVE_SABOTAGES = {
     # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
     # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
     # the formatted source is exactly the formatted declared sabotage.
+    # Live re-target, 2026-10-23 (sharing-doors design §2 decisions 9 and 10): step 0's
+    # selection moved into `publication_preview` and the intent into the caller's hold,
+    # so the local `query` is gone. The sabotage re-evaluates the selection after the
+    # intent through the preview, whose `evaluate_query` refuses `corpus-drifted` on the
+    # drifted world, and assigns the `records` name the snapshot freezes.
     "Y6-a": Sabotage(
         module="publish.py",
-        before=("    )\n    token = opened.intent.event_token\n"),
+        before=("        )\n    token = opened.intent.event_token\n"),
         after=(
-            "    )\n"
-            "    records = tuple(\n"
-            "        (address, node_to_markdown(open_world_view(world, current_epoch(world)).get(address)))\n"
-            "        for address in evaluate_query(open_world_view(world, current_epoch(world)), query).selected\n"
-            "    )\n"
+            "        )\n"
+            "    records = publication_preview(world, resolver, view, own_pins=load_manifest(writer.root).profile).records\n"
             "    token = opened.intent.event_token\n"
         ),
     ),
@@ -355,3 +357,11 @@ def test_row_parser_accepts_only_exact_declared_units() -> None:
 
 
 # Export the live tuple so arm_staleness.audited_arms measures every audited arm.
+
+
+def test_the_retargeted_y6_a_arm_is_sound_alone(tmp_path):
+    """The Y6-a live matcher, re-targeted when step 0's selection became
+    `publication_preview` (sharing-doors design §2 decision 10), still bites alone."""
+    (arm,) = [arm for arm in CUT40_ARMS if arm.row == "Y6-a"]
+    finding = audit(arm, tmp_path / "y6a")
+    assert finding.verdict == "sound", finding.detail

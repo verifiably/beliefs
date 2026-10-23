@@ -52,7 +52,7 @@ from beliefs.identity import v1
 from beliefs.publication import marker_record
 from beliefs.report import Moved, OperationIntent
 from beliefs.root import open_corpus
-from beliefs.runrecord import publication_plan
+from beliefs.runrecord import GuardedCommit, publication_plan
 from beliefs.spec import freeze
 from beliefs.world import load_manifest, manifest_bytes
 
@@ -107,7 +107,7 @@ class OperationRecorder:
         require_pins_agree(self.root, self.profile)
         reason = guard(ReadView.opened_at(self.root))
         self.fulfilling.append((list(plan if reason is None else fallback(reason)), fulfills))
-        return reason
+        return GuardedCommit("r" * 64, reason)
 
 
 @pytest.fixture()

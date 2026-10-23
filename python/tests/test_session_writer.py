@@ -47,6 +47,7 @@ from beliefs.session import (
     ClaimOpen,
     KernelRefusalValue,
     ScopedWriter,
+    SharingEvidence,
     WriterSession,
     open_ledger_reader,
 )
@@ -68,6 +69,7 @@ def make_session(
     holdings_seam: Any = None,
     coordination_resolver: CoordinationResolver | None = None,
     project: CoordinationAddress | None = None,
+    world_config: Any = None,
 ) -> tuple[WriterSession, list[RecordingPort]]:
     corpus_root = tmp_path / "corpus"
     corpus_root.mkdir()
@@ -97,6 +99,7 @@ def make_session(
         holdings_seam=holdings_seam,
         coordination_resolver=coordination_resolver,
         project=project,
+        world_config=world_config,
     )
     return session, ports
 
@@ -200,6 +203,14 @@ def test_scoped_refuses_an_uncovered_requirement_before_any_writer_exists(tmp_pa
         session.scoped(PROPOSITIONS, "A")
     assert caught.value.requirement == PermitFact("kind", "proposition")
     assert caught.value.capability.kinds == ("source",)
+    assert ports == []
+
+
+def test_scoped_sharing_under_a_ceiling_lacking_registry_refuses_naming_registry(tmp_path):
+    session, ports = make_session(tmp_path, ceiling=narrowed(kinds=set(), families={"lifecycle"}).permit)
+    with pytest.raises(PermitExceeded) as caught:
+        session.scoped(RequiredCapabilities.sharing(), "A")
+    assert caught.value.requirement == PermitFact("family", "registry")
     assert ports == []
 
 
@@ -308,7 +319,7 @@ def test_delete_ledgers_an_empty_record_list(tmp_path):
     assert session.invocation_acts("A")[-1].record_ids == ()
 
 
-def test_the_scoped_writer_exposes_the_seventeen_methods_the_routes_and_its_invocation(tmp_path):
+def test_the_scoped_writer_exposes_the_twenty_two_methods_the_routes_and_its_invocation(tmp_path):
     public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
     assert public == {
         "add",
@@ -328,6 +339,11 @@ def test_the_scoped_writer_exposes_the_seventeen_methods_the_routes_and_its_invo
         "acquire",
         "audit",
         "recheck",
+        "record_sharing",
+        "restore_root",
+        "admit_publication",
+        "publish",
+        "resume_publish",
     }
 
 
@@ -992,3 +1008,133 @@ def test_a_non_path_write_root_is_a_type_error(tmp_path, monkeypatch):
         _open(config, tmp_path, write_root=str(a), profile=V2M)  # type: ignore[arg-type]
     with pytest.raises(TypeError):
         _open(config, tmp_path, write_root=a, profile=V2M, mounts={str(a): V2M, b: V2M})  # type: ignore[dict-item]
+
+
+# --- sharing lines (sharing design §2 decisions 3, 4, 6; §4.3) ---------------------------
+SHARING = RequiredCapabilities.sharing()
+EVIDENCE = SharingEvidence(
+    CORPUS, "5" * 32, "6" * 64, WORLD, f"coord:{'1' * 32}@{'2' * 32}", "provider:https://r/a", "https://r/a"
+)
+
+
+def test_record_sharing_appends_and_the_index_learns_it_before_return(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "bind", DIGEST)
+    line = session.scoped(SHARING, "A").record_sharing(EVIDENCE, transition="bound", verdict="validated")
+    assert session.invocation_sharing("A") == (line,)
+    assert line.transition == "bound" and line.invocation == "A"
+    session.close_invocation("A", {"done": []})
+    session.close()
+    record = open_ledger_reader(session.operations_root, SESSION).invocation("A")
+    assert record is not None and record.sharing == (line,)
+
+
+@pytest.mark.parametrize("transition", ["fetched", "admitted", "retired", "inspected"])
+def test_record_sharing_refuses_act_backed_and_unknown_transitions(tmp_path, transition):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "bind", DIGEST)
+    with pytest.raises(ValueError):
+        session.scoped(SHARING, "A").record_sharing(EVIDENCE, transition=transition, verdict="validated")
+    assert session.invocation_sharing("A") == ()
+
+
+def test_record_sharing_accepts_mounted(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "mount", DIGEST)
+    line = session.scoped(SHARING, "A").record_sharing(EVIDENCE, transition="mounted", verdict="mounted")
+    assert line.transition == "mounted"
+
+
+def test_record_sharing_requires_the_sharing_families(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "bind", DIGEST)
+    writer = session.scoped(RequiredCapabilities.coordination(), "A")
+    with pytest.raises(PermitExceeded) as caught:
+        writer.record_sharing(EVIDENCE, transition="bound", verdict="validated")
+    assert "lifecycle" in str(caught.value)
+    assert session.invocation_sharing("A") == ()
+
+
+def test_record_sharing_under_the_publication_permit_is_admitted(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "publish", DIGEST)
+    writer = session.scoped(RequiredCapabilities.publishes(), "A")
+    writer.record_sharing(EVIDENCE, transition="bound", verdict="validated")
+    assert len(session.invocation_sharing("A")) == 1
+
+
+def test_record_sharing_is_held_to_the_current_invocation(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "bind", DIGEST)
+    writer = session.scoped(SHARING, "A")
+    session.close_invocation("A", {"done": []})
+    with pytest.raises(SessionProtocolError):
+        writer.record_sharing(EVIDENCE, transition="bound", verdict="validated")
+    session.close()
+    with pytest.raises(SessionClosed):
+        writer.record_sharing(EVIDENCE, transition="bound", verdict="validated")
+
+
+def test_record_sharing_refuses_an_empty_verdict(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "bind", DIGEST)
+    with pytest.raises(ValueError):
+        session.scoped(SHARING, "A").record_sharing(EVIDENCE, transition="bound", verdict="")
+
+
+@pytest.mark.parametrize("fault", ["write", "flush", "fsync"])
+def test_a_failed_sharing_append_leaves_the_index_unchanged_and_ends_the_session(tmp_path, monkeypatch, fault):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "bind", DIGEST)
+    writer = session.scoped(SHARING, "A")
+    handle = session._ledger._file
+
+    def failing(*_args):
+        raise OSError(f"{fault} failed")
+
+    if fault == "write":
+        real_write = handle.write
+        monkeypatch.setattr(handle, "write", lambda data: real_write(data[:17]))  # a short write
+    elif fault == "flush":
+        monkeypatch.setattr(handle, "flush", failing)
+    else:
+        monkeypatch.setattr(os, "fsync", failing)
+    with pytest.raises(SessionLedgerFailed):
+        writer.record_sharing(EVIDENCE, transition="bound", verdict="validated")
+    monkeypatch.undo()
+    assert session._index["A"].sharing == []
+    frozen = ledger_file(session).read_bytes()
+    for call in (
+        lambda: writer.record_sharing(EVIDENCE, transition="bound", verdict="validated"),
+        lambda: session.invocation_sharing("A"),
+        lambda: session.invocation_acts("A"),
+        lambda: session.claim_invocation("B", "mint", DIGEST),
+        lambda: session.close_invocation("A", {"done": []}),
+        lambda: session.scoped(SHARING, "A"),
+        session.close,
+    ):
+        with pytest.raises(SessionLedgerFailed):
+            call()
+    assert ledger_file(session).read_bytes() == frozen
+
+
+def test_world_config_must_agree_with_world_id(tmp_path):
+    from beliefs.world import WorldConfig
+
+    for sub in ("x", "y"):
+        (tmp_path / sub).mkdir()
+    with pytest.raises(ValueError):
+        make_session(tmp_path, world_config=WorldConfig(tmp_path / "world", "e" * 32, ()))
+    with pytest.raises(TypeError):
+        make_session(tmp_path / "x", world_config=object())
+    session, _ = make_session(tmp_path / "y", world_config=WorldConfig(tmp_path / "world", WORLD, ()))
+    config = session.world_config
+    assert config is not None and config.world_id == WORLD
+
+
+def test_an_attended_session_holds_its_world_config(tmp_path, monkeypatch):
+    session = _attended(tmp_path, monkeypatch)
+    config = session.world_config
+    assert config is not None
+    assert config.world_id == WORLD
+    assert config.world_root == tmp_path / "world"

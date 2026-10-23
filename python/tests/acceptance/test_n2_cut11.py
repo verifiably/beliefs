@@ -41,7 +41,7 @@ _LIVE_SABOTAGES = {
         before=(
             "        reason = port.execute_fulfilling_guarded(\n"
             "            plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback\n"
-            "        )\n"
+            "        ).reason\n"
         ),
         after=("        port.execute(plan)\n        reason = None\n"),
     ),
@@ -330,3 +330,11 @@ def test_j3a_writer_ceiling_fails_while_the_non_port_write_passes(tmp_path):
     failing, passing = _j3a_independence(arm, tmp_path / "j3a")
     assert failing == FAILED
     assert passing == PASSED
+
+
+def test_the_retargeted_j7b_arm_is_sound_alone(tmp_path):
+    """The J7b live matcher, re-targeted when the guarded commit began returning
+    `GuardedCommit` (sharing-doors design §2 decision 8), still bites alone."""
+    (arm,) = [arm for arm in CUT11_ARMS if arm.row == "J7b"]
+    finding = audit(arm, tmp_path / "j7b")
+    assert finding.verdict == "sound", finding.detail

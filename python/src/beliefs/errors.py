@@ -1574,6 +1574,21 @@ class PortMismatch(WriteRefused):
     chain while this writer's corpus is what the operation reads."""
 
 
+class SharingEvidenceDisagrees(WriteRefused):
+    """A sharing act door's evidence disagrees with the root it acts on (sharing
+    design §2 decision 4, §4.5). Raised before any effect, on the first
+    disagreeing field in the binding's order: `corpus`, `artifact`, `marker`,
+    `world`, `view`. `claimed` is the evidence's value; `found` is the
+    subject's, the root's or the carriers' (the comma-joined identities of the
+    artifacts whose subject matched, or `none`)."""
+
+    def __init__(self, field: str, claimed: str, found: str) -> None:
+        super().__init__(f"sharing evidence {field} is {claimed!r}; the root holds {found!r}")
+        self.field = field
+        self.claimed = claimed
+        self.found = found
+
+
 class PlanRefused(WriteRefused):
     """The operation seam's preflight refused the plan — shape, a reserved
     leaf, or the record ceiling — before any intent (writer-session design
