@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T09:05:39Z
+updated: 2026-10-23T09:29:48Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
@@ -43,4 +43,6 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 - 2026-10-23T08:55:12Z (feat/f24fe9-session-doors): review: spec round 2 — verdict: accept; findings: Minor 3; reviewer: codex/gpt-6-astra
 - 2026-10-23T09:05:36Z (feat/f24fe9-session-doors): Implementation plan committed at 6dae371: docs/superpowers/plans/2026-10-23-session-sharing-and-publish-doors.md, eight tasks (beliefs-5ef652, 9dc85e, d85d16, 28454b, b4a816, 1e09a7, 9a696c, c8317e), all direct. Recommended execution: subagent-driven, foreground-only dispatches, because Tasks 4 to 7 change a port protocol across ten doubles and compose frozen-cut acts, where a fresh reviewer per task is worth its context.
 - 2026-10-23T09:05:39Z (feat/f24fe9-session-doors): parked (waiting on user, review): Review the implementation plan at 6dae371 (docs/superpowers/plans/2026-10-23-session-sharing-and-publish-doors.md, branch feat/f24fe9-session-doors, .worktrees/f24fe9-session-doors) and choose the execution method; then tasks start there, run the deferred full-suite baseline (just test) at Setup, and execute Task 1 (beliefs-5ef652) onward.
+  provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-23T09:29:48Z (feat/f24fe9-session-doors): resumed
   provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
