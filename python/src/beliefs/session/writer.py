@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -24,6 +25,7 @@ from beliefs.errors import (
     SessionClosed,
     SessionLedgerFailed,
     SessionProtocolError,
+    SharingEvidenceDisagrees,
 )
 from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit, permit_covers, scoped_authority
@@ -53,6 +55,8 @@ if TYPE_CHECKING:
     from beliefs.holdings.recheck import RecheckOutcome
     from beliefs.holdings.records import HoldingsObservation, StoreLocator
     from beliefs.holdings.transport import UrlSeam
+    from beliefs.world.anchors import CorpusSubject
+    from beliefs.world.verify import ObserverSet
     from beliefs.world.view import WorldReadView
 
 __all__ = [
@@ -138,6 +142,49 @@ def resolve_project(resolver: CoordinationResolver | None, address: Coordination
     if resolved.kind != "project":
         raise ProjectNotResolvable(f"{address}: resolves to a {resolved.kind}, not a project")
     return address.pinned(resolved.uid)
+
+
+def _bind_sharing_evidence(
+    root: Path, evidence: SharingEvidence, observers: ObserverSet, *, subject: CorpusSubject | None
+) -> None:
+    """Bind a sharing door's evidence to the root it acts on, before any effect
+    (sharing design §2 decision 4): refuse `SharingEvidenceDisagrees` on the
+    first field the subject, the root or the observers disagree with, in the
+    order `corpus`, `artifact`, `marker`, `world`, `view`. The layout check is
+    `admit_publication`'s own, so a root that is no publication refuses
+    `PublicationArrivalRefused` here, before either act. `source` and
+    `location` are the caller's attestations and are not bound."""
+    from beliefs.corpus import ReadView
+    from beliefs.publication import MARKER_KIND
+    from beliefs.publication_arrival import require_publication_layout
+    from beliefs.stored import COORDINATION_FACET
+    from beliefs.world import load_manifest
+    from beliefs.world.anchors import CorpusSubject, decode_head_artifact
+    from beliefs.world.verify import ArtifactCarrier
+
+    if subject is not None and subject.corpus_id != evidence.corpus:
+        raise SharingEvidenceDisagrees("corpus", evidence.corpus, subject.corpus_id)
+    manifest_id = load_manifest(root).corpus_id
+    if manifest_id != evidence.corpus:
+        raise SharingEvidenceDisagrees("corpus", evidence.corpus, manifest_id)
+    publication = CorpusSubject(evidence.corpus)
+    matched = tuple(
+        hashlib.sha256(carrier.data).hexdigest()
+        for carrier in observers.carriers
+        if type(carrier) is ArtifactCarrier and decode_head_artifact(carrier.data).subject == publication
+    )
+    if evidence.artifact not in matched:
+        raise SharingEvidenceDisagrees("artifact", evidence.artifact, ",".join(matched) or "none")
+    records = tuple(ReadView.opened_at(root).iter_stored())
+    require_publication_layout(records)
+    (marker,) = (node for node in records if node.kind == MARKER_KIND)
+    if marker.uid != evidence.marker:
+        raise SharingEvidenceDisagrees("marker", evidence.marker, marker.uid)
+    published_from = marker.facets[COORDINATION_FACET]["published_from"]
+    if published_from["world_id"] != evidence.world:
+        raise SharingEvidenceDisagrees("world", evidence.world, published_from["world_id"])
+    if CoordinationAddress.parse(published_from["view"]) != CoordinationAddress.parse(evidence.view):
+        raise SharingEvidenceDisagrees("view", evidence.view, published_from["view"])
 
 
 class WriterSession:
@@ -427,9 +474,22 @@ class WriterSession:
             self._ledger.close()
 
 
+def _require_door_arguments(root: Path, observers: ObserverSet, evidence: SharingEvidence) -> None:
+    """A sharing door's argument types, refused before any check (sharing design §4.4)."""
+    from beliefs.world.verify import ObserverSet
+
+    if not isinstance(root, Path):
+        raise TypeError("a sharing door acts on a root named by a Path")
+    if type(observers) is not ObserverSet:
+        raise TypeError("a sharing door takes an exact ObserverSet")
+    if type(evidence) is not SharingEvidence:
+        raise TypeError("a sharing door takes an exact SharingEvidence")
+
+
 class ScopedWriter:
     """The facade a handler holds (design §5): nine corpus-write methods, the
-    two routes of the session-routes design §3.3, one invocation."""
+    two routes of the session-routes design §3.3, the sharing record and its
+    two act doors (sharing design §4.4), one invocation."""
 
     __slots__ = ("_authority", "_invocation", "_session", "_writer")
 
@@ -466,6 +526,60 @@ class ScopedWriter:
                 "retired from World.retire's"
             )
         return self._session._record_sharing(self._invocation, evidence, transition=transition, verdict=verdict)
+
+    def restore_root(
+        self, root: Path, subject: CorpusSubject, observers: ObserverSet, *, evidence: SharingEvidence
+    ) -> SharingLine:
+        """Restore a fetched copy at `root` under this invocation and ledger
+        `fetched` with the report's outcome as the verdict (sharing design §4.4).
+        The copy's lifecycle state, not the line, says whether it is serviceable.
+        The spec's parameter name `copy` is a byte-mutation primitive's name,
+        which the capability boundary's raw-write scan refuses in this module.
+
+        The session lock is held from the currency check across the act and the
+        line, as `_act` holds it, so no close or re-claim falls between a grant
+        and its line; the act's own root lock nests inside it."""
+        from beliefs.root import restore_root as restore
+        from beliefs.world.anchors import CorpusSubject
+
+        if type(subject) is not CorpusSubject:
+            raise TypeError(
+                "the restore door takes a CorpusSubject: its evidence binds a corpus id, a manifest and a marker"
+            )
+        _require_door_arguments(root, observers, evidence)
+        with self._session._lock:
+            self._session._require_current(self._invocation)
+            self._authority.require("lifecycle")
+            _bind_sharing_evidence(root, evidence, observers, subject=subject)
+            report = restore(root, subject, observers, authority=self._authority)
+            return self._session._record_sharing(
+                self._invocation, evidence, transition="fetched", verdict=report.outcome
+            )
+
+    def admit_publication(self, root: Path, observers: ObserverSet, *, evidence: SharingEvidence) -> SharingLine:
+        """Admit a publication's root into the session's world as a replica of
+        itself, under this invocation's authority, and ledger `admitted` with the
+        arrival report's outcome as the verdict (sharing design §4.4). A refusal
+        from the layout check or from verified arrival propagates and appends
+        nothing. The world is opened per call from the session's configuration,
+        so the admission record carries the session actor (decision 6)."""
+        from beliefs.publication_arrival import admit_publication as admit
+        from beliefs.root import open_world
+
+        _require_door_arguments(root, observers, evidence)
+        with self._session._lock:
+            self._session._require_current(self._invocation)
+            self._authority.require("registry")
+            config = self._session.world_config
+            if config is None:
+                raise SessionProtocolError(
+                    "this session was opened with no world configuration; the admit and publish doors have no world"
+                )
+            _bind_sharing_evidence(root, evidence, observers, subject=None)
+            _, report = admit(open_world(config, authority=self._authority), root, observers)
+            return self._session._record_sharing(
+                self._invocation, evidence, transition="admitted", verdict=report.outcome
+            )
 
     def operation_port(self) -> OperationPort:
         """Return this invocation's durable, act-ledgered run route."""
