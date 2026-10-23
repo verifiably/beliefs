@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md` (approved for planning 2026-10-23 at `f2d75d6`).
 
+**Status:** approved for execution 2026-10-23 at `ddcb955` (plan review round 3, `codex/gpt-6-astra`); execution is sequential, foreground-only subagent-driven development.
+
 **Revision:** 2026-10-23, after plan review round 1 (unrestored admission, the durable composition proof, the `J7b` and `Y6-a` probe migrations, the stale-writer fixtures, Review Focus 4, the guarded-publication assertions, the fixture's `resolver`) and round 2 (`Y6-a` re-evaluates the selection after the intent; the one-arm audits are selectable tests through `just test-one`).
 
 ## Global Constraints
