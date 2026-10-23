@@ -8,13 +8,14 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T08:55:12Z
+updated: 2026-10-23T09:04:09Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
 source: sci-13050a
 agent: claude-code/claude-fable-5-1
 spec: docs/superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md
+plan: docs/superpowers/plans/2026-10-23-session-sharing-and-publish-doors.md
 ---
 
 Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-design.md §5, §7.4, §11; command framework §3.3 and §4.4 amendments of 2026-10-01) needs four things the kernel's session surface lacks today. (1) A constructible requirement for the sharing write class: RequiredCapabilities.sharing() whose permit names the families {lifecycle, registry} and no kinds, admitted like publishes() as a kernel requirement; today every permit naming lifecycle or registry outside _PUBLICATION_PERMIT is refused. (2) Doors on ScopedWriter for the sharing acts, under the scoped authority: restore a fetched copy (restore_root) and admit a publication (admit_publication over a World opened under that authority), each ledgered as a new 'sharing' line kind carrying the framework §4.4 amendment's evidence: corpus_id, marker uid, head artifact identity, the marker's world id, pin source, location fetched from, chain verification verdict, and the transition made; LedgerReader exposes the lines per invocation. The §7.1 comparison for this class is ledger-versus-registry. (3) A door for the publish act: ScopedWriter.publish(...) and resume_publish(...) run beliefs.publish with the scoped CorpusWriter, the session's coordination resolver and a World under the scoped authority, so the marker and binding commits reach the ledger as act lines; today publish takes a raw CorpusWriter and writes under writer._operation, which no session door reaches. (4) A public publication preview: the pre-intent computation publish runs (resolved view, selection, closure_missing, derived pins, attribution entries) as one function publish itself calls, so science's publish dry run shows exactly what the act would freeze and cannot disagree with it. Science's milestone plan consumes these four names; its tasks for publish, provider-bind and adopt wait on this.
