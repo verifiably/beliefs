@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T01:52:33Z
+updated: 2026-10-23T02:02:00Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
@@ -34,3 +34,4 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 - 2026-10-23T01:52:31Z (feat/f24fe9-session-doors): resumed
   provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-23T01:52:33Z (feat/f24fe9-session-doors): review: spec round 1 — verdict: revise; findings: Important 3; reviewer: codex/gpt-6-astra
+- 2026-10-23T02:02:00Z (feat/f24fe9-session-doors): Round 1 findings addressed in spec revision 2004188: (1) both publish doors check liveness, currency and the publication permit under the session lock before opening the world, so a stale writer cannot push or discard; the residual check-to-port window is stated; (2) the act doors bind corpus, artifact, marker, world and view to the root, the subject and the observers before the act and refuse SharingEvidenceDisagrees, with source and location explicit attestations; the restore door requires the publication layout first; (3) the ledgered guarded commit reads both plans' records before any commit. Follow-ups filed: beliefs-b427db (successor-actor resume), beliefs-a989fb (retire door). Reviewer rulings on 2b7549d recorded as given: intent-actor rule kept; raising preview and precedence change kept; GuardedCommit for both callers kept; evidence shape kept with binding; no cut, conditional on the mandated tests.
