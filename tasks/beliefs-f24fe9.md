@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T10:22:26Z
+updated: 2026-10-23T13:16:46Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
@@ -65,3 +65,4 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 - 2026-10-23T10:17:51Z (feat/f24fe9-session-doors): resumed
   provenance: {"harness_session":"claude-code:297628b0-d2fd-484c-b8a9-dc5eb3247cd4","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-23T10:22:26Z (feat/f24fe9-session-doors): baseline: just test at 0e9fbfb — non-N2 6123 passed, 1 skipped; N2 46 passed; TypeScript 155 passed (7 files); exit 0
+- 2026-10-23T13:16:46Z (feat/f24fe9-session-doors): review: impl round 1 — verdict: revise; findings: Important 1, Minor 5; reviewer: claude-code/claude-opus-5-5
