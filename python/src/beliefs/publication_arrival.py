@@ -26,6 +26,7 @@ from beliefs.root import admit_arrival
 from beliefs.world import ReplicaOf, load_manifest
 
 __all__ = [
+    "CAPTURE_DAMAGE",
     "CurrentPublication",
     "DivergentPublication",
     "admit_publication",
@@ -33,7 +34,9 @@ __all__ = [
     "require_publication_layout",
 ]
 
-_CAPTURE_DAMAGE = (OSError, NodesValidationError, PlacementError, CollisionError)
+CAPTURE_DAMAGE = (OSError, NodesValidationError, PlacementError, CollisionError)
+"""What a held root's records raise when they cannot be read: each reader maps it
+to `PublicationReadingRefused("capture-damaged", corpus_id)`."""
 
 
 @dataclass(frozen=True)
@@ -83,7 +86,7 @@ def admit_publication(world, root: Path, observers):
 def _held_records(root: Path, corpus_id: str) -> tuple[Node, ...]:
     try:
         return tuple(ReadView.opened_at(root).iter_stored())
-    except _CAPTURE_DAMAGE as caught:
+    except CAPTURE_DAMAGE as caught:
         raise PublicationReadingRefused("capture-damaged", corpus_id) from caught
 
 

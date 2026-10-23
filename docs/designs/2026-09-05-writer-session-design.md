@@ -1347,7 +1347,9 @@ scoped authority, and a session without one refuses them with
   with the restore report's `outcome` as the verdict. Its first parameter is
   `root`, not the design's `copy`: the capability boundary's raw-write scan rejects
   `copy` as a byte-mutation name, so science's Interfaces adapt. The subject must
-  be a `CorpusSubject`.
+  be a `CorpusSubject`. A copy holding a record its reader cannot parse refuses
+  `PublicationReadingRefused("capture-damaged", corpus)`, a `WriteRefused`, from
+  the evidence binding before either door's act, never a raw reader exception.
 - `admit_publication(root, observers, *, evidence) -> SharingLine` opens the
   session's world under the scoped authority, runs
   `beliefs.publication_arrival.admit_publication` and ledgers `admitted` with the

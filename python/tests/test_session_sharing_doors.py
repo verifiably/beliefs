@@ -31,6 +31,7 @@ from beliefs.errors import (
     ArrivalRefused,
     PermitExceeded,
     PublicationArrivalRefused,
+    PublicationReadingRefused,
     SessionClosed,
     SessionProtocolError,
     SharingEvidenceDisagrees,
@@ -99,6 +100,12 @@ def tamper_one_selected_record(root: Path) -> None:
     node = ReadView.opened_at(root).get(first)
     tampered = node.model_copy(update={"body": "a body the chain never recorded"})
     (root / path_for_node_id(first)).write_text(node_to_markdown(tampered), encoding="utf-8")
+
+
+def corrupt_one_selected_record(root: Path) -> None:
+    """Overwrite one selected record's file with bytes that parse as no record."""
+    first = marker_of(root).facets[stored.COORDINATION_FACET]["selection"][0]
+    (root / path_for_node_id(first)).write_bytes(b"---\nid: [unclosed\n---\nnot a record\n")
 
 
 def refuse_any_read(monkeypatch) -> None:
@@ -178,6 +185,25 @@ def test_admit_publication_of_a_refuted_chain_propagates_the_arrival_refusal_and
 
 
 # --- the layout and the evidence binding --------------------------------------------------
+@pytest.mark.parametrize("door", ["restore_root", "admit_publication"])
+def test_a_copy_with_an_unparseable_record_refuses_capture_damaged_before_the_act(certified_work, door):
+    """A record the copy's reader cannot parse is a typed refusal from the
+    binding, never a raw reader exception; neither act runs."""
+    x = shared(certified_work)
+    corrupt_one_selected_record(x.copy)
+    before = admissions(x)
+    with pytest.raises(PublicationReadingRefused) as caught:
+        if door == "restore_root":
+            x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
+        else:
+            x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
+    assert (caught.value.reason, caught.value.corpus_id) == ("capture-damaged", x.cid)
+    assert caught.value.__cause__ is not None
+    assert read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
+    assert admissions(x) == before
+    assert x.session.invocation_sharing("A") == ()
+
+
 def test_a_copy_without_its_marker_refuses_the_layout_before_either_act(certified_work):
     x = shared(certified_work)
     (x.copy / path_for_node_id(marker_of(x.copy).id)).unlink()

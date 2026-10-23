@@ -21,6 +21,7 @@ from beliefs.errors import (
     PermitExceeded,
     PermitFact,
     ProjectNotResolvable,
+    PublicationReadingRefused,
     ScienceError,
     SessionClosed,
     SessionLedgerFailed,
@@ -155,13 +156,15 @@ def _bind_sharing_evidence(
     """Bind a sharing door's evidence to the root it acts on, before any effect
     (sharing design §2 decision 4): refuse `SharingEvidenceDisagrees` on the
     first field the subject, the root or the observers disagree with, in the
-    order `corpus`, `artifact`, `marker`, `world`, `view`. The layout check is
+    order `corpus`, `artifact`, `marker`, `world`, `view`. A record the root's
+    reader cannot parse refuses `PublicationReadingRefused("capture-damaged")`,
+    the publication readers' own mapping. The layout check is
     `admit_publication`'s own, so a root that is no publication refuses
     `PublicationArrivalRefused` here, before either act. `source` and
     `location` are the caller's attestations and are not bound."""
     from beliefs.corpus import ReadView
     from beliefs.publication import MARKER_KIND
-    from beliefs.publication_arrival import require_publication_layout
+    from beliefs.publication_arrival import CAPTURE_DAMAGE, require_publication_layout
     from beliefs.stored import COORDINATION_FACET
     from beliefs.world import load_manifest
     from beliefs.world.anchors import CorpusSubject, decode_head_artifact
@@ -180,7 +183,10 @@ def _bind_sharing_evidence(
     )
     if evidence.artifact not in matched:
         raise SharingEvidenceDisagrees("artifact", evidence.artifact, ",".join(matched) or "none")
-    records = tuple(ReadView.opened_at(root).iter_stored())
+    try:
+        records = tuple(ReadView.opened_at(root).iter_stored())
+    except CAPTURE_DAMAGE as caught:
+        raise PublicationReadingRefused("capture-damaged", evidence.corpus) from caught
     require_publication_layout(records)
     (marker,) = (node for node in records if node.kind == MARKER_KIND)
     if marker.uid != evidence.marker:
