@@ -7,7 +7,7 @@ size: m
 complexity: high
 process: planned
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-22T23:10:59Z
+updated: 2026-10-23T01:08:55Z
 depends: []
 tags: [publication]
 source: sci-13050a
@@ -19,3 +19,4 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 ## Notes
 
 - 2026-10-22T23:10:59Z (main): From science's 1a plan review (2026-10-22): the sharing transitions are {bound, fetched, admitted, mounted, retired} (no 'inspected': inspection uses evaluate_copy and no door); a sharing line carries corpus, marker, artifact, world, view, source, location, verdict, transition, at; the publish door ledgers only the write-root records (binding, act report), since the marker lives in the publication corpus and science's ledger-rebuilt report reads configured roots. Question: resume_publish refuses an actor other than the intent's (session:<id>), so a stranded remote attempt cannot be resumed from a later service session; is a same-world resume across sessions intended, or does the pair stay blocked?
+- 2026-10-23T01:08:55Z (main): science side (sci-13050a) landed Tasks 1-3 on branch commons-1a 2026-10-22: science/sharing.py declares a structural SharingLine Protocol with fields invocation, corpus, marker, artifact, world, view, source, location, verdict, transition, at, and replay waits on LedgerReader.invocation(iid).sharing. Science's Task 4 consumes RequiredCapabilities.sharing(), ScopedWriter.record_sharing(SharingEvidence), WriterSession.invocation_sharing(iid); other names are fine, science adapts its Interfaces block.
