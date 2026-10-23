@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T09:33:14Z
+updated: 2026-10-23T09:33:17Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
@@ -48,3 +48,5 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
   provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-23T09:29:51Z (feat/f24fe9-session-doors): review: plan round 1 — verdict: revise; findings: Important 3, Minor 4; reviewer: codex/gpt-6-astra
 - 2026-10-23T09:33:14Z (feat/f24fe9-session-doors): Plan round 1 addressed at 87e2cc0: unrestored metadata-less admission now expected to succeed (test_arrival_modes.py:175) with a refuted-chain case for ArrivalRefused; Task 4 gains the LedgeredPort-over-durable-port proof on certified roots for both branches plus the invalid-fallback no-commit case; cut 11 J7b and cut 40 Y6-a live matchers re-targeted in Tasks 4 and 6 with one-arm audits, declarations frozen, and publish keeps a local records name for Y6-a; Task 7 stale-writer tests use a marked unfinished attempt and a bound-undiscarded attempt; Review Focus 4 drops the no-recovery promise; test_guarded_publication assertions migrate; fixture gains resolver. Execution method ruled: sequential foreground-only subagent-driven development.
+- 2026-10-23T09:33:17Z (feat/f24fe9-session-doors): parked (waiting on user, review): Review round 2 of the implementation plan at 87e2cc0 (docs/superpowers/plans/2026-10-23-session-sharing-and-publish-doors.md, branch feat/f24fe9-session-doors, .worktrees/f24fe9-session-doors). On approval: tasks start there, run the deferred full-suite baseline (just test) at Setup, then subagent-driven development from Task 1 (beliefs-5ef652), sequential and foreground-only.
+  provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
