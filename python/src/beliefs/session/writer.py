@@ -30,6 +30,7 @@ from beliefs.errors import (
 from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit, permit_covers, scoped_authority
 from beliefs.profile import ProfileSpec
+from beliefs.root import moment_seam, open_world
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.session.ledger import (
@@ -55,7 +56,11 @@ if TYPE_CHECKING:
     from beliefs.holdings.recheck import RecheckOutcome
     from beliefs.holdings.records import HoldingsObservation, StoreLocator
     from beliefs.holdings.transport import UrlSeam
+    from beliefs.intents.publish import Destination
+    from beliefs.publish import PublishOutcome
+    from beliefs.transport import Transport
     from beliefs.world.anchors import CorpusSubject
+    from beliefs.world.registry import World
     from beliefs.world.verify import ObserverSet
     from beliefs.world.view import WorldReadView
 
@@ -474,6 +479,9 @@ class WriterSession:
             self._ledger.close()
 
 
+_NO_WORLD = "this session was opened with no world configuration; the admit and publish doors have no world"
+
+
 def _require_door_arguments(root: Path, observers: ObserverSet, evidence: SharingEvidence) -> None:
     """A sharing door's argument types, refused before any check (sharing design §4.4)."""
     from beliefs.world.verify import ObserverSet
@@ -489,7 +497,8 @@ def _require_door_arguments(root: Path, observers: ObserverSet, evidence: Sharin
 class ScopedWriter:
     """The facade a handler holds (design §5): nine corpus-write methods, the
     two routes of the session-routes design §3.3, the sharing record and its
-    two act doors (sharing design §4.4), one invocation."""
+    two act doors, the publish and resume doors (sharing design §4.4), one
+    invocation."""
 
     __slots__ = ("_authority", "_invocation", "_session", "_writer")
 
@@ -564,22 +573,105 @@ class ScopedWriter:
         nothing. The world is opened per call from the session's configuration,
         so the admission record carries the session actor (decision 6)."""
         from beliefs.publication_arrival import admit_publication as admit
-        from beliefs.root import open_world
 
         _require_door_arguments(root, observers, evidence)
         with self._session._lock:
             self._session._require_current(self._invocation)
             self._authority.require("registry")
-            config = self._session.world_config
-            if config is None:
-                raise SessionProtocolError(
-                    "this session was opened with no world configuration; the admit and publish doors have no world"
-                )
+            config = self._world_config()
             _bind_sharing_evidence(root, evidence, observers, subject=None)
             _, report = admit(open_world(config, authority=self._authority), root, observers)
             return self._session._record_sharing(
                 self._invocation, evidence, transition="admitted", verdict=report.outcome
             )
+
+    def publish(
+        self,
+        *,
+        view: CoordinationAddress,
+        destination: Destination,
+        operations_root: Path,
+        staging_profile: ProfileSpec,
+        transport: Transport | None = None,
+    ) -> PublishOutcome:
+        """Run the publish act under this invocation (sharing design §2
+        decision 7, §4.4): the scoped writer, the session's coordination
+        resolver, a world opened under the scoped authority, this invocation's
+        ledgered port, the ledger's UTC clock and the production moment seam.
+        The binding and its report, or the refusal report, reach the ledger as
+        `act` lines through the port. Step 0's intent is appended under
+        `_closing_hold` (decision 9); no lock of this facade is held across the
+        act's other steps, which a remote publish spends uploading."""
+        from beliefs.publish import publish as run_publish
+
+        resolver, world = self._publishing()
+        return run_publish(
+            self._writer,
+            resolver,
+            world,
+            view=view,
+            destination=destination,
+            operations_root=operations_root,
+            staging_profile=staging_profile,
+            clock=utc_now,
+            seam=moment_seam(),
+            port=self.operation_port(),
+            transport=transport,
+            hold=self._closing_hold,
+        )
+
+    def resume_publish(
+        self,
+        *,
+        event_token: str,
+        operations_root: Path,
+        staging_profile: ProfileSpec,
+        transport: Transport | None = None,
+    ) -> PublishOutcome:
+        """Resume a publish attempt under this invocation, with the parts
+        `publish` takes (sharing design §2 decision 7). The act still requires
+        the intent's actor (decision 12), which is this session's."""
+        from beliefs.publish import resume_publish as run_resume
+
+        resolver, _ = self._publishing()
+        return run_resume(
+            self._writer,
+            resolver,
+            event_token=event_token,
+            operations_root=operations_root,
+            staging_profile=staging_profile,
+            clock=utc_now,
+            seam=moment_seam(),
+            port=self.operation_port(),
+            transport=transport,
+        )
+
+    def _publishing(self) -> tuple[CoordinationResolver, World]:
+        """The publish doors' entry (sharing design §2 decision 7): under the
+        session lock, liveness and currency, then the publication permit, then
+        the resolver and the world configuration, and only then the world open,
+        which resolves recovery on the world root. A stale, closed or
+        under-permitted writer therefore refuses before it touches the world
+        root, the operations root or a transport. The lock is released on
+        return, before the act runs."""
+        from beliefs.publish import require_publishes
+
+        with self._session._lock:
+            self._session._require_current(self._invocation)
+            require_publishes(self._authority)
+            resolver = self._session._coordination_resolver
+            if resolver is None:
+                raise CoordinationUnavailable(
+                    "this session has no coordination resolver; the publish door resolves the view through it"
+                )
+            config = self._world_config()
+            return resolver, open_world(config, authority=self._authority)
+
+    def _world_config(self) -> WorldConfig:
+        config = self._session.world_config
+        if config is None:
+            raise SessionProtocolError(_NO_WORLD)
+        return config
 
     def operation_port(self) -> OperationPort:
         """Return this invocation's durable, act-ledgered run route."""
