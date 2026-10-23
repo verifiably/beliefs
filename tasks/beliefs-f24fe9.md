@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: feat/f24fe9-session-doors
 created: 2026-10-22T22:44:06Z
-updated: 2026-10-23T10:15:08Z
+updated: 2026-10-23T10:15:56Z
 started: 2026-10-23T01:11:23Z
 depends: []
 tags: [publication]
@@ -59,3 +59,4 @@ Science commons milestone 1a (science docs/specs/2026-09-30-science-commons-desi
 - 2026-10-23T10:15:05Z (feat/f24fe9-session-doors): resumed
   provenance: {"harness_session":"claude-code:7cf9b918-1ea1-4dea-9a67-a833c86903e0","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-23T10:15:08Z (feat/f24fe9-session-doors): review: plan round 3 — verdict: accept; findings: none; reviewer: codex/gpt-6-astra
+- 2026-10-23T10:15:56Z (feat/f24fe9-session-doors): Plan approved for execution at ddcb955 (status line added at cfe3bc2). Execution handoff: a fresh session in .worktrees/f24fe9-session-doors runs the deferred full-suite baseline first (just test; record the command and the pytest summary count on the task), then superpowers:subagent-driven-development from Task 1 (beliefs-5ef652) through Task 8 (beliefs-c8317e), sequential, every implementer and reviewer dispatched foreground-only (600000 ms, one turn) carrying the plan's Global Constraints.
