@@ -8,7 +8,7 @@ complexity: low
 process: direct
 owner: docs/4dfe18-guide-glossary
 created: 2026-10-23T18:52:19Z
-updated: 2026-10-24T16:05:41Z
+updated: 2026-10-24T16:09:29Z
 started: 2026-10-24T15:22:16Z
 depends: []
 tags: [docs]
@@ -26,3 +26,4 @@ Found 2026-10-23 during a guided tour of beliefs (vdocs-9ca77b). (1) docs/guide/
 - 2026-10-24T15:23:24Z (docs/4dfe18-guide-glossary): Scope confirmed: update docs/guide/README.md against autonomy README (built envelope components; science run endpoint still unwired), add canonical value encoding beside canonical projection in docs/guide/glossary.md, and refresh both updated dates. Keep subsystem README rewrites with their existing task. Workspace: .worktrees/4dfe18-guide-glossary; direct process; just setup completed; full baseline just test running before edits.
 - 2026-10-24T15:44:24Z (docs/4dfe18-guide-glossary): Baseline just test: non-N2 phase passed 6230 tests, 1 skipped in 907.59s under a contended host budget; N2 still running. No document edits yet.
 - 2026-10-24T16:05:41Z (docs/4dfe18-guide-glossary): Baseline just test passed before edits: 6230 non-N2 Python tests passed, 1 skipped (907.59s); 46 N2 tests passed (1603.68s); 155 TypeScript tests passed. Updated only guide status, canonical value encoding glossary entry and the two updated dates; matched identity semantics to both implementations and computation section 4.3.
+- 2026-10-24T16:09:29Z (docs/4dfe18-guide-glossary): review: impl round 1 — verdict: accept; findings: none; reviewer: codex/gpt-6.1-sol
