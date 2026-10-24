@@ -2,12 +2,12 @@
 id: beliefs-e3ca2a
 title: "python/README.md and ts/README.md: stale project name, one-module layout table and Python-primary claim"
 status: todo
-priority: 2
+priority: 1
 size: xs
 complexity: low
 process: direct
 created: 2026-10-23T18:00:29Z
-updated: 2026-10-23T19:33:30Z
+updated: 2026-10-24T18:57:45Z
 depends: []
 tags: [docs]
 agent: claude-code/claude-fable-5-1
