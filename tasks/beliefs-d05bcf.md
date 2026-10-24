@@ -6,9 +6,9 @@ priority: 2
 size: s
 complexity: mid
 process: direct
-owner: main
+owner: docs/d05bcf-newcomer-why
 created: 2026-10-24T18:10:13Z
-updated: 2026-10-24T18:10:45Z
+updated: 2026-10-24T18:10:49Z
 started: 2026-10-24T18:10:45Z
 depends: []
 tags: [docs]
@@ -21,4 +21,6 @@ Follow-on to the second guided tour's finding (vdocs-e4318e; atoms-dd5a5e is the
 ## Notes
 
 - 2026-10-24T18:10:45Z (main): started
+  provenance: {"harness_session":"claude-code:0e2eed92-cf40-40a1-aac6-b06ac9f3c1ce","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-24T18:10:49Z (docs/d05bcf-newcomer-why): resumed
   provenance: {"harness_session":"claude-code:0e2eed92-cf40-40a1-aac6-b06ac9f3c1ce","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
