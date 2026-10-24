@@ -7,7 +7,7 @@ size: s
 complexity: low
 process: direct
 created: 2026-10-24T12:43:01Z
-updated: 2026-10-24T12:43:40Z
+updated: 2026-10-24T12:46:22Z
 depends: []
 tags: [docs]
 source: curate-docs
