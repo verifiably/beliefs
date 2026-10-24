@@ -6,8 +6,9 @@ priority: 3
 size: m
 complexity: mid
 created: 2026-09-07T09:30:47Z
-updated: 2026-09-16T10:03:27Z
+updated: 2026-10-24T11:06:12Z
 depends: []
+parent: beliefs-199aeb
 tags: [conformance]
 ---
 
@@ -21,6 +22,10 @@ Four distinct causes, all older API surfaces:
 The remaining 3 are the arm-audit tests reporting those plus three stale sabotages.
 
 Cut 5 feeds cuts 7-13 via tools/cut5_acceptance.py:45,66, so this debt has to be paid before any cut-5-citing chain runs green. Note pyproject.toml:42's addopts ignores tests/acceptance, so the portable suite never sees any of it.
+
+## References
+
+- brief (input, required, kind=brief): docs/notes/2026-10-24-conformance-readiness-brief.md — frozen-cut disposition evidence
 
 ## Notes
 
