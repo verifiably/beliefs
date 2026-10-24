@@ -7,7 +7,7 @@ size: s
 complexity: mid
 process: direct
 created: 2026-09-24T16:14:31Z
-updated: 2026-10-24T11:06:07Z
+updated: 2026-10-24T11:06:09Z
 depends: []
 parent: beliefs-199aeb
 tags: [conformance, testing]
@@ -35,3 +35,4 @@ Ideas it wakes: None directly. Coordinate findings with beliefs-f64cf1 and updat
 ## Notes
 
 - 2026-10-02T16:52:50Z (research/n2-preflight-pilot): coordination from beliefs-aa9f88: named-check collection detects reproduced uncollected D8a replacement, but neither import nor collection establishes mutation soundness or vacuity; full runtime audit remains required. No overlap with this task's runtime question.
+- 2026-10-24T11:06:09Z (main): scope: rescoped; at main a7ce8ff, confirmed portable N2 does not audit all live acceptance guards and the 2026-10-02 pilot does not establish runtime sensitivity; retained P2/s/mid, chose direct for a bounded measurement/recommendation, reused beliefs-f64cf1 cost work, and excluded gate rollout and cited guards; evidence: 70ff54e, 567edbf; brief: docs/notes/2026-10-24-conformance-readiness-brief.md
