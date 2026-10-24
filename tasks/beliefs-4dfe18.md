@@ -8,7 +8,7 @@ complexity: low
 process: direct
 owner: docs/4dfe18-guide-glossary
 created: 2026-10-23T18:52:19Z
-updated: 2026-10-24T16:09:36Z
+updated: 2026-10-24T16:10:16Z
 started: 2026-10-24T15:22:16Z
 completed: 2026-10-24T16:09:36Z
 closed: 2026-10-24T16:09:36Z
@@ -35,3 +35,4 @@ Found 2026-10-23 during a guided tour of beliefs (vdocs-9ca77b). (1) docs/guide/
   provenance: {"harness_session":"codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-24T16:09:36Z (docs/4dfe18-guide-glossary): Corrected guide autonomy status with the unwired endpoint limit and added canonical value encoding glossary definition linked to computation section 4.3; reviewed 76a4da0 with no findings; full baseline, guide validation, fast suite and commit checks passed.
   provenance: {"harness_session":"codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-24T16:10:16Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/4dfe18-guide-glossary","state":"released","verification":"verified","purpose":"Reviewed branch fast-forwarded into main; worktree and task branch removed after clean status, ignored-file dispositions, tt-report and host-pointer checks. The pre-existing tracked plan report remains in main.","next_owner":"none","cleanup_trigger":"none"}
