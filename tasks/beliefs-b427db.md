@@ -4,8 +4,8 @@ title: Successor-actor resume for a publish stranded by a session that will neve
 status: idea
 priority: 2
 created: 2026-10-23T01:56:37Z
-updated: 2026-10-24T09:57:09Z
-depends: []
+updated: 2026-10-24T09:57:11Z
+depends: [beliefs-8abd52]
 parent: beliefs-182296
 tags: [publication]
 source: beliefs-f24fe9
