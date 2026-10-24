@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: docs/d05bcf-newcomer-why
 created: 2026-10-24T18:10:13Z
-updated: 2026-10-24T18:39:21Z
+updated: 2026-10-24T18:43:20Z
 started: 2026-10-24T18:10:45Z
 depends: []
 tags: [docs]
@@ -27,3 +27,4 @@ Follow-on to the second guided tour's finding (vdocs-e4318e; atoms-dd5a5e is the
 - 2026-10-24T18:19:58Z (docs/d05bcf-newcomer-why): baseline 2026-10-24 (just test, worktree .worktrees/d05bcf-newcomer-why at 91052fb): python 6230 passed, 1 skipped (87.39 s); N2 46 passed (182.18 s); ts 155 passed
 - 2026-10-24T18:34:38Z (docs/d05bcf-newcomer-why): review: impl round 1 — verdict: revise; findings: Important 2, Minor 4; reviewer: claude-code/claude-fable-5-1
 - 2026-10-24T18:39:21Z (docs/d05bcf-newcomer-why): minor (deferred): outside the changed hunks the guide still assumes a reader who knows the predecessor at foundations.md (the predecessor's concept/construct/variable/outcome kinds), guide README (Salvage: the predecessor's pipelines) and computation-and-reproducibility.md ('Science imports a minimal normalized DAG'); a later pass over the whole guide owns them
+- 2026-10-24T18:43:20Z (docs/d05bcf-newcomer-why): review: impl round 2 — verdict: accept; findings: Minor 2; reviewer: claude-code/claude-fable-5-1
