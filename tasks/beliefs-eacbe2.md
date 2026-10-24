@@ -7,7 +7,7 @@ size: xl
 complexity: high
 process: planned
 created: 2026-08-31T00:38:28Z
-updated: 2026-10-24T11:05:55Z
+updated: 2026-10-24T11:05:57Z
 depends: [beliefs-73be28, beliefs-d13fe8, beliefs-b34652, beliefs-bc3aff, beliefs-aa27da, beliefs-a7df71, beliefs-3ea822, nodes-ce28b8, beliefs-928881, beliefs-1a5157, beliefs-59f846, beliefs-4bcf88]
 parent: beliefs-199aeb
 tags: [migration, contract, conformance]
@@ -32,3 +32,4 @@ Uncertainty: The roadmap fixes the join point, not successor identities, certifi
 - 2026-09-10T20:26:52Z (main): Curation restores D1 and publish as blockers: domain slice completion left D1 open, and publish amends the coordination contract, W17 and act-report oracles before the final contract freezes.
 - 2026-09-12T16:26:55Z (main): Complexity high: The roadmap fixes the join point, not successor contract identities, certification cadence, normative package shape or legacy-check disposition. Those architecture/governance decisions remain after the oracle-amending lanes; Nodes 2.0 landing alone does not settle them.
 - 2026-09-16T10:02:59Z (main): 2026-09-16 doc review: body no longer calls nodes-ce28b8 an unfinished blocker — it closed 2026-09-12 (nodes b0c37b8) and the ledger already says the join no longer waits on nodes. Six open endpoints remain: d13fe8, aa27da, b34652, a7df71, 3ea822, 1a5157.
+- 2026-10-24T11:05:57Z (main): scope: rescoped; at main a7ce8ff, eleven recorded endpoint dependencies are done and only persistence remains open; retained P2/xl/high, chose planned, and required a fresh join/oracle inventory before successor design and freeze; brief: docs/notes/2026-10-24-conformance-readiness-brief.md
