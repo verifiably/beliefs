@@ -8,7 +8,7 @@ complexity: low
 process: direct
 defer: 2026-12-23
 created: 2026-10-24T12:43:01Z
-updated: 2026-10-24T12:46:24Z
+updated: 2026-10-24T12:46:26Z
 depends: []
 tags: [docs]
 source: curate-docs
@@ -20,3 +20,4 @@ The reusable record of curate-docs passes over this project: one note per pass n
 ## Notes
 
 - 2026-10-24T12:43:40Z (main): curate-docs: rubric v1; commit 6d420d6; covered: README.md, AGENTS.md, python/README.md, ts/README.md, docs/guide/README.md; excluded: tasks/: task records, tools/README.md: vendored, generated regions: generated, docs/specs/: decision records, docs/plans/: decision records, docs/notes/: decision records, docs/designs/: decision records, docs/reports/: decision records, other guide pages: outside pilot sample; not judged: mechanical exits and criterion-by-criterion keep verdicts were not recorded by the historical pilot, criteria 10–11 were not evaluated, historical review performed 2026-10-23 and backfilled from ops docs/notes/2026-10-23-doc-review-pilot-report.md on 2026-10-24; stale: python/README.md and ts/README.md: identity, module coverage, gate omissions, landed-cut claim, npm install -> beliefs-e3ca2a; docs/guide/README.md: autonomy not started claim -> beliefs-4dfe18; README.md and AGENTS.md: sibling checkout prerequisites, dated gates, restated global rules -> beliefs-98c42d; unresolved: 10
+- 2026-10-24T12:46:26Z (main): doc-review: reviewed 6d420d6 on 2026-10-24; unresolved 10; dormant until 2026-12-23 or 20 commits
