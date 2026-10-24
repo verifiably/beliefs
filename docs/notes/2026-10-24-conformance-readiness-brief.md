@@ -85,8 +85,8 @@ again before the contract freezes; the old dependency list alone is insufficient
 - `beliefs-eacbe2`: rescoped, P2/xl/high/planned; replace stale blocker claims
   with the observed eleven closures and remaining persistence prerequisite;
   refresh the join before freezing, then review the design and plan.
-- `beliefs-1b6534`: proposed drop, supported by `8b7fbc3` and `c153ac2`; retain
-  the original report and status pending disposition. Its dependent
+- `beliefs-1b6534`: **dropped with user approval, 2026-10-24**, supported by
+  `8b7fbc3` and `c153ac2`; the original report remains in the record. Its dependent
   `beliefs-5aad8c` needs a later re-scope of the frozen-runner premise; it was
   related context, not processed here.
 
