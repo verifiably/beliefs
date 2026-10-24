@@ -6,9 +6,9 @@ priority: 3
 size: xs
 complexity: low
 process: direct
-owner: main
+owner: docs/4dfe18-guide-glossary
 created: 2026-10-23T18:52:19Z
-updated: 2026-10-24T15:22:16Z
+updated: 2026-10-24T15:22:50Z
 started: 2026-10-24T15:22:16Z
 depends: []
 tags: [docs]
@@ -20,4 +20,6 @@ Found 2026-10-23 during a guided tour of beliefs (vdocs-9ca77b). (1) docs/guide/
 ## Notes
 
 - 2026-10-24T15:22:16Z (main): started
+  provenance: {"harness_session":"codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-24T15:22:50Z (docs/4dfe18-guide-glossary): resumed
   provenance: {"harness_session":"codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","harness_session_source":"CODEX_THREAD_ID"}
