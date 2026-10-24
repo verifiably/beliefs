@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-09-26
+updated: 2026-10-24
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -50,11 +50,14 @@ lets the analysis's assessment into a belief.
 
 ## Why it matters
 
-A command, lockfile, output checksum, or claim that code “runs again” is not
-enough to reproduce a scientific computation. The redesign records what was
-planned, the exact executable closure, what happened, and how two occurrences
-were compared. It also separates the ability to attempt a replay from a
-successful verification and from the later epistemic use of its result.
+A command line, a lockfile, an output checksum, or the assurance that the code
+“runs again” is where most analysis projects stop, and none of it is enough to
+reproduce a scientific computation: the inputs drift, the environment is not
+the one recorded, and nobody wrote down what the result was supposed to show.
+Here a run records what was planned, the exact executable closure, what
+happened, and how two occurrences were compared. It also separates the ability
+to attempt a replay from a successful verification and from the later
+epistemic use of its result.
 
 ## Key ideas
 

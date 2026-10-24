@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-10-01
+updated: 2026-10-24
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -105,7 +105,7 @@ not this guide, says what has landed.
 
 A large design can look complete while its strongest claims remain untested, or
 a partial implementation can quietly redefine success around what was easiest
-to build. Science counters both risks: guarantees keep stable names, every
+to build. The kernel counters both risks: guarantees keep stable names, every
 conformance check must demonstrate how it fails, and each implementation slice
 is selected prospectively at a fully designed boundary.
 

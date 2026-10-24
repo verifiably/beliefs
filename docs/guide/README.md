@@ -17,7 +17,11 @@ claims out. This repository, `beliefs`, is its kernel: it records claims, the
 analyses that assess them, and the exact inputs behind every conclusion. This
 guide is the short path into the system:
 it explains the model by topic, in plain language first, and links to the design
-documents whenever detail matters. The designs, and the frozen guarantee labels
+documents whenever detail matters. In an ordinary analysis project those three
+things live in a folder of scripts, notebooks and result tables, and the link
+from a conclusion back to the data and code that produced it is kept, if at all,
+in someone's memory. The kernel makes that link a record, and refuses a
+conclusion that lacks one. The designs, and the frozen guarantee labels
 in them, remain authoritative.
 
 **New here? Start with the [verifiably overview](https://github.com/verifiably/docs/blob/main/overview.md).** It lives in the
@@ -85,7 +89,7 @@ to those two for the rest. If this guide disagrees with a source design, the
 source wins.
 
 One boundary is worth knowing before you read further. The kernel design
-divided the redesign into seven sub-problems
+divided the system into seven sub-problems
 ([kernel §10](../designs/2026-08-02-epistemic-kernel-design.md#10-not-in-scope--the-remaining-six-sub-problems)).
 Two sit mostly outside this repository:
 

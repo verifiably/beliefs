@@ -2,7 +2,7 @@
 title: Identity, world, and change
 status: living
 created: 2026-08-08
-updated: 2026-09-26
+updated: 2026-10-24
 sources:
   - ../designs/2026-08-02-substrate-consolidation-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -67,10 +67,10 @@ kept a copy of the log's head.
 
 A content hash alone cannot say whether two records mean the same thing, where
 one is stored, or whether a corrected record continues an earlier scientific
-object. Likewise, overwriting or deleting a disputed result erases the evidence
-needed to understand later conclusions. The redesign assigns each concern an
-explicit mechanism and makes every answer name the world state against which it
-was computed.
+object. And in an ordinary project a disputed result is fixed by overwriting
+the file, which erases the evidence needed to understand the conclusions that
+were drawn from it. Here each of those concerns has an explicit mechanism, and
+every answer names the world state against which it was computed.
 
 ## Key ideas
 

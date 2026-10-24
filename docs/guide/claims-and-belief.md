@@ -2,7 +2,7 @@
 title: Claims and belief
 status: living
 created: 2026-08-08
-updated: 2026-09-26
+updated: 2026-10-24
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
@@ -51,11 +51,14 @@ analyses of the same data are one piece of evidence, not two.
 
 ## Why it matters
 
-Free-text propositions make scope changes invisible and leave every consumer to
-guess whether two sentences mean the same thing. Flat evidence scores also let
-literature, duplicated analyses, or unavailable inputs become plausible-looking
-belief. The redesign gives claim structure, eligibility, independence, and the
-belief evaluator separate, explicit jobs.
+Written as a sentence, a claim is hard to work with: two papers or two
+scripts word the same finding differently, a quiet change of scope is
+invisible, and every reader has to guess whether two sentences mean the same
+thing. A single "evidence score" makes it worse, since a paper's statement, a
+second analysis of the same data, or an analysis whose inputs nobody holds can
+each push the number up. Here claim structure, eligibility, independence, and
+the belief calculation are separate, explicit jobs, so each of those failures
+is caught by the step responsible for it.
 
 ## Key ideas
 

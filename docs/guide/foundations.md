@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-09-26
+updated: 2026-10-24
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -52,10 +52,14 @@ does not fit rather than trying to fix it.
 
 ## Why it matters
 
-The predecessor encoded scientific policy mostly as prose and after-the-fact
-checks. The redesign moves the important distinctions into record types,
-relation signatures, identities, and explicit inputs. Invalid states should be
-refused before they become plausible records; raw writes remain detectable by
+In an ordinary analysis project the rules about what counts as evidence live
+in people's heads and in prose: a README that says which results are final, a
+colleague who remembers that one table came from a paper rather than from data.
+Nothing stops a plausible-looking record from being written without the
+evidence behind it, and nothing finds it afterwards. Here those distinctions
+are carried by the record types themselves, their relations, their identities
+and their explicit inputs: a state that breaks a rule is refused before it
+becomes a record, and a write that went around the sanctioned path is found by
 audit rather than silently repaired.
 
 ## Key ideas
