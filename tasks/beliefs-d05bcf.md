@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: docs/d05bcf-newcomer-why
 created: 2026-10-24T18:10:13Z
-updated: 2026-10-24T18:10:49Z
+updated: 2026-10-24T18:19:58Z
 started: 2026-10-24T18:10:45Z
 depends: []
 tags: [docs]
@@ -24,3 +24,4 @@ Follow-on to the second guided tour's finding (vdocs-e4318e; atoms-dd5a5e is the
   provenance: {"harness_session":"claude-code:0e2eed92-cf40-40a1-aac6-b06ac9f3c1ce","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-24T18:10:49Z (docs/d05bcf-newcomer-why): resumed
   provenance: {"harness_session":"claude-code:0e2eed92-cf40-40a1-aac6-b06ac9f3c1ce","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-24T18:19:58Z (docs/d05bcf-newcomer-why): baseline 2026-10-24 (just test, worktree .worktrees/d05bcf-newcomer-why at 91052fb): python 6230 passed, 1 skipped (87.39 s); N2 46 passed (182.18 s); ts 155 passed
