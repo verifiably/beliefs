@@ -1,15 +1,17 @@
 ---
 id: beliefs-4dfe18
 title: "Guide and glossary: 'autonomy layer is not started' is stale, and the canonical value encoding has no glossary entry"
-status: doing
+status: done
 priority: 3
 size: xs
 complexity: low
 process: direct
 owner: docs/4dfe18-guide-glossary
 created: 2026-10-23T18:52:19Z
-updated: 2026-10-24T16:09:34Z
+updated: 2026-10-24T16:09:36Z
 started: 2026-10-24T15:22:16Z
+completed: 2026-10-24T16:09:36Z
+closed: 2026-10-24T16:09:36Z
 depends: []
 tags: [docs]
 agent: claude-code/claude-opus-5-5
@@ -29,3 +31,7 @@ Found 2026-10-23 during a guided tour of beliefs (vdocs-9ca77b). (1) docs/guide/
 - 2026-10-24T16:09:29Z (docs/4dfe18-guide-glossary): review: impl round 1 — verdict: accept; findings: none; reviewer: codex/gpt-6.1-sol
 - 2026-10-24T16:09:31Z (docs/4dfe18-guide-glossary): Review disposition for revision 76a4da0: Ruling: subsystem README rewrites remain excluded. Why: explicitly assigned to beliefs-e3ca2a / vdocs-946c49. Cost: their existing stale prose remains until that work lands. Ruling: autonomy runtime and live execution remain outside verification. Why: this change only corrects documentation from autonomy's local README and envelope design. Cost: adds no new live autonomy evidence; future implementation changes can stale the summary. Verification: guide tests 8 passed; guide checker and git diff --check passed; just test-fast 6230 passed, 1 skipped in 84.40s, no changed TS tests selected; full pre-commit checks passed. Removal disposition: python/.venv and ts/node_modules are regenerable installed dependencies; all listed .pytest_cache and __pycache__ directories are regenerable test caches; discard on removal. tt-report ran. Host symlinks and known config includes have no pointer into this task worktree.
 - 2026-10-24T16:09:34Z (docs/4dfe18-guide-glossary): retained: {"host":"titan","kind":"worktree","path":".worktrees/4dfe18-guide-glossary","state":"kept","verification":"verified","purpose":"Immediate local integration of the reviewed documentation commit, then checked removal of regenerable environments and caches","next_owner":"session:codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","cleanup_trigger":"After the local merge into main and final removal checks in this turn"}
+- 2026-10-24T16:09:36Z (docs/4dfe18-guide-glossary): done
+  provenance: {"harness_session":"codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-24T16:09:36Z (docs/4dfe18-guide-glossary): Corrected guide autonomy status with the unwired endpoint limit and added canonical value encoding glossary definition linked to computation section 4.3; reviewed 76a4da0 with no findings; full baseline, guide validation, fast suite and commit checks passed.
+  provenance: {"harness_session":"codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","harness_session_source":"CODEX_THREAD_ID"}
