@@ -1,0 +1,30 @@
+---
+id: beliefs-c0d952
+title: Design ledgered publication retirement from the brief
+status: todo
+priority: 2
+size: m
+complexity: high
+process: planned
+created: 2026-10-24T09:56:24Z
+updated: 2026-10-24T09:56:24Z
+depends: []
+parent: beliefs-182296
+tags: [publication, design]
+source: docs/notes/2026-10-24-publication-session-follow-ups-brief.md
+agent: codex
+---
+
+Question: How can ScopedWriter.retire(corpus_id, *, evidence) execute World.retire under scoped registry authority and ledger a truthful retired transition, including retries after a ledger failure?
+
+Where to start: [ref:brief] records the gap and constraints. Read python/src/beliefs/session/writer.py (admit_publication, _bind_sharing_evidence and _record_sharing), session/ledger.py (SharingEvidence and SharingLine), world/registry.py (World._terminal), and the session sharing design decisions 4, 5 and 11. The science commons source is sci-13050a; milestone 1b is sci-9104fb.
+
+Bound: Design the kernel door, evidence binding, status-record evidence, refusal ordering, idempotency and recovery when retirement commits before the ledger append. Resolve different-actor retries explicitly. Science retains keep, dependency and supersession decisions. Do not implement the door or duplicate beliefs-918fd2's overlap design. Rule whether existing ledger fields suffice and whether any frozen guarantee needs a new cut.
+
+Expected result: A reviewed design under docs/superpowers/specs/, linked to this task; record its decision and next implementation handoff on this task and in [ref:brief]. Identify checks for wrong evidence and corpus, stale or closed invocation, insufficient authority, terminal status and repeat calls, plus write/flush/fsync failure after the registry effect. Any new cut must carry both AGENTS.md cut obligations. Existing tests/test_session_sharing_doors.py, tests/test_session_ledger.py, tests/test_world_registry.py and the permit inventories are starting points; use the project's just test-one front door.
+
+Ideas it wakes: On completion, run `tasks note beliefs-a989fb --no-reviewed "<retirement design finding>"` before this result's branch merges.
+
+## References
+
+- brief (input, required, kind=brief): docs/notes/2026-10-24-publication-session-follow-ups-brief.md — scope, known behaviour and design questions
