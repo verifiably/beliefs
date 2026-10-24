@@ -3,8 +3,10 @@ id: beliefs-b427db
 title: Successor-actor resume for a publish stranded by a session that will never resume it
 status: idea
 priority: 2
+reviewed: true
+reviewed_at: 2026-10-24T09:57:14Z
 created: 2026-10-23T01:56:37Z
-updated: 2026-10-24T09:57:11Z
+updated: 2026-10-24T09:57:14Z
 depends: [beliefs-8abd52]
 parent: beliefs-182296
 tags: [publication]
@@ -19,3 +21,7 @@ Handoff: [ref:brief] records the existing actor refusal and report provenance. W
 ## References
 
 - brief (input, required, kind=brief): docs/notes/2026-10-24-publication-session-follow-ups-brief.md — scope evidence and disposition
+
+## Notes
+
+- 2026-10-24T09:57:14Z (main): scope: briefed; verified intent-actor refusal and marked-attempt blockage at 802286e and sharing design decision 12; beliefs-8abd52 owns explicit authority and truthful succession evidence; dependency recorded; brief: docs/notes/2026-10-24-publication-session-follow-ups-brief.md
