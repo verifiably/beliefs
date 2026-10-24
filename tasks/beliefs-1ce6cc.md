@@ -7,7 +7,7 @@ size: m
 complexity: mid
 process: direct
 created: 2026-09-24T15:41:32Z
-updated: 2026-10-24T11:23:55Z
+updated: 2026-10-24T11:24:04Z
 depends: []
 tags: [publication, hygiene]
 ---
@@ -72,3 +72,4 @@ Source: docs/plans/2026-09-24-conformance-cut-40-results.md §3.3 and the final-
 ## Notes
 
 - 2026-09-25T10:59:17Z (design/live-query): The remote slice this body calls cut 41 was renumbered to planned cut 42 on 2026-09-25 (live view-query evaluation froze as cut 41, beliefs-cc0aea).
+- 2026-10-24T11:24:04Z (main): scope: rescoped; checked against main 2437c71 and cut40 results/local and remote designs; retained twelve bounded follow-ups, assigned the duplicate admission error solely to beliefs-059c90, updated the supported-version observation to (1,2,3), retained certified RootOperationMismatch propagation, and narrowed the missing orphan regression; preserved all original source material; priority 3, m/mid/direct under existing contracts with an explicit recovery-table clarification
