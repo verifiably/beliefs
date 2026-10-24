@@ -4,8 +4,8 @@ title: "Sharing door for the retired transition: World.retire under the scoped a
 status: idea
 priority: 2
 created: 2026-10-23T01:56:42Z
-updated: 2026-10-24T09:57:00Z
-depends: []
+updated: 2026-10-24T09:57:03Z
+depends: [beliefs-c0d952]
 parent: beliefs-182296
 tags: [publication]
 source: beliefs-f24fe9
