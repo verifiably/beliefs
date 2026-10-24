@@ -4,8 +4,8 @@ title: Enforce 'a fitted model is never an observes input' with an oracle row
 status: idea
 priority: 2
 created: 2026-10-24T01:46:18Z
-updated: 2026-10-24T10:17:22Z
-depends: []
+updated: 2026-10-24T10:17:24Z
+depends: [beliefs-1d023a]
 parent: beliefs-9396cf
 tags: []
 agent: claude-code/claude-opus-5-5
