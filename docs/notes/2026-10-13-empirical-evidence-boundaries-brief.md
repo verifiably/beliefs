@@ -2,10 +2,11 @@
 
 ## Problem
 
-Three ideas concern the boundary between empirical evidence and attributed
+Four ideas concern the boundary between empirical evidence and attributed
 claims: annotation datasets (`beliefs-91bce7`), observation-first analysis
-(`beliefs-8b26dc`), and the missing stored source-assertion reader
-(`beliefs-a1a767`). Establish concrete admission cases before choosing a new
+(`beliefs-8b26dc`), the missing stored source-assertion reader
+(`beliefs-a1a767`), and fitted-model input roles (`beliefs-72b6f6`, added
+2026-10-24). Establish concrete admission cases before choosing a new
 annotation representation; design the stored source-assertion path separately.
 The user's rule recorded in `sun-08c8ea` is a constraint: predictions about
 observations are not themselves primary observations of the world.
@@ -55,6 +56,33 @@ Static evidence checked at main `31f8ad9`, 2026-10-13:
   reaches belief. Existing specs freeze before execution; they do not prove
   that the author had never seen the data.
 
+Fitted-model rerun, 2026-10-24 at main `6c9bd9b`; static reads, no runtime probe:
+
+- **Generic refusals and an oracle already exist.** `acquisition.py`'s
+  `validity_refusal` rejects empirical standing for a dataset with a lineage
+  basis or a known producer; `bearer_refusal` prevents the produced/facet pair
+  at writes. These landed in `1d9d235`. Facet-contract rows F2 and F4 are
+  frozen at cut 20. `python/tests/acceptance/test_facet_acceptance.py`'s
+  `test_f4_eligibility_reads_the_validity_predicate` covers a lineage-bearing
+  observed dataset; `python/tests/n2_arms_cut20.py` defines F4's validity-to-
+  presence sabotage. This pass did not execute that arm or verify its live
+  mutation still applies. The historical models-context report's "no oracle
+  row or code found" does not account for this generic protection.
+- **Eligibility is not a per-input role prohibition.**
+  `corpus.py:eligibility_outcome` accepts an assessment when any observed
+  dataset passes validity. The same F4 test adds a valid observed dataset
+  beside the lineage-bearing one and expects eligibility. A model-specific
+  "never observes" guarantee is stronger than the existing refusal of
+  empirical standing and cannot be added as a mechanical restatement of F4.
+- **Content identity supplies no model classification.** `RunInput` holds a
+  role and a `DatasetDeclaration`; no fitted-model discriminator was found
+  in those types or the base input contract. `production.mint_dataset` and
+  `runrecord.publication_plan` preserve production provenance for the
+  dataset-production route, but do not classify bytes as a fitted model.
+  Kernel limitation 8 still excludes proving that an acquired declaration
+  is truthful or its contents observational. The composite design's section 1
+  says fitted models are only `reads`; it supplies no matching classifier.
+
 ## Constraints
 
 Preserve G1/G6, acquisition bearer checks, recorded attempts, and frozen cuts.
@@ -67,6 +95,10 @@ new annotation dataset type. Do not infer that all computed outputs should
 be forbidden: characterize their role and target first. Methodological
 claims about an annotator remain an open policy question, not an exception
 approved by this scope pass.
+
+Preserve F4's existential rule while researching fitted-model roles. A stronger
+role ban needs an explicit semantic decision and reviewed successor guarantees;
+do not impose it on every produced dataset or infer a model type from a filename.
 
 Existing owners remain: endpoint enforcement research `beliefs-9c375c`,
 contract cut `beliefs-eacbe2`, lineage standing `beliefs-8ecbb5`, and weighted
@@ -86,6 +118,11 @@ conditions. No duplicate endpoint research or weighting project is needed.
 3. **Keep annotation treatment solely in consumer guidance.** Useful now,
    but insufficient if the requirement is kernel-enforced exclusion.
 
+For fitted models, reuse the worked-case research first (lean), rather than
+adding a model-specific refusal or a generic ban on produced `observes` targets
+now. It must separate existing non-eligibility, authoring guidance and any
+stronger role rule before choosing an oracle amendment.
+
 For the stored source-assertion path alone:
 
 - **Design it after the worked cases (lean).** The case matrix may show that
@@ -101,6 +138,12 @@ For the stored source-assertion path alone:
 
 ## Unanswered questions
 
+- Does "fitted models only as reads" mean refusing an input role even beside
+  valid observations, or denying empirical standing to the model itself?
+  `beliefs-1d023a` maps a known produced model alone, beside valid observations,
+  as `reads`, and externally acquired without recorded production, within its
+  existing workflow and probe bound. It recommends whether a reviewed semantic
+  design is needed and names the limits of any proposed classifier.
 - Which annotation cases pass each current gate, and what treatment satisfies
   the user's rule? What is the first unsupported step in a
   characterize-then-formulate workflow? `beliefs-1d023a` answers with one
@@ -117,7 +160,15 @@ For the stored source-assertion path alone:
 
 ## Proposed decomposition
 
-Goal `beliefs-9396cf` groups all three ideas, preserving their bodies and sources.
+Goal `beliefs-9396cf` groups all four ideas, preserving their original material
+and sources.
+
+- `beliefs-72b6f6`: **briefed**, depends on the existing `beliefs-1d023a`
+  (P2, medium, mid complexity, direct research). Add fitted-model variants to
+  its existing produced/characterization cases; retain the limit of three
+  focused probes. Its result updates this brief and wakes this idea with
+  `tasks note beliefs-72b6f6 --no-reviewed "<finding>"` before merging.
+  No duplicate research, new model kind or implementation task is filed.
 
 - `beliefs-91bce7` and `beliefs-8b26dc`: **briefed**, both depend on
   `beliefs-1d023a` (P2, medium, mid complexity, direct research). Its result
