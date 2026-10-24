@@ -4,7 +4,7 @@ title: "Evidence aggregation beyond the unit-weight count: research the long-ter
 status: todo
 priority: 2
 created: 2026-10-24T01:04:04Z
-updated: 2026-10-24T02:19:22Z
+updated: 2026-10-24T02:19:25Z
 depends: []
 tags: [design, belief]
 agent: claude-code/claude-opus-5-5
@@ -27,3 +27,4 @@ Keep one coherent science experience over separate structure/estimator/generator
 ## Notes
 
 - 2026-10-24T01:44:53Z (main): attached: models-context-report.md (6246 bytes): What 2026-09-12 settled, what was handed to science and never filed, what is deferred, and proto-science's lessons
+- 2026-10-24T02:19:25Z (main): scope: rescoped; preserved the aggregation research and its four children; recorded the user-accepted science milestone and ownership boundaries, independent of the aggregation synthesis and weighted policy. Checked against db878fd, the existing research records, and science's 8a21583 command surface.
