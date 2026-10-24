@@ -7,7 +7,7 @@ size: s
 complexity: high
 process: direct
 created: 2026-10-24T01:04:14Z
-updated: 2026-10-24T02:19:34Z
+updated: 2026-10-24T02:19:37Z
 depends: [beliefs-9bf498, beliefs-7edb06, beliefs-d6060a]
 parent: beliefs-8060d0
 tags: [design, belief]
@@ -19,3 +19,7 @@ Question: given the inventory, the prior-art survey and the graphical-model gaps
 ## References
 
 - direction (output, kind=brief): docs/notes/evidence-aggregation-direction-brief.md — the recommendation
+
+## Notes
+
+- 2026-10-24T02:19:37Z (main): scope: rescoped; preserved the prior-art/inventory/graphical research dependencies and successor-policy decision; constrained the synthesis so it cannot gate the independently tracked science workflow or imply typed scope equality makes pooling safe. Premises checked against db878fd and the accepted follow-up direction.
