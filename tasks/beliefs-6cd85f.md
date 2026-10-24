@@ -3,8 +3,10 @@ id: beliefs-6cd85f
 title: Participant-overlap evidence between datasets as input to independence certification
 status: idea
 priority: 2
+reviewed: true
+reviewed_at: 2026-10-24T10:06:16Z
 created: 2026-10-18T19:19:51Z
-updated: 2026-10-24T10:06:14Z
+updated: 2026-10-24T10:06:16Z
 depends: [beliefs-9bf498, beliefs-5e66ba]
 parent: beliefs-8060d0
 tags: []
@@ -16,3 +18,7 @@ Filed 2026-10-18 from the multiple-myeloma program. The kernel certifies indepen
 ## References
 
 - brief (input, required, kind=brief): docs/notes/2026-10-24-confirmation-independence-brief.md — current seams, unresolved semantics and reused research
+
+## Notes
+
+- 2026-10-24T10:06:16Z (main): scope: briefed; checked against 18d5a35: lineage.py and test_lineage.py establish that disjoint complete roots can certify independent despite unrecorded participant overlap; the reported dataset-pair result and roster counts were not reproduced. Preserved original body, priority and source; reused aggregation goal beliefs-8060d0 and research beliefs-9bf498/beliefs-5e66ba with recorded waits and completion wake notes; brief: docs/notes/2026-10-24-confirmation-independence-brief.md. No inherited-standing or weighted-policy shelf was changed.
