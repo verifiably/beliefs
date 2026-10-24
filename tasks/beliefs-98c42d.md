@@ -2,12 +2,12 @@
 id: beliefs-98c42d
 title: README Install omits the sibling atoms and nodes checkouts; AGENTS.md Gates carries dated status prose and restated global rules
 status: todo
-priority: 3
+priority: 1
 size: xs
 complexity: low
 process: direct
 created: 2026-10-23T19:33:27Z
-updated: 2026-10-23T19:33:27Z
+updated: 2026-10-24T18:57:47Z
 depends: []
 tags: [docs]
 source: ops-65a068
