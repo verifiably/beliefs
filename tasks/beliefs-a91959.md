@@ -4,8 +4,8 @@ title: Belief policy distinguishes independent confirmation from a secondary ana
 status: idea
 priority: 1
 created: 2026-10-18T19:19:49Z
-updated: 2026-10-24T10:05:57Z
-depends: []
+updated: 2026-10-24T10:05:59Z
+depends: [beliefs-9bf498]
 parent: beliefs-8060d0
 tags: []
 agent: claude-code
