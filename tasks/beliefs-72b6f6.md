@@ -3,8 +3,10 @@ id: beliefs-72b6f6
 title: Enforce 'a fitted model is never an observes input' with an oracle row
 status: idea
 priority: 2
+reviewed: true
+reviewed_at: 2026-10-24T10:17:27Z
 created: 2026-10-24T01:46:18Z
-updated: 2026-10-24T10:17:24Z
+updated: 2026-10-24T10:17:27Z
 depends: [beliefs-1d023a]
 parent: beliefs-9396cf
 tags: []
@@ -18,3 +20,7 @@ Scope context (2026-10-24): [ref:brief] records the existing generic acquisition
 ## References
 
 - brief (input, required, kind=brief): docs/notes/2026-10-13-empirical-evidence-boundaries-brief.md — existing F2/F4 protection and unresolved fitted-model role semantics
+
+## Notes
+
+- 2026-10-24T10:17:27Z (main): scope: briefed; checked against 6c9bd9b and 1d9d235: generic produced-data refusals, F2/F4 and F4 tests/declared sabotage already exist; a universal fitted-model observes ban is stronger than existential eligibility, and input types have no model-content classifier. No runtime probe or live sabotage run was performed. Preserved original capture and priority; reused goal beliefs-9396cf and research beliefs-1d023a with an explicit dependency and completion wake note; brief: docs/notes/2026-10-13-empirical-evidence-boundaries-brief.md.
