@@ -7,7 +7,7 @@ size: m
 complexity: high
 process: direct
 created: 2026-10-24T01:04:11Z
-updated: 2026-10-24T02:19:28Z
+updated: 2026-10-24T02:19:31Z
 depends: []
 parent: beliefs-8060d0
 tags: [design, belief]
@@ -31,3 +31,7 @@ Ideas it wakes: sci-4e0f7f consumes this report and already depends on this task
 - composites (input, required, kind=spec): docs/designs/2026-09-12-composite-claims-design.md — dag composites and derived standing
 - estimand (input, required, kind=spec): docs/designs/2026-09-12-estimand-typing-design.md — control.identification and applicability
 - graphical (output, kind=report): docs/notes/graphical-model-mapping-report.md — the mapping
+
+## Notes
+
+- 2026-10-24T02:19:31Z (main): scope: rescoped; checked the built composite and estimand boundaries at db878fd and prioritized causal-workflow semantic prerequisites. Retained the deferred graphical-model questions while separating diagnostic computation/storage from higher-order admission. Science's design consumes the report without waiting for aggregation research.
