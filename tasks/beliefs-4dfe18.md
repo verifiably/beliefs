@@ -8,7 +8,7 @@ complexity: low
 process: direct
 owner: docs/4dfe18-guide-glossary
 created: 2026-10-23T18:52:19Z
-updated: 2026-10-24T15:22:50Z
+updated: 2026-10-24T15:23:24Z
 started: 2026-10-24T15:22:16Z
 depends: []
 tags: [docs]
@@ -23,3 +23,4 @@ Found 2026-10-23 during a guided tour of beliefs (vdocs-9ca77b). (1) docs/guide/
   provenance: {"harness_session":"codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-24T15:22:50Z (docs/4dfe18-guide-glossary): resumed
   provenance: {"harness_session":"codex:01a16e80-c499-7db3-aef2-c8e3475cdc37","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-24T15:23:24Z (docs/4dfe18-guide-glossary): Scope confirmed: update docs/guide/README.md against autonomy README (built envelope components; science run endpoint still unwired), add canonical value encoding beside canonical projection in docs/guide/glossary.md, and refresh both updated dates. Keep subsystem README rewrites with their existing task. Workspace: .worktrees/4dfe18-guide-glossary; direct process; just setup completed; full baseline just test running before edits.
