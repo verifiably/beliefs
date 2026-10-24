@@ -7,8 +7,8 @@ size: m
 complexity: high
 process: direct
 created: 2026-10-24T01:04:09Z
-updated: 2026-10-24T01:04:09Z
-depends: []
+updated: 2026-10-24T01:04:16Z
+depends: [beliefs-9bf498]
 parent: beliefs-8060d0
 tags: [design, belief]
 agent: claude-code/claude-opus-5-5
