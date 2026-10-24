@@ -2,10 +2,10 @@
 id: beliefs-8b26dc
 title: "Design direction: observation-first analysis — characterize datasets with assumption-light methods, weigh models by data"
 status: idea
-priority: 2
+priority: 1
 reviewed: true
 created: 2026-09-26T19:35:34Z
-updated: 2026-10-14T01:35:19Z
+updated: 2026-10-24T00:48:22Z
 depends: [beliefs-1d023a]
 parent: beliefs-9396cf
 tags: [design]
