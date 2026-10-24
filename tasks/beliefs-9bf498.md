@@ -7,14 +7,14 @@ size: s
 complexity: mid
 process: direct
 created: 2026-10-24T01:04:06Z
-updated: 2026-10-24T01:04:06Z
+updated: 2026-10-24T01:45:44Z
 depends: []
 parent: beliefs-8060d0
 tags: [design, belief]
 agent: claude-code/claude-opus-5-5
 ---
 
-Question: at each step from a run's output to a belief value, what information does the kernel hold, and what does the value then ignore? Start from [ref:policy] §3 and §8 and [ref:estimand], then read belief.py, lineage.py and policy.py. Known candidates to confirm or refute, each with the design line or code that causes it: unit weight (sample size, design, precision); the verdict collapsing a typed estimate and uncertainty into supported/refuted/inconclusive; inconclusive excluded, so a well-powered null is not evidence of absence (lim. 2); applicability unread (lim. 3); dependence binary, so partial overlap counts like full duplication and not-certified counts like shared-source; a dependent assessment dropped from the selection rather than down-weighted; a dependent contradiction can neutralise but never overturn (lim. 4); no declared prior or plausibility; each claim aggregated alone, with no propagation across related claims or composites. For each item, record what is held, what is discarded, whether discarding it is deliberate (and why), and a concrete case where the value misleads. Output: [ref:inventory]. No proposals beyond naming what a fix would need.
+Question: at each step from a run's output to a belief value, what information does the kernel hold, and what does the value then ignore? Start from [ref:policy] §3 and §8 and [ref:estimand], then read belief.py, lineage.py, policy.py and composite.py. The goal's attachment models-context-report.md lists what 2026-09-12 settled; treat those as decisions, not findings. Known candidates to confirm or refute, each with the design line or code that causes it: unit weight (sample size, design, precision); the verdict collapsing a typed estimate and uncertainty into supported/refuted/inconclusive; inconclusive excluded, so a well-powered null is not evidence of absence (lim. 2); applicability unread (lim. 3); commensurable and co_scoped computed but read by nothing; dependence binary, so partial overlap counts like full duplication and not-certified counts like shared-source; a dependent assessment dropped from the selection rather than down-weighted; a dependent contradiction can neutralise but never overturn (lim. 4); no declared prior or plausibility; each claim aggregated alone, with composites reading rows and nothing propagated across them. For each item, record what is held, what is discarded, whether discarding it is deliberate (and why), and a concrete case where the value misleads. Proto-science's failure modes (attachment §4) are a check on each fix's cost: metadata that authors leave at defaults separates nothing. Output: [ref:inventory]. No proposals beyond naming what a fix would need.
 
 ## References
 
