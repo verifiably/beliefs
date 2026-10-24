@@ -3,8 +3,10 @@ id: beliefs-79d2ce
 title: Is an admitted corpus absent from a session's mounts meant to be silently uncovered by every epoch?
 status: idea
 priority: 2
+reviewed: true
+reviewed_at: 2026-10-24T09:57:20Z
 created: 2026-10-23T17:10:08Z
-updated: 2026-10-24T09:57:17Z
+updated: 2026-10-24T09:57:20Z
 depends: []
 parent: beliefs-182296
 tags: [publication]
@@ -17,3 +19,7 @@ Found in science commons 1a: after adopt admits a publication, a session opened 
 ## References
 
 - brief (context, kind=brief): docs/notes/2026-10-24-publication-session-follow-ups-brief.md — scope evidence and disposition
+
+## Notes
+
+- 2026-10-24T09:57:20Z (main): scope: drop; declared epoch coverage is deliberate: world-index packaging design sections 5 and 5.3 at 15b6e08, world/epoch.py:_declared_coverage and test_preflight_pins_a_sorted_carrier_mapping_and_never_substitutes_live_ids checked at 802286e; publication_preview is epoch-bound while live-query coverage reports absent live admissions; a later explicitly covered epoch can include the corpus, so every epoch overstates the limit; brief: docs/notes/2026-10-24-publication-session-follow-ups-brief.md; proposal: drop as answered by the existing declared-coverage contract; retain science's reopen-and-epoch guidance
