@@ -93,6 +93,7 @@ No shared resource names are declared in this project's task configuration.
 Both waiting members remain ideas until those decisions are settled. Each
 design records its result here and wakes its idea with a finding note.
 
-Propose dropping `beliefs-79d2ce` against the existing declared-coverage
-contract, and `beliefs-6d6bb6` in favor of `beliefs-42d201`. These are
-proposals only; this pass closes neither record.
+Approved and applied after the scope pass, 2026-10-24: `beliefs-79d2ce`
+dropped against the existing declared-coverage contract; `beliefs-6d6bb6`
+dropped in favor of `beliefs-42d201`. The canonical locator task remains
+shelved.
