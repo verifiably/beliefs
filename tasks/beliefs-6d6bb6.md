@@ -3,8 +3,10 @@ id: beliefs-6d6bb6
 title: "Should the publication marker carry a workspace locator (repository, commit, environment bundle)?"
 status: idea
 priority: 2
+reviewed: true
+reviewed_at: 2026-10-24T09:57:26Z
 created: 2026-10-22T22:44:10Z
-updated: 2026-10-24T09:57:23Z
+updated: 2026-10-24T09:57:26Z
 depends: []
 parent: beliefs-182296
 tags: [publication]
@@ -17,3 +19,7 @@ Open question the science commons design (science docs/specs/2026-09-30-science-
 ## References
 
 - brief (context, kind=brief): docs/notes/2026-10-24-publication-session-follow-ups-brief.md — scope evidence and disposition
+
+## Notes
+
+- 2026-10-24T09:57:26Z (main): scope: drop; duplicates beliefs-42d201, which already asks the marker-locator question with the same commons sections 5 and 7.2 alternatives; sci-13050a reports 1a merged at c8a2cd7, meeting that older task's wake condition, but the older shelved task is related context and was not changed in this batch; brief: docs/notes/2026-10-24-publication-session-follow-ups-brief.md; proposal: drop this duplicate in favor of beliefs-42d201; reconsider the canonical task in an explicit later pass
