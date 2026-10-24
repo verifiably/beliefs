@@ -2,9 +2,9 @@
 id: beliefs-a91959
 title: Belief policy distinguishes independent confirmation from a secondary analysis
 status: idea
-priority: 2
+priority: 1
 created: 2026-10-18T19:19:49Z
-updated: 2026-10-18T19:19:49Z
+updated: 2026-10-24T00:49:25Z
 depends: []
 tags: []
 agent: claude-code
