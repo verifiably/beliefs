@@ -2,7 +2,7 @@
 title: Glossary
 status: living
 created: 2026-08-08
-updated: 2026-09-26
+updated: 2026-10-24
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -89,6 +89,14 @@ context and the linked design references for normative detail.
 - **Canonical projection** — The prescribed meaning-bearing representation
   hashed for an identity, excluding presentation and location fields.
   ([foundations](foundations.md#contracts-compile-into-profiles))
+- **Canonical value encoding** (`science.identity.v1`) — One byte spelling
+  for each admitted value, preserving its type: integer `1`, decimal `1.0`,
+  and string `"1.0"` remain distinct. Digests hash a per-kind domain, a newline,
+  and those bytes, so identical payloads under different record kinds do not
+  share an identity. The shared encodings — canonical values and the canonical
+  claim projection — are the only cross-implementation contract between Python
+  and TypeScript.
+  ([computation §4.3](../designs/2026-08-02-computation-reproducibility-design.md#43-canonicalization-is-new-machinery-not-an-existing-contract))
 - **Claim** — The opaque runtime value of a proposition after its operator,
   arguments, qualifiers, polarity, and layer pass the active profile.
   ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))

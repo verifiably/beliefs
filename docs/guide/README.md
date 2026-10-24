@@ -2,7 +2,7 @@
 title: verifiably contributor guide
 status: living
 created: 2026-08-08
-updated: 2026-09-26
+updated: 2026-10-24
 sources:
   - ../designs/2026-08-08-contributor-guide-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -94,8 +94,10 @@ Two sit mostly outside this repository:
   Its `beliefs` parts — views and coordination records, the writer session, and
   local publication — are built here. Its daily surface lives in the `science`
   repository, where the command framework and the belief-path commands are built
-  and the coordination commands are partly built. The `autonomy` layer is not
-  started.
+  and the coordination commands are partly built. The
+  [`autonomy` layer](https://github.com/verifiably/autonomy#autonomy) has built
+  tiers, the closing check, the sandbox, and `autonomy run`'s launch side.
+  Its runs still close `unwired` until science's run endpoint is built.
 - **Salvage** — how the predecessor's pipelines, notes, and results are
   re-situated rather than migrated — has no design. The mm30 reproduction
   recreates one corpus through the ordinary typed path, which is the posture a
