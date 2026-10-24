@@ -51,11 +51,12 @@ lets the analysis's assessment into a belief.
 ## Why it matters
 
 A command line, a lockfile, an output checksum, or the assurance that the code
-“runs again” is where most analysis projects stop, and none of it is enough to
-reproduce a scientific computation: the inputs drift, the environment is not
+“runs again” is where an ad hoc analysis project stops, and none of it is enough
+to reproduce a scientific computation: the inputs drift, the environment is not
 the one recorded, and nobody wrote down what the result was supposed to show.
-Here a run records what was planned, the exact executable closure, what
-happened, and how two occurrences were compared. It also separates the ability
+Here the record keeps what was planned (the spec), the exact code, software and
+data it ran with and what happened (the run), and how two occurrences were
+compared (the verification). The design also separates the ability
 to attempt a replay from a successful verification and from the later
 epistemic use of its result.
 

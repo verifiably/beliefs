@@ -5,7 +5,7 @@ name = "beliefs"
 aliases = []
 purpose = "The epistemic kernel of verifiably: recording scientific belief"
 abstract = """
-Keeps the record an ad hoc analysis project loses: which data and code produced each result, whether it came out the same when run again, and what checked results add up to for each claim. Claims are typed and nothing is edited in place, so a conclusion is traceable to its evidence, and a paper's statement or an unrepeated run never counts. Built on nodes and atoms; used by science and autonomy.
+Keeps the record an ad hoc analysis project loses: which data and code produced each result, whether it came out the same when run again, and what checked results add up to for each claim. Claims are typed and nothing is edited in place, so a conclusion is traceable; only a repeated analysis of data in hand counts, never a paper's statement. Built on nodes and atoms; used by science and autonomy.
 """
 authority = ["docs/designs/2026-08-02-epistemic-kernel-design.md", "docs/designs/2026-08-03-redesign-adoption-ledger.md"]
 subsystems = []
