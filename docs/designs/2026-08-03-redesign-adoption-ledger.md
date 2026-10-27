@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-10-02)
+## Current state (2026-10-27)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,9 +46,12 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-10-02** for cut 46's discharge of `publication-attribution`:
-the Y5 amendment is reclosed and Y17/Y18 close. The corpus has **226 of 253 rows
-closed, 27 open**; `world-read` closes this commons milestone 1a boundary.
+**Updated 2026-10-27** for cut 47's freeze of `owned-replica-publication`:
+Y5 and Y17 reopen; the corpus has **224 of 253 rows closed, 29 open**.
+Implementation and conformance are pending. Science wiring remains sci-9a7ce2,
+then sci-775e90 owns the live milestone rerun; this freeze fixes no live milestone.
+Cut 46 discharged `publication-attribution`, reclosing Y5 and closing Y17/Y18;
+its historical evidence remains intact.
 Cut 45 discharged `belief-acceptance` and closed G10–G13. Cut 44 discharged `mount-citations`,
 closing J16–J21 and the `write-path` lane. Cut 43's discharge of
 `multi-corpus-session` closed J12–J15, and
@@ -481,6 +484,7 @@ not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
+| `owned-replica-publication` | Y5/Y17 explicit ownership amendment (cut 47 freeze) | beliefs-7c612b | publication of a declared own relocated markerless corpus; then science integration |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `persistence-cut` | X2's persistence-cut arm; L1's kill-at-stage and settlement-persistence arms (both terminal outcomes) | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns; L1's arms re-homed here at cut 36 (`beliefs-3ea822`) | X2 in full; row 5's L1 read in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |

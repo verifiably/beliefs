@@ -243,7 +243,7 @@ enter a world-index map or a belief's inputs.
 - **Not built:** cross-root publication of a dataset's provenance reference and
   its acquiring report (T7's cross-root case).
 
-The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-02)
+The [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-27)
 is the authority for what remains and who owns it.
 
 ## Open edges
@@ -275,3 +275,8 @@ Existing manifests cannot be re-pinned. A markerless replica remains readable bu
 cannot be newly published. Origins are claims, not proof of authorship; a legacy
 v2 carrier without entries can name only itself, even if it earlier carried
 another publication. See the [results](../plans/2026-10-02-conformance-cut-46-results.md).
+
+[Cut 47](../designs/2026-10-27-conformance-cut-47.md) freezes an explicit
+ownership amendment for markerless replicas and reopens Y5/Y17. Implementation
+and conformance remain pending; the cut-46 behavior above still describes the
+code. Science wiring and the live milestone rerun are separate follow-ups.

@@ -80,7 +80,10 @@ ACCOUNTING: dict[int, tuple[str, str, str]] = {
 }
 
 #: Rows a later source names open at a widened obligation, overriding a full read.
-REOPENED: dict[str, tuple[str, int]] = {}
+REOPENED: dict[str, tuple[str, int]] = {
+    "Y5": ("conformance-cut-47 §3", 47),
+    "Y17": ("conformance-cut-47 §3", 47),
+}
 
 _RANGE = re.compile(r"([GSWRCXNLDMPHTEJVB])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)")
 

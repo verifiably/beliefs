@@ -34,7 +34,7 @@ the same cut.
 | **Y15** | a crash at any remote step resumes to exactly one binding and one report whose entries run staging, export, reveal, transport, binding; a remote step-8 refusal carries `remotely_revealed: true` and is an orphan; step 9 keeps the export root, the mark, the request and the snapshot |
 | **Y16** | a recipient admits a remote publication from a raw copy through `restore_root` against the transported artifact and `admit_publication`, and a copy missing any file never validates; `publication_tip` reads each held root alone, so publications sharing selected records are read side by side; it refuses a held root with a record it cannot read or decode (`capture-damaged`) and a corpus whose layout `admit_publication` would refuse, answers the one standing marker, `divergent-publication` for sibling markers, and the one tip again once a marker superseding both arrives |
 
-| **Y17** | Every selected replica-held record receives its source publication or forwarded earlier origin, derived before intent and frozen with selection; retries never re-read origin inputs |
+| **Y17** | Every selected replica-held record except an explicitly declared own markerless holder receives its source publication or forwarded earlier origin, derived before intent and frozen with selection; retries never re-read origin inputs |
 | **Y18** | Canonical attribution content is authorized by the marker release, changes the selection commitment and artifact content, and preserves marker identity; source world-domain pins remain required |
 
 Y17/Y18 close at cut 46; the Y5 amendment is reclosed for the v2 carried-selection
@@ -42,3 +42,15 @@ refusal, missing-holder/source refusals and v3 writer-derived coordination. Its
 historical v2 pin union and cut-40 step-0 guarantee remain release-specific;
 v2 carrying v3 still refuses pins-disagree on coordination before provenance.
 See `2026-10-02-conformance-cut-46.md`, `../plans/2026-10-02-conformance-cut-46-results.md` §2 and the attribution spec §5.
+
+**Amendment 2026-10-27 (cut 47 freeze):** Y5 and Y17 reopen for explicit
+`own_corpora`. Validate exact frozenset/string/hex shape before preparation;
+check every selected admission before scanning the full captures of declared
+holders for any publication marker. Marker-present refuses before publication
+intent or operations-root writes; scoped world recovery may already have run.
+Own markerless holders contribute no carried entries (None/v2, empty tuple/v3
+when entirely own). Other replicas keep their release-specific origins/refusals.
+Registry provenance and retry formats are unchanged. The before-intent marker
+refusal has construction/regression evidence, not its own mutation arm.
+See `2026-10-27-conformance-cut-47.md` and the owned-replica spec §1 for the
+explicit amendment of cut-46 decision 8; frozen cut-46 wording stays historical.
