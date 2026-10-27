@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T14:48:47Z
+updated: 2026-10-27T14:48:50Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -32,3 +32,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T14:42:47Z (design/7c612b-replica-publication): Scope discovery: science commons spec section 9, amendment 2026-10-22 Deviation 6, and python/src/science/acceptance.py already treat hand-configured markerless roots as Own, excluding sharing-registry roots. Recommended design is an explicit own-corpus declaration at publication preparation, independently guarded against captured publication markers, rather than a new registry provenance type or forced fork. This is the agent recommendation, not recorded user approval. Science publish and preview wiring is required for the milestone; sci-775e90 owns the eventual live rerun.
 - 2026-10-27T14:48:01Z (design/7c612b-replica-publication): retained: {"host":"titan","kind":"worktree","path":".worktrees/7c612b-replica-publication","state":"kept","verification":"verified","purpose":"Frozen ownership-declaration design and subsequent reviewed implementation; builder check is running against 338c71f","next_owner":"task:beliefs-7c612b","cleanup_trigger":"After the approved implementation is integrated, inspect evidence and run the required worktree-removal checks"}
 - 2026-10-27T14:48:47Z (design/7c612b-replica-publication): review: spec round 1 — verdict: accept; findings: none; reviewer: codex/gpt-6-astra
+- 2026-10-27T14:48:50Z (design/7c612b-replica-publication): attached: builder-check-report.md (412 bytes): Read-only builder check of frozen design 338c71f; reviewer codex/gpt-6-astra
