@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T18:18:56Z
+updated: 2026-10-27T18:19:00Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -60,3 +60,5 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T18:16:22Z (design/7c612b-replica-publication): attached: cut47-runner.log (15646 bytes): Exact successful cut47 successor log: 78 pytest phases, 1198 passes, no failures/skips/refusals; SHA256 ef93d1794f7a51c4e913ba7de44cf90b6d037a97c693b0d8df70946643b15005
 - 2026-10-27T18:17:01Z (design/7c612b-replica-publication): attached: cut47-runner-host-home.log (4089 bytes): Exact first successor failure: cut6 host-home Git baselines failed before any later phase; retained comparison evidence for beliefs-23f259
 - 2026-10-27T18:18:56Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner.json", "state": "kept", "verification": "verified", "purpose": "Exact successor command, revision, timing and exit metadata for final review and N2 isolation follow-up", "next_owner": "task:beliefs-7c612b", "cleanup_trigger": "Verify attachment or transfer to beliefs-23f259 before checked integration cleanup", "sha256": "7fd8f264239a9cd1fd2f2addebcc3b6b4444a5b1ee97a2fef592b4a1d092a0df"}
+- 2026-10-27T18:18:58Z (design/7c612b-replica-publication): attached: cut47-runner.json (661 bytes): Exact runner command, revision, UTC interval, exit status and raw log hash; retained-item record names its source
+- 2026-10-27T18:19:00Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner-host-home.json", "state": "kept", "verification": "verified", "purpose": "Exact successor command, revision, timing and exit metadata for final review and N2 isolation follow-up", "next_owner": "task:beliefs-7c612b", "cleanup_trigger": "Verify attachment or transfer to beliefs-23f259 before checked integration cleanup", "sha256": "a4573dd960de0974f7b52039a9ff6724a7d549453a8d5a4ce070e5185bbdf862"}
