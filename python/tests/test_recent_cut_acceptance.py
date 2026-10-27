@@ -23,6 +23,7 @@ import cut43_acceptance as cut43
 import cut44_acceptance as cut44
 import cut45_acceptance as cut45
 import cut46_acceptance as cut46
+import cut47_acceptance as cut47
 import pytest
 
 from beliefs import root
@@ -47,6 +48,7 @@ from beliefs import root
         (cut44, 44, (24, 24, 6)),
         (cut45, 45, (34, 34, 4)),
         (cut46, 46, (36, 36, 3)),
+        (cut47, 47, (9, 9, 2)),
     ),
     ids=(
         "cut23",
@@ -65,6 +67,7 @@ from beliefs import root
         "cut44",
         "cut45",
         "cut46",
+        "cut47",
     ),
 )
 def test_recent_runner_preserves_commands_environment_and_cleanup(
@@ -102,6 +105,8 @@ def test_recent_runner_preserves_commands_environment_and_cleanup(
         assert all(environment[f"SCIENCE_CUT{number}_ROOT"] == str(run) for number in range(4, cut + 1))
     assert not run.exists()
     output = capsys.readouterr().out
+    if cut == 47:
+        assert "guarantee rows exercised: 2 (0 newly closed; Y5 and Y17 amendments reclosed)" in output
     if cut == 46:
         assert "guarantee rows exercised: 3 (2 newly closed: Y17, Y18; Y5 amendment reclosed)" in output
     if cut == 45:
