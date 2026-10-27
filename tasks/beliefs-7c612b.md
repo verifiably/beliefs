@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T18:22:57Z
+updated: 2026-10-27T18:23:28Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -67,3 +67,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T18:20:39Z (design/7c612b-replica-publication): detached: cut47-runner.json: Layout gate rejected host storage path; exact raw copy hash verified in persistent task storage and ownership transferred to beliefs-23f259; portable derivative follows
 - 2026-10-27T18:20:41Z (design/7c612b-replica-publication): attached: cut47-runner.json (653 bytes): Portable derivative of runner metadata; WORK_ROOT is a placeholder. Exact raw bytes and mapping are retained under beliefs-23f259; see retained-item notes.
 - 2026-10-27T18:22:57Z (design/7c612b-replica-publication): attached: cut6-isolated-certified.log (100 bytes): Cut6 isolated HOME/Git configuration and certified-root probe: 24 passed; comparison evidence for beliefs-23f259
+- 2026-10-27T18:23:28Z (design/7c612b-replica-publication): attached: task-4-guard.log (99 bytes): Complete cut47 guard: all nine baseline checks resolved and all nine mutations sound
