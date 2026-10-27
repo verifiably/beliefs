@@ -1,0 +1,76 @@
+[cut47 phase 1/3] cut46_acceptance.py
+[cut46 phase 1/3] cut45_acceptance.py
+[cut45 phase 1/3] cut44_acceptance.py
+[cut44 phase 1/3] cut43_acceptance.py
+[cut43 phase 1/3] cut42_acceptance.py
+[cut42 phase 1/3] cut41_acceptance.py
+[cut41 phase 1/3] cut40_acceptance.py
+[cut40 phase 1/3] cut39_acceptance.py
+[cut39 phase 1/3] cut38_acceptance.py
+[cut38 phase 1/3] cut37_acceptance.py
+[cut37 phase 1/3] cut36_acceptance.py
+[cut36 phase 1/3] cut35_acceptance.py
+[cut35 phase 1/3] cut34_acceptance.py
+[cut34 phase 1/3] cut33_acceptance.py
+[cut33 phase 1/3] cut32_acceptance.py
+[cut32 phase 1/3] cut31_acceptance.py
+[cut31 phase 1/3] cut30_acceptance.py
+[cut30 phase 1/3] cut29_acceptance.py
+[cut29 phase 1/3] cut28_acceptance.py
+[cut28 phase 1/3] cut27_acceptance.py
+[cut27 phase 1/3] cut26_acceptance.py
+[cut26 phase 1/2] cut25_acceptance.py
+[cut25 phase 1/3] cut24_acceptance.py
+[cut24 phase 1/3] cut23_acceptance.py
+[cut23 phase 1/3] cut22_acceptance.py
+[cut22 phase 1/3] cut21_acceptance.py
+[cut21 phase 1/3] cut20_acceptance.py
+[cut20 phase 1/3] cut19_acceptance.py
+[cut19 phase 1/3] cut18_acceptance.py
+[cut18 phase 1/3] cut17_acceptance.py
+[cut17 phase 1/19] test_n2_cut6.py
+............FF..........                                                 [100%]
+=================================== FAILURES ===================================
+_ TestEveryCut6ArmAssertsSomething.test_every_check_passes_against_the_unsabotaged_historical_package _
+
+self = <test_n2_cut6.TestEveryCut6ArmAssertsSomething object at 0x7ff1dbefdae0>
+historical_clean_runs = (CheckRun(check='test_world_registry.py::test_world_public_surface_has_no_registry_mutator', returncode=0), CheckRun(c...ncode=0), CheckRun(check='test_world_registry.py::test_status_reduction_is_record_order_invariant', returncode=0), ...)
+
+    def test_every_check_passes_against_the_unsabotaged_historical_package(self, historical_clean_runs):
+        failed = [run for run in historical_clean_runs if run.returncode != test_n2.PASSED]
+>       assert not failed, (
+            "these cut-6 checks do not pass against the pinned package with no sabotage applied, so "
+            "every arm naming one of them scores `sound` on a check that was already red:\n"
+            + "\n".join(f"  {run.check} exited {run.returncode}" for run in failed)
+        )
+E       AssertionError: these cut-6 checks do not pass against the pinned package with no sabotage applied, so every arm naming one of them scores `sound` on a check that was already red:
+E           test_corpus_state.py::test_git_is_not_an_identity_member exited 1
+E       assert not [CheckRun(check='test_corpus_state.py::test_git_is_not_an_identity_member', returncode=1)]
+
+tests/acceptance/test_n2_cut6.py:362: AssertionError
+_ TestEveryCut6ArmAssertsSomething.test_every_check_resolves_and_passes_without_the_sabotage _
+
+self = <test_n2_cut6.TestEveryCut6ArmAssertsSomething object at 0x7ff1dbf8f250>
+
+    def test_every_check_resolves_and_passes_without_the_sabotage(self):
+        every = Arm(
+            row="N2",
+            asserts="every declared cut-6 check resolves and passes against the real package",
+            sabotage=CUT6_ARMS[0].sabotage,
+            checks=tuple(dict.fromkeys(check for arm in CUT6_ARMS for check in arm.checks)),
+        )
+        finding = baseline(every)
+>       assert finding.verdict == "resolved", finding.detail
+E       AssertionError: test_corpus_state.py::test_git_is_not_an_identity_member exited 1 against the real package
+E       assert 'unresolved' == 'resolved'
+E         
+E         - resolved
+E         + unresolved
+E         ? ++
+
+tests/acceptance/test_n2_cut6.py:376: AssertionError
+=========================== short test summary info ============================
+FAILED tests/acceptance/test_n2_cut6.py::TestEveryCut6ArmAssertsSomething::test_every_check_passes_against_the_unsabotaged_historical_package
+FAILED tests/acceptance/test_n2_cut6.py::TestEveryCut6ArmAssertsSomething::test_every_check_resolves_and_passes_without_the_sabotage
+2 failed, 22 passed in 11.90s
+error: recipe `test-one` failed on line 85 with exit code 1
