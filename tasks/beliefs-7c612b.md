@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T18:28:51Z
+updated: 2026-10-27T18:28:56Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -76,3 +76,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T18:28:46Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "scratch", "path": "$WORK_ROOT/beliefs/beliefs-7c612b", "state": "released", "verification": "verified", "purpose": "Transferred raw-metadata container to beliefs-23f259 with verified manifest; attached log and first-run metadata copies were byte-verified and removed; generated test HOME discarded", "next_owner": "none", "cleanup_trigger": "none"}
 - 2026-10-27T18:28:49Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner.json", "state": "released", "verification": "verified", "purpose": "Transferred exact raw metadata to beliefs-23f259; its kept record verifies the same path/hash; portable derivative attached here", "next_owner": "none", "cleanup_trigger": "none"}
 - 2026-10-27T18:28:51Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner-host-home.json", "state": "released", "verification": "verified", "purpose": "Exact bytes verified in task attachment cut47-runner-host-home.json; off-tree duplicate removed", "next_owner": "none", "cleanup_trigger": "none"}
+- 2026-10-27T18:28:56Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "worktree", "path": ".worktrees/7c612b-replica-publication", "state": "kept", "verification": "verified", "purpose": "Accepted branch, pending immediate local integration and checked removal in this turn", "next_owner": "session:codex:01a17dcb-2a5d-7101-9aa7-305b6690786c", "cleanup_trigger": "Successful local merge, merged-tree verification, tt-report and ignored-file/host-pointer checks"}
