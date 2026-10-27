@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T18:24:00Z
+updated: 2026-10-27T18:24:33Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -69,3 +69,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T18:22:57Z (design/7c612b-replica-publication): attached: cut6-isolated-certified.log (100 bytes): Cut6 isolated HOME/Git configuration and certified-root probe: 24 passed; comparison evidence for beliefs-23f259
 - 2026-10-27T18:23:28Z (design/7c612b-replica-publication): attached: task-4-guard.log (99 bytes): Complete cut47 guard: all nine baseline checks resolved and all nine mutations sound
 - 2026-10-27T18:24:00Z (design/7c612b-replica-publication): attached: task-4-legacy-guard.log (100 bytes): Complete cut46 guard including the three live anchor retargets: 13 checks passed, all 36 mutations sound
+- 2026-10-27T18:24:33Z (design/7c612b-replica-publication): attached: discharge-check.log (389 bytes): Final just check after discharge edits: zero pyright errors/warnings, formatting/type/doc/task checks passed

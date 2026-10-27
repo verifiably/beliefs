@@ -1,0 +1,15 @@
+All checks passed!
+579 files already formatted
+0 errors, 0 warnings, 0 informations
+WARNING: there is a new pyright version available (v1.1.411 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+
+
+> @verifiably/beliefs@0.0.0 typecheck
+> tsc --noEmit
+
+
+> @verifiably/beliefs@0.0.0 check
+> biome check .
+
+Checked 15 files in 43ms. No fixes applied.
