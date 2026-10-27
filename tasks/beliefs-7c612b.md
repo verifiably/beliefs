@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T15:46:07Z
+updated: 2026-10-27T15:46:11Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -38,3 +38,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-27T15:46:07Z (design/7c612b-replica-publication): resumed
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-27T15:46:11Z (design/7c612b-replica-publication): review: spec round 2 — verdict: revise; findings: Important 1, Minor 5; reviewer: claude-code/claude-opus-5-5
