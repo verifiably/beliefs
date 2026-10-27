@@ -1,15 +1,17 @@
 ---
 id: beliefs-7c612b
 title: A relocated replica of the world's own corpus is refused as a foreign publication
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T18:29:04Z
+updated: 2026-10-27T18:29:46Z
 started: 2026-10-27T14:38:26Z
+completed: 2026-10-27T18:29:46Z
+closed: 2026-10-27T18:29:46Z
 depends: []
 tags: [publication]
 source: sci-0d00d2
@@ -79,3 +81,7 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T18:28:56Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "worktree", "path": ".worktrees/7c612b-replica-publication", "state": "kept", "verification": "verified", "purpose": "Accepted branch, pending immediate local integration and checked removal in this turn", "next_owner": "session:codex:01a17dcb-2a5d-7101-9aa7-305b6690786c", "cleanup_trigger": "Successful local merge, merged-tree verification, tt-report and ignored-file/host-pointer checks"}
 - 2026-10-27T18:28:59Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/.worktrees/7c612b-replica-publication/.superpowers/sdd/2026-10-27-owned-replica-publication", "state": "kept", "verification": "verified", "purpose": "Reports/ledger attached and byte-verified; remaining briefs/drafts/review diff are reproducible and routine test logs are summarized in committed results/task notes", "next_owner": "session:codex:01a17dcb-2a5d-7101-9aa7-305b6690786c", "cleanup_trigger": "After accepted local integration, recheck attachment hashes and discard regenerable or no-longer-needed execution artifacts", "manifest": "$WORK_ROOT/beliefs/.worktrees/7c612b-replica-publication/.superpowers/sdd/2026-10-27-owned-replica-publication/retained-manifest.json", "sha256": "23409f33c5d380794badffa2702e8d0f3dcff9095c1777117f1516ac1b0bc1b0"}
 - 2026-10-27T18:29:04Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/.worktrees/7c612b-replica-publication/.superpowers/sdd/7c612b", "state": "kept", "verification": "verified", "purpose": "Reports/ledger attached and byte-verified; remaining briefs/drafts/review diff are reproducible and routine test logs are summarized in committed results/task notes", "next_owner": "session:codex:01a17dcb-2a5d-7101-9aa7-305b6690786c", "cleanup_trigger": "After accepted local integration, recheck attachment hashes and discard regenerable or no-longer-needed execution artifacts", "manifest": "$WORK_ROOT/beliefs/.worktrees/7c612b-replica-publication/.superpowers/sdd/7c612b/retained-manifest.json", "sha256": "f7beb5f008afd94c91730c778e983dd6e70a7dc3400e21b35545c00144f67fb0"}
+- 2026-10-27T18:29:46Z (design/7c612b-replica-publication): done
+  provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-27T18:29:46Z (design/7c612b-replica-publication): Implemented explicit own_corpora through preview, publish and scoped publish; cut47 recloses Y5/Y17 (226/253 closed). Successor78 phases/1198 passes/no skips; fast6278 passes/1 skip; baseline6431 passes/1 skip; docs/runner45 passes; static checks clean. Independent codex/gpt-6-astra review of 1024ee6..56d4381 accepted with no findings. Full review and execution ledger attached, all rulings retained. Immediate local integration/checked cleanup owned by current stamped session; raw layout-refused metadata transferred to open beliefs-23f259. Next consumer: sci-9a7ce2, then sci-775e90; no live milestone claim or push.
+  provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
