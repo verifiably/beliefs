@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T16:01:29Z
+updated: 2026-10-27T16:01:32Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -47,3 +47,5 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T16:01:08Z (design/7c612b-replica-publication): Controller self-review of frozen plan 69577b6 (not user approval): spec coverage, step clarity, type consistency, review-focus tests and proportion checked; no outstanding findings. Plan SHA-256 9bcec8c8325374ae94a289b33969c143def52f904f3679b198e8507cb8b61815. Revised spec deb8d99 SHA-256 720261f5edd22248a3d8441bdff16b7296db25d6168164c5c1b5ad119c455fb4. Four sequential children: beliefs-ecb75f, beliefs-991a0f, beliefs-eab322, beliefs-b367fd. First step is blocked on user plan review. Both documentation commits passed full pre-commit checks; no test-suite baseline or implementation has run.
 - 2026-10-27T16:01:11Z (design/7c612b-replica-publication): retained: {"host":"titan","kind":"worktree","path":".worktrees/7c612b-replica-publication","state":"kept","verification":"verified","purpose":"Revised spec deb8d99 and implementation plan 69577b6; waiting for user plan review, then unblock beliefs-ecb75f and run execution Setup baseline","next_owner":"task:beliefs-7c612b","cleanup_trigger":"After approved implementation is reviewed and integrated, inspect attached review evidence and perform required worktree-removal checks"}
 - 2026-10-27T16:01:29Z (design/7c612b-replica-publication): retained: {"host":"titan","kind":"evidence","path":"$WORK_ROOT/beliefs/.worktrees/7c612b-replica-publication/.superpowers/sdd/7c612b","state":"kept","verification":"verified","purpose":"Full spec round 2 report and I1/M1-M5 controller rulings; bytes verified equal to task attachments spec-round-2-report.md and design-review-ledger.md","next_owner":"task:beliefs-7c612b","cleanup_trigger":"At worktree removal after reviewed integration, verify attachments and ensure every ledger ruling reached the final report before disposing of these duplicate workspace copies","manifest":"$WORK_ROOT/beliefs/.worktrees/7c612b-replica-publication/.superpowers/sdd/7c612b/manifest.json","sha256":"c73ad8e0f93701ab5c57b82896ab6c8f6e319fb8ba113fad753fdde0f04fb84b"}
+- 2026-10-27T16:01:32Z (design/7c612b-replica-publication): parked (waiting on user, review): User reviews beliefs commit 69577b6:docs/superpowers/plans/2026-10-27-owned-replica-publication.md, implementing revised spec deb8d99, in .worktrees/7c612b-replica-publication. On acceptance, agent records the review, unblocks and starts beliefs-ecb75f, runs trial-arm and the deferred just test baseline, then executes the four steps inline with final independent review. No implementation is running.
+  provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
