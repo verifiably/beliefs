@@ -39,6 +39,7 @@ from beliefs.intents.publish import Destination
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
 from beliefs.publication import (
+    _HEX32,
     BINDING_KIND,
     MARKER_KIND,
     _marker_release_malformed,
@@ -252,8 +253,10 @@ def _selected_attributions(
     registry: RegistryView,
     selected: tuple[str, ...],
     coordination_pin: str,
+    *,
+    own_corpora: frozenset[str] = frozenset(),
 ) -> tuple[tuple[str, str, str], ...] | None:
-    """Check all admissions first, then each replica's immutable captured layout."""
+    """Check admissions, then declared ownership and remaining replica layouts."""
     grouped: dict[str, list[str]] = {}
     for ref in selected:
         holder = read.corpus_of(ref)
@@ -267,7 +270,19 @@ def _selected_attributions(
                 corpus_ids=(holder,),
                 refs=tuple(sorted(grouped[holder])),
             )
-    replicas = tuple(holder for holder in sorted(grouped) if type(admissions[holder].provenance) is ReplicaOf)
+    for holder in sorted(grouped):
+        if holder in own_corpora and any(node.kind == MARKER_KIND for node in read.captured_records(holder)):
+            raise PublicationRefused(
+                "attribution-own-source-invalid",
+                corpus_ids=(holder,),
+                refs=tuple(sorted(grouped[holder])),
+                field="marker-present",
+            )
+    replicas = tuple(
+        holder
+        for holder in sorted(grouped)
+        if holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf
+    )
     if coordination_pin != V3_PIN:
         if replicas:
             raise PublicationRefused("attribution-contract-unpinned", corpus_ids=replicas)
@@ -300,6 +315,16 @@ def _selected_attributions(
     return tuple(result)
 
 
+def _require_own_corpora(own_corpora: frozenset[str]) -> None:
+    if type(own_corpora) is not frozenset:
+        raise TypeError("own_corpora must be a frozenset")
+    for corpus_id in own_corpora:
+        if type(corpus_id) is not str:
+            raise TypeError("own_corpora members must be strings")
+        if _HEX32.fullmatch(corpus_id) is None:
+            raise ValueError("own_corpora members must be 32 lowercase hexadecimal characters")
+
+
 # --- step 0 ------------------------------------------------------------------
 
 
@@ -325,12 +350,14 @@ def publication_preview(
     view: CoordinationAddress,
     *,
     own_pins: CorpusPins,
+    own_corpora: frozenset[str] = frozenset(),
 ) -> PublicationPreview:
     """Step 0 up to the intent (sharing design decision 10): resolve the view,
     evaluate the selection at the current epoch, check closure, derive the pins,
     compute the attribution entries and render the records, refusing exactly as
     `publish` refuses there. It writes nothing and needs no authority; `publish`
     calls it, so a dry run cannot disagree with the act."""
+    _require_own_corpora(own_corpora)
     resolved = resolver.resolve(view.unpinned())
     if resolved is None:
         raise PublicationRefused("view-unresolved")
@@ -353,7 +380,9 @@ def publication_preview(
         {corpus_id: read.captured_manifest(corpus_id).profile for corpus_id in selection.contributing},
         own_pins,
     )
-    attributions = _selected_attributions(read, world.registry(), selection.selected, pins.domains["coordination"])
+    attributions = _selected_attributions(
+        read, world.registry(), selection.selected, pins.domains["coordination"], own_corpora=own_corpora
+    )
     records = tuple((address, node_to_markdown(read.get(address))) for address in selection.selected)
     _require_snapshot_records(read, records, attributions=attributions)
     return PublicationPreview(
@@ -382,6 +411,7 @@ def publish(
     port: OperationPort | None = None,
     transport: Transport | None = None,
     hold: Callable[[], AbstractContextManager[object]] | None = None,
+    own_corpora: frozenset[str] = frozenset(),
 ) -> PublishOutcome:
     """Publish `view` to `destination` (local and remote specs §3–§8). The intent
     is appended under the caller's `hold` (sharing design decision 9)."""
@@ -409,7 +439,9 @@ def publish(
         )
         if blocking:
             raise PublicationRefused("publish-unfinished", tokens=blocking)
-    preview = publication_preview(world, resolver, view, own_pins=load_manifest(writer.root).profile)
+    preview = publication_preview(
+        world, resolver, view, own_pins=load_manifest(writer.root).profile, own_corpora=own_corpora
+    )
     if pins_of(staging_profile) != preview.pins:
         raise PublicationRefused("profile-disagrees")
     records = preview.records

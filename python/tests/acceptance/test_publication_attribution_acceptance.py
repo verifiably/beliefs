@@ -335,11 +335,11 @@ def test_retirement_after_capture_durably(source, monkeypatch, scenario):
     monkeypatch.setattr(act, "open_world_view", capture)
     prepare = act._selected_attributions
 
-    def scanned(read, registry, refs, pin):
+    def scanned(read, registry, refs, pin, *, own_corpora=frozenset()):
         if scenario == "retired":
             assert any(status.corpus_id == a.corpus_id and status.status == "retired" for status in registry.statuses)
             observed.append("retired")
-        return prepare(read, registry, refs, pin)
+        return prepare(read, registry, refs, pin, own_corpora=own_corpora)
 
     monkeypatch.setattr(act, "_selected_attributions", scanned)
     if scenario == "drift":

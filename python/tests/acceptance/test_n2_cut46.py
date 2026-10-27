@@ -66,9 +66,39 @@ from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
 
 _LIVE_SABOTAGES = {
-    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
-    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
-    # the formatted source is exactly the formatted declared sabotage.
+    # Cut 47: preserve the original mutation after ownership changed preparation.
+    "Y17-a": Sabotage(
+        module="publish.py",
+        before=(
+            "    replicas = tuple(\n"
+            "        holder\n"
+            "        for holder in sorted(grouped)\n"
+            "        if holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
+            "    )\n"
+        ),
+        after=(
+            "    replicas = tuple(\n"
+            "        holder\n"
+            "        for holder in sorted(grouped)\n"
+            "        if holder not in own_corpora and type(admissions[holder].provenance) is not ReplicaOf\n"
+            "    )\n"
+        ),
+    ),
+    # Cut 47: preserve the original mutation after ownership changed preparation.
+    "Y17-g": Sabotage(
+        module="publish.py",
+        before=(
+            "    attributions = _selected_attributions(\n"
+            '        read, world.registry(), selection.selected, pins.domains["coordination"], own_corpora=own_corpora\n'
+            "    )\n"
+        ),
+        after=(
+            "    attributions = _selected_attributions(\n"
+            '        read, world.registry(), selection.selected, pins.domains["coordination"], own_corpora=own_corpora\n'
+            '    ) if pins.domains["coordination"] == V3_PIN else None\n'
+        ),
+    ),
+    # Cut 47: preserve the original mutation after ownership changed preparation.
     "Y17-i": Sabotage(
         module="publish.py",
         before=(
@@ -79,13 +109,33 @@ _LIVE_SABOTAGES = {
             "                corpus_ids=(holder,),\n"
             "                refs=tuple(sorted(grouped[holder])),\n"
             "            )\n"
-            "    replicas = tuple(holder for holder in sorted(grouped) if type(admissions[holder].provenance) is ReplicaOf)\n"
-        ),
-        after=(
+            "    for holder in sorted(grouped):\n"
+            "        if holder in own_corpora and any(node.kind == MARKER_KIND for node in read.captured_records(holder)):\n"
+            "            raise PublicationRefused(\n"
+            '                "attribution-own-source-invalid",\n'
+            "                corpus_ids=(holder,),\n"
+            "                refs=tuple(sorted(grouped[holder])),\n"
+            '                field="marker-present",\n'
+            "            )\n"
             "    replicas = tuple(\n"
             "        holder\n"
             "        for holder in sorted(grouped)\n"
-            "        if holder in admissions and type(admissions[holder].provenance) is ReplicaOf\n"
+            "        if holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
+            "    )\n"
+        ),
+        after=(
+            "    for holder in sorted(grouped):\n"
+            "        if holder in own_corpora and any(node.kind == MARKER_KIND for node in read.captured_records(holder)):\n"
+            "            raise PublicationRefused(\n"
+            '                "attribution-own-source-invalid",\n'
+            "                corpus_ids=(holder,),\n"
+            "                refs=tuple(sorted(grouped[holder])),\n"
+            '                field="marker-present",\n'
+            "            )\n"
+            "    replicas = tuple(\n"
+            "        holder\n"
+            "        for holder in sorted(grouped)\n"
+            "        if holder in admissions and holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
             "    )\n"
         ),
     ),

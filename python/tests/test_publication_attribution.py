@@ -492,7 +492,7 @@ def wrapper_fixture(tmp_path, monkeypatch, *, writer_version=3, source_version=2
     ops.mkdir()
     dest.mkdir()
 
-    def run():
+    def run(*, own_corpora=frozenset()):
         return act.publish(
             writer,
             cast(Any, resolver),
@@ -503,10 +503,13 @@ def wrapper_fixture(tmp_path, monkeypatch, *, writer_version=3, source_version=2
             staging_profile=coordination_profile(None, version=writer_version),
             clock=lambda: "2026-10-02T00:00:00Z",
             seam=cast(Any, None),
+            own_corpora=own_corpora,
         )
 
     return SimpleNamespace(
         run=run,
+        resolver=resolver,
+        view=view,
         read=read,
         registry=registry,
         captures=captures,
@@ -566,9 +569,9 @@ def test_y17_o_registry_boundary(tmp_path, monkeypatch, scenario):
         seen = []
         original = act._selected_attributions
 
-        def selected(read, scanned, refs, coordination_pin):
+        def selected(read, scanned, refs, coordination_pin, *, own_corpora=frozenset()):
             assert scanned.statuses == (StatusRecord(s.a, "retired", "actor"),)
-            result = original(read, scanned, refs, coordination_pin)
+            result = original(read, scanned, refs, coordination_pin, own_corpora=own_corpora)
             assert result is not None
             seen.extend(result)
             return result
