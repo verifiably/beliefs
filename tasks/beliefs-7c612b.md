@@ -8,13 +8,14 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T14:42:47Z
+updated: 2026-10-27T14:45:50Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
 source: sci-0d00d2
 agent: claude-code/claude-opus-5-5
 origin: agent
+spec: docs/superpowers/specs/2026-10-27-owned-replica-publication-design.md
 ---
 
 science's publish-preview of a view over the mm30 corpus, relocated into the user's world and admitted replica-of, refused kernel-refused attribution-contract-unpinned naming corpus 8b5d0c80 (under coordination v3 it would demand a publication marker the relocation does not carry). The publish act has no notion of a replica the same person relocated, so no view over that corpus can be published. Evidence: science docs/records/2026-10-26-second-project-milestone.md §4 R4, §5 F12 (design-gap).
