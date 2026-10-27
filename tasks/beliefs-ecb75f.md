@@ -1,13 +1,13 @@
 ---
 id: beliefs-ecb75f
 title: Freeze the owned-replica amendment
-status: blocked
+status: todo
 priority: 2
 size: s
 complexity: mid
 process: direct
 created: 2026-10-27T15:59:03Z
-updated: 2026-10-27T15:59:06Z
+updated: 2026-10-27T16:52:30Z
 depends: []
 parent: beliefs-7c612b
 tags: []
