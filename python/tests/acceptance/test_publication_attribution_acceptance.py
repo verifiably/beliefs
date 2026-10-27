@@ -12,7 +12,7 @@ from coordination_fixtures import content_for, coordination_profile
 from durable_fixture import pinned
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.paths import path_for_node_id
-from profiles import pins_for
+from profiles import BASE, pins_for
 from test_publish_act_acceptance import (
     AUTHORITY,
     KINDS,
@@ -129,7 +129,7 @@ def context_at(s, world, *, version=3, query=KINDS):
     )
 
 
-def publish(context):
+def publish(context, *, own_corpora=frozenset()):
     return act.publish(
         context.writer,
         context.resolver,
@@ -141,6 +141,7 @@ def publish(context):
         clock=Clock(),
         seam=moment_seam(),
         transport=context.transport,
+        own_corpora=own_corpora,
     )
 
 
@@ -285,10 +286,10 @@ def test_two_carriers_and_selection_durably(source):
     assert d2.id not in selected and r2.id not in selected
 
 
-@pytest.mark.parametrize("version", [2, 3])
-def test_markerless_replica_durably(source, version):
-    node = stored.run_node("restored-own", title="restored-own", spec="s", produces=[])
-    cid, original, _ = source.corpus(nodes=(node,))
+def markerless_replica(source, *, profile=BASE, nodes=None):
+    if nodes is None:
+        nodes = (stored.run_node("restored-own", title="restored-own", spec="s", produces=[]),)
+    cid, original, _ = source.corpus(profile=profile, nodes=nodes)
     origin_world = world_at(source, (original,))
     origin_world.admit(original, provenance=Fresh())
     artifact = export_head_artifact(origin_world, CorpusSubject(cid))
@@ -299,6 +300,14 @@ def test_markerless_replica_durably(source, version):
     assert restore_root(copy, CorpusSubject(cid), observers, authority=SETUP).outcome == "validated"
     world = world_at(source, (copy,))  # original cid is deliberately not admitted here
     admit_arrival(world, copy, ReplicaOf(cid), observers)
+    assert load_manifest(copy).corpus_id == cid == load_manifest(original).corpus_id
+    return SimpleNamespace(cid=cid, root=copy, original=original, world=world, nodes=nodes, profile=profile)
+
+
+@pytest.mark.parametrize("version", [2, 3])
+def test_markerless_replica_durably(source, version):
+    replica = markerless_replica(source)
+    cid, world, node = replica.cid, replica.world, replica.nodes[0]
     build(world)
     context = context_at(source, world, version=version)
     selected = evaluate_query(

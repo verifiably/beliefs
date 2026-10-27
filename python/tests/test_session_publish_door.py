@@ -499,3 +499,42 @@ def test_the_door_opens_the_publication_inside_the_closing_hold(certified_work, 
     assert type(_door_publish(writer, s)) is Published
     assert events == ["enter", "open", "exit", "run"]
     assert len(session.invocation_acts("A")) == 1
+
+
+@pytest.mark.parametrize("scenario", ["forward", "closed", "stale", "permit", "resolver"])
+def test_y17_w_scoped_ownership(certified_work, monkeypatch, scenario):
+    s = published_source(certified_work)
+    session, writer = publishing_session(
+        s,
+        required=RequiredCapabilities.coordination() if scenario == "permit" else None,
+        mounted=scenario != "resolver",
+    )
+    own = frozenset({s.alpha_id, s.written_id})
+    try:
+        if scenario == "forward":
+
+            def publish_spy(*args, own_corpora=frozenset(), **kwargs):
+                assert own_corpora is own
+                return "forwarded"
+
+            monkeypatch.setattr(act, "publish", publish_spy)
+            assert _door_publish(writer, s, own_corpora=own) == "forwarded"
+        else:
+            if scenario == "closed":
+                session.close()
+            elif scenario == "stale":
+                session.close_invocation("A", REFUSAL)
+            monkeypatch.setattr(
+                session_writer, "open_world", lambda *a, **kw: pytest.fail("world opened before preflight")
+            )
+            error = {
+                "closed": SessionClosed,
+                "stale": SessionProtocolError,
+                "permit": PermitExceeded,
+                "resolver": CoordinationUnavailable,
+            }[scenario]
+            with pytest.raises(error):
+                _door_publish(writer, s, own_corpora=["malformed"])
+            assert not (s.ops / "publish").exists()
+    finally:
+        session.close()

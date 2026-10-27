@@ -601,6 +601,7 @@ class ScopedWriter:
         operations_root: Path,
         staging_profile: ProfileSpec,
         transport: Transport | None = None,
+        own_corpora: frozenset[str] = frozenset(),
     ) -> PublishOutcome:
         """Run the publish act under this invocation (sharing design §2
         decision 7, §4.4): the scoped writer, the session's coordination
@@ -626,6 +627,7 @@ class ScopedWriter:
             port=self.operation_port(),
             transport=transport,
             hold=self._closing_hold,
+            own_corpora=own_corpora,
         )
 
     def resume_publish(
