@@ -1,13 +1,15 @@
 ---
 id: beliefs-b367fd
 title: Prove the amendment and discharge cut 47
-status: todo
+status: doing
 priority: 2
 size: m
 complexity: high
 process: direct
+owner: design/7c612b-replica-publication
 created: 2026-10-27T15:59:14Z
-updated: 2026-10-27T15:59:14Z
+updated: 2026-10-27T17:23:29Z
+started: 2026-10-27T17:23:29Z
 depends: [beliefs-eab322]
 parent: beliefs-7c612b
 tags: []
@@ -24,3 +26,5 @@ Execute this step only after the parent implementation plan is approved. Read th
 
 - 2026-10-27T15:59:14Z (add): created
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID","origin":"agent"}
+- 2026-10-27T17:23:29Z (design/7c612b-replica-publication): started
+  provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
