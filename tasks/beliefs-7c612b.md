@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T16:01:06Z
+updated: 2026-10-27T16:01:08Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -44,3 +44,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T15:58:04Z (design/7c612b-replica-publication): attached: spec-round-2-report.md (5475 bytes): Full relayed spec round 2 review of frozen 338c71f; reviewer claude-code/claude-opus-5-5
 - 2026-10-27T15:58:06Z (design/7c612b-replica-publication): attached: design-review-ledger.md (3191 bytes): Controller rulings I1 and M1-M5, revised spec deb8d99, consumer handoff and plan self-review
 - 2026-10-27T16:01:06Z (design/7c612b-replica-publication): review: plan round 1 — verdict: accept; findings: none; reviewer: codex/gpt-6-astra
+- 2026-10-27T16:01:08Z (design/7c612b-replica-publication): Controller self-review of frozen plan 69577b6 (not user approval): spec coverage, step clarity, type consistency, review-focus tests and proportion checked; no outstanding findings. Plan SHA-256 9bcec8c8325374ae94a289b33969c143def52f904f3679b198e8507cb8b61815. Revised spec deb8d99 SHA-256 720261f5edd22248a3d8441bdff16b7296db25d6168164c5c1b5ad119c455fb4. Four sequential children: beliefs-ecb75f, beliefs-991a0f, beliefs-eab322, beliefs-b367fd. First step is blocked on user plan review. Both documentation commits passed full pre-commit checks; no test-suite baseline or implementation has run.
