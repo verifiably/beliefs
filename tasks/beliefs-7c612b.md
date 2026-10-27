@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T18:28:49Z
+updated: 2026-10-27T18:28:51Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -75,3 +75,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T18:26:51Z (design/7c612b-replica-publication): attached: execution-ledger.md (9464 bytes): Complete inline execution ledger: all ten rulings including final dispositions, no deferred minors, and test evidence
 - 2026-10-27T18:28:46Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "scratch", "path": "$WORK_ROOT/beliefs/beliefs-7c612b", "state": "released", "verification": "verified", "purpose": "Transferred raw-metadata container to beliefs-23f259 with verified manifest; attached log and first-run metadata copies were byte-verified and removed; generated test HOME discarded", "next_owner": "none", "cleanup_trigger": "none"}
 - 2026-10-27T18:28:49Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner.json", "state": "released", "verification": "verified", "purpose": "Transferred exact raw metadata to beliefs-23f259; its kept record verifies the same path/hash; portable derivative attached here", "next_owner": "none", "cleanup_trigger": "none"}
+- 2026-10-27T18:28:51Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner-host-home.json", "state": "released", "verification": "verified", "purpose": "Exact bytes verified in task attachment cut47-runner-host-home.json; off-tree duplicate removed", "next_owner": "none", "cleanup_trigger": "none"}
