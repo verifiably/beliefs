@@ -1,0 +1,17 @@
+{
+  "command": [
+    "just",
+    "--set",
+    "one_cmd",
+    "cd python && uv run --frozen env HOME=$WORK_ROOT/beliefs/beliefs-7c612b/test-home XDG_CONFIG_HOME=$WORK_ROOT/beliefs/beliefs-7c612b/test-home/.config GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 python tools/cut47_acceptance.py",
+    "test-one",
+    "-q"
+  ],
+  "commit": "feaf73b6fb13849664639d2683fcca4c7263f0bc",
+  "start_utc": "2026-10-27T17:37:57.220460+00:00",
+  "log": "cut47-runner.log",
+  "end_utc": "2026-10-27T18:14:09.100115+00:00",
+  "wall_seconds": 2171.8793339559998,
+  "exit_code": 0,
+  "log_sha256": "ef93d1794f7a51c4e913ba7de44cf90b6d037a97c693b0d8df70946643b15005"
+}
