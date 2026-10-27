@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T16:52:28Z
+updated: 2026-10-27T16:53:20Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -53,3 +53,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-27T16:52:26Z (design/7c612b-replica-publication): review: spec round 3 — verdict: accept; findings: none; reviewer: claude-code/claude-opus-5-5
 - 2026-10-27T16:52:28Z (design/7c612b-replica-publication): review: plan round 2 — verdict: accept; findings: Minor 3; reviewer: claude-code/claude-opus-5-5
+- 2026-10-27T16:53:20Z (design/7c612b-replica-publication): Implementation approved by controller after accepted plan round 2. P1-P3 accepted for Tasks 3/4: reuse durable relocation setup, tie expected-marker sabotage to local reconstruction rather than remote mark-only, and disclose uncounted marker-present ordering evidence. Inline execution workspace .superpowers/sdd/2026-10-27-owned-replica-publication created on titan; task-owned contents mutable, baseline running; historical review workspace retained separately.
