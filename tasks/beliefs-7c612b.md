@@ -6,9 +6,9 @@ priority: 2
 size: m
 complexity: high
 process: planned
-owner: main
+owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T14:38:26Z
+updated: 2026-10-27T14:39:13Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -24,4 +24,6 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T12:47:43Z (add): created
   provenance: {"harness_session":"claude-code:8b479072-91d3-4b9c-b77c-d178525b6574","harness_session_source":"CLAUDE_CODE_SESSION_ID","origin":"agent"}
 - 2026-10-27T14:38:26Z (main): started
+  provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-27T14:39:13Z (design/7c612b-replica-publication): resumed
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
