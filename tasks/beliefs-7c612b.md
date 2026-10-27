@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T18:20:41Z
+updated: 2026-10-27T18:22:57Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -66,3 +66,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T18:20:37Z (design/7c612b-replica-publication): Portable cut47-runner.json replaces /mnt/ssd3/work with $WORK_ROOT. Exact raw metadata remains at $WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner.json, SHA256 7fd8f264239a9cd1fd2f2addebcc3b6b4444a5b1ee97a2fef592b4a1d092a0df, now owned by beliefs-23f259 after the layout gate rejected the WORK_ROOT value.
 - 2026-10-27T18:20:39Z (design/7c612b-replica-publication): detached: cut47-runner.json: Layout gate rejected host storage path; exact raw copy hash verified in persistent task storage and ownership transferred to beliefs-23f259; portable derivative follows
 - 2026-10-27T18:20:41Z (design/7c612b-replica-publication): attached: cut47-runner.json (653 bytes): Portable derivative of runner metadata; WORK_ROOT is a placeholder. Exact raw bytes and mapping are retained under beliefs-23f259; see retained-item notes.
+- 2026-10-27T18:22:57Z (design/7c612b-replica-publication): attached: cut6-isolated-certified.log (100 bytes): Cut6 isolated HOME/Git configuration and certified-root probe: 24 passed; comparison evidence for beliefs-23f259
