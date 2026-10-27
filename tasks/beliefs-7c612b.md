@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T15:59:00Z
+updated: 2026-10-27T16:01:06Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -43,3 +43,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T15:50:11Z (design/7c612b-replica-publication): Spec revised at deb8d99 after round 2: I1 and M1-M5 accepted and addressed. User instructed fix-then-plan; proceeding to the implementation plan without inventing a separate acceptance review round. Science consumer integration is sci-9a7ce2, dependent on this kernel task; sci-775e90 now depends on both. No science implementation or live changes performed.
 - 2026-10-27T15:58:04Z (design/7c612b-replica-publication): attached: spec-round-2-report.md (5475 bytes): Full relayed spec round 2 review of frozen 338c71f; reviewer claude-code/claude-opus-5-5
 - 2026-10-27T15:58:06Z (design/7c612b-replica-publication): attached: design-review-ledger.md (3191 bytes): Controller rulings I1 and M1-M5, revised spec deb8d99, consumer handoff and plan self-review
+- 2026-10-27T16:01:06Z (design/7c612b-replica-publication): review: plan round 1 — verdict: accept; findings: none; reviewer: codex/gpt-6-astra
