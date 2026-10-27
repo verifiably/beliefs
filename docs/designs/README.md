@@ -87,7 +87,7 @@ design written 2026-08-02 through 2026-10-27. Read them in this order:
 | `2026-09-21-conformance-cut-36.md` | the discharged event-level-l8 cut: the event domain, the witness predicate and the witness-asymmetric relation; L8 closed, L4 and L10 relabelled, L1 re-homed to `persistence-cut`, 16 declaration units, three boundary invariants, the cut 35 runner as prefix; the boundary closes |
 | `2026-09-21-conformance-cut-37.md` | the discharged l13-preimage cut: the digest match over held copies and surviving preimages, the stated absence, the corruption refusal; L13 closed, 11 declaration units, three boundary invariants, the cut 36 runner as prefix; the boundary closes |
 | `2026-09-22-conformance-cut-38.md` | the discharged act-report-remainder cut: the `audit` and `re-check` operations through the boundary, every supplied port bound to its writer; T2 closed in full, 12 declaration units, three boundary invariants, the cut 37 runner as prefix; the boundary closes |
-| `2026-09-22-publication-design.md` | the publication guarantee table (Y): Y1–Y4 from the publication-records slice, closed at cut 39; Y5–Y10 from the publish act (local), banked with cut 40 and closed at its discharge; Y11–Y16 from the remote act, closed at cut 42; Y17/Y18 and the Y5 attribution amendment closed at cut 46 |
+| `2026-09-22-publication-design.md` | the publication guarantee table (Y): Y1–Y4 from the publication-records slice, closed at cut 39; Y5–Y10 from the publish act (local), banked with cut 40 and closed at its discharge; Y11–Y16 from the remote act, closed at cut 42; Y17/Y18 and the Y5 attribution amendment closed at cut 46; Y5/Y17 ownership amendments reclosed at cut 47 |
 | `2026-09-23-conformance-cut-39.md` | the discharged publication-records cut: the coordination contract's v2 amendment, the publish intent and the intent-position judgment; W17 and Y1–Y4 closed in full, 13 declaration units, the cut 38 runner as prefix; the act followed at cuts 40 and 42 |
 | `2026-09-24-conformance-cut-40.md` | the discharged publish-act cut: request, snapshot, staging, export, the local reveal, resumption and marker-required arrival; Y5–Y10 closed in full, 15 declaration units, the cut 39 runner as prefix; cut 42 subsequently discharged the remote slice |
 | `2026-09-24-live-query-evaluation-design.md` | the live attention read: a view query denoted over every admitted corpus's current state, stamped by its capture; table Z, banked with cut 41 and closed at its discharge |
@@ -97,7 +97,7 @@ design written 2026-08-02 through 2026-10-27. Read them in this order:
 | `2026-10-01-conformance-cut-44.md` | the discharged mount-citations cut: J16–J21 closed, 24 declaration units and 24 arms; cut 43 runner as prefix |
 | `2026-10-02-conformance-cut-45.md` | discharged belief-acceptance cut: G10–G13 closed, 34 declaration units/arms; cut 44 runner as prefix |
 | `2026-10-02-conformance-cut-46.md` | discharged publication attribution successor: Y5 amendment reclosed, Y17/Y18 closed; 36 units/arms |
-| `2026-10-27-conformance-cut-47.md` | frozen owned-replica publication amendment: Y5/Y17 reopened; 9 units/arms, implementation pending |
+| `2026-10-27-conformance-cut-47.md` | discharged owned-replica publication amendment: Y5/Y17 reclosed; 9 units/arms |
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **253 rows** across **twenty-two frozen

@@ -262,21 +262,29 @@ audit) and the question of who *may* write.
 - [The publish act, local destination](../superpowers/specs/2026-09-23-publish-act-local-design.md)
 - [Publish and the commons](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md#6-publish-and-the-commons)
 
-[Cut 46](../designs/2026-10-02-conformance-cut-46.md) discharges publication
-attribution. A new write root explicitly pinned to coordination v3 carries an
-entry for every selected replica-held record. It copies an earlier entry exactly,
-or names that holder's publication marker, and freezes entries in the selection
-snapshot before intent. Retries use those frozen entries; remote recovery from a
-mark uses its export alone. Marker identity stays unchanged.
+[Cut 46](../designs/2026-10-02-conformance-cut-46.md) established publication
+attribution; [cut 47](../designs/2026-10-27-conformance-cut-47.md) extends it
+with explicit ownership. `publication_preview`, `publish` and `ScopedWriter.publish`
+accept keyword-only `own_corpora: frozenset[str] = frozenset()`. A declared,
+admitted markerless holder contributes records as own without changing its
+registry provenance. Every selected holder must have an admission; any captured
+publication marker vetoes declaring that holder own, even when the marker is
+absent from the index or selection. That refusal precedes the publication intent
+and operations-root writes; a scoped call may already have recovered the world.
 
-The shipped default remains v2. Its refusal of new replica-held selections is a
-named amendment; own-only publishing and saved attempts retain their old bytes.
-Existing manifests cannot be re-pinned. A markerless replica remains readable but
-cannot be newly published. Origins are claims, not proof of authorship; a legacy
-v2 carrier without entries can name only itself, even if it earlier carried
-another publication. See the [results](../plans/2026-10-02-conformance-cut-46-results.md).
+The shipped default remains v2: all-own selections publish without carried
+entries; any remaining replica keeps the existing release-specific refusal.
+A new write root explicitly pinned to coordination v3 carries an entry for every
+selected undeclared replica-held record, copying an earlier entry exactly or
+naming that holder's publication marker. Entries are frozen with selection
+before intent. Existing manifests cannot be re-pinned. An empty declaration
+preserves the refusal for a markerless replica.
 
-[Cut 47](../designs/2026-10-27-conformance-cut-47.md) freezes an explicit
-ownership amendment for markerless replicas and reopens Y5/Y17. Implementation
-and conformance remain pending; the cut-46 behavior above still describes the
-code. Science wiring and the live milestone rerun are separate follow-ups.
+Retries use the frozen result, and remote recovery from a mark uses its export
+alone. Marker identity and request/snapshot formats stay unchanged. Existing
+intent-position mount anchors still apply: removing a frozen coordination mount
+can refuse binding even though origin reconstruction needs no source. Origins
+are publisher claims, not proof of authorship; a legacy v2 carrier without
+entries can name only itself. See the [cut-47 results](../plans/2026-10-27-conformance-cut-47-results.md)
+for proof and limits. Science wiring (sci-9a7ce2) and the live milestone rerun
+(sci-775e90) remain separate follow-ups.

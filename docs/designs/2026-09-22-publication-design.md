@@ -43,7 +43,7 @@ historical v2 pin union and cut-40 step-0 guarantee remain release-specific;
 v2 carrying v3 still refuses pins-disagree on coordination before provenance.
 See `2026-10-02-conformance-cut-46.md`, `../plans/2026-10-02-conformance-cut-46-results.md` §2 and the attribution spec §5.
 
-**Amendment 2026-10-27 (cut 47 freeze):** Y5 and Y17 reopen for explicit
+**Amendment 2026-10-27 (cut 47 discharged):** Y5 and Y17 reclose for explicit
 `own_corpora`. Validate exact frozenset/string/hex shape before preparation;
 check every selected admission before scanning the full captures of declared
 holders for any publication marker. Marker-present refuses before publication
@@ -54,3 +54,4 @@ Registry provenance and retry formats are unchanged. The before-intent marker
 refusal has construction/regression evidence, not its own mutation arm.
 See `2026-10-27-conformance-cut-47.md` and the owned-replica spec §1 for the
 explicit amendment of cut-46 decision 8; frozen cut-46 wording stays historical.
+Discharge evidence is `../plans/2026-10-27-conformance-cut-47-results.md` §2.

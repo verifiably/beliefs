@@ -1284,7 +1284,7 @@ adoption is decided; what §5 establishes is that ρ needs a vocabulary of rough
 this shape to state what M\* preserves or amends, and that manufacturing one
 class per residue shape is not that vocabulary.
 
-**Y — publication attribution** *(banked at cut 46; Y5/Y17 reopened at cut 47 freeze)*
+**Y — publication attribution** *(banked at cut 46; Y5/Y17 ownership amendments reclosed at cut 47)*
 
 | id | assertions | classes |
 |---|---|---|

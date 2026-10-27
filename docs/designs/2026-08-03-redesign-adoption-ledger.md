@@ -46,10 +46,11 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-10-27** for cut 47's freeze of `owned-replica-publication`:
-Y5 and Y17 reopen; the corpus has **224 of 253 rows closed, 29 open**.
-Implementation and conformance are pending. Science wiring remains sci-9a7ce2,
-then sci-775e90 owns the live milestone rerun; this freeze fixes no live milestone.
+**Updated 2026-10-27** for cut 47's discharge of `owned-replica-publication`:
+Y5 and Y17 reclose; the corpus has **226 of 253 rows closed, 27 open**.
+Explicit ownership now permits admitted markerless replicas on v2 and v3.
+Science wiring remains sci-9a7ce2, then sci-775e90 owns the live milestone
+rerun; kernel conformance alone does not establish that live result.
 Cut 46 discharged `publication-attribution`, reclosing Y5 and closing Y17/Y18;
 its historical evidence remains intact.
 Cut 45 discharged `belief-acceptance` and closed G10–G13. Cut 44 discharged `mount-citations`,
@@ -58,10 +59,10 @@ closing J16–J21 and the `write-path` lane. Cut 43's discharge of
 Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
 partial on T7's cross-root case; L1 stays partial on its persistence arms.
 
-**Implemented through conformance cut 46.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 47.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–46 record discharge in their dated results records, most recently
-`../plans/2026-10-02-conformance-cut-46-results.md`.
+and cuts 26–47 record discharge in their dated results records, most recently
+`../plans/2026-10-27-conformance-cut-47-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -467,10 +468,19 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   intent, forwards earlier entries, and reuses them during local and remote
   recovery. Marker identity is unchanged; source and destination release checks
   remain pinned. Existing v2 roots keep own-only publishing and saved retries,
-  but refuse new carried selections. Markerless replicas cannot be published;
-  legacy v2 carriers have no recoverable upstream origin. **Y5 amendment and
+  but refuse new carried selections. Cut 47 extends own-only publication to
+  explicitly declared markerless replicas; undeclared replicas still refuse.
+  Legacy v2 carriers have no recoverable upstream origin. **Y5 amendment and
   Y17/Y18 close; `publication-attribution` is discharged.** The bounded N2
   preflight pilot follows; local integration follows the personal-profile rule.
+
+- **Owned replica publication**, built 2026-10-27 at cut 47
+  ([results](../plans/2026-10-27-conformance-cut-47-results.md)): `own_corpora`
+  declares selected holders as own without changing admission provenance. Full
+  captured-marker scans veto marker-bearing holders after the admission pass.
+  Preview and plain/scoped publication share preparation; retries use the frozen
+  result and retain existing coordination-anchor requirements. **Y5/Y17
+  amendments reclose; `owned-replica-publication` is discharged.**
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -484,7 +494,6 @@ not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
-| `owned-replica-publication` | Y5/Y17 explicit ownership amendment (cut 47 freeze) | beliefs-7c612b | publication of a declared own relocated markerless corpus; then science integration |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `persistence-cut` | X2's persistence-cut arm; L1's kill-at-stage and settlement-persistence arms (both terminal outcomes) | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns; L1's arms re-homed here at cut 36 (`beliefs-3ea822`) | X2 in full; row 5's L1 read in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
@@ -494,8 +503,8 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-10-02-conformance-cut-45-results.md`) discharges belief acceptance.
-G10–G13 close; the corpus has **224 of 251** rows closed, 27 open.
+(`../plans/2026-10-27-conformance-cut-47-results.md`) discharges owned replica publication.
+Y5/Y17 reclose; the corpus has **226 of 253** rows closed, 27 open.
 The historical dogfood milestone remains completed. Cut 44 discharged mount
 citations and closed J16–J21. Cut 43
 (`../plans/2026-09-27-conformance-cut-43-results.md`) discharged the multi-corpus

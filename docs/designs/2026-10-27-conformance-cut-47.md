@@ -1,6 +1,6 @@
 # Conformance cut 47 — owned replica publication
 
-**Status:** frozen 2026-10-27 before product implementation; not discharged.
+**Status:** frozen 2026-10-27 before product implementation; discharged 2026-10-27. Evidence: `../plans/2026-10-27-conformance-cut-47-results.md`.
 **Spec:** `../superpowers/specs/2026-10-27-owned-replica-publication-design.md`.
 **Plan:** `../superpowers/plans/2026-10-27-owned-replica-publication.md`.
 Successor to cut 46; all refs and worktrees were rechecked before choosing 47.

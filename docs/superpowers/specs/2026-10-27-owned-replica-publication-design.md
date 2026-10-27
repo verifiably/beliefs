@@ -1,7 +1,8 @@
 # Publishing an explicitly owned, markerless replica
 
-**Status:** revised after review of `338c71f`; accepted for planning under the
-user's 2026-10-27 fix-then-plan instruction. Implementation still requires plan review.
+**Status:** accepted at `deb8d99`, implemented and proved by cut 47.
+[Results](../../plans/2026-10-27-conformance-cut-47-results.md) record the evidence
+and limits; beliefs-7c612b records final branch review and integration.
 **Task:** beliefs-7c612b.
 **Baseline:** beliefs `1024ee6`; science `32f1274e9c70f2da7be205d2558b8779e2d920ac`.
 **Scope:** Python publication preparation and the scoped publish door, with a
@@ -180,6 +181,12 @@ The snapshot freezes the resulting attribution tuple and canonical texts,
 as it already does for Fresh/ForkOf provenance. The input declaration itself
 is not persisted or authenticated. Thus a saved publication proves what the
 publisher claimed, not which installation configuration justified that claim.
+
+Execution clarification: source-independent attribution does not relax existing
+intent-position evidence. If the source was a frozen coordination mount, dropping
+that mount still refuses binding as `evidence-refused` / `mounts-changed`.
+Source-deleted successful retries retain every required coordination anchor;
+the durable tests also prove the refusal when a frozen source anchor is removed.
 Changing or removing the declaration after intent cannot change a retry.
 Old saved v2/v3 attempts keep their original behavior and bytes.
 

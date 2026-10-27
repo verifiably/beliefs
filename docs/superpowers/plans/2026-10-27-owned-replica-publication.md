@@ -15,13 +15,16 @@ runner. No dependency, public type, registry record or TypeScript change.
 
 **Spec:** `docs/superpowers/specs/2026-10-27-owned-replica-publication-design.md`,
 revision `deb8d99`, after review of `338c71f` and the user's fix-then-plan instruction.
-Read both artifacts. **Status:** draft for user review; no implementation started.
+Read both artifacts. **Status:** accepted at `69577b6`; implementation and
+conformance completed. [Results](../../plans/2026-10-27-conformance-cut-47-results.md)
+record exact evidence and execution rulings. Final review, task closure and local
+integration are recorded on beliefs-7c612b; the final handoff step below stays
+unmarked in this frozen review revision until those actions occur.
 
 ## Global Constraints
 
 - Reuse `.worktrees/7c612b-replica-publication`, branch
-  `design/7c612b-replica-publication`. Setup passed; the full baseline is still
-  owed at execution Setup. Use physical cwd for tests, but show the user paths
+  `design/7c612b-replica-publication`. Setup and the full execution baseline passed; results record the counts. Use physical cwd for tests, but show the user paths
   prefixed with this worktree directory. Do not touch main's existing lockfile edit.
 - **`root.py` is the one `atoms` importer** (`test_capability_boundary.py`,
   `TestTheCompositionRootIsTheOneAtomsImporter`). A classification over engine
@@ -127,21 +130,21 @@ before/after anchors against the finished implementation without weakening these
 **Interfaces:** Consumes spec `deb8d99` and this reviewed plan. Produces frozen
 cut-47 obligations, nine unit names and reopened Y5/Y17; no product behavior yet.
 
-- [ ] At execution Setup, refresh the task claim and trial arm, inspect worktree
+- [x] At execution Setup, refresh the task claim and trial arm, inspect worktree
   status and installed hooks, and run the full `just test` baseline before code
   changes. Record the command, passed/failed/skipped counts and capability limits.
   Setup already succeeded; rerun it only if dependency state needs hydration.
-- [ ] Inspect `git for-each-ref`, `git worktree list`, and tracked/untracked cut
+- [x] Inspect `git for-each-ref`, `git worktree list`, and tracked/untracked cut
   documents in those worktrees. The planning inspection found cut 46 highest.
   Confirm 47 is unused before creating it.
-- [ ] Write the cut using cut 46's seven-section form. Copy this declaration,
+- [x] Write the cut using cut 46's seven-section form. Copy this declaration,
   the precise refusal order, v2/v3 results, and spec §1's answer to decision 8.
   Freeze `PREFIX_RUNNERS = ("cut46_acceptance.py",)` and
   `PHASE_MODULES = ("test_owned_replica_publication_acceptance.py", "test_n2_cut47.py")`.
   State **9 arms, 9 declaration units, two exercised rows**: Y5 and Y17,
   both amendments reclosed, no newly closed rows. The document is frozen now;
   executable sabotage declarations are pinned when Task 4 creates them.
-- [ ] Amend the two current-facing Y17 copies and add a dated Y5 amendment;
+- [x] Amend the two current-facing Y17 copies and add a dated Y5 amendment;
   distinguish declared own markerless replicas from carried replicas. Preserve
   the cut-46 quotation and decision's historical text. Set
   `REOPENED["Y5"] = ("conformance-cut-47 §3", 47)` and likewise Y17.
@@ -149,7 +152,7 @@ cut-47 obligations, nine unit names and reopened Y5/Y17; no product behavior yet
   totals: with unchanged prior accounting, 224/253 closed at freeze and
   226/253 after discharge. Do not claim discharge yet. Update current ledger,
   roadmap and README claims together, keeping the science integration pending.
-- [ ] Run `just test-one tests/test_designs_corpus.py tests/test_check_guide.py`,
+- [x] Run `just test-one tests/test_designs_corpus.py tests/test_check_guide.py`,
   then `just test-fast` and `tasks check`. Commit
   `docs(cut): freeze owned-replica publication amendment`; record commit and
   document SHA-256. Freeze work is documentation/accounting, not new test logic.
@@ -164,7 +167,7 @@ on `publication_preview(...) -> PublicationPreview` and `publish(...) -> Publish
 Add the same optional keyword to `_selected_attributions(...) -> tuple[tuple[str, str, str], ...] | None`.
 Consumes `publication._HEX32` and existing capture, registry and snapshot types.
 
-- [ ] Write Y5-f and Y17-q/r/s/t/u/v/x in the new module using
+- [x] Write Y5-f and Y17-q/r/s/t/u/v/x in the new module using
   `capture_fixture`, `wrapper_fixture`, `frozen_attempt`, `pin` and `Prepared`
   from `test_publication_attribution`. Allow `wrapper_fixture.run` to accept
   `own_corpora=frozenset()` and pass it to the real publish function; return
@@ -199,18 +202,18 @@ Consumes `publication._HEX32` and existing capture, registry and snapshot types.
   holder beside a publication with an earlier origin; assert exact remaining
   entries and v2 remaining-corpus refusal. Y17-x traps source/registry reads
   around `_expected_marker` with frozen None and () formats and both destinations.
-- [ ] Run `just test-one tests/test_owned_replica_publication.py`; require
+- [x] Run `just test-one tests/test_owned_replica_publication.py`; require
   failures for the absent ownership behavior, not broken fixtures/imports.
   Unchanged recovery regression assertions may already pass; record them as
   regressions, not manufactured RED evidence.
-- [ ] At `publication_preview` entry validate exact container/member types and
+- [x] At `publication_preview` entry validate exact container/member types and
   `_HEX32.fullmatch`. Add no generic validator library. Pass the value into
   `_selected_attributions`. After its complete admission pass, scan sorted
   selected declared holders' `captured_records`, refuse any MARKER_KIND with
   the specified fields, then exclude them from `replicas`. Leave the remaining
   v2/v3 code intact. Thread the argument from `publish` into this same preview.
   Do not modify `_expected_marker`, snapshot encoding, resume or registry code.
-- [ ] Adjust test spies forwarding `_selected_attributions` in
+- [x] Adjust test spies forwarding `_selected_attributions` in
   `test_publication_attribution.py` and
   `acceptance/test_publication_attribution_acceptance.py` to accept/forward the
   optional keyword. Existing default assertions must still pass.
@@ -218,7 +221,7 @@ Consumes `publication._HEX32` and existing capture, registry and snapshot types.
   signature and admission adjacency changed. Preserve canonical declaration,
   assertions and check IDs. Inspect Y17-j/k/l and cut-40 Y6-a for incidental
   staleness; change only a demonstrated stale anchor, with a ledger disposition.
-- [ ] Run new and existing portable attribution/session-preview tests through
+- [x] Run new and existing portable attribution/session-preview tests through
   `just test-one`; run cut-46's anchor/importability guard separately through
   `just test-one tests/acceptance/test_n2_cut46.py -k 'each_arm_targets'`.
   Record each changed legacy arm for Task 4's full kill proof. Then
@@ -234,17 +237,17 @@ Consumes `publication._HEX32` and existing capture, registry and snapshot types.
 `ScopedWriter.publish(...) -> PublishOutcome`, forwarded unchanged to Task 2's
 public publish. `resume_publish`, constructors and ledger formats stay exact.
 
-- [ ] Write `test_y17_w_scoped_ownership`: a spy on the act sees the exact
+- [x] Write `test_y17_w_scoped_ownership`: a spy on the act sees the exact
   frozenset object; existing malformed/closed/stale/under-permitted session
   cases trap `open_world` and prove their earlier error wins even when the
   declaration is malformed. Use the existing `publishing_session` and door
   helpers, closing sessions in finally blocks. Run it through `just test-one`
   and observe absent parameter/forwarding behavior before the one forwarding edit.
-- [ ] Add the argument and forwarding only. Run
+- [x] Add the argument and forwarding only. Run
   `just test-one tests/test_session_publish_door.py` to GREEN, retaining the
   existing binding/report and recovery checks. No new primitive: verify the
   unchanged permit inventories rather than adding duplicate entries.
-- [ ] Build the durable fixture from the existing attribution acceptance
+- [x] Build the durable fixture from the existing attribution acceptance
   module's `source`, `world_at`, `build`, `context_at`, `saved_marker`, `resume`
   and `unavailable` helpers. Replicate a real unpublished source root, export
   its head, restore against that observer, and `admit_arrival(..., ReplicaOf(cid), ...)`.
@@ -253,7 +256,7 @@ public publish. `resume_publish`, constructors and ledger formats stay exact.
   write root, include both roots in WorldConfig/mounts, mint a project selecting
   the replica's world records, then build the epoch. The source fixture remains
   untouched. Use unique roots, fixture cleanup and existing fake transport.
-- [ ] Add five end-to-end functions (parameter cases are additional evidence):
+- [x] Add five end-to-end functions (parameter cases are additional evidence):
   `test_owned_replica_preview_and_publish` (v2/v3),
   `test_owned_replica_refusal_preserves_intent_and_ops` (no declaration,
   marker-present, missing admission and closure/pin failure),
@@ -266,14 +269,14 @@ public publish. `resume_publish`, constructors and ledger formats stay exact.
   out-of-band damage use the existing damage fixture and assert its earlier
   refusal, not marker-absent ownership. Session success also asserts its act
   ledger names the resulting binding/report.
-- [ ] For local retry, crash after request/snapshot persistence, save expected
+- [x] For local retry, crash after request/snapshot persistence, save expected
   marker bytes, remove the source copy and trap preparation/registry access;
   resume with no declaration and assert exact marker content. For remote retry,
   crash after transport mark persistence, remove request/snapshot and source
   inputs using the existing mark-only test pattern, then resume with the fake
   transport; assert preserved marker and single binding/report. Restore patches
   before independent postconditions that legitimately read fixtures.
-- [ ] Run portable tests and
+- [x] Run portable tests and
   `just test-one tests/acceptance/test_owned_replica_publication_acceptance.py`
   separately, then existing attribution acceptance regressions. Also run
   `just test-one tests/test_permit_boundary.py tests/test_permit_entry_points.py tests/test_capability_boundary.py`.
@@ -290,26 +293,26 @@ roadmap accounting, current docs and new results record.
 `unit_of(row: str) -> str`; `cut47_acceptance.declared_accounting() -> (9, 9, 2)`;
 runner `main(argv: list[str]) -> int` chaining cut 46 before new durable/N2 modules.
 
-- [ ] Materialize the nine-unit table into `n2_arms_cut47.py`. Each mutation
+- [x] Materialize the nine-unit table into `n2_arms_cut47.py`. Each mutation
   targets one unique source span and preserves parsing/importability; it must
   fail its named assertion against a passing normal check. Pin the completed
   declaration's content digest in its guard and commit them together, after
   which canonical declarations are frozen. Do not invent a future commit/hash
   or regenerate expectations silently after edits.
-- [ ] Add the acceptance shim and guard using cut 46's existing pattern, with
+- [x] Add the acceptance shim and guard using cut 46's existing pattern, with
   `frozen_guards.content_pin_holds`/`commit_pin_holds` for Python sources.
   Pin Task 1's actual freeze commit/hash and §§2–7; preserve all earlier
   declaration pins and forbid reuse of their check node IDs. Verify exact
   9/9 inventory, one arm per unit, unique checks, unique matching source
   spans, AST parse after sabotage, passing baselines and sound kills. New git
   subprocess calls use the explicit isolated environment from Global Constraints.
-- [ ] Add a bounded `test_cut47_pilot` in the guard: run `baseline` and `audit`
+- [x] Add a bounded `test_cut47_pilot` in the guard: run `baseline` and `audit`
   for Y17-s alone and assert `resolved`/`sound`. Run this and one local/remote
   durable case through `just test-one` before the extended successor chain.
   Separately run the complete new guard and legacy cut-46 guard so all new
   mutations and retargets are shown to kill their checks. Record the verdicts;
   a syntax/collection failure is not a kill.
-- [ ] Add `cut47_acceptance.py` using `run_acceptance`, defaulting to
+- [x] Add `cut47_acceptance.py` using `run_acceptance`, defaulting to
   `MAIN_CHECKOUT / ".work" / "acceptance" / "cut47"`, with the prefix and
   phase tuple frozen in Task 1. Add import, parametrization, id and output
   assertion to `test_recent_cut_acceptance.py`:
@@ -321,14 +324,14 @@ runner `main(argv: list[str]) -> int` chaining cut 46 before new durable/N2 modu
 
   Run `just test-one tests/test_recent_cut_acceptance.py -k cut47` to prove
   command arguments, environment, cleanup and accounting before the real run.
-- [ ] Commit the declaration/runner and recorded checks after `just test-fast`
+- [x] Commit the declaration/runner and recorded checks after `just test-fast`
   and `tasks check`, then run the complete chain through the front door:
   `just --set one_cmd "cd python && uv run --frozen python tools/cut47_acceptance.py" test-one -q`.
   Use a harness-tracked process and retain command, counts, exit status and log
   evidence. On refusal or failure, inspect completed output before retrying;
   no skip or unrun arm permits discharge. Canonical multi-session evidence
   belongs under the task's persistent WORK_ROOT directory with retention notes.
-- [ ] Only after successful conformance, prepare the discharge record and add ACCOUNTING[47] naming
+- [x] Only after successful conformance, prepare the discharge record and add ACCOUNTING[47] naming
   the results §2 and full Y5/Y17, remove their REOPENED entries and regenerate
   live totals. Update current README, adoption ledger, roadmap, spec/plan status
   and results with exact evidence, limits, retarget rulings and consumer status.
@@ -356,5 +359,5 @@ Self-review: spec §§1–2 are carried into Task 1's amendment rationale;
 §§3–4 into Task 2's exact API, validation and refusal tests; §5 into Tasks 2/3's
 frozen-format/retry checks; §6 into the filed consumer task and rerun dependency;
 §7 into Tasks 2–4, the accounting row and required baseline; §8 into the scope
-limits. All five Review Focus conditions have named tests. No product code or
-test fixtures have been changed while preparing this plan.
+limits. All five Review Focus conditions have named tests. That was the pre-implementation self-review at plan freeze; execution evidence
+and fixture adjustments are now recorded in the cut-47 results.
