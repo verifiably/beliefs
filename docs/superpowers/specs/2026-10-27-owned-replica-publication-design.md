@@ -1,6 +1,7 @@
 # Publishing an explicitly owned, markerless replica
 
-**Status:** draft for review; implementation is not authorized by this document.
+**Status:** revised after review of `338c71f`; accepted for planning under the
+user's 2026-10-27 fix-then-plan instruction. Implementation still requires plan review.
 **Task:** beliefs-7c612b.
 **Baseline:** beliefs `1024ee6`; science `32f1274e9c70f2da7be205d2558b8779e2d920ac`.
 **Scope:** Python publication preparation and the scoped publish door, with a
@@ -39,6 +40,24 @@ Science already distinguishes these matters for belief acceptance. Its
 Deviation 6, and `python/src/science/acceptance.py::acceptance_inputs` treat
 hand-configured markerless roots as Own, excluding sharing-registry roots.
 Publishing currently cannot receive that distinction.
+
+The amendment answers decision 8's three reasons explicitly:
+
+- Science §4.8 requires origins for records in an adopted corpus rather than
+  one the installation wrote. Its later §9 amendment classifies a configured,
+  markerless relocated corpus as Own. `ReplicaOf` alone therefore no longer
+  distinguishes adopted publication content from the installation's own records.
+- A downstream reader applies carrier's-own acceptance to the **new**
+  publication's marker. That marker has `published_from`, authored by the
+  existing publish act; no marker need be invented for the unpublished source.
+- The declaration never changes registry provenance. The admission remains
+  `ReplicaOf` and the original verified arrival stays part of the world history.
+
+This does not create a new ability to claim foreign records as one's own:
+an authorized caller can already copy records into a Fresh holder, which
+contributes no carried entries. This design does not solve that existing
+authenticity limit. Its marker-present guard additionally prevents using the
+new declaration to suppress origins on marker-bearing captured content.
 
 The intended outcome is that an explicitly declared own replica can contribute
 records to publication without inventing a source publication. Imported
@@ -82,9 +101,13 @@ own_corpora: frozenset[str] = frozenset()
 ```
 
 Each member is an exact string containing a corpus ID: 32 lowercase hexadecimal
-characters. Require an exact `frozenset` and validate the full value at the
+characters, checked with `publication._HEX32.fullmatch` rather than a new
+pattern. Require an exact `frozenset` and validate the full value at the
 public preparation boundary; malformed input raises `TypeError` for type
-errors or `ValueError` for malformed identifiers, before any intent or write.
+errors or `ValueError` for malformed identifiers, before the publication
+intent or any operations-root write. The scoped door opens the world first,
+which may resolve recovery on the world root; this is not a no-write claim
+about that earlier recovery.
 The ordinary publish and session doors retain their existing authority,
 currency, transport and other earlier precondition ordering. They pass the
 argument unchanged to the shared preparation path; validation is not copied
@@ -165,7 +188,11 @@ markerless holdings from carried holdings, and extend Y5's pre-intent refusal
 coverage. Y18's release/content/identity rules remain unchanged. Preserve the
 frozen cut-46 bodies and historical evidence; add a successor cut and a dated
 current-facing amendment rather than rewriting history. The implementation
-plan determines the next unused cut number and declaration counts.
+plan determines the next unused cut number and declaration counts. Amend both
+current-facing Y17 copies: `docs/designs/2026-09-22-publication-design.md`
+and `docs/designs/2026-08-04-formal-model-and-claim-calculus-design.md`.
+Leave the frozen Y17 quotation in
+`docs/designs/2026-10-02-conformance-cut-46.md` unchanged.
 
 ## 6. Required consumer integration
 
@@ -182,6 +209,16 @@ derive ownership from all `WorldConfig.corpus_roots`: science augments that
 set with adopted publications. A sharing-registry root remains excluded even
 if hand-listed, and a marker-bearing root cannot gain the exemption.
 No new user-facing configuration key or command flag is needed.
+
+This intentionally changes science preview's preconditions: it now constructs
+the same `AcceptanceInputs` as belief acceptance. Duplicate claimed carriers
+can refuse a preview that previously reached kernel preparation, and exactly
+one mount must match the configured write root (the helper currently enforces
+this with `(write,) = ...`). Other errors reading the classifier's inputs
+also propagate; it inspects all configured mounts, not just selected holders.
+The science task must test these added preconditions and the existing helper's
+actual failure behavior, rather than claim all formerly successful previews
+remain successful. Do not catch classifier errors and fall back to no ownership.
 
 The science task also updates its preview comment, reference documentation
 and tests, and makes sci-775e90 depend on consumer integration as well as the
@@ -204,8 +241,10 @@ Implementation tests must establish:
 - Mixed own and publication holders retain only the real publication entries
   under v3; under v2 the refusal names only the remaining replicas.
 - A selected declared holder with any marker refuses, including malformed
-  markers and markers excluded from the selected world records. Cover Fresh,
-  ForkOf and ReplicaOf declarations for this guard.
+  markers. Include a fixture whose marker is present in
+  `captured_records(holder)` but absent from the world's recorded address map
+  and from the selected world-record tuple: the full capture must still trip
+  the guard. Cover Fresh, ForkOf and ReplicaOf declarations for this guard.
 - Missing admission, malformed declarations, unselected declaration members,
   pin disagreements, closure refusals and damaged captures retain the specified
   behavior and precedence. Refusals leave no intent or operations files.
@@ -218,7 +257,8 @@ Implementation tests must establish:
   rejection before effects.
 - Science's later tests cover configured markerless roots, sharing-registry
   exclusion, marker-bearing roots, duplicate-holder refusal, preview/publish
-  parity, and resume without recomputing ownership.
+  parity, the exactly-one-write-mount precondition, and resume without
+  recomputing ownership.
 
 Primary code: `python/src/beliefs/publish.py` and `session/writer.py`.
 Primary existing tests: `test_publication_attribution.py`,
