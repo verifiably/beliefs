@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T17:39:16Z
+updated: 2026-10-27T18:16:22Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -57,3 +57,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T16:54:09Z (design/7c612b-replica-publication): attached: plan-round-2-report.md (4419 bytes): Full relayed plan round 2 and spec round 3 review; claude-code/claude-opus-5-5, accepted with P1-P3 for execution
 - 2026-10-27T17:25:12Z (design/7c612b-replica-publication): Persistent scratch created on titan at /mnt/ssd3/work/beliefs/beliefs-7c612b for cut47 successor runner log and final verification evidence; current owner beliefs-7c612b. Contents mutable and not yet checkpointed.
 - 2026-10-27T17:39:16Z (design/7c612b-replica-publication): Task 4: declaration/runner committed feaf73b; fast 6278 passed, 1 skipped; cut47 guard 9 passed, all nine mutations sound; cut46 guard 13 passed, all 36 mutations sound. Full successor first stopped in cut6 on inherited host Git-hook effects (22 passed, 2 baseline failures). Isolated HOME/XDG config and Git configuration plus certified roots pass all 24 cut6 checks. Full successor restarted at the same code revision with that environment; tracked by the current session, raw log/metadata in $WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner.*; failed first evidence is cut47-runner-host-home.*. No source assertion, declaration or historical pin changed.
+- 2026-10-27T18:16:22Z (design/7c612b-replica-publication): attached: cut47-runner.log (15646 bytes): Exact successful cut47 successor log: 78 pytest phases, 1198 passes, no failures/skips/refusals; SHA256 ef93d1794f7a51c4e913ba7de44cf90b6d037a97c693b0d8df70946643b15005
