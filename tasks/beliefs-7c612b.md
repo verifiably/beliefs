@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T14:48:55Z
+updated: 2026-10-27T15:46:07Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -35,4 +35,6 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T14:48:50Z (design/7c612b-replica-publication): attached: builder-check-report.md (412 bytes): Read-only builder check of frozen design 338c71f; reviewer codex/gpt-6-astra
 - 2026-10-27T14:48:52Z (design/7c612b-replica-publication): retained: {"host":"titan","kind":"worktree","path":".worktrees/7c612b-replica-publication","state":"kept","verification":"verified","purpose":"Design 338c71f awaits user review; builder check accepted with no findings and is attached as builder-check-report.md; pre-commit checks and tasks check passed; no code changes or baseline tests yet","next_owner":"task:beliefs-7c612b","cleanup_trigger":"After the approved implementation is integrated, inspect evidence and run the required worktree-removal checks"}
 - 2026-10-27T14:48:55Z (design/7c612b-replica-publication): parked (waiting on user, review): User reviews beliefs commit 338c71f:docs/superpowers/specs/2026-10-27-owned-replica-publication-design.md in .worktrees/7c612b-replica-publication. After acceptance, agent resumes here, records the user review, drafts the implementation plan with writing-plans, and files the science consumer integration dependency for sci-775e90; implementation waits for plan review.
+  provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-27T15:46:07Z (design/7c612b-replica-publication): resumed
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
