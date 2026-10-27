@@ -4,7 +4,7 @@ title: "World view: a witness that mapped content and manifests are unchanged si
 status: shelved
 priority: 2
 created: 2026-10-01T22:21:05Z
-updated: 2026-10-27T12:49:59Z
+updated: 2026-10-27T13:06:44Z
 depends: []
 parent: beliefs-03d483
 tags: [world-read]
@@ -20,3 +20,4 @@ science's mount-citations consumer (science docs/specs/2026-10-01-mount-citation
 - 2026-10-14T01:27:49Z (main): scope: shelved; open_world_view still compares whole-corpus states and mapped address/uid identity, with no mapped-content witness; source sci-dc0381 decision 7's implementation amendment allows unmapped coordination kinds only at unchanged whole-corpus state. Reuse sci-0d00d2 and beliefs-e02ef3 measurements, not new research or a premature API. Equality needs clarification because world section 5 deliberately makes formatting inert; checked main 3e6a224; brief: docs/notes/2026-10-13-world-capture-safety-brief.md
 - 2026-10-14T08:56:21Z (main): 2026-10-14 brief review: sci-0d00d2 committed only to total epoch build frequency and cost (consumer spec limitation 1; §7 assigns it limitations 1 and 3, not 2), so it was asked to tag each forced epoch by triggering write class; the wake condition is observable only through that tag. Re-scope hint: corpus_state_identity already computes a per-uid science.node-content.v1 identity (registry.py:763-772) and discards it; retaining it per epoch is a ready canonical-equality baseline.
 - 2026-10-27T12:49:59Z (main): measured by science's second-project milestone (sci-0d00d2, record §6 M1): frozen schedule of 4 builds and 1 reuse; coordination-only rebuilds 2 (E3 after 4 project mints, E4 after 2 questions and 1 reuse), live 1.91 s and 1.94 s against evidence 1.44 s and initial 1.66 s (rehearsal replica in a synced tree: 8.03 s and 10.66 s against 7.69 s and 7.35 s). Each coordination-only rebuild costs about an evidence build; a next before the rebuild still renders, marking the stale row assessed-unevaluated (epoch-stale).
+- 2026-10-27T13:06:44Z (main): correction to the 2026-10-27 note from sci-0d00d2 (record §6 M1, revised): the live world and two drill replicas agree within about 0.1 s (E1 1.60–1.66, E2 1.44–1.46, E3 1.91–1.94, E4 1.94–2.07, E5 no-op 1.11–1.14 s). Above E5's 1.1 s floor a coordination-only build costs about 0.8 s and the evidence build about 0.3 s, but there is one build per class per world and the world grows across the schedule, so the class and the world's size are confounded. The first note's claim that each coordination-only rebuild costs about an evidence build is withdrawn, as is its synced-tree explanation of the slower rehearsal replica (r3); that slowness is unexplained.
