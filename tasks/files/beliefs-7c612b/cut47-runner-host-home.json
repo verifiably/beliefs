@@ -1,0 +1,17 @@
+{
+  "command": [
+    "just",
+    "--set",
+    "one_cmd",
+    "cd python && uv run --frozen python tools/cut47_acceptance.py",
+    "test-one",
+    "-q"
+  ],
+  "commit": "feaf73b6fb13849664639d2683fcca4c7263f0bc",
+  "start_utc": "2026-10-27T17:32:45.102621+00:00",
+  "log": "cut47-runner.log",
+  "end_utc": "2026-10-27T17:33:16.649487+00:00",
+  "wall_seconds": 31.546602567002992,
+  "exit_code": 1,
+  "log_sha256": "fc41584cb23a871a8b239f0ee83c54d0815c53f57765c55c0062b333e80171ed"
+}
