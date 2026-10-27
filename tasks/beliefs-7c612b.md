@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/7c612b-replica-publication
 created: 2026-10-27T12:47:43Z
-updated: 2026-10-27T18:26:45Z
+updated: 2026-10-27T18:26:51Z
 started: 2026-10-27T14:38:26Z
 depends: []
 tags: [publication]
@@ -72,3 +72,4 @@ science's publish-preview of a view over the mm30 corpus, relocated into the use
 - 2026-10-27T18:24:33Z (design/7c612b-replica-publication): attached: discharge-check.log (389 bytes): Final just check after discharge edits: zero pyright errors/warnings, formatting/type/doc/task checks passed
 - 2026-10-27T18:25:13Z (design/7c612b-replica-publication): review: impl round 1 — verdict: accept; findings: none; reviewer: codex/gpt-6-astra
 - 2026-10-27T18:26:45Z (design/7c612b-replica-publication): attached: impl-round-1-report.md (8233 bytes): Full read-only implementation review of 1024ee6..56d4381 by verified codex/gpt-6-astra: accept, no findings; all rulings and evidence limits included
+- 2026-10-27T18:26:51Z (design/7c612b-replica-publication): attached: execution-ledger.md (9464 bytes): Complete inline execution ledger: all ten rulings including final dispositions, no deferred minors, and test evidence
