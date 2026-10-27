@@ -7,7 +7,7 @@ size: s
 complexity: mid
 process: direct
 created: 2026-10-27T17:54:02Z
-updated: 2026-10-27T17:54:02Z
+updated: 2026-10-27T18:20:34Z
 depends: [beliefs-7c612b]
 tags: []
 source: beliefs-7c612b
@@ -21,3 +21,4 @@ Observed while running cut47 at feaf73b: the complete successor stopped in cut6 
 
 - 2026-10-27T17:54:02Z (add): created
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID","origin":"agent"}
+- 2026-10-27T18:20:34Z (design/7c612b-replica-publication): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/beliefs-7c612b/cut47-runner.json", "state": "kept", "verification": "verified", "purpose": "Raw successor metadata refused by attachment layout gate; preserve exact command/storage mapping for N2 isolation repair and comparison", "next_owner": "task:beliefs-23f259", "cleanup_trigger": "After N2 isolation repair, recheck attachment exemption or preserve raw evidence before cleanup", "sha256": "7fd8f264239a9cd1fd2f2addebcc3b6b4444a5b1ee97a2fef592b4a1d092a0df"}
