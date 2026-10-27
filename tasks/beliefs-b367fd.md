@@ -8,7 +8,7 @@ complexity: high
 process: direct
 owner: design/7c612b-replica-publication
 created: 2026-10-27T15:59:14Z
-updated: 2026-10-27T18:33:00Z
+updated: 2026-10-27T18:33:06Z
 started: 2026-10-27T17:23:29Z
 completed: 2026-10-27T18:29:44Z
 closed: 2026-10-27T18:29:44Z
@@ -38,3 +38,4 @@ Execute this step only after the parent implementation plan is approved. Read th
 - 2026-10-27T18:29:44Z (design/7c612b-replica-publication): Cut47 discharged: 78 successor pytest phases, 1198 passes, no skips/failures/refusals; all nine new and 36 legacy mutation arms sound. Final fast 6278 passed/1 skip, docs/runner45 passed, just check clean. Final review of 56d4381 accepted with no findings, recorded on parent. P1-P3 absorbed; source-independent retry retains coordination anchors; isolated HOME required pending beliefs-23f259. Parent owns reviewed branch, attached evidence and immediate local integration/cleanup.
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-27T18:33:00Z (main): retained: {"host": "titan", "kind": "worktree", "path": ".worktrees/7c612b-replica-publication", "state": "released", "verification": "verified", "purpose": "Reviewed branch integrated at 918c5c1; needed reports/ledger/logs verified in parent task attachments; checked worktree removal completed and branch deleted", "next_owner": "none", "cleanup_trigger": "none"}
+- 2026-10-27T18:33:06Z (main): retained: {"host": "titan", "kind": "evidence", "path": "$WORK_ROOT/beliefs/.worktrees/7c612b-replica-publication/.superpowers/sdd/2026-10-27-owned-replica-publication", "state": "released", "verification": "verified", "purpose": "Reviewed branch integrated at 918c5c1; needed reports/ledger/logs verified in parent task attachments; checked worktree removal completed and branch deleted", "next_owner": "none", "cleanup_trigger": "none"}
