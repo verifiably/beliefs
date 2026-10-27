@@ -8,7 +8,7 @@ complexity: high
 process: direct
 owner: design/7c612b-replica-publication
 created: 2026-10-27T15:59:08Z
-updated: 2026-10-27T17:03:49Z
+updated: 2026-10-27T17:09:49Z
 started: 2026-10-27T17:03:49Z
 depends: [beliefs-ecb75f]
 parent: beliefs-7c612b
@@ -28,3 +28,4 @@ Execute this step only after the parent implementation plan is approved. Read th
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID","origin":"agent"}
 - 2026-10-27T17:03:49Z (design/7c612b-replica-publication): started
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-27T17:09:49Z (design/7c612b-replica-publication): Implementation at 5bda7ce: one preview-entry validator, full-capture marker veto after complete admissions, explicit replica exclusion and publish forwarding. New cases observed RED (38 missing-API failures; four unchanged frozen-marker cases already green), then 144 focused tests passed. Fast suite 6272 passed/1 skipped, no affected TypeScript tests selected; pre-commit full checks passed. Cut46 source-span guard passes with Y17-a/g/i live retargets; cut40 guard passes unchanged. Full mutation kill proof remains Task 4. Shared worktree/evidence owned by open beliefs-7c612b; no child-exclusive retained items.
