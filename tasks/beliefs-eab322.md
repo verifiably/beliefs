@@ -1,15 +1,17 @@
 ---
 id: beliefs-eab322
 title: Carry ownership through the session and durable lifecycle
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: direct
 owner: design/7c612b-replica-publication
 created: 2026-10-27T15:59:11Z
-updated: 2026-10-27T17:22:24Z
+updated: 2026-10-27T17:23:27Z
 started: 2026-10-27T17:10:20Z
+completed: 2026-10-27T17:23:27Z
+closed: 2026-10-27T17:23:27Z
 depends: [beliefs-991a0f]
 parent: beliefs-7c612b
 tags: []
@@ -29,3 +31,7 @@ Execute this step only after the parent implementation plan is approved. Read th
 - 2026-10-27T17:10:20Z (design/7c612b-replica-publication): started
   provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-27T17:22:24Z (design/7c612b-replica-publication): Scoped forwarding and durable fixture reuse committed 66cba34. Scoped RED 5 missing-API cases then 24 passed; durable final 15 passed; existing attribution acceptance 14 passed; permit/capability boundaries 577 passed; fast suite 6277 passed/1 skipped, affected TypeScript empty. Full commit checks passed after typed helper return correction. Certified durable runs used kernel 7.2.2-arch1-1, ext4 rw,noatime,data=ordered. Recovery success uses writer-only coordination mounts from intent; the separate source-anchored v2/v3 cases preserve mounts-changed refusal. Shared worktree/evidence owned by open beliefs-7c612b; no child-exclusive retained items.
+- 2026-10-27T17:23:27Z (design/7c612b-replica-publication): done
+  provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-27T17:23:27Z (design/7c612b-replica-publication): Scoped own-corpus forwarding committed 66cba34; 24 door, 15 new durable, 14 legacy durable, 577 boundary checks pass; frozen mount-set refusal preserved.
+  provenance: {"harness_session":"codex:01a17dcb-2a5d-7101-9aa7-305b6690786c","harness_session_source":"CODEX_THREAD_ID"}
