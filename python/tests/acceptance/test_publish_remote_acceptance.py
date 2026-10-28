@@ -40,7 +40,7 @@ from transport_fake import DirectoryTransport, TransportFault
 from beliefs import publish as act
 from beliefs import stored
 from beliefs.corpus import CorpusWriter, ReadView
-from beliefs.errors import AddressMapConflict, PublicationArrivalRefused, PublicationReadingRefused, PublicationRefused
+from beliefs.errors import PublicationArrivalRefused, PublicationReadingRefused, PublicationRefused
 from beliefs.intents.publish import Destination
 from beliefs.publication import MARKER_KIND, marker_uid
 from beliefs.publication_arrival import CurrentPublication, DivergentPublication, admit_publication, publication_tip
@@ -51,6 +51,7 @@ from beliefs.root import LifecycleState, init_world_root, moment_seam, open_worl
 from beliefs.world import WorldConfig, epoch
 from beliefs.world.anchors import CorpusSubject
 from beliefs.world.verify import ArtifactCarrier, ObserverSet
+from beliefs.world.view import open_world_view
 
 REMOTE = Destination.remote("https://remote.test/pub")
 _counter = count()
@@ -403,8 +404,9 @@ def test_y16_a_a_recipient_restores_admits_and_reads_the_current_publication_dur
 
 def test_y16_b_sibling_publications_are_divergent_until_one_supersedes_both_durably(remote, monkeypatch):
     """Y16-b: A crashed before its mark, B bound, A resumed and bound as a sibling.
-    Both select the same records; the recipient's epoch refuses duplicate-location,
-    and `publication_tip` reads them side by side as divergent until C."""
+    Both select the same records; the recipient's epoch (cut 48 §4.2) holds each once
+    in both publications, and `publication_tip` reads them side by side as divergent
+    until C."""
     crash(monkeypatch, "_initialize")
     with pytest.raises(Crash):
         publish_remote(remote)
@@ -417,9 +419,11 @@ def test_y16_b_sibling_publications_are_divergent_until_one_supersedes_both_dura
     world = recipient_world(remote, (a_root, b_root))
     admit_publication(world, a_root, a_obs)
     admit_publication(world, b_root, b_obs)
-    with pytest.raises(AddressMapConflict) as conflict:
-        epoch.build_epoch(world, coverage=frozenset({a.corpus_id, b.corpus_id}), bindings=hold_shipped(world))
-    assert conflict.value.finding.code == "duplicate-location"
+    published = epoch.build_epoch(world, coverage=frozenset({a.corpus_id, b.corpus_id}), bindings=hold_shipped(world))
+    view = open_world_view(world, published)
+    holders = tuple(sorted((a.corpus_id, b.corpus_id)))
+    shared = [node.id for node in view.captured_records(a.corpus_id) if node.kind != MARKER_KIND]
+    assert shared and all(view.holders_of(ref) == holders for ref in shared)
     divergent = publication_tip((a_root, b_root), remote.view, REMOTE)
     assert divergent == DivergentPublication(tuple(sorted([(a.corpus_id, a.marker), (b.corpus_id, b.marker)])))
     c = publish_remote(remote)
