@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T17:15:02Z
+updated: 2026-10-28T19:39:49Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -72,3 +72,4 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T14:30:35Z (design/918fd2-overlapping-publications): Task 1 (beliefs-83b71c): cut 48 frozen at 5895d23; docs/designs/2026-10-28-conformance-cut-48.md sha256 8ab350edad763dc15d4831de74d3cac13053f869c0da209338919fbbab475d4d; rows W19/W20/G14/Y19 added, W8b/J17/J20/G10/G12/Y5/Y17 reopened; accounting 219/257 closed; designs/guide/rules tests 106 passed; just test-fast 6278 passed 1 skipped
 - 2026-10-28T15:16:15Z (design/918fd2-overlapping-publications): Task 2 (beliefs-491c9f) landed at 759976f; Task 3 (beliefs-d2cdfc) started
 - 2026-10-28T17:15:02Z (design/918fd2-overlapping-publications): science consumer task filed: sci-73c80e (spec §8 verbatim; sci-4a3543 and sci-9104fb depend on it)
+- 2026-10-28T19:39:49Z (design/918fd2-overlapping-publications): review: impl round 1 — verdict: revise; findings: Critical 0, Important 1, Minor 8; reviewer: claude-code/claude-fable-5-1
