@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T11:40:44Z
+updated: 2026-10-28T11:40:46Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -38,3 +38,4 @@ Write the conformance-cut spec that lets a world hold one address in several liv
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-28T11:40:44Z (design/918fd2-overlapping-publications): resumed
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T11:40:46Z (design/918fd2-overlapping-publications): review: spec round 4 — verdict: revise; findings: Important 2; reviewer: codex/gpt-6-astra
