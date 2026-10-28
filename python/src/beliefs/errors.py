@@ -469,6 +469,18 @@ class ResolutionRefused(ScienceError):
     """
 
 
+class DeprecatedKeyCollision(ResolutionRefused):
+    """A retired address claimed across holders by records of distinct uids, or
+    that is another record's live address in another holder (cut 48 §4.2 rule 3,
+    applied by the merged standing fold's self-check, §4.5). Its finding is the
+    receipt path's `deprecated-key-collision`, naming the address and every
+    holder in capture order, never a chosen copy."""
+
+    def __init__(self, finding: "Finding") -> None:
+        self.finding = finding
+        super().__init__(f"{finding.code}: {finding.ref}: {finding.detail}; {finding.message}")
+
+
 class RecordNotPresent(ScienceError):
     """A recorded address's corpus has no carrier in this world."""
 
@@ -1289,8 +1301,10 @@ class RetractionResolutionDisagreement(RecordError):
     disagree for one retraction — the epoch folded per corpus and a `move`
     separated a counter-retraction from what it counters (slice 1 §11.1)."""
 
-    def __init__(self, ref: str, recorded: str, computed: str) -> None:
-        super().__init__(f"{ref}: the enumeration records {recorded!r} but the standing fold computes {computed!r}")
+    def __init__(self, ref: str, recorded: str, computed: str, *, detail: str | None = None) -> None:
+        super().__init__(
+            detail or f"{ref}: the enumeration records {recorded!r} but the standing fold computes {computed!r}"
+        )
         self.ref, self.recorded, self.computed = ref, recorded, computed
 
 

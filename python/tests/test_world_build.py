@@ -222,7 +222,7 @@ def slug_for(corpus_id: str, coverage: tuple[str, ...]) -> str:
     return "one" if len(coverage) == 1 else corpus_id[0]
 
 
-def install_bindings(world: registry.World, *, retraction: str = "v1") -> dict[str, rules.RuleBinding]:
+def install_bindings(world: registry.World, *, retraction: str = "v2") -> dict[str, rules.RuleBinding]:
     """Hold every shipped rule and return one binding per receipt kind: for the
     retraction kind, the bundle whose input version is `retraction`'s (cut 48 §4.5)."""
     wanted = RETRACTION_VERSIONS[retraction]

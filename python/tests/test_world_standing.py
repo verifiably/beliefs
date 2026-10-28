@@ -7,8 +7,9 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from authority import FULL
+from authority import ACTOR, FULL
 from domain_facet_fixtures import over_kwargs, profile_with
+from fixtures_cut4 import raw_write
 from test_local_standing import retracts
 from test_local_standing import retracts as counter_of
 from test_relocation import MOVE_FIELDS
@@ -171,24 +172,187 @@ class TestAbsence:
 
 
 class TestTheSplit:
-    def test_a_counter_retraction_moved_away_refuses_the_disagreement(self, tmp_path):
+    """Slice 1 §11.1's split: a counter-retraction `move`d apart from the retraction
+    it counters. From cut 48 §4.5 the shipped (v2-bound) enumeration folds once over
+    the whole capture and the world reads it; the v1 binding keeps refusing."""
+
+    def _split(self, tmp_path, retraction):
         world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
         profile = profile_with()
         alpha, beta = writer_at(roots[ALPHA], profile), writer_at(roots[BETA], profile)
         first = alpha.retract(retracts(support_in(open_world_view(world, published), ALPHA), "t1"))
         counter = alpha.retract(retracts(first, "t2"))
-        together = publish(world, (ALPHA, BETA), hold_shipped(world))
+        bind = {} if retraction is None else {"retraction": retraction}
+        together = publish(world, (ALPHA, BETA), hold_shipped(world, **bind))
         _view, inputs, _answer = evaluation(world, together, profile)
         from beliefs.corpus import local_retraction_enumeration
 
         assert dict(inputs.retractions.found)[first.id] == "overturned"
         assert dict(local_retraction_enumeration(alpha.read_view).found) == dict(inputs.retractions.found)
         move(alpha, beta, counter.id, **MOVE_FIELDS)
-        split = publish(world, (ALPHA, BETA), hold_shipped(world))
+        split = publish(world, (ALPHA, BETA), hold_shipped(world, **bind))
+        return world, split, profile, first, counter
+
+    def test_a_counter_retraction_moved_away_is_folded_once(self, tmp_path):
+        world, split, profile, first, counter = self._split(tmp_path, None)  # the shipped default binding
+        found = dict(open_world_view(world, split).retraction_enumeration().found)
+        assert found == {first.id: "overturned", counter.id: "upheld"}
+        _view, inputs, _answer = evaluation(world, split, profile)
+        assert dict(inputs.retractions.found) == found
+
+    def test_a_v1_bound_epoch_still_refuses_the_disagreement(self, tmp_path):
+        world, split, profile, first, _counter = self._split(tmp_path, "v1")
         assert dict(open_world_view(world, split).retraction_enumeration().found)[first.id] == "upheld"
         with pytest.raises(RetractionResolutionDisagreement) as refused:
             evaluation(world, split, profile)
         assert refused.value.ref == first.id
+
+
+def _overlap(tmp_path, *, counter_in=ALPHA, deeper=False):
+    """R retracting ALPHA's `assessment:a-1`, C countering R, held as cut 48 §4.5's
+    1b case: R in both corpora; C in `counter_in` (and, with `deeper`, D countering
+    C in ALPHA and C in both)."""
+    world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
+    profile = profile_with()
+    alpha, beta = writer_at(roots[ALPHA], profile), writer_at(roots[BETA], profile)
+    first = alpha.retract(retracts(support_in(open_world_view(world, published), ALPHA), "t1"))
+    counter = alpha.retract(retracts(first, "t2"))
+    raw_write(roots[BETA], first)
+    if deeper:
+        alpha.retract(retracts(counter, "t3"))
+        raw_write(roots[BETA], counter)
+    elif counter_in == BETA:
+        move(alpha, beta, counter.id, **MOVE_FIELDS)
+    return world, roots, profile, first, counter
+
+
+def test_g14_i_v2_fold_world(tmp_path):
+    """Cut 48 §4.5: the v2-bound build folds standing once over the merged holders."""
+    from dataset_fixtures import pinned
+    from fixtures_cut4 import raw_write as raw
+
+    from beliefs.errors import AddressMapConflict, RuleNonconformant
+    from beliefs.world.read import validate_receipt
+
+    receipts = []
+    for counter_in in (ALPHA, BETA):
+        world, _roots, profile, first, counter = _overlap(tmp_path / counter_in[:1], counter_in=counter_in)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v2"))
+        view = open_world_view(world, published)
+        assert view.holders_of(first.id) == (ALPHA, BETA) and view.holders_of(counter.id) == (counter_in,)
+        assert sorted(view.retraction_enumeration().found) == sorted(
+            [(first.id, RETRACTION_OVERTURNED), (counter.id, RETRACTION_UPHELD)]
+        )
+        receipts.append(published.receipts["retraction-receipt.yaml"])
+        assert validate_receipt(world, published, "retraction-enumeration").outcome == "validated"
+        _view, inputs, _answer = evaluation(world, published, profile)
+        assert dict(inputs.retractions.found) == dict(view.retraction_enumeration().found)
+        legacy = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v1"))
+        v1_found = open_world_view(world, legacy).retraction_enumeration().found
+        assert sorted(pair for pair in v1_found if pair[0] == first.id) == [
+            (first.id, RETRACTION_OVERTURNED),
+            (first.id, RETRACTION_UPHELD),
+        ]
+    assert receipts[0].subject_identity == receipts[1].subject_identity
+    assert receipts[0].rule_identity == receipts[1].rule_identity
+    # R,C,D / R,C: the deeper chain upholds R through the merged fold.
+    world, roots, profile, first, counter = _overlap(tmp_path / "deeper", deeper=True)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v2"))
+    found = dict(open_world_view(world, published).retraction_enumeration().found)
+    assert found[first.id] == RETRACTION_UPHELD and found[counter.id] == RETRACTION_OVERTURNED
+    assert len(found) == 3 and list(found.values()).count(RETRACTION_UPHELD) == 2
+    # The colliding route: a route identity equal to R's address, retracted by route, adds no edge in gather.
+    from dataset_fixtures import dataset_ref
+
+    from beliefs.corpus import lineage_snapshot
+    from beliefs.lineage import effective_routes
+
+    alpha = writer_at(roots[ALPHA], profile)
+    target = alpha.read_view.get(dataset_ref("d-a")).model_copy(deep=True)
+    target.facets[stored.LINEAGE_BASIS_FACET] = {
+        "tag": "single",
+        "routes": [
+            {
+                "identity": first.id,
+                "run": "run:run-b",
+                "ancestor": dataset_ref("d-b"),
+                "transforms": [dataset_ref("d-b")],
+            }
+        ],
+    }
+    target = stored.stamp_semantic_identity(target)
+    raw(roots[ALPHA], target)
+    target_hash = stored.stored_semantic_hash(target)
+    assert target_hash is not None
+    colliding = stored.retraction_node(
+        title="route",
+        target=stored.RouteTarget(target.id, target.id, target_hash, first.id),
+        reason="wrong-route",
+        rationale="fixture",
+        grounds=("verification:v-1",),
+        actor=ACTOR,
+        event_token="colliding-route",
+    )
+    raw(roots[ALPHA], colliding)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v2"))
+    view = open_world_view(world, published)
+    found = dict(view.retraction_enumeration().found)
+    assert found[first.id] == RETRACTION_UPHELD and found[colliding.id] == RETRACTION_UPHELD
+    kwargs = world_kwargs(view, profile)
+    inputs = gather(
+        view,
+        "proposition:p",
+        context=replace(kwargs["context"], snapshot=lineage_snapshot(view, (target.id,))),
+        profile=profile,
+        resolution=kwargs["resolution"],
+        binding=kwargs["binding"],
+    )
+    assert dict(inputs.retractions.found) == found
+    assert effective_routes(inputs.snapshot, target.id) == ()
+    # A raw-written counter cycle across holders refuses through the kernel's wrap.
+    x = stored.retraction_node(
+        title="x",
+        target=stored.NodeTarget("retraction:z", "retraction:z", "0" * 64),
+        reason="defective-code",
+        rationale="fixture",
+        grounds=("verification:v-1",),
+        actor=ACTOR,
+        event_token="x",
+    )
+    raw(roots[ALPHA], x)
+    raw(roots[BETA], retracts(x, "y").model_copy(update={"deprecated_ids": ["retraction:z"]}))
+    with pytest.raises(RuleNonconformant):
+        publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v2"))
+    # One address under two distinct uids refuses at the address map, before any rule runs.
+    one = stored.dataset_node(title="twice", resources=pinned("twice"))
+    two = stored.dataset_node(title="twice", resources=pinned("twice"))
+    assert one.id == two.id and one.uid != two.uid
+    roots = corpora(tmp_path / "distinct", {ALPHA: (one,), BETA: (two,)})
+    world = world_over(tmp_path / "distinct", roots)
+    with pytest.raises(AddressMapConflict) as caught:
+        publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v2"))
+    assert caught.value.finding.code == "duplicate-location"
+
+
+def test_v1_and_v2_bound_epochs_agree_without_a_split(tmp_path):
+    """Cut 48 §4.5: the semantic change travels in the receipt's rule identity alone."""
+    from test_world_receipts import document
+
+    world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
+    profile = profile_with()
+    alpha = writer_at(roots[ALPHA], profile)
+    first = alpha.retract(retracts(support_in(open_world_view(world, published), ALPHA), "t1"))
+    alpha.retract(retracts(first, "t2"))
+    v1 = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v1"))
+    v2 = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v2"))
+    one, other = v1.receipts["retraction-receipt.yaml"], v2.receipts["retraction-receipt.yaml"]
+    assert one.rule_identity != other.rule_identity and one.subject_identity == other.subject_identity
+    assert (
+        document(v1, "retraction-receipt.yaml")["enumeration"] == document(v2, "retraction-receipt.yaml")["enumeration"]
+    )
+    _view, v1_inputs, _answer = evaluation(world, v1, profile)
+    _view, v2_inputs, _answer = evaluation(world, v2, profile)
+    assert v1_inputs.closure().digest() == v2_inputs.closure().digest()
 
 
 def test_a_retraction_target_in_an_absent_corpus_answers_absence(tmp_path):

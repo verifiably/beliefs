@@ -277,44 +277,55 @@ def _check_filtered_world_standing(
     enumeration: RetractionEnumeration,
     facets: Mapping[str, Mapping[str, object]],
     standing: Mapping[str, bool],
-    selection: _AcceptanceSelection,
 ) -> None:
-    inventory: dict[str, set[str]] = {}
+    """One comparison of the filtered fold against the receipt (cut 48 §4.5).
+
+    `standing` is gather's own world fold over the accepted facets, resolved
+    through the epoch's address map alone. The affected set is every rejected
+    retraction and, transitively through the retraction-discovery map, every
+    retraction one of them counters; for every surviving retraction outside
+    it the fold must reproduce the receipt's resolution. An enumeration that
+    records two resolutions for one ref (a v1-bound epoch over a split) is
+    refused by rule, never reduced to whichever pair sorts last.
+    """
     receipt: dict[str, str] = {}
     for ref, recorded in enumeration.found:
-        corpus_id, canonical = view.corpus_of(ref), view.resolve(ref)
-        assert corpus_id is not None and canonical is not None
-        inventory.setdefault(corpus_id, set()).add(canonical)
-        receipt[canonical] = recorded
-    for corpus_id, refs in inventory.items():
-        local = view._mapped_view(corpus_id)
-        surviving = {ref: facets[ref] for ref in refs if ref in facets}
-        local_standing = retraction_standing(local, surviving)
-        # Original counter dependencies come from the package, not rejected facets.
-        parents: dict[str, set[str]] = {}
-        for target, counters in view._retraction_discovery.items():
-            resolved = local.resolve(target)
-            if resolved not in refs:
-                continue
-            for counter in counters:
-                counted = local.resolve(counter)
-                if counted in refs:
-                    assert resolved is not None and counted is not None
-                    parents.setdefault(counted, set()).add(resolved)
-        affected = {ref for ref in refs if not selection._decisions[(corpus_id, ref)]}
-        pending = list(affected)
-        while pending:
-            for parent in parents.get(pending.pop(), ()):
-                if parent not in affected:
-                    affected.add(parent)
-                    pending.append(parent)
-        for ref in surviving:
-            computed = RETRACTION_UPHELD if local_standing[ref] else RETRACTION_OVERTURNED
-            if ref not in affected and computed != receipt[ref]:
-                raise RetractionResolutionDisagreement(ref, receipt[ref], computed)
-            world_computed = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED
-            if world_computed != computed:
-                raise RetractionResolutionDisagreement(ref, computed, world_computed)
+        canonical = view.resolve(ref)
+        assert canonical is not None
+        earlier = receipt.setdefault(canonical, recorded)
+        if earlier != recorded:
+            computed = RETRACTION_UPHELD if standing.get(canonical, True) else RETRACTION_OVERTURNED
+            raise RetractionResolutionDisagreement(
+                canonical,
+                earlier,
+                computed,
+                detail=(
+                    f"{canonical}: the enumeration records two resolutions, {earlier!r} and {recorded!r}; "
+                    "one fold cannot reproduce both (cut 48 §4.5: the epoch folded per corpus over a split)"
+                ),
+            )
+    affected = {ref for ref in receipt if ref not in facets}
+    # Original counter dependencies come from the package, not rejected facets.
+    parents: dict[str, set[str]] = {}
+    for target, counters in view._retraction_discovery.items():
+        resolved = view.resolve(target)
+        if resolved not in receipt:
+            continue
+        for counter in counters:
+            counted = view.resolve(counter)
+            if counted in receipt:
+                assert resolved is not None and counted is not None
+                parents.setdefault(counted, set()).add(resolved)
+    pending = list(affected)
+    while pending:
+        for parent in parents.get(pending.pop(), ()):
+            if parent not in affected:
+                affected.add(parent)
+                pending.append(parent)
+    for ref in facets:
+        computed = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED
+        if ref not in affected and computed != receipt[ref]:
+            raise RetractionResolutionDisagreement(ref, receipt[ref], computed)
 
 
 def gather(
@@ -403,9 +414,16 @@ def _gather(
             canonical = view.resolve(ref)
             if canonical is None:
                 raise RetractionUnreadable(ref, "the inventoried reference does not resolve")
-            holder = view.corpus_of(ref) if world else local_corpus
-            assert holder is not None
-            if not counts(holder, canonical):
+            # Accepted iff any captured holder's branch says so (cut 48 §6), every holder asked;
+            # a damaged holder refused the read above, and an absent one is not captured.
+            if isinstance(view, WorldReadView):
+                present = view.captured()
+                holders = tuple(holder for holder in view.holders_of(ref) if holder in present)
+            else:
+                assert local_corpus is not None
+                holders = (local_corpus,)
+            decisions = [counts(holder, canonical) for holder in holders]
+            if not any(decisions):
                 continue
         else:
             canonical = ref
@@ -438,7 +456,7 @@ def _gather(
         )
     standing = retraction_standing(view, facets)
     if counts is not None and world:
-        _check_filtered_world_standing(view, enumeration, facets, standing, selection)
+        _check_filtered_world_standing(view, enumeration, facets, standing)
         enumeration = replace(
             enumeration,
             found=tuple(sorted((ref, RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED) for ref in facets)),

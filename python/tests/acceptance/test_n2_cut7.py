@@ -280,7 +280,7 @@ def test_the_duplicated_symbol_kind_join_still_agrees_with_its_original():
     assert SYMBOL_KINDS == test_world_build.SYMBOL_KINDS
 
 
-def shipped_bindings(world: registry.World, *, retraction: str = "v1") -> epoch.DerivationBindings:
+def shipped_bindings(world: registry.World, *, retraction: str = "v2") -> epoch.DerivationBindings:
     """Hold this package's shipped rules in `world` and name one per kind as one
     build input; `retraction` picks the retraction-enumeration version (cut 48 §4.5)."""
     root.install_shipped_world_rules(world)

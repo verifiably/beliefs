@@ -71,6 +71,26 @@ _LIVE_SABOTAGES = {
         before="        for node in view.captured_records(corpus_id):  # unmapped post-build records included (§7.4)\n",
         after="        for node in ():\n",
     ),
+    # Cut 48 (overlapping publications), 2026-10-28, Task 4: `snapshot_standing` folds once over the merged holders (spec
+    # §4.5), so the chain loop and the chain-member validation sit one level shallower.
+    "BI-4": Sabotage(
+        module="corpus.py",
+        before="        if standing[root]:\n            retracted.add(identity)",
+        after="        if True:\n            retracted.add(identity)",
+    ),
+    "BI-8": Sabotage(
+        module="corpus.py",
+        before=(
+            "            CorpusWriter._resolve_retraction_target(nodes[ref], view)\n"
+            "        except ScienceError as caught:\n"
+            "            raise RetractionUnreadable(ref, str(caught)) from caught"
+        ),
+        after=(
+            "            pass\n"
+            "        except ScienceError as caught:\n"
+            "            raise RetractionUnreadable(ref, str(caught)) from caught"
+        ),
+    ),
 }
 CUT34_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT34_ARMS

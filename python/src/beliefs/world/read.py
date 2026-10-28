@@ -89,9 +89,11 @@ from nodes.core.errors import NodesError
 
 from beliefs.corpus import Finding, ReadView, _operation_lock_for
 from beliefs.errors import (
+    AddressMapConflict,
     CaptureDrift,
     ContractMismatch,
     CorpusStateMalformed,
+    DeprecatedKeyCollision,
     EdgeIndeterminate,
     EpochUnknown,
     ManifestMalformed,
@@ -267,15 +269,36 @@ def validate_receipt(world: registry.World, published: epoch.Epoch, kind: derive
     This never catches `EpochMalformed` to recover a contract fault, and never
     re-reads the member bytes: `_ReceiptCarrier.document` is the one parse.
     """
+    outcome, _finding = _validate_receipt(world, published, kind)
+    return outcome
+
+
+def _validate_receipt(
+    world: registry.World, published: epoch.Epoch, kind: derive.ReceiptKind
+) -> tuple[derive.ReceiptOutcome, Finding | None]:
+    """`validate_receipt`'s verdict, with the finding `_snapshot_standing` returns
+    beside an `unresolvable` outcome when the captured corpora do not merge (cut
+    48 §4.5); `validate_receipt` drops it and `reported_receipt` carries it."""
     member = _member_for(kind)
     receipt = published.receipts[member]
     fault = _contract_fault(kind, member, receipt, published)
     if fault is not None:
-        return derive.ReceiptOutcome(kind, "malformed", fault)
+        return derive.ReceiptOutcome(kind, "malformed", fault), None
     if kind == derive.BELIEF_INPUT_KIND:
         standing = _snapshot_standing(world, receipt)
         if standing is not None:
             return standing
+    return _rebuilt_receipt(world, published, kind, member, receipt), None
+
+
+def _rebuilt_receipt(
+    world: registry.World,
+    published: epoch.Epoch,
+    kind: derive.ReceiptKind,
+    member: str,
+    receipt: epoch._ReceiptCarrier,
+) -> derive.ReceiptOutcome:
+    """The availability and rebuild phases of `validate_receipt`."""
     # Past this point the five identity members are present and well formed,
     # so the reads below can name them without re-checking that they exist.
     named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)
@@ -343,7 +366,9 @@ def validate_receipt(world: registry.World, published: epoch.Epoch, kind: derive
     )
 
 
-def _snapshot_standing(world: registry.World, receipt: epoch._ReceiptCarrier) -> derive.ReceiptOutcome | None:
+def _snapshot_standing(
+    world: registry.World, receipt: epoch._ReceiptCarrier
+) -> tuple[derive.ReceiptOutcome, Finding | None] | None:
     """Slice 2 §7.1: the producer subject's live standing, decided before availability.
 
     Every named corpus is captured under its own hold — state, records,
@@ -354,7 +379,11 @@ def _snapshot_standing(world: registry.World, receipt: epoch._ReceiptCarrier) ->
     unreadable corpus returns ``None`` so the availability phase reports it
     in its own words. `RetractionUnreadable` propagates, as `CaptureDrift`
     does: a raw-written retraction the write boundary would have refused
-    leaves no coherent standing to report on.
+    leaves no coherent standing to report on. The fold merges the captured
+    corpora and checks the merge itself (cut 48 §4.5): a merge refusal is the
+    `unresolvable` outcome (this world cannot say what it holds, never
+    `retracted`, never an exception) returned with the conflict's own finding —
+    `deprecated-key-collision` for the retired-address case.
     """
     from beliefs.corpus import _CapturedCheckView, snapshot_standing
 
@@ -381,16 +410,27 @@ def _snapshot_standing(world: registry.World, receipt: epoch._ReceiptCarrier) ->
                 f"({before} -> {after}); no standing is reported from a corpus that did not hold still"
             )
         captured[corpus_id] = _CapturedCheckView(records)
-    standing = snapshot_standing(captured, derive.BELIEF_INPUT_KIND)
+    try:
+        standing = snapshot_standing(captured, derive.BELIEF_INPUT_KIND)
+    except (AddressMapConflict, DeprecatedKeyCollision) as refused:
+        finding = refused.finding
+        outcome = derive.ReceiptOutcome(
+            derive.BELIEF_INPUT_KIND,
+            "unresolvable",
+            f"the standing of this subject cannot be decided: the captured corpora do not merge "
+            f"({finding.code}: {finding.ref}: {finding.detail})",
+        )
+        return outcome, finding
     identity = cast(str, receipt.subject_identity)
     if identity not in standing.retracted:
         return None
     upheld = sorted(ref for ref, resolution in standing.history[identity] if resolution == "upheld")
-    return derive.ReceiptOutcome(
+    outcome = derive.ReceiptOutcome(
         derive.BELIEF_INPUT_KIND,
         "retracted",
         f"retraction(s) {', '.join(upheld)} in {', '.join(sorted(captured))} stand against this subject",
     )
+    return outcome, None
 
 
 def reported_receipt(
@@ -398,9 +438,11 @@ def reported_receipt(
 ) -> tuple[derive.ReceiptOutcome, Finding | None]:
     """`validate_receipt` for a report (slice 2 §7.3): an unreadable standing
     chain becomes an `unresolvable` outcome and a `retraction-unreadable`
-    finding instead of an exception, so a raw write cannot stop a report."""
+    finding instead of an exception, so a raw write cannot stop a report; a
+    merge refusal's finding travels beside its `unresolvable` outcome (cut 48
+    §4.5)."""
     try:
-        return validate_receipt(world, published, kind), None
+        return _validate_receipt(world, published, kind)
     except RetractionUnreadable as caught:
         outcome = derive.ReceiptOutcome(
             kind, "unresolvable", f"the standing of this subject cannot be decided: {caught}"

@@ -47,54 +47,32 @@ from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
 # sabotage still moves the fault decision past the availability lookup, now
 # around the new standing check, which stays where the kernel put it.
 _LIVE_SABOTAGES = {
-    # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
-    # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
-    # the formatted source is exactly the formatted declared sabotage.
+    # Cut 48 (overlapping publications), 2026-10-28, Task 4: `validate_receipt`'s phases are
+    # `_validate_receipt` (well-formedness, then the producer subject's standing) over
+    # `_rebuilt_receipt` (availability and the rebuild). The sabotage still decides
+    # availability before malformedness: it rebuilds first and checks the contract after.
     "W8a-a": Sabotage(
         module="world/read.py",
         before=(
             "    fault = _contract_fault(kind, member, receipt, published)\n"
             "    if fault is not None:\n"
-            '        return derive.ReceiptOutcome(kind, "malformed", fault)\n'
+            '        return derive.ReceiptOutcome(kind, "malformed", fault), None\n'
             "    if kind == derive.BELIEF_INPUT_KIND:\n"
             "        standing = _snapshot_standing(world, receipt)\n"
             "        if standing is not None:\n"
             "            return standing\n"
-            "    # Past this point the five identity members are present and well formed,\n"
-            "    # so the reads below can name them without re-checking that they exist.\n"
-            "    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n"
-            "    binding = rules.RuleBinding(cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity))\n"
-            "    with registry._locked_barrier(world) as world_root:\n"
-            "        try:\n"
-            "            held = rules._locked_resolve_rule_binding(world_root, binding)\n"
-            "        except RuleNotHeld as caught:\n"
-            "            return derive.ReceiptOutcome(\n"
-            "                kind,\n"
-            '                "unresolvable",\n'
-            '                f"the exact pair this receipt names is not held here: {caught}",\n'
-            "            )\n"
+            "    return _rebuilt_receipt(world, published, kind, member, receipt), None\n"
         ),
         after=(
             "    if kind == derive.BELIEF_INPUT_KIND:\n"
             "        standing = _snapshot_standing(world, receipt)\n"
             "        if standing is not None:\n"
             "            return standing\n"
-            "    # Past this point the five identity members are present and well formed,\n"
-            "    # so the reads below can name them without re-checking that they exist.\n"
-            "    named_states = cast(Sequence[tuple[str, str]], receipt.corpus_states)\n"
-            "    binding = rules.RuleBinding(cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity))\n"
-            "    with registry._locked_barrier(world) as world_root:\n"
-            "        try:\n"
-            "            held = rules._locked_resolve_rule_binding(world_root, binding)\n"
-            "        except RuleNotHeld as caught:\n"
-            "            return derive.ReceiptOutcome(\n"
-            "                kind,\n"
-            '                "unresolvable",\n'
-            '                f"the exact pair this receipt names is not held here: {caught}",\n'
-            "            )\n"
+            "    rebuilt = _rebuilt_receipt(world, published, kind, member, receipt)\n"
             "    fault = _contract_fault(kind, member, receipt, published)\n"
             "    if fault is not None:\n"
-            '        return derive.ReceiptOutcome(kind, "malformed", fault)\n'
+            '        return derive.ReceiptOutcome(kind, "malformed", fault), None\n'
+            "    return rebuilt, None\n"
         ),
     ),
     # Cut 48 (overlapping publications), 2026-10-28: `_refuse_damaged` reads the entry's holders; the sabotage never refuses a damaged holder.

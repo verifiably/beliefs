@@ -102,7 +102,7 @@ def world_over(
     return world
 
 
-def hold_shipped(world: registry.World, *, retraction: str = "v1") -> epoch.DerivationBindings:
+def hold_shipped(world: registry.World, *, retraction: str = "v2") -> epoch.DerivationBindings:
     """Install every shipped rule and name one per kind as one build input;
     `retraction` picks the retraction-enumeration version (cut 48 §4.5)."""
     held = install_bindings(world, retraction=retraction)
