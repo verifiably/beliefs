@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T11:14:40Z
+updated: 2026-10-28T11:27:42Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -33,3 +33,4 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T10:55:44Z (design/918fd2-overlapping-publications): review: spec round 1 — verdict: revise; findings: Critical 1, Important 6, Minor 9; reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T10:55:46Z (design/918fd2-overlapping-publications): builder check (brainstorming) on spec round 1: 2 plan-changing questions (whether the published content field has a reader; what Y19's byte-identical-marker check compares) and 1 false code attribution (_population vs publication_preview); reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T11:14:40Z (design/918fd2-overlapping-publications): review: spec round 2 — verdict: revise; findings: Important 5, Minor 5; reviewer: claude-code/claude-fable-5-1
+- 2026-10-28T11:27:42Z (design/918fd2-overlapping-publications): review: spec round 3 — verdict: revise; findings: Important 1, Minor 7; reviewer: claude-code/claude-fable-5-1
