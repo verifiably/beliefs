@@ -749,10 +749,36 @@ def _text_members(value: object, location: str) -> tuple[str, ...]:
     return tuple(_require_text(member, f"a member of {location}") for member in members)
 
 
+ADDRESS_ENTRY_KEYS: tuple[str, ...] = ("address", "content", "holders", "uid")
+"""The closed shape every epoch built from cut 48 writes (design §4.3)."""
+
+LEGACY_ADDRESS_ENTRY_KEYS: tuple[str, ...] = ("address", "corpus_id", "uid")
+"""The singular shape every epoch built before cut 48 carries. Admitted as a
+second closed shape so retained epochs stay readable; never written again, and
+never mixed with the other in one document."""
+
+
 def _check_addresses(document: Mapping[object, object]) -> None:
-    for entry in _entries(document["addresses"], ("address", "corpus_id", "uid"), "addresses"):
-        for key in ("address", "corpus_id", "uid"):
-            _require_text(entry[key], key)
+    value = document["addresses"]
+    if type(value) is not list:
+        raise ValueError(f"addresses is a list, not {type(value).__name__}")
+    members: list[object] = value
+    if not members:
+        return
+    first = members[0]
+    if type(first) is not dict:
+        raise ValueError("an entry of addresses is a mapping")
+    keys = LEGACY_ADDRESS_ENTRY_KEYS if "corpus_id" in first else ADDRESS_ENTRY_KEYS
+    for entry in _entries(members, keys, "addresses"):
+        _require_text(entry["address"], "address")
+        _require_text(entry["uid"], "uid")
+        if keys is LEGACY_ADDRESS_ENTRY_KEYS:
+            _require_text(entry["corpus_id"], "corpus_id")
+            continue
+        _require_text(entry["content"], "content")
+        holders = _text_members(entry["holders"], "holders")
+        if not holders or list(holders) != sorted(set(holders)):
+            raise ValueError("holders names at least one corpus, sorted and distinct")
 
 
 def _check_producers(document: Mapping[object, object]) -> None:
@@ -1000,7 +1026,8 @@ class _BuildDraft:
         "enumerated once, fed to all four" a property of the draft rather than
         of whoever remembers to reuse the argument.
         """
-        return self.held[kind].invoke(self.capture.rule_input())
+        held = self.held[kind]
+        return rules.invoke_held(held, kind, self.capture.rule_input(held.input_version))
 
 
 def _declared_coverage(coverage: frozenset[str]) -> tuple[str, ...]:
@@ -1207,6 +1234,7 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
             address=node.id,
             uid=node.uid,
             kind=node.kind,
+            content=registry.content_identity(node),
             deprecated_ids=tuple(node.deprecated_ids),
             produces=tuple(
                 relation.target
@@ -1219,6 +1247,7 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
                 else derive.CapturedRetraction(
                     _retraction_target(facets[node.id]),
                     RETRACTION_UPHELD if standing.get(node.id, True) else RETRACTION_OVERTURNED,
+                    cast(str, cast(Mapping[str, str], facets[node.id]["target"])["arm"]),
                 )
             ),
             coreference=(
@@ -1419,6 +1448,10 @@ def _derived_members(draft: _BuildDraft) -> Mapping[str, bytes]:
     the one captured projection; the two maps that are not receipt subjects
     fold over the same capture.
     """
+    # Cut 48 §4.5: the address map is derived first, so its refusals (`AddressMapConflict`,
+    # the deprecated-key `ResolutionRefused`) take precedence over anything a rule could say
+    # about a capture that is not a world.
+    address_map = derive.address_map(draft.capture)
     snapshot = derive.producer_snapshot(draft.run("producer"))
     enumeration = derive.retraction_enumeration(draft.run("retraction-enumeration"))
     inventory = derive.certification_inventory(draft.run("certification-enumeration"))
@@ -1432,7 +1465,7 @@ def _derived_members(draft: _BuildDraft) -> Mapping[str, bytes]:
         bindings=draft.bindings,
     )
     members: dict[str, bytes] = {
-        "address-map.yaml": _document_bytes(derive.address_map_projection(derive.address_map(draft.capture))),
+        "address-map.yaml": _document_bytes(derive.address_map_projection(address_map)),
         "producers-map.yaml": _document_bytes(derive.producers_map_projection(snapshot.producers)),
         "retraction-discovery-map.yaml": _document_bytes(
             derive.retraction_discovery_map_projection(derive.retraction_discovery_map(draft.capture))

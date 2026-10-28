@@ -67,24 +67,6 @@ from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
 
 _LIVE_SABOTAGES = {
     # Cut 47: preserve the original mutation after ownership changed preparation.
-    "Y17-a": Sabotage(
-        module="publish.py",
-        before=(
-            "    replicas = tuple(\n"
-            "        holder\n"
-            "        for holder in sorted(grouped)\n"
-            "        if holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
-            "    )\n"
-        ),
-        after=(
-            "    replicas = tuple(\n"
-            "        holder\n"
-            "        for holder in sorted(grouped)\n"
-            "        if holder not in own_corpora and type(admissions[holder].provenance) is not ReplicaOf\n"
-            "    )\n"
-        ),
-    ),
-    # Cut 47: preserve the original mutation after ownership changed preparation.
     "Y17-g": Sabotage(
         module="publish.py",
         before=(
@@ -96,47 +78,6 @@ _LIVE_SABOTAGES = {
             "    attributions = _selected_attributions(\n"
             '        read, world.registry(), selection.selected, pins.domains["coordination"], own_corpora=own_corpora\n'
             '    ) if pins.domains["coordination"] == V3_PIN else None\n'
-        ),
-    ),
-    # Cut 47: preserve the original mutation after ownership changed preparation.
-    "Y17-i": Sabotage(
-        module="publish.py",
-        before=(
-            "    for holder in sorted(grouped):\n"
-            "        if holder not in admissions:\n"
-            "            raise PublicationRefused(\n"
-            '                "attribution-holder-unregistered",\n'
-            "                corpus_ids=(holder,),\n"
-            "                refs=tuple(sorted(grouped[holder])),\n"
-            "            )\n"
-            "    for holder in sorted(grouped):\n"
-            "        if holder in own_corpora and any(node.kind == MARKER_KIND for node in read.captured_records(holder)):\n"
-            "            raise PublicationRefused(\n"
-            '                "attribution-own-source-invalid",\n'
-            "                corpus_ids=(holder,),\n"
-            "                refs=tuple(sorted(grouped[holder])),\n"
-            '                field="marker-present",\n'
-            "            )\n"
-            "    replicas = tuple(\n"
-            "        holder\n"
-            "        for holder in sorted(grouped)\n"
-            "        if holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
-            "    )\n"
-        ),
-        after=(
-            "    for holder in sorted(grouped):\n"
-            "        if holder in own_corpora and any(node.kind == MARKER_KIND for node in read.captured_records(holder)):\n"
-            "            raise PublicationRefused(\n"
-            '                "attribution-own-source-invalid",\n'
-            "                corpus_ids=(holder,),\n"
-            "                refs=tuple(sorted(grouped[holder])),\n"
-            '                field="marker-present",\n'
-            "            )\n"
-            "    replicas = tuple(\n"
-            "        holder\n"
-            "        for holder in sorted(grouped)\n"
-            "        if holder in admissions and holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
-            "    )\n"
         ),
     ),
     # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
@@ -219,6 +160,177 @@ _LIVE_SABOTAGES = {
             "    )\n"
         ),
         after="    return True\n",
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28, Task 5: `_selected_attributions` attributes each
+    # selected record over its captured holder set (spec §7): own holders win, carriers' claims are
+    # compared, and the source reads live in `_captured_source`. Each arm keeps its check and its
+    # mutation moves to the same decision's new site.
+    "Y17-a": Sabotage(
+        module="publish.py",
+        before=(
+            "    def replica(holder: str) -> bool:\n"
+            "        return holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
+        ),
+        after=(
+            "    def replica(holder: str) -> bool:\n"
+            "        return holder not in own_corpora and type(admissions[holder].provenance) is not ReplicaOf\n"
+        ),
+    ),
+    "Y17-b": Sabotage(
+        module="publish.py",
+        before="        claims = {sources[holder][1].get(ref, (ref, holder, sources[holder][0])) for holder in carried[ref]}\n",
+        after="        claims = {sources[holder][1][ref] for holder in carried[ref] if ref in sources[holder][1]}\n",
+    ),
+    "Y17-c": Sabotage(
+        module="publish.py",
+        before=(
+            "        claims = {sources[holder][1].get(ref, (ref, holder, sources[holder][0])) for holder in carried[ref]}\n"
+            "        if len(claims) == 1:\n"
+        ),
+        after=(
+            "        claims = {(ref, holder, sources[holder][0]) for holder in carried[ref]}\n"
+            "        if len(claims) == 1:\n"
+        ),
+    ),
+    "Y17-d": Sabotage(
+        module="publish.py",
+        before="    return tuple(result)\n\n\ndef _captured_source(\n",
+        after=(
+            "    leaked = {row[0]: row for _, earlier in sources.values() for row in earlier.values()} | "
+            "{row[0]: row for row in result}\n"
+            "    return tuple(leaked[ref] for ref in sorted(leaked))\n\n\ndef _captured_source(\n"
+        ),
+    ),
+    "Y17-e": Sabotage(
+        module="publish.py",
+        before=(
+            "        claims = {sources[holder][1].get(ref, (ref, holder, sources[holder][0])) for holder in carried[ref]}\n"
+            "        if len(claims) == 1:\n"
+            "            result.append(next(iter(claims)))\n"
+        ),
+        after=(
+            "        first = next(iter(sources.values()))\n"
+            "        claims = {first[1].get(ref, (ref, holder, first[0])) for holder in carried[ref]}\n"
+            "        if len(claims) == 1:\n"
+            "            result.append(next(iter(claims)))\n"
+        ),
+    ),
+    "Y17-f": Sabotage(
+        module="publish.py",
+        before=(
+            "        if carriers:\n"
+            '            raise PublicationRefused("attribution-contract-unpinned", corpus_ids=carriers)\n'
+        ),
+        after=(
+            "        if False:\n"
+            '            raise PublicationRefused("attribution-contract-unpinned", corpus_ids=carriers)\n'
+        ),
+    ),
+    "Y17-h": Sabotage(
+        module="publish.py",
+        before=(
+            "    records = read.captured_records(holder)\n"
+            "    manifest = read.captured_manifest(holder)\n"
+            "    try:\n"
+            "        require_publication_layout(records)\n"
+        ),
+        after=(
+            "    records = read.captured_records(holder)\n"
+            "    manifest = read.captured_manifest(holder)\n"
+            "    if not any(node.kind == MARKER_KIND for node in records):\n"
+            '        return "", {}\n'
+            "    try:\n"
+            "        require_publication_layout(records)\n"
+        ),
+    ),
+    "Y17-i": Sabotage(
+        module="publish.py",
+        before=(
+            "    for holder in sorted(grouped):\n"
+            "        if holder not in admissions:\n"
+            "            raise PublicationRefused(\n"
+            '                "attribution-holder-unregistered",\n'
+            "                corpus_ids=(holder,),\n"
+            "                refs=tuple(sorted(grouped[holder])),\n"
+            "            )\n"
+            "    for holder in sorted(grouped):\n"
+            "        if holder in own_corpora and any(node.kind == MARKER_KIND for node in read.captured_records(holder)):\n"
+            "            raise PublicationRefused(\n"
+            '                "attribution-own-source-invalid",\n'
+            "                corpus_ids=(holder,),\n"
+            "                refs=tuple(sorted(grouped[holder])),\n"
+            '                field="marker-present",\n'
+            "            )\n"
+            "\n"
+            "    def replica(holder: str) -> bool:\n"
+            "        return holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
+        ),
+        after=(
+            "    for holder in sorted(grouped):\n"
+            "        if holder in own_corpora and any(node.kind == MARKER_KIND for node in read.captured_records(holder)):\n"
+            "            raise PublicationRefused(\n"
+            '                "attribution-own-source-invalid",\n'
+            "                corpus_ids=(holder,),\n"
+            "                refs=tuple(sorted(grouped[holder])),\n"
+            '                field="marker-present",\n'
+            "            )\n"
+            "\n"
+            "    def replica(holder: str) -> bool:\n"
+            "        return (\n"
+            "            holder in admissions and holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
+            "        )\n"
+        ),
+    ),
+    "Y17-j": Sabotage(
+        module="publish.py",
+        before=(
+            "    for holder in carriers:\n"
+            "        sources[holder] = _captured_source(read, holder, tuple(grouped[holder]))\n"
+        ),
+        after=(
+            "    for holder in (record.corpus_id for record in registry.admissions if record.corpus_id in carriers):\n"
+            "        sources[holder] = _captured_source(read, holder, tuple(grouped[holder]))\n"
+        ),
+    ),
+    "Y17-l": Sabotage(
+        module="publish.py",
+        before="    records = read.captured_records(holder)\n    manifest = read.captured_manifest(holder)\n",
+        after="    records = tuple(ReadView.opened_at(Path(holder)).iter_stored())\n    manifest = read.captured_manifest(holder)\n",
+    ),
+    "Y17-p": Sabotage(
+        module="publish.py",
+        before=(
+            "        claims = {sources[holder][1].get(ref, (ref, holder, sources[holder][0])) for holder in carried[ref]}\n"
+            "        if len(claims) == 1:\n"
+            "            result.append(next(iter(claims)))\n"
+            "            continue\n"
+        ),
+        after=(
+            "        claims = {\n"
+            "            sources[holder][1].get(\n"
+            "                ref,\n"
+            "                (\n"
+            "                    ref,\n"
+            "                    next(node for node in read.captured_records(holder) if node.kind == MARKER_KIND).facets[\n"
+            "                        stored.COORDINATION_FACET\n"
+            '                    ]["published_from"]["world_id"],\n'
+            "                    sources[holder][0],\n"
+            "                ),\n"
+            "            )\n"
+            "            for holder in carried[ref]\n"
+            "        }\n"
+            "        if len(claims) == 1:\n"
+            "            result.append(next(iter(claims)))\n"
+            "            continue\n"
+        ),
+    ),
+    "Y18-n": Sabotage(
+        module="publish.py",
+        before=(
+            "        (marker,) = (node for node in records if node.kind == MARKER_KIND)\n"
+            '        if _marker_release_malformed(marker, manifest.profile.domains.get("coordination")):\n'
+        ),
+        after=("        (marker,) = (node for node in records if node.kind == MARKER_KIND)\n        if False:\n"),
     ),
 }
 CUT46_ARMS = tuple(

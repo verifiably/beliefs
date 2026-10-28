@@ -34,7 +34,7 @@ the untraced hand-out, and the digest that does not move with it.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeAlias, cast, final
@@ -214,6 +214,13 @@ def _facets_held_to_capture(profile: ProfileSpec, view: WorldReadView, target: s
     return rows
 
 
+def _captured_holders(view: WorldReadView, ref: str) -> tuple[str, ...]:
+    """The captured corpora holding `ref` (cut 48 §6): the epoch's holders minus
+    the absent ones; a damaged holder refused the read before any loop."""
+    present = view.captured()
+    return tuple(holder for holder in view.holders_of(ref) if holder in present)
+
+
 def _absent_inputs(
     proposition: str,
     context: SuppliedContext,
@@ -277,44 +284,55 @@ def _check_filtered_world_standing(
     enumeration: RetractionEnumeration,
     facets: Mapping[str, Mapping[str, object]],
     standing: Mapping[str, bool],
-    selection: _AcceptanceSelection,
 ) -> None:
-    inventory: dict[str, set[str]] = {}
+    """One comparison of the filtered fold against the receipt (cut 48 §4.5).
+
+    `standing` is gather's own world fold over the accepted facets, resolved
+    through the epoch's address map alone. The affected set is every rejected
+    retraction and, transitively through the retraction-discovery map, every
+    retraction one of them counters; for every surviving retraction outside
+    it the fold must reproduce the receipt's resolution. An enumeration that
+    records two resolutions for one ref (a v1-bound epoch over a split) is
+    refused by rule, never reduced to whichever pair sorts last.
+    """
     receipt: dict[str, str] = {}
     for ref, recorded in enumeration.found:
-        corpus_id, canonical = view.corpus_of(ref), view.resolve(ref)
-        assert corpus_id is not None and canonical is not None
-        inventory.setdefault(corpus_id, set()).add(canonical)
-        receipt[canonical] = recorded
-    for corpus_id, refs in inventory.items():
-        local = view._mapped_view(corpus_id)
-        surviving = {ref: facets[ref] for ref in refs if ref in facets}
-        local_standing = retraction_standing(local, surviving)
-        # Original counter dependencies come from the package, not rejected facets.
-        parents: dict[str, set[str]] = {}
-        for target, counters in view._retraction_discovery.items():
-            resolved = local.resolve(target)
-            if resolved not in refs:
-                continue
-            for counter in counters:
-                counted = local.resolve(counter)
-                if counted in refs:
-                    assert resolved is not None and counted is not None
-                    parents.setdefault(counted, set()).add(resolved)
-        affected = {ref for ref in refs if not selection._decisions[(corpus_id, ref)]}
-        pending = list(affected)
-        while pending:
-            for parent in parents.get(pending.pop(), ()):
-                if parent not in affected:
-                    affected.add(parent)
-                    pending.append(parent)
-        for ref in surviving:
-            computed = RETRACTION_UPHELD if local_standing[ref] else RETRACTION_OVERTURNED
-            if ref not in affected and computed != receipt[ref]:
-                raise RetractionResolutionDisagreement(ref, receipt[ref], computed)
-            world_computed = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED
-            if world_computed != computed:
-                raise RetractionResolutionDisagreement(ref, computed, world_computed)
+        canonical = view.resolve(ref)
+        assert canonical is not None
+        earlier = receipt.setdefault(canonical, recorded)
+        if earlier != recorded:
+            computed = RETRACTION_UPHELD if standing.get(canonical, True) else RETRACTION_OVERTURNED
+            raise RetractionResolutionDisagreement(
+                canonical,
+                earlier,
+                computed,
+                detail=(
+                    f"{canonical}: the enumeration records two resolutions, {earlier!r} and {recorded!r}; "
+                    "one fold cannot reproduce both (cut 48 §4.5: the epoch folded per corpus over a split)"
+                ),
+            )
+    affected = {ref for ref in receipt if ref not in facets}
+    # Original counter dependencies come from the package, not rejected facets.
+    parents: dict[str, set[str]] = {}
+    for target, counters in view._retraction_discovery.items():
+        resolved = view.resolve(target)
+        if resolved not in receipt:
+            continue
+        for counter in counters:
+            counted = view.resolve(counter)
+            if counted in receipt:
+                assert resolved is not None and counted is not None
+                parents.setdefault(counted, set()).add(resolved)
+    pending = list(affected)
+    while pending:
+        for parent in parents.get(pending.pop(), ()):
+            if parent not in affected:
+                affected.add(parent)
+                pending.append(parent)
+    for ref in facets:
+        computed = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED
+        if ref not in affected and computed != receipt[ref]:
+            raise RetractionResolutionDisagreement(ref, receipt[ref], computed)
 
 
 def gather(
@@ -403,9 +421,15 @@ def _gather(
             canonical = view.resolve(ref)
             if canonical is None:
                 raise RetractionUnreadable(ref, "the inventoried reference does not resolve")
-            holder = view.corpus_of(ref) if world else local_corpus
-            assert holder is not None
-            if not counts(holder, canonical):
+            # Accepted iff any captured holder's branch says so (cut 48 §6), every holder asked;
+            # a damaged holder refused the read above, and an absent one is not captured.
+            if isinstance(view, WorldReadView):
+                holders = _captured_holders(view, ref)
+            else:
+                assert local_corpus is not None
+                holders = (local_corpus,)
+            decisions = [counts(holder, canonical) for holder in holders]
+            if not any(decisions):
                 continue
         else:
             canonical = ref
@@ -438,7 +462,7 @@ def _gather(
         )
     standing = retraction_standing(view, facets)
     if counts is not None and world:
-        _check_filtered_world_standing(view, enumeration, facets, standing, selection)
+        _check_filtered_world_standing(view, enumeration, facets, standing)
         enumeration = replace(
             enumeration,
             found=tuple(sorted((ref, RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED) for ref in facets)),
@@ -465,11 +489,15 @@ def _gather(
     proposition_refs: list[str] = []
     visited: set[str] = set()  # this proposition's assessment ids, subtracted included (decision 10)
     verification_targets: set[str] = set()
-    candidates = view._mapped_records() if world else ((local_corpus, node) for node in view.iter_stored())
-    for corpus_id, node in candidates:
+    candidates: Iterable[tuple[tuple[str | None, ...], Node]] = (
+        view._mapped_holders() if world else (((local_corpus,), node) for node in view.iter_stored())
+    )
+    for holders, node in candidates:
         if node.kind != "assessment":
             continue
-        accepted = counts is None or counts(cast(str, corpus_id), node.id)
+        # Accepted iff any captured holder's branch says so, every holder asked (cut 48 §6).
+        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]
+        accepted = decisions is None or any(decisions)
         # beliefs-010c6e: membership by the `assesses` edge, before any decode.
         targets = [r.target for r in node.relations if r.predicate == stored.ASSESSES]
         wanted = view.resolve(proposition) or proposition
@@ -488,9 +516,8 @@ def _gather(
             )
         matched.append(value)
         if world:
-            corpus_id = view.corpus_of(node.id)
-            assert corpus_id is not None  # A served record has a location in this epoch.
-            attribution.setdefault(value.identity(), set()).add(corpus_id)
+            accepting = holders if decisions is None else tuple(h for h, d in zip(holders, decisions) if d)
+            attribution.setdefault(value.identity(), set()).update(cast(tuple[str, ...], accepting))
         trace.append(("assessment", value.identity()))
         proposition_refs.extend(targets)
     ids = frozenset(a.identity() for a in matched)
@@ -515,10 +542,8 @@ def _gather(
         run_node = view.get(ref)
         runs[a.run] = run_value(view, ref)
         trace.append(("run", a.run))
-        if world:
-            corpus_id = view.corpus_of(ref)
-            assert corpus_id is not None
-            attribution.setdefault(ref, set()).add(corpus_id)
+        if isinstance(view, WorldReadView):
+            attribution.setdefault(ref, set()).update(_captured_holders(view, ref))
         outside: list[str] = []
         for role in stored.INPUT_ROLES:
             for target in stored.inputs_of(run_node, role):
@@ -537,10 +562,8 @@ def _gather(
             if address is None:
                 continue
             trace.append(("dataset", address))
-            if world:
-                corpus_id = view.corpus_of(target)
-                assert corpus_id is not None
-                attribution.setdefault(address, set()).add(corpus_id)
+            if isinstance(view, WorldReadView):
+                attribution.setdefault(address, set()).update(_captured_holders(view, target))
             for row in (
                 _facets_held_to_capture(profile, view, target) if world else read_observed_facets(profile, view, target)
             ):
@@ -551,12 +574,14 @@ def _gather(
 
     verifications: list[Verification] = []
     verification_ids: set[str] = set()
-    candidates = view._mapped_records() if world else ((local_corpus, node) for node in view.iter_stored())
-    for corpus_id, node in candidates:
+    candidates = view._mapped_holders() if world else (((local_corpus,), node) for node in view.iter_stored())
+    for holders, node in candidates:
         if node.kind != "verification":
             continue
-        if counts is not None and not counts(cast(str, corpus_id), node.id):
-            continue
+        if counts is not None:
+            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)
+            if not any(decided):
+                continue
         names = {r.target for r in node.relations if r.predicate == stored.VERIFIES}
         if not any(view.resolve(name) in verification_targets for name in names if view.resolve(name) is not None):
             continue  # membership by the `verifies` edge, never by decoding (decision 10)

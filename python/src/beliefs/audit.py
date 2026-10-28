@@ -630,19 +630,23 @@ class _CapturedCitations:
                 self.unreadable[ref] = f"{self._citing} producers-incomplete:{','.join(sorted(self._causes))}"
                 return None
             return self._own
-        corpus_id = self._view.corpus_of(ref)
-        if corpus_id is None or corpus_id == self._citing:
+        holders = [corpus_id for corpus_id in self._view.holders_of(ref) if corpus_id != self._citing]
+        if not holders:
             return None
-        cause = self._causes.get(corpus_id)
-        holder = self._readable.get(corpus_id)
-        if cause is None and holder is not None:
-            canonical = holder.resolve(ref)  # an alias names the canonical record the map is keyed by
-            if canonical is not None and canonical in self._malformed.get(corpus_id, {}):
-                cause = f"malformed:{self._malformed[corpus_id][canonical]}"
-        if cause is not None:
-            self.unreadable[ref] = f"{corpus_id} {cause}"
-            return None
-        return self._readable.get(corpus_id)
+        # Cut 48 §5.4: the first readable holder answers; unreadable only when none is, naming every cause.
+        causes: list[str] = []
+        for corpus_id in holders:
+            cause = self._causes.get(corpus_id)
+            holder = self._readable.get(corpus_id)
+            if cause is None and holder is not None:
+                canonical = holder.resolve(ref)  # an alias names the canonical record the map is keyed by
+                if canonical is not None and canonical in self._malformed.get(corpus_id, {}):
+                    cause = f"malformed:{self._malformed[corpus_id][canonical]}"
+            if cause is None and holder is not None:
+                return holder
+            causes.append(f"{corpus_id} {cause if cause is not None else 'unreadable'}")
+        self.unreadable[ref] = "; ".join(causes)
+        return None
 
     def _incomplete(self, ref: str) -> bool:
         """Decision 8, per dataset: an own dataset the epoch never mapped, while a
@@ -796,18 +800,21 @@ def audit_world(
         reader = _CapturedCitations(view, corpus_id, readable, causes, malformed_codes)
         second = _record_findings(captured, profile, scope, disagreeing, citations=reader)
         corpora[corpus_id].extend(f for f in second if f.code in ELIGIBILITY_CODES)
-    for node in view.iter_stored():
-        corpus_id = view.corpus_of(node.id)
-        assert corpus_id is not None
-        if corpus_id in excluded or node.id in malformed.get(corpus_id, set()):
+    # Cut 48 §5.4: a record held in several corpora is recomputed once and its findings are
+    # filed under every captured holder whose audit is not excluded for it.
+    for holders, node in view._mapped_holders():
+        targets = [h for h in holders if h not in excluded and node.id not in malformed.get(h, set())]
+        if not targets:
             continue
+        found: list[Finding] = []
+        corpus_id = targets[0]
         try:
             cross = check_supersedes_kinds(view, node, profile=profile)
             if cross is not None:
-                corpora[corpus_id].append(cross)
+                found.append(cross)
             outcome = _recompute(view, node, evidence, profile)
         except CorpusDamaged as unreachable:
-            corpora[corpus_id].append(
+            found.append(
                 Finding(
                     "warning",
                     "derivation-unreachable",
@@ -816,9 +823,11 @@ def audit_world(
                     f"{node.id}: its recomputation reaches {unreachable.corpus_id}, which this audit could not read whole",
                 )
             )
+            for holder in targets:
+                corpora[holder].extend(found)
             continue
         except PreGrammarSpec as refused:
-            corpora[corpus_id].append(
+            found.append(
                 Finding(
                     "error",
                     "spec-pre-grammar",
@@ -827,9 +836,11 @@ def audit_world(
                     f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",
                 )
             )
+            for holder in targets:
+                corpora[holder].extend(found)
             continue
         except PreGrammarAssessment as refused:
-            corpora[corpus_id].append(
+            found.append(
                 Finding(
                     "error",
                     "assessment-pre-grammar",
@@ -838,9 +849,11 @@ def audit_world(
                     f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)",
                 )
             )
+            for holder in targets:
+                corpora[holder].extend(found)
             continue
         except RecordError as refused:
-            corpora[corpus_id].append(
+            found.append(
                 Finding(
                     "error",
                     "derivation-malformed",
@@ -849,9 +862,13 @@ def audit_world(
                     f"{node.id}: the members a derivation recomputation reads are malformed",
                 )
             )
+            for holder in targets:
+                corpora[holder].extend(found)
             continue
         if outcome is not None and outcome.contradiction is not None:
-            corpora[corpus_id].append(outcome.contradiction)
+            found.append(outcome.contradiction)
+        for holder in targets:
+            corpora[holder].extend(found)
     world_findings = _world_findings(world, view, published, malformed, excluded)
     return WorldAudit(
         view.stamp,
@@ -878,9 +895,8 @@ def _world_findings(
 
     findings: list[Finding] = []
     identifiers: dict[tuple[str, str], list[str]] = {}
-    for node in view.iter_stored():
-        corpus_id = view.corpus_of(node.id)
-        if corpus_id in excluded or node.id in malformed.get(corpus_id or "", set()):
+    for holders, node in view._mapped_holders():
+        if all(corpus_id in excluded or node.id in malformed.get(corpus_id, set()) for corpus_id in holders):
             continue
         if node.kind == "coreference-attestation":
             try:

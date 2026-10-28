@@ -1,0 +1,52 @@
+# R held in two corpora; its counter C in corpus-a only. corpus-a's capture says
+# R overturned and corpus-b's says upheld: the fold emits one pair, the world's.
+input:
+  coverage:
+  - corpus-a
+  - corpus-b
+  records:
+  - corpus_id: corpus-a
+    address: retraction:r
+    uid: uid-r
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: dataset:one
+      resolution: overturned
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-a
+    address: retraction:c
+    uid: uid-c
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: retraction:r
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-b
+    address: retraction:r
+    uid: uid-r
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: dataset:one
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+expected:
+  found:
+  - - retraction:c
+    - upheld
+  - - retraction:r
+    - overturned
+  coverage:
+  - corpus-a
+  - corpus-b

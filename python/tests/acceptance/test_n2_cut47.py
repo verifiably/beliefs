@@ -6,15 +6,46 @@ import ast
 import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import frozen_guards
 import pytest
 import test_n2_cut46 as prior
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut47 import CO_CITED, CUT47_ARMS, DECLARATION_UNITS, UNIT_CHECKS, unit_of
 from test_n2 import audit, baseline, workers
+
+_LIVE_SABOTAGES = {
+    # Cut 48 (overlapping publications), 2026-10-28, Task 5: ownership is decided per holder by
+    # `replica()` and carried records are attributed over their holders (spec §7); each arm keeps its
+    # check and its mutation moves to the same decision's new site.
+    "Y17-q": Sabotage(
+        module="publish.py",
+        before="        return holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n",
+        after="        return type(admissions[holder].provenance) is ReplicaOf\n",
+    ),
+    "Y17-r": Sabotage(
+        module="publish.py",
+        before=(
+            "        return holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf\n"
+            "\n"
+            "    carried = {"
+        ),
+        after=(
+            "        return not own_corpora and type(admissions[holder].provenance) is ReplicaOf\n\n    carried = {"
+        ),
+    ),
+    "Y17-u": Sabotage(
+        module="publish.py",
+        before="    for ref in sorted(carried):\n",
+        after="    for ref in (sorted(carried) if not own_corpora else ()):\n",
+    ),
+}
+CUT47_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT47_ARMS
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs/designs/2026-10-27-conformance-cut-47.md"

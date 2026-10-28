@@ -1,0 +1,47 @@
+# A route identity equal to a retraction's address, retracted by route, adds no
+# edge: the arm decides, never resolution (cut 48 §4.5).
+input:
+  coverage:
+  - corpus-a
+  records:
+  - corpus_id: corpus-a
+    address: dataset:one
+    uid: uid-dataset-one
+    kind: dataset
+    deprecated_ids: []
+    produces: []
+    retraction: null
+    certification: null
+    coreference: null
+  - corpus_id: corpus-a
+    address: retraction:r
+    uid: uid-r
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: dataset:one
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-a
+    address: retraction:x
+    uid: uid-x
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: retraction:r
+      resolution: upheld
+      arm: route
+    certification: null
+    coreference: null
+expected:
+  found:
+  - - retraction:r
+    - upheld
+  - - retraction:x
+    - upheld
+  coverage:
+  - corpus-a

@@ -16,6 +16,7 @@ behaviour depends on the installation around it.
 from __future__ import annotations
 
 import ast
+import hashlib
 from dataclasses import dataclass, fields
 
 import pytest
@@ -49,17 +50,26 @@ def record(
     retraction: derive.CapturedRetraction | None = None,
     certification: derive.CapturedCertification | None = None,
     coreference: derive.CapturedCoreference | None = None,
+    content: str | None = None,
 ) -> derive.CapturedRecord:
+    uid = uid if uid is not None else f"uid-{address}"
     return derive.CapturedRecord(
         address=address,
-        uid=uid if uid is not None else f"uid-{address}",
+        uid=uid,
         kind=kind,
         deprecated_ids=deprecated_ids,
         produces=produces,
         retraction=retraction,
         certification=certification,
         coreference=coreference,
+        # A stand-in content identity: equal for equal (address, uid), as the real one is for equal records.
+        content=content if content is not None else hashlib.sha256(f"{address}|{uid}".encode()).hexdigest(),
     )
+
+
+def record_content(address: str, uid: str) -> str:
+    """The stand-in content identity `record` assigns; a deprecated key shares its record's."""
+    return hashlib.sha256(f"{address}|{uid}".encode()).hexdigest()
 
 
 def corpus(corpus_id: str, *records: derive.CapturedRecord, at: str = "a") -> derive.CapturedCorpus:
@@ -105,8 +115,8 @@ def coreference_of(captured: derive.Capture) -> derive.CoreferenceMap:
 # --- shared shapes -----------------------------------------------------------
 
 
-def retraction(target: str, resolution: str = "upheld") -> derive.CapturedRetraction:
-    return derive.CapturedRetraction(target=target, resolution=resolution)
+def retraction(target: str, resolution: str = "upheld", arm: str = "node") -> derive.CapturedRetraction:
+    return derive.CapturedRetraction(target=target, resolution=resolution, arm=arm)
 
 
 def certification(kind: str, ref: str) -> derive.CapturedCertification:
@@ -152,13 +162,20 @@ TWO_CORPORA = capture(
 
 class TestAddressMap:
     def test_every_live_address_maps_to_its_corpus_and_uid(self):
-        assert derive.address_map(TWO_CORPORA) == {
-            "dataset:one": ("corpus-a", "uid-dataset:one"),
-            "dataset:retired": ("corpus-b", "uid-dataset:two"),
-            "dataset:two": ("corpus-b", "uid-dataset:two"),
-            "run:alpha": ("corpus-a", "uid-run:alpha"),
-            "run:beta": ("corpus-b", "uid-run:beta"),
+        mapping = derive.address_map(TWO_CORPORA)
+        assert {address: (entry.holders, entry.uid) for address, entry in mapping.items()} == {
+            "dataset:one": (("corpus-a",), "uid-dataset:one"),
+            "dataset:retired": (("corpus-b",), "uid-dataset:two"),
+            "dataset:two": (("corpus-b",), "uid-dataset:two"),
+            "run:alpha": (("corpus-a",), "uid-run:alpha"),
+            "run:beta": (("corpus-b",), "uid-run:beta"),
         }
+        assert mapping["dataset:retired"] is mapping["dataset:two"]  # a retired key answers for its record
+        assert all(
+            entry.content == record_content(address, entry.uid)
+            for address, entry in mapping.items()
+            if address != "dataset:retired"
+        )
 
     def test_a_deprecated_address_is_a_publication_member(self):
         # §7.2: a retired address answers out of the epoch, so it survives its
@@ -168,9 +185,11 @@ class TestAddressMap:
 
     @pytest.mark.parametrize("other_uid", ["uid-dataset:one", "uid-other"])
     def test_duplicate_location_is_reported_with_either_shared_or_distinct_uids(self, other_uid):
+        # Amended at cut 48 (W8b note): a shared uid is a duplicate location only with differing
+        # content; equal content is one record held twice (W19-a). The shared-uid arm differs here.
         clash = capture(
             corpus("corpus-a", record("dataset:one"), at="a"),
-            corpus("corpus-b", record("dataset:one", uid=other_uid), at="b"),
+            corpus("corpus-b", record("dataset:one", uid=other_uid, content=digest("f")), at="b"),
         )
         with pytest.raises(AddressMapConflict) as caught:
             derive.address_map(clash)
@@ -204,18 +223,24 @@ class TestAddressMap:
                 at="a",
             )
         )
-        with pytest.raises(ValueError, match="dataset:one"):
+        from beliefs.errors import ResolutionRefused
+
+        with pytest.raises(ResolutionRefused, match="dataset:one"):
             derive.address_map(clash)
 
     def test_the_projection_is_sorted_and_encodable(self):
         projection = derive.address_map_projection(derive.address_map(TWO_CORPORA))
+        expected = [
+            ("dataset:one", "dataset:one", ["corpus-a"], "uid-dataset:one"),
+            ("dataset:retired", "dataset:two", ["corpus-b"], "uid-dataset:two"),
+            ("dataset:two", "dataset:two", ["corpus-b"], "uid-dataset:two"),
+            ("run:alpha", "run:alpha", ["corpus-a"], "uid-run:alpha"),
+            ("run:beta", "run:beta", ["corpus-b"], "uid-run:beta"),
+        ]
         assert projection == {
             "addresses": [
-                {"address": "dataset:one", "corpus_id": "corpus-a", "uid": "uid-dataset:one"},
-                {"address": "dataset:retired", "corpus_id": "corpus-b", "uid": "uid-dataset:two"},
-                {"address": "dataset:two", "corpus_id": "corpus-b", "uid": "uid-dataset:two"},
-                {"address": "run:alpha", "corpus_id": "corpus-a", "uid": "uid-run:alpha"},
-                {"address": "run:beta", "corpus_id": "corpus-b", "uid": "uid-run:beta"},
+                {"address": address, "content": record_content(live, uid), "holders": holders, "uid": uid}
+                for address, live, holders, uid in expected
             ]
         }
         assert v1.encode(projection)
@@ -1026,6 +1051,9 @@ class TestShippedFixtures:
         # One captured-record model: every fixture's input is the same shape,
         # so the four reducers really do read one enumeration pass.
         for bundle in rules.shipped_rule_bundles():
+            # The record key set is version-invariant; the retraction member's key set is the
+            # per-version schema (cut 48 §4.5): v2 inputs carry each retraction's `arm`.
+            retraction_keys = {"target", "resolution"} | ({"arm"} if bundle.input_version else set())
             for name, content in bundle.fixtures:
                 supplied, _expected = rules._parse_fixture_document(name, content)
                 assert isinstance(supplied, dict), name
@@ -1042,6 +1070,8 @@ class TestShippedFixtures:
                         "retraction",
                         "uid",
                     }, name
+                    if entry["retraction"] is not None:
+                        assert set(entry["retraction"]) == retraction_keys, name
 
     def test_each_packaged_bundle_installs_and_evaluates_to_the_same_expected_bytes(self, tmp_path):
         from authority import FULL
@@ -1130,3 +1160,134 @@ class TestPurity:
     def test_the_capture_model_refuses_a_repeated_corpus(self):
         with pytest.raises(ValueError, match="corpus-a"):
             capture(corpus("corpus-a", at="a"), corpus("corpus-a", at="b"))
+
+
+# --- cut 48: the multi-holder address map (W19) --------------------------------
+
+
+class TestW19MultiHolderMap:
+    """One address held in several corpora with equal content identity maps one
+    entry; differing content refuses; deprecated keys follow the record."""
+
+    def test_w19_a_equal_content_reads_once(self):
+        shared = record("dataset:shared", uid="uid-shared")
+        entry = derive.AddressEntry("uid-shared", shared.content, ("corpus-a", "corpus-b"))
+        two = capture(corpus("corpus-a", shared, at="a"), corpus("corpus-b", shared, at="b"))
+        assert derive.address_map(two)["dataset:shared"] == entry
+        reversed_two = capture(corpus("corpus-b", shared, at="b"), corpus("corpus-a", shared, at="a"))
+        assert derive.address_map(reversed_two)["dataset:shared"] == entry
+        three = capture(
+            corpus("corpus-c", shared, at="c"), corpus("corpus-a", shared, at="a"), corpus("corpus-b", shared, at="b")
+        )
+        assert derive.address_map(three)["dataset:shared"].holders == ("corpus-a", "corpus-b", "corpus-c")
+
+    @pytest.mark.parametrize(
+        "other",
+        [{"uid": "uid-shared", "content": digest("f")}, {"uid": "uid-other"}],
+        ids=["shared-uid-differing-content", "distinct-uids"],
+    )
+    def test_w19_b_differing_content_refuses(self, other):
+        clash = capture(
+            corpus("corpus-a", record("dataset:one", uid="uid-shared"), at="a"),
+            corpus("corpus-b", record("dataset:one", **other), at="b"),
+        )
+        with pytest.raises(AddressMapConflict) as caught:
+            derive.address_map(clash)
+        finding = caught.value.finding
+        assert finding.code == "duplicate-location" and finding.ref == "dataset:one"
+        assert "corpus-a" in finding.detail and "corpus-b" in finding.detail
+
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_w19_c_corruption_outranks(self, reverse):
+        """The uid at two addresses is refused before the duplicate location the same
+        capture also carries (corpus-c's differing claim on `dataset:one`), either order."""
+        shared = record("dataset:one", uid="shared")
+        corpora = (
+            corpus("corpus-a", shared, at="a"),
+            corpus("corpus-b", shared, at="b"),
+            corpus(
+                "corpus-c",
+                record("dataset:two", uid="shared"),
+                record("dataset:one", uid="other"),  # a differing claim: the content stand-in follows the uid
+                at="c",
+            ),
+        )
+        with pytest.raises(AddressMapConflict) as caught:
+            derive.address_map(capture(*(reversed(corpora) if reverse else corpora)))
+        assert caught.value.finding.code == "uid-corruption" and caught.value.finding.ref == "shared"
+
+    def test_w19_d_deprecated_key_entry(self):
+        from beliefs.errors import ResolutionRefused
+
+        renamed = record("dataset:two", uid="uid-two", deprecated_ids=("dataset:retired",))
+        mapping = derive.address_map(capture(corpus("corpus-a", renamed, at="a"), corpus("corpus-b", renamed, at="b")))
+        assert mapping["dataset:retired"] == mapping["dataset:two"]
+        assert mapping["dataset:two"].holders == ("corpus-a", "corpus-b")
+        live = record("dataset:retired")
+        for order in (
+            (corpus("corpus-a", live, at="a"), corpus("corpus-b", renamed, at="b")),
+            (corpus("corpus-b", renamed, at="b"), corpus("corpus-a", live, at="a")),
+        ):
+            with pytest.raises(ResolutionRefused, match="dataset:retired"):
+                derive.address_map(capture(*order))
+        other = record("dataset:three", uid="uid-three", deprecated_ids=("dataset:retired",))
+        with pytest.raises(ResolutionRefused, match="dataset:retired"):
+            derive.address_map(capture(corpus("corpus-a", renamed, other, at="a")))
+        with pytest.raises(ResolutionRefused, match="dataset:retired"):
+            derive.address_map(capture(corpus("corpus-a", renamed, at="a"), corpus("corpus-b", other, at="b")))
+
+    def test_w19_f_discovery_once(self):
+        held_twice = record("retraction:one", kind="retraction", retraction=retraction("target-1"))
+        mapping = derive.retraction_discovery_map(
+            capture(corpus("corpus-a", held_twice, at="a"), corpus("corpus-b", held_twice, at="b"))
+        )
+        assert dict(mapping) == {"target-1": ("retraction:one",)}
+
+    def test_receipts_fold_a_record_held_twice_once(self):
+        run = record("run:alpha", kind="run", produces=("dataset:one",))
+        cert = record("cert:one", kind="instrument-certification", certification=certification("assessment", "ref-1"))
+        coref = record("coref:one", kind="coreference-attestation", coreference=attestation("address-b", "address-a"))
+        twice = capture(corpus("corpus-a", run, cert, coref, at="a"), corpus("corpus-b", run, cert, coref, at="b"))
+        assert dict(snapshot_of(twice).producers) == {"dataset:one": ("run:alpha",)}
+        assert dict(inventory_of(twice).by_kind) == {"assessment": ("ref-1",)}
+        assert dict(coreference_of(twice).pairs) == {("address-a", "address-b"): (1, 1)}
+
+
+# --- cut 48: the v2 retraction fold equals the kernel's fold over the same records --------------
+
+
+class _FixtureResolver:
+    """`retraction_standing`'s resolver over a fixture's records: live and deprecated ids."""
+
+    def __init__(self, records: list[dict]) -> None:
+        self._live = {}
+        for record in records:
+            self._live[record["address"]] = record["address"]
+            for deprecated in record["deprecated_ids"]:
+                self._live.setdefault(deprecated, record["address"])
+
+    def resolve(self, ref: str) -> str | None:
+        return self._live.get(ref)
+
+
+def test_v2_fold_equals_retraction_standing_over_every_fixture():
+    from beliefs.corpus import retraction_standing
+
+    bundle = shipped("enumerate_retractions_v2")
+    invoke = rules._load_entry_point(bundle.symbol, bundle.implementation)
+    assert bundle.input_version == rules.RULE_INPUT_V2
+    for name, content in bundle.fixtures:
+        supplied, expected = rules._parse_fixture_document(name, content)
+        assert isinstance(supplied, dict) and isinstance(expected, dict)
+        for records in (list(supplied["records"]), list(reversed(supplied["records"]))):
+            capture_input = {"coverage": supplied["coverage"], "records": records}
+            produced = invoke(rules._frozen(capture_input))
+            assert v1.encode(produced) == v1.encode(expected), name
+            facets = {
+                r["address"]: {"target": {"arm": r["retraction"]["arm"], "ref": r["retraction"]["target"]}}
+                for r in records
+                if r["retraction"] is not None
+            }
+            standing = retraction_standing(_FixtureResolver(records), facets)  # type: ignore[arg-type]
+            kernel = sorted((ref, "upheld" if standing[ref] else "overturned") for ref in facets)
+            assert [list(pair) for pair in kernel] == list(expected["found"]), name

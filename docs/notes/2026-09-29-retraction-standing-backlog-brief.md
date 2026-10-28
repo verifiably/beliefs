@@ -91,3 +91,29 @@ identity treatment. No priority increase follows merely from an unknown.
 
 All five retain their original source material under `beliefs-0c50ed`. No drops,
 implementation changes, or new design task were needed in this pass.
+
+## Amendment 2026-10-28: the input inventory (beliefs-ae33ff) and the successor rule
+
+Answered by the overlapping-publications design
+(`../superpowers/specs/2026-10-28-overlapping-publications-design.md` §4.5, accepted at
+`e14315c`), which science commons milestone 1b forced: a publication carrying retraction R
+beside its publisher's write root, where a counter C was written after publishing, is the
+split-counter state by construction, not only by `move`.
+
+- **Inventory.** The v1 rule input (`Capture.rule_input()`: coverage; per record
+  `corpus_id`, `address`, `uid`, `kind`, `deprecated_ids`, `produces`,
+  `retraction: {target, resolution}`, `certification`, `coreference`) carries the node-arm
+  graph: the authored target ref and every live and deprecated address across all corpora
+  are enough to resolve each counter's target and fold standing in acyclic postorder. It
+  does **not** carry the target arm, and a route identity is an authored string the target
+  validator checks only for stamped-route membership, so a route-arm target cannot be told
+  from a node-arm one by resolution. The per-corpus `resolution` is the capture's own claim
+  and is not a world resolution.
+- **Recommendation taken (alternative 2).** A successor rule `retraction-enumeration` v2
+  at derivation, over a versioned rule input (`science.rule-input.v2`: the v1 projection
+  plus `arm` on each retraction member), the version held with the rule and read at build
+  and validation; v1's input, fixtures and identities unchanged; the subject domain and the
+  closure digest unchanged. Alternative 3 (capture consults the whole world) was tried in
+  the design's review and rejected again: receipt validation recaptures per corpus and
+  would refute it.
+- `beliefs-c800ef` is scoped to that design's cut and stays open until the rule lands.

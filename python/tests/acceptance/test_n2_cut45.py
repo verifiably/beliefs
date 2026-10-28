@@ -81,6 +81,215 @@ _LIVE_SABOTAGES = {
             "            ),\n"
         ),
     ),
+    # Cut 48 (overlapping publications), 2026-10-28, Task 4: gather's retraction loop asks `counts(h, address)` for every captured
+    # holder and `_check_filtered_world_standing` is one comparison against gather's own fold
+    # (spec §4.5, §6); `snapshot_standing` folds once over the merged holders. Each arm keeps
+    # its check; its mutation moves to the same decision's new site.
+    "G12-a": Sabotage(
+        module="evaluation.py",
+        before="            if not any(decisions):\n                continue\n",
+        after="            if False:\n                continue\n",
+    ),
+    "G12-b": Sabotage(
+        module="evaluation.py",
+        before="            if not any(decisions):\n                continue\n        else:\n            canonical = ref\n",
+        after="            if False:\n                continue\n        else:\n            canonical = ref\n",
+    ),
+    "G12-c": Sabotage(
+        module="evaluation.py",
+        before=(
+            "            decisions = [counts(holder, canonical) for holder in holders]\n"
+            "            if not any(decisions):\n"
+            "                continue\n"
+        ),
+        after=(
+            "            decisions = [counts(holder, canonical) for holder in holders]\n"
+            "            if False:\n"
+            "                continue\n"
+        ),
+    ),
+    "G12-d": Sabotage(
+        module="evaluation.py",
+        before="        if ref not in affected and computed != receipt[ref]:\n",
+        after="        if computed != receipt[ref]:\n",
+    ),
+    "G12-e": Sabotage(
+        module="corpus.py",
+        before=(
+            "        if counts is not None:\n"
+            "            decisions = [counts(corpus_id, node.id) for corpus_id in holders[node.id]]\n"
+        ),
+        after=(
+            "        _validated_retraction_facet(node)\n"
+            "        if counts is not None:\n"
+            "            decisions = [counts(corpus_id, node.id) for corpus_id in holders[node.id]]\n"
+        ),
+    ),
+    "G12-f": Sabotage(
+        module="corpus.py",
+        before="    for ref in sorted(members):\n",
+        after="    for ref in ():\n",
+    ),
+    # G12-g: the fold resolves through the epoch map alone; the sabotage hands it the first
+    # captured corpus's full capture instead.
+    "G12-g": Sabotage(
+        module="evaluation.py",
+        before="    standing = retraction_standing(view, facets)\n    if counts is not None and world:\n",
+        after=(
+            "    standing = retraction_standing(view._captured_views[min(view._captured_views)] if world else view, facets)\n"
+            "    if counts is not None and world:\n"
+        ),
+    ),
+    # G12-h: the local-versus-world comparison it skipped no longer exists (one fold). On cut
+    # 22's B4b pattern the arm keeps its check, rewritten to the v2 obligation, and its mutation
+    # removes the explicit two-resolutions refusal, shared with G14-g (cut 48).
+    "G12-h": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        earlier = receipt.setdefault(canonical, recorded)\n"
+            "        if earlier != recorded:\n"
+            "            computed = RETRACTION_UPHELD if standing.get(canonical, True) else RETRACTION_OVERTURNED\n"
+            "            raise RetractionResolutionDisagreement(\n"
+            "                canonical,\n"
+            "                earlier,\n"
+            "                computed,\n"
+            "                detail=(\n"
+            '                    f"{canonical}: the enumeration records two resolutions, {earlier!r} and {recorded!r}; "\n'
+            '                    "one fold cannot reproduce both (cut 48 §4.5: the epoch folded per corpus over a split)"\n'
+            "                ),\n"
+            "            )\n"
+        ),
+        after="        receipt[canonical] = recorded\n",
+    ),
+    "G12-i": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        if ref not in affected and computed != receipt[ref]:\n"
+            "            raise RetractionResolutionDisagreement(ref, receipt[ref], computed)\n"
+        ),
+        after=(
+            "        if not affected and computed != receipt[ref]:\n"
+            "            raise RetractionResolutionDisagreement(ref, receipt[ref], computed)\n"
+        ),
+    ),
+    "G12-l": Sabotage(
+        module="evaluation.py",
+        before=(
+            "    for ref in facets:\n"
+            "        computed = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED\n"
+            "        if ref not in affected and computed != receipt[ref]:\n"
+        ),
+        after=(
+            "    for ref in facets:\n"
+            "        computed = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED\n"
+            "        if False:\n"
+        ),
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28, Task 5: gather's assessment and verification loops
+    # iterate each record once with its captured holders and ask `counts` for every holder (spec
+    # §6); each arm keeps its check and its mutation moves to the same decision's new site.
+    "G10-c": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n"
+            "        accepted = decisions is None or any(decisions)\n"
+            "        # beliefs-010c6e:"
+        ),
+        after=(
+            "        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n"
+            "        accepted = True\n"
+            "        # beliefs-010c6e:"
+        ),
+    ),
+    "G10-d": Sabotage(
+        module="evaluation.py",
+        before="        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n",
+        after=(
+            "        decisions = None if counts is None else [counts(cast(str, holder), "
+            "(node.deprecated_ids[0] if node.deprecated_ids else node.id)) for holder in holders]\n"
+        ),
+    ),
+    # G10-f's frozen `after` named the per-holder loop variable the loop no longer binds.
+    "G10-f": Sabotage(
+        module="evaluation.py",
+        before="        if not accepted:\n            continue\n        visited.add(node.id)\n",
+        after=(
+            "        if not accepted:\n"
+            "            if world:\n"
+            "                identity = stored.assessment_value(node, profile=profile).identity()\n"
+            "                attribution.setdefault(identity, set()).update(cast(tuple[str, ...], holders))\n"
+            "            continue\n"
+            "        visited.add(node.id)\n"
+        ),
+    ),
+    "G11-a": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        if counts is not None:\n"
+            "            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)\n"
+            "            if not any(decided):\n"
+            "                continue\n"
+        ),
+        after=(
+            "        if counts is not None:\n"
+            "            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)\n"
+            "            if False:\n"
+            "                continue\n"
+        ),
+    ),
+    "G11-b": Sabotage(
+        module="evaluation.py",
+        before=(
+            '        if node.kind != "verification":\n'
+            "            continue\n"
+            "        if counts is not None:\n"
+            "            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)\n"
+            "            if not any(decided):\n"
+            "                continue\n"
+        ),
+        after=(
+            '        if node.kind != "verification":\n'
+            "            continue\n"
+            "        if counts is not None:\n"
+            "            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)\n"
+            "            if False:\n"
+            "                continue\n"
+        ),
+    ),
+    "G11-c": Sabotage(
+        module="evaluation.py",
+        before=(
+            "            if not any(decided):\n"
+            "                continue\n"
+            "        names = {r.target for r in node.relations if r.predicate == stored.VERIFIES}\n"
+        ),
+        after=(
+            "            if False:\n"
+            "                continue\n"
+            "        names = {r.target for r in node.relations if r.predicate == stored.VERIFIES}\n"
+        ),
+    ),
+    "G13-b": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n"
+            "        accepted = decisions is None or any(decisions)\n"
+            "        # beliefs-010c6e: membership by the `assesses` edge, before any decode.\n"
+            "        targets = [r.target for r in node.relations if r.predicate == stored.ASSESSES]\n"
+            "        wanted = view.resolve(proposition) or proposition\n"
+            "        if not any((view.resolve(target) or target) == wanted for target in targets):\n"
+            "            continue  # a lookup, not a value handed out — membership by the edge, never by decoding\n"
+        ),
+        after=(
+            "        # beliefs-010c6e: membership by the `assesses` edge, before any decode.\n"
+            "        targets = [r.target for r in node.relations if r.predicate == stored.ASSESSES]\n"
+            "        wanted = view.resolve(proposition) or proposition\n"
+            "        if not any((view.resolve(target) or target) == wanted for target in targets):\n"
+            "            continue  # a lookup, not a value handed out — membership by the edge, never by decoding\n"
+            "        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n"
+            "        accepted = decisions is None or any(decisions)\n"
+        ),
+    ),
 }
 CUT45_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT45_ARMS

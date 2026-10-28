@@ -354,3 +354,47 @@ def test_a_found_retraction_missing_from_the_local_index_is_unreadable(tmp_path)
     assert refused.value.ref == retraction.id
     assert isinstance(refused.value.__cause__, RefError)
     assert refused.value.cause == str(refused.value.__cause__)
+
+
+# --- cut 48: the merge's self-check through the receipt path (G14-f) ---------------------------
+
+
+@pytest.mark.parametrize("order", ("original-in-alpha", "original-in-beta"))
+@pytest.mark.parametrize("conflict", ("differing-content", "differing-address", "distinct-uids", "deprecated-key"))
+def test_g14_f_merge_self_check(tmp_path, conflict, order):
+    """`snapshot_standing`'s merge applies the address map's classification between
+    holders before collapsing anything (cut 48 §4.5): through `validate_receipt` the
+    verdict is `unresolvable`, never `retracted` and never an exception, and
+    `reported_receipt` carries the conflict's finding beside it."""
+    from fixtures_cut4 import raw_write
+    from nodes.core.node import new_uid
+    from test_world_build import ALPHA, BETA
+    from test_world_standing import support_in
+    from test_world_view import split_evaluation_world
+
+    from beliefs.world.read import reported_receipt, validate_receipt
+    from beliefs.world.view import open_world_view
+
+    holder, other = (ALPHA, BETA) if order == "original-in-alpha" else (BETA, ALPHA)
+    world, roots, published = split_evaluation_world(tmp_path, beta_refs=("assessment:a-1",) if holder == BETA else ())
+    assert validate_receipt(world, published, "producer").outcome == "validated"
+    original = support_in(open_world_view(world, published), holder)
+    if conflict == "differing-content":
+        copy, code, ref = original.model_copy(update={"title": "a-1, revised"}), "duplicate-location", original.id
+    elif conflict == "differing-address":
+        copy, code, ref = original.model_copy(update={"id": "assessment:a-1-elsewhere"}), "uid-corruption", original.uid
+    elif conflict == "distinct-uids":
+        copy, code, ref = original.model_copy(update={"uid": new_uid()}), "duplicate-location", original.id
+    else:
+        copy = original.model_copy(
+            update={"id": "assessment:a-1-successor", "uid": new_uid(), "deprecated_ids": [original.id]}
+        )
+        code, ref = "deprecated-key-collision", original.id
+    raw_write(roots[other], copy)
+    outcome = validate_receipt(world, published, "producer")
+    assert outcome.outcome == "unresolvable" and code in outcome.detail, outcome
+    reported, finding = reported_receipt(world, published, "producer")
+    assert reported == outcome and finding is not None
+    assert (finding.severity, finding.code, finding.ref) == ("error", code, ref)
+    assert ALPHA in finding.detail and BETA in finding.detail
+    assert "retracted" not in (outcome.outcome, reported.outcome)

@@ -110,9 +110,9 @@ class _LiveCapture:
 
     def __init__(
         self,
-        recorded: Mapping[str, tuple[str, str]],
+        recorded: Mapping[str, derive.AddressEntry],
         held: Mapping[str, Mapping[str, Node]],
-        inbound: Mapping[tuple[str, str], tuple[ResolvedEdge, ...]],
+        inbound: Mapping[str, tuple[ResolvedEdge, ...]],
     ) -> None:
         self._recorded = recorded
         self._held = held
@@ -123,17 +123,24 @@ class _LiveCapture:
 
     def corpus_of(self, ref: str) -> str | None:
         entry = self._recorded.get(ref)
-        return None if entry is None else entry[0]
+        return None if entry is None else entry.holders[0]
+
+    def holders_of(self, ref: str) -> tuple[str, ...]:
+        entry = self._recorded.get(ref)
+        return () if entry is None else entry.holders
+
+    def captured(self) -> tuple[str, ...]:
+        return tuple(sorted(self._held))
 
     def resolve(self, ref: str) -> str | None:
         entry = self._recorded.get(ref)
-        return None if entry is None else self._held[entry[0]][entry[1]].id
+        return None if entry is None else self._held[entry.holders[0]][entry.uid].id
 
     def get(self, ref: str) -> Node:
         entry = self._recorded.get(ref)
         if entry is None:
             raise RefError(f"no node resolves ref {ref!r}")
-        return validated_node(self._held[entry[0]][entry[1]]).model_copy(deep=True)
+        return validated_node(self._held[entry.holders[0]][entry.uid]).model_copy(deep=True)
 
     def inbound(self, ref: str) -> list[ResolvedEdge]:
         entry = self._recorded.get(ref)
@@ -141,7 +148,7 @@ class _LiveCapture:
             return []
         return [
             ResolvedEdge(relation=deepcopy(edge.relation), source_uid=edge.source_uid, target_uid=edge.target_uid)
-            for edge in self._inbound.get(entry, ())
+            for edge in self._inbound.get(entry.uid, ())
         ]
 
     def live_id(self, uid: str) -> str:
@@ -154,6 +161,17 @@ class _LiveCapture:
         for corpus_id in sorted(self._held):
             for uid in sorted(self._held[corpus_id]):
                 yield corpus_id, self._held[corpus_id][uid]
+
+    def _mapped_holders(self) -> Iterator[tuple[tuple[str, ...], Node]]:
+        seen: set[str] = set()
+        for corpus_id in sorted(self._held):
+            for uid in sorted(self._held[corpus_id]):
+                if uid in seen:
+                    continue
+                seen.add(uid)
+                node = self._held[corpus_id][uid]
+                entry = self._recorded.get(node.id)
+                yield (entry.holders if entry is not None else (corpus_id,)), node
 
 
 def evaluate_live_query(world: registry.World, query: ViewQuery) -> LiveSelection:
@@ -245,7 +263,9 @@ def _capture(carriers: Mapping[str, Path]) -> tuple[dict[str, tuple[Node, ...]],
     return captured, states, damaged
 
 
-def _address_map(captured: Mapping[str, tuple[Node, ...]], states: Mapping[str, str]) -> Mapping[str, tuple[str, str]]:
+def _address_map(
+    captured: Mapping[str, tuple[Node, ...]], states: Mapping[str, str]
+) -> Mapping[str, derive.AddressEntry]:
     """Decisions 6 and 7: publish's own `derive.address_map` over the captured
     world-kind records, so its `AddressMapConflict` — `uid-corruption` before
     `duplicate-location` — reaches the caller unchanged."""
@@ -263,7 +283,11 @@ def _address_map(captured: Mapping[str, tuple[Node, ...]], states: Mapping[str, 
                     states[corpus_id],
                     tuple(
                         derive.CapturedRecord(
-                            address=node.id, uid=node.uid, kind=node.kind, deprecated_ids=tuple(node.deprecated_ids)
+                            address=node.id,
+                            uid=node.uid,
+                            kind=node.kind,
+                            content=registry.content_identity(node),
+                            deprecated_ids=tuple(node.deprecated_ids),
                         )
                         for owner, node in located
                         if owner == corpus_id
@@ -292,19 +316,24 @@ def _require_unmapped_uids_unique(captured: Mapping[str, tuple[Node, ...]]) -> N
 
 
 def _inbound(
-    recorded: Mapping[str, tuple[str, str]], held: Mapping[str, Mapping[str, Node]]
-) -> dict[tuple[str, str], tuple[ResolvedEdge, ...]]:
-    """Inbound edges between held records, constructed as `open_world_view` constructs them."""
-    inbound: dict[tuple[str, str], list[ResolvedEdge]] = {}
-    for records in held.values():
-        for node in records.values():
-            for relation in node.relations:
+    recorded: Mapping[str, derive.AddressEntry], held: Mapping[str, Mapping[str, Node]]
+) -> dict[str, tuple[ResolvedEdge, ...]]:
+    """Inbound edges between held records, one per relation of each distinct
+    record, constructed as `open_world_view` constructs them (keyed by uid)."""
+    inbound: dict[str, list[ResolvedEdge]] = {}
+    seen: set[str] = set()
+    for corpus_id in sorted(held):
+        for uid in sorted(held[corpus_id]):
+            if uid in seen:
+                continue
+            seen.add(uid)
+            for relation in held[corpus_id][uid].relations:
                 if (target := recorded.get(relation.target)) is not None:
                     source = recorded.get(relation.source)
                     if source is None:
                         continue
-                    source_uid = source[1] if source[1] in held.get(source[0], {}) else None
-                    inbound.setdefault(target, []).append(
-                        ResolvedEdge(relation=relation, source_uid=source_uid, target_uid=target[1])
+                    source_uid = source.uid if any(source.uid in held.get(h, {}) for h in source.holders) else None
+                    inbound.setdefault(target.uid, []).append(
+                        ResolvedEdge(relation=relation, source_uid=source_uid, target_uid=target.uid)
                     )
     return {key: tuple(edges) for key, edges in inbound.items()}

@@ -113,7 +113,7 @@ from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.transport import Transport, TransportAbandoned, listing_identity, local_listing, transport_files
 from beliefs.view_query import stored_query
-from beliefs.world import Fresh, RegistryView, ReplicaOf, WorldConfig, load_manifest
+from beliefs.world import AdmissionRecord, Fresh, RegistryView, ReplicaOf, WorldConfig, load_manifest
 from beliefs.world.anchors import CorpusSubject, decode_head_artifact
 from beliefs.world.read import current_epoch
 from beliefs.world.registry import World
@@ -256,12 +256,28 @@ def _selected_attributions(
     *,
     own_corpora: frozenset[str] = frozenset(),
 ) -> tuple[tuple[str, str, str], ...] | None:
-    """Check admissions, then declared ownership and remaining replica layouts."""
+    """Check admissions, then declared ownership, then attribute each selected record
+    over its captured holder set (cut 48 §7).
+
+    Each captured holder yields one claim: an own holder (`Fresh`, `ForkOf`, or a
+    declared markerless holder) yields *own*; a replica holder (undeclared
+    `ReplicaOf`) yields the origin triple its captured marker carries for the
+    address, else `(address, holder, marker uid)`. The record's attribution is
+    own if any holder is own (3.1); else the one triple every replica yields
+    (3.2); else the claim whose origin marker every other claimed marker
+    supersedes, read transitively through the markers of every captured
+    undeclared replica, those holding no selected record included, only when
+    this rule is reached (3.3); else `attribution-ambiguous`, carrying the
+    claims (3.4). Under v2 the refusal names the replica holders of a carried
+    record; a record an own holder makes own needs no source.
+    """
+    present = read.captured()
+    holders_of = {ref: tuple(holder for holder in read.holders_of(ref) if holder in present) for ref in selected}
     grouped: dict[str, list[str]] = {}
-    for ref in selected:
-        holder = read.corpus_of(ref)
-        assert holder is not None  # complete canonical world selection
-        grouped.setdefault(holder, []).append(ref)
+    for ref, holders in holders_of.items():
+        assert holders  # complete canonical world selection: a selected record is `Resolved`
+        for holder in holders:
+            grouped.setdefault(holder, []).append(ref)
     admissions = {record.corpus_id: record for record in registry.admissions}
     for holder in sorted(grouped):
         if holder not in admissions:
@@ -278,41 +294,107 @@ def _selected_attributions(
                 refs=tuple(sorted(grouped[holder])),
                 field="marker-present",
             )
-    replicas = tuple(
-        holder
-        for holder in sorted(grouped)
-        if holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf
-    )
+
+    def replica(holder: str) -> bool:
+        return holder not in own_corpora and type(admissions[holder].provenance) is ReplicaOf
+
+    carried = {ref: holders for ref, holders in holders_of.items() if all(replica(holder) for holder in holders)}
+    carriers = tuple(sorted({holder for holders in carried.values() for holder in holders}))
     if coordination_pin != V3_PIN:
-        if replicas:
-            raise PublicationRefused("attribution-contract-unpinned", corpus_ids=replicas)
+        if carriers:
+            raise PublicationRefused("attribution-contract-unpinned", corpus_ids=carriers)
         return None
     sources: dict[str, tuple[str, dict[str, tuple[str, str, str]]]] = {}
-    for holder in replicas:
-        records = read.captured_records(holder)
-        manifest = read.captured_manifest(holder)
-        try:
-            require_publication_layout(records)
-            (marker,) = (node for node in records if node.kind == MARKER_KIND)
-            if _marker_release_malformed(marker, manifest.profile.domains.get("coordination")):
-                raise PublicationArrivalRefused("marker-malformed")
-        except PublicationArrivalRefused as refused:
-            raise PublicationRefused(
-                "attribution-source-invalid",
-                corpus_ids=(holder,),
-                refs=tuple(sorted(grouped[holder])),
-                field=refused.reason,
-            ) from refused
-        earlier = marker.facets[stored.COORDINATION_FACET]["published_from"].get("attributions", [])
-        sources[holder] = (marker.uid, {row[0]: (row[0], row[1], row[2]) for row in earlier})
+    for holder in carriers:
+        sources[holder] = _captured_source(read, holder, tuple(grouped[holder]))
+    supersession: dict[tuple[str, str], frozenset[tuple[str, str]]] | None = None
     result: list[tuple[str, str, str]] = []
-    for ref in sorted(selected):
-        holder = read.corpus_of(ref)
-        assert holder is not None
-        if holder in sources:
-            uid, earlier = sources[holder]
-            result.append(earlier.get(ref, (ref, holder, uid)))
+    for ref in sorted(carried):
+        claims = {sources[holder][1].get(ref, (ref, holder, sources[holder][0])) for holder in carried[ref]}
+        if len(claims) == 1:
+            result.append(next(iter(claims)))
+            continue
+        if supersession is None:
+            supersession = _held_supersession(read, admissions, own_corpora, sources)
+        least = [
+            claim
+            for claim in sorted(claims)
+            if all(
+                _supersedes(supersession, (other[1], other[2]), (claim[1], claim[2]))
+                for other in claims
+                if other != claim
+            )
+        ]
+        if len(least) == 1:
+            result.append(least[0])
+            continue
+        raise PublicationRefused(
+            "attribution-ambiguous",
+            refs=(ref,),
+            corpus_ids=carried[ref],
+            field=",".join(f"{corpus_id}:{marker}" for _ref, corpus_id, marker in sorted(claims)),
+        )
     return tuple(result)
+
+
+def _captured_source(
+    read: WorldReadView, holder: str, refs: tuple[str, ...]
+) -> tuple[str, dict[str, tuple[str, str, str]]]:
+    """A replica holder's marker uid and the entries it carries, from the captured
+    records and manifest; a layout or release fault refuses naming `refs`."""
+    records = read.captured_records(holder)
+    manifest = read.captured_manifest(holder)
+    try:
+        require_publication_layout(records)
+        (marker,) = (node for node in records if node.kind == MARKER_KIND)
+        if _marker_release_malformed(marker, manifest.profile.domains.get("coordination")):
+            raise PublicationArrivalRefused("marker-malformed")
+    except PublicationArrivalRefused as refused:
+        raise PublicationRefused(
+            "attribution-source-invalid",
+            corpus_ids=(holder,),
+            refs=tuple(sorted(refs)),
+            field=refused.reason,
+        ) from refused
+    earlier = marker.facets[stored.COORDINATION_FACET]["published_from"].get("attributions", [])
+    return marker.uid, {row[0]: (row[0], row[1], row[2]) for row in earlier}
+
+
+def _held_supersession(
+    read: WorldReadView,
+    admissions: Mapping[str, AdmissionRecord],
+    own_corpora: frozenset[str],
+    sources: Mapping[str, tuple[str, dict[str, tuple[str, str, str]]]],
+) -> dict[tuple[str, str], frozenset[tuple[str, str]]]:
+    """Each captured undeclared replica's marker `(holder, uid)` → the markers it
+    names in `supersedes_markers` (cut 48 §7 rule 3.3), read from the captured
+    records; an idle replica's invalid marker refuses naming it with empty refs."""
+    graph: dict[tuple[str, str], frozenset[tuple[str, str]]] = {}
+    for holder in read.captured():
+        record = admissions.get(holder)
+        if record is None or holder in own_corpora or type(record.provenance) is not ReplicaOf:
+            continue
+        if holder not in sources:
+            _captured_source(read, holder, ())
+        (marker,) = (node for node in read.captured_records(holder) if node.kind == MARKER_KIND)
+        pairs = marker.facets[stored.COORDINATION_FACET]["supersedes_markers"]
+        graph[(holder, marker.uid)] = frozenset((str(pair[0]), str(pair[1])) for pair in pairs)
+    return graph
+
+
+def _supersedes(
+    graph: Mapping[tuple[str, str], frozenset[tuple[str, str]]], later: tuple[str, str], earlier: tuple[str, str]
+) -> bool:
+    """Whether `later` names `earlier` in `supersedes_markers`, transitively through held markers."""
+    frontier, seen = [later], {later}
+    while frontier:
+        for named in graph.get(frontier.pop(), frozenset()):
+            if named == earlier:
+                return True
+            if named not in seen:
+                seen.add(named)
+                frontier.append(named)
+    return False
 
 
 def _require_own_corpora(own_corpora: frozenset[str]) -> None:

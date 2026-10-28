@@ -198,7 +198,7 @@ class TestTheRuleDocument:
         content = rules.rule_document_bytes(SYMBOL)
 
         assert content == b"symbol: sort_members\n"
-        assert rules.parse_rule_document(content) == SYMBOL
+        assert rules.parse_rule_document(content) == (SYMBOL, None)
 
     @pytest.mark.parametrize(
         "content",
@@ -402,12 +402,12 @@ class TestHeldResolution:
 
 
 class TestTheShippedBundles:
-    def test_four_bundles_ship_with_fixtures_and_distinct_identities(self):
+    def test_five_bundles_ship_with_fixtures_and_distinct_identities(self):
         bundles = rules.shipped_rule_bundles()
 
-        assert len(bundles) == 4
-        assert len({shipped.symbol for shipped in bundles}) == 4
-        assert len({rules.binding_for(shipped).rule_identity for shipped in bundles}) == 4
+        assert len(bundles) == 5
+        assert len({shipped.symbol for shipped in bundles}) == 5
+        assert len({rules.binding_for(shipped).rule_identity for shipped in bundles}) == 5
         for shipped in bundles:
             assert shipped.fixtures
             assert all(name.endswith(".yaml") and content for name, content in shipped.fixtures)
@@ -418,7 +418,7 @@ class TestTheShippedBundles:
 
         bindings = root.install_shipped_world_rules(world)
 
-        assert len(plans) == 4
+        assert len(plans) == 5
         assert bindings == tuple(rules.binding_for(shipped) for shipped in rules.shipped_rule_bundles())
         for binding in bindings:
             held = rules._resolve_rule_binding(world, binding)
@@ -426,7 +426,7 @@ class TestTheShippedBundles:
 
         # The act is idempotent, and re-running it submits no further plan.
         assert root.install_shipped_world_rules(world) == bindings
-        assert len(plans) == 4
+        assert len(plans) == 5
 
 
 def test_shipped_rules_install_from_a_built_wheel(tmp_path):
@@ -1213,3 +1213,116 @@ class TestExplicitRemoval:
 
         assert facade.remove_rule_binding is rules.remove_rule_binding
         assert facade.RuleRemovalReport is rules.RuleRemovalReport
+
+
+# --- cut 48: the versioned rule input and the v2 retraction rule (G14-h) -----------------------
+
+V2_SYMBOL = "enumerate_retractions_v2"
+
+
+def v2_bundle() -> rules.RuleBundle:
+    for shipped in rules.shipped_rule_bundles():
+        if shipped.symbol == V2_SYMBOL:
+            return shipped
+    raise AssertionError("no shipped v2 retraction bundle")
+
+
+def v2_fixture_without_arm(shipped: rules.RuleBundle) -> rules.RuleBundle:
+    """The same bundle with one fixture's retraction member stripped of `arm`."""
+    name, content = next((n, c) for n, c in shipped.fixtures if n == "retraction_v2.basic.yaml")
+    document = yaml.safe_load(content)
+    for record in document["input"]["records"]:
+        if record["retraction"] is not None:
+            record["retraction"].pop("arm")
+    edited = yaml.safe_dump(document, sort_keys=False, allow_unicode=True).encode("utf-8")
+    fixtures = tuple((n, edited if n == name else c) for n, c in shipped.fixtures)
+    return rules.RuleBundle(shipped.symbol, fixtures, shipped.implementation, input_version=shipped.input_version)
+
+
+class TestG14V2RuleBinding:
+    def test_g14_h_v2_rule_binding(self, tmp_path):
+        from test_world_build import ALPHA, sample_nodes
+        from test_world_receipts import corpora, hold_shipped, publish, world_over
+
+        from beliefs.world import derive, read
+
+        # The two closed document shapes, one encoding per version.
+        assert rules.parse_rule_document(b"symbol: enumerate_retractions\n") == ("enumerate_retractions", None)
+        v2_document = rules.rule_document_bytes(V2_SYMBOL, rules.RULE_INPUT_V2)
+        assert rules.parse_rule_document(v2_document) == (V2_SYMBOL, rules.RULE_INPUT_V2)
+        with pytest.raises(RuleNotHeld):
+            rules.parse_rule_document(b"symbol: s\ninput: science.rule-input.v1\n")
+        # The identities: two members without a version, three with one; v1 unchanged.
+        assert rules.rule_identity("s", FIXTURES, None) == v1.digest(
+            rules.RULE_DOMAIN, ["s", rules.fixture_set_identity(FIXTURES)]
+        )
+        assert rules.rule_identity("s", FIXTURES) == rules.rule_identity("s", FIXTURES, None)
+        assert rules.rule_identity("s", FIXTURES, rules.RULE_INPUT_V2) == v1.digest(
+            rules.RULE_DOMAIN, ["s", rules.fixture_set_identity(FIXTURES), rules.RULE_INPUT_V2]
+        )
+        shipped = v2_bundle()
+        assert shipped.input_version == rules.RULE_INPUT_V2
+        assert all(b.input_version is None for b in rules.shipped_rule_bundles() if b.symbol != V2_SYMBOL)
+
+        # Dispatch: a v2-bound build hands the rule the v2 input and publishes; validation reproduces it.
+        roots = corpora(tmp_path, {ALPHA: sample_nodes("one")})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA,), hold_shipped(world, retraction="v2"))
+        held = rules._resolve_rule_binding(world, rules.binding_for(shipped))
+        assert held.input_version == rules.RULE_INPUT_V2
+        assert read.validate_receipt(world, published, "retraction-enumeration").outcome == "validated"
+        assert derive.Capture(()).rule_input(rules.RULE_INPUT_V2) == {"coverage": [], "records": []}
+
+        # A fixture whose retraction member lacks `arm` cannot be installed...
+        malformed = v2_fixture_without_arm(shipped)
+        with pytest.raises(RuleNonconformant):
+            rules.install_rule_binding(world, malformed)
+        # ...and the same pair written raw under its correct names is not held, but is removable.
+        raw_binding = rules.binding_for(malformed)
+        directory = world.config.world_root / "rules" / raw_binding.rule_identity
+        for path, content in rules._member_bytes(malformed, raw_binding):
+            (world.config.world_root / path).parent.mkdir(parents=True, exist_ok=True)
+            (world.config.world_root / path).write_bytes(content)
+        with pytest.raises(RuleNotHeld):
+            rules._resolve_rule_binding(world, raw_binding)
+        report = rules.remove_rule_binding(world, raw_binding)
+        assert report.binding == raw_binding and report.severed_receipts == ()
+        assert [path for path in directory.rglob("*") if path.is_file()] == []  # every member gone
+
+    def test_v2_refuses_an_id_under_two_uids_and_a_cycle(self):
+        shipped = v2_bundle()
+        invoke = rules._load_entry_point(shipped.symbol, shipped.implementation)
+
+        def record(address, uid, *, retraction=None, deprecated=()):
+            return {
+                "corpus_id": "corpus-a",
+                "address": address,
+                "uid": uid,
+                "kind": "retraction" if retraction else "dataset",
+                "deprecated_ids": list(deprecated),
+                "produces": [],
+                "retraction": retraction,
+                "certification": None,
+                "coreference": None,
+            }
+
+        colliding = {"coverage": ["corpus-a"], "records": [record("dataset:x", "uid-1"), record("dataset:x", "uid-2")]}
+        with pytest.raises(Exception, match="distinct uids"):
+            invoke(colliding)
+        cycle = {
+            "coverage": ["corpus-a"],
+            "records": [
+                record(
+                    "retraction:r",
+                    "uid-r",
+                    retraction={"target": "retraction:c", "resolution": "upheld", "arm": "node"},
+                ),
+                record(
+                    "retraction:c",
+                    "uid-c",
+                    retraction={"target": "retraction:r", "resolution": "upheld", "arm": "node"},
+                ),
+            ],
+        }
+        with pytest.raises(Exception, match="cycle"):
+            invoke(cycle)

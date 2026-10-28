@@ -504,7 +504,9 @@ def test_w8b_duplicate_location_is_the_same_finding_with_shared_or_distinct_uids
     durable_world, scratch, same_uid
 ):
     one = stored.dataset_node(title="one", resources=pinned())
-    two = one.model_copy(deep=True, update={"uid": one.uid if same_uid else "d" * 32})
+    # Cut 48 §4.2: a shared uid with equal content is one record held twice; the duplicate
+    # location is the differing claim, with a shared or a distinct uid alike.
+    two = one.model_copy(deep=True, update={"uid": one.uid if same_uid else "d" * 32, "title": "one, revised"})
     world, _roots, coverage, _writers, bindings = conflict_world(durable_world, scratch, (one,), (), twin=two)
     with pytest.raises(AddressMapConflict) as caught:
         publish(world, coverage, bindings)
@@ -513,7 +515,7 @@ def test_w8b_duplicate_location_is_the_same_finding_with_shared_or_distinct_uids
 
 def test_w8b_corruption_outranks_duplication_and_a_corpus_alone_reports_neither_durably(durable_world, scratch):
     one = stored.dataset_node(title="one", resources=pinned())
-    twin = one.model_copy(deep=True)
+    twin = one.model_copy(deep=True, update={"title": "one, revised"})  # a duplicate location (cut 48 §4.2)
     third = one.model_copy(deep=True, update={"id": "dataset:third"})
     a, alpha, left = durable_world.corpus()
     b, beta, right = durable_world.corpus()

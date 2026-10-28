@@ -256,6 +256,7 @@ def test_z4_b_a_disagreeing_base_pin_refuses_durably(live_world):
 def test_z5_a_a_shared_uid_duplicate_location_is_publishs_conflict_durably(live_world):
     world, roots, a, b = live_world()
     copy = ReadView.opened_at(roots[a]).get(dataset_ref("d-a"))  # same address, same uid
+    copy.title = "d-a, revised"  # differing content: the duplicate location (cut 48 §4.2)
     raw_write(roots[b], copy)
     with pytest.raises(AddressMapConflict) as refused:
         evaluate_live_query(world, DATASETS)

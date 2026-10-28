@@ -100,7 +100,8 @@ class Selection:
         return v1.digest(SELECTION_VERSION, self.projection())
 
 
-Held = Mapping[str, tuple[str, Node]]
+Held = Mapping[str, tuple[tuple[str, ...], Node]]
+"""Each held record by live address: its captured holders (sorted; cut 48 §5.2) and the node."""
 """Live address -> (corpus_id, retained record), one enumeration of the capture."""
 
 
@@ -121,7 +122,11 @@ class _QueryableView(Protocol):
 
     def live_id(self, uid: str) -> str: ...
 
+    def holders_of(self, ref: str) -> tuple[str, ...]: ...
+
     def _mapped_records(self) -> Iterator[tuple[str, Node]]: ...
+
+    def _mapped_holders(self) -> Iterator[tuple[tuple[str, ...], Node]]: ...
 
 
 def _binds_term(node: Node, term: str) -> bool:
@@ -236,7 +241,9 @@ def _denoted(view: _QueryableView, query: ViewQuery) -> _Denotation:
     the answer the union of its clauses."""
     _require_located(view, query.addresses())
 
-    held: dict[str, tuple[str, Node]] = {node.id: (corpus_id, node) for corpus_id, node in view._mapped_records()}
+    held: dict[str, tuple[tuple[str, ...], Node]] = {
+        node.id: (holders, node) for holders, node in view._mapped_holders()
+    }
     unresolved: dict[tuple[str, str, str], Unresolved] = {}
     selected: set[str] = set()
     for clause in query.clauses:
@@ -248,7 +255,7 @@ def _denoted(view: _QueryableView, query: ViewQuery) -> _Denotation:
 
     for address in selected:
         validated_node(held[address][1])
-    contributing = sorted({held[address][0] for address in selected})
+    contributing = sorted({holder for address in selected for holder in held[address][0]})
     return _Denotation(
         selected=tuple(sorted(selected)),
         contributing=tuple(contributing),
@@ -267,9 +274,9 @@ def _require_located(view: _QueryableView, addresses: tuple[str, ...]) -> None:
         if state == "unknown":
             unknown.append(address)
         elif state == "not-present":
-            corpus_id = view.corpus_of(address)
-            assert corpus_id is not None
-            not_present.append((address, corpus_id))
+            holders = view.holders_of(address)  # not-present means every holder is absent: name them all
+            assert holders
+            not_present.extend((address, corpus_id) for corpus_id in holders)
     if unknown:
         raise SelectionRefused("address-unknown", refs=unknown)
     if not_present:

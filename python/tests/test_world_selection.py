@@ -409,3 +409,37 @@ class TestLocatedState:
         assert view._located_state("dataset:never") == "unknown"
         make_absent(roots, BETA)
         assert open_world_view(world, published)._located_state(dataset_ref("d-b")) == "not-present"
+
+
+class TestW20Holders:
+    def test_w20_c_absence_over_holders(self, tmp_path):
+        shared = stored.dataset_node(title="shared", resources=pinned("shared"))
+        topic = raw_coordination_node(
+            "topic",
+            PROJECT,
+            REVISION,
+            local=TOPIC,
+            query={"version": "science.view-query.v1", "clauses": [{"all": [{"addresses": [shared.id]}]}]},
+        )
+        roots = corpora(tmp_path, {ALPHA: (shared, topic), BETA: (shared,)})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        assert evaluate_topic(world, roots, published, topic).selected == (shared.id,)
+        make_absent(roots, BETA)
+        partial = evaluate_topic(world, roots, published, topic)
+        assert partial.selected == (shared.id,) and partial.absent == (BETA,)
+        make_absent(roots, ALPHA)
+        with pytest.raises(SelectionRefused) as caught:
+            evaluate_topic(world, roots, published, topic)
+        assert "address-not-present" in str(caught.value) and caught.value.corpus_ids == (ALPHA, BETA)
+
+    def test_w20_g_contributing_union(self, tmp_path):
+        shared = stored.dataset_node(title="shared", resources=pinned("shared"))
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"kinds": ["dataset"]}], alpha_extra=(shared,), beta_extra=(shared,)
+        )
+        selection = evaluate_topic(world, roots, published, topic)
+        assert shared.id in selection.selected and selection.selected.count(shared.id) == 1
+        assert selection.contributing == (ALPHA, BETA)
+        alone = evaluate_query(open_world_view(world, published), query([{"addresses": [shared.id]}]))
+        assert alone.selected == (shared.id,) and alone.contributing == (ALPHA, BETA)

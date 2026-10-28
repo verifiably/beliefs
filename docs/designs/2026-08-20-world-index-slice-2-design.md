@@ -184,6 +184,8 @@ For both the fixture-set formula above and the epoch-packaging formula in
 digest of that member's exact bytes.
 
 Both domain strings are minted here. The fixture set is the normative half.
+
+*Amended 2026-10-28 (overlapping-publications design §4.5, cut 48):* a bundle declaring an input version (`science.rule-input.v2` for `retraction-enumeration` v2) stores `rule.yaml` as `{symbol, input}` and digests `[symbol, fixture-set identity, input]` under the same domain; `{symbol}` documents and two-member identities are unchanged.
 Each conforming implementation has a separate implementation content
 identity. A runnable binding is the exact pair:
 
@@ -446,6 +448,8 @@ and the existing epochs and `current` remain untouched. `build_epoch` still
 returns an `Epoch` on success. This is a finding attached to the refused build,
 not an epoch sweep or a persistent diagnostics channel.
 
+*Amended 2026-10-28 (overlapping-publications design §4.2–§4.3, cut 48):* the map is no longer singular. One address held in several covered corpora with equal content identity maps one entry `(uid, content, holders)`; differing content is `duplicate-location`, `uid-corruption` stays first, and a deprecated-key collision is the typed `ResolutionRefused`. `address-map.yaml` entries are closed on `{address, content, holders, uid}`; the legacy shape is admitted as a second closed shape, never mixed.
+
 ### 7.3 Producers map and snapshot
 
 The producers map maps each dataset address to a sorted list of run addresses,
@@ -647,6 +651,8 @@ the mapped `uid` raises `ResolutionRefused`.
 The stamp means only "from this publication over this declared coverage."
 Nothing measures changes after capture, and no recency of the epoch implies a
 fresh world.
+
+*Amended 2026-10-28 (overlapping-publications design §5.3, cut 48):* `Resolved` carries the present holders; every present holder's carrier must produce the mapped uid, readable holders must agree in content, and `NotPresent` means every holder is absent.
 
 ### 8.4 Coreference edge query
 

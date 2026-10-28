@@ -66,7 +66,7 @@ docs/       guide/, designs/, plans/, notes/, superpowers/ (see Documentation)
   and open questions; start here.
 - [Designs index](docs/designs/README.md) — the banked designs, conformance cuts and
   rulings, in reading order; every guarantee table is frozen under its identifiers.
-- [Adoption ledger, current state](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-27)
+- [Adoption ledger, current state](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-28)
   — the sole authority for what is built and what remains, each remainder with its
   owner. The per-cut results records under [`docs/plans/`](docs/plans/) are the
   evidence trail.

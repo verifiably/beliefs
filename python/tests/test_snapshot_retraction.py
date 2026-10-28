@@ -390,6 +390,82 @@ class TestSnapshotStanding:
         assert standing.retracted == {S}
 
 
+class TestG14eMergedFold:
+    """Cut 48 §4.5: `snapshot_standing` folds once over the merged holders, acceptance
+    decided per record over its holders first."""
+
+    def _holders(self, tmp_path):
+        """R (snapshot-arm, subject S) minted in `a`; its counter C constructed but not
+        yet held anywhere."""
+        cid_a = writer_at(tmp_path / "a").corpus_id
+        cid_b = writer_at(tmp_path / "b").corpus_id
+        a = writer_at(tmp_path / "a", resolver=StubResolver({S: (cid_a, cid_b)}))
+        r = a.retract(snapshot_retraction())
+        return cid_a, cid_b, a, r, retracts(r, "counter")
+
+    def _views(self, tmp_path, cid_a, cid_b):
+        a, b = ReadView.opened_at(tmp_path / "a"), ReadView.opened_at(tmp_path / "b")
+        return ({cid_a: a, cid_b: b}, {cid_b: b, cid_a: a})
+
+    def test_a_counter_accepted_through_one_holder_restores_in_either_order(self, tmp_path):
+        cid_a, cid_b, a, r, c = self._holders(tmp_path)
+        c = a.retract(c)
+        raw_write(tmp_path / "b", r)
+        raw_write(tmp_path / "b", c)
+        seen = []
+
+        def counts(corpus_id, ref):
+            seen.append((corpus_id, ref))
+            return not (corpus_id == cid_a and ref == c.id)
+
+        for views in self._views(tmp_path, cid_a, cid_b):
+            standing = snapshot_standing(views, counts=counts)
+            assert S not in standing.retracted
+            assert standing.history[S] == tuple(sorted([(c.id, RETRACTION_UPHELD), (r.id, RETRACTION_OVERTURNED)]))
+            assert {(cid_a, c.id), (cid_b, c.id)} <= set(seen)
+        rejected = snapshot_standing(views, counts=lambda _corpus, ref: ref != c.id)
+        assert rejected.retracted == {S} and rejected.history[S] == ((r.id, RETRACTION_UPHELD),)
+
+    def test_a_counter_in_another_holder_resolves_its_target_across_holders(self, tmp_path):
+        cid_a, cid_b, _a, r, c = self._holders(tmp_path)
+        raw_write(tmp_path / "b", c)  # R in `a` only, C in `b` only
+        for views in self._views(tmp_path, cid_a, cid_b):
+            standing = snapshot_standing(views)
+            assert S not in standing.retracted
+            assert standing.history[S] == tuple(sorted([(c.id, RETRACTION_UPHELD), (r.id, RETRACTION_OVERTURNED)]))
+        broken = broken_counter(r, "broken")
+        raw_write(tmp_path / "b", broken)
+        with pytest.raises(RetractionUnreadable) as caught:
+            snapshot_standing(self._views(tmp_path, cid_a, cid_b)[0])
+        assert caught.value.ref == broken.id
+
+
+def test_the_merge_digests_only_addresses_several_holders_claim(tmp_path, monkeypatch):
+    """Cut 48 §4.5: a one-holder caller is unchanged, and the merge's self-check reads a
+    content identity only for an address more than one holder claims (final review,
+    Important 1): the digest is the fold's one per-record cost."""
+    from beliefs.world import registry
+
+    cid_a = writer_at(tmp_path / "a").corpus_id
+    cid_b = writer_at(tmp_path / "b").corpus_id
+    a = writer_at(tmp_path / "a", resolver=StubResolver({S: (cid_a, cid_b)}))
+    r = a.retract(snapshot_retraction())
+    a.retract(retracts(r, "counter"))  # held once
+    raw_write(tmp_path / "b", r)  # held twice
+    calls: list[str] = []
+    original = registry.content_identity
+
+    def counted(node):
+        calls.append(node.id)
+        return original(node)
+
+    monkeypatch.setattr(registry, "content_identity", counted)
+    alone = snapshot_standing({cid_a: ReadView.opened_at(tmp_path / "a")})
+    assert alone.retracted == frozenset() and calls == []
+    both = snapshot_standing({cid_a: ReadView.opened_at(tmp_path / "a"), cid_b: ReadView.opened_at(tmp_path / "b")})
+    assert both.retracted == frozenset() and sorted(calls) == [r.id, r.id]
+
+
 def retracted_world(tmp_path, *, counter=False):
     """A two-corpus world with one published epoch S, and S retracted by a
     session-shaped writer in ALPHA (covered). With counter=True the

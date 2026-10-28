@@ -242,7 +242,14 @@ that the operation was scientifically or administratively authorized.
 The address ruling governs the derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
 address. Owners for everything not built are in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-27).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-28).
+
+[Cut 48](../designs/2026-10-28-conformance-cut-48.md) freezes the
+overlapping-publications slice: one address held in several live corpora with
+equal content identity will read once through a multi-holder address map, the
+view's uid check narrows to sharing the map did not establish, and correction
+standing will fold once in a `retraction-enumeration` v2 rule. Implementation and
+conformance are pending; the singular-map behaviour above still describes the code.
 
 ## Open edges
 

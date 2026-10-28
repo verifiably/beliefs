@@ -143,8 +143,43 @@ _LIVE_SABOTAGES = {
     ),
 }
 _LIVE_SABOTAGE_INDICES = {("X10", 20), ("X12", 25), ("W8a", 33)}
+# Cut 48 (overlapping publications), 2026-10-28: the address map became multi-holder, so the
+# projection writes `{address, content, holders, uid}` and resolution answers `NotPresent` only when
+# every holder is absent. Two W8a arms sit on those lines; keyed by index since the row is shared.
+_LIVE_SABOTAGES_BY_INDEX = {
+    # Cut 48, 2026-10-28: validation reruns the held pair over its declared input version through
+    # `rules.invoke_held`; the X12 arm's omission short-circuit now wraps that call.
+    ("X12", 24): Sabotage(
+        module="world/read.py",
+        before="        produced = rules.invoke_held(held, kind, derive.Capture(tuple(captured)).rule_input(held.input_version))\n",
+        after="        produced = (\n            _thawed(receipt.document[_SUBJECT_KEYS[kind]])\n            if kind in _SUBJECT_KEYS\n            else rules.invoke_held(held, kind, derive.Capture(tuple(captured)).rule_input(held.input_version))\n        )\n",
+    ),
+    # Cut 48, 2026-10-28: a held rule carries its declared input version; the self-verification
+    # arm still swaps the source bytes for the document bytes.
+    ("labeled:rule-self-verification", 41): Sabotage(
+        module="world/rules.py",
+        before="    return _HeldRule(binding, stored.symbol, stored.source, invoke, stored.input_version)",
+        after="    return _HeldRule(binding, stored.symbol, stored.document, invoke, stored.input_version)",
+    ),
+    ("W8a", 28): Sabotage(
+        module="world/derive.py",
+        before='def address_map_projection(mapping: Mapping[str, AddressEntry]) -> dict[str, object]:\n    """The `address-map.yaml` member\'s projection, sorted by address (cut 48 §4.3)."""\n    return {\n        "addresses": [\n            {"address": address, "content": entry.content, "holders": list(entry.holders), "uid": entry.uid}\n            for address, entry in sorted(mapping.items())\n        ]\n    }',
+        after='_DERIVATIONS: list[int] = []\n\n\ndef address_map_projection(mapping: Mapping[str, AddressEntry]) -> dict[str, object]:\n    """The `address-map.yaml` member\'s projection, sorted by address (cut 48 §4.3)."""\n    _DERIVATIONS.append(1)\n    marker = "" if len(_DERIVATIONS) == 1 else f"#{len(_DERIVATIONS)}"\n    return {\n        "addresses": [\n            {"address": f"{address}{marker}", "content": entry.content, "holders": list(entry.holders), "uid": entry.uid}\n            for address, entry in sorted(mapping.items())\n        ]\n    }',
+    ),
+    ("W8a", 37): Sabotage(
+        module="world/read.py",
+        before="        if not carriers:\n            return NotPresent(stamp)\n",
+        after="        if not carriers:\n            return Unknown(stamp)\n",
+    ),
+}
+RETARGETED_ROWS = frozenset(_LIVE_SABOTAGES) | {row for row, _index in _LIVE_SABOTAGES_BY_INDEX}
+"""Every row this guard re-targets, by row or by (row, index): what `arm_staleness` reads."""
 CUT7_ARMS = tuple(
-    dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if (arm.row, index) in _LIVE_SABOTAGE_INDICES else arm
+    dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES_BY_INDEX[(arm.row, index)])
+    if (arm.row, index) in _LIVE_SABOTAGES_BY_INDEX
+    else dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
+    if (arm.row, index) in _LIVE_SABOTAGE_INDICES
+    else arm
     for index, arm in enumerate(CUT7_ARMS)
 )
 
@@ -217,6 +252,7 @@ FROZEN_PRIOR_CUT_FILES = {
 SYMBOL_KINDS = {
     "derive_producer_snapshot": "producer",
     "enumerate_retractions": "retraction-enumeration",
+    "enumerate_retractions_v2": "retraction-enumeration",
     "enumerate_certifications": "certification-enumeration",
     "reduce_coreference": "coreference-reduction",
 }
@@ -244,10 +280,16 @@ def test_the_duplicated_symbol_kind_join_still_agrees_with_its_original():
     assert SYMBOL_KINDS == test_world_build.SYMBOL_KINDS
 
 
-def shipped_bindings(world: registry.World) -> epoch.DerivationBindings:
-    """Hold this package's four rules in `world` and name them as one build input."""
+def shipped_bindings(world: registry.World, *, retraction: str = "v2") -> epoch.DerivationBindings:
+    """Hold this package's shipped rules in `world` and name one per kind as one
+    build input; `retraction` picks the retraction-enumeration version (cut 48 §4.5)."""
     root.install_shipped_world_rules(world)
-    held = {SYMBOL_KINDS[bundle.symbol]: rules.binding_for(bundle) for bundle in rules.shipped_rule_bundles()}
+    wanted = test_world_build.RETRACTION_VERSIONS[retraction]
+    held = {
+        SYMBOL_KINDS[bundle.symbol]: rules.binding_for(bundle)
+        for bundle in rules.shipped_rule_bundles()
+        if SYMBOL_KINDS[bundle.symbol] != "retraction-enumeration" or bundle.input_version == wanted
+    }
     return epoch.DerivationBindings(
         producer=held["producer"],
         retraction=held["retraction-enumeration"],
@@ -462,20 +504,20 @@ def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
     it never observed at all.
     """
     addresses = {
-        entry["address"]: (entry["corpus_id"], entry["uid"])
+        entry["address"]: (entry["holders"][0], entry["uid"])
         for entry in document(journey.current, "address-map.yaml")["addresses"]
     }
     stamp = read.BoundStamp(journey.current.packaging_identity, journey.current.coverage)
 
     resolved = read.resolve_address(journey.world, journey.current, dataset_ref("a"))
     assert isinstance(resolved, read.Resolved)
-    assert resolved.location == read.Location(*addresses[dataset_ref("a")])
+    assert resolved.location == read.Location(*addresses[dataset_ref("a")], (addresses[dataset_ref("a")][0],))
     assert resolved.stamp == stamp
 
     # A retired address is a recorded one, and resolves to its successor's uid.
     retired = read.resolve_address(journey.world, journey.current, RETIRED)
     assert isinstance(retired, read.Resolved)
-    assert retired.location == read.Location(*addresses[RETIRED])
+    assert retired.location == read.Location(*addresses[RETIRED], (addresses[RETIRED][0],))
 
     unknown = read.resolve_address(journey.world, journey.current, "dataset:never-observed")
     assert isinstance(unknown, read.Unknown)

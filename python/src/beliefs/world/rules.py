@@ -59,6 +59,7 @@ from beliefs.world.registry import World, _ManifestLoader
 __all__ = [
     "FIXTURE_SET_DOMAIN",
     "RULE_DOMAIN",
+    "RULE_INPUT_V2",
     "RuleBinding",
     "RuleBundle",
     "RuleRemovalReport",
@@ -66,6 +67,7 @@ __all__ = [
     "fixture_set_identity",
     "implementation_identity",
     "install_rule_binding",
+    "invoke_held",
     "member_content_digest",
     "parse_rule_document",
     "remove_rule_binding",
@@ -77,22 +79,34 @@ __all__ = [
 FIXTURE_SET_DOMAIN = "science.fixture-set.v1"
 RULE_DOMAIN = "science.enumeration-rule.v1"
 
+RULE_INPUT_V2 = "science.rule-input.v2"
+"""The one declared rule-input version (cut 48 §4.5): the v1 projection with
+each retraction member carrying its `arm`. A bundle declaring no version reads
+the v1 input (`Capture.rule_input()`), exactly as every rule held before cut 48;
+the holdings reduction bundle declares none and is handed its own capture."""
+
+_INPUT_VERSIONS: tuple[str, ...] = (RULE_INPUT_V2,)
+
 _SYMBOL = re.compile(r"^[a-z][a-z0-9_]*$")
 _MEMBER_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
-_SHIPPED: tuple[tuple[str, str], ...] = (
-    ("certification", "enumerate_certifications"),
-    ("coreference", "reduce_coreference"),
-    ("producer", "derive_producer_snapshot"),
-    ("retraction", "enumerate_retractions"),
+_SHIPPED: tuple[tuple[str, str, str | None], ...] = (
+    ("certification", "enumerate_certifications", None),
+    ("coreference", "reduce_coreference", None),
+    ("producer", "derive_producer_snapshot", None),
+    ("retraction", "enumerate_retractions", None),
+    ("retraction_v2", "enumerate_retractions_v2", RULE_INPUT_V2),
 )
-"""The four v1 enumeration rules this package ships, as `(module, symbol)`.
+"""The five enumeration rules this package ships, as `(module, symbol, input version)`:
+the four v1 rules, which declare no version, and `retraction-enumeration` v2
+(cut 48 §4.5), which declares `RULE_INPUT_V2`.
 
 The module is the implementation resource `rules_v1/<module>.py` and the prefix
-of its fixture members, `rules_v1/fixtures/<module>.<case>.yaml`. Fixture
-members are *discovered*, never listed here: a normative fixture set grows as
-the contract gains cases, and a second list of them would be a place for the
-shipped bytes and the shipped identity to disagree.
+of its fixture members, `rules_v1/fixtures/<module>.<case>.yaml` (so no module
+is a prefix of another's name). Fixture members are *discovered*, never listed
+here: a normative fixture set grows as the contract gains cases, and a second
+list of them would be a place for the shipped bytes and the shipped identity to
+disagree. `rules_v1` names the package generation, not every rule's version.
 """
 
 _RULES_PACKAGE = "beliefs.world.rules_v1"
@@ -131,9 +145,14 @@ class RuleBundle:
     symbol: str
     fixtures: tuple[tuple[str, bytes], ...]
     implementation: bytes
+    input_version: str | None = None
+    """The rule-input version the implementation reads (cut 48 §4.5), or `None`
+    for a bundle stored as `{symbol}`: the v1 world rules and any bundle whose
+    caller supplies its own capture."""
 
     def __post_init__(self) -> None:
         _require_symbol(self.symbol)
+        _require_input_version(self.input_version)
         if type(self.fixtures) is not tuple:
             raise TypeError("fixtures must be an exact tuple")
         if type(self.implementation) is not bytes:
@@ -162,6 +181,7 @@ class _StoredRule:
     document: bytes
     fixtures: tuple[tuple[str, bytes], ...]
     source: bytes
+    input_version: str | None
 
 
 @dataclass(frozen=True)
@@ -174,6 +194,24 @@ class _HeldRule:
     symbol: str
     source: bytes
     invoke: Callable[[object], object]
+    input_version: str | None = None
+
+
+def invoke_held(held: _HeldRule, kind: str, value: object) -> object:
+    """Run one held rule over one rule-input value for `kind`'s subject.
+
+    Rule content may import nothing and so can raise only a plain exception; a
+    raise here becomes `RuleNonconformant` naming the kind and the pair, so a
+    build propagates it and `validate_receipt` reports it as it reports a
+    nonconformant output (cut 48 §4.5). The fixture runner keeps its own catch.
+    """
+    try:
+        return held.invoke(value)
+    except Exception as caught:
+        raise RuleNonconformant(
+            f"{kind}: {held.binding.rule_identity}/{held.binding.implementation_identity}: "
+            f"the held implementation raised: {caught}"
+        ) from caught
 
 
 # --- identities -------------------------------------------------------------
@@ -199,19 +237,25 @@ def fixture_set_identity(fixtures: Iterable[tuple[str, bytes]]) -> str:
     )
 
 
-def rule_identity(symbol: str, fixtures: Iterable[tuple[str, bytes]]) -> str:
-    """`science.enumeration-rule.v1` over `(symbol, fixture-set identity)`.
+def rule_identity(symbol: str, fixtures: Iterable[tuple[str, bytes]], input_version: str | None = None) -> str:
+    """`science.enumeration-rule.v1` over `(symbol, fixture-set identity)`, or
+    over `(symbol, fixture-set identity, input version)` for a bundle that
+    declares one (cut 48 §4.5; normative contract §6 and slice 2 §4.1, amended).
 
     The pair is encoded as a two-member list, the same shape the fixture-set
-    pairs use, so one reading of "a pair" serves both formulas.
+    pairs use, so one reading of "a pair" serves both formulas; a declared
+    version appends a third member, so no v1 identity moves.
     """
-    return v1.digest(RULE_DOMAIN, [_require_symbol(symbol), fixture_set_identity(fixtures)])
+    members: list[str] = [_require_symbol(symbol), fixture_set_identity(fixtures)]
+    if _require_input_version(input_version) is not None:
+        members.append(input_version)  # type: ignore[arg-type]
+    return v1.digest(RULE_DOMAIN, members)
 
 
 def binding_for(bundle: RuleBundle) -> RuleBinding:
     """The exact pair this bundle would be held as."""
     return RuleBinding(
-        rule_identity(bundle.symbol, bundle.fixtures),
+        rule_identity(bundle.symbol, bundle.fixtures, bundle.input_version),
         implementation_identity(bundle.implementation),
     )
 
@@ -219,25 +263,70 @@ def binding_for(bundle: RuleBundle) -> RuleBinding:
 # --- the closed documents ---------------------------------------------------
 
 
-def rule_document_bytes(symbol: str) -> bytes:
-    """`rule.yaml`: exactly the rule symbol, and nothing else."""
-    return yaml.safe_dump({"symbol": _require_symbol(symbol)}, sort_keys=True, allow_unicode=True).encode("utf-8")
+def rule_document_bytes(symbol: str, input_version: str | None = None) -> bytes:
+    """`rule.yaml`: exactly the rule symbol, plus `input` for a bundle that
+    declares a rule-input version (cut 48 §4.5), and nothing else."""
+    document: dict[str, str] = {"symbol": _require_symbol(symbol)}
+    if _require_input_version(input_version) is not None:
+        document["input"] = input_version  # type: ignore[assignment]
+    return yaml.safe_dump(document, sort_keys=True, allow_unicode=True).encode("utf-8")
 
 
-def parse_rule_document(content: bytes) -> str:
-    """The symbol a stored `rule.yaml` carries, or a refusal.
+def parse_rule_document(content: bytes) -> tuple[str, str | None]:
+    """The symbol and the declared input version a stored `rule.yaml` carries, or a refusal.
 
-    A document that is not exactly `{symbol: <symbol>}` — a duplicate key, an
-    unknown key, a missing or non-symbol value — means the store cannot say
-    which entry point the rule names, so the binding is not held.
+    Two closed shapes: `{symbol}` (no declared version, every rule held before
+    cut 48) and `{symbol, input}` naming a declared version. Anything else — a
+    duplicate key, an unknown key, a missing or non-symbol value, an `input`
+    naming the undeclared v1 — means the store cannot say which entry point the
+    rule names or what it reads, so the binding is not held.
     """
     try:
         document = yaml.load(content.decode("utf-8"), Loader=_ManifestLoader)
-        if type(document) is not dict or set(document) != {"symbol"}:
-            raise ValueError("a rule document must have exactly ['symbol']")
-        return _require_symbol(document["symbol"])
+        if type(document) is not dict or set(document) not in ({"symbol"}, {"symbol", "input"}):
+            raise ValueError("a rule document must have exactly ['symbol'] or ['input', 'symbol']")
+        version = document.get("input")
+        if "input" in document and version not in _INPUT_VERSIONS:
+            raise ValueError(f"a declared rule input is one of {_INPUT_VERSIONS}, not {version!r}")
+        return _require_symbol(document["symbol"]), version
     except Exception as caught:
         raise RuleNotHeld(f"malformed rule document: {caught}") from caught
+
+
+def _require_input_version(value: object) -> str | None:
+    if value is None:
+        return None
+    if type(value) is not str or value not in _INPUT_VERSIONS:
+        raise ValueError(f"a rule input version is one of {_INPUT_VERSIONS}, not {value!r}")
+    return value
+
+
+_V1_RETRACTION_KEYS = frozenset({"target", "resolution"})
+_V2_RETRACTION_KEYS = frozenset({"target", "resolution", "arm"})
+
+
+def _require_fixture_schema(symbol: str, fixtures: Sequence[tuple[str, bytes]], input_version: str | None) -> None:
+    """The conformance half of a declared input version (cut 48 §4.5): every
+    fixture input's retraction member carries the declared version's keys.
+    Applied only to a bundle that declares a version; an undeclared bundle's
+    fixtures are its own business, as they always were. Lives with the running
+    half (install and resolution), never in `_locked_stored_rule`, so a
+    nonconforming pair stays removable."""
+    if input_version is None:
+        return
+    expected = _V2_RETRACTION_KEYS
+    for name, content in fixtures:
+        supplied, _expected = _parse_fixture_document(name, content)
+        records = supplied.get("records", ()) if isinstance(supplied, dict) else ()
+        for entry in records:
+            retraction = entry.get("retraction") if isinstance(entry, dict) else None
+            if retraction is None:
+                continue
+            if not isinstance(retraction, dict) or frozenset(retraction) != expected:
+                raise _RuleRefusal(
+                    f"{symbol!r}: fixture {name!r} is not a {input_version} input; a retraction member carries "
+                    f"exactly {sorted(expected)}"
+                )
 
 
 def _parse_fixture_document(name: str, content: bytes) -> tuple[object, object]:
@@ -313,11 +402,11 @@ def _run_fixtures(
 
 
 def shipped_rule_bundles() -> tuple[RuleBundle, ...]:
-    """The four v1 enumeration rules this package ships, read from package
+    """The five enumeration rules this package ships, read from package
     content. Nothing installs them; that act is the composition root's."""
     package = resources.files(_RULES_PACKAGE)
     bundles: list[RuleBundle] = []
-    for module, symbol in _SHIPPED:
+    for module, symbol, input_version in _SHIPPED:
         prefix = f"{module}."
         fixtures = tuple(
             sorted(
@@ -328,7 +417,7 @@ def shipped_rule_bundles() -> tuple[RuleBundle, ...]:
         )
         if not fixtures:
             raise RuleNonconformant(f"{_RULES_PACKAGE} ships no fixture member for {module!r}")
-        bundles.append(RuleBundle(symbol, fixtures, (package / f"{module}.py").read_bytes()))
+        bundles.append(RuleBundle(symbol, fixtures, (package / f"{module}.py").read_bytes(), input_version))
     return tuple(bundles)
 
 
@@ -345,6 +434,10 @@ def install_rule_binding(world: World, bundle: RuleBundle) -> RuleBinding:
     bytes is a collision, never an overwrite.
     """
     world.authority.require("epoch")
+    try:
+        _require_fixture_schema(bundle.symbol, _ordered(bundle.fixtures), bundle.input_version)
+    except _RuleRefusal as caught:
+        raise RuleNonconformant(f"{bundle.symbol}: {caught}") from caught
     binding = binding_for(bundle)
     members = _member_bytes(bundle, binding)
     with world._state.lock:
@@ -363,7 +456,7 @@ def _member_bytes(bundle: RuleBundle, binding: RuleBinding) -> tuple[tuple[str, 
     """Every stored path this binding owns, in one deterministic order."""
     directory = f"rules/{binding.rule_identity}"
     return (
-        (f"{directory}/rule.yaml", rule_document_bytes(bundle.symbol)),
+        (f"{directory}/rule.yaml", rule_document_bytes(bundle.symbol, bundle.input_version)),
         *((f"{directory}/fixtures/{name}", content) for name, content in _ordered(bundle.fixtures)),
         (f"{directory}/implementations/{binding.implementation_identity}", bundle.implementation),
     )
@@ -408,11 +501,12 @@ def _locked_resolve_rule_binding(world_root: Path, binding: RuleBinding) -> _Hel
     directory = world_root / "rules" / binding.rule_identity
     try:
         stored = _locked_stored_rule(world_root, binding)
+        _require_fixture_schema(stored.symbol, stored.fixtures, stored.input_version)
         invoke = _load_entry_point(stored.symbol, stored.source)
         _run_fixtures(stored.symbol, invoke, stored.fixtures)
     except _RuleRefusal as caught:
         raise RuleNotHeld(f"{directory}: {caught}") from caught
-    return _HeldRule(binding, stored.symbol, stored.source, invoke)
+    return _HeldRule(binding, stored.symbol, stored.source, invoke, stored.input_version)
 
 
 def _locked_resolve_rule_bindings(world_root: Path, bindings: Mapping[str, RuleBinding]) -> Mapping[str, _HeldRule]:
@@ -452,16 +546,16 @@ def _locked_stored_rule(world_root: Path, binding: RuleBinding) -> _StoredRule:
     directory = world_root / "rules" / binding.rule_identity
     try:
         document = _read_member(directory / "rule.yaml")
-        symbol = parse_rule_document(document)
+        symbol, input_version = parse_rule_document(document)
         fixtures = _read_fixtures(directory / "fixtures")
-        if rule_identity(symbol, fixtures) != binding.rule_identity:
+        if rule_identity(symbol, fixtures, input_version) != binding.rule_identity:
             raise _RuleRefusal("the stored symbol and fixtures do not recompute the rule identity")
         source = _read_member(directory / "implementations" / binding.implementation_identity)
         if implementation_identity(source) != binding.implementation_identity:
             raise _RuleRefusal("the stored implementation does not recompute its content identity")
     except RuleNotHeld as caught:
         raise _RuleRefusal(str(caught)) from caught
-    return _StoredRule(binding, symbol, document, fixtures, source)
+    return _StoredRule(binding, symbol, document, fixtures, source, input_version)
 
 
 def _read_member(path: Path) -> bytes:

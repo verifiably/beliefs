@@ -254,9 +254,13 @@ from types import SimpleNamespace
 from beliefs.world import AdmissionRecord, CorpusManifest, ForkOf, Fresh, RegistryView, ReplicaOf
 
 
-def capture_fixture(holdings, *, source_version=2, carried=None):
+def capture_fixture(holdings, *, source_version=2, carried=None, supersedes=None, unregistered=()):
+    """A captured world over `holdings` (corpus id → (provenance, refs)); a ref named by
+    several corpora is one record held by each (cut 48 §7). `carried` gives each v3
+    marker's attribution entries, `supersedes` each marker's `supersedes_markers`
+    pairs, and `unregistered` the captured corpora with no admission."""
     profile = coordination_profile(None, version=source_version)
-    manifests, captures, owners, admissions = {}, {}, {}, []
+    manifests, captures, holders, admissions = {}, {}, {}, []
     for cid, (provenance, refs) in holdings.items():
         manifests[cid] = CorpusManifest(2, cid, pins_for(profile))
         nodes = tuple(
@@ -266,20 +270,24 @@ def capture_fixture(holdings, *, source_version=2, carried=None):
             for ref in refs
         )
         value = marker_record(
-            intent(event_token=cid),
+            intent(event_token=cid, marker_tips=(supersedes or {}).get(cid, (("e" * 32, "f" * 32),))),
             world_id="d" * 32,
             epoch="f" * 64,
             selection=tuple(sorted(refs)),
             attributions=None if source_version == 2 else (carried or {}).get(cid, ()),
         )
         captures[cid] = (*nodes, value)
-        owners.update({ref: cid for ref in refs})
-        admissions.append(AdmissionRecord(manifests[cid], provenance, "actor"))
+        for ref in refs:
+            holders[ref] = tuple(sorted({*holders.get(ref, ()), cid}))
+        if cid not in unregistered:
+            admissions.append(AdmissionRecord(manifests[cid], provenance, "actor"))
     read = SimpleNamespace(
-        corpus_of=owners.get,
+        corpus_of=lambda ref: holders[ref][0] if ref in holders else None,
+        holders_of=lambda ref: holders.get(ref, ()),
+        captured=lambda: tuple(sorted(captures)),
         captured_manifest=manifests.__getitem__,
         captured_records=captures.__getitem__,
-        get=lambda ref: next(n for n in captures[owners[ref]] if n.id == ref),
+        get=lambda ref: next(n for n in captures[holders[ref][0]] if n.id == ref),
     )
     return cast(Any, read), RegistryView(tuple(admissions), ()), captures
 
@@ -428,6 +436,180 @@ def test_y17_p_legacy_source():
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (("run:a", a, marker_uid(a)),)
     read, registry, _ = capture_fixture({a: (ReplicaOf(a), ("run:a",))}, source_version=3, carried={a: (ORIGIN,)})
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (ORIGIN,)
+
+
+# --- cut 48: attribution over holders (Y19) -----------------------------------------------------
+
+A, B, C, D, E = ("a" * 32, "b" * 32, "c" * 32, "d" * 32, "e" * 32)
+"""Publication corpus ids: a replica of a publication carries that publication's corpus id."""
+
+
+def _origin(cid):
+    return (cid, marker_uid(cid))
+
+
+def _claim(ref, cid):
+    return (ref, cid, marker_uid(cid))
+
+
+def _ambiguous(read, registry, selected):
+    import beliefs.publish as act
+
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read, registry, selected, pin(3))
+    return caught.value
+
+
+def test_y19_a_own_wins():
+    """An own holder beside a carried copy yields no entry (rule 3.1), under v2 and v3."""
+    import beliefs.publish as act
+
+    for provenance in (Fresh(), ForkOf(C, "c" * 64)):
+        read, registry, _ = capture_fixture({A: (provenance, ("run:a",)), B: (ReplicaOf(B), ("run:a",))})
+        assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == ()
+        assert act._selected_attributions(read, registry, ("run:a",), pin(2)) is None
+    read, registry, captures = capture_fixture({A: (ReplicaOf(A), ("run:a",)), B: (ReplicaOf(B), ("run:a",))})
+    captures[A] = captures[A][:-1]  # a declared markerless holder is own
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3), own_corpora=frozenset({A})) == ()
+    assert act._selected_attributions(read, registry, ("run:a",), pin(2), own_corpora=frozenset({A})) is None
+
+
+def test_y19_b_carriers_agree():
+    """Two carriers yielding one triple forward it (rule 3.2); the forwarded entry and a
+    first carry of the same origin agree."""
+    import beliefs.publish as act
+
+    read, registry, _ = capture_fixture(
+        {B: (ReplicaOf(B), ("run:a",)), C: (ReplicaOf(C), ("run:a",))},
+        source_version=3,
+        carried={B: (ORIGIN,), C: (ORIGIN,)},
+    )
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (ORIGIN,)
+    read, registry, _ = capture_fixture(
+        {A: (ReplicaOf(A), ("run:a",)), C: (ReplicaOf(C), ("run:a",))},
+        source_version=3,
+        carried={A: (), C: (_claim("run:a", A),)},
+    )
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
+
+
+def test_y19_c_earliest_origin(monkeypatch):
+    """Rule 3.3: the claim whose marker every other claimed marker supersedes."""
+    import beliefs.publish as act
+
+    chain = {C: (_origin(A),), D: (_origin(C),), E: (_origin(A),)}  # P3 ⊐ P1, P7 ⊐ P3, P3' ⊐ P1
+    # P1 / P3: B re-adopts A's update beside P1.
+    read, registry, _ = capture_fixture(
+        {A: (ReplicaOf(A), ("run:a",)), C: (ReplicaOf(C), ("run:a",))}, source_version=3, supersedes=chain
+    )
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
+    # B's re-adopted own P2 (carrying run:a attributed to P1) beside P1 and P3.
+    read, registry, _ = capture_fixture(
+        {A: (ReplicaOf(A), ("run:a",)), B: (ReplicaOf(B), ("run:a",)), C: (ReplicaOf(C), ("run:a",))},
+        source_version=3,
+        carried={B: (_claim("run:a", A),)},
+        supersedes={**chain, B: (_origin(A),)},
+    )
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
+    # A third party holding P2 and P3 but not P1.
+    read, registry, _ = capture_fixture(
+        {B: (ReplicaOf(B), ("run:a",)), C: (ReplicaOf(C), ("run:a",))},
+        source_version=3,
+        carried={B: (_claim("run:a", A),)},
+        supersedes={**chain, B: (_origin(A),)},
+    )
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
+    # Sibling tips P3 and P3' over P1.
+    read, registry, _ = capture_fixture(
+        {A: (ReplicaOf(A), ("run:a",)), C: (ReplicaOf(C), ("run:a",)), E: (ReplicaOf(E), ("run:a",))},
+        source_version=3,
+        supersedes=chain,
+    )
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
+    # P7 → P3 → P1, P3 an idle replica holding no selected record: read only at rule 3.3.
+    read, registry, _ = capture_fixture(
+        {A: (ReplicaOf(A), ("run:a",)), C: (ReplicaOf(C), ("run:c",)), D: (ReplicaOf(D), ("run:a",))},
+        source_version=3,
+        supersedes=chain,
+    )
+    calls = []
+    records_at = read.captured_records
+    read.captured_records = lambda cid: calls.append(cid) or records_at(cid)
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
+    assert C in calls
+    # The idle replica's invalid marker refuses, naming it with empty refs, only when rule 3.3 is reached.
+    read, registry, captures = capture_fixture(
+        {A: (ReplicaOf(A), ("run:a",)), C: (ReplicaOf(C), ("run:c",)), D: (ReplicaOf(D), ("run:a",))},
+        source_version=3,
+        supersedes=chain,
+    )
+    captures[C] = captures[C][:-1]
+    refused = _ambiguous(read, registry, ("run:a",))
+    assert (refused.reason, refused.corpus_ids, refused.refs, refused.field) == (
+        "attribution-source-invalid",
+        (C,),
+        (),
+        "marker-absent",
+    )
+    read, registry, captures = capture_fixture(
+        {A: (ReplicaOf(A), ("run:a",)), B: (Fresh(), ("run:a",)), C: (ReplicaOf(C), ("run:c",))},
+        source_version=3,
+        supersedes=chain,
+    )
+    captures[C] = captures[C][:-1]
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == ()  # rule 3.1 settled it
+
+
+def test_y19_d_ambiguous_refuses():
+    """Rule 3.4: unrelated origins, and a chain whose intermediate is unheld, refuse
+    `attribution-ambiguous` carrying the claims."""
+    read, registry, _ = capture_fixture(
+        {B: (ReplicaOf(B), ("run:a",)), C: (ReplicaOf(C), ("run:a",))}, source_version=3
+    )
+    refused = _ambiguous(read, registry, ("run:a",))
+    assert (refused.reason, refused.refs, refused.corpus_ids) == ("attribution-ambiguous", ("run:a",), (B, C))
+    assert refused.field == ",".join(f"{cid}:{marker_uid(cid)}" for cid in (B, C))
+    read, registry, _ = capture_fixture(
+        {A: (ReplicaOf(A), ("run:a",)), D: (ReplicaOf(D), ("run:a",))},
+        source_version=3,
+        supersedes={D: (_origin(C),)},  # P7 ⊐ P3, and P3 is not held
+    )
+    refused = _ambiguous(read, registry, ("run:a",))
+    assert (refused.reason, refused.refs, refused.corpus_ids) == ("attribution-ambiguous", ("run:a",), (A, D))
+
+
+def test_y19_e_order_independent():
+    """Captures and admissions supplied in both orders, each putting a different replica
+    holder first, yield equal tuples."""
+    import beliefs.publish as act
+
+    chain = {C: (_origin(A),)}
+    results = []
+    for order in ((A, C), (C, A)):
+        read, registry, _ = capture_fixture(
+            {cid: (ReplicaOf(cid), ("run:a",)) for cid in order}, source_version=3, supersedes=chain
+        )
+        assert [record.corpus_id for record in registry.admissions] == list(order)
+        results.append(act._selected_attributions(read, registry, ("run:a",), pin(3)))
+    assert results[0] == results[1] == (_claim("run:a", A),)
+
+
+def test_y19_f_v2_narrowing():
+    """Under v2 the refusal names only replica holders of a carried selected record."""
+    import beliefs.publish as act
+
+    read, registry, _ = capture_fixture({A: (Fresh(), ("run:a",)), B: (ReplicaOf(B), ("run:a", "run:b"))})
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read, registry, ("run:a", "run:b"), pin(2))
+    assert caught.value.reason == "attribution-contract-unpinned" and caught.value.corpus_ids == (B,)
+    read, registry, _ = capture_fixture({A: (Fresh(), ("run:a",)), B: (ReplicaOf(B), ("run:a",))})
+    assert act._selected_attributions(read, registry, ("run:a",), pin(2)) is None
+    read, registry, _ = capture_fixture(
+        {A: (Fresh(), ("run:a",)), B: (ReplicaOf(B), ("run:a",)), C: (ReplicaOf(C), ("run:c",))}
+    )
+    with pytest.raises(PublicationRefused) as caught:
+        act._selected_attributions(read, registry, ("run:a", "run:c"), pin(2))
+    assert caught.value.corpus_ids == (C,)
 
 
 @pytest.mark.parametrize("source_version,entries", [(2, (ORIGIN,)), (3, None)])

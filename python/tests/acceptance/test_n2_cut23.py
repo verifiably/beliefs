@@ -53,30 +53,41 @@ _LIVE_SABOTAGES = {
             "                    if ref in snapshot.not_present and ref in inspected:\n"
         ),
     ),
+    # Cut 48 (overlapping publications), 2026-10-28: `locate` answers over the holder set; not-present means every holder is absent.
+    "W6b": Sabotage(
+        module="world/view.py",
+        before="        if not present:\n            return NotPresent(self._stamp)\n",
+        after="        if not present:\n            return Unknown(self._stamp)\n",
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28: the inbound index is built once per distinct record over the held holders; the sabotage files captured (unmapped) sources.
     "W10d": Sabotage(
         module="world/view.py",
-        before=(
-            "    for records in held.values():\n"
-            "        for uid, node in records.items():\n"
-            "            for relation in node.relations:\n"
-            "                if (target := recorded.get(relation.target)) is not None:\n"
-            "                    source = recorded.get(relation.source)\n"
-            "                    if source is None:\n"
-            "                        continue\n"
-            "                    source_uid = source[1] if source[1] in held.get(source[0], {}) else None\n"
-            "                    inbound.setdefault(target, []).append(\n"
-            "                        ResolvedEdge(relation=relation, source_uid=source_uid, target_uid=target[1])\n"
-            "                    )\n"
-        ),
-        after=(
-            "    for records in captured.values():\n"
-            "        for uid, node in records.items():\n"
-            "            for relation in node.relations:\n"
-            "                if (target := recorded.get(relation.target)) is not None:\n"
-            "                    inbound.setdefault(target, []).append(\n"
-            "                        ResolvedEdge(relation=relation, source_uid=uid, target_uid=target[1])\n"
-            "                    )\n"
-        ),
+        before="    for corpus_id in sorted(held):\n        for uid in sorted(held[corpus_id]):\n            if uid in seen:\n                continue\n            seen.add(uid)\n            node = held[corpus_id][uid]\n            for relation in node.relations:\n                if (target := recorded.get(relation.target)) is not None:\n                    source = recorded.get(relation.source)\n                    if source is None:\n                        continue\n                    source_uid = source.uid if held_anywhere(source) else None\n                    inbound.setdefault(target.uid, []).append(\n                        ResolvedEdge(relation=relation, source_uid=source_uid, target_uid=target.uid)\n                    )\n",
+        after="    for corpus_id in sorted(captured):\n        for uid in sorted(captured[corpus_id]):\n            if uid in seen:\n                continue\n            seen.add(uid)\n            node = captured[corpus_id][uid]\n            for relation in node.relations:\n                if (target := recorded.get(relation.target)) is not None:\n                    inbound.setdefault(target.uid, []).append(\n                        ResolvedEdge(relation=relation, source_uid=uid, target_uid=target.uid)\n                    )\n",
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28: targets resolve through the multi-holder map; the sabotage consults the local index first.
+    "W10e": Sabotage(
+        module="world/view.py",
+        before="                if (target := recorded.get(relation.target)) is not None:\n                    source = recorded.get(relation.source)\n",
+        after="                local = next((u for u, n in captured[corpus_id].items() if n.id == relation.target), None)\n                target = derive.AddressEntry(local, None, (corpus_id,)) if local is not None else recorded.get(relation.target)\n                if target is not None:\n                    source = recorded.get(relation.source)\n",
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28: inbound edges are keyed by uid; the sabotage keeps only sources held by the canonical holder.
+    "W10": Sabotage(
+        module="world/view.py",
+        before="            for edge in self._inbound.get(entry.uid, ())\n",
+        after="            for edge in self._inbound.get(entry.uid, ())\n            if edge.source_uid in self._held.get(entry.holders[0], {})\n",
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28: `resolve_address` answers `NotPresent` only when every holder is absent.
+    "W6": Sabotage(
+        module="world/read.py",
+        before="        if not carriers:\n            return NotPresent(stamp)\n",
+        after="        if not carriers:\n            return Unknown(stamp)\n",
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28: the owners check admits a shared uid the map established and refuses every other sharing; the sabotage admits all.
+    "W10g": Sabotage(
+        module="world/view.py",
+        before="        if not established or not set(corpora) <= set(cast(derive.AddressEntry, next(iter(entries))).holders):\n",
+        after="        if False:\n",
     ),
     # Composite claims Task 6, 2026-09-16: `evaluate_over` became the first
     # projection of `evaluate_over_traced`, so the absent-corpus arm returns
@@ -90,6 +101,13 @@ _LIVE_SABOTAGES = {
         module="evaluation.py",
         before='                "unavailable-corpus-absent",\n',
         after='                "unavailable-input-unheld",\n',
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28, Task 5: gather attributes an assessment to its accepting
+    # holders at the read (spec §6); the sabotage looks the holders up by identity after the fact.
+    "R19b": Sabotage(
+        module="evaluation.py",
+        before="            attribution.setdefault(value.identity(), set()).update(cast(tuple[str, ...], accepting))\n",
+        after="            attribution.setdefault(value.identity(), set()).update(_captured_holders(view, value.identity()))\n",
     ),
 }
 CUT23_ARMS = tuple(

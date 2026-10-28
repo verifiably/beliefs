@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-10-27)
+## Current state (2026-10-28)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,8 +46,15 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-10-27** for cut 47's discharge of `owned-replica-publication`:
-Y5 and Y17 reclose; the corpus has **226 of 253 rows closed, 27 open**.
+**Updated 2026-10-28** for cut 48's discharge of `overlapping-publications`
+([results](../plans/2026-10-28-conformance-cut-48-results.md)): W19, W20, G14 and
+Y19 close; W8b, J17, J20, G10, G12, Y5 and Y17 reclose under their amendments; the
+corpus has **230 of 257 rows closed, 27 open**. A world may hold one address in
+several live corpora with equal content identity: every read serves the record
+once, acceptance and attribution read the holder set, and correction standing
+folds once in the `retraction-enumeration` v2 rule. Science's side (commons
+milestone 1b) is sci-73c80e.
+Cut 47 discharged `owned-replica-publication`: Y5 and Y17 reclosed, at **226 of 253**.
 Explicit ownership now permits admitted markerless replicas on v2 and v3.
 Science wiring remains sci-9a7ce2, then sci-775e90 owns the live milestone
 rerun; kernel conformance alone does not establish that live result.
@@ -59,10 +66,10 @@ closing J16–J21 and the `write-path` lane. Cut 43's discharge of
 Y11–Y16 close, completing `publish` across cuts 39, 40 and 42. The T table stays
 partial on T7's cross-root case; L1 stays partial on its persistence arms.
 
-**Implemented through conformance cut 47.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 48.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–47 record discharge in their dated results records, most recently
-`../plans/2026-10-27-conformance-cut-47-results.md`.
+and cuts 26–48 record discharge in their dated results records, most recently
+`../plans/2026-10-28-conformance-cut-48-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -474,6 +481,18 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   Y17/Y18 close; `publication-attribution` is discharged.** The bounded N2
   preflight pilot follows; local integration follows the personal-profile rule.
 
+- **Overlapping publications**, built 2026-10-28 at cut 48
+  ([results](../plans/2026-10-28-conformance-cut-48-results.md)): the address map
+  is multi-holder keyed by `science.node-content.v1`; a world read serves a record
+  held in several corpora once, labelled by its least present holder, and reads the
+  holder set wherever the answer depends on it; acceptance is a union over holders
+  that reports every holder's decision; attribution runs own holder, agreeing
+  carriers, then the earliest origin in the held supersession order, else refuses
+  `attribution-ambiguous`; correction standing folds once in the
+  `retraction-enumeration` v2 rule over `science.rule-input.v2`, with v1 untouched.
+  **W19, W20, G14 and Y19 close; W8b, J17, J20, G10, G12, Y5 and Y17 reclose;
+  `overlapping-publications` is discharged.**
+
 - **Owned replica publication**, built 2026-10-27 at cut 47
   ([results](../plans/2026-10-27-conformance-cut-47-results.md)): `own_corpora`
   declares selected holders as own without changing admission provenance. Full
@@ -503,8 +522,10 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-10-27-conformance-cut-47-results.md`) discharges owned replica publication.
-Y5/Y17 reclose; the corpus has **226 of 253** rows closed, 27 open.
+(`../plans/2026-10-28-conformance-cut-48-results.md`) discharges overlapping
+publications: W19, W20, G14 and Y19 close and seven reopened rows reclose; the corpus
+has **230 of 257** rows closed, 27 open. Cut 47 discharged owned replica publication
+(`../plans/2026-10-27-conformance-cut-47-results.md`), reclosing Y5/Y17.
 The historical dogfood milestone remains completed. Cut 44 discharged mount
 citations and closed J16–J21. Cut 43
 (`../plans/2026-09-27-conformance-cut-43-results.md`) discharged the multi-corpus

@@ -386,8 +386,15 @@ def test_bi5_a_resolution_disagreement_refuses(durable_world):
     _, inputs = _world_read(world, together, a, b, profile)
     assert dict(inputs.retractions.found)[first.id] == "overturned"
     move(alpha, beta, counter.id, **MOVE_FIELDS)
+    # Cut 48 §4.5: the shipped (v2-bound) enumeration folds once over the whole capture, so
+    # the moved counter still overturns its target and the world reads; the v1 binding keeps
+    # the per-corpus pair the evaluator's fold cannot reproduce, and refuses.
     split = publish(world, (a, b), hold_shipped(world))
-    assert dict(open_world_view(world, split).retraction_enumeration().found)[first.id] == "upheld"
+    assert dict(open_world_view(world, split).retraction_enumeration().found)[first.id] == "overturned"
+    _, inputs = _world_read(world, split, a, b, profile)
+    assert dict(inputs.retractions.found)[first.id] == "overturned"
+    legacy = publish(world, (a, b), hold_shipped(world, retraction="v1"))
+    assert dict(open_world_view(world, legacy).retraction_enumeration().found)[first.id] == "upheld"
     with pytest.raises(RetractionResolutionDisagreement) as refused:
-        _world_read(world, split, a, b, profile)
+        _world_read(world, legacy, a, b, profile)
     assert refused.value.ref == first.id

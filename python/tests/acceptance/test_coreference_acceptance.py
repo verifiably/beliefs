@@ -339,7 +339,10 @@ def test_coreference_between_retractions_closes_no_route_durably(durable_world, 
         assert {p: p.read_bytes() for p in before_records} == before_records
         assert {p.parent.name for p in writers[0].root.glob("*/*.md") if p not in before_records} <= {"act-report"}
     # Cut 18's raw shapes: malformed controlled identities, not a constructible controlled cycle.
-    raw = (raw_retraction("retraction:r1", "retraction:r2"), raw_retraction("retraction:r2", "retraction:r1"))
+    # From cut 48 (§4.5) standing is folded once over every holder at derivation, so a raw
+    # cycle written across the two corpora refuses the build as `RuleNonconformant`
+    # (`test_g14_i_v2_fold_world` pins it); the raw pair here is a chain whose tail resolves nowhere.
+    raw = (raw_retraction("retraction:r1", "retraction:r2"), raw_retraction("retraction:r2", "retraction:r3"))
     for writer, node in zip(writers, raw, strict=True):
         raw_write(writer.root, node)
         assert not stored.semantic_hash_disagrees(node)

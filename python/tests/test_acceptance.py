@@ -19,7 +19,7 @@ from test_snapshot_retraction import broken_counter, snapshot_retraction
 from test_world_build import ALPHA, BETA
 from test_world_receipts import document, hold_shipped, publish, repackage
 from test_world_standing import support_in, writer_at
-from test_world_view import split_evaluation_world, world_kwargs
+from test_world_view import overlap_evaluation_world, split_evaluation_world, world_kwargs
 
 from beliefs import belief, evaluation, stored
 from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
@@ -233,6 +233,8 @@ def test_g12_l_accept_all_refusal_parity(tmp_path, case):
             else:
                 outcomes.append((type(answer), answer.reason, getattr(answer, "detail", None), admission))
     assert outcomes[0] == outcomes[1]
+    if case == "split":  # cut 48 §4.5: the shipped binding reads the moved counter through
+        assert not issubclass(outcomes[0][0], Exception), outcomes[0]
 
 
 def test_rejected_malformed_verification_and_local_correction(tmp_path, monkeypatch):
@@ -722,14 +724,31 @@ def test_g12_g_mapped_oracle(tmp_path, monkeypatch):
 
 
 def test_g12_h_split_with_exclusion(tmp_path):
+    """Cut 48 §4.5: the shipped binding folds standing once over the whole capture, so
+    a counter moved apart from its target still overturns it and an unrelated
+    exclusion reads through (until cut 48 this refused `RetractionResolutionDisagreement`)."""
     world, roots, _published, (root, counter) = _ordinary_chain(tmp_path, 2)
     alpha = writer_at(roots[ALPHA], profile_with())
     beta = writer_at(roots[BETA], profile_with())
     unrelated = alpha.retract(retracts(alpha.read_view.get("assessment:a-2"), "unrelated"))
     move(alpha, beta, counter.id, **MOVE_FIELDS)
     split = publish(world, (ALPHA, BETA), hold_shipped(world))
+    view = open_world_view(world, split)
+    assert view.corpus_of(root.id) == ALPHA and view.corpus_of(counter.id) == BETA
+    selected = _gather_world(view, {unrelated.id})
+    assert dict(selected.retractions.found) == {root.id: RETRACTION_OVERTURNED, counter.id: RETRACTION_UPHELD}
+    assert _excluded(selected) == ((ALPHA, unrelated.id),)
+    # A v1-bound epoch over the same world once BETA also holds R records two resolutions
+    # for R; the policy path refuses that by rule, even with R in the affected set.
+    raw_write(roots[BETA], root)
+    legacy = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v1"))
+    found = open_world_view(world, legacy).retraction_enumeration().found
+    assert sorted(pair for pair in found if pair[0] == root.id) == [
+        (root.id, RETRACTION_OVERTURNED),
+        (root.id, RETRACTION_UPHELD),
+    ]
     with pytest.raises(RetractionResolutionDisagreement) as caught:
-        _gather_world(open_world_view(world, split), {unrelated.id})
+        _gather_world(open_world_view(world, legacy), {counter.id})
     assert caught.value.ref == root.id
 
 
@@ -778,6 +797,204 @@ def test_g12_k_snapshot_history(tmp_path):
     assert after.retractions.found == ()
     assert not any(kind == "retraction" for kind, _ref in after.read_trace)
     assert before.closure().digest() != after.closure().digest()
+
+
+# --- cut 48: acceptance and standing over holders (G14-c, G14-d, G14-g) --------------------------
+
+
+def _overlap_chain(tmp_path, length=1, *, shared=1, retraction="v2"):
+    """`_ordinary_chain` whose first `shared` chain members are also held in BETA as
+    raw copies of equal content (one record, two holders; cut 48 §4.5)."""
+    world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
+    writer = writer_at(roots[ALPHA], profile_with())
+    target = support_in(open_world_view(world, published), ALPHA)
+    chain = []
+    for index in range(length):
+        target = writer.retract(retracts(target, f"chain-{index}"))
+        chain.append(target)
+    for member in chain[:shared]:
+        raw_write(roots[BETA], member)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world, retraction=retraction))
+    return world, roots, published, chain
+
+
+def _excluded(inputs) -> tuple[tuple[str, str], ...]:
+    assert inputs.acceptance is not None
+    return inputs.acceptance.excluded
+
+
+def _gather_with(view, policy, *, context=None):
+    profile = profile_with()
+    kwargs = world_kwargs(view, profile)
+    return gather(
+        view,
+        "proposition:p",
+        profile=profile,
+        context=kwargs["context"] if context is None else context,
+        resolution=kwargs["resolution"],
+        binding=kwargs["binding"],
+        acceptance=policy,
+    )
+
+
+def test_g14_c_predicate_per_holder(tmp_path):
+    """A retraction held in two corpora, rejected under the least holder and accepted
+    under the other, takes effect: the record counts if any holder's branch says so
+    (cut 48 §6), each holder asked once and the rejected pair reported."""
+    world, _roots, published, (root,) = _overlap_chain(tmp_path)
+    view = open_world_view(world, published)
+    assert view.holders_of(root.id) == (ALPHA, BETA) and view.corpus_of(root.id) == ALPHA
+    seen = []
+
+    def decide(corpus_id, ref):
+        seen.append((corpus_id, ref))
+        return not (corpus_id == ALPHA and ref == root.id)
+
+    through_beta = _gather_with(view, belief.AcceptancePolicy(decide, "least holder rejects"))
+    everywhere = _gather_world(view, {root.id})
+    assert len(everywhere.assessments) == len(through_beta.assessments) + 1
+    assert dict(through_beta.retractions.found) == {root.id: RETRACTION_UPHELD}
+    assert root.id not in dict(everywhere.retractions.found)
+    assert (ALPHA, root.id) in _excluded(through_beta)
+    assert (BETA, root.id) not in _excluded(through_beta)
+    assert {(ALPHA, root.id), (BETA, root.id)} <= set(_excluded(everywhere))
+    assert seen.count((ALPHA, root.id)) == 1 and seen.count((BETA, root.id)) == 1
+
+
+def test_g14_d_filtered_graphs(tmp_path):
+    """R and C in ALPHA, R in BETA: rejecting C upholds R with C's rejection reported and
+    the fidelity check passing; accepting C overturns R. With both holding R and C, C
+    accepted through BETA alone still overturns R (cut 48 §4.5, §6)."""
+    world, roots, published, (root, counter) = _overlap_chain(tmp_path, 2)
+    view = open_world_view(world, published)
+    assert view.holders_of(root.id) == (ALPHA, BETA) and view.holders_of(counter.id) == (ALPHA,)
+    assert dict(view.retraction_enumeration().found) == {root.id: RETRACTION_OVERTURNED, counter.id: RETRACTION_UPHELD}
+    rejected = _gather_world(view, {counter.id})
+    assert dict(rejected.retractions.found) == {root.id: RETRACTION_UPHELD}
+    assert _excluded(rejected) == ((ALPHA, counter.id),)
+    accepted = _gather_world(view)
+    assert dict(accepted.retractions.found) == {root.id: RETRACTION_OVERTURNED, counter.id: RETRACTION_UPHELD}
+    assert len(accepted.assessments) == len(rejected.assessments) + 1
+    raw_write(roots[BETA], counter)
+    both = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v2"))
+    view = open_world_view(world, both)
+    assert view.holders_of(counter.id) == (ALPHA, BETA)
+    through_beta = _gather_with(
+        view, belief.AcceptancePolicy(lambda c, r: not (c == ALPHA and r == counter.id), "counter through BETA")
+    )
+    assert dict(through_beta.retractions.found) == {root.id: RETRACTION_OVERTURNED, counter.id: RETRACTION_UPHELD}
+    assert _excluded(through_beta) == ((ALPHA, counter.id),)
+    assert len(through_beta.assessments) == len(accepted.assessments)
+
+
+def test_g14_g_filtered_fidelity_one_comparison(tmp_path):
+    """The fidelity check is one comparison against gather's own fold: a receipt that
+    disagrees for a surviving retraction refuses, and an enumeration carrying two
+    resolutions for one ref refuses explicitly even when the ref is in the affected
+    set (cut 48 §4.5)."""
+    world, _roots, published, (root, counter) = _overlap_chain(tmp_path, 2)
+    view = open_world_view(world, published)
+    enumeration = replace(
+        view.retraction_enumeration(),
+        found=tuple(
+            (ref, RETRACTION_UPHELD if ref == root.id else resolution)
+            for ref, resolution in view.retraction_enumeration().found
+        ),
+    )
+    receipt = document(published, "retraction-receipt.yaml")
+    receipt["enumeration"] = derive.retraction_enumeration_projection(enumeration)
+    receipt["subject"] = derive.retraction_enumeration_identity(enumeration)
+    corrupt = repackage(world, published, {"retraction-receipt.yaml": receipt})
+    with pytest.raises(RetractionResolutionDisagreement) as caught:
+        _gather_world(open_world_view(world, corrupt))
+    assert (caught.value.ref, caught.value.recorded, caught.value.computed) == (
+        root.id,
+        RETRACTION_UPHELD,
+        RETRACTION_OVERTURNED,
+    )
+    legacy = publish(world, (ALPHA, BETA), hold_shipped(world, retraction="v1"))
+    found = open_world_view(world, legacy).retraction_enumeration().found
+    assert sorted(pair for pair in found if pair[0] == root.id) == [
+        (root.id, RETRACTION_OVERTURNED),
+        (root.id, RETRACTION_UPHELD),
+    ]
+    with pytest.raises(RetractionResolutionDisagreement) as caught:
+        _gather_world(open_world_view(world, legacy), {counter.id})
+    assert caught.value.ref == root.id and "two" in str(caught.value)
+    with pytest.raises(RetractionResolutionDisagreement) as caught:
+        _gather_with(open_world_view(world, legacy), None)
+    assert caught.value.ref == root.id
+
+
+# --- cut 48: acceptance over holders (G14-a, G14-b, J20-b) --------------------------------------
+
+
+def test_g14_a_union_over_holders(tmp_path, monkeypatch):
+    """An assessment rejected under one holder and accepted under another counts: read
+    once, attributed to the accepting holder, the rejected pair reported (cut 48 §6)."""
+    world, _roots, published = overlap_evaluation_world(tmp_path)
+    view = open_world_view(world, published)
+    assert view.holders_of("assessment:a-1") == (ALPHA, BETA)
+    identity = stored.assessment_value(view.get("assessment:a-1"), profile=profile_with()).identity()
+    decoded = []
+    original = stored.assessment_value
+
+    def decode(node, **kwargs):
+        decoded.append(node.id)
+        return original(node, **kwargs)
+
+    monkeypatch.setattr(stored, "assessment_value", decode)
+    seen = []
+
+    def decide(corpus_id, ref):
+        seen.append((corpus_id, ref))
+        return not (corpus_id == ALPHA and ref == "assessment:a-1")
+
+    inputs = _gather_with(view, belief.AcceptancePolicy(decide, "least holder rejects"))
+    assert identity in {a.identity() for a in inputs.assessments}
+    assert inputs.node_corpus[identity] == (BETA,)
+    assert (ALPHA, "assessment:a-1") in _excluded(inputs) and (BETA, "assessment:a-1") not in _excluded(inputs)
+    assert seen.count((ALPHA, "assessment:a-1")) == 1 and seen.count((BETA, "assessment:a-1")) == 1
+    assert decoded.count("assessment:a-1") == 1
+    assert [ref for kind, ref in inputs.read_trace if kind == "assessment"].count(identity) == 1
+
+
+def test_g14_b_rejected_everywhere_inert(tmp_path):
+    """A verification rejected under every holder is inert and every pair is reported; one
+    accepting holder admits it once (cut 48 §6)."""
+    world, _roots, published = overlap_evaluation_world(tmp_path)
+    view = open_world_view(world, published)
+    assert view.holders_of("verification:v-1") == (ALPHA, BETA)
+    everywhere = _gather_world(view, {"verification:v-1"})
+    assert "verification:v-1" not in {v.ref for v in everywhere.verifications}
+    assert {(ALPHA, "verification:v-1"), (BETA, "verification:v-1")} <= set(_excluded(everywhere))
+    through_beta = _gather_with(
+        view, belief.AcceptancePolicy(lambda c, r: not (c == ALPHA and r == "verification:v-1"), "through BETA")
+    )
+    assert [v.ref for v in through_beta.verifications].count("verification:v-1") == 1
+    assert _excluded(through_beta) == ((ALPHA, "verification:v-1"),)
+    assert [ref for kind, ref in through_beta.read_trace if kind == "verification"].count("verification:v-1") == 1
+
+
+def test_j20_b_node_corpus_holder_set(tmp_path):
+    """An assessment, a run and an observed dataset held in two corpora are attributed to
+    both holders without a policy and to the accepting holders with one (cut 48 §6)."""
+    from dataset_fixtures import dataset_ref
+
+    world, _roots, published = overlap_evaluation_world(tmp_path)
+    view = open_world_view(world, published)
+    identity = stored.assessment_value(view.get("assessment:a-1"), profile=profile_with()).identity()
+    unfiltered = _gather_with(view, None)
+    assert unfiltered.node_corpus[identity] == (ALPHA, BETA)
+    assert unfiltered.node_corpus["run:run-a"] == (ALPHA, BETA)
+    assert unfiltered.node_corpus[dataset_ref("d-a")] == (ALPHA, BETA)
+    assert unfiltered.node_corpus["run:run-b"] == (ALPHA,)
+    filtered = _gather_with(
+        view, belief.AcceptancePolicy(lambda c, r: not (c == ALPHA and r == "assessment:a-1"), "through BETA")
+    )
+    assert filtered.node_corpus[identity] == (BETA,)
+    assert filtered.node_corpus["run:run-a"] == (ALPHA, BETA)
+    assert filtered.node_corpus[dataset_ref("d-a")] == (ALPHA, BETA)
 
 
 def test_g13_a_policy_validation(tmp_path):

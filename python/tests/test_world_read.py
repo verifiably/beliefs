@@ -78,9 +78,11 @@ def nodes_with_retired_address(slug: str) -> tuple[Node, ...]:
 
 
 def recorded(published: epoch.Epoch) -> dict[str, tuple[str, str]]:
-    """The epoch's address map, as `address -> (corpus_id, uid)`."""
+    """The epoch's address map, as `address -> (canonical holder, uid)`: the
+    least holder of each entry (cut 48 §5.2), one holder per entry in these
+    fixtures."""
     return {
-        entry["address"]: (entry["corpus_id"], entry["uid"])
+        entry["address"]: (entry["holders"][0], entry["uid"])
         for entry in document(published, "address-map.yaml")["addresses"]
     }
 
@@ -132,11 +134,11 @@ class TestBoundResolution:
         live = an_address_in(published, BETA)
         answered = read.resolve_address(world, published, live)
         assert type(answered) is read.Resolved
-        assert answered.location == read.Location(BETA, addresses[live][1])
+        assert answered.location == read.Location(BETA, addresses[live][1], (BETA,))
 
         retired = read.resolve_address(world, published, RETIRED)
         assert type(retired) is read.Resolved
-        assert retired.location == read.Location(*addresses[RETIRED])
+        assert retired.location == read.Location(*addresses[RETIRED], (addresses[RETIRED][0],))
 
         # Nothing the epoch observed: outside coverage entirely.
         outside = read.resolve_address(world, published, "dataset:never-observed")
@@ -697,3 +699,61 @@ class TestCoreferenceEdges:
         assert widest.state == "active"
         assert widest.missing_coverage == ()
         assert read.expand_coreference(world, wider, dataset_ref("a")) == (dataset_ref("a-b"), dataset_ref("a-c"))
+
+
+# --- cut 48: the two epoch shapes and resolution over holders (W19-e, W20-f) ----
+
+
+class TestOverlapResolution:
+    def test_w19_e_epoch_shapes(self, tmp_path):
+        from test_world_view import overlap_world
+
+        from beliefs.errors import EpochMalformed
+        from beliefs.world import derive
+
+        world, _roots, published, shared = overlap_world(tmp_path)
+        entries = document(published, "address-map.yaml")["addresses"]
+        entry = next(e for e in entries if e["address"] == shared.id)
+        assert sorted(entry) == ["address", "content", "holders", "uid"] and entry["holders"] == [ALPHA, BETA]
+        assert read._address_map(published)[shared.id] == derive.AddressEntry(
+            shared.uid, entry["content"], (ALPHA, BETA)
+        )
+        legacy = {
+            "addresses": [{"address": e["address"], "corpus_id": e["holders"][0], "uid": e["uid"]} for e in entries]
+        }
+        repackaged = repackage(world, published, {"address-map.yaml": legacy})
+        assert read._address_map(repackaged)[shared.id] == derive.AddressEntry(shared.uid, None, (ALPHA,))
+        assert type(read.resolve_address(world, repackaged, shared.id)) is read.Resolved
+        mixed = {"addresses": [legacy["addresses"][0], *entries[1:]]}
+        with pytest.raises(EpochMalformed):
+            repackage(world, published, {"address-map.yaml": mixed})
+
+    def test_w20_f_resolve_address_holders(self, tmp_path):
+        from nodes.core.frontmatter import node_to_markdown
+        from test_world_view import overlap_world
+
+        world, roots, published, shared = overlap_world(tmp_path)
+        stamp = read._stamp(published)
+        assert read.resolve_address(world, published, shared.id) == read.Resolved(
+            read.Location(ALPHA, shared.uid, (ALPHA, BETA)), stamp
+        )
+        (roots[BETA] / "corpus.yaml").rename(roots[BETA] / "corpus.yaml.away")
+        assert read.resolve_address(world, published, shared.id) == read.Resolved(
+            read.Location(ALPHA, shared.uid, (ALPHA,)), stamp
+        )
+        (roots[BETA] / "corpus.yaml.away").rename(roots[BETA] / "corpus.yaml")
+        path = Corpus(roots[BETA]).store.path_for(shared.id)
+        intact = path.read_bytes()
+        path.write_bytes(b"---\nnot: [a record\n---\n")
+        assert read.resolve_address(world, published, shared.id) == read.Resolved(
+            read.Location(ALPHA, shared.uid, (ALPHA,)), stamp
+        )
+        path.write_bytes(intact)
+        node = Corpus(roots[BETA]).get(shared.id)
+        node.title = "shared, revised"
+        path.write_text(node_to_markdown(node))
+        with pytest.raises(ResolutionRefused):
+            read.resolve_address(world, published, shared.id)
+        for corpus_id in (ALPHA, BETA):
+            (roots[corpus_id] / "corpus.yaml").unlink()
+        assert type(read.resolve_address(world, published, shared.id)) is read.NotPresent

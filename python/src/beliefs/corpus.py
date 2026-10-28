@@ -91,6 +91,7 @@ from beliefs.errors import (
     DatasetAddressDisagreement,
     DeletionKindExcluded,
     DeletionTargetMissing,
+    DeprecatedKeyCollision,
     EligibilityUnmet,
     FacetPayloadRefused,
     FamilyKindUnsupported,
@@ -770,11 +771,16 @@ class MountCitations:
         return found
 
     def _one(self, ref: str, base: ReadView | _ImportView) -> ReadView | _ImportView | None:
-        """Decision 4: one holder or a refusal, never a pick by corpus order."""
+        """Decision 4, amended by cut 48 §8: one holder, or several holding equal
+        content — resolved through the write root when it holds the record, else
+        the least corpus id's read mount, every read-mount holder's contract
+        checked — or a refusal naming every holder; never a pick by corpus order."""
+        from beliefs.world.registry import content_identity
+
         found = self._holders(ref, base)
         if not found:
             return None
-        if len(found) > 1:
+        if len(found) > 1 and len({content_identity(view.get(ref)) for _root, view in found}) > 1:
             corpora = ", ".join(sorted(self._corpus_id(root) for root, _ in found))
             raise AddressMapConflict(
                 Finding(
@@ -782,13 +788,15 @@ class MountCitations:
                     "duplicate-location",
                     ref,
                     corpora,
-                    f"{ref}: held by corpora {corpora}; a citation never picks a holder by corpus order",
+                    f"{ref}: held by corpora {corpora} with differing content; a citation never picks a holder "
+                    "by corpus order",
                 )
             )
-        root, view = found[0]
-        if root is not None:
-            self._refuse_contract_mismatch(root)
-        return view
+        for root, _view in found:
+            if root is not None:
+                self._refuse_contract_mismatch(root)
+        chosen = min(found, key=lambda held: "" if held[0] is None else self._corpus_id(held[0]))
+        return chosen[1]
 
     def _corpus_id(self, root: Path | None) -> str:
         return self._own.corpus_id if root is None else self._opened[root].corpus_id
@@ -1203,21 +1211,103 @@ class SnapshotStanding:
         object.__setattr__(self, "history", MappingProxyType(dict(self.history)))
 
 
+def _merged_capture(
+    views: Mapping[str, ReadView | _CapturedCheckView],
+) -> tuple[_CapturedCheckView, Mapping[str, tuple[str, ...]]]:
+    """Every holder's records as one capture, after the address map's own
+    classification between holders (cut 48 §4.2 rules, §4.5).
+
+    Two records of one uid under different live addresses refuse
+    `AddressMapConflict("uid-corruption")`; two records of one uid whose
+    content identities differ, or records of distinct uids at one live
+    address, refuse `AddressMapConflict("duplicate-location")`; a retired
+    address that is another record's live address, or that records of
+    distinct uids claim, refuses `DeprecatedKeyCollision`. Each names the uid
+    or address and every holder in capture order, never a chosen copy. The
+    checks run between records of different holders only — a corpus's own
+    index already enforces id uniqueness — so a one-holder caller is
+    unchanged. Only records of one uid, one address and one content identity
+    collapse to one, and the second value names each surviving record's
+    holders in capture order.
+    """
+    from beliefs.world.registry import content_identity
+
+    claims: dict[str, list[tuple[str, Node]]] = {}
+    by_uid: dict[str, list[tuple[str, str]]] = {}
+    retired: dict[str, dict[str, list[str]]] = {}
+    for corpus_id, view in views.items():
+        for node in view.iter_stored():
+            claims.setdefault(node.id, []).append((corpus_id, node))
+            by_uid.setdefault(node.uid, []).append((corpus_id, node.id))
+            for address in node.deprecated_ids:
+                retired.setdefault(address, {}).setdefault(node.uid, []).append(corpus_id)
+    for uid, locations in by_uid.items():
+        if len({corpus_id for corpus_id, _ in locations}) > 1 and len({address for _, address in locations}) > 1:
+            raise AddressMapConflict(
+                Finding(
+                    severity="error",
+                    code="uid-corruption",
+                    ref=uid,
+                    detail=f"corpus/address claims={tuple(locations)!r}",
+                    message="one uid names different canonical addresses; no repair is offered",
+                )
+            )
+    records: list[Node] = []
+    holders: dict[str, tuple[str, ...]] = {}
+    for address, claiming in claims.items():
+        # The content identity is the fold's one per-record cost, so it is read only for an
+        # address more than one holder claims; a singly-held record has nothing to agree with.
+        held = [(corpus_id, node, content_identity(node) if len(claiming) > 1 else "") for corpus_id, node in claiming]
+        if len({node.uid for _, node, _ in held}) > 1 or len({content for _, _, content in held}) > 1:
+            raise AddressMapConflict(
+                Finding(
+                    severity="error",
+                    code="duplicate-location",
+                    ref=address,
+                    detail=f"corpus/uid claims={tuple((corpus_id, node.uid) for corpus_id, node, _ in held)!r}",
+                    message="one canonical address is held in multiple corpora; resolve with consolidate",
+                )
+            )
+        records.append(held[0][1])
+        holders[address] = tuple(corpus_id for corpus_id, _, _ in held)
+    for address, claimants in retired.items():
+        claimed: list[tuple[str, str]] = [(corpus_id, uid) for uid, ids in claimants.items() for corpus_id in ids]
+        if address in holders:
+            live = claims[address][0][1].uid
+            claimed.extend((corpus_id, live) for corpus_id in holders[address])
+        if len({uid for _, uid in claimed}) > 1 and len({corpus_id for corpus_id, _ in claimed}) > 1:
+            raise DeprecatedKeyCollision(
+                Finding(
+                    severity="error",
+                    code="deprecated-key-collision",
+                    ref=address,
+                    detail=f"corpus/uid claims={tuple(claimed)!r}",
+                    message="a retired address answers for one record (world §4.3)",
+                )
+            )
+    return _CapturedCheckView(records), MappingProxyType(holders)
+
+
 def snapshot_standing(
     views: Mapping[str, ReadView | _CapturedCheckView],
     subject_kind: str = "producer",
     *,
     counts: Callable[[str, str], bool] | None = None,
 ) -> SnapshotStanding:
-    """Fold snapshot standing live over the corpora a snapshot covers.
+    """Fold snapshot standing live, once, over the corpora a snapshot covers.
 
-    Per corpus and then union: a counter-retraction lives beside the
-    retraction it counters (cross-corpus node targets are refused at the
-    write boundary). Every chain member is validated with the write
-    boundary's own checks before it is trusted — `retraction_standing`
-    resolves a ref and nothing else, and a raw-written counter-retraction
-    with a wrong content identity would otherwise restore a retracted
-    snapshot. Retractions outside every chain fold from their facet alone.
+    The holders' records are merged first (`_merged_capture`, which checks
+    its own well-definedness and relies on no caller), so a counter-retraction
+    held apart from the retraction it counters still resolves its target, and
+    one record held in several corpora is one vertex (cut 48 §4.5). With a
+    policy, a retraction enters the fold iff `counts(h, address)` is true for
+    some holder `h` of it, every holder asked so each decision is recorded
+    (§6). Every chain member is validated with the write boundary's own checks
+    over the merged view before it is trusted — `retraction_standing` resolves
+    a ref and nothing else, and a raw-written counter-retraction with a wrong
+    content identity would otherwise restore a retracted snapshot. Retractions
+    outside every chain fold from their facet alone. Each subject has one
+    chain in `history`, built from the one fold.
 
     A caller that must be coherent hands a `_CapturedCheckView` over records
     it captured under the corpus's hold: a `ReadView` resolves through the
@@ -1226,62 +1316,63 @@ def snapshot_standing(
     """
     from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
 
+    view, holders = _merged_capture(views)
+    nodes: dict[str, Node] = {}
+    facets: dict[str, Mapping[str, object]] = {}
+    for node in view.iter_stored():
+        if node.kind != "retraction":
+            continue
+        if counts is not None:
+            decisions = [counts(corpus_id, node.id) for corpus_id in holders[node.id]]
+            if not any(decisions):
+                continue
+        try:
+            facets[node.id] = _validated_retraction_facet(node)
+        except ScienceError as caught:
+            raise RetractionUnreadable(node.id, str(caught)) from caught
+        nodes[node.id] = node
+    standing = retraction_standing(view, facets)
+    # chains: snapshot-arm roots of this kind, then every retraction whose resolved node target is a member
+    roots = {
+        ref
+        for ref, facet in facets.items()
+        if cast(Mapping[str, str], facet["target"])["arm"] == "snapshot"
+        and cast(Mapping[str, str], facet["target"])["subject_kind"] == subject_kind
+    }
+    members: set[str] = set(roots)
+    grew = True
+    while grew:
+        grew = False
+        for ref, facet in facets.items():
+            target = cast(Mapping[str, str], facet["target"])
+            if ref in members or target["arm"] != "node":
+                continue
+            if (view.resolve(target["ref"]) or target["ref"]) in members:
+                members.add(ref)
+                grew = True
+    for ref in sorted(members):
+        try:
+            CorpusWriter._validated_retraction(nodes[ref])
+            CorpusWriter._resolve_retraction_target(nodes[ref], view)
+        except ScienceError as caught:
+            raise RetractionUnreadable(ref, str(caught)) from caught
     retracted: set[str] = set()
     history: dict[str, dict[str, str]] = {}
-    for corpus_id in sorted(views):
-        view = views[corpus_id]
-        nodes: dict[str, Node] = {}
-        facets: dict[str, Mapping[str, object]] = {}
-        for node in view.iter_stored():
-            if node.kind != "retraction":
-                continue
-            if counts is not None and not counts(corpus_id, node.id):
-                continue
-            try:
-                facets[node.id] = _validated_retraction_facet(node)
-            except ScienceError as caught:
-                raise RetractionUnreadable(node.id, str(caught)) from caught
-            nodes[node.id] = node
-        standing = retraction_standing(view, facets)
-        # chains: snapshot-arm roots of this kind, then every retraction whose resolved node target is a member
-        roots = {
-            ref
-            for ref, facet in facets.items()
-            if cast(Mapping[str, str], facet["target"])["arm"] == "snapshot"
-            and cast(Mapping[str, str], facet["target"])["subject_kind"] == subject_kind
-        }
-        members: set[str] = set(roots)
-        grew = True
-        while grew:
-            grew = False
-            for ref, facet in facets.items():
-                target = cast(Mapping[str, str], facet["target"])
-                if ref in members or target["arm"] != "node":
-                    continue
-                if (view.resolve(target["ref"]) or target["ref"]) in members:
-                    members.add(ref)
-                    grew = True
-        for ref in sorted(members):
-            try:
-                CorpusWriter._validated_retraction(nodes[ref])
-                CorpusWriter._resolve_retraction_target(nodes[ref], view)
-            except ScienceError as caught:
-                raise RetractionUnreadable(ref, str(caught)) from caught
-        for root in roots:
-            identity = cast(Mapping[str, str], facets[root]["target"])["subject_identity"]
-            if standing[root]:
-                retracted.add(identity)
-            chain = history.setdefault(identity, {})
-            chain[root] = RETRACTION_UPHELD if standing[root] else RETRACTION_OVERTURNED
-            frontier = {root}
-            while frontier:
-                nxt: set[str] = set()
-                for ref in members - set(chain):
-                    target = cast(Mapping[str, str], facets[ref]["target"])
-                    if target["arm"] == "node" and (view.resolve(target["ref"]) or target["ref"]) in frontier:
-                        chain[ref] = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED
-                        nxt.add(ref)
-                frontier = nxt
+    for root in roots:
+        identity = cast(Mapping[str, str], facets[root]["target"])["subject_identity"]
+        if standing[root]:
+            retracted.add(identity)
+        chain = history.setdefault(identity, {})
+        chain[root] = RETRACTION_UPHELD if standing[root] else RETRACTION_OVERTURNED
+        frontier = {root}
+        while frontier:
+            nxt: set[str] = set()
+            for ref in members - set(chain):
+                target = cast(Mapping[str, str], facets[ref]["target"])
+                if target["arm"] == "node" and (view.resolve(target["ref"]) or target["ref"]) in frontier:
+                    chain[ref] = RETRACTION_UPHELD if standing[ref] else RETRACTION_OVERTURNED
+                    nxt.add(ref)
+            frontier = nxt
     return SnapshotStanding(
         frozenset(retracted),
         {identity: tuple(sorted(chain.items())) for identity, chain in history.items()},

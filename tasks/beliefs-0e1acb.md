@@ -7,8 +7,8 @@ size: m
 complexity: mid
 process: direct
 created: 2026-09-25T11:35:00Z
-updated: 2026-10-24T11:15:58Z
-depends: []
+updated: 2026-10-28T19:48:02Z
+depends: [beliefs-918fd2]
 tags: [world]
 agent: claude-code
 ---
@@ -36,3 +36,4 @@ Where: python/src/beliefs/world/live.py (_coverage, _capture, _require_unmapped_
 - 2026-09-25T11:35:08Z (main): From beliefs-cc0aea's Task 3 review (2026-09-25): world/live.py (branch design/live-query, merged with cut 41's discharge) repeats open_world_view's coverage block and refusal messages, capture loop, W8b message and inbound-edge construction word for word. Kept deliberately (live-query design §8): the view.py lines are pinned by live arms of cut 23 (W10d, W10e, W10g) and cut 27 (S9-a), and cut 41's arms need single-site targets in live.py. Sharing them means re-targeting those arms through the guards' _LIVE_SABOTAGES tables, plus cut 41's. A portable test pins live's refusal messages equal to the view's in the meantime.
 - 2026-09-25T13:46:35Z (main): Also from cut 41's final review: live.py's W8b refusal text repeats open_world_view's (view.py) and, unlike the manifest and duplicate-carrier messages, has no equality pin (Z5-c matches 'W8b' only). The de-duplication removes the copy; until then, pin it or accept the gap.
 - 2026-10-24T11:15:58Z (main): scope: rescoped; at main 96066b6, coverage/inbound/W8b text still repeat, but epoch report-mode damage capture and live refusal capture now differ; narrowed sharing to common behavior, retained P3, re-rated m/mid/direct, preserved capture and uniqueness policies, and named live guard retargeting plus baseline/sabotage verification; no new brief or implementation
+- 2026-10-28T19:48:02Z (design/918fd2-overlapping-publications): sequenced after cut 48 (beliefs-918fd2, spec §12): the live capture (live._address_map) and the epoch view now share derive.address_map and the AddressEntry holder set; what remains to share is the coverage/inbound/W8b-text duplication this task names, over the cut-48 shapes
