@@ -1,13 +1,15 @@
 ---
 id: beliefs-918fd2
 title: Design overlapping-publication reads from the brief
-status: todo
+status: doing
 priority: 2
 size: l
 complexity: high
 process: planned
+owner: main
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-24T10:22:59Z
+updated: 2026-10-28T10:25:01Z
+started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
 tags: [publication, design]
@@ -22,3 +24,5 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-09T11:14:09Z (main): Ride-along candidate from scoping: beliefs-cb2a39 (an N2 arm for gather's observes-loop held filter) wakes when this cut plans its arms.
 - 2026-10-09T13:48:14Z (main): Scope widened 2026-10-09 after a review of the brief: the view's owners check (world/view.py:382) and publication attribution's origin selection (publish.py:232), with a reordered-holders publish → adopt → republish arm
 - 2026-10-24T10:22:59Z (main): completion handoff: sci-4a3543 now waits directly on this existing design for its content-identity and holder-provenance decisions. In addition to the existing ruling note on beliefs-81367e, run tasks note sci-4a3543 --no-reviewed with the chosen equality contract, exact approved revision and any acceptance interface requirements before this design result merges. This reuses the existing question; no additional research or implementation is requested here.
+- 2026-10-28T10:25:01Z (main): started
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
