@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T19:51:54Z
+updated: 2026-10-28T19:51:56Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -75,3 +75,4 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T19:39:49Z (design/918fd2-overlapping-publications): review: impl round 1 — verdict: revise; findings: Critical 0, Important 1, Minor 8; reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T19:50:57Z (design/918fd2-overlapping-publications): review: impl round 2 — verdict: accept; findings: none; reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T19:51:54Z (design/918fd2-overlapping-publications): attached: execution-ledger.md (19193 bytes): executing-plans ledger: pre-flight rows, Task 1-7 completion lines, every Ruling and deferred minor, the final review rounds
+- 2026-10-28T19:51:56Z (design/918fd2-overlapping-publications): attached: final-review-round-1-report.md (13781 bytes): whole-branch review round 1 (claude-code/claude-fable-5-1): 0 Critical, 1 Important, 8 Minor, 7 declined
