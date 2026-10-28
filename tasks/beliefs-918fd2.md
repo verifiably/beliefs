@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T14:18:12Z
+updated: 2026-10-28T14:23:33Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -68,3 +68,4 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T14:15:55Z (design/918fd2-overlapping-publications): review: plan round 3 — verdict: revise; findings: Important 3; reviewer: codex/gpt-6-astra
 - 2026-10-28T14:15:58Z (design/918fd2-overlapping-publications): user decisions on plan 5875060: execution is native inline under executing-plans with a fresh whole-branch reviewer and corrective re-reviews; the dated spec §4.2 clarification is approved (receipt folds have portable test evidence, not counted mutation arms). Revising the plan before Task 1 starts.
 - 2026-10-28T14:18:12Z (design/918fd2-overlapping-publications): plan revision 4 at a125fa6 applies the user's round-3 corrections (arms retargeted inside the falsifying task, helpers default v1 until Task 4, G14-c outcome assertion, raw-written malformed-fixture removal case); execution starts inline under executing-plans
+- 2026-10-28T14:23:33Z (design/918fd2-overlapping-publications): Task 1 Setup baseline (before any code change, worktree at a125fa6): just test → python non-N2 6278 passed 1 skipped (80 s), N2 46 passed (157 s), TypeScript 7 files 155 passed; exit 0; 4m01s wall. Certified tuple: no CapabilityUnavailable. Log: scratchpad baseline/just-test.log
