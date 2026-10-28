@@ -5,7 +5,7 @@
 **Declaration:** `python/tests/n2_arms_cut48.py`, committed at `c7dffd1`; SHA-256 `b16832c572d2be8718c25139e70c9741206a28bf1cb2285fadc84fcbaf2d100b`.
 **Design:** `../superpowers/specs/2026-10-28-overlapping-publications-design.md`, accepted at `e14315c`.
 **Plan:** `../superpowers/plans/2026-10-28-overlapping-publications.md`, revision 4 at `a125fa6`.
-**Implementation and proof:** through `67da5e1`; status/accounting updates follow the successful run below.
+**Implementation and proof:** through `67da5e1`, the review fix at `345d2d4`; status/accounting updates follow the successful run below.
 **Task:** beliefs-918fd2 (Task 7 is beliefs-821239). The task holds the implementation review and its disposition; this record and all final status edits enter that review together.
 
 ## 1. What ran
@@ -100,7 +100,7 @@ Each task's module run went RED at its new assertions and GREEN after its change
 
 After discharge edits, the documentation, recent-runner, staleness and frozen-guard checks passed **63 cases**; the required fast check passed **6,334 Python tests, one skip, in 98.12 seconds**, with no affected TypeScript tests selected (the baseline supplied the TypeScript coverage). `just check`, `tasks check` and `git diff --check` passed. The full `just test` suite ran once more over the final tree before the whole-branch review; its result is on the task. Live roadmap output reports **230 of 257 closed, 27 open**. Only the cut document's status line changed after its freeze; §§2–7 and the canonical declaration remain pinned.
 
-Implementation review is recorded on beliefs-918fd2 before findings are acted on. The task's execution ledger retains every ruling: the W8b fixture amendments and their durable twins, the pre-passing pins, the retarget lists, the ride-along's re-homing, the check extensions, the fixture's own typed corpus and staging profile, the two-resolutions refusal's message, the holders asked, and the runner slip. No final evidence/status edit is exempt from the whole-branch review.
+The whole-branch review (round 1, a fresh reviewer over the 107-commit range) found no Critical and one Important finding: the merged snapshot fold digested every record on every call. It is fixed at `345d2d4` (the digest is read only for an address several holders claim; a one-holder caller is unchanged, as spec §4.5 says), proved by `test_the_merge_digests_only_addresses_several_holders_claim` RED→GREEN, the fast suite (6,335 Python tests, one skip) and the cut 48 guard's re-audit, and a scoped re-review (round 2) returned no findings. Its eight minors are deferred in the task's execution ledger. Implementation review is recorded on beliefs-918fd2 before findings are acted on. The task's execution ledger retains every ruling: the W8b fixture amendments and their durable twins, the pre-passing pins, the retarget lists, the ride-along's re-homing, the check extensions, the fixture's own typed corpus and staging profile, the two-resolutions refusal's message, the holders asked, and the runner slip. No final evidence/status edit is exempt from the whole-branch review.
 
 ## 5. Remaining boundary
 
