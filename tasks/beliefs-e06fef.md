@@ -1,20 +1,20 @@
 ---
 id: beliefs-e06fef
-title: "Correction standing: the v2 rule, the versioned input and the merged folds"
+title: The merged correction folds and the receipt path
 status: todo
 priority: 2
-size: l
+size: m
 complexity: high
 process: direct
 created: 2026-10-28T13:21:01Z
-updated: 2026-10-28T13:21:26Z
+updated: 2026-10-28T13:45:29Z
 depends: [beliefs-d2cdfc]
 parent: beliefs-918fd2
 tags: [world]
 agent: claude-code/claude-fable-5-1
 origin: agent
 plan: docs/superpowers/plans/2026-10-28-overlapping-publications.md
-step: "Task 4: Correction standing: the v2 rule, the versioned input and the merged folds"
+step: "Task 4: The merged correction folds and the receipt path"
 ---
 
 ## Notes
