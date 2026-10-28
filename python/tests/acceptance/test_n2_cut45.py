@@ -185,6 +185,111 @@ _LIVE_SABOTAGES = {
             "        if False:\n"
         ),
     ),
+    # Cut 48 (overlapping publications), 2026-10-28, Task 5: gather's assessment and verification loops
+    # iterate each record once with its captured holders and ask `counts` for every holder (spec
+    # §6); each arm keeps its check and its mutation moves to the same decision's new site.
+    "G10-c": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n"
+            "        accepted = decisions is None or any(decisions)\n"
+            "        # beliefs-010c6e:"
+        ),
+        after=(
+            "        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n"
+            "        accepted = True\n"
+            "        # beliefs-010c6e:"
+        ),
+    ),
+    "G10-d": Sabotage(
+        module="evaluation.py",
+        before="        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n",
+        after=(
+            "        decisions = None if counts is None else [counts(cast(str, holder), "
+            "(node.deprecated_ids[0] if node.deprecated_ids else node.id)) for holder in holders]\n"
+        ),
+    ),
+    # G10-f's frozen `after` named the per-holder loop variable the loop no longer binds.
+    "G10-f": Sabotage(
+        module="evaluation.py",
+        before="        if not accepted:\n            continue\n        visited.add(node.id)\n",
+        after=(
+            "        if not accepted:\n"
+            "            if world:\n"
+            "                identity = stored.assessment_value(node, profile=profile).identity()\n"
+            "                attribution.setdefault(identity, set()).update(cast(tuple[str, ...], holders))\n"
+            "            continue\n"
+            "        visited.add(node.id)\n"
+        ),
+    ),
+    "G11-a": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        if counts is not None:\n"
+            "            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)\n"
+            "            if not any(decided):\n"
+            "                continue\n"
+        ),
+        after=(
+            "        if counts is not None:\n"
+            "            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)\n"
+            "            if False:\n"
+            "                continue\n"
+        ),
+    ),
+    "G11-b": Sabotage(
+        module="evaluation.py",
+        before=(
+            '        if node.kind != "verification":\n'
+            "            continue\n"
+            "        if counts is not None:\n"
+            "            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)\n"
+            "            if not any(decided):\n"
+            "                continue\n"
+        ),
+        after=(
+            '        if node.kind != "verification":\n'
+            "            continue\n"
+            "        if counts is not None:\n"
+            "            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)\n"
+            "            if False:\n"
+            "                continue\n"
+        ),
+    ),
+    "G11-c": Sabotage(
+        module="evaluation.py",
+        before=(
+            "            if not any(decided):\n"
+            "                continue\n"
+            "        names = {r.target for r in node.relations if r.predicate == stored.VERIFIES}\n"
+        ),
+        after=(
+            "            if False:\n"
+            "                continue\n"
+            "        names = {r.target for r in node.relations if r.predicate == stored.VERIFIES}\n"
+        ),
+    ),
+    "G13-b": Sabotage(
+        module="evaluation.py",
+        before=(
+            "        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n"
+            "        accepted = decisions is None or any(decisions)\n"
+            "        # beliefs-010c6e: membership by the `assesses` edge, before any decode.\n"
+            "        targets = [r.target for r in node.relations if r.predicate == stored.ASSESSES]\n"
+            "        wanted = view.resolve(proposition) or proposition\n"
+            "        if not any((view.resolve(target) or target) == wanted for target in targets):\n"
+            "            continue  # a lookup, not a value handed out — membership by the edge, never by decoding\n"
+        ),
+        after=(
+            "        # beliefs-010c6e: membership by the `assesses` edge, before any decode.\n"
+            "        targets = [r.target for r in node.relations if r.predicate == stored.ASSESSES]\n"
+            "        wanted = view.resolve(proposition) or proposition\n"
+            "        if not any((view.resolve(target) or target) == wanted for target in targets):\n"
+            "            continue  # a lookup, not a value handed out — membership by the edge, never by decoding\n"
+            "        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]\n"
+            "        accepted = decisions is None or any(decisions)\n"
+        ),
+    ),
 }
 CUT45_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT45_ARMS

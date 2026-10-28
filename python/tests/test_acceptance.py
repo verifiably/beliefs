@@ -19,7 +19,7 @@ from test_snapshot_retraction import broken_counter, snapshot_retraction
 from test_world_build import ALPHA, BETA
 from test_world_receipts import document, hold_shipped, publish, repackage
 from test_world_standing import support_in, writer_at
-from test_world_view import split_evaluation_world, world_kwargs
+from test_world_view import overlap_evaluation_world, split_evaluation_world, world_kwargs
 
 from beliefs import belief, evaluation, stored
 from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD
@@ -924,6 +924,77 @@ def test_g14_g_filtered_fidelity_one_comparison(tmp_path):
     with pytest.raises(RetractionResolutionDisagreement) as caught:
         _gather_with(open_world_view(world, legacy), None)
     assert caught.value.ref == root.id
+
+
+# --- cut 48: acceptance over holders (G14-a, G14-b, J20-b) --------------------------------------
+
+
+def test_g14_a_union_over_holders(tmp_path, monkeypatch):
+    """An assessment rejected under one holder and accepted under another counts: read
+    once, attributed to the accepting holder, the rejected pair reported (cut 48 §6)."""
+    world, _roots, published = overlap_evaluation_world(tmp_path)
+    view = open_world_view(world, published)
+    assert view.holders_of("assessment:a-1") == (ALPHA, BETA)
+    identity = stored.assessment_value(view.get("assessment:a-1"), profile=profile_with()).identity()
+    decoded = []
+    original = stored.assessment_value
+
+    def decode(node, **kwargs):
+        decoded.append(node.id)
+        return original(node, **kwargs)
+
+    monkeypatch.setattr(stored, "assessment_value", decode)
+    seen = []
+
+    def decide(corpus_id, ref):
+        seen.append((corpus_id, ref))
+        return not (corpus_id == ALPHA and ref == "assessment:a-1")
+
+    inputs = _gather_with(view, belief.AcceptancePolicy(decide, "least holder rejects"))
+    assert identity in {a.identity() for a in inputs.assessments}
+    assert inputs.node_corpus[identity] == (BETA,)
+    assert (ALPHA, "assessment:a-1") in _excluded(inputs) and (BETA, "assessment:a-1") not in _excluded(inputs)
+    assert seen.count((ALPHA, "assessment:a-1")) == 1 and seen.count((BETA, "assessment:a-1")) == 1
+    assert decoded.count("assessment:a-1") == 1
+    assert [ref for kind, ref in inputs.read_trace if kind == "assessment"].count(identity) == 1
+
+
+def test_g14_b_rejected_everywhere_inert(tmp_path):
+    """A verification rejected under every holder is inert and every pair is reported; one
+    accepting holder admits it once (cut 48 §6)."""
+    world, _roots, published = overlap_evaluation_world(tmp_path)
+    view = open_world_view(world, published)
+    assert view.holders_of("verification:v-1") == (ALPHA, BETA)
+    everywhere = _gather_world(view, {"verification:v-1"})
+    assert "verification:v-1" not in {v.ref for v in everywhere.verifications}
+    assert {(ALPHA, "verification:v-1"), (BETA, "verification:v-1")} <= set(_excluded(everywhere))
+    through_beta = _gather_with(
+        view, belief.AcceptancePolicy(lambda c, r: not (c == ALPHA and r == "verification:v-1"), "through BETA")
+    )
+    assert [v.ref for v in through_beta.verifications].count("verification:v-1") == 1
+    assert _excluded(through_beta) == ((ALPHA, "verification:v-1"),)
+    assert [ref for kind, ref in through_beta.read_trace if kind == "verification"].count("verification:v-1") == 1
+
+
+def test_j20_b_node_corpus_holder_set(tmp_path):
+    """An assessment, a run and an observed dataset held in two corpora are attributed to
+    both holders without a policy and to the accepting holders with one (cut 48 §6)."""
+    from dataset_fixtures import dataset_ref
+
+    world, _roots, published = overlap_evaluation_world(tmp_path)
+    view = open_world_view(world, published)
+    identity = stored.assessment_value(view.get("assessment:a-1"), profile=profile_with()).identity()
+    unfiltered = _gather_with(view, None)
+    assert unfiltered.node_corpus[identity] == (ALPHA, BETA)
+    assert unfiltered.node_corpus["run:run-a"] == (ALPHA, BETA)
+    assert unfiltered.node_corpus[dataset_ref("d-a")] == (ALPHA, BETA)
+    assert unfiltered.node_corpus["run:run-b"] == (ALPHA,)
+    filtered = _gather_with(
+        view, belief.AcceptancePolicy(lambda c, r: not (c == ALPHA and r == "assessment:a-1"), "through BETA")
+    )
+    assert filtered.node_corpus[identity] == (BETA,)
+    assert filtered.node_corpus["run:run-a"] == (ALPHA, BETA)
+    assert filtered.node_corpus[dataset_ref("d-a")] == (ALPHA, BETA)
 
 
 def test_g13_a_policy_validation(tmp_path):

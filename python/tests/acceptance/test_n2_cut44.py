@@ -76,6 +76,19 @@ _LIVE_SABOTAGES = {
         before='        self.unreadable[ref] = "; ".join(causes)\n        return None\n',
         after='        raise CorpusDamaged(f"eligibility:{ref}", holders[0], self._view.stamp)\n',
     ),
+    # Cut 48 (overlapping publications), 2026-10-28, Task 5: `MountCitations._one` resolves equal content once,
+    # checking every read-mount holder's contract, and refuses differing content naming every holder
+    # (spec §8); each sabotage keeps its frozen check and skips the same decision at its new site.
+    "J16-d": Sabotage(
+        module="corpus.py",
+        before="            if root is not None:\n                self._refuse_contract_mismatch(root)\n",
+        after="            if False:\n                self._refuse_contract_mismatch(root)\n",
+    ),
+    "J17-a": Sabotage(
+        module="corpus.py",
+        before="        if len(found) > 1 and len({content_identity(view.get(ref)) for _root, view in found}) > 1:\n",
+        after="        if False:\n",
+    ),
 }
 CUT44_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT44_ARMS

@@ -542,6 +542,18 @@ def split_evaluation_world(tmp_path: Path, beta_refs=(DATASET_D_A,)):
     return world, roots, published
 
 
+def overlap_evaluation_world(tmp_path: Path, shared=("assessment:a-1", "run:run-a", DATASET_D_A, "verification:v-1")):
+    """The seeded corpus in ALPHA, with `shared` also held in BETA as equal copies
+    (one record, two holders; cut 48 §6)."""
+    scratch = tmp_path / "scratch"
+    seeded = seed(scratch, axis="rows")
+    nodes = tuple(seeded.iter_stored())
+    roots = corpora(tmp_path, {ALPHA: nodes, BETA: tuple(n for n in nodes if n.id in shared)})
+    world = world_over(tmp_path, roots)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    return world, roots, published
+
+
 def world_kwargs(view, profile):
     """`kwargs_for` over the world view: attribution derived, both corpora pinned alike."""
     kwargs = kwargs_for(view, profile)

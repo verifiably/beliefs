@@ -34,7 +34,7 @@ the untraced hand-out, and the digest that does not move with it.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeAlias, cast, final
@@ -212,6 +212,13 @@ def _facets_held_to_capture(profile: ProfileSpec, view: WorldReadView, target: s
             f"rows {sorted(expected - returned)} the capture holds; a write landed after the capture"
         )
     return rows
+
+
+def _captured_holders(view: WorldReadView, ref: str) -> tuple[str, ...]:
+    """The captured corpora holding `ref` (cut 48 §6): the epoch's holders minus
+    the absent ones; a damaged holder refused the read before any loop."""
+    present = view.captured()
+    return tuple(holder for holder in view.holders_of(ref) if holder in present)
 
 
 def _absent_inputs(
@@ -417,8 +424,7 @@ def _gather(
             # Accepted iff any captured holder's branch says so (cut 48 §6), every holder asked;
             # a damaged holder refused the read above, and an absent one is not captured.
             if isinstance(view, WorldReadView):
-                present = view.captured()
-                holders = tuple(holder for holder in view.holders_of(ref) if holder in present)
+                holders = _captured_holders(view, ref)
             else:
                 assert local_corpus is not None
                 holders = (local_corpus,)
@@ -483,11 +489,15 @@ def _gather(
     proposition_refs: list[str] = []
     visited: set[str] = set()  # this proposition's assessment ids, subtracted included (decision 10)
     verification_targets: set[str] = set()
-    candidates = view._mapped_records() if world else ((local_corpus, node) for node in view.iter_stored())
-    for corpus_id, node in candidates:
+    candidates: Iterable[tuple[tuple[str | None, ...], Node]] = (
+        view._mapped_holders() if world else (((local_corpus,), node) for node in view.iter_stored())
+    )
+    for holders, node in candidates:
         if node.kind != "assessment":
             continue
-        accepted = counts is None or counts(cast(str, corpus_id), node.id)
+        # Accepted iff any captured holder's branch says so, every holder asked (cut 48 §6).
+        decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]
+        accepted = decisions is None or any(decisions)
         # beliefs-010c6e: membership by the `assesses` edge, before any decode.
         targets = [r.target for r in node.relations if r.predicate == stored.ASSESSES]
         wanted = view.resolve(proposition) or proposition
@@ -506,9 +516,8 @@ def _gather(
             )
         matched.append(value)
         if world:
-            corpus_id = view.corpus_of(node.id)
-            assert corpus_id is not None  # A served record has a location in this epoch.
-            attribution.setdefault(value.identity(), set()).add(corpus_id)
+            accepting = holders if decisions is None else tuple(h for h, d in zip(holders, decisions) if d)
+            attribution.setdefault(value.identity(), set()).update(cast(tuple[str, ...], accepting))
         trace.append(("assessment", value.identity()))
         proposition_refs.extend(targets)
     ids = frozenset(a.identity() for a in matched)
@@ -533,10 +542,8 @@ def _gather(
         run_node = view.get(ref)
         runs[a.run] = run_value(view, ref)
         trace.append(("run", a.run))
-        if world:
-            corpus_id = view.corpus_of(ref)
-            assert corpus_id is not None
-            attribution.setdefault(ref, set()).add(corpus_id)
+        if isinstance(view, WorldReadView):
+            attribution.setdefault(ref, set()).update(_captured_holders(view, ref))
         outside: list[str] = []
         for role in stored.INPUT_ROLES:
             for target in stored.inputs_of(run_node, role):
@@ -555,10 +562,8 @@ def _gather(
             if address is None:
                 continue
             trace.append(("dataset", address))
-            if world:
-                corpus_id = view.corpus_of(target)
-                assert corpus_id is not None
-                attribution.setdefault(address, set()).add(corpus_id)
+            if isinstance(view, WorldReadView):
+                attribution.setdefault(address, set()).update(_captured_holders(view, target))
             for row in (
                 _facets_held_to_capture(profile, view, target) if world else read_observed_facets(profile, view, target)
             ):
@@ -569,12 +574,14 @@ def _gather(
 
     verifications: list[Verification] = []
     verification_ids: set[str] = set()
-    candidates = view._mapped_records() if world else ((local_corpus, node) for node in view.iter_stored())
-    for corpus_id, node in candidates:
+    candidates = view._mapped_holders() if world else (((local_corpus,), node) for node in view.iter_stored())
+    for holders, node in candidates:
         if node.kind != "verification":
             continue
-        if counts is not None and not counts(cast(str, corpus_id), node.id):
-            continue
+        if counts is not None:
+            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)
+            if not any(decided):
+                continue
         names = {r.target for r in node.relations if r.predicate == stored.VERIFIES}
         if not any(view.resolve(name) in verification_targets for name in names if view.resolve(name) is not None):
             continue  # membership by the `verifies` edge, never by decoding (decision 10)

@@ -127,14 +127,15 @@ def test_a_ref_held_twice_refuses_duplicate_location_naming_both(roots):
 
 
 def test_a_citation_held_by_the_write_root_and_a_mount_refuses_naming_both(roots):
-    """J17's second case: W and M both hold the observed dataset (a raw write into M), so
-    the citing assessment refuses `duplicate-location` naming W and M, and W is unchanged."""
+    """J17's second case, amended by cut 48 §8: W and M both hold the observed dataset's
+    address with differing content (a raw write into M), so the citing assessment refuses
+    `duplicate-location` naming W and M, and W is unchanged."""
     from fixtures_cut4 import raw_write
 
     w = mounted_writer(roots, "m")
     d = w.add(observed("d"))
     run, p = w.add(run_over("r", d)), w.add(proposition("p"))
-    raw_write(roots["m"], d)
+    raw_write(roots["m"], d.model_copy(update={"title": "d, revised"}))
     before = {path: path.read_bytes() for path in roots["w"].rglob("*") if path.is_file()}
     with pytest.raises(AddressMapConflict) as refused:
         w.add(assessment("a", run, p))
@@ -142,6 +143,53 @@ def test_a_citation_held_by_the_write_root_and_a_mount_refuses_naming_both(roots
     assert refused.value.finding.code == "duplicate-location" and refused.value.finding.ref == d.id
     assert refused.value.finding.detail == ", ".join(ids)
     assert {path: path.read_bytes() for path in roots["w"].rglob("*") if path.is_file()} == before
+
+
+def test_j17_c_a_citation_of_equal_content_resolves_once_with_every_contract_checked(roots):
+    """Cut 48 §8: two session corpora holding equal content resolve once — through the
+    write root when it holds the record, else the least corpus id's mount — with every
+    mount holder's contract checked; differing content refuses naming every holder."""
+    from fixtures_cut4 import raw_write
+
+    from beliefs.world.registry import content_identity
+
+    d = adopted(roots["m"]).add(observed("d"))
+    raw_write(roots["m3"], d)
+    assert content_identity(ReadView.opened_at(roots["m3"]).get(d.id)) == content_identity(d)
+    least = min(ReadView.opened_at(roots[name]).corpus_id for name in ("m", "m3"))
+    view = citations(roots, "m3", "m")
+    try:
+        holder = view.holder(d.id)
+        assert holder is not None and holder.corpus_id == least
+        assert view.get(d.id).uid == d.uid and view.resolve(d.id) == d.id
+    finally:
+        view.close()
+    raw_write(roots["w"], d)
+    view = citations(roots, "m", "m3")
+    try:
+        assert view.holder(d.id) is view._own
+    finally:
+        view.close()
+    raw_write(roots["m2"], d)  # an equal copy under another biology identity: every mount's contract is checked
+    view = citations(roots, "m", "m2")
+    try:
+        with pytest.raises(CitationContractMismatch):
+            view.holder(d.id)
+    finally:
+        view.close()
+    w = mounted_writer(roots, "m", "m3")
+    run, p = w.add(run_over("r", d)), w.add(proposition("p"))
+    held = w.add(assessment("a", run, p))  # the citation of d resolves through W's own copy
+    assert ReadView.opened_at(roots["w"]).holds(held.id)
+    raw_write(roots["m3"], d.model_copy(update={"title": "d, revised"}))
+    view = citations(roots, "m", "m3")
+    try:
+        with pytest.raises(AddressMapConflict) as refused:
+            view.holder(d.id)
+    finally:
+        view.close()
+    ids = sorted(ReadView.opened_at(roots[name]).corpus_id for name in ("w", "m", "m3"))
+    assert refused.value.finding.code == "duplicate-location" and refused.value.finding.detail == ", ".join(ids)
 
 
 def test_a_held_read_mount_lock_refuses_build_contended(roots):

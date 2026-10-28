@@ -771,11 +771,16 @@ class MountCitations:
         return found
 
     def _one(self, ref: str, base: ReadView | _ImportView) -> ReadView | _ImportView | None:
-        """Decision 4: one holder or a refusal, never a pick by corpus order."""
+        """Decision 4, amended by cut 48 §8: one holder, or several holding equal
+        content — resolved through the write root when it holds the record, else
+        the least corpus id's read mount, every read-mount holder's contract
+        checked — or a refusal naming every holder; never a pick by corpus order."""
+        from beliefs.world.registry import content_identity
+
         found = self._holders(ref, base)
         if not found:
             return None
-        if len(found) > 1:
+        if len(found) > 1 and len({content_identity(view.get(ref)) for _root, view in found}) > 1:
             corpora = ", ".join(sorted(self._corpus_id(root) for root, _ in found))
             raise AddressMapConflict(
                 Finding(
@@ -783,13 +788,15 @@ class MountCitations:
                     "duplicate-location",
                     ref,
                     corpora,
-                    f"{ref}: held by corpora {corpora}; a citation never picks a holder by corpus order",
+                    f"{ref}: held by corpora {corpora} with differing content; a citation never picks a holder "
+                    "by corpus order",
                 )
             )
-        root, view = found[0]
-        if root is not None:
-            self._refuse_contract_mismatch(root)
-        return view
+        for root, _view in found:
+            if root is not None:
+                self._refuse_contract_mismatch(root)
+        chosen = min(found, key=lambda held: "" if held[0] is None else self._corpus_id(held[0]))
+        return chosen[1]
 
     def _corpus_id(self, root: Path | None) -> str:
         return self._own.corpus_id if root is None else self._opened[root].corpus_id

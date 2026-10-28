@@ -102,6 +102,13 @@ _LIVE_SABOTAGES = {
         before='                "unavailable-corpus-absent",\n',
         after='                "unavailable-input-unheld",\n',
     ),
+    # Cut 48 (overlapping publications), 2026-10-28, Task 5: gather attributes an assessment to its accepting
+    # holders at the read (spec §6); the sabotage looks the holders up by identity after the fact.
+    "R19b": Sabotage(
+        module="evaluation.py",
+        before="            attribution.setdefault(value.identity(), set()).update(cast(tuple[str, ...], accepting))\n",
+        after="            attribution.setdefault(value.identity(), set()).update(_captured_holders(view, value.identity()))\n",
+    ),
 }
 CUT23_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT23_ARMS
