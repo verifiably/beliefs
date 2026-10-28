@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T12:15:25Z
+updated: 2026-10-28T12:17:54Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -41,3 +41,5 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T11:40:46Z (design/918fd2-overlapping-publications): review: spec round 4 — verdict: revise; findings: Important 2; reviewer: codex/gpt-6-astra
 - 2026-10-28T11:59:01Z (design/918fd2-overlapping-publications): review: spec round 5 — verdict: revise; findings: Critical 1, Important 3, Minor 6; reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T12:15:25Z (design/918fd2-overlapping-publications): review: spec round 6 — verdict: revise; findings: Important 4, Minor 6; reviewer: claude-code/claude-fable-5-1
+- 2026-10-28T12:17:54Z (design/918fd2-overlapping-publications): parked (waiting on user, review): User reviews design spec revision 7 at 77e4a79 on branch design/918fd2-overlapping-publications (worktree .worktrees/918fd2-overlapping-publications; read with git show 77e4a79:docs/superpowers/specs/2026-10-28-overlapping-publications-design.md). It resolves the codex round-4 findings with a new §4.5: correction standing folded once at derivation in a successor retraction-enumeration rule (v2, shipped beside v1; science rebinds), one filtered fidelity comparison, and a merged snapshot-standing fold after record-level acceptance; agent rounds 5 and 6 then settled receipt validation and the rules-store mechanics. On approval the agent resumes here: note the ruling on beliefs-81367e; tasks note sci-4a3543 --no-reviewed with the equality contract (§4.1), the approved revision, the acceptance interface and science-side changes (§6, §8, rebinding included); scope beliefs-c800ef to this cut and close beliefs-ae33ff with §4.5's input inventory noted on beliefs-c800ef; file the §10 item 2 follow-up idea; then invoke writing-plans. On corrections, revise as a new revision and re-park for review.
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
