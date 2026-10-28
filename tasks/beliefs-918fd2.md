@@ -1,19 +1,22 @@
 ---
 id: beliefs-918fd2
 title: Design overlapping-publication reads from the brief
-status: doing
+status: done
 priority: 2
 size: l
 complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T19:51:58Z
+updated: 2026-10-28T19:53:07Z
 started: 2026-10-28T10:25:01Z
+completed: 2026-10-28T19:53:07Z
+closed: 2026-10-28T19:53:07Z
 depends: []
 parent: beliefs-a286e7
 tags: [publication, design]
 source: docs/notes/2026-10-09-overlapping-publications-brief.md
+model: claude-fable-5-1
 agent: claude-code/claude-opus-5-5
 spec: docs/superpowers/specs/2026-10-28-overlapping-publications-design.md
 plan: docs/superpowers/plans/2026-10-28-overlapping-publications.md
@@ -77,3 +80,7 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T19:51:54Z (design/918fd2-overlapping-publications): attached: execution-ledger.md (19193 bytes): executing-plans ledger: pre-flight rows, Task 1-7 completion lines, every Ruling and deferred minor, the final review rounds
 - 2026-10-28T19:51:56Z (design/918fd2-overlapping-publications): attached: final-review-round-1-report.md (13781 bytes): whole-branch review round 1 (claude-code/claude-fable-5-1): 0 Critical, 1 Important, 8 Minor, 7 declined
 - 2026-10-28T19:51:58Z (design/918fd2-overlapping-publications): attached: final-review-round-2-report.md (3799 bytes): scoped re-review of the Important 1 fix at 345d2d4: no findings
+- 2026-10-28T19:53:07Z (design/918fd2-overlapping-publications): done
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T19:53:07Z (design/918fd2-overlapping-publications): Overlapping publications designed (spec e14315c, 10 review rounds), planned (revision 4, a125fa6) and built as conformance cut 48 on branch design/918fd2-overlapping-publications: multi-holder address map, once-served reads, holder-set acceptance and attribution, the retraction-enumeration v2 rule, merged standing folds, the 1b fixture; whole-branch review round 1 (1 Important, fixed at 345d2d4) and round 2 (clean). Science's side is sci-73c80e. Retained: the worktree .worktrees/918fd2-overlapping-publications (locked; remove after integration with tt-report run), the ledger and review reports attached, and /mnt/ssd3/work/beliefs/beliefs-918fd2/ (chain evidence; see beliefs-821239's checkpoint)
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
