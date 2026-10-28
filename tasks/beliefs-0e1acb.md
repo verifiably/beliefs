@@ -7,8 +7,8 @@ size: m
 complexity: mid
 process: direct
 created: 2026-09-25T11:35:00Z
-updated: 2026-10-24T11:15:58Z
-depends: []
+updated: 2026-10-28T19:48:00Z
+depends: [beliefs-918fd2]
 tags: [world]
 agent: claude-code
 ---
