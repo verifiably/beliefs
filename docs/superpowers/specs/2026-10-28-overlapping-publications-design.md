@@ -1,6 +1,8 @@
 # Overlapping publications: one address held in several live corpora
 
-**Status:** draft, revision 8, for the user's review; not accepted. Revision 7 (`77e4a79`)
+**Status:** draft, revision 9, for the user's review; not accepted. Revision 8 (`a451082`)
+had a scoped re-review of its additions (round 8, verdict revise: 0 Critical, 4 Important,
+6 Minor; `claude-code/claude-fable-5-1`), all resolved in §13. Revision 7 (`77e4a79`)
 had the user's second forwarded review (round 7, verdict revise: 2 Important; reviewer
 `codex/gpt-6-astra`), which confirmed the successor-rule approach, rejected the
 route-namespace assumption, and ruled on beliefs-c800ef and beliefs-ae33ff; §4.5 now
@@ -217,8 +219,10 @@ Consequences the brief asked to be ruled:
 
 `derive.CapturedRecord` gains `content: str` (the content identity), supplied by both
 captures (`epoch._captured_records`, `live._address_map`). It is **not** added to
-`CapturedRecord.projection()`: `rule_input` and the four fixture-bound rules are unchanged
-and the three receipt subjects other than the retraction enumeration do not move. Those
+`CapturedRecord.projection()`: the v1 rule input (`Capture.rule_input` for
+`science.rule-input.v1`, §4.5) and the four v1 fixture-bound rules are byte-identical to
+today's, and the three receipt subjects other than the retraction enumeration do not move.
+Those
 rules fold a record that appears once per holder into one producer edge, one certification
 ref and one coreference unit (§1); the retraction enumeration is the one subject whose rule
 changes, §4.5. W19 carries arms that pin all four, so a future rule keyed on `corpus_id`
@@ -315,11 +319,14 @@ asked for before any revival of its alternative 3, and this design does not revi
 capture stays per corpus, and the world-wide reasoning stays at the derivation boundary,
 where a held rule and its fixtures reproduce it under receipt validation. In detail:
 
-- **At epoch capture.** Nothing changes. Each corpus is enumerated once inside its own
-  hold, and `CapturedRecord.retraction.resolution` stays the per-corpus fold, the claim
-  "nothing standing in this corpus retracts this retraction", validating no target exactly
-  as `_standing_retractions`' docstring rules; the drifted-target arm it names still holds.
-  `rule_input` keeps its shape.
+- **At epoch capture.** The discipline does not change: each corpus is enumerated once
+  inside its own hold, and `CapturedRecord.retraction.resolution` stays the per-corpus
+  fold, the claim "nothing standing in this corpus retracts this retraction", validating no
+  target exactly as `_standing_retractions`' docstring rules; the drifted-target arm it
+  names still holds. What `_captured_records` builds gains two fields read by nothing in
+  v1's projection: `content` (§4.2) and the retraction's `arm` (next bullets); its
+  signature, its enumeration and the lines the live arms over it sabotage are untouched.
+  The v1 rule input keeps its shape; the v2 input is a second projection.
 - **At derivation: `retraction-enumeration` v2.** A second shipped rule bundle, module
   `rules_v1/retraction_v2.py`, symbol `enumerate_retractions_v2`, fixtures
   `retraction_v2.<case>.yaml` (the fixture discovery is by module prefix, so neither the
@@ -355,17 +362,34 @@ where a held rule and its fixtures reproduce it under receipt validation. In det
     `Capture.rule_input(version)` emits the v1 projection for `science.rule-input.v1` and,
     for `science.rule-input.v2`, the same projection with `arm` added to each retraction
     member (and nothing else added).
-  - `RuleBundle` gains `input_version`, `science.rule-input.v1` for the four shipped v1
-    bundles and `science.rule-input.v2` for `retraction_v2`. The stored rule document
-    `rule.yaml` admits two closed shapes: `{symbol}` (v1, every rule held today) and
-    `{symbol, input}`; `parse_rule_document` reads the first as v1 and refuses anything
-    else, the §4.3 pattern. A v2 bundle's rule identity digests `[symbol, fixture-set,
-    input]` under the existing domain; v1 identities keep their two-member formula and do
-    not move. `_HeldRule` carries the version, `_BuildDraft.run(kind)` and
-    `validate_receipt` hand each held rule `rule_input(held.input_version)`, and the
-    fixture runner does the same, so a fixture, a build and a validation run see one ABI
-    per version. `test_every_shipped_fixture_carries_a_captured_view` pins the key set per
-    input version.
+  - `RuleBundle` gains `input_version: str | None`, appended last with default `None` so
+    positional constructions keep working. `None` means the stored document `{symbol}`,
+    every rule held today: the four shipped v1 world rules, which a world build and
+    `validate_receipt` read as `science.rule-input.v1`, and the holdings reduction bundle
+    (`holdings/reduce.py`), the rules store's other producer, whose caller supplies its own
+    capture (`holdings/receipt.py` resolves the pair through
+    `_locked_resolve_rule_binding` and never consults the version); `input_version` is a
+    property of world enumeration rules only, and the holdings invocation sites are
+    unchanged. `retraction_v2` carries `science.rule-input.v2`, the one value `input`
+    admits. The stored rule document admits two closed shapes: `{symbol}` and
+    `{symbol, input: science.rule-input.v2}`; `parse_rule_document` returns the symbol
+    and the version, reads the first shape as `None`, and refuses any other document, a
+    document naming v1 explicitly included, so each rule has one encoding (the §4.3
+    pattern). A v2 bundle's rule identity digests `[symbol, fixture-set, input]` under the
+    existing `science.enumeration-rule.v1` domain (a three-member list cannot collide with a
+    two-member one); v1 identities keep their two-member formula and do not move. This
+    amends by citation the pinned definition "a rule identity is `(symbol, fixture-set
+    identity)`" in the normative contract design §6 and world-index slice 2 §4.1, the
+    `rules.py` module docstring, and
+    `test_world_rules.py::test_the_rule_identity_is_the_pinned_domain_over_symbol_and_fixture_set`,
+    each with a dated note; `contracts/` carries no rule-identity text, which is what §11's
+    "no contract release" means. `_HeldRule` carries the version; `_BuildDraft.run(kind)`
+    and `validate_receipt` hand each held rule `rule_input(held.input_version)`. The
+    fixture runner hands a rule its fixtures' literal inputs, so the one-ABI-per-version
+    property is held at resolution: `_locked_stored_rule` checks every fixture input's
+    record key set against the held version, and a mis-versioned fixture set is not held.
+    `test_world_derive.py::test_every_shipped_fixture_carries_a_captured_view` pins the key
+    set per input version.
   Rule content may import nothing (`TestPurity`) and so can raise only a plain exception, and a
   fixture pins outputs, never refusals; so (a) the kernel wraps a rule raise at
   `_HeldRule.invoke` into `RuleNonconformant` naming the subject kind and the pair, which
@@ -395,7 +419,7 @@ where a held rule and its fixtures reproduce it under receipt validation. In det
   uses is the caller's binding. Every helper that joins shipped symbols to subject kinds is
   a dict keyed by symbol (science's `SYMBOL_FIELDS`; the test suite's `SYMBOL_KINDS`,
   `install_bindings`, `hold_shipped` and cut 7's `shipped_bindings`), so adding the v2
-  symbol beside v1's would silently rebind by shipping order and omitting it would raise
+  symbol beside v1's would silently rebind by the dict's iteration order and omitting it would raise
   `KeyError`: the test helpers take an explicit retraction version so that W19's paired
   arms can express both bindings, and science's `SYMBOL_FIELDS` change **replaces** the v1
   symbol's entry (§8). A v1-bound build over an overlapping world behaves exactly as today
@@ -436,24 +460,31 @@ where a held rule and its fixtures reproduce it under receipt validation. In det
   two records of one uid under different live addresses refuse `AddressMapConflict
   ("uid-corruption")`; two records of one uid whose content identities differ (which
   includes a snapshot-arm retraction naming different subjects) refuse
-  `AddressMapConflict("duplicate-location")`; a live or deprecated id claimed by records of
-  distinct uids refuses the deprecated-key `ResolutionRefused`; each names the uid or
-  address and every holder, in capture order, never a chosen copy. Only records of one uid
-  with one address and one content identity collapse to one. `_CapturedCheckView` keyed
-  by id would otherwise let insertion order decide which copy the fold sees. With a
+  `AddressMapConflict("duplicate-location")`, as do records of distinct uids at one live
+  address (§4.2 rule 2); a deprecated id that is another record's live address, or that is
+  claimed by records of differing content identity, refuses the deprecated-key
+  `ResolutionRefused` (§4.2 rule 3); each names the uid or address and every holder, in
+  capture order, never a chosen copy. The checks run between records of different holders
+  only, since a corpus's own index already enforces id uniqueness, so a one-corpus caller
+  is unchanged. Only records of one uid with one address and one content identity collapse
+  to one. `_CapturedCheckView` keyed by id would otherwise let insertion order decide which
+  copy the fold sees. With a
   policy, a retraction enters the fold iff `counts(h, address)` is true for **some**
   holder `h` of it, each holder's decision recorded as §6 says, so a counter accepted
   through one holder overturns a retraction accepted through another. Target validation
   (`_validated_retraction`, `_resolve_retraction_target`) runs over the merged view, so a
   counter in one holder resolves its target held in another. Each subject has one chain in
   `history`, built from the one fold, and no holder order can overwrite it. Through the
-  receipt path: `validate_receipt` reports a merge refusal as `unresolvable` with the
-  finding's text (this world cannot say what it holds, the `ResolutionRefused` precedent,
-  never `retracted` and never an exception), and `reported_receipt` returns that outcome
-  with the conflict's `Finding` beside it, as it returns `retraction-unreadable` for an
-  unreadable chain. Through a `WorldReadView` the refusal propagates as an exception from
-  `gather`, as `RetractionUnreadable` does. A local `ReadView` caller (one corpus) is
-  unchanged.
+  receipt path: `read._snapshot_standing` catches the merge refusal and returns the
+  `unresolvable` outcome together with a `Finding` (the conflict's own for the two
+  `AddressMapConflict` cases; `Finding("error", "deprecated-key-collision", <address>,
+  <holders>, …)` for the `ResolutionRefused` case); `validate_receipt` returns the outcome
+  (this world cannot say what it holds, the `ResolutionRefused` precedent, never `retracted`
+  and never an exception) and drops the finding; `reported_receipt` returns both, beside
+  the `retraction-unreadable` it already returns for an unreadable chain. Through a
+  `WorldReadView` the refusal propagates as an exception from `gather`, as
+  `RetractionUnreadable` does. A local `ReadView` caller (one corpus) is unchanged for any
+  corpus its own index admits.
 - **The local enumeration and corpus-local standing** (`local_retraction_enumeration`,
   `standing_in_local_view`) are one-corpus reads and do not change.
 
@@ -771,8 +802,8 @@ marker whose adoption would order an `attribution-ambiguous` refusal's claims (�
 3); and the rebinding of §4.5: `science/world_belief.py` `build_over` installs every
 shipped bundle and maps rule symbols to `DerivationBindings` fields through
 `SYMBOL_FIELDS`, a dict keyed by symbol, so the change there **replaces** the v1 symbol's
-entry with `enumerate_retractions_v2` (adding it beside v1's would rebind silently by
-shipping order), after which every new epoch science builds carries v2's fold and v1 stays
+entry with `enumerate_retractions_v2` (adding it beside v1's would rebind silently by the
+dict's iteration order), after which every new epoch science builds carries v2's fold and v1 stays
 installed for the epochs that name it. Those changes are science's tasks and are not made here; the completion note on
 sci-4a3543 names them.
 
@@ -801,9 +832,11 @@ body untouched:
   local-versus-world comparison is retired with the comparison; G12-a/b/c over gather's
   `counts(holder, canonical)` and G12-e over `counts` inside `snapshot_standing` are
   retargeted to the per-holder loops. Cut 34's BI-3 and BI-9 sit outside the rewritten
-  functions; BI-4 and BI-8 inside `snapshot_standing` are re-read. `_capture` and
-  `_captured_records` do not change, so cut 7's `_RELOCATED_HEAD`, cut 27's W13-b, cut 24's
-  W15h and cut 39's Y1-b stand. `test_world_standing.py::TestTheSplit`,
+  functions; BI-4 and BI-8 inside `snapshot_standing` are re-read. The lines cut 7's
+  `_RELOCATED_HEAD` (in `_capture`'s hold block), cut 27's W13-b (the `CapturedCorpus`
+  append), cut 24's W15h (the coreference branch) and cut 39's Y1-b (the `WORLD_KINDS`
+  filter) sabotage are untouched by the two fields `_captured_records` gains, so those
+  arms stand. `test_world_standing.py::TestTheSplit`,
   `test_acceptance.py::test_g12_h_split_with_exclusion` and
   `test_g12_l_accept_all_refusal_parity[split]` change obligation under a v2-bound build
   (§4.5) and are rewritten, not retargeted; `test_arm_staleness` discovers the rest.
@@ -878,15 +911,20 @@ product code, names the highest-numbered runner as its prefix, and adds its row 
 Primary code: `world/derive.py`, `world/epoch.py` (`_check_addresses`; `_derived_members`
 derives the address map before the rules, §4.5; `_capture` and `_captured_records` keep
 their signatures and return values, which `test_world_epoch.py` and `test_world_build.py`
-monkeypatch), `world/rules_v1/` (`retraction_v2.py` and its `retraction_v2.*.yaml`
+monkeypatch; `_captured_records` keeps its signature and returns `CapturedRecord`s with
+two more fields), `world/rules_v1/` (`retraction_v2.py` and its `retraction_v2.*.yaml`
 fixtures, listed in `rules.py`'s `_SHIPPED`), `world/rules.py` (`RuleBundle.input_version`,
-the two closed `rule.yaml` shapes, the v2 rule-identity formula, `_HeldRule`'s version and
-its wrap of a rule raise, the fixture runner's per-version input; R23's rules-store
-clauses are cited by the plan when it checks `contract-cut` before freezing), `root.py`
-only as the installer of every shipped bundle (no new write primitive;
-`install_shipped_world_rules` already iterates them), `world/read.py` (`_address_map`;
-`validate_receipt`'s per-version input and its `unresolvable` outcome for a merge refusal;
-`reported_receipt`'s finding),
+the two closed `rule.yaml` shapes and `parse_rule_document`'s return, the v2 rule-identity
+formula with its dated amendment notes on the normative contract design §6 and slice 2
+§4.1, `_HeldRule`'s version and its wrap of a rule raise, the per-version fixture key-set
+check at resolution; R23's rules-store clauses are cited by the plan when it checks
+`contract-cut` before freezing), `holdings/reduce.py` and `holdings/receipt.py` only as the
+rules store's other producer and consumer, which do not change, `root.py` only as the
+installer of every shipped bundle (no new write primitive; `install_shipped_world_rules`
+already iterates them; its "four v1" docstring becomes five), `world/read.py`
+(`_address_map`; `validate_receipt`'s per-version input and its `unresolvable` outcome for
+a merge refusal; `_snapshot_standing`'s outcome-and-finding return; `reported_receipt`'s
+finding),
 `world/view.py`, `world/live.py`, `world/selection.py`, `world/registry.py`
 (`content_identity` exposed), `evaluation.py` (gather's loops and
 `_check_filtered_world_standing`), `audit.py`, `publish.py`, `corpus.py`
@@ -1061,9 +1099,9 @@ id-collision placement verified against the code.
 - Important 1, rule content cannot raise kernel types or pin refusals in fixtures:
   **fixed**, §4.5 adds the kernel wrap at `_HeldRule.invoke`, its `validate_receipt`
   outcome, direct tests over the shipped bytes, and corrects the cycle claim.
-- Important 2, `rule_input` lacks the target arm: **fixed**, §4.5's resolves-to-a-retraction
-  discriminator, its stated assumption and fail-closed consequence, arm fixtures, and the
-  inventory note for beliefs-c800ef (§12).
+- Important 2, `rule_input` lacks the target arm: resolved in revision 7 by a
+  resolves-to-a-retraction discriminator under a route-namespace assumption, which round 7
+  rejected; **superseded** by revision 8's versioned rule input (round 7, Finding 2).
 - Important 3, symbol-keyed binding joins silently rebind or raise: **fixed**, §4.5, §8
   and §11 (explicit-version helpers, replace-not-add, the count pins and docstrings).
 - Important 4, W19's "captured resolution": **fixed**, §9.
@@ -1090,3 +1128,23 @@ six rulings stand.
   and fixture run; v1's input, fixtures and identities untouched); the discriminator and
   the assumption are withdrawn; the colliding-route case joins the fixtures and the
   equivalence arm; §12 records ae33ff's complete answer.
+
+Round 8 (revision `a451082`; scoped re-review of revision 8's additions,
+`claude-code/claude-fable-5-1`): round 7's two resolutions judged sound; the versioned
+input's consistency with storage, resolution and validation, and the merge's
+implementability over the receipt path, verified against the code.
+
+- Important 1, the merge's third refusal misclassified distinct uids at a live address:
+  **fixed**, §4.5 follows §4.2's rules 2 and 3 exactly.
+- Important 2, four sentences still said the capture and `rule_input` do not change:
+  **fixed**, §4.2, §4.5, §9, §11.
+- Important 3, the v2 identity formula amends a pinned definition uncited: **fixed**, §4.5
+  cites the normative contract design §6, slice 2 §4.1, the module docstring and the
+  identity test, and clarifies "no contract release".
+- Important 4, the holdings bundle is a second producer and consumer: **fixed**, §4.5
+  (`input_version` is optional and a property of world enumeration rules only) and §11.
+- Minor 5 (the fixture runner cannot build inputs): **fixed**, the key-set check moves to
+  resolution. Minor 6 (one encoding per version): **fixed**. Minor 7 (the
+  outcome-and-finding seam and the deprecated-key finding code): **fixed**. Minor 8
+  (one-corpus callers): **scoped**, cross-holder checks only. Minor 9 (stale round-6 log
+  entry): **marked superseded**. Minor 10 (dict iteration order): **fixed**, §4.5, §8.
