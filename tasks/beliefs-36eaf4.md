@@ -7,8 +7,8 @@ size: m
 complexity: mid
 process: direct
 created: 2026-10-28T13:21:05Z
-updated: 2026-10-28T13:21:05Z
-depends: []
+updated: 2026-10-28T13:21:30Z
+depends: [beliefs-37006c]
 parent: beliefs-918fd2
 tags: [publication]
 agent: claude-code/claude-fable-5-1
