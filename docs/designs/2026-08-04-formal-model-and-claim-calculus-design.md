@@ -963,6 +963,7 @@ rather than half-blank.
 | G11 | verification selection precedes lifecycle; accepted twin-target edges still apply without widening correction scope | **FC** / **CS** |
 | G12 | selected corrections fold before effects/validation, with mapped ordinary oracle and full-capture snapshot history | **FC** / **CS** |
 | G13 | completed/incomplete selection reports and statement-bound closure recompute deterministically | **WD** / **CS** / **OInv** |
+| G14 | acceptance is a union over holders with every decision reported; correction standing folds once over the merged records after it | **FC** / **WD** / **CS** |
 
 **S — substrate consolidation**
 
@@ -1290,6 +1291,7 @@ class per residue shape is not that vocabulary.
 |---|---|---|
 | Y17 | every selected replica-held record except an explicitly declared own markerless holder gets a source or forwarded origin before intent, frozen for retries | RF† + **CS** |
 | Y18 | release authorizes canonical origin content; commitment moves while marker identity stays fixed | **CS** + **OInv** |
+| Y19 | attribution over several holders is a function of the holder set and the held supersession chains: own, agreement, earliest origin, else refuse | **OInv** / **FC** |
 
 ## 6. M\* — the typed claim calculus
 

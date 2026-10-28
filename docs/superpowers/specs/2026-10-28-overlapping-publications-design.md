@@ -230,7 +230,7 @@ Those
 rules fold a record that appears once per holder into one producer edge, one certification
 ref and one coreference unit (§1); the retraction enumeration is the one subject whose rule
 changes, §4.5. W19 carries arms that pin all four, so a future rule keyed on `corpus_id`
-cannot double-count silently.
+cannot double-count silently. *Clarified 2026-10-28 at plan review (round 3, approved by the user):* the three rules' folds are rule bytes, which no sabotage can target without changing the rule's identity, so they are pinned by a portable test and by the v2 fixture equivalence, not by counted mutation arms; W19-f's arm covers the discovery map.
 
 `derive.address_map(capture)` returns `Mapping[str, AddressEntry]` with
 

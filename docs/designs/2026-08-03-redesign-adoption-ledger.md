@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-10-27)
+## Current state (2026-10-28)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,8 +46,12 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-10-27** for cut 47's discharge of `owned-replica-publication`:
-Y5 and Y17 reclose; the corpus has **226 of 253 rows closed, 27 open**.
+**Updated 2026-10-28** for cut 48's freeze of `overlapping-publications`: W19,
+W20, G14 and Y19 join the corpus; W8b, J17, J20, G10, G12, Y5 and Y17 reopen under
+their amendments; the corpus has **219 of 257 rows closed, 38 open**. Implementation
+and conformance are pending; science's side (commons milestone 1b) is a science task
+filed at discharge.
+Cut 47 discharged `owned-replica-publication`: Y5 and Y17 reclosed, at **226 of 253**.
 Explicit ownership now permits admitted markerless replicas on v2 and v3.
 Science wiring remains sci-9a7ce2, then sci-775e90 owns the live milestone
 rerun; kernel conformance alone does not establish that live result.
@@ -494,6 +498,7 @@ not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
+| `overlapping-publications` | W19, W20, G14, Y19 and the W8b, J17, J20, G10, G12, Y5, Y17 amendments (cut 48 freeze) | beliefs-918fd2 | science commons milestone 1b: one address held in several live corpora with equal content; then science's adopt, acceptance and rebinding changes |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `persistence-cut` | X2's persistence-cut arm; L1's kill-at-stage and settlement-persistence arms (both terminal outcomes) | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns; L1's arms re-homed here at cut 36 (`beliefs-3ea822`) | X2 in full; row 5's L1 read in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
@@ -502,7 +507,8 @@ not listed.
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
-of work. The newest results record
+of work. Cut 48 is frozen (`2026-10-28-conformance-cut-48.md`), not discharged: the
+corpus stands at **219 of 257** with seven rows reopened. The newest results record
 (`../plans/2026-10-27-conformance-cut-47-results.md`) discharges owned replica publication.
 Y5/Y17 reclose; the corpus has **226 of 253** rows closed, 27 open.
 The historical dogfood milestone remains completed. Cut 44 discharged mount

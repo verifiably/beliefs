@@ -206,6 +206,8 @@ one binding, not alternatives.**
 > one of possibly several conforming implementations, each with its own content
 > identity, none of them changing the rule identity.
 
+*Amended 2026-10-28 (overlapping-publications design §4.5, cut 48):* a rule whose input is versioned carries the input version in its identity, `(symbol, fixture-set identity, input version)`; a rule with no declared version keeps the pair above, so no held identity moves.
+
 The contract *is* the registry: its rule sections name each rule identity and its
 fixture-set identity normatively. "Registry entry with fixtures" therefore stops
 being an unbuilt artifact nobody maintains — it is contract content — and "held

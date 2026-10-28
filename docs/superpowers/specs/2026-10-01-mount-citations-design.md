@@ -189,6 +189,7 @@ proposition and datasets, assess it, and verify A's assessment, with nothing red
    *Rejected:* write-root precedence. It judges the write against one copy while every
    world read of the same session refuses the address, and that is resolution by corpus
    order.
+   *Amended 2026-10-28 (overlapping-publications design §8, cut 48):* a citation two session corpora resolve to equal content identity resolves once, with every read-mount holder's contract checked; differing content keeps this refusal.
 
 5. **A read mount is read inside its own capture hold, and the hold never queues.**
    The refusal chain runs under the writer's operation lock. A read mount is read only

@@ -87,7 +87,7 @@ R12 — called a **guarantee row**. Work is built in small slices called
 which rows the slice will satisfy, and states what it leaves out. Every check
 the cut adds is paired with a deliberate break of the code, and the check must fail when that
 break is applied; a check that cannot fail does not count. The
-[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-27),
+[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-28),
 not this guide, says what has landed.
 
 - **Promises have permanent names.** Rows are never renumbered, so a test or a
@@ -233,7 +233,7 @@ Explicit coordination v3 requires a new write root; existing v2 manifests
 cannot be replaced. The complete
 normative contract cut, its executable suite, and N1–N10 are not yet
 implemented; `contract-cut` is the roadmap's next off-path boundary. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-27)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-28)
 states the row count, what remains, and who owns it.
 
 The contributor guide has no ledger artifact of its own. That is deliberate:

@@ -6,9 +6,9 @@ where the design work below was done and reviewed. Nothing here imports it, and
 records are reproduced under this system rather than migrated into it; the
 reasoning is recorded in the adoption ledger's §0.
 
-Eighty-six documents in `docs/designs/`: the banked redesigns, review
+Eighty-seven documents in `docs/designs/`: the banked redesigns, review
 disposition, adoption ledger, measurements, rulings, and contributor-guide
-design written 2026-08-02 through 2026-10-27. Read them in this order:
+design written 2026-08-02 through 2026-10-28. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -98,9 +98,10 @@ design written 2026-08-02 through 2026-10-27. Read them in this order:
 | `2026-10-02-conformance-cut-45.md` | discharged belief-acceptance cut: G10–G13 closed, 34 declaration units/arms; cut 44 runner as prefix |
 | `2026-10-02-conformance-cut-46.md` | discharged publication attribution successor: Y5 amendment reclosed, Y17/Y18 closed; 36 units/arms |
 | `2026-10-27-conformance-cut-47.md` | discharged owned-replica publication amendment: Y5/Y17 reclosed; 9 units/arms |
+| `2026-10-28-conformance-cut-48.md` | frozen overlapping-publications cut: W19, W20, G14 and Y19 added; W8b, J17, J20, G10, G12, Y5 and Y17 reopened under their amendments; 33 units/arms, implementation pending |
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **253 rows** across **twenty-two frozen
+test before it is a passing one. There are **257 rows** across **twenty-two frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q, U, Y, Z), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.

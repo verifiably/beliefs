@@ -239,6 +239,8 @@ an address, or an equivalent union must be computed. Choosing the first carrier
 would not implement §9.2. This slice leaves the current duplicate-location refusal
 in place and claims no overlap support.
 
+*Amended 2026-10-28 (overlapping-publications design §6, cut 48):* the predicate is tried for every captured holder of a record and the record counts if any holder accepts it; every rejected pair stays in the report; correction standing folds once over the merged holders after that decision (§4.5 there).
+
 Each gather call caches decisions by `(corpus_id, address)` and invokes the
 predicate at most once for a candidate in that call. The same decision is
 used by snapshot standing, ordinary corrections and evidence selection.
