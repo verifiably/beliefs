@@ -1,10 +1,12 @@
 # Overlapping publications: one address held in several live corpora
 
-**Status:** draft, revision 3, for the user's review; not accepted. Revision 1 (`e57ab8c`)
+**Status:** draft, revision 4, for the user's review; not accepted. Revision 1 (`e57ab8c`)
 had a builder check and a critical review (round 1, verdict revise: 1 Critical, 6
 Important, 9 Minor); revision 2 (`fe7539c`) a re-review (round 2, verdict revise: 0
-Critical, 5 Important, 5 Minor); both reviewers `claude-code/claude-fable-5-1`. Every
-finding is resolved below and §13 lists the dispositions.
+Critical, 5 Important, 5 Minor); revision 3 (`930de28`) a scoped re-review (round 3,
+verdict revise: 0 Critical, 1 Important, 7 Minor); all reviewers
+`claude-code/claude-fable-5-1`. Every finding is resolved below and §13 lists the
+dispositions.
 **Task:** beliefs-918fd2 (child of beliefs-a286e7; beliefs-81367e and sci-4a3543 wait on it).
 **Brief:** `../../notes/2026-10-09-overlapping-publications-brief.md`.
 **Baseline:** beliefs main `11f6bb2`; science main `7dc27bbeb7711948c4942b3a3cd35fbaf6745514`.
@@ -160,7 +162,8 @@ Consequences the brief asked to be ruled:
   republishing the revised r shares its address with the mounted carrier all the same. The
   exits are the carrier's retirement or unmounting (commons §10, science's policy) or a new
   entity. §10 item 1 names this; §8 hands science the surface rule, which is to refuse
-  `revise` on an address a mounted carrier holds.
+  any in-place content change (`revise` is one route; anything that rewrites the canonical
+  projection, metadata included, is the same) on an address a mounted carrier holds.
 - **Revision under a redirect** (new live address, old address in `deprecated_ids`, same
   uid) held beside its predecessor is `uid-corruption` today and stays so: one uid names two
   canonical addresses. Lifting that is a supersession-aware map, out of scope; §10 item 2
@@ -321,6 +324,9 @@ present iff any captured holder holds the source.
   audit filing, not-present naming) the caller reads the holder set instead; §5.4 lists them.
 - `holders_of(ref) -> tuple[str, ...]`: the entry's recorded holders, sorted; `()` when
   unmapped. Captured holders are `holders_of(ref)` minus `absent()` minus the damaged ids.
+- `captured() -> tuple[str, ...]`: the captured corpus ids, sorted (the keys of
+  `_captured`). Publish reads non-selected holders' markers through it (§7); it is not
+  `registry.admissions`, which also lists corpora admitted after the epoch.
 - `_mapped_records()` keeps yielding `(corpus_id, node)` **once per captured holder**, for
   the callers that file something per corpus. `_mapped_holders()` is added, yielding
   `(holders, node)` **once per record** (holders = its captured holders, sorted) for the
@@ -421,15 +427,20 @@ damaged holder reaches it, and a selected record is `Resolved`, so the set is no
       one;
    3. else, over the distinct claims' origin markers `(origin corpus, marker uid)`, the
       claim whose marker **every other claimed marker supersedes**, when exactly one such
-      claim exists. Marker *X* supersedes *Y* when *X* names *Y* in `supersedes_markers`,
-      transitively through the markers of every captured holder in the world view (those
-      holding no selected record included; a captured marker that fails layout or release
-      validation refuses `attribution-source-invalid` naming its holder with empty `refs`).
-      The order is a property of the claimed markers, not of which holders carry them, so
-      *B*'s re-adopted own publication beside P1 and P3, or a third party holding P2 and P3
-      but not P1, both resolve to P1. No live source is reopened: `_selected_attributions`
-      already reads captured markers, and attribution design decision 5 already forwards an
-      entry whose named origin is not held;
+      claim exists (two candidates would need a cycle among held markers, the state
+      `publication_tip` refuses as `supersession-cycle`, and the "exactly one" clause
+      refuses it here). Marker *X* supersedes *Y* when *X* names *Y* in
+      `supersedes_markers`, transitively through the markers of every captured undeclared
+      `ReplicaOf` holder in the world view (`captured()`, §5.2), those holding no selected
+      record included; `Fresh`, `ForkOf` and declared own holders carry no marker and are
+      not read. Those extra markers are read **only when this rule is reached**, so a stale
+      marker in an idle replica cannot refuse a publish rules 3.1 and 3.2 settle; one that
+      fails layout or release validation then refuses `attribution-source-invalid` naming
+      its holder with empty `refs`. The order is a property of the claimed markers, not of
+      which holders carry them, so *B*'s re-adopted own publication beside P1 and P3, or a
+      third party holding P2 and P3 but not P1, both resolve to P1. No live source is
+      reopened: `_selected_attributions` already reads captured markers, and attribution
+      design decision 5 already forwards an entry whose named origin is not held;
    4. else refuse `PublicationRefused("attribution-ambiguous", refs=(address,),
       corpus_ids=<the holders>, field=<the distinct claims, rendered>)`, with nothing
       written. The claims are carried so that science's `show` can name the marker whose
@@ -454,10 +465,17 @@ dropped (commons §10.3). *B*'s next publish sees r in P1 (claim P1) and in P3 (
 Both claims come from one publisher's chain, P3 supersedes P1, and §4.8's first-origin rule
 names P1. The order is read from the captured markers, which cut 46 already validates, so no
 live source is reopened and the result is frozen with the snapshot like every other entry.
-A consequence science's retirement policy must expect: a recipient's own republication then
-names P1 in its entries, and commons §10.3 keeps a publication mounted while a held
-publication's entries name it, so the recipient's own markers become a retention reason for
-the predecessor.
+Two consequences science's retirement policy must expect. A recipient's own republication
+names P1 in its entries, so any downstream world that adopts it beside P1 keeps P1 mounted
+under commons §10.3. And the order is readable only through held markers, while retirement
+is irreversible (commons §10's state table): once *B* keeps P1 and *A* publishes P7
+superseding P3, retiring P3 would leave P1 and P7 with no held marker connecting them, and
+every record they attribute differently would refuse for as long as P1 is kept. So §8 adds
+a retention requirement: while a predecessor is dependency-kept, every publication on the
+supersession chain from it to the current tip of the same `(view, destination)` stays
+mounted, a `keep` the surface sets rather than the user. The alternative, carrying
+transitive ancestry in the marker, is a coordination-release change and is named in §10
+item 3 as the follow-up if the user prefers it.
 
 Why rule 3.3 asks for a least element rather than a total order: sibling tips (P3 and P3′
 both superseding P1) are not totally ordered, yet P1 is the marker every other claim
@@ -504,22 +522,25 @@ its `adopt` conflict rule must run before admission, since the kernel offers no 
 conflicting corpus is admitted and its predecessor is dependency-kept. A candidate is
 admissible iff, against every live corpus and every candidate this session already admitted:
 
-1. every shared live address has equal content identity (differing content refuses, commons
-   §10.5);
+1. every key, live or deprecated, that the candidate shares with a live record belongs to
+   a record of equal content identity (§4.2 rules 2 and 3; content includes the id, so a
+   live address meeting another record's deprecated id, or two differing records sharing a
+   deprecated id, refuses, and differing content at a shared live address is commons
+   §10.5's case);
 2. no candidate uid is held live under a different canonical address (`uid-corruption`,
    §4.2 rule 1; an ordinary §4.4 identifier correction published as a successor produces
-   this against the predecessor, and the candidate's live ids alone do not reveal it);
-3. no candidate deprecated id is a live address elsewhere, and no live candidate address is
-   a deprecated id of a differing record elsewhere (§4.2 rule 3).
+   this against the predecessor, and the candidate's live ids alone do not reveal it).
 
 Science must also amend, with the same equality contract: its session-holder resolution
 (`science/config.py` `mount_holding` and `cited`, which refuse any address two mounts hold,
 content aside, before the kernel is consulted); its `explain` wording for a rejected copy of a
 record that counted (§6); its pins, which must cover every mounted holder a world read may
-attribute (§5.4); a surface rule refusing `revise` on an address a mounted carrier holds
-(§4.1); and `show`'s naming of the marker whose adoption would order an
-`attribution-ambiguous` refusal's claims (§7, §10 item 3). Those changes are science's tasks
-and are not made here; the completion note on sci-4a3543 names them.
+attribute (§5.4); a surface rule refusing any in-place content change on an address a
+mounted carrier holds (§4.1); the chain-retention rule of §7 (a dependency-kept predecessor
+keeps every publication between it and the current tip mounted); and `show`'s naming of the
+marker whose adoption would order an `attribution-ambiguous` refusal's claims (§7, §10 item
+3). Those changes are science's tasks and are not made here; the completion note on
+sci-4a3543 names them.
 
 ## 9. Guarantee rows, arms and the cut
 
@@ -551,7 +572,7 @@ them against the tables at freeze.
 | W19 | The address map admits one record held in several corpora and refuses differing content, deprecated keys included | equal content in two or three corpora maps one entry with sorted holders in either capture order; shared uid with differing content, and distinct uids, refuse `duplicate-location` naming every claim; `uid-corruption` still outranks; a deprecated key reached through two holders is one entry; a deprecated key colliding with a live or differing record refuses the typed `ResolutionRefused` in both input orders and both same- and cross-corpus; the projection is the new closed shape; a legacy epoch reads as singleton holders and a mixed document refuses; a retraction held twice is discovered once (W19-f); a record held twice contributes one producer edge, one `(ref, resolution)`, one certification ref and one coreference unit to the receipts |
 | W20 | World reads serve a multi-holder record once and refuse holders that disagree | `open_world_view`, `evaluate_live_query` and `resolve_address` serve equal-content holders once with `Location.holders` naming them; captured holders whose copies differ refuse `ResolutionRefused` and never `NotPresent`; `NotPresent` only when every holder is absent and `Resolved` with one present; a shared uid the map did not establish still refuses at open; a damaged holder is skipped when a captured copy equals the mapped content and refuses otherwise, including for a legacy entry; inbound edges are not duplicated and a source held by any holder is present; `contributing` names every captured holder and disagreeing pins refuse; `_mapped_view` sees the record under each holder |
 | G14 | Acceptance is a union over holders and reports every holder's decision | a record rejected under one holder and accepted under another is read once, counts, is attributed to the accepting holder, and the rejected pair is in `excluded`; rejected under every holder it is inert; the predicate is asked once per holder; the 1b decisive case under `accept = [B]`; retractions and verifications held twice follow the same rule and are traced once |
-| Y19 | A republication's attribution over several holders is a function of the holder set and the held supersession chains | own holder wins over a carried copy with no entry; two carriers agreeing on an origin forward it; claims whose markers have a least element under supersession yield it (the 1b P1/P3 case; the re-adopted own publication beside them; a third party holding P2 and P3 without P1; sibling tips over P1), read through the marker of a captured holder that holds no selected record; claims with no common held origin (unrelated publishers; a chain with its intermediate unheld) refuse `attribution-ambiguous` before intent, carrying the claims; publish → adopt → republish with holders reordered yields equal frozen attribution tuples and marker members; v2 names only the holders of carried records; retries use the frozen tuple |
+| Y19 | A republication's attribution over several holders is a function of the holder set and the held supersession chains | own holder wins over a carried copy with no entry; two carriers agreeing on an origin forward it; claims whose markers have a least element under supersession yield it (the 1b P1/P3 case; the re-adopted own publication beside them; a third party holding P2 and P3 without P1; sibling tips over P1); a chain P7 → P3 → P1 with P3 held but holding no selected record is read through P3's marker, and that marker is read only when rule 3.3 is reached; claims with no common held origin (unrelated publishers; a chain with its intermediate unheld) refuse `attribution-ambiguous` before intent, carrying the claims; publish → adopt → republish with holders reordered yields equal frozen attribution tuples and marker members; v2 names only the holders of carried records; retries use the frozen tuple |
 
 Ride-along: beliefs-cb2a39's live arm for gather's observes-loop held filter, whose check is
 `test_world_view.py::test_an_absent_input_corpus_is_the_banked_reason`, is added to this
@@ -568,8 +589,8 @@ product code, names the highest-numbered runner as its prefix, and adds its row 
    carrier of r is mounted, revising r in place in the write root makes every world read
    refuse until the carrier is unmounted or retired or the revision is withdrawn. No redirect
    applies to a content revision and republishing does not help. The kernel refuses
-   explicitly and offers no pick; the surface rule, refusing `revise` on a carried address,
-   is science's (§8).
+   explicitly and offers no pick; the surface rule, refusing any in-place content change on
+   a carried address, is science's (§8).
 2. **A renamed record beside its predecessor is `uid-corruption`** (§4.1). A successor
    publication carrying a record whose address moved under a redirect cannot be mounted
    beside the predecessor that holds the old address. The kernel offers no exit once both
@@ -580,11 +601,15 @@ product code, names the highest-numbered runner as its prefix, and adds its row 
    corruption; filed at this design's completion as a beliefs idea sourced here, not
    promised.
 3. **The supersession order is read through held markers only** (§7). A recipient holding
-   the two ends of a chain whose intermediate marker it never adopted or has retired (the
-   state commons §10.2 keeps as an unresolved link) refuses `attribution-ambiguous` for every
-   record the ends attribute differently, until it adopts the intermediate. The refusal
-   carries the claims so the surface can name that marker; `publication_tip` has the same
-   one-hop blind spot today.
+   the two ends of a chain whose intermediate marker it never adopted (the state commons
+   §10.2 keeps as an unresolved link) refuses `attribution-ambiguous` for every record the
+   ends attribute differently, until it adopts the intermediate. Retirement is irreversible,
+   so an intermediate the recipient retired leaves the refusal standing for as long as the
+   predecessor is kept; §8's chain-retention rule is what prevents that state, and the
+   refusal carries the claims so the surface can name the marker. `publication_tip` has the
+   same one-hop blind spot today. The alternative that removes the limitation, a marker
+   carrying its transitive ancestry, is a coordination-release change filed as a follow-up
+   only if the user prefers it to the retention rule.
 4. **Equality is exact.** Any difference in the canonical projection, metadata timestamps
    included, is a different record. Publish preserves the projection, so this binds only
    copies that were edited, the write root's included (item 1).
@@ -701,3 +726,16 @@ minors judged sound except as below.
   (earliest origin as a retention reason): **stated**, §7. F9 (damaged-refusal naming and
   the intended asymmetry): **fixed**, §5.1. F10 (damaged holders unreachable at publish):
   **fixed**, §7.
+
+Round 3 (revision `930de28`; scoped re-review, `claude-code/claude-fable-5-1`): F1/F5, F3,
+F6, F9, F10 judged sound; the four Y19 cases verified against the code.
+
+- I1, a retired intermediate makes the chain gap permanent and 1b's steady state reaches
+  it on *A*'s second update: **fixed** by the chain-retention requirement handed to science
+  (§7, §8, §10 item 3), with marker ancestry named as the alternative.
+- M1 (only undeclared `ReplicaOf` holders carry markers), M2 (`captured()` accessor), M3
+  (extra markers read only when rule 3.3 is reached): **fixed**, §5.2, §7. M4 (checklist
+  item 3 missed two differing records sharing a deprecated id): **fixed**, §8 item 1 now
+  covers every shared key. M5 (§10.3 misread): **fixed**, §7. M6 (Y19 case for a
+  non-selected holder's marker): **fixed**, §9. M7 (any in-place content change, not only
+  `revise`): **fixed**, §4.1, §8, §10 item 1.
