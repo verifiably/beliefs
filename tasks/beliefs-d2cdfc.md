@@ -1,13 +1,15 @@
 ---
 id: beliefs-d2cdfc
 title: "The rules store, the versioned input and the v2 rule"
-status: todo
+status: doing
 priority: 2
 size: l
 complexity: high
 process: direct
+owner: design/918fd2-overlapping-publications
 created: 2026-10-28T13:20:58Z
-updated: 2026-10-28T13:45:27Z
+updated: 2026-10-28T15:16:13Z
+started: 2026-10-28T15:16:13Z
 depends: [beliefs-491c9f]
 parent: beliefs-918fd2
 tags: [world]
@@ -21,3 +23,5 @@ step: "Task 3: The rules store, the versioned input and the v2 rule"
 
 - 2026-10-28T13:20:58Z (add): created
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID","origin":"agent"}
+- 2026-10-28T15:16:13Z (design/918fd2-overlapping-publications): started
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
