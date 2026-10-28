@@ -1,20 +1,20 @@
 ---
 id: beliefs-d2cdfc
-title: Holder states and the served world surface
+title: "The rules store, the versioned input and the v2 rule"
 status: todo
 priority: 2
 size: l
 complexity: high
 process: direct
 created: 2026-10-28T13:20:58Z
-updated: 2026-10-28T13:21:24Z
+updated: 2026-10-28T13:45:27Z
 depends: [beliefs-491c9f]
 parent: beliefs-918fd2
 tags: [world]
 agent: claude-code/claude-fable-5-1
 origin: agent
 plan: docs/superpowers/plans/2026-10-28-overlapping-publications.md
-step: "Task 3: Holder states and the served world surface"
+step: "Task 3: The rules store, the versioned input and the v2 rule"
 ---
 
 ## Notes

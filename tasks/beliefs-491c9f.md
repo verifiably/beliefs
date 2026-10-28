@@ -1,20 +1,20 @@
 ---
 id: beliefs-491c9f
-title: Content identity and the multi-holder address map
+title: The multi-holder map and the served world surface
 status: todo
 priority: 2
-size: m
-complexity: mid
+size: l
+complexity: high
 process: direct
 created: 2026-10-28T13:20:56Z
-updated: 2026-10-28T13:21:21Z
+updated: 2026-10-28T13:45:24Z
 depends: [beliefs-83b71c]
 parent: beliefs-918fd2
 tags: [world]
 agent: claude-code/claude-fable-5-1
 origin: agent
 plan: docs/superpowers/plans/2026-10-28-overlapping-publications.md
-step: "Task 2: Content identity and the multi-holder address map"
+step: "Task 2: The multi-holder map and the served world surface"
 ---
 
 ## Notes
