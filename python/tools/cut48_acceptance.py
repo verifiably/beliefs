@@ -26,11 +26,11 @@ def declared_accounting() -> tuple[int, int, int]:
         path = str(directory)
         if path not in sys.path:
             sys.path.insert(0, path)
-    from n2_arms_cut48 import CUT47_ARMS, DECLARATION_UNITS  # pyright: ignore[reportMissingImports]
+    from n2_arms_cut48 import CUT48_ARMS, DECLARATION_UNITS  # pyright: ignore[reportMissingImports]
 
     rows = {unit.partition("-")[0] for unit in DECLARATION_UNITS}
     assert rows == {"W19", "W20", "G14", "Y19", "J17", "J20"}
-    arms, units = len(CUT47_ARMS), len(DECLARATION_UNITS)
+    arms, units = len(CUT48_ARMS), len(DECLARATION_UNITS)
     assert (arms, units) == (33, 33)
     return arms, units, len(rows)
 
