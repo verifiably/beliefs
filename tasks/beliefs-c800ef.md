@@ -6,7 +6,7 @@ priority: 2
 reviewed: true
 reviewed_at: 2026-10-17T13:01:48Z
 created: 2026-09-17T10:38:46Z
-updated: 2026-10-17T13:01:48Z
+updated: 2026-10-28T13:14:37Z
 depends: [beliefs-ae33ff]
 parent: beliefs-0c50ed
 tags: [conformance, world-read]
@@ -23,3 +23,4 @@ Current capture still folds per corpus; the v1 rule only enumerates captured res
 
 - 2026-09-29T22:50:05Z (main): scope: briefed; confirmed the per-corpus fold and fail-closed split; research beliefs-ae33ff will inventory derivation inputs and identity obligations; brief: docs/notes/2026-09-29-retraction-standing-backlog-brief.md
 - 2026-10-17T13:01:48Z (main): scope: briefed; re-checked at 4580964: epoch._standing_retractions (world/epoch.py:1262) still folds per corpus and test_world_standing.py:189 still expects RetractionResolutionDisagreement; recorded the wait on research beliefs-ae33ff as a dep edge (it was named only in that task's Ideas it wakes); brief: docs/notes/2026-09-29-retraction-standing-backlog-brief.md
+- 2026-10-28T13:14:37Z (design/918fd2-overlapping-publications): finding from beliefs-ae33ff via the overlapping-publications design (beliefs-918fd2, accepted e14315c, §4.5): the v1 rule input carries the node-arm graph (authored target ref plus every live and deprecated address across corpora) but not the target arm, which resolution cannot infer because route identities are authored strings; so the successor rule retraction-enumeration v2 takes a versioned input (science.rule-input.v2 = v1 projection plus arm per retraction member), the version held with the rule in rule.yaml and in its identity, read at build and validation; v1 input, fixtures, identities, subject domain and closure digest unchanged. Scoped to that design's cut; stays open until the v2 rule lands. Brief amendment: docs/notes/2026-09-29-retraction-standing-backlog-brief.md (2026-10-28).
