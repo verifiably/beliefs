@@ -441,3 +441,5 @@ class TestW20Holders:
         selection = evaluate_topic(world, roots, published, topic)
         assert shared.id in selection.selected and selection.selected.count(shared.id) == 1
         assert selection.contributing == (ALPHA, BETA)
+        alone = evaluate_query(open_world_view(world, published), query([{"addresses": [shared.id]}]))
+        assert alone.selected == (shared.id,) and alone.contributing == (ALPHA, BETA)

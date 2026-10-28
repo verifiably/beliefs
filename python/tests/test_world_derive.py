@@ -1199,11 +1199,18 @@ class TestW19MultiHolderMap:
 
     @pytest.mark.parametrize("reverse", [False, True])
     def test_w19_c_corruption_outranks(self, reverse):
+        """The uid at two addresses is refused before the duplicate location the same
+        capture also carries (corpus-c's differing claim on `dataset:one`), either order."""
         shared = record("dataset:one", uid="shared")
         corpora = (
             corpus("corpus-a", shared, at="a"),
             corpus("corpus-b", shared, at="b"),
-            corpus("corpus-c", record("dataset:two", uid="shared"), at="c"),
+            corpus(
+                "corpus-c",
+                record("dataset:two", uid="shared"),
+                record("dataset:one", uid="other"),  # a differing claim: the content stand-in follows the uid
+                at="c",
+            ),
         )
         with pytest.raises(AddressMapConflict) as caught:
             derive.address_map(capture(*(reversed(corpora) if reverse else corpora)))

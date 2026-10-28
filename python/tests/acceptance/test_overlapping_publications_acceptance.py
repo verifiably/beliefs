@@ -14,7 +14,8 @@ from types import SimpleNamespace
 import pytest
 from authority import ACTOR
 from dataset_fixtures import dataset_ref
-from domain_facet_fixtures import kwargs_for, profile_with, seed_nodes, testing_contract
+from domain_facet_fixtures import kwargs_for, profile_with, seed_nodes
+from domain_facet_fixtures import testing_contract as _testing_contract
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.node import new_uid
 from profiles import biology
@@ -51,7 +52,7 @@ from beliefs.world.view import open_world_view
 _counter = count()
 PROFILE = profile_with()
 STAGING = compile_profile(
-    shipped_base_contract(), [testing_contract(None), biology("fixture")], coordination=shipped_coordination(3)
+    shipped_base_contract(), [_testing_contract(None), biology("fixture")], coordination=shipped_coordination(3)
 )
 """The staging profile a publication of the typed records under coordination v3 derives."""
 ASSESSMENT, RETRACTED = "assessment:a-1", "assessment:a-2"

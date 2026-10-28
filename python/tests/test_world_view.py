@@ -696,6 +696,32 @@ class TestEvaluationOverTheWorld:
         result = evaluate_over(view, "proposition:p", **over_kwargs(kwargs))
         assert isinstance(result, Belief)
 
+    def test_an_unknown_observed_dataset_is_skipped_at_the_facet_read(self, tmp_path):
+        """gather's observes loop skips a target the view does not hold (beliefs-cb2a39's
+        ride-along arm): an observed dataset the epoch never mapped is neither read nor
+        banked, and the evaluation proceeds over what is held."""
+        from beliefs.evaluation import gather
+
+        scratch = tmp_path / "scratch"
+        nodes = tuple(seed(scratch, axis="rows", observes_missing=True).iter_stored())
+        roots = corpora(tmp_path, {ALPHA: nodes, BETA: ()})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        view = open_world_view(world, published)
+        assert not view.holds("dataset:d-missing") and view.resolve("dataset:d-missing") is None
+        kwargs = world_kwargs(view, profile_with())
+        inputs = gather(
+            view,
+            "proposition:p",
+            context=kwargs["context"],
+            profile=profile_with(),
+            resolution=kwargs["resolution"],
+            binding=kwargs["binding"],
+        )
+        assert "run-a" in inputs.runs and inputs.absent == ()
+        assert "dataset:d-missing" not in {ref for _kind, ref in inputs.read_trace}
+        assert not any(row.address == "dataset:d-missing" for row in inputs.observed_facets)
+
     def test_an_absent_input_corpus_is_the_banked_reason(self, tmp_path):
         from beliefs.belief import NoBelief
         from beliefs.evaluation import evaluate_over
@@ -1156,8 +1182,15 @@ def revise_in_place(root: Path, address: str) -> None:
 
 class TestW20ServedSurface:
     def test_w20_a_view_serves_once(self, tmp_path):
-        world, _roots, published, shared = overlap_world(tmp_path)
+        target = stored.dataset_node(title="target", resources=pinned("target"))
+        shared_run = stored.run_node("shared-run", title="shared-run", spec="analysis-spec:s", produces=[target.id])
+        world, _roots, published, shared = overlap_world(
+            tmp_path, extra={ALPHA: (target, shared_run), BETA: (shared_run,)}
+        )
         view = open_world_view(world, published)
+        assert view.holders_of(shared_run.id) == (ALPHA, BETA)
+        (edge,) = view.inbound(target.id)  # one edge per relation of a record held twice
+        assert edge.source_uid == shared_run.uid and edge.target_uid == target.uid
         assert view.locate(shared.id) == read.Resolved(read.Location(ALPHA, shared.uid, (ALPHA, BETA)), view.stamp)
         assert view.corpus_of(shared.id) == ALPHA and view.holders_of(shared.id) == (ALPHA, BETA)
         assert view.captured() == (ALPHA, BETA)
