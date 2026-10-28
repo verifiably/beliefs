@@ -1,13 +1,16 @@
 ---
 id: beliefs-cb2a39
 title: Add a live arm for gather's observes-loop held filter
-status: shelved
+status: done
 priority: 2
 created: 2026-10-01T18:25:11Z
-updated: 2026-10-09T11:14:11Z
+updated: 2026-10-28T19:57:01Z
+completed: 2026-10-28T19:57:01Z
+closed: 2026-10-28T19:57:01Z
 depends: []
 parent: beliefs-7e341d
 tags: [n2]
+model: claude-fable-5-1
 agent: claude-code/claude-opus-5-5
 ---
 
@@ -17,3 +20,7 @@ From cut 44's final whole-branch review (mount-citations). In python/src/beliefs
 
 - 2026-10-09T11:14:09Z (main): shelved: The next cut that touches evaluation.py's gather (likely beliefs-918fd2, overlapping publications) plans its arms: add this as a ride-along arm whose check is test_world_view.py::test_an_absent_input_corpus_is_the_banked_reason
 - 2026-10-09T11:14:09Z (main): scope: shelved; the portable suite already asserts the filter (test_an_absent_input_corpus_is_the_banked_reason evaluates the J20 split with the observed dataset's corpus absent), so only N2 arm evidence is missing; rides with the next gather cut; parented under beliefs-7e341d; brief: docs/notes/2026-10-09-mount-citations-follow-ups-brief.md
+- 2026-10-28T19:57:01Z (main): done
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T19:57:01Z (main): Done as cut 48's ride-along (beliefs-918fd2): the live arm (dropping the continue on an unheld observed target in gather's observes loop) lives in test_n2_cut48.py's RIDE_ALONG_ARMS with the check TestEvaluationOverTheWorld::test_an_unknown_observed_dataset_is_skipped_at_the_facet_read, added because the banked-reason check returns before the loop; sound in the guard and the chain; test_arm_staleness green
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
