@@ -1,7 +1,8 @@
 # Overlapping publications: one address held in several live corpora
 
-**Status:** accepted by the user at revision 10, `e14315c` (round 10, 2026-10-28); the
-implementation plan follows. Revision 8 (`a451082`) had a scoped re-review of its
+**Status:** accepted by the user at revision 10, `e14315c` (round 10, 2026-10-28), implemented
+and proved by cut 48 (`../../plans/2026-10-28-conformance-cut-48-results.md`); the
+implementation plan followed. Revision 8 (`a451082`) had a scoped re-review of its
 additions (round 8, verdict revise: 0 Critical, 4 Important, 6 Minor;
 `claude-code/claude-fable-5-1`); revision 9 (`d6a5d47`) the user's third forwarded
 review (round 9, verdict revise: 1 Important; reviewer `codex/gpt-6-astra`), which

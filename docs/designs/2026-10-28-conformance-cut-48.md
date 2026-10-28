@@ -1,6 +1,6 @@
 # Conformance cut 48 — overlapping publications
 
-**Status:** frozen 2026-10-28 before product implementation; not yet discharged.
+**Status:** frozen 2026-10-28 before product implementation; discharged 2026-10-28. Evidence: `../plans/2026-10-28-conformance-cut-48-results.md`.
 **Spec:** `../superpowers/specs/2026-10-28-overlapping-publications-design.md`, accepted at `e14315c`.
 **Plan:** `../superpowers/plans/2026-10-28-overlapping-publications.md`, revision 4 at `a125fa6`.
 Successor to cut 47; all refs and worktrees were rechecked before choosing 48.
