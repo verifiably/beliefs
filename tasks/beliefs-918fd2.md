@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T10:39:28Z
+updated: 2026-10-28T10:40:39Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -29,3 +29,4 @@ Write the conformance-cut spec that lets a world hold one address in several liv
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-28T10:25:23Z (design/918fd2-overlapping-publications): resumed
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T10:40:39Z (design/918fd2-overlapping-publications): design: draft spec docs/superpowers/specs/2026-10-28-overlapping-publications-design.md at e57ab8c (worktree .worktrees/918fd2-overlapping-publications). Rulings: content identity = science.node-content.v1 digest of the canonical projection (registry.content_identity exposed); multi-holder AddressEntry(uid, content, holders); new address-map.yaml shape {address, content, holders, uid} with legacy {address, corpus_id, uid} admitted; owners check narrowed to uids the map does not establish; canonical holder = least present holder for labelling, holder-set readers for acceptance/attribution/audit; acceptance = union over present holders with every rejected pair still reported; attribution = own holder wins, else carriers must agree, else attribution-ambiguous; J17 narrowed to differing content; renamed-record-beside-predecessor stays uid-corruption (limitation). Absorbs beliefs-354eae; sequences beliefs-0e1acb. Builder check and a critical review dispatched before user review.
