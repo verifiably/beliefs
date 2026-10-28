@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T13:02:35Z
+updated: 2026-10-28T13:04:58Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -47,3 +47,5 @@ Write the conformance-cut spec that lets a world hold one address in several liv
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-28T12:46:34Z (design/918fd2-overlapping-publications): review: spec round 7 — verdict: revise; findings: Important 2; reviewer: codex/gpt-6-astra
 - 2026-10-28T13:02:35Z (design/918fd2-overlapping-publications): review: spec round 8 — verdict: revise; findings: Important 4, Minor 6; reviewer: claude-code/claude-fable-5-1
+- 2026-10-28T13:04:58Z (design/918fd2-overlapping-publications): parked (waiting on user, review): User reviews design spec revision 9 at d6a5d47 on branch design/918fd2-overlapping-publications (worktree .worktrees/918fd2-overlapping-publications; read with git show d6a5d47:docs/superpowers/specs/2026-10-28-overlapping-publications-design.md). It resolves the codex round-7 findings: §4.5's snapshot merge now applies the address map's classification itself and reports unresolvable with a finding through validate_receipt/reported_receipt; the retraction-enumeration v2 rule takes a versioned input (arm on each retraction member, version held with the rule, v1 documents and identities untouched; the route-namespace assumption is withdrawn); c800ef is scoped here and stays open, ae33ff closes only with its complete answer. Agent round 8 then aligned the versioned input with the rules store (holdings bundle, identity-definition amendment cited). On approval the agent resumes here: note the ruling on beliefs-81367e; tasks note sci-4a3543 --no-reviewed with the equality contract (§4.1), the approved revision, the acceptance interface and science-side changes (§6, §8, rebinding included); scope beliefs-c800ef to this cut (open) and note ae33ff's complete answer on it, then close ae33ff; file the §10 item 2 follow-up idea; then invoke writing-plans. On corrections, revise as a new revision and re-park for review.
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
