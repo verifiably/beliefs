@@ -317,8 +317,8 @@ def validate_receipt(world: registry.World, published: epoch.Epoch, kind: derive
         if isinstance(standing, str):
             return derive.ReceiptOutcome(kind, "unresolvable", f"{corpus_id}: {carriers[0]}: {standing}")
         captured.append(standing)
-    produced = held.invoke(derive.Capture(tuple(captured)).rule_input())
     try:
+        produced = rules.invoke_held(held, kind, derive.Capture(tuple(captured)).rule_input(held.input_version))
         rebuilt = derive.subject_projection(kind, produced)
     except RuleNonconformant as caught:
         return derive.ReceiptOutcome(

@@ -1,0 +1,39 @@
+# C counters R by R's retired address, which resolves through the capture's
+# deprecated ids.
+input:
+  coverage:
+  - corpus-a
+  records:
+  - corpus_id: corpus-a
+    address: retraction:r
+    uid: uid-r
+    kind: retraction
+    deprecated_ids:
+    - retraction:old
+    produces: []
+    retraction:
+      target: dataset:one
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-a
+    address: retraction:c
+    uid: uid-c
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: retraction:old
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+expected:
+  found:
+  - - retraction:c
+    - upheld
+  - - retraction:r
+    - overturned
+  coverage:
+  - corpus-a

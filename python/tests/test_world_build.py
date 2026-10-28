@@ -73,9 +73,12 @@ GAMMA = "c" * 32
 SYMBOL_KINDS = {
     "derive_producer_snapshot": "producer",
     "enumerate_retractions": "retraction-enumeration",
+    "enumerate_retractions_v2": "retraction-enumeration",
     "enumerate_certifications": "certification-enumeration",
     "reduce_coreference": "coreference-reduction",
 }
+RETRACTION_VERSIONS = {"v1": None, "v2": "science.rule-input.v2"}
+"""The two shipped retraction-enumeration rules by the input version each declares (cut 48 §4.5)."""
 """Which receipt kind each shipped rule's symbol derives. The build input is
 keyed by receipt kind (§7.5's four); the rules store is keyed by identity and
 knows nothing of kinds, so the join is the caller's and is written out here
@@ -219,12 +222,18 @@ def slug_for(corpus_id: str, coverage: tuple[str, ...]) -> str:
     return "one" if len(coverage) == 1 else corpus_id[0]
 
 
-def install_bindings(world: registry.World) -> dict[str, rules.RuleBinding]:
-    """Hold the four shipped rules and return them keyed by receipt kind."""
-    return {
-        SYMBOL_KINDS[bundle.symbol]: rules.install_rule_binding(world, bundle)
-        for bundle in rules.shipped_rule_bundles()
-    }
+def install_bindings(world: registry.World, *, retraction: str = "v1") -> dict[str, rules.RuleBinding]:
+    """Hold every shipped rule and return one binding per receipt kind: for the
+    retraction kind, the bundle whose input version is `retraction`'s (cut 48 §4.5)."""
+    wanted = RETRACTION_VERSIONS[retraction]
+    held: dict[str, rules.RuleBinding] = {}
+    for bundle in rules.shipped_rule_bundles():
+        kind = SYMBOL_KINDS[bundle.symbol]
+        binding = rules.install_rule_binding(world, bundle)
+        if kind == "retraction-enumeration" and bundle.input_version != wanted:
+            continue
+        held[kind] = binding
+    return held
 
 
 def admitted_world(

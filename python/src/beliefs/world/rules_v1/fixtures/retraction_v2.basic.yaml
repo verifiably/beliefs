@@ -1,0 +1,47 @@
+# One corpus: R retracts a dataset, C counters R. The input's per-corpus
+# resolutions are the world's; the fold reproduces them.
+input:
+  coverage:
+  - corpus-a
+  records:
+  - corpus_id: corpus-a
+    address: dataset:one
+    uid: uid-dataset-one
+    kind: dataset
+    deprecated_ids: []
+    produces: []
+    retraction: null
+    certification: null
+    coreference: null
+  - corpus_id: corpus-a
+    address: retraction:r
+    uid: uid-r
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: dataset:one
+      resolution: overturned
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-a
+    address: retraction:c
+    uid: uid-c
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: retraction:r
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+expected:
+  found:
+  - - retraction:c
+    - upheld
+  - - retraction:r
+    - overturned
+  coverage:
+  - corpus-a

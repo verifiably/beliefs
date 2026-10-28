@@ -1,0 +1,9 @@
+# No records: nothing found, the coverage still declared.
+input:
+  coverage:
+  - corpus-a
+  records: []
+expected:
+  found: []
+  coverage:
+  - corpus-a

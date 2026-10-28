@@ -1,0 +1,23 @@
+# A snapshot-arm retraction names a subject identity: a vertex.
+input:
+  coverage:
+  - corpus-a
+  records:
+  - corpus_id: corpus-a
+    address: retraction:s
+    uid: uid-s
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      resolution: upheld
+      arm: snapshot
+    certification: null
+    coreference: null
+expected:
+  found:
+  - - retraction:s
+    - upheld
+  coverage:
+  - corpus-a

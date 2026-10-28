@@ -1,0 +1,78 @@
+# R, C (counters R) and D (counters C) in corpus-a; R and C in corpus-b, which
+# lacks D and so says R overturned. The world graph upholds R.
+input:
+  coverage:
+  - corpus-a
+  - corpus-b
+  records:
+  - corpus_id: corpus-a
+    address: retraction:r
+    uid: uid-r
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: dataset:one
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-a
+    address: retraction:c
+    uid: uid-c
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: retraction:r
+      resolution: overturned
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-a
+    address: retraction:d
+    uid: uid-d
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: retraction:c
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-b
+    address: retraction:r
+    uid: uid-r
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: dataset:one
+      resolution: overturned
+      arm: node
+    certification: null
+    coreference: null
+  - corpus_id: corpus-b
+    address: retraction:c
+    uid: uid-c
+    kind: retraction
+    deprecated_ids: []
+    produces: []
+    retraction:
+      target: retraction:r
+      resolution: upheld
+      arm: node
+    certification: null
+    coreference: null
+expected:
+  found:
+  - - retraction:c
+    - overturned
+  - - retraction:d
+    - upheld
+  - - retraction:r
+    - upheld
+  coverage:
+  - corpus-a
+  - corpus-b

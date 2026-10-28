@@ -1026,7 +1026,8 @@ class _BuildDraft:
         "enumerated once, fed to all four" a property of the draft rather than
         of whoever remembers to reuse the argument.
         """
-        return self.held[kind].invoke(self.capture.rule_input())
+        held = self.held[kind]
+        return rules.invoke_held(held, kind, self.capture.rule_input(held.input_version))
 
 
 def _declared_coverage(coverage: frozenset[str]) -> tuple[str, ...]:
@@ -1246,6 +1247,7 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
                 else derive.CapturedRetraction(
                     _retraction_target(facets[node.id]),
                     RETRACTION_UPHELD if standing.get(node.id, True) else RETRACTION_OVERTURNED,
+                    cast(str, cast(Mapping[str, str], facets[node.id]["target"])["arm"]),
                 )
             ),
             coreference=(
@@ -1446,6 +1448,10 @@ def _derived_members(draft: _BuildDraft) -> Mapping[str, bytes]:
     the one captured projection; the two maps that are not receipt subjects
     fold over the same capture.
     """
+    # Cut 48 §4.5: the address map is derived first, so its refusals (`AddressMapConflict`,
+    # the deprecated-key `ResolutionRefused`) take precedence over anything a rule could say
+    # about a capture that is not a world.
+    address_map = derive.address_map(draft.capture)
     snapshot = derive.producer_snapshot(draft.run("producer"))
     enumeration = derive.retraction_enumeration(draft.run("retraction-enumeration"))
     inventory = derive.certification_inventory(draft.run("certification-enumeration"))
@@ -1459,7 +1465,7 @@ def _derived_members(draft: _BuildDraft) -> Mapping[str, bytes]:
         bindings=draft.bindings,
     )
     members: dict[str, bytes] = {
-        "address-map.yaml": _document_bytes(derive.address_map_projection(derive.address_map(draft.capture))),
+        "address-map.yaml": _document_bytes(derive.address_map_projection(address_map)),
         "producers-map.yaml": _document_bytes(derive.producers_map_projection(snapshot.producers)),
         "retraction-discovery-map.yaml": _document_bytes(
             derive.retraction_discovery_map_projection(derive.retraction_discovery_map(draft.capture))

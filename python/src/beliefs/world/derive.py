@@ -174,6 +174,9 @@ class ReceiptOutcome:
 # --- the captured view -------------------------------------------------------
 
 
+RETRACTION_ARMS: tuple[str, ...] = ("node", "route", "snapshot")
+
+
 @dataclass(frozen=True)
 class CapturedRetraction:
     """One captured retraction record's derivation-relevant content.
@@ -187,10 +190,16 @@ class CapturedRetraction:
 
     target: str
     resolution: str
+    arm: str
+    """The target arm the facet declares: `node`, `route` or `snapshot`. Read by
+    the v2 rule input (cut 48 §4.5); not a member of `projection()`, so the v1
+    input, every v1 fixture and every v1 identity stay as they are."""
 
     def __post_init__(self) -> None:
         _require_text(self.target, "target")
         _require_text(self.resolution, "resolution")
+        if self.arm not in RETRACTION_ARMS:
+            raise ValueError(f"a retraction arm is one of {RETRACTION_ARMS}, not {self.arm!r}")
 
 
 @dataclass(frozen=True)
@@ -388,19 +397,29 @@ class Capture:
             )
         )
 
-    def rule_input(self) -> dict[str, object]:
-        """The one projection value all four reducers receive.
+    def rule_input(self, version: str | None = None) -> dict[str, object]:
+        """The one projection value the reducers receive, in the version the
+        held rule declares (cut 48 §4.5): `None` is the v1 input every rule held
+        before cut 48 reads, byte-identical to what it was;
+        `science.rule-input.v2` adds each retraction member's `arm`.
 
         Records are ordered by `(corpus_id, address)` so that a rule which
         (wrongly) depended on iteration order would at least be deterministic
         about it, and a fixture pinning the order says what the order is.
         """
-        return {
-            "coverage": list(self.coverage),
-            "records": [
-                {"corpus_id": corpus_id, **record.projection()} for corpus_id, record in self.located_records()
-            ],
-        }
+        if version is not None and version != "science.rule-input.v2":
+            raise ValueError(f"no rule input version {version!r}")
+        records: list[dict[str, object]] = []
+        for corpus_id, record in self.located_records():
+            projection = record.projection()
+            if version is not None and record.retraction is not None:
+                projection["retraction"] = {
+                    "target": record.retraction.target,
+                    "resolution": record.retraction.resolution,
+                    "arm": record.retraction.arm,
+                }
+            records.append({"corpus_id": corpus_id, **projection})
+        return {"coverage": list(self.coverage), "records": records}
 
 
 # --- the two maps that are not receipt subjects ------------------------------

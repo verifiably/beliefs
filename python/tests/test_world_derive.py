@@ -115,8 +115,8 @@ def coreference_of(captured: derive.Capture) -> derive.CoreferenceMap:
 # --- shared shapes -----------------------------------------------------------
 
 
-def retraction(target: str, resolution: str = "upheld") -> derive.CapturedRetraction:
-    return derive.CapturedRetraction(target=target, resolution=resolution)
+def retraction(target: str, resolution: str = "upheld", arm: str = "node") -> derive.CapturedRetraction:
+    return derive.CapturedRetraction(target=target, resolution=resolution, arm=arm)
 
 
 def certification(kind: str, ref: str) -> derive.CapturedCertification:
@@ -1051,6 +1051,9 @@ class TestShippedFixtures:
         # One captured-record model: every fixture's input is the same shape,
         # so the four reducers really do read one enumeration pass.
         for bundle in rules.shipped_rule_bundles():
+            # The record key set is version-invariant; the retraction member's key set is the
+            # per-version schema (cut 48 §4.5): v2 inputs carry each retraction's `arm`.
+            retraction_keys = {"target", "resolution"} | ({"arm"} if bundle.input_version else set())
             for name, content in bundle.fixtures:
                 supplied, _expected = rules._parse_fixture_document(name, content)
                 assert isinstance(supplied, dict), name
@@ -1067,6 +1070,8 @@ class TestShippedFixtures:
                         "retraction",
                         "uid",
                     }, name
+                    if entry["retraction"] is not None:
+                        assert set(entry["retraction"]) == retraction_keys, name
 
     def test_each_packaged_bundle_installs_and_evaluates_to_the_same_expected_bytes(self, tmp_path):
         from authority import FULL
@@ -1239,3 +1244,43 @@ class TestW19MultiHolderMap:
         assert dict(snapshot_of(twice).producers) == {"dataset:one": ("run:alpha",)}
         assert dict(inventory_of(twice).by_kind) == {"assessment": ("ref-1",)}
         assert dict(coreference_of(twice).pairs) == {("address-a", "address-b"): (1, 1)}
+
+
+# --- cut 48: the v2 retraction fold equals the kernel's fold over the same records --------------
+
+
+class _FixtureResolver:
+    """`retraction_standing`'s resolver over a fixture's records: live and deprecated ids."""
+
+    def __init__(self, records: list[dict]) -> None:
+        self._live = {}
+        for record in records:
+            self._live[record["address"]] = record["address"]
+            for deprecated in record["deprecated_ids"]:
+                self._live.setdefault(deprecated, record["address"])
+
+    def resolve(self, ref: str) -> str | None:
+        return self._live.get(ref)
+
+
+def test_v2_fold_equals_retraction_standing_over_every_fixture():
+    from beliefs.corpus import retraction_standing
+
+    bundle = shipped("enumerate_retractions_v2")
+    invoke = rules._load_entry_point(bundle.symbol, bundle.implementation)
+    assert bundle.input_version == rules.RULE_INPUT_V2
+    for name, content in bundle.fixtures:
+        supplied, expected = rules._parse_fixture_document(name, content)
+        assert isinstance(supplied, dict) and isinstance(expected, dict)
+        for records in (list(supplied["records"]), list(reversed(supplied["records"]))):
+            capture_input = {"coverage": supplied["coverage"], "records": records}
+            produced = invoke(rules._frozen(capture_input))
+            assert v1.encode(produced) == v1.encode(expected), name
+            facets = {
+                r["address"]: {"target": {"arm": r["retraction"]["arm"], "ref": r["retraction"]["target"]}}
+                for r in records
+                if r["retraction"] is not None
+            }
+            standing = retraction_standing(_FixtureResolver(records), facets)  # type: ignore[arg-type]
+            kernel = sorted((ref, "upheld" if standing[ref] else "overturned") for ref in facets)
+            assert [list(pair) for pair in kernel] == list(expected["found"]), name

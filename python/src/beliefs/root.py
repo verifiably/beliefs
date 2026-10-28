@@ -1997,7 +1997,7 @@ def open_corpus(
 
 
 def install_shipped_world_rules(world: World) -> tuple[RuleBinding, ...]:
-    """Hold this package's four v1 enumeration rules in one world — the
+    """Hold this package's five shipped enumeration rules in one world — the
     explicit act, never a side effect of initialization or opening.
 
     It mirrors adoption: shipping content and holding it are two decisions, and
