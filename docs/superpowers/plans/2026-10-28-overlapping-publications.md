@@ -198,7 +198,7 @@ Uncounted evidence the spec requires beside the units: `test_receipts_fold_a_rec
 
 **Interfaces:** gather iterates `_mapped_holders()` in its assessment and verification loops and asks `counts(h, address)` for every captured holder; `node_corpus` lists accepting holders; `_selected_attributions(read, registry, selected, coordination_pin, *, own_corpora)` keeps its signature and implements spec §7's four rules, reading non-selected undeclared `ReplicaOf` holders' markers through `read.captured()` only when rule 3.3 is reached and building the frozen tuple over sorted holders; `PublicationRefused("attribution-ambiguous", refs=(address,), corpus_ids=holders, field=<claims rendered as "corpus:marker" joined by ",">)`; `MountCitations._one` compares `content_identity` across holders and runs `_refuse_contract_mismatch` for every read-mount holder. Consumes Tasks 2 to 4.
 
-- [ ] Write G14-a/b and J20-b in `test_acceptance.py` over the multi-holder world fixture (extend the acceptance world helpers with a second holder of one assessment, its run and observed dataset, and one verification); Y19-a/b/c/d/e/f in `test_publication_attribution.py` using `capture_fixture`, `wrapper_fixture`, `pin` and `Prepared` with captures that hold one address in several corpora, admissions supplied in both orders for Y19-e, and markers whose `supersedes_markers` form the P1/P3, P2/P3, sibling and P7 → P3 → P1 shapes; J17-c in `test_mount_citations.py`. Pin:
+- [x] Write G14-a/b and J20-b in `test_acceptance.py` over the multi-holder world fixture (extend the acceptance world helpers with a second holder of one assessment, its run and observed dataset, and one verification); Y19-a/b/c/d/e/f in `test_publication_attribution.py` using `capture_fixture`, `wrapper_fixture`, `pin` and `Prepared` with captures that hold one address in several corpora, admissions supplied in both orders for Y19-e, and markers whose `supersedes_markers` form the P1/P3, P2/P3, sibling and P7 → P3 → P1 shapes; J17-c in `test_mount_citations.py`. Pin:
 
   ```python
   assert inputs.node_corpus[identity] == ("corpus-b",)                 # accepting holder only
@@ -211,9 +211,9 @@ Uncounted evidence the spec requires beside the units: `test_receipts_fold_a_rec
   assert caught.value.reason == "attribution-contract-unpinned" and caught.value.corpus_ids == (CARRIED_HOLDER,)  # Y19-f
   assert citations.holder(ADDR) is own_view                             # J17-c equal; differing → AddressMapConflict naming both
   ```
-- [ ] Run the three modules through `just test-one`; require failures at the new assertions.
-- [ ] Implement gather's per-record loops and the attribution tuple; `_selected_attributions`' four rules with lazy marker reading, the own-holder, agreement and least-element steps, and the v2 narrowing; `MountCitations._one`'s content comparison.
-- [ ] Run the modules, then `just test-one tests/test_arm_staleness.py -k every_arm_a_live_guard_audits`; retarget each arm this task falsified in its owning guard (expected: cut 44 J17-a/J17-b, adding `_LIVE_SABOTAGES` to `test_n2_cut44.py` on cut 45's pattern; cut 45 G10-d/f and G12-a/b/c; cut 46's Y17 arms over `_selected_attributions`) and rerun to green. `just test-fast` (green), `tasks check`, commit `feat(belief,publish): decide acceptance and attribution over the holder set`.
+- [x] Run the three modules through `just test-one`; require failures at the new assertions.
+- [x] Implement gather's per-record loops and the attribution tuple; `_selected_attributions`' four rules with lazy marker reading, the own-holder, agreement and least-element steps, and the v2 narrowing; `MountCitations._one`'s content comparison.
+- [x] Run the modules, then `just test-one tests/test_arm_staleness.py -k every_arm_a_live_guard_audits`; retarget each arm this task falsified in its owning guard (expected: cut 44 J17-a/J17-b, adding `_LIVE_SABOTAGES` to `test_n2_cut44.py` on cut 45's pattern; cut 45 G10-d/f and G12-a/b/c; cut 46's Y17 arms over `_selected_attributions`) and rerun to green. `just test-fast` (green), `tasks check`, commit `feat(belief,publish): decide acceptance and attribution over the holder set`.
 
 ### Task 6: The 1b fixture on the certified tuple
 
