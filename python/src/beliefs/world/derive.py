@@ -64,14 +64,14 @@ therefore has nowhere to put a semantic identity or a belief member at all;
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Literal, cast
 
 from beliefs import identifiers
 from beliefs.closure import RetractionEnumeration
 from beliefs.corpus import Finding
-from beliefs.errors import AddressMapConflict, RuleNonconformant
+from beliefs.errors import AddressMapConflict, ResolutionRefused, RuleNonconformant
 from beliefs.identity import v1
 from beliefs.world import epoch
 
@@ -83,6 +83,7 @@ __all__ = [
     "RECEIPT_OUTCOMES",
     "RETRACTION_ENUMERATION_DOMAIN",
     "SUBJECT_DOMAINS",
+    "AddressEntry",
     "Capture",
     "CapturedCertification",
     "CapturedCoreference",
@@ -266,11 +267,17 @@ class CapturedRecord:
     retraction: CapturedRetraction | None = None
     certification: CapturedCertification | None = None
     coreference: CapturedCoreference | None = None
+    content: str = field(kw_only=True)
+    """The record's content identity (`registry.content_identity`), read by the
+    address map alone: two holders of one address are one record iff these are
+    equal (cut 48 §4.1). Not a member of `projection()`, so no rule input and
+    no receipt subject moves."""
 
     def __post_init__(self) -> None:
         _require_text(self.address, "address")
         _require_text(self.uid, "uid")
         _require_text(self.kind, "kind")
+        _require_lower_hex(self.content, 64, "content")
         _require_distinct_text(self.deprecated_ids, "deprecated_ids")
         _require_text_members(self.produces, "produces")
         if self.address in self.deprecated_ids:
@@ -399,9 +406,33 @@ class Capture:
 # --- the two maps that are not receipt subjects ------------------------------
 
 
-def address_map(capture: Capture) -> Mapping[str, tuple[str, str]]:
+@dataclass(frozen=True)
+class AddressEntry:
+    """One address's record and the corpora holding it (cut 48 §4.2).
+
+    `holders` is sorted and non-empty. `content` is the record's content
+    identity, or `None` for an entry read back from a legacy epoch (§4.3),
+    which named one holder and no content: such an entry makes no claim a
+    later reader can check a copy against.
+    """
+
+    uid: str
+    content: str | None
+    holders: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _require_text(self.uid, "uid")
+        if self.content is not None:
+            _require_lower_hex(self.content, 64, "content")
+        if type(self.holders) is not tuple or not self.holders:
+            raise ValueError("an address entry names at least one holder, as an exact tuple")
+        if list(self.holders) != sorted(set(self.holders)):
+            raise ValueError("an address entry's holders are sorted and distinct")
+
+
+def address_map(capture: Capture) -> Mapping[str, AddressEntry]:
     """§7.2's address map: every live address **and** every `deprecated_ids`
-    entry, each mapped to `(corpus_id, uid)`.
+    entry, each mapped to the record and the corpora holding it.
 
     A retired address is a publication member rather than a corpus-local
     redirect, so its answer survives its corpus being absent — that is the
@@ -410,15 +441,20 @@ def address_map(capture: Capture) -> Mapping[str, tuple[str, str]]:
     W8b distinguishes uid corruption from duplicate location. Check canonical
     claims before redirects, and corruption before offering consolidation:
     a shared uid at two locations may also name a third, different address.
-    Neither violation is resolved by precedence. Deprecated addresses of one
-    record remain ordinary additional keys, not additional canonical claims.
+    Neither violation is resolved by precedence. From cut 48 the map is
+    multi-holder: claims on one address with equal content identity are one
+    record held in several corpora, and only differing content is
+    `duplicate-location`. Deprecated addresses of one record remain
+    ordinary additional keys, not additional canonical claims; a deprecated
+    key that is another record's live address, or that two differing records
+    claim, refuses the typed `ResolutionRefused`.
     """
     located = capture.located_records()
     by_uid: dict[str, list[tuple[str, str]]] = {}
-    by_address: dict[str, list[tuple[str, str]]] = {}
+    by_address: dict[str, list[tuple[str, CapturedRecord]]] = {}
     for corpus_id, record in located:
         by_uid.setdefault(record.uid, []).append((corpus_id, record.address))
-        by_address.setdefault(record.address, []).append((corpus_id, record.uid))
+        by_address.setdefault(record.address, []).append((corpus_id, record))
     for uid, locations in by_uid.items():
         if len({address for _, address in locations}) > 1:
             raise AddressMapConflict(
@@ -430,36 +466,41 @@ def address_map(capture: Capture) -> Mapping[str, tuple[str, str]]:
                     message="one uid names different canonical addresses; no repair is offered",
                 )
             )
-    for address, locations in by_address.items():
-        if len(locations) > 1:
+    mapping: dict[str, AddressEntry] = {}
+    for address, claims in by_address.items():
+        if len({record.content for _, record in claims}) > 1:
             raise AddressMapConflict(
                 Finding(
                     severity="error",
                     code="duplicate-location",
                     ref=address,
-                    detail=f"corpus/uid claims={tuple(locations)!r}",
+                    detail=f"corpus/uid claims={tuple((corpus_id, record.uid) for corpus_id, record in claims)!r}",
                     message="one canonical address is held in multiple corpora; resolve with consolidate",
                 )
             )
-    mapping: dict[str, tuple[str, str]] = {}
+        first = claims[0][1]
+        mapping[address] = AddressEntry(first.uid, first.content, tuple(sorted(corpus_id for corpus_id, _ in claims)))
     for corpus_id, record in located:
-        for address in (record.address, *record.deprecated_ids):
+        entry = mapping[record.address]
+        for address in record.deprecated_ids:
             held = mapping.get(address)
-            if held is not None:
-                raise ValueError(
-                    f"{address!r} is claimed by {held} and by {(corpus_id, record.uid)}; "
-                    "the address map is singular (world §4.3)"
+            if held is None:
+                mapping[address] = entry
+                continue
+            if held != entry:
+                raise ResolutionRefused(
+                    f"{address!r} is claimed by {(held.holders, held.uid)} and by {(corpus_id, record.uid)}; "
+                    "a retired address answers for one record (world §4.3)"
                 )
-            mapping[address] = (corpus_id, record.uid)
     return MappingProxyType(mapping)
 
 
-def address_map_projection(mapping: Mapping[str, tuple[str, str]]) -> dict[str, object]:
-    """The `address-map.yaml` member's projection, sorted by address."""
+def address_map_projection(mapping: Mapping[str, AddressEntry]) -> dict[str, object]:
+    """The `address-map.yaml` member's projection, sorted by address (cut 48 §4.3)."""
     return {
         "addresses": [
-            {"address": address, "corpus_id": corpus_id, "uid": uid}
-            for address, (corpus_id, uid) in sorted(mapping.items())
+            {"address": address, "content": entry.content, "holders": list(entry.holders), "uid": entry.uid}
+            for address, entry in sorted(mapping.items())
         ]
     }
 

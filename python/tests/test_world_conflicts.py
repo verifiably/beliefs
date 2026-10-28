@@ -35,7 +35,12 @@ def root_tree(root: Path) -> dict[str, bytes]:
 
 
 def conflict_world(tmp_path: Path, *, coverage=(ALPHA, BETA), twin_of=DATASET_A, same_address=True, same_uid=False):
-    """Two admitted corpora, BETA holding a twin of ALPHA's record."""
+    """Two admitted corpora, BETA holding a twin of ALPHA's record.
+
+    The twin differs in content (its title): from cut 48 a shared uid with
+    equal content is one record held twice (W19-a), so W8b's duplicate-location
+    arms, shared uid included, are the differing-content case (the W8b note).
+    """
     world, recorder, bindings, roots = admitted_world(tmp_path, coverage)
     original = Corpus(roots[coverage[0]]).get(twin_of)
     twin = original.model_copy(
@@ -43,6 +48,7 @@ def conflict_world(tmp_path: Path, *, coverage=(ALPHA, BETA), twin_of=DATASET_A,
         update={
             "id": original.id if same_address else dataset_ref("twin"),
             "uid": original.uid if same_uid else "d" * 32,
+            "title": f"{original.title} (twin)",
         },
     )
     raw_write(roots[coverage[1]], twin)

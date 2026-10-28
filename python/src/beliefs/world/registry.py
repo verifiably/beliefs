@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Literal, NoReturn, TypeAlias, cast
 
 import yaml
+from nodes.core.node import Node
 from nodes.core.projection import to_canonical_json
 from nodes.core.write_plan import CreateOp, WritePlanExecutor
 
@@ -755,21 +756,32 @@ def _reject_json_constant(value: str) -> NoReturn:
     raise ValueError(f"non-standard JSON constant {value!r}")
 
 
+NODE_CONTENT_DOMAIN = "science.node-content.v1"
+"""The domain of a record's content identity: the digest of `nodes`' canonical
+projection of the parsed node (id, uid, kind, title, body, metadata, relations,
+facets, deprecated_ids). One record held in several corpora is one record iff
+these agree (overlapping-publications design §4.1, cut 48); the corpus-state
+identity is built from the same member."""
+
+
+def content_identity(node: Node) -> str:
+    """The record's content identity under `NODE_CONTENT_DOMAIN`."""
+    value = json.loads(
+        to_canonical_json(node),
+        parse_int=Decimal,
+        parse_float=Decimal,
+        parse_constant=_reject_json_constant,
+    )
+    return v1.digest(NODE_CONTENT_DOMAIN, _lift_json(value))
+
+
 def corpus_state_identity(corpus_root: Path) -> str:
     manifest = load_manifest(corpus_root)
     members: list[dict[str, str]] = []
     try:
         view = ReadView.opened_at(corpus_root)
         for node in view.iter_stored():
-            projection_text = to_canonical_json(node)
-            value = json.loads(
-                projection_text,
-                parse_int=Decimal,
-                parse_float=Decimal,
-                parse_constant=_reject_json_constant,
-            )
-            node_identity = v1.digest("science.node-content.v1", _lift_json(value))
-            members.append({"uid": node.uid, "content_identity": node_identity})
+            members.append({"uid": node.uid, "content_identity": content_identity(node)})
     except Exception as caught:
         raise CorpusStateMalformed(f"{corpus_root}: malformed corpus state: {caught}") from caught
     projection = {

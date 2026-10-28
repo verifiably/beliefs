@@ -63,9 +63,10 @@ _LIVE_SABOTAGES = {
     # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
     # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
     # the formatted source is exactly the formatted declared sabotage.
+    # Cut 48 (overlapping publications), 2026-10-28: claims on one address group by content identity; the sabotage never refuses a differing group.
     "W8-a": Sabotage(
         module="world/derive.py",
-        before="        if len(locations) > 1:\n",
+        before="        if len({record.content for _, record in claims}) > 1:\n",
         after="        if False:\n",
     ),
     # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
@@ -82,52 +83,17 @@ _LIVE_SABOTAGES = {
     # Repository reformat, 2026-10-09 (beliefs-a555d6): `ruff format` re-wrapped the
     # anchored lines. Derived by tools/retarget_formatted_arms.py, so this arm applied to
     # the formatted source is exactly the formatted declared sabotage.
+    # Cut 48 (overlapping publications), 2026-10-28: the address grouping is by content; the sabotage still checks addresses before uids.
     "W8b-b": Sabotage(
         module="world/derive.py",
-        before=(
-            "    for uid, locations in by_uid.items():\n"
-            "        if len({address for _, address in locations}) > 1:\n"
-            "            raise AddressMapConflict(\n"
-            "                Finding(\n"
-            '                    severity="error",\n'
-            '                    code="uid-corruption",\n'
-            "                    ref=uid,\n"
-            '                    detail=f"corpus/address claims={tuple(locations)!r}",\n'
-            '                    message="one uid names different canonical addresses; no repair is offered",\n'
-            "                )\n"
-            "            )\n"
-            "    for address, locations in by_address.items():\n"
-            "        if len(locations) > 1:\n"
-            "            raise AddressMapConflict(\n"
-            "                Finding(\n"
-            '                    severity="error",\n'
-            '                    code="duplicate-location",\n'
-            "                    ref=address,\n"
-            '                    detail=f"corpus/uid claims={tuple(locations)!r}",\n'
-            '                    message="one canonical address is held in multiple corpora; resolve with consolidate",\n'
-        ),
-        after=(
-            "    for address, locations in by_address.items():\n"
-            "        if len(locations) > 1:\n"
-            "            raise AddressMapConflict(\n"
-            "                Finding(\n"
-            '                    severity="error",\n'
-            '                    code="duplicate-location",\n'
-            "                    ref=address,\n"
-            '                    detail=f"corpus/uid claims={tuple(locations)!r}",\n'
-            '                    message="duplicate",\n'
-            "                )\n"
-            "            )\n"
-            "    for uid, locations in by_uid.items():\n"
-            "        if len({address for _, address in locations}) > 1:\n"
-            "            raise AddressMapConflict(\n"
-            "                Finding(\n"
-            '                    severity="error",\n'
-            '                    code="uid-corruption",\n'
-            "                    ref=uid,\n"
-            '                    detail=f"corpus/address claims={tuple(locations)!r}",\n'
-            '                    message="corrupt",\n'
-        ),
+        before='    for uid, locations in by_uid.items():\n        if len({address for _, address in locations}) > 1:\n            raise AddressMapConflict(\n                Finding(\n                    severity="error",\n                    code="uid-corruption",\n                    ref=uid,\n                    detail=f"corpus/address claims={tuple(locations)!r}",\n                    message="one uid names different canonical addresses; no repair is offered",\n                )\n            )\n    mapping: dict[str, AddressEntry] = {}\n    for address, claims in by_address.items():\n        if len({record.content for _, record in claims}) > 1:\n            raise AddressMapConflict(\n                Finding(\n                    severity="error",\n                    code="duplicate-location",\n                    ref=address,\n                    detail=f"corpus/uid claims={tuple((corpus_id, record.uid) for corpus_id, record in claims)!r}",\n                    message="one canonical address is held in multiple corpora; resolve with consolidate",\n                )\n            )\n',
+        after='    mapping: dict[str, AddressEntry] = {}\n    for address, claims in by_address.items():\n        if len({record.content for _, record in claims}) > 1:\n            raise AddressMapConflict(\n                Finding(\n                    severity="error",\n                    code="duplicate-location",\n                    ref=address,\n                    detail=f"corpus/uid claims={tuple((corpus_id, record.uid) for corpus_id, record in claims)!r}",\n                    message="duplicate",\n                )\n            )\n    for uid, locations in by_uid.items():\n        if len({address for _, address in locations}) > 1:\n            raise AddressMapConflict(\n                Finding(\n                    severity="error",\n                    code="uid-corruption",\n                    ref=uid,\n                    detail=f"corpus/address claims={tuple(locations)!r}",\n                    message="corrupt",\n                )\n            )\n',
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28: claims are grouped per address then compared by content; the sabotage groups by (address, uid) so distinct uids never meet.
+    "W8b-c": Sabotage(
+        module="world/derive.py",
+        before="        by_address.setdefault(record.address, []).append((corpus_id, record))",
+        after="        by_address.setdefault((record.address, record.uid), []).append((corpus_id, record))",
     ),
 }
 CUT28_ARMS = tuple(

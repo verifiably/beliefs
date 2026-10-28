@@ -259,11 +259,13 @@ def formula_packaging_identity(members: dict[str, bytes]) -> str:
 def test_build_reports_world_identity_conflicts_without_publishing(tmp_path, same_address, same_uid, code):
     world, recorder, bindings, roots = admitted_world(tmp_path, (ALPHA, BETA))
     original = Corpus(roots[ALPHA]).get(dataset_ref("a"))
+    # The twin differs in content (cut 48, W8b note): a shared uid with equal content reads once.
     twin = original.model_copy(
         deep=True,
         update={
             "id": original.id if same_address else dataset_ref("twin"),
             "uid": original.uid if same_uid else "d" * 32,
+            "title": f"{original.title} (twin)",
         },
     )
     raw_write(roots[BETA], twin)

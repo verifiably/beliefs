@@ -749,10 +749,36 @@ def _text_members(value: object, location: str) -> tuple[str, ...]:
     return tuple(_require_text(member, f"a member of {location}") for member in members)
 
 
+ADDRESS_ENTRY_KEYS: tuple[str, ...] = ("address", "content", "holders", "uid")
+"""The closed shape every epoch built from cut 48 writes (design §4.3)."""
+
+LEGACY_ADDRESS_ENTRY_KEYS: tuple[str, ...] = ("address", "corpus_id", "uid")
+"""The singular shape every epoch built before cut 48 carries. Admitted as a
+second closed shape so retained epochs stay readable; never written again, and
+never mixed with the other in one document."""
+
+
 def _check_addresses(document: Mapping[object, object]) -> None:
-    for entry in _entries(document["addresses"], ("address", "corpus_id", "uid"), "addresses"):
-        for key in ("address", "corpus_id", "uid"):
-            _require_text(entry[key], key)
+    value = document["addresses"]
+    if type(value) is not list:
+        raise ValueError(f"addresses is a list, not {type(value).__name__}")
+    members: list[object] = value
+    if not members:
+        return
+    first = members[0]
+    if type(first) is not dict:
+        raise ValueError("an entry of addresses is a mapping")
+    keys = LEGACY_ADDRESS_ENTRY_KEYS if "corpus_id" in first else ADDRESS_ENTRY_KEYS
+    for entry in _entries(members, keys, "addresses"):
+        _require_text(entry["address"], "address")
+        _require_text(entry["uid"], "uid")
+        if keys is LEGACY_ADDRESS_ENTRY_KEYS:
+            _require_text(entry["corpus_id"], "corpus_id")
+            continue
+        _require_text(entry["content"], "content")
+        holders = _text_members(entry["holders"], "holders")
+        if not holders or list(holders) != sorted(set(holders)):
+            raise ValueError("holders names at least one corpus, sorted and distinct")
 
 
 def _check_producers(document: Mapping[object, object]) -> None:
@@ -1207,6 +1233,7 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
             address=node.id,
             uid=node.uid,
             kind=node.kind,
+            content=registry.content_identity(node),
             deprecated_ids=tuple(node.deprecated_ids),
             produces=tuple(
                 relation.target

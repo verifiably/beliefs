@@ -655,12 +655,22 @@ class Location:
 
     corpus_id: str
     uid: str
+    holders: tuple[str, ...]
+    """Every present holder of the record, sorted (cut 48 §5.2). `corpus_id`
+    is the least of them: a label, since every present holder's copy has the
+    same content, never a choice by corpus order."""
+
+    def __post_init__(self) -> None:
+        if type(self.holders) is not tuple or not self.holders:
+            raise TypeError("a location names at least one present holder, as an exact tuple")
+        if list(self.holders) != sorted(set(self.holders)) or self.corpus_id != self.holders[0]:
+            raise ValueError("a location's holders are sorted and distinct, and corpus_id is the least of them")
 
 
 @dataclass(frozen=True)
 class Resolved:
-    """The address is recorded, its corpus is singly carried here, and that
-    carrier produces the `uid` the epoch mapped."""
+    """The address is recorded, at least one holder is carried here, and
+    every readable carrier produces the `uid` the epoch mapped."""
 
     location: Location
     stamp: BoundStamp
@@ -695,16 +705,22 @@ def resolve_address(world: registry.World, published: epoch.Epoch, address: str)
     The epoch's address map decides the first question and the world decides
     the second. An address the map does not record is `Unknown` — the
     publication never observed it, and no amount of live state changes that.
-    An address it does record names a `corpus_id` and a `uid`; the world is
-    then asked, through the registry's own presence rule, whether it carries
-    that corpus exactly once. No carrier is `NotPresent`.
+    An address it does record names a `uid` and the corpora holding the record;
+    the world is then asked, through the registry's own presence rule, whether
+    it carries each of them exactly once. Every holder absent is `NotPresent`.
 
-    **Ambiguity and corruption refuse.** Two configured roots claiming the
-    corpus, a present carrier whose manifest cannot be read, and a present
+    **Ambiguity and corruption refuse.** Two configured roots claiming a
+    holder, a present carrier whose manifest cannot be read, and a present
     carrier that does not produce the mapped `uid` all raise
     `ResolutionRefused`. None of them may borrow `NotPresent`: that answer
     tells a caller the record is safely elsewhere, and here what actually
     happened is that this world cannot say what it holds.
+
+    **Several holders (cut 48 §5.3).** A present carrier that cannot be read
+    is skipped when another holder reads and every readable copy's content
+    identity equals the one the epoch mapped; otherwise it refuses as before.
+    Readable copies that disagree with each other refuse: the holders agreed
+    when the epoch was built and no longer do.
 
     An unreadable manifest is a refusal *here* and outcome ``unresolvable`` in
     `validate_receipt`, and the asymmetry is the two sections talking about two
@@ -719,39 +735,58 @@ def resolve_address(world: registry.World, published: epoch.Epoch, address: str)
     recorded = _address_map(published)
     if address not in recorded:
         return Unknown(stamp)
-    corpus_id, uid = recorded[address]
+    entry = recorded[address]
+    carriers: dict[str, Path] = {}
     with registry._locked_barrier(world) as world_root:
         world._state.registry = registry._scan_registry(world_root)
-        try:
-            status = registry._reduce_status(world.config, world._state.registry, corpus_id)
-        except ManifestMalformed as caught:
-            raise ResolutionRefused(
-                f"{address}: {corpus_id}: a configured root claims a manifest this world cannot read, "
-                f"so it can say neither that the corpus is here nor that it is absent: {caught}"
-            ) from caught
-        if any(finding.code == "duplicate-carrier" for finding in status.findings):
-            raise ResolutionRefused(
-                f"{address}: {corpus_id}: more than one configured carrier claims this corpus, so which "
-                "bytes answer is a configuration question rather than a resolution"
-            )
-        if not status.present:
+        for corpus_id in entry.holders:
+            try:
+                status = registry._reduce_status(world.config, world._state.registry, corpus_id)
+            except ManifestMalformed as caught:
+                raise ResolutionRefused(
+                    f"{address}: {corpus_id}: a configured root claims a manifest this world cannot read, "
+                    f"so it can say neither that the corpus is here nor that it is absent: {caught}"
+                ) from caught
+            if any(finding.code == "duplicate-carrier" for finding in status.findings):
+                raise ResolutionRefused(
+                    f"{address}: {corpus_id}: more than one configured carrier claims this corpus, so which "
+                    "bytes answer is a configuration question rather than a resolution"
+                )
+            if status.present:
+                carriers[corpus_id] = registry._carrier_roots(world.config, corpus_id)[0]
+        if not carriers:
             return NotPresent(stamp)
-        carrier = registry._carrier_roots(world.config, corpus_id)[0]
-        try:
-            view = ReadView.opened_at(carrier)
-            live = view.resolve(address)
-            produced = None if live is None else view.get(live).uid
-        except _CARRIER_READ_FAULTS as caught:
-            raise ResolutionRefused(
-                f"{address}: {corpus_id}: {carrier}: the present carrier cannot be read: {caught}"
-            ) from caught
-    if produced != uid:
+        readable: dict[str, str] = {}
+        faults: dict[str, BaseException] = {}
+        for corpus_id, carrier in carriers.items():
+            try:
+                view = ReadView.opened_at(carrier)
+                live = view.resolve(address)
+                node = None if live is None else view.get(live)
+            except _CARRIER_READ_FAULTS as caught:
+                faults[corpus_id] = caught
+                continue
+            produced = None if node is None else node.uid
+            if produced != entry.uid:
+                raise ResolutionRefused(
+                    f"{address}: {corpus_id}: {carrier}: the present carrier produces uid {produced!r}, "
+                    f"not the {entry.uid!r} this epoch mapped; a carrier that disagrees with the publication is "
+                    "corruption and not an absence"
+                )
+            assert node is not None
+            readable[corpus_id] = registry.content_identity(node)
+    if faults and (not readable or entry.content is None or any(c != entry.content for c in readable.values())):
+        first = min(faults)
         raise ResolutionRefused(
-            f"{address}: {corpus_id}: {carrier}: the present carrier produces uid {produced!r}, "
-            f"not the {uid!r} this epoch mapped; a carrier that disagrees with the publication is "
-            "corruption and not an absence"
+            f"{address}: {first}: {carriers[first]}: the present carrier cannot be read: {faults[first]}"
+        ) from faults[first]
+    if len(set(readable.values())) > 1:
+        raise ResolutionRefused(
+            f"{address}: the present holders {tuple(sorted(readable))} disagree in content; the holders agreed "
+            "when the epoch was built and no longer do, so this world cannot say which copy answers"
         )
-    return Resolved(Location(corpus_id, uid), stamp)
+    holders = tuple(sorted(readable))
+    return Resolved(Location(holders[0], entry.uid, holders), stamp)
 
 
 def _stamp(published: epoch.Epoch) -> BoundStamp:
@@ -759,16 +794,27 @@ def _stamp(published: epoch.Epoch) -> BoundStamp:
     return BoundStamp(published.packaging_identity, published.coverage)
 
 
-def _address_map(published: epoch.Epoch) -> Mapping[str, tuple[str, str]]:
-    """§7.2's published map as `address -> (corpus_id, uid)`.
+def _address_map(published: epoch.Epoch) -> Mapping[str, derive.AddressEntry]:
+    """§7.2's published map as `address -> AddressEntry`.
 
     Every entry, live and retired alike: `derive.address_map` puts each
     `deprecated_ids` member in beside its record's live address, which is what
     makes a retired address a recorded one and therefore `NotPresent` rather
-    than `Unknown` when its corpus goes away.
+    than `Unknown` when its corpus goes away. A legacy entry (`epoch`'s
+    `LEGACY_ADDRESS_ENTRY_KEYS`) reads as one holder and no content identity.
     """
-    addresses = cast(tuple[Mapping[str, str], ...], published.documents["address-map.yaml"]["addresses"])
-    return {entry["address"]: (entry["corpus_id"], entry["uid"]) for entry in addresses}
+    addresses = cast(tuple[Mapping[str, object], ...], published.documents["address-map.yaml"]["addresses"])
+    mapping: dict[str, derive.AddressEntry] = {}
+    for entry in addresses:
+        if "corpus_id" in entry:
+            mapping[cast(str, entry["address"])] = derive.AddressEntry(
+                cast(str, entry["uid"]), None, (cast(str, entry["corpus_id"]),)
+            )
+        else:
+            mapping[cast(str, entry["address"])] = derive.AddressEntry(
+                cast(str, entry["uid"]), cast(str, entry["content"]), tuple(cast(tuple[str, ...], entry["holders"]))
+            )
+    return mapping
 
 
 # --- coreference edges (§8.4) -------------------------------------------------

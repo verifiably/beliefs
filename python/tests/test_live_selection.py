@@ -166,3 +166,19 @@ class TestEvaluation:
         with pytest.raises(ResolutionRefused) as view_refusal:
             open_world_view(world, published)
         assert str(live_refusal.value) == str(view_refusal.value)
+
+
+class TestW19LiveMapHolders:
+    def test_w19_g_live_map_holders(self, tmp_path):
+        from beliefs.errors import AddressMapConflict
+
+        (shared,) = datasets("d-shared")
+        world, roots = two_corpora(tmp_path, alpha=(shared,), beta=(shared,))
+        live = evaluate_live_query(world, DATASETS)
+        assert live.selected.count(shared.id) == 1 and live.contributing == (ALPHA, BETA)
+        revised = shared.model_copy(deep=True)
+        revised.title = "revised"
+        raw_write(roots[BETA], revised)
+        with pytest.raises(AddressMapConflict) as caught:
+            evaluate_live_query(world, DATASETS)
+        assert caught.value.finding.code == "duplicate-location"

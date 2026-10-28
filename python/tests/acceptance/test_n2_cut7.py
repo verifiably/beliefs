@@ -143,8 +143,27 @@ _LIVE_SABOTAGES = {
     ),
 }
 _LIVE_SABOTAGE_INDICES = {("X10", 20), ("X12", 25), ("W8a", 33)}
+# Cut 48 (overlapping publications), 2026-10-28: the address map became multi-holder, so the
+# projection writes `{address, content, holders, uid}` and resolution answers `NotPresent` only when
+# every holder is absent. Two W8a arms sit on those lines; keyed by index since the row is shared.
+_LIVE_SABOTAGES_BY_INDEX = {
+    ("W8a", 28): Sabotage(
+        module="world/derive.py",
+        before='def address_map_projection(mapping: Mapping[str, AddressEntry]) -> dict[str, object]:\n    """The `address-map.yaml` member\'s projection, sorted by address (cut 48 §4.3)."""\n    return {\n        "addresses": [\n            {"address": address, "content": entry.content, "holders": list(entry.holders), "uid": entry.uid}\n            for address, entry in sorted(mapping.items())\n        ]\n    }',
+        after='_DERIVATIONS: list[int] = []\n\n\ndef address_map_projection(mapping: Mapping[str, AddressEntry]) -> dict[str, object]:\n    """The `address-map.yaml` member\'s projection, sorted by address (cut 48 §4.3)."""\n    _DERIVATIONS.append(1)\n    marker = "" if len(_DERIVATIONS) == 1 else f"#{len(_DERIVATIONS)}"\n    return {\n        "addresses": [\n            {"address": f"{address}{marker}", "content": entry.content, "holders": list(entry.holders), "uid": entry.uid}\n            for address, entry in sorted(mapping.items())\n        ]\n    }',
+    ),
+    ("W8a", 37): Sabotage(
+        module="world/read.py",
+        before="        if not carriers:\n            return NotPresent(stamp)\n",
+        after="        if not carriers:\n            return Unknown(stamp)\n",
+    ),
+}
 CUT7_ARMS = tuple(
-    dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if (arm.row, index) in _LIVE_SABOTAGE_INDICES else arm
+    dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES_BY_INDEX[(arm.row, index)])
+    if (arm.row, index) in _LIVE_SABOTAGES_BY_INDEX
+    else dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
+    if (arm.row, index) in _LIVE_SABOTAGE_INDICES
+    else arm
     for index, arm in enumerate(CUT7_ARMS)
 )
 
@@ -462,20 +481,20 @@ def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
     it never observed at all.
     """
     addresses = {
-        entry["address"]: (entry["corpus_id"], entry["uid"])
+        entry["address"]: (entry["holders"][0], entry["uid"])
         for entry in document(journey.current, "address-map.yaml")["addresses"]
     }
     stamp = read.BoundStamp(journey.current.packaging_identity, journey.current.coverage)
 
     resolved = read.resolve_address(journey.world, journey.current, dataset_ref("a"))
     assert isinstance(resolved, read.Resolved)
-    assert resolved.location == read.Location(*addresses[dataset_ref("a")])
+    assert resolved.location == read.Location(*addresses[dataset_ref("a")], (addresses[dataset_ref("a")][0],))
     assert resolved.stamp == stamp
 
     # A retired address is a recorded one, and resolves to its successor's uid.
     retired = read.resolve_address(journey.world, journey.current, RETIRED)
     assert isinstance(retired, read.Resolved)
-    assert retired.location == read.Location(*addresses[RETIRED])
+    assert retired.location == read.Location(*addresses[RETIRED], (addresses[RETIRED][0],))
 
     unknown = read.resolve_address(journey.world, journey.current, "dataset:never-observed")
     assert isinstance(unknown, read.Unknown)

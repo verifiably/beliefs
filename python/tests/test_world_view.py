@@ -43,7 +43,7 @@ def two_corpus_world(tmp_path: Path):
 def address_in(published, corpus_id: str, kind: str = "dataset") -> str:
     entries = cast(list[dict[str, str]], published.documents["address-map.yaml"]["addresses"])
     for entry in entries:
-        if entry["corpus_id"] == corpus_id and entry["address"].startswith(f"{kind}:"):
+        if corpus_id in entry["holders"] and entry["address"].startswith(f"{kind}:"):
             return entry["address"]
     raise AssertionError(f"no {kind} in {corpus_id}")
 
@@ -1115,3 +1115,90 @@ def test_mapped_records_enumerate_what_iter_stored_yields_without_copying(tmp_pa
     assert [corpus for corpus, _ in pairs] == [view.corpus_of(node.id) for _, node in pairs]
     first = pairs[0][1]
     assert pairs[0][1] is first and next(iter(view._mapped_records()))[1] is first
+
+
+# --- cut 48: one record held in several corpora (W20) ---------------------------
+
+
+def overlap_world(tmp_path: Path, holders: tuple[str, ...] = (ALPHA, BETA), extra: dict | None = None):
+    """`shared` held in every corpus of `holders` with equal content, its
+    producing run in the first holder only, plus `extra` nodes per corpus."""
+    shared = stored.dataset_node(title="shared", resources=pinned("shared"))
+    producer = stored.run_node("producer", title="producer", spec="analysis-spec:producer", produces=[shared.id])
+    placement: dict[str, tuple] = {}
+    for index, corpus_id in enumerate(holders):
+        placement[corpus_id] = (shared, producer) if index == 0 else (shared,)
+    for corpus_id, nodes in (extra or {}).items():
+        placement[corpus_id] = (*placement.get(corpus_id, ()), *nodes)
+    roots = corpora(tmp_path, placement)
+    world = world_over(tmp_path, roots)
+    return world, roots, publish(world, tuple(sorted(placement)), hold_shipped(world)), shared
+
+
+def revise_in_place(root: Path, address: str) -> None:
+    """Change a stored record's content without changing its address or uid."""
+    node = Corpus(root).get(address)
+    node.title = f"{node.title}, revised"
+    Corpus(root).store.path_for(address).write_text(node_to_markdown(node))
+
+
+class TestW20ServedSurface:
+    def test_w20_a_view_serves_once(self, tmp_path):
+        world, _roots, published, shared = overlap_world(tmp_path)
+        view = open_world_view(world, published)
+        assert view.locate(shared.id) == read.Resolved(read.Location(ALPHA, shared.uid, (ALPHA, BETA)), view.stamp)
+        assert view.corpus_of(shared.id) == ALPHA and view.holders_of(shared.id) == (ALPHA, BETA)
+        assert view.captured() == (ALPHA, BETA)
+        assert view.get(shared.id).uid == shared.uid and view.resolve(shared.id) == shared.id
+        assert len(view.inbound(shared.id)) == 1
+        assert [c for c, n in view._mapped_records() if n.uid == shared.uid] == [ALPHA, BETA]
+        assert [h for h, n in view._mapped_holders() if n.uid == shared.uid] == [(ALPHA, BETA)]
+        assert sum(1 for n in view.iter_stored() if n.uid == shared.uid) == 1
+
+    def test_w20_b_holders_disagree_refuses(self, tmp_path):
+        from test_world_build import GAMMA
+
+        world, roots, published, shared = overlap_world(tmp_path, holders=(ALPHA, BETA, GAMMA))
+        revise_in_place(roots[GAMMA], shared.id)
+        with pytest.raises(ResolutionRefused) as caught:
+            open_world_view(world, published)
+        assert shared.id in str(caught.value)
+        assert all(corpus_id in str(caught.value) for corpus_id in (ALPHA, BETA, GAMMA))
+
+    def test_w20_d_owners_check_narrowed(self, tmp_path):
+        from test_world_build import GAMMA
+
+        world, roots, published, shared = overlap_world(tmp_path, extra={GAMMA: sample_nodes("gamma")})
+        assert open_world_view(world, published).holders_of(shared.id) == (ALPHA, BETA)
+        twin = reopen(roots[ALPHA]).get(shared.id).model_copy(deep=True, update={"id": "dataset:twin"})
+        raw_write(roots[GAMMA], twin)
+        with pytest.raises(ResolutionRefused, match="uid uniqueness"):
+            open_world_view(world, published)
+
+    def test_w20_e_damaged_holder_rule(self, tmp_path):
+        from beliefs.errors import CorpusDamaged
+
+        world, roots, published, shared = overlap_world(tmp_path)
+        damage(roots[BETA], "parse-error")
+        view = open_world_view(world, published, on_damage="report")
+        assert view.get(shared.id).uid == shared.uid
+        served = view.locate(shared.id)
+        assert type(served) is read.Resolved and served.location == read.Location(ALPHA, shared.uid, (ALPHA,))
+        revise_in_place(roots[ALPHA], shared.id)
+        drifted = open_world_view(world, published, on_damage="report")
+        with pytest.raises(CorpusDamaged) as caught:
+            drifted.get(shared.id)
+        assert caught.value.corpus_id == BETA
+
+    def test_w20_h_mapped_view_and_absence(self, tmp_path):
+        from beliefs.corpus import _absence_of
+
+        world, roots, published, shared = overlap_world(tmp_path)
+        view = open_world_view(world, published)
+        assert view._mapped_view(ALPHA).holds(shared.id) and view._mapped_view(BETA).holds(shared.id)
+        assert _absence_of(view, shared.id) is None
+        make_absent(roots, BETA)
+        assert _absence_of(open_world_view(world, published), shared.id) is None
+        make_absent(roots, ALPHA)
+        gone = open_world_view(world, published)
+        assert type(gone.locate(shared.id)) is read.NotPresent and _absence_of(gone, shared.id) == ALPHA

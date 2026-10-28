@@ -70,16 +70,17 @@ class DamageReport:
 @final
 class WorldReadView:
     _stamp: BoundStamp
-    _recorded: Mapping[str, tuple[str, str]]
+    _recorded: Mapping[str, derive.AddressEntry]
     _held: Mapping[str, Mapping[str, Node]]
     _absent: tuple[str, ...]
     _drift: tuple[DriftReport, ...]
     _damaged: tuple[DamageReport, ...]
     _damaged_ids: frozenset[str]
     _captured: Mapping[str, tuple[Node, ...]]
+    _contents: Mapping[str, Mapping[str, str]]
     _manifests: Mapping[str, registry.CorpusManifest]
-    _inbound: Mapping[tuple[str, str], tuple[ResolvedEdge, ...]]
-    _producers: Mapping[tuple[str, str], tuple[str, ...]]
+    _inbound: Mapping[str, tuple[ResolvedEdge, ...]]
+    _producers: Mapping[str, tuple[str, ...]]
     _live: Mapping[str, ReadView]
     _retractions: RetractionEnumeration
     _retraction_discovery: Mapping[str, tuple[str, ...]]
@@ -96,16 +97,17 @@ class WorldReadView:
         mint: object,
         *,
         stamp: BoundStamp,
-        recorded: Mapping[str, tuple[str, str]],
+        recorded: Mapping[str, derive.AddressEntry],
         held: Mapping[str, Mapping[str, Node]],
         absent: tuple[str, ...],
         drift: tuple[DriftReport, ...],
         damaged: tuple[DamageReport, ...],
         damaged_ids: frozenset[str],
         captured: Mapping[str, tuple[Node, ...]],
+        contents: Mapping[str, Mapping[str, str]],
         manifests: Mapping[str, registry.CorpusManifest],
-        inbound: Mapping[tuple[str, str], tuple[ResolvedEdge, ...]],
-        producers: Mapping[tuple[str, str], tuple[str, ...]],
+        inbound: Mapping[str, tuple[ResolvedEdge, ...]],
+        producers: Mapping[str, tuple[str, ...]],
         live: Mapping[str, ReadView],
         retractions: RetractionEnumeration,
         retraction_discovery: Mapping[str, tuple[str, ...]],
@@ -123,6 +125,7 @@ class WorldReadView:
         view._damaged = damaged
         view._damaged_ids = damaged_ids
         view._captured = captured
+        view._contents = contents
         view._manifests = manifests
         view._inbound = inbound
         view._producers = producers
@@ -147,21 +150,30 @@ class WorldReadView:
     def damaged(self) -> tuple[DamageReport, ...]:
         return self._damaged
 
+    def captured(self) -> tuple[str, ...]:
+        """The captured corpus ids, sorted: present, readable, captured under
+        their own holds (cut 48 §5.2). Not `registry.admissions`, which also
+        lists corpora admitted after the epoch."""
+        return tuple(sorted(self._held))
+
     def captured_records(self, corpus_id: str) -> tuple[Node, ...]:
         return tuple(node.model_copy(deep=True) for node in self._captured[corpus_id])
 
     def captured_manifest(self, corpus_id: str) -> registry.CorpusManifest:
         return self._manifests[corpus_id]
 
+    def _captured_holders(self, entry: derive.AddressEntry) -> tuple[str, ...]:
+        return tuple(holder for holder in entry.holders if holder in self._held)
+
     def locate(self, ref: str) -> Resolved | NotPresent | Unknown:
         self._refuse_damaged(ref)
         entry = self._recorded.get(ref)
         if entry is None:
             return Unknown(self._stamp)
-        corpus_id, uid = entry
-        if corpus_id in self._absent:
+        present = self._captured_holders(entry)
+        if not present:
             return NotPresent(self._stamp)
-        return Resolved(Location(corpus_id, uid), self._stamp)
+        return Resolved(Location(present[0], entry.uid, present), self._stamp)
 
     def _located_state(self, ref: str) -> LocatedState:
         """`locate`'s answer as the evaluator's three states; damage refuses
@@ -174,15 +186,29 @@ class WorldReadView:
         return "resolved"
 
     def corpus_of(self, ref: str) -> str | None:
+        """The record's canonical holder: the least captured holder, or the
+        least recorded holder when none is captured (cut 48 §5.2). A label,
+        never a choice of content: every captured holder's copy is the same
+        record, and a caller whose answer depends on which holder reads
+        `holders_of`."""
         entry = self._recorded.get(ref)
-        return None if entry is None else entry[0]
+        if entry is None:
+            return None
+        present = self._captured_holders(entry)
+        return present[0] if present else entry.holders[0]
+
+    def holders_of(self, ref: str) -> tuple[str, ...]:
+        """Every corpus the epoch records as holding the record, sorted; `()`
+        for an address it never observed."""
+        entry = self._recorded.get(ref)
+        return () if entry is None else entry.holders
 
     def corpus_view(self, ref: str) -> ReadView:
         return self._live[self._located(ref).location.corpus_id]
 
     def published_producers(self, dataset: str) -> tuple[str, ...]:
         entry = self._recorded.get(dataset)
-        return () if entry is None else self._producers.get(entry, ())
+        return () if entry is None else self._producers.get(entry.uid, ())
 
     def retraction_enumeration(self) -> RetractionEnumeration:
         """The enumeration the bound epoch published — the evaluator's, never a caller's."""
@@ -210,18 +236,21 @@ class WorldReadView:
     def _mapped_view(self, corpus_id: str) -> _CapturedCheckView:
         records = tuple(self._held[corpus_id].values())
         addresses = {
-            ref: self._held[corpus_id][uid].id
-            for ref, (holder, uid) in self._recorded.items()
-            if holder == corpus_id and uid in self._held[corpus_id]
+            ref: self._held[corpus_id][entry.uid].id
+            for ref, entry in self._recorded.items()
+            if corpus_id in entry.holders and entry.uid in self._held[corpus_id]
         }
         return _CapturedCheckView(records, addresses=addresses)
 
     def resolve(self, ref: str) -> str | None:
         self._refuse_damaged(ref)
         entry = self._recorded.get(ref)
-        if entry is None or entry[0] in self._absent:
+        if entry is None:
             return None
-        return self._held[entry[0]][entry[1]].id
+        present = self._captured_holders(entry)
+        if not present:
+            return None
+        return self._held[present[0]][entry.uid].id
 
     def holds(self, ref: str) -> bool:
         return self.resolve(ref) is not None
@@ -238,22 +267,37 @@ class WorldReadView:
             return []
         return [
             ResolvedEdge(relation=deepcopy(edge.relation), source_uid=edge.source_uid, target_uid=edge.target_uid)
-            for edge in self._inbound.get(entry, ())
+            for edge in self._inbound.get(entry.uid, ())
         ]
 
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
         return _producer_ids(self, dataset, aliases=aliases)
 
     def iter_stored(self) -> Iterator[Node]:
-        for corpus_id in sorted(self._held):
-            for uid in sorted(self._held[corpus_id]):
-                yield self._held[corpus_id][uid].model_copy(deep=True)
+        for _holders, node in self._mapped_holders():
+            yield node.model_copy(deep=True)
 
     def _mapped_records(self) -> Iterator[tuple[str, Node]]:
-        """Yield retained records mapped to their present corpus, without copying."""
+        """Yield retained records mapped to each captured holder, without copying:
+        one `(corpus_id, node)` per holder, for callers that file something per corpus."""
         for corpus_id in sorted(self._held):
             for uid in sorted(self._held[corpus_id]):
                 yield corpus_id, self._held[corpus_id][uid]
+
+    def _mapped_holders(self) -> Iterator[tuple[tuple[str, ...], Node]]:
+        """Yield each retained record once with its captured holders, ordered by
+        `(canonical holder, uid)`, without copying: for callers that decide
+        something per record over its holders (cut 48 §5.2)."""
+        seen: set[str] = set()
+        for corpus_id in sorted(self._held):
+            for uid in sorted(self._held[corpus_id]):
+                if uid in seen:
+                    continue
+                seen.add(uid)
+                node = self._held[corpus_id][uid]
+                entry = self._recorded.get(node.id)
+                holders = self._captured_holders(entry) if entry is not None else (corpus_id,)
+                yield holders, node
 
     def live_id(self, uid: str) -> str:
         for records in self._held.values():
@@ -266,13 +310,28 @@ class WorldReadView:
         if type(located) is Unknown:
             raise RefError(f"no node resolves ref {ref!r}")
         if type(located) is NotPresent:
-            raise RecordNotPresent(ref, self._recorded[ref][0], self._stamp)
+            raise RecordNotPresent(ref, self._recorded[ref].holders[0], self._stamp)
         return cast(Resolved, located)
 
     def _refuse_damaged(self, ref: str) -> None:
+        """A damaged holder refuses the address, unless another holder was
+        captured and every captured copy equals the content the epoch mapped
+        (cut 48 §5.1): the damaged copy cannot be compared, so only the
+        publication can vouch for the copies that can."""
         entry = self._recorded.get(ref)
-        if entry is not None and entry[0] in self._damaged_ids:
-            raise CorpusDamaged(ref, entry[0], self._stamp)
+        if entry is None:
+            return
+        damaged = [holder for holder in entry.holders if holder in self._damaged_ids]
+        if not damaged:
+            return
+        present = self._captured_holders(entry)
+        if (
+            present
+            and entry.content is not None
+            and all(self._contents[holder][entry.uid] == entry.content for holder in present)
+        ):
+            return
+        raise CorpusDamaged(ref, damaged[0], self._stamp)
 
 
 def open_world_view(
@@ -320,6 +379,7 @@ def open_world_view(
     absent = tuple(corpus_id for corpus_id in covered if corpus_id not in carriers)
 
     captured: dict[str, dict[str, Node]] = {}
+    contents: dict[str, dict[str, str]] = {}
     states: dict[str, str] = {}
     live: dict[str, ReadView] = {}
     manifests: dict[str, registry.CorpusManifest] = {}
@@ -354,6 +414,7 @@ def open_world_view(
                     f"({before} -> {after}); the whole open is discarded and nothing is served"
                 )
         captured[corpus_id] = {node.uid: node for node in records}
+        contents[corpus_id] = {node.uid: registry.content_identity(node) for node in records}
         all_captured[corpus_id] = records
         states[corpus_id] = before
         live[corpus_id] = view
@@ -363,32 +424,55 @@ def open_world_view(
     captured_views = {corpus_id: _CapturedCheckView(all_captured[corpus_id]) for corpus_id in live}
 
     mapped: dict[str, set[str]] = {}
-    for address, (corpus_id, uid) in recorded.items():
-        mapped.setdefault(corpus_id, set()).add(uid)
-        if corpus_id not in captured:
+    for address, entry in recorded.items():
+        for corpus_id in entry.holders:
+            mapped.setdefault(corpus_id, set()).add(entry.uid)
+            if corpus_id not in captured:
+                continue
+            node = captured[corpus_id].get(entry.uid)
+            if node is None or (address != node.id and address not in node.deprecated_ids):
+                raise ResolutionRefused(
+                    f"{address}: {corpus_id}: {carriers[corpus_id]}: the present carrier does not hold uid "
+                    f"{entry.uid!r} under this address as the epoch mapped it; a carrier that disagrees with the "
+                    "publication is corruption and not an absence"
+                )
+            live_entry = recorded.get(node.id)
+            if live_entry is None or live_entry.uid != entry.uid or corpus_id not in live_entry.holders:
+                raise ResolutionRefused(
+                    f"{node.id}: {corpus_id}: {carriers[corpus_id]}: mapped uid {entry.uid!r} has a live address "
+                    "the epoch did not map to that record; a new canonical address requires a new publication"
+                )
+    # Cut 48 §5.1: captured copies of one record must agree with each other. Agreement with the
+    # epoch's content is not required — a single holder that moved is drift, and so are two that moved alike.
+    checked: set[str] = set()
+    for address, entry in sorted(recorded.items()):
+        if entry.uid in checked:
             continue
-        node = captured[corpus_id].get(uid)
-        if node is None or (address != node.id and address not in node.deprecated_ids):
+        checked.add(entry.uid)
+        present = [holder for holder in entry.holders if holder in captured]
+        if len(present) > 1 and len({contents[holder][entry.uid] for holder in present}) > 1:
             raise ResolutionRefused(
-                f"{address}: {corpus_id}: {carriers[corpus_id]}: the present carrier does not hold uid {uid!r} "
-                "under this address as the epoch mapped it; a carrier that disagrees with the publication is "
-                "corruption and not an absence"
-            )
-        if recorded.get(node.id) != (corpus_id, uid):
-            raise ResolutionRefused(
-                f"{node.id}: {corpus_id}: {carriers[corpus_id]}: mapped uid {uid!r} has a live address the epoch "
-                "did not map to that record; a new canonical address requires a new publication"
+                f"{address}: the captured holders {tuple(present)} disagree in content; the holders agreed when "
+                "the epoch was built and no longer do, so this world cannot say which copy answers (rebuild to "
+                "publish the conflict, or resolve it)"
             )
 
-    owners: dict[str, str] = {}
+    # W8b, the view's half (cut 48 §5.1): a uid held by two captured corpora is admitted only where the
+    # recorded map established those corpora as holders of one record.
+    owners: dict[str, list[str]] = {}
     for corpus_id in sorted(captured):
         for uid in captured[corpus_id]:
-            if uid in owners:
-                raise ResolutionRefused(
-                    f"uid {uid!r} is held by both {owners[uid]} and {corpus_id}; world uid uniqueness is enforced "
-                    "and its violation is corruption, not a record with two homes (W8b, the view's half)"
-                )
-            owners[uid] = corpus_id
+            owners.setdefault(uid, []).append(corpus_id)
+    for uid, corpora in owners.items():
+        if len(corpora) < 2:
+            continue
+        entries = {recorded.get(captured[corpus_id][uid].id) for corpus_id in corpora}
+        established = len(entries) == 1 and next(iter(entries)) is not None
+        if not established or not set(corpora) <= set(cast(derive.AddressEntry, next(iter(entries))).holders):
+            raise ResolutionRefused(
+                f"uid {uid!r} is held by both {corpora[0]} and {corpora[1]}; world uid uniqueness is enforced "
+                "and its violation is corruption, not a record with two homes (W8b, the view's half)"
+            )
 
     drift: list[DriftReport] = []
     held: dict[str, dict[str, Node]] = {}
@@ -399,24 +483,32 @@ def open_world_view(
             drift.append(DriftReport(corpus_id, published_states[corpus_id], states[corpus_id], unmapped))
         held[corpus_id] = {uid: node for uid, node in captured[corpus_id].items() if uid in known}
 
-    inbound: dict[tuple[str, str], list[ResolvedEdge]] = {}
-    for records in held.values():
-        for uid, node in records.items():
+    def held_anywhere(entry: derive.AddressEntry) -> bool:
+        return any(entry.uid in held.get(holder, {}) for holder in entry.holders)
+
+    inbound: dict[str, list[ResolvedEdge]] = {}
+    seen: set[str] = set()
+    for corpus_id in sorted(held):
+        for uid in sorted(held[corpus_id]):
+            if uid in seen:
+                continue
+            seen.add(uid)
+            node = held[corpus_id][uid]
             for relation in node.relations:
                 if (target := recorded.get(relation.target)) is not None:
                     source = recorded.get(relation.source)
                     if source is None:
                         continue
-                    source_uid = source[1] if source[1] in held.get(source[0], {}) else None
-                    inbound.setdefault(target, []).append(
-                        ResolvedEdge(relation=relation, source_uid=source_uid, target_uid=target[1])
+                    source_uid = source.uid if held_anywhere(source) else None
+                    inbound.setdefault(target.uid, []).append(
+                        ResolvedEdge(relation=relation, source_uid=source_uid, target_uid=target.uid)
                     )
 
-    producer_sets: dict[tuple[str, str], set[str]] = {}
+    producer_sets: dict[str, set[str]] = {}
     entries = cast(tuple[Mapping[str, object], ...], published.documents["producers-map.yaml"]["producers"])
     for entry in entries:
         if (located := recorded.get(cast(str, entry["dataset"]))) is not None:
-            producer_sets.setdefault(located, set()).update(cast(list[str], entry["runs"]))
+            producer_sets.setdefault(located.uid, set()).update(cast(list[str], entry["runs"]))
 
     return WorldReadView._opened(
         _MINT,
@@ -428,9 +520,10 @@ def open_world_view(
         damaged=tuple(damaged),
         damaged_ids=damaged_ids,
         captured=all_captured,
+        contents=contents,
         manifests=manifests,
         inbound={key: tuple(edges) for key, edges in inbound.items()},
-        producers={location: tuple(sorted(runs)) for location, runs in producer_sets.items()},
+        producers={uid: tuple(sorted(runs)) for uid, runs in producer_sets.items()},
         live=live,
         retractions=enumeration,
         retraction_discovery=retraction_discovery,

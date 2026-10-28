@@ -5,12 +5,13 @@ from __future__ import annotations
 import ast
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import frozen_guards
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -61,6 +62,24 @@ from n2_arms_cut44 import (
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
+
+_LIVE_SABOTAGES = {
+    # Cut 48 (overlapping publications), 2026-10-28: the citation reader answers from the first readable holder; the sabotage reads the live carrier.
+    "J19-c": Sabotage(
+        module="audit.py",
+        before="            if cause is None and holder is not None:\n                return holder\n",
+        after="            if cause is None and holder is not None:\n                return self._view.corpus_view(ref)\n",
+    ),
+    # Cut 48 (overlapping publications), 2026-10-28: unreadable only when no holder reads, naming every cause; the sabotage raises instead.
+    "J19-d": Sabotage(
+        module="audit.py",
+        before='        self.unreadable[ref] = "; ".join(causes)\n        return None\n',
+        after='        raise CorpusDamaged(f"eligibility:{ref}", holders[0], self._view.stamp)\n',
+    ),
+}
+CUT44_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT44_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

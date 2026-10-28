@@ -956,3 +956,26 @@ def test_j16_a_split_retrieval_report_is_unresolved_in_the_check_and_the_audit_a
     assert [f.code for f in local if f.ref == split.id] == ["facet-retrieval-unresolved"]
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
     assert [f.code for f in audit.corpora[ALPHA] if f.ref == split.id] == ["facet-retrieval-unresolved"]
+
+
+def test_w20_i_audit_files_per_holder(tmp_path):
+    from test_world_build import GAMMA, sample_nodes
+    from test_world_view import overlap_world
+
+    from beliefs.audit import _CapturedCitations
+    from beliefs.corpus import _CapturedCheckView
+    from beliefs.world.view import open_world_view
+
+    shared_stale = stale("twice")
+    world, roots, published, shared = overlap_world(
+        tmp_path, extra={ALPHA: (shared_stale,), BETA: (shared_stale,), GAMMA: sample_nodes("gamma")}
+    )
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+    assert ("semantic-hash-stale", "mismatch") in codes(audit.corpora[ALPHA])
+    assert ("semantic-hash-stale", "mismatch") in codes(audit.corpora[BETA])
+
+    make_absent(roots, ALPHA)
+    view = open_world_view(world, published, on_damage="report")
+    readable = {c: _CapturedCheckView(view.captured_records(c)) for c in (BETA, GAMMA)}
+    reader = _CapturedCitations(view, GAMMA, readable, {ALPHA: "absent"}, {})
+    assert reader._holder(shared.id) is readable[BETA] and reader.unreadable == {}

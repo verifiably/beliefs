@@ -97,6 +97,12 @@ _LIVE_SABOTAGES = {
             '        return derive.ReceiptOutcome(kind, "malformed", fault)\n'
         ),
     ),
+    # Cut 48 (overlapping publications), 2026-10-28: `_refuse_damaged` reads the entry's holders; the sabotage never refuses a damaged holder.
+    "S9-c": Sabotage(
+        module="world/view.py",
+        before="        damaged = [holder for holder in entry.holders if holder in self._damaged_ids]\n        if not damaged:\n            return\n",
+        after="        return\n",
+    ),
     # Correction remainder slice 2, 2026-09-19: import_epoch's decisions tuple
     # gains a `retracted-snapshot` entry between `malformed-receipt` and
     # `refuted-receipt` (commit 848a24a). R23-a still asserts that a
