@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T14:08:07Z
+updated: 2026-10-28T14:15:53Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -62,4 +62,6 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T13:41:22Z (design/918fd2-overlapping-publications): review: plan round 1 — verdict: revise; findings: Important 18, Minor 20; reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T14:04:29Z (design/918fd2-overlapping-publications): review: plan round 2 — verdict: revise; findings: Important 8, Minor 10; reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T14:08:07Z (design/918fd2-overlapping-publications): parked (waiting on user, review): User reviews implementation plan revision 3 at 5875060 (docs/superpowers/plans/2026-10-28-overlapping-publications.md on branch design/918fd2-overlapping-publications, worktree .worktrees/918fd2-overlapping-publications; read with git show 5875060:docs/superpowers/plans/2026-10-28-overlapping-publications.md) and chooses the execution method (recommended: native inline execution under executing-plans, since Tasks 2 to 5 share the world read view and one declaration; alternative: subagent-driven). On approval the agent resumes here: tasks start beliefs-83b71c (Task 1), run the full just test baseline as its first step, freeze cut 48, then execute Tasks 2 to 7 in order under the chosen skill. On corrections, revise the plan as a new revision and re-park for review.
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T14:15:53Z (design/918fd2-overlapping-publications): resumed
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
