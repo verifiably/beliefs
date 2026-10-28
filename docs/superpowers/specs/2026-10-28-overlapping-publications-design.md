@@ -1,6 +1,9 @@
 # Overlapping publications: one address held in several live corpora
 
-**Status:** draft for the user's review; not accepted.
+**Status:** draft, revision 2, for the user's review; not accepted. Revision 1 (`e57ab8c`)
+had a builder check and a critical review (round 1, verdict revise: 1 Critical, 6
+Important, 9 Minor; reviewer `claude-code/claude-fable-5-1`); every finding is resolved
+below and §13 lists the dispositions.
 **Task:** beliefs-918fd2 (child of beliefs-a286e7; beliefs-81367e and sci-4a3543 wait on it).
 **Brief:** `../../notes/2026-10-09-overlapping-publications-brief.md`.
 **Baseline:** beliefs main `11f6bb2`; science main `7dc27bbeb7711948c4942b3a3cd35fbaf6745514`.
@@ -30,8 +33,9 @@ Read at the baseline, nothing has moved since the brief:
   claims) whatever the content, then folds deprecated addresses into a singular
   `address -> (corpus_id, uid)` map, raising a bare `ValueError` when a deprecated entry
   collides (beliefs-354eae). Epochs publish the map as `address-map.yaml` with closed entries
-  `{address, corpus_id, uid}` (`epoch._check_addresses`), and `world/read.py` `_address_map`
-  reads it back as the same singular map.
+  `{address, corpus_id, uid}` (`epoch._check_addresses`, run on every open by
+  `_locked_open_epoch`), and `world/read.py` `_address_map` reads it back as the same
+  singular map.
 - `world/view.py` `open_world_view` checks each mapped address against its one carrier, then
   refuses any uid held by two captured corpora ("W8b, the view's half", pinned by cut 23's
   live `W10g` arm). `world/live.py` derives the same map over world kinds and runs a narrower
@@ -39,26 +43,32 @@ Read at the baseline, nothing has moved since the brief:
   (`_require_unmapped_uids_unique`, cut 41's Z5-c).
 - `corpus.py` `MountCitations._one` refuses a citation two session corpora hold
   (mount-citations decision 4; cut 44's J17a/J17b arms).
-- `publish.py` `_population` stages each selected record's canonical rendering
-  (`node_to_markdown(read.get(address))`) and `_require_snapshot_records` asserts it re-parses
-  to the captured node, so a republished copy carries the same canonical projection as its
-  source. `_selected_attributions` groups selected addresses by `read.corpus_of(ref)`, one
-  holder each.
+- `publish.py` `publication_preview` renders each selected record canonically
+  (`node_to_markdown(read.get(address))`) and `_require_snapshot_records` asserts the text
+  re-parses to the captured node; `_population` later compares staged bytes with that frozen
+  text. A republished copy therefore carries the same canonical projection as its source.
+  `_selected_attributions` groups selected addresses by `read.corpus_of(ref)`, one holder
+  each, and a replica holder's claim for an address is the entry its captured marker already
+  carries, else `(address, holder, marker uid)`.
 - `evaluation.py` `gather` evaluates `counts(corpus_id, address)` once per record against
   the one holder `corpus_of` names, and attributes `node_corpus` to that holder. The belief
   acceptance design §5.1 states that overlap must try the predicate for every holding corpus
   or compute an equivalent union.
 - `world/registry.py` `corpus_state_identity` already computes a per-record content digest,
   `v1.digest("science.node-content.v1", <canonical JSON projection>)`, over `nodes`'
-  `to_canonical` (id, uid, kind, title, body, metadata, relations, facets,
-  deprecated_ids). It is a private member of the corpus-state identity today.
+  `to_canonical` (id, uid, kind, title, body, metadata with `created`/`updated`/`version`,
+  relations, facets, deprecated_ids). It is a private member of the corpus-state identity
+  today.
+- The four receipt rules (`rules_v1/producer.py`, `retraction.py`, `certification.py`,
+  `coreference.py`) fold their inputs into sets, and the coreference unit key excludes the
+  corpus, so a record appearing once per holder in `rule_input` adds nothing twice.
 
 Intent provenance: the requirement is the user's reviewed commons design (science
-`docs/specs/2026-09-30-science-commons-design.md` §4.7 outcomes 1 to 3, §9.2's "any holding
-corpus" rule, §10 and §12 milestone 1b). The brief and the task were filed by agents from
-that design; no recorded human turn chooses a mechanism. Every ruling below is this design
-author's proposal, grounded in the cited documents and code, for the user to confirm or
-correct.
+`docs/specs/2026-09-30-science-commons-design.md` §4.7 outcomes 1 to 3, §4.8's first-origin
+rule, §9.2's "any holding corpus" rule, §10 and §12 milestone 1b). The brief and the task were
+filed by agents from that design; no recorded human turn chooses a mechanism. Every ruling
+below is this design author's proposal, grounded in the cited documents and code, for the
+user to confirm or correct.
 
 ## 2. Goals, non-goals and anti-goals
 
@@ -73,13 +83,14 @@ Goals:
 3. Belief acceptance is tried for every holding corpus; attribution and the acceptance
    report name holders, not a holder picked by order.
 4. A republication attributes a record held by several holders to one provenance, chosen by
-   a rule over the holder set, and a reordering of the holders moves nothing.
+   a rule over the holder set and the held supersession chains, and a reordering of the
+   holders moves nothing.
 
-Non-goals: a revision carried beside its predecessor (one uid under two live addresses,
-§4.1), retirement policy (commons §10, science's), science's `adopt` conflict rule and
-`Carrier` content check (sci-4a3543, science's), the TypeScript side (no epoch reader there,
-checked at the baseline), a general content-addressed store, and the W8b text sharing in
-beliefs-0e1acb (sequenced after this cut, §9).
+Non-goals: a revision carried beside its predecessor under a redirect (§4.1), retirement
+policy (commons §10, science's), science's `adopt` conflict rule, its session-holder
+resolution and its `Carrier` content check (§8; science's tasks), the TypeScript side (no
+epoch reader there, checked at the baseline), a general content-addressed store, and the
+W8b text sharing in beliefs-0e1acb (sequenced after this cut, §9).
 
 Anti-goals: picking a holder by registration or sort order for any answer that depends on
 content; reading a holder whose copy was not captured under its own hold; weakening
@@ -110,8 +121,9 @@ and which provenance a republication attributes (§7).
 identities are equal, where a record's content identity is
 `v1.digest("science.node-content.v1", <projection>)` over `nodes`' canonical projection of
 the parsed node, exactly the member `corpus_state_identity` already computes per node. The
-digest covers id, uid, kind, title, body, metadata, relations, facets and `deprecated_ids`.
-Equal content therefore implies an equal uid and equal deprecated-id lists.
+digest covers id, uid, kind, title, body, metadata (`created`, `updated`, `version`),
+relations, facets and `deprecated_ids`. Equal content therefore implies an equal uid and
+equal deprecated-id lists.
 
 Expose it as `beliefs.world.registry.content_identity(node: Node) -> str`, called by
 `corpus_state_identity`, by the epoch and live captures, by `open_world_view`,
@@ -136,13 +148,21 @@ Consequences the brief asked to be ruled:
 - **Deprecated-id lists.** Part of the content. A copy that gained a deprecated id was
   revised after the publication; it is not the same record and is handled as §4.2's fold
   says.
-- **Revision.** A record revised in place (same address, same uid, changed content) held
-  beside its unrevised copy is `duplicate-location`: content differs, nothing picks, the
-  exits are `consolidate` or, before admission, science's §10.5 refusal. A record renamed
-  under a redirect (new live address, old address in `deprecated_ids`, same uid) held beside
-  its predecessor is `uid-corruption` today and stays so: one uid names two canonical
-  addresses. Lifting that is a supersession-aware map, out of scope; §10 records it as the
-  one 1b-adjacent case this design does not admit, with the follow-up to file.
+- **Revision in place** (same address, same uid, changed content, `metadata.updated`
+  included) held beside its unrevised copy is `duplicate-location`: content differs, nothing
+  picks. This binds the write root too: once a carrier of *A*'s record r is mounted in *A*'s
+  world, `revise` of r in *A*'s write root makes the next epoch, live query, mount citation
+  and retained-epoch view refuse until the pair is resolved. The kernel's exits are
+  `consolidate` (which cannot rewrite a chain-verified publication, commons §10.1) and
+  unmounting or retiring the carrier (commons §10, science's policy). The record a
+  publication carries is frozen as published; a publisher who wants to change it revises
+  under a redirect (a new address, §4.4 of the world design) or republishes, which is how
+  commons §4.8 distinguishes revising from deriving. §10 item 1 names this and §8 hands the
+  surface rule to science.
+- **Revision under a redirect** (new live address, old address in `deprecated_ids`, same
+  uid) held beside its predecessor is `uid-corruption` today and stays so: one uid names two
+  canonical addresses. Lifting that is a supersession-aware map, out of scope; §10 item 2
+  records it with the follow-up to file.
 - **Independent authoring of one source** (equal basis, distinct uids, the "ordinary case"
   of world §4.1). Distinct uids give distinct content, so the pair refuses
   `duplicate-location` exactly as today. No behaviour the existing W8b arms assert changes
@@ -153,7 +173,10 @@ Consequences the brief asked to be ruled:
 `derive.CapturedRecord` gains `content: str` (the content identity), supplied by both
 captures (`epoch._captured_records`, `live._address_map`). It is **not** added to
 `CapturedRecord.projection()`: `rule_input` and the four fixture-bound rules are unchanged,
-and no receipt subject moves.
+no receipt subject moves, and the rules already fold a record that appears once per holder
+into one producer edge, one `(ref, resolution)` pair, one certification ref and one
+coreference unit (§1). W19 carries arms that pin that, so a future rule keyed on `corpus_id`
+cannot double-count silently.
 
 `derive.address_map(capture)` returns `Mapping[str, AddressEntry]` with
 
@@ -206,36 +229,59 @@ addresses:
 `{address, corpus_id, uid}` that every epoch built before this cut carries. One document
 uses one shape; a document mixing them is `EpochMalformed`. `read._address_map` returns
 `AddressEntry` for both, a legacy entry reading as `holders=(corpus_id,)`, `content=None`.
-The legacy shape is a versioned, named input, not a fallback: a world keeps its retained
-epochs readable for `current_epoch`, `open_epoch`, `delete_epoch`'s carried-identity walk,
-and the epoch audit, and rebuilds to get a multi-holder map. `derive.address_map_projection`
-writes only the new shape; packaging identities of existing epochs are untouched.
+The legacy shape is a versioned, named input, not a fallback: `_locked_open_epoch` runs the
+member checks on every open, so without it no retained epoch could be opened again by
+`current_epoch`, `open_epoch`, the epoch audit or the import path. A world rebuilds to get a
+multi-holder map. `derive.address_map_projection` writes only the new shape; packaging
+identities of existing epochs are untouched.
 
-Why publish `content` at all: the entry asserts that *n* corpora hold *one* record. Without
-the content identity that assertion names nothing a later reader could check; with it,
-`resolve_address` (§5.3) and the audit can say whether a carrier still holds what the epoch
-mapped. A `content: None` entry makes no such claim and is checked by uid alone, as today.
+`content` has exactly one reader in this cut, §5.1's and §5.3's damaged-holder rule: when a
+shared address has a holder whose copy cannot be read, the epoch's `content` is what a
+readable holder's copy is checked against before it answers alone. A `content: None` entry
+cannot be checked that way and keeps the fail-closed rule. The epoch audit
+(`world/audit.py`) gains no content check in this cut.
 
 ### 4.4 The retraction-discovery map
 
 Target identity to sorted retraction addresses, folded over `located_records`, which yields
 one `(corpus_id, record)` per holder. The fold is a set per target, so a retraction held in
-two corpora contributes its address once. No change; the arm that proves it is §9's W18-f.
+two corpora contributes its address once. No change; the arm that proves it is §9's W19-f.
 
 ## 5. World reads
 
+### 5.0 Holder states
+
+For a recorded address with holders *H* (the entry's `holders`), the view classifies each
+holder as the registry and capture already classify corpora:
+
+- **absent**: not carried in this world (`status.present` false);
+- **damaged**: carried, but construction or the base pin failed under its hold
+  (`damaged_ids`; only in `on_damage="report"` mode, since `"refuse"` raises at the open);
+- **captured** (*P*): carried and captured under its own hold, with the drift check.
+
+A live query has only captured holders. "Present" below means captured.
+
 ### 5.1 Opening a view (`open_world_view`)
 
-After capture, for every mapped address and every **present** holder in its entry: the
-present carrier holds the mapped uid under that address (live or deprecated), as today, and
-the mapped uid's live address maps back to an entry naming that holder. Then, for every entry
-with two or more present holders: the present holders' captured copies have equal content
-identity. Disagreement refuses `ResolutionRefused` naming the address and every holder: the
-holders agreed when the epoch was built and no longer do, and this world cannot say which
-copy answers; rebuild to publish the conflict, or `consolidate`. Agreement with each other,
-not with the epoch's `content`, is what is required: a single holder whose copy moved since
-the epoch is drift today and stays drift, and two holders that moved identically are the
-same drift.
+After capture, for every mapped address and every captured holder in its entry: the carrier
+holds the mapped uid under that address (live or deprecated), as today, and the mapped uid's
+live address maps back to an entry naming that holder. Then, for every entry with two or
+more captured holders: the captured copies have equal content identity. Disagreement refuses
+`ResolutionRefused` naming the address and every holder: the holders agreed when the epoch
+was built and no longer do, and this world cannot say which copy answers; rebuild to publish
+the conflict, or resolve it as §4.1 says. Agreement with each other, not with the epoch's
+`content`, is what is required: a single holder whose copy moved since the epoch is drift
+today and stays drift, and two holders that moved identically are the same drift.
+
+**A damaged holder.** A shared address with a damaged holder and at least one captured
+holder is served from the captured holders iff every captured copy's content identity equals
+the entry's `content`; the damage report still names the damaged corpus. If the entry is
+legacy (`content: None`), or a captured copy differs from the mapped content, the address
+refuses `CorpusDamaged` as a damaged single holder does today. This is what stops a damaged
+carrier from making the write root's own records unreadable through every audit, while never
+serving a copy the publication did not vouch for. `gather` refuses on the first damaged
+corpus regardless (`evaluation.py`), so belief is unaffected; the rule matters to
+`audit_world` and to resolution (§5.3).
 
 **The owners check, narrowed (W8b, the view's half).** A uid held by two captured corpora is
 admitted iff the recorded map names both corpora as holders of that uid's record. Any other
@@ -247,62 +293,73 @@ corpora still refuses. `live.py`'s `_require_unmapped_uids_unique` already fires
 holder outside the map, so its predicate does not change; its docstring and W8b text are
 re-read against this ruling, and beliefs-0e1acb's sharing of the text follows.
 
-`held[corpus]` keeps one entry per present holder, so drift and `captured_records` are
+`held[corpus]` keeps one entry per captured holder, so drift and `captured_records` are
 per corpus as today. `inbound` edges are built from the distinct-record enumeration
-(§5.2), one `ResolvedEdge` per relation, never one per holder.
-
-Damage: a damaged holder refuses the shared address (`CorpusDamaged`) whether or not
-another holder is readable. The damaged copy cannot be shown to agree, and the fail-closed
-answer is the same one a single damaged holder gives today.
+(§5.2), one `ResolvedEdge` per relation, never one per holder; an edge's `source_uid` is
+present iff any captured holder holds the source.
 
 ### 5.2 The served surface (`WorldReadView`, `_LiveCapture`)
 
-- `locate(ref)`: `Unknown` when the map does not record `ref`. Otherwise let *P* be the
-  entry's present holders. `NotPresent` iff *P* is empty: every holder is absent. Otherwise
+- `locate(ref)`: `Unknown` when the map does not record `ref`. Otherwise with holders *H*
+  and captured holders *P*: `NotPresent` iff every holder is absent; `CorpusDamaged` iff *P*
+  is empty and some holder is damaged, or §5.1's damaged-holder rule refuses; otherwise
   `Resolved(Location(corpus_id=min(P), uid, holders=P), stamp)`. `Location` gains
-  `holders: tuple[str, ...]`, required, sorted, non-empty.
+  `holders: tuple[str, ...]`, required, sorted, non-empty; the two test sites and the cut 7
+  live checks that construct `Location` positionally are retargeted.
 - `corpus_of(ref)` keeps its signature and returns the **canonical holder**: the least
-  present holder, or for a `NotPresent` address the least recorded holder. This is a
-  representative, not a resolution: every present holder's copy has equal content (§5.1), so
-  `get`, `resolve`, `corpus_view` and the facet read through `corpus_view` answer the same
+  captured holder, or for a `NotPresent` address the least recorded holder. This is a
+  representative, not a resolution: every captured holder's copy has equal content (§5.1),
+  so `get`, `resolve`, `corpus_view` and the facet read through `corpus_view` answer the same
   bytes from any of them, and the choice is a labelling that the holder-agreement check makes
   immaterial. Where a caller's answer does depend on which holder (attribution, acceptance,
   audit filing, not-present naming) the caller reads the holder set instead; §5.4 lists them.
 - `holders_of(ref) -> tuple[str, ...]`: the entry's recorded holders, sorted; `()` when
-  unmapped. Present holders are `holders_of(ref)` minus `absent()`.
-- `_mapped_records()` keeps yielding `(corpus_id, node)` **once per present holder**, for
+  unmapped. Captured holders are `holders_of(ref)` minus `absent()` minus the damaged ids.
+- `_mapped_records()` keeps yielding `(corpus_id, node)` **once per captured holder**, for
   the callers that file something per corpus. `_mapped_holders()` is added, yielding
-  `(holders, node)` **once per record** for the callers that decide something per record
-  over its holders. `iter_stored()` yields each record once (deduplicated by uid, in sorted
-  canonical-holder then uid order).
-- `_LiveCapture` carries the same `AddressEntry` map; every holder is present by
-  construction, so the live surface differs only in that `NotPresent` never occurs.
+  `(holders, node)` **once per record** (holders = its captured holders, sorted) for the
+  callers that decide something per record over its holders. `iter_stored()` yields each
+  record once, ordered by `(canonical holder, uid)`; a record with no captured holder is in
+  no `held` map and is yielded by none of the three.
+- `_mapped_view(corpus_id)` builds its address table from entries whose `holders` contain
+  `corpus_id`.
+- `_LiveCapture` carries the same `AddressEntry` map; every holder is captured by
+  construction, so the live surface differs only in that `NotPresent` and `CorpusDamaged`
+  never occur.
 
 ### 5.3 `resolve_address`
 
 For a recorded address: refuse as today on a duplicate carrier or unreadable manifest for
-any holder. If no holder is present, `NotPresent`. Otherwise every present holder's carrier
-must produce the mapped uid (today's per-carrier rule, now per holder), and when two or more
-are present their live content identities must agree; disagreement is `ResolutionRefused`,
-never `NotPresent`. The answer is `Resolved(Location(min(P), uid, holders=P), stamp)`.
+any holder. If every holder is absent, `NotPresent`. Otherwise read each present holder's
+carrier: it must produce the mapped uid (today's per-carrier rule, now per holder). A
+carrier that cannot be read is treated as §5.1 treats a damaged holder: skipped iff some
+other present holder reads and every readable copy's content identity equals the entry's
+`content`; otherwise `ResolutionRefused` as today. With two or more readable holders, their
+live content identities must agree; disagreement is `ResolutionRefused`, never `NotPresent`.
+The answer is `Resolved(Location(min(readable), uid, holders=readable), stamp)`.
 
-### 5.4 Every reader of `corpus_of`, ruled
+### 5.4 Every reader of `corpus_of` and of the per-holder enumeration, ruled
 
 | caller | today | ruling |
 |---|---|---|
-| `evaluation.py` gather: acceptance of assessments, verifications, retractions (`counts`) | one holder | §6: every present holder |
-| `evaluation.py` gather: `node_corpus` attribution | one holder | §6: the accepting holders (all present holders without a policy) |
-| `evaluation.py` `_check_filtered_world_standing` | inventory per corpus | per present holder, each corpus's mapped view against its own accepted set |
+| `evaluation.py` gather: assessment and verification candidate loops (`candidates = view._mapped_records()`, two sites) | one `(holder, node)` per record | iterate `_mapped_holders()`: each record once, decoded once, traced once; §6 decides acceptance over its holders |
+| `evaluation.py` gather: retraction acceptance (`counts`) | one holder | §6: every captured holder |
+| `evaluation.py` gather: `node_corpus` attribution (assessments, runs, observed datasets) | one holder | §6: the accepting holders (all captured holders without a policy) |
+| `evaluation.py` `_check_filtered_world_standing` | inventory per corpus by `corpus_of` | per captured holder, each corpus's mapped view against that corpus's accepted set |
 | `publish.py` `_selected_attributions` | one holder per selected address | §7: the holder set |
+| `world/selection.py` `_denoted` (`held` from `_mapped_records`, `contributing`) | the last holder in sort order per record | build `held` from `_mapped_holders()`; `contributing` is the union of every selected record's captured holders; `derive_pins` already refuses disagreeing pins across contributing corpora, so a holder whose manifest disagrees is refused explicitly rather than skipped |
 | `world/selection.py` `_classify`, `_require_located` | names the absent corpus | not-present only when every holder is absent; the refusal's `corpus_ids` lists every absent holder; `Unresolved.corpus_id` names the least, since mounting any one holder resolves it |
-| `world/selection.py` `contributing` | the one holder of each selected record | every present holder of every selected record; `derive_pins` already refuses disagreeing pins across contributing corpora, so a holder whose manifest disagrees is refused explicitly rather than skipped |
-| `audit.py` world loops (`_recompute`, coreference endpoints) | `iter_stored` then `corpus_of` | iterate `_mapped_records`: a finding about a record is filed under every present holder; the recomputation runs once per record and is attached to each holder |
-| `audit.py` `_CapturedCitations._holder` | the one holder's readable view | the first readable present holder in sorted order; unreadable only when none is, naming the causes of all |
+| `audit.py` world loops over `iter_stored` with `corpus_of` (the recomputation loop and the coreference-endpoint loop) | one holder | iterate `_mapped_records`: a finding about a record is filed under every captured holder, the recomputation running once per record. Intended: each corpus's audit is complete for the records that corpus holds, and a consumer summing over `corpora` counts holdings, not records |
+| `audit.py` `_CapturedCitations._holder` | the one holder's readable view | the first readable captured holder in sorted order; unreadable only when none is, naming every holder's cause |
 | `corpus.py` `_absence_of` | the absent corpus | the canonical holder, which is absent only when every holder is |
 | `corpus.py` coreference endpoint refusal | the absent corpus | same |
 
 `corpus_view(ref)` returns the canonical holder's exact `ReadView`;
 `_facets_held_to_capture` binds its rows to the captured node, which is holder-independent.
+`consulted_contracts` reads a pin for every corpus `node_corpus` names and refuses an
+unpinned one, so every holder a world read attributes must be in the caller's `pins`;
+science builds its pins and its epochs over the same session mounts, which keeps that true,
+and §8 states it as a requirement.
 
 ## 6. Belief acceptance over holders
 
@@ -311,21 +368,22 @@ The predicate's signature, `counts(corpus_id, canonical_address) -> bool`, and t
 is asked and what the answer means:
 
 - For every record in the selection domain (assessment, verification, retraction) with
-  present holders *P*, gather asks `counts(h, address)` for **every** `h` in sorted *P*, each
-  decision cached per `(h, address)` as today, and the record is **accepted iff any holder's
-  decision is true**. This implements commons §9.2 ("the record counts if any holding
-  corpus's branch says so") and the acceptance design §5.1's union, and never takes the first
-  carrier.
+  captured holders *P*, gather asks `counts(h, address)` for **every** `h` in sorted *P*,
+  each decision cached per `(h, address)` as today, and the record is **accepted iff any
+  holder's decision is true**. This implements commons §9.2 ("the record counts if any
+  holding corpus's branch says so") and the acceptance design §5.1's union, and never takes
+  the first carrier.
 - The record is read once (decoded once, one vertex, one trace entry). `node_corpus`
-  attributes its identity to the accepting holders; without a policy, to every present
+  attributes its identity to the accepting holders; without a policy, to every captured
   holder. The type already allows a tuple per identity (G10-f's "rejected holder never joins
   identity attribution" still holds per holder).
 - `AcceptanceContext.excluded` keeps listing every rejected `(corpus_id, address)` decision,
   including a holder's rejected decision for a record another holder accepted. That is the
   faithful report for 1b's decisive case: under `accept = [B]` *A*'s assessment counts through
   its write-root copy and the copy carried in *B*'s corpus is listed as excluded, so it
-  visibly contributes nothing. Science's `explain` already prints the holder beside each
-  pair. Completion and digest rules (G13) are unchanged.
+  visibly contributes nothing. Completion and digest rules (G13) are unchanged. Science's
+  `explain` prints one line per pair; wording that says "copy excluded" rather than "record
+  excluded" is science's follow-up (§8).
 - Snapshot standing already folds per corpus then unions (`snapshot_standing`), so a
   retraction held twice is decided under each holder and stands if either accepts it; the
   filtered world-standing fidelity check runs each holder's mapped view against that holder's
@@ -338,41 +396,65 @@ holder with the holder's corpus id, and a `Carrier` content check compares the k
 
 ## 7. Publication attribution over holders
 
-`_selected_attributions` groups each selected address by its **present holder set**
-(`holders_of` minus `absent()`; a selected record is `Resolved`, so the set is non-empty).
+`_selected_attributions` groups each selected address by its **captured holder set**
+(`holders_of` minus absent and damaged; a selected record is `Resolved`, so the set is
+non-empty).
 
-1. **Admission.** Every present holder of every selected record needs an admission; refuse
+1. **Admission.** Every captured holder of every selected record needs an admission; refuse
    `attribution-holder-unregistered` in sorted holder order, as today.
 2. **Declared ownership.** Cut 47's captured-marker guard runs per declared selected holder,
    as today.
-3. **Classification per selected address.** Each present holder yields one claim:
+3. **Classification per selected address.** Each captured holder yields one claim:
    - an **own** holder (`Fresh`, `ForkOf`, or a declared markerless holder) yields *own*;
    - a **replica** holder (undeclared `ReplicaOf`) yields the origin triple cut 46 derives
-     from its captured marker: the holder's own marker, or the earlier origin its marker
-     already carries for that address, copied unchanged.
-   The record's attribution is then: **own if any holder is own**; otherwise the one triple
-   every replica holder yields; otherwise refuse `PublicationRefused("attribution-ambiguous",
-   refs=(address,), corpus_ids=<the holders>)`, with nothing written.
-4. Under v2, the existing `attribution-contract-unpinned` names the replica holders that
-   hold at least one selected record classified as carried; a record made own by an own
-   holder needs no source. Under v3 the frozen tuple carries one entry per carried record.
+     from its captured marker: the entry its marker already carries for that address, copied
+     unchanged, else `(address, holder, its marker uid)`.
+   The record's attribution is then:
+   1. **own, if any holder is own**;
+   2. else the one triple every replica holder yields, if they agree;
+   3. else, if the disagreeing holders' markers are totally ordered by supersession over
+      the captured markers (holder *X* dominates *Y* when *X*'s marker names *Y*'s marker in
+      `supersedes_markers`, transitively through other captured markers), the claim of the
+      **earliest** marker in that order: the one every other disagreeing marker supersedes;
+   4. else refuse `PublicationRefused("attribution-ambiguous", refs=(address,),
+      corpus_ids=<the holders>)`, with nothing written.
+4. Under v2, `attribution-contract-unpinned` names the replica holders that hold at least
+   one selected record whose attribution is carried (rule 3.2 or 3.3); a record made own by
+   an own holder needs no source. This narrows "any remaining replica" in the attribution
+   design's decision 6 and the owned-replica design §4 step 4, and is recorded as a dated
+   amendment on Y5 and Y17, not only here. Under v3 the frozen tuple carries one entry per
+   carried record.
 
 Why own wins: a byte-equal copy in a holder the publisher owns is, under the kernel's
 existing authenticity limit (cut 47 §1, publication-attribution decision 8's reasons), the
-publisher's own record; the carried copy is the same record travelling back, and §4.8's
-first-origin rule says a republication names the first origin, which the own holder is. Why
-replica claims must agree rather than pick: two carriers attributing one record to different
-origins are two provenance claims, and choosing one by any order would be the thing commons
-§4.7 forbids. Why not resolve the carried triple against the writer's own
-`publication-binding` records (recognising "attributed to my own earlier publication"): that
-is a second ownership rule inside publish, overlapping cut 47's explicit declaration, and the
-own-holder rule already covers the 1b case because *A*'s write root is present. It is listed
-as a rejected alternative, not a gap.
+publisher's own record; commons §4.8 asks for an entry only for records held in an adopted
+corpus rather than one the publisher wrote, and the own holder is that corpus.
 
-Order independence is by construction: the rule reads the holder set, every quantifier is
-over sorted holders, and the frozen snapshot carries the result. The decisive arm is a publish
-→ adopt → republish sequence run twice with the recipient's roots and admissions in the other
-order, asserting byte-identical markers (§9, Y17-y).
+Why the supersession order: 1b's second half produces disagreeing carriers by construction.
+*A* publishes P1 holding r; *B* adopts P1, derives and publishes P2 carrying r attributed to
+P1; *A* adopts P2 and publishes the update P3, in which r is own (rule 3.1) and carries no
+entry; *B* adopts P3 and keeps P1 mounted because its derivation depends on a record P3
+dropped (commons §10.3). *B*'s next publish sees r in P1 (claim P1) and in P3 (claim P3).
+Both claims come from one publisher's chain, P3 supersedes P1, and §4.8's first-origin rule
+names P1. The order is read from the captured markers, which cut 46 already validates, so no
+live source is reopened and the result is frozen with the snapshot like every other entry.
+
+Why rule 3.4 refuses rather than picks: two carriers attributing one record to origins no
+chain orders (sibling tips, unrelated publishers) are two provenance claims, and choosing one
+by any order would be the thing commons §4.7 forbids.
+
+Rejected: resolving a carried triple against the writer's own `publication-binding` records
+(recognising "attributed to my own earlier publication" as ownership). It is a second
+ownership rule inside publish, overlapping cut 47's explicit declaration, and rule 3.1
+already covers *A*'s republication because *A*'s write root is captured.
+
+Order independence is by construction: every rule reads the holder set, every quantifier is
+over sorted holders, the supersession order is a property of the held markers, and the frozen
+snapshot carries the result. The decisive arm is a publish → adopt → republish sequence run
+twice with the recipient's roots and admissions in the other order under one intent's
+inputs, asserting equal frozen attribution tuples and an equal `published_from.attributions`
+marker member (§9, Y19); the whole marker is not compared, since its event token and clock
+differ per run.
 
 Preview and publish share this path (`publication_preview` is what `publish` calls), retries
 reconstruct from the frozen snapshot (cut 46 §6), and `resume_publish` gains nothing.
@@ -393,7 +475,13 @@ Science (sci-4a3543, sci-9104fb) gets, from this cut: `registry.content_identity
 the one equality contract; the per-holder `counts` calls of §6; and the ruling that its
 `adopt` conflict rule may admit a candidate whose shared addresses have equal content
 identity with every live holder, refusing differing content before admission (commons
-§10.5). Those changes are science's tasks and are not made here.
+§10.5). Science must also amend, with the same equality contract: its session-holder
+resolution (`science/config.py` `mount_holding` and `cited`, which refuse any address two
+mounts hold, content aside, before the kernel is consulted); its `explain` wording for a
+rejected copy of a record that counted (§6); its pins, which must cover every mounted holder
+a world read may attribute (§5.4); and a surface rule for revising a record a mounted carrier
+holds (§4.1: refuse `revise` on a carried address, or require a redirect). Those changes are
+science's tasks and are not made here; the completion note on sci-4a3543 names them.
 
 ## 9. Guarantee rows, arms and the cut
 
@@ -402,27 +490,30 @@ body untouched:
 
 - **W8b** (world-addressing design): the duplicate-location clause reads "two records of
   differing content at one canonical address in two corpora"; two holders of one record
-  (equal content) are the new W18. Cut 28's live arms over `derive.address_map`
+  (equal content) are the new W19. Cut 28's live arms over `derive.address_map`
   (`W8b-a`..`W8b-d`, `W8`) are textual sabotages of the rewritten function and are retargeted
   in `n2_arms_cut28.py`'s live table; cut 23's `W10g` sabotage of the owners check is
   retargeted to the narrowed predicate; cut 41's Z5-a/Z5-b/Z5-c over `live.py` are re-read
-  (Z5-c's predicate is unchanged).
+  (Z5-c's predicate is unchanged); cut 7's live checks that construct `Location` are
+  retargeted for the new field.
 - **J17** (mount citations, cut 44): "differing content"; `J17a`/`J17b` are retargeted so
   their two-mount fixtures differ in content.
 - **J20** (cut 44): `node_corpus` attributes to the holder set.
-- **G10** (cut 45): the predicate receives every present holder; `G10-d` and `G10-f` are
+- **G10** (cut 45): the predicate receives every captured holder; `G10-d` and `G10-f` are
   re-read; the union is the new G14.
-- **Y5/Y17** (publication design, cuts 46 and 47): the holder-set rule of §7.
+- **Y5/Y17** (publication design, cuts 46 and 47): the holder-set rule and the v2 narrowing
+  of §7; the order rule is the new Y19.
 
-**New rows**, appended at freeze to the tables their subject belongs to (ids confirmed by the
-plan against the current tables; W17 and G13 are the last used at this baseline):
+**New rows**, appended at freeze to the tables their subject belongs to. W18, G13 and Y18
+are the last used at this baseline, so the ids are W19, W20, G14 and Y19; the plan confirms
+them against the tables at freeze.
 
 | Row | Obligation | Decisive checks |
 |---|---|---|
-| W18 | The address map admits one record held in several corpora and refuses differing content, deprecated keys included | equal content in two or three corpora maps one entry with sorted holders in either capture order; shared uid with differing content, and distinct uids, refuse `duplicate-location` naming every claim; `uid-corruption` still outranks; a deprecated key reached through two holders is one entry; a deprecated key colliding with a live or differing record refuses the typed `ResolutionRefused` in both input orders and both same- and cross-corpus; the projection is the new closed shape; a legacy epoch reads as singleton holders and a mixed document refuses; a retraction held twice is discovered once |
-| W19 | World reads serve a multi-holder record once and refuse holders that disagree | `open_world_view`, `evaluate_live_query` and `resolve_address` serve equal-content holders once with `Location.holders` naming them; a holder whose captured copy differs after the epoch refuses `ResolutionRefused` and never `NotPresent`; `NotPresent` only when every holder is absent and `Resolved` with one present; a shared uid the map did not establish still refuses at open; a damaged holder refuses; inbound edges are not duplicated; `contributing` names every present holder and disagreeing pins refuse |
-| G14 | Acceptance is a union over holders and reports every holder's decision | a record rejected under one holder and accepted under another is read once, counts, is attributed to the accepting holder, and the rejected pair is in `excluded`; rejected under every holder it is inert; the predicate is asked once per holder; the 1b decisive case under `accept = [B]`; retractions and verifications held twice follow the same rule |
-| Y19 | A republication's attribution over several holders is a function of the holder set | own holder wins over a carried copy with no entry; two carriers agreeing on an origin forward it; disagreeing carriers refuse `attribution-ambiguous` before intent; publish → adopt → republish with holders reordered yields byte-identical markers; v2 names only the remaining carried holders; retries use the frozen tuple |
+| W19 | The address map admits one record held in several corpora and refuses differing content, deprecated keys included | equal content in two or three corpora maps one entry with sorted holders in either capture order; shared uid with differing content, and distinct uids, refuse `duplicate-location` naming every claim; `uid-corruption` still outranks; a deprecated key reached through two holders is one entry; a deprecated key colliding with a live or differing record refuses the typed `ResolutionRefused` in both input orders and both same- and cross-corpus; the projection is the new closed shape; a legacy epoch reads as singleton holders and a mixed document refuses; a retraction held twice is discovered once (W19-f); a record held twice contributes one producer edge, one `(ref, resolution)`, one certification ref and one coreference unit to the receipts |
+| W20 | World reads serve a multi-holder record once and refuse holders that disagree | `open_world_view`, `evaluate_live_query` and `resolve_address` serve equal-content holders once with `Location.holders` naming them; captured holders whose copies differ refuse `ResolutionRefused` and never `NotPresent`; `NotPresent` only when every holder is absent and `Resolved` with one present; a shared uid the map did not establish still refuses at open; a damaged holder is skipped when a captured copy equals the mapped content and refuses otherwise, including for a legacy entry; inbound edges are not duplicated and a source held by any holder is present; `contributing` names every captured holder and disagreeing pins refuse; `_mapped_view` sees the record under each holder |
+| G14 | Acceptance is a union over holders and reports every holder's decision | a record rejected under one holder and accepted under another is read once, counts, is attributed to the accepting holder, and the rejected pair is in `excluded`; rejected under every holder it is inert; the predicate is asked once per holder; the 1b decisive case under `accept = [B]`; retractions and verifications held twice follow the same rule and are traced once |
+| Y19 | A republication's attribution over several holders is a function of the holder set and the held supersession chains | own holder wins over a carried copy with no entry; two carriers agreeing on an origin forward it; carriers ordered by supersession yield the earliest origin (the 1b P1/P3 case); carriers no chain orders refuse `attribution-ambiguous` before intent; publish → adopt → republish with holders reordered yields equal frozen attribution tuples and marker members; v2 names only the holders of carried records; retries use the frozen tuple |
 
 Ride-along: beliefs-cb2a39's live arm for gather's observes-loop held filter, whose check is
 `test_world_view.py::test_an_absent_input_corpus_is_the_banked_reason`, is added to this
@@ -435,22 +526,30 @@ product code, names the highest-numbered runner as its prefix, and adds its row 
 
 ## 10. Limitations and deferrals
 
-1. **A renamed record beside its predecessor is `uid-corruption`** (§4.1). A successor
+1. **A carried record is frozen in the publisher's own world** (§4.1). While a carrier of r
+   is mounted, revising r in place in the write root makes every world read refuse until the
+   carrier is unmounted or retired or the revision is withdrawn. The kernel refuses
+   explicitly and offers no pick; the surface rule (refuse `revise` on a carried address, or
+   revise under a redirect) is science's (§8).
+2. **A renamed record beside its predecessor is `uid-corruption`** (§4.1). A successor
    publication carrying a record whose address moved under a redirect cannot be mounted
    beside the predecessor that holds the old address. Science's §10.5 exit (refuse the
    successor before admission, keep the predecessor) applies. The follow-up is a
    supersession-aware map that recognises "holder B's deprecated id is holder A's live
    address for the same uid" as a revision rather than corruption; filed at this design's
    completion as a beliefs idea sourced here, not promised.
-2. **Equality is exact.** Any difference in the canonical projection, metadata timestamps
+3. **Equality is exact.** Any difference in the canonical projection, metadata timestamps
    included, is a different record. Publish preserves the projection, so this binds only
-   copies that were edited.
-3. **A damaged holder refuses the shared address** even when another holder is readable.
-4. **Legacy epochs stay singular** until rebuilt; nothing migrates them.
-5. **Authenticity is unchanged.** Own-wins attribution rests on the existing rule that a
+   copies that were edited, the write root's included (item 1).
+4. **A damaged holder is skipped only against a published content identity.** Under a
+   legacy entry, or when the captured copy differs from what the epoch mapped, the shared
+   address refuses as a single damaged holder does today.
+5. **Legacy epochs stay singular** until rebuilt; nothing migrates them.
+6. **Authenticity is unchanged.** Own-wins attribution rests on the existing rule that a
    byte-equal copy in an own holder is the publisher's; this design adds no proof of
-   authorship.
-6. **No measurement of cost.** Per-holder acceptance calls and per-holder audit filing are
+   authorship. The supersession order is read from markers the recipient holds, which are
+   validated for layout but, as today, not authenticated.
+7. **No measurement of cost.** Per-holder acceptance calls and per-holder audit filing are
    linear in the number of holders; nothing here caches across calls.
 
 ## 11. Verification, surfaces and constraints
@@ -460,8 +559,9 @@ Primary code: `world/derive.py`, `world/epoch.py` (`_check_addresses`, capture),
 (`content_identity` exposed), `evaluation.py`, `audit.py`, `publish.py`, `corpus.py`
 (`MountCitations`, `_absence_of`, the coreference endpoint refusal), `errors.py`
 (`attribution-ambiguous` reason text). Tests: `test_world_derive.py`,
-`test_world_conflicts.py`, `test_world_view.py`, `test_world_epoch.py`,
-`test_live_selection.py`, `test_mount_citations.py`, `test_publication_attribution.py`,
+`test_world_conflicts.py`, `test_world_read.py` and the cut 7 live checks (positional
+`Location`), `test_world_view.py`, `test_world_epoch.py`, `test_live_selection.py`,
+`test_mount_citations.py`, `test_publication_attribution.py`,
 `test_owned_replica_publication.py`, the acceptance-filter tests, the world and live
 acceptance modules and the cut runner; `test_arm_staleness.py` and `test_frozen_guards.py`
 discover every live arm the rewrite falsifies beyond those §9 names.
@@ -497,11 +597,39 @@ baseline.
 The builder chooses `AddressEntry`'s module placement and the private helper names, the
 exact sabotage text per arm, the cut number and the fixture reuse, and the order of plan
 tasks. The content-identity contract, the derivation order, the two epoch shapes, the
-holder-agreement refusals, the narrowed owners check, the canonical-holder labelling with
-holder-set readers, the acceptance union with full reporting, the own-wins-then-agree
-attribution rule, and the J17 amendment are decisions to preserve.
+holder-state classification and the damaged-holder rule, the holder-agreement refusals, the
+narrowed owners check, the canonical-holder labelling with holder-set readers, the
+acceptance union with full reporting, the own-then-agree-then-earliest attribution rule, and
+the J17 amendment are decisions to preserve.
 
 On the user's approval: note the ruling on beliefs-81367e; run
 `tasks note sci-4a3543 --no-reviewed` with the equality contract (§4.1), the approved
-revision and the acceptance interface (§6, §8); close beliefs-354eae with this cut; sequence
-beliefs-0e1acb after it; file the §10 item 1 follow-up.
+revision and the acceptance interface (§6, §8) and the science-side changes §8 lists; close
+beliefs-354eae with this cut; sequence beliefs-0e1acb after it; file the §10 item 2
+follow-up.
+
+## 13. Review log
+
+Round 1 (revision `e57ab8c`; builder check and critical review, both
+`claude-code/claude-fable-5-1`):
+
+- C1, the own-then-agree rule refuses *B*'s republish after it adopts *A*'s update while
+  keeping P1 mounted: **fixed**, §7 rule 3.3 and Y19.
+- I1, in-place revision of a carried record locks the write root with no sanctioned exit:
+  **named**, §4.1, §10 item 1, science's surface rule in §8.
+- I2, a damaged carrier makes the owner's records unreadable, and "present" was undefined:
+  **fixed**, §5.0 holder states and §5.1's damaged-holder rule.
+- I3, W18 already exists: **fixed**, rows renumbered W19/W20.
+- I4 and the builder's first question, `content` published without a reader: **fixed**, its
+  one reader is the damaged-holder rule (§4.3, §5.1, §5.3).
+- I5, the silent pick in `_denoted` and gather's two candidate loops: **fixed**, named in
+  §5.4.
+- I6, science's `mount_holding`/`cited` refuse two holders: **added** to §8.
+- M1, M9 (misattributed code and reason): **fixed**. M2 (rules fold into sets): **stated**,
+  arms in W19. M3 (`_mapped_view`, inbound `source_uid`): **fixed**, §5.1, §5.2. M4
+  (consulted-contract pins): **stated**, §5.4, §8. M5 (v2 narrowing is a Y5/Y17 amendment):
+  **fixed**, §7 step 4. M6 (audit double filing): **ruled intended**, §5.4. M7
+  (`iter_stored` order, audit sites): **fixed**, §5.2, §5.4. M8 (`explain` wording):
+  **handed to science**, §6, §8.
+- Builder's second question, Y19's "byte-identical markers": **fixed**, §7 compares the
+  frozen tuple and the marker member under one intent's inputs.
