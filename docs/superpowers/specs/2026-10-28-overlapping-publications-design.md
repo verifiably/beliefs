@@ -1,12 +1,14 @@
 # Overlapping publications: one address held in several live corpora
 
-**Status:** draft, revision 4, for the user's review; not accepted. Revision 1 (`e57ab8c`)
+**Status:** draft, revision 5, for the user's review; not accepted. Revision 1 (`e57ab8c`)
 had a builder check and a critical review (round 1, verdict revise: 1 Critical, 6
 Important, 9 Minor); revision 2 (`fe7539c`) a re-review (round 2, verdict revise: 0
 Critical, 5 Important, 5 Minor); revision 3 (`930de28`) a scoped re-review (round 3,
-verdict revise: 0 Critical, 1 Important, 7 Minor); all reviewers
-`claude-code/claude-fable-5-1`. Every finding is resolved below and §13 lists the
-dispositions.
+verdict revise: 0 Critical, 1 Important, 7 Minor), all three `claude-code/claude-fable-5-1`;
+revision 4 (`4f8413e`) the user's forwarded review (round 4, verdict revise: 2 Important;
+reviewer `codex/gpt-6-astra`), which confirmed the six rulings of §3 to §8 and required
+correction-record semantics (§4.5) before planning. Every finding is resolved below and §13
+lists the dispositions.
 **Task:** beliefs-918fd2 (child of beliefs-a286e7; beliefs-81367e and sci-4a3543 wait on it).
 **Brief:** `../../notes/2026-10-09-overlapping-publications-brief.md`.
 **Baseline:** beliefs main `11f6bb2`; science main `7dc27bbeb7711948c4942b3a3cd35fbaf6745514`.
@@ -64,7 +66,19 @@ Read at the baseline, nothing has moved since the brief:
   today.
 - The four receipt rules (`rules_v1/producer.py`, `retraction.py`, `certification.py`,
   `coreference.py`) fold their inputs into sets, and the coreference unit key excludes the
-  corpus, so a record appearing once per holder in `rule_input` adds nothing twice.
+  corpus, so a record appearing once per holder in `rule_input` adds nothing twice. The
+  retraction rule keys on `(ref, resolution)` and says in its own words that "the same ref
+  with two resolutions is two" findings.
+- A retraction's captured `resolution` is computed **per corpus**: `epoch._captured_records`
+  folds `_standing_retractions` over that corpus's own `ReadView`, so it reflects the
+  counters that corpus holds. `gather` folds standing again over the world view
+  (`retraction_standing(view, facets)`, which resolves targets through the world map) and
+  refuses `RetractionResolutionDisagreement` when its fold disagrees with a recorded pair;
+  with a policy, `_check_filtered_world_standing` repeats the comparison per corpus over
+  `_mapped_view(corpus_id)` and that corpus's accepted set. `snapshot_standing` folds per
+  corpus over `_captured_views`, applying `counts(corpus_id, address)` inside each corpus's
+  fold, unions the `retracted` sets and overwrites each subject's history in corpus-id
+  order.
 
 Intent provenance: the requirement is the user's reviewed commons design (science
 `docs/specs/2026-09-30-science-commons-design.md` §4.7 outcomes 1 to 3, §4.8's first-origin
@@ -177,11 +191,12 @@ Consequences the brief asked to be ruled:
 
 `derive.CapturedRecord` gains `content: str` (the content identity), supplied by both
 captures (`epoch._captured_records`, `live._address_map`). It is **not** added to
-`CapturedRecord.projection()`: `rule_input` and the four fixture-bound rules are unchanged,
-no receipt subject moves, and the rules already fold a record that appears once per holder
-into one producer edge, one `(ref, resolution)` pair, one certification ref and one
-coreference unit (§1). W19 carries arms that pin that, so a future rule keyed on `corpus_id`
-cannot double-count silently.
+`CapturedRecord.projection()`: `rule_input` and the four fixture-bound rules are unchanged
+and no receipt subject moves. The rules fold a record that appears once per holder into one
+producer edge, one certification ref and one coreference unit (§1); for a retraction they
+fold to one `(ref, resolution)` pair only because §4.5 gives every holder's row the same
+resolution. W19 carries arms that pin all four, so a future rule keyed on `corpus_id` cannot
+double-count silently.
 
 `derive.address_map(capture)` returns `Mapping[str, AddressEntry]` with
 
@@ -251,6 +266,78 @@ cannot be checked that way and keeps the fail-closed rule. The epoch audit
 Target identity to sorted retraction addresses, folded over `located_records`, which yields
 one `(corpus_id, record)` per holder. The fold is a set per target, so a retraction held in
 two corpora contributes its address once. No change; the arm that proves it is §9's W19-f.
+
+### 4.5 Correction standing under overlap
+
+Equal content does not make two copies of a retraction equivalent: a retraction's
+*standing* is a property of the correction graph around it, and two holders of one
+retraction can hold different graphs without either copy changing. The 1b case produces
+this by construction: *A* publishes P carrying retraction R; *A* later writes the
+counter-retraction C in its write root; nothing rewrites R, so §4.1's content freeze is
+respected, yet *A*'s fold overturns R and P's copy still upholds it. The per-corpus capture
+(§1) would record both `(R, upheld)` and `(R, overturned)`, the retraction rule would keep
+both pairs by its own stated rule, and `gather`'s world fold would refuse
+`RetractionResolutionDisagreement` against whichever pair it did not reproduce.
+
+**Ruling: correction standing is folded once, over the union of the captured holders'
+records, after record-level acceptance, and never per corpus.** A retraction's standing in
+a world is the standing of one record in one graph, the graph every present holder
+contributes to; the holders are where the records were found, not separate worlds. In
+detail:
+
+- **At epoch capture.** Each corpus is still enumerated once, inside its own hold, with
+  its state identity read before and after; nothing changes about coherence. What moves is
+  when the resolution is computed: after the last corpus's hold is released, the build
+  folds `retraction_standing` once over the **merged capture** (every captured corpus's
+  enumerated nodes, deduplicated by uid, with every live and deprecated id resolving over
+  the whole set), reading no corpus again, and writes that one resolution into every
+  holder's `CapturedRecord.retraction`. The rule's set-fold then yields one pair per
+  retraction, and the receipt's subject identity names one resolution. The fold stays the
+  graph half only: it still validates no target, exactly as `_standing_retractions`'
+  docstring rules today, and the drifted-target arm it names still holds. A merged fold is
+  well defined because a uid shared across corpora is either one record (equal content,
+  §4.2) or refused (§5.1's owners check), and a retraction cycle across holders is
+  `RetractionCycleMalformed` as a cycle in one corpus is.
+- **In `gather` without a policy.** The world fold over the view's held records is the
+  same fold over the same records, so `RetractionResolutionDisagreement` can arise only from
+  drift, as today for one holder.
+- **In `gather` with a policy.** A retraction is accepted iff any captured holder accepts
+  it (§6); the accepted facets are folded once over the merged mapped view; and the
+  fidelity check `_check_filtered_world_standing` becomes one comparison rather than one
+  per corpus: the "affected" set is every rejected retraction and, transitively through the
+  retraction-discovery map, every retraction one of them counters; for every surviving
+  retraction outside that set the filtered fold must reproduce the receipt's resolution.
+  The per-corpus `_mapped_view` iteration and the second local-versus-world comparison go
+  away, since there is one fold. A merged mapped view (`_merged_mapped_view()`, the
+  builder's name) replaces `_mapped_view(corpus_id)` for this check.
+- **Snapshot standing.** `snapshot_standing` keeps its signature and folds once over a
+  merged view of every captured corpus's records, mapped and drift alike (a post-build
+  record has no epoch address and still enters the fold, as today), deduplicated by uid; a
+  shared uid outside the map was refused at open, so the merge is well defined. With a
+  policy, a retraction enters the fold iff `counts(h, address)` is true for **some** holder
+  `h` of it, each holder's decision recorded as §6 says, so a counter accepted through one
+  holder overturns a retraction accepted through another. Target validation
+  (`_validated_retraction`, `_resolve_retraction_target`) runs over the merged view, so a
+  counter in one holder resolves its target held in another. Each subject has one chain in
+  `history`, built from the one fold, and no holder order can overwrite it. A local
+  `ReadView` caller (one corpus) is unchanged.
+- **The local enumeration and corpus-local standing** (`local_retraction_enumeration`,
+  `standing_in_local_view`) are one-corpus reads and do not change.
+
+One behaviour change outside overlap: a raw-written counter in one corpus targeting a
+retraction another corpus holds (the state the write boundary refuses) was ignored by the
+per-corpus capture and counted by `gather`'s world fold, so such a world already refused
+`RetractionResolutionDisagreement`; under the merged fold both count it and the world reads.
+W19 pins that case.
+
+Rejected: keeping per-holder resolutions and letting the enumeration carry both pairs (the
+rule says two pairs are two findings; the closure digest would move with holder set
+membership and `gather` would still refuse); refusing the build when holders' graphs differ
+(it refuses the ordinary act of countering one's own published retraction, which commons
+§4.4 and §4.8 require to be a new publication, not a rewrite); and folding per holder with
+the record counted if any holder's fold stands (wrong under counter chains: with R, C and D
+held in *A* and only R and C in *B*, *A*'s fold upholds R and *B*'s overturns it, and the
+world graph upholds it).
 
 ## 5. World reads
 
@@ -357,7 +444,7 @@ The answer is `Resolved(Location(min(readable), uid, holders=readable), stamp)`.
 | `evaluation.py` gather: assessment and verification candidate loops (`candidates = view._mapped_records()`, two sites) | one `(holder, node)` per record | iterate `_mapped_holders()`: each record once, decoded once, traced once; §6 decides acceptance over its holders |
 | `evaluation.py` gather: retraction acceptance (`counts`) | one holder | §6: every captured holder |
 | `evaluation.py` gather: `node_corpus` attribution (assessments, runs, observed datasets) | one holder | §6: the accepting holders (all captured holders without a policy) |
-| `evaluation.py` `_check_filtered_world_standing` | inventory per corpus by `corpus_of` | per captured holder, each corpus's mapped view against that corpus's accepted set |
+| `evaluation.py` `_check_filtered_world_standing` | inventory per corpus by `corpus_of`, one fold per corpus | one fold over the merged mapped view with the record-level accepted set (§4.5); no per-corpus iteration |
 | `publish.py` `_selected_attributions` | one holder per selected address | §7: the holder set |
 | `world/selection.py` `_denoted` (`held` from `_mapped_records`, `contributing`) | the last holder in sort order per record | build `held` from `_mapped_holders()`; `contributing` is the union of every selected record's captured holders; `derive_pins` already refuses disagreeing pins across contributing corpora, so a holder whose manifest disagrees is refused explicitly rather than skipped. Intended ordering: `derive_pins` runs before attribution, so a replica holder of a record an own holder makes own still contributes its pins, and a disagreeing coordination pin refuses `pins-disagree` before §7's v2 narrowing is reached |
 | `world/selection.py` `_classify`, `_require_located` | names the absent corpus | not-present only when every holder is absent; the refusal's `corpus_ids` lists every absent holder; `Unresolved.corpus_id` names the least, since mounting any one holder resolves it |
@@ -396,10 +483,13 @@ is asked and what the answer means:
   visibly contributes nothing. Completion and digest rules (G13) are unchanged. Science's
   `explain` prints one line per pair; wording that says "copy excluded" rather than "record
   excluded" is science's follow-up (§8).
-- Snapshot standing already folds per corpus then unions (`snapshot_standing`), so a
-  retraction held twice is decided under each holder and stands if either accepts it; the
-  filtered world-standing fidelity check runs each holder's mapped view against that holder's
-  accepted set.
+- Correction records follow §4.5: acceptance is decided per record over its holders first,
+  and standing is then folded once over the merged captured records. The existing
+  per-corpus fold in `snapshot_standing` does **not** implement this union (a counter
+  accepted through one holder only would be dropped from the other holder's fold, the
+  subject would stay in `retracted`, and the history would be overwritten in holder order),
+  so it is replaced by the merged fold, and the filtered fidelity check becomes one
+  comparison.
 - Corpus-local reads are unchanged: one corpus, one holder.
 
 Science's side (sci-4a3543) needs no interface change from this: the predicate is called per
@@ -560,6 +650,13 @@ body untouched:
 - **J20** (cut 44): `node_corpus` attributes to the holder set.
 - **G10** (cut 45): the predicate receives every captured holder; `G10-d` and `G10-f` are
   re-read; the union is the new G14.
+- **G12** (cut 45): "mapped-only local oracle" and "split-corpus disagreement" read over
+  the merged fold of §4.5; cut 45's live arms over `snapshot_standing(self._captured_views,
+  counts=counts)` and the filtered history read are retargeted to the merged fold, and cut
+  34's arms over the read-side `_snapshot_standing` and gather's history read are re-read
+  (their sites do not move). The epoch-side change to `_captured_records` retargets any
+  live arm cut 7 or cut 27 holds over the per-corpus resolution; `test_arm_staleness`
+  discovers them.
 - **Y5/Y17** (publication design, cuts 46 and 47): the holder-set rule and the v2 narrowing
   of §7; the order rule is the new Y19.
 
@@ -569,9 +666,9 @@ them against the tables at freeze.
 
 | Row | Obligation | Decisive checks |
 |---|---|---|
-| W19 | The address map admits one record held in several corpora and refuses differing content, deprecated keys included | equal content in two or three corpora maps one entry with sorted holders in either capture order; shared uid with differing content, and distinct uids, refuse `duplicate-location` naming every claim; `uid-corruption` still outranks; a deprecated key reached through two holders is one entry; a deprecated key colliding with a live or differing record refuses the typed `ResolutionRefused` in both input orders and both same- and cross-corpus; the projection is the new closed shape; a legacy epoch reads as singleton holders and a mixed document refuses; a retraction held twice is discovered once (W19-f); a record held twice contributes one producer edge, one `(ref, resolution)`, one certification ref and one coreference unit to the receipts |
+| W19 | The address map admits one record held in several corpora and refuses differing content, deprecated keys included; a retraction's captured resolution is one fold over the merged capture | equal content in two or three corpora maps one entry with sorted holders in either capture order; shared uid with differing content, and distinct uids, refuse `duplicate-location` naming every claim; `uid-corruption` still outranks; a deprecated key reached through two holders is one entry; a deprecated key colliding with a live or differing record refuses the typed `ResolutionRefused` in both input orders and both same- and cross-corpus; the projection is the new closed shape; a legacy epoch reads as singleton holders and a mixed document refuses; a retraction held twice is discovered once (W19-f); a record held twice contributes one producer edge, one certification ref and one coreference unit to the receipts; **differing correction graphs:** *A* holds R and its counter C and *B* holds R alone, the build publishes one `(R, overturned)` in either capture order, `gather` without a policy agrees, and with R, C and D (countering C) in *A* and R and C in *B* the enumeration says `upheld`; a counter-retraction cycle across holders refuses as in one corpus; a raw-written cross-corpus counter is counted by the capture and the world read agrees; the enumeration's receipt identity is the same in both holder orders |
 | W20 | World reads serve a multi-holder record once and refuse holders that disagree | `open_world_view`, `evaluate_live_query` and `resolve_address` serve equal-content holders once with `Location.holders` naming them; captured holders whose copies differ refuse `ResolutionRefused` and never `NotPresent`; `NotPresent` only when every holder is absent and `Resolved` with one present; a shared uid the map did not establish still refuses at open; a damaged holder is skipped when a captured copy equals the mapped content and refuses otherwise, including for a legacy entry; inbound edges are not duplicated and a source held by any holder is present; `contributing` names every captured holder and disagreeing pins refuse; `_mapped_view` sees the record under each holder |
-| G14 | Acceptance is a union over holders and reports every holder's decision | a record rejected under one holder and accepted under another is read once, counts, is attributed to the accepting holder, and the rejected pair is in `excluded`; rejected under every holder it is inert; the predicate is asked once per holder; the 1b decisive case under `accept = [B]`; retractions and verifications held twice follow the same rule and are traced once |
+| G14 | Acceptance is a union over holders, reports every holder's decision, and correction standing is folded once over the merged records after it | a record rejected under one holder and accepted under another is read once, counts, is attributed to the accepting holder, and the rejected pair is in `excluded`; rejected under every holder it is inert; the predicate is asked once per holder; the 1b decisive case under `accept = [B]`; retractions and verifications held twice follow the same rule and are traced once; **filtered correction graphs:** with *A* holding R and C and *B* holding R, a policy rejecting C through its only holder leaves R upheld in the filtered fold and the fidelity check passes with C's rejection reported, while a policy accepting C overturns R; with both holders holding R and C and C accepted through *B* only, R is overturned; **snapshot standing:** with both holders holding the snapshot-arm retraction R and its counter C, R accepted through both and C through *B* only, the subject is not retracted and its history lists R `overturned` and C `upheld` as one chain, in both holder orders; a counter accepted through one holder whose target is held in the other resolves and validates |
 | Y19 | A republication's attribution over several holders is a function of the holder set and the held supersession chains | own holder wins over a carried copy with no entry; two carriers agreeing on an origin forward it; claims whose markers have a least element under supersession yield it (the 1b P1/P3 case; the re-adopted own publication beside them; a third party holding P2 and P3 without P1; sibling tips over P1); a chain P7 → P3 → P1 with P3 held but holding no selected record is read through P3's marker, and that marker is read only when rule 3.3 is reached; claims with no common held origin (unrelated publishers; a chain with its intermediate unheld) refuse `attribution-ambiguous` before intent, carrying the claims; publish → adopt → republish with holders reordered yields equal frozen attribution tuples and marker members; v2 names only the holders of carried records; retries use the frozen tuple |
 
 Ride-along: beliefs-cb2a39's live arm for gather's observes-loop held filter, whose check is
@@ -626,11 +723,15 @@ product code, names the highest-numbered runner as its prefix, and adds its row 
 
 ## 11. Verification, surfaces and constraints
 
-Primary code: `world/derive.py`, `world/epoch.py` (`_check_addresses`, capture),
+Primary code: `world/derive.py`, `world/epoch.py` (`_check_addresses`; `_capture` and
+`_captured_records`, whose resolution fold moves after the last hold, §4.5),
 `world/read.py`, `world/view.py`, `world/live.py`, `world/selection.py`, `world/registry.py`
-(`content_identity` exposed), `evaluation.py`, `audit.py`, `publish.py`, `corpus.py`
-(`MountCitations`, `_absence_of`, the coreference endpoint refusal), `errors.py`
-(`attribution-ambiguous` reason text). Tests: `test_world_derive.py`,
+(`content_identity` exposed), `evaluation.py` (gather's loops and
+`_check_filtered_world_standing`), `audit.py`, `publish.py`, `corpus.py`
+(`MountCitations`, `_absence_of`, the coreference endpoint refusal, `snapshot_standing`'s
+merged fold), `errors.py` (`attribution-ambiguous` reason text). Tests also include
+`test_world_build.py`, `test_world_standing.py`, `test_standing_read.py`,
+`test_snapshot_retraction.py`, `test_acceptance.py` and `test_correction_acceptance.py`. Tests: `test_world_derive.py`,
 `test_world_conflicts.py`, `test_world_read.py` and the cut 7 live checks (positional
 `Location`), `test_world_view.py`, `test_world_epoch.py`, `test_live_selection.py`,
 `test_mount_citations.py`, `test_publication_attribution.py`,
@@ -680,8 +781,10 @@ revision and the acceptance interface (§6, §8) and the science-side changes §
 beliefs-354eae with this cut; sequence beliefs-0e1acb after it; file the §10 item 2
 follow-up.
 
-Also to preserve: the admission checklist handed to science (§8) and the three named
-limitations of §10 items 1 to 3.
+Also to preserve: the admission checklist handed to science (§8), the three named
+limitations of §10 items 1 to 3, and §4.5's one-fold rule for correction standing (at
+capture, in the filtered fidelity check and in snapshot standing), with acceptance decided
+per record over its holders before the fold.
 
 ## 13. Review log
 
@@ -739,3 +842,20 @@ F6, F9, F10 judged sound; the four Y19 cases verified against the code.
   covers every shared key. M5 (§10.3 misread): **fixed**, §7. M6 (Y19 case for a
   non-selected holder's marker): **fixed**, §9. M7 (any in-place content change, not only
   `revise`): **fixed**, §4.1, §8, §10 item 1.
+
+Round 4 (revision `4f8413e`; the user's forwarded read-only review, `codex/gpt-6-astra`).
+Rulings received on the six proposals: content digest, multi-holder map with the explicit
+legacy shape, narrowed owners check with representative labels, acceptance union with
+rejected-copy reporting (principle confirmed, correction semantics to revise), the
+own → agreement → earliest-origin attribution rule within the stated authenticity limit, and
+J17 equal-content citations: all **confirmed**. The content freeze and the renamed-record
+refusal are accepted as explicit limits provided science enforces §8's preflight checks;
+chain retention is preferred over marker ancestry in this cut.
+
+- Finding 1, equal retractions with differing correction graphs produce two receipt
+  resolutions and a `gather` refusal: **fixed**, §4.5 folds the resolution once over the
+  merged capture; W19 and G14 carry the case with and without a policy.
+- Finding 2, the per-corpus snapshot fold does not implement the acceptance union and
+  overwrites history in holder order: **fixed**, §4.5 and §6 fold once over the merged
+  captured records after record-level acceptance; G14 carries the holder-order case with
+  the verdict and the history.
