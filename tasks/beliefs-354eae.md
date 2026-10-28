@@ -1,15 +1,18 @@
 ---
 id: beliefs-354eae
 title: Give derive.address_map's retired-address collision a typed refusal instead of ValueError
-status: todo
+status: done
 priority: 3
 size: s
 complexity: mid
 process: direct
 created: 2026-09-25T13:10:53Z
-updated: 2026-10-28T19:47:58Z
+updated: 2026-10-28T19:53:05Z
+completed: 2026-10-28T19:53:05Z
+closed: 2026-10-28T19:53:05Z
 depends: []
 tags: [world]
+model: claude-fable-5-1
 agent: claude-code
 ---
 
@@ -35,3 +38,7 @@ Where: python/src/beliefs/world/derive.py::address_map, beliefs/errors.py's exis
 - 2026-09-25T13:11:06Z (main): From beliefs-cc0aea's final review (2026-09-25): when one record's deprecated id equals another record's live address in a different corpus, derive.address_map raises a plain ValueError rather than a typed refusal. publish (and so evaluate_live_query, bound to publish's address-map behaviour by the live-query design's decision 7) surfaces it untyped. Fix it in derive, not in world/live.py (cut 41's frozen arm targets). A scratch probe during the review reproduced it over the same states for both paths.
 - 2026-10-24T11:16:04Z (main): scope: rescoped; at main 96066b6, confirmed derive.address_map's final retired-alias fold and existing regression still raise/expect ValueError; chose existing ResolutionRefused at that shared boundary, preserving canonical AddressMapConflict precedence and both callers; retained P3/s/mid, set direct, added same/cross-corpus and no-publication checks; no fresh runtime reproduction or new brief
 - 2026-10-28T19:47:58Z (design/918fd2-overlapping-publications): absorbed by cut 48 (beliefs-918fd2), spec §4.2 rule 3: derive.address_map's deprecated-key collision now refuses the typed ResolutionRefused (and the merged snapshot fold's DeprecatedKeyCollision subclass carries the finding); pinned by test_w19_d_deprecated_key_entry; closed with the cut
+- 2026-10-28T19:53:05Z (design/918fd2-overlapping-publications): done
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T19:53:05Z (design/918fd2-overlapping-publications): Absorbed by cut 48 (beliefs-918fd2) spec §4.2 rule 3: the deprecated-key collision refuses the typed ResolutionRefused at derivation (test_w19_d_deprecated_key_entry) and DeprecatedKeyCollision through the merged snapshot fold
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
