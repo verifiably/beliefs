@@ -1,11 +1,12 @@
 # Overlapping publications: one address held in several live corpora
 
-**Status:** draft, revision 10, for the user's review; not accepted. Revision 8
-(`a451082`) had a scoped re-review of its additions (round 8, verdict revise: 0 Critical,
-4 Important, 6 Minor; `claude-code/claude-fable-5-1`); revision 9 (`d6a5d47`) the user's
-third forwarded review (round 9, verdict revise: 1 Important; reviewer
-`codex/gpt-6-astra`), which confirmed the merge checks and the versioned input and moved
-the fixture-schema check off the removal path. All resolved in §13. Revision 7 (`77e4a79`)
+**Status:** accepted by the user at revision 10, `e14315c` (round 10, 2026-10-28); the
+implementation plan follows. Revision 8 (`a451082`) had a scoped re-review of its
+additions (round 8, verdict revise: 0 Critical, 4 Important, 6 Minor;
+`claude-code/claude-fable-5-1`); revision 9 (`d6a5d47`) the user's third forwarded
+review (round 9, verdict revise: 1 Important; reviewer `codex/gpt-6-astra`), which
+confirmed the merge checks and the versioned input and moved the fixture-schema check off
+the removal path. All resolved in §13. Revision 7 (`77e4a79`)
 had the user's second forwarded review (round 7, verdict revise: 2 Important; reviewer
 `codex/gpt-6-astra`), which confirmed the successor-rule approach, rejected the
 route-namespace assumption, and ruled on beliefs-c800ef and beliefs-ae33ff; §4.5 now
