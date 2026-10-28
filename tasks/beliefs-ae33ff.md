@@ -1,13 +1,15 @@
 ---
 id: beliefs-ae33ff
 title: Determine the capture inputs a world-wide retraction fold needs
-status: todo
+status: doing
 priority: 3
 size: s
 complexity: mid
 process: direct
+owner: design/918fd2-overlapping-publications
 created: 2026-09-29T22:50:05Z
-updated: 2026-10-11T15:42:45Z
+updated: 2026-10-28T13:14:41Z
+started: 2026-10-28T13:14:41Z
 depends: []
 parent: beliefs-0c50ed
 tags: [world-read]
@@ -20,3 +22,8 @@ Where to start: python/src/beliefs/world/epoch.py:_captured_records and _standin
 Bound: Trace the capture-to-rule-to-receipt-to-reader path and compare the information needed for node, route and snapshot targets, including deprecated references. Use the existing split-counterexample and at most one small local probe to distinguish input sufficiency from a schema change. No production change, new rule version, frozen-cut edit, or full conformance run.
 Expected result: Record an input/identity impact inventory and a recommendation in this task and the brief: keep the fail-closed limitation, or hand a precisely bounded successor-rule design to contract-cut. Identify fixture and receipt obligations; unchanged output shape does not mean unchanged identity.
 Ideas it wakes: On completion, run tasks note on beliefs-c800ef with the finding before the result's branch merges.
+
+## Notes
+
+- 2026-10-28T13:14:41Z (design/918fd2-overlapping-publications): started
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
