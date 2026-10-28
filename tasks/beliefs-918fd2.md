@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T10:55:46Z
+updated: 2026-10-28T11:14:40Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -32,3 +32,4 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T10:40:39Z (design/918fd2-overlapping-publications): design: draft spec docs/superpowers/specs/2026-10-28-overlapping-publications-design.md at e57ab8c (worktree .worktrees/918fd2-overlapping-publications). Rulings: content identity = science.node-content.v1 digest of the canonical projection (registry.content_identity exposed); multi-holder AddressEntry(uid, content, holders); new address-map.yaml shape {address, content, holders, uid} with legacy {address, corpus_id, uid} admitted; owners check narrowed to uids the map does not establish; canonical holder = least present holder for labelling, holder-set readers for acceptance/attribution/audit; acceptance = union over present holders with every rejected pair still reported; attribution = own holder wins, else carriers must agree, else attribution-ambiguous; J17 narrowed to differing content; renamed-record-beside-predecessor stays uid-corruption (limitation). Absorbs beliefs-354eae; sequences beliefs-0e1acb. Builder check and a critical review dispatched before user review.
 - 2026-10-28T10:55:44Z (design/918fd2-overlapping-publications): review: spec round 1 — verdict: revise; findings: Critical 1, Important 6, Minor 9; reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T10:55:46Z (design/918fd2-overlapping-publications): builder check (brainstorming) on spec round 1: 2 plan-changing questions (whether the published content field has a reader; what Y19's byte-identical-marker check compares) and 1 false code attribution (_population vs publication_preview); reviewer: claude-code/claude-fable-5-1
+- 2026-10-28T11:14:40Z (design/918fd2-overlapping-publications): review: spec round 2 — verdict: revise; findings: Important 5, Minor 5; reviewer: claude-code/claude-fable-5-1
