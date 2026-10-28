@@ -1,19 +1,22 @@
 ---
 id: beliefs-ae33ff
 title: Determine the capture inputs a world-wide retraction fold needs
-status: doing
+status: done
 priority: 3
 size: s
 complexity: mid
 process: direct
 owner: design/918fd2-overlapping-publications
 created: 2026-09-29T22:50:05Z
-updated: 2026-10-28T13:14:41Z
+updated: 2026-10-28T13:14:44Z
 started: 2026-10-28T13:14:41Z
+completed: 2026-10-28T13:14:44Z
+closed: 2026-10-28T13:14:44Z
 depends: []
 parent: beliefs-0c50ed
 tags: [world-read]
 source: docs/notes/2026-09-29-retraction-standing-backlog-brief.md
+model: claude-fable-5-1
 agent: codex
 ---
 
@@ -26,4 +29,8 @@ Ideas it wakes: On completion, run tasks note on beliefs-c800ef with the finding
 ## Notes
 
 - 2026-10-28T13:14:41Z (design/918fd2-overlapping-publications): started
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T13:14:44Z (design/918fd2-overlapping-publications): done
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T13:14:44Z (design/918fd2-overlapping-publications): Inventory recorded on beliefs-c800ef and in the backlog brief's 2026-10-28 amendment: v1 rule_input suffices for the node-arm graph and cannot distinguish node from route targets; recommendation taken is a versioned-input successor rule (retraction-enumeration v2) in the overlapping-publications cut (beliefs-918fd2 design §4.5, accepted e14315c). No production change made here.
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
