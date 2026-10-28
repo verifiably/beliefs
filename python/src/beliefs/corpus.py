@@ -1232,12 +1232,12 @@ def _merged_capture(
     """
     from beliefs.world.registry import content_identity
 
-    claims: dict[str, list[tuple[str, Node, str]]] = {}
+    claims: dict[str, list[tuple[str, Node]]] = {}
     by_uid: dict[str, list[tuple[str, str]]] = {}
     retired: dict[str, dict[str, list[str]]] = {}
     for corpus_id, view in views.items():
         for node in view.iter_stored():
-            claims.setdefault(node.id, []).append((corpus_id, node, content_identity(node)))
+            claims.setdefault(node.id, []).append((corpus_id, node))
             by_uid.setdefault(node.uid, []).append((corpus_id, node.id))
             for address in node.deprecated_ids:
                 retired.setdefault(address, {}).setdefault(node.uid, []).append(corpus_id)
@@ -1254,7 +1254,10 @@ def _merged_capture(
             )
     records: list[Node] = []
     holders: dict[str, tuple[str, ...]] = {}
-    for address, held in claims.items():
+    for address, claiming in claims.items():
+        # The content identity is the fold's one per-record cost, so it is read only for an
+        # address more than one holder claims; a singly-held record has nothing to agree with.
+        held = [(corpus_id, node, content_identity(node) if len(claiming) > 1 else "") for corpus_id, node in claiming]
         if len({node.uid for _, node, _ in held}) > 1 or len({content for _, _, content in held}) > 1:
             raise AddressMapConflict(
                 Finding(
