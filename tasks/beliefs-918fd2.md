@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T11:27:42Z
+updated: 2026-10-28T11:30:17Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -34,3 +34,5 @@ Write the conformance-cut spec that lets a world hold one address in several liv
 - 2026-10-28T10:55:46Z (design/918fd2-overlapping-publications): builder check (brainstorming) on spec round 1: 2 plan-changing questions (whether the published content field has a reader; what Y19's byte-identical-marker check compares) and 1 false code attribution (_population vs publication_preview); reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T11:14:40Z (design/918fd2-overlapping-publications): review: spec round 2 — verdict: revise; findings: Important 5, Minor 5; reviewer: claude-code/claude-fable-5-1
 - 2026-10-28T11:27:42Z (design/918fd2-overlapping-publications): review: spec round 3 — verdict: revise; findings: Important 1, Minor 7; reviewer: claude-code/claude-fable-5-1
+- 2026-10-28T11:30:17Z (design/918fd2-overlapping-publications): parked (waiting on user, review): User reviews the design spec docs/superpowers/specs/2026-10-28-overlapping-publications-design.md at revision 4f8413e on branch design/918fd2-overlapping-publications (worktree .worktrees/918fd2-overlapping-publications; read it with git show 4f8413e:docs/superpowers/specs/2026-10-28-overlapping-publications-design.md). On approval the agent resumes here: note the ruling on beliefs-81367e, run tasks note sci-4a3543 --no-reviewed with the equality contract (spec §4.1), the approved revision and the acceptance interface and science-side changes (§6, §8), file the §10 item 2 follow-up idea, then invoke writing-plans for the implementation plan. On corrections, revise the spec as a new revision and re-park for review.
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
