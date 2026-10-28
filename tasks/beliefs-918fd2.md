@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/918fd2-overlapping-publications
 created: 2026-10-09T10:48:20Z
-updated: 2026-10-28T13:12:17Z
+updated: 2026-10-28T13:13:33Z
 started: 2026-10-28T10:25:01Z
 depends: []
 parent: beliefs-a286e7
@@ -53,4 +53,6 @@ Write the conformance-cut spec that lets a world hold one address in several liv
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-28T13:10:53Z (design/918fd2-overlapping-publications): review: spec round 9 — verdict: revise; findings: Important 1; reviewer: codex/gpt-6-astra
 - 2026-10-28T13:12:17Z (design/918fd2-overlapping-publications): parked (waiting on user, review): User reviews design spec revision 10 at e14315c on branch design/918fd2-overlapping-publications (worktree .worktrees/918fd2-overlapping-publications; read with git show e14315c:docs/superpowers/specs/2026-10-28-overlapping-publications-design.md). It resolves the codex round-9 finding: the versioned fixture-schema check runs in install_rule_binding before any write and in _locked_resolve_rule_binding beside the fixture run, scoped to explicitly versioned world inputs; _locked_stored_rule and remove_rule_binding are untouched, so a correctly named nonconformant pair stays removable; W19 pins both. On approval the agent resumes here: note the ruling on beliefs-81367e; tasks note sci-4a3543 --no-reviewed with the equality contract (§4.1), the approved revision, the acceptance interface and science-side changes (§6, §8, rebinding included); scope beliefs-c800ef to this cut (open) and note ae33ff's complete answer on it, then close ae33ff; file the §10 item 2 follow-up idea; then invoke writing-plans. On corrections, revise as a new revision and re-park for review.
+  provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-28T13:13:33Z (design/918fd2-overlapping-publications): resumed
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
