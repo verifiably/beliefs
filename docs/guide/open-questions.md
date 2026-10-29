@@ -307,8 +307,11 @@ implementation**: a guarantee row awaiting code is work, not a question.
   ([act-report remainder §13](../superpowers/specs/2026-09-22-act-report-remainder-design.md#13-open-questions-this-slice-files))
 
 - **Retiring a superseded publication at the recipient.** Cut 42's tip reading
-  identifies the current marker, but no operation retires the superseded
-  corpus through the recipient's registry lifecycle.
+  identifies the current marker, and `ScopedWriter.retire` retires an adopted
+  publication through the recipient's registry lifecycle and ledgers it
+  ([retirement door design](../superpowers/specs/2026-10-29-publication-retirement-door-design.md)).
+  Which predecessors to retire, and when, is `science`'s dependency, keep and
+  supersession policy.
 - **A recipient's missing intermediate publication.** The tip reading fails
   closed; acquiring the missing publication is `science` discovery glue.
 - **A recipient's world index over overlapping publications.** Two publications

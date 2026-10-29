@@ -210,7 +210,8 @@ Every publish mints a **fresh, immutable corpus**; a destination accumulates the
 chain of revisions, each marker naming the one it supersedes. Dropping a record
 from a view does not unpublish it from copies already shared. A recipient admits
 a published corpus only through `admit_publication`, which refuses anything
-without exactly one consistent marker. A crashed publish resumes by
+without exactly one consistent marker, and retires one it adopted only through
+`ScopedWriter.retire`, which ledgers the retirement in its session. A crashed publish resumes by
 reinvocation (`resume_publish`), and `pending_publishes` lists unfinished ones.
 
 The two publication kinds are coordination records, not kernel kinds: they never

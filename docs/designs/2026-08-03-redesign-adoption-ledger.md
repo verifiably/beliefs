@@ -168,6 +168,13 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   over the ledgered port, which commits the guarded form; `publication_preview`
   ([design](../superpowers/specs/2026-10-22-session-sharing-and-publish-doors-design.md)).
   Built; no conformance cut.
+- **The retirement door** — `ScopedWriter.retire` retires an adopted
+  publication under the scoped authority and ledgers `retired`, verdict
+  `retired` or `already-retired` after a registry read, so a successor session
+  recovers a retirement whose line was lost; the sharing line's schema is
+  unchanged
+  ([design](../superpowers/specs/2026-10-29-publication-retirement-door-design.md)).
+  Built; no conformance cut.
 - **Facet contracts** — base and domain contracts declare closed facet schemas;
   profiles compile kinds, relations and facets; every write seam validates the
   caller-held profile; and the empirical-observation acquisition boundary is

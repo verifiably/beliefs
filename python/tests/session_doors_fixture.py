@@ -44,6 +44,7 @@ __all__ = [
     "publish_locally",
     "published_source",
     "recipient_session",
+    "successor_session",
 ]
 
 V2 = coordination_profile(None, version=2)
@@ -177,3 +178,17 @@ def recipient_session(work: Path, *, required: RequiredCapabilities) -> tuple[Wr
     session = open_attended_session(config, base / "rops", write_root=root, profile=BASE, mounts={root: BASE})
     session.claim_invocation("A", "share", DIGEST)
     return session, session.scoped(required, "A")
+
+
+def successor_session(session: WriterSession, *, required: RequiredCapabilities) -> tuple[WriterSession, ScopedWriter]:
+    """A second attended session over `session`'s recipient world, write root
+    and operations root, with its own session actor, invocation `A` claimed and
+    scoped to `required`: the next session that reconciles after `session`."""
+    config = session.world_config
+    assert config is not None
+    root = session.corpus_root
+    successor = open_attended_session(
+        config, session.operations_root, write_root=root, profile=BASE, mounts={root: BASE}
+    )
+    successor.claim_invocation("A", "share", DIGEST)
+    return successor, successor.scoped(required, "A")

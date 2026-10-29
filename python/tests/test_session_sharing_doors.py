@@ -5,15 +5,21 @@ A publication exported by the local publish act is copied without its metadata
 sibling; a recipient's attended session restores and admits it through
 `ScopedWriter.restore_root` and `ScopedWriter.admit_publication`, each door
 binding the caller's evidence to the root before its act and ledgering one
-`sharing` line after it."""
+`sharing` line after it. `ScopedWriter.retire` retires the adopted publication
+the same way (retirement door design §5), and a successor session recovers a
+retirement whose line a failed append lost."""
 
 from __future__ import annotations
 
 import dataclasses
+import json
+import os
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from authority import FULL
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.paths import path_for_node_id
 from session_doors_fixture import (
@@ -22,7 +28,9 @@ from session_doors_fixture import (
     publish_locally,
     published_source,
     recipient_session,
+    successor_session,
 )
+from test_session_routes import TracingLock
 from test_session_writer import DIGEST, make_session
 
 from beliefs import stored
@@ -33,17 +41,21 @@ from beliefs.errors import (
     PublicationArrivalRefused,
     PublicationReadingRefused,
     SessionClosed,
+    SessionLedgerFailed,
     SessionProtocolError,
     SharingEvidenceDisagrees,
+    StatusTargetUnknown,
+    StatusTerminal,
     WriteRefused,
 )
 from beliefs.intents.publish import Destination
 from beliefs.permit import RequiredCapabilities
 from beliefs.publication import MARKER_KIND
-from beliefs.root import LifecycleState, open_world_read, read_lifecycle_state
-from beliefs.session import SharingEvidence
+from beliefs.root import LifecycleState, open_world, open_world_read, read_lifecycle_state
+from beliefs.session import SharingEvidence, read_ledger_evidence
 from beliefs.session import writer as writer_module
-from beliefs.world import ReplicaOf
+from beliefs.session.ledger import LedgerReader, ledger_path, open_ledger_reader
+from beliefs.world import Fresh, ReplicaOf, World
 from beliefs.world.anchors import CorpusSubject, StoreSubject
 from beliefs.world.verify import ArtifactCarrier, ObserverSet
 
@@ -185,18 +197,21 @@ def test_admit_publication_of_a_refuted_chain_propagates_the_arrival_refusal_and
 
 
 # --- the layout and the evidence binding --------------------------------------------------
-@pytest.mark.parametrize("door", ["restore_root", "admit_publication"])
+@pytest.mark.parametrize("door", ["restore_root", "admit_publication", "retire"])
 def test_a_copy_with_an_unparseable_record_refuses_capture_damaged_before_the_act(certified_work, door):
     """A record the copy's reader cannot parse is a typed refusal from the
-    binding, never a raw reader exception; neither act runs."""
+    binding, never a raw reader exception; no act runs. The corpus is not
+    admitted, so `retire` reaching its registry read would refuse otherwise."""
     x = shared(certified_work)
     corrupt_one_selected_record(x.copy)
     before = admissions(x)
     with pytest.raises(PublicationReadingRefused) as caught:
         if door == "restore_root":
             x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
-        else:
+        elif door == "admit_publication":
             x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
+        else:
+            x.writer.retire(x.copy, x.observers, evidence=x.evidence)
     assert (caught.value.reason, caught.value.corpus_id) == ("capture-damaged", x.cid)
     assert caught.value.__cause__ is not None
     assert read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
@@ -304,6 +319,9 @@ def test_the_doors_require_their_family_first(certified_work, monkeypatch):
     with pytest.raises(PermitExceeded) as admitting:
         x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
     assert "registry" in str(admitting.value)
+    with pytest.raises(PermitExceeded) as retiring:
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    assert "registry" in str(retiring.value)
     assert tree(x.copy) == copied and read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
     assert admissions(x) == before
     assert x.session.invocation_sharing("A") == ()
@@ -318,12 +336,16 @@ def test_stale_and_closed_writers_refuse_before_reading_the_copy(certified_work,
         x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
     with pytest.raises(SessionProtocolError):
         x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
+    with pytest.raises(SessionProtocolError):
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
     assert x.session.invocation_sharing("A") == ()
     x.session.close()
     with pytest.raises(SessionClosed):
         x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
     with pytest.raises(SessionClosed):
         x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
+    with pytest.raises(SessionClosed):
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
     assert tree(x.copy) == copied and read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
 
 
@@ -336,7 +358,7 @@ def test_a_store_subject_is_a_type_error(certified_work, monkeypatch):
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_a_session_without_a_world_configuration_refuses_admit_publication(tmp_path, monkeypatch):
+def test_a_session_without_a_world_configuration_refuses_admit_publication_and_retire(tmp_path, monkeypatch):
     session, _ = make_session(tmp_path)
     session.claim_invocation("A", "share", DIGEST)
     writer = session.scoped(SHARING, "A")
@@ -346,4 +368,284 @@ def test_a_session_without_a_world_configuration_refuses_admit_publication(tmp_p
     )
     with pytest.raises(SessionProtocolError, match="no world configuration"):
         writer.admit_publication(tmp_path / "copy", ObserverSet(()), evidence=evidence)
+    with pytest.raises(SessionProtocolError, match="no world configuration"):
+        writer.retire(tmp_path / "copy", ObserverSet(()), evidence=evidence)
     assert session.invocation_sharing("A") == ()
+
+
+# --- retire (retirement door design §5) ----------------------------------------------------
+def adopted(work: Path) -> SimpleNamespace:
+    """`shared`, with the copy admitted through the door as a replica of itself
+    under invocation `A`; `x.admitted` is that line."""
+    x = shared(work)
+    x.admitted = x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
+    return x
+
+
+def statuses(x: SimpleNamespace) -> tuple:
+    """The registry's status records for the publication, read afresh."""
+    config = x.session.world_config
+    assert config is not None
+    return tuple(r for r in open_world_read(config).registry().statuses if r.corpus_id == x.cid)
+
+
+def full_world(x: SimpleNamespace) -> World:
+    """The recipient world under another actor's full authority."""
+    config = x.session.world_config
+    assert config is not None
+    return open_world(config, authority=FULL)
+
+
+def ledger_sharing(session) -> tuple:
+    return open_ledger_reader(session.operations_root, session.session_id).sharing()
+
+
+def test_retire_retires_an_adopted_publication_under_the_session_actor_and_ledgers_retired(certified_work):
+    x = adopted(certified_work)
+    line = x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    assert (line.transition, line.verdict) == ("retired", "retired")
+    assert (
+        line.invocation,
+        line.corpus,
+        line.marker,
+        line.artifact,
+        line.world,
+        line.view,
+        line.source,
+        line.location,
+    ) == (
+        "A",
+        x.evidence.corpus,
+        x.evidence.marker,
+        x.evidence.artifact,
+        x.evidence.world,
+        x.evidence.view,
+        x.evidence.source,
+        x.evidence.location,
+    )
+    config = x.session.world_config
+    assert config is not None
+    status = open_world_read(config).status(x.cid)
+    assert status.known and not status.live
+    (record,) = statuses(x)
+    assert (record.status, record.actor) == ("retired", x.session.actor)
+    assert x.session.invocation_sharing("A") == (x.admitted, line)
+    assert ledger_sharing(x.session) == (x.admitted, line)
+
+
+def test_a_repeat_in_a_later_invocation_ledgers_already_retired_with_no_second_record(certified_work):
+    x = adopted(certified_work)
+    first = x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    x.session.close_invocation("A", {"done": []})
+    x.session.claim_invocation("B", "share", DIGEST)
+    again = x.session.scoped(SHARING, "B").retire(x.copy, x.observers, evidence=x.evidence)
+    assert (again.invocation, again.transition, again.verdict) == ("B", "retired", "already-retired")
+    assert dataclasses.replace(again, invocation="A", verdict="retired", at=first.at) == first
+    (record,) = statuses(x)
+    assert (record.status, record.actor) == ("retired", x.session.actor)
+    assert x.session.invocation_sharing("B") == (again,)
+
+
+@pytest.mark.parametrize("field", ["corpus", "artifact", "marker", "world", "view"])
+def test_retire_with_mismatched_evidence_refuses_naming_the_field_before_the_act(certified_work, field):
+    x = adopted(certified_work)
+    wrong = dataclasses.replace(x.evidence, **{field: OTHER[field]})
+    with pytest.raises(SharingEvidenceDisagrees) as caught:
+        x.writer.retire(x.copy, x.observers, evidence=wrong)
+    assert (caught.value.field, caught.value.claimed, caught.value.found) == (
+        field,
+        OTHER[field],
+        getattr(x.evidence, field),
+    )
+    assert statuses(x) == ()
+    assert x.session.invocation_sharing("A") == (x.admitted,)
+
+
+def test_retire_of_a_corpus_never_admitted_refuses_status_target_unknown(certified_work):
+    x = shared(certified_work)
+    with pytest.raises(StatusTargetUnknown, match="not admitted"):
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    assert statuses(x) == ()
+    assert x.session.invocation_sharing("A") == ()
+
+
+def test_retire_of_a_publication_admitted_fresh_refuses_status_target_unknown(certified_work):
+    """Decision 2, step 6: the root has the publication layout and the evidence
+    binds, but the corpus was not adopted through the sharing doors."""
+    x = shared(certified_work)
+    full_world(x).admit(x.copy, provenance=Fresh())
+    with pytest.raises(StatusTargetUnknown, match="Fresh"):
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    assert statuses(x) == ()
+    assert x.session.invocation_sharing("A") == ()
+
+
+def test_retire_of_a_departed_corpus_refuses_status_terminal_and_keeps_its_record(certified_work):
+    x = adopted(certified_work)
+    departed = full_world(x).depart(x.cid)
+    with pytest.raises(StatusTerminal, match="departed"):
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    assert statuses(x) == (departed,)
+    assert x.session.invocation_sharing("A") == (x.admitted,)
+    assert ledger_sharing(x.session) == (x.admitted,)
+
+
+def racing(monkeypatch, status: str) -> None:
+    """Another actor writes `status` for the corpus between the door's
+    registry read and its act; the act then runs and refuses `StatusTerminal`."""
+    original = World.retire
+
+    def raced(self: World, corpus_id: str):
+        full = open_world(self.config, authority=FULL)
+        if status == "retired":
+            original(full, corpus_id)
+        else:
+            full.depart(corpus_id)
+        return original(self, corpus_id)
+
+    monkeypatch.setattr(World, "retire", raced)
+
+
+def test_a_racing_retirement_by_another_actor_ledgers_already_retired(certified_work, monkeypatch):
+    x = adopted(certified_work)
+    racing(monkeypatch, "retired")
+    line = x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    assert (line.transition, line.verdict) == ("retired", "already-retired")
+    (record,) = statuses(x)
+    assert (record.status, record.actor) == ("retired", FULL.actor)
+    assert x.session.invocation_sharing("A") == (x.admitted, line)
+
+
+def test_a_racing_departure_reraises_the_acts_status_terminal_and_appends_nothing(certified_work, monkeypatch):
+    x = adopted(certified_work)
+    racing(monkeypatch, "departed")
+    with pytest.raises(StatusTerminal, match="already has terminal status"):
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    (record,) = statuses(x)
+    assert (record.status, record.actor) == ("departed", FULL.actor)
+    assert x.session.invocation_sharing("A") == (x.admitted,)
+    assert ledger_sharing(x.session) == (x.admitted,)
+
+
+@pytest.mark.parametrize("fault", ["write", "flush", "fsync"])
+def test_a_failed_retired_append_ends_the_session_and_a_successor_ledgers_already_retired(
+    certified_work, monkeypatch, fault
+):
+    """Decision 6: the status commits, then the `retired` append fails. Each
+    fault is armed for the ledger's file alone, since `World.retire` writes
+    and fsyncs the registry inside the same call."""
+    x = adopted(certified_work)
+    handle = x.session._ledger._file
+    ledger_fd = handle.fileno()
+
+    def failing(*_args):
+        raise OSError(f"{fault} failed")
+
+    if fault == "write":
+        real_write = handle.write
+        monkeypatch.setattr(handle, "write", lambda data: real_write(data[:17]))  # a short write
+    elif fault == "flush":
+        monkeypatch.setattr(handle, "flush", failing)
+    else:
+        real_fsync = os.fsync
+
+        def fsync(fd: int) -> None:
+            if fd == ledger_fd:
+                failing()
+            real_fsync(fd)
+
+        monkeypatch.setattr(os, "fsync", fsync)
+    with pytest.raises(SessionLedgerFailed):
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    monkeypatch.undo()
+
+    assert x.session._index["A"].sharing == [x.admitted]
+    for call in (
+        lambda: x.writer.retire(x.copy, x.observers, evidence=x.evidence),
+        lambda: x.session.invocation_sharing("A"),
+        lambda: x.session.close_invocation("A", {"done": []}),
+        x.session.close,
+    ):
+        with pytest.raises(SessionLedgerFailed):
+            call()
+    (record,) = statuses(x)
+    assert (record.status, record.actor) == ("retired", x.session.actor)
+
+    first = open_ledger_reader(x.session.operations_root, x.session.session_id)
+    if fault == "write":
+        assert first.torn_tail
+        assert first.sharing() == (x.admitted,)
+    else:
+        assert not first.torn_tail
+        (admitted, lost) = first.sharing()
+        assert admitted == x.admitted
+        assert (lost.invocation, lost.corpus, lost.transition, lost.verdict) == ("A", x.cid, "retired", "retired")
+
+    successor, writer = successor_session(x.session, required=SHARING)
+    assert successor.actor != x.session.actor
+    recovered = writer.retire(x.copy, x.observers, evidence=x.evidence)
+    assert (recovered.corpus, recovered.transition, recovered.verdict) == (x.cid, "retired", "already-retired")
+    (record,) = statuses(x)
+    assert (record.status, record.actor) == ("retired", x.session.actor)
+    evidence = read_ledger_evidence(successor.operations_root, successor.session_id)
+    assert type(evidence) is LedgerReader and evidence.sharing() == (recovered,)
+    if fault != "write":
+        both = (*first.sharing()[1:], *evidence.sharing())
+        assert [(line.corpus, line.transition, line.verdict) for line in both] == [
+            (x.cid, "retired", "retired"),
+            (x.cid, "retired", "already-retired"),
+        ]
+
+
+def test_close_waits_while_retire_holds_the_session_lock_and_completes_after_the_line(certified_work, monkeypatch):
+    """Decision 5: a close from another thread while the door is inside
+    `World.retire` waits on the session lock and runs after the line."""
+    x = adopted(certified_work)
+    retiring, release, close_waiting = threading.Event(), threading.Event(), threading.Event()
+    order: list[str] = []
+
+    def on_attempt(name: str, outcome: str) -> None:
+        if name == "close" and outcome == "held-by-another":
+            close_waiting.set()
+
+    monkeypatch.setattr(x.session, "_lock", TracingLock(on_attempt))
+    original = World.retire
+
+    def blocking(self: World, corpus_id: str):
+        retiring.set()
+        assert release.wait(10)
+        record = original(self, corpus_id)
+        order.append("act")
+        return record
+
+    monkeypatch.setattr(World, "retire", blocking)
+    lines: list = []
+
+    def retire() -> None:
+        lines.append(x.writer.retire(x.copy, x.observers, evidence=x.evidence))
+
+    def close() -> None:
+        assert retiring.wait(10)
+        x.session.close_invocation("A", {"done": []})
+        order.append("close")
+
+    retirer = threading.Thread(target=retire, name="retire")
+    closer = threading.Thread(target=close, name="close")
+    retirer.start()
+    assert retiring.wait(10)
+    closer.start()
+    assert close_waiting.wait(10)
+    assert closer.is_alive()
+    release.set()
+    retirer.join(10)
+    closer.join(10)
+
+    assert not retirer.is_alive() and not closer.is_alive()
+    assert order == ["act", "close"]
+    (line,) = lines
+    assert line.verdict == "retired"
+    kinds = [
+        json.loads(raw)["line"]
+        for raw in ledger_path(x.session.operations_root, x.session.session_id).read_bytes().splitlines()
+    ]
+    assert kinds[-2:] == ["sharing", "invocation-close"]
