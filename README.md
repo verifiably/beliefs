@@ -16,10 +16,16 @@ Part of **verifiably**: verifiably builds understanding of the world from small,
 
 ## Install
 
-`verifiably-beliefs` is not yet published. From a checkout:
+`verifiably-beliefs` is not yet published, and neither are `verifiably-atoms` and
+`verifiably-nodes`, which it builds on. `python/pyproject.toml` takes both from sibling
+checkouts (`[tool.uv.sources]`), so a lone clone cannot install: clone the three side by
+side.
 
 ```sh
-cd python && uv sync --frozen
+git clone https://github.com/verifiably/atoms
+git clone https://github.com/verifiably/nodes
+git clone https://github.com/verifiably/beliefs
+cd beliefs/python && uv sync --frozen
 cd ../ts && npm ci
 ```
 
