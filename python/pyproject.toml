@@ -1,10 +1,10 @@
 [project]
 # The distribution name follows the stack-wide `verifiably-<layer>` scheme decided
-# 2026-09-07; nothing here is published yet. `science` is the import name fixed by the
-# domain-extension design §9.
+# 2026-09-07; nothing here is published yet. The import name is `beliefs`, renamed from
+# the domain-extension design §9's `science` on 2026-08-30 (adoption ledger §5).
 name = "verifiably-beliefs"
 version = "0.0.0"
-description = "beliefs, the Science kernel: recording scientific belief and the evidence it rests on"
+description = "beliefs, the epistemic kernel of verifiably: recording scientific belief and the evidence it rests on"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

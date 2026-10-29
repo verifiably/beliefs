@@ -1,17 +1,20 @@
 ---
 id: beliefs-e3ca2a
 title: "python/README.md and ts/README.md: stale project name, one-module layout table and Python-primary claim"
-status: doing
+status: done
 priority: 1
 size: xs
 complexity: low
 process: direct
-owner: main
+owner: docs/subsystem-readmes-e3ca2a
 created: 2026-10-23T18:00:29Z
-updated: 2026-10-29T10:54:55Z
+updated: 2026-10-29T11:21:59Z
 started: 2026-10-29T10:54:55Z
+completed: 2026-10-29T11:21:59Z
+closed: 2026-10-29T11:21:59Z
 depends: []
 tags: [docs]
+model: claude-opus-5-5
 agent: claude-code/claude-fable-5-1
 ---
 
@@ -23,4 +26,13 @@ Do: correct the title and the project name; verify against the code which implem
 
 - 2026-10-23T19:33:30Z (main): ops-65a068 pilot at beliefs 6d420d6: the rubric found all three parts. Narrowed: ts/README.md's Python-primary claim is accurate (composition root is Python; ts/src holds 6 files of shared encoding), only the word 'Science' is stale. Also in these files: python/README.md:16 and :23-25 omit tools/ops-check, ops-docs check and ruff format --check from just check (AGENTS.md lists them); python/README.md:107-109 'Cuts 1-7 have landed' is stale against the ledger's cut 46; ts/README.md:35 says npm install where setup, CI and the root guides use npm ci; python/pyproject.toml:2-3 still calls science the import name though the wheel builds src/beliefs.
 - 2026-10-29T10:54:55Z (main): started
+  provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T10:55:16Z (docs/subsystem-readmes-e3ca2a): resumed
+  provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T11:00:37Z (docs/subsystem-readmes-e3ca2a): worktree .worktrees/readme-e3ca2a on branch docs/subsystem-readmes-e3ca2a. Scope taken: both READMEs plus the pilot note's extras (check list, cuts line, npm ci, pyproject comment) and the same stale name in pyproject's description and src/beliefs/__init__.py's docstring. science.identity.v1, science.belief.v1 and contract: science stay: rule identities per adoption ledger §5 (2026-08-30). No test reads python/README.md or ts/README.md. Undefined 'shared encoding' left to beliefs-4dfe18.
+- 2026-10-29T11:14:22Z (docs/subsystem-readmes-e3ca2a): review: impl round 1 — verdict: revise; findings: Important 1, Minor 5; reviewer: claude-code/claude-opus-5-5
+- 2026-10-29T11:20:43Z (docs/subsystem-readmes-e3ca2a): review: impl round 2 — verdict: accept; findings: Minor 2; reviewer: claude-code/claude-opus-5-5
+- 2026-10-29T11:21:59Z (docs/subsystem-readmes-e3ca2a): done
+  provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T11:21:59Z (docs/subsystem-readmes-e3ca2a): python/README.md and ts/README.md corrected (1bad322, 1bcde64, f51bb26): beliefs name, check list with ops-check/ops-docs/ruff format, nine-area package map with guide-section links, packaged contract copies named, ledger as build-status authority, npm ci; pyproject comment/description and package docstring renamed. science.* rule identities kept (ledger §5). Reviewed in two rounds (revise, then accept).
   provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

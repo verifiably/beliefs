@@ -1,8 +1,8 @@
-# science — Python
+# beliefs — Python
 
-The Python implementation. Substrate §11 puts the composition root here, so this
-tree is the system; `../ts/` carries only the one shared encoding (formal model
-limitation 9: **M10 is the only cross-implementation row**).
+The Python implementation, package `beliefs`. Substrate §11 puts the composition
+root here, so this tree is the system; `../ts/` carries only the one shared encoding
+(formal model limitation 9: **M10 is the only cross-implementation row**).
 
 ## Gates
 
@@ -13,15 +13,17 @@ just check
 just test
 ```
 
-`check` is ruff, pyright, biome, tsc, and `tasks check`; `test` runs parallel
+`check` is the vendored `tools/ops-check` and `tools/ops-docs check`, ruff check,
+ruff format --check, pyright, biome, tsc, and `tasks check`; `test` runs parallel
 Python tests outside N2, standalone N2, and the TypeScript suite. Both recipes run
 through the vendored timing wrapper `tools/tt`, so the verdict is recorded. `test`
 runs under ops' `host-budget run`, which sizes xdist and N2's own pool. The Python
-commands it runs are:
+commands they run, from this directory, are:
 
 ```
 host-budget run -- sh -c 'uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py && uv run --frozen pytest tests/test_n2.py'
 uv run --frozen ruff check .
+uv run --frozen ruff format --check .
 uv run --frozen pyright
 ```
 
@@ -100,12 +102,34 @@ two-phase gate measurements are in the
 
 ## What is here
 
-| module | what it owns | authority |
-|---|---|---|
-| `science.identity.v1` | the canonical value contract — injective, domain-separated per kind | computation §4.3 |
+`src/beliefs/` is the whole kernel. The repository and package were renamed from
+`science` on 2026-08-30
+([adoption ledger §5](../docs/designs/2026-08-03-redesign-adoption-ledger.md#5-repository-and-package-decomposition-ruled-2026-08-04)).
+`science.identity.v1`, `science.belief.v1` and `contract: science` kept their names:
+they are rule and contract identities, not the package, and renaming them would be a
+contract succession. Most modules' docstrings cite the design sections they
+implement. The main areas (paths under `src/beliefs/`), with the guide page that
+explains each:
 
-Cuts 1–7 have landed their selected slices; cut 7's world-index epoch carrier
-merged into `main` on 2026-08-22 preserving history
-([results](../docs/plans/2026-08-20-conformance-cut-7-results.md)). The
-[`adoption ledger`](../docs/designs/2026-08-03-redesign-adoption-ledger.md) is the
-authority for what is built and what still waits on another artifact.
+| area | where | guide |
+|---|---|---|
+| contracts and profiles | `contract/`, `contracts/`, `domains/`, `profile.py`, `mount.py`, `facets.py` | [foundations](../docs/guide/foundations.md#contracts-compile-into-profiles) |
+| typed claims and their identity, the encoding `../ts/` shares | `claim.py`, `estimand.py`, `resolution.py`, `decode.py`, `identity/` (`science.identity.v1`), `projection.py` (`π_claim`, `I_claim`) | [claims and belief](../docs/guide/claims-and-belief.md#structure-not-prose-determines-identity) |
+| the corpus and its writes | `root.py` (the composition root, the one module that imports `atoms`), `corpus.py`, `stored.py`, `permit.py`, `session/` | [writes, operations, and publication](../docs/guide/writes-operations-and-publication.md) |
+| operations, acquisition and holdings | `intents/`, `report.py`, `acquisition.py`, `audit_operation.py`, `holdings/` | [writes, operations, and publication](../docs/guide/writes-operations-and-publication.md) |
+| runs, datasets and replay | `spec.py`, `recipe.py`, `adapter.py`, `boundary.py`, `confinement.py`, `replay.py`, `verify.py`, `dataset.py` | [computation and reproducibility](../docs/guide/computation-and-reproducibility.md) |
+| assessment and belief | `assess.py`, `admission.py`, `belief.py`, `policy.py` (`science.belief.v1`), `evaluation.py`, `composite.py` | [claims and belief](../docs/guide/claims-and-belief.md) |
+| the world | `world/`, `relocation.py`, `audit.py` | [identity, world, and change](../docs/guide/identity-world-and-change.md) |
+| views and coordination | `coordination.py`, `view_query.py`, `contract/coordination.py`, `contracts/coordination/` | [foundations](../docs/guide/foundations.md#views-and-coordination-are-governed-not-kernel) |
+| publication | `publish.py`, `publication.py`, `publication_doors.py`, `transport.py` | [writes, operations, and publication](../docs/guide/writes-operations-and-publication.md) |
+
+`src/beliefs/contracts/science/` and `src/beliefs/domains/biology/` are packaged
+copies of the normative files under the repository root's `contracts/` and
+`domains/`, which `tests/test_shipped_base.py` and `tests/test_shipped_biology.py`
+hold byte-identical: edit the root file and copy it. Only the coordination
+contracts live solely in the package.
+
+The [adoption ledger](../docs/designs/2026-08-03-redesign-adoption-ledger.md)'s
+current-state section is the authority for what is built and what still waits on
+another artifact; the per-cut results records under [`../docs/plans/`](../docs/plans/)
+are the evidence.
