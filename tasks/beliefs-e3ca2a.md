@@ -1,17 +1,20 @@
 ---
 id: beliefs-e3ca2a
 title: "python/README.md and ts/README.md: stale project name, one-module layout table and Python-primary claim"
-status: doing
+status: done
 priority: 1
 size: xs
 complexity: low
 process: direct
 owner: docs/subsystem-readmes-e3ca2a
 created: 2026-10-23T18:00:29Z
-updated: 2026-10-29T11:20:43Z
+updated: 2026-10-29T11:21:59Z
 started: 2026-10-29T10:54:55Z
+completed: 2026-10-29T11:21:59Z
+closed: 2026-10-29T11:21:59Z
 depends: []
 tags: [docs]
+model: claude-opus-5-5
 agent: claude-code/claude-fable-5-1
 ---
 
@@ -29,3 +32,7 @@ Do: correct the title and the project name; verify against the code which implem
 - 2026-10-29T11:00:37Z (docs/subsystem-readmes-e3ca2a): worktree .worktrees/readme-e3ca2a on branch docs/subsystem-readmes-e3ca2a. Scope taken: both READMEs plus the pilot note's extras (check list, cuts line, npm ci, pyproject comment) and the same stale name in pyproject's description and src/beliefs/__init__.py's docstring. science.identity.v1, science.belief.v1 and contract: science stay: rule identities per adoption ledger §5 (2026-08-30). No test reads python/README.md or ts/README.md. Undefined 'shared encoding' left to beliefs-4dfe18.
 - 2026-10-29T11:14:22Z (docs/subsystem-readmes-e3ca2a): review: impl round 1 — verdict: revise; findings: Important 1, Minor 5; reviewer: claude-code/claude-opus-5-5
 - 2026-10-29T11:20:43Z (docs/subsystem-readmes-e3ca2a): review: impl round 2 — verdict: accept; findings: Minor 2; reviewer: claude-code/claude-opus-5-5
+- 2026-10-29T11:21:59Z (docs/subsystem-readmes-e3ca2a): done
+  provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T11:21:59Z (docs/subsystem-readmes-e3ca2a): python/README.md and ts/README.md corrected (1bad322, 1bcde64, f51bb26): beliefs name, check list with ops-check/ops-docs/ruff format, nine-area package map with guide-section links, packaged contract copies named, ledger as build-status authority, npm ci; pyproject comment/description and package docstring renamed. science.* rule identities kept (ledger §5). Reviewed in two rounds (revise, then accept).
+  provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
