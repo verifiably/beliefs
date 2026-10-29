@@ -97,3 +97,32 @@ Approved and applied after the scope pass, 2026-10-24: `beliefs-79d2ce`
 dropped against the existing declared-coverage contract; `beliefs-6d6bb6`
 dropped in favor of `beliefs-42d201`. The canonical locator task remains
 shelved.
+
+## Retirement design decision (beliefs-c0d952, 2026-10-29)
+
+Approved at revision 3 (`578a014`) after three review rounds:
+`../superpowers/specs/2026-10-29-publication-retirement-door-design.md`. It answers the
+retirement designer's questions above:
+
+- **Binding without new arguments: not attempted.** The door is
+  `ScopedWriter.retire(root, observers, *, evidence) -> SharingLine` and binds the
+  evidence exactly as `admit_publication` does. The registry records nothing about a
+  publication but its corpus id, so a corpus-id-only door could bind nothing else.
+- **Status-record evidence: the line's `corpus`.** A world holds one terminal status per
+  corpus, so the eleven-field `sharing` line is unchanged. The verdict is `retired` when
+  the door wrote the status and `already-retired` when it found one.
+- **Recovery and cross-actor retry: accepted.** A ledger failure ends the session, so
+  every retry is another actor's. The door reads the registry before acting and
+  re-ledgers any actor's `retired` status with no second act. A flush or fsync failure
+  can leave the first line on disk, so readers accept a `retired` and an
+  `already-retired` line for one status.
+- **Scope of the target: self-replicas only.** A corpus that was not admitted as
+  `ReplicaOf` itself refuses `StatusTargetUnknown`; a departed corpus refuses
+  `StatusTerminal`. `record_sharing` keeps refusing `retired`.
+- **Schema and cut: neither.** The ledger schema is unchanged and no frozen guarantee
+  changes. Writers stay single across processes.
+
+Implementation handoff: beliefs-a989fb builds the door in its own lane, as a `direct`
+task against the design. It also lands the sharing-design amendment, the adoption-ledger
+line and the `docs/guide/open-questions.md` correction, each with the code that makes it
+true. Science's Task 13 adopts the signature and the two verdicts (design §6).

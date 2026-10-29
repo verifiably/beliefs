@@ -1,6 +1,8 @@
 # The ledgered retirement door for an adopted publication — design
 
-**Status:** draft for review, revision 3 (2026-10-29). Revision 2 (`f72802f`) had the user's
+**Status:** approved by the user at revision 3, `578a014` (round 3, 2026-10-29, verdict
+accept, no findings; reviewer `codex/gpt-6-astra`). Not yet implemented: beliefs-a989fb
+builds the door (§6). Revision 2 (`f72802f`) had the user's
 forwarded review (round 2, verdict revise: Important 1, Minor 1; reviewer
 `codex/gpt-6-astra`), which supported every decision and corrected two of §5's test
 expectations: a failed append can leave a complete line on disk (decision 6 and §5's
