@@ -1,13 +1,15 @@
 ---
 id: beliefs-98c42d
 title: README Install omits the sibling atoms and nodes checkouts; AGENTS.md Gates carries dated status prose and restated global rules
-status: todo
+status: doing
 priority: 1
 size: xs
 complexity: low
 process: direct
+owner: main
 created: 2026-10-23T19:33:27Z
-updated: 2026-10-24T18:57:47Z
+updated: 2026-10-29T10:40:34Z
+started: 2026-10-29T10:40:34Z
 depends: []
 tags: [docs]
 source: ops-65a068
@@ -21,3 +23,8 @@ Found by the ops documentation-review pilot (ops-65a068) at beliefs 6d420d6.
 - AGENTS.md Gates bullet 3 restates the global Tests rule (test-one, test-fast before committing, when to run just test) and bullet 2 the hydration rule; keep only the project's recipes and their specifics.
 
 Done when those three land and `just check` passes.
+
+## Notes
+
+- 2026-10-29T10:40:34Z (main): started
+  provenance: {"harness_session":"claude-code:6f16ea82-da31-4ae3-898f-a065fd8ecf3a","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
