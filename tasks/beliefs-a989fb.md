@@ -1,19 +1,22 @@
 ---
 id: beliefs-a989fb
 title: "Sharing door for the retired transition: World.retire under the scoped authority (science commons 1b)"
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: direct
-owner: main
+owner: feat/a989fb-retire-door
 created: 2026-10-23T01:56:42Z
-updated: 2026-10-29T12:31:07Z
+updated: 2026-10-29T13:02:34Z
 started: 2026-10-29T12:31:07Z
+completed: 2026-10-29T13:02:34Z
+closed: 2026-10-29T13:02:34Z
 depends: [beliefs-c0d952]
 parent: beliefs-182296
 tags: [publication]
 source: beliefs-f24fe9
+model: claude-opus-5-5
 agent: claude-code
 spec: docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md
 ---
@@ -48,4 +51,12 @@ Handoff: [ref:brief] records why this needs a design first: binding the pin with
 - 2026-10-29T12:17:11Z (main): scope: scoped; promoted to todo, P2 retained, size m, complexity high, process direct against the approved retirement design revision 3 (578a014), merged at 3328315; current writer.py still lacks retire, World._terminal retains actor-bound idempotency, and ledger.py retains unbuffered append/flush/fsync semantics; body now names the exact door, self-replica eligibility, read-before-act and race recovery, both verdicts, ledger-only fault tests, permit checks and three documentation changes; original capture preserved as historical; linked the existing spec, reused the brief without editing it, no duplicate follow-ups; source beliefs-f24fe9 and science sci-9104fb/sci-9c0bba confirm the consumer dependency; origin: filing event unavailable (no created occurrence or harness-session stamp on this member); older request not locatable from a bound filing event, no origin_session recorded; origin remains unknown, no user ask inferred from the source chain; brief: docs/notes/2026-10-24-publication-session-follow-ups-brief.md; no suites run during this record-only pass
   provenance: {"harness_session":"codex:01a18794-d799-7391-ac29-d2378d7e9f4b","harness_session_source":"CODEX_THREAD_ID"}
 - 2026-10-29T12:31:07Z (main): started
+  provenance: {"harness_session":"claude-code:a586de0e-bccf-4067-9940-3b6ecc9e67a2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T12:31:35Z (feat/a989fb-retire-door): resumed
+  provenance: {"harness_session":"claude-code:a586de0e-bccf-4067-9940-3b6ecc9e67a2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T12:34:34Z (feat/a989fb-retire-door): baseline: just test at 064f351 in .worktrees/a989fb-retire-door: non-N2 phase 6333 passed, 2 failed, 1 skipped (100 s); the recipe stopped there, so N2 and TypeScript did not run. Both failures (test_verify.py r11 nondeterministic transform, data-dependent replay) refused 'the recorded environment is not the executing environment' under xdist load and pass in isolation via just test-one (2 passed, 24.9 s): load-sensitive flake, unrelated to the session writer
+- 2026-10-29T12:58:57Z (feat/a989fb-retire-door): review: impl round 1 — verdict: accept; findings: Minor 5; reviewer: claude-code/claude-opus-5-5
+- 2026-10-29T13:02:34Z (feat/a989fb-retire-door): done
+  provenance: {"harness_session":"claude-code:a586de0e-bccf-4067-9940-3b6ecc9e67a2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T13:02:34Z (feat/a989fb-retire-door): ScopedWriter.retire landed (365c5e3, follow-up on this branch): binds evidence as admit_publication does, retires only a self-replica admission, pre-reads the registry for verdict retired or already-retired, re-reads on a racing StatusTerminal, refuses departed; record_sharing still refuses retired and names the door. Full spec section 5 matrix in test_session_sharing_doors.py; permit and capability inventories pass unchanged. Section 6 docs landed (sharing design amendment, adoption-ledger entry, open-questions correction, publication guide). just check clean; just test-fast 6353 passed, 1 skipped; test_session_acceptance.py 31 passed. Review round 1 accept, Minor 5 (2 applied; 3 deferred: no TypeError/permit-before-config ordering case, bare unpack on duplicate admissions, index-only no-line checks in four tests)
   provenance: {"harness_session":"claude-code:a586de0e-bccf-4067-9940-3b6ecc9e67a2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}

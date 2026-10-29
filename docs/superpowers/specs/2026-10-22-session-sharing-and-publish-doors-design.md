@@ -598,3 +598,20 @@ Three points were settled while building; the body above is unchanged.
   configuration. Decision 7's guarantee is at entry only: a writer stale at door
   entry refuses before any effect; an invocation closed by another thread after
   entry is the accepted window.
+
+## Amendment — 2026-10-29 (the retirement door)
+
+The `retired` transition now has its door, designed in
+`2026-10-29-publication-retirement-door-design.md` (beliefs-c0d952) and built by
+beliefs-a989fb; the body above is unchanged.
+
+- **Decision 4's last sentence.** `retired` is backed by `World.retire`, and its door is
+  `ScopedWriter.retire(root, observers, *, evidence) -> SharingLine`. It binds the
+  evidence as `admit_publication` does, retires only a corpus admitted as a replica of
+  itself, reads the registry before the act, and ledgers verdict `retired` when it wrote
+  the status or `already-retired` when any actor's `retired` status was found, so a
+  successor session recovers a retirement whose line a failed append lost. A departed
+  corpus refuses `StatusTerminal`. The line keeps its eleven fields.
+- **§8's second bullet.** `record_sharing` keeps refusing `retired` now that the door
+  exists: decision 4 makes an act-backed transition its door's alone, and the refusal's
+  message names `ScopedWriter.retire`.

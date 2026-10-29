@@ -27,6 +27,8 @@ from beliefs.errors import (
     SessionLedgerFailed,
     SessionProtocolError,
     SharingEvidenceDisagrees,
+    StatusTargetUnknown,
+    StatusTerminal,
 )
 from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit, permit_covers, scoped_authority
@@ -47,7 +49,7 @@ from beliefs.session.ledger import (
     utc_now,
     validated_outcome,
 )
-from beliefs.world import WorldConfig
+from beliefs.world import ReplicaOf, WorldConfig
 
 if TYPE_CHECKING:
     from beliefs.audit_operation import AuditOutcome
@@ -62,7 +64,7 @@ if TYPE_CHECKING:
     from beliefs.publish import PublishOutcome
     from beliefs.transport import Transport
     from beliefs.world.anchors import CorpusSubject
-    from beliefs.world.registry import World
+    from beliefs.world.registry import StatusRecord, World
     from beliefs.world.verify import ObserverSet
     from beliefs.world.view import WorldReadView
 
@@ -502,11 +504,17 @@ def _require_door_arguments(root: Path, observers: ObserverSet, evidence: Sharin
         raise TypeError("a sharing door takes an exact SharingEvidence")
 
 
+def _terminal_status(statuses: Sequence[StatusRecord], corpus_id: str) -> str | None:
+    """A corpus's terminal status by any actor, or `None`: a world holds at
+    most one (retirement door design §3 decision 4)."""
+    return next((record.status for record in statuses if record.corpus_id == corpus_id), None)
+
+
 class ScopedWriter:
     """The facade a handler holds (design §5): nine corpus-write methods, the
     two routes of the session-routes design §3.3, the sharing record and its
-    two act doors, the publish and resume doors (sharing design §4.4), one
-    invocation."""
+    three act doors (the retirement door per the retirement door design §4),
+    the publish and resume doors (sharing design §4.4), one invocation."""
 
     __slots__ = ("_authority", "_invocation", "_session", "_writer")
 
@@ -540,7 +548,7 @@ class ScopedWriter:
         if transition not in ("bound", "mounted"):
             raise ValueError(
                 "record_sharing admits bound and mounted; fetched and admitted come from their doors, "
-                "retired from World.retire's"
+                "retired from ScopedWriter.retire"
             )
         return self._session._record_sharing(self._invocation, evidence, transition=transition, verdict=verdict)
 
@@ -592,6 +600,54 @@ class ScopedWriter:
             return self._session._record_sharing(
                 self._invocation, evidence, transition="admitted", verdict=report.outcome
             )
+
+    def retire(self, root: Path, observers: ObserverSet, *, evidence: SharingEvidence) -> SharingLine:
+        """Retire an adopted publication in the session's world under this
+        invocation's authority and ledger `retired` (retirement door design §3).
+        The evidence binds to `root` as `admit_publication` binds it, and only a
+        corpus admitted as a replica of itself is the sharing class's to retire.
+
+        The registry is read before the act, so the verdict says which
+        happened: `retired` when this call wrote the status, `already-retired`
+        when any actor's `retired` status was found, or appeared between the
+        read and the act; no second status record is written. A successor
+        session therefore recovers a retirement whose line a failed append lost.
+        A `departed` corpus refuses `StatusTerminal`. The session lock is held
+        from the currency check through the line, and the world lock nests
+        inside it within `World.retire`."""
+        _require_door_arguments(root, observers, evidence)
+        with self._session._lock:
+            self._session._require_current(self._invocation)
+            self._authority.require("registry")
+            config = self._world_config()
+            _bind_sharing_evidence(root, evidence, observers, subject=None)
+            world = open_world(config, authority=self._authority)
+            corpus_id = evidence.corpus
+            registry = world.registry()
+            admitted = tuple(record for record in registry.admissions if record.corpus_id == corpus_id)
+            if not admitted:
+                raise StatusTargetUnknown(f"corpus_id {corpus_id!r} is not admitted")
+            (admission,) = admitted
+            if admission.provenance != ReplicaOf(corpus_id):
+                raise StatusTargetUnknown(
+                    f"corpus_id {corpus_id!r} was admitted as {admission.provenance!r}, not as a replica of itself; "
+                    "the sharing doors retire only a publication they adopted"
+                )
+            status = _terminal_status(registry.statuses, corpus_id)
+            if status == "departed":
+                raise StatusTerminal(f"corpus_id {corpus_id!r} has departed; a departed corpus is not retired")
+            if status == "retired":
+                verdict = "already-retired"
+            else:
+                try:
+                    world.retire(corpus_id)
+                except StatusTerminal:
+                    if _terminal_status(world.registry().statuses, corpus_id) != "retired":
+                        raise
+                    verdict = "already-retired"
+                else:
+                    verdict = "retired"
+            return self._session._record_sharing(self._invocation, evidence, transition="retired", verdict=verdict)
 
     def publish(
         self,

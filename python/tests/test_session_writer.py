@@ -319,7 +319,7 @@ def test_delete_ledgers_an_empty_record_list(tmp_path):
     assert session.invocation_acts("A")[-1].record_ids == ()
 
 
-def test_the_scoped_writer_exposes_the_twenty_two_methods_the_routes_and_its_invocation(tmp_path):
+def test_the_scoped_writer_exposes_the_twenty_three_methods_the_routes_and_its_invocation(tmp_path):
     public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
     assert public == {
         "add",
@@ -342,6 +342,7 @@ def test_the_scoped_writer_exposes_the_twenty_two_methods_the_routes_and_its_inv
         "record_sharing",
         "restore_root",
         "admit_publication",
+        "retire",
         "publish",
         "resume_publish",
     }
@@ -1035,6 +1036,14 @@ def test_record_sharing_refuses_act_backed_and_unknown_transitions(tmp_path, tra
     session.claim_invocation("A", "bind", DIGEST)
     with pytest.raises(ValueError):
         session.scoped(SHARING, "A").record_sharing(EVIDENCE, transition=transition, verdict="validated")
+    assert session.invocation_sharing("A") == ()
+
+
+def test_record_sharing_refusing_retired_names_the_retirement_door(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "bind", DIGEST)
+    with pytest.raises(ValueError, match=r"retired from ScopedWriter\.retire"):
+        session.scoped(SHARING, "A").record_sharing(EVIDENCE, transition="retired", verdict="retired")
     assert session.invocation_sharing("A") == ()
 
 
