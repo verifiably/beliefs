@@ -2,7 +2,7 @@
 
 The **shared-encoding path**, and nothing else.
 
-Science is Python-primary — substrate §11 puts the composition root there, and
+beliefs is Python-primary — substrate §11 puts the composition root there, and
 formal model limitation 9 records **M10** as the only cross-implementation row.
 So this package carries exactly two things two implementations must agree on:
 
@@ -32,7 +32,7 @@ sited with compilation (facet-contracts §7.2).
 ## Running it
 
 ```sh
-npm install
+npm ci
 npm test        # vitest
 npm run typecheck
 npm run check   # biome
