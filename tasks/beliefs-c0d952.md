@@ -8,13 +8,14 @@ complexity: high
 process: planned
 owner: design/publication-retirement
 created: 2026-10-24T09:56:24Z
-updated: 2026-10-29T11:34:15Z
+updated: 2026-10-29T11:41:16Z
 started: 2026-10-29T11:34:00Z
 depends: []
 parent: beliefs-182296
 tags: [publication, design]
 source: docs/notes/2026-10-24-publication-session-follow-ups-brief.md
 agent: codex
+spec: docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md
 ---
 
 Question: How can ScopedWriter.retire(corpus_id, *, evidence) execute World.retire under scoped registry authority and ledger a truthful retired transition, including retries after a ledger failure?
