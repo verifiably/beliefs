@@ -1,18 +1,21 @@
 ---
 id: beliefs-6fc759
 title: Resolve existing tilde-layout findings before checker rollout
-status: doing
+status: done
 priority: 2
 size: m
 complexity: mid
 process: direct
 owner: fix/beliefs-6fc759
 created: 2026-10-22T19:06:28Z
-updated: 2026-10-29T20:53:31Z
+updated: 2026-10-29T20:53:34Z
 started: 2026-10-29T20:26:25Z
+completed: 2026-10-29T20:53:34Z
+closed: 2026-10-29T20:53:34Z
 depends: []
 tags: []
 source: ops-295f8d
+model: claude-opus-5-5
 agent: codex
 ---
 
@@ -62,3 +65,7 @@ Reported files:
 - 2026-10-29T20:53:29Z (fix/beliefs-6fc759): resumed
   provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-29T20:53:31Z (fix/beliefs-6fc759): review: impl round 1 — verdict: accept; findings: none; reviewer: claude-code/claude-opus-5-5
+- 2026-10-29T20:53:34Z (fix/beliefs-6fc759): done
+  provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T20:53:34Z (fix/beliefs-6fc759): Reworded 202 checkout-alias occurrences across 19 files to checkout placeholders; allowed by exact-file entry the MM30 run record and two execution ledgers whose evidence and rulings are about the home-relative spelling itself; fast-forwarded into main; candidate exits 0 on main; just check and just test-fast (6353) passed
+  provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
