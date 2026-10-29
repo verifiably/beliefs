@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: fix/beliefs-6fc759
 created: 2026-10-22T19:06:28Z
-updated: 2026-10-29T20:53:34Z
+updated: 2026-10-29T20:53:38Z
 started: 2026-10-29T20:26:25Z
 completed: 2026-10-29T20:53:34Z
 closed: 2026-10-29T20:53:34Z
@@ -69,3 +69,4 @@ Reported files:
   provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-29T20:53:34Z (fix/beliefs-6fc759): Reworded 202 checkout-alias occurrences across 19 files to checkout placeholders; allowed by exact-file entry the MM30 run record and two execution ledgers whose evidence and rulings are about the home-relative spelling itself; fast-forwarded into main; candidate exits 0 on main; just check and just test-fast (6353) passed
   provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T20:53:38Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/beliefs-6fc759","state":"released","verification":"verified","purpose":"cleanup merged into main; regenerable ignored files discarded; worktree removed after harvest and pointer checks","next_owner":"none","cleanup_trigger":"none"}
