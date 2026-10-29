@@ -1,8 +1,14 @@
 # The ledgered retirement door for an adopted publication — design
 
-**Status:** draft for review, revision 2 (2026-10-29). Revision 1 (`56089e6`) had a builder
-check (one delivery question, four inaccurate claims about the code; reviewer `claude-code`),
-all resolved here: §3 decisions 3–5 and §5 correct the claims, §6 answers the question.
+**Status:** draft for review, revision 3 (2026-10-29). Revision 2 (`f72802f`) had the user's
+forwarded review (round 2, verdict revise: Important 1, Minor 1; reviewer
+`codex/gpt-6-astra`), which supported every decision and corrected two of §5's test
+expectations: a failed append can leave a complete line on disk (decision 6 and §5's
+recovery test now say what the file holds per fault), and the departed refusal keeps its
+existing record (§5's no-effect refusals). Revision 1 (`56089e6`) had a builder check
+(round 1: one delivery question, four inaccurate claims about the code; reviewer
+`claude-code`), all resolved: §3 decisions 3–5 and §5 correct the claims, §6 answers the
+question.
 **Task:** beliefs-c0d952 (child of beliefs-182296); its implementation idea beliefs-a989fb
 waits on it, and science's milestone 1b tail (sci-9104fb Tasks 13–15) waits on that.
 **Brief:** `../../notes/2026-10-24-publication-session-follow-ups-brief.md`.
@@ -163,10 +169,20 @@ where science's mounts and the kernel's registry disagree.
 6. **A ledger failure after the status commits is terminal and is recovered by the next
    session's call.** The `retired` append can fail at the write, the flush or the fsync
    after `World.retire` has made its status durable. The ledger's discipline applies
-   unchanged: the call raises `SessionLedgerFailed`, the index does not learn the line,
-   and the session is terminal. The registry keeps the status. Any later session that
-   calls the door with the same root, observers and evidence reaches decision 3's second
-   branch and ledgers `already-retired` with no second status record. A crash at the
+   unchanged: the call raises `SessionLedgerFailed`, the in-memory index does not learn
+   the line, and the session is terminal. The registry keeps the status. The ledger file
+   is not rolled back: `LedgerWriter` writes through an unbuffered handle before its
+   flush and fsync and never truncates, so a short write leaves a torn tail
+   (`LedgerReader.torn_tail`), while a flush or fsync failure leaves the complete
+   `retired` line (verdict `retired`) readable on disk though never acknowledged. This
+   design does not change that append contract. Any later session that calls the door
+   with the same root, observers and evidence reaches decision 3's second branch and
+   ledgers `already-retired` with no second status record, so the ledgers may then hold
+   both the first session's `retired` line and the successor's `already-retired` line for
+   one status record. Every reader must accept that: science's `apply_line` folds both to
+   the pin's `retired` state idempotently, and its ledger-versus-registry comparison
+   matches any number of `retired` lines, of either verdict, against the corpus's one
+   `retired` status record. A crash at the
    same point leaves the same state and is recovered the same way. That later call is
    science's reconcile step (1b design §5.7, step 1), which calls the door for every
    `mounted` pin whose kernel status is known and not live and is `retired`.
@@ -217,8 +233,10 @@ the same `certified_work` fixtures, run through `just test-one`.
   fields equal the evidence, with verdict `retired` and transition `retired`;
   `World.status` reports it known and not live; the registry holds exactly one status
   record for it, whose actor is the session's; `invocation_sharing` holds the line.
-- **Ordering and no-effect refusals**, each asserting that the registry holds no status
-  record and the ledger no `retired` line: a stale or closed writer refuses before the
+- **Ordering and no-effect refusals**, each asserting that the registry's status records
+  are unchanged by the call (none in every case but the departed one, which keeps its
+  `departed` record and gains no `retired` record) and that the ledger gains no
+  `sharing` line: a stale or closed writer refuses before the
   root is read (proved with `refuse_any_read`, which patches `_bind_sharing_evidence` to
   raise, as `test_stale_and_closed_writers_refuse_before_reading_the_copy` does); a writer scoped without `registry` refuses `PermitExceeded` before the binding;
   a session with no world configuration refuses `SessionProtocolError`; each evidence
@@ -235,12 +253,18 @@ the same `certified_work` fixtures, run through `just test-one`.
   `session._ledger._file`, with one difference: `World.retire` runs inside the call,
   so each fault is armed for the ledger's file alone (a `write` or `flush` patched on
   the handle, and `os.fsync` patched to fail only for the ledger file's descriptor),
-  never globally. The call raises `SessionLedgerFailed`; the registry holds
-  the status under the first session's actor; the first session's ledger holds no
-  `retired` line. A second session over the same world then calls the door with the
-  same arguments: it ledgers `already-retired`, the registry still holds one status
-  record whose actor is the first session's, and `read_ledger_evidence` over the second
-  session's ledger returns the line.
+  never globally. In every case the call raises `SessionLedgerFailed`, the in-memory
+  index holds no `retired` line (`session._index[...].sharing` is unchanged), every
+  later session method raises `SessionLedgerFailed`, and the registry holds the status
+  under the first session's actor. The first session's ledger file then differs by
+  fault, and the test asserts each: after the short write, `open_ledger_reader` reports
+  `torn_tail` and no complete `retired` line; after the flush or fsync fault, the file
+  holds the complete `retired` line with verdict `retired`, which the reader returns. A
+  second session over the same world then calls the door with the same arguments: it
+  ledgers `already-retired`, the registry still holds one status record whose actor is
+  the first session's, and `read_ledger_evidence` over the second session's ledger
+  returns the line. In the flush and fsync cases both ledgers' lines read back together,
+  one `retired` and one `already-retired` for the one status record.
 - **The race branch.** `World.retire` is patched to write another actor's `retired`
   status and then run the original, which raises `StatusTerminal`: the door ledgers
   `already-retired`. The same patch writing `departed` instead re-raises
