@@ -1,20 +1,24 @@
 ---
 id: beliefs-c0d952
 title: Design ledgered publication retirement from the brief
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: planned
-owner: main
+owner: design/publication-retirement
 created: 2026-10-24T09:56:24Z
-updated: 2026-10-29T11:34:00Z
+updated: 2026-10-29T12:08:17Z
 started: 2026-10-29T11:34:00Z
+completed: 2026-10-29T12:08:17Z
+closed: 2026-10-29T12:08:17Z
 depends: []
 parent: beliefs-182296
 tags: [publication, design]
 source: docs/notes/2026-10-24-publication-session-follow-ups-brief.md
+model: claude-opus-5-5
 agent: codex
+spec: docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md
 ---
 
 Question: How can ScopedWriter.retire(corpus_id, *, evidence) execute World.retire under scoped registry authority and ledger a truthful retired transition, including retries after a ledger failure?
@@ -34,4 +38,21 @@ Ideas it wakes: On completion, run `tasks note beliefs-a989fb --no-reviewed "<re
 ## Notes
 
 - 2026-10-29T11:34:00Z (main): started
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T11:34:15Z (design/publication-retirement): resumed
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T11:50:35Z (design/publication-retirement): review: spec round 1 — verdict: revise; findings: question 1, inaccurate-claim 4; reviewer: claude-code
+- 2026-10-29T11:50:44Z (design/publication-retirement): parked (waiting on user, review): user reviews docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md at f72802f (branch design/publication-retirement, worktree .worktrees/publication-retirement); on approval: record the decision in the brief, wake beliefs-a989fb with its finding note, merge the branch
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T11:56:16Z (design/publication-retirement): review: spec round 2 — verdict: revise; findings: Important 1, Minor 1; reviewer: codex/gpt-6-astra
+- 2026-10-29T11:56:18Z (design/publication-retirement): resumed
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T11:57:38Z (design/publication-retirement): parked (waiting on user, review): user reviews revision 3 of docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md at 578a014 (branch design/publication-retirement, worktree .worktrees/publication-retirement); on approval: record the decision in the brief, wake beliefs-a989fb with its finding note, merge the branch
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T12:02:43Z (design/publication-retirement): review: spec round 3 — verdict: accept; findings: none; reviewer: codex/gpt-6-astra
+- 2026-10-29T12:02:56Z (design/publication-retirement): resumed
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T12:08:17Z (design/publication-retirement): done
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T12:08:17Z (design/publication-retirement): design approved at revision 3 (578a014, round 3 accept, codex/gpt-6-astra): docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md; decision and handoff recorded in the brief; beliefs-a989fb woken to scope the implementation
   provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
