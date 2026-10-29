@@ -1,18 +1,21 @@
 ---
 id: beliefs-98c42d
 title: README Install omits the sibling atoms and nodes checkouts; AGENTS.md Gates carries dated status prose and restated global rules
-status: doing
+status: done
 priority: 1
 size: xs
 complexity: low
 process: direct
 owner: docs/readme-install-agents-gates
 created: 2026-10-23T19:33:27Z
-updated: 2026-10-29T10:40:57Z
+updated: 2026-10-29T10:49:42Z
 started: 2026-10-29T10:40:34Z
+completed: 2026-10-29T10:49:42Z
+closed: 2026-10-29T10:49:42Z
 depends: []
 tags: [docs]
 source: ops-65a068
+model: claude-opus-5-5
 agent: claude-code/claude-opus-5-5
 ---
 
@@ -29,4 +32,8 @@ Done when those three land and `just check` passes.
 - 2026-10-29T10:40:34Z (main): started
   provenance: {"harness_session":"claude-code:6f16ea82-da31-4ae3-898f-a065fd8ecf3a","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-29T10:40:57Z (docs/readme-install-agents-gates): resumed
+  provenance: {"harness_session":"claude-code:6f16ea82-da31-4ae3-898f-a065fd8ecf3a","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T10:49:42Z (docs/readme-install-agents-gates): done
+  provenance: {"harness_session":"claude-code:6f16ea82-da31-4ae3-898f-a065fd8ecf3a","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T10:49:42Z (docs/readme-install-agents-gates): README Install names the atoms/nodes sibling checkouts; AGENTS.md Gates drops the dated check/timing status and the restated global test and hydration rules, keeping the 18 min and 2.4x figures; just check and test-fast pass
   provenance: {"harness_session":"claude-code:6f16ea82-da31-4ae3-898f-a065fd8ecf3a","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
