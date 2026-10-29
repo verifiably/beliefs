@@ -6,9 +6,9 @@ priority: 1
 size: xs
 complexity: low
 process: direct
-owner: main
+owner: docs/subsystem-readmes-e3ca2a
 created: 2026-10-23T18:00:29Z
-updated: 2026-10-29T10:54:55Z
+updated: 2026-10-29T10:55:16Z
 started: 2026-10-29T10:54:55Z
 depends: []
 tags: [docs]
@@ -23,4 +23,6 @@ Do: correct the title and the project name; verify against the code which implem
 
 - 2026-10-23T19:33:30Z (main): ops-65a068 pilot at beliefs 6d420d6: the rubric found all three parts. Narrowed: ts/README.md's Python-primary claim is accurate (composition root is Python; ts/src holds 6 files of shared encoding), only the word 'Science' is stale. Also in these files: python/README.md:16 and :23-25 omit tools/ops-check, ops-docs check and ruff format --check from just check (AGENTS.md lists them); python/README.md:107-109 'Cuts 1-7 have landed' is stale against the ledger's cut 46; ts/README.md:35 says npm install where setup, CI and the root guides use npm ci; python/pyproject.toml:2-3 still calls science the import name though the wheel builds src/beliefs.
 - 2026-10-29T10:54:55Z (main): started
+  provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T10:55:16Z (docs/subsystem-readmes-e3ca2a): resumed
   provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
