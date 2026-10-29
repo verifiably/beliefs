@@ -7,7 +7,7 @@ size: m
 complexity: mid
 process: direct
 created: 2026-10-28T19:56:58Z
-updated: 2026-10-29T00:10:19Z
+updated: 2026-10-29T00:10:22Z
 depends: []
 tags: [world]
 source: beliefs-918fd2
@@ -38,3 +38,5 @@ Cut 48's limitation 8 is 'no cost measurement'. The review measured content_iden
 
 - 2026-10-28T19:56:58Z (add): created
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID","origin":"agent"}
+- 2026-10-29T00:10:22Z (main): scope: scoped; main db96252 contains 345d2d4 and its digest-boundary regression test. Established the three entry points, 10k/100k equal-overlap matrix, small end-to-end pilot, correctness checks and evidence-only deliverables; no cache implementation authorized. Searched open content-identity, benchmark and performance work across related projects; no overlapping measurement task found. Reused this record and existing spec/review instead of adding a brief or research duplicate. P3/m/mid/direct; original capture preserved. origin: filing inferred in claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae, toolu_01GN8drvw7m6xFHZJ5SfSQcb at transcript line 5554, matching sourced add and id-only pipeline result with no captured reuse warning; user at line 5550 asked whether follow-ups should be created, but the specific asks came from agent review/limitations, so agent retained. No origin_session names an older request.
+  provenance: {"harness_session":"codex:01a184fa-66da-7722-b909-7ed94114de05","harness_session_source":"CODEX_THREAD_ID"}
