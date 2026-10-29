@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: fix/beliefs-6fc759
 created: 2026-10-22T19:06:28Z
-updated: 2026-10-29T20:52:31Z
+updated: 2026-10-29T20:53:29Z
 started: 2026-10-29T20:26:25Z
 depends: []
 tags: []
@@ -58,4 +58,6 @@ Reported files:
 - 2026-10-29T20:52:10Z (fix/beliefs-6fc759): parked (waiting on agent): controller: review fix/beliefs-6fc759 at 5c06347 in .worktrees/beliefs-6fc759, then integrate
   provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-29T20:52:31Z (fix/beliefs-6fc759): parked (waiting on agent, review): controller: review fix/beliefs-6fc759 at 973c780 in .worktrees/beliefs-6fc759, then integrate
+  provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T20:53:29Z (fix/beliefs-6fc759): resumed
   provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
