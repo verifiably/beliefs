@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: fix/beliefs-6fc759
 created: 2026-10-22T19:06:28Z
-updated: 2026-10-29T20:52:10Z
+updated: 2026-10-29T20:52:31Z
 started: 2026-10-29T20:26:25Z
 depends: []
 tags: []
@@ -56,4 +56,6 @@ Reported files:
 - 2026-10-29T20:51:52Z (fix/beliefs-6fc759): verification: candidate rc=0 at 973c780 (uncapped scan of the same rule also 0, was 186 line-value findings / 127 capped); just check rc=0; baseline before changes: just test-fast 6353 passed 1 skipped, just test-one tests/test_n2.py 46 passed, ts npm test 155 passed (full just test exceeded the 590 s foreground timeout under host contention, so run in three phases); after changes: just test-fast 6353 passed 1 skipped (N2 reads no changed docs); git diff --check clean; inverse mapping of every changed line reproduces the original exactly.
 - 2026-10-29T20:52:07Z (fix/beliefs-6fc759): retained: {"host":"titan","kind":"worktree","path":".worktrees/beliefs-6fc759","state":"kept","verification":"verified","purpose":"branch fix/beliefs-6fc759 at 973c780 (docs commit) awaiting controller review and integration","next_owner":"task:beliefs-6fc759","cleanup_trigger":"fix/beliefs-6fc759 merged into main"}
 - 2026-10-29T20:52:10Z (fix/beliefs-6fc759): parked (waiting on agent): controller: review fix/beliefs-6fc759 at 5c06347 in .worktrees/beliefs-6fc759, then integrate
+  provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T20:52:31Z (fix/beliefs-6fc759): parked (waiting on agent, review): controller: review fix/beliefs-6fc759 at 973c780 in .worktrees/beliefs-6fc759, then integrate
   provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
