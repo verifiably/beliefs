@@ -1,10 +1,10 @@
 ---
 id: beliefs-49afc2
 title: "A renamed record beside its predecessor publication: a supersession-aware address map"
-status: idea
+status: shelved
 priority: 2
 created: 2026-10-28T13:14:47Z
-updated: 2026-10-28T13:14:47Z
+updated: 2026-10-29T00:09:16Z
 depends: []
 tags: [world, publication]
 source: docs/superpowers/specs/2026-10-28-overlapping-publications-design.md
@@ -18,3 +18,4 @@ From the overlapping-publications design (beliefs-918fd2, §4.1 and §10 item 2)
 
 - 2026-10-28T13:14:47Z (add): created
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID","origin":"agent"}
+- 2026-10-29T00:09:16Z (main): shelved: Revisit when a concrete consumer needs to adopt a renamed successor while retaining its predecessor, or the user prioritizes relaxing W8b; then design lineage proof, ambiguous/forked renames and retired-address resolution together. Current cut-48 admission refusal remains intentional.
