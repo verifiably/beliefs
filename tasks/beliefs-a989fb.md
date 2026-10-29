@@ -1,13 +1,15 @@
 ---
 id: beliefs-a989fb
 title: "Sharing door for the retired transition: World.retire under the scoped authority (science commons 1b)"
-status: todo
+status: doing
 priority: 2
 size: m
 complexity: high
 process: direct
+owner: main
 created: 2026-10-23T01:56:42Z
-updated: 2026-10-29T12:17:11Z
+updated: 2026-10-29T12:31:07Z
+started: 2026-10-29T12:31:07Z
 depends: [beliefs-c0d952]
 parent: beliefs-182296
 tags: [publication]
@@ -45,3 +47,5 @@ Handoff: [ref:brief] records why this needs a design first: binding the pin with
 - 2026-10-29T12:07:58Z (design/publication-retirement): retirement design approved (beliefs-c0d952, docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md at 578a014): the door is ScopedWriter.retire(root, observers, *, evidence) -> SharingLine, binding evidence as admit_publication does; it reads the registry first and ledgers verdict retired (it wrote the status) or already-retired (any actor's retired status found, no second act), so a successor session recovers a retirement whose line failed; non-self-replica admission refuses StatusTargetUnknown, departed refuses StatusTerminal; no schema change, no cut; ready to scope as a direct implementation task against the design, which also lands the sharing-design amendment, the adoption-ledger line and the open-questions correction (design §6)
 - 2026-10-29T12:17:11Z (main): scope: scoped; promoted to todo, P2 retained, size m, complexity high, process direct against the approved retirement design revision 3 (578a014), merged at 3328315; current writer.py still lacks retire, World._terminal retains actor-bound idempotency, and ledger.py retains unbuffered append/flush/fsync semantics; body now names the exact door, self-replica eligibility, read-before-act and race recovery, both verdicts, ledger-only fault tests, permit checks and three documentation changes; original capture preserved as historical; linked the existing spec, reused the brief without editing it, no duplicate follow-ups; source beliefs-f24fe9 and science sci-9104fb/sci-9c0bba confirm the consumer dependency; origin: filing event unavailable (no created occurrence or harness-session stamp on this member); older request not locatable from a bound filing event, no origin_session recorded; origin remains unknown, no user ask inferred from the source chain; brief: docs/notes/2026-10-24-publication-session-follow-ups-brief.md; no suites run during this record-only pass
   provenance: {"harness_session":"codex:01a18794-d799-7391-ac29-d2378d7e9f4b","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-29T12:31:07Z (main): started
+  provenance: {"harness_session":"claude-code:a586de0e-bccf-4067-9940-3b6ecc9e67a2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
