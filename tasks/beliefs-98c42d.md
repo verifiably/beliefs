@@ -6,9 +6,9 @@ priority: 1
 size: xs
 complexity: low
 process: direct
-owner: main
+owner: docs/readme-install-agents-gates
 created: 2026-10-23T19:33:27Z
-updated: 2026-10-29T10:40:34Z
+updated: 2026-10-29T10:40:57Z
 started: 2026-10-29T10:40:34Z
 depends: []
 tags: [docs]
@@ -27,4 +27,6 @@ Done when those three land and `just check` passes.
 ## Notes
 
 - 2026-10-29T10:40:34Z (main): started
+  provenance: {"harness_session":"claude-code:6f16ea82-da31-4ae3-898f-a065fd8ecf3a","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T10:40:57Z (docs/readme-install-agents-gates): resumed
   provenance: {"harness_session":"claude-code:6f16ea82-da31-4ae3-898f-a065fd8ecf3a","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
