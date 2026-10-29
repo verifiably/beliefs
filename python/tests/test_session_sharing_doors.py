@@ -219,7 +219,7 @@ def test_a_copy_with_an_unparseable_record_refuses_capture_damaged_before_the_ac
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_a_copy_without_its_marker_refuses_the_layout_before_either_act(certified_work):
+def test_a_copy_without_its_marker_refuses_the_layout_before_any_act(certified_work):
     x = shared(certified_work)
     (x.copy / path_for_node_id(marker_of(x.copy).id)).unlink()
     before = admissions(x)
@@ -227,7 +227,9 @@ def test_a_copy_without_its_marker_refuses_the_layout_before_either_act(certifie
         x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
     with pytest.raises(PublicationArrivalRefused) as admitting:
         x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
-    assert restoring.value.reason == admitting.value.reason == "marker-absent"
+    with pytest.raises(PublicationArrivalRefused) as retiring:
+        x.writer.retire(x.copy, x.observers, evidence=x.evidence)
+    assert restoring.value.reason == admitting.value.reason == retiring.value.reason == "marker-absent"
     assert read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
     assert admissions(x) == before
     assert x.session.invocation_sharing("A") == ()
