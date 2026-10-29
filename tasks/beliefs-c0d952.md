@@ -1,19 +1,22 @@
 ---
 id: beliefs-c0d952
 title: Design ledgered publication retirement from the brief
-status: doing
+status: done
 priority: 2
 size: m
 complexity: high
 process: planned
 owner: design/publication-retirement
 created: 2026-10-24T09:56:24Z
-updated: 2026-10-29T12:02:56Z
+updated: 2026-10-29T12:08:17Z
 started: 2026-10-29T11:34:00Z
+completed: 2026-10-29T12:08:17Z
+closed: 2026-10-29T12:08:17Z
 depends: []
 parent: beliefs-182296
 tags: [publication, design]
 source: docs/notes/2026-10-24-publication-session-follow-ups-brief.md
+model: claude-opus-5-5
 agent: codex
 spec: docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md
 ---
@@ -48,4 +51,8 @@ Ideas it wakes: On completion, run `tasks note beliefs-a989fb --no-reviewed "<re
   provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-29T12:02:43Z (design/publication-retirement): review: spec round 3 — verdict: accept; findings: none; reviewer: codex/gpt-6-astra
 - 2026-10-29T12:02:56Z (design/publication-retirement): resumed
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T12:08:17Z (design/publication-retirement): done
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T12:08:17Z (design/publication-retirement): design approved at revision 3 (578a014, round 3 accept, codex/gpt-6-astra): docs/superpowers/specs/2026-10-29-publication-retirement-door-design.md; decision and handoff recorded in the brief; beliefs-a989fb woken to scope the implementation
   provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
