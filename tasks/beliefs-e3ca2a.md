@@ -8,7 +8,7 @@ complexity: low
 process: direct
 owner: docs/subsystem-readmes-e3ca2a
 created: 2026-10-23T18:00:29Z
-updated: 2026-10-29T11:14:22Z
+updated: 2026-10-29T11:20:43Z
 started: 2026-10-29T10:54:55Z
 depends: []
 tags: [docs]
@@ -28,3 +28,4 @@ Do: correct the title and the project name; verify against the code which implem
   provenance: {"harness_session":"claude-code:a3f33518-e7bb-47df-bf41-74427ea3f984","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-29T11:00:37Z (docs/subsystem-readmes-e3ca2a): worktree .worktrees/readme-e3ca2a on branch docs/subsystem-readmes-e3ca2a. Scope taken: both READMEs plus the pilot note's extras (check list, cuts line, npm ci, pyproject comment) and the same stale name in pyproject's description and src/beliefs/__init__.py's docstring. science.identity.v1, science.belief.v1 and contract: science stay: rule identities per adoption ledger §5 (2026-08-30). No test reads python/README.md or ts/README.md. Undefined 'shared encoding' left to beliefs-4dfe18.
 - 2026-10-29T11:14:22Z (docs/subsystem-readmes-e3ca2a): review: impl round 1 — verdict: revise; findings: Important 1, Minor 5; reviewer: claude-code/claude-opus-5-5
+- 2026-10-29T11:20:43Z (docs/subsystem-readmes-e3ca2a): review: impl round 2 — verdict: accept; findings: Minor 2; reviewer: claude-code/claude-opus-5-5
