@@ -1,10 +1,10 @@
 ---
 id: beliefs-b04527
 title: "Idea: let the retraction-enumeration v2 rule refuse a uid held at two addresses itself"
-status: idea
+status: shelved
 priority: 3
 created: 2026-10-28T19:56:52Z
-updated: 2026-10-28T19:56:52Z
+updated: 2026-10-29T00:10:13Z
 depends: []
 tags: [world, conformance]
 source: beliefs-918fd2
@@ -18,3 +18,4 @@ Cut 48's review (minor 6): rules_v1/retraction_v2.py lets the last record win fo
 
 - 2026-10-28T19:56:52Z (add): created
   provenance: {"harness_session":"claude-code:66da2a5f-ff6b-4b60-8d2a-cff7ba4e9cae","harness_session_source":"CLAUDE_CODE_SESSION_ID","origin":"agent"}
+- 2026-10-29T00:10:13Z (main): shelved: Revisit when a receipt consumer needs explicit uid-corruption diagnostics, or a successor retraction rule is already being designed; preserve the existing implementation pair for old receipts and decide new-bundle retention before changing rule bytes.
