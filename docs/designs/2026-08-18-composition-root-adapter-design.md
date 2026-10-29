@@ -16,10 +16,10 @@ strengthening the review found (§5a: an unstamped governed kind is refused,
 `semantic-hash-missing`), outside cut 4's frozen selection and counted in no
 cut's accounting.
 **Sources:** the `nodes` write-plan/executor seam design
-(`~/d/nodes/docs/designs/2026-08-17-nodes-write-plan-executor-seam-design.md`,
+(`<nodes checkout>/docs/designs/2026-08-17-nodes-write-plan-executor-seam-design.md`,
 frozen 2026-08-17, pre-normative; its §7 amendments normative in `nodes`
 STANDARD 2.0 since 2026-09-12); the `atoms` authority design §11–§12.2/§14
-(`~/d/atoms/docs/plans/2026-07-23-recoverable-fs-effect-engine-design.md`), with
+(`<atoms checkout>/docs/plans/2026-07-23-recoverable-fs-effect-engine-design.md`), with
 A8's physical certification (adoption ledger row 4); conformance cut 4
 (`2026-08-17-conformance-cut-4.md`); the substrate consolidation design
 §4.2.1/§4.3/§6.2/§7; the world-addressing design's write-boundary rule (its

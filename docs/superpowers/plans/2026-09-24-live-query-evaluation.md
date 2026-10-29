@@ -12,14 +12,14 @@
 
 ## Global Constraints
 
-- **Baseline is `main` at `a79fb5a`**, merged into the branch at `ce8e46e` before Task 0 (the design forked at `f3a02fe`; the merge brought `beliefs-3ce305`'s cut-42 title and the task-note history). Work in `.worktrees/live-query` (branch `design/live-query`, locked "on WORK_ROOT storage"). Paths below are relative to the repository root; paths shown to the user carry the `.worktrees/live-query/` prefix. The main checkout is `~/d/beliefs`.
-- **The fast loop.** From the worktree root: `SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test just test-fast` (`beliefs-ad68df`). For one module: `cd python && SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test uv run --frozen pytest tests/<module> -q`. About 216 `CapabilityUnavailable` failures mean the export is missing, not a bug.
+- **Baseline is `main` at `a79fb5a`**, merged into the branch at `ce8e46e` before Task 0 (the design forked at `f3a02fe`; the merge brought `beliefs-3ce305`'s cut-42 title and the task-note history). Work in `.worktrees/live-query` (branch `design/live-query`, locked "on WORK_ROOT storage"). Paths below are relative to the repository root; paths shown to the user carry the `.worktrees/live-query/` prefix. The main checkout is `<beliefs checkout>`.
+- **The fast loop.** From the worktree root: `SCIENCE_CUT13_ROOT=$(readlink -f <beliefs checkout>)/.lifecycle-wrappers-test just test-fast` (`beliefs-ad68df`). For one module: `cd python && SCIENCE_CUT13_ROOT=$(readlink -f <beliefs checkout>)/.lifecycle-wrappers-test uv run --frozen pytest tests/<module> -q`. About 216 `CapabilityUnavailable` failures mean the export is missing, not a bug.
 - **Acceptance and N2 run from the worktree, under overrides onto the main checkout's certified volume — not after a fast-forward.** The worktree sits on WORK_ROOT storage, which the durability allowlist refuses, and acceptance fixtures whose roots are repo-relative fail there. Before any acceptance or N2 run:
 
   ```bash
-  cd ~/d/beliefs/.worktrees/live-query/python && cd "$(pwd -P)"
-  for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
-  export SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test
+  cd <beliefs checkout>/.worktrees/live-query/python && cd "$(pwd -P)"
+  for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f <beliefs checkout>)/.work/acceptance/cut$n; done
+  export SCIENCE_CUT13_ROOT=$(readlink -f <beliefs checkout>)/.lifecycle-wrappers-test
   ```
 
   `SCIENCE_CUT4_ROOT` is acceptance's `work_directory`. Run pytest from the canonical path (`cd "$(pwd -P)"`): `ELOOP` from `open_root` means the `.worktrees` symlink is in the cwd. The cut runner resolves its own default work under the main checkout (`MAIN_CHECKOUT` in `cut40_acceptance.py`).
@@ -63,7 +63,7 @@
   9. the denotation is shared, not copied;
   10. cut 41 is the focused cut, and cut 28 stays as it is.
 - **The lane.** The boundary id is `live-query`, its own lane, opened off the dogfood path under roadmap rule 6. Its shared surface is `world/selection.py` and `world/live.py`. Under rule 3 it names two files the `world-read` lane (`publish`, planned cut 42) also lists: `world/view.py`, which gains one private method and one type alias, and `corpus.py`, which gains one protocol and one annotation. The later merge resolves toward the earlier one. The lane amends no contract oracle, so `contract-cut` gains no dependency.
-- **Detached runs go through the reaping wrapper** (Processes rule). Launch the cut runner and the gate with `setsid nohup ~/d/beliefs/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`, after `test -x` on the wrapper. An end-of-turn report that leaves one running names its process group (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session`.
+- **Detached runs go through the reaping wrapper** (Processes rule). Launch the cut runner and the gate with `setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`, after `test -x` on the wrapper. An end-of-turn report that leaves one running names its process group (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session`.
 - **Commits:**
   - Use conventional commits, with no attribution trailers.
   - Run `tasks check` before every commit.
@@ -120,7 +120,7 @@ A cut is frozen before its code exists (roadmap, Concurrency rules), so the twel
 The user decided on 2026-09-25: this cut is **cut 41**, and `PREFIX_RUNNERS = ("cut40_acceptance.py",)`, since cut 40's is the highest-numbered runner (rule 5). Cut 40 is discharged, so the discharge waits on nothing. The remote publish slice (`beliefs-3ce305`), which prose had reserved as cut 41, becomes **planned cut 42**. The decision stands only while no cut-41 document exists, so recheck that at the freeze:
 
 ```bash
-cd ~/d/beliefs
+cd <beliefs checkout>
 for b in $(git for-each-ref --format='%(refname:short)' refs/heads); do git ls-tree -r --name-only "$b" docs/designs | grep -E "conformance-cut-4[1-9]" | sed "s|^|$b: |"; done; echo scan done
 ls docs/plans | grep -E "conformance-cut-4[1-9]-results"; ls python/tools | grep -E "cut4[1-9]_acceptance"; git worktree list
 ```
@@ -156,7 +156,7 @@ Historical text stays byte-exact: cut 40's frozen document and results record, t
 - [ ] **Step 3: Move the design and bank Z1–Z5**
 
 ```bash
-cd ~/d/beliefs/.worktrees/live-query
+cd <beliefs checkout>/.worktrees/live-query
 git mv docs/superpowers/specs/2026-09-24-live-query-evaluation-design.md docs/designs/2026-09-24-live-query-evaluation-design.md
 tasks edit beliefs-cc0aea --spec docs/designs/2026-09-24-live-query-evaluation-design.md
 ```
@@ -299,7 +299,7 @@ class TestLocatedState:
 
 - [ ] **Step 2: Run it to see it fail**
 
-Run: `cd python && SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test uv run --frozen pytest tests/test_world_selection.py::TestLocatedState -q`
+Run: `cd python && SCIENCE_CUT13_ROOT=$(readlink -f <beliefs checkout>)/.lifecycle-wrappers-test uv run --frozen pytest tests/test_world_selection.py::TestLocatedState -q`
 Expected: FAIL — `AttributeError: 'WorldReadView' object has no attribute '_located_state'`.
 
 - [ ] **Step 3: `corpus.py`.** Directly above `class RelationAdjacency:` add:
@@ -483,7 +483,7 @@ In `_denote`, change only the annotation to `view: _QueryableView`.
 - [ ] **Step 6: Run the tests**
 
 ```bash
-cd python && export SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test
+cd python && export SCIENCE_CUT13_ROOT=$(readlink -f <beliefs checkout>)/.lifecycle-wrappers-test
 uv run --frozen pytest tests/test_world_selection.py tests/test_world_view.py tests/test_arm_staleness.py tests/test_capability_boundary.py tests/test_permit_boundary.py tests/test_permit_entry_points.py -q
 uv run --frozen ruff check src tests && uv run --frozen pyright
 ```
@@ -1056,7 +1056,7 @@ Expected: `all twelve targets occur once`.
 - [ ] **Step 5: Run the tests**
 
 ```bash
-cd python && export SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test
+cd python && export SCIENCE_CUT13_ROOT=$(readlink -f <beliefs checkout>)/.lifecycle-wrappers-test
 uv run --frozen pytest tests/test_live_selection.py tests/test_world_selection.py tests/test_arm_staleness.py tests/test_capability_boundary.py tests/test_permit_boundary.py tests/test_permit_entry_points.py -q
 uv run --frozen ruff check src tests && uv run --frozen pyright
 ```
@@ -1735,14 +1735,14 @@ if __name__ == "__main__":
 
 ```bash
 cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py tests/test_frozen_guards.py -q
-cd ~/d/beliefs/.worktrees/live-query/python && cd "$(pwd -P)"
-export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
-test -x ~/d/beliefs/.work/acceptance/detached.sh
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut41-runner.log uv run --frozen python tools/cut41_acceptance.py > /dev/null 2>&1 &
-sleep 2; echo "runner process group $(cat ~/d/beliefs/.work/acceptance/cut41-runner.log.pid)"
+cd <beliefs checkout>/.worktrees/live-query/python && cd "$(pwd -P)"
+export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30
+for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f <beliefs checkout>)/.work/acceptance/cut$n; done
+test -x <beliefs checkout>/.work/acceptance/detached.sh
+setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <beliefs checkout>/.work/acceptance/cut41-runner.log uv run --frozen python tools/cut41_acceptance.py > /dev/null 2>&1 &
+sleep 2; echo "runner process group $(cat <beliefs checkout>/.work/acceptance/cut41-runner.log.pid)"
 ```
-If the turn ends before the wrapper does, report that process group and the stop command, `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut41-runner.log.pid)"`.
+If the turn ends before the wrapper does, report that process group and the stop command, `kill -TERM -- "-$(cat <beliefs checkout>/.work/acceptance/cut41-runner.log.pid)"`.
 
 Read the log at exit. Expected tail:
 - three `[cut41 phase n/3]` lines;
@@ -1768,7 +1768,7 @@ git commit -m "test(cut41): N2 declaration, guard, runner and the recent-cut row
 - Modify: `docs/designs/2026-09-05-mm30-reproduction.md` (append the next addendum section)
 
 - [ ] **Step 1: Run.**
-  1. `export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30`, then `test -f "$SCIENCE_MM30_ROOT/state.json"` and copy that file to the scratchpad.
+  1. `export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30`, then `test -f "$SCIENCE_MM30_ROOT/state.json"` and copy that file to the scratchpad.
   2. From `python/`, run `PYTHONPATH=tools uv run --frozen python -m reproduction.preflight`, which must say `ok`. On a host-load refusal, `tasks park <Task 6's id> "rerun reproduction.preflight then reproduction.rederive" --reason quiet --waiting-on user --minutes 5`.
   3. Run `PYTHONPATH=tools uv run --frozen python -m reproduction.rederive`.
   4. `grep -n 'evaluate_query\|selection\|live' python/tools/reproduction/*.py` shows what the driver reaches. Expected: nothing of this slice.
@@ -1794,12 +1794,12 @@ git commit -m "docs(reproduction): re-run under live view-query evaluation; noth
 - [ ] **Step 2: The gate, detached**
 
 ```bash
-cd ~/d/beliefs/.worktrees/live-query && cd "$(pwd -P)"
-export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
-export SCIENCE_CUT13_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut41-gate.log just gate > /dev/null 2>&1 &
-sleep 2; echo "gate process group $(cat ~/d/beliefs/.work/acceptance/cut41-gate.log.pid)"
+cd <beliefs checkout>/.worktrees/live-query && cd "$(pwd -P)"
+export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30
+for n in $(seq 4 41); do export SCIENCE_CUT${n}_ROOT=$(readlink -f <beliefs checkout>)/.work/acceptance/cut$n; done
+export SCIENCE_CUT13_ROOT=$(readlink -f <beliefs checkout>)/.lifecycle-wrappers-test
+setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <beliefs checkout>/.work/acceptance/cut41-gate.log just gate > /dev/null 2>&1 &
+sleep 2; echo "gate process group $(cat <beliefs checkout>/.work/acceptance/cut41-gate.log.pid)"
 ```
 Read the log at exit. Expected: the pytest summary line with zero failures, and the TypeScript suite green.
 
@@ -1852,7 +1852,7 @@ git commit -m "docs(cut41): results record, re-rank at cut 41, Z1–Z5 closed"
 - [ ] **Step 6: Merge and tell science**
 
 ```bash
-cd ~/d/beliefs && git merge --no-ff design/live-query -m "merge: live view-query evaluation — conformance cut 41"
+cd <beliefs checkout> && git merge --no-ff design/live-query -m "merge: live view-query evaluation — conformance cut 41"
 tasks note sci-f95f8b "beliefs-cc0aea landed (cut 41): beliefs.world.live.evaluate_live_query(world, query) -> LiveSelection; render complete, absent and stamp (CaptureStamp: world_id, coverage)."
 ```
 Fill the results record's §6 in a `docs(cut41): record merged-main verification` commit. Then run `tt-report` (ops) to harvest the worktree's timing log, check that no host pointer resolves into the worktree (`readlink -f ~/bin/* ~/.local/bin/* 2>/dev/null | grep live-query` prints nothing), and remove it: `git worktree unlock .worktrees/live-query && git worktree remove .worktrees/live-query && git branch -d design/live-query`.

@@ -44,7 +44,7 @@
   - `session/reconcile.py`: `                    if r.digest in acts:\n                        continue`, `                    if unknown:`, `            unknown = reader is None or bool(open_invocations)` and `            if staged not in digests:`.
 
   Only J9a's pin (`    if len(world_config.corpus_roots) != 1:`) disappears. It is re-targeted in `test_n2_cut19.py`'s `_LIVE_SABOTAGES` (Task 2). Tasks 2 and 3 end with `tests/test_arm_staleness.py`, and zero stale arms is the exit condition. A second stale arm is a finding against the spec (its §8.3), not a routine re-target.
-- **Long runs are harness-tracked.** Run the cut runner and the gate through the Bash tool with `run_in_background: true`, piping through `tee` into `~/d/beliefs/.work/acceptance/cut43-*.log`. Never `setsid nohup`, `&` or `detached.sh` (memory `long-runs-are-harness-tracked`). If the harness kills a run at its background cap, park `--reason environment` and tell the user.
+- **Long runs are harness-tracked.** Run the cut runner and the gate through the Bash tool with `run_in_background: true`, piping through `tee` into `<beliefs checkout>/.work/acceptance/cut43-*.log`. Never `setsid nohup`, `&` or `detached.sh` (memory `long-runs-are-harness-tracked`). If the harness kills a run at its background cap, park `--reason environment` and tell the user.
 - **Commits:** conventional, with no attribution trailers; `tasks check` before each commit; `just test-fast` while working; `uv run --frozen` from `python/`; no TypeScript changes.
 
 ## Review Focus
@@ -82,7 +82,7 @@
 - [ ] **Step 1: Confirm cut 42 is frozen and 43 unclaimed**
 
 ```bash
-cd ~/d/beliefs
+cd <beliefs checkout>
 for b in $(git for-each-ref --format='%(refname:short)' refs/heads); do git ls-tree -r --name-only $b docs/designs | grep -o "conformance-cut-4[2-9]" | sort -u | sed "s|^|$b: |"; done; echo scan done
 ```
 Expected: `design/publish: conformance-cut-42` and no `-43` anywhere. Anything else means stop and ask (Global Constraints).
@@ -955,7 +955,7 @@ git commit -m "test(cut43): the multi-corpus session acceptance module — J12, 
 - Create: `python/tests/n2_arms_cut43.py`, `python/tests/acceptance/n2_arms_cut43.py` (cut 41's shim with `41` → `43`), `python/tests/acceptance/test_n2_cut43.py`, `python/tools/cut43_acceptance.py`
 - Modify: `python/tests/test_recent_cut_acceptance.py`
 
-- [ ] **Step 0: Wait for cut 42, then merge `main`.** Cut 43 chains `cut42_acceptance.py` (rule 5), which reaches this branch only when `design/publish` has merged. Check with `git -C ~/d/beliefs log --oneline main -- python/tools/cut42_acceptance.py | head -1`.
+- [ ] **Step 0: Wait for cut 42, then merge `main`.** Cut 43 chains `cut42_acceptance.py` (rule 5), which reaches this branch only when `design/publish` has merged. Check with `git -C <beliefs checkout> log --oneline main -- python/tools/cut42_acceptance.py | head -1`.
   - If that prints nothing, run `tasks park <Task 5's id> "merge main after cut 42 (beliefs-3ce305) lands, then Task 5" --reason dependency`, then `tasks dep <Task 5's id> --on beliefs-3ce305`, and end the increment.
   - Once it prints a commit, run `git merge --no-ff main` in this worktree. Resolve toward `main` in the shared files (roadmap rule 3): the ledger, the roadmap, README, the guide and `test_designs_corpus.py`.
   - The `Y` rows come from `main` and the `J` rows from this branch. Rerun `tools/roadmap_status.py`, and expect `Closed 210 of 241; open 31`.
@@ -1015,7 +1015,7 @@ cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/te
 Then run with the Bash tool, `run_in_background: true`:
 
 ```bash
-cd ~/d/beliefs/.worktrees/session-mounts/python && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30 && set -o pipefail && uv run --frozen python tools/cut43_acceptance.py 2>&1 | tee ~/d/beliefs/.work/acceptance/cut43-runner.log
+cd <beliefs checkout>/.worktrees/session-mounts/python && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30 && set -o pipefail && uv run --frozen python tools/cut43_acceptance.py 2>&1 | tee <beliefs checkout>/.work/acceptance/cut43-runner.log
 ```
 
 Read the log when the harness wakes the session. The expected tail has:
@@ -1086,14 +1086,14 @@ git commit -m "docs(cut43): results record, re-rank at cut 43, J12–J15 closed"
 ### Task 8: Final review, gate, merge
 
 - [ ] **Step 1: Whole-branch review.** Run `superpowers:requesting-code-review` over `git diff main...HEAD`, against the spec's decisions, the Global Constraints' pins and the Review Focus. Land each fix as its own commit and record it in the results record §3.
-- [ ] **Step 2: The gate, harness-tracked.** Launch with the Bash tool, `run_in_background: true`: `cd ~/d/beliefs/.worktrees/session-mounts && cd "$(pwd -P)" && set -o pipefail && just gate 2>&1 | tee ~/d/beliefs/.work/acceptance/cut43-gate.log`. Expected: the pytest summary line with zero failures, and the TypeScript suite green.
+- [ ] **Step 2: The gate, harness-tracked.** Launch with the Bash tool, `run_in_background: true`: `cd <beliefs checkout>/.worktrees/session-mounts && cd "$(pwd -P)" && set -o pipefail && just gate 2>&1 | tee <beliefs checkout>/.work/acceptance/cut43-gate.log`. Expected: the pytest summary line with zero failures, and the TypeScript suite green.
 - [ ] **Step 3: Close and merge**
 
 ```bash
 tasks done <Task 8's id> "final review, gate green, merged"
 tasks done beliefs-fe7149 "cut 43 discharged: one write root, every configured corpus mounted under its own pins, coordination over all, corpus-matched reconciliation"
 tasks check && git add tasks && git commit -m "chore(tasks): close beliefs-fe7149 — cut 43 discharged"
-cd ~/d/beliefs && git merge --no-ff design/session-mounts -m "merge: the multi-corpus session — conformance cut 43"
+cd <beliefs checkout> && git merge --no-ff design/session-mounts -m "merge: the multi-corpus session — conformance cut 43"
 ```
 
 Fill the results record's §6 on `main`. Then remove the worktree:

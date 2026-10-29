@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Baseline is `main` at `a71a3f4`.** Work in the worktree `.worktrees/act-report-remainder` (branch `design/act-report-remainder`, locked "on WORK_ROOT storage"); every path below is relative to the repository root, and paths shown to the user carry the worktree prefix. The main checkout is `~/d/beliefs`. Exports for a worktree on `WORK_ROOT`: `SCIENCE_MM30_ROOT` and every `SCIENCE_CUT*_ROOT` name the **main checkout's** `.work/…` (memory `worktree-on-work-root-needs-cut-root-exports`; ~190 `CapabilityUnavailable` failures are a missing export, not a regression). For the fast loop: `export SCIENCE_CUT4_ROOT=~/d/beliefs/.cut4-acceptance SCIENCE_CUT10_ROOT=~/d/beliefs/.lifecycle-wrappers-test`.
+- **Baseline is `main` at `a71a3f4`.** Work in the worktree `.worktrees/act-report-remainder` (branch `design/act-report-remainder`, locked "on WORK_ROOT storage"); every path below is relative to the repository root, and paths shown to the user carry the worktree prefix. The main checkout is `<beliefs checkout>`. Exports for a worktree on `WORK_ROOT`: `SCIENCE_MM30_ROOT` and every `SCIENCE_CUT*_ROOT` name the **main checkout's** `.work/…` (memory `worktree-on-work-root-needs-cut-root-exports`; ~190 `CapabilityUnavailable` failures are a missing export, not a regression). For the fast loop: `export SCIENCE_CUT4_ROOT=<beliefs checkout>/.cut4-acceptance SCIENCE_CUT10_ROOT=<beliefs checkout>/.lifecycle-wrappers-test`.
 - **The worktree's sibling dependencies resolve under `.worktrees/`.** `python/pyproject.toml` pins `verifiably-atoms` and `verifiably-nodes` as editable paths `../../atoms/python` and `../../nodes/python`; `cd python && uv run --frozen python -c "import atoms, nodes, beliefs"` prints nothing on success. `just setup` has run.
 - AGENTS.md, Cut plans, verbatim: **`root.py` is the one `atoms` importer** (`test_capability_boundary.py`,
   `TestTheCompositionRootIsTheOneAtomsImporter`). A classification over engine
@@ -30,7 +30,7 @@
   `c77b2aa` and after cut 35's final review; the plan's runner task owns the row. — Here that is Task 6, Step 4, with `(cut38, 38, (14, 12, 3))`.
 - **Frozen declarations and frozen cut bodies stay byte-exact.** Cut 38 chains **cut 37's** runner (`PREFIX_RUNNERS = ("cut37_acceptance.py",)`) and re-targets nothing: no line this lane edits is pinned by a live prior arm (Task 1 Step 8 and Task 6 Step 5 run `tests/test_arm_staleness.py` to prove it; a stale prior arm means a `before` this lane moved — restore the line's spelling, never edit the prior declaration).
 - **Decisions the code must honour verbatim** (spec §2): two new modules, `audit.py` and `holdings/boundary.py` untouched (1); the audit's subject is the writer's own corpus through `audit_corpus` (2); one `SubjectEvaluationEntry` per finding in the evaluator's order, payload `v1.encode({"severity", "code", "detail"})` decoded UTF-8, `message` excluded, a clean audit closes with empty entries (3); the audit runs under the caller's hold then `writer._operation` from before the intent to after the report (4); the re-check is independent store re-checks with no stop, `instrument_inputs=()`, the attempt's `reason` only (5); the re-check's acts run outside the root lock and its close under the hold then the lock, view rebuilt before any ref resolves (6); every check before the intent, no catch on the operation's behalf (7); session routes through `operation_port()` and `_closing_hold`, observer = session actor (8); kind-checked `_mint_audit_report` / `_mint_recheck_report` (9); `AuditRefused`, `RecheckRefused`, `PortMismatch` under `WriteRefused` (10, 13); `OperationPort.root`, `_require_bound_port` in both primitives and both preflights, comparing `Path(port.root).resolve()` to the writer's resolved root, `port.authority == writer.authority`, `port.profile.compiled_identity == writer.profile.compiled_identity`, applied to a **supplied** port only (13); the re-check validates observer, instrument and every `standing` set pre-intent (14).
-- **Detached runs go through a reaping wrapper** (Processes rule): the cut runner and the gate outlive a turn, so each is launched by `~/d/beliefs/.work/acceptance/detached.sh` (already written by cut 37's plan; `test -x` it, and if missing recreate it from `docs/superpowers/plans/2026-09-21-l13-preimage.md`'s Global Constraints). Launch: `setsid nohup ~/d/beliefs/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`. The end-of-turn report that leaves it running names the process-group id (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session` has listed what the session's scope left. After exit, check that the process group is gone before reporting nothing left.
+- **Detached runs go through a reaping wrapper** (Processes rule): the cut runner and the gate outlive a turn, so each is launched by `<beliefs checkout>/.work/acceptance/detached.sh` (already written by cut 37's plan; `test -x` it, and if missing recreate it from `docs/superpowers/plans/2026-09-21-l13-preimage.md`'s Global Constraints). Launch: `setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`. The end-of-turn report that leaves it running names the process-group id (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session` has listed what the session's scope left. After exit, check that the process group is gone before reporting nothing left.
 - Conventional commits, no attribution trailers. `tasks check` before every commit; the pre-commit hook runs `just hook-pre-commit` (~20 s). `just test-fast` while working; never the full suite after every edit (AGENTS.md). Every commit message names the row or invariant it serves. Run every `pytest` from `python/` with `uv run --frozen`. No `TypeScript` changes; both `CONTRACT.yaml` copies unchanged.
 
 ---
@@ -72,7 +72,7 @@
 - [ ] **Step 1: Confirm cut 38 is unclaimed**
 
 ```bash
-cd ~/d/beliefs
+cd <beliefs checkout>
 for b in $(git for-each-ref --format='%(refname:short)' refs/heads); do git ls-tree -r --name-only $b docs/designs | grep -q "conformance-cut-3[8-9]" && echo "claimed on $b"; done; echo scan done
 git worktree list
 ```
@@ -1893,7 +1893,7 @@ Import facts, verified 2026-09-22: `output_digest` lives in `beliefs.holdings.re
 - [ ] **Step 2: Run on the certified volume**
 
 ```bash
-cd python && export SCIENCE_CUT4_ROOT=~/d/beliefs/.cut4-acceptance SCIENCE_CUT10_ROOT=~/d/beliefs/.lifecycle-wrappers-test
+cd python && export SCIENCE_CUT4_ROOT=<beliefs checkout>/.cut4-acceptance SCIENCE_CUT10_ROOT=<beliefs checkout>/.lifecycle-wrappers-test
 uv run --frozen pytest tests/acceptance/test_act_report_remainder_acceptance.py -q -p no:cacheprovider
 ```
 Expected: 12 unit functions (two parametrized: T2-g ×4, T2-j ×4) and the two plain tests green.
@@ -1958,18 +1958,18 @@ Where a `before` above is described rather than spelled (T2-f, T2-g3, T2-j), spe
 
 ```bash
 cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py tests/test_frozen_guards.py -q
-cd python && SCIENCE_CUT4_ROOT=~/d/beliefs/.work/acceptance/cut38-dev uv run --frozen pytest tests/acceptance/test_n2_cut38.py -q -p no:cacheprovider -k "not fails_under_its_own_sabotage"
+cd python && SCIENCE_CUT4_ROOT=<beliefs checkout>/.work/acceptance/cut38-dev uv run --frozen pytest tests/acceptance/test_n2_cut38.py -q -p no:cacheprovider -k "not fails_under_its_own_sabotage"
 ```
 Expected: green. Then the full N2 audit and the chained runner, detached (memory `long-gates-need-setsid-nohup`; the chain cut 37 → 17 is long):
 
 ```bash
-cd ~/d/beliefs/.worktrees/act-report-remainder/python
-export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-for n in $(seq 4 38); do export SCIENCE_CUT${n}_ROOT=~/d/beliefs/.work/acceptance/cut$n; done
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut38-runner.log uv run --frozen python tools/cut38_acceptance.py > /dev/null 2>&1 &
-sleep 2; echo "runner process group $(cat ~/d/beliefs/.work/acceptance/cut38-runner.log.pid)"
+cd <beliefs checkout>/.worktrees/act-report-remainder/python
+export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30
+for n in $(seq 4 38); do export SCIENCE_CUT${n}_ROOT=<beliefs checkout>/.work/acceptance/cut$n; done
+setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <beliefs checkout>/.work/acceptance/cut38-runner.log uv run --frozen python tools/cut38_acceptance.py > /dev/null 2>&1 &
+sleep 2; echo "runner process group $(cat <beliefs checkout>/.work/acceptance/cut38-runner.log.pid)"
 ```
-If the turn ends before the wrapper does, report that process-group id and `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut38-runner.log.pid)"` as the stop. Read the log when it exits; expected tail: three `[cut38 phase n/3]` lines, `declared arms: 14 (= 12 declaration units; 3 guarantee rows)`, the rows-exercised line, exit 0. Every arm `sound`; every check `resolved`. A `stale` verdict means a `before` no longer matches — fix the declaration (Step 1), never the source.
+If the turn ends before the wrapper does, report that process-group id and `kill -TERM -- "-$(cat <beliefs checkout>/.work/acceptance/cut38-runner.log.pid)"` as the stop. Read the log when it exits; expected tail: three `[cut38 phase n/3]` lines, `declared arms: 14 (= 12 declaration units; 3 guarantee rows)`, the rows-exercised line, exit 0. Every arm `sound`; every check `resolved`. A `stale` verdict means a `before` no longer matches — fix the declaration (Step 1), never the source.
 
 - [ ] **Step 6: Commit**
 
@@ -1985,7 +1985,7 @@ git commit -m "test(cut38): N2 declarations, guard, runner and the recent-cut ro
 **Files:**
 - Modify: `docs/designs/2026-09-05-mm30-reproduction.md` (append §17)
 
-- [ ] **Step 1: Run** — set the root by its canonical path (§16 records that the symlinked spelling refuses the preflight): `export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30` and confirm `test -f "$SCIENCE_MM30_ROOT/state.json"`. Read `rederived_belief` and `rederived_equal` from `state.json` before running and keep a copy of the file in the scratchpad directory. Then from `python/`: `PYTHONPATH=tools uv run --frozen python -m reproduction.preflight` (it must say `ok`; on a host-load refusal, `tasks park beliefs-26d2da "rerun reproduction.preflight then reproduction.rederive" --reason quiet --waiting-on user --minutes 5`), then `PYTHONPATH=tools uv run --frozen python -m reproduction.rederive`. `MM30_PREDECESSOR` may need the explicit canonical value §16 records. Nothing is recreated or moved aside: no contract succeeded; `grep -n 'audit_operation\|recheck_locations\|ScopedWriter.audit\|scoped.recheck' python/tools/reproduction/*.py` is empty — step 9 calls the bare `audit_corpus` by its own contract ("Writes nothing") and the driver re-checks no holdings.
+- [ ] **Step 1: Run** — set the root by its canonical path (§16 records that the symlinked spelling refuses the preflight): `export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30` and confirm `test -f "$SCIENCE_MM30_ROOT/state.json"`. Read `rederived_belief` and `rederived_equal` from `state.json` before running and keep a copy of the file in the scratchpad directory. Then from `python/`: `PYTHONPATH=tools uv run --frozen python -m reproduction.preflight` (it must say `ok`; on a host-load refusal, `tasks park beliefs-26d2da "rerun reproduction.preflight then reproduction.rederive" --reason quiet --waiting-on user --minutes 5`), then `PYTHONPATH=tools uv run --frozen python -m reproduction.rederive`. `MM30_PREDECESSOR` may need the explicit canonical value §16 records. Nothing is recreated or moved aside: no contract succeeded; `grep -n 'audit_operation\|recheck_locations\|ScopedWriter.audit\|scoped.recheck' python/tools/reproduction/*.py` is empty — step 9 calls the bare `audit_corpus` by its own contract ("Writes nothing") and the driver re-checks no holdings.
 
 - [ ] **Step 2: Append §17** on §16's shape — `## 17. Addendum — the act-report remainder, 2026-09-22`: read in place at the worktree's head; §17.1 what changed (the two operations, the bound port; none reached by the driver — quote the empty grep and the step-9 docstring); §17.2 what the re-run reached — the same `NoBelief` payload as §16.2 (quote both), `rederived_equal: true`, `state.json` byte-identical (`diff` against the copy, both SHA-256s); the two operations are exercised only by `python/tests/acceptance/test_act_report_remainder_acceptance.py`; §17.3 what this addendum does not claim (that mm30 audited through the wrapper or re-checked a holding; decision 12's reason).
 
@@ -2068,13 +2068,13 @@ git commit -m "docs(cut38): results record, re-rank at cut 38, T2 closed"
 - [ ] **Step 2: The gate**, detached:
 
 ```bash
-cd ~/d/beliefs/.worktrees/act-report-remainder
-export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-for n in $(seq 4 38); do export SCIENCE_CUT${n}_ROOT=~/d/beliefs/.work/acceptance/cut$n; done
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut38-gate.log just gate > /dev/null 2>&1 &
-sleep 2; echo "gate process group $(cat ~/d/beliefs/.work/acceptance/cut38-gate.log.pid)"
+cd <beliefs checkout>/.worktrees/act-report-remainder
+export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30
+for n in $(seq 4 38); do export SCIENCE_CUT${n}_ROOT=<beliefs checkout>/.work/acceptance/cut$n; done
+setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <beliefs checkout>/.work/acceptance/cut38-gate.log just gate > /dev/null 2>&1 &
+sleep 2; echo "gate process group $(cat <beliefs checkout>/.work/acceptance/cut38-gate.log.pid)"
 ```
-If the turn ends before the wrapper does, report that process-group id and `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut38-gate.log.pid)"` as the stop. Read the log at exit; expected the pytest summary line with zero failures (memory `pytest-count-claims-need-the-summary-line`) and the TypeScript suite green.
+If the turn ends before the wrapper does, report that process-group id and `kill -TERM -- "-$(cat <beliefs checkout>/.work/acceptance/cut38-gate.log.pid)"` as the stop. Read the log at exit; expected the pytest summary line with zero failures (memory `pytest-count-claims-need-the-summary-line`) and the TypeScript suite green.
 
 - [ ] **Step 3: Close and merge**
 
@@ -2082,7 +2082,7 @@ If the turn ends before the wrapper does, report that process-group id and `kill
 tasks done beliefs-b4a631 "final review, gate green, merged"
 tasks done beliefs-86b150 "cut 38 discharged: T2 in full — the audit and re-check operations open through the boundary; every supplied port bound to its writer"
 tasks check && git add tasks && git commit -m "chore(tasks): close beliefs-86b150 — cut 38 discharged"
-cd ~/d/beliefs && git merge --no-ff design/act-report-remainder -m "merge: act-report remainder — conformance cut 38"
+cd <beliefs checkout> && git merge --no-ff design/act-report-remainder -m "merge: act-report remainder — conformance cut 38"
 ```
 Then fill the results record's §6 (main integration: the merge commit, `just check` on merged `main`) in a `docs(cut38): record merged-main verification` commit. Before removing the worktree, check that no host pointer resolves into it (`readlink -f ~/bin/* ~/.local/bin/* 2>/dev/null | grep act-report-remainder` empty), then `git worktree unlock .worktrees/act-report-remainder && git worktree remove .worktrees/act-report-remainder`.
 

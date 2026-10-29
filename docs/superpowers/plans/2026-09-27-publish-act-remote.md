@@ -19,7 +19,7 @@
 
 - **Baseline is `design/publish` at `c95b7c2`**, whose merge-base with `main` is `a38d6ff`. Work in `.worktrees/publish`, branch `design/publish`, which is locked "on WORK_ROOT storage".
   - `main` has moved since `a38d6ff` by docs and task commits only. Task 0 Step 1 checks that `git diff --stat a38d6ff main -- python` is empty. The lane merges `main` only at Task 11.
-  - Paths below are relative to the repository root. Paths shown to the user carry the `.worktrees/publish/` prefix. The main checkout is `~/d/beliefs`.
+  - Paths below are relative to the repository root. Paths shown to the user carry the `.worktrees/publish/` prefix. The main checkout is `<beliefs checkout>`.
   - Run pytest from the canonical path (`cd "$(pwd -P)"`). `ELOOP` from `open_root` means the `.worktrees` symlink is in the cwd (memory `run-pytest-from-the-canonical-worktree-path`). `tools/checkout.py` resolves the cut roots, so no `SCIENCE_CUT*_ROOT` export is needed except for a standalone cut-10 run (memory `worktree-on-work-root-needs-cut-root-exports`).
 - AGENTS.md, Cut plans, verbatim: **`root.py` is the one `atoms` importer** (`test_capability_boundary.py`,
   `TestTheCompositionRootIsTheOneAtomsImporter`). A classification over engine
@@ -78,7 +78,7 @@
   8. step 9 keeps the export root, the mark, the request and the snapshot;
   9. `publication_tip` reads each held root alone, with the family's one tip rule;
   10. the recipient's intake is `restore_root` then `admit_publication`, and there is no new door.
-- **Long runs are harness-tracked** (Processes rule; plan review, round 1). Run the cut runner and the gate through the Bash tool with `run_in_background: true`, piping through `tee` into a log under `~/d/beliefs/.work/acceptance/`. The harness starts the session's next turn when the process exits, and the session reads the log then. Never detach with `setsid nohup`, `&` or the `detached.sh` wrapper: the harness does not track those, and no turn ends waiting on one. Before the end-of-turn report, `host-load --section session` lists what the session left running.
+- **Long runs are harness-tracked** (Processes rule; plan review, round 1). Run the cut runner and the gate through the Bash tool with `run_in_background: true`, piping through `tee` into a log under `<beliefs checkout>/.work/acceptance/`. The harness starts the session's next turn when the process exits, and the session reads the log then. Never detach with `setsid nohup`, `&` or the `detached.sh` wrapper: the harness does not track those, and no turn ends waiting on one. Before the end-of-turn report, `host-load --section session` lists what the session left running.
 - **Commits:**
   - Use conventional commits with no attribution trailers.
   - Run `tasks check` before every commit.
@@ -135,7 +135,7 @@ These are the inputs a person meets that the spec's arms do not pin. Each line n
 - [ ] **Step 1: Confirm the baseline and that cut 42 is unclaimed**
 
 ```bash
-cd ~/d/beliefs
+cd <beliefs checkout>
 git diff --stat a38d6ff main -- python    # expected: empty
 for b in $(git for-each-ref --format='%(refname:short)' refs/heads); do git ls-tree -r --name-only $b docs/designs | grep -q "conformance-cut-4[2-9]" && echo "claimed on $b"; done; echo scan done
 git worktree list
@@ -3034,7 +3034,7 @@ Notes for the implementer:
 - [ ] **Step 2: Run the module**
 
 ```bash
-cd ~/d/beliefs/.worktrees/publish/python && cd "$(pwd -P)"
+cd <beliefs checkout>/.worktrees/publish/python && cd "$(pwd -P)"
 uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py -q 2>&1 | tail -5
 uv run --frozen pytest tests/acceptance/test_publish_remote_acceptance.py --collect-only -q | tail -1
 ```
@@ -3168,7 +3168,7 @@ cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/te
 Then launch the runner with the Bash tool, `run_in_background: true`:
 
 ```bash
-cd ~/d/beliefs/.worktrees/publish/python && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30 && set -o pipefail && uv run --frozen python tools/cut42_acceptance.py 2>&1 | tee ~/d/beliefs/.work/acceptance/cut42-runner.log
+cd <beliefs checkout>/.worktrees/publish/python && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30 && set -o pipefail && uv run --frozen python tools/cut42_acceptance.py 2>&1 | tee <beliefs checkout>/.work/acceptance/cut42-runner.log
 ```
 
 The harness starts the next turn when it exits. If the session must end first, the end-of-turn report names the background task and says that its log is the evidence. If the harness kills the run at its background cap (exit 144 and a truncated log; seen 2026-09-20 under an older harness), do not detach it. Run `tasks park <Task 8's id> "cut 42 runner killed at the background cap after <m> min; needs a harness-tracked way to run it" --reason environment`, and tell the user.
@@ -3197,7 +3197,7 @@ git commit -m "test(cut42): N2 declarations, guard, runner and the recent-cut ro
 - Modify: `docs/designs/2026-09-05-mm30-reproduction.md` (append §21)
 
 - [ ] **Step 1: Run.**
-  1. `export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30`, then `test -f "$SCIENCE_MM30_ROOT/state.json"`, and copy that file to the scratchpad.
+  1. `export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30`, then `test -f "$SCIENCE_MM30_ROOT/state.json"`, and copy that file to the scratchpad.
   2. From `python/`, run `PYTHONPATH=tools uv run --frozen python -m reproduction.preflight`, which must say `ok`. On a host-load refusal, run `tasks park <Task 9's id> "rerun reproduction.preflight then reproduction.rederive" --reason quiet --waiting-on user --minutes 5`.
   3. Run `PYTHONPATH=tools uv run --frozen python -m reproduction.rederive`.
   4. `grep -n 'publish\|publication\|transport' python/tools/reproduction/*.py` shows what the driver reaches. Expected: nothing of this slice.
@@ -3287,7 +3287,7 @@ git commit -m "docs(cut42): results record, re-rank at cut 42, Y11–Y16 closed"
 - [ ] **Step 2: The gate, harness-tracked.** Launch with the Bash tool, `run_in_background: true`:
 
 ```bash
-cd ~/d/beliefs/.worktrees/publish && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30 && set -o pipefail && just gate 2>&1 | tee ~/d/beliefs/.work/acceptance/cut42-gate.log
+cd <beliefs checkout>/.worktrees/publish && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30 && set -o pipefail && just gate 2>&1 | tee <beliefs checkout>/.work/acceptance/cut42-gate.log
 ```
 
 Read the log at exit. Expected: the pytest summary line with zero failures (memory `pytest-count-claims-need-the-summary-line`), and the TypeScript suite green.
@@ -3299,7 +3299,7 @@ tasks done <Task 11's id> "final review, gate green, merged"
 tasks done beliefs-3ce305 "cut 42 discharged: Y11–Y16 — the remote publish act, orphans, publish-unfinished and publication_tip"
 tasks done beliefs-1a5157 "publish discharged at cuts 39, 40 and 42: records, the local act, the remote act"
 tasks check && git add docs tasks && git commit -m "chore(tasks): close beliefs-3ce305 and the publish lane — cut 42 discharged"
-cd ~/d/beliefs && git merge --no-ff design/publish -m "merge: the publish act, remote — conformance cut 42"
+cd <beliefs checkout> && git merge --no-ff design/publish -m "merge: the publish act, remote — conformance cut 42"
 ```
 
 Before the merge, `publish` leaves the ledger's `Current state` in the lane-close commit. Fill the results record's §6 in a `docs(cut42): record merged-main verification` commit on `main`. The lane is finished, so the worktree goes:

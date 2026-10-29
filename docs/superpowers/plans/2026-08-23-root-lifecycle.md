@@ -20,7 +20,7 @@ cut 9's 30 frozen declaration units.
 
 **Tech Stack:** Python 3 (`uv run --frozen`, cwd `python/`), pytest, the
 certified `atoms` engine (editable path dependency at the sibling
-checkout `~/d/atoms`; imported as `atoms.*`, confined to
+checkout `<atoms checkout>`; imported as `atoms.*`, confined to
 `science/root.py`), the N2 declaration harness
 (`tests/acceptance/n2_arms_cut8.py` + `tests/acceptance/test_n2_cut8.py`
 are the pattern), `tools/cutN_acceptance.py` runners.
@@ -90,7 +90,7 @@ both before any task).
 ### Task 1: Atoms root-lifecycle design (atoms repository — design gate)
 
 **Files:**
-- Create (in `~/d/atoms`): `docs/2026-08-23-root-lifecycle-commands-design.md`
+- Create (in `<atoms checkout>`): `docs/2026-08-23-root-lifecycle-commands-design.md`
   on branch `design/root-lifecycle` in a fresh atoms worktree.
 - Modify (after the review):
   `docs/superpowers/specs/2026-08-23-world-index-root-lifecycle-design.md`
@@ -112,7 +112,7 @@ both before any task).
   retry/operation-identity token, and the fork's source-snapshot binding.
 
 - [x] **Step 1:** In the atoms checkout, create the worktree:
-  `cd ~/d/atoms && git worktree add .worktrees/root-lifecycle -b design/root-lifecycle`
+  `cd <atoms checkout> && git worktree add .worktrees/root-lifecycle -b design/root-lifecycle`
 - [x] **Step 2:** Write the design document covering exactly spec §2–§4,
   with these contracts pinned verbatim from the spec:
   - **The fail-closed writer state** (spec §2): writability a granted

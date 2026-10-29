@@ -96,12 +96,12 @@ unresolved-target arms. Row accounting remains **8 full + 10 part + 6 deferred
 ### Task 4: The atoms amendment
 
 **Files:**
-- Modify: `~/d/atoms/docs/plans/2026-07-23-recoverable-fs-effect-engine-design.md` §12.2 and §14 (a separate repo; its own commit there)
+- Modify: `<atoms checkout>/docs/plans/2026-07-23-recoverable-fs-effect-engine-design.md` §12.2 and §14 (a separate repo; its own commit there)
 
 **Steps:**
 
 - [ ] **Step 1: Add a dated amendment note** (do not rewrite the original sentences; append `*(amended 2026-08-19 …)*` markers in both sections): science's Plan B item 2 recast under the clean start per `science`'s `2026-08-19-family-adapters-design.md` — the family list is supersede, retraction, and explicit import; planner/Gate-B lapse with the save/apply boundary that no longer exists; dialect deletion discharged by the clean start; archive/cohort require their own designs; the hard cut's surviving claim is "every Science corpus mutation flows through the certified engine".
-- [ ] **Step 2: Commit in ~/d/atoms** — `git -C ~/d/atoms add docs/plans/2026-07-23-recoverable-fs-effect-engine-design.md && git -C ~/d/atoms commit -m "docs: record science's Plan B item 2 recast (2026-08-19)"`.
+- [ ] **Step 2: Commit in the atoms checkout** — `git -C <atoms checkout> add docs/plans/2026-07-23-recoverable-fs-effect-engine-design.md && git -C <atoms checkout> commit -m "docs: record science's Plan B item 2 recast (2026-08-19)"`.
 
 ---
 

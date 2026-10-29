@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Baseline is `main` at `b9cd8b6`** (`git merge-base main design/publish`). Work in `.worktrees/publish` (branch `design/publish`, locked "on WORK_ROOT storage"). Paths below are relative to the repository root; paths shown to the user carry the `.worktrees/publish/` prefix. The main checkout is `~/d/beliefs`. For the fast loop in the worktree: `export SCIENCE_CUT4_ROOT=$(readlink -f ~/d/beliefs)/.cut4-acceptance SCIENCE_CUT10_ROOT=$(readlink -f ~/d/beliefs)/.lifecycle-wrappers-test`, and run pytest from the canonical path (`cd "$(pwd -P)"`): about 190 `CapabilityUnavailable` failures mean a missing export, and `ELOOP` from `open_root` means the `.worktrees` symlink is in the cwd (memories `worktree-on-work-root-needs-cut-root-exports`, `run-pytest-from-the-canonical-worktree-path`).
+- **Baseline is `main` at `b9cd8b6`** (`git merge-base main design/publish`). Work in `.worktrees/publish` (branch `design/publish`, locked "on WORK_ROOT storage"). Paths below are relative to the repository root; paths shown to the user carry the `.worktrees/publish/` prefix. The main checkout is `<beliefs checkout>`. For the fast loop in the worktree: `export SCIENCE_CUT4_ROOT=$(readlink -f <beliefs checkout>)/.cut4-acceptance SCIENCE_CUT10_ROOT=$(readlink -f <beliefs checkout>)/.lifecycle-wrappers-test`, and run pytest from the canonical path (`cd "$(pwd -P)"`): about 190 `CapabilityUnavailable` failures mean a missing export, and `ELOOP` from `open_root` means the `.worktrees` symlink is in the cwd (memories `worktree-on-work-root-needs-cut-root-exports`, `run-pytest-from-the-canonical-worktree-path`).
 - AGENTS.md, Cut plans, verbatim: **`root.py` is the one `atoms` importer** (`test_capability_boundary.py`,
   `TestTheCompositionRootIsTheOneAtomsImporter`). A classification over engine
   cause types, a predicate over engine exceptions, or any other engine-typed
@@ -56,7 +56,7 @@
   8. resumption by reinvocation;
   9. resuming requires the intent's actor;
   10. `admit_publication` is its own door.
-- **Detached runs go through the reaping wrapper** (Processes rule). Launch the cut runner and the gate with `setsid nohup ~/d/beliefs/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`, after `test -x` on the wrapper. The end-of-turn report that leaves one running names its process group (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session`.
+- **Detached runs go through the reaping wrapper** (Processes rule). Launch the cut runner and the gate with `setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <log> <cmd…> > /dev/null 2>&1 &`, after `test -x` on the wrapper. The end-of-turn report that leaves one running names its process group (`cat <log>.pid`) and the stop command (`kill -TERM -- "-$(cat <log>.pid)"`), after `host-load --section session`.
 - **Commits:**
   - Use conventional commits, with no attribution trailers.
   - Run `tasks check` before every commit.
@@ -115,7 +115,7 @@ These are the inputs a person meets that the spec's arms do not pin. Each line n
 - [ ] **Step 1: Confirm cut 40 is unclaimed**
 
 ```bash
-cd ~/d/beliefs
+cd <beliefs checkout>
 for b in $(git for-each-ref --format='%(refname:short)' refs/heads); do git ls-tree -r --name-only $b docs/designs | grep -q "conformance-cut-4[0-9]" && echo "claimed on $b"; done; echo scan done
 git worktree list
 ```
@@ -3473,8 +3473,8 @@ The registry is the recipient world root's own files, so an unchanged tree is an
 - [ ] **Step 3: Run on the certified volume**
 
 ```bash
-cd ~/d/beliefs/.worktrees/publish/python && cd "$(pwd -P)"
-SCIENCE_CUT4_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut40-dev uv run --frozen pytest tests/acceptance/test_publish_act_acceptance.py -q -p no:cacheprovider
+cd <beliefs checkout>/.worktrees/publish/python && cd "$(pwd -P)"
+SCIENCE_CUT4_ROOT=$(readlink -f <beliefs checkout>)/.work/acceptance/cut40-dev uv run --frozen pytest tests/acceptance/test_publish_act_acceptance.py -q -p no:cacheprovider
 ```
 Expected: every test passes. The count is the fifteen units' functions plus Y5-a's nine cases (counting as nine), Y9-a's eight boundaries (eight) and its lost-sibling test, and the Review Focus tests 3 and 4. Write the exact number into the cut document's §4 if Task 0 left a placeholder. Every failure is a finding against Tasks 1–7, not a test to loosen: fix the source, or record the finding and park `--reason decision` if it needs a design change.
 
@@ -3552,14 +3552,14 @@ Each arm's `asserts` text is its spec §13 row clause, in one sentence. Before p
 
 ```bash
 cd python && uv run --frozen pytest tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py tests/test_frozen_guards.py -q
-cd ~/d/beliefs/.worktrees/publish/python && cd "$(pwd -P)"
-export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-for n in $(seq 4 40); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
-test -x ~/d/beliefs/.work/acceptance/detached.sh
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut40-runner.log uv run --frozen python tools/cut40_acceptance.py > /dev/null 2>&1 &
-sleep 2; echo "runner process group $(cat ~/d/beliefs/.work/acceptance/cut40-runner.log.pid)"
+cd <beliefs checkout>/.worktrees/publish/python && cd "$(pwd -P)"
+export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30
+for n in $(seq 4 40); do export SCIENCE_CUT${n}_ROOT=$(readlink -f <beliefs checkout>)/.work/acceptance/cut$n; done
+test -x <beliefs checkout>/.work/acceptance/detached.sh
+setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <beliefs checkout>/.work/acceptance/cut40-runner.log uv run --frozen python tools/cut40_acceptance.py > /dev/null 2>&1 &
+sleep 2; echo "runner process group $(cat <beliefs checkout>/.work/acceptance/cut40-runner.log.pid)"
 ```
-If the turn ends before the wrapper does, report that process group and the stop command, `kill -TERM -- "-$(cat ~/d/beliefs/.work/acceptance/cut40-runner.log.pid)"`.
+If the turn ends before the wrapper does, report that process group and the stop command, `kill -TERM -- "-$(cat <beliefs checkout>/.work/acceptance/cut40-runner.log.pid)"`.
 
 Read the log at exit. Expected tail:
 - three `[cut40 phase n/3]` lines;
@@ -3584,7 +3584,7 @@ git commit -m "test(cut40): N2 declarations, guard, runner and the recent-cut ro
 - Modify: `docs/designs/2026-09-05-mm30-reproduction.md` (append §19)
 
 - [ ] **Step 1: Run.**
-  1. `export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30`, then `test -f "$SCIENCE_MM30_ROOT/state.json"` and copy that file to the scratchpad.
+  1. `export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30`, then `test -f "$SCIENCE_MM30_ROOT/state.json"` and copy that file to the scratchpad.
   2. From `python/`, run `PYTHONPATH=tools uv run --frozen python -m reproduction.preflight`, which must say `ok`. On a host-load refusal, park with `tasks park <Task 10's id> "rerun reproduction.preflight then reproduction.rederive" --reason quiet --waiting-on user --minutes 5`.
   3. Run `PYTHONPATH=tools uv run --frozen python -m reproduction.rederive`.
   4. `grep -n 'publish\|publication\|durable' python/tools/reproduction/*.py` shows what the driver reaches. Expected: nothing of this slice.
@@ -3661,11 +3661,11 @@ git commit -m "docs(cut40): results record, re-rank at cut 40, Y5–Y10 closed"
 - [ ] **Step 2: The gate, detached**
 
 ```bash
-cd ~/d/beliefs/.worktrees/publish && cd "$(pwd -P)"
-export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30
-for n in $(seq 4 40); do export SCIENCE_CUT${n}_ROOT=$(readlink -f ~/d/beliefs)/.work/acceptance/cut$n; done
-setsid nohup ~/d/beliefs/.work/acceptance/detached.sh ~/d/beliefs/.work/acceptance/cut40-gate.log just gate > /dev/null 2>&1 &
-sleep 2; echo "gate process group $(cat ~/d/beliefs/.work/acceptance/cut40-gate.log.pid)"
+cd <beliefs checkout>/.worktrees/publish && cd "$(pwd -P)"
+export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30
+for n in $(seq 4 40); do export SCIENCE_CUT${n}_ROOT=$(readlink -f <beliefs checkout>)/.work/acceptance/cut$n; done
+setsid nohup <beliefs checkout>/.work/acceptance/detached.sh <beliefs checkout>/.work/acceptance/cut40-gate.log just gate > /dev/null 2>&1 &
+sleep 2; echo "gate process group $(cat <beliefs checkout>/.work/acceptance/cut40-gate.log.pid)"
 ```
 Read the log at exit. Expected: the pytest summary line with zero failures (memory `pytest-count-claims-need-the-summary-line`) and the TypeScript suite green.
 
@@ -3675,7 +3675,7 @@ Read the log at exit. Expected: the pytest summary line with zero failures (memo
 tasks done <Task 12's id> "final review, gate green, merged"
 tasks done beliefs-328507 "cut 40 discharged: Y5–Y10 — the local publish act, its resumption and marker-required arrival"
 tasks check && git add tasks && git commit -m "chore(tasks): close beliefs-328507 — cut 40 discharged"
-cd ~/d/beliefs && git merge --no-ff design/publish -m "merge: the publish act, local — conformance cut 40"
+cd <beliefs checkout> && git merge --no-ff design/publish -m "merge: the publish act, local — conformance cut 40"
 ```
 `beliefs-1a5157` stays open, since cut 41 (`beliefs-3ce305`) is its remainder. Fill the results record's §6 in a `docs(cut40): record merged-main verification` commit. The worktree stays for cut 41.
 

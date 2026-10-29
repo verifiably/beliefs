@@ -72,7 +72,7 @@ decision numbers are cited throughout.
     and report it.
 - **Long runs are harness-tracked.** Run the cut runner and the gate through the Bash
   tool with `run_in_background: true`, piping through `tee` into
-  `~/d/beliefs/.work/acceptance/cut44-*.log`. Never `setsid nohup`, `&` or
+  `<beliefs checkout>/.work/acceptance/cut44-*.log`. Never `setsid nohup`, `&` or
   `detached.sh`. On a harness cap kill, park `--reason environment` and report.
 - **Tests:** `just test-one <args>` (paths relative to `python/`) while working, and
   `just test-fast` before each commit. There are no TypeScript changes.
@@ -126,7 +126,7 @@ decision numbers are cited throughout.
 - [ ] **Step 1: Confirm 44 is unclaimed**
 
 ```bash
-cd ~/d/beliefs
+cd <beliefs checkout>
 for b in $(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes); do git ls-tree -r --name-only $b docs/designs | grep -o "conformance-cut-4[4-9]" | sort -u | sed "s|^|$b: |"; done; echo scan done
 ```
 Expected: only `scan done`. Any `-44` or higher means stop and ask.
@@ -2102,7 +2102,7 @@ just test-one tests/test_recent_cut_acceptance.py tests/test_arm_staleness.py te
 Then run with the Bash tool, `run_in_background: true`:
 
 ```bash
-cd ~/d/beliefs/.worktrees/cross-mount-eligibility/python && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f ~/d/beliefs)/.work/reproduction/mm30 && set -o pipefail && uv run --frozen python tools/cut44_acceptance.py 2>&1 | tee ~/d/beliefs/.work/acceptance/cut44-runner.log
+cd <beliefs checkout>/.worktrees/cross-mount-eligibility/python && cd "$(pwd -P)" && export SCIENCE_MM30_ROOT=$(readlink -f <beliefs checkout>)/.work/reproduction/mm30 && set -o pipefail && uv run --frozen python tools/cut44_acceptance.py 2>&1 | tee <beliefs checkout>/.work/acceptance/cut44-runner.log
 ```
 Read the log when the harness wakes the session. The expected tail has:
 - the phase lines;
@@ -2201,7 +2201,7 @@ git commit -m "docs(cut44): results record, re-rank at cut 44, J16–J21 closed"
 - [ ] **Step 2: The gate, harness-tracked.** `run_in_background: true`:
 
 ```bash
-cd ~/d/beliefs/.worktrees/cross-mount-eligibility && cd "$(pwd -P)" && set -o pipefail && just gate 2>&1 | tee ~/d/beliefs/.work/acceptance/cut44-gate.log
+cd <beliefs checkout>/.worktrees/cross-mount-eligibility && cd "$(pwd -P)" && set -o pipefail && just gate 2>&1 | tee <beliefs checkout>/.work/acceptance/cut44-gate.log
 ```
   Expected: the pytest summary line with zero failures, and TypeScript green.
 - [ ] **Step 3: Close and merge**
@@ -2210,7 +2210,7 @@ cd ~/d/beliefs/.worktrees/cross-mount-eligibility && cd "$(pwd -P)" && set -o pi
 tasks done <Task 10's id> "final review, gate green, merged"
 tasks done beliefs-9ce6e4 "cut 44 discharged: citations over read mounts, session-wide acquisition invariants, eligibility classes in both checks, corpus-local reads refuse unheld inputs"
 tasks check && git add tasks && git commit -m "chore(tasks): close beliefs-9ce6e4 — cut 44 discharged"
-cd ~/d/beliefs && git merge --no-ff cross-mount-eligibility -m "merge: mount citations — conformance cut 44"
+cd <beliefs checkout> && git merge --no-ff cross-mount-eligibility -m "merge: mount citations — conformance cut 44"
 ```
   Fill the results record's §6 on `main`, then remove the worktree:
   1. run `tt-report`;
