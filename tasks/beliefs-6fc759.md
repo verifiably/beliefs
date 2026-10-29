@@ -1,13 +1,15 @@
 ---
 id: beliefs-6fc759
 title: Resolve existing tilde-layout findings before checker rollout
-status: todo
+status: doing
 priority: 2
 size: m
 complexity: mid
 process: direct
+owner: main
 created: 2026-10-22T19:06:28Z
-updated: 2026-10-22T19:06:28Z
+updated: 2026-10-29T20:26:25Z
+started: 2026-10-29T20:26:25Z
 depends: []
 tags: []
 source: ops-295f8d
@@ -43,3 +45,8 @@ Reported files:
 - docs/superpowers/plans/2026-09-27-publish-act-remote.md: first reported line 22; 8 reported finding(s)
 - docs/superpowers/plans/2026-09-27-session-mounts.md: first reported line 47; 6 reported finding(s)
 - docs/superpowers/plans/2026-10-01-mount-citations.md: first reported line 75; 5 reported finding(s)
+
+## Notes
+
+- 2026-10-29T20:26:25Z (main): started
+  provenance: {"harness_session":"claude-code:0abf3f61-62e6-4a09-a944-9063cc887bf3","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
