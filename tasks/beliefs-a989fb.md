@@ -8,7 +8,7 @@ complexity: high
 process: direct
 owner: feat/a989fb-retire-door
 created: 2026-10-23T01:56:42Z
-updated: 2026-10-29T12:31:35Z
+updated: 2026-10-29T12:34:34Z
 started: 2026-10-29T12:31:07Z
 depends: [beliefs-c0d952]
 parent: beliefs-182296
@@ -51,3 +51,4 @@ Handoff: [ref:brief] records why this needs a design first: binding the pin with
   provenance: {"harness_session":"claude-code:a586de0e-bccf-4067-9940-3b6ecc9e67a2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-10-29T12:31:35Z (feat/a989fb-retire-door): resumed
   provenance: {"harness_session":"claude-code:a586de0e-bccf-4067-9940-3b6ecc9e67a2","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-10-29T12:34:34Z (feat/a989fb-retire-door): baseline: just test at 064f351 in .worktrees/a989fb-retire-door: non-N2 phase 6333 passed, 2 failed, 1 skipped (100 s); the recipe stopped there, so N2 and TypeScript did not run. Both failures (test_verify.py r11 nondeterministic transform, data-dependent replay) refused 'the recorded environment is not the executing environment' under xdist load and pass in isolation via just test-one (2 passed, 24.9 s): load-sensitive flake, unrelated to the session writer
