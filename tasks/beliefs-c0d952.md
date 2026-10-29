@@ -1,13 +1,15 @@
 ---
 id: beliefs-c0d952
 title: Design ledgered publication retirement from the brief
-status: todo
+status: doing
 priority: 2
 size: m
 complexity: high
 process: planned
+owner: main
 created: 2026-10-24T09:56:24Z
-updated: 2026-10-24T09:56:24Z
+updated: 2026-10-29T11:34:00Z
+started: 2026-10-29T11:34:00Z
 depends: []
 parent: beliefs-182296
 tags: [publication, design]
@@ -28,3 +30,8 @@ Ideas it wakes: On completion, run `tasks note beliefs-a989fb --no-reviewed "<re
 ## References
 
 - brief (input, required, kind=brief): docs/notes/2026-10-24-publication-session-follow-ups-brief.md — scope, known behaviour and design questions
+
+## Notes
+
+- 2026-10-29T11:34:00Z (main): started
+  provenance: {"harness_session":"claude-code:273e85cc-6b53-4247-a392-547603c4040c","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
