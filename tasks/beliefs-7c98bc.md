@@ -7,7 +7,7 @@ size: m
 complexity: high
 process: planned
 created: 2026-09-23T11:40:35Z
-updated: 2026-10-30T13:34:33Z
+updated: 2026-10-30T13:34:36Z
 depends: [beliefs-9c375c]
 tags: []
 agent: claude-code/claude-fable-5-1
@@ -33,3 +33,5 @@ Kernel §4.1 declares Run --executes--> AnalysisSpec and AnalysisSpec --targets-
 - 2026-10-30T12:03:40Z (main): unshelved
 - 2026-10-30T12:03:43Z (main): shelf recovery 2026-10-30: October 27 notes already carry the requested worked enumeration/traversal measurement and its correction (five spec entries and two additional health entries, not three). Restore review of whether that evidence justifies the three-edge proposal; materiality and endpoint policy remain unsettled, with no implementation approval. Full audit and recovery record retained on tasks-11f6d3.
   provenance: {"harness_session":"codex:01a18ca3-4bd6-7d61-8fb4-f4ce4eda96e2","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-30T13:34:36Z (main): scope: scoped; P2/m/high/planned design-only task, gated by existing endpoint research beliefs-9c375c; measured consumer evidence at science d7dd978 justifies design rather than another measurement task or immediate implementation. Verified builders and contract at beliefs e7c3464; preserved the complete original proposal and corrected five-view/two-health-entry benefit, annotation and anchor limits. Design approval and a later implementation-plan review remain required; no new handoff needed because the scoped body carries the design input. origin: filing event unavailable (no creation occurrence/session stamp in the record); no origin_session, so no older-request stage; origin remains unknown. The design-only scope and recommendation are this pass's judgment, not a recovered user instruction.
+  provenance: {"harness_session":"codex:01a18d00-3b8f-7370-8c28-c8d84f117110","harness_session_source":"CODEX_THREAD_ID"}
