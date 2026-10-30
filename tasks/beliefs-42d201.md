@@ -1,10 +1,10 @@
 ---
 id: beliefs-42d201
 title: Should the publication marker carry a workspace locator?
-status: idea
+status: shelved
 priority: 2
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-30T12:03:37Z
+updated: 2026-10-30T13:35:06Z
 depends: []
 tags: [publication]
 source: sci-fe8522
@@ -20,3 +20,4 @@ Science's commons design §5 step 4: a marker names no repository or commit, so 
 - 2026-10-30T12:03:34Z (main): unshelved
 - 2026-10-30T12:03:37Z (main): shelf recovery 2026-10-30: sci-13050a is done with the milestone 1a plan and executed collaboration. Both the plan-written shelf wording and explanatory needs-run wording now have evidence; restore locator review without approving marker changes. Full audit and recovery record retained on tasks-11f6d3.
   provenance: {"harness_session":"codex:01a18ca3-4bd6-7d61-8fb4-f4ce4eda96e2","harness_session_source":"CODEX_THREAD_ID"}
+- 2026-10-30T13:35:06Z (main): shelved: Revisit when science commons milestone 2 (sci-8363b5) exercises catalog execution locators and records whether they suffice, or a concrete reproduction cannot obtain the required workspace/environment through the documented out-of-band or catalog handoff. Milestone 1a completion alone is already evaluated and is not the new wake condition. Bring the failing or successful locator handoff evidence; marker identity/content policy still needs design review.
