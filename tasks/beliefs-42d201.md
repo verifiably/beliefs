@@ -1,10 +1,10 @@
 ---
 id: beliefs-42d201
 title: Should the publication marker carry a workspace locator?
-status: shelved
+status: idea
 priority: 2
 created: 2026-10-01T02:21:10Z
-updated: 2026-10-09T10:48:34Z
+updated: 2026-10-30T12:03:34Z
 depends: []
 tags: [publication]
 source: sci-fe8522
@@ -17,3 +17,4 @@ Science's commons design §5 step 4: a marker names no repository or commit, so 
 
 - 2026-10-09T10:48:33Z (main): shelved: The science commons milestone 1a plan (sci-13050a) is written: commons §11 asks this there, after 1a has run with out-of-band execution locators checked by the replay's recipe validation
 - 2026-10-09T10:48:33Z (main): scope: shelved; commons §5 step 4 settles 1a (locators out of band, checked by recipe validation) and milestone 2 (catalog execution claim), so the marker question has no evidence until 1a runs; related: beliefs-631101 (replay recipe-identity check before execution)
+- 2026-10-30T12:03:34Z (main): unshelved
