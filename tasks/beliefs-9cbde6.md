@@ -7,7 +7,7 @@ size: s
 complexity: mid
 process: direct
 created: 2026-10-30T12:06:02Z
-updated: 2026-10-30T12:06:02Z
+updated: 2026-10-30T15:06:00Z
 depends: []
 tags: []
 source: "sci-b2755f:pilot:sample-independence"
@@ -36,3 +36,4 @@ Related but distinct: beliefs-bbd142 owns gene-versus-protein referent semantics
 
 - 2026-10-30T12:06:02Z (add): created
   provenance: {"harness_session":"codex:01a18c50-32b0-7103-beae-7c810e393c5c","harness_session_source":"CODEX_THREAD_ID","origin":"agent"}
+- 2026-10-30T15:06:00Z (main): The sweep has now integrated and closed. Current authoritative evidence is sci-b2755f attachments pilot-v3-report.md and discovery-inventory-v2.md, accepted at e674683; the execution worktree was removed. Exact input/evidence ownership is sci-eb1559, whose manifests replace the old parked-worktree locator. The pilot preserved the intentional unpaired-estimator distinction and established no sample-independence defect. This task already owns the concrete independence question; new mm-87d8db must not duplicate it.
