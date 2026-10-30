@@ -7,7 +7,7 @@ size: m
 complexity: high
 process: direct
 created: 2026-10-30T15:04:28Z
-updated: 2026-10-30T15:04:28Z
+updated: 2026-10-30T15:04:31Z
 depends: []
 tags: []
 source: "sci-b2755f:representation-assessment"
@@ -29,3 +29,4 @@ Done when an attached evidence table binds each example to current code/contract
 
 - 2026-10-30T15:04:28Z (add): created
   provenance: {"harness_session":"codex:01a18ce3-2793-7ad1-b204-ef9b88b33aba","harness_session_source":"CODEX_THREAD_ID","origin":"agent"}
+- 2026-10-30T15:04:31Z (main): concerns: sci-b2755f extension — Evaluate the pilot representation gaps using concrete existing-schema attempts; no kernel extension or stored dependency graph is preselected.
