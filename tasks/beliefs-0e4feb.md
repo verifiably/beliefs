@@ -7,7 +7,7 @@ size: m
 complexity: high
 process: direct
 created: 2026-10-30T15:04:28Z
-updated: 2026-10-30T15:04:35Z
+updated: 2026-10-30T15:04:38Z
 depends: []
 tags: []
 source: "sci-b2755f:representation-assessment"
@@ -24,6 +24,10 @@ Use concrete examples: X1 independent-sample requirement (P1), X2 annotation req
 Read the current contracts, proposition/source-assertion/composite/spec/estimand implementation and the pilot's exact revision binds. Explain which examples fit existing fields, which can remain report-local without loss for a named consumer, which cannot round-trip required scope/provenance, and the smallest ownership recommendation for each genuine gap. Describe attempts/examples without minting records or editing frozen specs. co_scoped only compares declared maps; commensurable retains claim identity. Code establishes current capability, not eventual scope.
 
 Done when an attached evidence table binds each example to current code/contract locators, shows an existing-representation attempt or concrete mismatch, and recommends no change or a narrowly justified next design. No kernel implementation, admission change, confidence propagation, automatic literature promotion, data reads or policy amendment. Coordinate through findings with beliefs-d6060a (causal DAG semantics), sci-87c165 (scope comparison view) and sci-cc4fb9 (source/source-assertion commands); those tasks do not already assess general epistemic reliance. A new design is filed only if a concrete consumer requires it.
+
+## References
+
+- pilot (input, required, kind=handoff): files:sweep-pilot-input.md — frozen report locators, provenance and limits
 
 ## Notes
 
