@@ -7,13 +7,15 @@ size: m
 complexity: high
 process: direct
 created: 2026-10-30T15:04:28Z
-updated: 2026-10-30T15:04:38Z
+updated: 2026-10-30T15:05:54Z
 depends: []
 tags: []
 source: "sci-b2755f:representation-assessment"
 agent: codex
 origin: agent
 ---
+
+Read [ref:pilot] first for the frozen source locations and accepted limits.
 
 Origin: agent-proposed follow-up to the accepted sci-b2755f / sci-d3044e pilot, after the user asked which additional follow-ups would be useful. Acceptance at science commit e674683 covers three bounded questions, not field-wide priority or biological validation. The exact input report is attached to sci-b2755f as pilot-v3-report.md (SHA256 6815cc2f6d9b5c5d86d5aaafd291dfe88aba4cedb097fb8f47f7ec038356f18f); resolve its current path with tasks show sci-b2755f. The full source/inventory/read/review artifacts are on that same task. Persistent exact inputs belong to sci-eb1559; verify its manifests before use.
 
@@ -24,10 +26,12 @@ Use concrete examples: X1 independent-sample requirement (P1), X2 annotation req
 Read the current contracts, proposition/source-assertion/composite/spec/estimand implementation and the pilot's exact revision binds. Explain which examples fit existing fields, which can remain report-local without loss for a named consumer, which cannot round-trip required scope/provenance, and the smallest ownership recommendation for each genuine gap. Describe attempts/examples without minting records or editing frozen specs. co_scoped only compares declared maps; commensurable retains claim identity. Code establishes current capability, not eventual scope.
 
 Done when an attached evidence table binds each example to current code/contract locators, shows an existing-representation attempt or concrete mismatch, and recommends no change or a narrowly justified next design. No kernel implementation, admission change, confidence propagation, automatic literature promotion, data reads or policy amendment. Coordinate through findings with beliefs-d6060a (causal DAG semantics), sci-87c165 (scope comparison view) and sci-cc4fb9 (source/source-assertion commands); those tasks do not already assess general epistemic reliance. A new design is filed only if a concrete consumer requires it.
+Deliver the findings as [ref:result], attached through tasks attach; verify the task lists the attachment before completion.
 
 ## References
 
 - pilot (input, required, kind=handoff): files:sweep-pilot-input.md — frozen report locators, provenance and limits
+- result (output, kind=report): files:premise-representation-report.md — bounded findings and verification
 
 ## Notes
 
