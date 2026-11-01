@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:36:39Z
+updated: 2026-11-01T10:36:42Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -106,3 +106,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:31:16Z (design/067a8d-test-policy): review: impl round 2 — verdict: accept; findings: Minor 1; reviewer: claude-code/claude-opus-5-5
 - 2026-11-01T10:36:36Z (design/067a8d-test-policy): review: impl round 3 — verdict: accept; findings: none; reviewer: claude-code/claude-opus-5-5
 - 2026-11-01T10:36:39Z (design/067a8d-test-policy): attached: final-review-report.md (6529 bytes): Final whole-branch review, round 1 — beliefs-067a8d
+- 2026-11-01T10:36:42Z (design/067a8d-test-policy): attached: final-rereview-1-report.md (1409 bytes): Corrective round 1 re-review — beliefs-067a8d
