@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T02:13:51Z
+updated: 2026-11-01T02:13:54Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -57,3 +57,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T02:04:00Z (design/067a8d-test-policy): Origin: agent-filed adoption child of ops-8bfa85 (source tt-policy:beliefs); originating human ask in codex:01a1874f-c2d8-7320-ae81-7114e37e343f as recovered on nodes-6fde14's origin note. Project-specific calls in the spec are the designer's, marked as such. Spec frozen at 60b6487 docs/superpowers/specs/2026-10-31-test-execution-policy-design.md; fresh reviewer dispatched.
 - 2026-11-01T02:11:09Z (design/067a8d-test-policy): review: spec round 1 — verdict: revise; findings: Important 5, Minor 10; reviewer: claude-code/claude-opus-5-5
 - 2026-11-01T02:13:51Z (design/067a8d-test-policy): attached: spec-round-1-report.md (9607 bytes): Full spec round 1 review of frozen 60b6487 by claude-code/claude-opus-5-5: revise, Important 5, Minor 10
+- 2026-11-01T02:13:54Z (design/067a8d-test-policy): attached: spec-round-1-ledger.md (2931 bytes): Controller rulings for all 15 spec round 1 findings; all accepted, none deferred
