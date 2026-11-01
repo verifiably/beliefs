@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:41:45Z
+updated: 2026-11-01T11:41:48Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -148,3 +148,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:41:14Z (main): Activation run 41301850058 on 01eb638, conclusion success: every job accept. Python 3.11/3.13: non-N2 6404 cases, 6076 executed and passed, 328 skipped (327 capability omissions, identical to run 41298875513's list, plus the baseline skip), N2 46 passed, all 205 eligible modules present; TypeScript 20/24: 155 passed, 7 modules. Siblings unchanged (atoms 935535a, nodes ce159f2). Job times: py3.11 14.4 min, py3.13 8.0 min, TS 0.3 min. hosted-2-assessment.txt attached.
 - 2026-11-01T11:41:41Z (main): attached: push-1.log (9630 bytes): push-1.log: publication push d6dab00 with local fast gate output
 - 2026-11-01T11:41:45Z (main): attached: push-2.log (1949 bytes): push-2.log: activation push 01eb638, check-code and test-push skipped by policy
+- 2026-11-01T11:41:48Z (main): attached: pre-activation-main-log.txt (1024 bytes): pre-activation-main-log.txt: git log d6dab00..main before the activation merge (tasks-only)
