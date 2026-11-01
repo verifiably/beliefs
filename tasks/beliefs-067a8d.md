@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T02:03:51Z
+updated: 2026-11-01T02:04:00Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -54,3 +54,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T02:00:44Z (design/067a8d-test-policy): resumed
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T02:03:51Z (design/067a8d-test-policy): Planned path in .worktrees/067a8d-test-policy on design/067a8d-test-policy; locked worktree hydrated with just setup (npm ci + Dropbox ignore attr). Full-suite baseline deferred to implementation Setup per planned-work rule. tools/tt already version 9 (body's version 7 stale). No test-latency or halt tasks open. Repo public (gh API, khughitt): hosted standard runners free, no-paid-overage inapplicable while public.
+- 2026-11-01T02:04:00Z (design/067a8d-test-policy): Origin: agent-filed adoption child of ops-8bfa85 (source tt-policy:beliefs); originating human ask in codex:01a1874f-c2d8-7320-ae81-7114e37e343f as recovered on nodes-6fde14's origin note. Project-specific calls in the spec are the designer's, marked as such. Spec frozen at 60b6487 docs/superpowers/specs/2026-10-31-test-execution-policy-design.md; fresh reviewer dispatched.
