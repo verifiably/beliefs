@@ -244,6 +244,8 @@ def test_ci_suites_are_the_local_suites(tmp_path: Path) -> None:
         assert result.returncode == 0, result.stderr
         return result.stdout
 
+    # `test` itself is exactly the two package suites the CI jobs carry.
+    assert evaluate("test_cmd") == evaluate("py_test_cmd") + " && " + evaluate("ts_test_cmd")
     junit = r' --junitxml="\$BELIEFS_CI_EVIDENCE_DIR/[^"/]+\.xml"'
     assert re.sub(junit, "", evaluate("ci_py_test_cmd")) == evaluate("py_test_cmd")
     reporters = ' -- --reporter=default --reporter=junit --outputFile.junit="$BELIEFS_CI_EVIDENCE_DIR/vitest.xml"'
