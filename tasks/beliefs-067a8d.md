@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:37:22Z
+updated: 2026-11-01T10:38:06Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -113,3 +113,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:37:19Z (main): resumed
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T10:37:22Z (main): policy: enabled at 2026-11-01T10:37:10Z revision d6dab00165bf520bb61215e309d2847af90c0978
+- 2026-11-01T10:38:06Z (main): attached: publication-packet.md (6672 bytes): Publication packet: push d6dab00 to origin main (policy-enabled, widened CI); approval asked
