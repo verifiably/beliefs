@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T17:00:11Z
+updated: 2026-11-01T17:00:38Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -97,3 +97,4 @@ Process: planned
 - 2026-11-01T17:00:04Z (perf/0f5112-test-latency): attached: plan-round-4-report.md (11679 bytes): Review report: plan-round-4
 - 2026-11-01T17:00:08Z (perf/0f5112-test-latency): attached: plan-round-5-report.md (4762 bytes): Review report: plan-round-5
 - 2026-11-01T17:00:11Z (perf/0f5112-test-latency): attached: plan-round-6-report.md (2446 bytes): Review report: plan-round-6
+- 2026-11-01T17:00:38Z (perf/0f5112-test-latency): retained: {"host":"titan","kind":"scratch","path":"$WORK_ROOT/beliefs/beliefs-0f5112","state":"released","verification":"verified","purpose":"Removed after verified disposition of all 33 members of files:scratch-manifest-final.json (sha256 bc88b7f249460ad66617b2cb9041c7c98306ddb358c40bf41e79a0c02d9b022c): attached 14 (cand-attribution.json, diag-attribution.json, bench-summary.jsonl, impl-round-1/2, spec-builder-check, spec-round-1/2, plan-round-1..6 reports; bytes verified at HEAD); discarded 19 regenerable logs, profiles and closure snapshots (bench-*.log, bench-driver.log, bench-pilot*, boundary.prof, sharing.prof, cand-durations.log, diag-durations.log, diag.*-load.txt, closure-*.json, test-full.log) whose figures and digests are in docs/plans/2026-11-01-test-fast-latency-results.md and tt run rows","next_owner":"none","cleanup_trigger":"none"}
