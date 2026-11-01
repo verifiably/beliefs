@@ -1,7 +1,7 @@
 # Beliefs test execution policy adoption
 
-Status: revised after spec rounds 1 (`60b6487`), 2 (`e2927dd`) and 3 (`2cee097`);
-proposed for user review. Task: beliefs-067a8d. This document authorizes no
+Status: revised after spec rounds 1 (`60b6487`), 2 (`e2927dd`), 3 (`2cee097`) and
+5 (`5237cb7`, the user's review); proposed for review. Task: beliefs-067a8d. This document authorizes no
 implementation, workflow publication, push or policy-off activation. The
 implementation plan follows user approval of this frozen design.
 
@@ -126,11 +126,11 @@ grant. This matters only while policy is enabled. Under policy-off,
 | `test-fast` | broad | Unchanged `fast_cmd` under `host-budget run`. |
 | `test-push` | broad | New: the existing `push_fast_cmd` under `host-budget run`, recorded under its own target. |
 | `test` | broad | Unchanged `test_cmd` (non-N2, N2, TypeScript) under `host-budget run`. |
-| `test-full` | protected | New untimed alias `TT_FORCE=1 just test`. Only the inner `test` row is recorded, with reason `forced`. |
+| `test-full` | protected | New untimed alias `TT_FORCE=1 just test`. Only the inner `test` row is recorded, with reason `forced`. Suite evidence only: it runs no hygiene, lint or typecheck, so it is never cited as a full gate. |
 | `check-hygiene` | protected | New: ops-check, ops-docs check, `tasks check`. Always runs. |
 | `check-code` | broad | New: the existing `py_check_cmd` then `ts_check_cmd` (Ruff check, Ruff format check, Pyright, tsc, Biome). |
 | `check` | untimed alias | `just check-hygiene` then `just check-code`, as sequential recipe lines. |
-| `gate` | untimed alias | `just check` then `just test`. |
+| `gate` | untimed alias | `just check` then `just test`. `TT_FORCE=1 just gate` is the full-gate evidence route: hygiene, then forced `check-code` and `test` rows. |
 | `setup` | protected | Unchanged. |
 | `hook-pre-commit` | protected | Times hygiene once under its own target, then runs `just check-code`. |
 | `hook-pre-commit-docs` | protected | Unchanged hygiene path, now the same command as `check-hygiene`. |
@@ -228,7 +228,7 @@ Extend the existing `ci.yml`. Do not add a second workflow.
   `safe_load` reads `on:` as `True`). A missing key fails the test rather than
   passing vacuously.
 - `timeout-minutes: 30` on the Python jobs, about twice the slowest observed run.
-  10 on the TypeScript jobs. Both bounds appear in the activation packet.
+  10 on the TypeScript jobs. Both bounds appear in the publication packet.
 
 ### Durable coverage evidence
 
@@ -311,13 +311,18 @@ Policy-off leaves these routes for certified evidence. Guidance names each one:
   the exact mismatch, as AGENTS.md requires today.
 - **Non-N2 sweep.** `TT_FORCE=1 just test-fast` runs every non-N2 capability
   test (about 90 s median). Use it when a change's capability reach is unclear.
-- **Deliberate full.** `just test-full` (or `TT_FORCE=1 just test`) runs every
-  local phase, N2 included. Use it when the change warrants the whole certified
-  suite, and whenever a record must cite a full local gate.
-- **Conformance records.** A results record or freeze that cites a full-gate run
-  cites a forced run with its recorded target and reason. A policy skip or a hook
-  completion is never evidence that a suite passed. Cut runners and
-  `tests/acceptance` are unchanged.
+- **Deliberate suite.** `just test-full` (or `TT_FORCE=1 just test`) runs every
+  local test phase, N2 included. Use it when the change warrants the whole
+  certified suite. It runs no hygiene, lint or typecheck, so it is suite evidence,
+  never full-gate evidence.
+- **Deliberate full gate.** `TT_FORCE=1 just gate` runs hygiene, then forced
+  `check-code` and `test`. Use it whenever a record must cite a full local gate.
+- **Conformance records.** A results record or freeze names which of the two it
+  cites. A full-gate claim cites a forced `gate` run, with its recorded
+  `check-hygiene`, `check-code` and `test` rows and their reasons; a suite claim
+  cites the forced `test` row. A policy skip or a hook completion is never
+  evidence that a suite or gate passed. Cut runners and `tests/acceptance` are
+  unchanged.
 
 The AGENTS.md sentence "Run the Python suite on the certified kernel and volume
 tuple or report the exact mismatch" is rewritten to these routes. The duty to
@@ -377,6 +382,8 @@ semantics are unchanged.
      stops `test` and `test-push`;
    - `test-one` still forwards argv;
    - `test-full` records exactly one forced `test` row and propagates failure;
+   - `TT_FORCE=1 just gate` runs hygiene, then records forced `check-code` and
+     `test` rows, under a policy that lists both as broad;
    - a hosted missing-force call refuses, both directly and nested;
    - the uncovered-push warning fires only under policy-off. Workflow
    contract tests pin the triggers, the fork-only PR condition, the concurrency
@@ -394,7 +401,7 @@ semantics are unchanged.
    covered. Today's "only origin/main is covered by the push trigger" comment,
    and AGENTS.md's Remote CI line, are rewritten in this step. README.md and docs/ are test inputs, so
    the plan runs the tests that read them.
-5. Present the reviewed implementation and an activation packet. It contains:
+5. Present the reviewed implementation and a publication packet. It contains:
    - the exact commit and refs, the workflow diff and the delivery revisions;
    - the runner class and timeouts;
    - the visibility of beliefs, atoms and nodes, all rechecked at that moment.
@@ -405,17 +412,29 @@ semantics are unchanged.
      can be read without a write. Otherwise it records that deviation from the
      task body explicitly, since making the repository private would start
      billing;
-   - the per-job test, skip and module inventory, with the capability-omission
-     list and the sibling revisions;
+   - the hosted-acceptance criteria above, with the per-job test, skip and module
+     inventory, the capability-omission list and the sibling revisions marked
+     pending. The widened workflow produces them only on its first run, after
+     this push. The last hosted counts from the current workflow (run
+     41077923374) are given for reference, with their limits: no skip reasons,
+     no module inventory, no sibling revisions;
    - the rollback route.
 
-   Obtain explicit approval before any push, workflow run or account write. The
-   ops pilot's approval does not transfer.
+   Obtain explicit approval before any push, workflow run or account write. This
+   approval covers pushing the policy-enabled revision only, never activation.
+   The ops pilot's approval does not transfer.
 6. When the hook split integrates into main, which happens before any push,
    record exactly `policy: enabled at <RFC3339-UTC> revision <full-sha>` on
    beliefs-067a8d. That note starts the split-hook timing series.
-7. Push only the approved policy-enabled revision and inspect the completed hosted
-   results. With coverage accepted and explicit conditional approval, commit
+7. Push only the approved policy-enabled revision and, when its hosted run
+   completes, assess it against the hosted-acceptance criteria. Present the
+   activation packet: the publication packet's pending items populated from
+   that run's downloaded artifacts (per-job counts, module inventory,
+   capability-omission list, sibling revisions), the acceptance verdict for each
+   criterion, visibility and runner class rechecked, and the exact activation
+   commit. A run that fails a criterion leaves policy on; its fix is a new
+   policy-enabled push, approved the same way. With coverage accepted and
+   explicit activation approval on that packet, commit
    `.tt.toml` and the `ci_suite_refs` widening (after the focused checks named
    under Pre-push coverage routing). The same commit updates every guide and
    comment line that states the policy or the covered refs, as the
