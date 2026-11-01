@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T09:31:17Z
+updated: 2026-11-01T09:32:00Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -95,3 +95,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T09:31:10Z (design/067a8d-test-policy): attached: plan-round-3-report.md (3800 bytes): Plan round 3 review (claude-code/claude-opus-5-5) of 0d142f8: accept, Minor 6
 - 2026-11-01T09:31:14Z (design/067a8d-test-policy): attached: plan-round-3-ledger.md (1210 bytes): Plan round 3 rulings: six minors folded into b2ead49
 - 2026-11-01T09:31:17Z (design/067a8d-test-policy): Plan accepted at round 3 (0d142f8); its six minors are folded into b2ead49 (plan sha256 ebcb32ec15c1401a838bc043a2e37473812dee2536dba04d2bc3cea2b7e5f6ae) per the attached plan-round-3-ledger.md. Execution: inline (native) by this session, with a fresh final whole-branch reviewer; rejected alternative: subagent-driven, since every code task shares one fixture module and Tasks 7-9 are controller-held external gates. Starting Task 1 Setup.
+- 2026-11-01T09:32:00Z (design/067a8d-test-policy): Scratch dir created: host titan, /mnt/ssd3/work/beliefs/beliefs-067a8d, purpose: baseline log, hosted artifacts and assessment scripts for this task; owner beliefs-067a8d; contents mutable.
