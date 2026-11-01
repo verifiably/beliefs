@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:29:51Z
+updated: 2026-11-01T10:31:16Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -103,3 +103,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:11:50Z (design/067a8d-test-policy): State lines for the activation commit (Task 6 Step 3), each stating current policy or covered refs: (1) AGENTS.md Gates policy bullet: "This checkout has no `.tt.toml` yet, so policy is enabled."; (2) AGENTS.md test-fast bullet: "(now `refs/heads/main`)" and "every other push keeps the complete local gate."; (3) justfile comment above ci_suite_refs: "this declaration stays refs/heads/main until tt policy-off activation widens it, so until then other pushes keep the complete local gate."; (4) justfile `ci_suite_refs := "refs/heads/main"`; (5) justfile header: "and other pushes keep the complete local gate." Task 8 Step 5 edits these plus its grep refresh.
 - 2026-11-01T10:25:33Z (design/067a8d-test-policy): review: impl round 1 — verdict: revise; findings: Important 1, Minor 4; reviewer: claude-code/claude-opus-5-5
 - 2026-11-01T10:29:51Z (design/067a8d-test-policy): Latency inventory changed: beliefs-0f5112 (halt, test-latency) was filed on main at 2026-11-01T10:00:05Z by tt-latency on titan: test-fast median 91.312 s over 90 s limit, 11 runs on 3 days, window 2026-10-25..2026-11-01. beliefs-067a8d was already doing when it was filed, so it resumes under the halt rule. test-fast is in this adoption's broad_targets, so activation (Task 9) retires that titan/test-fast obligation; per the policy-off incident rule the activation step notes the retirement on beliefs-0f5112 with the landed policy revision and removes only its timing halt. Both packets name it.
+- 2026-11-01T10:31:16Z (design/067a8d-test-policy): review: impl round 2 — verdict: accept; findings: Minor 1; reviewer: claude-code/claude-opus-5-5
