@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T13:02:09Z
+updated: 2026-11-01T13:02:12Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -37,3 +37,4 @@ Process: planned
 - 2026-11-01T13:01:04Z (perf/0f5112-test-latency): review: spec round 2 — verdict: accept; findings: none; reviewer: antigravity
 - 2026-11-01T13:01:35Z (perf/0f5112-test-latency): attached: scratch-manifest-v1.json (1618 bytes): SHA-256 manifest of task scratch contents at spec review park
 - 2026-11-01T13:02:09Z (perf/0f5112-test-latency): retained: {"host":"titan","kind":"worktree","path":".worktrees/0f5112-test-latency","state":"kept","verification":"verified","purpose":"Holds frozen design spec fb26bebe081caf5b3ec7a6b3081f53ea232a72ff on branch perf/0f5112-test-latency awaiting user spec review","next_owner":"task:beliefs-0f5112","cleanup_trigger":"After approved implementation and verification are integrated or the task is retired, inspect ignored files and run worktree removal checks"}
+- 2026-11-01T13:02:12Z (perf/0f5112-test-latency): retained: {"host":"titan","kind":"scratch","path":"$WORK_ROOT/beliefs/beliefs-0f5112","state":"kept","verification":"verified","purpose":"Retains 16-worker diagnostic attribution logs, cProfile traces, and spec builder-check and round 1-2 review reports for planning and results comparison","next_owner":"task:beliefs-0f5112","cleanup_trigger":"At task closeout after results record is committed, verify disposition of each member against the pinned manifest before removing scratch","manifest":"$WORK_ROOT/beliefs/.worktrees/0f5112-test-latency/tasks/files/beliefs-0f5112/scratch-manifest-v1.json","sha256":"210050cba2a90df28cbd68c62f328f13c917c72ea2677a1dd20677fedc72fcf5"}
