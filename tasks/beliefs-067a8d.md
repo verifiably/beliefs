@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:25:27Z
+updated: 2026-11-01T11:26:08Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -140,3 +140,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T11:25:05Z (main): approval: user approved the activation packet in session b2bff3ba-0ad3-458f-809d-bb8b1806af58 (their words: "Approve."), covering integrating activation commit 48d9891eb10986694a686b66dc7b859f3e965d00 into main with git merge --no-ff and pushing that merge by refspec.
 - 2026-11-01T11:25:27Z (main): Pre-activation check (Task 9 Step 1): git diff --name-only d6dab00 HEAD lists only tasks/ paths; git log --oneline d6dab00..HEAD = 24 chore(tasks) commits (from f180cc0 to 32a23c4), plus this note; origin/main is d6dab00. Merging 48d9891 next; nothing commits in main between the merge and its push.
+- 2026-11-01T11:26:08Z (main): Activation landed: merge 01eb638191bd44fe9bd2a715fcc7d6853b07cc6e (committed 2026-11-01T11:25:32Z) of activation commit 48d9891 pushed d6dab00..01eb638 to origin main (approved refspec). Policy is now automatic_broad = false in the registered main checkout. The push's local hook ran hygiene and recorded check-code and test-push skipped by policy. Hosted run 41301850058 started.
