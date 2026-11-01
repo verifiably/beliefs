@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T13:10:21Z
+updated: 2026-11-01T13:10:28Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -41,3 +41,4 @@ Process: planned
 - 2026-11-01T13:02:38Z (perf/0f5112-test-latency): retention checkpoint: observed 2026-11-01T13:02:15Z on titan; basis beliefs in-tree . cc8085a65c18bc2edf26ed6e26ec639c8f7bd1c3:tasks/beliefs-0f5112.md; retained by refs/heads/perf/0f5112-test-latency; this host: kept verified 2, kept unknown 0, released 0; changed 2. Rechecked all kept/verified items on this host; unknown items remain unverified with actions in basis. Other hosts retain their own dated observations. Next: await user review of frozen spec fb26bebe081caf5b3ec7a6b3081f53ea232a72ff.
 - 2026-11-01T13:03:13Z (perf/0f5112-test-latency): parked (waiting on user, review): User reviews frozen design spec fb26bebe081caf5b3ec7a6b3081f53ea232a72ff:docs/superpowers/specs/2026-11-01-test-fast-latency-design.md (sha256 d4833eec7e76a731bc93fa76aad5705ac760521570bfb273be8535480c15ba87, at .worktrees/0f5112-test-latency/docs/superpowers/specs/2026-11-01-test-fast-latency-design.md) and approves proceeding to writing-plans on Option A (or redirects to Option B policy-retired closeout). Designer calls: (1) Option A sub-90s TT_FORCE=1 just test-fast reduction proven by B1..C3 alternating 16-worker pairs + just test-full <= 300 s under policy-off; (2) combined Part 1 fixture/AST deduplication + Part 2 zero-cache single-walk _Closure cleanup (~62-72 s target vs ~82-87 s test-only). Focused scope: documentation-only spec commits (diagnostic TT_FORCE=1 just test-fast 6,403 passed/1 skipped in 96.428 s; warm-up just test-one tests/test_ci_workflow.py 18 passed). Mandatory checks: just check-hygiene passed. Skipped broad work: check-code skipped by .tt.toml automatic_broad = false; broad baseline deferred per policy-off rule. Remote evidence: none. Checkpoint attribution: observer session attribution unknown (--stamp emitted no harness_session stamp). Session processes (host-load --section session): nothing left running. Pushes: none. Others' work: untouched. Unmerged branch: perf/0f5112-test-latency in locked .worktrees/0f5112-test-latency (local merge to main after plan/execution/review gates).
 - 2026-11-01T13:10:21Z (perf/0f5112-test-latency): resumed
+- 2026-11-01T13:10:28Z (perf/0f5112-test-latency): review: spec round 3 — verdict: accept; findings: none; reviewer: human
