@@ -223,3 +223,84 @@ def test_focused_route_runs_under_policy_off(tmp_path: Path) -> None:
     result = checkout.just("--set", "one_cmd", f"python3 {shlex.quote(str(runner))}", "test-one", "tests/a.py")
     assert result.returncode == 0, result.stderr
     assert _outcomes(checkout.rows()) == [("test-one", "ran", "default")]
+
+
+_WARNING = "remote full-suite coverage is not declared for this push"
+_MAIN = f"refs/heads/main {'1' * 40} refs/heads/main {'2' * 40}\n"
+
+
+@pytest.mark.parametrize(
+    ("policy", "remote", "force", "recipe", "warns"),
+    [
+        (True, "backup", False, "hook-pre-push", True),
+        (False, "backup", False, "hook-pre-push", False),
+        (True, "origin", False, "hook-pre-push-fast", False),
+        (True, "backup", True, "hook-pre-push", False),
+    ],
+)
+def test_uncovered_push_warns_only_under_policy_off(
+    tmp_path: Path, policy: bool, remote: str, force: bool, recipe: str, warns: bool
+) -> None:
+    checkout = Checkout(tmp_path)
+    if policy:
+        checkout.policy()
+    if force:
+        checkout.env["TT_FORCE"] = "1"
+    checkout.capture_hook_recipe()
+    result = checkout.run("sh", ".githooks/pre-push", remote, "https://example.test/repo", stdin=_MAIN)
+    assert result.returncode == 0, result.stderr
+    assert checkout.chosen() == recipe
+    assert (_WARNING in result.stderr) is warns
+
+
+def test_unreadable_policy_refuses_push(tmp_path: Path) -> None:
+    checkout = Checkout(tmp_path)
+    (checkout.root / ".tt.toml").write_text('automatic_broad = "no"\nbroad_targets = ["test"]\n')
+    checkout.capture_hook_recipe()
+    result = checkout.run("sh", ".githooks/pre-push", "backup", "https://example.test/repo", stdin=_MAIN)
+    assert result.returncode == 2
+    assert "cannot inspect test execution policy" in result.stderr
+    assert checkout.chosen() is None
+
+
+@pytest.mark.parametrize(
+    ("refs", "coverage", "recipe"),
+    [
+        ("malformed\n", "refs/heads/*", "hook-pre-push"),
+        (_MAIN + "\n", "refs/heads/*", "hook-pre-push"),
+        (f"local {'0' * 40} refs/heads/gone {'2' * 40}\n", "refs/heads/*", "hook-pre-push-fast"),
+        (_MAIN, "", "hook-pre-push"),
+        (_MAIN + f"local {'1' * 40} refs/tags/other {'2' * 40}\n", "refs/heads/*", "hook-pre-push"),
+    ],
+)
+def test_push_validates_every_ref_and_preserves_bytes(tmp_path: Path, refs: str, coverage: str, recipe: str) -> None:
+    checkout = Checkout(tmp_path)
+    checkout.policy()
+    checkout.set_suite_refs(coverage)
+    checkout.capture_hook_recipe()
+    result = checkout.run("sh", ".githooks/pre-push", "origin", "https://example.test/repo", stdin=refs)
+    assert result.returncode == 0, result.stderr
+    assert checkout.chosen() == recipe
+    assert (checkout.root / "refs.actual").read_text() == refs
+
+
+def test_hook_clears_git_local_environment(tmp_path: Path) -> None:
+    checkout = Checkout(tmp_path)
+    checkout.policy()
+    checkout.env["GIT_DIR"] = str(checkout.root / ".git")
+    checkout.env["GIT_WORK_TREE"] = str(checkout.root)
+    result = checkout.run("sh", ".githooks/pre-push", "origin", "git@example.invalid:repo", stdin="bad\n")
+    assert result.returncode == 0, result.stderr
+    children = [event for event in checkout.events() if event[0] != "ssh"]
+    assert [event[0] for event in children] == _HYGIENE
+    assert all(event[3] is None for event in children)
+
+
+def test_missing_keepalive_refuses_before_the_gate(tmp_path: Path) -> None:
+    checkout = Checkout(tmp_path)
+    checkout.capture_hook_recipe()
+    checkout.env["SSH_INTERVAL"] = "0"
+    result = checkout.run("sh", ".githooks/pre-push", "origin", "git@example.invalid:repo", stdin=_MAIN)
+    assert result.returncode == 1
+    assert checkout.chosen() is None
+    assert [event[1] for event in checkout.events()] == [["-G", "example.invalid"]]
