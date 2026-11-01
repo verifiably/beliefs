@@ -245,8 +245,10 @@ _LSTAT_ABSENT = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP
 
 def _lstat_mode(path: str) -> int | None:
     """The entry's own mode (a symlink is not followed), or None where
-    `Path.is_file()` and `Path.is_symlink()` would both answer False. A
-    permission or I/O error propagates, for `capture_closure` to refuse."""
+    `Path.is_file()` and `Path.is_symlink()` would both answer False for a
+    missing entry. A permission or I/O error propagates, for `capture_closure`
+    to refuse. A path with an embedded NUL raises `ValueError` here, where
+    `pathlib` answered False: callers reading untrusted text reject it first."""
     try:
         return os.lstat(path).st_mode
     except OSError as error:
@@ -463,8 +465,10 @@ class _Closure:
                     or (basename.endswith(".pth") and basename != ".pth")
                 ):
                     continue
-                located = self._located_str(os.path.normpath(os.path.join(base, entry)))
-                mode = _lstat_mode(located)
+                # An entry no path can name (an embedded NUL) is absent, as
+                # `Path.is_file()` read it, not a raw ValueError from the walk.
+                located = "" if "\0" in entry else self._located_str(os.path.normpath(os.path.join(base, entry)))
+                mode = _lstat_mode(located) if located else None
                 if mode is None or not (stat.S_ISREG(mode) or stat.S_ISLNK(mode)):
                     raise MalformedClosure(
                         f"distribution {name!r}: RECORD lists {PurePosixPath(entry)} and no such file exists"

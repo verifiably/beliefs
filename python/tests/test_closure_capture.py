@@ -863,3 +863,15 @@ def _site_walker(purelib: Path) -> tuple[_Closure, Path]:
     walker = _Closure()
     walker.register(purelib, SANDBOX_SITE)
     return walker, purelib
+
+
+def test_a_record_entry_with_a_nul_byte_is_a_malformed_closure_not_a_raw_value_error(tmp_path, monkeypatch):
+    """`Path.is_file()` read an unencodable entry as absent, so the walk refused it
+    as `MalformedClosure`; the walk's own path reads must refuse it the same way."""
+    import importlib.metadata
+
+    walker, site = _site(tmp_path)
+    dist = _FakeDistribution(site, _record("a/bad\x00name.py"), name="nul")
+    monkeypatch.setattr(importlib.metadata, "distributions", lambda: (dist,))
+    with pytest.raises(MalformedClosure, match="no such file exists"):
+        walker.add_records()
