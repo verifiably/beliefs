@@ -1,0 +1,7 @@
+# Spec round 5 rulings — beliefs-067a8d
+
+Review: codex/gpt-6.1-sol on frozen 5237cb7 (spec-round-5-report.md), relayed by the user. Controller: claude-code/claude-opus-5-5 (main session).
+Both findings accepted and corrected in the next frozen revision; none deferred.
+
+- Ruling I1: accept. Full-gate evidence is `TT_FORCE=1 just gate` (hygiene, forced check-code, forced test); `just test-full` is named for suite evidence only; conformance records state which they cite; step 3 adds a fixture proof that a forced gate records forced check-code and test rows after hygiene. Why: test-full's contract runs only `test`, so citing it as a full gate would overstate verification. Cost (if wrong): one extra fixture case to maintain.
+- Ruling I2: accept. Step 5 becomes a publication packet (commit, refs, workflow diff, delivery revisions, runner class, timeouts, visibility, billing, rollback) that lists the per-job counts, capability-omission list, module inventory and sibling revisions as pending, produced by the first hosted run; approval there covers only pushing the policy-enabled revision. A separate activation packet, populated from that run and assessed against hosted acceptance with visibility rechecked, precedes the policy-off activation approval. Why: the evidence-producing workflow first runs after the publication push, so the 5237cb7 sequence could not be followed literally. Cost (if wrong): one more user approval round trip before activation.
