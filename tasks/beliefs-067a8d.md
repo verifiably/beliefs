@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:07:10Z
+updated: 2026-11-01T11:07:22Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -133,4 +133,6 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:07:04Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/067a8d-test-policy","state":"kept","verification":"verified","purpose":"Holds the unintegrated activation commit 48d9891 on design/067a8d-test-policy (its .tt.toml makes this worktree policy-off) and the plan workspace ledger (attached); Task 9 merges 48d9891 from the main checkout on approval","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after the activation merge is pushed, or the user refuses activation (then reset the branch to c06c2d7 per Task 8 Step 7)"}
 - 2026-11-01T11:07:07Z (main): retained: {"host":"titan","kind":"scratch","path":"$WORK_ROOT/beliefs/beliefs-067a8d","state":"kept","verification":"verified","purpose":"Task scratch: hosted-1 artifacts of run 41298875513 (counts attached as hosted-1-assessment.txt), assessment script, push and watch logs, publication and activation packets (attached), baseline log and ledger copies; receives hosted-2 at Task 9","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after hosted-2 is assessed and its derived counts attached","manifest":"tasks/files/beliefs-067a8d/scratch-manifest-2.txt","sha256":"b4e5e7d61f6a187b289617b4dd2b6fdb762e24ffb0bd519a023d151b7860aa24"}
 - 2026-11-01T11:07:10Z (main): retention checkpoint: observed 2026-11-01T11:07:10Z on titan; basis beliefs in-tree . c6116a6dfeb16ec70a51fe69d512dc79483d35a4:tasks/beliefs-067a8d.md; retained by refs/heads/main and refs/heads/design/067a8d-test-policy; this host: kept verified 2, kept unknown 0, released 0; changed 2. Rechecked all kept/verified items on this host. Other hosts retain their own dated observations. Next: Task 9 on activation approval.
+  provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-11-01T11:07:22Z (main): parked (waiting on user, approval): User decides on the attached activation-packet.md: approval covers only integrating activation commit 48d9891eb10986694a686b66dc7b859f3e965d00 (on design/067a8d-test-policy, unmerged) into main with git merge --no-ff and pushing that merge by refspec. On approval the agent, from the main checkout, requires git diff --name-only d6dab00 HEAD to list only tasks/*.md, records git log --oneline d6dab00..HEAD, merges, pushes, then runs Task 9 verification and close-out. On refusal: reset the branch to c06c2d7 and park on the user's condition. Interacts with beliefs-0f5112's pending A/B/C choice (option C would hold activation). Session processes: none left running.
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
