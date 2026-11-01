@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:41:11Z
+updated: 2026-11-01T11:41:14Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -145,3 +145,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:26:52Z (main): Latency reinventory at activation: beliefs-0f5112 was the only test-latency/halt task. Noted the retired titan/test-fast obligation on it with landed revision 01eb638 and removed only its halt tag; its parked A/B/C scope choice stays with the user. No other incident open.
 - 2026-11-01T11:27:15Z (main): Reported status to ops-39bff6 (a closed record; note added) and linked the shared regret review ops-56aab7 (todo, deferred 2026-11-28) with a note there rather than filing a duplicate.
 - 2026-11-01T11:41:11Z (main): attached: hosted-2-assessment.txt (66426 bytes): Run 41301850058 (01eb638, activation push) hosted acceptance: all 4 jobs accept; capability list identical to hosted-1
+- 2026-11-01T11:41:14Z (main): Activation run 41301850058 on 01eb638, conclusion success: every job accept. Python 3.11/3.13: non-N2 6404 cases, 6076 executed and passed, 328 skipped (327 capability omissions, identical to run 41298875513's list, plus the baseline skip), N2 46 passed, all 205 eligible modules present; TypeScript 20/24: 155 passed, 7 modules. Siblings unchanged (atoms 935535a, nodes ce159f2). Job times: py3.11 14.4 min, py3.13 8.0 min, TS 0.3 min. hosted-2-assessment.txt attached.
