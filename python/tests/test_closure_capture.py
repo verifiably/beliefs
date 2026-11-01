@@ -623,3 +623,243 @@ def test_build_argv_is_policy_neutral_and_the_minimal_spelling_is_unchanged():
             cores=1,
             in_process_jobs=False,
         )
+
+
+# --- single-walk churn: hashed headers, pruned trees, RECORD rows, root matching ----
+class _FakeDistribution:
+    """A distribution double: a name, a RECORD, and `locate_file` joining onto
+    its base as `importlib.metadata.PathDistribution` does."""
+
+    def __init__(self, base: Path, record: str, name: str = "fake") -> None:
+        self._base = base
+        self._record = record
+        self.metadata = {"Name": name}
+
+    def read_text(self, filename: str) -> str | None:
+        return self._record if filename == "RECORD" else None
+
+    def locate_file(self, path) -> Path:
+        return self._base / path
+
+
+def _record(*entries: str) -> str:
+    return "".join(f"{entry},sha256:{'0' * 43},1\n" for entry in entries)
+
+
+def test_elves_reuses_hashed_headers_across_add_records_and_native_libs_without_reopening(tmp_path, monkeypatch):
+    import importlib.metadata
+
+    site = tmp_path / "site"
+    site.mkdir()
+    walker = _Closure()
+    walker.register(site, SANDBOX_SITE)
+    walker.native_arch = (_NATIVE_CLASS, _NATIVE_DATA, _NATIVE_MACHINE)
+    (site / "mod.py").write_bytes(b"X = 1\n")
+    (site / "direct.so").write_bytes(LOADABLE_ELF)
+    walker.add(site / "mod.py")
+    walker.add(site / "direct.so")
+
+    flipped = 2 if _NATIVE_DATA == 1 else 1
+    flipped_endian = ">" if flipped == 2 else "<"
+    foreign_endian = (
+        b"\x7fELF"
+        + bytes([_NATIVE_CLASS, flipped, 1])
+        + bytes(9)
+        + struct.pack("<H", 3)
+        + struct.pack(f"{flipped_endian}H", _NATIVE_MACHINE + 1)
+    )
+    (site / "rec_native.so").write_bytes(LOADABLE_ELF)
+    (site / "rec_foreign_endian.so").write_bytes(foreign_endian)
+    (site / "short17.bin").write_bytes(LOADABLE_ELF[:17])
+    dist = _FakeDistribution(site, _record("rec_native.so", "rec_foreign_endian.so", "short17.bin"))
+    monkeypatch.setattr(importlib.metadata, "distributions", lambda: (dist,))
+    walker.add_records()
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "libext.so.1").write_bytes(LOADABLE_ELF)
+    walker.add_native(listing=lambda elf: {"libext.so.1": outside / "libext.so.1"} if elf.name == "direct.so" else {})
+
+    def reopened(*_args, **_kwargs):
+        raise AssertionError("reopened already-hashed file")
+
+    monkeypatch.setattr(adapter_module, "_is_loadable_elf", reopened)
+    monkeypatch.setattr(adapter_module, "_elf_architecture", reopened)
+    assert [sandbox for sandbox, _ in walker.elves()] == [
+        f"{SANDBOX_LIB}/libext.so.1",
+        f"{SANDBOX_SITE}/direct.so",
+        f"{SANDBOX_SITE}/rec_native.so",
+    ]
+    monkeypatch.undo()
+
+    # A file row set directly, never hashed by the walker, is still classified from disk.
+    manual_path = site / "manual.so"
+    manual_path.write_bytes(LOADABLE_ELF)
+    walker.rows[f"{SANDBOX_SITE}/manual.so"] = ("file", "sha256:" + "00" * 32)
+    walker.plan[f"{SANDBOX_SITE}/manual.so"] = manual_path
+    assert f"{SANDBOX_SITE}/manual.so" in [sandbox for sandbox, _ in walker.elves()]
+
+    # A 19-byte loadable prefix passes the 18-byte predicate and fails the
+    # architecture read exactly as the disk read and the probe do.
+    short_site = tmp_path / "short19_site"
+    short_site.mkdir()
+    walker19 = _Closure()
+    walker19.register(short_site, SANDBOX_SITE)
+    walker19.native_arch = (_NATIVE_CLASS, _NATIVE_DATA, _NATIVE_MACHINE)
+    (short_site / "short19.bin").write_bytes(LOADABLE_ELF[:19])
+    walker19.add(short_site / "short19.bin")
+    with pytest.raises(struct.error):
+        walker19.elves()
+
+
+def test_add_tree_keeps_symlinked_dirs_as_links_prunes_known_exclusions_and_preserves_custom_predicates(
+    tmp_path, monkeypatch
+):
+    walker, site = _site(tmp_path)
+    (site / "real_dir").mkdir()
+    (site / "real_dir" / "inside.py").write_bytes(b"X = 1\n")
+    (site / "dir_link").symlink_to("real_dir")
+    (site / "top.pyc").write_bytes(b"compiled")
+    (site / "dir.pyc").mkdir()
+    (site / "dir.pyc" / "inner.py").write_bytes(b"X = 1\n")
+    (site / "site-packages" / "pkg").mkdir(parents=True)
+    (site / "site-packages" / "pkg" / "skip.py").write_bytes(b"X = 1\n")
+    (site / "__pycache__").mkdir()
+    (site / "__pycache__" / "skip.cpython-313.pyc").write_bytes(b"compiled")
+
+    real_scandir = os.scandir
+    scanned: set[str] = set()
+
+    def recording(path=".", *args, **kwargs):
+        scanned.add(os.path.realpath(path))
+        return real_scandir(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "scandir", recording)
+    walker.add_tree(site, excluded=adapter_module._stdlib_excluded)
+    monkeypatch.undo()
+    assert {
+        os.path.realpath(site),
+        os.path.realpath(site / "real_dir"),
+        os.path.realpath(site / "dir.pyc"),
+    } <= scanned
+    assert os.path.realpath(site / "site-packages") not in scanned
+    assert os.path.realpath(site / "__pycache__") not in scanned
+    assert f"{SANDBOX_SITE}/top.pyc" not in walker.rows
+    assert f"{SANDBOX_SITE}/dir.pyc/inner.py" in walker.rows
+    assert walker.rows[f"{SANDBOX_SITE}/dir_link"] == ("symlink", "real_dir")
+    assert f"{SANDBOX_SITE}/dir_link/inside.py" not in walker.rows
+    assert f"{SANDBOX_SITE}/real_dir/inside.py" in walker.rows
+    assert not any("site-packages" in row or "__pycache__" in row for row in walker.rows)
+
+    # A caller's own predicate is not monotone over prefixes: excluding the
+    # directory `pkg` itself must not prune what lies beneath it.
+    site2 = tmp_path / "site2"
+    (site2 / "pkg" / "sub").mkdir(parents=True)
+    (site2 / "pkg" / "sub" / "keep.py").write_bytes(b"X = 1\n")
+    walker2 = _Closure()
+    walker2.register(site2, SANDBOX_SITE)
+    walker2.add_tree(site2, excluded=lambda parts: parts == ("pkg",))
+    assert f"{SANDBOX_SITE}/pkg/sub/keep.py" in walker2.rows
+
+    # An unreadable subdirectory fails the walk closed rather than vanishing from it.
+    locked = os.path.realpath(site2 / "pkg")
+
+    def refusing(path=".", *args, **kwargs):
+        if os.path.realpath(path) == locked:
+            raise PermissionError("locked subdir")
+        return real_scandir(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "scandir", refusing)
+    walker3 = _Closure()
+    walker3.register(site2, SANDBOX_SITE)
+    with pytest.raises(PermissionError, match="locked subdir"):
+        walker3.add_tree(site2, excluded=adapter_module._stdlib_excluded)
+
+
+def test_add_records_resolves_symlinked_parents_relative_entries_pth_edges_and_refusals(tmp_path, monkeypatch):
+    import importlib.metadata
+
+    real_venv = tmp_path / "real_venv"
+    (real_venv / "bin").mkdir(parents=True)
+    (real_venv / "bin" / "tool").write_bytes(b"#!/bin/sh\n")
+    real_site = real_venv / "lib" / "site-packages"
+    (real_site / "pkg").mkdir(parents=True)
+    (real_site / "pkg" / "mod.py").write_bytes(b"X = 1\n")
+    (real_site / "pkg" / "link.py").symlink_to("mod.py")
+    (real_site / ".pth").write_bytes(b"")
+    alias_site = tmp_path / "alias_site"
+    alias_site.symlink_to(real_site)
+    alias_venv = tmp_path / "alias_venv"
+    alias_venv.symlink_to(real_venv)
+
+    walker = _Closure()
+    walker.register(real_venv, SANDBOX_VENV)
+    walker.register(real_site, SANDBOX_SITE)
+    dist_leaf = _FakeDistribution(
+        alias_site,
+        _record("pkg/mod.py", "pkg/link.py", ".pth", "ignored.pth") + "pkg/__pycache__/mod.cpython-313.pyc,,\n",
+        name="leaf",
+    )
+    dist_rel = _FakeDistribution(alias_venv / "lib" / "site-packages", _record("../../bin/tool"), name="rel")
+    monkeypatch.setattr(importlib.metadata, "distributions", lambda: (dist_leaf, dist_rel))
+    walker.add_records()
+    assert walker.rows[f"{SANDBOX_SITE}/pkg/mod.py"][0] == "file"
+    assert walker.rows[f"{SANDBOX_SITE}/pkg/link.py"] == ("symlink", "mod.py")
+    assert walker.rows[f"{SANDBOX_SITE}/.pth"][0] == "file"
+    assert walker.rows[f"{SANDBOX_VENV}/bin/tool"][0] == "file"
+    assert walker.plan[f"{SANDBOX_VENV}/bin/tool"] == Path(os.path.realpath(real_venv)) / "bin" / "tool"
+    assert f"{SANDBOX_SITE}/ignored.pth" not in walker.rows
+    assert not any(row.endswith(".pyc") for row in walker.rows)
+
+    # `..` is resolved lexically before any parent symlink, as `locate_file`
+    # then `normpath` does: through the leaf link it leaves the venv entirely.
+    crossing = _FakeDistribution(alias_site, _record("../../bin/tool"), name="crossing")
+    monkeypatch.setattr(importlib.metadata, "distributions", lambda: (crossing,))
+    with pytest.raises(MalformedClosure, match=r"RECORD lists \.\./\.\./bin/tool and no such file exists"):
+        _registered(real_venv, real_site).add_records()
+
+    for case in ("absent", "directory", "loop"):
+        site = tmp_path / f"refusal_{case}"
+        site.mkdir()
+        if case == "directory":
+            (site / "a" / "missing.py").mkdir(parents=True)
+        elif case == "loop":
+            (site / "a").symlink_to("a")
+        refusing = _Closure()
+        refusing.register(site, SANDBOX_SITE)
+        missing = _FakeDistribution(site, _record("a/missing.py"), name=case)
+        monkeypatch.setattr(importlib.metadata, "distributions", lambda missing=missing: (missing,))
+        with pytest.raises(MalformedClosure, match=r"RECORD lists a/missing\.py and no such file exists"):
+            refusing.add_records()
+
+
+def _registered(real_venv: Path, real_site: Path) -> _Closure:
+    walker = _Closure()
+    walker.register(real_venv, SANDBOX_VENV)
+    walker.register(real_site, SANDBOX_SITE)
+    return walker
+
+
+def test_root_matching_handles_double_slashes_and_walks_observe_live_mutations(tmp_path):
+    walker, purelib = _site(tmp_path)
+    doubled = Path(f"//{purelib.as_posix().lstrip('/')}/mod.py")
+    assert walker.root_of(doubled) == (Path(os.path.realpath(purelib)), SANDBOX_SITE)
+    assert walker.sandbox_of(doubled) == f"{SANDBOX_SITE}/mod.py"
+    assert walker.root_of(Path(os.path.realpath(purelib))) == (Path(os.path.realpath(purelib)), SANDBOX_SITE)
+    assert walker.sandbox_of(Path(os.path.realpath(purelib))) == f"{SANDBOX_SITE}/."
+    assert walker.root_of(tmp_path / "sitex" / "mod.py") is None
+
+    (purelib / "mod.py").write_bytes(b"X = 1\n")
+    first, _ = _site_walker(purelib)
+    first.add(purelib / "mod.py")
+    (purelib / "mod.py").write_bytes(b"X = 2\n")
+    second, _ = _site_walker(purelib)
+    second.add(purelib / "mod.py")
+    one, two = first.rows[f"{SANDBOX_SITE}/mod.py"], second.rows[f"{SANDBOX_SITE}/mod.py"]
+    assert one[0] == two[0] == "file" and one[1].startswith("sha256:") and one != two
+
+
+def _site_walker(purelib: Path) -> tuple[_Closure, Path]:
+    walker = _Closure()
+    walker.register(purelib, SANDBOX_SITE)
+    return walker, purelib

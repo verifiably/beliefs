@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import errno
 import importlib.metadata
 import importlib.util
 import json
@@ -10,6 +11,7 @@ import os
 import posixpath
 import re
 import shutil
+import stat
 import struct
 import subprocess
 import sys
@@ -18,7 +20,7 @@ import tempfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import cast, final
 
@@ -237,6 +239,31 @@ def _path_tree_excluded(parts: tuple[str, ...]) -> bool:
     return ".git" in parts or _distribution_cache(parts)
 
 
+_LSTAT_ABSENT = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP})
+"""The errors `pathlib` reads as "no such entry" (its `_IGNORED_ERRNOS`)."""
+
+
+def _lstat_mode(path: str) -> int | None:
+    """The entry's own mode (a symlink is not followed), or None where
+    `Path.is_file()` and `Path.is_symlink()` would both answer False. A
+    permission or I/O error propagates, for `capture_closure` to refuse."""
+    try:
+        return os.lstat(path).st_mode
+    except OSError as error:
+        if error.errno in _LSTAT_ABSENT:
+            return None
+        raise
+
+
+def _normalize_path_str(raw: str) -> str:
+    """`os.path.normpath`, with POSIX's one permitted leading `//` collapsed to
+    `/` — what `os.path.commonpath` made of it when roots were matched by it."""
+    normalized = os.path.normpath(raw)
+    if normalized.startswith("//") and not normalized.startswith("///"):
+        normalized = normalized[1:]
+    return normalized
+
+
 def _import_names(line: str) -> list[str]:
     body = line[len("import") :].split(";", 1)[0]
     return [part.strip().split(" as ")[0].strip().split(".")[0] for part in body.split(",") if part.strip()]
@@ -244,7 +271,11 @@ def _import_names(line: str) -> list[str]:
 
 class _Closure:
     """The walker. `rows` and `plan` are keyed by sandbox path; `rendered`
-    holds the rows the boundary renders from the layout."""
+    holds the rows the boundary renders from the layout.
+
+    Every structure below lives for one walk: a new walk builds a new
+    `_Closure` and observes the filesystem afresh. Nothing is carried between
+    walks, so a file or link changed between two captures is seen changed."""
 
     def __init__(self) -> None:
         self.rows: dict[str, tuple[str, str]] = {}
@@ -254,37 +285,63 @@ class _Closure:
         self.loader_elves: list[str] = []
         self.native_arch: tuple[int, int, int] | None = None
         self._sonames: dict[str, Path] = {}
-        self._roots: list[tuple[Path, str]] = []
-        self._parent_locations: dict[Path, Path] = {}
+        # (real root, its prefix with a trailing separator, the root as a Path,
+        # sandbox root), longest first so a nested root wins over its parent.
+        self._roots: list[tuple[str, str, Path, str]] = []
+        self._parent_locations: dict[str, str] = {}
+        # Rows hashed by this walk, and the first 20 bytes of each that is a
+        # loadable ELF: `elves()` classifies them without reading them again.
+        self._hashed_files: set[str] = set()
+        self._loadable_elf_headers: dict[str, bytes] = {}
+
+    def _located_str(self, host: str) -> str:
+        """Resolve each parent once per walk, keeping the link's own name."""
+        parent, tail = os.path.split(host)
+        real_parent = self._parent_locations.get(parent)
+        if real_parent is None:
+            real_parent = os.path.realpath(parent or ".")
+            self._parent_locations[parent] = real_parent
+        return os.path.join(real_parent, tail) if tail else real_parent
 
     def _located(self, host: Path) -> Path:
-        """Resolve each parent once per walk, keeping the link's own name."""
-        parent = host.parent
-        if parent not in self._parent_locations:
-            self._parent_locations[parent] = Path(os.path.realpath(parent))
-        return self._parent_locations[parent] / host.name
+        return Path(self._located_str(os.fspath(host)))
 
     def register(self, host_root: Path, sandbox_root: str) -> None:
-        self._roots.append((Path(os.path.realpath(host_root)), sandbox_root))
-        self._roots.sort(key=lambda pair: len(str(pair[0])), reverse=True)
+        real = os.path.realpath(host_root)
+        prefix = "/" if real == "/" else f"{real}{os.sep}"
+        self._roots.append((real, prefix, Path(real), sandbox_root))
+        self._roots.sort(key=lambda row: len(row[0]), reverse=True)
 
-    def root_of(self, located: Path) -> tuple[Path, str] | None:
-        for host_root, sandbox_root in self._roots:
-            try:
-                common = os.path.commonpath((host_root, located))
-            except ValueError:
-                continue
-            if common == os.fspath(host_root):
-                return host_root, sandbox_root
+    def _root_row(self, located: str) -> tuple[str, str, Path, str] | None:
+        for row in self._roots:
+            if located == row[0] or located.startswith(row[1]):
+                return row
         return None
 
-    def sandbox_of(self, located: Path) -> str:
-        root = self.root_of(located)
-        if root is None:
-            raise ClosureUnsupported(f"{located} lies outside every closure root")
-        host_root, sandbox_root = root
-        relative = os.path.relpath(located, host_root).replace(os.sep, "/")
+    def _sandbox_of_str(self, located: str, shown: object) -> str:
+        row = self._root_row(located)
+        if row is None:
+            raise ClosureUnsupported(f"{shown} lies outside every closure root")
+        real, prefix, _, sandbox_root = row
+        relative = "." if located == real else located[len(prefix) :].replace(os.sep, "/")
         return f"{sandbox_root}/{relative}"
+
+    def root_of(self, located: Path) -> tuple[Path, str] | None:
+        row = self._root_row(_normalize_path_str(os.fspath(located)))
+        return None if row is None else (row[2], row[3])
+
+    def sandbox_of(self, located: Path) -> str:
+        return self._sandbox_of_str(_normalize_path_str(os.fspath(located)), located)
+
+    def _record_regular_file(self, sandbox: str, located: Path) -> None:
+        """One file row from one read: its digest, and its header when it is a
+        loadable ELF (the predicate `_is_loadable_elf` and the probe apply)."""
+        data = located.read_bytes()
+        self.rows[sandbox] = ("file", "sha256:" + sha256(data).hexdigest())
+        self.plan[sandbox] = located
+        self._hashed_files.add(sandbox)
+        if len(data) >= 18 and data[:4] == _ELF_MAGIC and struct.unpack_from("<H", data, 16)[0] in (2, 3):
+            self._loadable_elf_headers[sandbox] = data[:20]
 
     def add(self, host: Path) -> str:
         """One row. A symlink's target is captured with it: a relative target
@@ -292,10 +349,11 @@ class _Closure:
         in-closure target is rewritten to its sandbox path, a target outside
         every root escapes, and a target that names nothing is dangling."""
         located = self._located(host)
-        sandbox = self.sandbox_of(located)
+        sandbox = self._sandbox_of_str(os.fspath(located), located)
         if sandbox in self.rows:
             return sandbox
-        if located.is_symlink():
+        mode = _lstat_mode(os.fspath(located))
+        if mode is not None and stat.S_ISLNK(mode):
             target = os.readlink(located)
             target_host = self._located(
                 Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target))
@@ -312,9 +370,8 @@ class _Closure:
             elif not target_host.is_dir():
                 raise ClosureUnsupported(f"symlink {located} -> {target!r} names nothing")
             return sandbox
-        if located.is_file():
-            self.rows[sandbox] = ("file", _file_digest(located))
-            self.plan[sandbox] = located
+        if mode is not None and stat.S_ISREG(mode):
+            self._record_regular_file(sandbox, located)
             return sandbox
         raise ClosureUnsupported(f"{located} is neither a regular file nor a symlink")
 
@@ -352,12 +409,36 @@ class _Closure:
             )
 
     def add_tree(self, root: Path, *, excluded: Callable[[tuple[str, ...]], bool]) -> None:
-        root_depth = len(root.parts)
-        for path in sorted(root.rglob("*")):
-            if excluded(path.parts[root_depth:]):
-                continue
-            if path.is_symlink() or path.is_file():
-                self.add(path)
+        """Every file and symlink under `root` that `excluded` admits, in the
+        order `sorted(root.rglob("*"))` gives. A symlinked directory is a row
+        and is not entered. A directory named by one of the two known
+        predicates' directory exclusions is not entered either: those are
+        monotone, so nothing beneath it could be admitted. Any other predicate
+        is asked about every entry. An unreadable directory fails the walk."""
+        if excluded is _stdlib_excluded:
+            pruned: tuple[str, ...] = ("site-packages", "__pycache__")
+        elif excluded is _path_tree_excluded:
+            pruned = (".git", "__pycache__")
+        else:
+            pruned = ()
+        self._add_tree_level(os.fspath(root), (), excluded, pruned)
+
+    def _add_tree_level(
+        self,
+        directory: str,
+        parts: tuple[str, ...],
+        excluded: Callable[[tuple[str, ...]], bool],
+        pruned: tuple[str, ...],
+    ) -> None:
+        with os.scandir(directory) as scan:
+            entries = sorted(scan, key=lambda entry: entry.name)
+        for entry in entries:
+            relative = (*parts, entry.name)
+            if entry.is_symlink() or entry.is_file(follow_symlinks=False):
+                if not excluded(relative):
+                    self.add(Path(entry.path))
+            elif entry.is_dir(follow_symlinks=False) and entry.name not in pruned:
+                self._add_tree_level(entry.path, relative, excluded, pruned)
 
     def add_records(self) -> None:
         for dist in importlib.metadata.distributions():
@@ -367,16 +448,33 @@ class _Closure:
                 raise MalformedClosure(
                     f"distribution {name!r} has no readable RECORD — its inventory cannot be enumerated"
                 )
+            base = str(dist.locate_file(""))
             for row in csv.reader(record.splitlines()):
                 if not row or not row[0]:
                     raise MalformedClosure(f"distribution {name!r} has a malformed RECORD entry")
-                entry = importlib.metadata.PackagePath(row[0])
-                if _distribution_cache(entry.parts) or entry.suffix == ".pth":
+                entry = row[0]
+                # `_distribution_cache` and the `.pth` suffix over the entry's
+                # text, as `PurePosixPath` reads it: a bare `.pth` has no suffix.
+                stripped = entry.rstrip("/")
+                basename = stripped.rsplit("/", 1)[-1]
+                if (
+                    ("__pycache__" in stripped and "__pycache__" in stripped.split("/"))
+                    or basename.endswith(".pyc")
+                    or (basename.endswith(".pth") and basename != ".pth")
+                ):
                     continue
-                located = Path(os.path.normpath(str(dist.locate_file(entry))))
-                if not located.is_file() and not located.is_symlink():
-                    raise MalformedClosure(f"distribution {name!r}: RECORD lists {entry} and no such file exists")
-                self.add(located)
+                located = self._located_str(os.path.normpath(os.path.join(base, entry)))
+                mode = _lstat_mode(located)
+                if mode is None or not (stat.S_ISREG(mode) or stat.S_ISLNK(mode)):
+                    raise MalformedClosure(
+                        f"distribution {name!r}: RECORD lists {PurePosixPath(entry)} and no such file exists"
+                    )
+                if stat.S_ISLNK(mode):
+                    self.add(Path(located))
+                    continue
+                sandbox = self._sandbox_of_str(located, located)
+                if sandbox not in self.rows:
+                    self._record_regular_file(sandbox, Path(located))
 
     def add_pth(self, purelib: Path) -> None:
         for pth in sorted(purelib.glob("*.pth")):
@@ -454,8 +552,8 @@ class _Closure:
                         resolved = self.add(located)
                     else:
                         resolved = f"{SANDBOX_LIB}/{soname}"
-                        self.rows[resolved] = ("file", _file_digest(located))
-                        self.plan[resolved] = located
+                        if resolved not in self.rows:
+                            self._record_regular_file(resolved, located)
                     self.loader_map.append((elf_sandbox, soname, resolved))
         self.loader_elves = sorted(listed)
 
@@ -471,14 +569,25 @@ class _Closure:
             if self.native_arch is not None
             else _elf_architecture(Path(os.path.realpath(sys.executable)))
         )
-        return [
-            (path, self.plan[path])
-            for path, (kind, _) in sorted(self.rows.items())
-            if kind == "file"
-            and path.startswith(f"{SANDBOX_ENV}/")
-            and _is_loadable_elf(self.plan[path])
-            and _elf_architecture(self.plan[path]) == reference
-        ]
+        found: list[tuple[str, Path]] = []
+        for path, (kind, _) in sorted(self.rows.items()):
+            if kind != "file" or not path.startswith(f"{SANDBOX_ENV}/"):
+                continue
+            if path in self._hashed_files:
+                # Hashed by this walk: its header was kept if it is loadable.
+                header = self._loadable_elf_headers.get(path)
+                if header is None:
+                    continue
+                endian = "<" if header[5] == 1 else ">"
+                (e_machine,) = struct.unpack_from(f"{endian}H", header, 18)
+                architecture = (header[4], header[5], e_machine)
+            elif _is_loadable_elf(self.plan[path]):
+                architecture = _elf_architecture(self.plan[path])
+            else:
+                continue
+            if architecture == reference:
+                found.append((path, self.plan[path]))
+        return found
 
 
 def _is_loadable_elf(path: Path) -> bool:
