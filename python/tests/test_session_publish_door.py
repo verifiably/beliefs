@@ -95,6 +95,29 @@ def _files(root: Path) -> list[tuple[Path, bytes]]:
     return sorted((p.relative_to(root), p.read_bytes()) for p in root.rglob("*") if p.is_file())
 
 
+@pytest.fixture(scope="module")
+def readonly_source(certified_module_work: Path) -> Iterator[SimpleNamespace]:
+    """One source world per module for the items that write no byte of it.
+
+    Its teardown asserts every file under the source base is unchanged, byte for
+    byte: an item that wrote to the shared world fails the module rather than
+    leaking state into its neighbours. Items reach it only through
+    `scoped_source`, so their operations root and destination are their own."""
+    s = published_source(certified_module_work)
+    before = _files(s.base)
+    yield s
+    assert _files(s.base) == before
+
+
+def scoped_source(source: SimpleNamespace, tmp_path: Path) -> SimpleNamespace:
+    """`source` with its operations root and destination rebound into `tmp_path`."""
+    ops = tmp_path / "ops"
+    dest = tmp_path / "dest"
+    ops.mkdir(parents=True, exist_ok=True)
+    dest.mkdir(parents=True, exist_ok=True)
+    return SimpleNamespace(**{**vars(source), "ops": ops, "dest": dest, "destination": Destination.local(str(dest))})
+
+
 def test_the_preview_returns_what_publish_freezes(certified_work):
     s = published_source(certified_work)
     preview = _preview(s, s.view)
@@ -142,8 +165,8 @@ def test_the_preview_refuses_as_publish_does(certified_work, case):
     assert not (s.ops / "publish").exists()
 
 
-def test_the_preview_needs_no_authority(certified_work):
-    s = published_source(certified_work)
+def test_the_preview_needs_no_authority(readonly_source, tmp_path):
+    s = scoped_source(readonly_source, tmp_path)
     before = _files(s.base)
     preview = _preview(s, s.view)
     assert type(preview) is PublicationPreview and preview.records
@@ -391,32 +414,40 @@ def test_a_closed_session_writer_refuses_session_closed(certified_work, monkeypa
     _assert_untouched(s, token, left, pushes, before)
 
 
-def test_a_coordination_scoped_writer_refuses_the_permit_before_the_world_is_opened(certified_work, monkeypatch):
-    s = published_source(certified_work)
+def test_a_coordination_scoped_writer_refuses_the_permit_before_the_world_is_opened(
+    readonly_source, tmp_path, monkeypatch
+):
+    s = scoped_source(readonly_source, tmp_path)
     session, writer = publishing_session(s, required=RequiredCapabilities.coordination())
+    try:
 
-    def opened(*args, **kwargs):
-        raise AssertionError("opened")
+        def opened(*args, **kwargs):
+            raise AssertionError("opened")
 
-    monkeypatch.setattr(session_writer, "open_world", opened)
-    with pytest.raises(PermitExceeded) as publishing:
-        _door_publish(writer, s)
-    with pytest.raises(PermitExceeded) as resuming:
-        _door_resume(writer, s, "1" * 32)
-    assert publishing.value.requirement == resuming.value.requirement == PermitFact("family", "publish")
-    assert session.invocation_acts("A") == () and _publish_tokens(s) == []
-    assert not (s.ops / "publish").exists()
+        monkeypatch.setattr(session_writer, "open_world", opened)
+        with pytest.raises(PermitExceeded) as publishing:
+            _door_publish(writer, s)
+        with pytest.raises(PermitExceeded) as resuming:
+            _door_resume(writer, s, "1" * 32)
+        assert publishing.value.requirement == resuming.value.requirement == PermitFact("family", "publish")
+        assert session.invocation_acts("A") == () and _publish_tokens(s) == []
+        assert not (s.ops / "publish").exists()
+    finally:
+        session.close()
 
 
-def test_a_session_without_a_resolver_refuses_coordination_unavailable(certified_work):
-    s = published_source(certified_work)
+def test_a_session_without_a_resolver_refuses_coordination_unavailable(readonly_source, tmp_path):
+    s = scoped_source(readonly_source, tmp_path)
     session, writer = publishing_session(s, mounted=False)
-    with pytest.raises(CoordinationUnavailable, match="no coordination resolver"):
-        _door_publish(writer, s)
-    with pytest.raises(CoordinationUnavailable, match="no coordination resolver"):
-        _door_resume(writer, s, "1" * 32)
-    assert session.invocation_acts("A") == () and _publish_tokens(s) == []
-    assert not (s.ops / "publish").exists()
+    try:
+        with pytest.raises(CoordinationUnavailable, match="no coordination resolver"):
+            _door_publish(writer, s)
+        with pytest.raises(CoordinationUnavailable, match="no coordination resolver"):
+            _door_resume(writer, s, "1" * 32)
+        assert session.invocation_acts("A") == () and _publish_tokens(s) == []
+        assert not (s.ops / "publish").exists()
+    finally:
+        session.close()
 
 
 def test_a_session_without_a_world_configuration_refuses_both_publish_doors(tmp_path):
@@ -502,8 +533,8 @@ def test_the_door_opens_the_publication_inside_the_closing_hold(certified_work, 
 
 
 @pytest.mark.parametrize("scenario", ["forward", "closed", "stale", "permit", "resolver"])
-def test_y17_w_scoped_ownership(certified_work, monkeypatch, scenario):
-    s = published_source(certified_work)
+def test_y17_w_scoped_ownership(readonly_source, tmp_path, monkeypatch, scenario):
+    s = scoped_source(readonly_source, tmp_path)
     session, writer = publishing_session(
         s,
         required=RequiredCapabilities.coordination() if scenario == "permit" else None,
@@ -538,3 +569,27 @@ def test_y17_w_scoped_ownership(certified_work, monkeypatch, scenario):
             assert not (s.ops / "publish").exists()
     finally:
         session.close()
+
+
+def test_scoped_source_isolates_ops_and_dest_leaving_readonly_source_unchanged(tmp_path: Path):
+    base = tmp_path / "readonly"
+    (base / "alpha").mkdir(parents=True)
+    (base / "ops").mkdir()
+    (base / "dest").mkdir()
+    (base / "alpha" / "record.md").write_bytes(b"immutable")
+    source = SimpleNamespace(
+        base=base,
+        alpha_id="a" * 32,
+        ops=base / "ops",
+        dest=base / "dest",
+        destination=Destination.local(str(base / "dest")),
+    )
+    before = _files(base)
+    scoped = scoped_source(source, tmp_path / "per-test")
+    assert scoped.alpha_id == source.alpha_id and scoped.base == base
+    assert scoped.ops != source.ops and scoped.ops.is_dir()
+    assert scoped.dest != source.dest and scoped.dest.is_dir()
+    assert scoped.destination == Destination.local(str(scoped.dest))
+    (scoped.ops / "publish").mkdir()
+    (scoped.dest / "artifact").write_bytes(b"scratch")
+    assert _files(base) == before

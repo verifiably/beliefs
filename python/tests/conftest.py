@@ -8,7 +8,10 @@ defect one layer down.
 """
 
 import os
-from collections.abc import Iterator
+import shutil
+import tempfile
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 
 import pytest
@@ -148,8 +151,8 @@ def confined_launch():
     return build
 
 
-@pytest.fixture()
-def certified_work() -> "Iterator[Path]":
+@contextmanager
+def certified_work_dir() -> Iterator[Path]:
     """A fresh directory on the selected certified volume, removed afterwards.
 
     The lifecycle-wrapper tests run the real engine, whose durability
@@ -157,10 +160,12 @@ def certified_work() -> "Iterator[Path]":
     root; ordinary tests use the fallback beside the main checkout. Every root a
     test creates lives inside this directory, which keeps the derived metadata
     siblings inside it too.
-    """
-    import shutil
-    import tempfile
 
+    The cleanup runs however the body ends: a consumer whose setup raises (such
+    as `CapabilityUnavailable` on an uncertified host) still leaves no directory
+    behind, and the worker's corpus and world registries forget every root that
+    lived under it, since a later directory may reuse the path.
+    """
     configured = (
         os.environ.get("SCIENCE_CUT10_ROOT")
         or os.environ.get("SCIENCE_CUT12_ROOT")
@@ -169,8 +174,32 @@ def certified_work() -> "Iterator[Path]":
     base = Path(configured) if configured else MAIN_CHECKOUT / ".lifecycle-wrappers-test"
     base.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="t-", dir=base))
-    yield work
-    shutil.rmtree(work, ignore_errors=True)
+    try:
+        yield work
+    finally:
+        corpus._forget_roots_under(work)
+        world_registry._forget_worlds_under(work)
+        shutil.rmtree(work, ignore_errors=True)
+
+
+@pytest.fixture()
+def certified_work() -> Iterator[Path]:
+    """A fresh certified directory per test (`certified_work_dir`)."""
+    with certified_work_dir() as work:
+        yield work
+
+
+@pytest.fixture(scope="module")
+def certified_module_work() -> Iterator[Path]:
+    """One certified directory shared by a module's read-only fixtures (`certified_work_dir`)."""
+    with certified_work_dir() as work:
+        yield work
+
+
+@pytest.fixture()
+def certified_work_factory() -> Callable[[], AbstractContextManager[Path]]:
+    """`certified_work_dir` itself, for a test that drives the helper directly."""
+    return certified_work_dir
 
 
 @pytest.fixture(scope="session")

@@ -14,6 +14,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import shutil
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -24,7 +25,6 @@ from nodes.core.frontmatter import node_to_markdown
 from nodes.core.paths import path_for_node_id
 from session_doors_fixture import (
     evidence_for,
-    metadata_less_copy,
     publish_locally,
     published_source,
     recipient_session,
@@ -70,21 +70,48 @@ OTHER = {
 """Another well-formed value for each verified field: none is the root's."""
 
 
-def shared(work: Path, *, required: RequiredCapabilities = SHARING) -> SimpleNamespace:
-    """One local publication, its metadata-less copy, the evidence for it, and a
-    recipient session whose invocation `A` holds a writer scoped to `required`."""
-    s = published_source(work)
+@pytest.fixture(scope="module")
+def exported_publication(certified_module_work: Path) -> SimpleNamespace:
+    """One local publication per module, exported once, and a second publication
+    of the same source exported elsewhere for the carrier-search test.
+
+    Only the metadata-less export and facts read from it leave this fixture: the
+    source world `s` stays inside, so no test can reach a registered root that
+    every other test in the module shares. Each test copies the export into its
+    own certified directory (`shared`)."""
+    s = published_source(certified_module_work)
     published = publish_locally(s)
-    copy, sibling = metadata_less_copy(s, published, work / "copy")
-    session, writer = recipient_session(work, required=required)
+    export_root = s.dest / published.corpus_id
+    sibling = (s.dest / f"{published.corpus_id}.head-artifact.v1").read_bytes()
+    other_dest = s.base / "dest-other"
+    other_dest.mkdir()
+    other = publish_locally(s, destination=Destination.local(str(other_dest)))
+    assert other.corpus_id != published.corpus_id
+    other_sibling = (other_dest / f"{other.corpus_id}.head-artifact.v1").read_bytes()
     return SimpleNamespace(
-        s=s,
-        published=published,
+        export_root=export_root,
         cid=published.corpus_id,
-        copy=copy,
         sibling=sibling,
+        other_sibling=other_sibling,
         evidence=evidence_for(published, sibling, s),
         observers=ObserverSet((ArtifactCarrier.from_bytes(sibling),)),
+    )
+
+
+def shared(work: Path, exported: SimpleNamespace, *, required: RequiredCapabilities = SHARING) -> SimpleNamespace:
+    """The module's publication copied without its metadata sibling into `work`,
+    the evidence for it, and a fresh recipient session whose invocation `A` holds
+    a writer scoped to `required`."""
+    shutil.copytree(exported.export_root, work / "copy", symlinks=True)
+    copy = (work / "copy").resolve()
+    session, writer = recipient_session(work, required=required)
+    return SimpleNamespace(
+        cid=exported.cid,
+        copy=copy,
+        sibling=exported.sibling,
+        other_sibling=exported.other_sibling,
+        evidence=exported.evidence,
+        observers=exported.observers,
         session=session,
         writer=writer,
     )
@@ -131,8 +158,8 @@ def refuse_any_read(monkeypatch) -> None:
 
 
 # --- restore_root ----------------------------------------------------------------------
-def test_restore_root_grants_read_serviceability_and_ledgers_fetched_validated(certified_work):
-    x = shared(certified_work)
+def test_restore_root_grants_read_serviceability_and_ledgers_fetched_validated(certified_work, exported_publication):
+    x = shared(certified_work, exported_publication)
     assert read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
     line = x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
     assert read_lifecycle_state(x.copy) is LifecycleState.READ_ONLY_SERVICEABLE
@@ -149,10 +176,10 @@ def test_restore_root_grants_read_serviceability_and_ledgers_fetched_validated(c
     )
 
 
-def test_restore_root_of_a_disagreeing_copy_ledgers_the_refusing_verdict_and_grants_nothing(certified_work):
+def test_restore_root_of_a_disagreeing_copy_ledgers_the_refusing_verdict_and_grants_nothing(certified_work, exported_publication):
     """Ruling R3: the evidence names the right sibling, so the binding holds; one
     record's bytes in the copy disagree with its chain, so the act refuses."""
-    x = shared(certified_work)
+    x = shared(certified_work, exported_publication)
     tamper_one_selected_record(x.copy)
     line = x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
     assert line.transition == "fetched" and line.verdict != "validated"
@@ -161,8 +188,8 @@ def test_restore_root_of_a_disagreeing_copy_ledgers_the_refusing_verdict_and_gra
 
 
 # --- admit_publication -------------------------------------------------------------------
-def test_admit_publication_admits_a_replica_under_the_session_actor_and_ledgers_admitted(certified_work):
-    x = shared(certified_work)
+def test_admit_publication_admits_a_replica_under_the_session_actor_and_ledgers_admitted(certified_work, exported_publication):
+    x = shared(certified_work, exported_publication)
     fetched = x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
     line = x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
     (record,) = (r for r in admissions(x) if r.corpus_id == x.cid)
@@ -171,9 +198,9 @@ def test_admit_publication_admits_a_replica_under_the_session_actor_and_ledgers_
     assert x.session.invocation_sharing("A") == (fetched, line)
 
 
-def test_admit_publication_of_an_unrestored_metadata_less_copy_admits_through_detached_verification(certified_work):
+def test_admit_publication_of_an_unrestored_metadata_less_copy_admits_through_detached_verification(certified_work, exported_publication):
     """Review Focus 2: restore-first is science's order, not the door's."""
-    x = shared(certified_work)
+    x = shared(certified_work, exported_publication)
     line = x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
     (record,) = (r for r in admissions(x) if r.corpus_id == x.cid)
     assert record.provenance == ReplicaOf(x.cid) and record.actor == x.session.actor
@@ -182,10 +209,10 @@ def test_admit_publication_of_an_unrestored_metadata_less_copy_admits_through_de
     assert x.session.invocation_sharing("A") == (line,)
 
 
-def test_admit_publication_of_a_refuted_chain_propagates_the_arrival_refusal_and_appends_nothing(certified_work):
+def test_admit_publication_of_a_refuted_chain_propagates_the_arrival_refusal_and_appends_nothing(certified_work, exported_publication):
     """Review Focus 2: verification refutes the copy's chain; the refusal is the
     act's, no transition was made, and no line follows."""
-    x = shared(certified_work)
+    x = shared(certified_work, exported_publication)
     fetched = x.writer.restore_root(x.copy, CorpusSubject(x.cid), x.observers, evidence=x.evidence)
     assert fetched.verdict == "validated"
     tamper_one_selected_record(x.copy)
@@ -198,11 +225,11 @@ def test_admit_publication_of_a_refuted_chain_propagates_the_arrival_refusal_and
 
 # --- the layout and the evidence binding --------------------------------------------------
 @pytest.mark.parametrize("door", ["restore_root", "admit_publication", "retire"])
-def test_a_copy_with_an_unparseable_record_refuses_capture_damaged_before_the_act(certified_work, door):
+def test_a_copy_with_an_unparseable_record_refuses_capture_damaged_before_the_act(certified_work, exported_publication, door):
     """A record the copy's reader cannot parse is a typed refusal from the
     binding, never a raw reader exception; no act runs. The corpus is not
     admitted, so `retire` reaching its registry read would refuse otherwise."""
-    x = shared(certified_work)
+    x = shared(certified_work, exported_publication)
     corrupt_one_selected_record(x.copy)
     before = admissions(x)
     with pytest.raises(PublicationReadingRefused) as caught:
@@ -219,8 +246,8 @@ def test_a_copy_with_an_unparseable_record_refuses_capture_damaged_before_the_ac
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_a_copy_without_its_marker_refuses_the_layout_before_any_act(certified_work):
-    x = shared(certified_work)
+def test_a_copy_without_its_marker_refuses_the_layout_before_any_act(certified_work, exported_publication):
+    x = shared(certified_work, exported_publication)
     (x.copy / path_for_node_id(marker_of(x.copy).id)).unlink()
     before = admissions(x)
     with pytest.raises(PublicationArrivalRefused) as restoring:
@@ -243,8 +270,8 @@ def test_sharing_evidence_disagrees_is_a_write_refusal_naming_its_field():
 
 
 @pytest.mark.parametrize("field", ["corpus", "artifact", "marker", "world", "view"])
-def test_mismatched_evidence_refuses_naming_the_field_before_the_act(certified_work, field):
-    x = shared(certified_work)
+def test_mismatched_evidence_refuses_naming_the_field_before_the_act(certified_work, exported_publication, field):
+    x = shared(certified_work, exported_publication)
     wrong = dataclasses.replace(x.evidence, **{field: OTHER[field]})
     before = admissions(x)
     with pytest.raises(SharingEvidenceDisagrees) as restoring:
@@ -259,13 +286,13 @@ def test_mismatched_evidence_refuses_naming_the_field_before_the_act(certified_w
 
 
 @pytest.mark.parametrize("field", ["source", "location"])
-def test_evidence_that_cannot_encode_never_exists_for_either_door(certified_work, field):
+def test_evidence_that_cannot_encode_never_exists_for_either_door(certified_work, exported_publication, field):
     """The ledger encodes a line only after the act, so evidence it could not
     encode would leave a transition with no line. Such evidence refuses at
     construction; both doors take only an exact `SharingEvidence`, so neither
     can be called with it, and the copy, the registry and the ledger are
     untouched."""
-    x = shared(certified_work)
+    x = shared(certified_work, exported_publication)
     before = (tree(x.copy), admissions(x))
     with pytest.raises(ValueError, match=f"{field} must encode as UTF-8"):
         dataclasses.replace(x.evidence, **{field: "copy-\udcff"})
@@ -274,8 +301,8 @@ def test_evidence_that_cannot_encode_never_exists_for_either_door(certified_work
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_a_subject_naming_another_corpus_refuses_on_the_corpus_field(certified_work):
-    x = shared(certified_work)
+def test_a_subject_naming_another_corpus_refuses_on_the_corpus_field(certified_work, exported_publication):
+    x = shared(certified_work, exported_publication)
     with pytest.raises(SharingEvidenceDisagrees) as caught:
         x.writer.restore_root(x.copy, CorpusSubject("0" * 32), x.observers, evidence=x.evidence)
     assert (caught.value.field, caught.value.claimed, caught.value.found) == ("corpus", x.cid, "0" * 32)
@@ -283,25 +310,19 @@ def test_a_subject_naming_another_corpus_refuses_on_the_corpus_field(certified_w
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_an_artifact_no_carrier_holds_names_none_found(certified_work):
-    x = shared(certified_work)
+def test_an_artifact_no_carrier_holds_names_none_found(certified_work, exported_publication):
+    x = shared(certified_work, exported_publication)
     with pytest.raises(SharingEvidenceDisagrees) as caught:
         x.writer.restore_root(x.copy, CorpusSubject(x.cid), ObserverSet(()), evidence=x.evidence)
     assert (caught.value.field, caught.value.found) == ("artifact", "none")
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_the_artifact_binding_searches_every_carrier(certified_work):
+def test_the_artifact_binding_searches_every_carrier(certified_work, exported_publication):
     """Review Focus 1: the first carrier is another publication's artifact; the
     publication's own is second, and the binding finds it."""
-    x = shared(certified_work)
-    other_dest = x.s.base / "dest-other"
-    other_dest.mkdir()
-    destination = Destination.local(str(other_dest))
-    other = publish_locally(x.s, destination=destination)
-    assert other.corpus_id != x.cid
-    other_sibling = (other_dest / f"{other.corpus_id}.head-artifact.v1").read_bytes()
-    observers = ObserverSet((ArtifactCarrier.from_bytes(other_sibling), ArtifactCarrier.from_bytes(x.sibling)))
+    x = shared(certified_work, exported_publication)
+    observers = ObserverSet((ArtifactCarrier.from_bytes(x.other_sibling), ArtifactCarrier.from_bytes(x.sibling)))
     fetched = x.writer.restore_root(x.copy, CorpusSubject(x.cid), observers, evidence=x.evidence)
     assert (fetched.transition, fetched.verdict) == ("fetched", "validated")
     assert read_lifecycle_state(x.copy) is LifecycleState.READ_ONLY_SERVICEABLE
@@ -310,8 +331,8 @@ def test_the_artifact_binding_searches_every_carrier(certified_work):
 
 
 # --- entry refusals -----------------------------------------------------------------------
-def test_the_doors_require_their_family_first(certified_work, monkeypatch):
-    x = shared(certified_work, required=RequiredCapabilities.coordination())
+def test_the_doors_require_their_family_first(certified_work, exported_publication, monkeypatch):
+    x = shared(certified_work, exported_publication, required=RequiredCapabilities.coordination())
     copied = tree(x.copy)
     before = admissions(x)
     refuse_any_read(monkeypatch)
@@ -329,8 +350,8 @@ def test_the_doors_require_their_family_first(certified_work, monkeypatch):
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_stale_and_closed_writers_refuse_before_reading_the_copy(certified_work, monkeypatch):
-    x = shared(certified_work)
+def test_stale_and_closed_writers_refuse_before_reading_the_copy(certified_work, exported_publication, monkeypatch):
+    x = shared(certified_work, exported_publication)
     copied = tree(x.copy)
     refuse_any_read(monkeypatch)
     x.session.close_invocation("A", {"done": []})
@@ -351,13 +372,42 @@ def test_stale_and_closed_writers_refuse_before_reading_the_copy(certified_work,
     assert tree(x.copy) == copied and read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
 
 
-def test_a_store_subject_is_a_type_error(certified_work, monkeypatch):
-    x = shared(certified_work)
+def test_a_store_subject_is_a_type_error(certified_work, exported_publication, monkeypatch):
+    x = shared(certified_work, exported_publication)
     refuse_any_read(monkeypatch)
     with pytest.raises(TypeError):
         x.writer.restore_root(x.copy, StoreSubject(x.cid), x.observers, evidence=x.evidence)  # type: ignore[arg-type]
     assert read_lifecycle_state(x.copy) is LifecycleState.METADATA_LESS
     assert x.session.invocation_sharing("A") == ()
+
+
+def test_certified_work_dir_cleans_up_and_forgets_registries_on_exception(
+    certified_work_factory, tmp_path, monkeypatch
+):
+    import beliefs.world.registry as world_registry
+    from beliefs import corpus
+
+    vol = tmp_path / "vol"
+    monkeypatch.setenv("SCIENCE_CUT10_ROOT", str(vol))
+    forgotten_corpora: list[Path] = []
+    forgotten_worlds: list[Path] = []
+    real_forget_corpora = corpus._forget_roots_under
+    real_forget_worlds = world_registry._forget_worlds_under
+    monkeypatch.setattr(
+        corpus, "_forget_roots_under", lambda p: (forgotten_corpora.append(p), real_forget_corpora(p))[1]
+    )
+    monkeypatch.setattr(
+        world_registry, "_forget_worlds_under", lambda p: (forgotten_worlds.append(p), real_forget_worlds(p))[1]
+    )
+    created: Path | None = None
+    with pytest.raises(RuntimeError, match="setup-boom"):
+        with certified_work_factory() as work:
+            created = work
+            (work / "sentinel").write_bytes(b"x")
+            raise RuntimeError("setup-boom")
+    assert created is not None and not created.exists()
+    assert forgotten_corpora == [created]
+    assert forgotten_worlds == [created]
 
 
 def test_a_session_without_a_world_configuration_refuses_admit_publication_and_retire(tmp_path, monkeypatch):
@@ -376,10 +426,10 @@ def test_a_session_without_a_world_configuration_refuses_admit_publication_and_r
 
 
 # --- retire (retirement door design §5) ----------------------------------------------------
-def adopted(work: Path) -> SimpleNamespace:
+def adopted(work: Path, exported: SimpleNamespace) -> SimpleNamespace:
     """`shared`, with the copy admitted through the door as a replica of itself
     under invocation `A`; `x.admitted` is that line."""
-    x = shared(work)
+    x = shared(work, exported)
     x.admitted = x.writer.admit_publication(x.copy, x.observers, evidence=x.evidence)
     return x
 
@@ -402,8 +452,8 @@ def ledger_sharing(session) -> tuple:
     return open_ledger_reader(session.operations_root, session.session_id).sharing()
 
 
-def test_retire_retires_an_adopted_publication_under_the_session_actor_and_ledgers_retired(certified_work):
-    x = adopted(certified_work)
+def test_retire_retires_an_adopted_publication_under_the_session_actor_and_ledgers_retired(certified_work, exported_publication):
+    x = adopted(certified_work, exported_publication)
     line = x.writer.retire(x.copy, x.observers, evidence=x.evidence)
     assert (line.transition, line.verdict) == ("retired", "retired")
     assert (
@@ -435,8 +485,8 @@ def test_retire_retires_an_adopted_publication_under_the_session_actor_and_ledge
     assert ledger_sharing(x.session) == (x.admitted, line)
 
 
-def test_a_repeat_in_a_later_invocation_ledgers_already_retired_with_no_second_record(certified_work):
-    x = adopted(certified_work)
+def test_a_repeat_in_a_later_invocation_ledgers_already_retired_with_no_second_record(certified_work, exported_publication):
+    x = adopted(certified_work, exported_publication)
     first = x.writer.retire(x.copy, x.observers, evidence=x.evidence)
     x.session.close_invocation("A", {"done": []})
     x.session.claim_invocation("B", "share", DIGEST)
@@ -449,8 +499,8 @@ def test_a_repeat_in_a_later_invocation_ledgers_already_retired_with_no_second_r
 
 
 @pytest.mark.parametrize("field", ["corpus", "artifact", "marker", "world", "view"])
-def test_retire_with_mismatched_evidence_refuses_naming_the_field_before_the_act(certified_work, field):
-    x = adopted(certified_work)
+def test_retire_with_mismatched_evidence_refuses_naming_the_field_before_the_act(certified_work, exported_publication, field):
+    x = adopted(certified_work, exported_publication)
     wrong = dataclasses.replace(x.evidence, **{field: OTHER[field]})
     with pytest.raises(SharingEvidenceDisagrees) as caught:
         x.writer.retire(x.copy, x.observers, evidence=wrong)
@@ -463,18 +513,18 @@ def test_retire_with_mismatched_evidence_refuses_naming_the_field_before_the_act
     assert x.session.invocation_sharing("A") == (x.admitted,)
 
 
-def test_retire_of_a_corpus_never_admitted_refuses_status_target_unknown(certified_work):
-    x = shared(certified_work)
+def test_retire_of_a_corpus_never_admitted_refuses_status_target_unknown(certified_work, exported_publication):
+    x = shared(certified_work, exported_publication)
     with pytest.raises(StatusTargetUnknown, match="not admitted"):
         x.writer.retire(x.copy, x.observers, evidence=x.evidence)
     assert statuses(x) == ()
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_retire_of_a_publication_admitted_fresh_refuses_status_target_unknown(certified_work):
+def test_retire_of_a_publication_admitted_fresh_refuses_status_target_unknown(certified_work, exported_publication):
     """Decision 2, step 6: the root has the publication layout and the evidence
     binds, but the corpus was not adopted through the sharing doors."""
-    x = shared(certified_work)
+    x = shared(certified_work, exported_publication)
     full_world(x).admit(x.copy, provenance=Fresh())
     with pytest.raises(StatusTargetUnknown, match="Fresh"):
         x.writer.retire(x.copy, x.observers, evidence=x.evidence)
@@ -482,8 +532,8 @@ def test_retire_of_a_publication_admitted_fresh_refuses_status_target_unknown(ce
     assert x.session.invocation_sharing("A") == ()
 
 
-def test_retire_of_a_departed_corpus_refuses_status_terminal_and_keeps_its_record(certified_work):
-    x = adopted(certified_work)
+def test_retire_of_a_departed_corpus_refuses_status_terminal_and_keeps_its_record(certified_work, exported_publication):
+    x = adopted(certified_work, exported_publication)
     departed = full_world(x).depart(x.cid)
     with pytest.raises(StatusTerminal, match="departed"):
         x.writer.retire(x.copy, x.observers, evidence=x.evidence)
@@ -508,8 +558,8 @@ def racing(monkeypatch, status: str) -> None:
     monkeypatch.setattr(World, "retire", raced)
 
 
-def test_a_racing_retirement_by_another_actor_ledgers_already_retired(certified_work, monkeypatch):
-    x = adopted(certified_work)
+def test_a_racing_retirement_by_another_actor_ledgers_already_retired(certified_work, exported_publication, monkeypatch):
+    x = adopted(certified_work, exported_publication)
     racing(monkeypatch, "retired")
     line = x.writer.retire(x.copy, x.observers, evidence=x.evidence)
     assert (line.transition, line.verdict) == ("retired", "already-retired")
@@ -518,8 +568,8 @@ def test_a_racing_retirement_by_another_actor_ledgers_already_retired(certified_
     assert x.session.invocation_sharing("A") == (x.admitted, line)
 
 
-def test_a_racing_departure_reraises_the_acts_status_terminal_and_appends_nothing(certified_work, monkeypatch):
-    x = adopted(certified_work)
+def test_a_racing_departure_reraises_the_acts_status_terminal_and_appends_nothing(certified_work, exported_publication, monkeypatch):
+    x = adopted(certified_work, exported_publication)
     racing(monkeypatch, "departed")
     with pytest.raises(StatusTerminal, match="already has terminal status"):
         x.writer.retire(x.copy, x.observers, evidence=x.evidence)
@@ -531,12 +581,12 @@ def test_a_racing_departure_reraises_the_acts_status_terminal_and_appends_nothin
 
 @pytest.mark.parametrize("fault", ["write", "flush", "fsync"])
 def test_a_failed_retired_append_ends_the_session_and_a_successor_ledgers_already_retired(
-    certified_work, monkeypatch, fault
+    certified_work, exported_publication, monkeypatch, fault
 ):
     """Decision 6: the status commits, then the `retired` append fails. Each
     fault is armed for the ledger's file alone, since `World.retire` writes
     and fsyncs the registry inside the same call."""
-    x = adopted(certified_work)
+    x = adopted(certified_work, exported_publication)
     handle = x.session._ledger._file
     ledger_fd = handle.fileno()
 
@@ -599,10 +649,10 @@ def test_a_failed_retired_append_ends_the_session_and_a_successor_ledgers_alread
         ]
 
 
-def test_close_waits_while_retire_holds_the_session_lock_and_completes_after_the_line(certified_work, monkeypatch):
+def test_close_waits_while_retire_holds_the_session_lock_and_completes_after_the_line(certified_work, exported_publication, monkeypatch):
     """Decision 5: a close from another thread while the door is inside
     `World.retire` waits on the session lock and runs after the line."""
-    x = adopted(certified_work)
+    x = adopted(certified_work, exported_publication)
     retiring, release, close_waiting = threading.Event(), threading.Event(), threading.Event()
     order: list[str] = []
 
