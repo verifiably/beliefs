@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:40:59Z
+updated: 2026-11-01T10:46:00Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -124,3 +124,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:40:54Z (main): resumed
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T10:40:59Z (main): approval: user approved the publication packet in session b2bff3ba-0ad3-458f-809d-bb8b1806af58 (their words: "Approved."), covering only git push origin d6dab00165bf520bb61215e309d2847af90c0978:refs/heads/main.
+- 2026-11-01T10:46:00Z (main): Publication push done 2026-11-01T10:45Z: 49c39ab..d6dab00 -> origin main (approved refspec). Local hook-pre-push-fast (policy enabled) ran hygiene, check-code, test-push: 6403 passed 1 skipped, 155 TS passed. Hosted run 41298875513 (push, main, d6dab00) in progress; Task 8 assesses it.
