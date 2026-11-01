@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:43:05Z
+updated: 2026-11-01T11:43:09Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -150,3 +150,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:41:45Z (main): attached: push-2.log (1949 bytes): push-2.log: activation push 01eb638, check-code and test-push skipped by policy
 - 2026-11-01T11:41:48Z (main): attached: pre-activation-main-log.txt (1024 bytes): pre-activation-main-log.txt: git log d6dab00..main before the activation merge (tasks-only)
 - 2026-11-01T11:43:05Z (main): Worktree ignored-file dispositions before removal: python/.venv, ts/node_modules, python/.pytest_cache and every __pycache__ — regenerable (just setup / uv run --frozen), discard. .superpowers/sdd/2026-11-01-test-execution-policy: progress.md ledger attached as execution-ledger.md (sha256 matches, Ruling and minor (deferred) lines included); final-review-report.md and final-rereview-1/2-report.md attached; review-0b40c74..79098f3.diff regenerable from git; justfile.orig a sabotage-restore copy identical to committed state; t*/fix*/act* logs are per-step test and commit outputs summarized in the ledger and notes — discard. Scratch $WORK_ROOT/beliefs/beliefs-067a8d: baseline.log, execution-ledger.md, both packets, assess_hosted.py, both assessments, push logs, pre-activation log and the Vitest probe XML attached byte-identical; hosted-1/ and hosted-2/ raw artifacts discarded with derived counts and capability lists attached (the raw artifacts also remain on GitHub for runs 41298875513 and 41301850058 until about 2026-12-01, after the 2026-11-28 regret review); watch logs and probe .ts files discard. No host pointer resolves into the worktree; tt-report ran.
+- 2026-11-01T11:43:09Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/067a8d-test-policy","state":"released","verification":"verified","purpose":"Removed after close-out: branch merged into main (01eb638, pushed), clean status, no submodules, ignored files dispositioned, tt-report run, no host pointer","next_owner":"none","cleanup_trigger":"none"}
