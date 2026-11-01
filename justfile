@@ -1,7 +1,10 @@
-# Front door for tests. Full suite: `just test`. Gates: `just check` (seconds: lint,
-# typecheck, task records) and `just gate` (check plus the suite). `just test-fast` is
-# the documented fast local loop; `just test-one <runner args>` is the focused loop.
-# CI carries the full suite for origin/main; other pushes keep the complete local gate.
+# Front door for tests. Full suite: `just test`. Gates: `just check` (hygiene, then lint
+# and typecheck) and `just gate` (check plus the suite). `just test-fast` is the
+# documented fast local loop; `just test-one <runner args>` is the focused loop.
+# A `.tt.toml` (absent: enabled) may skip the broad targets; `just test-full` and
+# `TT_FORCE=1 just gate` are the deliberate suite and full-gate routes (AGENTS.md).
+# CI runs the full suites on every branch push; the push hook treats ci_suite_refs as
+# covered, and other pushes keep the complete local gate.
 #
 # Every recipe runs through the vendored timing wrapper tools/tt and the shared hygiene
 # check tools/ops-check (source of truth: ops bin/tt and ops bin/ops-check), so each run

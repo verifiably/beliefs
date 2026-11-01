@@ -6,7 +6,8 @@
 # code checks' verdict, so it pays only the docs checks. Paths are read NUL-delimited,
 # decoded strictly (an undecodable name cannot be matched, so it takes the full check),
 # a rename counts on both sides, and any failure to classify pays the full check. The
-# skipped checks still run at the next code commit, at push, and in CI.
+# skipped checks run at the next code commit and at push where tt policy allows, and in
+# CI on every branch push.
 # Design: ops docs/specs/2026-09-28-test-ci-act-design.md §3.2.
 if globs=$(just --evaluate docs_paths 2>/dev/null) && python3 -c '
 import fnmatch, subprocess, sys

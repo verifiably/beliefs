@@ -13,10 +13,12 @@ just check
 just test
 ```
 
-`check` is the vendored `tools/ops-check` and `tools/ops-docs check`, ruff check,
-ruff format --check, pyright, biome, tsc, and `tasks check`; `test` runs parallel
-Python tests outside N2, standalone N2, and the TypeScript suite. Both recipes run
-through the vendored timing wrapper `tools/tt`, so the verdict is recorded. `test`
+`check` runs `check-hygiene` (the vendored `tools/ops-check` and `tools/ops-docs
+check`, and `tasks check`), then `check-code` (ruff check, ruff format --check,
+pyright, biome, tsc); `test` runs parallel Python tests outside N2, standalone N2,
+and the TypeScript suite. Each runs through the vendored timing wrapper `tools/tt`,
+so its verdict is recorded; a root `.tt.toml` with `automatic_broad = false` skips
+the broad ones unless `TT_FORCE=1` (root AGENTS.md, Gates). `test`
 runs under ops' `host-budget run`, which sizes xdist and N2's own pool. The Python
 commands they run, from this directory, are:
 
