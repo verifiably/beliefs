@@ -1,7 +1,7 @@
 # Beliefs test execution policy adoption
 
-Status: revised after spec rounds 1 (`60b6487`) and 2 (`e2927dd`); proposed for
-user review. Task: beliefs-067a8d. This document authorizes no
+Status: revised after spec rounds 1 (`60b6487`), 2 (`e2927dd`) and 3 (`2cee097`);
+proposed for user review. Task: beliefs-067a8d. This document authorizes no
 implementation, workflow publication, push or policy-off activation. The
 implementation plan follows user approval of this frozen design.
 
@@ -196,15 +196,19 @@ widening (a `backup` remote).
 In the coverage test, "matched" means GitHub's semantics, not `fnmatch`. GitHub's
 `*` does not cross `/`; only `**` does. So `refs/heads/*` requires a `**` branch
 pattern, and `refs/heads/<name>` requires `<name>` or `**`. A `*`-only trigger
-fails the test.
+fails the test. Any other `ci_suite_refs` shape, such as `refs/heads/release/*`,
+fails the test until its GitHub equivalent is specified.
 
-A third contract test checks that every `broad_targets` entry in `.tt.toml`, when
-the file exists, names a tt target in the justfile. `read_policy` validates only
-the protected set, so without this test a typo would silently leave a target
-running by default. Under
-policy-off the activation commit's own hooks skip `check-code` and `test-push`,
-so that commit runs `just test-one tests/test_front_door.py` and the workflow
-contract test before it is made.
+A third contract test checks that every `broad_targets` entry names a tt target
+in the justfile. `read_policy` validates only the protected set, so without this
+test a typo would silently leave a target running by default. The test runs
+against a fixture policy file, so it can fail before activation, and also
+against the live `.tt.toml` once that file exists.
+
+Under policy-off the activation commit's own hooks skip `check-code` and
+`test-push`. That commit therefore runs, before it is made, `just test-one`
+over `test_front_door.py`, the workflow contract tests, and every test that
+reads a README or `docs/` line the commit edits.
 
 ## Hosted verification
 
@@ -338,8 +342,11 @@ semantics are unchanged.
 1. After design approval, write and freeze the implementation plan for user
    review. Policy stays enabled through preparation and the first hosted run.
 2. Execution Setup checks the shared delivery state again, then runs the full
-   baseline from the hydrated worktree as `PYTEST_ADDOPTS=-rs just test`. That
-   prints skip reasons and leaves the summary line tt counts unchanged. Record
+   baseline from the hydrated worktree as
+   `PYTEST_ADDOPTS="${PYTEST_ADDOPTS:+$PYTEST_ADDOPTS }-rfEs" just test`. That
+   keeps the host's own value (here `-o tmp_path_retention_policy=failed`), keeps
+   pytest's default failure and error summary, prints skip reasons, and leaves
+   the summary line tt counts unchanged. Record
    the test counts, failures, and the SKIPPED lines of both pytest phases. Those
    lines are the local skip-reason baseline that hosted acceptance compares
    against. No command string changes.
@@ -350,9 +357,20 @@ semantics are unchanged.
    `GITHUB_ACTIONS` are absent unless a case sets them. The hosted job sets
    both, so an inherited environment would make the skip and warning cases fail
    only in CI. Assert each fixture's top level and git-dir before its first
-   write. Exercise real recipes with `just --set` marker commands in place of
-   their children. Real children would run suites inside the suite, and `tasks
-   check` is absent on runners. Using isolated fixture policy files, prove that:
+   write. The composed recipes call nested `just`, and `--set` does not reach a
+   nested process. So follow the nodes pattern
+   (`python/tests/test_development_routes.py` there). Build a fixture checkout
+   that copies the justfile, `tools/tt` and `.githooks/pre-push`. Put stub `uv`,
+   `npm`, `npx`, `tasks`, `host-budget` and `ssh` executables on the key-by-key
+   `PATH`, and stub `tools/ops-check` and `tools/ops-docs` in the fixture. Each
+   stub appends to an events log and fails when an environment variable such as
+   `FAIL_STEP` names it. Environment variables do reach nested `just`. Assertions
+   read the events and the tt rows. No case runs a real suite or check, and none
+   runs with `cwd` at the repository root, which would recurse into this suite.
+   `--set` stays acceptable for single-level recipes such as the existing
+   `test-one` forwarding case. The routing tests keep the stub `just` that
+   delegates `--evaluate` to the real binary. Using isolated fixture policy
+   files, prove that:
    - hygiene survives policy-off;
    - a skipped child never spawns and logs a null outcome;
    - a failing hygiene step stops `check-code`, and a failing `check-code`
@@ -370,7 +388,11 @@ semantics are unchanged.
    Write the text state-independently where possible: policy is whatever
    `.tt.toml` says, and the covered refs are `ci_suite_refs`. Any line that has
    to state the current policy or covered refs describes the pre-activation state
-   (policy enabled, `refs/heads/main`). README.md and docs/ are test inputs, so
+   (policy enabled, `refs/heads/main`). The workflow trigger and the hook's
+   declared coverage are stated as two separate facts. From step 3 on, CI
+   triggers on every branch while the hook still declares only `main` as
+   covered. Today's "only origin/main is covered by the push trigger" comment,
+   and AGENTS.md's Remote CI line, are rewritten in this step. README.md and docs/ are test inputs, so
    the plan runs the tests that read them.
 5. Present the reviewed implementation and an activation packet. It contains:
    - the exact commit and refs, the workflow diff and the delivery revisions;
