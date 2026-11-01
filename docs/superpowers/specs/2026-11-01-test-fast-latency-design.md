@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-01  
 **Task:** `beliefs-0f5112` (`test-latency`, `testing`)  
-**Status:** proposed design (awaiting spec review)  
+**Status:** approved design (revised after spec round 1 b033606; round 2 accepted fb26beb; approved by user in round 3)  
 **Workspace:** `.worktrees/0f5112-test-latency` (`perf/0f5112-test-latency`)
 
 ## Intent and scope

@@ -18,6 +18,7 @@ call — is stated in §4.2.1 and pinned by the acceptance negative, not by this
 from __future__ import annotations
 
 import ast
+import functools
 import inspect
 import sys
 from pathlib import Path
@@ -89,8 +90,19 @@ def relative(path: Path) -> str:
     return path.relative_to(PACKAGE).as_posix()
 
 
+@functools.lru_cache(maxsize=256)
+def _parsed_bytes(raw: bytes, filename: str) -> ast.Module:
+    return ast.parse(raw.decode("utf-8"), filename=filename)
+
+
 def parsed(path: Path) -> ast.Module:
-    return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    """The module's tree over its **current** bytes, read fresh on every call.
+
+    The cache is keyed by the raw bytes and the path, never the path alone, so
+    a sabotage that edits a file on `PYTHONPATH` misses it and is parsed anew.
+    Callers treat the returned tree as read-only.
+    """
+    return _parsed_bytes(path.read_bytes(), str(path))
 
 
 def names_of(tree: ast.Module, *, exclude_stdlib_copy: bool = False) -> set[str]:
@@ -568,13 +580,12 @@ def test_no_cooperative_mutation_path_skips_registration():
         assert offending == [], f"{relative(module)} imports {offending}"
 
     composition_root = parsed(PACKAGE / COMPOSITION_ROOT)
+    non_root_names = [
+        (relative(module), names_of(parsed(module))) for module in modules() if relative(module) != COMPOSITION_ROOT
+    ]
     for command in MUTATING_ENGINE_COMMANDS:
         if command not in PORT_METHOD_NAMES:
-            elsewhere = [
-                relative(module)
-                for module in modules()
-                if relative(module) != COMPOSITION_ROOT and command in names_of(parsed(module))
-            ]
+            elsewhere = [rel for rel, used in non_root_names if command in used]
             assert elsewhere == [], f"{command} is named outside the composition root by {elsewhere}"
         assert sorted(call_sites(composition_root, command)) == sorted(ENGINE_CALL_SITES[command]), command
 
@@ -608,12 +619,14 @@ def test_science_fingerprints_only_through_the_engine_read_commands():
     to observe a root.
     """
     composition_root = parsed(PACKAGE / COMPOSITION_ROOT)
+    non_root_vocab = [
+        (relative(module), names_of(tree) | defined_names(tree))
+        for module in modules()
+        if relative(module) != COMPOSITION_ROOT
+        for tree in (parsed(module),)
+    ]
     for name in STATE_VOCABULARY:
-        elsewhere = [
-            relative(module)
-            for module in modules()
-            if relative(module) != COMPOSITION_ROOT and name in names_of(parsed(module)) | defined_names(parsed(module))
-        ]
+        elsewhere = [rel for rel, vocab in non_root_vocab if name in vocab]
         assert elsewhere == [], f"{name} is named or defined outside the composition root by {elsewhere}"
     # The composition root does name the members it uses — the ban above would
     # otherwise pass over a vocabulary nobody speaks. The one encoder call
@@ -648,3 +661,39 @@ def test_science_fingerprints_only_through_the_engine_read_commands():
     signature = inspect.signature(composition._file_state)
     assert [(name, parameter.annotation) for name, parameter in signature.parameters.items()] == [("content", "bytes")]
     assert signature.return_annotation == "FileState"
+
+
+def test_parsed_recomputes_when_file_bytes_change_and_bounds_cache(tmp_path: Path):
+    _parsed_bytes.cache_clear()
+    try:
+        first = tmp_path / "first.py"
+        second = tmp_path / "second.py"
+        first.write_text("VALUE = 1\n", encoding="utf-8")
+        second.write_text("VALUE = 1\n", encoding="utf-8")
+
+        tree_a = parsed(first)
+        info_after_first = _parsed_bytes.cache_info()
+        assert parsed(first) is tree_a
+        assert _parsed_bytes.cache_info().hits == info_after_first.hits + 1
+
+        tree_b = parsed(second)
+        assert tree_b is not tree_a
+        assert _parsed_bytes.cache_info().misses == info_after_first.misses + 1
+
+        first.write_text("VALUE = 2\n", encoding="utf-8")
+        updated = parsed(first)
+        assert updated is not tree_a
+        assign = updated.body[0]
+        assert isinstance(assign, ast.Assign) and isinstance(assign.value, ast.Constant)
+        assert assign.value.value == 2
+
+        for index in range(260):
+            extra = tmp_path / f"m_{index}.py"
+            extra.write_text(f"X = {index}\n", encoding="utf-8")
+            parsed(extra)
+        bounded = _parsed_bytes.cache_info()
+        assert (bounded.currsize, bounded.maxsize) == (256, 256)
+        parsed(second)
+        assert _parsed_bytes.cache_info().misses == bounded.misses + 1
+    finally:
+        _parsed_bytes.cache_clear()
