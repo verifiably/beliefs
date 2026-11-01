@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T02:38:52Z
+updated: 2026-11-01T08:46:34Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -71,4 +71,6 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T02:38:38Z (design/067a8d-test-policy): retention checkpoint: observed 2026-11-01T02:38:38Z on titan; basis beliefs in-tree . 7ed73f40b9c9f20ff7050bf1d3615498a77e7416:tasks/beliefs-067a8d.md; retained by refs/heads/design/067a8d-test-policy; this host: kept verified 1, kept unknown 0, released 0; changed 1. Rechecked all kept/verified items on this host; session scratchpad copies of the eight attached review files were byte-verified against their attachments and are not retained. No host pointer or process points into the worktree. Other hosts hold no items.
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T02:38:52Z (design/067a8d-test-policy): parked (waiting on user, review): User reviews frozen 5237cb7:docs/superpowers/specs/2026-10-31-test-execution-policy-design.md (sha256 561c57b87c5c05cf8f15890646d0d7c3e8a3669078f3b4d828d91a3a4bb1922d) in .worktrees/067a8d-test-policy. After approval the agent resumes there and writes the implementation plan, folding in the three round 4 minors per spec-round-4-ledger.md. No implementation, push or activation yet.
+  provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-11-01T08:46:34Z (design/067a8d-test-policy): resumed
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
