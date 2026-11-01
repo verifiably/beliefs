@@ -1,13 +1,15 @@
 ---
 id: beliefs-c6e4d6
 title: "Task 5: Widened workflow with durable coverage evidence"
-status: todo
+status: doing
 priority: 1
 size: s
 complexity: mid
 process: direct
+owner: main
 created: 2026-11-01T22:48:04Z
-updated: 2026-11-01T22:48:04Z
+updated: 2026-11-01T22:48:08Z
+started: 2026-11-01T22:48:08Z
 depends: []
 parent: beliefs-067a8d
 tags: []
@@ -21,3 +23,5 @@ step: "Task 5: Widened workflow with durable coverage evidence"
 
 - 2026-11-01T22:48:04Z (add): created
   provenance: {"harness_session":"claude-code:9f8562e0-f49d-4fa9-8f28-0333a41aa940","harness_session_source":"CLAUDE_CODE_SESSION_ID","origin":"agent"}
+- 2026-11-01T22:48:08Z (main): started
+  provenance: {"harness_session":"claude-code:9f8562e0-f49d-4fa9-8f28-0333a41aa940","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
