@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T12:18:47Z
+updated: 2026-11-01T12:21:10Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -31,3 +31,4 @@ Process: planned
 - 2026-11-01T11:49:53Z (main): resumed
 - 2026-11-01T11:50:03Z (perf/0f5112-test-latency): resumed
 - 2026-11-01T11:50:06Z (perf/0f5112-test-latency): Resumed on Option A reading of user reply ('beliefs-067a8d is now done', clearing the concurrent main block without overriding recommended Option A): design and prove an under-90-second test-fast runtime reduction in .worktrees/0f5112-test-latency on branch perf/0f5112-test-latency, now that beliefs-067a8d activated .tt.toml (01eb638), retired the titan/test-fast tt-latency obligation, and lifted halt. Locked worktree hydrated with just setup; broad baseline deliberately omitted under policy-off and deferred to focused baseline at implementation Setup. Scratch dir created: host titan, /mnt/ssd3/work/beliefs/beliefs-0f5112, purpose: diagnostic profiles and timing logs for beliefs-0f5112; owner beliefs-0f5112; contents mutable and not yet checkpointed.
+- 2026-11-01T12:21:10Z (perf/0f5112-test-latency): Committed frozen spec revision b03360694951f7c946e6eae6cd5a5469ad50a4ee (docs/superpowers/specs/2026-11-01-test-fast-latency-design.md sha256 bdfc4b5019ecc9b6a688e6b9017799985b23c3f43df9f065d1692027a62c98b5) and dispatched two read-only review subagents (builder check cdd1c7b0-8791-47d6-8ef2-0011c37ce35d and spec reviewer 3d383b94-6079-409d-a507-94bfa403b40d); results arrive automatically via harness reactive wakeup for controller disposition before user spec-review park.
