@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:38:41Z
+updated: 2026-11-01T10:39:32Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -115,3 +115,5 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:37:22Z (main): policy: enabled at 2026-11-01T10:37:10Z revision d6dab00165bf520bb61215e309d2847af90c0978
 - 2026-11-01T10:38:06Z (main): attached: publication-packet.md (6672 bytes): Publication packet: push d6dab00 to origin main (policy-enabled, widened CI); approval asked
 - 2026-11-01T10:38:41Z (main): attached: scratch-manifest-1.txt (700 bytes): Manifest of $WORK_ROOT/beliefs/beliefs-067a8d at the Task 7 park
+- 2026-11-01T10:39:29Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/067a8d-test-policy","state":"kept","verification":"verified","purpose":"Branch design/067a8d-test-policy is merged into local main at d6dab00 (unpushed); the worktree holds the plan workspace ledger (attached as execution-ledger.md) and is where Task 8 Step 5 builds the unintegrated activation commit after hosted acceptance","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after activation, or a user decision to drop activation"}
+- 2026-11-01T10:39:32Z (main): retained: {"host":"titan","kind":"scratch","path":"$WORK_ROOT/beliefs/beliefs-067a8d","state":"kept","verification":"verified","purpose":"Task scratch: baseline.log, execution-ledger.md and publication-packet.md copies (all attached), the Vitest probe; receives the hosted artifacts and assessment scripts in Task 8","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after the hosted artifacts and derived counts are attached","manifest":"tasks/files/beliefs-067a8d/scratch-manifest-1.txt","sha256":"640fd47ba35eeabc050dc08148448a9895c00d099f92d90eb9e4a7d1927b9464"}
