@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:02:56Z
+updated: 2026-11-01T11:03:31Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -127,3 +127,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:46:00Z (main): Publication push done 2026-11-01T10:45Z: 49c39ab..d6dab00 -> origin main (approved refspec). Local hook-pre-push-fast (policy enabled) ran hygiene, check-code, test-push: 6403 passed 1 skipped, 155 TS passed. Hosted run 41298875513 (push, main, d6dab00) in progress; Task 8 assesses it.
 - 2026-11-01T11:02:22Z (main): attached: hosted-1-assessment.txt (66426 bytes): Run 41298875513 (d6dab00) hosted acceptance: all 4 jobs accept; 327 capability omissions by test ID; 4 wholly skipped modules
 - 2026-11-01T11:02:56Z (main): attached: assess_hosted.py (5219 bytes): Assessment script used for hosted acceptance (Task 8 Step 3)
+- 2026-11-01T11:03:31Z (main): Hosted acceptance (Task 8), run 41298875513 on d6dab00, conclusion success, artifacts in $WORK_ROOT/beliefs/beliefs-067a8d/hosted-1: every job accept. Python 3.11 and 3.13 each: non-N2 6404 cases, 6076 executed and passed, 328 skipped (327 capability omissions, identical lists in both jobs, plus the one baseline skip test_composite.py:190), 0 failed/errors; N2 46 passed; 204 + 1 eligible modules all present. TypeScript 20 and 24: 155 passed, 7 modules present, 0 skips. Wholly skipped modules (capability-dependent): test_holdings_windows, test_publication_engine_order, test_publish_engine_order, test_publish_remote_engine. Siblings: atoms 935535a7275eeaa9d5ea9189b0b2163c021d4a95, nodes ce159f2694c3149416f3d7e24ac0fedad5f4253d. Job times: py3.11 14.6 min, py3.13 10.0 min, TS 0.2-0.4 min. Assessment and script attached.
