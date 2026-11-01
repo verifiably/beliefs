@@ -7,7 +7,7 @@ size: xs
 complexity: low
 process: direct
 created: 2026-11-01T17:00:41Z
-updated: 2026-11-01T17:00:41Z
+updated: 2026-11-01T17:00:53Z
 depends: []
 tags: [testing]
 agent: claude-code/claude-opus-5-5
@@ -20,3 +20,4 @@ Dispose of .worktrees/0f5112-test-latency and local branch perf/0f5112-test-late
 
 - 2026-11-01T17:00:41Z (add): created
   provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID","origin":"agent"}
+- 2026-11-01T17:00:53Z (perf/0f5112-test-latency): Owns .worktrees/0f5112-test-latency for beliefs-0f5112 after that task closes on its branch; act immediately after perf/0f5112-test-latency merges locally into main.
