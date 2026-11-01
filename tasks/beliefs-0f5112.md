@@ -8,10 +8,10 @@ complexity: high
 process: planned
 owner: main
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T11:26:45Z
+updated: 2026-11-01T11:26:48Z
 started: 2026-11-01T10:47:23Z
 depends: []
-tags: [halt, test-latency, testing]
+tags: [test-latency, testing]
 source: "tt-latency:titan:2026-11-01T10:00:05Z"
 ---
 
