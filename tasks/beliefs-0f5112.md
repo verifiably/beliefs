@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T17:00:59Z
+updated: 2026-11-01T17:01:10Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -100,3 +100,5 @@ Process: planned
 - 2026-11-01T17:00:38Z (perf/0f5112-test-latency): retained: {"host":"titan","kind":"scratch","path":"$WORK_ROOT/beliefs/beliefs-0f5112","state":"released","verification":"verified","purpose":"Removed after verified disposition of all 33 members of files:scratch-manifest-final.json (sha256 bc88b7f249460ad66617b2cb9041c7c98306ddb358c40bf41e79a0c02d9b022c): attached 14 (cand-attribution.json, diag-attribution.json, bench-summary.jsonl, impl-round-1/2, spec-builder-check, spec-round-1/2, plan-round-1..6 reports; bytes verified at HEAD); discarded 19 regenerable logs, profiles and closure snapshots (bench-*.log, bench-driver.log, bench-pilot*, boundary.prof, sharing.prof, cand-durations.log, diag-durations.log, diag.*-load.txt, closure-*.json, test-full.log) whose figures and digests are in docs/plans/2026-11-01-test-fast-latency-results.md and tt run rows","next_owner":"none","cleanup_trigger":"none"}
 - 2026-11-01T17:00:56Z (perf/0f5112-test-latency): Worktree cleanup handed to beliefs-0f5d3a (open), which owns .worktrees/0f5112-test-latency and branch perf/0f5112-test-latency from the local main merge onward.
 - 2026-11-01T17:00:59Z (perf/0f5112-test-latency): retained: {"host":"titan","kind":"worktree","path":".worktrees/0f5112-test-latency","state":"kept","verification":"verified","purpose":"Holds reviewed, benchmark-verified branch perf/0f5112-test-latency (code 4f6c6e1..0a61785, docs 8c491b0) and the closed task record, awaiting local merge into main","next_owner":"task:beliefs-0f5d3a","cleanup_trigger":"Immediately after perf/0f5112-test-latency merges locally into main"}
+- 2026-11-01T17:01:10Z (perf/0f5112-test-latency): retention checkpoint: observed 2026-11-01T17:01:10Z on titan; basis beliefs in-tree . 907e03a86a2c2a4c9b00386ec8f1398d704e289c:tasks/beliefs-0f5112.md; retained by refs/heads/perf/0f5112-test-latency; this host: kept verified 1, kept unknown 0, released 1; changed 2. Rechecked all kept/verified items on this host; unknown items remain unverified with actions in basis. Other hosts retain their own dated observations. Observer session attribution unknown if no harness_session stamp is shown. Next: beliefs-0f5d3a removes .worktrees/0f5112-test-latency immediately after the local main merge.
+  provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
