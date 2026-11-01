@@ -4,7 +4,7 @@
 # A `.tt.toml` (absent: enabled) may skip the broad targets; `just test-full` and
 # `TT_FORCE=1 just gate` are the deliberate suite and full-gate routes (AGENTS.md).
 # CI runs the full suites on every branch push; the push hook treats ci_suite_refs as
-# covered, and other pushes keep the complete local gate.
+# covered, and other pushes take the full local route, which tt policy may skip.
 #
 # Every recipe runs through the vendored timing wrapper tools/tt and the shared hygiene
 # check tools/ops-check (source of truth: ops bin/tt and ops bin/ops-check), so each run
@@ -56,9 +56,9 @@ docs_paths := "AGENTS.md tasks/*.md"
 
 # The refs whose pushes the hook treats as covered by CI's complete package suites.
 # ci.yml runs them on every branch push (test_ci_workflow.py checks that it covers
-# each glob here); this declaration stays refs/heads/main until tt policy-off
-# activation widens it, so until then other pushes keep the complete local gate.
-ci_suite_refs := "refs/heads/main"
+# each glob here), so every branch push to origin is covered; tags and other remotes
+# take the full route, whose suite tt policy may skip with a warning.
+ci_suite_refs := "refs/heads/*"
 ci_remote := "origin"
 
 # Fixed fast set (act design form 3): all non-N2 Python tests plus all TS tests.
