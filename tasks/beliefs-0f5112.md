@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T15:46:37Z
+updated: 2026-11-01T15:54:09Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -76,3 +76,4 @@ Process: planned
 - 2026-11-01T15:44:09Z (perf/0f5112-test-latency): parked (waiting on agent, session): Agent in a fresh session resumes beliefs-0f5112 from physical worktree .worktrees/0f5112-test-latency, verifies tasks/files/beliefs-0f5112/scratch-manifest-v4.json (sha256 5c769750c3cc8eba56e905e1abacb568b72d5524bff359cffd66ec204e649d2c), and executes approved frozen plan 50a1c428a8773e53ef6528f6b8d60fe9cd09b5c0:docs/superpowers/plans/2026-11-01-test-fast-latency.md (sha256 3b35ba99b5b4ed40689cc96f30b77ec49e4c1a01cb93e35cde2b2e5abba22064) inline under executing-plans starting at Task 1 (beliefs-ef55af) focused policy-off baseline, followed by beliefs-da58e8, beliefs-202076, beliefs-501cb2, and beliefs-516396. Focused scope: record-only plan approval and retention checkpoint (no code changes under python/ or ts/). Mandatory checks: just check-hygiene passed. Skipped broad work: check-code skipped by .tt.toml automatic_broad = false; focused code baseline runs at Task 1 Step 1 Setup per policy-off rule. Remote evidence: none. Checkpoint attribution: observer session attribution unknown (--stamp emitted no harness_session stamp). Session processes (host-load --section session): nothing left running. Pushes: none. Others' work: untouched. Unmerged branch: perf/0f5112-test-latency in locked .worktrees/0f5112-test-latency (local merge to main in Task 5 after execution, paired benchmark, and whole-branch review; no push unless approved by user).
 - 2026-11-01T15:46:37Z (perf/0f5112-test-latency): resumed
   provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-11-01T15:54:09Z (perf/0f5112-test-latency): Task 1 Step 1 focused policy-off baseline: just test-one tests/test_capability_boundary.py tests/test_session_sharing_doors.py tests/test_session_publish_door.py tests/test_closure_capture.py tests/test_adapter.py tests/test_confinement.py tests/test_arm_staleness.py -> 634 passed, tt 345.224 s (rev 5549483, dirty false, exit 0). Broad baseline deliberately omitted under .tt.toml automatic_broad = false.
