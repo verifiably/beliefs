@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T16:57:19Z
+updated: 2026-11-01T16:59:27Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -82,3 +82,4 @@ Process: planned
 - 2026-11-01T16:50:19Z (perf/0f5112-test-latency): resumed
   provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T16:57:19Z (perf/0f5112-test-latency): review: impl round 2 — verdict: accept; findings: Critical 0, Important 0, Minor 3; reviewer: claude-code/claude-opus-5-5
+- 2026-11-01T16:59:27Z (perf/0f5112-test-latency): attached: scratch-manifest-final.json (5316 bytes): Final SHA-256 manifest of task scratch contents before closeout disposition
