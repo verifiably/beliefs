@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:39:35Z
+updated: 2026-11-01T10:39:48Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -118,4 +118,6 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:39:29Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/067a8d-test-policy","state":"kept","verification":"verified","purpose":"Branch design/067a8d-test-policy is merged into local main at d6dab00 (unpushed); the worktree holds the plan workspace ledger (attached as execution-ledger.md) and is where Task 8 Step 5 builds the unintegrated activation commit after hosted acceptance","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after activation, or a user decision to drop activation"}
 - 2026-11-01T10:39:32Z (main): retained: {"host":"titan","kind":"scratch","path":"$WORK_ROOT/beliefs/beliefs-067a8d","state":"kept","verification":"verified","purpose":"Task scratch: baseline.log, execution-ledger.md and publication-packet.md copies (all attached), the Vitest probe; receives the hosted artifacts and assessment scripts in Task 8","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after the hosted artifacts and derived counts are attached","manifest":"tasks/files/beliefs-067a8d/scratch-manifest-1.txt","sha256":"640fd47ba35eeabc050dc08148448a9895c00d099f92d90eb9e4a7d1927b9464"}
 - 2026-11-01T10:39:35Z (main): retention checkpoint: observed 2026-11-01T10:39:35Z on titan; basis beliefs in-tree . ee2d7d23ed565e7614e28f3f417899228934852a:tasks/beliefs-067a8d.md; retained by refs/heads/main (local, unpushed) and refs/heads/design/067a8d-test-policy; this host: kept verified 2, kept unknown 0, released 0; changed 2. Rechecked all kept/verified items on this host. Other hosts retain their own dated observations. Next: Task 8 adds the hosted artifacts to the scratch directory.
+  provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-11-01T10:39:48Z (main): parked (waiting on user, approval): User decides on the attached publication-packet.md: approval covers only git push origin d6dab00165bf520bb61215e309d2847af90c0978:refs/heads/main (policy-enabled split plus widened CI; 83 commits over origin/main 49c39ab, 20 non-record). On approval the agent, from the main checkout: git fetch origin, rechecks git log --oneline origin/main..d6dab00 against the packet, pushes by that refspec, notes the run ID, then runs Task 8 (hosted acceptance, activation packet). Session processes: none left running.
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
