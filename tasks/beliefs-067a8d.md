@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:07:04Z
+updated: 2026-11-01T11:07:07Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -131,3 +131,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:06:10Z (main): attached: activation-packet.md (14345 bytes): Activation packet: integrate and push activation commit 48d9891 (policy-off); approval asked
 - 2026-11-01T11:06:30Z (main): attached: scratch-manifest-2.txt (2273 bytes): Manifest of $WORK_ROOT/beliefs/beliefs-067a8d at the Task 8 park (adds hosted-1 artifacts, logs, packets)
 - 2026-11-01T11:07:04Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/067a8d-test-policy","state":"kept","verification":"verified","purpose":"Holds the unintegrated activation commit 48d9891 on design/067a8d-test-policy (its .tt.toml makes this worktree policy-off) and the plan workspace ledger (attached); Task 9 merges 48d9891 from the main checkout on approval","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after the activation merge is pushed, or the user refuses activation (then reset the branch to c06c2d7 per Task 8 Step 7)"}
+- 2026-11-01T11:07:07Z (main): retained: {"host":"titan","kind":"scratch","path":"$WORK_ROOT/beliefs/beliefs-067a8d","state":"kept","verification":"verified","purpose":"Task scratch: hosted-1 artifacts of run 41298875513 (counts attached as hosted-1-assessment.txt), assessment script, push and watch logs, publication and activation packets (attached), baseline log and ledger copies; receives hosted-2 at Task 9","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after hosted-2 is assessed and its derived counts attached","manifest":"tasks/files/beliefs-067a8d/scratch-manifest-2.txt","sha256":"b4e5e7d61f6a187b289617b4dd2b6fdb762e24ffb0bd519a023d151b7860aa24"}
