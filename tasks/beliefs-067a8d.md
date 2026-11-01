@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T08:48:20Z
+updated: 2026-11-01T08:51:04Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -78,3 +78,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T08:48:14Z (design/067a8d-test-policy): attached: spec-round-5-report.md (1834 bytes): Spec round 5 review (codex/gpt-6.1-sol, relayed by user) of 5237cb7
 - 2026-11-01T08:48:17Z (design/067a8d-test-policy): attached: spec-round-5-ledger.md (1468 bytes): Spec round 5 rulings: I1, I2 accepted, fixed in 68fa37f
 - 2026-11-01T08:48:20Z (design/067a8d-test-policy): Spec round 5 rulings I1 and I2 (accepted) are in the attached spec-round-5-ledger.md; corrected spec frozen at 68fa37f (sha256 01d7921bc9715898d4d3c30deaa129f5a63fcedd3d9ecec22762c1c2c57e9157); scoped round 6 re-review dispatched.
+- 2026-11-01T08:51:04Z (design/067a8d-test-policy): review: spec round 6 — verdict: accept; findings: Minor 5; reviewer: claude-code/claude-opus-5-5
