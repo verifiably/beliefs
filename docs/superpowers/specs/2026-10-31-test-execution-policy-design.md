@@ -1,7 +1,7 @@
 # Beliefs test execution policy adoption
 
-Status: revised after spec round 1, which reviewed `60b6487`; proposed for user
-review. Task: beliefs-067a8d. This document authorizes no
+Status: revised after spec rounds 1 (`60b6487`) and 2 (`e2927dd`); proposed for
+user review. Task: beliefs-067a8d. This document authorizes no
 implementation, workflow publication, push or policy-off activation. The
 implementation plan follows user approval of this frozen design.
 
@@ -18,7 +18,7 @@ human decision.
 
 Shared authority is ops-8bfa85's approved design
 (`docs/specs/2026-10-29-test-execution-policy-design.md` in ops, revision
-`1ce9abe`) and its implementation plan, read through `tasks doc`. The ops pilot
+`469140a`, which carries the user's 2026-10-29 billing amendment) and its implementation plan, read through `tasks doc`. The ops pilot
 (ops-68729d) is done, with accepted hosted evidence before and after activation.
 lore-fdbe86 has delivered the policy-aware instructions. nodes-6fde14 is the
 closest completed adoption: it has the same two-package layout and is reused
@@ -187,9 +187,21 @@ Two tests pin the routing and its coverage claim:
   today's main-only trigger, and for `refs/heads/*` against `["**"]` after
   widening. A declaration the workflow does not cover fails.
 
-The policy-off warning case uses a route that stays full after widening (a
-`backup` remote). The fixture copies `tools/tt` beside its isolated `.tt.toml`,
-because the warning loads the wrapper from the configured `tt` path. Under
+The template's warning block runs on every full-route push, whatever the
+policy, and loads `tools/tt` relative to the cwd. The shared `hook_repo` fixture
+therefore copies `tools/tt` for every routing case. Only the policy-off warning
+case adds an isolated `.tt.toml`, and it uses a route that stays full after
+widening (a `backup` remote).
+
+In the coverage test, "matched" means GitHub's semantics, not `fnmatch`. GitHub's
+`*` does not cross `/`; only `**` does. So `refs/heads/*` requires a `**` branch
+pattern, and `refs/heads/<name>` requires `<name>` or `**`. A `*`-only trigger
+fails the test.
+
+A third contract test checks that every `broad_targets` entry in `.tt.toml`, when
+the file exists, names a tt target in the justfile. `read_policy` validates only
+the protected set, so without this test a typo would silently leave a target
+running by default. Under
 policy-off the activation commit's own hooks skip `check-code` and `test-push`,
 so that commit runs `just test-one tests/test_front_door.py` and the workflow
 contract test before it is made.
@@ -265,14 +277,15 @@ them, are attached to beliefs-067a8d under the retained-item rules.
 ## Certified-host coverage under policy-off
 
 A green hosted run is evidence about the portable tests and never about the
-capability-dependent ones (AGENTS.md, Gates). Today three routine local routes run
+capability-dependent ones (AGENTS.md, Gates). Today four routine local routes run
 the capability-dependent tests on the certified tuple:
 
 - `test-fast`, the non-N2 suite (134 runs in October);
 - `test`, the non-N2 suite plus N2 (18 runs);
-- `hook-pre-push-fast`, the non-N2 suite on every covered push (15 runs).
+- `hook-pre-push-fast`, the non-N2 suite on every covered push (15 runs);
+- `hook-pre-push`, the full gate for uncovered pushes (0 runs in October).
 
-Under policy-off all three skip, so routine certified execution of these tests
+Under policy-off all four skip, so routine certified execution of these tests
 stops entirely. The shared design accepts this gap explicitly. It is larger than
 a full-gate-only reading suggests: by run count, most certified runs came from
 `test-fast`.
@@ -324,25 +337,41 @@ semantics are unchanged.
 
 1. After design approval, write and freeze the implementation plan for user
    review. Policy stays enabled through preparation and the first hosted run.
-2. Execution Setup checks the shared delivery state again, then runs `just test`
-   as the full baseline from the hydrated worktree and records its test counts
-   and failures.
+2. Execution Setup checks the shared delivery state again, then runs the full
+   baseline from the hydrated worktree as `PYTEST_ADDOPTS=-rs just test`. That
+   prints skip reasons and leaves the summary line tt counts unchanged. Record
+   the test counts, failures, and the SKIPPED lines of both pytest phases. Those
+   lines are the local skip-reason baseline that hosted acceptance compares
+   against. No command string changes.
 3. Implement the recipe split, the hook warning and the workflow, each RED to
-   GREEN through `just test-one`. Rebuild `test_front_door.py`'s fixtures with
-   key-by-key environments, a temporary `HOME`, `GIT_CONFIG_GLOBAL` and
-   `GIT_CONFIG_NOSYSTEM`, and assert each fixture's top level and git-dir before
-   its first write. Using isolated fixture policy files, prove that: hygiene
-   survives policy-off; a skipped child never spawns and logs a null outcome;
-   `test-one` still forwards argv; `test-full` records exactly one forced `test`
-   row and propagates failure; a hosted missing-force call refuses directly and
-   nested; the uncovered-push warning fires only under policy-off. Workflow
+   GREEN through `just test-one`. Every subprocess in `test_front_door.py`,
+   inline calls included, gets an environment built key by key, with a temporary
+   `HOME`, `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM`. `TT_FORCE` and
+   `GITHUB_ACTIONS` are absent unless a case sets them. The hosted job sets
+   both, so an inherited environment would make the skip and warning cases fail
+   only in CI. Assert each fixture's top level and git-dir before its first
+   write. Exercise real recipes with `just --set` marker commands in place of
+   their children. Real children would run suites inside the suite, and `tasks
+   check` is absent on runners. Using isolated fixture policy files, prove that:
+   - hygiene survives policy-off;
+   - a skipped child never spawns and logs a null outcome;
+   - a failing hygiene step stops `check-code`, and a failing `check-code`
+     stops `test` and `test-push`;
+   - `test-one` still forwards argv;
+   - `test-full` records exactly one forced `test` row and propagates failure;
+   - a hosted missing-force call refuses, both directly and nested;
+   - the uncovered-push warning fires only under policy-off. Workflow
    contract tests pin the triggers, the fork-only PR condition, the concurrency
    key, job-scope force, timeouts, sibling checkouts and evidence upload. Never
    disable the real checkout's policy to test adoption.
 4. Update AGENTS.md's Gates section, the justfile's header comments and any
    README text that names these commands: policy source, focused route, force
    command, CI refs, certified-host routes and the timing-series discontinuity.
-   README.md and docs/ are test inputs, so the plan runs the tests that read them.
+   Write the text state-independently where possible: policy is whatever
+   `.tt.toml` says, and the covered refs are `ci_suite_refs`. Any line that has
+   to state the current policy or covered refs describes the pre-activation state
+   (policy enabled, `refs/heads/main`). README.md and docs/ are test inputs, so
+   the plan runs the tests that read them.
 5. Present the reviewed implementation and an activation packet. It contains:
    - the exact commit and refs, the workflow diff and the delivery revisions;
    - the runner class and timeouts;
@@ -366,8 +395,19 @@ semantics are unchanged.
 7. Push only the approved policy-enabled revision and inspect the completed hosted
    results. With coverage accepted and explicit conditional approval, commit
    `.tt.toml` and the `ci_suite_refs` widening (after the focused checks named
-   under Pre-push coverage routing), integrate them, push the activation, and
-   inspect that run's forced execution too. If hosted setup fails, policy stays on.
+   under Pre-push coverage routing). The same commit updates every guide and
+   comment line that states the policy or the covered refs, as the
+   stale-claims rule requires. Integrate it and push the activation. If hosted
+   setup fails, policy stays on.
+   After activation, verify from the registered main checkout and record each
+   result on beliefs-067a8d:
+   - `just test-one <one small path>` records `execution: ran`;
+   - the activation push's hooks recorded `check-code` and `test-push` as
+     `skipped`, with null `exit`, `tests`, `selection` and `slowest`, read from
+     the shared log;
+   - the forced-failure fixture from step 3 passes through `test-one`;
+   - the activation push's hosted run meets the same acceptance criteria as the
+     first.
 8. At activation, record the actual revision and time on beliefs-067a8d and
    reinventory latency incidents (none are known). ops-39bff6 is already done,
    so the status report there is a note on a closed record. Link the shared
@@ -378,7 +418,8 @@ Rollback sets `automatic_broad = true` and restores `ci_suite_refs` to
 `refs/heads/main`, which returns feature pushes to the full local gate with N2:
 the pre-adoption cadence, and the baseline a rollback is meant to return to.
 The widened workflow trigger may stay, since remote runs cost no local time.
-Rollback also restores the documented local cadence in the guides, records the
+Rollback also restores the documented local cadence, updating every guide and
+comment line that states the policy or covered refs in the same commit. It records the
 same enabled-floor note on beliefs-067a8d with the rollback's actual landed
 timestamp and SHA, and reports the remote state. Publishing a rollback is
 externally gated too.
