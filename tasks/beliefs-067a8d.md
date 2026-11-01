@@ -1,13 +1,15 @@
 ---
 id: beliefs-067a8d
 title: Adopt shared broad-test policy and remote verification
-status: todo
+status: doing
 priority: 1
 size: m
 complexity: mid
 process: planned
+owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-10-29T13:45:23Z
+updated: 2026-11-01T01:56:52Z
+started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
 source: "tt-policy:beliefs"
@@ -46,3 +48,5 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 
 - 2026-10-29T13:45:23Z (add): created
   provenance: {"harness_session":"codex:01a1874f-c2d8-7320-ae81-7114e37e343f","harness_session_source":"CODEX_THREAD_ID","origin":"agent"}
+- 2026-11-01T01:56:52Z (main): started
+  provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
