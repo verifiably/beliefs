@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T02:37:36Z
+updated: 2026-11-01T02:37:44Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -66,3 +66,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T02:33:06Z (design/067a8d-test-policy): attached: spec-round-3-ledger.md (1418 bytes): Controller rulings for all 5 spec round 3 findings; all accepted, none deferred
 - 2026-11-01T02:37:28Z (design/067a8d-test-policy): review: spec round 4 — verdict: accept; findings: Minor 3; reviewer: claude-code/claude-opus-5-5
 - 2026-11-01T02:37:36Z (design/067a8d-test-policy): attached: spec-round-4-report.md (7820 bytes): Full spec round 4 scoped re-review of frozen 5237cb7 by claude-code/claude-opus-5-5: accept, Minor 3
+- 2026-11-01T02:37:44Z (design/067a8d-test-policy): attached: spec-round-4-ledger.md (1327 bytes): Controller rulings: all three round 4 minors assigned to the implementation plan; design stays frozen at 5237cb7
