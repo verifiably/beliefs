@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T08:51:29Z
+updated: 2026-11-01T08:51:32Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -80,3 +80,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T08:48:20Z (design/067a8d-test-policy): Spec round 5 rulings I1 and I2 (accepted) are in the attached spec-round-5-ledger.md; corrected spec frozen at 68fa37f (sha256 01d7921bc9715898d4d3c30deaa129f5a63fcedd3d9ecec22762c1c2c57e9157); scoped round 6 re-review dispatched.
 - 2026-11-01T08:51:04Z (design/067a8d-test-policy): review: spec round 6 — verdict: accept; findings: Minor 5; reviewer: claude-code/claude-opus-5-5
 - 2026-11-01T08:51:29Z (design/067a8d-test-policy): attached: spec-round-6-report.md (3933 bytes): Spec round 6 review (claude-code/claude-opus-5-5) of 68fa37f: accept, Minor 5
+- 2026-11-01T08:51:32Z (design/067a8d-test-policy): attached: spec-round-6-ledger.md (1364 bytes): Spec round 6 rulings: five minors deferred to the plan
