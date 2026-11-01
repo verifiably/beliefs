@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T11:50:03Z
+updated: 2026-11-01T11:50:06Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -29,3 +29,4 @@ Process: planned
 - 2026-11-01T11:26:45Z (main): Retired obligation: titan test-fast is now a disabled broad target under beliefs' landed policy (.tt.toml automatic_broad = false, broad_targets includes test-fast), activated by merge 01eb638191bd44fe9bd2a715fcc7d6853b07cc6e pushed to origin main at 2026-11-01T11:25:32Z (beliefs-067a8d). The titan/test-fast latency obligation is not applicable from that revision (not met, not performance-verified). Removed only this incident's timing halt tag; the task's remaining scope (the parked A/B/C choice) is unchanged and stays with its owner and the user.
 - 2026-11-01T11:49:53Z (main): resumed
 - 2026-11-01T11:50:03Z (perf/0f5112-test-latency): resumed
+- 2026-11-01T11:50:06Z (perf/0f5112-test-latency): Resumed on Option A reading of user reply ('beliefs-067a8d is now done', clearing the concurrent main block without overriding recommended Option A): design and prove an under-90-second test-fast runtime reduction in .worktrees/0f5112-test-latency on branch perf/0f5112-test-latency, now that beliefs-067a8d activated .tt.toml (01eb638), retired the titan/test-fast tt-latency obligation, and lifted halt. Locked worktree hydrated with just setup; broad baseline deliberately omitted under policy-off and deferred to focused baseline at implementation Setup. Scratch dir created: host titan, /mnt/ssd3/work/beliefs/beliefs-0f5112, purpose: diagnostic profiles and timing logs for beliefs-0f5112; owner beliefs-0f5112; contents mutable and not yet checkpointed.
