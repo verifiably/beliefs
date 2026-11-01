@@ -1,23 +1,39 @@
 name: CI
 
+# Every branch push runs the complete suites, so a local tt policy may skip them
+# (AGENTS.md, Gates). A same-repository PR's head is already a pushed branch, so its
+# jobs are skipped by the condition on each job; a fork PR still runs.
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# One suite per ref: a newer push cancels the older run, which leaves that revision
+# unverified, not passed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    # About twice the slowest observed run.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.13"]
     # A runner has no host-budget: bound xdist's first phase and standalone N2's
     # nested pool to the standard runner's 4 vCPUs (ops host-budget design).
+    # Hosted verification is deliberate: force every tt wrapper, nested ones included,
+    # past a checkout policy that would skip it locally.
     env:
+      TT_FORCE: "1"
       OPS_WORKERS: "4"
       PYTEST_XDIST_AUTO_NUM_WORKERS: "4"
     defaults:
@@ -48,6 +64,23 @@ jobs:
           version: "0.11.29"
           python-version: ${{ matrix.python-version }}
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      # The revisions under test and the eligible modules, beside the JUnit, so a
+      # hosted result can be attributed to beliefs or to sibling drift later.
+      - name: Prepare coverage evidence
+        run: |
+          evidence_dir="$RUNNER_TEMP/beliefs-python-coverage"
+          mkdir -p "$evidence_dir"
+          echo "BELIEFS_CI_EVIDENCE_DIR=$evidence_dir" >> "$GITHUB_ENV"
+          beliefs=$(git rev-parse HEAD)
+          atoms=$(git -C ../../atoms rev-parse HEAD)
+          nodes=$(git -C ../../nodes rev-parse HEAD)
+          {
+            echo "beliefs $beliefs"
+            echo "atoms $atoms"
+            echo "nodes $nodes"
+            git ls-files -- tests | grep -E '(^|/)(test_[^/]*|[^/]*_test)[.]py$' | grep -v '^tests/acceptance/'
+            cat pyproject.toml
+          } > "$evidence_dir/module-inventory.txt"
       - run: uv sync --frozen
       # Both Python test phases then ruff and pyright, through the recorded recipe.
       # A GitHub runner cannot supply the certified ext4 kernel and volume tuple, so the
@@ -56,9 +89,26 @@ jobs:
       - run: just ci-python
         env:
           VERIFIABLY_UNCERTIFIED_HOST: "1"
+      - name: Require coverage evidence
+        if: always()
+        run: |
+          test -s "${BELIEFS_CI_EVIDENCE_DIR:?}/pytest.xml"
+          test -s "$BELIEFS_CI_EVIDENCE_DIR/pytest-n2.xml"
+          test -s "$BELIEFS_CI_EVIDENCE_DIR/module-inventory.txt"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: python-${{ matrix.python-version }}-coverage
+          path: ${{ env.BELIEFS_CI_EVIDENCE_DIR }}
+          retention-days: 30
+          if-no-files-found: error
 
   typescript:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    timeout-minutes: 10
+    env:
+      TT_FORCE: "1"
     strategy:
       fail-fast: false
       matrix:
@@ -78,5 +128,28 @@ jobs:
           cache: npm
           cache-dependency-path: beliefs/ts/package-lock.json
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - name: Prepare coverage evidence
+        run: |
+          evidence_dir="$RUNNER_TEMP/beliefs-typescript-coverage"
+          mkdir -p "$evidence_dir"
+          echo "BELIEFS_CI_EVIDENCE_DIR=$evidence_dir" >> "$GITHUB_ENV"
+          beliefs=$(git rev-parse HEAD)
+          {
+            echo "beliefs $beliefs"
+            git ls-files -- tests | grep -E '^tests/[^/]*[.]test[.]ts$'
+            cat package.json
+          } > "$evidence_dir/module-inventory.txt"
       - run: npm ci
       - run: just ci-typescript
+      - name: Require coverage evidence
+        if: always()
+        run: |
+          test -s "${BELIEFS_CI_EVIDENCE_DIR:?}/vitest.xml"
+          test -s "$BELIEFS_CI_EVIDENCE_DIR/module-inventory.txt"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: typescript-${{ matrix.node-version }}-coverage
+          path: ${{ env.BELIEFS_CI_EVIDENCE_DIR }}
+          retention-days: 30
+          if-no-files-found: error

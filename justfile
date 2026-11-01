@@ -51,8 +51,10 @@ check_code_cmd := py_check_cmd + " && " + ts_check_cmd
 # are read by conformance tests, so the template's broader allowlist is unsafe here.
 docs_paths := "AGENTS.md tasks/*.md"
 
-# ci.yml runs both complete package suites on main pushes and on PRs. PR-only refs
-# cannot shorten a push gate; only origin/main is covered by the push trigger.
+# The refs whose pushes the hook treats as covered by CI's complete package suites.
+# ci.yml runs them on every branch push (test_ci_workflow.py checks that it covers
+# each glob here); this declaration stays refs/heads/main until tt policy-off
+# activation widens it, so until then other pushes keep the complete local gate.
 ci_suite_refs := "refs/heads/main"
 ci_remote := "origin"
 
@@ -159,13 +161,19 @@ hook-pre-push-fast:
 # A runner has no host-budget, so ci.yml sets both worker variables for the
 # parallel first phase and the standalone N2 pool.
 #
+# Each also writes JUnit into BELIEFS_CI_EVIDENCE_DIR, which ci.yml uploads; the
+# reporting flags select nothing, so the suites are py_test_cmd's and ts_test_cmd's.
+ci_evidence_cmd := "case \"${BELIEFS_CI_EVIDENCE_DIR:?set BELIEFS_CI_EVIDENCE_DIR}\" in /*) ;; *) echo \"CI evidence path must be absolute\" >&2; exit 2;; esac"
+ci_py_test_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest.xml\") && (cd python && uv run --frozen pytest tests/test_n2.py --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest-n2.xml\")"
+ci_ts_test_cmd := "(cd ts && npm test -- --reporter=default --reporter=junit --outputFile.junit=\"$BELIEFS_CI_EVIDENCE_DIR/vitest.xml\")"
+
 # The Python job: both pytest phases, then ruff and pyright.
 ci-python:
-    {{tt}} ci-python -- sh -c '{{py_test_cmd}} && {{py_check_cmd}}'
+    {{tt}} ci-python -- sh -c '{{ci_evidence_cmd}} && {{ci_py_test_cmd}} && {{py_check_cmd}}'
 
 # The TypeScript job: the suite, then tsc and biome.
 ci-typescript:
-    {{tt}} ci-typescript -- sh -c '{{ts_test_cmd}} && {{ts_check_cmd}}'
+    {{tt}} ci-typescript -- sh -c '{{ci_evidence_cmd}} && {{ci_ts_test_cmd}} && {{ts_check_cmd}}'
 
 # The mm30 recreation in one command (beliefs-9e0b42): the reproduction design's §13 and
 # §14 sequence into a fresh work directory, one process per step, stopping at the first
