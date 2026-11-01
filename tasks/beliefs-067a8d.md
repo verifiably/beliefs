@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:36:45Z
+updated: 2026-11-01T10:36:49Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -108,3 +108,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:36:39Z (design/067a8d-test-policy): attached: final-review-report.md (6529 bytes): Final whole-branch review, round 1 — beliefs-067a8d
 - 2026-11-01T10:36:42Z (design/067a8d-test-policy): attached: final-rereview-1-report.md (1409 bytes): Corrective round 1 re-review — beliefs-067a8d
 - 2026-11-01T10:36:45Z (design/067a8d-test-policy): attached: final-rereview-2-report.md (1394 bytes): Corrective round 2 re-review — beliefs-067a8d
+- 2026-11-01T10:36:49Z (design/067a8d-test-policy): attached: execution-ledger.md (5639 bytes): Plan execution ledger (Tasks 1-6, final review): every Ruling and minor (deferred) line
