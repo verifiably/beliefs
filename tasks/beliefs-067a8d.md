@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T09:23:30Z
+updated: 2026-11-01T09:25:05Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -88,3 +88,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T09:17:14Z (design/067a8d-test-policy): attached: plan-round-1-ledger.md (2806 bytes): Plan round 1 rulings: all 12 accepted, fixed in ab1f9a6
 - 2026-11-01T09:17:17Z (design/067a8d-test-policy): Plan round 1 rulings (I1-I3, M1-M9, all accepted) are in the attached plan-round-1-ledger.md; revised plan frozen at ab1f9a6 (sha256 13cf6b8f642b86888c247b3145ead9893f6e71c5cb73276c40fba740fa1a3eb5); scoped round 2 re-review dispatched.
 - 2026-11-01T09:23:30Z (design/067a8d-test-policy): review: plan round 2 — verdict: revise; findings: Important 2, Minor 5; reviewer: claude-code/claude-opus-5-5
+- 2026-11-01T09:25:05Z (design/067a8d-test-policy): attached: plan-round-2-report.md (5802 bytes): Plan round 2 review (claude-code/claude-opus-5-5) of ab1f9a6: revise, Important 2, Minor 5
