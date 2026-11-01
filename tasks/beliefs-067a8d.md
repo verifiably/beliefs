@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:07:30Z
+updated: 2026-11-01T10:08:06Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -99,3 +99,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T09:37:05Z (design/067a8d-test-policy): Baseline (Task 1, policy absent): PYTEST_ADDOPTS="${PYTEST_ADDOPTS:+$PYTEST_ADDOPTS }-rfEs" just test from the physical worktree path, exit 0. Non-N2: 6353 passed, 1 skipped in 99.46s; N2: 46 passed in 168.13s; Vitest: 155 passed in 7 files. Failures: none. Local skip-reason baseline (the only SKIPPED line, both phases): "SKIPPED [1] tests/test_composite.py:190: the fixture's affects admits causal only; the layer arm is exercised by the biology fixture in test_composite_boundary". Log attached as baseline.log.
 - 2026-11-01T09:37:08Z (design/067a8d-test-policy): attached: baseline.log (7857 bytes): Task 1 baseline: just test with -rfEs, 6353+1 skip / 46 / 155, exit 0
 - 2026-11-01T10:07:30Z (design/067a8d-test-policy): attached: vitest-probe.xml (679 bytes): Task 5 Vitest evidence probe via test-one: 1 executed + 1 skipped testcase in junit XML
+- 2026-11-01T10:08:06Z (design/067a8d-test-policy): Task 5 Vitest evidence-path validation [r6 M3]: just --set one_cmd 'cd ts && npx --no-install vitest run' test-one --root <scratch probe> --globals --reporter=default --reporter=junit --outputFile.junit=<probe>/vitest.xml -> test-one row ran, exit 0, tests 2; XML has pass.test.ts (executed) and skip.test.ts (<skipped/>). Vitest's junit <skipped/> carries no message, so a hosted TypeScript skip has no recorded reason and blocks acceptance until explained (none expected: 155 passed today). Attached as vitest-probe.xml.
