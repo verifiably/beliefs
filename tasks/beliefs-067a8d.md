@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:26:08Z
+updated: 2026-11-01T11:26:33Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -141,3 +141,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:25:05Z (main): approval: user approved the activation packet in session b2bff3ba-0ad3-458f-809d-bb8b1806af58 (their words: "Approve."), covering integrating activation commit 48d9891eb10986694a686b66dc7b859f3e965d00 into main with git merge --no-ff and pushing that merge by refspec.
 - 2026-11-01T11:25:27Z (main): Pre-activation check (Task 9 Step 1): git diff --name-only d6dab00 HEAD lists only tasks/ paths; git log --oneline d6dab00..HEAD = 24 chore(tasks) commits (from f180cc0 to 32a23c4), plus this note; origin/main is d6dab00. Merging 48d9891 next; nothing commits in main between the merge and its push.
 - 2026-11-01T11:26:08Z (main): Activation landed: merge 01eb638191bd44fe9bd2a715fcc7d6853b07cc6e (committed 2026-11-01T11:25:32Z) of activation commit 48d9891 pushed d6dab00..01eb638 to origin main (approved refspec). Policy is now automatic_broad = false in the registered main checkout. The push's local hook ran hygiene and recorded check-code and test-push skipped by policy. Hosted run 41301850058 started.
+- 2026-11-01T11:26:33Z (main): Post-activation verification from the registered main checkout: (1) just test-one tests/test_front_door.py -k test_full -> 1 passed (test_test_full_records_one_forced_test_row, the forced-failure fixture), row test-one execution ran, exit 0, tests 1; (2) the activation push's rows at rev 01eb638: hook-pre-push-fast ran exit 0 (hygiene), check-code skipped policy-disabled and test-push skipped policy-disabled, each with exit/tests/selection/slowest null; (3) hosted run 41301850058 pending assessment into hosted-2/.
