@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T08:48:14Z
+updated: 2026-11-01T08:48:17Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -76,3 +76,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T08:46:42Z (design/067a8d-test-policy): review: spec round 5 — verdict: revise; findings: Important 2; reviewer: codex/gpt-6.1-sol
 - 2026-11-01T08:48:14Z (design/067a8d-test-policy): attached: spec-round-5-report.md (1834 bytes): Spec round 5 review (codex/gpt-6.1-sol, relayed by user) of 5237cb7
+- 2026-11-01T08:48:17Z (design/067a8d-test-policy): attached: spec-round-5-ledger.md (1468 bytes): Spec round 5 rulings: I1, I2 accepted, fixed in 68fa37f
