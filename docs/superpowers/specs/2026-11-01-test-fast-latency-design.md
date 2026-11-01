@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-01  
 **Task:** `beliefs-0f5112` (`test-latency`, `testing`)  
-**Status:** implemented and benchmark-verified; awaiting whole-branch review and local integration  
+**Status:** implemented, benchmark-verified, and branch-reviewed  
 **Workspace:** `.worktrees/0f5112-test-latency` (`perf/0f5112-test-latency`)
 
 ## Intent and scope

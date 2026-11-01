@@ -1,7 +1,7 @@
 # `test-fast` latency results
 
 **Task:** `beliefs-0f5112`; steps `beliefs-ef55af`, `beliefs-da58e8`, `beliefs-202076`, `beliefs-501cb2`, `beliefs-516396`.
-**Status:** implemented and benchmark-verified; awaiting whole-branch review and local integration.
+**Status:** implemented, benchmark-verified and branch-reviewed (two rounds, accepted).
 **Design:** [approved design](../superpowers/specs/2026-11-01-test-fast-latency-design.md).
 **Plan:** [approved inline plan](../superpowers/plans/2026-11-01-test-fast-latency.md).
 **Workspace:** `.worktrees/0f5112-test-latency`; logs and snapshots in persistent task storage `$WORK_ROOT/beliefs/beliefs-0f5112`.
@@ -79,6 +79,13 @@ from the closure walker. Nothing is cached across closure walks.
   alternating warm walks a single `capture_closure()` took a median 1.566 s
   (baseline) and 0.623 s (candidate).
 - **Checks.** `just check-hygiene` and `TT_FORCE=1 just check-code` pass.
+- **Review correction (`0a61785`).** A `RECORD` entry holding a NUL byte made
+  the new path reads raise a raw `ValueError` where `Path.is_file()` had read
+  it as absent; `add_records` now refuses it as `MalformedClosure` with the
+  baseline's message (RED `ValueError`, GREEN after). Focused modules 576
+  passed, `test_n2_cut13.py` 16 passed, and closure parity stayed exact
+  (SHA-256 `9554e5deabb508e9d9b4cca5169b9df3e3be12dd4460bee07a89032b38fcdb86`;
+  the digest moved because the closure hashes `adapter.py` itself).
 
 ## Alternating performance proof
 
@@ -150,3 +157,23 @@ never exits 0; this record and the task's notes are the closeout evidence.
 The branch merges into `main` locally without a push, so hosted GitHub
 Actions CI (Python 3.11 and 3.13, Node 20 and 24) has not run on it and runs
 on the next push the user approves.
+
+## Review
+
+A fresh whole-branch review (round 1) accepted the branch with five Minor
+findings; the executor re-graded one (the NUL-byte refusal above) to
+Important and fixed it, and a fresh scoped re-review (round 2) accepted the
+fix with three Minor findings. Deferred minors, recorded on the task:
+
+- `add_tree`'s pruned directory names are written beside the two predicates
+  they mirror; a later narrowing of a predicate would keep pruning silently.
+- `session_doors_fixture.metadata_less_copy` has no remaining caller.
+- `exported_publication` has no teardown byte check on its shared export.
+- No test changes a symlink between two `capture_closure()` calls; the
+  guarantee holds because each walk builds a new `_Closure`.
+- The foreign-endian ELF case in the `elves()` test is rejected by its data
+  encoding alone, not by its byte-swapped machine field.
+- Under a non-UTF-8 filesystem encoding an unencodable `RECORD` entry would
+  still raise `UnicodeEncodeError` rather than `MalformedClosure`.
+- The NUL-byte test matches part of the message and calls the entry
+  "unencodable".
