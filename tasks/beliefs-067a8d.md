@@ -1,18 +1,21 @@
 ---
 id: beliefs-067a8d
 title: Adopt shared broad-test policy and remote verification
-status: doing
+status: done
 priority: 1
 size: m
 complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:43:12Z
+updated: 2026-11-01T11:43:42Z
 started: 2026-11-01T01:56:52Z
+completed: 2026-11-01T11:43:42Z
+closed: 2026-11-01T11:43:42Z
 depends: [ops-68729d]
 tags: []
 source: "tt-policy:beliefs"
+model: claude-opus-5-5
 agent: codex
 origin: agent
 spec: docs/superpowers/specs/2026-10-31-test-execution-policy-design.md
@@ -152,3 +155,7 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:43:05Z (main): Worktree ignored-file dispositions before removal: python/.venv, ts/node_modules, python/.pytest_cache and every __pycache__ — regenerable (just setup / uv run --frozen), discard. .superpowers/sdd/2026-11-01-test-execution-policy: progress.md ledger attached as execution-ledger.md (sha256 matches, Ruling and minor (deferred) lines included); final-review-report.md and final-rereview-1/2-report.md attached; review-0b40c74..79098f3.diff regenerable from git; justfile.orig a sabotage-restore copy identical to committed state; t*/fix*/act* logs are per-step test and commit outputs summarized in the ledger and notes — discard. Scratch $WORK_ROOT/beliefs/beliefs-067a8d: baseline.log, execution-ledger.md, both packets, assess_hosted.py, both assessments, push logs, pre-activation log and the Vitest probe XML attached byte-identical; hosted-1/ and hosted-2/ raw artifacts discarded with derived counts and capability lists attached (the raw artifacts also remain on GitHub for runs 41298875513 and 41301850058 until about 2026-12-01, after the 2026-11-28 regret review); watch logs and probe .ts files discard. No host pointer resolves into the worktree; tt-report ran.
 - 2026-11-01T11:43:09Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/067a8d-test-policy","state":"released","verification":"verified","purpose":"Removed after close-out: branch merged into main (01eb638, pushed), clean status, no submodules, ignored files dispositioned, tt-report run, no host pointer","next_owner":"none","cleanup_trigger":"none"}
 - 2026-11-01T11:43:12Z (main): retained: {"host":"titan","kind":"scratch","path":"$WORK_ROOT/beliefs/beliefs-067a8d","state":"released","verification":"verified","purpose":"Deleted after close-out: every needed file attached byte-identical (manifest scratch-manifest-2.txt plus later additions all attached or discarded per the disposition note); raw hosted artifacts discarded with derived counts attached","next_owner":"none","cleanup_trigger":"none"}
+- 2026-11-01T11:43:42Z (main): done
+  provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-11-01T11:43:42Z (main): Adopted the shared tt policy in beliefs; policy-off active since 01eb638191bd44fe9bd2a715fcc7d6853b07cc6e (pushed 2026-11-01T11:25:32Z). Landed: hooks split into protected check-hygiene plus broad check-code/test/test-push children; test-full (suite evidence) and TT_FORCE=1 just gate (full-gate evidence); pre-push policy warning; ci.yml on every branch with fork-only PRs, latest-ref cancellation, job-scope TT_FORCE=1, timeouts and JUnit plus module-inventory artifacts; .tt.toml automatic_broad = false with broad_targets test, test-fast, test-push, check-code, ci-python, ci-typescript; ci_suite_refs refs/heads/*; guides rewritten. Focused scope: test_front_door.py and test_ci_workflow.py (62 tests) plus guide-reading tests, RED to GREEN per task. Mandatory checks: hygiene in every commit hook; ops-docs check. Broad work: policy was absent through implementation, so test-fast ran before each commit (last 6403 passed, 1 skipped) and the Task 1 baseline ran the full suite (6353+1 skip / 46 / 155); after activation no broad suite ran locally (the activation push recorded check-code and test-push skipped), and the activation commit's focused checks plus TT_FORCE=1 just check-code ran before it. Remote evidence: runs 41298875513 (d6dab00) and 41301850058 (01eb638), every job accept, 327 capability omissions identical in both, assessments attached. Post-activation: test-one ran, forced-failure fixture passed, skipped rows null. Floor note recorded; beliefs-0f5112's titan test-fast obligation retired and its halt lifted; ops-39bff6 noted; ops-56aab7 linked. Reviews: spec 6 rounds, plan 3, impl final plus 2 corrective re-reviews; rulings and 4 minor (deferred) in execution-ledger.md. Disclosures: pushed d6dab00 and 01eb638 to origin main on approval; 14+ task-record commits remain local on main, unpushed; worktree and scratch removed, branch design/067a8d-test-policy deleted after merge; no session process left running.
+  provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
