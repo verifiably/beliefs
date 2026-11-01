@@ -20,8 +20,8 @@
   automatic_broad = false
   broad_targets = ["test", "test-fast", "test-push", "check-code", "ci-python", "ci-typescript"]
   ```
-- No `.tt.toml` enters the tree before Task 9. Tests never disable the real checkout's policy; every policy case uses a fixture checkout.
-- `ci_suite_refs` stays `refs/heads/main` until the Task 9 activation commit, which sets `refs/heads/*`.
+- No `.tt.toml` reaches the registered main checkout before Task 9 Step 1. The design branch carries the unintegrated activation commit from Task 8 Step 5 (plan round 1 Ruling I1), and the worktree runs under policy-off from then on. Tests never disable the real checkout's policy; every policy case uses a fixture checkout.
+- `ci_suite_refs` stays `refs/heads/main` until the activation commit (Task 8 Step 5), which sets `refs/heads/*`.
 - Every test subprocess gets an environment built key by key: `PATH`, a temporary `HOME`, `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_NOSYSTEM=1`, fake `GIT_AUTHOR_*`/`GIT_COMMITTER_*`, and each variable the case needs. `TT_FORCE` and `GITHUB_ACTIONS` are absent unless a case sets them. Each fixture asserts its `git rev-parse --show-toplevel` and `--absolute-git-dir` before its first write. No case runs a recipe with `cwd` at the repository root.
 - Workflow keeps both matrices (Python 3.11/3.13, Node 20/24), the pinned actions, frozen installs, the atoms and nodes sibling checkouts at their default branches, `fetch-depth: 0`, `OPS_WORKERS=4`, `PYTEST_XDIST_AUTO_NUM_WORKERS=4` and `VERIFIABLY_UNCERTIFIED_HOST=1`.
 - Exact enabled-floor note: `policy: enabled at <RFC3339-UTC> revision <full-sha>`.
@@ -29,8 +29,8 @@
 - GitHub reads and writes use `GH_TOKEN=$(gh auth token --user khughitt) gh …`. Conventional commits, no AI attribution.
 - AGENTS.md's two conformance-cut obligations (the `root.py` atoms importer, the recent-cut acceptance row) do not apply: no cut is discharged here.
 - Every `just test`, `test-fast` and `test-one` run starts from the physical worktree path (`cd "$(pwd -P)"`), never through the `.worktrees` symlink, whose spelling makes atoms' `open_root` fail with `ELOOP`. The `.worktrees/…` spelling is for paths shown to the user.
-- Task records commit wherever the tasks CLI runs. Until Task 7's merge, task commands run in the worktree. From the merge on, they run in the main checkout, where they add only `tasks/*.md` commits after the integrated revision. Every push names its approved commit by refspec (`git push origin <approved-sha>:refs/heads/main`), so no later record commit rides along unapproved.
-- Policy is absent (enabled) through Tasks 2 to 8. Each task works RED to GREEN through `just test-one`, runs `just test-fast` before committing, and lets the hooks run. A skipped suite is never green evidence.
+- Task records commit wherever the tasks CLI runs. Until Task 7's merge, task commands run in the worktree. From the merge on, they run in the main checkout, where they add only `tasks/*.md` commits after the integrated revision. Every push names its approved commit by refspec (`git push origin <approved-sha>:refs/heads/main`), so no later record commit rides along unapproved. Every packet lists what that push publishes, `git log --oneline origin/main..<sha>` and `git diff --stat origin/main <sha>`, so no earlier unpushed commit rides along unnamed.
+- Policy is absent (enabled) in the worktree through Tasks 2 to 8 Step 4. Each task works RED to GREEN through `just test-one`, runs `just test-fast` before committing, and lets the hooks run. A skipped suite is never green evidence.
 
 ## Review Focus
 
@@ -215,16 +215,16 @@ Workflow contents:
 ### Task 7: Final review, integration and publication
 
 - [ ] **Step 1: Final whole-branch review.** Dispatch a fresh read-only reviewer on `main..design/067a8d-test-policy`, using this plan and the spec at their frozen revisions. Save the returned report as `final-review-report.md` in the plan workspace, with the reviewer's identity. Record the `review: impl round 1 — …` note before acting. Then run corrective rounds as the global Decisions rule says. Defer Minors to the ledger as `minor (deferred)`.
-- [ ] **Step 2: Integrate** into local main from the main checkout: `git merge --no-ff design/067a8d-test-policy`. The personal profile allows a local merge of a reviewed branch. From here on, task commands run in the main checkout. Record on beliefs-067a8d exactly `policy: enabled at <merge commit time, RFC3339 UTC> revision <merge full sha>`. That note starts the split-hook timing series.
+- [ ] **Step 2: Integrate** into local main from the main checkout: `git merge --no-ff design/067a8d-test-policy`. The personal profile allows a local merge of a reviewed branch. From here on, task commands run in the main checkout: move the claim there first with `tasks start beliefs-067a8d`. Record on beliefs-067a8d exactly `policy: enabled at <merge commit time, RFC3339 UTC> revision <merge full sha>`. That note starts the split-hook timing series.
 - [ ] **Step 3: Prepare the publication packet** as a task attachment `publication-packet.md`, holding:
-  - the exact commit to push (the Step 2 merge SHA), the refspec `<merge-sha>:refs/heads/main`, a statement that the `tasks/*.md` record commits made after it stay local until a later approved push, the `ci.yml` diff, and the delivery revisions (ops design `469140a`, tt v9);
+  - the exact commit to push (the Step 2 merge SHA), the refspec `<merge-sha>:refs/heads/main`, a statement that the `tasks/*.md` record commits made after it stay local until a later approved push, everything the push publishes (`git log --oneline origin/main..<merge-sha>` and `git diff --stat origin/main <merge-sha>`, which today include unpushed commits such as the ops-check v16 and tt v9 vendoring), the `ci.yml` diff, and the delivery revisions (ops design `469140a`, tt v9);
   - the runner class (`ubuntu-latest`, standard) and the timeouts (30 and 10 minutes);
   - the visibility of beliefs, atoms and nodes, rechecked now with `gh api repos/verifiably/<repo> --jq .visibility`;
   - the organization's Actions spending-limit state, if readable without a write. Otherwise, the explicit deviation from the task body;
   - the hosted-acceptance criteria. The per-job counts, module inventory, capability-omission list, wholly skipped modules and sibling revisions are marked pending, with run 41077923374's counts given for reference and their limits stated;
   - the rollback route.
-- [ ] **Step 4: Ask for publication approval.** Park beliefs-067a8d with `--waiting-on user --reason approval`. The park text names the packet and states that approval covers only `git push origin main` of the named commit.
-- [ ] **Step 5:** After approval, `git push origin <merge-sha>:refs/heads/main` and note the push and the run ID. Hosted acceptance is judged on that SHA's run.
+- [ ] **Step 4: Ask for publication approval.** Park beliefs-067a8d with `--waiting-on user --reason approval`. The park text names the packet and states that approval covers only `git push origin <merge-sha>:refs/heads/main`.
+- [ ] **Step 5:** After approval, confirm `git log --oneline origin/main..<merge-sha>` still matches the packet (origin may have moved; a mismatch means a new packet), then `git push origin <merge-sha>:refs/heads/main` and note the push and the run ID. Hosted acceptance is judged on that SHA's run.
 
 ### Task 8: Hosted acceptance and the activation packet
 
@@ -241,10 +241,10 @@ Workflow contents:
 
   Attach the script and its output (`hosted-1-assessment.txt`) to beliefs-067a8d.
 - [ ] **Step 4: Settle the result.** Any failing criterion leaves policy on. Its fix is a new policy-enabled change, reviewed, and pushed only on a fresh approval like Task 7's. Repeat Steps 1 to 3 on that run.
-- [ ] **Step 5: Build the activation commit, unintegrated.** In the worktree, on `design/067a8d-test-policy` (whose own Git top level is separate, so the registered main checkout's policy is untouched):
+- [ ] **Step 5: Build the activation commit, unintegrated.** This follows plan round 1 Ruling I1's reading of spec step 7: the packet names the exact commit, and approval authorizes integrating it into the registered main checkout. In the worktree, on `design/067a8d-test-policy` (whose own Git top level is separate, so the registered main checkout's policy is untouched):
   - write `.tt.toml` with the exact policy text;
   - set `ci_suite_refs` to `refs/heads/*`;
-  - edit exactly the state lines Task 6 Step 3 listed.
+  - refresh Task 6 Step 3's state-line list against the tree with `git grep -n -e "refs/heads/main" -e "origin/main" -e "policy enabled" -e "policy is enabled" -- AGENTS.md justfile python/README.md .githooks`, note the additions, and edit the union.
 
   Before committing, run its focused checks from the physical path, since its own hooks skip `check-code` and `test-push`: `just test-one tests/test_front_door.py tests/test_ci_workflow.py tests/test_designs_corpus.py tests/test_check_guide.py`, plus `TT_FORCE=1 just check-code`. The live `.tt.toml` branch of `test_broad_targets_name_tt_targets` and the `refs/heads/*` coverage case now run. Expected: pass. Commit `chore(policy): activate tt policy-off with remote suite coverage`. Its SHA is the activation commit.
 - [ ] **Step 6: Prepare the activation packet** (`activation-packet.md`, attached). It holds:
@@ -252,17 +252,17 @@ Workflow contents:
   - a verdict for each acceptance criterion;
   - visibility and runner class, rechecked;
   - the capability-omission list, which becomes the guidance list for focused certified runs;
-  - the exact activation commit (Step 5's SHA) and its diff, and the integration it authorizes: a `--no-ff` merge of exactly that commit into main, whose only other content is `tasks/*.md` record commits, pushed by refspec as the merge SHA;
+  - the exact activation commit (Step 5's SHA) and its diff, and the integration it authorizes: a `--no-ff` merge of exactly that commit into main, pushed by refspec as the merge SHA. Between the published merge and that merge, main may gain only `tasks/*.md` record commits; list them;
   - the latency and halt reinventory (`tasks list --tag test-latency`, `tasks list --tag halt`);
   - the rollback route.
-- [ ] **Step 7: Ask for activation approval.** Park beliefs-067a8d with `--waiting-on user --reason approval`, naming the packet and the activation SHA. Approval there covers integrating and pushing that commit only.
+- [ ] **Step 7: Ask for activation approval.** Park beliefs-067a8d with `--waiting-on user --reason approval`, naming the packet and the activation SHA. Approval there covers integrating and pushing that commit only. On refusal, reset the worktree branch to its pre-activation tip (the commit is unpushed and unmerged) and note it. On requested changes, rebuild the commit and present a new packet naming the new SHA.
 
 ### Task 9: Activation and post-activation verification
 
-- [ ] **Step 1: Integrate** after approval: from the main checkout, `git merge --no-ff <activation-sha>`. Confirm that the merge's diff from main's previous tip equals the activation commit's diff, then `git push origin <merge-sha>:refs/heads/main`. Note the merge SHA, its time and the run ID.
+- [ ] **Step 1: Integrate** after approval: from the main checkout, first require `git diff --name-only <published-merge-sha> HEAD` to list only `tasks/*.md` files. Anything else (another lane merged meanwhile) stops the step: rebuild the activation commit if needed and present a new activation packet. Then `git merge --no-ff <activation-sha>`. Confirm that the merge's diff from main's previous tip equals the activation commit's diff, then `git push origin <merge-sha>:refs/heads/main`. Note the merge SHA, its time and the run ID.
 - [ ] **Step 2: Verify from the registered main checkout**, recording each result on beliefs-067a8d:
   - `just test-one tests/test_front_door.py -k test_full` passes and records a `test-one` row with `execution: ran`. This covers the forced-failure fixture through `test-one`;
-  - the activation push's hooks recorded `check-code` and `test-push` as `skipped`, with null `exit`, `tests`, `selection` and `slowest`. Read this from the shared tt log;
+  - the activation push's hooks recorded `check-code` and `test-push` as `skipped`, with null `exit`, `tests`, `selection` and `slowest`. Read this from the shared tt log, identifying the push's rows as the `hook-pre-push-fast`, `check-code` and `test-push` rows whose `rev` is the pushed merge SHA (Task 8 Step 5's own pre-commit row also shows a skipped `check-code`);
   - the activation push's hosted run meets the Task 8 criteria. Rerun the Task 8 Step 3 script into `hosted-2/` and attach its output.
 - [ ] **Step 3: Record the activation** on beliefs-067a8d:
   - the activation revision and time;
