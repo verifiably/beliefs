@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T09:32:00Z
+updated: 2026-11-01T09:37:05Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -96,3 +96,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T09:31:14Z (design/067a8d-test-policy): attached: plan-round-3-ledger.md (1210 bytes): Plan round 3 rulings: six minors folded into b2ead49
 - 2026-11-01T09:31:17Z (design/067a8d-test-policy): Plan accepted at round 3 (0d142f8); its six minors are folded into b2ead49 (plan sha256 ebcb32ec15c1401a838bc043a2e37473812dee2536dba04d2bc3cea2b7e5f6ae) per the attached plan-round-3-ledger.md. Execution: inline (native) by this session, with a fresh final whole-branch reviewer; rejected alternative: subagent-driven, since every code task shares one fixture module and Tasks 7-9 are controller-held external gates. Starting Task 1 Setup.
 - 2026-11-01T09:32:00Z (design/067a8d-test-policy): Scratch dir created: host titan, /mnt/ssd3/work/beliefs/beliefs-067a8d, purpose: baseline log, hosted artifacts and assessment scripts for this task; owner beliefs-067a8d; contents mutable.
+- 2026-11-01T09:37:05Z (design/067a8d-test-policy): Baseline (Task 1, policy absent): PYTEST_ADDOPTS="${PYTEST_ADDOPTS:+$PYTEST_ADDOPTS }-rfEs" just test from the physical worktree path, exit 0. Non-N2: 6353 passed, 1 skipped in 99.46s; N2: 46 passed in 168.13s; Vitest: 155 passed in 7 files. Failures: none. Local skip-reason baseline (the only SKIPPED line, both phases): "SKIPPED [1] tests/test_composite.py:190: the fixture's affects admits causal only; the layer arm is exercised by the biology fixture in test_composite_boundary". Log attached as baseline.log.
