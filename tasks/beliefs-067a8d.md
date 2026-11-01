@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:27:15Z
+updated: 2026-11-01T11:41:11Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -144,3 +144,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:26:33Z (main): Post-activation verification from the registered main checkout: (1) just test-one tests/test_front_door.py -k test_full -> 1 passed (test_test_full_records_one_forced_test_row, the forced-failure fixture), row test-one execution ran, exit 0, tests 1; (2) the activation push's rows at rev 01eb638: hook-pre-push-fast ran exit 0 (hygiene), check-code skipped policy-disabled and test-push skipped policy-disabled, each with exit/tests/selection/slowest null; (3) hosted run 41301850058 pending assessment into hosted-2/.
 - 2026-11-01T11:26:52Z (main): Latency reinventory at activation: beliefs-0f5112 was the only test-latency/halt task. Noted the retired titan/test-fast obligation on it with landed revision 01eb638 and removed only its halt tag; its parked A/B/C scope choice stays with the user. No other incident open.
 - 2026-11-01T11:27:15Z (main): Reported status to ops-39bff6 (a closed record; note added) and linked the shared regret review ops-56aab7 (todo, deferred 2026-11-28) with a note there rather than filing a duplicate.
+- 2026-11-01T11:41:11Z (main): attached: hosted-2-assessment.txt (66426 bytes): Run 41301850058 (01eb638, activation push) hosted acceptance: all 4 jobs accept; capability list identical to hosted-1
