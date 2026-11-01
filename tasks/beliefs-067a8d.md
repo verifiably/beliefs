@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T09:37:08Z
+updated: 2026-11-01T10:07:30Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -98,3 +98,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T09:32:00Z (design/067a8d-test-policy): Scratch dir created: host titan, /mnt/ssd3/work/beliefs/beliefs-067a8d, purpose: baseline log, hosted artifacts and assessment scripts for this task; owner beliefs-067a8d; contents mutable.
 - 2026-11-01T09:37:05Z (design/067a8d-test-policy): Baseline (Task 1, policy absent): PYTEST_ADDOPTS="${PYTEST_ADDOPTS:+$PYTEST_ADDOPTS }-rfEs" just test from the physical worktree path, exit 0. Non-N2: 6353 passed, 1 skipped in 99.46s; N2: 46 passed in 168.13s; Vitest: 155 passed in 7 files. Failures: none. Local skip-reason baseline (the only SKIPPED line, both phases): "SKIPPED [1] tests/test_composite.py:190: the fixture's affects admits causal only; the layer arm is exercised by the biology fixture in test_composite_boundary". Log attached as baseline.log.
 - 2026-11-01T09:37:08Z (design/067a8d-test-policy): attached: baseline.log (7857 bytes): Task 1 baseline: just test with -rfEs, 6353+1 skip / 46 / 155, exit 0
+- 2026-11-01T10:07:30Z (design/067a8d-test-policy): attached: vitest-probe.xml (679 bytes): Task 5 Vitest evidence probe via test-one: 1 executed + 1 skipped testcase in junit XML
