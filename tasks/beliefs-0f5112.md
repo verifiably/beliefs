@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T15:54:09Z
+updated: 2026-11-01T16:41:35Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -77,3 +77,4 @@ Process: planned
 - 2026-11-01T15:46:37Z (perf/0f5112-test-latency): resumed
   provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T15:54:09Z (perf/0f5112-test-latency): Task 1 Step 1 focused policy-off baseline: just test-one tests/test_capability_boundary.py tests/test_session_sharing_doors.py tests/test_session_publish_door.py tests/test_closure_capture.py tests/test_adapter.py tests/test_confinement.py tests/test_arm_staleness.py -> 634 passed, tt 345.224 s (rev 5549483, dirty false, exit 0). Broad baseline deliberately omitted under .tt.toml automatic_broad = false.
+- 2026-11-01T16:41:35Z (perf/0f5112-test-latency): Task 4 benchmark (TT_FORCE=1 just test-fast, 16 workers, clean tree, shared host load ~21-26): B 105.379/112.190/104.401 s (240a989, 6403 passed/1 skipped), C 75.142/70.223/77.273 s (6410 passed/1 skipped); median C 75.142 s <= 90; D 30.237/41.967/27.128 all > 0; median D 30.237 > noise 7.789 — keep. Attribution 1381.43 -> 1101.58 worker-s, every part reduced. just test-full passed all phases (6410+1 skip, N2 46, TS 155) at 395.447 s under contention (load to 47.9) — over the plan's 300 s Expected; ruled in the plan ledger. Results: docs/plans/2026-11-01-test-fast-latency-results.md (c0c2a9e).
