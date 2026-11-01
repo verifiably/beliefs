@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T17:03:01Z
+updated: 2026-11-01T17:03:04Z
 started: 2026-11-01T10:47:23Z
 completed: 2026-11-01T17:01:26Z
 closed: 2026-11-01T17:01:26Z
@@ -111,3 +111,4 @@ Process: planned
   provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
 - 2026-11-01T17:02:14Z (perf/0f5112-test-latency): Rulings and deferred minors from the execution ledger are committed at docs/plans/2026-11-01-test-fast-latency-execution-ledger.md (6ce1ea9); the git-ignored plan workspace is removed after this note.
 - 2026-11-01T17:03:01Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/0f5112-test-latency","state":"released","verification":"verified","purpose":"Removed by beliefs-0f5d3a after perf/0f5112-test-latency fast-forwarded main to 35adf88; ignored files were regenerable caches, python/.venv and ts/node_modules; no host pointer resolved into it; tt-report ran","next_owner":"none","cleanup_trigger":"none"}
+- 2026-11-01T17:03:04Z (main): Post-merge lifecycle: perf/0f5112-test-latency merged locally into main by fast-forward to 35adf88 (no push); worktree .worktrees/0f5112-test-latency removed and local branch deleted by beliefs-0f5d3a; retention-checkpoint bases cc8085a, ec1eed5, 8ea2a33, 9a0449c and 907e03a verified as ancestors of main. No kept items remain on any host. main is unpushed: hosted CI (Python 3.11/3.13, Node 20/24) has not run on this work and runs on the next user-approved push.
