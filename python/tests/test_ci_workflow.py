@@ -232,3 +232,19 @@ def test_broad_targets_name_tt_targets() -> None:
     if policy.exists():
         listed = tomllib.loads(policy.read_text())["broad_targets"]
         assert listed == BROAD
+
+
+def test_ci_suites_are_the_local_suites(tmp_path: Path) -> None:
+    # Hosted CI is the routine full-suite route under policy-off, so its selection must
+    # be exactly `test`'s: the CI commands may add reporting flags and nothing else.
+    checkout = Checkout(tmp_path)
+
+    def evaluate(name: str) -> str:
+        result = checkout.just("--evaluate", name)
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    junit = r' --junitxml="\$BELIEFS_CI_EVIDENCE_DIR/[^"/]+\.xml"'
+    assert re.sub(junit, "", evaluate("ci_py_test_cmd")) == evaluate("py_test_cmd")
+    reporters = ' -- --reporter=default --reporter=junit --outputFile.junit="$BELIEFS_CI_EVIDENCE_DIR/vitest.xml"'
+    assert evaluate("ci_ts_test_cmd").replace(reporters, "") == evaluate("ts_test_cmd")
