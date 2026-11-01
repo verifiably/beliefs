@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T11:06:30Z
+updated: 2026-11-01T11:07:04Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -130,3 +130,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T11:03:31Z (main): Hosted acceptance (Task 8), run 41298875513 on d6dab00, conclusion success, artifacts in $WORK_ROOT/beliefs/beliefs-067a8d/hosted-1: every job accept. Python 3.11 and 3.13 each: non-N2 6404 cases, 6076 executed and passed, 328 skipped (327 capability omissions, identical lists in both jobs, plus the one baseline skip test_composite.py:190), 0 failed/errors; N2 46 passed; 204 + 1 eligible modules all present. TypeScript 20 and 24: 155 passed, 7 modules present, 0 skips. Wholly skipped modules (capability-dependent): test_holdings_windows, test_publication_engine_order, test_publish_engine_order, test_publish_remote_engine. Siblings: atoms 935535a7275eeaa9d5ea9189b0b2163c021d4a95, nodes ce159f2694c3149416f3d7e24ac0fedad5f4253d. Job times: py3.11 14.6 min, py3.13 10.0 min, TS 0.2-0.4 min. Assessment and script attached.
 - 2026-11-01T11:06:10Z (main): attached: activation-packet.md (14345 bytes): Activation packet: integrate and push activation commit 48d9891 (policy-off); approval asked
 - 2026-11-01T11:06:30Z (main): attached: scratch-manifest-2.txt (2273 bytes): Manifest of $WORK_ROOT/beliefs/beliefs-067a8d at the Task 8 park (adds hosted-1 artifacts, logs, packets)
+- 2026-11-01T11:07:04Z (main): retained: {"host":"titan","kind":"worktree","path":".worktrees/067a8d-test-policy","state":"kept","verification":"verified","purpose":"Holds the unintegrated activation commit 48d9891 on design/067a8d-test-policy (its .tt.toml makes this worktree policy-off) and the plan workspace ledger (attached); Task 9 merges 48d9891 from the main checkout on approval","next_owner":"task:beliefs-067a8d","cleanup_trigger":"Task 9 Step 4 close-out after the activation merge is pushed, or the user refuses activation (then reset the branch to c06c2d7 per Task 8 Step 7)"}
