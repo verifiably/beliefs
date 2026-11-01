@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: main
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:37:19Z
+updated: 2026-11-01T10:37:22Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -112,3 +112,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:36:52Z (design/067a8d-test-policy): Implementation (Tasks 1-6) complete on design/067a8d-test-policy at 70385c4. Final review: round 1 with fixes (Important 1, Minor 4), corrective rounds 1-2 accepted; all rulings and the four minor (deferred) items are in the attached execution-ledger.md. Focused scope: test_front_door.py and test_ci_workflow.py (61 tests), guide-reading tests; mandatory hygiene ran in every commit hook; policy absent, so test-fast ran before each commit (last 6403 passed, 1 skipped). Next: Task 7 integration into local main.
 - 2026-11-01T10:37:19Z (main): resumed
   provenance: {"harness_session":"claude-code:b2bff3ba-0ad3-458f-809d-bb8b1806af58","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-11-01T10:37:22Z (main): policy: enabled at 2026-11-01T10:37:10Z revision d6dab00165bf520bb61215e309d2847af90c0978
