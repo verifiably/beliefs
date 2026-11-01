@@ -1,9 +1,11 @@
 # Beliefs test execution policy adoption
 
-Status: revised after spec rounds 1 (`60b6487`), 2 (`e2927dd`), 3 (`2cee097`) and
-5 (`5237cb7`, the user's review); proposed for review. Task: beliefs-067a8d. This document authorizes no
-implementation, workflow publication, push or policy-off activation. The
-implementation plan follows user approval of this frozen design.
+Status: revised after spec rounds 1 (`60b6487`), 2 (`e2927dd`) and 3 (`2cee097`);
+round 4 accepted `5237cb7`; round 5 (codex/gpt-6.1-sol, relayed by the user)
+revised it; round 6 accepted `68fa37f`. Task: beliefs-067a8d. The implementation
+plan is `docs/superpowers/plans/2026-11-01-test-execution-policy.md`. This
+document authorizes no workflow publication, push or policy-off activation; each
+needs the user's explicit approval at that step.
 
 ## Intent and authority
 
