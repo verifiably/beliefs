@@ -1,18 +1,21 @@
 ---
 id: beliefs-0f5112
 title: "Test latency over limit: test-fast 91.312 s against 90 s"
-status: doing
+status: done
 priority: 0
 size: m
 complexity: high
 process: planned
 owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T17:01:10Z
+updated: 2026-11-01T17:01:26Z
 started: 2026-11-01T10:47:23Z
+completed: 2026-11-01T17:01:26Z
+closed: 2026-11-01T17:01:26Z
 depends: []
 tags: [test-latency, testing]
 source: "tt-latency:titan:2026-11-01T10:00:05Z"
+model: claude-opus-5-5
 spec: docs/superpowers/specs/2026-11-01-test-fast-latency-design.md
 plan: docs/superpowers/plans/2026-11-01-test-fast-latency.md
 ---
@@ -101,4 +104,8 @@ Process: planned
 - 2026-11-01T17:00:56Z (perf/0f5112-test-latency): Worktree cleanup handed to beliefs-0f5d3a (open), which owns .worktrees/0f5112-test-latency and branch perf/0f5112-test-latency from the local main merge onward.
 - 2026-11-01T17:00:59Z (perf/0f5112-test-latency): retained: {"host":"titan","kind":"worktree","path":".worktrees/0f5112-test-latency","state":"kept","verification":"verified","purpose":"Holds reviewed, benchmark-verified branch perf/0f5112-test-latency (code 4f6c6e1..0a61785, docs 8c491b0) and the closed task record, awaiting local merge into main","next_owner":"task:beliefs-0f5d3a","cleanup_trigger":"Immediately after perf/0f5112-test-latency merges locally into main"}
 - 2026-11-01T17:01:10Z (perf/0f5112-test-latency): retention checkpoint: observed 2026-11-01T17:01:10Z on titan; basis beliefs in-tree . 907e03a86a2c2a4c9b00386ec8f1398d704e289c:tasks/beliefs-0f5112.md; retained by refs/heads/perf/0f5112-test-latency; this host: kept verified 1, kept unknown 0, released 1; changed 2. Rechecked all kept/verified items on this host; unknown items remain unverified with actions in basis. Other hosts retain their own dated observations. Observer session attribution unknown if no harness_session stamp is shown. Next: beliefs-0f5d3a removes .worktrees/0f5112-test-latency immediately after the local main merge.
+  provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-11-01T17:01:26Z (perf/0f5112-test-latency): done
+  provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
+- 2026-11-01T17:01:26Z (perf/0f5112-test-latency): Landed on perf/0f5112-test-latency (4f6c6e1, 7c48364, 3038992, 5de55eb, 0a61785; docs c0c2a9e, 8c491b0): byte-keyed AST cache, module-scoped session-door fixtures, zero-cache single-walk _Closure cleanup. Results: docs/plans/2026-11-01-test-fast-latency-results.md. Focused scope: just test-one over closure/adapter/confinement/staleness/boundary (576 passed), session doors+publish door+fixture grouping (67), acceptance callers (24), test_n2_cut13 (16), doc tests (69); uncertified-host partition 6 passed/60 skipped; Python 3.11.15 focused 633 passed; capture_closure parity exact vs 240a989 (sha256 9554e5de... after the fix, 8476 rows). Mandatory checks: just check-hygiene 0; TT_FORCE=1 just check-code 0. Deliberate broad: TT_FORCE=1 test-fast six-run B1..C3 median C 75.142 s vs B 105.379 s, D 30.237/41.967/27.128 > noise 7.789 (keep); just test-full passed all phases at 395.447 s under contention (over the 300 s Expected; ruled). Skipped broad work: routine unforced broad targets per .tt.toml. Remote evidence: none (no push; hosted CI pending). tt-latency obligation retired by policy activation 01eb638191bd44fe9bd2a715fcc7d6853b07cc6e, not performance-verified. Review: impl rounds 1-2 accept; one re-graded Important fixed; 8 deferred minors in the plan ledger and results record. Observer attribution: stamped claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa. Pushes: none. Processes: none left running. Others' work: untouched. Branch perf/0f5112-test-latency unmerged at close, handed to beliefs-0f5d3a for immediate local merge into main and worktree removal; scratch released.
   provenance: {"harness_session":"claude-code:f60df5b0-a52d-44ca-84ef-db0d992d02fa","harness_session_source":"CLAUDE_CODE_SESSION_ID"}
