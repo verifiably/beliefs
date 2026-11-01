@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T10:11:50Z
+updated: 2026-11-01T10:25:33Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -101,3 +101,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T10:07:30Z (design/067a8d-test-policy): attached: vitest-probe.xml (679 bytes): Task 5 Vitest evidence probe via test-one: 1 executed + 1 skipped testcase in junit XML
 - 2026-11-01T10:08:06Z (design/067a8d-test-policy): Task 5 Vitest evidence-path validation [r6 M3]: just --set one_cmd 'cd ts && npx --no-install vitest run' test-one --root <scratch probe> --globals --reporter=default --reporter=junit --outputFile.junit=<probe>/vitest.xml -> test-one row ran, exit 0, tests 2; XML has pass.test.ts (executed) and skip.test.ts (<skipped/>). Vitest's junit <skipped/> carries no message, so a hosted TypeScript skip has no recorded reason and blocks acceptance until explained (none expected: 155 passed today). Attached as vitest-probe.xml.
 - 2026-11-01T10:11:50Z (design/067a8d-test-policy): State lines for the activation commit (Task 6 Step 3), each stating current policy or covered refs: (1) AGENTS.md Gates policy bullet: "This checkout has no `.tt.toml` yet, so policy is enabled."; (2) AGENTS.md test-fast bullet: "(now `refs/heads/main`)" and "every other push keeps the complete local gate."; (3) justfile comment above ci_suite_refs: "this declaration stays refs/heads/main until tt policy-off activation widens it, so until then other pushes keep the complete local gate."; (4) justfile `ci_suite_refs := "refs/heads/main"`; (5) justfile header: "and other pushes keep the complete local gate." Task 8 Step 5 edits these plus its grep refresh.
+- 2026-11-01T10:25:33Z (design/067a8d-test-policy): review: impl round 1 — verdict: revise; findings: Important 1, Minor 4; reviewer: claude-code/claude-opus-5-5
