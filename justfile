@@ -43,12 +43,13 @@ test_cmd := py_test_cmd + " && " + ts_test_cmd
 # Focused pytest selection, relative to python/. Override one_cmd for Vitest (AGENTS.md).
 one_cmd := "cd python && uv run --frozen pytest"
 hygiene_cmd := "python3 tools/ops-check && python3 tools/ops-docs check"
-check_cmd := hygiene_cmd + " && " + py_check_cmd + " && " + ts_check_cmd + " && tasks check"
+# The always-run checks (protected under tt policy) and the code checks (broad).
+check_hygiene_cmd := hygiene_cmd + " && tasks check"
+check_code_cmd := py_check_cmd + " && " + ts_check_cmd
 
 # Only agent guidance and task records take the docs-only path. README.md and docs/
 # are read by conformance tests, so the template's broader allowlist is unsafe here.
 docs_paths := "AGENTS.md tasks/*.md"
-docs_check_cmd := hygiene_cmd + " && tasks check"
 
 # ci.yml runs both complete package suites on main pushes and on PRs. PR-only refs
 # cannot shorten a push gate; only origin/main is covered by the push trigger.
@@ -71,7 +72,7 @@ setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)
 # Scoped fixture consumers share a file or class group; other tests schedule separately.
 # An empty vitest selection is a result, not a failure.
 #
-# `test`, `test-fast` and the pre-push hook run under ops' `host-budget run`, which sizes
+# `test`, `test-fast`, `test-push` and `test-one` run under ops' `host-budget run`, which sizes
 # them to this host's CPU budget: `-n auto` reads PYTEST_XDIST_AUTO_NUM_WORKERS, and
 # N2's pool reads OPS_WORKERS and refuses to run without it (ops
 # docs/specs/2026-09-24-host-budget-design.md). `tt` stays outside so it times the run.
@@ -91,11 +92,32 @@ test-one +args:
 test:
     {{tt}} test -- host-budget run -- sh -c '{{test_cmd}}'
 
-# Seconds, not minutes: lint, typecheck, and the task-record check.
-check:
-    {{tt}} check -- sh -c '{{check_cmd}}'
+# Deliberate suite evidence: `test` forced past tt policy. Untimed; tt records the
+# inner `test` row with reason `forced`. It runs no hygiene, lint or typecheck.
+test-full:
+    TT_FORCE=1 just test
 
-gate: check test
+# The fixed push set (all non-N2 Python tests plus all TS tests), its own recorded target.
+test-push:
+    {{tt}} test-push -- host-budget run -- sh -c '{{push_fast_cmd}}'
+
+# Always runs: the shared hygiene checks and the task-record check.
+check-hygiene:
+    {{tt}} check-hygiene -- sh -c '{{check_hygiene_cmd}}'
+
+# Lint, format and typecheck for both packages.
+check-code:
+    {{tt}} check-code -- sh -c '{{check_code_cmd}}'
+
+# Untimed: each child records its own row.
+check:
+    just check-hygiene
+    just check-code
+
+# Untimed. `TT_FORCE=1 just gate` is the full-gate evidence route.
+gate:
+    just check
+    just test
 
 # A gate that fails before `just setup` is an unhydrated tree, not a bug. Recorded like
 # the gates, because setup that recurs is a cost.
@@ -104,23 +126,31 @@ gate: check test
 setup:
     {{tt}} setup -- sh -c '{{setup_cmd}}'
 
-# Priced separately from the runs people ask for, so the report can cost the hook itself.
+# Hook targets time their hygiene only, so the report can cost the hook itself.
 #
-# What a pre-commit hook will run once the gate is green: `check`'s command.
+# Each hook times its hygiene under its own target, then runs the broad children as
+# nested recipes, so tt decides each child separately and a failure stops the rest.
+#
+# The pre-commit hook: hygiene, then the code checks.
 hook-pre-commit:
-    {{tt}} hook-pre-commit -- sh -c '{{check_cmd}}'
+    {{tt}} hook-pre-commit -- sh -c '{{check_hygiene_cmd}}'
+    just check-code
 
 # What the pre-commit hook runs when every staged path matches docs_paths.
 hook-pre-commit-docs:
-    {{tt}} hook-pre-commit-docs -- sh -c '{{docs_check_cmd}}'
+    {{tt}} hook-pre-commit-docs -- sh -c '{{check_hygiene_cmd}}'
 
-# What a pre-push hook will run: `gate`'s commands, under one hook target.
+# The full push gate: hygiene, the code checks, then the full suite.
 hook-pre-push:
-    {{tt}} hook-pre-push -- host-budget run -- sh -c '{{check_cmd}} && {{test_cmd}}'
+    {{tt}} hook-pre-push -- sh -c '{{check_hygiene_cmd}}'
+    just check-code
+    just test
 
-# Every pushed ref is covered by CI's full suite: checks and the fixed fast set.
+# Every pushed ref is covered by CI's full suite: hygiene, the code checks, then the fixed push set.
 hook-pre-push-fast:
-    {{tt}} hook-pre-push-fast -- host-budget run -- sh -c '{{check_cmd}} && {{push_fast_cmd}}'
+    {{tt}} hook-pre-push-fast -- sh -c '{{check_hygiene_cmd}}'
+    just check-code
+    just test-push
 
 # CI keeps a two-job matrix (Python 3.11/3.13, Node 20/24); each job runs the recipe for
 # its package, so the whole job is one recorded number. These run exactly what `test` and
