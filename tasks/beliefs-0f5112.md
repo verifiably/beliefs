@@ -6,9 +6,9 @@ priority: 0
 size: m
 complexity: high
 process: planned
-owner: main
+owner: perf/0f5112-test-latency
 created: 2026-11-01T10:00:12Z
-updated: 2026-11-01T11:49:53Z
+updated: 2026-11-01T11:50:03Z
 started: 2026-11-01T10:47:23Z
 depends: []
 tags: [test-latency, testing]
@@ -28,3 +28,4 @@ Process: planned
 - 2026-11-01T10:53:07Z (main): parked (waiting on user, decision): User chooses scope among options A/B/C in the diagnosis note; on Option A (recommended), agent resumes beliefs-0f5112, creates and hydrates .worktrees/0f5112-test-latency without touching main code while beliefs-067a8d finishes activation, profiles the 6,403-test suite, and lays out concrete optimization approaches. Retained items on titan: none created. Session processes (host-load --section session): none left running.
 - 2026-11-01T11:26:45Z (main): Retired obligation: titan test-fast is now a disabled broad target under beliefs' landed policy (.tt.toml automatic_broad = false, broad_targets includes test-fast), activated by merge 01eb638191bd44fe9bd2a715fcc7d6853b07cc6e pushed to origin main at 2026-11-01T11:25:32Z (beliefs-067a8d). The titan/test-fast latency obligation is not applicable from that revision (not met, not performance-verified). Removed only this incident's timing halt tag; the task's remaining scope (the parked A/B/C choice) is unchanged and stays with its owner and the user.
 - 2026-11-01T11:49:53Z (main): resumed
+- 2026-11-01T11:50:03Z (perf/0f5112-test-latency): resumed
