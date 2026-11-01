@@ -8,7 +8,7 @@ complexity: mid
 process: planned
 owner: design/067a8d-test-policy
 created: 2026-10-29T13:45:23Z
-updated: 2026-11-01T09:17:11Z
+updated: 2026-11-01T09:17:14Z
 started: 2026-11-01T01:56:52Z
 depends: [ops-68729d]
 tags: []
@@ -85,3 +85,4 @@ After approved activation, commit .tt.toml with real broad target names, verify 
 - 2026-11-01T08:51:35Z (design/067a8d-test-policy): Spec round 6 accepted 68fa37f; its five minor (deferred) items are in the attached spec-round-6-ledger.md and are assigned to the implementation plan with round 4's three.
 - 2026-11-01T09:14:39Z (design/067a8d-test-policy): review: plan round 1 — verdict: revise; findings: Important 3, Minor 9; reviewer: claude-code/claude-opus-5-5
 - 2026-11-01T09:17:11Z (design/067a8d-test-policy): attached: plan-round-1-report.md (6835 bytes): Plan round 1 review (claude-code/claude-opus-5-5) of 224c799: revise, Important 3, Minor 9
+- 2026-11-01T09:17:14Z (design/067a8d-test-policy): attached: plan-round-1-ledger.md (2806 bytes): Plan round 1 rulings: all 12 accepted, fixed in ab1f9a6
