@@ -204,12 +204,38 @@ Focused profiling isolated three concrete, independent sources of waste:
   anywhere in `python/src/beliefs/adapter.py` — not even as a `dict.copy()` or
   `set.remove()` method call or local variable name (apart from the existing
   `shutil.copy2` and stdlib `import copy` carve-out).
-- **N2 and acceptance imports from `test_capability_boundary.py`:**
-  `tests/acceptance/test_durable_corpus.py` imports `imported_modules`,
-  `modules`, `names_of`, `parsed`, and `relative` from
-  `test_capability_boundary`, and N2 cut-4 and cut-8 sabotage arms invoke
-  `test_capability_boundary.py` tests against mutated package copies on
-  `PYTHONPATH`. All five helper signatures and behaviors must remain intact.
+- **Cross-module imports and live N2 sabotage anchors:**
+  - `tests/acceptance/test_durable_corpus.py` imports `imported_modules`,
+    `modules`, `names_of`, `parsed`, and `relative` from
+    `test_capability_boundary`; all five helper signatures and fresh-bytes
+    disk-read semantics must remain intact. (Cut-4 and cut-8 N2 modules are
+    retired in `CITED_NOT_RUN`; standalone `just test-full` runs
+    `tests/test_n2.py`'s portable arms.)
+  - `tests/acceptance/test_owned_replica_publication_acceptance.py` imports
+    `_written` and `publishing_session` from `test_session_publish_door`, and
+    live guard `tests/acceptance/test_n2_cut47.py` (`tests/n2_arms_cut47.py`
+    arm `"Y17-w"`) invokes top-level nodeid
+    `tests/test_session_publish_door.py::test_y17_w_scoped_ownership`; all three
+    names, signatures, and top-level definitions must remain intact.
+  - Freeze-pinned `tests/acceptance/n2_arms_cut13.py` (audited on every
+    `test-fast` run by
+    `test_arm_staleness.py::test_every_arm_a_live_guard_audits_applies_exactly_once`
+    and executed by `tests/acceptance/test_n2_cut13.py`) and portable
+    `tests/n2_arms_cut3.py` (executed by `tests/test_n2.py`) require five exact
+    `Sabotage.before` substrings to remain unique, with exact indentation and
+    in-scope variable bindings, inside `python/src/beliefs/adapter.py`:
+    - `K7a` (`_Closure.add_native`): `                    if known != canonical:`
+      (20-space indent).
+    - `K7b` (`_Closure.add`):
+      `            if target_root is None:\n                raise ClosureUnsupported(f"symlink {located} -> {target!r} escapes the closure")`
+      (12-space indent, with `target_root`, `located`, `target`, and `root`
+      bound in scope so `after="            if target_root is None:\n                target_root = root"` executes cleanly).
+    - `K7c` (`_Closure.add_pth`): `            if imports and paths:` (12-space
+      indent).
+    - `R13` (`capture_bundle`):
+      `            rows.append((name, _file_digest(target)))` (12-space indent).
+    - `R17` (`build_argv`): `        if target.startswith("-"):` (8-space
+      indent).
 - **Synthetic `_Closure` unit tests in `test_closure_capture.py`:** Tests
   construct `_Closure()` directly and call `register`, `add`, `add_chain`,
   `add_tree` (including custom `excluded=lambda parts: ...` callables),
@@ -263,15 +289,17 @@ Focused profiling isolated three concrete, independent sources of waste:
 
 #### 1A. Certified directory helper and module-scoped exported publication in `test_session_sharing_doors.py`
 
-1. In `python/tests/conftest.py`, factor a context-manager helper
+1. In `python/tests/conftest.py`, factor a `@contextlib.contextmanager` helper
    `certified_work_dir() -> Iterator[Path]` out of `certified_work` using the
    existing certified-volume base selection (`SCIENCE_CUT10_ROOT`,
    `SCIENCE_CUT12_ROOT`, `SCIENCE_CUT13_ROOT`, or
-   `MAIN_CHECKOUT / ".lifecycle-wrappers-test"`). On exit, call
+   `MAIN_CHECKOUT / ".lifecycle-wrappers-test"`). Wrap `yield work` inside
+   `try: ... finally:` so setup-time exceptions inside caller fixtures (such as
+   `CapabilityUnavailable` under `VERIFIABLY_UNCERTIFIED_HOST=1`) still run
    `corpus._forget_roots_under(work)`,
    `world_registry._forget_worlds_under(work)`, and
-   `shutil.rmtree(work, ignore_errors=True)` so long-lived worker processes do
-   not retain evicted root paths in in-process registries. Keep the per-test
+   `shutil.rmtree(work, ignore_errors=True)` without leaking directories or
+   evicted root paths in long-lived worker registries. Keep the per-test
    `certified_work` fixture delegating directly to `certified_work_dir()`.
 2. In `python/tests/test_session_sharing_doors.py`, add a `scope="module"`
    fixture `exported_publication` backed by `certified_work_dir()`:
@@ -312,11 +340,20 @@ Focused profiling isolated three concrete, independent sources of waste:
    fixture `readonly_source` backed by `certified_work_dir()` that builds
    `s = published_source(work)` once, snapshots `before = _files(s.base)`, yields
    `s`, and asserts `_files(s.base) == before` before cleanup at teardown.
-2. Route only the 8 strictly non-mutating test items through `readonly_source`,
-   using a per-test `tmp_path` directory for `operations_root` (so
-   `open_attended_session` writes its session ledger under `tmp_path / "ops" /
-   "sessions-root"`, never under `readonly_source.base`, and closes the session
-   in `try / finally`):
+2. Add a small per-test view helper `scoped_source(readonly_source, tmp_path)`
+   that creates fresh `ops = tmp_path / "ops"` and `dest = tmp_path / "dest"`
+   directories and returns a shallow `SimpleNamespace` copy of `readonly_source`
+   with `ops`, `dest`, and `destination = Destination.local(str(dest))` rebound
+   into `tmp_path`. Keep `publishing_session` and `_written` at their exact
+   existing signatures (preserving
+   `tests/acceptance/test_owned_replica_publication_acceptance.py`), keep
+   `test_y17_w_scoped_ownership` as a top-level `def` (preserving
+   `tests/acceptance/test_n2_cut47.py`), and route only the 8 strictly
+   non-mutating items through `s = scoped_source(readonly_source, tmp_path)`
+   (closing each opened session in `try / finally`), so `publishing_session`
+   (`s.ops / "sessions-root"`), `_door_publish` / `_door_resume`
+   (`operations_root=s.ops`), and `assert not (s.ops / "publish").exists()` all
+   operate on `tmp_path / "ops"` without touching `readonly_source.base`:
    - `test_the_preview_needs_no_authority`
    - `test_a_coordination_scoped_writer_refuses_the_permit_before_the_world_is_opened`
    - `test_a_session_without_a_resolver_refuses_coordination_unavailable`
@@ -338,8 +375,8 @@ Focused profiling isolated three concrete, independent sources of waste:
    str) -> ast.Module: return ast.parse(raw.decode("utf-8"), filename=filename)`.
    - `maxsize=256` exceeds the package's ~100 Python files per worker while
      bounding memory.
-   - Any byte edit on disk (N2 sabotage on `PYTHONPATH` or `tmp_path` reuse)
-     produces different `raw` bytes and misses the cache.
+   - Any byte edit on disk (sabotage mutations on `PYTHONPATH` or `tmp_path`
+     reuse) produces different `raw` bytes and misses the cache.
    - `UnicodeDecodeError` and `SyntaxError` propagate identically to
      `path.read_text(encoding="utf-8")` + `ast.parse`.
    - Callers remain strictly read-only over returned `ast.Module` trees.
@@ -352,35 +389,50 @@ Focused profiling isolated three concrete, independent sources of waste:
 ### Part 2 — Zero-cache single-walk cleanup in `beliefs.adapter._Closure`
 
 All state in `_Closure` remains strictly per-walk (`__init__` initializes fresh
-instances on every `_walk_closure()` call; nothing is cached across calls).
+instances on every `_walk_closure()` call; nothing is cached across calls). All
+five live `Sabotage.before` anchors in `adapter.py` (`K7a`, `K7b`, `K7c`, `R13`,
+`R17`) remain unique with exact indentation and surrounding variable bindings.
 
 1. **String-prefix root matching in `register`, `root_of`, and `sandbox_of`:**
    - Store `(real_str, prefix_str, Path(real_str), sandbox_root)` per registered
      root, where `real_str = os.path.realpath(host_root)` and `prefix_str` is
      `"/"` when `real_str == "/"` and `f"{real_str}{os.sep}"` otherwise, sorted
      descending by `len(real_str)`.
-   - Match normalized path strings with `located_str == real_str or
-     located_str.startswith(prefix_str)` and compute relative sandbox paths by
-     string slicing (`"."` when `located_str == real_str`, else
-     `located_str[len(prefix_str):]`, normalizing `os.sep` to `"/"` if needed)
-     instead of calling `os.path.commonpath` and `os.path.relpath` per file. Keep
-     `root_of(located: Path)` and `sandbox_of(located: Path)` accepting `Path`
-     and normalizing `os.path.normpath(os.fspath(located))` so direct callers see
-     identical behavior.
-2. **String-keyed parent realpath lookup and single `os.lstat` per added entry:**
+   - Normalize arbitrary `Path` arguments to `root_of(located: Path)` and
+     `sandbox_of(located: Path)` via `os.path.normpath(os.fspath(located))` while
+     collapsing any POSIX leading `"//"` (`"//foo"` -> `"/foo"`, matching
+     `os.path.commonpath` on `Path` objects); paths coming from `_located` are
+     already normalized. Match with `located_str == real_str or
+     located_str.startswith(prefix_str)` and slice relative sandbox paths (`"."`
+     when `located_str == real_str`, else `located_str[len(prefix_str):]`,
+     normalizing `os.sep` to `"/"` if needed) instead of calling
+     `os.path.commonpath` and `os.path.relpath` per file.
+2. **String-keyed parent realpath lookup and `pathlib`-compatible single
+   `os.lstat`:**
    - Replace `_parent_locations: dict[Path, Path]` with a per-walk string cache
      `dict[str, str]` keyed by `os.path.split(os.fspath(host))[0]`, resolving
-     each parent directory via `os.path.realpath` once per walk without
-     constructing intermediate `host.parent` `Path` objects on every file.
-   - Inspect candidate paths with a single `os.lstat` (`stat.S_ISLNK` /
-     `stat.S_ISREG`), avoiding separate `is_symlink()` and `is_file()` syscalls.
-     Preserve exact refusal exceptions: `FileNotFoundError` / `NotADirectoryError`
-     in `add()` raises `ClosureUnsupported(f"{located} is neither a regular file
-     nor a symlink")`, while permission or I/O errors propagate as `OSError` for
+     each parent directory via `os.path.realpath` once per walk and joining the
+     entry name with `os.path.join(real_parent, tail)` (handling `real_parent ==
+     "/"` cleanly) without allocating intermediate `host.parent` `Path` objects.
+   - Inspect candidate paths through a single `os.lstat` helper that returns
+     `st_mode` and suppresses only `pathlib`'s `_IGNORED_ERRNOS`
+     (`errno.ENOENT`, `errno.ENOTDIR`, `errno.EBADF`, `errno.ELOOP`) as `None`
+     (matching `Path.is_file()` / `Path.is_symlink()` returning `False`), while
+     propagating permission or I/O `OSError`s (`EACCES`, `EIO`, etc.) for
      `capture_closure()` to wrap as `ClosureUnsupported`.
+   - In `_Closure.add(self, host: Path)`, keep the symlink branch at its exact
+     12-space indentation with `located` (`Path`), `target`, `root`, and
+     `target_root` bound in scope so `K7b`'s `Sabotage.before` and
+     `Sabotage.after` apply and execute identically; for non-symlink modes where
+     `not stat.S_ISREG(mode)` (or `mode is None`), raise the existing
+     `ClosureUnsupported(f"{located} is neither a regular file nor a symlink")`.
 3. **Directory-pruned `os.scandir` traversal in `add_tree`:**
    - Traverse directories recursively with `os.scandir`, sorting entries by name
      at each level so rows enter `self.rows` in deterministic order.
+   - Check `entry.is_symlink()` and `entry.is_file(follow_symlinks=False)`
+     before `entry.is_dir(follow_symlinks=False)` so symlinked directories are
+     passed to `self.add(...)` as symlink rows and never recursed into, matching
+     `root.rglob("*")` (`recurse_symlinks=False`).
    - When `excluded` is `_stdlib_excluded` or `_path_tree_excluded` (whose
      directory exclusions `"site-packages"`, `"__pycache__"`, and `".git"` are
      monotone over path prefixes), skip descending into excluded directories
@@ -389,7 +441,8 @@ instances on every `_walk_closure()` call; nothing is cached across calls).
      `excluded` callable, test `excluded(rel_parts)` on every entry without
      pruning non-monotone predicates so custom predicates behave identically to
      `sorted(root.rglob("*"))`.
-4. **Low-allocation `RECORD` scanning in `add_records`:**
+4. **Low-allocation `RECORD` scanning in `add_records` with parent-symlink
+   resolution preserved:**
    - Resolve `dist_base = os.fspath(dist.locate_file(""))` once per distribution
      instead of instantiating `importlib.metadata.PackagePath` and calling
      `dist.locate_file(entry)` across all `7,526` `RECORD` rows.
@@ -401,32 +454,60 @@ instances on every `_walk_closure()` call; nothing is cached across calls).
      `(basename.endswith(".pth") and basename != ".pth")`, matching
      `PurePosixPath.parts` and `PurePosixPath.suffix` edge cases including a
      literal `".pth"` dotfile).
-   - Check `os.lstat(located_str)` once (`S_ISREG` or `S_ISLNK`), raising the
-     exact `MalformedClosure(f"distribution {name!r}: RECORD lists {raw_entry}
-     and no such file exists")` when absent or a directory, and pass the
-     pre-stat'd file directly into `_Closure`'s row addition so `os.lstat` is not
-     repeated.
-5. **In-walk ELF header retention for `elves()`:**
-   - When hashing a regular `"file"` row (`data = located.read_bytes()`), record
-     its 20-byte prefix `data[:20]` in `self._elf_headers[sandbox]` whenever
-     `data[:4] == _ELF_MAGIC`, and record `sandbox` in `self._hashed_files`.
-   - In `elves()`, evaluate loadable ELF type (`ET_EXEC` / `ET_DYN`) and
-     `(EI_CLASS, EI_DATA, e_machine)` architecture directly from
-     `self._elf_headers` with zero extra `open`/`read`/`close` syscalls across
-     fixpoint passes; if a `"file"` row in `self.rows` is not in
-     `self._hashed_files` (for example, synthetic direct dict insertion in a
-     test), fall back to `_is_loadable_elf(self.plan[path])` and
-     `_elf_architecture(self.plan[path])`.
+   - For each non-excluded row, normalize `os.path.normpath(os.path.join(
+     dist_base, raw_entry))` and resolve its parent directory through
+     `_Closure`'s per-walk `_located` parent-`realpath` cache **before** calling
+     `os.lstat` and `sandbox_of`, so symlinked worktrees, `.venv` links, package
+     subdirectories, and `../../../bin/...` `RECORD` entries align with the
+     `realpath`-registered closure roots identically to `self.add(located)`.
+   - Inspect the resolved path once via the `pathlib`-compatible `os.lstat`
+     helper (`ENOENT`, `ENOTDIR`, `EBADF`, `ELOOP` returning `None`). When
+     `mode is None` or neither `stat.S_ISREG(mode)` nor `stat.S_ISLNK(mode)`
+     (directories, FIFOs, sockets, device nodes), raise
+     `MalformedClosure(f"distribution {name!r}: RECORD lists {PurePosixPath(raw_entry)} and no such file exists")`
+     (`PurePosixPath` runs only on the cold refusal path). When
+     `stat.S_ISREG(mode)`, record the regular file row directly without
+     repeating `_located` or `os.lstat`; when `stat.S_ISLNK(mode)`, delegate to
+     `self.add(Path(located_str))` so symlink target resolution and `K7b` share
+     one code path.
+5. **Shared regular-file hashing and in-walk ELF header retention across `add`,
+   `add_records`, `add_native`, and `elves()`:**
+   - Route both regular-file recording in `add()`/`add_records()` and
+     out-of-root SONAME library recording in `add_native()`'s `else:` branch
+     (`resolved = f"{SANDBOX_LIB}/{soname}"`, guarded by `if resolved not in
+     self.rows:` to avoid re-hashing shared libraries such as `libc.so.6` across
+     ELFs while still updating `self.rows`/`self.plan` identically) through one
+     per-walk regular-file helper.
+   - That helper reads `data = located_path.read_bytes()` once, stores
+     `self.rows[sandbox] = ("file", "sha256:" + sha256(data).hexdigest())` and
+     `self.plan[sandbox] = located_path`, adds `sandbox` to
+     `self._hashed_files`, and — checking `_is_loadable_elf`'s 18-byte
+     little-endian `<H` predicate (`len(data) >= 18 and data[:4] == _ELF_MAGIC
+     and struct.unpack_from("<H", data, 16)[0] in (2, 3)`) before reading
+     20-byte architecture fields — stores `data[:20]` in
+     `self._loadable_elf_headers[sandbox]`.
+   - In `elves()`, for every `"file"` row in `self._hashed_files` (including
+     `/science/env/lib/*` rows added during `add_native()`), check
+     `self._loadable_elf_headers.get(path)` and unpack `(header[4], header[5],
+     e_machine)` using `EI_DATA` endianness (`"<"` if `header[5] == 1` else
+     `">"`) at offset 18 with zero extra `open`/`read`/`close` syscalls across
+     fixpoint passes; fall back to `_is_loadable_elf(self.plan[path])` and
+     `_elf_architecture(self.plan[path])` only if a `"file"` row was inserted
+     into `self.rows` and `self.plan` directly without the helper.
 
 ## What is left to the builder
 
-- Exact internal helper names and private tuple/method signatures inside
+- Exact private helper names and internal tuple shapes inside
   `python/src/beliefs/adapter.py`, `python/tests/conftest.py`,
   `python/tests/test_session_sharing_doors.py`,
   `python/tests/test_session_publish_door.py`, and
-  `python/tests/test_capability_boundary.py`, subject to the identifier ban on
-  `BYTE_MUTATION_PRIMITIVES` in `adapter.py` and the preserved public helper
-  signatures in `test_capability_boundary.py` and `_Closure`.
+  `python/tests/test_capability_boundary.py`, subject to:
+  1. the identifier ban on `BYTE_MUTATION_PRIMITIVES` in `adapter.py`,
+  2. exact preservation of all five `Sabotage.before` anchors (`K7a`, `K7b`,
+     `K7c`, `R13`, `R17`) and `K7b`'s in-scope bindings in `adapter.py`, and
+  3. exact preservation of imported/guarded signatures and top-level nodeids in
+     `test_capability_boundary.py`, `test_session_publish_door.py`, and
+     `_Closure`.
 - Task ordering across implementation commits (Part 1C, Part 1A/1B, Part 2, then
   paired benchmark and results record), provided every code change follows
   focused `RED -> GREEN` through `just test-one` and each part's focused speedup
@@ -435,35 +516,47 @@ instances on every `_walk_closure()` call; nothing is cached across calls).
 ## Verification and keep-or-revert rule
 
 1. **Focused `RED -> GREEN` regression tests (`just test-one`):**
-   - `test_capability_boundary.py`: prove repeated `parsed(path)` calls on
-     unchanged bytes hit `_parsed_bytes`, mutating the file's bytes on disk
-     recomputes the AST, distinct paths do not collide, and `maxsize=256` bounds
-     retained entries (`RED` before `_parsed_bytes`, `GREEN` after). Run the full
-     `just test-one tests/test_capability_boundary.py`.
-   - `test_session_sharing_doors.py` and `test_session_publish_door.py`: verify
-     all existing tests pass with `exported_publication` and `readonly_source`,
+   - `test_capability_boundary.py` and `acceptance/test_durable_corpus.py`:
+     prove repeated `parsed(path)` calls on unchanged bytes hit `_parsed_bytes`,
+     mutating the file's bytes on disk recomputes the AST, distinct paths do not
+     collide, and `maxsize=256` bounds retained entries (`RED` before
+     `_parsed_bytes`, `GREEN` after). Run
+     `just test-one tests/test_capability_boundary.py tests/acceptance/test_durable_corpus.py`.
+   - `test_session_sharing_doors.py`, `test_session_publish_door.py`,
+     `acceptance/test_owned_replica_publication_acceptance.py`, and
+     `acceptance/test_n2_cut47.py`: verify all existing tests pass with
+     `exported_publication` and `readonly_source` + `scoped_source`,
      `readonly_source` detects zero file/byte mutations across all 8 read-only
-     items, and `VERIFIABLY_UNCERTIFIED_HOST=1` still executes the portable tests
-     while converting `CapabilityUnavailable` on capability-dependent items into
+     items while `not (s.ops / "publish").exists()` checks each item's own
+     `tmp_path / "ops"`, `certified_work_dir()` cleans up temporary directories
+     when an exception is raised inside its `with` block, and
+     `VERIFIABLY_UNCERTIFIED_HOST=1` still executes the portable tests while
+     converting `CapabilityUnavailable` on capability-dependent items into
      `certified tuple unavailable on this host:` skips.
-   - `test_closure_capture.py`, `test_adapter.py`, `test_confinement.py`, and
+   - `test_closure_capture.py`, `test_adapter.py`, `test_confinement.py`,
+     `test_arm_staleness.py`, `acceptance/test_n2_cut13.py`, and
      `test_capability_boundary.py`: prove (a) file content or symlink changes
      between two `capture_closure()` calls in one process produce distinct
      manifests (no cross-call caching), (b) `elves()` does not re-open files
-     hashed through `add()` (`RED` before Part 2E, `GREEN` after), (c) `.pth`
-     suffix vs `".pth"` dotfile and missing/directory `RECORD` entries preserve
-     exact `MalformedClosure` semantics, (d) `add_tree` pruning matches
-     unpruned traversal and preserves custom non-monotone `excluded` callables,
-     and (e) `adapter.py` still satisfies `RAW_WRITE_ALLOWLIST["adapter.py"] ==
-     {"copy2"}`.
+     hashed through `add()`, `add_records()`, or `add_native()`'s
+     `SANDBOX_LIB` branch (`RED` before Part 2.5, `GREEN` after), (c)
+     `add_records()` resolves symlinked distribution parents and `../` entries,
+     handles `.pth` suffix vs `".pth"` dotfile, and raises `MalformedClosure`
+     with normalized `PurePosixPath` formatting on missing, `ELOOP`, directory,
+     or special-file `RECORD` entries, (d) `add_tree` keeps symlinked
+     directories as symlink rows without recursing, matches unpruned traversal,
+     and preserves custom non-monotone `excluded` callables, and (e)
+     `adapter.py` satisfies both `RAW_WRITE_ALLOWLIST["adapter.py"] == {"copy2"}`
+     and `test_arm_staleness.py` / `test_n2_cut13.py`.
 2. **Pilot before sweep:** Run one unprofiled 16-worker `TT_FORCE=1 just
-   test-fast` pilot on the candidate to verify full non-N2 selection, zero
-   regressions, and expected wall-time range before starting the six-run paired
-   benchmark.
+   test-fast` pilot on the clean committed candidate to verify full non-N2
+   selection, zero regressions, and expected wall-time range before starting the
+   six-run paired benchmark.
 3. **Six-run alternating paired benchmark (`B1, C1, B2, C2, B3, C3`):**
    - Execute three consecutive alternating baseline (`240a989`) and candidate
      pairs of warm, unprofiled `TT_FORCE=1 just test-fast` runs on the incident
-     host, each at an observed 16-worker grant (`OPS_WORKERS=16`).
+     host, each from a clean committed working tree (`dirty: false`) at an
+     observed 16-worker grant (`OPS_WORKERS=16`).
    - Record `host-load` before and after every run, worker grant, selected /
      passed / skipped test counts, and `tt` `seconds`. If host load or background
      activity shifts materially within a pair or `OPS_WORKERS` drops below 16,
@@ -483,9 +576,8 @@ instances on every `_walk_closure()` call; nothing is cached across calls).
      record the measured residual.
 5. **Hygiene, code checks, and certified full suite:**
    - Run `just check-hygiene` and `TT_FORCE=1 just check-code`.
-   - Run one complete certified `just test-full` (non-N2 Python, standalone N2
-     including cut-4 and cut-8 sabotage arms over `test_capability_boundary.py`,
-     and full TypeScript suite) and verify it passes within the 300-second suite
-     limit.
+   - Run one complete certified `just test-full` (non-N2 Python, standalone
+     `tests/test_n2.py` portable N2 suite, and full TypeScript suite) and verify
+     it passes within the 300-second suite limit.
    - Commit the measured benchmark table, attribution comparison, and policy-off
      closeout evidence in `docs/plans/2026-11-01-test-fast-latency-results.md`.
