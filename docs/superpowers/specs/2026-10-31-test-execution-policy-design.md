@@ -1,6 +1,7 @@
 # Beliefs test execution policy adoption
 
-Status: proposed for user review. Task: beliefs-067a8d. This document authorizes no
+Status: revised after spec round 1, which reviewed `60b6487`; proposed for user
+review. Task: beliefs-067a8d. This document authorizes no
 implementation, workflow publication, push or policy-off activation. The
 implementation plan follows user approval of this frozen design.
 
@@ -107,10 +108,17 @@ so the actual saving has to be measured afterwards.
 
 ## Command contract
 
-Command strings, test selection, `host-budget` wrapping and argument forwarding
-stay unchanged, with one exception: the CI routes add persistent JUnit output,
-specified below. Every executed check still goes through the vendored
-`tools/tt`, which this change does not edit.
+Command strings, test selection and argument forwarding stay unchanged, with one
+exception: the CI routes add persistent JUnit output, specified below. Every
+executed check still goes through the vendored `tools/tt`, which this change
+does not edit.
+
+`host-budget` wrapping changes in one place. Today both push recipes run
+`check_cmd`, Pyright included, inside one `host-budget run`, at background
+priority. After the split, `check-code` runs outside host-budget in the push
+hooks, as standalone `check` already does, and the test child takes its own
+grant. This matters only while policy is enabled. Under policy-off,
+`check-code` skips.
 
 | Route | Classification | Contract |
 | --- | --- | --- |
@@ -128,8 +136,8 @@ specified below. Every executed check still goes through the vendored
 | `hook-pre-commit-docs` | protected | Unchanged hygiene path, now the same command as `check-hygiene`. |
 | `hook-pre-push` | protected | Times hygiene once, then `just check-code`, then `just test`. |
 | `hook-pre-push-fast` | protected | Times hygiene once, then `just check-code`, then `just test-push`. |
-| `ci-python`, `ci-typescript` | broad | The complete package suite and checks, as now, plus JUnit evidence. They are broad so that a hosted invocation missing `TT_FORCE=1` refuses instead of passing as a skip. |
-| `mm30-recreate`, cut runners | untouched | Outside tt's broad list. They measure and audit; they are not regression gates. |
+| `ci-python`, `ci-typescript` | broad | The complete package suite and checks, as now, plus JUnit evidence. They are listed because the shared design enumerates every broad target. Listing them also makes a missing job-scope `TT_FORCE=1` a hosted refusal (exit 2), not an unforced run that bypasses the contract. |
+| `mm30-recreate`, cut runners | unaffected | Not tt-wrapped: `mm30-recreate` is untimed, and the cut runners call `host-budget run` directly. Policy does not reach them. |
 
 `host-budget` stays inside tt's child command, so a policy skip launches neither
 `host-budget` nor its children and holds no budget slot. Sequential recipe lines
@@ -163,7 +171,28 @@ forwarding, the SSH keepalive refusal and Git local-variable clearing.
 `ci_suite_refs` becomes `refs/heads/*` only in the activation commit, after the
 widened workflow is published and its hosted run is accepted. Until then it stays
 `refs/heads/main`, which the current workflow already covers. Beliefs has no
-release workflow and pushes no tags, so no tag pattern is declared.
+release workflow, and no tag has been pushed to `origin`, so no tag pattern is
+declared. Two local `pin/cut6-*` tags exist. If one were pushed, it would take
+the full route and, under policy-off, warn. That outcome is acceptable.
+
+Two tests pin the routing and its coverage claim:
+
+- The routing tests in `test_front_door.py` stop reading the live
+  `ci_suite_refs`. Each case declares its own value through `just --set`, or
+  through a fixture justfile, so the routing logic is tested independently of
+  the live declaration. Otherwise the widening commit would turn today's
+  `feature -> hook-pre-push` cases red.
+- A contract test checks that every live `ci_suite_refs` glob is matched by a
+  `push.branches` pattern in `ci.yml`. That holds for `refs/heads/main` against
+  today's main-only trigger, and for `refs/heads/*` against `["**"]` after
+  widening. A declaration the workflow does not cover fails.
+
+The policy-off warning case uses a route that stays full after widening (a
+`backup` remote). The fixture copies `tools/tt` beside its isolated `.tt.toml`,
+because the warning loads the wrapper from the configured `tt` path. Under
+policy-off the activation commit's own hooks skip `check-code` and `test-push`,
+so that commit runs `just test-one tests/test_front_door.py` and the workflow
+contract test before it is made.
 
 ## Hosted verification
 
@@ -178,7 +207,10 @@ Extend the existing `ci.yml`. Do not add a second workflow.
 - `TT_FORCE: "1"` at job scope in both jobs, so nested wrapper processes inherit it.
 - Keep both matrices, the pinned actions, the frozen installs, the atoms and nodes
   sibling checkouts at their default branches, `fetch-depth: 0`, both worker
-  variables and `VERIFIABLY_UNCERTIFIED_HOST=1`.
+  variables and `VERIFIABLY_UNCERTIFIED_HOST=1`. Workflow contract tests read the
+  trigger block under whatever key the YAML loader produces (PyYAML's
+  `safe_load` reads `on:` as `True`). A missing key fails the test rather than
+  passing vacuously.
 - `timeout-minutes: 30` on the Python jobs, about twice the slowest observed run.
   10 on the TypeScript jobs. Both bounds appear in the activation packet.
 
@@ -192,44 +224,88 @@ otherwise. The pytest non-N2 phase writes `pytest.xml` and the N2 phase writes
 reporters with an explicit junit output file. The local `test`, `test-fast`,
 `test-push` and `test-one` commands keep their current flags.
 
-A pre-run step writes a module inventory: revision, tracked test files and the
-package manifest. An always-run step then requires the expected XML and inventory
+A pre-run step writes a module inventory: the beliefs revision, the eligible
+test modules defined below, the package manifest, and in the Python job the
+checked-out atoms and nodes revisions (`git -C ../../atoms rev-parse HEAD` and
+the same for nodes, run from the beliefs/python working directory). Recording
+the sibling revisions lets a hosted failure be attributed to beliefs or to
+sibling drift. An always-run step then requires the expected XML and inventory
 files, and a pinned `upload-artifact` step uploads them with a per-package,
 per-version name, 30-day retention and `if-no-files-found: error`. A failed suite
 keeps its failure status even when the upload succeeds.
 
-From the downloaded artifacts, activation records per matrix job: executed,
-passed, failed and skipped counts per phase; skipped tests grouped by reported
-reason, with `CapabilityUnavailable` conversions counted separately; wholly
-skipped modules; and any eligible module absent from JUnit. An absent module with
-no explanation blocks acceptance. Before the full hosted run, the plan validates
-the evidence path on one executed case and one skipped case in each runner,
-including the missing-artifact case.
+Eligible modules:
+
+- Python: files matching pytest's default `test_*.py` or `*_test.py` under
+  `python/tests`, excluding `tests/acceptance/**`. `test_n2.py` must appear in
+  `pytest-n2.xml` and every other eligible module in `pytest.xml`. Helpers such
+  as `conftest.py`, `*_fixtures.py` and `n2_arms_*.py` are not modules.
+- TypeScript: `ts/tests/*.test.ts`, which must appear in the Vitest JUnit.
+
+Hosted acceptance, per matrix job, requires all of the following:
+
+- a nonzero executed test count in each phase: non-N2 and N2 in each Python
+  job, and Vitest in each TypeScript job;
+- no failed or errored test;
+- every eligible module present in its expected XML. An absent module with no
+  explanation blocks acceptance;
+- a reason recorded for every skip. Skips whose message starts with
+  `certified tuple unavailable on this host:` (the `conftest.py` text) are
+  counted separately as capability omissions, with their test IDs listed. The
+  remaining skips must match, by reason, the skips in the step-2 local baseline.
+  Any new non-capability skip reason blocks acceptance until it is explained.
+
+The activation packet records these counts and lists, the sibling revisions, and
+wholly skipped modules. Before the full hosted run, the plan validates the
+evidence path on one executed case and one skipped case in each runner,
+including the missing-artifact case. Artifacts expire after 30 days, before the
+2026-11-28 regret review, so the downloaded artifacts, or the counts derived from
+them, are attached to beliefs-067a8d under the retained-item rules.
 
 ## Certified-host coverage under policy-off
 
 A green hosted run is evidence about the portable tests and never about the
-capability-dependent ones (AGENTS.md, Gates). Today the local full gate is what
-runs those tests on the certified tuple. With `test` skipped by policy, that
-routine local run stops, and the shared design accepts the gap explicitly.
+capability-dependent ones (AGENTS.md, Gates). Today three routine local routes run
+the capability-dependent tests on the certified tuple:
+
+- `test-fast`, the non-N2 suite (134 runs in October);
+- `test`, the non-N2 suite plus N2 (18 runs);
+- `hook-pre-push-fast`, the non-N2 suite on every covered push (15 runs).
+
+Under policy-off all three skip, so routine certified execution of these tests
+stops entirely. The shared design accepts this gap explicitly. It is larger than
+a full-gate-only reading suggests: by run count, most certified runs came from
+`test-fast`.
+
+Nobody maintains a list of capability-dependent tests. `conftest.py` defines the
+set at run time through the capability probe. The usable proxy is the hosted
+skip set: each hosted run's JUnit lists, by test ID, every skip whose message
+starts with `certified tuple unavailable on this host:`. The activation packet
+records that list, and guidance points to the latest hosted artifact for a fresh
+copy.
 
 Policy-off leaves these routes for certified evidence. Guidance names each one:
 
-- **Focused.** A change that touches capability-dependent behaviour (the
-  `root.py` atoms boundary, durability, publication persistence, or any test
-  that can raise `CapabilityUnavailable`) runs the relevant tests with
-  `just test-one` on the certified tuple, where that exception still fails.
+- **Focused.** A change that touches capability-dependent behaviour runs the
+  affected tests from that list with `just test-one` on the certified tuple,
+  where `CapabilityUnavailable` still fails. Examples are the `root.py` atoms
+  boundary, durability and publication persistence. If such a focused run hits
+  `CapabilityUnavailable` locally, the host is off the certified tuple: report
+  the exact mismatch, as AGENTS.md requires today.
+- **Non-N2 sweep.** `TT_FORCE=1 just test-fast` runs every non-N2 capability
+  test (about 90 s median). Use it when a change's capability reach is unclear.
 - **Deliberate full.** `just test-full` (or `TT_FORCE=1 just test`) runs every
-  local phase, N2 included. It is used when the change warrants the whole
-  certified suite, and when a record must cite a full local gate.
+  local phase, N2 included. Use it when the change warrants the whole certified
+  suite, and whenever a record must cite a full local gate.
 - **Conformance records.** A results record or freeze that cites a full-gate run
   cites a forced run with its recorded target and reason. A policy skip or a hook
   completion is never evidence that a suite passed. Cut runners and
   `tests/acceptance` are unchanged.
 
 The AGENTS.md sentence "Run the Python suite on the certified kernel and volume
-tuple or report the exact mismatch" is rewritten to these routes. The
-`CapabilityUnavailable` fail-closed semantics are unchanged.
+tuple or report the exact mismatch" is rewritten to these routes. The duty to
+report the exact mismatch is kept. The `CapabilityUnavailable` fail-closed
+semantics are unchanged.
 
 ## Tradeoffs proposed for approval
 
@@ -241,7 +317,8 @@ tuple or report the exact mismatch" is rewritten to these routes. The
   push. Local work does not block on missing CI, and a cancelled, queued or
   failed run leaves its revision unverified.
 - Capability-dependent regressions outside the focused tests a change runs are
-  caught only by a later deliberate `test-full` on the certified host.
+  caught only by a later deliberate forced run on the certified host. Today
+  `test-fast`, `test` and the fast push hook all catch them routinely.
 
 ## Verification and activation sequence
 
@@ -266,26 +343,45 @@ tuple or report the exact mismatch" is rewritten to these routes. The
    README text that names these commands: policy source, focused route, force
    command, CI refs, certified-host routes and the timing-series discontinuity.
    README.md and docs/ are test inputs, so the plan runs the tests that read them.
-5. Present the reviewed implementation and an activation packet: the exact
-   commit and refs, the workflow diff, delivery revisions, runner class and
-   timeouts, public status and billing applicability, the per-job test, skip and
-   module inventory, and rollback. Obtain explicit approval before any push,
-   workflow run or account write. The ops pilot's approval does not transfer.
-6. Push only the approved policy-enabled revision and inspect the completed hosted
-   results. With coverage accepted and explicit conditional approval, commit
-   `.tt.toml` and the `ci_suite_refs` widening, integrate them, push the
-   activation, and inspect that run's forced execution too. If hosted setup
-   fails, policy stays on.
-7. When the hook split integrates, record exactly
-   `policy: enabled at <RFC3339-UTC> revision <full-sha>`. At activation, record
-   the actual revision and time, reinventory latency incidents (none are known),
-   report status to ops-39bff6, and link the shared regret review ops-56aab7
-   (deferred to 2026-11-28) rather than filing a duplicate.
+5. Present the reviewed implementation and an activation packet. It contains:
+   - the exact commit and refs, the workflow diff and the delivery revisions;
+   - the runner class and timeouts;
+   - the visibility of beliefs, atoms and nodes, all rechecked at that moment.
+     A private sibling would need a token and fail at setup;
+   - billing applicability. While beliefs is public on standard runners, the
+     task body's allowance and no-paid-overage items do not apply. The packet
+     records the `verifiably` organization's Actions spending-limit state if it
+     can be read without a write. Otherwise it records that deviation from the
+     task body explicitly, since making the repository private would start
+     billing;
+   - the per-job test, skip and module inventory, with the capability-omission
+     list and the sibling revisions;
+   - the rollback route.
 
-Rollback sets `automatic_broad = true`, restores the documented local cadence,
-records the same enabled-floor note with the rollback's actual landed timestamp
-and SHA, and reports the remote state. Publishing a rollback is externally gated
-too.
+   Obtain explicit approval before any push, workflow run or account write. The
+   ops pilot's approval does not transfer.
+6. When the hook split integrates into main, which happens before any push,
+   record exactly `policy: enabled at <RFC3339-UTC> revision <full-sha>` on
+   beliefs-067a8d. That note starts the split-hook timing series.
+7. Push only the approved policy-enabled revision and inspect the completed hosted
+   results. With coverage accepted and explicit conditional approval, commit
+   `.tt.toml` and the `ci_suite_refs` widening (after the focused checks named
+   under Pre-push coverage routing), integrate them, push the activation, and
+   inspect that run's forced execution too. If hosted setup fails, policy stays on.
+8. At activation, record the actual revision and time on beliefs-067a8d and
+   reinventory latency incidents (none are known). ops-39bff6 is already done,
+   so the status report there is a note on a closed record. Link the shared
+   regret review ops-56aab7 (deferred to 2026-11-28) rather than filing a
+   duplicate.
+
+Rollback sets `automatic_broad = true` and restores `ci_suite_refs` to
+`refs/heads/main`, which returns feature pushes to the full local gate with N2:
+the pre-adoption cadence, and the baseline a rollback is meant to return to.
+The widened workflow trigger may stay, since remote runs cost no local time.
+Rollback also restores the documented local cadence in the guides, records the
+same enabled-floor note on beliefs-067a8d with the rollback's actual landed
+timestamp and SHA, and reports the remote state. Publishing a rollback is
+externally gated too.
 
 ## Builder freedom and limits
 
