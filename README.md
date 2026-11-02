@@ -63,7 +63,7 @@ ts/         the one shared encoding, and nothing else (formal model lim. 9)
 fixtures/   the cross-language parity corpus, owned by neither
 contracts/  the science base contract
 domains/    the packaged domain contracts (biology)
-docs/       guide/, designs/, plans/, notes/, superpowers/ (see Documentation)
+docs/       guide/, and the designs, plans, notes and slice specs the tree cites (see Documentation)
 ```
 
 ## Documentation
@@ -75,7 +75,8 @@ docs/       guide/, designs/, plans/, notes/, superpowers/ (see Documentation)
 - [Adoption ledger, current state](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-28)
   — the sole authority for what is built and what remains, each remainder with its
   owner. The per-cut results records under [`docs/plans/`](docs/plans/) are the
-  evidence trail.
+  evidence trail. Task records and newer working documents live in the project's records
+  directory, outside this repository.
 - [User and autonomy layer design](docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md)
   — the layers above the kernel, `science` and `autonomy`.
 
