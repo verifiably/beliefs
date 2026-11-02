@@ -1,5 +1,0 @@
-prefix = "beliefs"
-color = "#0ba880"
-
-[git]
-commit = true
