@@ -91,7 +91,7 @@ implementation**: a guarantee row awaiting code is work, not a question.
   reach belief without reopening the closed route? Raised 2026-09-26 from
   proto-science's experience that pre-registrations often became decoration and
   were amended after the data were seen. Undesigned.
-  ([beliefs-8b26dc](../../tasks/beliefs-8b26dc.md))
+  (beliefs-8b26dc)
 - **Pre-run fixation is not pre-registration.** Science can guarantee that a
   spec was frozen before its run. Calling that *pre-registered* additionally
   claims it preceded data access, which needs external evidence. The two must
@@ -317,5 +317,5 @@ implementation**: a guarantee row awaiting code is work, not a question.
 - **A recipient's world index over overlapping publications.** Two publications
   sharing selected records cannot form one epoch: the address map refuses
   `duplicate-location`. Whether retirement excludes superseded corpora or
-  recipients must consolidate remains open ([beliefs-81367e](../../tasks/beliefs-81367e.md)).
+  recipients must consolidate remains open (beliefs-81367e).
   These three remainders are [remote publish §13](../superpowers/specs/2026-09-26-publish-act-remote-design.md#13-what-this-slice-does-not-settle).
