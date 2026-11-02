@@ -243,11 +243,11 @@ single-corpus mm30 measurement has no remaining on-path boundary; cuts 43 and 44
 Every boundary the ledger table lists, by id, with its task entry point.
 A boundary that enters and closes at the same results record never appears
 here: `estimand-typing` (Q1–Q10, tier 1 off the path,
-[beliefs-59f846](../../tasks/beliefs-59f846.md), cut 31), `composite-claims`
+beliefs-59f846, cut 31), `composite-claims`
 (U1–U10, tier 1 off the path,
-[beliefs-4bcf88](../../tasks/beliefs-4bcf88.md), cut 32) and `live-query`
+beliefs-4bcf88, cut 32) and `live-query`
 (Z1–Z5, tier 1 off the path,
-[beliefs-cc0aea](../../tasks/beliefs-cc0aea.md), cut 41) each entered this
+beliefs-cc0aea, cut 41) each entered this
 index and the ledger table at their discharge and closed in the same commit,
 so none carries an open row and the two documents still name one set of ids.
 The tiers below carry the ranking. Task dependencies encode prerequisites
@@ -259,12 +259,12 @@ until a real case forces the question (each task names its wake condition).
 
 | id | rows it closes | tier | task |
 |---|---|---|---|
-| `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | 1, the join — the base contract now carries the estimand grammar (cut 31) and the composite grammar, the `composite` kind, the `composes` signature and `supersedes`' `same_kind` declaration (cut 32): two more oracles amended before the freeze | [beliefs-eacbe2](../../tasks/beliefs-eacbe2.md) |
-| `persistence-cut` | X2; L1's persistence arms (re-homed at cut 36) | 2 | [beliefs-3ea822](../../tasks/beliefs-3ea822.md) |
-| `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | 3 | [beliefs-84d7b0](../../tasks/beliefs-84d7b0.md) |
-| `weighted-belief` | S6 (h) | 3 | [beliefs-638318](../../tasks/beliefs-638318.md) |
-| `extraction-path` | M12 | 3 | [beliefs-9e1f60](../../tasks/beliefs-9e1f60.md) |
-| `cross-root-publication` | T7's cross-root case | 3 | [beliefs-256f17](../../tasks/beliefs-256f17.md) |
+| `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | 1, the join — the base contract now carries the estimand grammar (cut 31) and the composite grammar, the `composite` kind, the `composes` signature and `supersedes`' `same_kind` declaration (cut 32): two more oracles amended before the freeze | beliefs-eacbe2 |
+| `persistence-cut` | X2; L1's persistence arms (re-homed at cut 36) | 2 | beliefs-3ea822 |
+| `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | 3 | beliefs-84d7b0 |
+| `weighted-belief` | S6 (h) | 3 | beliefs-638318 |
+| `extraction-path` | M12 | 3 | beliefs-9e1f60 |
+| `cross-root-publication` | T7's cross-root case | 3 | beliefs-256f17 |
 
 ## Tier 1 — buildable now
 
@@ -369,7 +369,7 @@ Unordered. Each row links its `open-questions.md` anchor.
 | id | rows | blocked on |
 |---|---|---|
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — [which external authorities are accepted](../guide/open-questions.md#identity-world-and-change) |
-| `weighted-belief` | S6 (h) | the successor belief-policy design over `commensurable` and `co_scoped` ([beliefs-638318](../../tasks/beliefs-638318.md)) — the key domain is supplied by estimand typing (cut 31); what is open is the policy — [weighted belief](../guide/open-questions.md#claims-and-belief) |
+| `weighted-belief` | S6 (h) | the successor belief-policy design over `commensurable` and `co_scoped` (beliefs-638318) — the key domain is supplied by estimand typing (cut 31); what is open is the policy — [weighted belief](../guide/open-questions.md#claims-and-belief) |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act report's residue](../guide/open-questions.md#writes-operations-and-publication) |
 
