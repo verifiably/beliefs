@@ -76,7 +76,7 @@ def place(view: WellFormedView, *, genesis_digest: str, head_digest: str) -> Pla
     `None` where the capture speaks about no prefix of this chain: the genesis
     differs (the chain was replaced), or the head is no entry of it (the chain
     was truncated behind the capture, or replaced). A `None` placement
-    establishes neither presence nor exclusion ."""
+    establishes neither presence nor exclusion."""
     if genesis_digest != view.genesis.digest:
         return None
     for index, entry in enumerate(view.entries):

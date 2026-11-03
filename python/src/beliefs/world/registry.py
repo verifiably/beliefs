@@ -582,8 +582,8 @@ def _validate_provenance(manifest: CorpusManifest, provenance: AdmissionProvenan
     """The provenance/manifest agreement, over **exact** types.
 
     Exact and not `isinstance`, because `World.admit`'s replica gate is exact: a
-    `ReplicaOf` subclass that slipped past that gate must not then be accepted *as a replica* here. The two tests are one
-    decision, so they are spelled the same way, and anything outside the three
+    `ReplicaOf` subclass that slipped past that gate must not then be accepted *as a replica* here. The two tests are
+    one decision, so they are spelled the same way, and anything outside the three
     falls to the `TypeError` below rather than being read as its base.
     """
     if type(provenance) is Fresh:

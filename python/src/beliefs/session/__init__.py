@@ -249,6 +249,6 @@ def reconcile_sessions(
                 continue
             chains[corpus_id] = log_seam().inspect_detached(root)
         ledgers = tuple(read_ledger_evidence(operations_root, sid) for sid in ids)
-    # the order is `reconcile`'s own — corpus id, then chain position, then code.
+    # The order is `reconcile`'s own — corpus id, then chain position, then code.
     # The unadopted roots precede it in sorted-root order; nothing is re-sorted.
     return (*extra, *reconcile(ledgers, chains))

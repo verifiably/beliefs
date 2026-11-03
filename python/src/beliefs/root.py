@@ -893,7 +893,7 @@ class DurableExecutor:
 
     All-or-nothing is the engine's property, relied on and never
     re-implemented. The complete `TransactionOutcome` is **discarded**: nothing
-    in this slice consumes it, and anchor carriage reads registration digests
+    here consumes it, and anchor carriage reads registration digests
     from the chain itself rather than from executor state.
 
     **The build follows path timelines, not independent operations.** A path may

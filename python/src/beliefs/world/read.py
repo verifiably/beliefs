@@ -462,9 +462,10 @@ def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier, publ
     """The receipt contract, checked against carrier and subject bytes, or `None`.
 
     This is the sole enforcer of `epoch.RECEIPT_KEYS`. The carrier layer
-    *declares* the closed per-kind key set and deliberately does not police it, because a receipt whose keys are wrong is one a
-    reader can still lift a finding out of, and turning it into an unreadable carrier would
-    close the path the carrier list exists to keep open.
+    *declares* the closed per-kind key set and deliberately does not police it, because a receipt whose keys are wrong is
+    one a reader can still lift a finding out of, and turning it into an
+    unreadable carrier would close the path the carrier list exists to keep
+    open.
 
     Every check here concerns receipt, coverage and subject bytes in the carrier;
     none consults availability. They run in the

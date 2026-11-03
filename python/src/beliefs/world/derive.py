@@ -456,7 +456,7 @@ def address_map(capture: Capture) -> Mapping[str, AddressEntry]:
     redirect, so its answer survives its corpus being absent — that is the
     whole reason the deprecated entries are here and not left in the corpus.
 
-    A uid held at two locations is distinguished as uid corruption from duplicate location. Check canonical
+    Uid corruption is distinguished from duplicate location. Check canonical
     claims before redirects, and corruption before offering consolidation:
     a shared uid at two locations may also name a third, different address.
     Neither violation is resolved by precedence. The map is

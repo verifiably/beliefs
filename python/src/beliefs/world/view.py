@@ -45,7 +45,7 @@ __all__ = ["DamageReport", "DriftReport", "WorldReadView", "open_world_view"]
 _MINT = object()
 
 LocatedState = Literal["resolved", "not-present", "unknown"]
-"""`locate`'s answer as the three states the query evaluator reads ."""
+"""`locate`'s answer as the three states the query evaluator reads."""
 
 
 @final

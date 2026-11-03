@@ -24,7 +24,7 @@ them from everything pure, and the one transaction that turns derived bytes
 into a retained epoch. They are here rather than beside the derivations because
 an epoch is what they are gathering the inputs for, and because the draft's
 shape — anchors, coverage, captured states, the build-start world head — is
-The layout read backwards.
+the layout read backwards.
 
 A receipt identity is the digest under `RECEIPT_DOMAIN` of the canonical
 projection ``(receipt kind, subject projection identity, sorted corpus-state
@@ -44,13 +44,13 @@ reader can still lift *something* out of is handed on intact — a discriminant
 disagreeing with its member, a value that is not an identity, an unsorted or
 repeated corpus state, a key outside the kind's declared set, and an identity
 member the document simply omits. Those are receipt-contract violations, and
-The carrier list is closed and names none of them: it is "invalid YAML, a
+the carrier list is closed and names none of them: it is "invalid YAML, a
 missing or extra epoch **member**, a bad member content name, or a
 packaging-identity mismatch", where a member is one of the eleven files. A
-missing receipt *key* is the receipt contract's own closing sentence instead — "An unsound
-receipt contract is ``malformed``" — and turning one into a carrier failure
-would close the path the carrier list exists to keep open, where a malformed coreference
-receipt opens, evaluates as ``malformed``, and leaves its edges
+missing receipt *key* is a receipt-contract violation instead — an unsound
+receipt contract is ``malformed`` — and turning one into a carrier failure
+would close the path the carrier list exists to keep open, where a
+malformed coreference receipt opens, evaluates as ``malformed``, and leaves its edges
 ``indeterminate``.
 
 An omitted identity member is therefore read as *absent*, not as a refusal:
@@ -253,8 +253,8 @@ members: the retraction receipt holds its retraction enumeration projection
 (``enumeration``) and the certification receipt its location-free,
 resolution-free inventory (``inventory``), neither of which is a further epoch
 member. Their subject *projections* are read and checked by the receipt
-validator, which is also what enforces this closure as outcome ``malformed``. The carrier layer below declares the contract
-and does not police it.
+validator, which is also what enforces this closure as outcome ``malformed``. The carrier layer below declares the contract and
+does not police it.
 """
 
 _STATE_KEYS = ("corpus_id", "corpus_state")
@@ -406,12 +406,12 @@ def _emptied(directory: Path) -> bool:
     """Whether this entry beneath ``epochs/`` holds nothing at all.
 
     Deleting an epoch deletes each of its eleven members and treats the
-    directory left behind as nonsemantic. Nonsemantic has to mean *ignored* rather
-    than merely unfilled: an empty directory read as a carrier is a carrier
+    directory left behind as nonsemantic. Nonsemantic has to mean
+    *ignored* rather than merely unfilled: an empty directory read as a carrier is a carrier
     missing all eleven members, so one deletion would make every later scan of
     ``epochs/`` refuse — the sever report `beliefs.world.rules` computes
-    included — and would make a repeated deletion, which is documented to raise
-    `EpochUnknown`" report `EpochMalformed` instead.
+    included — and would make a repeated deletion — documented to raise
+    `EpochUnknown` — report `EpochMalformed` instead.
 
     It is asked *after* the name check, never instead of it: an empty directory
     whose name is not a packaging identity is still something nobody but this
@@ -421,7 +421,7 @@ def _emptied(directory: Path) -> bool:
 
 
 def _carrier_members(directory: Path) -> Mapping[str, bytes]:
-    """One carrier's exact eleven members, read as bytes in the order.
+    """One carrier's exact eleven members, read as bytes in member order.
 
     The one place a carrier's member set is decided, for the sever scan above
     and for the open act below alike. It stops at the *set*: recomputing the
@@ -465,8 +465,8 @@ def _parse_receipt(packaging_identity: str, member: str, content: bytes) -> _Rec
     What this does **not** check is the receipt *contract* — that every
     identity member is there, that the discriminant matches the member, that
     the keys are exactly `RECEIPT_KEYS[member]`, that each digest is an
-    identity, that the corpus states are sorted and distinct. Those are the
-    receipt outcome ``malformed``, and the validator that decides them extends
+    identity, that the corpus states are sorted and distinct. Those are
+    receipt-contract violations, outcome ``malformed``, and the validator that decides them extends
     this extraction without inheriting a refusal policy that would hide them.
     Recovering any of it by catching `EpochMalformed` would put the policy back
     in the layer this split exists to take it out of.
@@ -1034,13 +1034,13 @@ def _declared_coverage(coverage: frozenset[str]) -> tuple[str, ...]:
     """The declared covered ids, sorted and non-empty. Never the registry's
     live set.
 
-    the closing sentence is a rule about what a build may *substitute*, and
-    the only way to keep it is to have no path that reads liveness as a
+    A build may never *substitute* anything for what its caller declared, and
+    the only way to keep that rule is to have no path that reads liveness as a
     default. The caller declares; this checks the shape and orders it.
 
     **An empty coverage is refused, and that is a decision rather than a
-    consequence.** Nothing in the build or the layout makes an empty capture unrepresentable:
-    the maps would be empty, the receipts would carry an empty state list, and
+    consequence.** Nothing in the build or the layout makes an empty capture
+    unrepresentable: the maps would be empty, the receipts would carry an empty state list, and
     the anchors would still name the world. What such an epoch cannot do is
     answer. Every address outside the observed coverage is `Unknown`,
     and every edge is `indeterminate` wherever the epoch's coverage
@@ -1412,7 +1412,7 @@ def build_epoch(
 ) -> Epoch:
     """Build and publish one epoch over exactly this declared coverage.
 
-    Three phases, and the order between them is the whole of the build. Capture
+    Three phases, and the order between them is the whole point. Capture
     reads live state under each corpus's own hold and produces a frozen draft.
     Derivation is pure and produces the complete member bytes and, from those
     bytes, the packaging identity — **before** any lock is reacquired, so
@@ -1662,7 +1662,7 @@ class SeveredIdentity:
 
     `subject` names what the identity is the identity *of* — one of
     `DERIVATION_KINDS`' four receipt kinds, or `SNAPSHOT_SUBJECT` for the
-    producer snapshot — so the five entries of a report read in the own
+    producer snapshot — so the five entries of a report read in the receipt kinds' own
     vocabulary rather than in a second one invented for reporting. It is the
     kind the *member* declares (`RECEIPT_KINDS`), not the discriminant the
     document happens to carry: where those two disagree the document is a
@@ -1685,16 +1685,16 @@ class SeveredIdentity:
 class EpochDeletionReport:
     """What one `delete_epoch` removed, and what it severed.
 
-    The report carries the actor, the producer-snapshot identity and the four receipt
-    identities the deleted epoch carried, each flagged with whether any other
+    The report carries the actor, the producer-snapshot identity and the four
+    receipt identities the deleted epoch carried, each flagged with whether any other
     retained epoch still carries it.
 
     `snapshot` is optional and `receipts` may hold fewer than four, for one
     reason: an identity is read from the receipt document that names it, and a
     receipt that omitted one of the five identity members has no identity at
     all (`_ReceiptCarrier.identity`). Such a receipt is *not* reported as
-    severed, and the reason is `rules._severed_receipts`' reason: an unsound receipt contract is already
-    outcome ``malformed``, decided before
+    severed, and the reason is `rules._severed_receipts`' reason: an unsound receipt
+    contract is already outcome ``malformed``, decided before
     resolvability is ever asked, so no deletion can move it. Reporting an
     identity for it would mean inventing one nobody published.
     """

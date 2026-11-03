@@ -112,7 +112,7 @@ Claim: TypeAlias = ClaimFresh | ClaimDone | ClaimOpen | ClaimMismatch
 
 class KernelRefusalValue(Exception):
     """A value-style kernel refusal carried as an exception so the dispatcher has
-    one normalization path. Unraised by this slice's nine methods."""
+    one normalization path. Unraised by the nine methods here."""
 
     def __init__(self, value: object) -> None:
         super().__init__(str(getattr(value, "reason", repr(value))))

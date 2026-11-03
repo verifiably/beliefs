@@ -13,7 +13,7 @@ compiled, not named in code or owned by a domain contract; `empirical-observatio
 predicate
 turns on.
 
-**Relation predicates are kernel the closed signatures**, and the role-typed
+**Relation predicates are the kernel's closed signatures**, and the role-typed
 inputs are stored as relations rather than as facet payload: they are edges the
 substrate already resolves, and duplicating them inside a facet would create a
 second answer to *what did this run observe*.
@@ -22,7 +22,7 @@ Two positions genuinely carry the same ref twice, and it is worth saying why
 rather than tidying it away. An assessment's `assesses` and `produced_by` edges
 are what the substrate resolves and what the kernel makes the guarantee out of;
 its facet's `proposition` and `run` fields are what `(spec, run, proposition)`
-digests. The builders below write both from one argument, so nothing this slice
+digests. The builders below write both from one argument, so nothing this module
 mints can disagree with itself; a raw write that makes them disagree is an
 untrusted import, subject to the same stated bound as every other one.
 
@@ -222,7 +222,7 @@ def used_facet_namespaces(node: Node) -> frozenset[str]:
     return frozenset(key.partition("/")[0] for key in node.facets if "/" in key)
 
 
-# --- kernel the closed relation signatures --------------------------------
+# --- the kernel's closed relation signatures --------------------------------
 
 ASSESSES = "assesses"
 PRODUCED_BY = "produced_by"

@@ -20,7 +20,7 @@ would report nothing about the corpus beyond it.
 **A live `Corpus` indexes at construction, so a raw filesystem write is
 invisible to it.** Every fixture that writes bytes behind the API reconstructs a
 fresh facade before asserting read behaviour — reconstruction from disk is the
-recovery posture the seam names, and it is the read this slice actually runs.
+recovery posture the seam names, and it is the read this module actually runs.
 
 **Traversal is corpus-local over a `ReadView` and world-wide over a
 `WorldReadView` (`world/view.py`): the same adjacencies, one truncating at the
@@ -314,7 +314,7 @@ class ReadView:
         without exception, so omission is statically detectable. What neither
         can see is an edit that moved the fields **and** the stamp together:
         the store compares a state against itself and has no record of what
-        preceded it — substrate the bound, inherited here rather than
+        preceded it — the bound, inherited here rather than
         papered over.
         """
         self._require_base_pin()
@@ -728,7 +728,7 @@ class _CapturedCheckView:
 
 
 class MountCitations:
-    """Citation reads over a session's write root and read mounts
+    """Citation reads over a session's write root and read mounts.
     A read mount opens at its first use,
     inside its own capture hold, which never queues; `close` releases every hold.
     One instance serves one refusal chain."""
@@ -1200,8 +1200,8 @@ def local_retraction_enumeration(
 
 @dataclass(frozen=True)
 class SnapshotStanding:
-    """Which subjects a live fold finds retracted, and each subject's history: every snapshot-arm retraction naming
-    it and, transitively,
+    """Which subjects a live fold finds retracted, and each subject's history:
+    every snapshot-arm retraction naming it and, transitively,
     every retraction naming one of those, each with its folded resolution."""
 
     retracted: frozenset[str]
@@ -1542,7 +1542,7 @@ def _absence_of(view: ReadView | WorldReadView, ref: str) -> str | None:
 
 
 def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> LineageSnapshot:
-    """Produce substrate the snapshot from a read view.
+    """Produce the snapshot from a read view.
 
     The inspected set is `{observed root} ∪ closure` — the union written out,
     because the walk is start-excluding and a root whose own immediate parent is
@@ -2741,10 +2741,10 @@ class CorpusWriter:
 
     def _require_bound_port(self, port: OperationPort | None) -> OperationPort:
         """The port an operation runs on: this writer's own for `None`, or a
-         supplied one bound to the same root, authority and profile
-        . The writer's own port is
-         bound at construction (`root.py`'s `open_corpus` hands both one root,
-         authority and profile), so only a supplied port is compared."""
+        supplied one bound to the same root, authority and profile. The
+        writer's own port is
+        bound at construction (`root.py`'s `open_corpus` hands both one root,
+        authority and profile), so only a supplied port is compared."""
         if port is None:
             assert self._operation_port is not None
             return self._operation_port
@@ -4086,7 +4086,7 @@ class OperationWrites:
             except Exception as caught:
                 if scope.submitted:
                     # The intent was appended; what failed came after the submission began —
-                    # the engine, the readback, or the state update. The boundary is ExecutionError.
+                    # the engine, the readback, or the state update. The boundary raises ExecutionError.
                     raise ExecutionError(f"failure after submission: {caught}", index=None, applied=None) from caught
                 raise  # a refusal — the permit's, the body's, or the preflight's — before any effect
             if scope.result is None:

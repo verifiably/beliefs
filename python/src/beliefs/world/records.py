@@ -31,9 +31,9 @@ def _close(fd: int) -> None:
 
 @dataclass(frozen=True)
 class CapturedSurface:
-    """One descent's records and its three named failures (the
-    successor-admission descent). `records` is exactly what `capture_records` returns over the
-    same namespaces; the path lists are what it used to swallow."""
+    """One descent's records and its three named failures.
+    `records` is exactly what `capture_records` returns over the same
+    namespaces; the path lists are what it used to swallow."""
 
     records: tuple[tuple[str, bytes], ...]
     withheld: tuple[str, ...]

@@ -176,7 +176,7 @@ class LogSeam:
     read_preimage: Callable[[Path, str, str, int], PreimageEvidence] = _unwired_read_preimage
     """One settled transaction's file preimage on this root, `(root, txid,
     path, max_bytes)` → the engine's owned bytes or its availability refusal
-    as evidence; its integrity refusals arrive as `LogEvidenceRefused`
+    as evidence; its integrity refusals arrive as `LogEvidenceRefused`.
     The audit is the one caller."""
 
 
@@ -235,7 +235,7 @@ def registered_surface_paths(root: Path, kind: RootKind) -> tuple[str, ...]:
     - **corpus:** every claimed node-layout path — `nodes`' own corpus-file
       claim, a `.md` leaf anywhere beneath the root — plus `corpus.yaml`. An
       undeclared foreign path (`notes.txt`) is outside the surface and outside
-      this design.
+      what the log judges.
     - **world:** everything beneath the three declared grammars, plus
       `world.yaml`. A namespace is a namespace: a file beneath `registry/` is
       claimed whether or not it parses as a record, which is what makes a
@@ -546,7 +546,7 @@ def _removal_findings(
     Logged is not permitted: the removal finding is emitted
     for every committed removal of a claimed path, including one a legitimate
     act made, because the judgment it supports is the consumer contract's and
-    not this design's. Classification is the separate claim, and it is made
+    not the log's. Classification is the separate claim, and it is made
     only from bytes that hash to the digest the chain declares — the
     preimage first, the held copy otherwise — so every classification speaks
     about the removed bytes.
@@ -817,8 +817,9 @@ class EpochCarrier:
 
     What a factory name cannot prove is custody. A caller may read the local
     members itself and hand them to `from_export`, so `supplied-export` is
-    **caller-attested custody evidence** under the deferred holder protocol: nothing in this slice learns which
-    exported anchors actually survive outside the root they describe.
+    **caller-attested custody evidence** under the deferred holder protocol:
+    nothing in this module learns which exported anchors actually survive
+    outside the root they describe.
 
     **What is revalidated.** The member set is closed and the packaging
     identity is recomputed over every member's bytes — the whole eleven, which
@@ -1229,7 +1230,7 @@ _CUSTODY: Mapping[Provenance, str] = MappingProxyType(
 A factory fixes the discriminator from the authority it read, but a factory
 name cannot prove custody: a caller may read the local epoch members itself and
 hand them to `from_export`. So `supplied-export` is caller-attested evidence
-under the deferred holder protocol — nothing in this slice learns which
+under the deferred holder protocol — nothing in this module learns which
 exported anchors survive outside the root they describe — while `named-local`
 is a read this module performed. A reader of the bound is told which of the two
 they are holding.
@@ -1581,7 +1582,7 @@ def _audit_log(
     that is a pre-recovery claim standing beside a post-recovery surface, and
     the report would then state a subject mismatch about bytes the act's own
     inspection had already replaced. **Then the preimage reads, still inside
-    the hold** (the preimage reads): one per committed removal the inspected
+    the hold**: one per committed removal the inspected
     view declares, so the bytes and the chain that names them are one view.
     Arrival and restore make none. **Evaluation is outside the hold**: the
     evaluator is pure over values already captured, and the hold exists to make

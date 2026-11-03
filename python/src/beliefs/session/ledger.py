@@ -300,7 +300,7 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
             },
         }[kind]
         if kind == "session-open" and "project" in line:
-            expected = expected | {"project"}  # a pre-amendment session-open omits it
+            expected = expected | {"project"}  # an earlier session-open omits it
         if set(line) != expected:
             raise ValueError(f"{kind} carries exactly {sorted(expected)}")
         if kind == "session-open":

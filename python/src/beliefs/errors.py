@@ -623,7 +623,7 @@ class UnparsedContract(ContractError):
     came from the authored documents. Without it a claim can be typed against a
     hand-built contract — which is to say typed against nothing, every operator,
     sort, layer and dimension in it invented by whoever built the object, with
-    the normative SSOT never opened."""
+    the authored documents never opened."""
 
 
 class ContractMismatch(ContractError):
@@ -649,9 +649,9 @@ class ContractMismatch(ContractError):
 
 
 class CitationContractMismatch(ContractMismatch):
-    """A citation's holder pins another identity of a namespace the writer pins
-    : decoding under either profile would equate two
-     contracts, so the citation refuses instead."""
+    """A citation's holder pins another identity of a namespace the writer pins:
+    decoding under either profile would equate two contracts, so the
+    citation refuses instead."""
 
     def __init__(self, root: Path, namespace: str, held: str, writer: str) -> None:
         self.root, self.namespace, self.held, self.writer = root, namespace, held, writer
@@ -730,8 +730,8 @@ class UnboundReferent(DecodeError):
 
 
 class DuplicateContribution(ProfileError):
-    """Two contracts contributing to one namespace. D the rule for facets, and
-    the same one here: contributions in *different* namespaces compose, and two
+    """Two contracts contributing to one namespace. The rule for facets is
+    the rule here: contributions in *different* namespaces compose, and two
     contributions to one namespaced identifier are refused at compile, never
     resolved last-writer-wins."""
 
@@ -1190,8 +1190,7 @@ class PredecessorMismatch(WriteRefused):
 
 class KindNotMintedHere(WriteRefused):
     """A kind the ordinary coordination doors never mint: `publication` and
-     `publication-binding` are minted only by the publish doors
-    ."""
+    `publication-binding` are minted only by the publish doors."""
 
 
 class PublicationRefused(WriteRefused):
@@ -1312,9 +1311,8 @@ class ProducerSnapshotMismatch(RecordError):
 
 class ProducerSnapshotRetracted(RecordError):
     """A world read was handed the bound epoch's producer-snapshot identity,
-     and a standing snapshot-arm retraction in a covered corpus names it
-    . The computation is refused,
-     not performed; nothing enters a closure."""
+    and a standing snapshot-arm retraction in a covered corpus names it. The computation is refused, not performed; nothing enters a
+    closure."""
 
     def __init__(self, identity: str) -> None:
         super().__init__(f"the supplied producer snapshot {identity!r} is retracted in its covered corpora")
@@ -1456,7 +1454,7 @@ class RelocationKindExcluded(RelocationRefused):
 class RelocationTargetMissing(RelocationRefused):
     """A create-only family's target stopped resolving under the lock.
 
-    The replacement for family-adapters the monotonicity argument: consolidate
+    The replacement for the family adapters' monotonicity argument: consolidate
     and move can remove a record another operation resolved, so `retract` and
     `supersede` re-read their target and refuse rather than assume.
     """
@@ -1653,16 +1651,15 @@ class RecheckRefused(WriteRefused):
     """A re-check operation refused before its intent — duplicate locations, a
     foreign store, the wrong root, no operation port, an observer or
     instrument the observation would refuse, a `standing` set at another
-    location or for an unrequested one — or at its close, when the report would name an observation
-    no act published."""
+    location or for an unrequested one — or at its close, when the report would name an
+    observation no act published."""
 
 
 class StoreWriteRefused(ScienceError):
-    """The store transaction of a managed `write` was a routine engine refusal
-    : `applied == 0` and a
-     `ProjectApprovalRefused`, `PreconditionRefused` or `PendingUnresolved`
-     cause. Raised for that phase only; the intent append and the publication
-     raise as themselves."""
+    """The store transaction of a managed `write` was a routine engine refusal:
+    `applied == 0` and a `ProjectApprovalRefused`, `PreconditionRefused` or
+    `PendingUnresolved` cause. Raised for that phase only; the intent append and the publication
+    raise as themselves."""
 
     def __init__(self, location: str, detail: str) -> None:
         super().__init__(f"{location}: the store refused the write: {detail}")
