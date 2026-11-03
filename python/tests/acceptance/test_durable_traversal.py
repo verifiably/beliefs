@@ -1,8 +1,8 @@
-"""S1, S1a, S5 and R23 over one durable corpus root.
+"""Traversal, lineage and standing readings over one durable corpus root.
 
 The records were minted through the add path and are walked back out of the
 store after reload. That is the whole difference from the portable traversal
-tests, and it is the difference cut 4 selects these arms for: the fixture is
+tests, and it is the difference these tests exist for: the fixture is
 now a corpus on disk rather than a value set in memory.
 """
 
@@ -53,7 +53,7 @@ def relation_walk(view, start, predicate=CITES, direction="outbound"):
 
 @pytest.fixture()
 def view(minted_corpus):
-    """A fresh facade over the minted store — the read this cut runs."""
+    """A fresh facade over the minted store — the read these tests run."""
     return reopen(minted_corpus)
 
 

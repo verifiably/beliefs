@@ -1,4 +1,4 @@
-"""Cut 28: view evaluation and the W8/W8b conflicts over certified durable roots."""
+"""View evaluation and the address conflicts over certified durable roots."""
 
 from __future__ import annotations
 
@@ -404,9 +404,7 @@ def source_pair():
     return record, record.model_copy(deep=True, update={"uid": "e" * 32})
 
 
-def test_duplicate_location_refuses_the_build_in_either_order_and_consolidate_repairs_durably(
-    durable_world, scratch
-):
+def test_duplicate_location_refuses_the_build_in_either_order_and_consolidate_repairs_durably(durable_world, scratch):
     original, twin = source_pair()
     world, roots, coverage, _writers, bindings = conflict_world(durable_world, scratch, (original,), (), twin=twin)
     before = root_tree(world.config.world_root)
@@ -500,11 +498,9 @@ def test_uid_corruption_offers_no_repair_and_consolidate_is_unavailable_durably(
 
 
 @pytest.mark.parametrize("same_uid", [True, False])
-def test_duplicate_location_is_the_same_finding_with_shared_or_distinct_uids_durably(
-    durable_world, scratch, same_uid
-):
+def test_duplicate_location_is_the_same_finding_with_shared_or_distinct_uids_durably(durable_world, scratch, same_uid):
     one = stored.dataset_node(title="one", resources=pinned())
-    # Cut 48 §4.2: a shared uid with equal content is one record held twice; the duplicate
+    # A shared uid with equal content is one record held twice; the duplicate
     # location is the differing claim, with a shared or a distinct uid alike.
     two = one.model_copy(deep=True, update={"uid": one.uid if same_uid else "d" * 32, "title": "one, revised"})
     world, _roots, coverage, _writers, bindings = conflict_world(durable_world, scratch, (one,), (), twin=two)
@@ -515,7 +511,7 @@ def test_duplicate_location_is_the_same_finding_with_shared_or_distinct_uids_dur
 
 def test_corruption_outranks_duplication_and_a_corpus_alone_reports_neither_durably(durable_world, scratch):
     one = stored.dataset_node(title="one", resources=pinned())
-    twin = one.model_copy(deep=True, update={"title": "one, revised"})  # a duplicate location (cut 48 §4.2)
+    twin = one.model_copy(deep=True, update={"title": "one, revised"})  # a duplicate location
     third = one.model_copy(deep=True, update={"id": "dataset:third"})
     a, alpha, left = durable_world.corpus()
     b, beta, right = durable_world.corpus()

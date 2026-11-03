@@ -34,7 +34,7 @@ _COUNTER = count()
 
 def shipped_bindings(world: registry.World, *, retraction: str = "v2") -> epoch.DerivationBindings:
     """Hold this package's shipped rules in `world` and name one per kind as one
-    build input; `retraction` picks the retraction-enumeration version (cut 48 §4.5)."""
+    build input; `retraction` picks the retraction-enumeration version."""
     root.install_shipped_world_rules(world)
     wanted = test_world_build.RETRACTION_VERSIONS[retraction]
     held = {
@@ -50,7 +50,7 @@ def shipped_bindings(world: registry.World, *, retraction: str = "v2") -> epoch.
     )
 
 
-# --- the witness for X9's relocated head --------------------------------------
+# --- the witness for the relocated head --------------------------------------
 
 
 class ContentHeads:
@@ -84,13 +84,13 @@ class ContentHeads:
 def test_anchored_head_describes_the_captured_corpus_view(tmp_path):
     """The head an epoch anchors is the head of the corpus whose state it captured.
 
-    Not a declared check — the **witness** cut 7 §3.1's X9 head/state bullet is
+    Not a declared check — the **witness** the head/state check is
     measured against. It observes nothing about locks: it compares the anchored
     head with the captured corpus state, which is what "one view" means at the
     published-artifact level. A head captured outside the hold still reads the
     same chain when nothing wrote in between, so this passes under relocation
     alone; it fails the moment a write is interposed, which is the interleaving
-    the cut requires the sabotage to carry.
+    a faulty implementation would have to carry.
     """
     corpus_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
     world = registry.World(
@@ -116,7 +116,7 @@ def test_anchored_head_describes_the_captured_corpus_view(tmp_path):
 # One world, walked end to end with the portable executor: the four shipped
 # rules explicitly held, two corpora admitted, two epochs published, both read
 # back, all four receipts validated, every arm of the resolution union and every
-# edge state this slice can reach exercised, and then the two severing acts.
+# edge state this journey can reach exercised, and then the two severing acts.
 #
 # It asserts nothing about crashes. Durability is the certified tuple's subject
 # and it is claimed below, by arms that read the engine's own chain; what these
@@ -132,7 +132,7 @@ DERIVATION_KINDS: tuple[derive.ReceiptKind, ...] = (
     "certification-enumeration",
     "coreference-reduction",
 )
-"""§7.5's four kinds, spelled as the literal type `validate_receipt` takes.
+"""The four kinds, spelled as the literal type `validate_receipt` takes.
 
 `epoch.DERIVATION_KINDS` is the same four as plain text, and
 `test_the_receipt_kinds_walked_here_are_the_four_the_carrier_declares` pins the
@@ -165,7 +165,7 @@ def journey_corpora(tmp_path: Path) -> dict[str, Path]:
 
     Stored attestations link each dataset chain for the shipped coreference
     rule, and the retired address is what makes `NotPresent` distinguishable
-    from `Unknown` — §7.2 records a `deprecated_ids` entry exactly as it
+    from `Unknown` — the epoch records a `deprecated_ids` entry exactly as it
     records a live one, so the address survives its corpus going away. Exactly
     one corpus carries it: `derive.address_map` refuses a repeated address even
     when the two claims agree.
@@ -248,7 +248,7 @@ def test_all_four_receipts_validate_against_the_world_that_published_them(journe
 
 
 def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
-    """§8.3's three arms, all three from one publication.
+    """The three resolution arms, all three from one publication.
 
     The line between `NotPresent` and `Unknown` is what the epoch recorded and
     never what is here now, so both are taken against the *same* epoch: one
@@ -286,11 +286,11 @@ def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
 
 
 def test_edges_answer_active_inactive_and_indeterminate(journey: Journey):
-    """§8.4's three states, and the expansion that refuses rather than guess.
+    """The three edge states, and the expansion that refuses rather than guess.
 
     `active` and `inactive` come from the stored balance of a reduction this
     world can still stand behind. `indeterminate` is reached here through the
-    coverage half of §8.4 — a live corpus the publication never observed — and
+    coverage half — a live corpus the publication never observed — and
     through the receipt half in the removal arm below, which is the other input
     the section names.
     """
@@ -320,7 +320,7 @@ def test_edges_answer_active_inactive_and_indeterminate(journey: Journey):
 
 
 def test_removing_a_binding_reports_the_receipts_it_severed(journey: Journey):
-    """§4.3: the removal names what lost this store's resolution path.
+    """The removal names what lost this store's resolution path.
 
     Both retained epochs carry a coreference receipt naming the removed pair, so
     both identities are severed, and the report is the *only* place that is said
@@ -368,7 +368,7 @@ def _receipt_identities(published: epoch.Epoch) -> set[str]:
 
 
 def _snapshot_identity(published: epoch.Epoch) -> str:
-    """§9's fifth identity: the producer snapshot's own subject identity.
+    """The fifth identity: the producer snapshot's own subject identity.
 
     Taken from the producer receipt's `subject`, which is what digests the
     projection — not from the receipt's identity, which digests the capture as
@@ -380,11 +380,11 @@ def _snapshot_identity(published: epoch.Epoch) -> str:
 
 
 def test_deleting_a_noncurrent_epoch_reports_the_identities_it_severed(journey: Journey):
-    """§9: the current epoch is undeletable, and the other one reports both answers.
+    """The current epoch is undeletable, and the other one reports both answers.
 
     The record added between the two publications is a plain dataset, so it
     moved BETA's corpus state and changed no `produces` edge. That splits the
-    report exactly along the line §9 draws. All four receipt identities digest
+    report exactly along the line that separates them. All four receipt identities digest
     the captured `corpus_states`, so all four are severed — including the
     *producer receipt*. The *producer snapshot* identity digests the projection
     instead, the projection did not move, and the current epoch still carries
@@ -502,11 +502,11 @@ PUBLICATION_STAGES = (
     "post-commit",
     "read-back",
 )
-"""Every Science-observable boundary of one publication, in the order §5.4
+"""Every Science-observable boundary of one publication, in the order the publication
 crosses them.
 
-The frozen cell says "kill the writer at every stage of publication". Cut 7's
-selection states the narrowing outright: the stages *inside* the transaction
+The requirement is to kill the writer at every stage of publication, narrowed:
+the stages *inside* the transaction
 belong to the engine's certified recovery and are not Science-observable, so
 "every stage" resolves to these eight — the four pure phases, the two sides of
 the single commit, the read-back, and `second-transaction`, which under a
@@ -564,7 +564,7 @@ def _attempt(case, bindings, stage: str, standing: str, attempted: list[str]) ->
 
 
 def test_recovery_barrier_never_selects_partial_epoch(durable_world):
-    """X2. `current` names the prior epoch or the new, complete one — never else.
+    """`current` names the prior epoch or the new, complete one — never else.
 
     The writer is killed at every Science-observable stage boundary of the
     one-transaction write, and after each kill a **fresh** world crosses the
@@ -575,7 +575,7 @@ def test_recovery_barrier_never_selects_partial_epoch(durable_world):
 
     The intra-transaction stages are not exercised and are not claimed: they
     belong to the engine's certified recovery and Science cannot observe them
-    (cut 7 §7 limitation 2). What *is* claimed here about the transaction is
+    (a known limitation). What *is* claimed here about the transaction is
     that there is one of it — `second-transaction` kills the second commit, and
     a correct publication never reaches it.
     """
@@ -607,21 +607,21 @@ def test_recovery_barrier_never_selects_partial_epoch(durable_world):
 
 
 def test_publication_registration_names_epoch_and_current(durable_world):
-    """X2. The publication transaction commits an entry naming every member and `current`.
+    """The publication transaction commits an entry naming every member and `current`.
 
     Decoded from the engine-owned chain, not from the write plan: what is being
     asserted is that the committed record of the act names the paths it wrote,
     which is the durable half of "one transaction" and the only crash-atomicity
-    evidence this cut claims (§7 limitation 2).
+    evidence claimed here.
 
     Both shapes are exercised. The first publication *creates* the pointer; the
     second *replaces* it, and both entries name the eleven members of their own
     epoch alongside it.
 
-    Slice 3's build-origin log-head record joins the same transaction
-    (log-verification design §3.3), so the committed entry names one
+    The build-origin log-head record joins the same transaction
+    so the committed entry names one
     `registry/` path per covered corpus beside the epoch's own. The record is
-    admitted by name rather than by content — X2's claim is about *this*
+    admitted by name rather than by content — the claim is about *this*
     transaction naming what it wrote, and the record's own form is covered
     where it is written.
     """
@@ -665,7 +665,7 @@ def _chain_bounds(chain_root: Path) -> tuple[str, str]:
     was handed: asking that callback again would compare the world's answer with
     itself. `atoms` states the correspondence — a `ChainView`'s genesis digest is
     its first entry's and its tip is the last — and consuming it here is the
-    consumption cut 7 §5 allows, not a second certification of `read_chain`.
+    consumption the epoch tests allow, not a second certification of `read_chain`.
     """
     entries = chain_entries(chain_root)
     assert entries, f"{chain_root}: the engine's chain carries no entry to anchor against"
@@ -673,14 +673,14 @@ def _chain_bounds(chain_root: Path) -> tuple[str, str]:
 
 
 def test_published_anchors_name_the_committed_chains(durable_world):
-    """X2/X9 durably: the anchored tuple names the chains the engine actually kept.
+    """The anchored tuple names the chains the engine actually kept.
 
     Portably the head callback is a stub, so "the epoch anchored a head" is a
     statement about a fixture. Here the world is the composition root's own
     product, its callback is the engine's chain reader, and the triples the
     carrier published are compared against the entries on disk.
 
-    The world anchor is taken **before** the publication because §5.2 captures
+    The world anchor is taken **before** the publication because the build captures
     it at build start: the transaction that writes the epoch moves the world
     chain past the head that epoch anchored, and an anchor that had followed it
     would be naming the act rather than its starting point. The corpus anchor is
@@ -722,7 +722,7 @@ def test_world_transactions_register_every_path(durable_world):
     """The labeled durable declaration: rule install, rule removal, GC deletion.
 
     Committed registration-entry evidence for each of the three world acts that
-    are not publication — publication's own entry is X2's selected unit. Every
+    are not publication — publication's own entry is tested separately. Every
     assertion is over an entry decoded from the engine-owned chain, never over
     the portable write plan's shape: a plan that named a path it never
     registered would satisfy the plan and not the chain.

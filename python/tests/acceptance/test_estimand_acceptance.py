@@ -1,15 +1,15 @@
-"""Cut 31: the typed estimand, row by row, over registered durable corpora.
+"""The typed estimand, test by test, over registered durable corpora.
 
-One test per guarantee row of the estimand-typing design's §8 table Q, named
-`test_q<n>_<slug>` and composed from the unit tests' own constructions rather
+One test per typed-estimand guarantee,
+composed from the unit tests' own constructions rather
 than from a second set — the `corpora` fixture is `test_facet_acceptance.py`'s,
 re-pointed at the profile whose domain declares `testing/affects` and its
 `estimands:` entry, because a stored spec restores only under the profile that
 wrote it.
 
-Q10 is the exception by design: the mm30 reproduction's re-run is the driver's,
+The reproduction test is the exception by design: the mm30 reproduction's re-run is the driver's,
 executed once against the corpus on the certified volume, and this row reads
-what it recorded (`docs/designs/2026-09-05-mm30-reproduction.md` §10) beside
+what it recorded (the mm30 reproduction state) beside
 the transition arms it can exercise here. It reads the driver's report by name
 and asserts nothing the addendum does not record.
 """
@@ -160,11 +160,8 @@ def _derive(spec, output):
     return build_assessment(assessment_closure(spec), specs={spec.identity: spec}, implementations=_rule(output))
 
 
-# --- Q1 ---------------------------------------------------------------------
-
-
 def test_the_estimands_structure_is_kernel_owned_and_closed(corpora):
-    """Q1: the closed sets live in the base contract and nowhere else, and the
+    """The closed sets live in the base contract and nowhere else, and the
     implementation cannot widen one without the contract saying so."""
     writer = corpora()
     grammar = TESTING_PROFILE.estimand_grammar
@@ -220,12 +217,9 @@ def test_the_estimands_structure_is_kernel_owned_and_closed(corpora):
     assert restored.estimand.measure.scale in grammar.scales
 
 
-# --- Q2 ---------------------------------------------------------------------
-
-
 def test_estimands_is_domain_issued_operator_bound_and_succession_governed(corpora):
-    """Q2: the declaration is the domain's, keyed by an operator it declares,
-    and governed by the four succession rules M6 already carries."""
+    """The declaration is the domain's, keyed by an operator it declares,
+    and governed by the four succession rules the base contract already carries."""
     writer = corpora()
     assert writer.read_view is not None
     contract = _parse_testing(_testing_document())
@@ -270,7 +264,7 @@ def test_estimands_is_domain_issued_operator_bound_and_succession_governed(corpo
         compile_profile(shipped_base_contract(), [_parse_testing(unresolved)])
 
     # Succession: adding an entry for an operator that had none is accepted,
-    # and the operator's own projection does not move (M6 unamended).
+    # and the operator's own projection does not move (base contract unamended).
     prior_document = _testing_document()
     del prior_document["estimands"]["correlates-with"]
     prior = _parse_testing(prior_document)
@@ -319,11 +313,8 @@ def test_estimands_is_domain_issued_operator_bound_and_succession_governed(corpo
     assert _parse_testing(two_slots).content_identity == _parse_testing(reordered).content_identity
 
 
-# --- Q3 ---------------------------------------------------------------------
-
-
 def test_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(corpora):
-    """Q3: every §7.1 refusal names its position, the fragment refuses rather
+    """Every claim-grammar refusal names its position, the fragment refuses rather
     than flattens, and `claim` and `operator` come from the `Claim` handed in."""
     writer = corpora()
     other_claim = build_claim(
@@ -405,7 +396,7 @@ def test_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(
             )
         )
 
-    # D3's five outcomes stay distinct: `not-member` refuses, `not-consulted`
+    # The five outcomes stay distinct: `not-member` refuses, `not-consulted`
     # mints with a receipt, and the minted value is the same either way.
     binding = TESTING_PROFILE.sorts[L].vocabulary
     readable = build_snapshot(readable={binding: ["EX:ndmm", "EX:pd", "EX:tpm", "EX:observational"]})
@@ -449,11 +440,8 @@ def test_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(
     )
 
 
-# --- Q4 ---------------------------------------------------------------------
-
-
 def test_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(corpora):
-    """Q4: the map is the claim grammar's flat fragment over the operator's own
+    """The map is the claim grammar's flat fragment over the operator's own
     dimensions, comparable in both directions, and read by no P row."""
     writer = corpora()
     assert writer.read_view is not None
@@ -511,7 +499,7 @@ def test_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(c
     assert co_scoped(adults, qualified.qualifiers)
     assert not co_scoped(everyone, qualified.qualifiers)
 
-    # P6 verbatim: change only `applicability` and the belief value stands
+    # Change only `applicability` and the belief value stands
     # while the digest moves — and no mismatch finding exists to be emitted.
     from dataclasses import replace
 
@@ -529,11 +517,8 @@ def test_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(c
     assert not any("mismatch" in name.lower() for name in vars(belief_module))
 
 
-# --- Q5 ---------------------------------------------------------------------
-
-
 def test_estimate_and_uncertainty_are_typed_on_the_specs_scale(corpora):
-    """Q5: the rule yields decimals on the spec's scale and nothing else; each
+    """The rule yields decimals on the spec's scale and nothing else; each
     violation is an `AssessmentFinding` naming it, and never `inconclusive`."""
     writer = corpora()
     assert writer.read_view is not None
@@ -647,11 +632,8 @@ def test_estimate_and_uncertainty_are_typed_on_the_specs_scale(corpora):
     assert 'INTERPRETATION_RULE = "mm30-reproduction/outcome-file/v1"' in driver_spec
 
 
-# --- Q6 ---------------------------------------------------------------------
-
-
 def test_structural_match_is_checked_at_the_write_boundary_and_under_audit(corpora):
-    """Q6: the spec's estimand must name its target's claim **and** operator at
+    """The spec's estimand must name its target's claim **and** operator at
     the write boundary and at import, and the audit contradicts what a raw
     write got past. Semantic match is not claimed."""
     writer = corpora()
@@ -777,11 +759,8 @@ def test_structural_match_is_checked_at_the_write_boundary_and_under_audit(corpo
     ]
 
 
-# --- Q7 ---------------------------------------------------------------------
-
-
 def test_every_member_enters_identity_and_only_members_do(corpora):
-    """Q7: each estimand and applicability member moves the spec identity;
+    """Each estimand and applicability member moves the spec identity;
     conditioning order and decimal spelling do not; on the assessment the facet
     digest moves and the belief value does not."""
     writer = corpora()
@@ -850,7 +829,7 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
     assert projection["applicability"] == applicability_projection(typed_applicability())
 
     # On the assessment: each typed member moves the facet digest and no P row's
-    # value moves with it (P6's four arms, now per member).
+    # value moves with it (the four cases, now per member).
     from dataclasses import replace
 
     def assessment(**overrides) -> AssessmentValue:
@@ -905,12 +884,9 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
     assert claim_identity(editorial_claim) == claim_identity(TESTING_CLAIM)
 
 
-# --- Q8 ---------------------------------------------------------------------
-
-
 def test_the_estimands_contracts_are_consulted(corpora):
-    """Q8: an assessment reaches the contracts its estimand binds, and only
-    those — D6's third trigger."""
+    """An assessment reaches the contracts its estimand binds, and only
+    those — the third trigger."""
     from beliefs.consulted import CorpusPins, consulted_contracts
 
     writer = corpora()
@@ -973,11 +949,8 @@ def test_the_estimands_contracts_are_consulted(corpora):
         )
 
 
-# --- Q9 ---------------------------------------------------------------------
-
-
 def test_commensuration_is_total_decidable_and_unread_by_v1(corpora):
-    """Q9: both predicates are total over admitted values, `identification` is
+    """Both predicates are total over admitted values, `identification` is
     the one member outside the key, and v1's evaluator reads neither."""
     import inspect
 
@@ -1027,11 +1000,8 @@ def test_commensuration_is_total_decidable_and_unread_by_v1(corpora):
     assert isinstance(evaluate(**scenario()), Belief)
 
 
-# --- Q10 --------------------------------------------------------------------
-
-
 def test_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corpora):
-    """Q10: the driver's own recorded report, read by name, beside the
+    """The driver's own recorded report, read by name, beside the
     transition arms this module can exercise on a successor-pinned corpus."""
     from reproduction.paths import STATE
 
@@ -1046,15 +1016,15 @@ def test_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corpora)
     assert state["spec_identity"] == "10e8bfce1aaad8a937a79bfba7cf523ac42b4240ec8b15e20e5b5f450d234714"
     assert state["spec_prose_identity"] == "86aaa1a8a8edda8217a1d6f5f6ae28c89fae7362176a214f9fd9fdf95e3f2b1d"
     # Re-targeted 2026-09-16: the composite-claims lane recreated the corpus again under its own successor
-    # contracts (record §11.2), and the assessment identity derives from the run closure, so a new run moves
-    # it. The cut-31 value `618c6c58…` stands unedited in §10, which is the evidence; this is the live pin.
+    # contracts and the assessment identity derives from the run closure, so a new run moves
+    # it. This is the live pin.
     assert state["assessment_identity_derived"] == "27bd9753ffa77bf604957537bd6497724ce14d9682c0bc3291d594a99e20c4f9"
     assert state["assessment_identity_stored"] == state["assessment_identity_derived"]
     assert state["belief_answer"] == state["rederived_belief"]
     assert state["belief_answer"]["kind"] == "NoBelief" and state["belief_answer"]["reason"] == "no-directional-outcome"
     assert state["corpus_check_findings"] == 0 and state["audit_findings"] == 0
 
-    # The transition, as §10.8 measured it: the prior state's assessment
+    # The transition, as measured: the prior state's assessment
     # refuses by name, its spec returns no typed value, and the audit reports
     # `profile-mismatch: base` and nothing else.
     prior = state["prior_corpus_state"]
@@ -1062,7 +1032,7 @@ def test_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corpora)
     assert prior["assessment_refusal"] == "PreGrammarAssessment"
     assert prior["spec_refusal"] == "MalformedRecord"  # pre-projection, so `restore`'s gate is never reached
     assert prior["audit"] == ["profile-mismatch: base"]
-    # §8.2: the digest half is measured at the two identities that move, the
+    # The digest half is measured at the two identities that move, the
     # belief value being equal and carrying no digest of its own.
     assert prior["spec_ref"].endswith(state["spec_prose_identity"])
     assert prior["assessment_ref"] == "assessment:316272987716ac4f"

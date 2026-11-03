@@ -4,7 +4,7 @@ Everything under `tests/acceptance` runs against the **real engine on a real
 volume**, and the gate below **errors** when that volume's configuration tuple
 is not certified. It never skips, and the distinction is the whole point: a
 skip reports green for a guarantee that was not exercised, and an environment
-where durability cannot be exercised must not be able to report cut-4 discharge.
+where durability cannot be exercised must not be able to report a discharged durability claim.
 
 **The work directory has to sit on the certified volume**, which the platform
 temporary directory generally does not — `/tmp` is a tmpfs on most hosts, and a
@@ -99,7 +99,7 @@ def durable_writer(durable_root):
     module shares) carries a typed estimand against `testing/affects`, which
     BASE does not declare, and the audit's recomputation
     (`stored.assessment_value`, `check_assessment`) decodes it under the
-    writer's own profile (estimand-typing §6, §9)."""
+    writer's own profile."""
     return open_corpus(durable_root, authority=FULL, profile=TESTING_PROFILE)
 
 
@@ -137,7 +137,7 @@ def durable_coordination_world(work_directory, durable_coordination_roots):
 
 @pytest.fixture(scope="session")
 def minted_corpus(work_directory) -> Iterator[Path]:
-    """Cut 4's fixture records, minted **once** through the add path into one
+    """The fixture records, minted **once** through the add path into one
     registered root and never written to again.
 
     Shared by the read-only arms, which is what they are: every one of them
@@ -169,7 +169,7 @@ def confined_host() -> None:
     """The confinement gate: bubblewrap with --info-fd, unprivileged user
     namespaces, and the loader's --list. It errors and never skips — an
     environment that cannot exercise confinement must not be able to report
-    cut-13 discharge. No durable root is involved."""
+    a discharged confinement claim. No durable root is involved."""
     from beliefs.confinement import host_prerequisites
 
     reason = host_prerequisites()

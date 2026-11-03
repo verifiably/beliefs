@@ -1,10 +1,10 @@
-"""Cut 36 acceptance: the event-level relation over real worlds.
+"""The event-level relation over real worlds.
 
-Every test names its declaration unit. The worlds are real — `init_world_root`,
+The worlds are real — `init_world_root`,
 admitted corpora, `build_epoch` — and the chains are the engine's, read through
-`root.log_seam()`. Two units are stand-ins and say so: L8-i fabricates the one
-corpus view it hands the relation (a rollback needs a halted backend; cut 8
-fabricated these by entry class too), and BI-3 alters an anchor, never a view.
+`root.log_seam()`. Two tests are stand-ins and say so: one fabricates the one
+corpus view it hands the relation (a rollback needs a halted backend; the codec
+tests fabricate these by entry class too), and another alters an anchor, never a view.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ def chain_dir(root: Path) -> Path:
 
 
 def truncate_after(root: Path, keep_through: str) -> tuple[str, ...]:
-    """Unlink every chain leaf after `keep_through`: a valid prefix (L3's arm)."""
+    """Unlink every chain leaf after `keep_through`: a valid prefix."""
     digests = [e.digest for e in view_of(root).entries]
     removed = tuple(digests[digests.index(keep_through) + 1 :])
     for entry_digest_ in removed:
@@ -94,7 +94,7 @@ def truncate_after(root: Path, keep_through: str) -> tuple[str, ...]:
 
 
 def replace_chain_under_another_fork_genesis(root: Path) -> None:
-    """Cut 9's L4u2 construction on a live carrier: the chain directory becomes
+    """A live carrier: the chain directory becomes
     one fork-genesis entry naming another parent, same subject (the manifest
     is untouched). The next write appends under the new genesis."""
     other = encode_entry(None, GenesisEntry(science_root._fork_corpus_genesis_payload(("d" * 64, "c" * 64)), ()))
@@ -130,7 +130,7 @@ def world(work_directory):
         writer = open_corpus(path, authority=FULL, profile=TESTING_PROFILE)
         manifest = writer.adopt_manifest(profile=pins_for(TESTING_PROFILE))
         # Distinct per corpus: two corpora carrying one `proposition:target` address
-        # would refuse every build covering both with `AddressMapConflict` (W8b).
+        # would refuse every build covering both with `AddressMapConflict`.
         target = writer.add(
             stored.proposition_node(f"target-{manifest.corpus_id}", title="target", claim=project_claim(TESTING_CLAIM))
         )
@@ -157,7 +157,7 @@ def world(work_directory):
             return publish(self.world, corpus_ids or (self.a, self.b), self.bindings).packaging_identity
 
         def freeze(self) -> Event:
-            """The spec-freeze transition L8 names: a frozen analysis spec stored
+            """The spec-freeze transition: a frozen analysis spec stored
             in A through an operation write. The event is the registration; its
             moment is the committed settlement."""
             self.freezes += 1
@@ -170,7 +170,7 @@ def world(work_directory):
             return Event(self.a, commit.entry_digest)
 
         def run_intent(self) -> Event:
-            """The run intent L8 names, through the real assessment-run boundary
+            """The run intent, through the real assessment-run boundary
             over B's durable port. The intent is appended before the run
             executes, so it stands whether the run mints or is refused; the
             event is the intent entry and its payload decodes to an
@@ -185,8 +185,8 @@ def world(work_directory):
 
         def intent(self) -> Event:
             """An operation intent in B — cheap, real, and the same entry class
-            as a run intent. The relation is kind-agnostic (spec decision 1);
-            L8-a exercises the row's own pair through `run_intent`."""
+            as a run intent. The relation is kind-agnostic;
+            the run-intent test exercises the pair through `run_intent`."""
             commit = self.writer_b.operations.add(
                 stored.source_node(title="b", identifiers={"doi": f"10.1234/b{len(view_of(self.beta).entries)}"})
             )
@@ -241,7 +241,7 @@ def seam_with_view(root: Path, view) -> verify.LogSeam:
 
 
 def overlapping_builds(world) -> tuple[Event, Event, str, str, str, str]:
-    """Spec §4.3: E3 preflights at h0 and captures A; `a` commits; E1
+    """E3 preflights at h0 and captures A; `a` commits; E1
     preflights at h0, captures A then B, publishes; `b` appends; E3 captures B
     and publishes; E2 and E4 follow. Returns (a, b, e1, e2, e3, e4)."""
     reached_b = threading.Event()
@@ -481,7 +481,7 @@ def test_a_deleted_chain_refutes_against_its_registry_anchor_bound_by_corpus_id_
 
 
 def test_a_replica_under_a_fresh_manifest_refuses_subject_mismatch_at_arrival_durably(world, work_directory):
-    """Relabel unit; cut 8's L10u1 construction: replicate A, rewrite the copy's
+    """Replicate A, rewrite the copy's
     `corpus.yaml` to a fresh id, arrive as a replica of A."""
     world.freeze()
     copy = Path(mkdtemp(prefix="cut36-replica-", dir=work_directory)) / "copy"
@@ -551,7 +551,7 @@ def test_one_world_inspection_and_the_world_lock_released_before_sorted_unnested
 
 
 def test_the_genesis_clause_alone_decides_a_placement_durably(world):
-    """Spec §8.2 case 4, isolated on the anchor's side: a genuine well-formed
+    """Isolated on the anchor's side: a genuine well-formed
     view, the epoch's own anchor with its reachable head, only the declared
     genesis replaced."""
     world.freeze()

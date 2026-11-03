@@ -1,4 +1,4 @@
-"""Cut 47: restored own replicas, real scoped calls and frozen recovery."""
+"""Restored own replicas, real scoped calls and frozen recovery."""
 
 from dataclasses import replace
 

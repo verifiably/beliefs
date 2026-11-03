@@ -1,4 +1,4 @@
-"""Cut 13's confined arms: every check that executes under confined-v1.
+"""The confined tests: every check that executes under confined-v1.
 
 They need the confinement gate and no durable root. One snapshot serves the
 module (`shared_scratch`), so the closure is materialized once."""
@@ -191,7 +191,6 @@ def admission_of(minted: RunMinted, verification):
     return admit(assessment, run_value, observations_for(run_value), (verification,))
 
 
-# --- R15 ------------------------------------------------------------------------
 def test_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_never_starts(
     tmp_path, shared_scratch, monkeypatch
 ):
@@ -287,7 +286,6 @@ def test_a_minimal_run_is_valid_and_a_minimal_pair_stays_same_environment(tmp_pa
     assert derive_scope(original.run, replayed.run, certification=None) == "same-environment"
 
 
-# --- R4 ---------------------------------------------------------------------------
 def test_a_confined_pair_derives_clean_environment(tmp_path, shared_scratch):
     original, replayed = confined_pair(tmp_path, shared_scratch)
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
@@ -304,7 +302,6 @@ def test_end_to_end_a_passing_clean_environment_verification_admits_and_yields_b
     assert isinstance(belief_over(original, record), Belief)
 
 
-# --- R9, R13, R16 ------------------------------------------------------------------
 def test_an_inconclusive_verification_admits_nothing(tmp_path, shared_scratch):
     original, replayed = confined_pair(tmp_path, shared_scratch)
     unreadable = EquivalenceImplementation(
@@ -317,16 +314,14 @@ def test_an_inconclusive_verification_admits_nothing(tmp_path, shared_scratch):
     assert isinstance(verdict, AdmissionRefused) and verdict.reason.startswith("not-admitted-verification-state")
 
 
-def test_an_import_outside_the_closure_is_refused_under_confinement_and_minted_under_minimal(
-    tmp_path, shared_scratch
-):
+def test_an_import_outside_the_closure_is_refused_under_confinement_and_minted_under_minimal(tmp_path, shared_scratch):
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "secret.py").write_text("VALUE = 42\n")
     snakefile = snakefile_importing_from(outside)
     assert isinstance(minimal(tmp_path / "host", snakefile=snakefile), RunMinted)
     outcome = confined(tmp_path / "confined", shared_scratch, snakefile=snakefile)
-    assert isinstance(outcome, RunRefused), outcome  # a refusal, and nothing about its diagnostic (spec §8)
+    assert isinstance(outcome, RunRefused), outcome  # a refusal, and nothing about its diagnostic
 
 
 def test_a_not_certified_pair_admits_nothing(tmp_path, shared_scratch):
@@ -344,7 +339,6 @@ def test_a_not_certified_pair_admits_nothing(tmp_path, shared_scratch):
     assert isinstance(belief_over(original, record), NoBelief)
 
 
-# --- R21 --------------------------------------------------------------------------
 def test_a_write_outside_the_output_root_fails_closed(tmp_path, shared_scratch):
     outcome = confined(tmp_path / "confined", shared_scratch, snakefile=SNAKEFILE_WRITE_OUTSIDE)
     assert isinstance(outcome, RunRefused), outcome
@@ -352,9 +346,7 @@ def test_a_write_outside_the_output_root_fails_closed(tmp_path, shared_scratch):
     assert "Read-only file system" in outcome.detail or "EROFS" in outcome.detail
 
 
-def test_two_differently_mounted_scratch_roots_yield_equal_recipes_and_clean_environment(
-    tmp_path, shared_scratch
-):
+def test_two_differently_mounted_scratch_roots_yield_equal_recipes_and_clean_environment(tmp_path, shared_scratch):
     other_scratch = tmp_path / "other-mount"
     original = confined(tmp_path / "original", shared_scratch)
     assert isinstance(original, RunMinted), original

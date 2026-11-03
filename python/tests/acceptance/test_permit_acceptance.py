@@ -1,5 +1,5 @@
-"""Cut 17's durable arms: E1, E2, E7 and E8 through the composition root on the
-certified volume (design §9.2). Chains and world roots are byte-identical before
+"""Durable permit tests through the composition root on the
+certified volume. Chains and world roots are byte-identical before
 and after every refusal."""
 
 from __future__ import annotations

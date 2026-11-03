@@ -1,4 +1,4 @@
-"""Fault fixtures for J2 (design §13 item 4): a backend that halts at the first
+"""Fault fixtures for the session transaction: a backend that halts at the first
 publish-phase call, leaving a real staged, unsettled transaction."""
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ PUBLISH_CALLS_BEFORE_RECORD = 6
 
 class TracingBackend:
     """Delegates every engine call and records the method names, in order — the
-    instrument that finds the transaction's publish step (design §13 item 4)."""
+    instrument that finds the transaction's publish step."""
 
     def __init__(self) -> None:
         self._inner = select_backend()
@@ -53,9 +53,9 @@ class HaltingBackend:
 
     The window stays open for the whole fulfilling execution deliberately: the
     engine answers a failed publish by rolling the transaction back, and a
-    rollback that succeeds settles the registration, which is the state §13
-    item 4 must *not* leave. Halting the rollback's publishes too is what
-    leaves the registration durable and unsettled — the pending state §6
+    rollback that succeeds settles the registration, which is the state the
+    transaction must *not* leave. Halting the rollback's publishes too is what
+    leaves the registration durable and unsettled — the pending state the engine
     classifies and the next write's recovery resolves.
     """
 
@@ -94,7 +94,7 @@ class HaltingBackend:
                     if self.remaining > 0:
                         self.remaining -= 1
                     else:
-                        # §13 item 4: the halt follows at least one staged `write`.
+                        # the halt follows at least one staged `write`.
                         assert self.writes > 0, "the halt must follow a staged write"
                         self.halted = True
                         raise OSError("halted by the J2 fixture before the record's publish")

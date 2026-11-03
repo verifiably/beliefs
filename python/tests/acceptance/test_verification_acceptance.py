@@ -1,7 +1,7 @@
-"""Cut 21's durable arms: verification publication through an attended session
-on the certified engine and volume (`docs/designs/2026-09-06-conformance-cut-21.md`
-§3, V1, V2, V3 and V5). Every body mirrors its portable twin and additionally
-reopens the corpus — a fresh process for V1 and V2 — so each assertion is
+"""Durable tests: verification publication through an attended session
+on the certified engine and volume
+Every body mirrors its portable twin and additionally
+reopens the corpus — a fresh process for the first checks — so each assertion is
 about bytes the engine committed."""
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from beliefs.verify import _mint_verification, publication_node
 
 KINDS = RequiredCapabilities.for_kinds(
     {"verification"}, {}
-)  # [R8] runs, datasets and the assessment go through the library writer
+)  # runs, datasets and the assessment go through the library writer
 TESTS = Path(__file__).resolve().parents[1]
 
 
@@ -131,7 +131,7 @@ def test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_d
     try:
         library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
         published = publish_corpus(library, claim=CLAIM_FACET)
-        cases = forgeries(library, published)  # [R8] helper records first, then the baseline
+        cases = forgeries(library, published)  # helper records first, then the baseline
         open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view  # a settled, non-writing probe  # noqa: B018
         head_before = chain(root).tip
         intents_before, registrations_before = len(intents(root)), len(registrations(root))

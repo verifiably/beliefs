@@ -1,7 +1,7 @@
-"""Conformance cut 44 — mount citations (spec §8.2): J16–J21 over real roots on the
+"""Mount citations over real roots on the
 certified volume. W (write root) pins testing, the fixture `biology` and
 coordination v2; M and M3 pin testing and the fixture `biology`; M2 pins another
-`biology` identity; O holds J20's one-corpus baseline."""
+`biology` identity; O holds the one-corpus baseline."""
 
 from __future__ import annotations
 
@@ -122,9 +122,6 @@ def run_then(w, d):
     )  # observes is not read at write time
 
 
-# --- J16 ------------------------------------------------------------------------
-
-
 def test_session_cites_a_mount_dataset_and_proposition_durably(corpora):
     s = corpora
     d, p = seeded(s)
@@ -179,9 +176,6 @@ def test_no_mount_is_written_durably(corpora):
     assert {root: state(root) for root in (s.m, s.m3)} == before
 
 
-# --- J17 ------------------------------------------------------------------------
-
-
 def test_duplicate_citation_refuses_naming_both_durably(corpora):
     s = corpora
     d, p = seeded(s)
@@ -214,9 +208,6 @@ def test_held_mount_refuses_build_contended_durably(corpora):
     session.close()
 
 
-# --- J18 ------------------------------------------------------------------------
-
-
 def test_the_session_corpus_check_warns_not_errs_durably(corpora):
     s = corpora
     d, p = seeded(s)
@@ -230,11 +221,11 @@ def test_the_session_corpus_check_warns_not_errs_durably(corpora):
     ]
 
 
-# --- J19 / J20: the two-installation split ------------------------------------------
+# --- the two-installation split ------------------------------------------
 
 
 def _split_seed(s):
-    """J20's fixture: `seed_nodes()`'s proposition and datasets in M, its runs,
+    """The split-seed fixture: `seed_nodes()`'s proposition and datasets in M, its runs,
     assessments and verifications written in a session on W; the same nodes in O."""
     nodes = seed_nodes()
     in_m = {"proposition:p", dataset_ref("d-a"), dataset_ref("d-b")}
@@ -261,7 +252,7 @@ def _split_seed(s):
 
 
 def _world_context(view, pins, kwargs):
-    """`pins` are read once, while every manifest is present (plan review 2, P2)."""
+    """`pins` are read once, while every manifest is present."""
     return replace(
         kwargs["context"],
         snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"))),
@@ -319,7 +310,7 @@ def test_belief_over_the_world_matches_one_corpus_durably(corpora):
     local_kwargs = kwargs_for(local, TYPED)
     local_answer, local_admission = evaluate_over_traced(local, "proposition:p", **over_kwargs(local_kwargs))
     # `belief_input_digest` differs by construction: the closure names the producer snapshot and the
-    # retraction coverage, the world's epoch and corpus ids (mount-citations spec §13). The verdict,
+    # retraction coverage, the world's epoch and corpus ids. The verdict,
     # the evidence set (every other closure member) and the admission are compared instead.
     assert isinstance(split_answer, Belief) and isinstance(local_answer, Belief)
     assert split_answer.value == local_answer.value and split_answer.policy_binding == local_answer.policy_binding
@@ -377,9 +368,6 @@ def _without_corpus_names(projection: Mapping[str, object]) -> dict[str, object]
     assert isinstance(retractions, Mapping) and set(retractions) == {"found", "coverage"}
     kept["retractions"] = {"found": retractions["found"]}
     return kept
-
-
-# --- J21 ------------------------------------------------------------------------
 
 
 def test_local_read_of_the_split_refuses_durably(corpora):

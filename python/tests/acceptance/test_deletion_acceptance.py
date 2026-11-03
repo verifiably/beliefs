@@ -1,9 +1,9 @@
-"""Cut 18's durable arms: managed deletion on the certified engine and volume.
+"""The durable tests of managed deletion on the certified engine and volume.
 
-Every selected behaviour of `docs/designs/2026-09-04-conformance-cut-18.md` §3
+Every behaviour of managed deletion
 runs twice — portably, in `tests/test_deletion*.py` and the row modules it
 names, and again here through `open_corpus` on a **registered** root. Only this
-module supports a discharge claim (§5 obligation 2), and it never skips: the
+module supports a discharge claim, and it never skips: the
 `durable_root` fixture errors when the configuration tuple is uncertified.
 
 One test per declaration unit, named for its row. Each body mirrors its
@@ -14,17 +14,17 @@ live facade happens to hold.
 
 Two obligations are this module's alone:
 
-- **G8's asymmetry** (§5 obligation 4) runs through `root.audit_log` over a
+- **The raw-versus-managed asymmetry** runs through `root.audit_log` over a
   real chain: a raw `unlink` reads **refuted**, and a managed `delete` of the
   same record reads **validated** with `record-removed` and, given the held
   copy, `failing-verification-removed` at error severity.
 - **`delete`'s chain shape**: one registered transaction whose final states the
   removed path as `absent`, with **no** intent entry appended for it — the
-  ordinary-write claim §3.1 makes, asserted where the entries actually are.
+  ordinary-write claim, asserted where the entries actually are.
 
-§7's two narrowings are honoured exactly as the portable module honours them:
-S5's *indistinguishable* is compared over the epistemic readings only, never
-over log verification, and R23's *the audit reports nothing* is the absence of
+Two narrowings are honoured exactly as the portable module honours them:
+the *indistinguishable* comparison is compared over the epistemic readings only, never
+over log verification, and *the audit reports nothing* is the absence of
 the semantic contradiction code, never of all findings.
 """
 
@@ -156,7 +156,7 @@ TESTING_CONTRACT = REPO_ROOT / "fixtures" / "contracts" / "testing.yaml"
 
 DEFAULT_PINS = pins_for(TESTING_PROFILE)
 """What the portable twin (`test_deletion_rows.py`'s `_writer_for`, since
-estimand-typing Task 7) adopts, so a durable corpus and its portable twin are
+the typed-estimand change) adopts, so a durable corpus and its portable twin are
 pinned to one contract set and an import across them is comparable. Every
 assessment `test_deletion_rows.py`'s builders mint carries a typed estimand
 against `testing/affects`, which BASE does not declare."""
@@ -231,7 +231,7 @@ def _reloaded(scenario: Scenario) -> Scenario:
 
 
 def _assert_delete_chain(root: Path, before: int, path: str) -> None:
-    """`delete`'s committed shape (§3.1): **one** registered transaction whose
+    """`delete`'s committed shape: **one** registered transaction whose
     final states `path` as `absent`, its settlement, and **no intent** — the
     ordinary-write claim, read off the chain rather than off a recorder."""
     added = chain_entries(root)[before:]
@@ -297,14 +297,11 @@ def _view_writer(writer: CorpusWriter):
     return open_corpus(writer.root, authority=FULL, profile=writer.profile)
 
 
-# --- G2c ----------------------------------------------------------------------
-
-
 def test_lifecycle_walk_over_durable_records(durable_writer):
-    """Kernel §3.3's lifecycle table, every row walked over durable records,
+    """The lifecycle table, every row walked over durable records,
     with `active` read under the standing-retraction amendment; `delete`'s
     committed chain shape where a row removes the seeded pass; and the
-    raw-deletion negative G2c, G8 and C6 share — admission restored, and the
+    raw-deletion negative the lifecycle and log tests share — admission restored, and the
     corpus read says nothing about it."""
     work = durable_writer.root.parent
     labels = [row.label for row in LIFECYCLE_ROWS[1:]]
@@ -350,11 +347,11 @@ def test_lifecycle_walk_over_durable_records(durable_writer):
         )
 
 
-# --- G8 and C6: the log half (§5 obligation 4) --------------------------------
+# --- the log half --------------------------------
 
 
 def test_raw_removal_refutes_and_managed_delete_validates(work_directory, durable_root):
-    """The asymmetry §3.1 tables, read where it is actually visible. Two
+    """The raw-versus-managed asymmetry, read where it is actually visible. Two
     registered corpora hold the same records; one raw-`unlink`s the failing
     verification and one calls `delete`. The **corpus** read cannot tell them
     apart — same stored ids, same admission, same belief digest — and the
@@ -369,7 +366,7 @@ def test_raw_removal_refutes_and_managed_delete_validates(work_directory, durabl
             label: _verification(scenario, "v-1-fail", scope="clean-environment", verdict="failed")
             for label, scenario in (("raw", raw), ("managed", managed))
         }
-        # §5.3's held copy: each arm's own record, as it reads back off disk,
+        # The held copy: each case's own record, as it reads back off disk,
         # filed under the digest of those exact bytes. The classification then
         # resolves it by the corpus path the record's identity claims.
         history = {}
@@ -408,7 +405,7 @@ def test_raw_removal_refutes_and_managed_delete_validates(work_directory, durabl
         assert all(finding.ref == "verification/v-1-fail.md" for finding in managed_report.findings)
 
 
-# --- R5: the managed holdings deletion as the last-held-copy transition -------
+# --- the managed holdings deletion as the last-held-copy transition -------
 
 
 R5_CONTENT = b"the observed bytes cut 18 unholds"
@@ -420,7 +417,7 @@ the reduction's head and the declaration join and the input reads **held**."""
 def _r5_records() -> Records:
     """One supporting assessment over one run observing `R5_DECLARATION`, with
     its admitting verification: the smallest corpus in which unholding the
-    input is unholding the **last** directional one (P9)."""
+    input is unholding the **last** directional one."""
     assessment = AssessmentValue(
         spec="spec-a",
         run="run-a",
@@ -446,7 +443,7 @@ def _r5_records() -> Records:
 
 
 def test_the_managed_holdings_delete_ends_heldness_and_changes_admission(certified_work):
-    """R5 negative (a): the last held copy of an `observes` input is destroyed
+    """The last held copy of an `observes` input is destroyed
     by the **managed** act — `holdings.boundary.delete`, which publishes an
     `absent` observation superseding the write's — and the whole reduction is
     re-run over the committed records. The dataset is no longer held, the
@@ -536,7 +533,7 @@ def test_the_managed_holdings_delete_ends_heldness_and_changes_admission(certifi
     assert answer_for(after) == NoBelief("unavailable-input-unheld"), "admission changed; belief is not recomputed"
 
 
-# --- S5's deletion half -------------------------------------------------------
+# --- the deletion half -------------------------------------------------------
 
 
 def test_deletion_half_durably(durable_writer):
@@ -544,7 +541,7 @@ def test_deletion_half_durably(durable_writer):
     `not-certified`, the belief digest moved and no belief rise. Then delete a
     **divergent producer** → the certificate restored, belief rises, and every
     epistemic reading agrees with a corpus in which that run never existed.
-    §7's scoping: the log is not one of those readings and is never compared."""
+    The log is not one of those readings and is never compared."""
     work = durable_writer.root.parent
     with _durable_corpora(work, "s5-diverged", "s5-never", corpus_id="c1" + "0" * 30) as (diverged_root, never_root):
         ancestor = _lineage_corpus(_adopted(durable_writer), second_producer=False)
@@ -581,15 +578,15 @@ def test_deletion_half_durably(durable_writer):
         assert _epistemic_readings(restored) == _epistemic_readings(_reloaded(never))
 
 
-# --- R23's deletion and audit clauses -----------------------------------------
+# --- the deletion and audit clauses -----------------------------------------
 
 
 def test_deletion_and_audit_clauses_durably(durable_writer):
     """The stored ref and its `null` resolution recorded **separately**, for a
     deleted producing run and for a deleted ancestor; a second surviving run
-    repairing nothing; §11.14's residue after deleting `R2`; and the audit's
+    repairing nothing; the residue after deleting a producing run; and the audit's
     contradiction of a forged `single(A)` disappearing once `B`'s run is gone —
-    §7, the absence of the semantic code, never of all findings."""
+    the absence of the semantic code, never of all findings."""
     work = durable_writer.root.parent
     labels = ("r23-ancestor", "r23-second", "r23-residue", "r23-never", "r23-forged")
     with _durable_corpora(work, *labels, corpus_id="c1" + "0" * 30) as (
@@ -657,16 +654,16 @@ def test_deletion_and_audit_clauses_durably(durable_writer):
 
         forged.delete(run_b.id)
 
-        # §7: the **semantic** contradiction is gone. This arm reads the
+        # The **semantic** contradiction is gone. This case reads the
         # semantic audit only; that the log still reports the removal the
-        # transaction committed is the G8/C6 arm's property, established there
+        # transaction committed is the raw-versus-managed test's property, established there
         # over `root.audit_log`.
         assert "lineage-basis-contradicted" not in {
             finding.code for finding in audit_corpus(reopen(forged.root), evidence=NO_EVIDENCE, profile=forged.profile)
         }
 
 
-# --- W16's remaining arm ------------------------------------------------------
+# --- the remaining case ------------------------------------------------------
 
 
 def test_conflict_survives_deleting_either_producer_durably(work_directory):
@@ -716,7 +713,7 @@ def test_conflict_survives_deleting_either_producer_durably(work_directory):
             assert certify(snapshot, (survivor.id,), (sibling.id,)) == divergent
 
 
-# --- C1, re-read under §2.2's narrowing ---------------------------------------
+# --- re-read under the narrowing ---------------------------------------
 
 
 def test_retraction_never_removes_its_target_durably(durable_writer):
@@ -744,7 +741,7 @@ def test_retraction_never_removes_its_target_durably(durable_writer):
     assert view.get(target.id) == target
 
 
-# --- T8, re-read against `delete` ---------------------------------------------
+# --- re-read against `delete` ---------------------------------------------
 
 
 def test_delete_refuses_an_act_report_durably(durable_writer):
@@ -764,7 +761,7 @@ def test_delete_refuses_an_act_report_durably(durable_writer):
     assert sum(1 for node in view.iter_stored() if node.kind == "act-report") == before
 
 
-# --- M13 and M11 against `claim_from_stored` ----------------------------------
+# --- against `claim_from_stored` ----------------------------------
 
 
 M13_SNAPSHOT = build_snapshot(readable={EX: [GENE, OTHER_GENE, OUTCOME], COHORT_DATASET: [ADULTS]})
@@ -772,7 +769,7 @@ M13_SNAPSHOT = build_snapshot(readable={EX: [GENE, OTHER_GENE, OUTCOME], COHORT_
 
 
 def test_claim_from_stored_is_opaque_over_a_durable_record(durable_writer):
-    """§2.5's opacity arms against a record the certified engine committed: no
+    """The opacity checks against a record the certified engine committed: no
     wire type in or out of the signature, delegation to `decode_claim` with the
     seam's own typing path, and the brand chain intact through the new route —
     `π_claim` accepts the restored claim and it projects back to the stored
@@ -800,7 +797,7 @@ def test_claim_from_stored_is_opaque_over_a_durable_record(durable_writer):
 
 
 def test_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_record(durable_writer):
-    """§2.5's decode arms: the same durable record decoded in **another
+    """The decode checks: the same durable record decoded in **another
     process** from the same bytes yields an identical claim identity and
     receipt; availability stays a parameter; and a wrong kind, a missing, an
     extra and a malformed facet field each refuse **before** delegation with
@@ -862,9 +859,6 @@ def test_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_record(
                 snapshot=M13_SNAPSHOT,
             )
     assert _files(writer.root) == before, "a refusal mints nothing"
-
-
-# --- R19 ----------------------------------------------------------------------
 
 
 def test_import_validation_and_transition_b_durably(durable_writer):
@@ -975,9 +969,6 @@ def test_import_validation_and_transition_b_durably(durable_writer):
         assert _audit_log(writer).outcome == "refuted", "the log sees the write the read path cannot"
 
 
-# --- R22 ----------------------------------------------------------------------
-
-
 def test_import_recomputation_and_audit_durably(durable_writer):
     """Negative (c)'s two halves over the certified engine: **explicit import**
     recomputes the assessment facet from the run and refuses a mismatch before
@@ -1012,15 +1003,12 @@ def test_import_recomputation_and_audit_durably(durable_writer):
     }
 
 
-# --- M1 -----------------------------------------------------------------------
-
-
 def test_containment_over_a_durable_corpus(durable_writer):
     """The recorded read-set is contained in the declared closure, over a
     durable corpus exercising **every** corpus-read kind the resolver has; and
-    the sabotage — one extra verification of a different proposition read
+    the deliberate extra read — one extra verification of a different proposition read
     through `gather`, nothing else changed — leaves the digest exactly where it
-    was and breaks containment. Appendix C's resolver bound is untouched: a
+    was and breaks containment. The resolver bound is untouched: a
     read that never crosses `gather` is still invisible here."""
     fixture = _fixture(_adopted(durable_writer), PROPOSITION_REF)
 
@@ -1054,9 +1042,6 @@ def test_containment_over_a_durable_corpus(durable_writer):
     assert {v.ref for v in leaky.verifications} > {v.ref for v in honest.verifications}
     assert leaky.closure().digest() == honest.closure().digest()
     assert not set(leaky.read_trace) <= leaky.declared_refs()
-
-
-# --- M3 -----------------------------------------------------------------------
 
 
 def test_audit_classification_and_admission_order_durably(work_directory):
@@ -1105,9 +1090,6 @@ def test_audit_classification_and_admission_order_durably(work_directory):
         for scenario in reloaded:
             for node in scenario.view.iter_stored():
                 assert _facet_members(node.facets) & RANKING_MEMBERS == set(), f"{node.id} carries a stored rank"
-
-
-# --- M5 -----------------------------------------------------------------------
 
 
 M5_SNAPSHOT = build_snapshot(readable={EX: [GENE, PHENO, SETTING], COHORT_DATASET: [ADULTS, CHILDREN]})
@@ -1169,7 +1151,7 @@ def test_qualification_identity_durably(durable_writer):
 
 
 def test_boundary_reresolution_after_a_durable_delete(durable_writer):
-    """§3.6: both entry points re-resolve under the lock immediately before
+    """Both entry points re-resolve under the lock immediately before
     plan construction and refuse `RelocationTargetMissing` when a real `delete`
     removed the target under them. The absence is produced by `delete` and
     never by a filesystem call."""

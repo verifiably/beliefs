@@ -1,4 +1,4 @@
-"""Cut 25 — source addresses derived from the normalized identifier (W1, W2, W5a)."""
+"""Source addresses derived from the normalized identifier."""
 
 from __future__ import annotations
 
@@ -236,7 +236,7 @@ def test_source_arm_rename_preserves_uid_and_redirects(world):
     ],
 )
 def test_refusals_leave_no_intent_or_file_effect(work_directory, case, exception, reason):
-    """Each refusing stage of §6.1 runs before intent append or file publication."""
+    """Each refusing stage runs before intent append or file publication."""
     root = adopted(work_directory, f"cut25-refuse-{case}")
     session, _backend, ops = halting_session(work_directory, root)
     try:
@@ -350,7 +350,7 @@ def correction_halt_positions(work_directory) -> tuple[int, int]:
 
 
 def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypatch, correction_halt_positions):
-    """Spec §10.3: a refusal has no effect; a halt after submission leaves a stated
+    """A refusal has no effect; a halt after submission leaves a stated
     prefix and the root unresolved; a post-commit readback fault leaves the record
     durable; settlement leaves exactly one record with the subject's uid."""
     halt_before_create, halt_between = correction_halt_positions
@@ -482,8 +482,8 @@ def test_lifecycle_move_consolidate_delete(world):
 
 
 def test_consolidate_interrupted_after_replacement_re_runs_to_completion(world, monkeypatch):
-    """Families design, `consolidate` interrupted after step 4: keep holds the reconciled
-    survivor, other still holds its replica, and the recovery is to re-run. Slice 6 §5:
+    """`consolidate` interrupted after step 4: keep holds the reconciled
+    survivor, other still holds its replica, and the recovery is to re-run.
     the re-run absorbs nothing twice."""
     registry, (a, left), (b, right) = world
     for writer, grounds in ((left, "g-left"), (right, "g-right")):

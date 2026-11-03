@@ -1,9 +1,9 @@
-"""Cut 48: the 1b overlap on the certified tuple — a world holding its own records and
-a publication that carries them (overlapping-publications design §1, §6–§8).
+"""The overlap on the certified tuple — a world holding its own records and
+a publication that carries them.
 
 World *A* publishes P1 from its typed corpus; world *B* adopts P1 and publishes P2
 carrying *A*'s records; *A* adopts P2 (the overlap), builds an epoch, publishes P3;
-*B* adopts P3 keeping P1. Durable evidence beside the units; it adds no unit."""
+*B* adopts P3 keeping P1. Durable evidence beside the unit tests."""
 
 from __future__ import annotations
 
@@ -120,7 +120,7 @@ def world_over(s, replicas, *, own=()):
 
 
 def overlap(s):
-    """The 1b overlap: *A* publishes P1, *B* adopts it and publishes P2, *A* adopts P2."""
+    """The overlap: *A* publishes P1, *B* adopts it and publishes P2, *A* adopts P2."""
     a = world_a(s)
     p1 = _published(publish(a.context))
     p1_root, p1_observers = adopt(s, a.context, p1)

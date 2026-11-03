@@ -1,4 +1,4 @@
-"""Cut 33: correction standing through the certified durable boundary."""
+"""Correction standing through the certified durable boundary."""
 
 from __future__ import annotations
 
@@ -386,7 +386,7 @@ def test_a_resolution_disagreement_refuses(durable_world):
     _, inputs = _world_read(world, together, a, b, profile)
     assert dict(inputs.retractions.found)[first.id] == "overturned"
     move(alpha, beta, counter.id, **MOVE_FIELDS)
-    # Cut 48 §4.5: the shipped (v2-bound) enumeration folds once over the whole capture, so
+    # The shipped (v2-bound) enumeration folds once over the whole capture, so
     # the moved counter still overturns its target and the world reads; the v1 binding keeps
     # the per-corpus pair the evaluator's fold cannot reproduce, and refuses.
     split = publish(world, (a, b), hold_shipped(world))

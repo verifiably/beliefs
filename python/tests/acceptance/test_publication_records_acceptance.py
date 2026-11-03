@@ -1,10 +1,10 @@
-"""Conformance cut 39 — publication records (publication-records design §11.2).
-Thirteen declaration units over real roots on the certified volume.
+"""Publication records.
+Thirteen groups of tests over real roots on the certified volume.
 
-Each test is one unit of the cut's §3 table; the cut's §5 arms sabotage the
-source each one reads, and §6's second reader checks the obligations the
-docstrings name. Tests may import `atoms` (W17-p-f patches the engine's
-create-file effect, as Task 0's probe does); only source modules may not."""
+Each test names one behaviour; the sabotage checks patch the
+source each one reads, and a second reader checks the obligations the
+docstrings name. Tests may import `atoms` (one test patches the engine's
+create-file effect); only source modules may not."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 import yaml
-from atoms.coordinator.effects import create_file  # W17-p-f's rollback, as Task 0 pinned it
+from atoms.coordinator.effects import create_file  # the rollback test patches it
 from authority import FULL
 from coordination_fixtures import content_for, coordination_profile, raw_add
 from nodes.core.errors import ExecutionError
@@ -83,7 +83,7 @@ _counter = count()
 
 
 class Clock:
-    """Advances one second on every read (Y2-a's sabotage is a clock read in the door)."""
+    """Advances one second on every read (a clock read in the door would break byte identity)."""
 
     def __init__(self) -> None:
         self.n = 0
@@ -259,33 +259,33 @@ def _bindings_on_disk(root: Path) -> set[str]:
     return {path.name for path in directory.iterdir()} if directory.is_dir() else set()
 
 
-# --- W17: the intent-position rule, operationally --------------------------------
+# --- the intent-position rule, operationally --------------------------------
 
 
 def test_a_second_writer_between_tip_read_and_append_is_refused_durably(pair):
-    """§6: the second writer commits between step 0's tip read and its
+    """The second writer commits between step 0's tip read and its
     `append_intent` — a port wrapper, not a thread — and the refusal is the
     guard's recomputation at the intent's position."""
-    first, _ = publish(pair)  # B1, a first publication
+    first, _ = publish(pair)  # the first publication
     inner = pair.writers[0]._operation_port
     superseding: list[BindingOutcome] = []
 
     class SecondWriter:
-        """Stands in for a second process on the same root (decision 11): before
-        the intent is appended, it commits a whole publish superseding B1."""
+        """Stands in for a second process on the same root: before
+        the intent is appended, it commits a whole publish superseding the first."""
 
         root, profile, authority = inner.root, inner.profile, inner.authority
 
         def append_intent(self, payload):
             if not superseding:
-                superseding.append(publish(pair)[1])  # B3 supersedes B1, committed before this intent
+                superseding.append(publish(pair)[1])  # the third supersedes the first, committed before this intent
             return inner.append_intent(payload)
 
         def __getattr__(self, name):
             return getattr(inner, name)
 
     opened = open_at(pair, port=SecondWriter())
-    assert opened.intent.binding_tips == (binding_uid(first.intent.event_token),)  # the tip read before B3
+    assert opened.intent.binding_tips == (binding_uid(first.intent.event_token),)  # the tip read before the third
     (b3,) = superseding
     assert type(b3.report.entries[0].outcome) is BindingBound
     before = _bindings_on_disk(pair.roots[0])
@@ -299,9 +299,9 @@ def test_a_second_writer_between_tip_read_and_append_is_refused_durably(pair):
 
 
 def test_a_supersession_after_the_intent_commits_a_lawful_sibling_durably(pair):
-    publish(pair)  # B1
+    publish(pair)  # the first publication
     opened = open_at(pair)
-    _, b3 = publish(pair)  # B3 supersedes B1, after this intent
+    _, b3 = publish(pair)  # the third supersedes the first, after this intent
     outcome = bind(pair, opened)
     assert type(outcome.report.entries[0].outcome) is BindingBound and outcome.binding is not None
     divergent = tips(pair)
@@ -314,10 +314,10 @@ def test_a_supersession_after_the_intent_commits_a_lawful_sibling_durably(pair):
 
 
 def test_a_revision_past_its_anchor_is_not_present_durably(pair):
-    """§6: the anchor is the one the intent carries, read back from the chain."""
-    _, earlier = publish(pair, side=1)  # B1 in the other root
+    """The anchor is the one the intent carries, read back from the chain."""
+    _, earlier = publish(pair, side=1)  # the first publication in the other root
     opened = open_at(pair)
-    _, later = publish(pair, side=1)  # B3 in the other root, after the anchor
+    _, later = publish(pair, side=1)  # the third publication in the other root, after the anchor
     decoded = decode_publish_intent(_payload_at(pair.roots[0], opened.digest))
     assert decoded.anchors == opened.intent.anchors and len(decoded.anchors) == 1
     present = standing_at(
@@ -391,7 +391,7 @@ def test_mount_order_moves_neither_anchors_nor_tips_durably(work_directory, base
 
 @pytest.mark.parametrize("damage", ["missing", "mismatch", "unregistered", "rewritten"])
 def test_the_chain_not_the_directory_says_which_revisions_exist_durably(pair, damage):
-    """§6: each refusal is raised by the chain's inventory (and its re-read), not
+    """Each refusal is raised by the chain's inventory (and its re-read), not
     by the resolver's live read of the directory — which would, in every case,
     answer a standing tip."""
     publish(pair)  # A
@@ -438,8 +438,8 @@ def test_the_chain_not_the_directory_says_which_revisions_exist_durably(pair, da
 
 
 def test_a_rolled_back_creation_is_absent_and_its_retry_present_once_durably(pair, monkeypatch):
-    """ROLLBACK_MEANS = patched create effect; RETRY_AFTER_ROLLBACK = same intent (Task 0)."""
-    _, first = publish(pair, side=1)  # B1 in the other root
+    """ROLLBACK_MEANS = patched create effect; RETRY_AFTER_ROLLBACK = same intent."""
+    _, first = publish(pair, side=1)  # the first publication in the other root
     opened = open_at(pair, side=1)
 
     def failing(*args, **kwargs):
@@ -458,7 +458,7 @@ def test_a_rolled_back_creation_is_absent_and_its_retry_present_once_durably(pai
     would_be_path = other / pair.writers[1]._relative_path(would_be)
     assert not would_be_path.exists()
 
-    # B1 alone: the rolled-back binding is not present, and nothing refused
+    # The first publication alone: the rolled-back binding is not present, and nothing refused
     assert open_at(pair).intent.binding_tips == (bound(first).uid,)
 
     # its file, if left: classified by the rolled-back registration — not present, no refusal
@@ -474,7 +474,7 @@ def test_a_rolled_back_creation_is_absent_and_its_retry_present_once_durably(pai
     assert again.intent.binding_tips == (retried.binding.uid,)  # present once, not ambiguous
 
 
-# --- Y1: the kinds are declared, gated and inert ---------------------------------
+# --- the kinds are declared, gated and inert ---------------------------------
 
 
 def test_version_and_door_refusals_durably(work_directory, base_contract, pair):
@@ -502,7 +502,7 @@ def test_version_and_door_refusals_durably(work_directory, base_contract, pair):
     for kind in ("publication", "publication-binding"):
         with pytest.raises(KindNotMintedHere):
             writer.mint_coordination(kind, project=pair.view, content={})
-        with pytest.raises(KindNotMintedHere):  # spec §11.3's sabotaged door
+        with pytest.raises(KindNotMintedHere):  # a door that minted the kind
             writer.revise_coordination(kind, binding_address(pair.view, LOCAL), predecessors=("0" * 32,), content={})
     opened, outcome = publish(pair)
     decoded = decode_publish_intent(_payload_at(pair.roots[0], opened.digest))
@@ -591,11 +591,11 @@ def test_publication_records_are_inert_to_the_world_and_to_belief_durably(work_d
         shutil.rmtree(metadata_root_for(world_root), ignore_errors=True)
 
 
-# --- Y2: byte-functions of the intent ---------------------------------------------
+# --- byte-functions of the intent ---------------------------------------------
 
 
 def test_the_committed_binding_is_the_factory_of_its_decoded_intent_durably(pair):
-    """§6: the clock advances on every read, so a door that read it into the
+    """The clock advances on every read, so a door that read it into the
     record would commit bytes the factory over the decoded intent does not make."""
     clock = Clock()
     opened, outcome = publish(pair, clock=clock)
@@ -608,7 +608,7 @@ def test_the_committed_binding_is_the_factory_of_its_decoded_intent_durably(pair
     assert on_disk == node_to_markdown(rebuilt).encode("utf-8")
 
 
-# --- Y3: the audit reads publish intents by their domain ----------------------------
+# --- the audit reads publish intents by their domain ----------------------------
 
 
 def test_the_audit_reads_publish_intents_by_their_domain_durably(pair):
@@ -625,7 +625,7 @@ def test_the_audit_reads_publish_intents_by_their_domain_durably(pair):
     assert (bare, "intent-payload-malformed") in codes
 
 
-# --- Y4: step 8 is all-or-nothing; orphans ------------------------------------------
+# --- step 8 is all-or-nothing; orphans ------------------------------------------
 
 
 class _CountingPort:
@@ -648,7 +648,7 @@ class _CountingPort:
 
 
 def test_one_fulfilling_submission_each_way_and_no_binding_on_refusal_durably(pair):
-    """§6: the count is of `execute_fulfilling_guarded` calls on a wrapper over the durable port."""
+    """The count is of `execute_fulfilling_guarded` calls on a wrapper over the durable port."""
     writer = pair.writers[0]
     success_port = _CountingPort(writer._operation_port)
     _, success = publish(pair, port=success_port)

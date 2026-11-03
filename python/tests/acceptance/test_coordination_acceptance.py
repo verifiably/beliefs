@@ -296,7 +296,7 @@ def test_a_subordinate_under_a_divergent_project_names_the_project_tips(
 def test_an_undeclared_kind_mints_nothing(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     project = writer.mint_coordination("project", content=content_for("project"))
-    # Not `publication`: since cut 39 that kind is declared by v2 and refused at the door.
+    # Not `publication`: that kind is declared by v2 and refused at the door.
     with pytest.raises(ValidationRefused, match="not declared"):
         writer.mint_coordination(
             "milestone",

@@ -1,4 +1,4 @@
-"""Cut 5's family writes through the certified composition root."""
+"""Family writes through the certified composition root."""
 
 from __future__ import annotations
 

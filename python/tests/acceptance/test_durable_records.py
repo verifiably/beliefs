@@ -1,13 +1,13 @@
-"""R19 and R22 over the durable store: what a read does, and what it does not.
+"""The durable store: what a read does, and what it does not.
 
-Both rows are about the **read side**. Cut 3 could state them only over value
+Both concerns are about the **read side**. They could be stated only over value
 sets; here a record lands at an address and reloads, so *"not refused"* and
 *"the reader said nothing"* are assertions about a read that runs.
 
-**Heldness stays exactly what cut 3 made it** — a value a fixture supplies.
+**Heldness stays exactly as the portable tests make it** — a value a fixture supplies.
 Nothing is mounted, nothing is acquired, and no managed deletion runs: making
 artifacts unreachable *here* while a copy remains held elsewhere is a statement
-about the observations supplied to the call, which is the only place this slice
+about the observations supplied to the call, which is the only place this module
 represents heldness at all.
 """
 
@@ -56,7 +56,7 @@ def belief_digest(view, proposition: str = PROPOSITION) -> str:
     """The belief input closure's digest, taken over the reloaded store.
 
     The producer snapshot, the retraction enumeration, the consulted pairs and
-    the policy binding are **supplied**, exactly as cut 3's selected arms had
+    the policy binding are **supplied**, exactly as the portable tests have
     them: the closure digests them, and nothing here computes them.
     """
     assessments = assessments_of(view)
@@ -112,12 +112,12 @@ def mint_run_and_proposition(writer):
 
 
 def passed_verification_under_a_tolerance():
-    """A `passed` verification built by the constructor cut 3 selected, with a
+    """A `passed` verification built by the constructor the portable tests use, with a
     **declared tolerance** as the held equivalence implementation.
 
     Its scope is whatever the boundary policy derives, and `clean-environment`
-    is no more reachable here than it was in cut 3 — confinement is the
-    boundary-policy work this slice does not build. What the constructor
+    is no more reachable here than it is in the portable tests — confinement is the
+    boundary-policy work that is not built here. What the constructor
     supplies, and what this arm needs, is the verdict and the rule.
     """
     spec = freeze(spec_draft(), held_rules=spec_rules())

@@ -1,4 +1,4 @@
-"""Cut 11's durable acceptance arms: genuine boundaries, real chains."""
+"""Durable acceptance tests: genuine boundaries, real chains."""
 
 from __future__ import annotations
 

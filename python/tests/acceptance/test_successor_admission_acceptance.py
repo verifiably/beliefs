@@ -1,5 +1,5 @@
-"""Cut 12's durable arms that need a live boundary, a chain mutation, or a
-second writer: G4u11 (snapshot coherence), R12u1–u2, L7u14."""
+"""Durable tests that need a live boundary, a chain mutation, or a
+second writer: snapshot coherence, successor admission and the excised-entry defect."""
 
 from __future__ import annotations
 
@@ -107,7 +107,7 @@ def test_an_excised_intent_entry_reads_malformed_and_the_act_refuses(certified_w
     _leaf(root, intent).unlink()
     view = seam().inspect_registered(root)
     assert type(view) is MalformedView, view
-    # Cut 12 §5 item 5: the defect names the excised entry's successor — the
+    # The defect names the excised entry's successor — the
     # registration whose predecessor is now missing — and its class.
     assert (view.defect.kind, view.defect.subject) == ("missing-predecessor", successor)
     with pytest.raises(AdmissionEvidenceRefused) as refused:

@@ -1,4 +1,4 @@
-"""Cut 20: the declared facet boundary over registered durable corpora."""
+"""The declared facet boundary over registered durable corpora."""
 
 from __future__ import annotations
 
@@ -501,7 +501,7 @@ def test_every_builder_facet_is_declared(corpora, acquisition_report):
         "holdings_observation_node": stored.holdings_observation_node(observation()),
         # A composite is built, never authored, and its node set is resolved against a
         # profile that declares the sorts — so the value comes from the fixture profile
-        # while the facet it carries is the base contract's, which is what F8 reads.
+        # while the facet it carries is the base contract's, which the facet test reads.
         "composite_node": stored.composite_node(
             build_composite(
                 WITH_BIOLOGY,

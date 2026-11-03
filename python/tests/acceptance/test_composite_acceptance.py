@@ -1,21 +1,21 @@
-"""Cut 32: composite claims, row by row, over registered durable corpora.
+"""Composite claims, test by test, over registered durable corpora.
 
-One test per guarantee row of the composite-claims design's §8 table U, named
-`test_u<n>_<slug>` and composed from the unit tests' own constructions rather
+One test per composite-claim guarantee, composed from the unit tests' own
+constructions rather
 than from a second set — `test_composite.py`'s builders, `test_composite_
 boundary.py`'s writer and claim helpers, `test_composite_reading.py`'s argument
-bundle, `test_audit.py`'s U7 block and `test_domain_contract.py`'s `TestEdges`
+bundle, `test_audit.py`'s composite block and `test_domain_contract.py`'s `TestEdges`
 — re-pointed at corpora the composition root registered on the certified
 volume.
 
 The shipped base contract is read through `importlib.resources`, i.e. from the
-**package** copy, because that is the copy an N2 sabotage mutates; the
+**package** copy, because that is the copy a package-patching test would mutate; the
 repo-root copy is the same bytes and the parity fixture holds them equal.
 
-U10 is the exception by design: the mm30 reproduction's re-run is the driver's,
+The reproduction test is the exception by design: the mm30 reproduction's re-run is the driver's,
 executed once against the corpus on the certified volume beside the main
-checkout, and this row reads what it recorded (`state.json`, the dated addendum
-§11 of `2026-09-05-mm30-reproduction.md`). It asserts nothing the record does
+checkout, and this row reads what it recorded (`state.json`).
+It asserts nothing the record does
 not carry, and skips — naming the recorded refusal — if the driver's `compose`
 step refused.
 """
@@ -80,9 +80,9 @@ ISOLATED = CompositeNode(GENE, "EX:z")
 
 
 def _shipped_document() -> dict[str, Any]:
-    """The package's own base contract, re-read on every call: an N2 sabotage
+    """The package's own base contract, re-read on every call: a package-patching test
     mutates a copy of the package, and a module-level read would freeze the
-    unsabotaged bytes into this module's import."""
+    unpatched bytes into this module's import."""
     text = resources.files("beliefs").joinpath("contracts/science/CONTRACT.yaml").read_text(encoding="utf-8")
     document = yaml.safe_load(text)
     assert isinstance(document, dict)
@@ -148,7 +148,7 @@ def _widened_profile():
 
 def _estimand_with(claim, identification: str):
     """`test_composite_boundary._estimand`, with the identification term named:
-    U8's admitted-set arm needs two assessments whose terms differ."""
+    the admitted-set test needs two assessments whose terms differ."""
     estimand, _ = build_estimand(
         WITH_BIOLOGY,
         claim,
@@ -231,11 +231,8 @@ def _vitest(module: str) -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
-# --- U1 ---------------------------------------------------------------------
-
-
 def test_grammar_kind_and_relations(corpora):
-    """U1: the grammar, the kind and the two relations, in both implementations;
+    """The grammar, the kind and the two relations, in both implementations;
     an unknown shape, a missing grammar and a `composes` signature outside
     `composite → proposition` refuse at parse."""
     base = shipped_base_contract()
@@ -254,7 +251,7 @@ def test_grammar_kind_and_relations(corpora):
     )
     supersedes = base.relations["supersedes"]
     assert set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite"} and supersedes.same_kind
-    # `assesses` keeps its one target kind — the boundary invariant U4 rests on.
+    # `assesses` keeps its one target kind — the boundary invariant the belief-inertness test rests on.
     assert base.relations["assesses"].targets == ("proposition",)
     writer = corpora()
     assert writer.profile.composite_grammar == base.composite_grammar
@@ -295,11 +292,8 @@ def test_grammar_kind_and_relations(corpora):
     _vitest("tests/declarations.test.ts")
 
 
-# --- U2 ---------------------------------------------------------------------
-
-
 def test_edges_declared_and_never_redefined(corpora, base_contract, testing_document):
-    """U2: `test_domain_contract.TestEdges`, plus the compiled keying and the
+    """`test_domain_contract.TestEdges`, plus the compiled keying and the
     durable corpus's own pinned profile."""
 
     def parse(document, predecessor=None):
@@ -370,9 +364,6 @@ def test_edges_declared_and_never_redefined(corpora, base_contract, testing_docu
     assert "edge:affects" in parse(retiring, predecessor=genesis).retired_identifiers()
 
 
-# --- U3 ---------------------------------------------------------------------
-
-
 def _hand_built(writer, members, refs, *, nodes=(A, B, C), slug="x"):
     """A stored composite whose facet says what the constructor would refuse:
     built from an admissible one, then re-pointed and re-stamped."""
@@ -385,7 +376,7 @@ def _hand_built(writer, members, refs, *, nodes=(A, B, C), slug="x"):
 
 
 def test_form_classification_and_vocabulary_arms(corpora):
-    """U3: every form and classification row refused at construction and at
+    """Every form and classification row refused at construction and at
     `add`; the vocabulary halves — the boundary checks form only, the
     constructor and the reading resolve nodes under their caller's snapshot."""
     writer = _seeded(corpora())
@@ -452,12 +443,11 @@ def test_form_classification_and_vocabulary_arms(corpora):
     assert caught.value.code == "composite-shape"
 
     # The duplicate node, the duplicate member and the empty node set at `add`.
-    # §4.2 step 1 is the facet decode, and it is the step that owns these three:
+    # The facet decode is the first step, and it is the step that owns these three:
     # the boundary reads the stored facet before it re-derives anything, so a
     # facet that is not a facet refuses under the decode's own code and no
     # `composite-*` classification is reached. The code is therefore
-    # `MalformedRecord`, not the constructor's — measured, and recorded in the
-    # cut document's §8.4.
+    # `MalformedRecord`, not the constructor's — measured.
     for mutate, defect in (
         (
             lambda f: f.__setitem__("nodes", [{"sort": GENE, "term": "EX:a"}, {"sort": GENE, "term": "EX:a"}]),
@@ -584,7 +574,7 @@ def test_form_classification_and_vocabulary_arms(corpora):
         slug="iso",
     )
     assert receipt.outcomes["node:2"] == TermOutcome.NOT_CONSULTED and receipt.snapshot_identity == UNCONSULTED.identity
-    held = writer.add(stored.composite_node(isolated, title="iso"))  # the boundary holds no snapshot (§4.2 step 1)
+    held = writer.add(stored.composite_node(isolated, title="iso"))  # the boundary holds no snapshot (the facet decode)
     assert writer.read_view.get(held.id).kind == "composite"
     address = _seed_assessment(
         writer,
@@ -601,11 +591,8 @@ def test_form_classification_and_vocabulary_arms(corpora):
     assert reading.node_outcomes["node:2"] == TermOutcome.NOT_CONSULTED
 
 
-# --- U4 ---------------------------------------------------------------------
-
-
 def test_composite_leaves_proposition_belief_inert(corpora):
-    """U4: minting, superseding and deleting a composite naming a proposition
+    """Minting, superseding and deleting a composite naming a proposition
     moves no byte of that proposition's belief input digest, and `assesses`
     cannot target a composite — at `add` and at `import_bundle` alike."""
     writer = _seeded(corpora())
@@ -661,11 +648,8 @@ def test_composite_leaves_proposition_belief_inert(corpora):
         third.import_bundle(bundle, **IMPORT)
 
 
-# --- U5 ---------------------------------------------------------------------
-
-
 def test_composite_content_identity_ignores_authoring_order_and_display_prose(corpora):
-    """U5: content identity over the covered facet — authoring order does not
+    """Content identity over the covered facet — authoring order does not
     move it, a node with no member does, display prose does not."""
     writer = _seeded(corpora())
     view = writer.read_view
@@ -702,11 +686,8 @@ def test_composite_content_identity_ignores_authoring_order_and_display_prose(co
     assert stored.stored_semantic_hash(plain) == stored.stored_semantic_hash(prose) == two.identity
 
 
-# --- U6 ---------------------------------------------------------------------
-
-
 def test_boundary_resolution_and_identity(corpora):
-    """U6: each `composes` target resolves to a proposition whose semantic
+    """Each `composes` target resolves to a proposition whose semantic
     identity equals the facet's member at that position — through `add` and
     through `import_bundle`."""
     writer = _seeded(corpora())
@@ -757,11 +738,8 @@ def test_boundary_resolution_and_identity(corpora):
         assert refused.value.member == node.id
 
 
-# --- U7 ---------------------------------------------------------------------
-
-
 def test_composite_audit_codes_are_contradictions_not_malformedness(corpora):
-    """U7: the four composite codes and `supersedes-cross-kind`, as
+    """The four composite codes and `supersedes-cross-kind`, as
     contradictions rather than malformedness, with the record read again."""
     writer = _seeded(corpora())
     minted = writer.add(stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"]), title="g"))
@@ -808,7 +786,7 @@ def test_composite_audit_codes_are_contradictions_not_malformedness(corpora):
     assert ("composite-member-unresolvable", deleted.id) in findings
     assert not any(code in audit_module.MALFORMEDNESS_CODES for code, _ in findings)
 
-    # "No longer classifies", as U7's verification column names it: retire the
+    # "No longer classifies": retire the
     # `edges:` row by successor and audit. `check_composite` is called directly
     # because the corpus pins the predecessor contract, and `audit_corpus` under
     # the successor would report `profile-mismatch` and stop before the arm this
@@ -858,8 +836,6 @@ def test_composite_audit_codes_are_contradictions_not_malformedness(corpora):
     assert outcome.checked and outcome.contradiction is not None
 
 
-# --- U8 ---------------------------------------------------------------------
-
 _READING_SCRIPT = """
 import sys
 sys.path.insert(0, {tests!r})
@@ -901,7 +877,7 @@ def _read_in_a_fresh_process(root: Path, ref: str, address: str) -> bytes:
 
 
 def test_reading_equals_the_wrapper(corpora):
-    """U8: every row's belief **equals** `evaluate_over`'s answer for that
+    """Every row's belief **equals** `evaluate_over`'s answer for that
     member under the same arguments, the identification column is drawn from
     the same traced admission, and two processes agree byte for byte."""
     writer = _seeded(corpora())
@@ -1061,11 +1037,8 @@ def _assert_one_admission(writer, ref: str, address: str) -> None:
     assert admit_calls == [1, 1], admit_calls  # `ab`'s two distinct assessments; `bc` has none
 
 
-# --- U9 ---------------------------------------------------------------------
-
-
 def test_composite_supersession_family_and_refusal_paths(corpora, base_contract):
-    """U9: the family calls, the shared refusal path for `add` and
+    """The family calls, the shared refusal path for `add` and
     `import_bundle` in both directions, the audited raw pair, and `same_kind`
     refused on unequal endpoint sets by both parsers."""
     writer = _seeded(corpora())
@@ -1124,11 +1097,8 @@ def test_composite_supersession_family_and_refusal_paths(corpora, base_contract)
     _vitest("tests/declarations.test.ts")
 
 
-# --- U10 --------------------------------------------------------------------
-
-
 def test_reproduction_driver_state_is_read_by_name():
-    """U10: the driver's own recorded state, read by name. The reproduction
+    """The driver's own recorded state, read by name. The reproduction
     step is the driver's and is not re-run here."""
     from reproduction.paths import STATE
 

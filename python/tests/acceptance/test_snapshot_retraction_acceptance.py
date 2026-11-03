@@ -1,6 +1,6 @@
-"""Cut 34: the snapshot target arm through the certified durable boundary.
+"""The snapshot target through the certified durable boundary.
 
-One test per declaration unit (C8-a–d, C9-a–d, BI-1–9), each the slice's
+One test per behaviour, each the portable
 unit test re-composed over the durable world: registered roots on the
 certified volume, the composition root's executors, and a session-shaped
 writer holding the world's retained epochs.
@@ -142,7 +142,7 @@ def _findings(report) -> list[tuple[str, str, str, str, str]]:
     return sorted(rows)
 
 
-# --- C8: a retracted snapshot is refused where recomputation already happens -----
+# --- a retracted snapshot is refused where recomputation already happens -----
 
 
 def test_import_of_a_retracted_producer_subject_refuses_before_any_write(durable_world, replica, tmp_path):
@@ -174,7 +174,7 @@ def test_the_query_reports_retracted_and_the_successor_unchecked(durable_world):
     new = publish(world, (a,), hold_shipped(world))
     old_identity, new_identity = _identity(old), _identity(new)
     assert old_identity != new_identity
-    # §9 step 1: the only moment the successor is `checked` — before the retraction moves a corpus both cover.
+    # The only moment the successor is `checked` — before the retraction moves a corpus both cover.
     assert snapshot_state(world, "producer", new_identity).state == "checked"
     _writer(roots[a], profile, world).retract(snapshot_retraction(old_identity, successor=new_identity))
     retracted = snapshot_state(world, "producer", old_identity)
@@ -210,11 +210,11 @@ def test_mounting_writes_nothing_and_validates_nothing(durable_world, monkeypatc
     assert calls == []
 
 
-# --- C9: narrowing is snapshot succession plus retraction --------------------------
+# --- narrowing is snapshot succession plus retraction --------------------------
 
 
 def _narrowed(durable_world):
-    """The route of §9: `new` under (ALPHA,), then `old` retracted naming it."""
+    """The route: `new` under (ALPHA,), then `old` retracted naming it."""
     world, roots, old, a, b, profile = _world(durable_world)
     new = publish(world, (a,), hold_shipped(world))
     old_identity, new_identity = _identity(old), _identity(new)

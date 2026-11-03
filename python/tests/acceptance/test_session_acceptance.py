@@ -1,4 +1,4 @@
-"""Cut 19's durable arms (design §9.2): the attended session over registered,
+"""The attended session over registered,
 adopted roots on the certified volume, through the real DurableOperationPort."""
 
 from __future__ import annotations
@@ -147,7 +147,7 @@ def attended(work_directory: Path, root: Path, *, profile=WITH_BIOLOGY, **kwargs
     return open_attended_session(config_for(work_directory, root), ops, write_root=root, profile=profile, **kwargs), ops
 
 
-# --- the session's store (session-routes design §3.1) --------------------------
+# --- the session's store --------------------------
 def test_a_session_opened_with_a_store_exposes_its_identity(work_directory):
     root = adopted(work_directory, "store-session")
     store = _track(work_directory / f"store-{secrets.token_hex(4)}")
@@ -223,7 +223,7 @@ def session_rig(work_directory):
     try:
         yield session, root, ops
     finally:
-        # `close` is idempotent (J9) and no arm here faults the ledger, so the
+        # `close` is idempotent and no test here faults the ledger, so the
         # teardown closes outright rather than swallowing whatever it raises.
         session.close()
 
@@ -242,7 +242,6 @@ def triple(entries, offset: int) -> tuple[IntentEntryView, RegisteredEntryView, 
     return intent, registration, settlement
 
 
-# --- J1 ---------------------------------------------------------------------------
 def test_each_scoped_write_is_one_intent_and_one_fulfilling_registration(session_rig, work_directory):
     session, root, _ = session_rig
     # An eligible retraction target (assessment) minted through the library path: a proposition is not retractable.
@@ -391,7 +390,6 @@ def test_coordination_writes_commit_as_operations(work_directory, base_contract)
     plain.close()
 
 
-# --- J3 -----------------------------------------------------------------------------
 def test_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(session_rig):
     session, root, _ = session_rig
     head = chain(root).tip
@@ -414,7 +412,6 @@ def test_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(session
     assert fresh(session, "D", PROPOSITIONS).add(proposition("p")).kind == "proposition"
 
 
-# --- J4 -----------------------------------------------------------------------------
 def test_every_intent_carries_the_session_actor(session_rig):
     session, root, _ = session_rig
     target = mint_eligible_assessment(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY))
@@ -433,7 +430,6 @@ def test_every_intent_carries_the_session_actor(session_rig):
             assert "actor" not in inspect.signature(member).parameters, f"{owner.__name__}.{name}"
 
 
-# --- J5 -----------------------------------------------------------------------------
 def test_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the_lock(session_rig, monkeypatch):
     session, root, ops = session_rig
     ledger_file = ledger_path(ops, session.session_id)
@@ -461,7 +457,7 @@ def test_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the_lo
     node = w.add(proposition("p1"))
     assert holders == [("writer", True)]
     assert ledger_file.stat().st_size > sizes[0]
-    # §7 J5 reads the ledger *back*: the assertions below are off the persisted line, so a
+    # The ledger is read *back*: the assertions below are off the persisted line, so a
     # durable `act` carrying an `entry` the chain does not hold fails here whatever the
     # in-memory index says. The index is asserted alongside, never instead.
     (persisted,) = open_ledger_reader(ops, session.session_id).acts()
@@ -478,11 +474,10 @@ def test_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the_lo
     assert holders[-1] == ("writer", True)
 
 
-# --- J9 -----------------------------------------------------------------------------
 def test_lifecycle_and_the_refusing_configurations(work_directory):
     root = adopted(work_directory, "corpus")
-    # `attended` mints the world config inside itself, and J9 compares the world id the
-    # `session-open` line carries against the config's *exactly*, so this arm builds the
+    # `attended` mints the world config inside itself, and the session compares the world id the
+    # `session-open` line carries against the config's *exactly*, so this test builds the
     # config and hands it to the constructor rather than going through the helper.
     config = config_for(work_directory, root)
     ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
@@ -556,7 +551,6 @@ def test_lifecycle_and_the_refusing_configurations(work_directory):
     opened.close()
 
 
-# --- J10 ----------------------------------------------------------------------------
 def test_a_session_write_is_indistinguishable_on_ordinary_read(work_directory):
     twin_a = adopted(work_directory, "twin-a")
     twin_b = adopted(work_directory, "twin-b")
@@ -589,7 +583,6 @@ def inventory(root: Path) -> list[str]:
     return sorted(node.id for node in open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view.iter_stored())
 
 
-# --- J11 ----------------------------------------------------------------------------
 def test_a_writer_is_bound_to_one_invocation_durably(session_rig):
     session, root, ops = session_rig
 
@@ -696,7 +689,6 @@ def halting_session(work_directory: Path, root: Path) -> tuple[WriterSession, Ha
     return session, backend, ops
 
 
-# --- J2 -------------------------------------------------------------------------------
 def test_a_failure_before_submission_leaves_an_intent_and_no_record(session_rig, monkeypatch):
     session, root, ops = session_rig
     w = fresh(session, "A")
@@ -737,7 +729,7 @@ def test_a_readback_failure_leaves_the_root_unresolved_and_the_registration_comm
     )
     # The seam's own mark, in isolation: since beliefs-40e593 the durable port also marks
     # the root before its intent and commit, which covers for a seam that lost its mark
-    # (cut 19's J2i scored vacuous on exactly that).
+    # (an earlier version of this test scored vacuous on exactly that).
     monkeypatch.setattr(science_root, "mark_root_unresolved", lambda root: None)
     with pytest.raises(ExecutionError):
         w.add(proposition("p1"))
@@ -813,10 +805,10 @@ def test_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(session_r
 
 
 def test_a_ledger_write_failure_after_commit_leaves_the_registration_uncovered(work_directory, monkeypatch):
-    """J2's ledger clause proper: the append fails with **no bytes on disk**, so the
+    """The ledger clause proper: the append fails with **no bytes on disk**, so the
     committed registration is covered by no `act` line and reconciliation reports it."""
     # Not `session_rig`: this arm makes the ledger terminal, and the rig's teardown
-    # closes outright — `close` on a failed ledger is `SessionLedgerFailed` (J9).
+    # closes outright — `close` on a failed ledger is `SessionLedgerFailed`.
     root = adopted(work_directory, "ledger-write-fault")
     session, ops = attended(work_directory, root)
     w = fresh(session, "A")
@@ -862,7 +854,7 @@ def test_a_ledger_fsync_failure_after_a_complete_act_line_ends_the_session(work_
     what the arm proves is that the rebuild finished before the append and that the
     session is terminal all the same."""
     # Not `session_rig`: this arm makes the ledger terminal, and the rig's teardown
-    # closes outright — `close` on a failed ledger is `SessionLedgerFailed` (J9).
+    # closes outright — `close` on a failed ledger is `SessionLedgerFailed`.
     root = adopted(work_directory, "ledger-fault")
     session, ops = attended(work_directory, root)
     w = fresh(session, "A")
@@ -903,7 +895,7 @@ def test_a_raced_precondition_is_an_execution_error(session_rig, monkeypatch):
         w.add(proposition("p1"))
     monkeypatch.undo()
     assert state_of(root).unresolved is True
-    # §7: reconciliation, not the test, says whether a registration stands.
+    # Reconciliation, not the test, says whether a registration stands.
     findings = reconcile_sessions(config_for(ops.parent, root), ops)
     uncovered = [f for f in findings if f.code in ("session-outcome-unknown", "session-entry-pending")]
     assert [f.code for f in uncovered] == ["session-outcome-unknown"]
@@ -913,7 +905,7 @@ def test_a_raced_precondition_is_an_execution_error(session_rig, monkeypatch):
 
 
 def test_a_refusal_on_a_root_left_unresolved_moves_the_head_only_by_settlement(work_directory):
-    """J1's last check, which needs J2's halting fixture: a refusal on a root left
+    """A check that needs the halting fixture: a refusal on a root left
     unresolved by a prior failed submission moves the head by recovery's settlement
     of that prior work and by nothing of the refused call's own."""
     root = adopted(work_directory, "unresolved-refusal")
@@ -943,7 +935,7 @@ def test_a_refusal_on_a_root_left_unresolved_moves_the_head_only_by_settlement(w
 
 def test_the_halting_backends_skip_count_names_the_records_publish(work_directory):
     """`PUBLISH_CALLS_BEFORE_RECORD` is an empirical count of the engine's publish
-    sequence (§13 item 4), re-derived here through the instrument that fixed it, so a
+    sequence, re-derived here through the instrument that fixed it, so a
     change in that sequence fails on the count rather than as a puzzling assertion
     inside the continuation arm."""
     root = adopted(work_directory, "traced")
@@ -1133,7 +1125,7 @@ def test_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
         library.import_bundle(bundle, observer="o", instrument="i", opened_at=OPENED_AT, closed_at=CLOSED_AT)
     assert order[:2] == ["settle", "validate"], order
     # The rebuilt index is what judged the member: the deleted record no longer resolves. The flag
-    # is set again on the way out — a refused import publishes its own refusal report (§13 item 12).
+    # is set again on the way out — a refused import publishes its own refusal report.
     assert library.read_view.resolve(target.id) is None
     # Relocation continuation after the readback-failed delete: a real move of the deleted record.
     w.add(proposition("mover"))  # committed before the fault is armed
@@ -1194,7 +1186,7 @@ def test_a_failed_recovery_refuses_the_write_before_any_prepare(session_rig, mon
     assert state_of(root).unresolved is True
     prepared: list[str] = []
     monkeypatch.setattr(CorpusWriter, "_refuse_family_kinds", lambda self, node, **k: prepared.append(node.id))
-    # The root state captured the factory's bound `recover` when it was built (§13 item 3), so the
+    # The root state captured the factory's bound `recover` when it was built, so the
     # capability this root actually holds is the thing to fault, not the class it came from.
     monkeypatch.setattr(
         state_of(root),
@@ -1209,7 +1201,6 @@ def test_a_failed_recovery_refuses_the_write_before_any_prepare(session_rig, mon
     assert state_of(root).unresolved is False
 
 
-# --- J8 -------------------------------------------------------------------------------
 def test_reconciliation_over_the_real_root(work_directory, monkeypatch):
     root = adopted(work_directory, "reconcile")
     session, ops = attended(work_directory, root)
@@ -1268,7 +1259,7 @@ def test_reconciliation_is_lock_coherent_under_an_interleaved_write(work_directo
         release.wait(timeout=10)
         return original(self)
 
-    # `delete` rebuilds after its execute (§13 item 15) and `add` does not, so the block sits
+    # `delete` rebuilds after its execute and `add` does not, so the block sits
     # *inside* the commit: the registration is durable and the `act` line is not yet appended,
     # both under the root lock reconciliation must take.
     CorpusWriter._reconstruct = blocking
@@ -1368,7 +1359,7 @@ def test_mismatching_pins_leave_durable_pending_recovery_untouched(work_director
     session.close()
 
 
-# --- the routes, durably (session-routes design §8 items 10–12) -------------------
+# --- the routes, durably -------------------
 def _registration_fulfilling(root: Path, intent: str) -> str:
     matches = [e.digest for e in chain(root).entries if getattr(e, "fulfills", None) == intent]
     assert len(matches) == 1, matches

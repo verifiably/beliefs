@@ -1,4 +1,4 @@
-"""Cut 45 over registered roots and the composition root's durable writers."""
+"""Belief over registered roots and the composition root's durable writers."""
 
 from dataclasses import replace
 from uuid import uuid4

@@ -1,4 +1,4 @@
-"""Cut 29: dataset ids derived from the content identity, over certified durable roots."""
+"""Dataset ids derived from the content identity, over certified durable roots."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def handle(seed: str, node_id: str = "dataset:handle"):
     )
 
 
-# --- W2, the dataset arm ---------------------------------------------------------
+# --- the dataset arm ---------------------------------------------------------
 
 
 def test_two_corpora_mint_one_address_from_one_declaration_durably(durable_world):
@@ -124,7 +124,7 @@ def test_an_unaccepted_algorithm_has_no_address_at_the_builder_or_the_boundary_d
         writer.add(stored.governed_node("dataset", "md5", "md5", {stored.DATASET_FACET: {"resources": md5}}, ()))
 
 
-# --- W3, the builder arm ---------------------------------------------------------
+# --- the builder arm ---------------------------------------------------------
 
 
 def test_the_builder_refuses_without_a_basis_and_mints_a_declared_unheld_dataset_durably(durable_world):
@@ -144,7 +144,7 @@ def test_the_boundary_refuses_a_hand_built_unpinned_record_durably(durable_world
     assert not any(n.kind == "dataset" for n in writer.read_view.iter_stored())
 
 
-# --- W8, the address conflict on datasets ---------------------------------------
+# --- the address conflict on datasets ---------------------------------------
 
 
 def test_handle_addressed_dataset_refuses_on_add_import_and_move_durably(durable_world):

@@ -1,12 +1,12 @@
-"""Cut 35: URL retrieval and the acquisition operation through the certified durable boundary.
+"""URL retrieval and the acquisition operation through the certified durable boundary.
 
-One test per declaration unit (H4-a–b, G9-a, R10-a, T5-a–c, T7-a–b, T1-a,
-T2-a–d, T4-a–b, BI-1–11), each the slice's unit test re-composed over the
+One test per behaviour, each the unit test
+re-composed over the
 durable roots: registered observer and store roots on the certified volume,
 the composition root's holdings seam, and — where the unit reads the
 session — the attended session's ledgered context. The acceptance transport
-is the production pinned connection over the in-process TLS server (spec
-§11.2); the scripted fake is used only where a behaviour cannot be provoked
+is the production pinned connection over the in-process TLS server;
+the scripted fake is used only where a behaviour cannot be provoked
 over real framing (the unpinnable context, the raised exception classes).
 No test reaches the network.
 """
@@ -101,7 +101,7 @@ from beliefs.world.registry import WorldConfig
 
 DATA = url_locator("https://example.org/data")
 CUT34_MERGE = "3873d16"
-"""The main-checkout commit cut 34 was verified at: the holdings rule bundle before this lane's successor rule."""
+"""The main-checkout commit at which the holdings rule bundle preceded the successor rule."""
 
 
 # --- fixtures and helpers ----------------------------------------------------------
@@ -129,7 +129,7 @@ def _observer(certified_work: Path, name: str) -> Observer:
 
 @pytest.fixture()
 def observer(certified_work) -> Observer:
-    """Task 5's `acquisition` fixture shape over the durable root."""
+    """The `acquisition` fixture shape over the durable root."""
     ctx, store_id = context(certified_work)
     writer = open_corpus(ctx.observer_root, authority=FULL, profile=BASE)
     writer.adopt_manifest(profile=pins_for(BASE))
@@ -138,7 +138,7 @@ def observer(certified_work) -> Observer:
 
 @pytest.fixture()
 def session(certified_work):
-    """Task 6's `_durable_session`, under its own directory so its roots never collide with the observer's."""
+    """The `_durable_session` fixture, under its own directory so its roots never collide with the observer's."""
     base = certified_work / "session"
     base.mkdir()
     return _durable_session(base)
@@ -146,7 +146,7 @@ def session(certified_work):
 
 @contextmanager
 def served(script: dict[str, Served]) -> Iterator[Any]:
-    """The production pinned connection over the in-process TLS server (spec §11.2)."""
+    """The production pinned connection over the in-process TLS server."""
     with LocalTlsServer(script) as server:
         yield tls_seam(server)
 
@@ -192,7 +192,7 @@ def observation_values(writer: CorpusWriter):
 
 
 def read_only_store(ctx, certified_work: Path):
-    """A store the engine refuses to mutate, from the production seam (Task 5)."""
+    """A store the engine refuses to mutate, from the production seam."""
     replica = certified_work / "replica"
     science_root.replicate_root(ctx.store_root, replica, authority=FULL)
     return replace(ctx, store_root=replica)
@@ -219,11 +219,8 @@ def _raise_publish(_root, _plan, _fulfills):
     raise ExecutionError("cannot publish", index=None, applied=0)
 
 
-# --- H4 ----------------------------------------------------------------------------
-
-
 def test_an_established_remote_found_publishes_or_the_look_raises(observer, session, tmp_path):
-    """H4-a: an established remote `found` publishes; a publication failure after
+    """An established remote `found` publishes; a publication failure after
     `Retrieved` raises and the chain carries the unmatched re-check intent, no transient report."""
     ctx = observer.ctx
     with served({"/data": Served(body=b"payload")}) as (seam, log):
@@ -260,7 +257,7 @@ def test_an_established_remote_found_publishes_or_the_look_raises(observer, sess
 
 
 def test_an_inconclusive_remote_attempt_mints_nothing_and_never_absent(observer, tmp_path):
-    """H4-b: timeout, truncation, the ceiling, 404, 500, a refused hop, an unpinnable
+    """Timeout, truncation, the ceiling, 404, 500, a refused hop, an unpinnable
     context — each mints nothing, never `absent`, carries no digest, and the standing
     URL observation's identity is unchanged."""
     ctx = observer.ctx
@@ -341,11 +338,8 @@ def test_an_inconclusive_remote_attempt_mints_nothing_and_never_absent(observer,
     assert list(scratch.iterdir()) == []
 
 
-# --- G9 ----------------------------------------------------------------------------
-
-
 def test_a_url_location_holds_without_a_store_copy(observer, certified_work, tmp_path):
-    """G9-a: `found` at a URL, no store copy → held; the URL then fails → still held."""
+    """`found` at a URL, no store copy → held; the URL then fails → still held."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
     outcome = acquire(ctx, writer, request(resource("a", "a")), seam=seam, scratch=tmp_path / "s")
@@ -368,14 +362,11 @@ def test_a_url_location_holds_without_a_store_copy(observer, certified_work, tmp
     assert isinstance(after, DatasetAnswer) and isinstance(admission_state(declaration, after.observations), Held)
 
 
-# --- R10 ---------------------------------------------------------------------------
-
-
 def test_the_acquisition_records_dataset_provenance(observer, tmp_path):
-    """R10-a: the minted dataset's facet carries `locator`, `attested_by` = actor and
+    """The minted dataset's facet carries `locator`, `attested_by` = actor and
     `retrieval` → the acquisition report whose entries reference the observations;
-    `validity_refusal` is `None`. The run boundary's refusal of a URL input is cut 3's
-    R10 arm (`n2_arms_cut3.py`), cited and not re-run here."""
+    `validity_refusal` is `None`. The run boundary's refusal of a URL input is covered by the portable
+    boundary tests and not re-run here."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
     req = request(resource("a", "a", store_id=observer.store_id))
@@ -396,11 +387,8 @@ def test_the_acquisition_records_dataset_provenance(observer, tmp_path):
     assert validity_refusal(writer.read_view, dataset, BASE) is None
 
 
-# --- T5 ----------------------------------------------------------------------------
-
-
 def test_a_began_request_never_spells_untested(observer, tmp_path):
-    """T5-a: a `Failed` retrieval spells `retrieval-failed`; the classification is read
+    """A `Failed` retrieval spells `retrieval-failed`; the classification is read
     from the transport's phase value, never from a message."""
     ctx, writer = observer.ctx, observer.writer
     with served({"/a": Served(500)}) as (seam, log):
@@ -413,7 +401,7 @@ def test_a_began_request_never_spells_untested(observer, tmp_path):
 
 
 def test_a_preflight_refusal_and_a_post_stop_skip_spell_distinct_reasons(observer, tmp_path):
-    """T5-b: a preflight refusal and a post-stop skip: both `byte-locator-untested`, reasons distinct."""
+    """A preflight refusal and a post-stop skip: both `byte-locator-untested`, reasons distinct."""
     ctx, writer = observer.ctx, observer.writer
     seam, log = scripted_seam({}, unpinnable=True)
     outcome = acquire(
@@ -435,7 +423,7 @@ def test_a_preflight_refusal_and_a_post_stop_skip_spell_distinct_reasons(observe
 
 
 def test_no_entry_outcome_constructs_an_observation(observer, tmp_path, monkeypatch):
-    """T5-c: a report whose ref resolves to no observation refuses at the close and the
+    """A report whose ref resolves to no observation refuses at the close and the
     operation reads unfinished; every published ref in a real report resolves to an
     observation an act published under a chain intent's token."""
     ctx, writer = observer.ctx, observer.writer
@@ -478,11 +466,8 @@ def test_no_entry_outcome_constructs_an_observation(observer, tmp_path, monkeypa
         assert stored.holdings_observation_value(node).event_token in tokens
 
 
-# --- T7 ----------------------------------------------------------------------------
-
-
 def test_the_dataset_and_its_report_publish_in_one_transaction_in_one_root(observer, certified_work, tmp_path):
-    """T7-a: dataset and report in one registered transaction; a wrong-root writer refuses before the intent."""
+    """Dataset and report in one registered transaction; a wrong-root writer refuses before the intent."""
     ctx, writer = observer.ctx, observer.writer
     seam, log = scripted_seam({"/a": ok(A)})
     outcome = acquire(
@@ -515,7 +500,7 @@ def test_the_dataset_and_its_report_publish_in_one_transaction_in_one_root(obser
 
 
 def test_the_address_is_unchanged_while_the_record_bytes_move(certified_work, tmp_path):
-    """T7-b: two roots, the same bytes: equal dataset ids, distinct node-content and corpus-state identities."""
+    """Two roots, the same bytes: equal dataset ids, distinct node-content and corpus-state identities."""
     one, two = _observer(certified_work, "one"), _observer(certified_work, "two")
     outcomes = []
     for index, observer in enumerate((one, two)):
@@ -545,11 +530,8 @@ def test_the_address_is_unchanged_while_the_record_bytes_move(certified_work, tm
     )
 
 
-# --- T1 ----------------------------------------------------------------------------
-
-
 def test_a_raw_written_report_is_undetected_on_read_and_refuted_under_anchors(observer):
-    """T1-a: a raw-written self-consistent report: readable, `corpus_check` silent; log
+    """A raw-written self-consistent report: readable, `corpus_check` silent; log
     verification under an anchored observer set refutes; under none, unresolvable."""
     ctx, writer = observer.ctx, observer.writer
     token = secrets.token_hex(16)
@@ -583,11 +565,8 @@ def test_a_raw_written_report_is_undetected_on_read_and_refuted_under_anchors(ob
     assert unanchored.outcome == "unresolvable"
 
 
-# --- T2 ----------------------------------------------------------------------------
-
-
 def test_an_acquisition_closes_through_exactly_one_report_after_its_intent(observer, tmp_path):
-    """T2-a: acquisition to success: one intent, one qualifying report, closed, the intent before every act."""
+    """Acquisition to success: one intent, one qualifying report, closed, the intent before every act."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
     outcome = acquire(
@@ -615,7 +594,7 @@ def test_an_acquisition_closes_through_exactly_one_report_after_its_intent(obser
 
 
 def test_root_selection_failure_begins_no_act(observer, tmp_path):
-    """T2-b: a store-less session with materialization, and a port-less writer: no request, no intent, no record."""
+    """A store-less session with materialization, and a port-less writer: no request, no intent, no record."""
     (tmp_path / "session").mkdir()
     session, ports = make_session(tmp_path / "session")
     session.claim_invocation("A", "acquire", DIGEST)
@@ -679,7 +658,7 @@ class RefusingPort:
 
 
 def test_intent_append_failure_begins_no_act(observer, tmp_path):
-    """T2-c: the intent append refused by the port: no request, no record."""
+    """The intent append refused by the port: no request, no record."""
     ctx, writer = observer.ctx, observer.writer
     port = RefusingPort(durable_operation_port(ctx.observer_root, FULL, profile=BASE))
     seam, log = scripted_seam({"/a": ok(A)})
@@ -696,7 +675,7 @@ def test_intent_append_failure_begins_no_act(observer, tmp_path):
 
 
 def test_a_second_fulfillment_is_refused_and_a_raw_one_is_malformed(observer, certified_work, tmp_path):
-    """T2-d: a second `execute_fulfilling` on the operation intent is refused by the coordinator;
+    """A second `execute_fulfilling` on the operation intent is refused by the coordinator;
     a raw second fulfillment reads `MalformedView` with kind `duplicate-fulfillment`."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
@@ -723,13 +702,10 @@ def test_a_second_fulfillment_is_refused_and_a_raw_one_is_malformed(observer, ce
     assert view.defect.kind == "duplicate-fulfillment"
 
 
-# --- T4 ----------------------------------------------------------------------------
-
-
 def test_reports_leave_the_projection_unchanged_and_an_unfinished_operation_blocks_nothing(
     observer, certified_work, tmp_path
 ):
-    """T4-a: reports added and removed: reducer outputs byte-identical; an unmatched
+    """Reports added and removed: reducer outputs byte-identical; an unmatched
     acquisition intent blocks nothing."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
@@ -750,7 +726,7 @@ def test_reports_leave_the_projection_unchanged_and_an_unfinished_operation_bloc
     assert (output_digest(added_active), output_digest(added_blocked)) == digests
     assert added_receipt.coverage != receipt.coverage
 
-    with pytest.raises(DeletionKindExcluded):  # T8: no ordinary API deletes a report (families design §3.0)
+    with pytest.raises(DeletionKindExcluded):  # no ordinary API deletes a report
         writer.delete(second.report_ref)
     os.unlink(writer.root / writer._relative_path(writer.read_view.get(second.report_ref)))
     writer._reconstruct()
@@ -765,14 +741,12 @@ def test_reports_leave_the_projection_unchanged_and_an_unfinished_operation_bloc
     assert output_digest(open_active) == digests[0]
 
 
-def test_deleting_a_referenced_observation_moves_the_active_set_and_not_the_report(
-    observer, certified_work, tmp_path
-):
-    """T4-b: deleting a referenced URL observation moves the active set; the report is
+def test_deleting_a_referenced_observation_moves_the_active_set_and_not_the_report(observer, certified_work, tmp_path):
+    """Deleting a referenced URL observation moves the active set; the report is
     byte-unchanged and `cite` resolves. The managed `delete` refuses a
-    `holdings-observation` by static kind exclusion (families design §3.0) whether or
+    `holdings-observation` by static kind exclusion whether or
     not a report references it — the report confers nothing — so the removal that
-    exercises the record layer is raw, as cut 18's G8 arm removes a record."""
+    exercises the record layer is raw, as the deletion tests remove a record."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A), "/lone": ok(B)})
     unreferenced = look(ctx, url_locator("https://example.org/lone"), bounds=BOUNDS, seam=seam, scratch=tmp_path / "s")
@@ -809,7 +783,7 @@ def test_deleting_a_referenced_observation_moves_the_active_set_and_not_the_repo
 
 
 def test_two_spellings_of_one_url_are_one_location(observer, certified_work, tmp_path):
-    """BI-1: the canonicalization table through the durable path: two spellings of one URL are one location."""
+    """The canonicalization table through the durable path: two spellings of one URL are one location."""
     ctx, writer = observer.ctx, observer.writer
     seam, log = scripted_seam({"/a/b": ok(A)})
     for spelling in ("https://EXAMPLE.org:443/a/./b", "https://example.org/a/b"):
@@ -826,7 +800,7 @@ def test_two_spellings_of_one_url_are_one_location(observer, certified_work, tmp
 
 
 def test_no_hop_bytes_enter_any_record_or_reason(observer, tmp_path):
-    """BI-2: a presigned hop and a token-bearing-hostname hop, refused at preflight and
+    """A presigned hop and a token-bearing-hostname hop, refused at preflight and
     by certificate validation: the query, the token and the host occur in no published
     record, no entry, no reason and no exception text; the entry names ordinal and category."""
     ctx, writer = observer.ctx, observer.writer
@@ -873,7 +847,7 @@ def _assert_no_secret(ctx, writer, outcome, secrets_, scratch: Path) -> None:
 
 
 def test_the_pinned_connection_dials_the_validated_address(observer, tmp_path, monkeypatch):
-    """BI-3: the pinned connection dials the validated address with name validation; an unpinnable context issues no request."""
+    """The pinned connection dials the validated address with name validation; an unpinnable context issues no request."""
     dialled: list[tuple[str, int]] = []
     wrapped: list[str] = []
     sentinel = object()
@@ -917,7 +891,7 @@ def test_the_pinned_connection_dials_the_validated_address(observer, tmp_path, m
 
 
 def test_the_ceiling_finalizes_no_digest(observer, tmp_path):
-    """BI-4: the ceiling ends the stream; no digest is finalized or published; the bound is named on the entry."""
+    """The ceiling ends the stream; no digest is finalized or published; the bound is named on the entry."""
     ctx, writer = observer.ctx, observer.writer
     scratch = tmp_path / "s"
     bounds = RetrievalBounds(timeout_seconds=5.0, max_bytes=64, max_redirects=3)
@@ -934,7 +908,7 @@ def test_the_ceiling_finalizes_no_digest(observer, tmp_path):
 
 
 def test_an_expectation_mismatch_mints_no_dataset_and_reports_mismatch(observer, certified_work, tmp_path):
-    """BI-5: `found(D')` with `expected = D`: no dataset; the adapter over the real reduction reports `mismatch`."""
+    """`found(D')` with `expected = D`: no dataset; the adapter over the real reduction reports `mismatch`."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
     outcome = acquire(ctx, writer, request(resource("a", "a", expected=digest(B))), seam=seam, scratch=tmp_path / "s")
@@ -955,7 +929,7 @@ def test_an_expectation_mismatch_mints_no_dataset_and_reports_mismatch(observer,
 
 
 def test_an_already_held_address_mints_no_second_dataset(observer, tmp_path):
-    """BI-6: an already-held address: no second dataset, observation and report published, the old `retrieval` unchanged."""
+    """An already-held address: no second dataset, observation and report published, the old `retrieval` unchanged."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
     first = acquire(ctx, writer, request(resource("a", "a")), seam=seam, scratch=tmp_path / "s")
@@ -970,7 +944,7 @@ def test_an_already_held_address_mints_no_second_dataset(observer, tmp_path):
 
 
 def test_the_url_looks_intent_blocks_nothing(observer, certified_work, tmp_path):
-    """BI-7: a crash between the URL look's intent and its publication: the reducer reports no blocked entry."""
+    """A crash between the URL look's intent and its publication: the reducer reports no blocked entry."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
     crashing = replace(ctx, seam=replace(ctx.seam, publish_fulfilling=_raise_publish))
@@ -991,7 +965,7 @@ def test_the_url_looks_intent_blocks_nothing(observer, certified_work, tmp_path)
 
 
 def test_no_lock_is_held_across_the_request(observer, session, tmp_path, monkeypatch):
-    """BI-8: no lock across the request — the root lock (a helper-thread probe) and the session lock (a concurrent add)."""
+    """No lock across the request — the root lock (a helper-thread probe) and the session lock (a concurrent add)."""
     from beliefs import corpus as corpus_module
 
     ctx, writer = observer.ctx, observer.writer
@@ -1074,7 +1048,7 @@ def _cut34_bundle() -> rules.RuleBundle:
 
 
 def test_the_successor_rule_keeps_old_receipts_validatable(observer, certified_work, tmp_path):
-    """BI-9: the successor rule: the old binding's receipt still validates where held; the new fixture reduces."""
+    """The successor rule: the old binding's receipt still validates where held; the new fixture reduces."""
     ctx, writer = observer.ctx, observer.writer
     seam, _ = scripted_seam({"/a": ok(A)})
     outcome = acquire(ctx, writer, request(resource("a", "a")), seam=seam, scratch=tmp_path / "s")
@@ -1112,7 +1086,7 @@ def test_the_successor_rule_keeps_old_receipts_validatable(observer, certified_w
 
 
 def test_url_intents_and_observations_decode_and_reconcile(session, certified_work, tmp_path):
-    """BI-10: a URL re-check intent and its fulfilling observation decode through
+    """A URL re-check intent and its fulfilling observation decode through
     `intents/evidence.py` and the generated helper; `reconcile` reports nothing."""
     session.claim_invocation("A", "acquire", DIGEST)
     scoped = session.scoped(ACQUIRES, "A")
@@ -1139,7 +1113,7 @@ def test_url_intents_and_observations_decode_and_reconcile(session, certified_wo
 
 
 def test_the_materialization_classification(observer, certified_work, tmp_path):
-    """BI-11: the materialization classification, five blocks: a production store
+    """The materialization classification, five blocks: a production store
     refusal on the first and on the last resource stops with no dataset; a publication
     failure after a committed materialization propagates and reads unfinished; a
     terminal session failure propagates; an unexpected engine failure propagates."""
@@ -1152,7 +1126,7 @@ def test_the_materialization_classification(observer, certified_work, tmp_path):
         write(read_only, StoreLocator(store_id, "probe.bin"), b"x")
     cause = refused.value.__cause__
     assert isinstance(cause, ExecutionError) and cause.applied == 0
-    assert type(cause.__cause__) is PreconditionRefused  # the replica's refusal, in the routine set (decision 10)
+    assert type(cause.__cause__) is PreconditionRefused  # the replica's refusal, in the routine set
     seam, log = scripted_seam({"/a": ok(A), "/b": ok(B)})
     first = acquire(
         read_only,

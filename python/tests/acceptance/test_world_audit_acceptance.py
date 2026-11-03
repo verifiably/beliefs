@@ -1,4 +1,4 @@
-"""Cut 27: receipt and damage guarantees over certified durable roots."""
+"""Receipt and damage guarantees over certified durable roots."""
 
 from __future__ import annotations
 

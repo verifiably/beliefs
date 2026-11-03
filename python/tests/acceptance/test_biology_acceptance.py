@@ -1,4 +1,4 @@
-"""Cut 22's durable biology facet arm and TypeScript contract-scope half."""
+"""The durable biology facet test and TypeScript contract-scope half."""
 
 from __future__ import annotations
 

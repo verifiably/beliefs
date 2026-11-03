@@ -1,9 +1,9 @@
-"""Cut 4's durable arms over the write boundary and the read of what it wrote.
+"""The durable tests over the write boundary and the read of what it wrote.
 
 Every test here runs against the certified engine on a real volume. What is new
 compared with the portable tests is not the code under test but the claim: a
 record **lands** at an address on disk, and it **reloads**, so "not refused" and
-"the reader said nothing" are assertions about a read this cut actually runs.
+"the reader said nothing" are assertions about a read this module actually runs.
 """
 
 from __future__ import annotations
@@ -116,7 +116,7 @@ class TestG9DurablyMintedWithNoBytesHeld:
         declared = durable_writer.add(stored.dataset_node(title="DepMap 24Q2", resources=pinned()))
         durable_writer.add(stored.run_node("r9", title="r9", spec=SPEC, reads=[declared.id]))
         view = reopen(durable_root)
-        # Addressable, referenceable, and resolved as a reference by this cut's
+        # Addressable, referenceable, and resolved as a reference by this module's
         # traversal — while its bytes are held nowhere and no holding check ran.
         assert view.holds(declared.id)
         assert view.resolve(declared.id) == declared.id
@@ -185,7 +185,7 @@ class TestS8TheNegative:
         assert reopen(durable_root).holds(smuggled.id)
 
     def test_the_static_check_stays_silent_about_it(self, durable_writer, durable_root):
-        # S8 is bounded to the capability, and this is the bound: nothing static
+        # The static check is bounded to the capability, and this is the bound: nothing static
         # distinguishes a raw write to a corpus path from writing any other file.
         from test_capability_boundary import imported_modules, modules, names_of, parsed, relative
 
@@ -218,7 +218,7 @@ class TestS8TheNegative:
 
 class TestTheUncertifiedTupleFailsClosed:
     """The engine's fail-closed obligation, exercised as the engine's refusal
-    and surfaced through §4's mapping. The fixture **errors** if `/dev/shm` is
+    and surfaced through the error mapping. The fixture **errors** if `/dev/shm` is
     unavailable rather than requiring a privileged mount."""
 
     def test_a_write_on_an_uncertified_tuple_refuses(self):
@@ -248,7 +248,7 @@ class TestTheMintedRecordsReadBack:
     def test_the_assessment_reads_back_as_the_value_it_was_minted_from(self, minted_corpus):
         view = reopen(minted_corpus)
         value = stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE)
-        # 2026-09-11: V2 returns the run's bare world identity; this live cut-4
+        # V2 returns the run's bare world identity; this live
         # expectation had retained the pre-V2 typed reference.
         assert (value.spec, value.run, value.proposition) == (SPEC, slug(RUN), PROPOSITION)
         assert value.outcome == "supported"
