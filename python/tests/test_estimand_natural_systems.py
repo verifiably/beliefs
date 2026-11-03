@@ -218,9 +218,9 @@ def test_the_nulls_central_band_refuses_a_rejecting_estimate_but_admits_a_non_re
     # Refusal (d): the null's central band as `uncertainty` is caught by
     # `low <= estimate <= high` exactly when the rank rule rejects — a
     # rejecting estimate lies outside the band by construction, and a
-    # non-rejecting one lies inside it (limitation 12's stated reach: the
-    # check is structural and cannot tell a true label from a false one when
-    # the estimate happens to sit inside the band).
+    # non-rejecting one lies inside it (the check is structural and cannot tell
+    # a true label from a false one when the estimate happens to sit inside
+    # the band).
     band = Interval(low=Decimal("-0.30"), high=Decimal("0.30"), level=Decimal("0.95"))
     estimand = build(profile, claim, snapshot)
     applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
@@ -296,8 +296,8 @@ class TestCommensuration:
 
     def test_two_estimands_differing_only_in_identification_are_commensurable(self, profile, claim, snapshot):
         # `control.identification` is the one member `commensuration_key`
-        # removes: it is corpus-local (the fixture's identification vocabulary,
-        # limitation 4), and the design key a weight table reads is the one
+        # removes: it is corpus-local (the fixture's identification vocabulary
+        # is local to its corpus), and the design key a weight table reads is the one
         # member outside it. A second identification term is added to this
         # test's own snapshot to exercise the difference — the fixture names only
         # `within-series-surrogate`; a distinct scheme is legitimate test data

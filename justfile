@@ -50,9 +50,10 @@ hygiene_cmd := "python3 tools/ops-check && python3 tools/ops-docs check"
 check_hygiene_cmd := hygiene_cmd + " && tasks check"
 check_code_cmd := py_check_cmd + " && " + ts_check_cmd
 
-# Only agent guidance and task records take the docs-only path. README.md and docs/
-# are read by conformance tests, so the template's broader allowlist is unsafe here.
-docs_paths := "AGENTS.md tasks/*.md"
+# Agent guidance, the README and the public documents under docs/ take the docs-only
+# path: no test reads them, so a commit that changes only them cannot change a result.
+# The match is fnmatch, so the `*` also spans subdirectories.
+docs_paths := "AGENTS.md README.md docs/*.md"
 
 # The refs whose pushes the hook treats as covered by CI's complete package suites.
 # ci.yml runs them on every branch push (test_ci_workflow.py checks that it covers
@@ -178,13 +179,12 @@ ci-python:
 ci-typescript:
     {{tt}} ci-typescript -- sh -c '{{ci_evidence_cmd}} && {{ci_ts_test_cmd}} && {{ts_check_cmd}}'
 
-# The mm30 recreation in one command (beliefs-9e0b42): the reproduction design's §13 and
-# §14 sequence into a fresh work directory, one process per step, stopping at the first
-# non-zero exit, then the read-only verdict and the tracked Snakefile check. Five steps
-# record a defect and still exit zero, so the verdict, not the exit codes, says whether it
-# reproduced (docs/notes/2026-09-29-reproduction-audit-backlog-brief.md, Recipe
-# inventory). Not part of any gate, and it deletes nothing. The cut-22 and cut-31
-# archives default to the fixture's siblings under the main checkout's .work/reproduction/.
+# The mm30 recreation in one command (beliefs-9e0b42): the reproduction steps run into a
+# fresh work directory, one process per step, stopping at the first non-zero exit, then
+# the read-only verdict and the tracked Snakefile check. Five steps record a defect and
+# still exit zero, so the verdict, not the exit codes, says whether it reproduced. Not
+# part of any gate, and it deletes nothing. The cut-22 and cut-31 archives default to
+# the fixture's siblings under the main checkout's .work/reproduction/.
 #
 # Recreate the mm30 corpus into WORK, a fresh absolute canonical path, from PREDECESSOR.
 mm30-recreate work predecessor cut22="" cut31="":

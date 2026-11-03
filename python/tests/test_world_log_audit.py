@@ -1585,7 +1585,7 @@ class TestTheEventLevelRelation:
         assert relation.order(a, b, world_view=logmodel.MalformedView(defect=defect)) == "unordered"
 
     def test_a_malformed_first_chain_answers_before_the_second_lock_is_taken(self, tmp_path):
-        """Step 2: with A malformed and B under
+        """With A malformed and B under
         a capture hold, the answer is `unordered`, never `BuildHold`."""
         relation, a, b, e1, e2 = l8_pair(tmp_path)
         defect = logmodel.DefectView(kind="cycle", subject=None, detail="fabricated")

@@ -16,10 +16,10 @@ from route_fixtures import Checkout
     ("path", "recipe"),
     [
         ("AGENTS.md", "hook-pre-commit-docs"),
-        ("tasks/task.md", "hook-pre-commit-docs"),
+        ("tasks/task.md", "hook-pre-commit"),
         ("justfile", "hook-pre-commit"),
-        ("README.md", "hook-pre-commit"),
-        ("docs/designs/cut.md", "hook-pre-commit"),
+        ("README.md", "hook-pre-commit-docs"),
+        ("docs/guide.md", "hook-pre-commit-docs"),
     ],
 )
 def test_staged_paths_choose_the_gate(tmp_path: Path, path: str, recipe: str) -> None:
