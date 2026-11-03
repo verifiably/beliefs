@@ -429,3 +429,18 @@ def test_closure_is_sealed_against_subclassing():
 
         class Subclass(Closure):  # type: ignore[misc]
             pass
+
+
+def _closure_digest(found: tuple[tuple[str, str], ...]) -> str:
+    kwargs = closure_kwargs()
+    kwargs["retractions"] = RetractionEnumeration(found=found, coverage=("local",))
+    return build_closure(**kwargs).digest()
+
+
+def test_retraction_enumeration_moves_only_when_in_closure():
+    baseline = _closure_digest(())
+    inside = _closure_digest((("retraction:inside", "standing"),))
+    outside = _closure_digest(())
+
+    assert inside != baseline
+    assert outside == baseline

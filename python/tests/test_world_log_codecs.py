@@ -1417,3 +1417,42 @@ def test_store_subject_is_carried_by_codecs_and_judged_by_the_evaluator():
     assert "store_roots" in inspect.signature(anchors._anchor_heads).parameters
     exported = inspect.signature(anchors._export_head_artifact).parameters["subject"]
     assert str(exported.annotation) == "Subject"
+
+
+@pytest.mark.parametrize(
+    ("name", "builder", "defect"), CUT8_FABRICATIONS, ids=[entry[0] for entry in CUT8_FABRICATIONS]
+)
+def test_every_catalogued_fabrication_is_what_the_engine_says_it_is(tmp_path, name, builder, defect):
+    """Run by the engine's own validator.
+
+    A well-formed fabrication must inspect **well formed**; a fabrication whose
+    point is the defect must carry exactly that one defect class and no other.
+    An absent chain is neither, and is marked as such in the catalogue.
+    """
+    chain = builder(tmp_path / name)
+    view = inspected(chain.root)
+
+    if defect is None:
+        assert type(view) is logmodel.WellFormedView, f"{name}: {view}"
+    elif defect == ABSENT_CHAIN:
+        assert view == logmodel.AbsentView(), f"{name}: {view}"
+    else:
+        assert type(view) is logmodel.MalformedView, f"{name}: {view}"
+        assert view.defect.kind == defect, f"{name}: {view.defect.kind}"
+
+
+def test_a_created_registration_round_trips_all_four_state_classes(tmp_path):
+    """The round trip covers all four typed state classes; a subset is
+    malformed declaration content, not a pass."""
+    chain = four_state_classes(tmp_path)
+    disk = capture_at(chain.root, *chain.paths)
+    assert {type(state).__name__ for _path, state in disk} == {
+        "AbsentState",
+        "DirectoryState",
+        "FileState",
+        "SymlinkState",
+    }
+    view = inspected(chain.root)
+    assert type(view) is logmodel.WellFormedView
+    (created,) = [entry for entry in view.entries if type(entry) is logmodel.RegisteredEntryView]
+    assert created.final == disk

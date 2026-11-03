@@ -311,3 +311,20 @@ def test_retraction_vocabulary_is_frozen_exactly():
         "upstream-retraction",
         "wrong-route",
     )
+
+
+@pytest.mark.parametrize("field", ["reason", "rationale", "grounds", "actor", "event_token"])
+def test_retraction_required_fields_refuse_when_empty(field):
+    values = {
+        "title": "required",
+        "target": stored.NodeTarget("assessment:a", "assessment:a", "sha256:" + "ab" * 32),
+        "reason": "defective-code",
+        "rationale": "invalid result",
+        "grounds": ("verification:v",),
+        "actor": "test",
+        "event_token": "required",
+    }
+    values[field] = () if field == "grounds" else ""
+
+    with pytest.raises(ValueError if field == "actor" else MalformedRecord):
+        stored.retraction_node(**values)

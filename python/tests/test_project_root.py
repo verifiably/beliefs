@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from checkout import MAIN_CHECKOUT
+
 ROOT = Path(__file__).parents[2]
 
 #: Tracked trees and the tool, harness and editor directories that belong at the root.
@@ -75,3 +77,11 @@ def test_the_project_root_holds_no_unlisted_directory() -> None:
         "runner's DEFAULT_WORK there). Add a name to EXPECTED only for something that "
         "is not scratch."
     )
+
+
+def test_an_empty_cut10_root_uses_the_main_checkout_fallback(monkeypatch, request):
+    monkeypatch.delenv("SCIENCE_CUT12_ROOT", raising=False)
+    monkeypatch.delenv("SCIENCE_CUT13_ROOT", raising=False)
+    monkeypatch.setenv("SCIENCE_CUT10_ROOT", "")
+    work = request.getfixturevalue("certified_work")
+    assert work.parent.resolve() == (MAIN_CHECKOUT / ".lifecycle-wrappers-test").resolve()

@@ -29,7 +29,7 @@ from nodes.core.node import Node
 from nodes.core.write_plan import ReplaceOp
 from profiles import pins_for
 from test_belief import scenario as belief_scenario
-from test_n2_cut7 import shipped_bindings
+from test_world_epoch_acceptance import shipped_bindings
 
 from beliefs import stored
 from beliefs.belief import Belief, evaluate
