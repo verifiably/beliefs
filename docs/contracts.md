@@ -19,7 +19,10 @@ These rules bind anyone who writes a contract document. That includes authors of
 domain contracts kept outside this repository, such as the corpus-local contract
 documents `science` loads, as well as the packs beliefs ships. The Python parser
 in `beliefs.contract` checks each rule below when it loads a document. The
-TypeScript mirror in `ts/` reads only base and genesis domain contracts.
+TypeScript mirror in `ts/` is narrower. It reads only base contracts and genesis
+domain contracts. It refuses `retired` on any declaration, and it refuses a
+`description` at the top level of a domain contract and on its sorts and
+dimensions, although the Python parser accepts all of these.
 
 ## Documents
 
@@ -110,24 +113,32 @@ any of the following holds:
 
 - a genesis contract is given a predecessor, or a successor contract is given none;
 - the predecessor's identity or namespace differs from the one declared;
-- the successor drops an identifier its predecessor declared;
-- the successor changes the meaning-bearing fields of a declaration;
-- the successor un-retires an identifier.
+- the successor drops a claim-vocabulary identifier its predecessor declared;
+- the successor changes the meaning-bearing fields of a claim-vocabulary
+  declaration;
+- the successor un-retires a claim-vocabulary identifier.
 
-`description` and `retired` are outside that comparison. A retired identifier can
+The claim vocabulary is the contract's sorts, dimensions, operators, estimands and
+edges. Facets are not compared under succession. `description` and `retired` are
+outside the comparison. A retired identifier can
 still be decoded, so stored claims stay readable, but it can no longer be used to
 author a new claim.
 
 ## Profiles
 
-`compile_profile(base, domains, coordination=...)` accepts only parsed contracts.
-It refuses in four cases:
+`compile_profile(base, domains, coordination=...)` refuses, among others, in these
+cases:
 
+- an input was not produced by its parser;
 - a domain contract was parsed against a different base contract;
 - two contracts contribute to one namespace;
-- a domain facet attaches to a kind that is not a world kind;
+- a coordination kind, or the `coordination` facet, collides with one the base
+  contract declares;
 - a coordination contract's query vocabulary falls outside the kernel's world
-  kinds and relations.
+  kinds and relations;
+- a domain facet attaches to a kind that is not a world kind;
+- a `ref` field names a kind outside the compiled inventory;
+- a cross-contract sort reference names a sort no compiled contract declares.
 
 A compiled term is `<namespace>/<name>`, and that term is what enters a claim. The
 profile's compiled identity changes when a meaning-bearing field changes, and stays

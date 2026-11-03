@@ -2,10 +2,11 @@
 
 Type: protocol; document types 1. Currently unversioned. This document describes
 how a write reaches a corpus: the authority a writer is bound to, an ordinary write,
-the attended writer session and its ledger, operations and their act reports, and
-publication. It then covers what is refused and how an interrupted write recovers.
-The records being written are described in [records.md](records.md), and the
-contracts that type them in [contracts.md](contracts.md).
+the attended writer session and its ledger, operations and their act reports,
+verification and publication. It then covers what is refused and how an
+interrupted write recovers. The records being written are described in
+[records.md](records.md), and the contracts that type them in
+[contracts.md](contracts.md).
 
 ## Participants
 
@@ -40,17 +41,18 @@ the empty permit, so every act through it is refused.
 1. `init_corpus_root(root, authority=...)` requires `lifecycle` and registers the
    root with the engine. A root must be registered explicitly; a write against an
    unregistered root is refused.
-2. `adopt_manifest(profile=...)` requires `lifecycle` and writes `corpus.yaml`. It
-   refuses when a manifest is already present, or when the pins it is given
-   disagree with the writer's profile.
-3. `open_corpus(root, authority=..., profile=...)` returns a writer. The profile's
-   base contract must be the one the runtime ships.
+2. `open_corpus(root, authority=..., profile=...)` returns a writer. The profile's
+   base contract must be the one the runtime ships. The root does not need a
+   manifest yet.
+3. `writer.adopt_manifest(profile=pins)` requires `lifecycle` and writes
+   `corpus.yaml` with a fresh corpus id. It refuses when a manifest is already
+   present, or when the pins it is given disagree with the writer's profile.
 
 ## An ordinary write
 
 `add`, `supersede`, `revise`, `retract`, `attest_coreference`,
 `correct_identifier`, `delete`, `mint_coordination` and `revise_coordination` are
-ordinary writes. Each runs these steps in order:
+ordinary writes. Each runs these steps in order, except `delete` (below):
 
 1. Require the permit for the act's family and kind.
 2. Take the root's lock, check that the manifest pins agree with the profile, and
@@ -63,8 +65,9 @@ ordinary writes. Each runs these steps in order:
 
 A kind with its own door is refused through `add`. Holdings observations, act
 reports and publication records have no ordinary door at all. `delete` removes one
-record's file, and refuses act reports, holdings observations and coordination
-kinds.
+record's file. It takes the lock, checks the pins and resolves its target first,
+then requires the permit on the target's kind, then refuses act reports, holdings
+observations and coordination kinds.
 
 ## Writer sessions
 
@@ -125,10 +128,28 @@ Completion is read from the log and never stored:
 - `indeterminate`: a matching registration's record is not held here;
 - `unfinished`: neither.
 
+## Verification
+
+A verification compares two runs and is published through an ordinary `add`:
+
+1. `build_verification(original, replayed, specs=..., held_rules=...,
+   contract_identity=..., epoch=...)` takes two run closures. Both must be
+   assessment runs or both dataset-production runs; a mixed pair is refused
+   (`MixedShapes`). It returns an `AssessmentVerification` or a
+   `DatasetProductionVerification`, carrying the comparison report, the scope and
+   the verdict.
+2. `publication_node(derived, assessment_ref=...)` builds the record. An
+   assessment verification requires the corpus reference of its assessment, which
+   becomes the `verifies` edge. A dataset-production verification takes none.
+3. `writer.add(record)`, or a scoped writer's `add`, decodes the record, checks
+   that its id recomputes from its fields, and checks its `verifies` target; see
+   [records.md](records.md#verifications).
+
 ## Publication
 
-`publish(writer, resolver, world, view=..., destination=..., operations_root=...)`
-shares what a saved view selects, in the following steps:
+`publish(writer, resolver, world, view=..., destination=..., operations_root=...,
+staging_profile=..., clock=..., seam=...)` shares what a saved view selects; see
+the function's signature for its optional arguments. It runs these steps:
 
 1. Require the publish, `corpus-write`, `lifecycle` and `registry` families.
 2. Resolve the view and evaluate it at the current epoch. The publish is refused

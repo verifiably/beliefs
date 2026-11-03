@@ -13,11 +13,13 @@ how a record reaches a corpus.
 
 A corpus is a directory of records with a `corpus.yaml` manifest. The manifest has
 exactly three fields: `manifest_version` (the integer `2`), `corpus_id` (32 lowercase
-hexadecimal characters) and `profile`. A fork adds a fourth, `forked_from`. `profile`
-pins the base contract as `science:<64 hex>`, and each domain contract as
-`<namespace>:<64 hex>` under its namespace. When the pins disagree with the profile
-a writer holds, the write is refused before any effect, and a read through a
-`ReadView` is refused when the pinned base is not the one the runtime ships.
+hexadecimal characters) and `profile`. A fork adds a fourth, `forked_from`, with
+exactly `corpus_id` (32 hex) and `corpus_state` (64 hex). `profile` has exactly
+`science_contract`, which pins the base contract as `science:<64 hex>`, and
+`domains`, which maps each domain namespace to `<namespace>:<64 hex>`. When the
+pins disagree with the profile a writer holds, the write is refused before any
+effect, and a read through a `ReadView` is refused when the pinned base is not the
+one the runtime ships.
 
 Each record is a `nodes` node. The fields this document uses are `id`, written
 `<kind>:<local>`; `uid`; `kind`; `title`; `body`; `relations`; and `facets`, a
@@ -49,11 +51,16 @@ that kind.
 | `act-report` | `act-report` | operations only (and import) |
 | `composite` | `composite` | `add`, `supersede` |
 
-Each facet is checked by the reader the base contract names for it, or against
-its field schema. At the write boundary, `add` checks the facets of analysis specs,
-verifications, datasets, sources and composites, and their own doors check
-retractions and attestations. A proposition's claim and an assessment's facet are
-checked when they are read.
+The base contract names a reader for each kernel facet, but that name is not
+resolved or called: the code checks each facet where it is used. At the write
+boundary, `add` checks that a record's kind and facets are in the compiled profile,
+checks every schema-shaped facet (`empirical-observation` and domain facets)
+against its fields, and decodes the `display`, `analysis-spec`, `verification`,
+`dataset`, `source`, `composite` and `run-closure` facets. `retract` and
+`attest_coreference` decode their own records, and import decodes act reports. A
+proposition's claim, an assessment's facet, a `lineage-basis` and a run without a
+closure are checked only when read. A `source-assertion` facet is never checked:
+its declared reader does not exist.
 
 The prose kinds, `interpretation`, `discussion` and `story`, carry only an optional
 `display` facet. They have no identity domain and never enter a belief's inputs.
@@ -81,10 +88,18 @@ each predicate's signature:
 | `succeeded-by` | retraction | retraction |
 | `anchored_in` | source-assertion | source |
 
-The write boundary enforces two of these signatures: an `assesses` target must
-resolve in the corpus and be a proposition, and a `supersedes` edge to a record of
-another kind is refused. Audit reports a `supersedes` edge across kinds that was
-written around the boundary.
+The write boundary enforces these signatures:
+
+- an `assesses` target must resolve in the corpus and be a proposition;
+- a `supersedes` edge to a record of another kind is refused;
+- each `composes` target must be a proposition, with one edge per member;
+- a `verifies` target must be an assessment (when the verification carries a
+  report and an assessment);
+- a `retracts` node target must be an assessment, a retraction or a verification.
+
+The other signatures are declarations that the write boundary does not check.
+Audit reports a `supersedes` edge across kinds that was written around the
+boundary.
 
 ## Identity
 
@@ -117,13 +132,22 @@ Some records are content-addressed: their id is derived from their content.
 
 - A dataset's id is `dataset:sha256:<hex>`. The hex is the SHA-256 of its declared
   resource digests, deduplicated, sorted, and each terminated by a newline.
-- A source's id comes from its first accepted external identifier, in the order
-  `doi`, `pmid`, `isbn`, `accession`. There is no fallback to a title or year.
+- A source's id is `source:` followed by the digest of `{scheme, value}` under
+  `science.source-address.v1`, where the scheme is its first accepted external
+  identifier in the order `doi`, `pmid`, `isbn`, `accession`. There is no fallback
+  to a title or year.
 - An analysis spec's id is its spec identity under `science.spec.v1`. An act
   report's id is the digest of its facet under `science.act-report.v1`, and a
   retraction's is the digest of its facet under `science.retraction.v1`.
+- A run that carries a `run-closure` facet has the id `run:<digest>`, taken over
+  the closure projection under `science.run.v1` to `science.run.v4` (chosen by the
+  recipe version and whether the run was confined).
+- A verification that carries a report has the id `verification:<digest>`, taken
+  under `science.run-verification.v1` over its two runs, its assessment if any,
+  its rule, the report's identity, its scope rule, scope and verdict, and
+  `supersedes` when present.
 
-A dataset or source whose id does not match its derived address is refused.
+A record whose id does not match its derived address is refused.
 
 A claim's identity is `I_claim = digest("science.claim.v1", π_claim)`. Here
 `π_claim` is `{operator, args, qualifiers, polarity, layer}`, and every value in it
@@ -174,17 +198,33 @@ When read, an `assessment` facet must have exactly six text fields: `spec`, `run
 optionally the estimate (a decimal) and its uncertainty (an interval with a level,
 or a standard error). A record minted before
 the estimand grammar is refused by name (`PreGrammarAssessment`) and is never
-converted. At the write boundary, an assessment's run must resolve, and at least
-one of the run's `observes` inputs must carry a valid `empirical-observation` facet.
+converted. At the write boundary, a record that carries an `assesses` edge must
+name a run that resolves, and at least one of the run's `observes` inputs must
+carry a valid `empirical-observation` facet.
 
 ## Verifications
 
-A `verification` facet has the fields `assessment` (the assessment's identity),
-`scope`, `verdict` and, optionally, `supersedes` and `derivation`. `derivation`
-names exactly two runs: `original` and `replayed`. The scope is one of
-`same-environment`, `clean-environment`, `independent-implementation` and
-`not-certified`. The verdict is one of `passed`, `failed` and `inconclusive`. The
-`verifies` target must be an assessment that carries the named identity.
+A verification has one of two shapes:
+
+- **Published**, carrying a `report`. Its facet has exactly the required fields
+  `scope`, `verdict`, `derivation`, `rule`, `scope_rule` and `report`, and the
+  optional fields `assessment` and `supersedes`. `derivation` names exactly two
+  runs, `original` and `replayed`. `report` is the comparison report:
+  `original_conformance`, `replay_conformance`, two `receipts`, `rule_bindings`
+  and `diagnostics`, optionally with `certification` and `citation`. An assessment
+  verification carries `assessment` (the assessment's identity) and exactly one
+  `verifies` edge. A dataset-production verification carries neither. The id must
+  recompute from the fields (see [Identity](#identity)).
+- **Without a report.** The facet carries `assessment`, `scope`, `verdict` and,
+  optionally, `supersedes` and `derivation`. The write boundary admits it without
+  decoding it further.
+
+The scope is one of `same-environment`, `clean-environment`,
+`independent-implementation` and `not-certified`. The verdict is one of `passed`,
+`failed` and `inconclusive`. A published verification is checked against these
+sets when it is written, and one without a report when it is read. When a
+verification carries both a report and an assessment, its `verifies` target must
+resolve and must be an assessment that carries the named identity.
 
 An assessment's verification state is derived and never stored. It is `invalidated`
 if any active verification failed. It is `admitted` if one active verification
@@ -212,11 +252,11 @@ A `source` facet holds `identifiers`, each stored in canonical form. An ordinary
 `add` refuses a correction history: `correct_identifier` writes one, and import and
 relocation carry it.
 
-A `holdings-observation` records one look at one location: a `store` locator
-(`store_id`, `relative_path`) or a `url` locator. Its `outcome` is either `found`
-with a digest or `absent`. It also names its `observer`, `instrument`,
-`event_token`, `observed_at` and the observations it `supersedes`. Holdings acts
-alone mint observations.
+A `holdings-observation` records one look at one location. Its `location` is
+either `{type: store, store_id, relative_path}` or `{type: url, url}`. Its `outcome`
+is either `{finding: found, digest}` or `{finding: absent}`. It also has the fields
+`observer`, `instrument`, `event_token`, `observed_at` and `supersedes` (a list of
+observations), and an optional `expected`. Holdings acts alone mint observations.
 
 ## Other world records
 
