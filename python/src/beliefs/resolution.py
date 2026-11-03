@@ -1,13 +1,13 @@
 """Referent resolution: the five outcomes, the snapshot, and the receipt.
 
-**Binding a referent is not the same as resolving one** (§7.2). A claim may
+**Binding a referent is not the same as resolving one**. A claim may
 legitimately name an ontology term in a corpus that does not hold that ontology's
 bytes, so "is this term in its vocabulary?" has more answers than yes and no.
 
-D §5's `unknown` could not carry the decision, because it is a **disjunction**:
+A single `unknown` could not carry the decision, because it is a **disjunction**:
 the term is outside the bound vocabulary, *or* nobody consulted the binding's
 namespace. Refusing on it would report *"not in the vocabulary"* on the evidence
-that no one looked. §7.2 splits it, and the resulting five outcomes fall into two
+that no one looked. The outcome is therefore split, and the resulting five outcomes fall into two
 groups that must never be mixed:
 
     resolved membership results   member        not-member
@@ -18,9 +18,8 @@ groups that must never be mixed:
 refusing on them would make typing a claim require holding every ontology it
 mentions.
 
-*"A failure to look is not a finding of absence"* runs through five banked
-documents; the accepting rows here are its **dual** — a failure to look is not a
-finding of presence either, which is why an unperformed check is recorded as
+*"A failure to look is not a finding of absence"* — and its **dual** holds here:
+a failure to look is not a finding of presence either, which is why an unperformed check is recorded as
 unperformed rather than omitted.
 
 `not-present` is produced by `build_snapshot(not_present=...)`: the world read
@@ -58,7 +57,7 @@ _MINT = object()
 
 
 class TermOutcome(Enum):
-    """§7.2's five outcomes. A closed set, and the tags are the wire spelling."""
+    """The five outcomes. A closed set, and the tags are the wire spelling."""
 
     MEMBER = "member"
     NOT_MEMBER = "not-member"
@@ -92,7 +91,7 @@ class TermOutcome(Enum):
 class ReferentPosition:
     """Where in a claim a referent sits — a slot index, or a qualifier dimension.
 
-    Both kinds are referent positions and both are resolved (§6.4: a restriction
+    Both kinds are referent positions and both are resolved (a restriction
     is sorted exactly as an argument is), so the receipt has to name them in one
     vocabulary without conflating them.
     """
@@ -118,12 +117,12 @@ class ReferentPosition:
     def estimand(cls, part: str) -> ReferentPosition:
         """`estimand:contrast.baseline`, `estimand:measure.quantity`,
         `estimand:control.conditioning[3]` — the estimand's positions, in the
-        receipt's one vocabulary (estimand-typing §7.1)."""
+        receipt's one vocabulary."""
         return cls(kind="estimand", key=part)
 
     @classmethod
     def node(cls, index: int) -> ReferentPosition:
-        """A composite's node, by position in its sorted node set (design §4.1)."""
+        """A composite's node, by position in its sorted node set."""
         return cls(kind="node", key=str(index))
 
 
@@ -147,12 +146,12 @@ class _BoundVocabulary:
 class ResolutionSnapshot:
     """The identified, content-derived state of vocabulary availability a decode resolved against.
 
-    **It is a parameter, and that is the whole point.** §6.3 first wrote
-    `decodeClaim : WireClaim × ProfileSpec → Claim + Refused`, which is not a
+    **It is a parameter, and that is the whole point.** A decode taking only
+    `WireClaim × ProfileSpec → Claim + Refused` is not a
     function: the decision depends on what vocabularies are readable, so two
     holders could decode identical bytes differently through ambient state and
     nothing could say which was right. Making availability an argument is what
-    restores §3.4's well-definedness — same three inputs, same outcome, anywhere.
+    restores well-definedness — same three inputs, same outcome, anywhere.
 
     So there is deliberately **no default and no ambient fallback**. A decoder
     that could construct its own snapshot from the environment would reintroduce
@@ -189,7 +188,7 @@ class ResolutionSnapshot:
         worth exactly the **injectivity** of the key. `sort` is stable, so two
         distinct bindings encoding alike would be left in insertion order and one
         snapshot would take two identities. That injectivity is
-        `VocabularyBinding`'s: it enforces D §5's sum at construction and is
+        `VocabularyBinding`'s: it enforces the dataset-or-namespace sum at construction and is
         sealed, so no ordinary route produces a collision.
         """
         entries = [{"binding": binding.projection(), **state.projection()} for binding, state in self.bindings.items()]
@@ -209,11 +208,11 @@ class ResolutionSnapshot:
             return TermOutcome.NOT_CONSULTED
         if state.state == "not-present":
             # The world records the binding's dataset in a covered corpus that
-            # has no carrier here — D3's world-level arm.
+            # has no carrier here — the world-level arm.
             return TermOutcome.NOT_PRESENT
         if state.state == "not-available":
             # The dataset is identified and its bytes are not held here. This is
-            # M4's local `not-available`, distinct from an absent world corpus.
+            # the local `not-available`, distinct from an absent world corpus.
             return TermOutcome.NOT_AVAILABLE
         return TermOutcome.MEMBER if canonical(term) in state.terms else TermOutcome.NOT_MEMBER
 
@@ -225,7 +224,7 @@ def _require_binding(binding: object) -> None:
     a lookalike that compares unequal resolves to `not-consulted` — a snapshot
     that was told about a vocabulary reporting that nobody looked at it. The
     binding's own construction is what rules out the ill-formed inhabitants
-    (D §5's sum); this rules out values that never went through it.
+    (the dataset-or-namespace sum); this rules out values that never went through it.
     """
     if not isinstance(binding, VocabularyBinding):
         raise ResolutionError(
@@ -263,7 +262,7 @@ def _require_term(term: object, binding: VocabularyBinding) -> str:
     carry a non-identifier term, so a snapshot holding one holds a member no claim
     can ever name. `resolve` would answer `not-member` — the single **refusing**
     outcome, positive evidence that a vocabulary was read and lacks the term —
-    about a vocabulary that was told it has it. §7.2 exists to keep an absence of
+    about a vocabulary that was told it has it. The five outcomes exist to keep an absence of
     evidence from being reported as evidence of absence; this is the same
     confusion arriving from the other side, and it refuses a well-formed claim.
 
@@ -338,20 +337,20 @@ def build_snapshot(
 class BindingCheckReceipt:
     """Which of the five outcomes each referent position got, and under which snapshot.
 
-    **Not an input to claim identity** (§7.2). A corpus that happens to hold an
+    **Not an input to claim identity**. A corpus that happens to hold an
     ontology must not mint different identities from one that does not, or
     `I_claim` would depend on what bytes are lying around — the exact dependency
-    §6.5's identifier discipline exists to prevent. The arrow runs the other way:
+    the identifier discipline exists to prevent. The arrow runs the other way:
     the receipt names the claim, and the claim knows nothing about the receipt.
 
-    **It is a diagnostic.** §7.2 took option 1 explicitly: no independent
-    addressing, no discovery path, no succession, and no declared belief
-    consequence. Option 2 — promoting binding checks to addressed records — is a
-    kind with an eligibility analysis, and is ρO1. Nothing here persists.
+    **It is a diagnostic.** It has no independent addressing, no discovery path,
+    no succession, and no declared belief consequence. Promoting binding checks
+    to addressed records would be a kind with an eligibility analysis, and is
+    not done. Nothing here persists.
 
     ``snapshot_identity`` is what makes the receipt readable apart from the
-    snapshot that produced it, and it is required by M4. It is also exactly what
-    §6.3's scoped dependency rule asks for: this artifact's validity is
+    snapshot that produced it, and it is required. It is also exactly what
+    a scoped dependency asks for: this artifact's validity is
     conditional on one snapshot, and it can travel apart from that snapshot, so
     it records the dependency rather than leaving a later reader to guess.
     """
@@ -359,24 +358,23 @@ class BindingCheckReceipt:
     claim_identity: str
     """The claim these outcomes were taken for.
 
-    **Beyond M4's letter**, which asks only for the outcomes and the snapshot
-    identity. Without it a receipt is a set of slot labels with no way to tell
+    **Beyond the outcomes and the snapshot identity.** Without it a receipt is a set of slot labels with no way to tell
     which claim's slots they were — and a diagnostic that cannot be attached to
     its subject is not much of one. It also pins the sorts: the claim identity
-    fixes the operator, and §7.3 forbids redefining an operator's `arg_sorts`
-    under its own identifier, so the positions cannot be reinterpreted. That
+    fixes the operator, and redefining an operator's `arg_sorts`
+    under its own identifier is forbidden, so the positions cannot be reinterpreted. That
     argument has one hole, and it is already open — a parallel `genesis` in the
-    same namespace is compared against nothing (§8.3, ρC1).
+    same namespace is compared against nothing.
     """
 
     snapshot_identity: str
     outcomes: Mapping[str, TermOutcome]
-    """Position label → outcome. Exactly one per referent position (M4)."""
+    """Position label → outcome. Exactly one per referent position."""
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise ResolutionError(
             "BindingCheckReceipt is emitted by decode_claim, never authored. An authored receipt would "
-            "report a check that nobody performed, which is the one thing §7.2 exists to prevent."
+            "report a check that nobody performed, which is the one thing the five outcomes exist to prevent."
         )
 
     @classmethod

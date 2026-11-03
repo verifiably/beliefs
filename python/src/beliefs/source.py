@@ -1,4 +1,4 @@
-"""The `source` basis projection (slice 2b design §3).
+"""The `source` basis projection.
 
 A source's basis is an identifier issued by the world, normalized. This module
 owns the per-scheme form rules, the precedence that selects the basis when a

@@ -1,4 +1,4 @@
-"""The closure-to-stored run publication codec (spec §2.6 items 4–5).
+"""The closure-to-stored run publication codec.
 
 Identity is the closure's address: `run:<RunClosure.address()>`. The
 `run-closure` facet carries the `{recipe, result, occurrence}` projection
@@ -129,15 +129,14 @@ class OperationPort(Protocol):
 
     def preflight(self, plan: WritePlan) -> None:
         """The state-free checks the engine would make — plan shape, reserved
-        leaves, the record ceiling — raised before any intent (writer-session
-        design §4.3 step 3)."""
+        leaves, the record ceiling — raised before any intent."""
         ...
 
     def execute(self, plan: WritePlan) -> None: ...
 
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> str:
         """Commit the plan fulfilling `fulfills` and return the digest of the
-        registration it committed, read from the chain itself (design §4.4)."""
+        registration it committed, read from the chain itself."""
         ...
 
     def execute_fulfilling_guarded(
@@ -151,7 +150,7 @@ class OperationPort(Protocol):
         """Under the root's operation lock, run `guard` over the root's view and
         commit the plan when it returns `None`, or `fallback(reason)` when it
         returns a reason, fulfilling `fulfills`; return the registration digest
-        read from the chain and the reason (sharing-doors design §4.6)."""
+        read from the chain and the reason."""
         ...
 
 

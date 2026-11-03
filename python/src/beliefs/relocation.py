@@ -4,8 +4,8 @@ This module **composes** two `CorpusWriter`s and subclasses neither: an
 operation over two corpus roots cannot honestly be a method on an object bound
 to one. `atoms` §12.2 keys an engine root on a corpus root, so two corpora are
 two chains and two operation ports — these operations are never one
-transaction, and the design's §3.5 enumerates every durable prefix instead of
-pretending otherwise.
+transaction, and every durable prefix is enumerated instead of pretending
+otherwise.
 """
 
 from __future__ import annotations
@@ -152,7 +152,7 @@ def _reconcile(survivor: Node, loser: Node, *, correction_entries: list[dict[str
     for relation in (*survivor.relations, *loser.relations):
         relations.setdefault(_relation_key(relation), relation)
     facets = stored.union_lineage_bases(survivor, loser)
-    if correction_entries is not None:  # a source: slice 6 §5 step 5
+    if correction_entries is not None:  # a source
         if correction_entries:
             facets[stored.IDENTIFIER_CORRECTION_FACET] = {"entries": correction_entries}
         else:
@@ -206,7 +206,7 @@ def consolidate(
         except IdentityError as caught:
             raise RelocationRefused("consolidate: rationale is a non-empty, canonically encodable string") from caught
         # Constructed before the merge so a consolidation entry carries this operation's
-        # token; appended to either root only after every preflight below (slice 6 §5).
+        # token; appended to either root only after every preflight below.
         intent = OperationIntent("consolidate", secrets.token_hex(16), keep_writer.authority.actor)
         correction_entries: list[dict[str, Any]] | None = None
         if keep_node.kind == "source":
