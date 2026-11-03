@@ -104,7 +104,9 @@ only that exception into a skip whose message starts
 `certified tuple unavailable on this host:`. A green CI run is therefore evidence
 about the portable tests only. When a change touches the `root.py` boundary,
 durability or publication persistence, run the affected tests with `just test-one`
-on a certified host, and `just test-acceptance` when the reach is unclear.
+on a certified host. When the reach is unclear, first run `TT_FORCE=1 just test-fast`
+(about 90 seconds), which sweeps every capability-dependent test outside
+`python/tests/acceptance/`; then `just test-acceptance` for the acceptance modules.
 
 The work directories these tests use must sit on the certified volume, which a
 tmpfs such as `/tmp` is not. They default to the ignored `.work/` directory beside
@@ -132,6 +134,11 @@ corpus there before the first module. It errors and never skips:
 | 2 | The probe was refused: the work root is not on a certified volume, or the host is off the certified configuration. The message gives the engine's words. |
 | 3 | An old `SCIENCE_CUT<n>_ROOT` variable is set. The message names its replacement; unset it. |
 | 4 | No acceptance modules were found. |
+
+Codes 2, 3 and 4 have these meanings only before any module runs. Once the probe
+passes, a non-zero exit is the failing module's own `pytest` exit code, and pytest
+also uses 2 (interrupted, or a collection error) and 4 (a usage error); the
+message printed above the exit tells the cases apart.
 
 The ordinary suite refuses an old `SCIENCE_CUT<n>_ROOT` variable too, before any
 test runs.
@@ -190,9 +197,11 @@ the base the runtime ships, so existing corpora must be recreated under the new 
    parses the same contract, and update [records.md](records.md#record-kinds).
 
 View and coordination kinds come from the coordination contract instead: add a
-successor version under `python/src/beliefs/contracts/coordination/`
-([contracts.md](contracts.md#coordination-contract)), and add the kind to
-`KIND_ACTS` as above.
+successor version under `python/src/beliefs/contracts/coordination/v<n>/`
+([contracts.md](contracts.md#coordination-contract)), extend the versions
+`shipped_coordination` accepts in `profile.py` (it lists them, `(1, 2, 3)`, and
+names them in its error message; a new directory is never loaded until both
+change), and add the kind to `KIND_ACTS` as above.
 
 ## Adding a domain contract
 

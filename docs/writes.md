@@ -78,8 +78,8 @@ The `science` layer writes through a session:
    `mounts`, when given, must name every configured root exactly once. The corpus
    must have a manifest whose pins agree with the profile, and its
    [chain](glossary.md#roots-log) must be well-formed. The session's actor is
-   `session:<32 hex>`, derived from a fresh session id. The session writes `session-open` to its ledger and reconciles the
-   other sessions' ledgers.
+   `session:<32 hex>`, derived from a fresh session id. The session writes
+   `session-open` to its ledger and reconciles the other sessions' ledgers.
 2. `claim_invocation(id, command, input_digest)` writes `invocation-open` for a new
    id and returns `ClaimFresh`. For an id it has seen, it returns `ClaimDone` (with
    the recorded outcome), `ClaimOpen` or `ClaimMismatch`, and writes nothing.

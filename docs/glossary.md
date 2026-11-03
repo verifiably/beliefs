@@ -131,7 +131,8 @@ the beliefs documents use, each linking the document that specifies or explains 
   is applied; that entry names what it writes and, when it fulfils an operation
   intent, carries the intent's token. ([writes](writes.md#operations))
 - <a id="retraction"></a>**Retraction** — A record that withdraws the standing of a
-  record, a dataset route or a producer snapshot without changing it. ([records](records.md#other-world-records))
+  record, a dataset route or a producer snapshot without changing it.
+  ([records](records.md#other-world-records))
 - <a id="roots-log"></a>**The root's log** — The append-only, hash-linked chain the
   `atoms` engine keeps for each registered root: intents, transaction registrations
   and their settlements. Operation completion and log audit are read from it.

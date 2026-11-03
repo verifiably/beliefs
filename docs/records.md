@@ -218,8 +218,9 @@ A verification has one of two shapes:
   recompute from the fields (see [Identity](#identity)).
 - **Without a report.** The facet is expected to carry `assessment`, `scope`,
   `verdict` and, optionally, `supersedes` and `derivation`. The write boundary
-  admits it without decoding it further; only `scope` and `verdict` are checked,
-  when it is read, and a missing `assessment` reads as empty.
+  admits it without decoding it further. When it is read for admission or belief,
+  only `scope` and `verdict` are checked, and a missing `assessment` reads as
+  empty. Audit also reads `derivation` and refuses a malformed one.
 
 The scope is one of `same-environment`, `clean-environment`,
 `independent-implementation` and `not-certified`. The verdict is one of `passed`,
