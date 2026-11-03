@@ -1547,7 +1547,7 @@ def chain_head_reader() -> Callable[[Path], tuple[str, str]]:
 # --- the log seam ------------------------------------------------------------
 #
 # `atoms` inspection results are engine types, and every act of the log
-# verification slice discriminates over one. Rather than let those classes be
+# verification discriminates over one. Rather than let those classes be
 # named above this module, the conversion below re-types the *shape* into
 # `beliefs.world.logmodel`'s closed unions and carries the *facts* — the path
 # state fingerprints — as the engine's own objects, opaque and compared only by

@@ -4,11 +4,12 @@
 # (one sort covering every term; a placeholder vocabulary binding; operator names,
 # `sign_apt` and `layers` read off mm30's own `predicate`, `polarity` and
 # `claim_layer` fields, so fitted, not evidence), except `contract.contract`, which
-# names this exercise. That file was deleted; it is in the history before this
-# comment's commit.
+# names this exercise. The unsorted vocabulary used to live in
+# `python/tools/vocabularies/mm30-unsorted.yaml`, which no longer exists; this
+# file is now its only copy.
 #
 # Why the unsorted vocabulary and not the modal-sorted one: the target
-# (record §2) is `concept:disease-stage affects protein:PHF19`, a
+# is `concept:disease-stage affects protein:PHF19`, a
 # concept→protein pair, and `mm30-modal-sorted.yaml` assigns `affects` the
 # slots `[concept, concept]` by its stated modal rule (it types 208 of 224
 # `affects` records and refuses the 10 concept→protein ones by construction).
@@ -36,7 +37,7 @@ contract:
       vocabulary: { namespace: mm30-entities, release: "2026-08-07" }
 
   # mm30 records no qualifier of any kind, and neither does any other surveyed
-  # corpus. §6.4's flat fragment is entirely unexercised by authored data — a
+  # corpus. The flat qualifier fragment is entirely unexercised by authored data — a
   # measured absence, not an omission in this file.
   dimensions: {}
 
@@ -111,7 +112,7 @@ plan:
     binds: binds
 
   # Corpus `claim_layer` → base contract layer. The base set is closed and a
-  # domain may not extend it (§7.1), so a value with no counterpart here has
+  # domain may not extend it, so a value with no counterpart here has
   # nowhere to go and no contract edit can give it one.
   layers:
     causal_effect: causal
@@ -121,7 +122,7 @@ plan:
   # Corpus `polarity` → the argument `build_claim` takes. `not_applicable` maps
   # to null, which is not "no value" but the *only* thing a sign-inapt operator
   # accepts: supplying `inapt` explicitly is refused, since the projection
-  # carries it on the claim's behalf and an author never chooses it (§7.5).
+  # carries it on the claim's behalf and an author never chooses it.
   polarities:
     positive: positive
     negative: negative

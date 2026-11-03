@@ -271,7 +271,7 @@ def receipt_identity(
     """The receipt identity, over the five members that fix what ran.
 
     Each corpus-state pair encodes as a two-member list, the same shape the
-    fixture-set pairs use, so one reading of "a pair" serves the whole slice.
+    fixture-set pairs use, so one reading of "a pair" serves the whole module.
     The formula names *sorted* pairs, so the sort belongs here rather than to
     whoever assembled the sequence — `rules.fixture_set_identity` orders its
     members for the same reason.

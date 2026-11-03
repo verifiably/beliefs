@@ -1,19 +1,19 @@
 # A synthetic domain contract, owned by neither implementation.
 #
 # It lives under `fixtures/` rather than beside either language's tests because
-# M10's parity vector is built from it and both implementations must read the
+# the parity vector is built from it and both implementations must read the
 # same declarations. A contract under `python/tests/` would make the TypeScript
 # side reach into the Python tree for its own oracle.
 #
 # Deliberately not a real domain. Shipping `domains/biology/DOMAIN.yaml` is a
-# design act, not a test-support one: §7.1's own biology example would be refused
+# design act, not a test-support one: a biology example would be refused
 # at load, because it binds `population-group` to a placeholder and no population
-# vocabulary has been selected (§11, open). Inventing one here to make a test
+# vocabulary has been selected (still open). Inventing one here to make a test
 # pass would decide an open question by accident.
 #
-# The operator set is shaped by M10's coverage requirement: **every closed kernel
+# The operator set is shaped by a coverage requirement: **every closed kernel
 # tag must be reachable**. So each of the base contract's four layers has an
-# operator admitting it, and both inhabitants of §7.5's polarity position are
+# operator admitting it, and both inhabitants of the polarity position are
 # reachable — `affects` and `correlates-with` are sign-apt, `subtype-of` and
 # `measured-by` are not. Adding a layer to the base contract with no operator
 # admitting it will fail the fixture's coverage assertion, which is the point.
@@ -74,7 +74,7 @@ operators:
     layers: [methodological]
     dimensions: [setting]
 
-# Estimand declarations (estimand-typing design §5.1): which sorts fill the
+# Estimand declarations: which sorts fill the
 # kernel's estimand structure at each operator. `subtype-of` and `measured-by`
 # deliberately declare none, so a spec targeting a claim at them refuses.
 estimands:
@@ -89,14 +89,14 @@ estimands:
     identification_sort: identification
     conditioning_sort: entity
 
-# One edge-forming operator (composite-claims design §3.3): `affects` at the
+# One edge-forming operator: `affects` at the
 # causal layer, cause in slot 0, effect in slot 1. `correlates-with` has no row
 # on purpose — a statistical operator forms no edge in a `dag`.
 edges:
   affects: { cause: 0, effect: 1 }
 
-# Two fixture facets (facet-contracts design §3.2). They exist to exercise the
-# namespaced grammar, D2's asymmetry, D8's composition and F8's registry check.
+# Two fixture facets. They exist to exercise the namespaced grammar, the
+# asymmetry between kinds, composition across contracts and the registry check.
 # Neither means anything: `annotation` attaches to two kinds only so that a
 # kind-scoped `attaches_to` is tested at all.
 facets:

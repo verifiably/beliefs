@@ -827,7 +827,7 @@ class MountCitations:
         return view.get(ref)
 
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
-        """Decision 3a: the union over the write root and every read mount, held or
+        """The union over the write root and every read mount, held or
         dangling, whether or not anything holds `dataset`."""
         found = set(self._own.producers(dataset, aliases=aliases))
         for _root, view in self._read_views():
