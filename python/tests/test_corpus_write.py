@@ -132,7 +132,7 @@ def typed_writer(tmp_path) -> CorpusWriter:
     return CorpusWriter(tmp_path, Recorder, authority=FULL, profile=TESTING_PROFILE)
 
 
-class TestE2AuthorityBindsOnceAtConstruction:
+class TestAuthorityBindsOnceAtConstruction:
     def test_a_writer_requires_an_authority_keyword(self, tmp_path):
         with pytest.raises(TypeError):
             CorpusWriter(tmp_path, Recorder, profile=BASE)  # type: ignore[call-arg]
@@ -197,7 +197,7 @@ class TestE2AuthorityBindsOnceAtConstruction:
             CorpusWriter(tmp_path, Recorder, authority="full", profile=BASE)  # type: ignore[arg-type]
 
 
-class TestE1CorpusWriteRequiresBeforeAnyEffect:
+class TestCorpusWriteRequiresBeforeAnyEffect:
     def test_add_under_a_permit_lacking_the_family_refuses_and_writes_nothing(self, tmp_path):
         Recorder.plans = []
         writer = CorpusWriter(
@@ -237,7 +237,7 @@ class TestE1CorpusWriteRequiresBeforeAnyEffect:
         assert not (tmp_path / "corpus.yaml").exists()
 
 
-class TestE3TheActorIsBound:
+class TestTheActorIsBound:
     def test_a_run_closure_naming_another_actor_is_refused_through_add(self, tmp_path):
         from fixtures_cut3 import closure as minted_closure
 
@@ -543,7 +543,7 @@ class TestTheAddPathIsAddOnly:
         assert Recorder.plans == []
 
 
-class TestW3TheBasisRefusal:
+class TestTheBasisRefusal:
     def test_a_source_with_no_accepted_external_identifier_refuses(self, writer):
         with pytest.raises(BasisMissing):
             stored.source_node(title="A paper", identifiers={})
@@ -594,7 +594,7 @@ class TestW3TheBasisRefusal:
         assert not any(n.kind == "source" for n in writer.read_view.iter_stored())
 
 
-class TestS7TheWriteBoundary:
+class TestTheWriteBoundary:
     def test_an_assesses_edge_whose_run_has_no_observes_input_refuses(self, writer):
         with pytest.raises(EligibilityUnmet):
             writer.add(admissible(writer, observes=False))

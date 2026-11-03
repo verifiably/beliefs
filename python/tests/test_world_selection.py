@@ -1,4 +1,4 @@
-"""View-query evaluation over the world read view (slice 4)."""
+"""View-query evaluation over the world read view."""
 
 from __future__ import annotations
 
@@ -400,7 +400,7 @@ class TestAbsenceAndValidation:
 
 
 class TestLocatedState:
-    """The evaluator reads `locate` as three states (live-query design decision 9)."""
+    """The evaluator reads `locate` as three states."""
 
     def test_the_three_states_follow_locate(self, tmp_path):
         world, roots, published, _topic = topic_world(tmp_path, [{"kinds": ["dataset"]}])
@@ -411,7 +411,7 @@ class TestLocatedState:
         assert open_world_view(world, published)._located_state(dataset_ref("d-b")) == "not-present"
 
 
-class TestW20Holders:
+class TestHolders:
     def test_absence_over_holders(self, tmp_path):
         shared = stored.dataset_node(title="shared", resources=pinned("shared"))
         topic = raw_coordination_node(

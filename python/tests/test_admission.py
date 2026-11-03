@@ -53,7 +53,7 @@ def held(*declarations: DatasetDeclaration) -> dict[str, tuple[ByteObservation, 
 ADMITTING = (Verification(ref="v1", assessment=assessment().identity(), scope="clean-environment", verdict="passed"),)
 
 
-class TestG2b:
+class TestHeldObservesInputs:
     def test_a_held_observes_input_admits(self):
         d = dataset()
         result = admit(assessment(), run(RunInput(role="observes", dataset=d)), held(d), ADMITTING)
@@ -84,7 +84,7 @@ class TestG2b:
         assert result.reason.startswith("input-not-held")
 
 
-class TestG6:
+class TestReadsOnlyInputs:
     def test_reads_only_inputs_admit_nothing(self):
         # A literature corpus and an ontology, both held, in any quantity.
         corpus, ontology = dataset(), dataset(digest=D2)
@@ -120,7 +120,7 @@ class TestTheGateReadsItsArguments:
         assert result.reason.startswith("not-admitted-verification-state")
 
 
-class TestD3NotAvailableIsDerived:
+class TestNotAvailableIsDerived:
     def test_an_unheld_vocabulary_dataset_reads_not_available(self):
         binding = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
         readable, _members = vocabulary_availability(dataset(), (), members=("EX:term-1",))
@@ -142,7 +142,7 @@ class TestD3NotAvailableIsDerived:
 
 
 # --- admit resolves the bare run through the typed ref ------
-def test_v2_admit_matches_a_typed_run_ref_to_the_bare_member():
+def test_admit_matches_a_typed_run_ref_to_the_bare_member():
     from beliefs.admission import AdmissionRefused, admit
     from beliefs.record import AssessmentValue, RunValue
 

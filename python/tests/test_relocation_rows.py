@@ -1,4 +1,4 @@
-"""Frozen cut-16 row evidence for the public ``move`` operation."""
+"""Portable evidence for the public ``move`` operation."""
 
 from __future__ import annotations
 
@@ -68,9 +68,9 @@ def _basis_route(name):
 
 
 def _duplicate_datasets(tmp_path, *, writers=None):
-    """The two one-address records W16 consolidates, in two corpora.
+    """The two one-address records `consolidate` merges, in two corpora.
 
-    `writers` lets Task 8's acceptance module supply open writers bound to
+    `writers` lets the acceptance module supply open writers bound to
     registered roots on the certified volume; the record construction below is
     the same either way."""
     keep_writer, other_writer = writers or (
@@ -225,7 +225,7 @@ def test_location_is_not_a_closure_member(tmp_path):
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_a_permitted_move_preserves_w5(tmp_path):
+def test_a_permitted_move_preserves_producer_semantics(tmp_path):
     moved = _move_published_dataset(tmp_path)
     assert moved["source"].manifest_pins() == moved["destination"].manifest_pins() == PINS
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
@@ -581,7 +581,7 @@ def test_consolidate_is_one_intent_and_one_report_in_each_root(tmp_path, monkeyp
 
 
 def test_retract_refuses_a_target_moved_away(tmp_path):
-    """§3.6 clause 1, through the operation that creates the state."""
+    """Through the operation that creates the state."""
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
     observation = source.add(

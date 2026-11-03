@@ -1,8 +1,8 @@
-"""T3, T5's type-union refusals, T6's order and citation arms, T8,
-and T2's intent-type half. Deferred: T1's import and raw-write arms (store,
-tamper log), T2's committed-registration arms (persistence), T5's began-ness
+"""The type-union refusals, the order and citation checks,
+and the intent-type half. Deferred: the import and raw-write checks (store,
+tamper log), the committed-registration checks (persistence), the began-ness
 and preflight-versus-post-stop distinctions (the acquisition operation), and
-T5's no-observation negative (the persistence seam) — cut 3 §4.2."""
+the no-observation negative (the persistence seam)."""
 
 import dataclasses
 import re
@@ -65,7 +65,6 @@ from beliefs.report import (
 )
 
 
-# --- T5 ----------------------------------------------------------------------
 def test_byte_locator_untested_is_unspellable_on_a_managed_mutation_entry():
     with pytest.raises(OutcomeRefused):
         ManagedMutationEntry(
@@ -185,7 +184,6 @@ def test_an_acquisition_report_requires_an_acquisition_intent_and_keeps_entry_or
         _mint_acquisition_report(OperationIntent("import", "tok", "actor:a"), entries=entries, **fields)
 
 
-# --- T3 ----------------------------------------------------------------------
 def test_an_unmatched_intent_reads_unfinished():
     intent = OperationIntent(kind="acquisition", event_token="tok-1", actor="tester")
     assert completion(intent, registrations=(), held={}) == UNFINISHED
@@ -230,7 +228,7 @@ def test_deleting_a_report_moves_closed_to_indeterminate_not_unfinished():
     intent = OperationIntent(kind="acquisition", event_token=published.event_token, actor="tester")
     registrations = (Registration(intent_token=published.event_token, pointer=published.identity()),)
     assert completion(intent, registrations, held={published.identity(): published}) == CLOSED
-    assert completion(intent, registrations, held={}) == INDETERMINATE  # §4's retention cost, checkable
+    assert completion(intent, registrations, held={}) == INDETERMINATE  # the retention cost, checkable
 
 
 def test_wrong_spec_run_closure_reads_unfinished() -> None:
@@ -257,7 +255,7 @@ def test_existing_completion_vocabulary_is_preserved() -> None:
     assert completion(other, registrations, {"pointer": published}) == UNFINISHED
 
 
-# --- T6 (the citation half; the R18 arm is Task 10's) -------------------------
+# --- (the citation half) -------------------------
 def test_permuting_two_entries_moves_the_report_identity():
     ordered = report()
     permuted = report(entries=tuple(reversed(ordered.entries)))
@@ -275,14 +273,13 @@ def test_an_out_of_range_index_is_refused_at_the_citing_site():
     with pytest.raises(CitationRefused):
         cite(published, 2)
     with pytest.raises(CitationRefused):
-        cite(published, -1)  # zero-based and unsigned (act-report §2.2)
+        cite(published, -1)  # zero-based and unsigned
 
 
-# --- T8 ----------------------------------------------------------------------
 def test_equal_facets_with_distinct_event_tokens_are_two_reports():
     a, b = report(event_token="tok-a"), report(event_token="tok-b")
     assert a.entries == b.entries and a.actor == b.actor and a.opened_at == b.opened_at
-    assert a.identity() != b.identity()  # the R3 discipline at the report
+    assert a.identity() != b.identity()  # the same discipline at the report
 
 
 def test_every_facet_member_moves_the_identity():
@@ -311,7 +308,7 @@ def test_no_ordinary_api_edits_supersedes_or_deletes_a_report():
         report().actor = "someone-else"  # type: ignore[misc]
 
 
-# --- T2's intent-type half (the operational arms are Task 6's) ----------------
+# --- the intent-type half ----------------
 def test_the_assessment_run_intent_is_unspellable_without_a_spec_identity():
     with pytest.raises(TypeError):
         AssessmentRunIntent(event_token="tok-1", actor="tester")  # type: ignore[call-arg]
@@ -324,7 +321,7 @@ def test_the_operation_kind_enum_is_closed():
         OperationIntent(kind="deployment", event_token="tok-1", actor="tester")
 
 
-# --- corpus-write (writer-session design §4.1) --------------------------------
+# --- corpus-write --------------------------------
 def test_corpus_write_is_an_operation_kind_and_constructs_an_intent():
     assert "corpus-write" in report_values.OPERATION_KINDS
     intent = OperationIntent(kind="corpus-write", event_token="tok-9", actor="session:" + "a" * 32)
@@ -344,7 +341,7 @@ def test_a_corpus_write_intent_with_no_registration_reads_unfinished():
     assert completion(intent, (Registration(intent_token="other", pointer="x"),), held={}) == UNFINISHED
 
 
-# --- publish (publication-records design §7, decisions 8 and 10) -------------
+# --- publish -------------
 SUBJECT = "coord:" + "a" * 32 + "/" + "b" * 32
 
 
@@ -508,7 +505,7 @@ def test_the_publish_report_seam_mints_one_binding_entry_for_a_publish_intent_on
         _mint_publish_report(intent, entry=(entry,), **times)  # type: ignore[arg-type]
 
 
-# --- publish-act-local §7: the lifecycle entries and the ordered sequence ------
+# --- the lifecycle entries and the ordered sequence ------
 
 
 @pytest.fixture
@@ -544,7 +541,7 @@ def _binding():
         _lifecycle("export"),
         _lifecycle("reveal"),
         (*_lifecycle(), _binding()),
-        (_binding(),),  # cut 39's lone binding entry
+        (_binding(),),  # the lone binding entry
     ],
     ids=["request", "staging", "export", "reveal", "bound", "lone-binding"],
 )
@@ -631,7 +628,7 @@ def test_a_non_string_stored_type_or_kind_refuses_rather_than_crashing(bad):
         publish_entries_from_facet([{**_entry_facet(_lifecycle("staging")[0]), "kind": bad}])
 
 
-# --- publish-act-remote §5.1: the transport entry and the remote lifecycle ------
+# --- the transport entry and the remote lifecycle ------
 
 _STAGE = PublicationStagingEntry(_S, Staged(_C, 2))
 _EXPORT = PublicationExportEntry(_S, Exported(_C, "f" * 64))

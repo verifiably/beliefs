@@ -1,4 +1,4 @@
-"""E6: hold every write entry point closed statically (design §5)."""
+"""Hold every write entry point closed statically."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "corpus.py:CorpusWriter.add": "corpus-write",
     "corpus.py:CorpusWriter.retract": "corpus-write",
     "corpus.py:CorpusWriter.attest_coreference": "corpus-write",
-    # 2026-09-11 slice 2b: identifier correction is a source corpus-write.
+    # Identifier correction is a source corpus-write.
     "corpus.py:CorpusWriter.correct_identifier": "corpus-write",
     "corpus.py:CorpusWriter.supersede": "corpus-write",
     "corpus.py:CorpusWriter.revise": "corpus-write",
@@ -105,9 +105,9 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "root.py:restore_root.grant": "lifecycle",
     "root.py:fork_corpus": "lifecycle",
     "root.py:fork_store": "lifecycle",
-    # 2026-09-23 cut 39: the step-8 binding door commits through the guarded fulfilment.
+    # The step-8 binding door commits through the guarded fulfilment.
     "publication_doors.py:_bind_publication": "publish",
-    # 2026-09-23 cut 40: the staging doors write through `_corpus.add`; the pre-binding refusal fulfils.
+    # The staging doors write through `_corpus.add`; the pre-binding refusal fulfils.
     "corpus.py:CorpusWriter._stage_record": "corpus-write",
     "corpus.py:CorpusWriter._stage_marker": "publish",
     "publication_doors.py:_refuse_publication": "publish",

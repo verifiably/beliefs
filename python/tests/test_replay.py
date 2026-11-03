@@ -1,9 +1,9 @@
-"""R4's full walk, R5's retained arms, R6, R9's three inconclusive
-checks, R16's evaluator and scope arms, G9's replay-eligibility third.
-R9's admission conjunct and R16's nothing-is-admitted conjunct live in
-acceptance/test_confinement_acceptance.py (cut 13); R5 negative (a) (persistence seam)
-— cut 3 §4.2/§7.1.
-R16's family/job/stream completeness is checked from the workflow snapshot.
+"""The full walk, the retained checks, the three inconclusive
+checks, the evaluator and scope checks, the replay-eligibility third.
+The admission conjunct and the nothing-is-admitted conjunct live in
+acceptance/test_confinement_acceptance.py; the persistence-seam negative
+is deferred.
+The family/job/stream completeness is checked from the workflow snapshot.
 """
 
 import dataclasses
@@ -388,7 +388,6 @@ def test_a_replay_refuses_a_reconstructed_recipe_mismatch(tmp_path):
     )
 
 
-# --- R6 -----------------------------------------------------------------------
 def existing_assessment_state(original):
     existing = AssessmentValue(
         spec="s",
@@ -452,7 +451,6 @@ def test_restoring_availability_changes_nothing_until_a_replay_actually_runs(pai
     assert isinstance(replayed, RunMinted)
 
 
-# --- R9 -----------------------------------------------------------------------
 def test_a_missing_output_yields_inconclusive(pair):
     original, replayed = pair
     rule = byte_tolerance_rule(store={})
@@ -485,7 +483,7 @@ def test_a_byte_tolerance_rule_compares_numeric_payloads():
     assert rule.evaluate(left, far) == "failed"
 
 
-# --- R16's evaluator and scope arms -------------------------------------------
+# --- the evaluator and scope checks -------------------------------------------
 def test_no_equivalence_rule_can_read_an_occurrence():
     with pytest.raises(MalformedRecord):
         EquivalenceImplementation(
@@ -632,7 +630,6 @@ def test_seeded_conformance_refuses_a_wrong_reported_seed(pair):
     assert conformance(changed).startswith("non-conforming")
 
 
-# --- R4 -----------------------------------------------------------------------
 def test_no_authored_scope_parameter_exists():
     assert "scope" not in inspect.signature(derive_scope).parameters
     assert "scope" not in inspect.signature(execute_assessment_run).parameters
@@ -746,7 +743,6 @@ def test_minimal_pair_never_derives_clean_environment(pair):
     assert not qualifies(replayed.run.occurrence.receipt, replayed.run.recipe.environment.identity())
 
 
-# --- R5 / G9 ------------------------------------------------------------------
 def test_unreachable_bytes_with_a_held_copy_move_none_of_the_three(pair):
     original, _ = pair
     d = DatasetDeclaration(resources=(ResourceDeclaration(name="r", digest=D_IN),))

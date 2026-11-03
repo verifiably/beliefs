@@ -212,7 +212,7 @@ def test_a_coordination_pin_never_enters_the_belief_input_digest():
     assert second.belief_input_digest == first.belief_input_digest
 
 
-class TestP1TheBindingIsExact:
+class TestTheBindingIsExact:
     def test_nothing_refuses(self):
         result = evaluate(**scenario(binding=None))
         assert isinstance(result, Refused)
@@ -227,7 +227,7 @@ class TestP1TheBindingIsExact:
         assert result == Belief(2, result.belief_input_digest, scenario()["binding"])
 
 
-class TestP2FixtureFailureRefuses:
+class TestFixtureFailureRefuses:
     def test_a_failing_implementation_refuses_not_unavailable(self):
         broken = PolicyImplementation(identity=BELIEF_V1.identity, aggregate=lambda problem: 999)
         kwargs = scenario()
@@ -269,7 +269,7 @@ class TestP2FixtureFailureRefuses:
         assert result == NoBelief("unavailable-fixtures-unheld")
 
 
-class TestP4TheAbsencesAreDistinguishable:
+class TestTheAbsencesAreDistinguishable:
     def test_a_balanced_directional_set_publishes_belief_zero(self):
         kwargs = scenario()
         a1, a2 = kwargs["records"].assessments
@@ -308,7 +308,7 @@ class TestP4TheAbsencesAreDistinguishable:
         assert not (isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent")
 
 
-class TestP6NoMagnitudeBearingRead:
+class TestNoMagnitudeBearingRead:
     @pytest.mark.parametrize(
         "field,overrides",
         [
@@ -341,7 +341,7 @@ class TestP6NoMagnitudeBearingRead:
         assert not any("mismatch" in name.lower() for name in vars(belief_module))
 
 
-class TestP7BeliefIsAComputedView:
+class TestBeliefIsAComputedView:
     def test_the_evaluator_accepts_no_prior_value_and_no_prior_digest(self):
         parameters = inspect.signature(evaluate).parameters
         assert set(parameters) == {
@@ -377,7 +377,7 @@ class TestP7BeliefIsAComputedView:
         assert restored == first
 
 
-class TestP8InconclusiveIsValueInertAndDigestCommitted:
+class TestInconclusiveIsValueInertAndDigestCommitted:
     def test_adding_one_keeps_the_value_and_moves_the_digest(self):
         baseline = evaluate(**scenario())
         kwargs = scenario()
@@ -412,7 +412,7 @@ class TestP8InconclusiveIsValueInertAndDigestCommitted:
         assert result.value == 2  # not 1: {C, I} never competes — I has no vertex to offer
 
 
-class TestP9UnholdingPrecedence:
+class TestUnholdingPrecedence:
     def test_removing_the_last_eligible_directional_is_input_unheld(self):
         kwargs = scenario()
         a1, _a2 = kwargs["records"].assessments
@@ -439,7 +439,7 @@ class TestP9UnholdingPrecedence:
         assert isinstance(raised, Belief) and raised.value == 1
 
 
-class TestG1ASourceAssertionMovesNothing:
+class TestSourceAssertionMovesNothing:
     def test_every_field_maximal_moves_no_belief_output_byte(self):
         baseline = evaluate(**scenario())
         sa = SourceAssertion(
@@ -453,7 +453,7 @@ class TestG1ASourceAssertionMovesNothing:
         assert mutated.belief_input_digest == baseline.belief_input_digest
 
 
-class TestG8AFailingVerificationForcesADifferentAnswer:
+class TestFailingVerificationForcesADifferentAnswer:
     def test_invalidation_flips_the_state_and_the_answer(self):
         baseline = evaluate(**scenario())
         kwargs = scenario()
@@ -488,7 +488,7 @@ class TestG8AFailingVerificationForcesADifferentAnswer:
         assert restored == original
 
 
-class TestD7AtTheEvaluator:
+class TestAtTheEvaluator:
     def test_a_profile_pin_mismatch_refuses_with_its_distinct_prefix(self):
         kwargs = scenario()
         context = replace(
@@ -528,7 +528,7 @@ class TestD7AtTheEvaluator:
         assert mutated.belief_input_digest == baseline.belief_input_digest
 
 
-class TestQ8TheEstimandWalk:
+class TestTheEstimandWalk:
     """The third consulted-contracts trigger, at the evaluator: an
     assessment's estimand reaches its contracts whether or not the claim
     schema would. `measures` declares no operator, so the first arm below
@@ -644,7 +644,7 @@ class TestQ8TheEstimandWalk:
         assert mutated.belief_input_digest == baseline.belief_input_digest
 
 
-class TestS6eTheDigestHalf:
+class TestTheDigestHalf:
     def test_duplicated_contrary_assessments_change_the_digest_not_the_value(self):
         kwargs = scenario()
         a1, a2 = kwargs["records"].assessments

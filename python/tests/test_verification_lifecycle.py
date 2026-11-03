@@ -1,7 +1,7 @@
-"""G2c's selected arms: kernel §3.3's lifecycle table walked over values.
+"""The lifecycle table walked over values.
 
 "Active" is exercised as *not superseded* only; the standing-retraction clause
-of the amended definition is the C group's and is deferred (cut 2 §4.2). A walk
+of the amended definition is deferred. A walk
 exercising the pre-amendment lifecycle while claiming the amended one is the
 over-count that row exists to prevent — so this file claims exactly the
 supersession half.
@@ -76,9 +76,9 @@ class TestFailClosed:
         assert state == NOT_ADMITTED
 
     def test_the_state_is_a_function_of_its_argument(self):
-        # G8's in-slice sabotage is statefulness — a cross-call memory. Derive,
+        # The failure mode is statefulness — a cross-call memory. Derive,
         # observe invalidation, then derive again from the smaller value: the
-        # failure's deletion must return the assessment to admitted (§3.2's
+        # failure's deletion must return the assessment to admitted (the
         # undetectable-history limit, pinned rather than papered over).
         failed = (v("bad", "clean-environment", "failed"), v("good", "clean-environment", "passed"))
         assert lifecycle_state(failed) == INVALIDATED

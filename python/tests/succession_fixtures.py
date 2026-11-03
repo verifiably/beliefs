@@ -2,7 +2,7 @@
 
 Every blocker is genuine durable state — records through the port's
 non-fulfilling `execute`, intents through `append_intent`, reports through
-`execute_fulfilling` (cut 12 §6). Nothing here hands the act a set.
+`execute_fulfilling`. Nothing here hands the act a set.
 """
 
 from __future__ import annotations

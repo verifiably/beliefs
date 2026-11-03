@@ -1,8 +1,8 @@
-"""The publish doors and the orphan fold (publication-records design §6, §11.1;
-rows W17 and Y4), portable: two writers' worth of `tmp_path` roots under the v2
+"""The publish doors and the orphan fold (
+), portable: two writers' worth of `tmp_path` roots under the v2
 profile, a recording port whose appended intents are the written root's
 fabricated chain, and a fake `MomentSeam` over it. The durable arms that need
-real chains (W17-p-a's second writer, W17-p-c's anchor, Y4-a's counted port)
+real chains (the second writer, the anchor, the counted port)
 live in the acceptance module."""
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def _fold(root, view):
     )
 
 
-# --- the orphan fold (spec §6 marker_tips; row Y4) ------------------------------
+# --- the orphan fold ------------------------------
 
 
 @pytest.mark.parametrize(
@@ -260,7 +260,7 @@ def clock() -> str:
 
 class Advancing:
     """Advances one second on every read: a door that reads the clock into a
-    record, rather than taking `at` from the intent, writes other bytes (Y2)."""
+    record, rather than taking `at` from the intent, writes other bytes."""
 
     def __init__(self) -> None:
         self.reads = 0
@@ -551,7 +551,7 @@ def test_the_binding_door_commits_the_binding_and_its_report_in_one_fulfilment(t
 
 def test_a_revision_committed_after_the_intents_position_does_not_move_the_judgment(tmp_path):
     """The guard judges at the intent's own position, not the written root's
-    current tip (W17): a sibling binding committed between step 0 and step 8
+    current tip : a sibling binding committed between step 0 and step 8
     is invisible at the position, so the attempt commits beside it."""
     doors = Doors(tmp_path)
     opened = doors.open()
@@ -564,7 +564,7 @@ def test_a_revision_committed_after_the_intents_position_does_not_move_the_judgm
 
 
 def _refused_alone(doors, opened, outcome, expected) -> None:
-    """The refusal report alone, in the success plan's place (row Y4)."""
+    """The refusal report alone, in the success plan's place."""
     assert outcome.binding is None
     assert outcome.report.entries[0].outcome == expected
     kind, (plan, fulfills) = doors.port.calls[-1]
@@ -633,7 +633,7 @@ def test_an_engine_refusal_to_inspect_at_step_8_is_an_evidence_refusal_that_keep
     _refused_alone(doors, opened, outcome, BindingEvidenceRefused("1" * 32, "2" * 32, True, "chain-malformed"))
 
 
-# --- publish-act-local §7: the fold reads the ordered sequence (Y9-e's unit) -----
+# --- the fold reads the ordered sequence -----
 
 
 def _sequence_chain(tmp_path, sequences):
@@ -718,11 +718,11 @@ def test_the_fold_yields_pre_binding_for_a_refusal_before_the_binding(tmp_path):
     assert outcome == PreBinding("staging-corrupt")
 
 
-# --- publish-act-local §4.2, §7: the pin re-check, the lifecycle binding, the pre-binding refusal
+# --- the pin re-check, the lifecycle binding, the pre-binding refusal
 
 
 def test_a_view_revised_before_the_lock_refuses_and_appends_nothing(tmp_path):
-    """Spec §4.2: the pin evaluated before the lock is re-checked under it."""
+    """The pin evaluated before the lock is re-checked under it."""
     doors = Doors(tmp_path)
     stale = PROJECT_VIEW.pinned("0" * 32)
     with pytest.raises(PublicationRefused) as caught:
@@ -866,7 +866,7 @@ def test_the_pre_binding_refusal_refuses_a_binding_entry_before_any_effect(tmp_p
     assert doors.port.calls == calls and doors.files("act-report") == []
 
 
-# --- publish-act-local §9: the attempt reading (its durable pin is Task 6's) -----
+# --- the attempt reading (its durable pin is in the acceptance module) -----
 
 
 def _reader_over(root):
@@ -905,7 +905,7 @@ def test_the_attempt_reading_is_indeterminate_when_the_fold_refuses_its_report(t
     assert reading is not None and (reading.reading, reading.outcome) == ("indeterminate", None)
 
 
-# --- publish-act-remote §5.2: the transport entry in the fold ------------------
+# --- the transport entry in the fold ------------------
 
 from beliefs.coordination import ChainBound
 from beliefs.publication_doors import PreBinding, _reports_at, unfinished_attempts

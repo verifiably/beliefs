@@ -1,4 +1,4 @@
-"""Coherent preflight and corpus capture: §5.2 and §5.3, exercised end to end.
+"""Coherent preflight and corpus capture, exercised end to end.
 
 **What a build is here, and what it deliberately is not.** This module covers
 everything up to — and stopping exactly at — the frozen build draft. Preflight
@@ -6,7 +6,7 @@ runs under the world lock and answers "may this build run at all, over exactly
 these corpora, with exactly these four rules"; capture then enters each covered
 corpus's capture hold in sorted order and takes, under that one exclusion, the
 corpus's chain head, its corpus-state identity, one enumeration of its stored
-nodes, and the state identity again. Publication is Task 9's and appears here
+nodes, and the state identity again. Publication is tested elsewhere and appears here
 only as an absence to assert: a refused build writes nothing.
 
 **The refusals are ordered, and the order is asserted rather than assumed.**
@@ -78,9 +78,9 @@ SYMBOL_KINDS = {
     "reduce_coreference": "coreference-reduction",
 }
 RETRACTION_VERSIONS = {"v1": None, "v2": "science.rule-input.v2"}
-"""The two shipped retraction-enumeration rules by the input version each declares (cut 48 §4.5)."""
+"""The two shipped retraction-enumeration rules by the input version each declares."""
 """Which receipt kind each shipped rule's symbol derives. The build input is
-keyed by receipt kind (§7.5's four); the rules store is keyed by identity and
+keyed by receipt kind (the four kinds); the rules store is keyed by identity and
 knows nothing of kinds, so the join is the caller's and is written out here
 rather than guessed inside a helper."""
 
@@ -181,7 +181,7 @@ def sample_nodes(slug: str = "one") -> tuple[Node, ...]:
     Enough that all four derivations have something to say: the producer
     snapshot sees the `produces` edge, the retraction enumeration and the
     discovery map see the retraction, and the certification and coreference
-    reductions see the empty enumerations §13 defers them to.
+    reductions see the empty enumerations that are deferred to them.
 
     The retraction is a *well-formed* one — an eligible target kind, resolving
     exactly, with a matching content identity — so the ordinary arms exercise
@@ -214,7 +214,7 @@ def slug_for(corpus_id: str, coverage: tuple[str, ...]) -> str:
     """One record-name slug per corpus in a multi-corpus fixture.
 
     Two corpora claiming one canonical address is a duplicate location the
-    address map refuses (§7.2), even when their uids agree, so a fixture
+    address map refuses, even when their uids agree, so a fixture
     covering several corpora has to give each its
     own records. A single-corpus fixture keeps the plain `one` the arms that
     name records by hand were written against.
@@ -224,7 +224,7 @@ def slug_for(corpus_id: str, coverage: tuple[str, ...]) -> str:
 
 def install_bindings(world: registry.World, *, retraction: str = "v2") -> dict[str, rules.RuleBinding]:
     """Hold every shipped rule and return one binding per receipt kind: for the
-    retraction kind, the bundle whose input version is `retraction`'s (cut 48 §4.5)."""
+    retraction kind, the bundle whose input version is `retraction`'s."""
     wanted = RETRACTION_VERSIONS[retraction]
     held: dict[str, rules.RuleBinding] = {}
     for bundle in rules.shipped_rule_bundles():
@@ -338,7 +338,7 @@ def test_each_world_module_imports_first_without_a_cycle(module):
     time, which is what makes the cycle resolvable in every order — a name-form
     import of any of them would raise on exactly one of these four entries.
 
-    Slice 3 adds a fourth edge of the same shape: `registry` needs `anchors`'
+    There is a fourth edge of the same shape: `registry` needs `anchors`'
     codec for its scan and `anchors`' act cores need `registry`'s scan and
     carrier resolution, so both spellings are module-form and both are used
     only at call time.
@@ -356,7 +356,7 @@ def test_each_world_module_imports_first_without_a_cycle(module):
 
 
 def test_build_refuses_unadmitted_manifest_carrier(tmp_path):
-    """X7. A carrier is present and readable and the id is still unknown.
+    """A carrier is present and readable and the id is still unknown.
 
     Presence is not admission: the manifest is the corpus's own claim about
     itself, and a world that let one into a build would be admitting corpora by
@@ -374,7 +374,7 @@ def test_build_refuses_unadmitted_manifest_carrier(tmp_path):
 
 
 def test_admission_allows_same_build_preflight(tmp_path):
-    """X7's positive half: the *same* declared build runs once the id is admitted."""
+    """The positive half: the *same* declared build runs once the id is admitted."""
     corpus_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
     world = make_world(tmp_path, corpus_root)
     bindings = install_bindings(world)
@@ -389,7 +389,7 @@ def test_admission_allows_same_build_preflight(tmp_path):
 
 
 def test_build_refuses_duplicate_carrier_coverage(tmp_path):
-    """X5. Two configured roots carry one admitted id: no build, not a choice."""
+    """Two configured roots carry one admitted id: no build, not a choice."""
     first = corpus_at(tmp_path / "first", ALPHA, sample_nodes())
     second = corpus_at(tmp_path / "second", ALPHA, sample_nodes())
     world = make_world(tmp_path, first, second)
@@ -616,7 +616,7 @@ class TestPreflightOrder:
 
 
 def test_chain_head_and_state_are_captured_in_one_hold(monkeypatch, tmp_path):
-    """X9. One hold, one generation, four observations inside it.
+    """One hold, one generation, four observations inside it.
 
     The chain head, the pre-enumeration state, the enumeration and the
     recomputed state each record the operation lock's holder and capture
@@ -658,7 +658,7 @@ def test_chain_head_and_state_are_captured_in_one_hold(monkeypatch, tmp_path):
 
 
 def test_api_write_refuses_during_capture(tmp_path):
-    """X9. A corpus write arriving while a capture holds the root is `BuildHold`."""
+    """A corpus write arriving while a capture holds the root is `BuildHold`."""
     heads = ChainHeads()
     world, bindings, roots = admitted_world(tmp_path, (ALPHA,), chain_head=heads)
     release = threading.Event()
@@ -688,7 +688,7 @@ def test_api_write_refuses_during_capture(tmp_path):
 
 
 def test_capture_refuses_active_writer_without_waiting(tmp_path):
-    """X9. A build behind a writer refuses at once rather than queueing.
+    """A build behind a writer refuses at once rather than queueing.
 
     "Without waiting" is proved by the writer never releasing: the build's
     refusal is observed while the writer's hold is still in force, so no
@@ -716,7 +716,7 @@ def test_capture_refuses_active_writer_without_waiting(tmp_path):
 
 
 def test_capture_drift_discards_without_publication(monkeypatch, tmp_path):
-    """X9. Raw content moves inside the hold; the whole capture is discarded.
+    """Raw content moves inside the hold; the whole capture is discarded.
 
     The mutation is a raw filesystem edit, which is the only writer the hold
     cannot exclude. The second state computation sees it, and the build refuses
@@ -755,7 +755,7 @@ def test_capture_drift_discards_without_publication(monkeypatch, tmp_path):
 
 
 def test_raw_aba_during_capture_is_undetectable(monkeypatch, tmp_path):
-    """X9's stated limit, written as a limit and not as a bug.
+    """The stated limit, written as a limit and not as a bug.
 
     A raw edit that adds a record and removes it again inside one hold leaves
     both corpus-state computations identical, so the drift check — which
@@ -763,7 +763,7 @@ def test_raw_aba_during_capture_is_undetectable(monkeypatch, tmp_path):
     between saw the intermediate corpus, and the captured records prove it.
 
     Nothing here is a defect to fix at this layer: detecting A→B→A needs a
-    witness the corpus does not keep (substrate §4.2.1's recorded-history
+    witness the corpus does not keep (the substrate's recorded-history
     bound). What the arm pins is that the build does not *claim* otherwise —
     the captured state is exactly the state both computations saw, and no
     freshness claim beyond it is published.
@@ -798,7 +798,7 @@ def test_raw_aba_during_capture_is_undetectable(monkeypatch, tmp_path):
 
 
 def test_four_receipts_share_identical_corpus_states(tmp_path):
-    """X9. One captured state per corpus, and all four receipts carry it.
+    """One captured state per corpus, and all four receipts carry it.
 
     The draft holds exactly one `corpus_states` value — there is nowhere in it
     for a per-kind state to live — and the four rules it resolved all run over
@@ -928,7 +928,7 @@ class TestSerialCapture:
         This arm exists so that divergence is pinned rather than discovered.
         `_standing_retractions` says which half it skips and why; the reason is
         that target validity is an admission check whose refusals are
-        `WriteRefused` subclasses, and §5.3's capture refusal surface is closed
+        `WriteRefused` subclasses, and the capture refusal surface is closed
         at `EnumeratedKindUngoverned` and `CaptureDrift`.
         """
         dataset, run, verification, _sound = sample_nodes()
@@ -980,10 +980,10 @@ class TestSerialCapture:
 
 @pytest.mark.parametrize("kind", ["instrument-certification"])
 def test_build_refuses_ungoverned_enumerated_record(tmp_path, kind):
-    """§13's deferral, enforced at capture rather than trusted.
+    """The deferral, enforced at capture rather than trusted.
 
     The kind is enumerated by one of the four maps and has no governed
-    stored-kind definition in this slice. A record claiming it is
+    stored-kind definition. A record claiming it is
     therefore content no derivation may read: the build refuses the whole
     capture rather than deriving from it or quietly leaving it out.
     """
@@ -1049,7 +1049,7 @@ class TestUngovernedKindsAreRefusedNotAssumed:
 
 
 class TestThePrePublicationRecheck:
-    """§5.4's recheck, exercised as the function publication actually calls.
+    """The recheck, exercised as the function publication actually calls.
 
     There is one recheck and it takes no lock: `_WorldState.lock` is a plain
     `threading.Lock`, and publication needs the recheck and the transaction
@@ -1104,7 +1104,7 @@ class TestThePrePublicationRecheck:
         }
 
 
-# --- Step 7 (deferred from Task 8 by ruling R4): publication ------------------
+# --- Step 7: publication ------------------
 #
 # These three arms need a published epoch, which did not exist while the rest of
 # this module was written. They stay here rather than moving to
@@ -1132,7 +1132,7 @@ def carrier_bytes(world: registry.World, packaging_identity: str) -> dict[str, b
 
 
 def test_delete_and_rebuild_reconstructs_all_four_maps(tmp_path):
-    """X1. The epoch is a function of the covered corpora and nothing else.
+    """The epoch is a function of the covered corpora and nothing else.
 
     The published carrier is removed from the filesystem outright — the loss
     an operator's `rm -rf`, a restore from a partial backup, or a wiped volume
@@ -1171,7 +1171,7 @@ def test_delete_and_rebuild_reconstructs_all_four_maps(tmp_path):
 
 
 def test_rebuild_discards_all_map_only_edits(tmp_path):
-    """X1's other half. A published map is not an input to anything.
+    """The other half. A published map is not an input to anything.
 
     An edited map is refused rather than adopted while its carrier stands —
     the directory no longer recomputes its own name, and no member is
@@ -1205,7 +1205,7 @@ def test_rebuild_discards_all_map_only_edits(tmp_path):
 
 
 def test_removed_rule_before_publication_refuses(monkeypatch, tmp_path):
-    """§5.4. Removal won the race, so nothing is published.
+    """Removal won the race, so nothing is published.
 
     The removal is interposed between capture and publication — the exact
     window the recheck exists for — and the whole build refuses with

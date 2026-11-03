@@ -1,5 +1,5 @@
-"""V3 (design §8): admission is evaluated over records read back, and the
-belief moves with the verification record. V7's gather arm sits in
+"""Admission is evaluated over records read back, and the
+belief moves with the verification record. The gather case sits in
 `test_evaluation.py` beside the gather fixture; nothing here is imported
 back into `test_evaluation`."""
 
@@ -26,7 +26,7 @@ def _gathered(writer, proposition_ref):  # noqa: F811 - the imported fixture, us
     )
 
 
-def test_v3_the_belief_moves_with_the_verification_record(writer):  # noqa: F811 - the imported fixture
+def test_the_belief_moves_with_the_verification_record(writer):  # noqa: F811 - the imported fixture
     published = publish_corpus(writer, claim=CLAIM_FACET)
     _, before = admission_over(writer, published.proposition.id, published.original)
     assert isinstance(before, NoBelief) and before.reason == "no-eligible-assessment"
@@ -38,7 +38,7 @@ def test_v3_the_belief_moves_with_the_verification_record(writer):  # noqa: F811
     assert isinstance(after, NoBelief) and after.reason == "no-eligible-assessment"
 
 
-def test_v3_a_superseding_failed_verification_invalidates_and_retires_its_predecessor(writer):  # noqa: F811
+def test_a_superseding_failed_verification_invalidates_and_retires_its_predecessor(writer):  # noqa: F811
     published = publish_corpus(writer, claim=CLAIM_FACET, publish=True)
     derived = published.derived
     failed = _mint_verification(  # the private mint: `build_verification` never sets `supersedes`
@@ -55,18 +55,16 @@ def test_v3_a_superseding_failed_verification_invalidates_and_retires_its_predec
     successor = writer.add(publication_node(failed, assessment_ref=published.assessment.id))
     inputs = _gathered(writer, published.proposition.id)
     assert lifecycle_state(inputs.verifications) == INVALIDATED
-    assert {v.ref for v in active(inputs.verifications)} == {
-        successor.id
-    }  # [R10] the predecessor leaves the active set
+    assert {v.ref for v in active(inputs.verifications)} == {successor.id}  # the predecessor leaves the active set
     _, belief = admission_over(writer, published.proposition.id, published.original)
     assert isinstance(belief, NoBelief)
 
 
-def test_v3_negatives_another_proposition_is_never_gathered_and_a_twin_target_admits(writer):  # noqa: F811
+def test_negatives_another_proposition_is_never_gathered_and_a_twin_target_admits(writer):  # noqa: F811
     published = publish_corpus(writer, claim=CLAIM_FACET)
     value = stored.assessment_value(published.assessment, profile=PROFILE)
-    # A genuine twin (decision 17) agrees on the whole facet, not only the
-    # identity's three fields — ruling P8 refuses an identity-equal pair
+    # A genuine twin agrees on the whole facet, not only the
+    # identity's three fields — the writer refuses an identity-equal pair
     # whose facets disagree, so the optionals travel with the twin too.
     optional = {
         n: getattr(value, n)
@@ -87,10 +85,8 @@ def test_v3_negatives_another_proposition_is_never_gathered_and_a_twin_target_ad
     )
     assert stored.assessment_value(twin, profile=PROFILE).identity() == value.identity()
     assert stored.assessment_value(twin, profile=PROFILE).facet_digest() == value.facet_digest()
-    writer.add(publication_node(published.derived, assessment_ref=twin.id))  # decision 17: the twin is a valid target
-    _, belief = admission_over(
-        writer, published.proposition.id, published.original
-    )  # [R5] admission is over the identity
+    writer.add(publication_node(published.derived, assessment_ref=twin.id))  # the twin is a valid target
+    _, belief = admission_over(writer, published.proposition.id, published.original)  # admission is over the identity
     assert isinstance(belief, Belief)
     other = writer.add(stored.proposition_node("q", title="q", claim={**CLAIM_FACET, "args": [OTHER_GENE, PHENO]}))
     inputs = _gathered(writer, other.id)
@@ -98,8 +94,8 @@ def test_v3_negatives_another_proposition_is_never_gathered_and_a_twin_target_ad
 
 
 @pytest.mark.parametrize("disagreeing_outcome", ["refuted", "inconclusive"])
-def test_v3_twins_that_disagree_on_outcome_are_refused_not_silently_resolved(writer, disagreeing_outcome):  # noqa: F811
-    """Ruling P8: `identity()` digests only `(spec, run, proposition)` —
+def test_twins_that_disagree_on_outcome_are_refused_not_silently_resolved(writer, disagreeing_outcome):  # noqa: F811
+    """`identity()` digests only `(spec, run, proposition)` —
     `outcome` is a free write-path parameter with no cross-check, so a shared
     identity does not by itself mean two records assert the same fact. A
     disagreeing twin is a corpus contradiction, refused loudly rather than

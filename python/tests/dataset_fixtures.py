@@ -1,4 +1,4 @@
-"""Seed-based dataset fixtures (slice 5 design §8.2).
+"""Seed-based dataset fixtures.
 
 A dataset's id is derived from its declared content identity, so a test
 can no longer name a dataset by handle and build it later. These helpers

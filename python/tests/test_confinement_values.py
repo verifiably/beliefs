@@ -174,7 +174,7 @@ def test_a_confined_receipt_makes_a_v2_run():
     )
 
 
-def test_the_cut_3_occurrence_fixture_still_spells_a_minimal_receipt():
+def test_the_occurrence_fixture_still_spells_a_minimal_receipt():
     assert not occurrence().receipt.confined
 
 

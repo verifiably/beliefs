@@ -168,7 +168,7 @@ class TestEvaluation:
         assert str(live_refusal.value) == str(view_refusal.value)
 
 
-class TestW19LiveMapHolders:
+class TestLiveMapHolders:
     def test_live_map_holders(self, tmp_path):
         from beliefs.errors import AddressMapConflict
 

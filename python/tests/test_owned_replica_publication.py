@@ -1,4 +1,4 @@
-"""Cut 47: explicit ownership, full-capture veto and frozen own-only formats."""
+"""Explicit ownership, full-capture veto and frozen own-only formats."""
 
 from types import SimpleNamespace
 from typing import Any, cast

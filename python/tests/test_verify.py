@@ -1,6 +1,6 @@
-"""R8, R11's in-cell arms, R18, R19's constructor arms, T6's R18
-arm. Deferred: R19's import/availability-transition/audit arms and negatives
-(c)–(e) (store, world resolver, audit); R11 composes with cut 2's prior
+"""The in-cell checks, the constructor checks, and the citation
+checks. Deferred: the import/availability-transition/audit checks and negatives
+(c)–(e) (store, world resolver, audit); the in-cell checks compose with the prior
 assessment binding and carries no assessment edge.
 """
 
@@ -136,7 +136,6 @@ def verification_of(pair, **overrides) -> AssessmentVerification:
     return verification
 
 
-# --- R19 ----------------------------------------------------------------------
 def test_the_constructor_list_is_closed(pair):
     params = list(inspect.signature(build_verification).parameters)
     assert params == [
@@ -168,7 +167,7 @@ def test_the_constructor_list_is_closed(pair):
 def test_the_evaluator_resolves_from_the_frozen_spec_and_rule_bindings(pair):
     # A second conforming implementation held BESIDE the bound one changes
     # nothing: the binding froze before execution, and no selection argument
-    # exists (computation §4.2a, 5b §6).
+    # exists.
     beside = EquivalenceImplementation(identity="impl-eq-2", evaluate=lambda a, b: "failed", fixtures=())
     with_beside = verification_of(
         pair,
@@ -180,7 +179,7 @@ def test_the_evaluator_resolves_from_the_frozen_spec_and_rule_bindings(pair):
 
 
 def test_the_assessment_edge_is_derived_never_authored(pair):
-    # The assessment shape carries the verifies → assessment edge (§5.3), and
+    # The assessment shape carries the verifies → assessment edge, and
     # the constructor derives it from the original run's frozen records — no
     # authored argument exists for it.
     verification = verification_of(pair)
@@ -214,7 +213,6 @@ def test_a_mixed_shape_pair_is_refused(pair, production_pair):
         )
 
 
-# --- R18 ----------------------------------------------------------------------
 def test_two_certifications_yield_two_verification_addresses(pair):
     a = verification_of(
         pair,
@@ -375,7 +373,6 @@ def test_an_out_of_range_citation_is_refused_at_the_citing_site(pair):
         verification_of(pair, citation=(published, 99))
 
 
-# --- R11 ----------------------------------------------------------------------
 def test_a_tolerance_on_a_dataset_production_replay_is_refused(production_pair):
     # Two spellability routes, both absent: no tolerance argument exists on the
     # constructor, and no equivalence-rule member exists on a production recipe.
@@ -454,7 +451,6 @@ def test_the_dataset_production_verification_carries_no_verifies_assessment_edge
     assert "assessment" not in verification.basis()
 
 
-# --- R8 -----------------------------------------------------------------------
 def test_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
     # A deterministic-declared spec over a byte-nondeterministic definition is
     # the honest way to obtain a failing replay on the minimal surface.
@@ -492,7 +488,7 @@ def test_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
     assert active_verifications((failing,)) == (failing,)
 
 
-# --- K5: the admission join ---------------------------------------------------
+# --- the admission join ---------------------------------------------------
 def test_admission_record_is_the_total_projection_of_a_derived_verification(pair):
     verification = verification_of(pair)
     record = admission_record(verification)
@@ -538,7 +534,7 @@ def test_a_production_verification_is_refused_by_the_join(production_pair):
         admission_record(verification)  # pyright: ignore[reportArgumentType] — invalid type is under test
 
 
-# --- V1 / V6: the stored verification's reader (design §4.2) -----------------
+# --- the stored verification's reader -----------------
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
@@ -575,7 +571,7 @@ def _node_for(verification: AssessmentVerification, *, facet: dict | None = None
     try:
         return stored.stamp_semantic_identity(node)
     except NullRefused:
-        # A present-but-null member (V6's `assessment`/`derivation` arms) can
+        # A present-but-null member (the `assessment`/`derivation` cases) can
         # never be legitimately stamped — the identity encoder refuses null
         # unconditionally, upstream of decode_verification, which is pure
         # over the node and never reads this stamp. Leaving the node
@@ -584,7 +580,7 @@ def _node_for(verification: AssessmentVerification, *, facet: dict | None = None
         return node
 
 
-def test_v1_projection_is_what_identity_digests(pair):
+def test_projection_is_what_identity_digests(pair):
     report = verification_of(pair).report
     assert report.identity() == v1.digest(COMPARISON_REPORT_DOMAIN, report.projection())
     assert set(report.projection()) == {
@@ -596,7 +592,7 @@ def test_v1_projection_is_what_identity_digests(pair):
     }
 
 
-def test_v1_decode_restores_the_basis_and_the_report_by_identity(pair):
+def test_decode_restores_the_basis_and_the_report_by_identity(pair):
     verification = verification_of(pair)
     decoded = decode_verification(_node_for(verification))
     assert isinstance(decoded, StoredVerification)
@@ -606,7 +602,7 @@ def test_v1_decode_restores_the_basis_and_the_report_by_identity(pair):
     assert decoded.assessment == verification.assessment and decoded.supersedes is None
 
 
-def test_v1_a_report_less_verification_decodes_as_absent(pair):
+def test_a_report_less_verification_decodes_as_absent(pair):
     verification = verification_of(pair)
     facet = _facet_for(verification)
     del facet["report"]
@@ -626,7 +622,7 @@ def test_v1_a_report_less_verification_decodes_as_absent(pair):
     )
 
 
-def test_v1_a_certified_and_cited_report_round_trips_field_wise(pair):
+def test_a_certified_and_cited_report_round_trips_field_wise(pair):
     # A field swap in _restore_report's CodeLineageCertification/EmbeddedCitation
     # construction is otherwise invisible: both members are plain strings, so
     # only a field-wise comparison — not object equality — catches a transposed
@@ -647,7 +643,7 @@ def test_v1_a_certified_and_cited_report_round_trips_field_wise(pair):
     assert decoded.basis() == verification.basis()
 
 
-def test_v3_stored_verification_has_no_public_constructor():
+def test_stored_verification_has_no_public_constructor():
     with pytest.raises(TypeError):
         StoredVerification(
             original="a",
@@ -687,9 +683,9 @@ def test_a_record_id_that_does_not_recompute_is_malformed(pair):
         lambda f: f.pop("derivation"),
         # A null `report` is a *present* member, not an absent one: the reader
         # branches on `"report" in facet`, so this is the exact seam where a
-        # null could be read as the report-less shape cut 18's R2 lets decode
-        # as `None`. Present and malformed is refused (M11); absent is the
-        # separate `test_v1_a_report_less_verification_decodes_as_absent`.
+        # null could be read as the report-less shape the ordinary import lets decode
+        # as `None`. Present and malformed is refused ; absent is the
+        # separate `test_a_report_less_verification_decodes_as_absent`.
         lambda f: f.__setitem__("report", None),
     ],
 )
@@ -713,7 +709,7 @@ def test_the_assessment_member_and_the_verifies_edge_travel_together(pair):
         decode_verification(node)
 
 
-# --- V1 / V3 / V7: the publication projection (design §5.1) --------------------
+# --- the publication projection --------------------
 from beliefs.verify import publication_node  # DatasetProductionVerification is already imported above
 
 
@@ -731,7 +727,7 @@ def _production_verification(production_pair) -> DatasetProductionVerification:
     return verification
 
 
-def test_v1_publication_node_round_trips_through_the_reader(pair):
+def test_publication_node_round_trips_through_the_reader(pair):
     verification = verification_of(pair)
     node = publication_node(verification, assessment_ref="assessment:a")
     assert node.id == f"verification:{verification.identity()}"
@@ -747,7 +743,7 @@ def test_v1_publication_node_round_trips_through_the_reader(pair):
     assert decoded is not None and decoded.basis() == verification.basis()
 
 
-def test_v3_a_superseding_verification_publishes_its_typed_predecessor(pair):
+def test_a_superseding_verification_publishes_its_typed_predecessor(pair):
     verification = verification_of(pair)
     successor = _mint_verification(
         original=verification.original,
@@ -788,7 +784,7 @@ def test_publication_node_refuses_the_cross(pair, production_pair):
 
 
 def test_the_publication_modules_form_no_import_cycle():
-    """Design §4.3, probed in a fresh interpreter so no loaded class identity is disturbed. [R7]"""
+    """Probed in a fresh interpreter so no loaded class identity is disturbed."""
     import subprocess
     import sys
 

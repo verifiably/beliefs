@@ -85,7 +85,7 @@ def test_an_active_absent_ends_promotion():
     assert isinstance(admission_state(declaration(), answer.observations), Declared)
 
 
-def test_adapter_absence_is_refused_by_the_g2b_admission_gate():
+def test_adapter_absence_is_refused_by_the_admission_gate():
     declared = declaration()
     answer = dataset_observations(declared, [member(None)], [])
     assessment = AssessmentValue(

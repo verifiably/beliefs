@@ -1,4 +1,4 @@
-"""The reference rules the kernel ships, keyed by rule identity (session-routes design §5)."""
+"""The reference rules the kernel ships, keyed by rule identity."""
 
 from __future__ import annotations
 

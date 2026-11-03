@@ -1,5 +1,5 @@
-"""K4: the wire codec accepts both receipt spellings and recomputes each run
-under the domain its receipt shape names; K3: a mount plan identity that
+"""The wire codec accepts both receipt spellings and recomputes each run
+under the domain its receipt shape names; a mount plan identity that
 disagrees with its mounts is refused on the wire too."""
 
 from typing import Any, cast

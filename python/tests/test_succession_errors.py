@@ -1,4 +1,4 @@
-"""The successor-admission act's one named refusal (spec §5)."""
+"""The successor-admission act's one named refusal."""
 
 import pytest
 

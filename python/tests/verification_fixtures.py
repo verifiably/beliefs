@@ -1,10 +1,10 @@
-"""Shared builders for cut 21's arms (verification-publication design §8).
+"""Shared builders for the verification tests.
 
 The run pair is synthetic and conforming — `fixtures_cut3.closure_with` with a
 one-job plan — and the replay carries a qualifying confined receipt bound to
 the recipe's environment identity, so `derive_scope` reaches
-`clean-environment` with no engine (`test_replay.py`'s R4 arms do the same
-over real runs). Every V arm that needs admission builds on it.
+`clean-environment` with no engine (`test_replay.py`'s cases do the same
+over real runs). Every test that needs admission builds on it.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ __all__ = [  # noqa: RUF022
 def frozen_for(target: str) -> FrozenSpec:
     """The spec's target is the proposition's corpus ref, as the reproduction
     set it: the stored assessment's `proposition` and the derived one then
-    spell the same string (design §9 names the two namespaces)."""
+    spell the same string."""
     return freeze(spec_draft(target=target), held_rules=spec_rules())
 
 
@@ -81,7 +81,7 @@ def conforming_closure(frozen: FrozenSpec, *, token: str, confined: bool = False
 def clean_pair(frozen: FrozenSpec, *, agreeing: bool = True, qualifying: bool = True) -> tuple[RunClosure, RunClosure]:
     """`qualifying=False` leaves the replay's receipt unconfined: the pair
     then derives `same-environment`, which is what a forged
-    `clean-environment` over it must be caught against (V4)."""
+    `clean-environment` over it must be caught against."""
     original = conforming_closure(frozen, token="tok-original")
     replayed = conforming_closure(
         frozen, token="tok-replayed", confined=qualifying, outputs=None if agreeing else DISAGREEING
@@ -220,7 +220,7 @@ def evaluation_kwargs(view) -> dict:
         "context": SuppliedContext(
             snapshot=lineage_snapshot(
                 view, [n.id for n in view.iter_stored() if n.kind == "dataset"]
-            ),  # corpus refs, not content addresses [R2, second round]
+            ),  # corpus refs, not content addresses
             producer_snapshot_identity="producer-snapshot-1",
             node_corpus={identity: ("c1",) for identity in identities},
             pins={"c1": pins_for(PROFILE)},
@@ -234,7 +234,7 @@ def evaluation_kwargs(view) -> dict:
 def admission_over(writer, proposition_ref: str, original: RunClosure):
     """`gather` -> `admit` -> `evaluate_over` over the corpus as it stands. The
     assessment admitted is *an* assessment over `original`: two records may
-    carry one identity (design decision 17) and the gate is over the identity. [R5]"""
+    carry one identity and the gate is over the identity."""
     view = writer.read_view
     kwargs = evaluation_kwargs(view)
     gathered = {k: v for k, v in kwargs.items() if k != "availability"}
@@ -245,7 +245,7 @@ def admission_over(writer, proposition_ref: str, original: RunClosure):
 
 
 def self_consistent_forgery(writer, node: Node, *, mutate) -> Node:
-    """V4's fixture (design decision 16): alter a member, then recompute the
+    """Alter a member, then recompute the
     id, the relation source and the stamp from the altered members, so the
     record decodes and only the derivation recomputation can catch it. Written
     behind the boundary on purpose. The identity is computed through the
@@ -284,11 +284,11 @@ def self_consistent_forgery(writer, node: Node, *, mutate) -> Node:
 
 
 def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception], str]]:
-    """V5's five: a stale id, a forged report, a missing edge, a target that
+    """A stale id, a forged report, a missing edge, a target that
     resolves nowhere, and a target carrying another identity — each with the
     refusal type and the substring its message carries. The helper records
     they need are minted through `writer` first, so a caller takes its
-    baseline after this returns. [R8]"""
+    baseline after this returns."""
     from beliefs.errors import MalformedRecord, VerificationTargetMismatch
     from beliefs.verify import publication_node
 
@@ -306,7 +306,7 @@ def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception],
     other_proposition = writer.add(stored.proposition_node("p-other", title="p-other", claim={"operator": "affects"}))
     # Spelled from the same derived value as the real assessment, optionals included,
     # so it audits clean and imports; only its proposition differs, which the audit's
-    # comparison excludes (cut 18 ruling R12). Its identity differs by that member.
+    # comparison excludes. Its identity differs by that member.
     value = published.derived_value
     optional = {
         n: getattr(value, n)

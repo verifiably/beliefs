@@ -1,4 +1,4 @@
-"""Bound reads through a published epoch: §8.3's resolution and §8.4's edges.
+"""Bound reads through a published epoch: resolution and edges.
 
 **Every answer names the publication it came from.** A read through an epoch is
 not a read of the world; it is a read of what one publication observed, over
@@ -67,7 +67,7 @@ RETIRED = "dataset:withdrawn"
 def nodes_with_retired_address(slug: str) -> tuple[Node, ...]:
     """The sample corpus, plus one record answering to a retired address.
 
-    §7.2 puts every `deprecated_ids` entry in the published address map, which
+    The epoch puts every `deprecated_ids` entry in the published address map, which
     is what makes a retired address survive its corpus: the answer is a
     publication member rather than a corpus-local redirect. Exactly one corpus
     carries it, because `derive.address_map` refuses a repeated address even
@@ -79,7 +79,7 @@ def nodes_with_retired_address(slug: str) -> tuple[Node, ...]:
 
 def recorded(published: epoch.Epoch) -> dict[str, tuple[str, str]]:
     """The epoch's address map, as `address -> (canonical holder, uid)`: the
-    least holder of each entry (cut 48 §5.2), one holder per entry in these
+    least holder of each entry, one holder per entry in these
     fixtures."""
     return {
         entry["address"]: (entry["holders"][0], entry["uid"])
@@ -129,7 +129,7 @@ class TestBoundResolution:
         """
         world, _bindings, roots, published = retired_world(tmp_path)
         addresses = recorded(published)
-        assert RETIRED in addresses, "a deprecated id is a recorded address (§7.2)"
+        assert RETIRED in addresses, "a deprecated id is a recorded address"
 
         live = an_address_in(published, BETA)
         answered = read.resolve_address(world, published, live)
@@ -236,7 +236,7 @@ class TestBoundResolution:
         )
         shapes: dict[str, tuple[bytes, type[Exception]]] = {
             # A governed record whose stored stamp disagrees with the fields it
-            # covers: §8.3's corruption, decided on the read path.
+            # covers: the corruption, decided on the read path.
             "stale semantic hash": (
                 stamped.replace(digest_line, digest_line[:-8] + "deadbeef").encode("utf-8"),
                 SemanticHashStale,
@@ -366,7 +366,7 @@ class TestTheBoundStamp:
         """No belief API accepts an epoch, a pointer, or the word `current`.
 
         A belief input is an explicit producer-snapshot identity and stays
-        one (§7.3, §8.1). `current` is operational convenience: it names
+        one. `current` is operational convenience: it names
         whichever epoch this world last published, which is a fact about this
         world's operations and not about what anyone should believe.
         """
@@ -391,7 +391,7 @@ class TestTheBoundStamp:
         # enters module globals, so the namespace walk below cannot see it; the
         # text can. It is also the only one of the two that can say anything
         # about the word `current_epoch`, which is not a name either module
-        # binds but is exactly the selector §8.1 forbids belief from reaching
+        # binds but is exactly the selector the epoch rules forbid belief from reaching
         # for.
         #
         # The **namespace walk** catches what the grep cannot: a name
@@ -573,9 +573,9 @@ class TestCoreferenceEdges:
         """A refuted coreference receipt makes edges indeterminate and moves
         no belief.
 
-        The two halves are the point. §7.5 gives the coreference receipt no
+        The two halves are the point. The receipt format gives the coreference receipt no
         semantic identity and no belief member, so refuting it cannot reach the
-        producer snapshot; and §8.4 gives a non-validated receipt no partial
+        producer snapshot; and the edge rules give a non-validated receipt no partial
         edge reading, so it cannot answer either.
         """
         from beliefs.world import derive
@@ -620,7 +620,7 @@ class TestCoreferenceEdges:
         assert derive.BELIEF_INPUT_KIND != "coreference-reduction"
 
     def test_unreadable_manifest_leaves_edges_indeterminate_rather_than_raising(self, tmp_path):
-        """§8.4 promises a state for every edge, so a corrupt manifest cannot
+        """The read promises a state for every edge, so a corrupt manifest cannot
         answer with an exception.
 
         The companion of `test_unreadable_carrier_manifest_is_unresolvable_...`
@@ -701,7 +701,7 @@ class TestCoreferenceEdges:
         assert read.expand_coreference(world, wider, dataset_ref("a")) == (dataset_ref("a-b"), dataset_ref("a-c"))
 
 
-# --- cut 48: the two epoch shapes and resolution over holders (W19-e, W20-f) ----
+# --- the two epoch shapes and resolution over holders ----
 
 
 class TestOverlapResolution:

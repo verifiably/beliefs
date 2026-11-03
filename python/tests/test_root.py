@@ -2,7 +2,7 @@
 constant, and the write-intent encoding.
 
 The **durable** half — registering a real root through the engine — is not here
-and cannot be: it runs only on a certified volume, so it lives in the cut-4
+and cannot be: it runs only on a certified volume, so it lives in the
 acceptance command, which errors rather than skips when the tuple is not
 certified. A test that quietly passed off a certified volume would be reporting
 green for a guarantee it never exercised.
@@ -31,14 +31,14 @@ from beliefs.world import Fresh, WorldConfig, _world_mirror_bytes
 
 def patch_world_engine(monkeypatch, calls, world_id="1" * 32):
     """Stand in for the engine beneath a world root: registration, the world
-    executor, and the chain read `open_world` makes.
+        executor, and the chain read `open_world` makes.
 
-    The chain read is here rather than per-arm because `open_world` now checks
-    the genesis payload's `world_id` against the configuration and the mirror
-    (log-verification design §6.3), so every arm that opens a world needs a
-    genesis to read. It is **not** recorded in `calls`: the arms that assert
-    `calls == []` are asserting that opening registers nothing, which is a
-    different claim and still true.
+        The chain read is here rather than per-arm because `open_world` now checks
+        the genesis payload's `world_id` against the configuration and the mirror
+    , so every arm that opens a world needs a
+        genesis to read. It is **not** recorded in `calls`: the arms that assert
+        `calls == []` are asserting that opening registers nothing, which is a
+        different claim and still true.
     """
 
     def record_registration(_backend, _project_root, _metadata_root, _storage, payload, _surface):
@@ -166,7 +166,7 @@ class TestWorldRoots:
         # other and still both be edits. The chain genesis is the one of the
         # three no operator rewrites in passing, and `open_world` is the surface
         # every ordinary consumer crosses, so the disagreement is refused here
-        # (log-verification design §6.3).
+        # .
         calls = []
         patch_world_engine(monkeypatch, calls, world_id="2" * 32)
         config = WorldConfig(tmp_path / "world", "1" * 32, ())
@@ -203,13 +203,13 @@ class TestWorldRoots:
     def test_open_world_reads_the_genesis_through_read_chain_and_names_an_unregistered_root(
         self, monkeypatch, tmp_path
     ):
-        # §6.3's "read through `read_chain`" makes opening touch the engine, and
+        # Reading through `read_chain` makes opening touch the engine, and
         # the engine's answer for a root that was never registered is its only
         # `PreconditionRefused`. `WorldUninitialized` is already Science's name
         # for that state — it is what the mirror loader raises for a root
         # `init_world_root` never made — so the two arms of "never initialized"
         # meet under one name. The mapping is made in `open_world` and not in
-        # the seam: §6.4's translation vocabulary is closed at three engine
+        # the seam: the translation vocabulary is closed at three engine
         # states and this is not one of them.
         calls = []
         patch_world_engine(monkeypatch, calls)
@@ -265,7 +265,7 @@ class TestWorldRoots:
 
     def test_the_unregistered_root_sentinel_is_the_engines_own_wording(self):
         # The one string the mapping turns on, pinned against `atoms`' source —
-        # R27's treatment of a restated constant. Both of `_registered_root`'s
+        # A restated constant is pinned this way. Both of `_registered_root`'s
         # sites raise it, and a reword there turns this red rather than silently
         # disabling the mapping.
         from atoms.coordinator import recover
@@ -402,7 +402,7 @@ class TestTheWriteIntentEncoding:
 
 
 class TestOpenWorldRead:
-    """The permit-free read door (design §16): a `World` bound to `READ_ONLY`, so
+    """The permit-free read door: a `World` bound to `READ_ONLY`, so
     its read surface answers and every act refuses before any effect."""
 
     def test_open_world_read_binds_the_read_only_authority_without_registering(self, monkeypatch, tmp_path):

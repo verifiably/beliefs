@@ -1,5 +1,5 @@
-"""The engine order the publication judgment relies on (publication-records
-design §6): a registration is in the chain before its create effect runs, and
+"""The engine order the publication judgment relies on (
+): a registration is in the chain before its create effect runs, and
 an effect failure after registration rolls back durably. Tests may import
 `atoms`; only `root.py` does among the source modules."""
 
@@ -148,7 +148,7 @@ def _fulfilling(root: Path, digest: str) -> list[tuple[str, bool | None]]:
 
 def test_a_live_registered_root_reads_well_formed_detached(durable_root):
     """The judgment reads every mounted root but the written one with the
-    read-only detached inspector (spec §6, planning note): no recovery runs,
+    read-only detached inspector: no recovery runs,
     so nothing is appended to a root this process does not lock."""
     writer = open_corpus(durable_root, authority=FULL, profile=BASE)
     _port(writer).execute([CreateOp(path="probe/d.md", content=b"d\n")])

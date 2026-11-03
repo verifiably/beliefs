@@ -1057,7 +1057,7 @@ def test_a_report_less_verification_is_checked_for_verdict_and_identity_only(wri
     assert outcome.contradiction is not None and "verdict" in outcome.contradiction.detail
 
 
-def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
+def test_a_contradicted_assessment_still_contradicts(writer, tmp_path):
     """The assessment audit resolves the bare run through the typed ref."""
     published = publish_corpus(writer, publish=True)
     altered = published.assessment.model_copy(deep=True)

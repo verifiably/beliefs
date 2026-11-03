@@ -1,4 +1,4 @@
-"""§4.2: the shipped base and stored tables are compiled from one packaged contract."""
+"""The shipped base and stored tables are compiled from one packaged contract."""
 
 import subprocess
 import sys

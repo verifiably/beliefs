@@ -1,6 +1,6 @@
 """The four-outcome log evaluator: its precedence, its carriers, its report.
 
-**One arm per exit.** Design §4.2 fixes four steps so that no state earns two
+**One case per exit.** The evaluator fixes four steps so that no state earns two
 outcomes, which is only a property if every step is shown deciding *before* the
 one after it: the pending arm proves replay is not reached by making a call to
 it fail the test, and the malformed arms prove the anchor step is not reached by
@@ -173,7 +173,7 @@ def chain(
     *rest: IntentEntryView | RegisteredEntryView | SettledEntryView,
     pending: tuple[tuple[str, str], ...] = (),
 ) -> WellFormedView:
-    """R10's shape: the genesis is `entries[0]`, the same object."""
+    """The genesis is `entries[0]`, the same object."""
     entries = (head, *rest)
     return WellFormedView(genesis=head, entries=entries, tip=entries[-1].digest, pending=pending)
 
@@ -362,7 +362,7 @@ class TestStructure:
         assert codes(report) == ["genesis-form-invalid"]
 
     def test_a_non_empty_baseline_is_malformed(self) -> None:
-        """§1.3: both initializers register `()`, so a populated baseline is a
+        """Both initializers register `()`, so a populated baseline is a
         chain no Science path mints."""
         view = chain(
             genesis(CORPUS_GENESIS_PAYLOAD, ("corpus.yaml", MANIFEST)),
@@ -375,8 +375,8 @@ class TestStructure:
         assert "baseline" in report.findings[0].message
 
     def test_a_world_genesis_naming_another_world_is_a_mismatch_not_malformed(self) -> None:
-        """§4.2 step 1's carve-out: a *valid* world genesis naming a different
-        `world_id` is §6.3's subject mismatch, and the chain verdict stands."""
+        """Step 1's carve-out: a *valid* world genesis naming a different
+        `world_id` is a subject mismatch, and the chain verdict stands."""
         report = evaluate(
             WorldSubject(WORLD_ID),
             world_chain(OTHER_WORLD_GENESIS_PAYLOAD),
@@ -421,19 +421,19 @@ class TestStructure:
         assert codes(report) == ["genesis-form-invalid"]
 
     def test_the_chain_absent_code_is_a_named_constant(self) -> None:
-        """Task 9 imports this name: §6.2's `chainless` cause is derived from it
+        """The audit imports this name: the `chainless` cause is derived from it
         and a restated string on the other side could drift."""
         assert verify.CHAIN_ABSENT == "chain-absent"
         report = evaluate(CorpusSubject(CORPUS_ID), AbsentView(), observers())
         assert verify.CHAIN_ABSENT in codes(report)
 
 
-# --- the subject-mismatch findings (§6.3) ----------------------------------
+# --- the subject-mismatch findings ----------------------------------
 
 
 class TestSubjectMismatch:
     def test_a_manifest_naming_another_corpus_is_a_finding_on_a_validated_chain(self) -> None:
-        """§1.2: a cooperatively logged identity rewrite replays consistently, so
+        """A cooperatively logged identity rewrite replays consistently, so
         replay alone is not the guard — the finding stands beside `validated`."""
         report = evaluate(
             CorpusSubject(CORPUS_ID),
@@ -456,7 +456,7 @@ class TestSubjectMismatch:
         assert report.findings == ()
 
     def test_a_disagreeing_world_mirror_is_a_finding(self) -> None:
-        """§6.3's genesis↔mirror agreement check, on the audit's side of the
+        """The genesis↔mirror agreement check, on the audit's side of the
         split: `open_world` refuses it and the audit reports it."""
         report = evaluate(
             WorldSubject(WORLD_ID),
@@ -468,7 +468,7 @@ class TestSubjectMismatch:
         assert [finding.ref for finding in report.findings if finding.code == "subject-mismatch"] == ["mirror"]
 
     def test_mismatch_findings_never_filter_anchors(self) -> None:
-        """The presented identity is a policy check, never a filter (§4.2 step 2:
+        """The presented identity is a policy check, never a filter (step 2:
         the subject is the sole filter)."""
         report = evaluate(
             CorpusSubject(CORPUS_ID),
@@ -500,7 +500,7 @@ class TestAnchors:
         assert report.findings[0].ref == E1
 
     def test_an_absent_chain_without_an_anchor_is_unresolvable(self) -> None:
-        """The absence is stated in the report: §6.2's arrival refuses a
+        """The absence is stated in the report: arrival refuses a
         chainless replica and admits a fresh unanchored one, and those two are
         otherwise the same unresolvable verdict."""
         report = evaluate(CorpusSubject(CORPUS_ID), AbsentView(), observers())
@@ -515,7 +515,7 @@ class TestAnchors:
         assert report.outcome == "refuted"
 
     def test_a_genesis_mismatch_refutes_replacement(self) -> None:
-        """§1.2: the replacement arm fires for world subjects and future fork
+        """The replacement case fires for world subjects and future fork
         geneses — the corpus genesis is constant, so ancestry catches those."""
         report = evaluate(
             WorldSubject(WORLD_ID),
@@ -566,7 +566,7 @@ class TestAnchors:
 
     def test_the_subject_filter_runs_first_and_alone(self) -> None:
         """An anchor for another corpus is filtered out, not refuted: the two
-        chains share the identical genesis digest (§1.2), so a filter that
+        chains share the identical genesis digest, so a filter that
         looked at genesis alone would pool them."""
         report = evaluate(
             CorpusSubject(CORPUS_ID),
@@ -598,7 +598,7 @@ class TestAnchors:
         assert report.observer_bound == (expected,)
 
     def test_the_bound_states_a_supplied_carrier_as_caller_attested(self) -> None:
-        """§10.9: a factory name cannot prove custody, so `supplied-export` is
+        """A factory name cannot prove custody, so `supplied-export` is
         caller-attested evidence and the bound says so."""
         report = evaluate(
             WorldSubject(WORLD_ID),
@@ -608,7 +608,7 @@ class TestAnchors:
         assert "provenance=supplied-export custody=caller-attested" in report.observer_bound[0]
 
 
-# --- the L11 eligibility square --------------------------------------------
+# --- the eligibility square --------------------------------------------
 
 
 class TestEligibility:
@@ -624,7 +624,7 @@ class TestEligibility:
         assert "provenance=supplied-export" in report.observer_bound[0]
 
     def test_a_named_local_epoch_anchors_no_world(self, tmp_path: Path) -> None:
-        """L11's point: identical epoch bytes, different eligibility. No local
+        """The point: identical epoch bytes, different eligibility. No local
         act anchors the world chain."""
         report = evaluate(WorldSubject(WORLD_ID), world_chain(), observers(local_epoch(tmp_path, world_head=E1)))
         assert report.outcome == "unresolvable"
@@ -659,7 +659,7 @@ class TestPending:
         assert codes(report) == ["pending-unresolved"]
 
     def test_an_unanchored_pending_chain_keeps_its_pending_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """§6.2's worked example: an empty observer set makes this `unresolvable`
+        """A worked example: an empty observer set makes this `unresolvable`
         at step 2, before the pending step runs at all — and the pending set is
         still in the report, because arrival ranks the cause `pending` from the
         report's *fields* and not from the step that produced the outcome."""
@@ -942,15 +942,13 @@ class TestConstruction:
             ObserverSet((object(),))  # pyright: ignore[reportArgumentType]
 
 
-# --- cut 8's declarations, over chains the engine itself calls well formed ---
+# --- declarations over chains the engine itself calls well formed ---
 #
-# Cut 8 §5's obligation 1, in its literal form: every chain the arms below judge
-# is a real directory of canonical entry envelopes, read back through the
+# Every chain the cases below judge is a real directory of canonical entry envelopes, read back through the
 # production seam's **detached** inspection — which takes no metadata root, so
 # it runs wherever the suite runs. `test_world_log_codecs.CUT8_FABRICATIONS` is
-# the catalogue of those fabrications with the engine's own verdict over each,
-# and `acceptance/test_n2_cut8.py` walks it at declaration time. Every arm here
-# names a builder from that catalogue, so no declaration rests on a chain
+# the catalogue of those fabrications with the engine's own verdict over each.
+# Every case here names a builder from that catalogue, so no declaration rests on a chain
 # nobody inspected.
 #
 # The view-level fabrications above remain the evaluator's *unit* arms — one
@@ -989,7 +987,7 @@ def head_record(chain: Chain, head: str, *, corpus_id: str = CUT8_CORPUS_ID) -> 
 
 
 def head_export(chain: Chain, head: str, *, world_id: str = WORLD_ID) -> ArtifactCarrier:
-    """An exported head artifact — L11's only eligible carrier for a world."""
+    """An exported head artifact — the only eligible carrier for a world."""
     return ArtifactCarrier.from_bytes(head_artifact_bytes(HeadArtifact(WorldSubject(world_id), chain.digests[0], head)))
 
 
@@ -1015,13 +1013,10 @@ def defect_of(chain: Chain) -> DefectView:
     return view.defect
 
 
-# --- L2 ---------------------------------------------------------------------
-
-
 def test_duplicate_settlement_is_malformed_at_step_one(tmp_path: Path) -> None:
-    """L2u3. Two settlements for one registration → malformed at step 1.
+    """Two settlements for one registration → malformed at step 1.
 
-    The arm's point *is* the defect, so §5's obligation 1 is discharged the
+    The point *is* the defect, so the fabrication check is discharged the
     other way: the engine reports exactly `duplicate-settlement` and no other
     defect, and the anchor supplied would refute a well-formed chain — so the
     `malformed` verdict is step 1 deciding before step 2, not step 2 finding
@@ -1042,7 +1037,7 @@ def test_duplicate_settlement_is_malformed_at_step_one(tmp_path: Path) -> None:
 
 
 def test_copied_root_pending_is_unresolvable_in_both_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """L2u4. A pending entry on a copied root is `unresolvable` at step 3 in
+    """A pending entry on a copied root is `unresolvable` at step 3 in
     **both** variants — the copy caught before apply (record absent) and after
     apply (record present) — never refuted as a disk mismatch, and never
     inferred from disk: `replay` is made to fail the test if it is reached.
@@ -1068,11 +1063,8 @@ def test_copied_root_pending_is_unresolvable_in_both_variants(tmp_path: Path, mo
     assert [report.outcome for report in reports] == ["unresolvable", "unresolvable"]
 
 
-# --- L3 ---------------------------------------------------------------------
-
-
 def test_valid_prefix_truncation_refutes_naming_the_unreachable_head(tmp_path: Path) -> None:
-    """L3u1. Truncated to a valid prefix behind the anchored head → refuted at
+    """Truncated to a valid prefix behind the anchored head → refuted at
     step 2, the finding naming the head the surviving chain cannot reach."""
     chain = truncated_prefix(tmp_path)
     view = well_formed(chain)
@@ -1087,10 +1079,10 @@ def test_valid_prefix_truncation_refutes_naming_the_unreachable_head(tmp_path: P
 
 
 def test_interior_damage_is_malformed(tmp_path: Path) -> None:
-    """L3u2. An interior entry **deleted or rewritten** → broken linkage,
+    """An interior entry **deleted or rewritten** → broken linkage,
     malformed at step 1 — which is the row's "never silently validated" clause:
     `malformed` is an outcome no other step can overwrite, and the contrast
-    against a chain the same anchor set *does* validate is L9u5's arm.
+    against a chain the same anchor set *does* validate is the malformed-structure test's job.
 
     Both spellings, because the row states both: a deletion leaves a successor
     naming a predecessor that is gone, and a rewrite moves the bytes out from
@@ -1108,8 +1100,8 @@ def test_interior_damage_is_malformed(tmp_path: Path) -> None:
 
 
 def test_sibling_branch_is_malformed(tmp_path: Path) -> None:
-    """L3u3. A sibling branch raw-appended beside the retained original →
-    malformed at step 1 (§3's linearity invariant), never a silently ignored
+    """A sibling branch raw-appended beside the retained original →
+    malformed at step 1, never a silently ignored
     fork: the engine names the fork itself, and `malformed` is the outcome."""
     chain = sibling_branch(tmp_path)
     defect = defect_of(chain)
@@ -1123,7 +1115,7 @@ def test_sibling_branch_is_malformed(tmp_path: Path) -> None:
 
 
 def test_orphan_entry_is_malformed(tmp_path: Path) -> None:
-    """L3u4. An orphan entry → malformed at step 1, never silently validated.
+    """An orphan entry → malformed at step 1, never silently validated.
 
 
     The engine names the directory spelling `missing-predecessor`: its
@@ -1142,11 +1134,8 @@ def test_orphan_entry_is_malformed(tmp_path: Path) -> None:
     assert codes(report) == ["chain-malformed"]
 
 
-# --- L4 ---------------------------------------------------------------------
-
-
 def test_chain_deletion_refutes_against_a_registry_anchor(tmp_path: Path) -> None:
-    """L4u1. Kernel §8.7's "detectable journal removal", discharged: the chain
+    """Detectable journal removal: the chain
     deleted while a registry log-head record survives in the observer set →
     refuted, the finding naming the head that no longer exists."""
     chain = deleted_chain(tmp_path)
@@ -1161,10 +1150,10 @@ def test_chain_deletion_refutes_against_a_registry_anchor(tmp_path: Path) -> Non
 
 
 def test_two_anchored_corpora_refute_exactly_the_chainless_one(tmp_path: Path) -> None:
-    """L4u2. Two anchored corpora, one arriving chainless: the subject binding
+    """Two anchored corpora, one arriving chainless: the subject binding
     refutes exactly the arriving one and never the sibling.
 
-    §5's obligation 4 is asserted here rather than assumed — two *distinct*
+    The distinctness is asserted here rather than assumed — two *distinct*
     roots under two *distinct* `corpus_id`s, both anchored, before either chain
     is removed. The two share a genesis digest exactly, because the Science
     corpus genesis payload carries no per-corpus identity: an anchor matched by
@@ -1199,12 +1188,12 @@ def test_two_anchored_corpora_refute_exactly_the_chainless_one(tmp_path: Path) -
 
 
 def test_manifest_remint_reports_mismatch_and_replay_refutes(tmp_path: Path) -> None:
-    """L4u3. The manifest raw re-minted A → B with the chain present, verified
+    """The manifest raw re-minted A → B with the chain present, verified
     selecting **A**: A-bound anchors stay admitted by the selected subject, the
     manifest mismatch is reported separately, and replay **refutes** the edit —
     never `unresolvable` by subject disqualification.
 
-    Cut 8 §6's first freeze obligation is asserted, not assumed: the re-mint is
+    The re-mint being the only delta is asserted, not assumed: the re-mint is
     the **only** delta between the surface the chain logged and the surface on
     disk, so the refutation is that edit and nothing interposed beside it.
     """
@@ -1232,11 +1221,11 @@ def test_manifest_remint_reports_mismatch_and_replay_refutes(tmp_path: Path) -> 
 
 
 def test_same_genesis_alternative_chain_refutes_by_ancestry(tmp_path: Path) -> None:
-    """L4u5. A self-consistent alternative chain under the **same constant
+    """A self-consistent alternative chain under the **same constant
     genesis** and the same `corpus_id` → refuted through anchored-head
-    unreachability — spec §1.2's stated mechanism for corpus replacement, since
+    unreachability — the stated mechanism for corpus replacement, since
     a fabricated distinct genesis would be malformed at genesis-form validation
-    before any anchor judgment (D1's arm)."""
+    before any anchor judgment."""
     chain = alternative_chain(tmp_path)
     view = well_formed(chain)
     assert view.genesis.digest == chain.digests[0]
@@ -1251,7 +1240,7 @@ def test_same_genesis_alternative_chain_refutes_by_ancestry(tmp_path: Path) -> N
 
 
 def test_deletion_plus_remint_refutes_as_removal_under_selected_subject(tmp_path: Path) -> None:
-    """L4u7. A's chain deleted **and** its `corpus.yaml` re-minted as B, verified
+    """A's chain deleted **and** its `corpus.yaml` re-minted as B, verified
     explicitly selecting A with A's anchor supplied → refuted as removal. The
     selected subject associates the anchor; the presented manifest never
     discards it into an empty-set `unresolvable`."""
@@ -1271,11 +1260,8 @@ def test_deletion_plus_remint_refutes_as_removal_under_selected_subject(tmp_path
     assert CUT8_REMINTED_ID != CUT8_CORPUS_ID
 
 
-# --- L7 ---------------------------------------------------------------------
-
-
 def test_fulfills_naming_missing_or_nonancestor_intent_is_malformed(tmp_path: Path) -> None:
-    """L7u1, **partial**. A `fulfills` naming an intent the chain does not carry
+    """**Partial.** A `fulfills` naming an intent the chain does not carry
     — missing, or present but not an intent — is `fulfills-invalid`, malformed
     at step 1, before any anchor judgment.
 
@@ -1298,8 +1284,8 @@ def test_fulfills_naming_missing_or_nonancestor_intent_is_malformed(tmp_path: Pa
 
 
 def test_duplicate_committed_fulfillment_is_malformed(tmp_path: Path) -> None:
-    """L7u2. A second committed registration fulfilling one intent → malformed,
-    classified before any qualification reduction is attempted (T2's arm)."""
+    """A second committed registration fulfilling one intent → malformed,
+    classified before any qualification reduction is attempted."""
     chain = duplicate_fulfillment(tmp_path)
     defect = defect_of(chain)
     assert defect.kind == "duplicate-fulfillment"
@@ -1312,11 +1298,8 @@ def test_duplicate_committed_fulfillment_is_malformed(tmp_path: Path) -> None:
     assert report.qualification == ()
 
 
-# --- L9 ---------------------------------------------------------------------
-
-
 def test_old_anchor_never_validates_past_a_missing_newer_head(tmp_path: Path) -> None:
-    """L9u1. An observer set holding an old *reachable* anchor and a newer
+    """An observer set holding an old *reachable* anchor and a newer
     anchored head absent from the chain → refuted, never validated-through-the
     -old. The contrast is the arm: the old anchor alone validates."""
     chain = settled_corpus(tmp_path)
@@ -1334,9 +1317,9 @@ def test_old_anchor_never_validates_past_a_missing_newer_head(tmp_path: Path) ->
 
 
 def test_incomparable_anchored_heads_refute(tmp_path: Path) -> None:
-    """L9u2. Two mutually incomparable anchored heads for one genesis → refuted.
+    """Two mutually incomparable anchored heads for one genesis → refuted.
 
-    R22: `entries` is a linearization and a sibling branch is a defect, so two
+    `entries` is a linearization and a sibling branch is a defect, so two
     *reachable* heads are always ordered — the incomparable arm fires exactly
     when the chain can place neither of a differing pair.
     """
@@ -1351,7 +1334,7 @@ def test_incomparable_anchored_heads_refute(tmp_path: Path) -> None:
 
 
 def test_empty_observer_set_is_unresolvable_with_bound_recorded(tmp_path: Path) -> None:
-    """L9u3. The empty observer set → `unresolvable`, with the observer bound
+    """The empty observer set → `unresolvable`, with the observer bound
     recorded as the empty bound rather than omitted, and replay not reached."""
     chain = settled_corpus(tmp_path)
     view = well_formed(chain)
@@ -1366,7 +1349,7 @@ def test_empty_observer_set_is_unresolvable_with_bound_recorded(tmp_path: Path) 
 
 
 def test_anchored_through_and_observer_set_are_report_fields(tmp_path: Path) -> None:
-    """L9u4. `anchored-through` and the observer set are **fields of the
+    """`anchored-through` and the observer set are **fields of the
     report**, present in every outcome and never derived by a caller."""
     chain = populated_corpus(tmp_path)
     view = well_formed(chain)
@@ -1384,7 +1367,7 @@ def test_anchored_through_and_observer_set_are_report_fields(tmp_path: Path) -> 
         ),
     )
     # And in a refuted outcome too, so the fields are not a validated-only
-    # decoration: the bound is reported whatever the verdict (R25).
+    # decoration: the bound is reported whatever the verdict.
     refuted = judge(chain, carriers=(head_record(chain, chain.anchor), head_record(chain, STRANGER)))
     assert refuted.outcome == "refuted"
     assert refuted.anchored_through == chain.anchor
@@ -1392,7 +1375,7 @@ def test_anchored_through_and_observer_set_are_report_fields(tmp_path: Path) -> 
 
 
 def test_malformed_structure_stops_before_anchor_judgment(tmp_path: Path) -> None:
-    """L9u5. Malformed structure stops evaluation before any anchor judgment.
+    """Malformed structure stops evaluation before any anchor judgment.
 
     The same observer set, over the damaged chain and over the chain it was
     damaged from: it refutes the well-formed one and is never consulted for a
@@ -1414,17 +1397,14 @@ def test_malformed_structure_stops_before_anchor_judgment(tmp_path: Path) -> Non
     assert codes(refuted) == ["anchor-unreachable"]
 
 
-# --- L11 --------------------------------------------------------------------
-
-
 def test_in_root_epoch_ineligible_for_world_subject_but_eligible_for_corpus(tmp_path: Path) -> None:
-    """L11u1. Eligibility is carrier-specific, not a property of the epoch.
+    """Eligibility is carrier-specific, not a property of the epoch.
 
     One epoch's **byte-identical** members, presented three ways: stored inside
     the world root and offered for the world subject → not accepted, an
     `observer-ineligible` finding and an empty bound; the same bytes supplied as
     an **export** → accepted; and the same stored epoch offered for a **corpus**
-    subject → accepted. The provenance discriminator (§4.1) is the whole of the
+    subject → accepted. The provenance discriminator is the whole of the
     difference.
     """
     world = settled_world(tmp_path)
@@ -1458,11 +1438,8 @@ def test_in_root_epoch_ineligible_for_world_subject_but_eligible_for_corpus(tmp_
     assert "provenance=named-local" in for_corpus.observer_bound[0]
 
 
-# --- L12 --------------------------------------------------------------------
-
-
 def test_raw_log_edit_within_anchored_prefix_is_malformed_or_refuted(tmp_path: Path) -> None:
-    """L12u4. A raw edit of the log path **within the anchored prefix** is
+    """A raw edit of the log path **within the anchored prefix** is
     caught at step 1 (interior damage, malformed) or at step 2 (prefix
     truncation, refuted) — the log path is bookkeeping, and editing it is not a
     way through."""
@@ -1481,9 +1458,9 @@ def test_raw_log_edit_within_anchored_prefix_is_malformed_or_refuted(tmp_path: P
 
 
 def test_valid_raw_append_beyond_anchor_passes_as_the_residue(tmp_path: Path) -> None:
-    """L12u5, the pinned negative. A structurally valid raw append beyond the
+    """The pinned negative. A structurally valid raw append beyond the
     maximal anchor — most sharply a **forged intent** — passes steps 1 and 2 and
-    is reported as L5's unanchored residue. This is why every
+    is reported as the unanchored residue. This is why every
     entry-proves-an-act claim holds only under the cooperative-write
     assumption."""
     chain = forged_intent_beyond_the_anchor(tmp_path)
@@ -1501,17 +1478,14 @@ def test_valid_raw_append_beyond_anchor_passes_as_the_residue(tmp_path: Path) ->
     assert report.qualification[0].status == "unrecognized"
 
 
-# --- D1 ---------------------------------------------------------------------
-
-
 def test_genesis_form_malformation_and_world_id_mismatch_split(tmp_path: Path) -> None:
-    """D1. An undecodable genesis payload, a wrong-form one, or a non-empty
+    """An undecodable genesis payload, a wrong-form one, or a non-empty
     baseline → **malformed before anchor evaluation**; a *valid* world genesis
     naming a different `world_id` → **subject mismatch, never malformed**.
 
     All four chains are well formed to the engine — an entry payload is opaque
     bytes to the validator — so every verdict below is the evaluator's own
-    step-1 reading of Science's genesis form (spec §4.2, §1.3).
+    step-1 reading of Science's genesis form.
     """
     for build in (undecodable_genesis, wrong_form_genesis, populated_baseline):
         chain = build(tmp_path / build.__name__)

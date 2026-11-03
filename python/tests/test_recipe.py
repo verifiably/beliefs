@@ -1,7 +1,7 @@
-"""R1, R2's member-mutation arms and value-level negative, R14 at run and
-closure positions, R17's value halves, M2, and R21's value-level manifest
-refusals. R2's trace and job-ID components are deferred to the full workflow
-surface (cut 3 §7.3 item 1)."""
+"""The member-mutation checks and the value-level negative, run and
+closure positions, the value halves, and the value-level manifest
+refusals. The trace and job-ID components are deferred to the full workflow
+surface."""
 
 import dataclasses
 import inspect
@@ -151,15 +151,14 @@ def test_a_planned_job_key_must_name_its_family():
         PlannedJob(job_key("fit", ()), "other", (), False)
 
 
-# --- R1 ----------------------------------------------------------------------
 def test_an_incomplete_closure_is_refused_and_no_run_value_exists():
-    # A declared output the result lacks: refusal, not a weaker run (§2).
+    # A declared output the result lacks: refusal, not a weaker run.
     with pytest.raises(MalformedClosure):
         closure(result=ResultManifest(outputs=()))
 
 
 def test_the_note_is_a_separate_act_and_the_member_is_then_supplied():
-    # Mirroring W3: the source-assertion is its own explicit authored act (cut
+    # The source-assertion is its own explicit authored act (the
     # 2's typed constructor); only the supplied member mints the run value.
     note = SourceAssertion(
         ref="s1",
@@ -207,7 +206,6 @@ def test_equal_environment_manifests_share_identity_digest_without_visible_state
     assert pickle.loads(pickle.dumps(first)) == first
 
 
-# --- R2 ----------------------------------------------------------------------
 RECIPE_MUTATIONS = [
     (
         "shape",
@@ -309,7 +307,7 @@ def test_the_result_and_each_occurrence_member_move_the_address():
 
 
 def test_equal_recipes_despite_differing_seeds_and_event_tokens():
-    # The retained negative (cut 3 §7.3 item 1): seeds and tokens are
+    # The retained negative: seeds and tokens are
     # occurrence members; the recipe holds nothing post-execution.
     a = closure()
     b = closure(
@@ -452,7 +450,7 @@ def test_identity_values_refuse_wrong_scalar_pair_and_composite_types_at_constru
         construct()
 
 
-# --- R14 at run and closure positions ----------------------------------------
+# --- at run and closure positions ----------------------------------------
 def test_binary_floats_are_refused_at_every_run_position():
     with pytest.raises(BinaryFloatRefused):
         recipe(parameters={"alpha": 0.05}).identity()
@@ -486,7 +484,7 @@ def test_kind_domains_separate_and_v2_never_equals_v1():
     assert v1.digest("science.recipe.v1", payload) != v1.digest("science.recipe.v2", payload)
 
 
-# --- R17's value halves -------------------------------------------------------
+# --- the value halves -------------------------------------------------------
 def test_projection_offers_no_caller_path_for_the_projected_members():
     params = inspect.signature(project_recipe).parameters
     assert list(params) == [
@@ -572,7 +570,6 @@ def test_invocation_holds_bindings_not_values():
         invocation(targets=("--config",))
 
 
-# --- M2 ----------------------------------------------------------------------
 def test_substituting_any_input_moves_the_assessment_identity_every_time():
     inputs = (
         RecipeInput(role="observes", dataset="dataset:x", content=D_IN),
@@ -619,7 +616,7 @@ def test_an_input_no_declared_role_partition_covers_is_refused_not_ignored():
         )
 
 
-# --- R21's value-level manifest refusals (the boundary arms are Task 6's) -----
+# --- the value-level manifest refusals (the boundary checks are elsewhere) -----
 def test_an_undeclared_manifest_entry_mints_no_run():
     with pytest.raises(MalformedClosure):
         closure(result=ResultManifest(outputs=(("outputs/result.txt", D_OUT), ("outputs/extra.txt", D_IN))))

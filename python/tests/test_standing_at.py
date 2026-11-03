@@ -1,4 +1,4 @@
-"""The intent-position judgment (publication-records design §6, §11.1; row W17):
+"""The intent-position judgment:
 presence at a position is the chain's inventory at each root's bound, over a
 fabricated `MomentSeam` whose states are plain tuples, plus one certified-volume
 run through `root.moment_seam()` that agrees with the live tip rule."""
@@ -287,7 +287,7 @@ def test_an_unaccounted_file_whose_only_registration_rewrites_it_is_unregistered
 
 
 def test_a_file_whose_registration_only_the_re_read_sees_is_classified_by_it(tmp_path):
-    """Write-ahead (Task 0): a file seen on disk has its registration in any later
+    """Write-ahead: a file seen on disk has its registration in any later
     read, so the re-read — not the first read — classifies it."""
     root = fake_root(tmp_path)
     (_, _, reg_a, set_a), (_, _, reg_b, _) = a_then_b(root)

@@ -118,7 +118,7 @@ def build(profile, claim, snapshot, **overrides):
 # --- admission ----------------------------------------------------------
 
 
-class TestA2Admission:
+class TestAdmission:
     def test_the_levels_contrast_on_the_procedure_slot_is_admitted(self, profile, claim, snapshot):
         estimand, receipt = build_estimand(profile, claim, snapshot=snapshot, **parts())
         projection = estimand_projection(estimand)

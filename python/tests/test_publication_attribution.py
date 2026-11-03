@@ -1,4 +1,4 @@
-"""Cut 46: origins, release authorization and frozen publication selection."""
+"""Origins, release authorization and frozen publication selection."""
 
 from __future__ import annotations
 
@@ -256,7 +256,7 @@ from beliefs.world import AdmissionRecord, CorpusManifest, ForkOf, Fresh, Regist
 
 def capture_fixture(holdings, *, source_version=2, carried=None, supersedes=None, unregistered=()):
     """A captured world over `holdings` (corpus id → (provenance, refs)); a ref named by
-    several corpora is one record held by each (cut 48 §7). `carried` gives each v3
+    several corpora is one record held by each. `carried` gives each v3
     marker's attribution entries, `supersedes` each marker's `supersedes_markers`
     pairs, and `unregistered` the captured corpora with no admission."""
     profile = coordination_profile(None, version=source_version)
@@ -438,7 +438,7 @@ def test_legacy_source():
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (ORIGIN,)
 
 
-# --- cut 48: attribution over holders (Y19) -----------------------------------------------------
+# --- attribution over holders -----------------------------------------------------
 
 A, B, C, D, E = ("a" * 32, "b" * 32, "c" * 32, "d" * 32, "e" * 32)
 """Publication corpus ids: a replica of a publication carries that publication's corpus id."""

@@ -1,6 +1,6 @@
 """``ProfileSpec`` — compilation of claim schemas.
 
-M7 is here in full. M8's merge-order arm is here in the half that does not need
+The no-second-roster check is here in full. The merge-order check is here in the half that does not need
 ``I_claim``; the other half — *"and `I_claim` unchanged"* — lands with the
 projection, since asserting it before the projection exists would be asserting
 nothing.
@@ -41,12 +41,12 @@ def test_coordination_compiles_into_immutable_authorization(base_contract):
     assert compiled.activated_contracts["coordination"] == contract.content_identity
 
 
-def test_no_coordination_contract_preserves_the_slice_2b_compiled_identity(base_contract):
-    """The identity moved at slice 2b when source history became a declared facet,
-    again at estimand-typing Task 1 when the estimand grammar entered the projection,
-    again at Task 3 when the (here empty) `estimands` table entered it too, again
-    at composite-claims Task 1 when the composite grammar entered the projection,
-    and again at Task 2 when the (here empty) `edges` table entered it too."""
+def test_no_coordination_contract_preserves_the_compiled_identity(base_contract):
+    """The identity moved when source history became a declared facet,
+    again when the estimand grammar entered the projection,
+    again when the (here empty) `estimands` table entered it too, again
+    when the composite grammar entered the projection,
+    and again when the (here empty) `edges` table entered it too."""
     before = compile_profile(base_contract, [])
     assert before.compiled_identity == "ccd5ed099eef2c524c2dafbe7d30894b16f5f924f5315d0a073d9ba003e41548"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
@@ -130,7 +130,7 @@ def crossing_document():
 
 
 class TestCrossContractSlots:
-    """Biology pack design §4.3: namespaced references resolve at compile."""
+    """Namespaced references resolve at compile."""
 
     def test_a_foreign_sort_resolves_when_its_contract_is_compiled(self, base_contract, testing, crossing_document):
         crossing = domain.parse_domain_contract(
@@ -191,9 +191,9 @@ def other(parse, testing_document):
 
 
 class TestNoSecondAuthoredOperatorArtifact:
-    """M7's first clause.
+    """No second authored operator artifact.
 
-    The sabotage it names is *"add a hand-authored operator roster beside the
+    The failure it names is *"add a hand-authored operator roster beside the
     contracts"*. The test below is what makes that unreachable rather than merely
     absent: if a roster existed anywhere in the package, a profile compiled from
     **no** domain contracts would still have operators in it.
@@ -206,7 +206,7 @@ class TestNoSecondAuthoredOperatorArtifact:
         assert profile.sorts == {}
 
     def test_the_base_contract_contributes_no_operator(self, base_contract, testing):
-        # §7.1: operators are domain-issued without exception.
+        # Operators are domain-issued without exception.
         profile = compile_profile(base_contract, [testing])
         assert {decl.contract for decl in profile.operators.values()} == {"testing"}
         assert base_contract.name not in {decl.contract for decl in profile.operators.values()}
@@ -232,7 +232,7 @@ class TestNoSecondAuthoredOperatorArtifact:
 
 
 class TestSemanticEditsRecompileAndEditorialOnesDoNot:
-    """M7's second clause, stated as the pair of asymmetries it actually is."""
+    """Stated as the pair of asymmetries it actually is."""
 
     def test_an_editorial_edit_moves_contract_identity_and_not_the_compiled_profile(
         self, base_contract, parse, testing_document, testing
@@ -250,7 +250,7 @@ class TestSemanticEditsRecompileAndEditorialOnesDoNot:
 
     def test_a_semantic_schema_edit_moves_the_compiled_profile(self, base_contract, parse, testing_document, testing):
         # Not reachable within a lineage — succession refuses it — so this is a
-        # parallel genesis, which §8.3 records as the open escape hatch. The
+        # parallel genesis, which is the open escape hatch. The
         # recompilation property is asserted on the only path that can produce it.
         edited = copy.deepcopy(testing_document)
         edited["operators"]["affects"]["sign_apt"] = False
@@ -290,18 +290,18 @@ class TestSemanticEditsRecompileAndEditorialOnesDoNot:
 
 
 class TestMergeOrderIsInert:
-    """M8's arm, in the half that does not need ``I_claim``.
+    """The merge-order check, in the half that does not need ``I_claim``.
 
     **The first two tests below cannot fail, and that is recorded rather than
     hidden.** `science.identity.v1` sorts object keys at encode time, so no
-    iteration order inside `compile_profile` can reach the identity — sabotaging
+    iteration order inside `compile_profile` can reach the identity — mutating
     every sort in the compiler leaves both of them green. They are kept as
     regression guards and are not evidence of anything.
 
     The third test is the one with force. What *would* make merge order
     significant is a **shape** change — holding the declarations positionally
     instead of keyed by term — so that is what is asserted, and it is the arm
-    that goes red when sabotaged.
+    that goes red when it is broken.
     """
 
     def test_the_compiled_profile_is_a_function_of_the_contract_set(self, base_contract, testing, other):
@@ -332,7 +332,7 @@ def _locals(contract, section):
 
 
 class TestSetsAreSetsAndSlotsAreSlots:
-    """§6.2 types `Dims(op)` and `Layers(op)` as **finite sets** and `ArgSort(op)`
+    """The profile types `Dims(op)` and `Layers(op)` as **finite sets** and `ArgSort(op)`
     as a function on `Fin(arity(op))`. Holding a set positionally would make
     reordering one line of YAML a redefinition — refused at load, on a change
     that changed nothing.
@@ -373,7 +373,7 @@ class TestSetsAreSetsAndSlotsAreSlots:
 
 
 class TestResolution:
-    """§7.5: ProfileSpec resolves, contracts authorize."""
+    """ProfileSpec resolves, contracts authorize."""
 
     def test_local_names_are_resolved_to_term_identifiers(self, base_contract, testing):
         operator = compile_profile(base_contract, [testing]).operator("testing/affects")
@@ -385,7 +385,7 @@ class TestResolution:
         assert profile.dimensions["testing/population"].restriction_sort == "testing/cohort"
 
     def test_same_local_names_in_different_namespaces_compose(self, base_contract, testing, other):
-        # D §8's rule for facets, and the same one here.
+        # The same rule as for facets.
         profile = compile_profile(base_contract, [testing, other])
         assert profile.operator("testing/affects").contract == "testing"
         assert profile.operator("elsewhere/affects").contract == "elsewhere"
@@ -396,13 +396,13 @@ class TestResolution:
             compile_profile(base_contract, [testing, twin])
 
     def test_an_absent_operator_refuses_locally(self, base_contract, testing):
-        # §7.4 row 4a: local and static, so it refuses here and nothing is minted.
+        # Local and static, so it refuses here and nothing is minted.
         with pytest.raises(ProfileError, match="no operator"):
             compile_profile(base_contract, [testing]).operator("testing/nowhere")
 
 
 class TestRetirementIsAnAuthoringProperty:
-    """§7.3a: retirement lives in authoring, never in validation."""
+    """Retirement lives in authoring, never in validation."""
 
     @pytest.fixture()
     def with_retired(self, parse, testing_document, testing):
@@ -426,7 +426,7 @@ class TestRetirementIsAnAuthoringProperty:
 
 
 class TestTheProfileIsCompiledNeverAuthored:
-    """M7's first clause has a second half the first pass missed.
+    """The no-second-roster check has a second half the first pass missed.
 
     "No second authored operator artifact" is not only about a roster module. A
     `ProfileSpec` a caller can build field-wise, or mutate after the fact, *is* an
@@ -484,11 +484,11 @@ class TestTheProfileIsCompiledNeverAuthored:
 
 
 class TestActivationIsNotConsultation:
-    """D6's conditional arm, guarded at the shape rather than in prose.
+    """The conditional case, guarded at the shape rather than in prose.
 
     The first pass carried one `contract_identities` mapping with the base
     contract folded in. Anything computing a digest from its values would have
-    moved a belief because an unrelated domain was switched on — D6's negative
+    moved a belief because an unrelated domain was switched on — the negative
     arm, committed by the accessor rather than by the walk.
     """
 
@@ -507,13 +507,13 @@ class TestActivationIsNotConsultation:
         assert profile.base_contract_identity not in set(profile.activated_contracts.values())
 
     def test_the_base_contract_identity_survives_an_empty_profile(self, base_contract):
-        # D §8: membership is unconditional, so no walk may be able to omit it.
+        # Membership is unconditional, so no walk may be able to omit it.
         profile = compile_profile(base_contract, [])
         assert profile.base_contract_identity == base_contract.content_identity
         assert profile.activated_contracts == {}
 
     def test_no_member_offers_a_consulted_set(self, base_contract, testing):
-        # Belief is outside cut 1. A member named for the consulted set would be
+        # Belief is out of scope. A member named for the consulted set would be
         # a placeholder that computes the activated one, which is the collapse.
         profile = compile_profile(base_contract, [testing])
         assert not [name for name in dir(profile) if "consult" in name.lower()]
@@ -525,11 +525,11 @@ class TestActivationIsNotConsultation:
 
 
 class TestRetirementReachesThroughSorts:
-    """§7.3a's authoring boundary, applied to every route into it.
+    """The authoring boundary, applied to every route into it.
 
     Checking only the operator's own `retired` flag leaves an operator offered
     whose slots cannot be filled — the refusal then lands when the author tries
-    to bind a referent, one step past the boundary §7.3a draws.
+    to bind a referent, one step past the boundary.
     """
 
     @pytest.fixture()
@@ -576,7 +576,7 @@ class TestRetirementReachesThroughSorts:
             profile.authorable_dimensions("testing/absent")
 
     def test_retiring_a_permitted_dimension_withdraws_only_that_dimension(self, retire):
-        # §6.2: Dims(op) is the set of dimensions *permitted*, not required, so
+        # Dims(op) is the set of dimensions *permitted*, not required, so
         # the operator remains authorable without it.
         profile = retire("dimensions", "setting")
         assert "testing/affects" in profile.authorable_operators()
@@ -743,7 +743,7 @@ class TestTwoGenuineContractsThatDoNotBelongTogether:
             domain.parse_domain_contract(testing_document, source="<t>", base=Impostor(), predecessor=None)  # type: ignore[arg-type]
 
     def test_the_domain_parser_authenticates_its_predecessor(self, base_contract, testing_document):
-        # Succession is the *never redefine* rule made checkable (§8.3). Checked
+        # Succession is the *never redefine* rule made checkable. Checked
         # against an authored predecessor it certifies nothing, because the thing
         # it compares against was written to pass.
         successor = copy.deepcopy(testing_document)
@@ -779,7 +779,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
     ``object.__new__`` plus ``object.__setattr__`` reproduces any of these
     methods in two lines. So these tests do not assert that provenance is
     unforgeable here; they assert that reaching an unparsed artifact requires
-    reaching for the audit surface §6.3's third row already names, rather than
+    reaching for the audit surface that already exists, rather than
     calling a method that merely looked internal.
     """
 
@@ -815,7 +815,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
             ProfileSpec._compiled(object(), claim_grammar=None, operators={}, dimensions={}, sorts={})
 
     def test_the_raw_write_remains_and_is_the_audit_surface(self, base_contract):
-        # Recorded rather than asserted away. This is §6.3's third row — the
+        # Recorded rather than asserted away. This is the audit case — the
         # boundary bypassed, not defeated — and it is the reason the tokens above
         # are described as removing an ordinary route rather than closing a hole.
         forged = object.__new__(base.BaseContract)

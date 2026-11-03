@@ -225,7 +225,7 @@ def derived_unmounted(tmp_path):
     return namespace
 
 
-class TestR19ExplicitImport:
+class TestVerificationExplicitImport:
     def test_a_forged_verification_with_resolvable_runs_is_refused_before_any_write(self, derived):
         genuine = derived.verification
         forged = stored.verification_node(
@@ -310,7 +310,7 @@ class TestR19ExplicitImport:
         assert derived.writer.read_view.get(node.id).kind == "verification"
 
 
-class TestR19TransitionB:
+class TestVerificationMountTransition:
     def test_forged_unavailable_to_available(self, derived_unmounted):
         """Import the forgery while its runs are absent → admits; mount the
         runs → admission unchanged; audit → contradiction, mints nothing;
@@ -363,7 +363,7 @@ class TestR19TransitionB:
         ]
 
 
-class TestR19NegativesDAndE:
+class TestVerificationNegatives:
     def test_a_raw_written_forgery_is_caught_only_under_audit(self, derived):
         forged = _stored_from(derived.verification, slug="forged", verdict=_flip(derived.verification.verdict))
         raw_write(derived.writer.root, forged)  # `verification_node` already stamps it
@@ -421,7 +421,7 @@ class TestR19NegativesDAndE:
         } == {("verification-derivation-contradicted", forged.id)}
 
 
-class TestR22ExplicitImport:
+class TestAssessmentExplicitImport:
     def test_import_recomputes_the_assessment_facet_and_refuses_a_mismatch(self, derived):
         genuine = build_assessment(
             derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations

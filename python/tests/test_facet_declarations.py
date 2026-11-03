@@ -43,7 +43,7 @@ class TestTheShippedDeclarations:
         assert base_contract.kinds["instrument-certification"].facets == {}
         assert base_contract.kinds["instrument-certification"].role == "world"
 
-    def test_the_coreference_attestation_is_governed_since_slice_2(self, base_contract):
+    def test_the_coreference_attestation_is_governed(self, base_contract):
         kind = base_contract.kinds["coreference-attestation"]
         assert kind.domain == "science.coreference-attestation.v1"
         assert set(kind.facets) == {"coreference-attestation"}

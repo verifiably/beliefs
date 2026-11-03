@@ -27,7 +27,7 @@ def graph(signs: dict[str, int], *edges: tuple[str, str]) -> AggregationInput:
     )
 
 
-class TestS6TheDependencyGraph:
+class TestTheDependencyGraph:
     def test_a_multiplicity_is_two_not_a_partition_and_not_components(self):
         # A={x}, B={x,y}, C={y}: A–B and B–C share, A–C disjoint.
         assert aggregate_v1(graph({"A": 1, "B": 1, "C": 1}, ("A", "B"), ("B", "C"))) == 2
@@ -110,7 +110,7 @@ class TestS6TheDependencyGraph:
         assert aggregate_v1(graph({"A": 1, "B": -1, "D": -1}, ("A", "B"), ("A", "D"))) == -1
 
 
-class TestP5UnequalWeightsAreUnspellable:
+class TestUnequalWeightsAreUnspellable:
     def test_no_input_shape_carries_a_magnitude(self):
         # The vertex is (uid, sign) and nothing else; weight has no field.
         import dataclasses

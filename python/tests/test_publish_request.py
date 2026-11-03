@@ -1,4 +1,4 @@
-"""Step 0's pure pieces (publish-act-local design §4)."""
+"""Step 0's pure pieces."""
 
 from __future__ import annotations
 
@@ -261,7 +261,7 @@ def test_staging_world_id_is_a_domain_separated_function_of_the_token():
     assert len(staging_world_id_for("e" * 32)) == 32
 
 
-# --- publish-act-remote §4.1, §4.2 ---------------------------------------------
+# --- the request ---------------------------------------------
 
 REMOTE = Destination.remote("https://remote.test/pub")
 

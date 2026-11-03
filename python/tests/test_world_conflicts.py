@@ -1,4 +1,4 @@
-"""W8 and W8b read over existing code (slice 4 §4)."""
+"""The duplicate-location and address-conflict cases, read over existing code."""
 
 from __future__ import annotations
 
@@ -37,9 +37,9 @@ def root_tree(root: Path) -> dict[str, bytes]:
 def conflict_world(tmp_path: Path, *, coverage=(ALPHA, BETA), twin_of=DATASET_A, same_address=True, same_uid=False):
     """Two admitted corpora, BETA holding a twin of ALPHA's record.
 
-    The twin differs in content (its title): from cut 48 a shared uid with
-    equal content is one record held twice (W19-a), so W8b's duplicate-location
-    arms, shared uid included, are the differing-content case (the W8b note).
+    The twin differs in content (its title): a shared uid with
+    equal content is one record held twice, so the duplicate-location
+    cases, shared uid included, are the differing-content case.
     """
     world, recorder, bindings, roots = admitted_world(tmp_path, coverage)
     original = Corpus(roots[coverage[0]]).get(twin_of)
@@ -55,7 +55,7 @@ def conflict_world(tmp_path: Path, *, coverage=(ALPHA, BETA), twin_of=DATASET_A,
     return world, recorder, bindings, roots, original, twin
 
 
-class TestW8DuplicateLocation:
+class TestDuplicateLocation:
     def test_the_build_refuses_naming_both_claims_and_no_carrier(self, tmp_path):
         world, _r, bindings, roots, original, _twin = conflict_world(tmp_path)
         before = epochs_tree(world)
@@ -120,7 +120,7 @@ class TestW8DuplicateLocation:
             assert _recording_port(writer).intents == before[id(writer)][1]
 
 
-class TestW8AddressConflict:
+class TestAddressConflict:
     def test_disagreeing_bases_at_one_address_refuse_the_build_before_any_basis_is_read(self, tmp_path):
         world, _r, bindings, roots = admitted_world(tmp_path, (ALPHA, BETA))
         raw_write(roots[ALPHA], stored.source_node(title="p", identifiers=B))
@@ -154,7 +154,7 @@ class TestW8AddressConflict:
             writer.add(forged)
 
 
-class TestW8b:
+class TestUidUnderTwoAddresses:
     def test_one_uid_under_two_addresses_is_corruption_and_no_repair_is_offered(self, tmp_path):
         world, _r, bindings, _roots, original, _twin = conflict_world(tmp_path, same_address=False, same_uid=True)
         with pytest.raises(AddressMapConflict) as caught:

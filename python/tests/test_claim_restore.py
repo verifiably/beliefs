@@ -71,7 +71,7 @@ class TestStoredClaimTerms:
             stored_claim_terms(stored_proposition(wire))
 
 
-class TestM13Opacity:
+class TestOpacity:
     def test_the_signature_names_no_wire_type(self):
         signature = inspect.signature(claim_from_stored)
         assert "WireClaim" not in str(signature)
@@ -97,7 +97,7 @@ class TestM13Opacity:
         assert claim_from_stored.__module__ == "beliefs.decode"
 
 
-class TestM11FunctionOfItsArguments:
+class TestFunctionOfItsArguments:
     def test_identical_across_processes(self, profile, readable, affects, base_contract_path, testing_contract_path):
         claim, receipt = claim_from_stored(stored_proposition(affects()), profile=profile, snapshot=readable)
         wire = affects()

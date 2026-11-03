@@ -1,13 +1,13 @@
 """``π_claim`` and ``I_claim``.
 
-**M9** in full. **M5** in the arms that do not need an assessment record — the
+The claim identity in full; qualification in the checks that do not need an assessment record — the
 founding case is minted and forked here, but *"the prior assessment still bound
-to the old claim, and a `supersedes` link"* needs kinds cut 1 does not build.
-**M8**'s in-cut half: `I_claim` unchanged across recompilation and across an
+to the old claim, and a `supersedes` link"* needs kinds not built here.
+The in-scope half of merge-order inertness: `I_claim` unchanged across recompilation and across an
 editorial contract bump; the *"and `belief_input_digest` moves"* arm is belief's,
-which cut 1 stops before.
+which this module stops before.
 
-One thing this file is careful about. Several of M8's assertions **cannot fail
+One thing this file is careful about. Several of those assertions **cannot fail
 given the signature** — `project_claim` takes a `Claim` and nothing else, so no
 merge order, compiler build or contract release can reach it. Those are marked
 where they appear and kept as regression guards. The arm that can fail is the
@@ -92,11 +92,11 @@ def affects(profile, gene, outcome):
 
 
 class TestTheProjectionIsAFunctionOfTheClaimAlone:
-    """M8. The signature is the guarantee; the rest follows from it."""
+    """The signature is the guarantee; the rest follows from it."""
 
     def test_the_projection_takes_a_claim_and_nothing_else(self):
-        # This is the arm with force. Folding a contract release into π_claim —
-        # M8's named sabotage — is unreachable without widening this signature,
+        # This is the check with force. Folding a contract release into π_claim —
+        # the named failure — is unreachable without widening this signature,
         # so the signature is what a test can watch.
         parameters = inspect.signature(project_claim).parameters
         assert list(parameters) == ["claim"]
@@ -114,7 +114,7 @@ class TestTheProjectionIsAFunctionOfTheClaimAlone:
             assert identity not in encoded
 
     def test_no_sort_identifier_reaches_the_bytes(self, affects, adults):
-        # §6.5 admits the referent identifier, not the sort that admitted it. A
+        # The projection admits the referent identifier, not the sort that admitted it. A
         # sort is contract-declared, so carrying it would let a re-declaration
         # re-project stored claims.
         claim = affects({POPULATION: Qualifier("generic", adults)})
@@ -126,7 +126,7 @@ class TestTheProjectionIsAFunctionOfTheClaimAlone:
     def test_an_editorial_contract_bump_leaves_the_identity_still(
         self, base_contract, parse, testing_document, testing, gene, outcome
     ):
-        # §7.4 row 1. The contract identity moves and `I_claim` does not.
+        # The contract identity moves and `I_claim` does not.
         edited = copy.deepcopy(testing_document)
         edited["operators"]["affects"]["description"] = "Reworded."
         edited["lineage"] = {"successor": testing.content_identity}
@@ -169,8 +169,6 @@ class TestTheProjectionIsAFunctionOfTheClaimAlone:
 
 
 class TestTheShapeDependsOnTheClaimNeverOnAContractField:
-    """M9."""
-
     def test_the_polarity_position_is_present_at_a_sign_inapt_operator(self, profile, base_contract, gene, other_gene):
         claim = build_claim(profile, operator=SUBTYPE_OF, args=(gene, other_gene), layer="structural")
         projection = project_claim(claim)
@@ -199,7 +197,7 @@ class TestTheShapeDependsOnTheClaimNeverOnAContractField:
         assert len(set(projected)) == 4
 
     def test_the_claim_carries_the_tag_so_no_contract_is_consulted(self, profile, gene, other_gene):
-        # The point of §7.5: the projection reads `claim.polarity`, which is
+        # The point: the projection reads `claim.polarity`, which is
         # already a tag, so flipping `sign_apt` cannot re-project a stored claim
         # — there is no path from the contract to this shape.
         claim = build_claim(profile, operator=SUBTYPE_OF, args=(gene, other_gene), layer="structural")
@@ -207,10 +205,10 @@ class TestTheShapeDependsOnTheClaimNeverOnAContractField:
 
 
 class TestQualificationParticipatesInIdentity:
-    """M5, in the arms that do not need an assessment record."""
+    """Qualification, in the checks that do not need an assessment record."""
 
     def test_the_founding_case_forks(self, affects, adults, humans):
-        # Kernel §4.1: "X affects Y in adults" edited to "X affects Y in all
+        # "X affects Y in adults" edited to "X affects Y in all
         # humans" must not be a revision.
         c_adults = affects({POPULATION: Qualifier("generic", adults)})
         c_humans = affects({POPULATION: Qualifier("universal", humans)})
@@ -258,7 +256,7 @@ class TestQualificationParticipatesInIdentity:
         assert claim_identity(by_population) != claim_identity(by_setting)
 
     def test_qualifier_key_order_is_inert(self, affects, adults, gene):
-        # M5's negative arm. `science.identity.v1` sorts object keys at encode
+        # The negative case. `science.identity.v1` sorts object keys at encode
         # time, so this is delivered by the encoder rather than re-implemented.
         forward = affects({POPULATION: Qualifier("generic", adults), SETTING: Qualifier("generic", gene)})
         reverse = affects({SETTING: Qualifier("generic", gene), POPULATION: Qualifier("generic", adults)})
@@ -274,7 +272,7 @@ class TestQualificationParticipatesInIdentity:
 
 
 class TestArgumentsAreHeldBySlot:
-    """§6.2: `ArgSort(op)` is positional, so the sequence is the meaning."""
+    """`ArgSort(op)` is positional, so the sequence is the meaning."""
 
     def test_swapping_two_arguments_forks_the_identity(self, profile, gene, other_gene):
         forward = build_claim(profile, operator=SUBTYPE_OF, args=(gene, other_gene), layer="structural")
@@ -305,7 +303,7 @@ class TestNoProseReachesIdentity:
         assert all(isinstance(value, str) and value and " " not in value for value in flat)
 
     def test_a_claim_has_no_statement_to_project(self, affects):
-        # `statement` is in exactly the position `title` was (kernel §4.1): a
+        # `statement` is in exactly the position `title` was: a
         # field cannot be both hand-editable prose and an identity input. There
         # is no such field to exclude, which is stronger than excluding it.
         assert not hasattr(affects(), "statement")

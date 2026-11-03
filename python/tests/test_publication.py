@@ -1,4 +1,4 @@
-"""Publication records (publication-records design §3–§4, decisions 5 and 6; row Y2)."""
+"""Publication records."""
 
 import pytest
 from nodes.core.frontmatter import node_to_markdown

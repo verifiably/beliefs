@@ -1,5 +1,5 @@
-"""The act's classifier (publish-act-local design §5). Its flows and resume
-refusals are Task 8's acceptance module; these tests read raw staging files."""
+"""The act's classifier. Its flows and resume
+refusals are the acceptance module's; these tests read raw staging files."""
 
 from __future__ import annotations
 
@@ -123,7 +123,7 @@ def test_a_marker_unequal_to_the_expected_one_is_corrupt(staging):
     ids=["garbage", "not-utf8", "misfiled"],
 )
 def test_an_unreadable_staging_file_is_corrupt_bytes(staging, relative, content):
-    """Spec §5, Y7: a staging store `nodes` refuses to read is a terminal
+    """A staging store `nodes` refuses to read is a terminal
     `staging-corrupt`, never a raw exception that leaves the attempt unfinished."""
     writer, corpus_id, snapshot, marker, _ = staging
     writer._stage_record(snapshot.records[0][1])
@@ -168,7 +168,7 @@ def test_a_canonical_text_of_another_record_refuses_before_the_intent():
         _require_snapshot_records(_View(nodes), records)
 
 
-# --- publish-act-remote §3.2, §4.3: the seam guards and step 7 ------------------
+# --- the seam guards and step 7 ------------------
 
 import os
 from hashlib import sha256
@@ -381,7 +381,7 @@ def test_export_enumeration_refuses_before_creating_the_mark(tmp_path, monkeypat
     assert not (remote.op / "transport.v1").exists()
 
 
-# --- sharing design §2 decision 10: step 0 is the preview, then the profile ---------
+# --- step 0 is the preview, then the profile ---------
 
 
 @pytest.mark.parametrize(

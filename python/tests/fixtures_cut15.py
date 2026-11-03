@@ -1,9 +1,9 @@
-"""Workflow fixtures for the full cut-15 surface."""
+"""Workflow fixtures for the full workflow surface."""
 
 from hashlib import sha256
 from pathlib import Path
 
-from config_probe import run_config_probe  # noqa: F401 — Task 9's shared engine probe
+from config_probe import run_config_probe  # noqa: F401 — the shared engine probe
 from fixtures_cut3 import DATA_ADDRESS, MEMORY_PORT, READS_ADDRESS, stage
 
 from beliefs.adapter import WorkflowDefinition

@@ -2,7 +2,7 @@
 
 Three writers of the same ruled record and one reader of the same chain head,
 covered together because they share one resolution rule and one idempotency
-discipline (log-verification design §3.1–§3.3).
+discipline.
 
 **The seam is a stand-in and the locks are real.** Every arm builds a
 `LogSeam` whose `read_head` answers from a table and whose two locks are the
@@ -12,7 +12,7 @@ writer or an audit would contend for. Nothing here touches `atoms`: the act
 cores see a chain only through the seam, which is what makes that substitution
 possible at all.
 
-**R12 is enforced by construction, not by inspection.** The world lock is not
+**The world-lock rule is enforced by construction, not by inspection.** The world lock is not
 reentrant, so an act core that called a `World` method under it would hang
 rather than fail. The arms therefore hand the cores a world whose `registry()`
 and `status()` refuse: a core reaching for either turns a deadlock into a
@@ -141,10 +141,10 @@ class RefusingWorld(registry.World):
     """A world whose two registry readers refuse. See the module docstring."""
 
     def registry(self) -> registry.RegistryView:
-        raise AssertionError("an act core called World.registry() — R12 forbids it under the world lock")
+        raise AssertionError("an act core called World.registry() — forbidden under the world lock")
 
     def status(self, corpus_id: str) -> registry.CorpusStatus:
-        raise AssertionError("an act core called World.status() — R12 forbids it under the world lock")
+        raise AssertionError("an act core called World.status() — forbidden under the world lock")
 
 
 def anchorable_world(
@@ -196,7 +196,7 @@ def stored_log_heads(world: registry.World) -> tuple[anchors.LogHeadRecord, ...]
     return registry._scan_registry(world.config.world_root).log_heads
 
 
-# --- the anchor act (§3.3) ----------------------------------------------------
+# --- the anchor act ----------------------------------------------------
 
 
 class TestTheAnchorAct:
@@ -312,7 +312,7 @@ class TestTheAnchorAct:
         assert squatter.read_bytes() == edited
 
     def test_a_terminal_corpus_may_be_anchored(self, tmp_path):
-        # §3.3 rules this in: anchoring immediately before retirement or
+        # The act rules this in: anchoring immediately before retirement or
         # departure cleanup is the archetypal use of the act.
         world, _recorder, heads, _roots = anchorable_world(tmp_path, ALPHA, BETA)
         world.retire(ALPHA)
@@ -348,7 +348,7 @@ class TestTheAnchorAct:
         held.release()
 
     def test_it_calls_no_world_method_under_the_world_lock(self, tmp_path):
-        # R12: the seam's world lock is the very lock `registry()` takes, and
+        # The seam's world lock is the very lock `registry()` takes, and
         # it is not reentrant. The double proves the act reads registry state
         # some other way rather than proving it merely did not deadlock here.
         world, _recorder, heads, _roots = anchorable_world(tmp_path, ALPHA)
@@ -360,7 +360,7 @@ class TestTheAnchorAct:
             world.registry()
 
     def test_an_engine_refusal_from_the_head_read_propagates_untranslated(self, tmp_path):
-        # R11: `read_head` translates the engine escapes, and the act core lets
+        # `read_head` translates the engine escapes, and the act core lets
         # the refusal past — it sits outside every precedence.
         world, _recorder, heads, _roots = anchorable_world(tmp_path, ALPHA)
         refusal = LogEvidenceRefused("inspect", "ChainStateInvalid", "the chain contradicts the store")
@@ -383,7 +383,7 @@ class TestTheAnchorAct:
         held.release()
 
 
-# --- the exported head artifact (§3.2) ----------------------------------------
+# --- the exported head artifact ----------------------------------------
 
 
 class TestTheHeadExport:
@@ -452,7 +452,7 @@ class TestTheHeadExport:
         registry._world_lock_for(world.config.world_root).release()
 
     def test_a_world_subject_naming_another_world_refuses(self, tmp_path):
-        # `World(W2)` over W1's chain: the subject binds, it never decorates.
+        # A second world over the first's chain: the subject binds, it never decorates.
         world, _recorder, heads, _roots = anchorable_world(tmp_path, ALPHA)
 
         with pytest.raises(WorldIdMismatch):
@@ -512,7 +512,7 @@ class TestTheHeadExport:
         assert len(recorder.plans) == submitted
 
 
-# --- the build's registry-record half (§3.3) ----------------------------------
+# --- the build's registry-record half ----------------------------------
 
 
 class TestPublicationWritesBuildOriginRecords:
@@ -539,7 +539,7 @@ class TestPublicationWritesBuildOriginRecords:
         assert set(roots) == {ALPHA, BETA}
 
     def test_no_record_names_the_world_subject(self, tmp_path):
-        # A `world` subject is not in the record's union at all (§3.1/L11):
+        # A `world` subject is not in the record's union at all:
         # only an export can anchor the world chain.
         world, _recorder, bindings, _roots = admitted_world(tmp_path)
 
@@ -677,11 +677,11 @@ def test_the_act_cores_hold_no_engine_capability():
     }
 
 
-# --- cut 8's labeled declarations 7 and 8 -------------------------------------
+# --- declared cases -------------------------------------
 
 
 def test_export_binds_subject_and_takes_no_actor(tmp_path):
-    """D7. The export act's four clauses, together because they are one claim:
+    """The export act's four clauses, together because they are one claim:
     the subject **binds**, it never decorates.
 
     `export_head_artifact` refuses a `World(world_id)` disagreeing with the
@@ -689,7 +689,7 @@ def test_export_binds_subject_and_takes_no_actor(tmp_path):
     subject resolves under the exactly-one-carrier rule — zero carriers and two
     both refuse `AnchorTargetUnresolvable`; the function takes **no actor** and
     writes nothing, which is what makes it the one act that can anchor the
-    world chain (§3.2, L11); and the bytes it returns decode under
+    world chain; and the bytes it returns decode under
     `science.head-artifact.v1`.
     """
     world, recorder, heads, _roots = anchorable_world(tmp_path / "bound", ALPHA)
@@ -746,15 +746,14 @@ def test_export_binds_subject_and_takes_no_actor(tmp_path):
 
 
 def test_anchor_act_refusals_idempotency_and_terminal_corpora(tmp_path):
-    """D8. The anchor act's refusal set and its idempotency discipline.
+    """The anchor act's refusal set and its idempotency discipline.
 
     `AnchorSubjectUnknown` for an id the registry does not carry;
     `AnchorTargetUnresolvable` for zero or multiple carriers; byte-identical
     re-anchoring is **success submitting no transaction**, while a same-name
     record holding different bytes is a **collision** rather than an overwrite;
     and a terminal corpus is anchorable — anchoring immediately before
-    retirement or departure cleanup is the archetypal use of the act (§3.1,
-    §3.3).
+    retirement or departure cleanup is the archetypal use of the act.
     """
     unknown, _recorder, unknown_heads, _unknown_roots = anchorable_world(tmp_path / "unknown", ALPHA, admitted=())
     with pytest.raises(AnchorSubjectUnknown):

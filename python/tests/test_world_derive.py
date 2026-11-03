@@ -2,7 +2,7 @@
 
 Every identity here is asserted as a **relation** — a projection digested under
 its pinned domain, or two captures compared — never as a literal digest. The
-shipped fixtures are normative content this slice keeps editing, so a pinned
+shipped fixtures are normative content keep changing, so a pinned
 constant would be a test of the fixture bytes rather than of the rule
 (`test_world_rules.py` says the same thing about rule identities).
 
@@ -178,15 +178,15 @@ class TestAddressMap:
         )
 
     def test_a_deprecated_address_is_a_publication_member(self):
-        # §7.2: a retired address answers out of the epoch, so it survives its
+        # A retired address answers out of the epoch, so it survives its
         # corpus being absent. Losing it is the defect this arm names.
         mapping = derive.address_map(TWO_CORPORA)
         assert mapping["dataset:retired"] == mapping["dataset:two"]
 
     @pytest.mark.parametrize("other_uid", ["uid-dataset:one", "uid-other"])
     def test_duplicate_location_is_reported_with_either_shared_or_distinct_uids(self, other_uid):
-        # Amended at cut 48 (W8b note): a shared uid is a duplicate location only with differing
-        # content; equal content is one record held twice (W19-a). The shared-uid arm differs here.
+        # A shared uid is a duplicate location only with differing
+        # content; equal content is one record held twice. The shared-uid arm differs here.
         clash = capture(
             corpus("corpus-a", record("dataset:one"), at="a"),
             corpus("corpus-b", record("dataset:one", uid=other_uid, content=digest("f")), at="b"),
@@ -286,7 +286,7 @@ class TestProducersMap:
         }
 
     def test_the_map_member_carries_the_producers_without_the_coverage(self):
-        # §6.1 stores the map and the snapshot separately; only the snapshot
+        # The epoch stores the map and the snapshot separately; only the snapshot
         # declares what it was built over.
         assert derive.producers_map_projection(snapshot_of(TWO_CORPORA).producers) == {
             "producers": [
@@ -600,7 +600,7 @@ class TestSubjectIdentities:
         assert len(set(domains)) == 4
 
     def test_a_rule_return_round_trips_through_its_subject_value(self):
-        # The subject value parses the rule's return and re-emits §7.6's exact
+        # The subject value parses the rule's return and re-emits the exact
         # projection. Equality of the two is what licenses digesting the parsed
         # value rather than the bytes the rule happened to hand back.
         for parse, symbol in (
@@ -705,7 +705,7 @@ class TestReceipts:
             )
 
     def test_a_subject_coverage_that_disagrees_with_the_captured_states_refuses(self):
-        # §7.5: "the exact captured corpus-state identity for every covered
+        # "the exact captured corpus-state identity for every covered
         # corpus". A subject declaring one coverage beside states naming
         # another is a receipt whose two halves describe two builds.
         wide = capture(
@@ -787,7 +787,7 @@ class TestReceipts:
 
 class TestBeliefBoundary:
     def test_the_coreference_receipt_carries_no_semantic_identity_or_belief_input(self):
-        # §7.5: coreference is outside belief, so its receipt carries no
+        # Coreference is outside belief, so its receipt carries no
         # semantic identity. The contract is one shape for all four, so the
         # absence has to be a property of the *field set* — a receipt with
         # nowhere to put one cannot acquire one for the coreference kind alone.
@@ -815,7 +815,7 @@ class TestBeliefBoundary:
             derive.belief_input_identity(tuple(one for one in produced if one.kind != "producer"))
 
     def test_receipt_outcomes_are_the_closed_five(self):
-        # `retracted` (correction-remainder slice 2 decision 10) gained the set last.
+        # `retracted` gained the set last.
         assert derive.RECEIPT_OUTCOMES == ("validated", "refuted", "unresolvable", "malformed", "retracted")
 
 
@@ -834,7 +834,7 @@ FAILURE_MODE_FIXTURES = {
     #
     # `deprecated-address loss` is the one that is only half a rule's business:
     # publishing retired addresses is the address map's job and the address map
-    # is not a rule (§5.2 names four), so the fixture pins the half a rule can
+    # is not a rule, so the fixture pins the half a rule can
     # lose — the retired addresses ride in the captured view every reducer
     # reads, and are not producers. `TestAddressMap` covers the other half.
     "omission": "producer.every-corpus.yaml",
@@ -1052,7 +1052,7 @@ class TestShippedFixtures:
         # so the four reducers really do read one enumeration pass.
         for bundle in rules.shipped_rule_bundles():
             # The record key set is version-invariant; the retraction member's key set is the
-            # per-version schema (cut 48 §4.5): v2 inputs carry each retraction's `arm`.
+            # per-version schema: v2 inputs carry each retraction's `arm`.
             retraction_keys = {"target", "resolution"} | ({"arm"} if bundle.input_version else set())
             for name, content in bundle.fixtures:
                 supplied, _expected = rules._parse_fixture_document(name, content)
@@ -1162,10 +1162,10 @@ class TestPurity:
             capture(corpus("corpus-a", at="a"), corpus("corpus-a", at="b"))
 
 
-# --- cut 48: the multi-holder address map (W19) --------------------------------
+# --- the multi-holder address map --------------------------------
 
 
-class TestW19MultiHolderMap:
+class TestMultiHolderMap:
     """One address held in several corpora with equal content identity maps one
     entry; differing content refuses; deprecated keys follow the record."""
 
@@ -1253,7 +1253,7 @@ class TestW19MultiHolderMap:
         assert dict(coreference_of(twice).pairs) == {("address-a", "address-b"): (1, 1)}
 
 
-# --- cut 48: the v2 retraction fold equals the kernel's fold over the same records --------------
+# --- the v2 retraction fold equals the kernel's fold over the same records --------------
 
 
 class _FixtureResolver:

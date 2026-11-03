@@ -547,7 +547,7 @@ def test_deleting_a_basis_ancestor_yields_incomplete_and_moves_the_digest(tmp_pa
     assert certification.state == "not-certified"
     assert "lineage-incomplete" in certification.findings
     after = scenario.belief()
-    assert after.belief_input_digest != before.belief_input_digest, "kernel §5.1's digest moves"
+    assert after.belief_input_digest != before.belief_input_digest, "the digest moves"
     assert after.value < before.value, "deleting an ancestor never raises belief; here it lowers it"
 
 
@@ -617,7 +617,7 @@ def test_second_surviving_run_does_not_repair_the_first_basis(tmp_path):
     assert "lineage-incomplete" in certification.findings, "the surviving producer repairs nothing"
 
 
-def test_the_residue_after_deleting_r2(tmp_path):
+def test_the_residue_after_deleting_the_second_producer(tmp_path):
     """Certification is restored, no prior
     digest is retained anywhere — belief is a computed view — and no test
     distinguishes the corpus from one in which the second producer never existed."""

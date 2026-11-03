@@ -1,8 +1,8 @@
 """Record values: the closed relation signatures, and the facet's digests.
 
-G1's refusal half lives here: an `assesses` edge from a source-assertion is
+The refusal half lives here: an `assesses` edge from a source-assertion is
 refused **in the typed constructor** — the slice has no other authoring surface
-to refuse at (cut 2 §4.1). The value/digest halves are `test_belief.py`'s.
+to refuse at. The value/digest halves are `test_belief.py`'s.
 """
 
 import pytest
@@ -49,7 +49,7 @@ class TestClosedSignatures:
             RunInput(role="consumes", dataset=dataset)
 
     def test_an_outcome_outside_the_set_is_refused(self):
-        # Verification state is never an outcome (kernel §4.2.1's facet table).
+        # Verification state is never an outcome.
         with pytest.raises(MalformedRecord):
             assessment(outcome="verified")
 
@@ -124,7 +124,7 @@ class TestTheStoredReaderRefusesWhatTheConstructorWould:
     """`stored.assessment_value` decodes the `typed` member and constructs an
     `AssessmentValue` through the ordinary constructor — so a stored record
     cannot carry a negative standard error or a prose estimand any more than
-    a derived one can (estimand-typing §6, decision 10)."""
+    a derived one can."""
 
     def test_a_negative_stored_standard_error_reads_as_malformed_never_a_value(self):
         from decimal import Decimal

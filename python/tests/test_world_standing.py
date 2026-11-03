@@ -1,5 +1,5 @@
 """Standing over a world read: the epoch's enumeration, its scope, coverage,
-relocation, absence and the split (correction-remainder slice 1 §6, §8.1)."""
+relocation, absence and the split."""
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ class TestTheEpochsEnumerationReachesBelief:
             )
 
 
-class TestC3Coverage:
+class TestCoverage:
     def test_an_uncovered_retraction_moves_nothing_and_the_widening_reaches_it(self, tmp_path):
         world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
         profile = profile_with()
@@ -172,8 +172,8 @@ class TestAbsence:
 
 
 class TestTheSplit:
-    """Slice 1 §11.1's split: a counter-retraction `move`d apart from the retraction
-    it counters. From cut 48 §4.5 the shipped (v2-bound) enumeration folds once over
+    """The split: a counter-retraction `move`d apart from the retraction
+    it counters. The shipped (v2-bound) enumeration folds once over
     the whole capture and the world reads it; the v1 binding keeps refusing."""
 
     def _split(self, tmp_path, retraction):
@@ -209,7 +209,7 @@ class TestTheSplit:
 
 
 def _overlap(tmp_path, *, counter_in=ALPHA, deeper=False):
-    """R retracting ALPHA's `assessment:a-1`, C countering R, held as cut 48 §4.5's
+    """R retracting ALPHA's `assessment:a-1`, C countering R, held as the
     1b case: R in both corpora; C in `counter_in` (and, with `deeper`, D countering
     C in ALPHA and C in both)."""
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
@@ -227,7 +227,7 @@ def _overlap(tmp_path, *, counter_in=ALPHA, deeper=False):
 
 
 def test_v2_fold_world(tmp_path):
-    """Cut 48 §4.5: the v2-bound build folds standing once over the merged holders."""
+    """The v2-bound build folds standing once over the merged holders."""
     from dataset_fixtures import pinned
     from fixtures_cut4 import raw_write as raw
 
@@ -335,7 +335,7 @@ def test_v2_fold_world(tmp_path):
 
 
 def test_v1_and_v2_bound_epochs_agree_without_a_split(tmp_path):
-    """Cut 48 §4.5: the semantic change travels in the receipt's rule identity alone."""
+    """The semantic change travels in the receipt's rule identity alone."""
     from test_world_receipts import document
 
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
@@ -440,7 +440,7 @@ def test_an_absent_covered_corpus_answers_absence_regardless_of_lineage_mode(tmp
     make_absent(roots, BETA)
     view, inputs, answer = evaluation(world, published, profile)
     assert inputs.snapshot.not_present[lost.id] == BETA
-    # correction-remainder slice 2 decision 7: BETA is in the producer snapshot's own
+    # BETA is in the producer snapshot's own
     # coverage, so its absence answers absence for every mode here, before lineage's
     # own per-mode walk ever runs — not only for the "surviving" walk that names it.
     assert (f"producer-snapshot:{view.producer_snapshot_identity()}", BETA) in inputs.absent
@@ -459,7 +459,7 @@ def test_a_found_retraction_in_a_damaged_carrier_refuses_as_corpus_damaged(tmp_p
     kwargs = world_kwargs(open_world_view(world, published), profile)
     damage(roots[BETA], "parse-error")
     view = open_world_view(world, published, on_damage="report")
-    # correction-remainder slice 2 decision 7: a damaged covered corpus refuses the whole
+    # A damaged covered corpus refuses the whole
     # world read before the standing loop is reached, whether or not it holds the
     # retraction the query would otherwise find — so this refuses as `CorpusDamaged`
     # directly rather than as a `RetractionUnreadable` wrapping one.
@@ -518,7 +518,7 @@ class TestTheSnapshotTarget:
     def test_absence_takes_precedence_over_a_retracted_bound_snapshot(self, tmp_path):
         """`if not absent and bound in snapshot_standing.retracted` (evaluation.py):
         an absent covered corpus makes the snapshot's standing itself unreadable
-        (decision 7), so the read answers absence rather than `ProducerSnapshotRetracted`
+        so the read answers absence rather than `ProducerSnapshotRetracted`
         even though the snapshot is, in fact, retracted in the corpus that is present."""
         world, roots, published = split_evaluation_world(tmp_path)
         profile = profile_with()
@@ -535,7 +535,7 @@ class TestTheSnapshotTarget:
         # `world_kwargs` (which locates d-a/d-b before gather ever runs) does not
         # itself trip `_refuse_damaged`; the refusal this test pins is `gather`'s
         # own world-block check over every covered corpus, holdings aside — including
-        # when what BETA holds is the snapshot's own retraction (decision 7: damage
+        # when what BETA holds is the snapshot's own retraction (damage
         # refuses before the retraction that might resolve it is ever read).
         from test_world_view import damage
 
@@ -606,10 +606,10 @@ class TestTheSnapshotTarget:
     def test_a_retraction_outside_coverage_cannot_be_authored_and_a_raw_write_there_leaves_the_read_unchanged(
         self, tmp_path
     ):
-        """Decision 3: a snapshot-arm retraction resolves at authoring only in a
+        """A snapshot-arm retraction resolves at authoring only in a
         corpus the target snapshot's own coverage names; a writer over BETA refuses
         one naming a producer snapshot covering only ALPHA. A raw write around that
-        refusal lands in a corpus decision 1's live fold never visits for this
+        refusal lands in a corpus the live fold never visits for this
         snapshot (BETA is outside `narrow`'s own coverage), so the read is unchanged."""
         from fixtures_cut4 import raw_write
         from test_world_receipts import hold_shipped, publish

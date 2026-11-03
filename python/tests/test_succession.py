@@ -1,4 +1,4 @@
-"""`admit_spec_successor` over fabricated roots (successor-admission design §4)."""
+"""`admit_spec_successor` over fabricated roots."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def _failing_pair(port, spec_identity: str, slug: str = "v1"):
     return target, failing
 
 
-# --- G4u13, K4: before the derivation ---------------------------------------------
+# --- before the derivation ---------------------------------------------
 
 
 def test_the_reason_set_is_exactly_the_specs_eleven() -> None:
@@ -110,8 +110,8 @@ def test_a_resolution_failure_refuses_before_any_lock(
 
 
 def test_a_file_where_the_root_should_be_refuses_as_unreadable(certified_work) -> None:
-    # `root` is resolved before the `O_DIRECTORY | O_NOFOLLOW` open (design
-    # §4.1), so a symlink to a real corpus admits through its target; what
+    # `root` is resolved before the `O_DIRECTORY | O_NOFOLLOW` open,
+    # so a symlink to a real corpus admits through its target; what
     # the open refuses is a path that is not a directory at all.
     not_a_directory = certified_work / "file"
     not_a_directory.write_bytes(b"")
@@ -162,7 +162,7 @@ def test_an_absent_verification_namespace_admits(certified_work) -> None:
     assert isinstance(admit(root, unreferenced, original), SuccessorAdmitted)
 
 
-# --- G4u2, G4u12, G4u10, L7u15, L7u16: class 2 from the chain -------------------------
+# --- class 2 from the chain -------------------------
 
 
 def test_an_unfinished_attempt_blocks_an_unreferenced_successor(certified_work) -> None:
@@ -183,7 +183,7 @@ def test_an_unfinished_attempt_for_another_spec_blocks_nothing(certified_work) -
 
 
 def test_the_negative_nothing_durable_admits(certified_work) -> None:
-    # G4u12: the attempt and its intent discarded before any append — no class
+    # The attempt and its intent discarded before any append — no class
     # holds a trace, and the successor is admitted. Crash, cancellation and
     # discarded failure are indistinguishable by construction.
     root, _ = corpus(certified_work, "negative")
@@ -216,7 +216,6 @@ def test_a_decayed_run_under_another_spec_does_not_block(certified_work) -> None
 
 
 def test_a_qualifying_run_lifts_the_block(certified_work) -> None:
-    # L7u16
     root, port = corpus(certified_work, "qualified")
     original, unreferenced, _ = specs()
     _, _, plan = publication_plan(make_closure(spec=original.identity))
@@ -225,7 +224,6 @@ def test_a_qualifying_run_lifts_the_block(certified_work) -> None:
 
 
 def test_a_wrong_spec_publication_fails_qualification_and_the_intent_still_blocks(certified_work) -> None:
-    # L7u15
     root, port = corpus(certified_work, "wrong-spec")
     original, unreferenced, _ = specs()
     _, _, plan = publication_plan(make_closure(spec="x" * 64))
@@ -235,7 +233,7 @@ def test_a_wrong_spec_publication_fails_qualification_and_the_intent_still_block
     assert verdict.reason == "an unreferenced successor to an unfinished recorded attempt"
 
 
-# --- G4u3, G4u14: class 1b from run-attempt reports ------------------------------------
+# --- class 1b from run-attempt reports ------------------------------------
 
 
 def test_a_run_attempt_report_is_a_recorded_failure(certified_work) -> None:
@@ -276,7 +274,7 @@ def test_a_matched_registration_is_decoded_once_for_qualification_and_admission(
 
 
 def test_an_undecodable_sibling_before_the_qualifying_report_still_joins(certified_work) -> None:
-    # G4u14: the registration carries `act-report/aaa.md` (undecodable, sorts
+    # The registration carries `act-report/aaa.md` (undecodable, sorts
     # first) and the qualifying run-attempt report; `matched` is the reducer's
     # verdict and the report is the match.
     root, port = corpus(certified_work, "sibling")
@@ -293,7 +291,7 @@ def test_an_undecodable_sibling_before_the_qualifying_report_still_joins(certifi
 
 
 def test_a_qualifying_run_beside_a_report_joins_nothing(certified_work) -> None:
-    # G4u14, the other half: one registration carries both a qualifying run and
+    # The other half: one registration carries both a qualifying run and
     # a qualifying run-attempt report. `final` is path-ordered and
     # `act-report/` sorts before `run/`, so the report would match first — the
     # arm therefore publishes the report under a token that does not qualify,
@@ -309,7 +307,7 @@ def test_a_qualifying_run_beside_a_report_joins_nothing(certified_work) -> None:
 
 
 def test_a_qualifying_report_before_a_qualifying_run_is_the_match(certified_work) -> None:
-    # G4u14, the mixed registration proper: both records qualify; the report
+    # The mixed registration proper: both records qualify; the report
     # sorts first in `final`, so the reducer's first match is the report and
     # the spec joins class 1 — the act reads the record that matched, in the
     # reducer's order, never "whichever is a run".
@@ -324,7 +322,7 @@ def test_a_qualifying_report_before_a_qualifying_run_is_the_match(certified_work
     assert verdict.reason == "an unreferenced successor to a recorded failed replay"
 
 
-# --- G4u1, G4u4, G4u5, G4u6: class 1a ---------------------------------------------------
+# --- class 1a ---------------------------------------------------
 
 
 def test_a_live_failing_verification_blocks_an_unreferenced_successor(certified_work) -> None:
@@ -353,7 +351,7 @@ def test_a_passing_verification_is_not_blocker_evidence(certified_work) -> None:
 
 
 def test_overlap_refuses_with_the_recorded_failure_reason(certified_work) -> None:
-    # G4u5: the same spec is in both classes.
+    # The same spec is in both classes.
     root, port = corpus(certified_work, "overlap")
     original, unreferenced, _ = specs()
     _failing_pair(port, original.identity)
@@ -390,7 +388,7 @@ def test_an_incoherent_passing_superseder_refuses_naming_itself(certified_work) 
     assert refused.ref == "verification/v2.md"
 
 
-# --- G4u7: the evidence gate -------------------------------------------------------------
+# --- the evidence gate -------------------------------------------------------------
 
 
 def test_a_stale_stamp_refuses_naming_the_path(certified_work) -> None:
@@ -495,7 +493,7 @@ def test_an_unreadable_regular_file_refuses_in_either_namespace(certified_work, 
         assert refused.ref == relative_path
 
 
-# --- G4u8: the coherence gate -------------------------------------------------------------
+# --- the coherence gate -------------------------------------------------------------
 
 
 def test_two_verifies_edges_refuse(certified_work) -> None:
@@ -582,7 +580,7 @@ def test_an_identity_mismatch_refuses(certified_work) -> None:
     assert _refuses(root, unreferenced, original, "verification target mismatch").ref == "verification/v1.md"
 
 
-# --- G4u9: oversized records ------------------------------------------------------------------
+# --- oversized records ------------------------------------------------------------------
 
 
 def test_a_withheld_verification_without_a_superseder_refuses(certified_work) -> None:

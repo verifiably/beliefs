@@ -1,4 +1,4 @@
-"""V2's failing test, written before conformance cut 21 froze (design §13).
+"""V2's failing test, written before conformance cut 21 froze.
 
 One identity: the assessment identity a stored assessment reads back is the
 identity its run derives, so a verification derived over an original and a
@@ -6,7 +6,7 @@ replayed run of that assessment is admitted by the gate's own clause and
 checked without contradiction by the audit. On the tree the design was
 written against this fails at the first assertion: `stored.assessment_value`
 hands back the typed `run:` ref and digests it, while the derivation digests
-the bare closure address (mm30 reproduction record §6, steps 6 and 8).
+the bare closure address.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def writer(tmp_path):
     return _writer(tmp_path / "corpus")
 
 
-def test_v2_one_identity_admits_over_the_corpus_and_audits_clean(writer):
+def test_one_identity_admits_over_the_corpus_and_audits_clean(writer):
     published = publish_corpus(writer, claim=CLAIM_FACET)
     original, assessment = published.original, published.assessment
     derived, verification, evidence = published.derived_value, published.derived, published.evidence

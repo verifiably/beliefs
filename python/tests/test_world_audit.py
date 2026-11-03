@@ -1,4 +1,4 @@
-"""The world audit over a capture (slice 3 design §5)."""
+"""The world audit over a capture."""
 
 from __future__ import annotations
 
@@ -304,7 +304,7 @@ def test_a_malformed_attestation_is_a_per_record_finding_and_the_audit_completes
 
 
 def test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues(tmp_path):
-    """Decision 10, `audit_world`'s own seam (Task 8 review finding 3): a
+    """`audit_world`'s own seam: a
     pre-grammar spec or assessment is named by its own code, never folded
     into `derivation-malformed`, and the exception that names it does not
     stop the loop from reaching a genuine finding for the record after it —
@@ -398,7 +398,7 @@ def test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_a
     assert found[assessment_node.id] == "assessment-pre-grammar"
     # Keyed to the two pre-grammar records: `found` keeps one code per ref, and the
     # publish_corpus assessment's own `derivation-malformed` (its `testing/affects`
-    # estimand under BASE) stood masked behind an eligibility finding until cut 44
+    # estimand under BASE) stood masked behind an eligibility finding until the cross-corpus citation was supported
     # judged its cross-corpus run supported.
     assert not any(
         f.code == "derivation-malformed" and f.ref in (spec_node.id, assessment_node.id) for f in audit.corpora[ALPHA]
@@ -491,7 +491,7 @@ def test_an_absent_composite_member_does_not_hide_a_dangling_sibling(tmp_path):
 
 
 def test_a_dangling_composite_is_reported_through_the_world_audits_recompute(tmp_path):
-    """The U7 arm `beliefs-6776d3` names: `check_composite` reached through
+    """The composite case: `check_composite` reached through
     `audit_world`'s `_recompute` dispatch rather than through `audit_corpus`."""
     composite, members = _composite_across(tmp_path)
     world, _roots, published = _world_of(
@@ -533,7 +533,7 @@ def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recomput
 
 
 def test_a_raw_written_snapshot_retraction_naming_nothing_retained_is_reported_from_captured_records(tmp_path):
-    """BI-6: the epoch predates the raw write, so the record is unmapped; iter_stored would miss it."""
+    """The epoch predates the raw write, so the record is unmapped; iter_stored would miss it."""
     from fixtures_cut4 import raw_write
     from test_snapshot_retraction import S, snapshot_retraction
     from test_world_receipts import published_world
@@ -637,7 +637,7 @@ def test_a_well_formed_admitted_snapshot_retraction_reports_no_invalid_target(tm
     assert ("retraction-target-invalid", r.id) not in [(f.code, f.ref) for f in report.world]
 
 
-# --- J19: eligibility over the capture (mount-citations decision 8) -----------
+# --- eligibility over the capture -----------
 
 REPORT = stored.act_report_node(acquisition_report(operation="acquisition"))
 
@@ -717,7 +717,7 @@ def test_a_damaged_holder_is_unresolved_and_the_audit_continues(tmp_path):
 
 
 def test_the_audit_still_judges_w_and_ms_readable_remainder(tmp_path):
-    """J19-d's row in full: beside BETA's damage and the unresolved citation into it,
+    """Beside BETA's damage and the unresolved citation into it,
     ALPHA's other records are still audited, and so is BETA's readable remainder."""
     world, roots, published, _d = _cross_world(tmp_path)
     damage(roots[BETA], "parse-error")
@@ -734,7 +734,7 @@ def test_the_audit_still_judges_w_and_ms_readable_remainder(tmp_path):
 
 
 def test_an_excluded_holder_is_unresolved(tmp_path):
-    """J19's excluded cause: BETA fails construction and pins a non-shipped base. The world
+    """The excluded cause: BETA fails construction and pins a non-shipped base. The world
     view classifies the damage as `construction` (construction never reads the base pin),
     so the audit excludes BETA at scope `base`, and the citation into it is unresolved."""
     from dataclasses import replace
@@ -791,7 +791,7 @@ def test_malformed_held_record_is_unresolved(tmp_path):
 
 
 def test_malformed_record_cited_by_an_alias_is_unresolved(tmp_path):
-    """Plan review 1, P1: malformedness is keyed by the canonical id."""
+    """Malformedness is keyed by the canonical id."""
     aliased = _observed("d").model_copy(update={"deprecated_ids": ["dataset:old-alias"]})
     aliased = stored.stamp_semantic_identity(aliased)
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
@@ -818,7 +818,7 @@ def test_malformed_record_cited_by_an_alias_is_unresolved(tmp_path):
 
 
 def test_known_producer_decides_an_unmapped_dataset_while_a_corpus_is_absent(tmp_path):
-    """Plan review 1, P2: a definite producer stays definite; only an unknown one is incomplete."""
+    """A definite producer stays definite; only an unknown one is incomplete."""
     world, roots, published, _d = _cross_world(tmp_path)
     late = _observed("late", retrieval=None)  # no report: only the producer can decide it
     raw_add(roots[ALPHA], late, stored.run_node("rl", title="rl", spec="analysis-spec:s1", produces=[late.id]))
@@ -844,7 +844,7 @@ def test_known_producer_decides_an_unmapped_dataset_while_a_corpus_is_absent(tmp
 
 
 def test_an_unknown_producer_is_unresolved_per_dataset_and_the_scan_continues(tmp_path):
-    """Plan review 1, P2: an incomplete dataset does not hide a later valid one."""
+    """An incomplete dataset does not hide a later valid one."""
     good = _observed("good", retrieval=REPORT.id)
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
     roots = corpora(
@@ -895,7 +895,7 @@ def test_an_unknown_producer_is_unresolved_per_dataset_and_the_scan_continues(tm
 
 
 def test_an_unmapped_dataset_that_fails_on_its_own_is_unmet_while_a_corpus_is_absent(tmp_path):
-    """Plan review 2, P2: incompleteness applies only to a dataset that would otherwise pass."""
+    """Incompleteness applies only to a dataset that would otherwise pass."""
     good_report = REPORT
     p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
     roots = corpora(
@@ -944,9 +944,9 @@ def test_an_uncovered_holder_is_unmet(tmp_path):
 
 
 def test_split_retrieval_report_is_unresolved_in_the_check_and_the_audit_alike(tmp_path):
-    """J16's split-retrieval case, raw-written: ALPHA (W) holds a dataset whose `retrieval`
+    """The split-retrieval case, raw-written: ALPHA (W) holds a dataset whose `retrieval`
     names an acquisition report only BETA (M) holds. `corpus_check(W)` and `audit_world`
-    both report `facet-retrieval-unresolved` on it, and no other finding (decision 3a)."""
+    both report `facet-retrieval-unresolved` on it, and no other finding."""
     from beliefs.corpus import corpus_check
 
     split = _observed("split")

@@ -1,4 +1,4 @@
-"""B6 (biology pack design §3.2, §6.1): the first packaged domain contract."""
+"""The first packaged domain contract."""
 
 from importlib import resources
 

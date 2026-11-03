@@ -1,4 +1,4 @@
-"""A supplied operation port is bound to its writer (act-report-remainder design decision 13)."""
+"""A supplied operation port is bound to its writer."""
 
 from __future__ import annotations
 

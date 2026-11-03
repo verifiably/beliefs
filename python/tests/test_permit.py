@@ -1,4 +1,4 @@
-"""E1 at value level, E4 and E5 (design §3, §7)."""
+"""The write permit at value level."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from beliefs.permit import (
 from beliefs.stored import WORLD_KINDS
 
 
-class TestE4KindActsIsClosedAndComplete:
+class TestKindActsIsClosedAndComplete:
     def test_the_key_set_is_exactly_the_world_and_coordination_kinds(self):
         assert set(KIND_ACTS) == set(WORLD_KINDS) | set(COORDINATION_KINDS)
 
@@ -90,7 +90,7 @@ class TestRequireActor:
             require_actor("")
 
 
-class TestE1AuthorityRequire:
+class TestAuthorityRequire:
     def test_a_missing_family_is_refused_on_the_family_before_any_kind(self):
         authority = Authority(WritePermit(frozenset({"proposition"}), frozenset({"corpus-write"})), "a")
         with pytest.raises(PermitExceeded) as caught:
@@ -138,7 +138,7 @@ class TestE1AuthorityRequire:
             Authority("full", "a")  # type: ignore[arg-type]
 
 
-class TestE4RequirementConstruction:
+class TestRequirementConstruction:
     def test_none_requires_nothing(self):
         assert RequiredCapabilities.none().permit == WritePermit(frozenset(), frozenset())
 
@@ -172,8 +172,8 @@ class TestE4RequirementConstruction:
             RequiredCapabilities.for_kinds(["proposition"], {"run": "run"})
 
     def test_publishes_is_refused_while_publish_is_not_a_family(self):
-        # Since cut 39 `publish` is a family and publishes() is the kernel requirement;
-        # the name is cut 17's E4c check, re-targeted there (test_n2_cut17.py _LIVE_SABOTAGES).
+        # `publish` is a family and publishes() is the kernel requirement;
+        # the check is re-targeted there.
         assert RequiredCapabilities.publishes().permit == WritePermit(
             frozenset({"publication-binding", "publication", "act-report", *stored.WORLD_KINDS}),
             frozenset({"publish", "corpus-write", "lifecycle", "registry"}),
@@ -188,7 +188,7 @@ class TestE4RequirementConstruction:
             assert required.permit.act_families <= COMMAND_REACHABLE_FAMILIES
 
 
-class TestE5Coverage:
+class TestCoverage:
     def test_full_covers_every_constructible_requirement(self):
         full = WritePermit.full()
         for required in (
@@ -222,7 +222,7 @@ class TestE5Coverage:
 
 
 class TestReadOnly:
-    """The read door's authority (design §16): the empty permit, so every act
+    """The read door's authority: the empty permit, so every act
     refuses before any effect, under an actor no record can carry."""
 
     def test_read_only_permits_no_kind_no_family_and_no_ungoverned_kind(self):
@@ -291,7 +291,7 @@ def test_no_for_kinds_route_can_compile_to_the_sharing_permit():
 
 
 def test_the_publication_permit_covers_every_call_the_act_makes():
-    """Spec decision 6: the act's registry call (`World.admit`) and lifecycle calls
+    """The act's registry call (`World.admit`) and lifecycle calls
     run under exactly this permit (user review finding 1)."""
     authority = scoped_authority(RequiredCapabilities.publishes(), "actor")
     authority.require("registry")
@@ -311,7 +311,7 @@ def test_the_publication_permit_covers_every_call_the_act_makes():
             )
         ),
         # the kernel requirement's exact permit, reached through an ordinary route
-        # (science's `mints:` write class compiles through `for_kinds`): decision 7
+        # (science's `mints:` write class compiles through `for_kinds`):
         # admits it only from `publishes()`, never by permit equality
         lambda: RequiredCapabilities.for_kinds(["publication-binding", "act-report"], {"act-report": "corpus-write"}),
         lambda: RequiredCapabilities(

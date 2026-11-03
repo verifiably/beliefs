@@ -1,8 +1,8 @@
-"""R23's in-cell arms only. Deferred: the `derived_from` view, the
+"""The in-cell checks only. Deferred: the `derived_from` view, the
 independence-multiplier and omission arms, every deletion, divergence,
 coverage, receipt, snapshot, merge, and conflict arm, negatives (e)–(g), and
 the raw-written-basis audit — the store, the world index, and the audit
-(cut 3 §4.2)."""
+."""
 
 import dataclasses
 import inspect
@@ -32,7 +32,7 @@ def test_the_address_is_the_basis_projection_over_the_manifest(produced):
     )
     expected = dataset_address(declaration)
     minted = mint_dataset(produced.run, existing_bases={})
-    assert minted.address == expected  # §6.2: dedupe, sort, fold — reused from cut 2, not rebuilt
+    assert minted.address == expected  # dedupe, sort, fold — reused, not rebuilt
 
 
 def test_the_produces_edge_is_emitted_with_the_run(produced):

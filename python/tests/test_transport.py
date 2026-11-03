@@ -1,4 +1,4 @@
-"""The transport seam (publish-act-remote design §3.1), portable: the naming of
+"""The transport seam, portable: the naming of
 an export root's files, the local listing and its identity, and the
 directory-backed fake the acceptance module drives."""
 

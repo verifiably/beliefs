@@ -1,5 +1,5 @@
 """A directory-backed `Transport` for the remote publish tests
-(publish-act-remote design §11.2): `https://remote.test/<name>` is the
+: `https://remote.test/<name>` is the
 directory `<base>/<name>`, and each transported name is a file under it. A
 test double; it never ships."""
 
@@ -61,7 +61,7 @@ class DirectoryTransport:
         return listed
 
     def materialize(self, destination: Destination, corpus_id: str, into: Path) -> tuple[Path, bytes]:
-        """A recipient's raw copy (decision 10): the root's files without any
+        """A recipient's raw copy: the root's files without any
         `.metadata` sibling, so it reads `METADATA_LESS`, and the sibling's bytes."""
         target = self.remote_dir(destination)
         into.mkdir(parents=True, exist_ok=True)

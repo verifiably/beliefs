@@ -1,5 +1,5 @@
-"""The engine facts the publish act's resumption relies on (publish-act-local
-design §2 decision 8, §9): each reinvoked lifecycle operation converges on the
+"""The engine facts the publish act's resumption relies on (
+): each reinvoked lifecycle operation converges on the
 state its first call left. Tests may import `atoms`; the source modules do not."""
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ def test_replicate_retry_after_restore_converges(staged):
 
 def test_replicate_over_a_foreign_serviceable_root_refuses(staged, certified_work):
     """FOREIGN_REPLICA: another corpus's replica at the export path (read-only,
-    not yet restored) refuses this replication. The exception type is recorded for Task 8."""
+    not yet restored) refuses this replication. The exception type is recorded for the acceptance tests."""
     corpus, _, _, export = staged
     other = certified_work / f"publish-engine-foreign-{os.getpid()}-{next(_counter)}"
     try:

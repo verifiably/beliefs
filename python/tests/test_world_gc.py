@@ -1,4 +1,4 @@
-"""Whole-epoch garbage collection: §9's explicit `delete_epoch`.
+"""Whole-epoch garbage collection: the explicit `delete_epoch`.
 
 **Deletion is consumer policy, and it is whole-epoch.** Nothing in the package
 calls it, nothing schedules it, and there is no act whose subject is one member
@@ -15,16 +15,16 @@ which is what the plan-count and tree comparisons below are for.
 
 **Every carrier the report is computed over is read the strong way.** The
 sever report answers "does another retained epoch still carry this identity?",
-so it has to read those epochs — and §8.1's rule is that an epoch this world
+so it has to read those epochs — and the rule is that an epoch this world
 cannot read refuses the act reading it. A damaged epoch *elsewhere* therefore
 refuses the whole deletion, exactly as it refuses a rule removal: a report
-computed over a scan that skipped one would be the silent unresolvability §4.3
+computed over a scan that skipped one would be the silent unresolvability the rule removal
 exists to prevent.
 
-**The emptied directory is nonsemantic, and that has teeth.** §9 leaves the
+**The emptied directory is nonsemantic, and that has teeth.** The act leaves the
 directory behind. An empty directory read as a carrier would be a carrier
 missing all eleven members, so one deletion would make every later scan of
-``epochs/`` refuse and would make §9's own "a repeated deletion raises
+``epochs/`` refuse and would make the act's own "a repeated deletion raises
 `EpochUnknown`" report `EpochMalformed` instead. Two arms hold that door open:
 the sever scan still runs after a deletion, and the deleted bytes can be
 published back into the directory they were deleted from.
@@ -126,7 +126,7 @@ def sibling_published(tmp_path: Path):
 
 BARRIER_PREAMBLE = re.compile(r"with world\._state\.lock:\s*\n\s*world\._chain_head\(")
 """The hand-written preamble `_locked_barrier` replaced. Five acts carried a
-copy of it, and the order of its two lines is the whole of §8.1's guarantee."""
+copy of it, and the order of its two lines is the whole of the barrier's guarantee."""
 
 
 # --- Step 1: the refusals, and the order they are decided in ------------------
@@ -134,7 +134,7 @@ copy of it, and the order of its two lines is the whole of §8.1's guarantee."""
 
 class TestRefusalOrder:
     def test_delete_takes_one_lock_and_recovers_before_it_reads_current(self, monkeypatch, tmp_path):
-        """§8.1's order, and the arm is written so it can fail.
+        """The order, and the arm is written so it can fail.
 
         The barrier observation records whether the lock was *already held*
         when recovery ran, and the pointer read records that it ran after. A
@@ -231,12 +231,12 @@ class TestRefusalOrder:
         ],
     )
     def test_a_carrier_this_world_cannot_read_refuses_before_any_delete(self, tmp_path, sabotage):
-        """§8.1's carrier rule, applied to every epoch a deletion has to read.
+        """The carrier rule, applied to every epoch a deletion has to read.
 
         `other-identity-mismatch` is the arm that pins the *strong* reading:
         the other carrier's member set is intact and its receipts parse, so the
         sever scan alone would sail past it. Only recomputing its packaging
-        identity — which is what `_locked_open_epoch` does and what §8.1
+        identity — which is what `_locked_open_epoch` does and what the strong reading
         requires of every read of an epoch — catches it.
         """
         world, recorder, _bindings, (first, second, third) = three_retained(tmp_path)
@@ -274,7 +274,7 @@ class TestWholeEpochDeletion:
     def test_one_plan_deletes_exactly_the_eleven_members(self, tmp_path):
         """One transaction, eleven `DeleteOp`s, and nothing else in it.
 
-        Not the pointer, not another epoch's member, not a directory: §9 says
+        Not the pointer, not another epoch's member, not a directory: the act says
         the transaction contains a `DeleteOp` for every target member, and
         "every" is also "only". Each expected digest is recomputed here from
         the bytes on disk rather than taken from the module under test.
@@ -299,7 +299,7 @@ class TestWholeEpochDeletion:
         assert read.open_epoch(world, third.packaging_identity).members == third.members
 
     def test_delete_noncurrent_epoch_reports_severed_identities(self, tmp_path):
-        """§9's report: the actor, the producer-snapshot identity, the four
+        """The report: the actor, the producer-snapshot identity, the four
         receipt identities, and which of them nothing else carries.
 
         The two retained epochs here differ in exactly one thing — which
@@ -354,7 +354,7 @@ class TestWholeEpochDeletion:
         assert len(report.severed) == 5
 
     def test_a_repeated_deletion_is_unknown_and_adds_no_tombstone(self, tmp_path):
-        """§9 makes no exact-retry claim after commit. The second call is
+        """The epoch deletion makes no exact-retry claim after commit. The second call is
         `EpochUnknown`, and nothing was written to say so."""
         world, recorder, _bindings, (first, _second, third) = three_retained(tmp_path)
         directory = world.config.world_root / "epochs" / first.packaging_identity
@@ -371,7 +371,7 @@ class TestWholeEpochDeletion:
         assert read.current_epoch(world).packaging_identity == third.packaging_identity
 
     def test_an_emptied_directory_does_not_poison_the_epoch_scan(self, tmp_path):
-        """The regression §9's "nonsemantic" sentence is really about.
+        """The regression the "nonsemantic" sentence is really about.
 
         `rules.remove_rule_binding` scans every retained epoch and refuses on
         any carrier it cannot read. If the directory a deletion emptied read as
@@ -416,7 +416,7 @@ class TestWholeEpochDeletion:
 
 class TestNoOtherDeletionSurface:
     def test_no_individual_member_or_automatic_deletion_api_exists(self, tmp_path):
-        """§9's two closures, asserted rather than described.
+        """The two closures, asserted rather than described.
 
         *No individual-member deletion*: the one act takes a packaging identity,
         and no exported callable takes a member at all. *Nothing
@@ -482,7 +482,7 @@ class TestTheLockedBarrier:
     def test_every_epoch_act_crosses_the_barrier_through_one_context_manager(self):
         """The preamble is written once. Five acts had their own copy of "take
         the lock, then cross the barrier" and the order between those two lines
-        is the whole of §8.1's guarantee — a copy that drifted would be a
+        is the whole of the barrier's guarantee — a copy that drifted would be a
         reader crossing a barrier a publication then invalidated."""
         package = Path(beliefs.__file__).parent / "world"
         for path in sorted(package.glob("*.py")):

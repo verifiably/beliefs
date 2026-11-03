@@ -1,4 +1,4 @@
-"""Publishing an epoch, and opening one back: §6 and §8.1's carrier half.
+"""Publishing an epoch, and opening one back: the carrier half.
 
 **What an epoch is here.** Eleven deterministic closed documents in one
 content-addressed directory, created by exactly one world-root transaction
@@ -8,13 +8,13 @@ anything is written, so the name is a claim the bytes themselves settle. Every
 arm below turns on that: a member edited by hand does not merely disagree with
 a stored digest, it makes the directory misnamed.
 
-**The two layers §8.2 separates, exercised as two layers.** The carrier layer
+**The two layers carrier and receipt validation separate, exercised as two layers.** The carrier layer
 refuses an epoch whose member set, YAML, or packaging identity is wrong. It
-does *not* refuse a receipt whose document parses and then violates §7.5's
-contract — that receipt opens, reaches Task 10's validator, and evaluates as
+does *not* refuse a receipt whose document parses and then violates the receipt
+contract — that receipt opens, reaches the validator, and evaluates as
 ``malformed`` there. One arm below publishes a contract-violating receipt into
 a well-formed carrier and proves it opens, because a carrier layer that
-refused it would close the path §8.2 exists to keep open.
+refused it would close the path that separation exists to keep open.
 
 **Concurrency is event-driven.** The interleaving arms gate a transaction
 half-applied and prove a reader blocks rather than reading the applied prefix.
@@ -236,7 +236,7 @@ def epochs_tree(world: registry.World) -> dict[str, bytes]:
 
 
 def document(world: registry.World, packaging_identity: str, member: str) -> dict[str, Any]:
-    """One epoch member, parsed. Every member §6 defines is a mapping keyed by
+    """One epoch member, parsed. Every member is a mapping keyed by
     string, so the arms below may index the result without re-asserting it."""
     path = world.config.world_root / "epochs" / packaging_identity / member
     parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -245,7 +245,7 @@ def document(world: registry.World, packaging_identity: str, member: str) -> dic
 
 
 def formula_packaging_identity(members: dict[str, bytes]) -> str:
-    """§6.2, written out here rather than borrowed from the module under test."""
+    """The receipt identity, written out here rather than borrowed from the module under test."""
     return v1.digest(
         "science.epoch.v1",
         [[name, sha256(content).hexdigest()] for name, content in sorted(members.items())],
@@ -259,7 +259,7 @@ def formula_packaging_identity(members: dict[str, bytes]) -> str:
 def test_build_reports_world_identity_conflicts_without_publishing(tmp_path, same_address, same_uid, code):
     world, recorder, bindings, roots = admitted_world(tmp_path, (ALPHA, BETA))
     original = Corpus(roots[ALPHA]).get(dataset_ref("a"))
-    # The twin differs in content (cut 48, W8b note): a shared uid with equal content reads once.
+    # The twin differs in content : a shared uid with equal content reads once.
     twin = original.model_copy(
         deep=True,
         update={
@@ -373,7 +373,7 @@ class TestTheDeterministicCarrier:
         assert (world.config.world_root / "epochs" / published.packaging_identity).is_dir()
 
     def test_the_retraction_and_certification_subjects_live_only_inside_receipts(self, tmp_path):
-        """§7.5 puts the retraction enumeration projection and the
+        """The receipt format puts the retraction enumeration projection and the
         certification inventory *inside* their receipts. Neither is a twelfth
         epoch member, and neither leaks into any other member."""
         world, _recorder, bindings, _roots = admitted_world(tmp_path)
@@ -423,14 +423,14 @@ class TestTheDeterministicCarrier:
     def test_an_empty_declared_coverage_is_not_publishable(self, tmp_path):
         """The decision this task owed: an epoch over no corpus is refused.
 
-        Nothing in §5 or §6 makes an empty capture *unrepresentable*, so the
-        refusal is a choice and is written as one. An epoch declaring no
-        coverage answers `Unknown` for every address (§8.3) and
-        `indeterminate` for every edge in any world holding a live corpus
-        (§8.4), so publishing one — and above all pointing `current` at one —
-        would silently disable every read the epoch exists to serve. A caller
-        that reached here with an empty set filtered its coverage down to
-        nothing and wants to know.
+                Nothing in the format makes an empty capture *unrepresentable*, so the
+                refusal is a choice and is written as one. An epoch declaring no
+                coverage answers `Unknown` for every address and
+                `indeterminate` for every edge in any world holding a live corpus
+        , so publishing one — and above all pointing `current` at one —
+                would silently disable every read the epoch exists to serve. A caller
+                that reached here with an empty set filtered its coverage down to
+                nothing and wants to know.
         """
         world, recorder, bindings, _roots = admitted_world(tmp_path)
 
@@ -446,7 +446,7 @@ class TestTheDeterministicCarrier:
 
 class TestPublicationIsOneTransaction:
     def test_first_publication_is_one_plan_of_eleven_creates_the_pointer_and_the_records(self, tmp_path):
-        # Slice 3 (log-verification design §3.3) adds the build's registry-record
+        # The build's registry-record
         # half to this very plan: one log-head record per covered corpus, created
         # after the pointer. The count is stated as `members + pointer + coverage`
         # so a build that quietly stopped writing them would fail here.
@@ -498,7 +498,7 @@ class TestPublicationIsOneTransaction:
         assert roots  # the two corpora both still stand
 
     def test_a_corpus_may_move_between_capture_and_publication(self, monkeypatch, tmp_path):
-        """§5.4's staleness contract. Receipts name the exact captured states,
+        """The staleness contract. Receipts name the exact captured states,
         and publication makes no freshness claim, so a corpus that moves after
         its hold is released is not a reason to refuse."""
         world, _recorder, bindings, roots = admitted_world(tmp_path)
@@ -528,7 +528,7 @@ class TestPublicationIsOneTransaction:
 
 class TestExactRebuild:
     def test_exact_epoch_rebuild_swaps_only_current(self, tmp_path):
-        """X1's pointer half. The content-addressed epoch already exists and is
+        """The pointer half. The content-addressed epoch already exists and is
         byte-identical, so the rebuild has nothing to create: the whole
         transaction is the pointer swap, and no member is rewritten."""
         world, recorder, bindings, _roots = admitted_world(tmp_path, (ALPHA, BETA))
@@ -564,7 +564,7 @@ class TestExactRebuild:
         assert rebuilt.members == first.members
 
     def test_publication_takes_the_world_lock_once_and_rechecks_inside_it(self, monkeypatch, tmp_path):
-        """§5.4's ordering, counted rather than inferred.
+        """The ordering, counted rather than inferred.
 
         Two acquisitions in the whole build and no more: preflight takes the
         world lock and releases it before any corpus is captured, and
@@ -646,7 +646,7 @@ class TestExactRebuild:
 
 class TestOpening:
     def test_retained_epochs_open_by_packaging_identity(self, tmp_path):
-        """X1. Publication retains; it does not supersede.
+        """Publication retains; it does not supersede.
 
         The second epoch moves `current` and leaves the first exactly where it
         was, and the first opens by name afterwards. That is what makes an
@@ -670,7 +670,7 @@ class TestOpening:
 
     @pytest.mark.parametrize("member", epoch.EPOCH_MEMBERS)
     def test_open_epoch_refuses_raw_member_edit(self, tmp_path, member):
-        """X1. The edit below changes no value the document parses to — it
+        """The edit below changes no value the document parses to — it
         appends a YAML comment — and the epoch still refuses.
 
         That is the point of a packaging identity over *member bytes*: a
@@ -715,7 +715,7 @@ class TestOpening:
         offending entry carrying an empty `corpus_state`. An empty string is
         text, so it passes validation; it is also falsy, so a check written as
         a comprehension *filter* would drop that entry before sortedness and
-        distinctness were decided and hand §8.3 a stamp nobody vouched for.
+        distinctness were decided and hand a stamp nobody vouched for.
         """
         world, _recorder, bindings, _roots = admitted_world(tmp_path, (ALPHA, BETA))
         published = publish(world, (ALPHA, BETA), bindings)
@@ -755,11 +755,10 @@ class TestOpening:
                 continue
             parameters = set(inspect.signature(value).parameters)
             assert not parameters & {"member", "member_name", "epoch_member"}, name
-        # The read surface is pinned closed rather than sampled. Task 10 grew
-        # it — receipt validation, the two bound queries and the answer types —
-        # and correction-remainder slice 2 task 4 grew it again with
-        # `reported_receipt`, the report-mode wrapper §7.3 gives every report
-        # caller instead of `validate_receipt`; what it must never gain is an
+        # The read surface is pinned closed rather than sampled. Receipt validation,
+        # the two bound queries and the answer types grew it, and `reported_receipt`,
+        # the report-mode wrapper every report caller uses instead of
+        # `validate_receipt`, grew it again; what it must never gain is an
         # act whose subject is one member of one epoch, so the list is
         # restated here every time it changes.
         assert sorted(read.__all__) == [
@@ -792,7 +791,7 @@ class TestOpening:
                 if operation.path == f"epochs/{epoch.CURRENT_POINTER}":
                     continue
                 assert type(operation) is CreateOp, operation
-                # The build's log-head records ride in the same plan (§3.3) and
+                # The build's log-head records ride in the same plan and
                 # are creates into `registry/`, never touches of a member.
                 if operation.path.startswith("registry/"):
                     continue
@@ -812,15 +811,15 @@ class TestOpening:
             opened.receipts["producer-receipt.yaml"] = None  # pyright: ignore[reportIndexIssue]
 
     def test_a_contract_violating_receipt_still_opens(self, tmp_path):
-        """§8.2's reachability requirement, and the one arm that proves it.
+        """The reachability requirement, and the one arm that proves it.
 
         The carrier here is impeccable — eleven members, closed documents, a
-        name its bytes recompute — and one receipt inside it violates §7.5 in
+        name its bytes recompute — and one receipt inside it violates the receipt format in
         three ways at once: its discriminant disagrees with the member holding
         it, it carries a key outside `RECEIPT_KEYS`, and its corpus states are
         unsorted. Opening hands all of that on intact. A carrier layer that
         refused it would make outcome `malformed` unreachable, and with it the
-        coreference consequence §8.2 exists to keep open.
+        coreference consequence the separation exists to keep open.
         """
         world, _recorder, bindings, _roots = admitted_world(tmp_path, (ALPHA, BETA))
         published = publish(world, (ALPHA, BETA), bindings)
@@ -933,7 +932,7 @@ class TestTheLockedOpen:
         assert heads.roots[-1] == world.config.world_root
 
     def test_current_epoch_makes_one_acquisition_and_recovers_before_the_pointer(self, monkeypatch, tmp_path):
-        """§8.1's `current_epoch`: one lock, the barrier, the pointer, then the
+        """The `current_epoch`: one lock, the barrier, the pointer, then the
         *same* private locked loader `open_epoch` uses. A second acquisition
         would deadlock on the non-reentrant lock, so counting is what turns
         "it did not hang" into "it took the lock exactly once"."""
@@ -966,7 +965,7 @@ class TestTheLockedOpen:
         assert not counting.locked()
 
     def test_no_reader_observes_a_publication_in_flight(self, monkeypatch, tmp_path):
-        """The interleaving §8.1 exists for: a reader arriving while a
+        """The interleaving the barrier exists for: a reader arriving while a
         publication transaction is half applied sees the finished epoch, never
         the applied prefix."""
         heads = ChainHeads()

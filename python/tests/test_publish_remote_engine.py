@@ -1,5 +1,5 @@
-"""The engine facts the remote publish act relies on (publish-act-remote design
-§4.2, §4.3; plan Task 0): a serviceable export root is plain files, its chain
+"""The engine facts the remote publish act relies on (
+): a serviceable export root is plain files, its chain
 head reads, and restore's evaluation, granting nothing, validates it intact and
 refuses it with a selected record deleted or altered, writing nothing."""
 
@@ -100,7 +100,7 @@ def _tree(root: Path) -> list[tuple[str, bytes | None]]:
 
 
 def test_a_serviceable_export_root_holds_only_directories_and_regular_files(exported):
-    """EXPORT_LAYOUT, and CHAIN_DIR printed for Task 8's Y16-a sabotage."""
+    """EXPORT_LAYOUT, and CHAIN_DIR printed for the acceptance tests."""
     export, *_ = exported
     for directory, dirnames, filenames in os.walk(export):
         for name in (*dirnames, *filenames):

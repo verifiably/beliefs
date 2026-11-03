@@ -202,7 +202,7 @@ def composition_root_imports(tree: ast.Module) -> list[str]:
     return offending
 
 
-class TestS8TheMutableCorpusHandleHasOneHolder:
+class TestTheMutableCorpusHandleHasOneHolder:
     @pytest.mark.parametrize("module", [path for path in modules() if relative(path) != WRITE_API], ids=relative)
     def test_no_module_outside_the_write_api_names_the_mutable_corpus(self, module):
         tree = parsed(module)

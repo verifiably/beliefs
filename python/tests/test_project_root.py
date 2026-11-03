@@ -1,17 +1,17 @@
 """The project root's directory set is pinned.
 
-Thirteen git-ignored work roots accumulated at the project root one variant at
-a time (`.cut4-acceptance/` … `.mm30-reproduction-cut21/`), each added to
+Git-ignored work roots accumulated at the project root one variant at
+a time (one per acceptance or reproduction variant), each added to
 `.gitignore` as it appeared, until they outnumbered the genuine hidden
 directories five to one, and nothing objected because nothing was watching.
-The `.cut*-acceptance/` glob makes it worse: a new cut root appears with no
+A glob in `.gitignore` makes it worse: a new root appears with no
 `.gitignore` edit at all. This test reads the directory itself, not git's
 view of it, so an ignored directory is exactly what it sees.
 
 Directories only. A stray file someone made by hand is not the signal; a
 directory that a runner or a lane created is. The allowlist is explicit
-names, never globs, so that the next `.cut32-acceptance/` is a red test rather
-than the fourteenth silent variant.
+names, never globs, so that the next new root is a red test rather
+than one more silent variant.
 """
 
 from __future__ import annotations

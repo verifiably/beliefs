@@ -1,5 +1,5 @@
 # python/tests/profiles.py
-"""Compiled profiles the tests write under, from real contracts (facet-contracts §5.1).
+"""Compiled profiles the tests write under, from real contracts.
 
 Every manifest pins the shipped base; a writer refuses a profile whose base
 identity is not the shipped one. The `biology` fixture exists twice so the

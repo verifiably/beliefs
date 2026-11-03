@@ -1,5 +1,5 @@
 # python/tests/test_profile_agreement.py
-"""§5.1 and F5: writer and port hold a profile; every write path rechecks the pins under its lock."""
+"""Writer and port hold a profile; every write path rechecks the pins under its lock."""
 
 import pytest
 from authority import FULL

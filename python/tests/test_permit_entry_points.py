@@ -1,9 +1,9 @@
-"""E1 over every inventoried definition (design §4.2, §7 E1).
+"""The write permit over every inventoried definition.
 
 One case per entry point, keyed by its `WRITE_ENTRY_POINTS` name. `prepare`
 performs every setup effect under a full authority; `act` performs exactly the
 protected call under the authority being judged; `probe` reads the state a
-refused act must leave unchanged. The tests derive E1's three directions.
+refused act must leave unchanged. The tests derive the three directions.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ class Case:
     probe: Callable[[Path], object]
     extra_families: tuple[str, ...] = ()
     """Families beyond `family` the exact requirement holds — the publish doors
-    also require `corpus-write` over `act-report` (decision 7)."""
+    also require `corpus-write` over `act-report`."""
 
     @property
     def id(self) -> str:
@@ -56,7 +56,7 @@ def _chain(root: Path) -> int:
 
 def _tree(root: Path) -> list[tuple[str, str, str]]:
     """Every entry under `root` with its type and, for files, its content digest —
-    a created directory or a changed byte is an effect (design §6)."""
+    a created directory or a changed byte is an effect."""
     from hashlib import sha256
 
     if not root.exists():
@@ -230,7 +230,7 @@ def _publish_operation_report(authority, work):
 
 
 def _commit_fulfilling(authority, work):
-    """The routed commit seam itself (writer-session design §13 item 13): its own
+    """The routed commit seam itself: its own
     `require`, judged on the kinds the plan emits, with nothing else in front of it."""
     from nodes.core.frontmatter import node_to_markdown
     from nodes.core.write_plan import CreateOp, DefaultExecutor
@@ -780,7 +780,7 @@ def _refuse(authority, work):
     )
 
 
-# --- the staging doors (publish-act-local §5), in-memory executor --------------------
+# --- the staging doors, in-memory executor --------------------
 
 
 def _staging_writer(authority: Authority, work: Path) -> CorpusWriter:
@@ -840,7 +840,7 @@ CASES = (
         _attest,
         _corpus_probe,
     ),
-    # 2026-09-11 slice 2b: cover the new seam's family, source kind and exact permit.
+    # Cover the new seam's family, source kind and exact permit.
     Case(
         "corpus.py:CorpusWriter.correct_identifier",
         "corpus-write",
@@ -1083,7 +1083,7 @@ CASES = (
         _publication_probe,
         ("corpus-write",),
     ),
-    # 2026-09-23 cut 40: the staging doors and the pre-binding refusal.
+    # The staging doors and the pre-binding refusal.
     Case(
         "corpus.py:CorpusWriter._stage_record",
         "corpus-write",

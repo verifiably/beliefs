@@ -1,4 +1,4 @@
-"""R20's selected arms, G4's value-state arms, R8's mint half, and R7's no-target refusal. Deferred and deliberately absent: R20 negative (a)'s import half (the import boundary), negative (c) and negative (d)'s two-decomposition comparison (the full workflow surface) — cut 3 §4.2."""
+"""The selected checks, the value-state checks, the mint half, and the no-target refusal. Deferred and deliberately absent: the import half of the first negative (the import boundary) and the two-decomposition comparison (the full workflow surface)."""
 
 import dataclasses
 import inspect
@@ -37,7 +37,7 @@ from beliefs.spec import (
     revise,
 )
 
-# --- R20: the union's type refusals -----------------------------------------
+# --- the union's type refusals -----------------------------------------
 
 
 def test_deterministic_with_a_plan_is_unspellable():
@@ -83,7 +83,7 @@ def test_stochastic_unseeded_with_a_rationale_is_freezable():
 
 def test_unseeded_beside_a_bitwise_rule_is_caught_at_freeze():
     # Negative (a)'s freeze-time half. The import half is the import boundary's
-    # and is deferred (cut 3 §4.2).
+    # and is deferred.
     with pytest.raises(UnfreezableSpec):
         freeze(draft(nondeterminism=StochasticUnseeded(rationale="honest")), held_rules=held_rules())
 
@@ -112,8 +112,8 @@ def test_spec_input_roles_are_a_tuple_of_spec_inputs():
 
 
 def test_rule_binding_is_the_exact_pair():
-    # Plumbing for §4.2's rule_bindings member. R22's unresolvable-rule refusal
-    # clause is DEFERRED to the rules store (cut 3 §7 item 4) — this test
+    # Plumbing for the rule_bindings member. The unresolvable-rule refusal
+    # clause is DEFERRED to the rules store — this test
     # certifies the mapping shape, not that banked clause.
     bound = bind_rules(("median-difference/v1",), held_rules())
     assert bound == (("median-difference/v1", "impl-interp-1"),)
@@ -131,7 +131,7 @@ def test_a_fixture_failing_implementation_is_not_that_rule():
         bind_rules(("median-difference/v1",), {"median-difference/v1": broken})
 
 
-# --- R7 (spec half), identity, R8's mint half, G4 ----------------------------
+# --- (spec half), identity, the mint half, value state ----------------------------
 
 
 def test_an_assessment_spec_with_no_target_is_refused():
@@ -240,7 +240,7 @@ def test_supersedes_is_in_the_hand_authored_normative_projection():
 
 
 def test_the_exclusion_certification_is_spellable_only_on_a_reads_declaration():
-    # R22's reach arm starts here: the certification's authoring home is the
+    # The reach check starts here: the certification's authoring home is the
     # frozen spec's reads declaration, frozen into identity with everything else.
     with pytest.raises(MalformedSpec):
         SpecInput(
@@ -271,7 +271,7 @@ def test_editing_the_equivalence_rule_mints_a_successor_that_references():
 
 
 def test_changing_a_root_seed_mints_a_successor_spec():
-    # §3.1: the seed is normative spec content; changing a root is a semantic
+    # The seed is normative spec content; changing a root is a semantic
     # revision, never a runtime choice.
     original = freeze(draft(), held_rules=held_rules())
     successor = revise(
@@ -308,7 +308,7 @@ def test_a_referencing_successor_is_admitted():
 def test_a_discarded_failed_attempt_is_undetectable():
     # The negative: activeness and reference are over the slice's VALUE state —
     # a failure absent from the supplied set never happened, and nothing can
-    # tell (kernel G4's bound, pinned rather than papered over).
+    # tell (the value-state bound, pinned rather than papered over).
     original = freeze(draft(), held_rules=held_rules())
     unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
     assert isinstance(admit_successor(unreferenced, original, frozenset(), frozenset()), SuccessorAdmitted)
@@ -343,8 +343,8 @@ def test_a_referencing_successor_lifts_both_classes():
     assert isinstance(admit_successor(successor, original, both, both), SuccessorAdmitted)
 
 
-def test_the_core_keeps_cut_3s_anchor_line():
-    # K5: cut 3's three G4 sabotages name this exact line; it must occur once.
+def test_the_core_keeps_its_anchor_line():
+    # Other tests name this exact line; it must occur once.
     from pathlib import Path
 
     import beliefs.spec as spec_module
@@ -374,7 +374,7 @@ def test_revise_is_the_only_edit_path_and_freeze_takes_drafts_only():
     assert list(inspect.signature(revise).parameters) == ["original", "edits", "held_rules", "recorded_failures"]
 
 
-# --- V8: restore from canonical projection text, no coercion (design §7) -----
+# --- restore from canonical projection text, no coercion -----
 from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
 
 from beliefs.spec import frozen_projection, restore
@@ -441,7 +441,7 @@ def test_restore_refuses_a_projection_that_does_not_digest_to_the_identity(corru
     ],
 )
 def test_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identity(corrupt):
-    """[R1] The digest agrees with the text by construction; the members are
+    """The digest agrees with the text by construction; the members are
     still typed and never coerced, and `freeze`'s invariants hold."""
     mapping = frozen_projection(_rich_spec())
     corrupt(mapping)
@@ -451,7 +451,7 @@ def test_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identity(
 
 
 def test_restore_refuses_a_projection_the_restored_spec_would_not_reproduce():
-    """[R1, second round] `SeedPlan.projection()` sorts its streams; a text
+    """`SeedPlan.projection()` sorts its streams; a text
     with them unsorted is canonical, digests to its own identity, and would
     restore to a spec whose projection digests to another."""
     mapping = frozen_projection(_rich_spec())
@@ -483,7 +483,7 @@ def test_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
         restore(identity, text, profile=TESTING_PROFILE)
 
 
-# --- estimand typing: the typed members, the grammar member, restoration (Q7, Q10) ---
+# --- estimand typing: the typed members, the grammar member, restoration ---
 
 
 def test_the_projection_carries_the_grammar_and_typed_members():

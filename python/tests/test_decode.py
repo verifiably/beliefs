@@ -86,7 +86,7 @@ def affects(*, args=(GENE, OUTCOME), qualifiers=None, polarity="positive", layer
     )
 
 
-class TestM4TypedReferentsAndTheReceipt:
+class TestTypedReferentsAndTheReceipt:
     def test_a_member_term_is_accepted_with_the_check_performed(self, profile, readable):
         claim, receipt = decode_claim(affects(), profile=profile, snapshot=readable)
         assert claim.args[0] == claim.args[0].__class__(sort="testing/entity", term=GENE)
@@ -178,7 +178,7 @@ class TestM4TypedReferentsAndTheReceipt:
         assert all(not isinstance(slot, str) for slot in claim.args)
 
 
-class TestM11DecodeIsAFunctionOfItsArguments:
+class TestDecodeIsAFunctionOfItsArguments:
     def test_the_same_three_inputs_decode_identically_in_another_process(
         self, profile, readable, base_contract_path, testing_contract_path
     ):
@@ -395,7 +395,7 @@ class TestM11DecodeIsAFunctionOfItsArguments:
             )
 
 
-class TestD3TheFiveOutcomesStayDistinct:
+class TestTheFiveOutcomesStayDistinct:
     """The in-scope cases. `not-present` and `not-available`'s world-level arm are deferred."""
 
     def test_a_readable_vocabulary_yields_member_and_not_member(self, profile, readable):
@@ -479,7 +479,7 @@ class TestD3TheFiveOutcomesStayDistinct:
             build_snapshot(readable={EX: [GENE]}, unreadable=[EX])
 
 
-class TestM13TheWireTypeIsConfinedToTheDecodeModule:
+class TestTheWireTypeIsConfinedToTheDecodeModule:
     """The second clause, testable for the first time now that `WireClaim` exists.
 
     Deferred twice as untestable, correctly: a test that a type does not appear

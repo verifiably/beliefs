@@ -1,4 +1,4 @@
-"""The snapshot target arm (correction-remainder slice 2)."""
+"""The snapshot target arm."""
 
 from __future__ import annotations
 
@@ -151,7 +151,7 @@ def writer_at(root: Path, profile=BASE, *, resolver=None) -> CorpusWriter:
 def broken_counter(target, token: str = "counter"):
     """A *canonical* counter-retraction whose target content identity is wrong:
     the controlled shape holds (the id is derived from this facet), so only
-    target resolution can refuse it — the recipe slice 1's plan used."""
+    target resolution can refuse it — the recipe the first plan used."""
     return stored.retraction_node(
         title=token,
         target=stored.NodeTarget(target.id, target.id, "0" * 64),
@@ -165,7 +165,7 @@ def broken_counter(target, token: str = "counter"):
 
 def stale_counter(target, token: str = "counter"):
     """A *canonical* counter-retraction whose `resolved` field is wrong rather
-    than its `content_identity` (spec §11.1's second raw-write variant): the
+    than its `content_identity`: the
     `RETRACTS` relation is built from `target.ref` alone (`retraction_node`),
     so it still names `target.id` and the chain-membership scan still finds
     this record; only `_resolve_retraction_target`'s `resolved != stored`
@@ -356,7 +356,7 @@ class TestSnapshotStanding:
         assert caught.value.ref == broken.id
 
     def test_a_counter_retraction_whose_resolved_field_no_longer_answers_refuses(self, tmp_path):
-        """Spec §11.1's second raw-write variant: `broken_counter` covers only a
+        """The second raw-write variant: `broken_counter` covers only a
         wrong `content_identity`; `stale_counter` corrupts `resolved` instead
         (baked in at construction, so the stamp is self-consistent — the same
         recipe `broken_counter` uses for `content_identity`), so
@@ -390,8 +390,8 @@ class TestSnapshotStanding:
         assert standing.retracted == {S}
 
 
-class TestG14eMergedFold:
-    """Cut 48 §4.5: `snapshot_standing` folds once over the merged holders, acceptance
+class TestMergedFold:
+    """`snapshot_standing` folds once over the merged holders, acceptance
     decided per record over its holders first."""
 
     def _holders(self, tmp_path):
@@ -441,9 +441,9 @@ class TestG14eMergedFold:
 
 
 def test_the_merge_digests_only_addresses_several_holders_claim(tmp_path, monkeypatch):
-    """Cut 48 §4.5: a one-holder caller is unchanged, and the merge's self-check reads a
-    content identity only for an address more than one holder claims (final review,
-    Important 1): the digest is the fold's one per-record cost."""
+    """A one-holder caller is unchanged, and the merge's self-check reads a
+    content identity only for an address more than one holder claims:
+    the digest is the fold's one per-record cost."""
     from beliefs.world import registry
 
     cid_a = writer_at(tmp_path / "a").corpus_id

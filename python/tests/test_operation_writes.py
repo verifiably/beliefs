@@ -1,5 +1,5 @@
-"""The operation seams (writer-session design §4.2–§4.4, §13 items 9–13): J1's
-refusal-before-intent arms, J3's act-time permit refusal, J4's actor rule — portably,
+"""The operation seams: the
+refusal-before-intent checks, the act-time permit refusal, the actor rule — portably,
 over the in-memory executor and a port returning synthetic registration digests."""
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def primitive_calls(port: RecordingPort) -> list[str]:
     return [kind for kind, _ in port.calls]
 
 
-# --- J1: one intent, one fulfilling execution, in order; the ordinary body is the refusal implementation
+# --- one intent, one fulfilling execution, in order; the ordinary body is the refusal implementation
 def test_add_commits_as_preflight_intent_then_fulfilling_execution(tmp_path):
     writer, port = writer_over(tmp_path)
     commit = writer.operations.add(proposition("p1"))
@@ -158,7 +158,7 @@ def test_retract_and_supersede_commit_through_their_ordinary_bodies(tmp_path):
     assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"] * 2
 
 
-# --- J1: every refusal precedes the intent, and every refusal is the ordinary method's own
+# --- every refusal precedes the intent, and every refusal is the ordinary method's own
 @pytest.mark.parametrize(
     "authority",
     [narrowed(kinds=("source",), families=("corpus-write",)), narrowed(kinds=("proposition",), families=("run",))],
@@ -234,7 +234,7 @@ def test_a_writer_without_a_port_refuses_every_operation_before_any_refusal(tmp_
         writer.operations.add(proposition("p1"))
 
 
-# --- §13 item 11: one locked call, one submission, no nesting -------------------------------
+# --- one locked call, one submission, no nesting -------------------------------
 def test_a_nested_fulfilling_scope_and_a_second_submission_are_hard_errors(tmp_path):
     writer, port = writer_over(tmp_path)
     with writer._state.lock, writer._fulfilling() as scope:
@@ -261,7 +261,7 @@ def test_the_scope_binds_the_calling_writers_authority_and_port(tmp_path):
 
 
 def test_the_twin_judges_the_permit_before_it_settles(tmp_path):
-    """§13 item 11: on an unresolved root whose recovery fails, the ordinary method and its twin
+    """On an unresolved root whose recovery fails, the ordinary method and its twin
     both refuse the permit — neither reaches recovery, and no byte moves before the judgment."""
     from beliefs.corpus import _root_state_for
 
@@ -292,7 +292,7 @@ def test_the_twin_judges_the_permit_before_it_settles(tmp_path):
 
 
 def test_a_post_submission_failure_on_the_twin_is_an_execution_error(tmp_path, monkeypatch):
-    """J2 through the operation path: the executor committed, nodes' index update failed."""
+    """The operation path: the executor committed, nodes' index update failed."""
     from beliefs.corpus import _root_state_for
 
     writer, port = writer_over(tmp_path)
@@ -314,7 +314,7 @@ def test_a_post_submission_failure_on_the_twin_is_an_execution_error(tmp_path, m
         writer.operations.add(huge)
 
 
-# --- J3: the act-time refusal comes from the kernel entry point ------------------------------------
+# --- the act-time refusal comes from the kernel entry point ------------------------------------
 def test_the_requirement_is_the_effective_permit_at_the_act(tmp_path):
     writer, port = writer_over(tmp_path, narrowed(kinds=("proposition",), families=("corpus-write",)))
     writer.operations.add(proposition("p1"))
@@ -341,7 +341,7 @@ def test_commit_fulfilling_requires_the_kinds_the_plan_emits():
         _plan_kinds([CreateOp("corpus.yaml", b"x")])
 
 
-# --- J4: the actor is the bound one ------------------------------------------------------------------
+# --- the actor is the bound one ------------------------------------------------------------------
 def test_every_intent_carries_the_bound_actor_and_no_seam_takes_one(tmp_path):
     writer, port = writer_over(tmp_path, Authority(WritePermit.full(), "session:" + "a" * 32))
     writer.operations.add(proposition("p1"))
@@ -373,7 +373,7 @@ def test_a_retraction_naming_another_actor_is_actor_mismatch_with_nothing_append
     assert writer.operations.retract(retraction(target, "proposition:p1", ACTOR)).record is not None
 
 
-# --- V5: forgery is refused before the intent (design §5.3) ------------------
+# --- forgery is refused before the intent ------------------
 from verification_fixtures import forgeries, publish_corpus
 
 from beliefs.verify import publication_node

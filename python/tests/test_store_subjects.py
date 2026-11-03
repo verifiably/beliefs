@@ -1,4 +1,4 @@
-"""Store subjects through anchor, export, and audit (plan Task 4).
+"""Store subjects through anchor, export, and audit.
 
 The codecs have carried stores since the log slice; this module pins the
 widening that makes them actable: the anchor act minting a store-subject
@@ -188,7 +188,7 @@ def test_store_audit_refuted_on_truncation(tmp_path):
 
 
 def test_store_audit_refuted_on_chain_removal_under_registry_anchor(tmp_path):
-    # Cut 9 L4 u1: the chain deleted outright, the store-subject record bound
+    # The chain deleted outright, the store-subject record bound
     # by store_id still in the observer set.
     root = store_root(tmp_path)
     view = surfaced(root, "store", store_payload())

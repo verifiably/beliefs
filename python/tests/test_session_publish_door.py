@@ -1,8 +1,6 @@
-"""The publish act's preview and its session door (sharing design §2
-decisions 6, 7, 9, 10 and 12, §4.4, §4.7, §6 "The preview" and "The publish
-door, end to end").
+"""The publish act's preview and its session door.
 
-The preview section runs `publication_preview` over Task 5's published-source
+The preview section runs `publication_preview` over the published-source
 world on the certified volume: it returns exactly what a subsequent `publish`
 freezes, pins a subordinate view, refuses as the act refuses, and needs no
 authority. Its v3 case reuses the attribution module's wrapper fixture.
@@ -175,7 +173,7 @@ def test_the_preview_needs_no_authority(readonly_source, tmp_path):
 
 
 def test_the_v3_preview_attributions_are_what_publish_freezes(tmp_path: Path, monkeypatch):
-    """Ruling R4: under a v3 coordination pin the preview's attribution entries are the
+    """Under a v3 coordination pin the preview's attribution entries are the
     ones the act freezes into its snapshot (the attribution module's wrapper fixture,
     with the intent stood in and the steps after the freeze stopped)."""
     s = wrapper_fixture(tmp_path, monkeypatch, writer_version=3)
@@ -451,7 +449,7 @@ def test_a_session_without_a_resolver_refuses_coordination_unavailable(readonly_
 
 
 def test_a_session_without_a_world_configuration_refuses_both_publish_doors(tmp_path):
-    """Decision 6: the doors open their world from the session's configuration;
+    """The doors open their world from the session's configuration;
     a session opened without one has no world to publish from."""
     session, _ = make_session(tmp_path, coordination_resolver=cast(Any, SimpleNamespace()))
     session.claim_invocation("A", "publish", DIGEST)
@@ -501,7 +499,7 @@ def test_a_subordinate_view_publishes_through_the_door(certified_work):
 
 
 def test_the_door_opens_the_publication_inside_the_closing_hold(certified_work, monkeypatch):
-    """Ruling R15 (decision 9): step 0's intent is appended inside the session's
+    """Step 0's intent is appended inside the session's
     `_closing_hold` — entered before `_open_publication`, exited after it — and
     steps 1-9 run outside it."""
     s = published_source(certified_work)

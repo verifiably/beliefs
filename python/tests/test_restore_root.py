@@ -1,6 +1,6 @@
-"""`restore_root`: one held boundary from inspection to grant (plan Task 6).
+"""`restore_root`: one held boundary from inspection to grant.
 
-Real engine on the certified volume for every admission arm; the one-boundary
+Real engine on the certified volume for every admission case; the one-boundary
 arm drives the verify-level core with the audit suite's stand-in seam, because
 a probe cannot be wired into the production one. Every admission claim is read
 back through `read_lifecycle_state`, never off the returned report — the
@@ -46,7 +46,7 @@ def _executor(root: Path):
 
 
 def _seeded_store(work: Path, name: str = "store") -> tuple[Path, str]:
-    """An initialized, still-empty store: this slice's chain states no
+    """An initialized, still-empty store: this chain states no
     payload (holdings are the next slice's row), so a store that carries raw
     payload replays as a disagreement — exactly what `_forked_form_store`
     exists to model the other way."""
@@ -57,7 +57,7 @@ def _seeded_store(work: Path, name: str = "store") -> tuple[Path, str]:
 
 def _forked_form_store(work: Path, name: str = "forked-store") -> tuple[Path, str]:
     """A raw-authored fork-form store: the genesis payload states
-    `forked_from` and its baseline names the payload surface (the L6 lift),
+    `forked_from` and its baseline names the payload surface,
     so the chain genuinely names files the disk must carry."""
     import hashlib
 
@@ -201,7 +201,7 @@ class TestStoreRestore:
         incomplete = certified_work / "incomplete"
         shutil.copytree(source, incomplete, symlinks=True)
         # One payload file the chain's surface names, omitted — never chain
-        # damage (the cut §6 obligation).
+        # damage .
         (incomplete / "blob.bin").unlink()
         report = _restore_store(incomplete, store_id, _store_record(store_id, genesis, head))
 
@@ -240,7 +240,7 @@ class TestStoreRestore:
             copy = certified_work / name
             replicate_root(source, copy, authority=FULL)
             shutil.rmtree(metadata_root_for(copy))
-            # The L10 u9 obligation: both roots are metadata-less first.
+            # Both roots are metadata-less first.
             assert read_lifecycle_state(copy) is LifecycleState.METADATA_LESS
             copies.append(copy)
 
@@ -283,7 +283,7 @@ class TestCorpusRestore:
 
     def test_validated_with_corpus_manifest_mismatch_does_not_admit(self, certified_work):
         root = self._seeded_corpus(certified_work)
-        # The slice-3 §1.2 case: the identity rewrite is cooperatively logged,
+        # The case where the identity rewrite is cooperatively logged,
         # so replay validates and replay alone is not the guard.
         import hashlib
 

@@ -1,4 +1,4 @@
-"""The invocation-scoped run and holdings routes (session-routes design §4)."""
+"""The invocation-scoped run and holdings routes."""
 
 from __future__ import annotations
 
@@ -124,7 +124,7 @@ def test_execute_is_refused_before_the_inner_port(tmp_path):
     assert inner.calls == []
 
 
-# --- the guarded ledgered commit (sharing-doors design §2 decision 8, §4.6) ----------
+# --- the guarded ledgered commit ----------
 
 
 def test_the_guarded_form_ledgers_the_primary_plan_when_the_guard_passes(tmp_path):
@@ -381,7 +381,7 @@ def test_an_unheld_input_refusal_is_excluded_by_the_fulfilling_only_route(tmp_pa
     assert inner.calls == []
 
 
-# --- the holdings route (design §4.2) ---------------------------------------------
+# --- the holdings route ---------------------------------------------
 HOLDINGS = RequiredCapabilities.for_kinds({"holdings-observation"}, {})
 STORE_ID = "1" * 32
 GENESIS = b'{"domain":"science.store-root.v1","store_id":"' + STORE_ID.encode() + b'"}'
@@ -596,7 +596,7 @@ def test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete(tmp_path
     assert ("B", "held-by-another") in lock.attempts
 
 
-# --- the session acquisition route (url-retrieval design §8) -----------------------
+# --- the session acquisition route -----------------------
 
 ACQUIRES = RequiredCapabilities.for_kinds(
     {"holdings-observation", "dataset", "act-report"}, {"act-report": "corpus-write"}
