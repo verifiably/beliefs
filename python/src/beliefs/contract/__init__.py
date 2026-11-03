@@ -1,7 +1,7 @@
 """Contracts — the normative source of truth.
 
-D §6 is explicit that the contracts are the normative SSOT and ``ProfileSpec`` is
-the sole *compiled* runtime profile. Nothing here is authored beside a contract.
+The contracts are the normative source of truth and ``ProfileSpec`` is the sole
+*compiled* runtime profile. Nothing here is authored beside a contract.
 """
 
 from beliefs.contract.base import (

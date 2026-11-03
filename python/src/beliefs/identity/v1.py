@@ -1,20 +1,18 @@
 """``science.identity.v1`` — the canonical value contract.
 
-Specified by the computation-reproducibility design §4.3. The requirement is not
-strictness but **injectivity**: a value's type must survive its encoding. §4.3
-records four collisions that had to be closed and notes that two of them were
+The requirement is not strictness but **injectivity**: a value's type must
+survive its encoding. Four collisions had to be closed, and two of them were
 introduced by the fixes for the other two, which is why each rule below is
 stated as an encoding that preserves type rather than value.
 
-Six kinds depend on this (world §4.2 assigns content-derived bases to
-``dataset``, ``analysis-spec``, ``run``, ``verification``, ``assessment`` and
-``source-assertion`` and specifies canonicalization for none of them), and the
-formal model adds a seventh position: ``I_claim`` is this encoding under the
-``tag_claim`` domain.
+Six kinds depend on this (``dataset``, ``analysis-spec``, ``run``,
+``verification``, ``assessment`` and ``source-assertion`` all take
+content-derived bases, and nothing else specifies their canonicalization), and
+a seventh position is ``I_claim``: this encoding under the ``tag_claim`` domain.
 
-Two rules below are **not** in §4.3, which says "canonical JSON" without pinning
-what that means. Both are recorded as amendments in the design; they are noted
-here because a reader comparing the code to §4.3 will not find them there:
+Two rules below go beyond "canonical JSON", which does not pin what that means.
+They are noted here because a reader who expects only "canonical JSON" will not
+find them stated elsewhere:
 
 * **String escaping is pinned exactly** (``_encode_string``). "Canonical JSON"
   does not determine it — Python and JavaScript disagree by default on non-ASCII
@@ -50,8 +48,8 @@ __all__ = ["check_domain", "decode", "digest", "encode"]
 # `science.<kind>.v<n>`, with at least one kind segment and a positive version.
 # The grammar is enforced rather than assumed for two reasons. A domain carrying
 # a newline would forge the separator below and let one payload digest as
-# another. And §4.3 requires that "v2 domains are disjoint from v1 by
-# construction" — a shape only a checked grammar delivers.
+# another. And a later version's domains must be disjoint from v1 by
+# construction — a shape only a checked grammar delivers.
 _DOMAIN = re.compile(r"^science\.[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*\.v[1-9][0-9]*$")
 
 # The JSON escapes with a short form. Every other C0 control takes `\u00xx`.

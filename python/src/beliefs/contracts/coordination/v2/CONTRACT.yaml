@@ -1,4 +1,4 @@
-# The coordination contract, version 2 — publication-records design §3.
+# The coordination contract, version 2: version 1 plus the publication kinds.
 contract: coordination
 version: 2
 lineage:

@@ -1,25 +1,24 @@
 """The `science` base contract — the kernel-owned structure of a ``Claim``.
 
-Formal model §7.1 splits the vocabulary along the existing base/domain line: this
+The vocabulary splits along the base/domain line: this
 contract owns the claim grammar version, the closed quantifier and polarity tag
 sets, the layer vocabulary, and the canonical byte encoding of every kernel tag.
 Operators, dimensions and sorts are **domain-issued without exception** — the
 base contract may not issue one.
 
-**A tag's canonical bytes are its symbol.** §8 asks the base contract to fix
-"the closed sets and their bytes, not their spelling", and §7.4 row 5 warns
-against "an implementation choosing a different serialization for a tag". Those
-are one requirement, not two: what must not happen is an implementation deciding
-the bytes for itself. So the contract declares the encoding rule (``tag_encoding``)
+**A tag's canonical bytes are its symbol.** The base contract must fix the
+closed sets and their bytes, not their spelling, and an implementation must not
+choose a different serialization for a tag. Those are one requirement, not two:
+what must not happen is an implementation deciding the bytes for itself. So the contract declares the encoding rule (``tag_encoding``)
 and the symbols, and the bytes follow from both.
 
 The alternative — a second, independent encoding per tag, so a symbol could be
 renamed without re-minting — was considered and rejected. It buys renaming of a
 closed set of ten kernel tags, which nothing needs, and it costs every tag a
-second name that something must keep in correspondence. §7.3 already pairs
-*authored and stable* with *enters claim identity*, which is exactly what a tag
-symbol is; §7.4 row 5 then prices a change to one as severe, which is the
-intended answer rather than a problem to engineer around.
+second name that something must keep in correspondence. A term that is
+*authored and stable* and *enters claim identity* is exactly what a tag symbol
+is, and changing one is therefore a severe change, which is the intended answer
+rather than a problem to engineer around.
 """
 
 from __future__ import annotations
@@ -74,8 +73,8 @@ What it does is remove ``_parsed`` from the set of **ordinary** routes. Before
 it, a caller with no intent to forge anything could reach a real ``BaseContract``
 through a method that merely looked internal, and every downstream check would
 believe it. After it, reaching one means reaching for ``object.__new__`` or a
-private module attribute — which is §6.3's raw-write row, where the boundary is
-bypassed rather than defeated, and which belongs to the audit surface. The
+private module attribute — a raw write, where the boundary is bypassed rather
+than defeated, and which belongs to the audit surface. The
 distinction worth keeping is between a hole and a documented limit.
 """
 
@@ -86,7 +85,7 @@ _GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "quantifiers", "polariti
 _ESTIMAND_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"})
 _COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
 SUPPORTED_SHAPES = ("dag",)
-"""The shapes this implementation derives (design §3.4). A contract naming a
+"""The shapes this implementation derives. A contract naming a
 shape outside this set is refused at parse: a profile carrying `pag` would
 otherwise run `dag` classification under another shape's name."""
 SUPPORTED_CONTRAST_KINDS = ("continuous", "levels")
@@ -100,9 +99,9 @@ _RELATION_OPTIONAL = frozenset({"same_kind"})
 _RELATION_GROUPS = ("world", "lifecycle")
 ESTIMAND_GRAMMAR = "science.estimand.v1"
 COMPOSITE_GRAMMAR = "science.composite.v1"
-"""The tag a stored composite facet carries under `grammar` (design §3.2)."""
+"""The tag a stored composite facet carries under `grammar`."""
 COMPOSES_SIGNATURE = (("composite",), ("proposition",))
-"""`composes`' one signature (composite-claims §3.1, U1): a composite composes
+"""`composes`' one signature: a composite composes
 propositions, and nothing else composes anything. Declared here rather than
 spelled inline so the parser and its message read from one statement."""
 
@@ -121,7 +120,7 @@ class ClaimGrammar:
     def polarity_tags(self) -> tuple[str, ...]:
         """Every inhabitant of the polarity position, which is **always emitted**.
 
-        §7.5: the position carries ``sign_inapt_tag`` for the unit inhabitant
+        The position carries ``sign_inapt_tag`` for the unit inhabitant
         rather than being absent, so ``π_claim``'s shape depends on the claim's
         own content and never on a contract field. A ``sign_apt`` flip therefore
         cannot re-project a stored claim.
@@ -131,7 +130,7 @@ class ClaimGrammar:
 
 @dataclass(frozen=True)
 class EstimandGrammar:
-    """The closed structural sets an estimand draws from (estimand-typing §3.1).
+    """The closed structural sets an estimand draws from.
 
     Structural, not vocabulary: each tag names an operation the kernel performs
     on the value that carries it, which is what keeps these three sets out of
@@ -153,7 +152,7 @@ class EstimandGrammar:
 
 @dataclass(frozen=True)
 class CompositeGrammar:
-    """The closed set of shapes a composite may take (design §3.1). A shape is
+    """The closed set of shapes a composite may take. A shape is
     a derivation the kernel performs, never a domain's declaration."""
 
     version: int
@@ -195,7 +194,7 @@ class RelationDecl:
     sources: tuple[str, ...]
     targets: tuple[str, ...]
     same_kind: bool = False
-    """An instance's endpoints must be records of one kind (design §3.1).
+    """An instance's endpoints must be records of one kind.
     Admissible only where `sources` and `targets` are equal sets, so the rule
     can never name a pair the signature already forbids."""
 
@@ -222,7 +221,7 @@ class BaseContract:
     other implementation, which agrees with it exactly.
 
     ``content_identity`` is the sharper reason. It is derived here from the
-    document, and it is what enters ``belief_input_digest`` (§7.3); a field-wise
+    document, and it is what enters ``belief_input_digest``; a field-wise
     constructor would let it be supplied, so a contract could carry an identity
     attesting to a document it does not contain.
     """
@@ -237,13 +236,12 @@ class BaseContract:
     facets: Mapping[str, FacetDecl]
 
     content_identity: str
-    """Content-derived, and the half that enters ``belief_input_digest`` (§7.3).
+    """Content-derived, and the half that enters ``belief_input_digest``.
 
     Over the **canonical projection**, not the raw bytes: reformatting must not
-    move an identity (D5), and raw bytes would make whitespace and key order
+    move an identity, and raw bytes would make whitespace and key order
     significant. One consequence is worth naming — a **comment** is not in the
-    projection, so editing one does not move this identity, and §7.3's editorial
-    list overstates by that one item.
+    projection, so editing one does not move this identity.
     """
 
     # As in `ProfileSpec`: the lock is this method. `@dataclass` will not
@@ -252,7 +250,7 @@ class BaseContract:
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise UnparsedContract(
             "BaseContract is parsed, never authored — use parse_base_contract(document, source=...). "
-            "The contracts are the normative SSOT (D §6); an authored one would let a claim be typed "
+            "The contracts are the normative SSOT; an authored one would let a claim be typed "
             "against a claim grammar no document declares, and carry a content_identity for a document "
             "it does not contain."
         )
@@ -348,7 +346,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         raise MalformedContract(
             f"{grammar_where}: tag_encoding is {encoding!r}, and this implementation encodes tags only under "
             f"{TAG_ENCODING!r}. Loading it under a different rule would be exactly the incidental re-encoding "
-            "§7.4 row 5 forbids."
+            "that a tag's canonical bytes rule out."
         )
 
     polarities = _closed_set(grammar["polarities"], f"{grammar_where}: polarities")
@@ -388,7 +386,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
     if estimand["tag_encoding"] != TAG_ENCODING:
         raise MalformedContract(
             f"{estimand_where}: tag_encoding is {estimand['tag_encoding']!r}; this implementation encodes tags only "
-            f"under {TAG_ENCODING!r} (estimand-typing §3.1)."
+            f"under {TAG_ENCODING!r}."
         )
     estimand_grammar = EstimandGrammar(
         version=_positive_int(estimand["version"], f"{estimand_where}: version"),
@@ -459,7 +457,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
             )
         composes_sources, composes_targets = COMPOSES_SIGNATURE
         if relation_name == "composes" and (sources != composes_sources or targets != composes_targets):
-            # Composite-claims §3.1, U1: `composes` has one signature, and it is
+            # `composes` has one signature, and it is
             # the kernel's, not a contract author's. A widened endpoint set would
             # let a composite compose something that is not a proposition, or a
             # record that is not a composite compose one, and every reader below
@@ -486,7 +484,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
 
 
 def load_base_contract(path: Path) -> BaseContract:
-    """Read and validate the base contract at ``path`` (duplicate keys refused, §3.7)."""
+    """Read and validate the base contract at ``path`` (duplicate keys refused)."""
     from beliefs.contract.document import load_document
 
     return parse_base_contract(load_document(path, source=str(path)), source=str(path))
