@@ -1,9 +1,9 @@
 """The world layer: closed manifests, the rules store, and pure derivation.
 
-Slice 1's registry lives in `beliefs.world.registry`, slice 2's rules store in
-`beliefs.world.rules`, its epoch carrier and publication in
-`beliefs.world.epoch`, its pure derivations in `beliefs.world.derive` and its
-read surface in `beliefs.world.read`; slice 3's log-anchoring codecs and the two acts over
+The registry lives in `beliefs.world.registry`, the rules store in
+`beliefs.world.rules`, the epoch carrier and publication in
+`beliefs.world.epoch`, the pure derivations in `beliefs.world.derive` and the
+read surface in `beliefs.world.read`; the log-anchoring codecs and the two acts over
 them — the anchor act and the head export — in
 `beliefs.world.anchors`, its Science-typed chain views in
 `beliefs.world.logmodel` and the engine seam every verification act is handed

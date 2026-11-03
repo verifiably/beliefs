@@ -220,7 +220,7 @@ A verification has one of two shapes:
   `verdict` and, optionally, `supersedes` and `derivation`. The write boundary
   admits it without decoding it further. When it is read for admission or belief,
   only `scope` and `verdict` are checked, and a missing `assessment` reads as
-  empty. Audit also reads `derivation` and refuses a malformed one.
+  empty. Audit also reads `derivation` and reports a malformed one as an error.
 
 The scope is one of `same-environment`, `clean-environment`,
 `independent-implementation` and `not-certified`. The verdict is one of `passed`,

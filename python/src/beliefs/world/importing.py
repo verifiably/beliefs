@@ -1,4 +1,4 @@
-"""Explicit import of an epoch carrier (slice 3 design §3)."""
+"""Explicit import of an epoch carrier."""
 
 from __future__ import annotations
 

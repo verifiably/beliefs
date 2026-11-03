@@ -1,18 +1,17 @@
 """The registry log-head record, the exported head artifact, and the two acts
 that write and read them.
 
-Design: ``docs/superpowers/specs/2026-08-22-log-verification-design.md`` §3.1
-(the registry log-head record, discriminated by ``record_kind: log-head``,
-content-named by its digest under the minted domain ``science.log-head.v1``),
-§3.2 (the standalone exported head artifact, canonical bytes via
-``science.identity.v1`` encoding, minted under ``science.head-artifact.v1``,
-produced by ``export_head_artifact``) and §3.3 (``anchor_heads``, the explicit
-anchor act).
+Three things live here: the registry log-head record (discriminated by
+``record_kind: log-head``, content-named by its digest under the minted domain
+``science.log-head.v1``), the standalone exported head artifact (canonical
+bytes via ``science.identity.v1`` encoding, minted under
+``science.head-artifact.v1``, produced by ``export_head_artifact``) and the
+explicit anchor act (``anchor_heads``).
 
 Both ruled forms share one subject grammar — ``corpus(corpus_id) |
 world(world_id) | store(store_id)`` — though each admits a different subset.
 The log-head record's subject is corpus-or-store only: a ``world`` subject is
-not in that union at all (log design §5/L11). The head artifact's subject
+not in that union at all. The head artifact's subject
 spans all three, because a world artifact must carry ``world_id`` outside the
 chain, where nothing else names it.
 
@@ -95,8 +94,8 @@ the restatement cannot drift into a second definition."""
 CORPUS_GENESIS_DOMAIN = "science.corpus-root.v1"
 """The corpus chain's genesis domain, restated on the same terms.
 
-Its payload is *identity-free* by ruling — the constant ``{"domain": ...}`` and
-nothing else — which is the whole of the genesis-subject amendment: every
+Its payload is *identity-free* by construction — the constant ``{"domain": ...}`` and
+nothing else — which is the whole of the genesis-subject rule: every
 currently constructible corpus chain has the byte-identical genesis, so anchor
 comparison is scoped by ``(subject, genesis_digest)`` and a replaced corpus
 chain is caught by ancestry rather than by a genesis that cannot differ."""
@@ -116,7 +115,7 @@ def _closed_mapping(value: object, expected: set[str], location: str) -> dict[st
     return cast(dict[str, object], value)
 
 
-# --- subjects (§3.1, §3.2) ----------------------------------------------------
+# --- subjects ----------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -146,7 +145,7 @@ class StoreSubject:
 Subject: TypeAlias = CorpusSubject | WorldSubject | StoreSubject
 
 
-# --- the log-head record's origin (§3.1) --------------------------------------
+# --- the log-head record's origin --------------------------------------
 
 
 @dataclass(frozen=True)
@@ -168,7 +167,7 @@ class AnchorActOrigin:
 LogHeadOrigin: TypeAlias = BuildOrigin | AnchorActOrigin
 
 
-# --- the registry log-head record (§3.1) --------------------------------------
+# --- the registry log-head record --------------------------------------
 
 
 @dataclass(frozen=True)
@@ -177,7 +176,7 @@ class LogHeadRecord:
     under `record_kind: log-head`. Records are immutable and unordered —
     "maximal anchor" is computed by chain ancestry, never record order.
 
-    The store arm is decodable and constructible here, and nothing this slice
+    The store arm is decodable and constructible here, and nothing this module
     ships reaches it: the anchor act's corpus-only signature makes a store
     unspellable there. A `world` subject is not in the union at all.
     """
@@ -196,7 +195,7 @@ class LogHeadRecord:
             raise TypeError("origin must be BuildOrigin or AnchorActOrigin")
 
 
-# --- the exported head artifact (§3.2) ----------------------------------------
+# --- the exported head artifact ----------------------------------------
 
 
 @dataclass(frozen=True)
@@ -356,7 +355,7 @@ def decode_head_artifact(data: bytes) -> HeadArtifact:
     return artifact
 
 
-# --- the genesis payload forms (§4.2 step 1) ----------------------------------
+# --- the genesis payload forms ----------------------------------
 #
 # One statement of each form, here rather than beside each consumer. The export
 # act binds a subject to the `world_id` a genesis names and the evaluator
@@ -381,8 +380,7 @@ def parse_corpus_genesis(payload: bytes) -> tuple[str, str] | None:
 
     A corpus genesis still carries no corpus identity — an adopted identity
     binds through a later chain entry, never by rewriting genesis — and the
-    non-fork form stays the exact constant. The fork form (the root-lifecycle
-    slice's L6 lift) adds exactly `forked_from`: the parent's genesis digest
+    non-fork form stays the exact constant. The fork form adds exactly `forked_from`: the parent's genesis digest
     and the head the fork copied.
     """
     document = _genesis_document(payload)
@@ -464,7 +462,7 @@ def _require_store_genesis(store_root: Path, payload: bytes, store_id: str) -> N
         raise StoreIdMismatch(f"{store_root}: the chain genesis names store_id {named!r}, not {store_id!r}")
 
 
-# --- the two acts (§3.2, §3.3) ------------------------------------------------
+# --- the two acts ------------------------------------------------
 #
 # Both cores take the seam as a parameter and hold no capability of their own,
 # and both resolve a corpus subject by the one rule below. `beliefs.root` is
@@ -473,7 +471,7 @@ def _require_store_genesis(store_root: Path, payload: bytes, store_id: str) -> N
 
 
 def _resolve_carrier(config: registry.WorldConfig, view: registry.RegistryView, corpus_id: str) -> Path:
-    """§3.3's resolution rule: one admitted id, exactly one configured carrier.
+    """The resolution rule: one admitted id, exactly one configured carrier.
 
     The two refusals are distinct and ordered. An id this world never admitted
     is not a resolution failure at all — no set of roots would make it
@@ -482,7 +480,7 @@ def _resolve_carrier(config: registry.WorldConfig, view: registry.RegistryView, 
     refuse alike: an act that picked whichever root sorted first would anchor a
     chain whose provenance depended on configuration order.
 
-    Terminal status is deliberately not consulted. §3.3 rules that terminal
+    Terminal status is deliberately not consulted: terminal
     corpora may be anchored, because anchoring immediately before retirement or
     departure cleanup is the archetypal use of the act.
     """
@@ -498,7 +496,7 @@ def _resolve_carrier(config: registry.WorldConfig, view: registry.RegistryView, 
 
 
 def _log_head_member(world_root: Path, record: LogHeadRecord) -> CreateOp | None:
-    """§3.1's idempotency rule, as one create-or-nothing decision.
+    """The idempotency rule, as one create-or-nothing decision.
 
     `None` means the record already stands, byte for byte, and there is
     nothing to submit — the rules store's discipline verbatim, and the reason
@@ -523,17 +521,17 @@ def _anchor_heads(
     store_roots: tuple[tuple[str, Path], ...] = (),
     seam: LogSeam,
 ) -> tuple[LogHeadRecord, ...]:
-    """§3.3: anchor each named corpus's present chain head, in one transaction.
+    """Anchor each named corpus's present chain head, in one transaction.
 
     Under the world lock throughout, in sorted id order so that a world with
     two faults reports the one that is decided first rather than the one that
-    happens to be met first. Per corpus: resolve the carrier by §3.3's rule,
+    happens to be met first. Per corpus: resolve the carrier by the rule,
     read that carrier's validated head through the seam — chain validation
     only, no registered-surface scan and no corpus-state identity — and mint
     the record. The plan is submitted once, at the end, so a refusal over the
     third named corpus leaves no record standing for the first two.
 
-    **No `World` method is called under the lock (R12).** The seam's
+    **No `World` method is called under the lock.** The seam's
     `world_lock` hands back the very non-reentrant lock `World.registry()`
     takes, so the registry is scanned here directly, exactly as an epoch
     build's preflight scans it.
@@ -587,7 +585,7 @@ def _require_world_genesis(world_root: Path, payload: bytes, world_id: str) -> N
     outside the identity grammar — says the root was never initialized as one;
     a well-formed genesis naming *another* well-formed `world_id` says the
     subject and the chain disagree, which is exactly the mismatch that stops
-    `World(W2)` being encoded over W1's chain.
+    a `World` for one `world_id` being encoded over another world's chain.
 
     The form half is `parse_world_genesis`, which the evaluator's genesis-form
     step reads too. One predicate, two consequences: here a refusal, there a
@@ -610,17 +608,17 @@ def _export_head_artifact(
     store_root: Path | None = None,
     seam: LogSeam,
 ) -> bytes:
-    """§3.2: the canonical bytes of one subject's present head. Writes nothing.
+    """The canonical bytes of one subject's present head. Writes nothing.
 
     Export *is* the return of the value: storing the bytes with an external
     holder is the holder's job, and it is that holding — an epoch copy or an
     artifact reaching a holder outside the world root — that anchors the world
-    chain, since no local act can (log design §5, L11). Hence no `actor`: the
+    chain, since no local act can. Hence no `actor`: the
     ruled artifact has no member to record one.
 
     **The subject binds, never decorates.** A world subject must agree with the
     configuration *and* with the genesis payload the head was read alongside; a
-    corpus subject resolves under §3.3's rule, so an unknown id or an
+    corpus subject resolves under the rule, so an unknown id or an
     unresolvable carrier refuses exactly as the anchor act refuses.
 
     The world lock is held across the whole act and, for a corpus subject, the

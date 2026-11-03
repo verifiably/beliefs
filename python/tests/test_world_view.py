@@ -266,7 +266,7 @@ class TestTheEpochsEnumeration:
         document["enumeration"] = {"found": "not-a-list", "coverage": [ALPHA, BETA]}
         receipts = dict(published.receipts)
         receipts["retraction-receipt.yaml"] = replace(carrier, document=document)
-        with pytest.raises(EpochMalformed, match="not .*projection"):
+        with pytest.raises(EpochMalformed, match="not a valid retraction enumeration"):
             open_world_view(world, replace(published, receipts=receipts))
 
     def test_a_producer_receipt_without_subject_identity_refuses_the_open(self, tmp_path):

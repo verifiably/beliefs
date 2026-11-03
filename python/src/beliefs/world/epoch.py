@@ -2,8 +2,8 @@
 
 A world publishes an **epoch** — a content-addressed directory holding four
 derived maps, the producer snapshot, four derivation receipts, and the two
-declarations that bound them — at ``epochs/<packaging_identity>/``. Slice 2's
-specification §6.1 fixes that layout exactly, and `EPOCH_MEMBERS` below is that
+declarations that bound them — at ``epochs/<packaging_identity>/``. The
+layout is fixed exactly, and `EPOCH_MEMBERS` below is that
 inventory. Nothing else writes beneath ``epochs/`` except the one-line
 ``current`` pointer, which is a member of the *directory* ``epochs/`` and never
 of an epoch.
@@ -12,19 +12,19 @@ of an epoch.
 part the rules store needs: **which receipts a retained epoch carries, and
 which exact rule binding each one names.** A receipt is what makes a derived
 map re-checkable, so it records the exact
-``(rule_identity, implementation_identity)`` that produced its subject (§7.5).
+``(rule_identity, implementation_identity)`` that produced its subject.
 That makes the epochs directory the place — the only place — where a world can
 answer "what evidence would I strand if I stopped holding this pair?", which is
 what `beliefs.world.rules.remove_rule_binding` must report.
 
-The second is a build's **coherent preflight and capture** (§5.2, §5.3) and the
-**publication** that follows it (§5.4, §6.3), in the bottom half of this
+The second is a build's **coherent preflight and capture** and the
+**publication** that follows it, in the bottom half of this
 module: the acts that read live state, the frozen `_BuildDraft` that separates
 them from everything pure, and the one transaction that turns derived bytes
 into a retained epoch. They are here rather than beside the derivations because
 an epoch is what they are gathering the inputs for, and because the draft's
 shape — anchors, coverage, captured states, the build-start world head — is
-§6.1's layout read backwards.
+The layout read backwards.
 
 A receipt identity is the digest under `RECEIPT_DOMAIN` of the canonical
 projection ``(receipt kind, subject projection identity, sorted corpus-state
@@ -35,7 +35,7 @@ digests the document's own value: a document whose discriminant disagrees with
 the member holding it still has one identity, and which of the two readings is
 wrong is the validator's finding to make.
 
-**Two layers, and this module is the lower one** (§8.2). Reading a receipt out
+**Two layers, and this module is the lower one**. Reading a receipt out
 of a carrier and judging whether that receipt honours its contract are separate
 questions with separate outcomes. What refuses here is *structural
 unreadability*: bytes that are not a YAML mapping, a duplicate key, or a value
@@ -44,12 +44,12 @@ reader can still lift *something* out of is handed on intact — a discriminant
 disagreeing with its member, a value that is not an identity, an unsorted or
 repeated corpus state, a key outside the kind's declared set, and an identity
 member the document simply omits. Those are receipt-contract violations, and
-§8.2's carrier list is closed and names none of them: it is "invalid YAML, a
+The carrier list is closed and names none of them: it is "invalid YAML, a
 missing or extra epoch **member**, a bad member content name, or a
 packaging-identity mismatch", where a member is one of the eleven files. A
-missing receipt *key* is §7.5's own closing sentence instead — "An unsound
+missing receipt *key* is the receipt contract's own closing sentence instead — "An unsound
 receipt contract is ``malformed``" — and turning one into a carrier failure
-would close the path §8.2 exists to keep open, where a malformed coreference
+would close the path the carrier list exists to keep open, where a malformed coreference
 receipt opens, evaluates as ``malformed``, and leaves its edges
 ``indeterminate``.
 
@@ -58,19 +58,19 @@ An omitted identity member is therefore read as *absent*, not as a refusal:
 ones the document did not carry, which is exactly the finding the validator
 has to report. Such a receipt has no identity — there is nothing to digest —
 and it names no binding, which is the honest answer rather than a convenient
-one: §7.5 puts an unsound contract at ``malformed`` before resolvability is
+one: an unsound contract is ``malformed`` before resolvability is
 ever asked, so no act that changes what a store *holds* can move its outcome.
 
 `RECEIPT_KEYS` therefore *declares* the closed per-kind contract without
 enforcing it: the receipt validator is what enforces it. The two
-projection-bearing kinds carry more than the identity members — §7.5 puts the
+projection-bearing kinds carry more than the identity members — the
 retraction enumeration projection inside the retraction receipt and the
 certification inventory inside the certification receipt — so one closed set
 across all four kinds would be wrong in both directions at once.
 
 **Two readings of a carrier, and the weaker one is deliberate.** The sever scan
 answers "which receipts does this world retain", and it stops at the member
-set: it recomputes no digest and no packaging identity, because §4.3's removal
+set: it recomputes no digest and no packaging identity, because the removal
 report is about the receipts a carrier holds, not about the name the directory
 holding them was given, and a stricter scan would make one damaged epoch block
 every removal in its world. `_locked_open_epoch` is the strong reading, and it
@@ -169,7 +169,7 @@ EPOCH_MEMBERS: tuple[str, ...] = (
     "anchors.yaml",
     "coverage.yaml",
 )
-"""Specification §6.1's closed layout, in the order it is written there.
+"""The closed layout, in the order it is written there.
 
 An epoch directory contains exactly these eleven members: a missing one and an
 extra one are the same failure, `EpochMalformed`. This is the module's one
@@ -177,7 +177,7 @@ declaration of the inventory; every act over epochs reads it from here.
 """
 
 EPOCH_DOMAIN = "science.epoch.v1"
-"""§6.2's packaging-identity domain.
+"""The packaging-identity domain.
 
 It names *publication bytes* and nothing else. No map location, epoch path or
 packaging digest enters a semantic identity or a belief input, so this domain
@@ -208,11 +208,11 @@ MEMBER_KEYS: Mapping[str, tuple[str, ...]] = MappingProxyType(
 The seven of them, keyed exactly as `EPOCH_MEMBERS` names them, and disjoint
 from `RECEIPT_KEYS` by construction: the four receipts are read by the
 permissive floor below, because their contract is the receipt validator's to
-enforce (§8.2) and a closed reading here would take it away.
+enforce and a closed reading here would take it away.
 
 Anchors carry the covered corpora's triples under ``corpora`` and the
 build-start world-chain head under ``world``, rather than one list with the
-world head folded into it. §6.1 asks for both in one member and does not say
+world head folded into it. Both live in one member and nothing says
 how; keeping them apart is what stops a covered corpus from being read as the
 world anchor, and the two are genuinely different subjects — a world id is not
 a `corpus_id`, and only one of them is what the epoch was anchored *against*.
@@ -229,7 +229,7 @@ RECEIPT_KINDS: Mapping[str, str] = MappingProxyType(
 """The four receipt members and the kind discriminant each one must carry."""
 
 RECEIPT_DOMAIN = "science.derivation-receipt.v1"
-"""One domain for the receipt family; §7.5's kind member keeps them disjoint."""
+"""One domain for the receipt family; the kind member keeps them disjoint."""
 
 RECEIPT_IDENTITY_KEYS: frozenset[str] = frozenset(
     {"kind", "subject", "corpus_states", "rule_identity", "implementation_identity"}
@@ -246,15 +246,15 @@ RECEIPT_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
         "coreference-receipt.yaml": RECEIPT_IDENTITY_KEYS,
     }
 )
-"""The closed key set each receipt kind's document carries — §7.5's contract.
+"""The closed key set each receipt kind's document carries — the contract.
 
 The two projection-bearing kinds carry one member more than the identity
 members: the retraction receipt holds its retraction enumeration projection
 (``enumeration``) and the certification receipt its location-free,
 resolution-free inventory (``inventory``), neither of which is a further epoch
 member. Their subject *projections* are read and checked by the receipt
-validator, which is also what enforces this closure as outcome ``malformed``
-(§8.2). The carrier layer below declares the contract and does not police it.
+validator, which is also what enforces this closure as outcome ``malformed``. The carrier layer below declares the contract
+and does not police it.
 """
 
 _STATE_KEYS = ("corpus_id", "corpus_state")
@@ -268,7 +268,7 @@ def receipt_identity(
     rule_identity: str,
     implementation_identity: str,
 ) -> str:
-    """§7.5's receipt identity, over the five members that fix what ran.
+    """The receipt identity, over the five members that fix what ran.
 
     Each corpus-state pair encodes as a two-member list, the same shape the
     fixture-set pairs use, so one reading of "a pair" serves the whole slice.
@@ -298,7 +298,7 @@ class _ReceiptCarrier:
 
     Each of the five identity members is optional, because a document may
     simply omit one and that is a receipt-contract fault rather than an
-    unreadable carrier (§7.5, §8.2). `missing` names what was omitted; a
+    unreadable carrier. `missing` names what was omitted; a
     receipt missing anything has no `identity` and names no `binding`.
     """
 
@@ -318,7 +318,7 @@ class _ReceiptCarrier:
     """The whole parsed document, deep-frozen, exactly as the member carried it.
 
     The five members above are what *this* layer lifts; the receipt validator
-    (§8.2) has to see everything else too — a key outside
+    has to see everything else too — a key outside
     `RECEIPT_KEYS[member]`, a subject projection that must be re-derived and
     compared — and it may not reach past the carrier to the bytes to find it.
     Carrying the document here is what lets one read of one member serve both
@@ -373,7 +373,7 @@ def _retained_receipt_bindings_locked(world_root: Path) -> tuple[_ReceiptCarrier
 
     The caller holds the world lock; this must not take it, and the lock is not
     reentrant. Ordering is deterministic — by packaging identity, then by the
-    §6.1 member order — so a report derived from this scan does not depend on
+    member order — so a report derived from this scan does not depend on
     directory iteration order.
 
     A world that has published nothing, or whose ``epochs/`` directory is
@@ -405,12 +405,12 @@ def _retained_receipt_bindings_locked(world_root: Path) -> tuple[_ReceiptCarrier
 def _emptied(directory: Path) -> bool:
     """Whether this entry beneath ``epochs/`` holds nothing at all.
 
-    §9 deletes an epoch by deleting each of its eleven members and calls the
-    directory left behind nonsemantic. Nonsemantic has to mean *ignored* rather
+    Deleting an epoch deletes each of its eleven members and treats the
+    directory left behind as nonsemantic. Nonsemantic has to mean *ignored* rather
     than merely unfilled: an empty directory read as a carrier is a carrier
     missing all eleven members, so one deletion would make every later scan of
     ``epochs/`` refuse — the sever report `beliefs.world.rules` computes
-    included — and would make §9's own "a repeated deletion raises
+    included — and would make a repeated deletion, which is documented to raise
     `EpochUnknown`" report `EpochMalformed` instead.
 
     It is asked *after* the name check, never instead of it: an empty directory
@@ -421,13 +421,13 @@ def _emptied(directory: Path) -> bool:
 
 
 def _carrier_members(directory: Path) -> Mapping[str, bytes]:
-    """One carrier's exact eleven members, read as bytes in §6.1's order.
+    """One carrier's exact eleven members, read as bytes in the order.
 
     The one place a carrier's member set is decided, for the sever scan above
     and for the open act below alike. It stops at the *set*: recomputing the
     packaging identity is the open act's step, and folding it in here would
     make one world's damaged epoch refuse every rule removal in that world —
-    §4.3's report is computed over the receipts a carrier holds, not over the
+    the report is computed over the receipts a carrier holds, not over the
     name the directory holding them was given.
     """
     members: dict[str, bytes] = {}
@@ -445,7 +445,7 @@ def _carrier_members(directory: Path) -> Mapping[str, bytes]:
 
 
 def _receipts_of(directory: Path) -> tuple[_ReceiptCarrier, ...]:
-    """The four receipts of one closed carrier, in §6.1's member order."""
+    """The four receipts of one closed carrier, in the member order."""
     members = _carrier_members(directory)
     return tuple(
         _parse_receipt(directory.name, member, members[member]) for member in EPOCH_MEMBERS if member in RECEIPT_KINDS
@@ -453,19 +453,19 @@ def _receipts_of(directory: Path) -> tuple[_ReceiptCarrier, ...]:
 
 
 def _parse_receipt(packaging_identity: str, member: str, content: bytes) -> _ReceiptCarrier:
-    """Lift §7.5's five identity-bearing members out of one receipt document.
+    """Lift the five identity-bearing members out of one receipt document.
 
     This is the structural floor and nothing above it. It refuses only what
     leaves no receipt to hand on: bytes that are not a YAML mapping, a
     duplicate key, or a member that is present and is not the shape the
     identity formula digests. An *absent* identity member is lifted as `None`
-    rather than refused — the document still parsed, and §7.5 assigns an
-    unsound receipt contract to outcome ``malformed``.
+    rather than refused — the document still parsed, and an
+    unsound receipt contract is outcome ``malformed``.
 
     What this does **not** check is the receipt *contract* — that every
     identity member is there, that the discriminant matches the member, that
     the keys are exactly `RECEIPT_KEYS[member]`, that each digest is an
-    identity, that the corpus states are sorted and distinct. Those are §8.2's
+    identity, that the corpus states are sorted and distinct. Those are the
     receipt outcome ``malformed``, and the validator that decides them extends
     this extraction without inheriting a refusal policy that would hide them.
     Recovering any of it by catching `EpochMalformed` would put the policy back
@@ -549,9 +549,9 @@ def _deep_frozen(value: object) -> object:
     return value
 
 
-# --- the closed carrier, and opening one (§6.1, §6.2, §8.1) -------------------
+# --- the closed carrier, and opening one -------------------
 #
-# The lower of §8.2's two layers, at its full strength. The scan above answers
+# The lower of the two layers, at its full strength. The scan above answers
 # "which receipts does this world retain"; what follows answers "are these the
 # exact eleven documents this directory's name claims", which is a strictly
 # stronger question and the one every read of an epoch must have answered
@@ -564,7 +564,7 @@ def _deep_frozen(value: object) -> object:
 
 
 def packaging_identity_of(members: Mapping[str, bytes]) -> str:
-    """§6.2: `science.epoch.v1` over sorted `(member name, member content
+    """`science.epoch.v1` over sorted `(member name, member content
     digest)` pairs, where a member content digest is the 64-character lowercase
     SHA-256 hex of that member's exact bytes.
 
@@ -592,8 +592,8 @@ class Epoch:
     `members` is the exact bytes, kept because they are what the packaging
     identity digests and what a rebuild compares against. `documents` is those
     bytes parsed, keyed the same way. `receipts` is the four receipt carriers,
-    handed on to the receipt validator whether or not they honour §7.5's
-    contract (§8.2).
+    handed on to the receipt validator whether or not they honour the
+    receipt contract.
     """
 
     packaging_identity: str
@@ -601,8 +601,8 @@ class Epoch:
     documents: Mapping[str, Mapping[object, object]]
     receipts: Mapping[str, _ReceiptCarrier]
     coverage: tuple[tuple[str, str], ...]
-    """§6.1's `coverage.yaml`, as sorted `(corpus_id, corpus_state)` pairs. The
-    source of the bound stamp (§8.3)."""
+    """The `coverage.yaml`, as sorted `(corpus_id, corpus_state)` pairs. The
+    source of the bound stamp."""
     anchors: tuple[_Anchor, ...]
     world_anchor: _Anchor
 
@@ -613,14 +613,14 @@ class Epoch:
 
 
 def _locked_open_epoch(world_root: Path, packaging_identity: str) -> Epoch:
-    """§8.1's private locked loader: one named epoch, fully validated.
+    """The private locked loader: one named epoch, fully validated.
 
     The caller holds the world lock and has already crossed the recovery
     barrier; this takes neither, because the lock is not reentrant and because
     a loader that completed recovery itself could not be reused by an act that
     had to complete it earlier.
 
-    The order is §8.1's: the exact member set, the recomputed packaging
+    The order is: the exact member set, the recomputed packaging
     identity, then every closed document. Every failure is `EpochMalformed` with
     the underlying refusal as its cause — except an absence, which is
     `EpochUnknown`, because "there is no such epoch" and "there is one and it
@@ -701,14 +701,14 @@ def _current_pointer_bytes(packaging_identity: str) -> bytes:
 
 
 def _parse_member(packaging_identity: str, member: str, content: bytes) -> Mapping[object, object]:
-    """One non-receipt member, read as the closed document §6.1 requires.
+    """One non-receipt member, read as the closed document its kind requires.
 
     The same duplicate-key, unknown-field and malformed-value discipline the
     registry uses, applied to each member's own shape. It stops at *shape*: it
     does not ask whether the address map is singular, whether a producers entry
     names a run the epoch also records, or whether a coreference balance is
     arithmetically reachable. Those are semantic questions, and two of these
-    members have no receipt to re-derive them from — §8.1's member-digest and
+    members have no receipt to re-derive them from — the member-digest and
     packaging-identity recompute is their integrity check, and inventing a
     further outcome for them here would be inventing an authority.
     """
@@ -750,10 +750,10 @@ def _text_members(value: object, location: str) -> tuple[str, ...]:
 
 
 ADDRESS_ENTRY_KEYS: tuple[str, ...] = ("address", "content", "holders", "uid")
-"""The closed shape every epoch built from cut 48 writes (design §4.3)."""
+"""The closed shape every current epoch writes."""
 
 LEGACY_ADDRESS_ENTRY_KEYS: tuple[str, ...] = ("address", "corpus_id", "uid")
-"""The singular shape every epoch built before cut 48 carries. Admitted as a
+"""The singular shape every earlier epoch carries. Admitted as a
 second closed shape so retained epochs stay readable; never written again, and
 never mixed with the other in one document."""
 
@@ -822,7 +822,7 @@ def _check_anchors(document: Mapping[object, object]) -> None:
 
 
 def _check_coverage(document: Mapping[object, object]) -> None:
-    """§6.1's coverage declaration: sorted, distinct, and both members text.
+    """The coverage declaration: sorted, distinct, and both members text.
 
     Every entry is validated by `_covered_pair` as a *statement* and its
     `corpus_id` is collected unconditionally, exactly as `_check_anchors`
@@ -830,7 +830,7 @@ def _check_coverage(document: Mapping[object, object]) -> None:
     filter instead would make it validate and select at once: an entry whose
     `corpus_state` was the empty string is text, so it passes, and is falsy, so
     it would drop out of `covered` before the sortedness and distinctness
-    checks ever saw its `corpus_id` — and §6.1 makes this member the source of
+    checks ever saw its `corpus_id` — and this member is the source of
     the bound stamp, so an unsorted or repeating declaration reaching a
     consumer is not a cosmetic fault.
     """
@@ -888,7 +888,7 @@ def _covered_states(document: Mapping[object, object]) -> tuple[tuple[str, str],
     return tuple(_covered_pair(cast(Mapping[object, object], entry)) for entry in coverage)
 
 
-# --- coherent preflight and capture (§5.2, §5.3) ------------------------------
+# --- coherent preflight and capture ------------------------------
 #
 # The two halves of an epoch build that touch live state, and the frozen draft
 # that separates them from everything pure. Preflight answers "may this build
@@ -903,7 +903,7 @@ def _covered_states(document: Mapping[object, object]) -> tuple[tuple[str, str],
 # live state would have to be handed one by its caller.
 
 DERIVATION_KINDS: tuple[str, ...] = tuple(RECEIPT_KINDS[member] for member in EPOCH_MEMBERS if member in RECEIPT_KINDS)
-"""§5.2's four derivations, keyed as §7.5 keys their receipts, in §6.1's order.
+"""The four derivations, keyed as their receipts are keyed, in member order.
 
 Derived from the member inventory rather than written out again: a build input
 that named three kinds, or a fifth, has not described an epoch, and the one
@@ -947,7 +947,7 @@ non-authoritative by design.
 
 @dataclass(frozen=True)
 class _Anchor:
-    """One `(subject, genesis_digest, head_digest)` triple, as §6.1 stores it.
+    """One `(subject, genesis_digest, head_digest)` triple, as an epoch stores it.
 
     The subject is a covered `corpus_id` for a corpus anchor and the world id
     for the build-start world anchor. The two digests are exactly what the
@@ -961,7 +961,7 @@ class _Anchor:
 
 @dataclass(frozen=True)
 class _Preflight:
-    """What §5.2 retains for the rest of one build.
+    """What the preflight retains for the rest of one build.
 
     `carriers` is the pinned `corpus_id -> carrier root` mapping, in sorted id
     order, and it is pinned rather than re-derived: a build that resolved a
@@ -986,8 +986,8 @@ class _BuildDraft:
     captured states, the build-start world head, and the four exact rules as
     resolved — their bytes and the entry point loaded from those bytes.
 
-    There is no carrier path here, and that absence is the point. §5.3's "only
-    captured values leave the hold" is not a convention a publisher has to
+    There is no carrier path here, and that absence is the point. The rule that only
+    captured values leave the hold is not a convention a publisher has to
     remember if the draft simply has nowhere to put a root: derivation and
     publication cannot re-read a corpus because they are not told where one is.
     """
@@ -1004,8 +1004,8 @@ class _BuildDraft:
     @property
     def corpus_states(self) -> tuple[tuple[str, str], ...]:
         """The one sorted `(corpus_id, corpus_state)` sequence every receipt of
-        this epoch carries. One value, not four: §7.5 requires the four
-        receipts to agree, and there is nowhere here for a per-kind state."""
+        this epoch carries. One value, not four: the four
+        receipts must agree, and there is nowhere here for a per-kind state."""
         return self.capture.corpus_states
 
     @property
@@ -1034,16 +1034,16 @@ def _declared_coverage(coverage: frozenset[str]) -> tuple[str, ...]:
     """The declared covered ids, sorted and non-empty. Never the registry's
     live set.
 
-    §5.2's closing sentence is a rule about what a build may *substitute*, and
+    the closing sentence is a rule about what a build may *substitute*, and
     the only way to keep it is to have no path that reads liveness as a
     default. The caller declares; this checks the shape and orders it.
 
     **An empty coverage is refused, and that is a decision rather than a
-    consequence.** Nothing in §5 or §6 makes an empty capture unrepresentable:
+    consequence.** Nothing in the build or the layout makes an empty capture unrepresentable:
     the maps would be empty, the receipts would carry an empty state list, and
     the anchors would still name the world. What such an epoch cannot do is
-    answer. §8.3 makes every address outside the observed coverage `Unknown`,
-    and §8.4 makes every edge `indeterminate` wherever the epoch's coverage
+    answer. Every address outside the observed coverage is `Unknown`,
+    and every edge is `indeterminate` wherever the epoch's coverage
     does not contain the live-id set — so an epoch declaring nothing answers
     nothing in any world holding a live corpus, and pointing `current` at one
     would disable every read the epoch exists to serve without a single
@@ -1115,7 +1115,7 @@ def _preflight(
     coverage: frozenset[str],
     bindings: Mapping[str, rules.RuleBinding],
 ) -> _Preflight:
-    """§5.2, in the order §5.2 writes it, under `_WorldState.lock` throughout.
+    """The preflight, in the order the build requires, under `_WorldState.lock` throughout.
 
     The chain read comes first and completes recovery, so every world file
     inspected below is inspected after recovery rather than beside it. The
@@ -1128,7 +1128,7 @@ def _preflight(
 
     The world lock is plain and blocking. Holding it across a registry rescan
     and four fixture runs is short and serializes against registry appends and
-    rule removal; §5.1's no-queueing rule is about corpus capture and does not
+    rule removal; the no-queueing rule is about corpus capture and does not
     reach here.
     """
     covered = _declared_coverage(coverage)
@@ -1142,7 +1142,7 @@ def _preflight(
 
 
 def _capture(world: registry.World, preflight: _Preflight) -> _BuildDraft:
-    """§5.3: sorted, serial, and one hold per corpus.
+    """Capture: sorted, serial, and one hold per corpus.
 
     The whole of a corpus's coherent capture — chain head, state, enumeration,
     state again — happens inside `capture()`, which never waits: a build that
@@ -1268,7 +1268,7 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
 
 
 def _retraction_target(facet: Mapping[str, object]) -> str:
-    """The target identity §7.4's discovery map groups on.
+    """The target identity the discovery map groups on.
 
     A node-arm retraction names its target by the ref the author wrote, and
     that ref is what travels: turning it into a live address here would make
@@ -1278,7 +1278,7 @@ def _retraction_target(facet: Mapping[str, object]) -> str:
     retraction of the same dataset — two genuinely different claims that a
     shared dataset key would silently merge. A snapshot-arm retraction names a
     subject identity, disjoint from every ref and every route identity by
-    namespace, so the key is the identity itself (slice 2 §6).
+    namespace, so the key is the identity itself.
     """
     target = cast(Mapping[str, str], facet["target"])
     if target["arm"] == "node":
@@ -1316,7 +1316,7 @@ def _standing_retractions(view: ReadView, facets: Mapping[str, Mapping[str, obje
     finding about stored content, and re-running them here would make an epoch
     build a second, later admission gate over records the corpus already holds
     — one raw-imported retraction anywhere in any covered corpus would then
-    make the whole world unbuildable. §5.3 closes capture's refusal surface at
+    make the whole world unbuildable. Capture's refusal surface is closed at
     `EnumeratedKindUngoverned` and `CaptureDrift` and names no target-validity
     requirement, and the resolution a capture publishes is a claim about the
     retraction graph ("nothing standing in this corpus retracts this
@@ -1329,7 +1329,7 @@ def _standing_retractions(view: ReadView, facets: Mapping[str, Mapping[str, obje
 
 
 def _locked_recheck_rule_bindings(world_root: Path, draft: _BuildDraft) -> Mapping[str, rules._HeldRule]:
-    """§5.4's pre-publication recheck: the same four exact pairs, still held.
+    """The pre-publication recheck: the same four exact pairs, still held.
 
     The world lock — the same lock removal takes — is the caller's, already
     held, and this must not take it: it is a plain `threading.Lock`, so a
@@ -1358,7 +1358,7 @@ def _locked_recheck_rule_bindings(world_root: Path, draft: _BuildDraft) -> Mappi
     return rules._locked_resolve_rule_bindings(world_root, declared)
 
 
-# --- publication (§5.4, §6.3) -------------------------------------------------
+# --- publication -------------------------------------------------
 #
 # Everything above is either pure or read-only. What follows is the one act
 # that writes beneath ``epochs/``, and it writes exactly once: every byte is
@@ -1372,12 +1372,12 @@ def _locked_recheck_rule_bindings(world_root: Path, draft: _BuildDraft) -> Mappi
 
 @dataclass(frozen=True)
 class DerivationBindings:
-    """The four exact rule bindings one build names (§5.2).
+    """The four exact rule bindings one build names.
 
     Named fields rather than a mapping keyed by receipt kind, because a build
     input naming three derivations, or five, is not a build input at all —
     and a shape with exactly four slots says so at construction instead of at
-    the first missing lookup. `by_kind` performs the join to §7.5's kind
+    the first missing lookup. `by_kind` performs the join to the kind
     vocabulary, which is the rules store's business nowhere else: the store is
     keyed by identity and knows nothing of kinds.
     """
@@ -1412,7 +1412,7 @@ def build_epoch(
 ) -> Epoch:
     """Build and publish one epoch over exactly this declared coverage.
 
-    Three phases, and the order between them is the whole of §5.4. Capture
+    Three phases, and the order between them is the whole of the build. Capture
     reads live state under each corpus's own hold and produces a frozen draft.
     Derivation is pure and produces the complete member bytes and, from those
     bytes, the packaging identity — **before** any lock is reacquired, so
@@ -1441,14 +1441,14 @@ def build_epoch(
 
 
 def _derived_members(draft: _BuildDraft) -> Mapping[str, bytes]:
-    """§6.1's eleven members, as the exact bytes this build would publish.
+    """The eleven members, as the exact bytes this build would publish.
 
     Pure: the draft is the only input, and there is no path from here to a
     corpus root, a registry or a pointer. The four rules run once each over
     the one captured projection; the two maps that are not receipt subjects
     fold over the same capture.
     """
-    # Cut 48 §4.5: the address map is derived first, so its refusals (`AddressMapConflict`,
+    # The address map is derived first, so its refusals (`AddressMapConflict`,
     # the deprecated-key `ResolutionRefused`) take precedence over anything a rule could say
     # about a capture that is not a world.
     address_map = derive.address_map(draft.capture)
@@ -1495,7 +1495,7 @@ def _document_bytes(projection: Mapping[str, object]) -> bytes:
 
 
 def _anchors_projection(draft: _BuildDraft) -> dict[str, object]:
-    """§6.1's anchors: one triple per covered corpus, sorted by subject, and
+    """The anchors: one triple per covered corpus, sorted by subject, and
     the build-start world-chain head beside them."""
     return {
         "corpora": [
@@ -1515,7 +1515,7 @@ def _anchors_projection(draft: _BuildDraft) -> dict[str, object]:
 
 
 def _coverage_projection(draft: _BuildDraft) -> dict[str, object]:
-    """§6.1's coverage: the declared ids and each one's captured state.
+    """The coverage: the declared ids and each one's captured state.
 
     Read from the captured states rather than from the declaration, because
     the two cannot differ — `derive.Capture` derives its coverage from what it
@@ -1530,7 +1530,7 @@ def _coverage_projection(draft: _BuildDraft) -> dict[str, object]:
 
 
 def _receipt_projection(receipt: derive.DerivationReceipt) -> dict[str, object]:
-    """One receipt member's document: §7.5's five identity members, and the
+    """One receipt member's document: the five identity members, and the
     subject projection the two projection-bearing kinds carry inside it."""
     projection: dict[str, object] = {
         "kind": receipt.kind,
@@ -1555,7 +1555,7 @@ def _receipt_projection(receipt: derive.DerivationReceipt) -> dict[str, object]:
 def _locked_log_head_records(world_root: Path, packaging_identity: str, members: Mapping[str, bytes]) -> list[CreateOp]:
     """The build's registry-record half: one log-head record per covered corpus.
 
-    Log-verification design §3.3. The epoch's `anchors.yaml` member and these
+    The epoch's `anchors.yaml` member and these
     records carry the same triples; the records exist because an anchor a
     consumer can find without opening an epoch is what makes the registry a
     carrier of the observer set. Origin is `build`, naming the packaging
@@ -1570,11 +1570,11 @@ def _locked_log_head_records(world_root: Path, packaging_identity: str, members:
     member is written sorted.
 
     The world anchor is deliberately absent: a `world` subject is not in the
-    record's union at all (§3.1/L11), and only an exported artifact leaving the
+    record's union at all, and only an exported artifact leaving the
     world root can anchor the world chain — the member carries it under a
     separate key, which this reads past.
 
-    §3.1's idempotency rule applies here exactly as it does to the act, so a
+    the idempotency rule applies here exactly as it does to the act, so a
     republication of the same epoch over unmoved heads adds nothing to the
     plan.
     """
@@ -1614,7 +1614,7 @@ def _locked_publication_plan(world_root: Path, packaging_identity: str, members:
     statement of what "already exists" was allowed to mean.
 
     A directory this name's epoch was *deleted* from is not a same-name
-    carrier: §9 leaves it empty and calls it nonsemantic, so republishing the
+    carrier: deletion leaves it empty and nonsemantic, so republishing the
     same bytes creates the eleven members back into it rather than reading a
     carrier that holds none of them.
     """
@@ -1644,11 +1644,11 @@ def _locked_publication_plan(world_root: Path, packaging_identity: str, members:
     return operations
 
 
-# --- whole-epoch garbage collection (§9) --------------------------------------
+# --- whole-epoch garbage collection --------------------------------------
 
 
 SNAPSHOT_SUBJECT = "producer-snapshot"
-"""§9's fifth identity, named as a subject beside `DERIVATION_KINDS`' four.
+"""The fifth identity, named as a subject beside `DERIVATION_KINDS`' four.
 
 The producer snapshot is the one subject an epoch carries whose identity is not
 a receipt's own. It is labelled here rather than by the member holding it,
@@ -1662,7 +1662,7 @@ class SeveredIdentity:
 
     `subject` names what the identity is the identity *of* — one of
     `DERIVATION_KINDS`' four receipt kinds, or `SNAPSHOT_SUBJECT` for the
-    producer snapshot — so the five entries of a report read in §7.5's own
+    producer snapshot — so the five entries of a report read in the own
     vocabulary rather than in a second one invented for reporting. It is the
     kind the *member* declares (`RECEIPT_KINDS`), not the discriminant the
     document happens to carry: where those two disagree the document is a
@@ -1685,16 +1685,16 @@ class SeveredIdentity:
 class EpochDeletionReport:
     """What one `delete_epoch` removed, and what it severed.
 
-    §9 asks for the actor, the producer-snapshot identity and the four receipt
+    The report carries the actor, the producer-snapshot identity and the four receipt
     identities the deleted epoch carried, each flagged with whether any other
     retained epoch still carries it.
 
     `snapshot` is optional and `receipts` may hold fewer than four, for one
     reason: an identity is read from the receipt document that names it, and a
-    receipt that omitted one of §7.5's five identity members has no identity at
+    receipt that omitted one of the five identity members has no identity at
     all (`_ReceiptCarrier.identity`). Such a receipt is *not* reported as
-    severed, and the reason is `rules._severed_receipts`' reason: §7.5 already
-    puts an unsound receipt contract at outcome ``malformed``, decided before
+    severed, and the reason is `rules._severed_receipts`' reason: an unsound receipt contract is already
+    outcome ``malformed``, decided before
     resolvability is ever asked, so no deletion can move it. Reporting an
     identity for it would mean inventing one nobody published.
     """
@@ -1713,7 +1713,7 @@ class EpochDeletionReport:
 
 
 def delete_epoch(world: registry.World, packaging_identity: str) -> EpochDeletionReport:
-    """Delete one whole retained epoch, and report what it severed (§9).
+    """Delete one whole retained epoch, and report what it severed.
 
     Explicit consumer policy. Nothing in this package calls it, no schedule
     triggers it, and there is no act that deletes one member of an epoch: an
@@ -1729,18 +1729,18 @@ def delete_epoch(world: registry.World, packaging_identity: str) -> EpochDeletio
 
     Every *other* retained epoch is then opened with the same private locked
     loader, because the report's question — is this identity still carried
-    here? — is a question about what those epochs hold, and §8.1's carrier rule
+    here? — is a question about what those epochs hold, and the carrier rule
     is that an epoch this world cannot read refuses the act that reads it. A
     damaged epoch elsewhere therefore refuses the whole deletion with
     `EpochMalformed`, exactly as a damaged carrier refuses a rule removal: a
     sever report computed over a scan that quietly skipped one would be the
-    silent unresolvability §4.3 refuses to produce.
+    silent unresolvability the removal report refuses to produce.
 
     One transaction, holding a `DeleteOp` for each of the eleven members. The
-    emptied directory stays where it is; §9 calls it nonsemantic and `_emptied`
+    emptied directory stays where it is; it is nonsemantic and `_emptied`
     is what makes that true rather than merely stated. There is no tombstone:
-    a repeated call raises `EpochUnknown`, and slice 2 claims no exact retry
-    after commit.
+    a repeated call raises `EpochUnknown`, and no exact retry
+    after commit is claimed.
     """
     world.authority.require("epoch")
     actor = world.authority.actor
@@ -1773,17 +1773,17 @@ def _retained_identities_locked(world_root: Path) -> tuple[str, ...]:
     Read off the one epoch scanner rather than by walking ``epochs/`` a second
     time. Every carrier holds four receipts, so a carrier the scan reached is a
     carrier this answers with, and a directory the scan refused refuses here
-    too — which is the enumeration's own share of §8.1's carrier rule.
+    too — which is the enumeration's own share of the carrier rule.
     """
     return tuple(sorted({carrier.packaging_identity for carrier in _retained_receipt_bindings_locked(world_root)}))
 
 
 def _member_for(kind: str) -> str:
-    """The §6.1 member the named receipt kind is written to.
+    """The member the named receipt kind is written to.
 
-    A kind outside §7.5's four is a caller error and refuses here: inventing a
-    fifth outcome for it would answer a question the specification does not
-    ask. Lives here rather than in `read` because `read` imports this module.
+    A kind outside the four is a caller error and refuses here: inventing a
+    fifth outcome for it would answer a question nothing asks. Lives here rather than in `read` because `read`
+    imports this module.
     """
     for member, declared in RECEIPT_KINDS.items():
         if declared == kind:
@@ -1792,8 +1792,10 @@ def _member_for(kind: str) -> str:
 
 
 class RetainedSnapshots:
-    """The writer's snapshot resolver over one world's retained epochs
-    (slice 2 §4). One scan under the barrier; the mapping is built outside it."""
+    """The writer's snapshot resolver over one world's retained epochs.
+
+    One scan under the barrier; the mapping is built outside it.
+    """
 
     def __init__(self, world: registry.World) -> None:
         self._world = world
@@ -1847,8 +1849,8 @@ def _carried_identities(published: Epoch) -> frozenset[str]:
     producer snapshot its producer receipt names as its subject.
 
     The snapshot identity is read from the producer receipt rather than
-    recomputed from ``producer-snapshot.yaml``, because §7.5 *defines* that
-    receipt's subject to be the published snapshot's identity, and because a
+    recomputed from ``producer-snapshot.yaml``, because that
+    receipt's subject is defined to be the published snapshot's identity, and because a
     report has to compare like with like: the four receipt identities have no
     source but the receipt documents, so taking the fifth from anywhere else
     would compare one epoch's claim against another's rederivation and call the
@@ -1860,7 +1862,7 @@ def _carried_identities(published: Epoch) -> frozenset[str]:
 
 
 def _deletion_report(actor: str, target: Epoch, elsewhere: AbstractSet[str]) -> EpochDeletionReport:
-    """§9's report over the target's own carried identities, in member order."""
+    """The report over the target's own carried identities, in member order."""
     producer = target.receipts["producer-receipt.yaml"].subject_identity
     snapshot = None if producer is None else SeveredIdentity(SNAPSHOT_SUBJECT, producer, producer in elsewhere)
     receipts: list[SeveredIdentity] = []

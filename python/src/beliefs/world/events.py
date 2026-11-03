@@ -1,6 +1,6 @@
 """The event domain of the event-level relation.
 
-Spec: `docs/superpowers/specs/2026-09-21-event-level-l8-design.md` §3. An
+An
 **event** is one entry of one corpus chain; its **moment** is the position in
 that chain at which it happened — an intent, a genesis or a committed
 settlement at its own position, a registration at its committed settlement's,
@@ -45,7 +45,7 @@ def moment(view: WellFormedView, digest: str) -> int | None:
 
     A registration's moment is its **committed** settlement: the transition
     happened when it committed, not when it was declared. A well-formed chain
-    settles a registration at most once (the duplicate is L2's malformed arm,
+    settles a registration at most once (the duplicate is the malformed arm,
     classified before this is reached), so the settlement is a lookup by
     `registration` digest, never "the next settlement".
     """
@@ -76,7 +76,7 @@ def place(view: WellFormedView, *, genesis_digest: str, head_digest: str) -> Pla
     `None` where the capture speaks about no prefix of this chain: the genesis
     differs (the chain was replaced), or the head is no entry of it (the chain
     was truncated behind the capture, or replaced). A `None` placement
-    establishes neither presence nor exclusion (spec decision 6)."""
+    establishes neither presence nor exclusion ."""
     if genesis_digest != view.genesis.digest:
         return None
     for index, entry in enumerate(view.entries):

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from beliefs.world.verify import RootKind
 
 RECORD_CEILING = 8 * 1024 * 1024
-"""Maximum bytes in a qualifying published record (spec §3.1)."""
+"""Maximum bytes in a qualifying published record."""
 
 RECORD_NAMESPACES = ("run", "act-report", "holdings-observation")
 
@@ -31,8 +31,8 @@ def _close(fd: int) -> None:
 
 @dataclass(frozen=True)
 class CapturedSurface:
-    """One descent's records and its three named failures (successor-admission
-    design §4.2). `records` is exactly what `capture_records` returns over the
+    """One descent's records and its three named failures (the
+    successor-admission descent). `records` is exactly what `capture_records` returns over the
     same namespaces; the path lists are what it used to swallow."""
 
     records: tuple[tuple[str, bytes], ...]
@@ -62,7 +62,7 @@ def capture_records(
     root: Path,
     kind: RootKind,
 ) -> tuple[tuple[str, bytes], ...]:
-    """Cut 11's captured surface, unchanged: the three record namespaces of a
+    """The captured surface, unchanged: the three record namespaces of a
     corpus root, every failure silent, nothing for any other root kind."""
     if kind != "corpus":
         return ()

@@ -1,7 +1,7 @@
 """Science-typed chain views — the vocabulary the log seam speaks.
 
 **Why these types exist.** `beliefs.root` is the one module that may import
-`atoms`, and the acts of slice 3 must discriminate over an inspection result:
+`atoms`, and the verification acts must discriminate over an inspection result:
 well-formed against malformed against absent, and defect kind by defect kind.
 Discriminating over the engine's own union would require naming the engine's
 classes above the composition root. So the composition root converts every
@@ -13,9 +13,8 @@ never of the *facts*: a state fingerprint is carried as an atoms `PathState`
 object, typed here as `object`, **opaque and compared only by equality**.
 Science never constructs or interprets one. Replay compares it only by
 equality; mechanical holdings projection may ask the composition root to
-delegate its re-encoding to the engine's own codec. That is what keeps the log
-design's one-summary-model rule a mechanism rather than a promise. The chain's
-own entries carry the encoded form
+delegate its re-encoding to the engine's own codec. That is what keeps the one-summary-model rule a mechanism rather than a
+promise. The chain's own entries carry the encoded form
 (`PathStateJSON`) and the capture command returns `PathState`; the composition
 root decodes the former with the engine's own `state_from_json` during this
 conversion, so both sides of every replay comparison are `PathState` values and
@@ -117,7 +116,7 @@ DefectKind = Literal[
     "fulfills-invalid",
     "duplicate-fulfillment",
 ]
-"""One member per taxonomy entry of the design's §2.1 defect list.
+"""One member per taxonomy entry of the chain defect list.
 
 The three `fulfills` reference variants (missing, non-ancestor, non-intent)
 share `fulfills-invalid`, and zero and multiple genesis share `genesis-count`,
@@ -155,7 +154,7 @@ class WellFormedView:
     `entries` is the engine's linearized order — genesis first, one successor
     per entry, tip last — carried whole, and `genesis` is `entries[0]`, the
     same object. It is named separately because the evaluator validates the
-    genesis *form* before it looks at anything else (§4.2 step 1) and would
+    genesis *form* before it looks at anything else and would
     otherwise have to re-discriminate the first entry to reach it.
 
     `pending` pairs a transaction id with the registration digest no settlement

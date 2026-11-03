@@ -1,6 +1,6 @@
 """The read surface over a published epoch: opening one, and answering from it.
 
-Specification §8.1 gives a world two ways to name a publication and only two.
+A world has two ways to name a publication and only two.
 `open_epoch` names one **explicitly**, by the packaging identity of the bytes
 it means. `current_epoch` follows the operational pointer and then performs the
 same open — no weaker validation, no different result type, no separate path
@@ -10,7 +10,7 @@ into the carrier.
 or a script can say "the one this world last published" without carrying a
 digest around. It is not a belief input and it is not an identity: an API that
 accepts belief inputs accepts an explicit producer-snapshot identity, never the
-word or the function `current` (§8.1). Nothing in this module is reachable from
+word or the function `current`. Nothing in this module is reachable from
 belief, and the reason is structural rather than a convention — a snapshot is
 retrieved by its own identity from whichever retained epoch carries it.
 
@@ -39,9 +39,9 @@ exclusion they need is per corpus and is taken per corpus. Holding the world
 lock across them would put every registry append and every rule install behind
 one enumeration of every covered corpus, on every coreference edge query.
 
-**Receipt validation is the upper of §8.2's two layers.** The carrier layer
+**Receipt validation is the upper of the two layers.** The carrier layer
 refuses bytes it cannot read; this layer judges whether a receipt that *did*
-read honours §7.5's contract. The two never merge. `validate_receipt` may not
+read honours the contract. The two never merge. `validate_receipt` may not
 recover a contract fault by catching `EpochMalformed` — the prohibition is
 written into `epoch._parse_receipt`'s docstring — and it reads a receipt
 through `_ReceiptCarrier.document`, the deep-frozen whole document from the one
@@ -49,8 +49,8 @@ parse the open already performed, rather than going back to the bytes.
 
 **The order the four outcomes are decided in is the contract, not an
 optimisation.** `malformed` is settled from the document alone, before this
-module has consulted a rules store or looked at a corpus, because §7.5 puts an
-unsound receipt contract ahead of resolvability: a receipt naming no exact
+module has consulted a rules store or looked at a corpus, because an
+unsound receipt contract is decided ahead of resolvability: a receipt naming no exact
 implementation cannot be made resolvable by installing one, so asking
 availability first and overriding the answer later would be reaching the right
 verdict by the wrong route — and the wrong route is observable the moment two
@@ -58,7 +58,7 @@ faults coexist. Only once the contract holds does availability decide
 `unresolvable`; only once availability holds does the rebuild decide between
 `validated` and `refuted`.
 
-**Every answer is bound, and the binding is a shape.** §8.3's `BoundStamp`
+**Every answer is bound, and the binding is a shape.** The `BoundStamp`
 carries the epoch's packaging identity and its complete coverage declaration,
 and every answer type takes one as a required constructor argument, so an
 unstamped answer is unconstructible rather than merely unproduced. The stamp
@@ -67,13 +67,12 @@ nothing here measures what has changed since capture, and nothing here may
 imply that nothing has.
 
 **The result unions are four small frozen dataclasses.** Not a generic result
-framework, and not one type with a discriminant field. §8.3 closes the
-resolution union at three arms and §8.4 closes the edge state at three values;
+framework, and not one type with a discriminant field. The
+resolution union is closed at three arms and the edge state at three values;
 a framework would make both open again, and a caller would have to read a
 runtime tag where a type match says the same thing statically.
 
-**Why this is a module and not more of `epoch.py`.** Specification §3 pins the
-world package's layout, and the two halves it separates are the carrier — what
+**Why this is a module and not more of `epoch.py`.** The two halves are separate: the carrier — what
 an epoch *is*, how it is derived and how it is published — and the reads a
 world performs *through* one.
 """
@@ -128,7 +127,7 @@ __all__ = [
 ]
 
 EDGE_STATES: tuple[str, ...] = ("active", "inactive", "indeterminate")
-"""§8.4's closed edge-state set.
+"""The closed edge-state set.
 
 `indeterminate` is a third answer rather than an error value: inspecting an
 edge is entitled to return it, and only an *expansion* — which has to traverse
@@ -139,13 +138,13 @@ _SUBJECT_MEMBERS: Mapping[str, str] = {
     "producer": "producer-snapshot.yaml",
     "coreference-reduction": "coreference-map.yaml",
 }
-"""The two subjects an epoch publishes as members of their own (§6.1)."""
+"""The two subjects an epoch publishes as members of their own."""
 
 _SUBJECT_KEYS: Mapping[str, str] = {
     "retraction-enumeration": "enumeration",
     "certification-enumeration": "inventory",
 }
-"""The two subjects §7.5 puts *inside* their receipts instead."""
+"""The two subjects the receipt contract puts *inside* their receipts instead."""
 
 _CARRIER_READ_FAULTS = (
     SemanticHashMissing,
@@ -153,7 +152,7 @@ _CARRIER_READ_FAULTS = (
     NodesError,
     OSError,
 )
-"""What reading a present carrier is converted to `ResolutionRefused` for (§8.3).
+"""What reading a present carrier is converted to `ResolutionRefused` for.
 
 Named rather than caught as `Exception`, because the refusal this converts to
 is a *finding* about the carrier — "this world cannot say what it holds" — and
@@ -173,7 +172,7 @@ seen. Three members were added exactly that way, after arms found them
 escaping raw, and left again when `nodes` 2.0's parse floor closed the escape.
 
 What each covers: a governed record with no semantic-identity stamp
-(`SemanticHashMissing`) or a stale one (`SemanticHashStale`) is §8.3's
+(`SemanticHashMissing`) or a stale one (`SemanticHashStale`) is
 corruption, decided on the read path. `NodesError` covers everything the
 `nodes` parse floor refuses — front matter that is not YAML, front matter
 that parses and is not a node, bytes that are not UTF-8 — as well as what the
@@ -184,17 +183,17 @@ path wraps each of those in its own `ValidationError`, where 1.2 let
 """
 
 
-# --- opening one epoch (§8.1) -------------------------------------------------
+# --- opening one epoch -------------------------------------------------
 
 
 def open_epoch(world: registry.World, packaging_identity: str) -> epoch.Epoch:
     """Open the one epoch these publication bytes name.
 
-    The complete §8.1 check: the exact member set, every closed document, and
+    The complete check: the exact member set, every closed document, and
     the recomputed packaging identity. `EpochMalformed` for a carrier that
     fails any of it, `EpochUnknown` for a name this world retains nothing
-    under. A receipt that parses and then violates §7.5's contract is *not* a
-    carrier failure and opens (§8.2).
+    under. A receipt that parses and then violates the contract is *not* a
+    carrier failure and opens.
     """
     with registry._locked_barrier(world) as world_root:
         return epoch._locked_open_epoch(world_root, packaging_identity)
@@ -218,11 +217,11 @@ def current_epoch(world: registry.World) -> epoch.Epoch:
         return epoch._locked_open_epoch(world_root, named)
 
 
-# --- receipt validation (§7.5, §8.2) ------------------------------------------
+# --- receipt validation ------------------------------------------
 
 
 def validate_receipt(world: registry.World, published: epoch.Epoch, kind: derive.ReceiptKind) -> derive.ReceiptOutcome:
-    """§7.5's verdict on one receipt of one opened epoch.
+    """The verdict on one receipt of one opened epoch.
 
     Three phases, and the order between them is the contract.
 
@@ -243,15 +242,15 @@ def validate_receipt(world: registry.World, published: epoch.Epoch, kind: derive
     corpus's own hold. Either failing is ``unresolvable``: nothing was rebuilt,
     so nothing was contradicted. A configured root claiming a manifest this
     world cannot read is ``unresolvable`` too — the named state cannot be
-    reached — rather than an exception, because §8.4 makes an edge whose
-    receipt is anything but ``validated`` ``indeterminate``, and a query that
+    reached — rather than an exception, because an edge whose
+    receipt is anything but ``validated`` is ``indeterminate``, and a query that
     raised instead would have no answer to give.
 
     **The rebuild.** The exact held implementation runs over the corpora as
-    re-read, and the canonical §7.6 projection it produces is compared byte for
+    re-read, and the canonical projection it produces is compared byte for
     byte with the one this epoch published — the member for the two subjects
-    §6.1 stores as members, the receipt's own carried projection for the two
-    §7.5 stores inside receipts — and the subject identity is recomputed over
+    an epoch stores as members, the receipt's own carried projection for the two
+    it stores inside receipts — and the subject identity is recomputed over
     it. Agreement is ``validated``; an omission, a wrong reduction, or a
     subject identity naming something else is ``refuted``.
 
@@ -277,8 +276,8 @@ def _validate_receipt(
     world: registry.World, published: epoch.Epoch, kind: derive.ReceiptKind
 ) -> tuple[derive.ReceiptOutcome, Finding | None]:
     """`validate_receipt`'s verdict, with the finding `_snapshot_standing` returns
-    beside an `unresolvable` outcome when the captured corpora do not merge (cut
-    48 §4.5); `validate_receipt` drops it and `reported_receipt` carries it."""
+    beside an `unresolvable` outcome when the captured corpora do not merge; `validate_receipt` drops it and `reported_receipt`
+    carries it."""
     member = _member_for(kind)
     receipt = published.receipts[member]
     fault = _contract_fault(kind, member, receipt, published)
@@ -369,7 +368,7 @@ def _rebuilt_receipt(
 def _snapshot_standing(
     world: registry.World, receipt: epoch._ReceiptCarrier
 ) -> tuple[derive.ReceiptOutcome, Finding | None] | None:
-    """Slice 2 §7.1: the producer subject's live standing, decided before availability.
+    """The producer subject's live standing, decided before availability.
 
     Every named corpus is captured under its own hold — state, records,
     state again, `CaptureDrift` if they differ, exactly `_standing`'s
@@ -380,7 +379,7 @@ def _snapshot_standing(
     in its own words. `RetractionUnreadable` propagates, as `CaptureDrift`
     does: a raw-written retraction the write boundary would have refused
     leaves no coherent standing to report on. The fold merges the captured
-    corpora and checks the merge itself (cut 48 §4.5): a merge refusal is the
+    corpora and checks the merge itself: a merge refusal is the
     `unresolvable` outcome (this world cannot say what it holds, never
     `retracted`, never an exception) returned with the conflict's own finding —
     `deprecated-key-collision` for the retired-address case.
@@ -436,11 +435,10 @@ def _snapshot_standing(
 def reported_receipt(
     world: registry.World, published: epoch.Epoch, kind: derive.ReceiptKind
 ) -> tuple[derive.ReceiptOutcome, Finding | None]:
-    """`validate_receipt` for a report (slice 2 §7.3): an unreadable standing
+    """`validate_receipt` for a report: an unreadable standing
     chain becomes an `unresolvable` outcome and a `retraction-unreadable`
     finding instead of an exception, so a raw write cannot stop a report; a
-    merge refusal's finding travels beside its `unresolvable` outcome (cut 48
-    §4.5)."""
+    merge refusal's finding travels beside its `unresolvable` outcome."""
     try:
         return _validate_receipt(world, published, kind)
     except RetractionUnreadable as caught:
@@ -461,19 +459,18 @@ _member_for = epoch._member_for
 
 
 def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier, published: epoch.Epoch) -> str | None:
-    """§7.5's receipt contract, checked against carrier and subject bytes, or `None`.
+    """The receipt contract, checked against carrier and subject bytes, or `None`.
 
     This is the sole enforcer of `epoch.RECEIPT_KEYS`. The carrier layer
-    *declares* the closed per-kind key set and deliberately does not police it
-    (§8.2), because a receipt whose keys are wrong is one a reader can still
-    lift a finding out of, and turning it into an unreadable carrier would
-    close the path §8.2 exists to keep open.
+    *declares* the closed per-kind key set and deliberately does not police it, because a receipt whose keys are wrong is one a
+    reader can still lift a finding out of, and turning it into an unreadable carrier would
+    close the path the carrier list exists to keep open.
 
     Every check here concerns receipt, coverage and subject bytes in the carrier;
     none consults availability. They run in the
     order a reader would ask them: is this the declared key set, is every value
     written, is the discriminant the member's, is each identity an identity,
-    are the states the sorted distinct sequence §7.5's formula digests, do their
+    are the states the sorted distinct sequence the formula digests, do their
     coverage and subject identity agree with the carried snapshot, and —
     for the two kinds that carry their subject's projection — does that
     projection digest to the subject the receipt names.
@@ -510,14 +507,14 @@ def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier, publ
                 return f"a corpus state names a {location} that is not a well-formed identity: {caught}"
     covered = [corpus_id for corpus_id, _state in states]
     if covered != sorted(covered):
-        return "corpus_states is not sorted by corpus_id; §7.5's identity formula names sorted pairs"
+        return "corpus_states is not sorted by corpus_id; a receipt's identity is taken over the sorted pairs"
     if len(set(covered)) != len(covered):
         return "corpus_states names one corpus twice"
     declared = sorted(corpus_id for corpus_id, _state in published.coverage)
     if covered != declared:
         return (
             f"corpus_states names {covered}, not the coverage {declared} this epoch declares; a receipt over a "
-            "narrower or wider corpus set is unsound before any corpus is consulted (world §5, well_formed)"
+            "narrower or wider corpus set is unsound before any corpus is consulted"
         )
     subject_member = _SUBJECT_MEMBERS.get(kind)
     if subject_member is not None:
@@ -536,7 +533,7 @@ def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier, publ
     if subject_coverage is not None and subject_coverage != declared:
         return (
             f"the {kind} subject declares coverage {subject_coverage}, not the {declared} this epoch and "
-            "receipt declare; the three declarations must agree before availability (world §5)"
+            "receipt declare; the three declarations must agree before availability"
         )
     key = _SUBJECT_KEYS.get(kind)
     if key is not None:
@@ -596,7 +593,7 @@ def _standing(corpus_id: str, corpus_state: str, carrier: Path) -> derive.Captur
     strict corpus before the hold and would raise on exactly the damaged root.
 
     A string is "this corpus does not stand where the receipt named", which is
-    §7.5's `unresolvable`. Drift inside the hold is `CaptureDrift`, not an
+    `unresolvable`. Drift inside the hold is `CaptureDrift`, not an
     outcome: the mover was a raw filesystem edit and there is no coherent read
     to report on.
     """
@@ -621,7 +618,7 @@ def _claimed_projection(published: epoch.Epoch, kind: str, receipt: epoch._Recei
     """The canonical bytes of the subject projection this epoch published.
 
     Two subjects are epoch members of their own and two live inside their
-    receipts (§6.1, §7.5), so "what this epoch claims the subject is" has two
+    receipts, so "what this epoch claims the subject is" has two
     sources — and both are canonical dumps of the same shape, which is what
     makes one byte-for-byte comparison serve all four kinds.
     """
@@ -651,7 +648,7 @@ def _plain(value: object) -> object:
     return value
 
 
-# --- bound answers (§8.3) -----------------------------------------------------
+# --- bound answers -----------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -660,7 +657,7 @@ class BoundStamp:
 
     Both members, always. The packaging identity alone would name the bytes
     without saying what they observed, and the coverage alone would say what
-    was observed without saying by which publication. §8.3 asks for the epoch
+    was observed without saying by which publication. The stamp carries the epoch
     identity *and* the complete coverage declaration, and the pairs are carried
     whole — `(corpus_id, corpus_state)` — because "over this coverage" is a
     claim about the states the epoch captured, and an id without its state is a
@@ -669,7 +666,7 @@ class BoundStamp:
     There is no third member and there will not be one. A freshness flag, a
     staleness measure or a capture timestamp would each turn the stamp from
     "this is where the answer came from" into a claim about how much the world
-    has moved since, which nothing in §8.3 measures and nothing here may imply.
+    has moved since, which nothing here measures and nothing here may imply.
     """
 
     packaging_identity: str
@@ -689,7 +686,7 @@ class Location:
     """Where a recorded address resolves to: a covered corpus and the `uid`
     the epoch mapped the address to.
 
-    Not a path and not a carrier root. §7.2's address map answers with the
+    Not a path and not a carrier root. The address map answers with the
     stable `corpus_id` and the `uid`, both of which survive the corpus moving
     on disk; a location naming a directory would be an answer that expired
     without saying so.
@@ -698,7 +695,7 @@ class Location:
     corpus_id: str
     uid: str
     holders: tuple[str, ...]
-    """Every present holder of the record, sorted (cut 48 §5.2). `corpus_id`
+    """Every present holder of the record, sorted. `corpus_id`
     is the least of them: a label, since every present holder's copy has the
     same content, never a choice by corpus order."""
 
@@ -724,7 +721,7 @@ class NotPresent:
 
     A statement about this world's configuration, not about the address. A
     retired address is recorded exactly as a live one is, so this — never
-    `Unknown` — is the answer when its corpus is absent (§8.3).
+    `Unknown` — is the answer when its corpus is absent.
     """
 
     stamp: BoundStamp
@@ -742,7 +739,7 @@ class Unknown:
 
 
 def resolve_address(world: registry.World, published: epoch.Epoch, address: str) -> Resolved | NotPresent | Unknown:
-    """§8.3: resolve one address through one publication, bound to it.
+    """Resolve one address through one publication, bound to it.
 
     The epoch's address map decides the first question and the world decides
     the second. An address the map does not record is `Unknown` — the
@@ -758,20 +755,19 @@ def resolve_address(world: registry.World, published: epoch.Epoch, address: str)
     tells a caller the record is safely elsewhere, and here what actually
     happened is that this world cannot say what it holds.
 
-    **Several holders (cut 48 §5.3).** A present carrier that cannot be read
+    **Several holders.** A present carrier that cannot be read
     is skipped when another holder reads and every readable copy's content
     identity equals the one the epoch mapped; otherwise it refuses as before.
     Readable copies that disagree with each other refuse: the holders agreed
     when the epoch was built and no longer do.
 
     An unreadable manifest is a refusal *here* and outcome ``unresolvable`` in
-    `validate_receipt`, and the asymmetry is the two sections talking about two
-    different things. §8.3 closes this act's answer set at three arms and names
-    the malformed manifest as one of the refusals, so there is no arm for it to
-    become. §8.4 says an edge whose receipt is anything but ``validated`` is
+    `validate_receipt`, and the asymmetry is the two acts answering two
+    different questions. This act's answer set is closed at three arms and the
+    malformed manifest is one of the refusals, so there is no arm for it to
+    become. An edge whose receipt is anything but ``validated`` is
     ``indeterminate``, which is an answer rather than a refusal — a query that
-    raised instead would leave the caller with nothing where the specification
-    promises a state.
+    raised instead would leave the caller with nothing where a state is promised.
     """
     stamp = _stamp(published)
     recorded = _address_map(published)
@@ -837,7 +833,7 @@ def _stamp(published: epoch.Epoch) -> BoundStamp:
 
 
 def _address_map(published: epoch.Epoch) -> Mapping[str, derive.AddressEntry]:
-    """§7.2's published map as `address -> AddressEntry`.
+    """The published map as `address -> AddressEntry`.
 
     Every entry, live and retired alike: `derive.address_map` puts each
     `deprecated_ids` member in beside its record's live address, which is what
@@ -859,7 +855,7 @@ def _address_map(published: epoch.Epoch) -> Mapping[str, derive.AddressEntry]:
     return mapping
 
 
-# --- coreference edges (§8.4) -------------------------------------------------
+# --- coreference edges -------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -888,7 +884,7 @@ class EdgeAnswer:
 
 
 def coreference_edge(world: registry.World, published: epoch.Epoch, left: str, right: str) -> EdgeAnswer:
-    """§8.4: one endpoint pair's state, read through one publication.
+    """One endpoint pair's state, read through one publication.
 
     Two conditions, both required. The coreference receipt must have
     ``validated`` — the reduction has to be one this world can still stand
@@ -952,7 +948,7 @@ def expand_coreference(world: registry.World, published: epoch.Epoch, endpoint: 
 def _edge_context(
     world: registry.World, published: epoch.Epoch
 ) -> tuple[BoundStamp, tuple[str, ...], derive.ReceiptOutcome]:
-    """The two questions §8.4 asks of the world, and the stamp both answers
+    """The two questions an edge asks of the world, and the stamp both answers
     carry.
 
     The span is `registry._live_corpus_ids` — the registry's reduction, not the
@@ -987,10 +983,10 @@ def _indeterminate_message(published: epoch.Epoch, missing: tuple[str, ...], out
 
 
 def _reduced_pairs(published: epoch.Epoch) -> Mapping[tuple[str, str], int]:
-    """§7.6's published reduction as `(left, right) -> balance`.
+    """The published reduction as `(left, right) -> balance`.
 
-    The distinct-key count is deliberately dropped here: §8.4 derives the edge
-    state from the balance, and a reader handed both would have to be told
+    The distinct-key count is deliberately dropped here: the edge
+    state derives from the balance, and a reader handed both would have to be told
     which of them decides.
     """
     pairs = cast(tuple[Mapping[str, object], ...], published.documents["coreference-map.yaml"]["pairs"])
@@ -1002,7 +998,7 @@ def _reduced_pairs(published: epoch.Epoch) -> Mapping[tuple[str, str], int]:
 
 
 def _endpoint_pair(left: str, right: str) -> tuple[str, str]:
-    """The pair as §7.6 stores it: two distinct endpoints, sorted.
+    """The pair as the epoch stores it: two distinct endpoints, sorted.
 
     Sorted here so `(a, b)` and `(b, a)` are one question, and refused when
     they are the same endpoint — a self-pair is a claim with no content, and

@@ -1,6 +1,6 @@
 """Pure derivation: one captured view, four subjects, and one receipt contract.
 
-Specification §7.1 splits an epoch build in two. **Capture** enumerates each
+An epoch build splits in two. **Capture** enumerates each
 covered corpus exactly once, under that corpus's operation lock, and produces
 an immutable captured view. **Derivation** — everything in this module — reads
 that view and nothing else. It cannot inspect a corpus root, a registry, a
@@ -11,7 +11,7 @@ could quietly consult a live corpus would make the states it names a partial
 account of what it read.
 
 **One captured-record model** (`Capture`, `CapturedCorpus`, `CapturedRecord`).
-Not four. §7.1 says the pass produces a view *sufficient for all four
+Not four. The capture pass produces a view *sufficient for all four
 derivations*, so the four reducers read one projection of one model rather than
 four bespoke pre-flattened inputs. A record carries the members every
 derivation shares — its address, its `uid`, its declared kind, its
@@ -21,13 +21,13 @@ certification, or a captured coreference attestation. A record's facet slots
 are `None` where the record has nothing to say, never absent, so a reducer
 reads a total shape and no reducer needs a default.
 
-**Where each derivation lives, and why they are not all rules.** §5.2's build
+**Where each derivation lives, and why they are not all rules.** The build
 input names one exact `(rule_identity, implementation_identity)` pair for each
-of *four* derivations, and §7.5 mints one receipt for each: the producer
+of *four* derivations, and the epoch mints one receipt for each: the producer
 snapshot, the retraction enumeration, the certification inventory and the
 coreference map. Those four are fixture-bound rules, held in the rules store,
 and this module only parses what they return and computes the pinned identity
-of it. The address map (§7.2) and the retraction-discovery map (§7.4) are the
+of it. The address map and the retraction-discovery map are the
 epoch's other two derived maps; neither is a receipt subject, so neither is a
 rule, and both are plain folds over the same captured view here. Each fold
 reads the captured records — never a corpus — so "one enumeration pass" is
@@ -35,26 +35,26 @@ preserved: what is not repeated is the *enumeration*, not the arithmetic.
 
 **Parsing a rule's return is not ceremony.** A rule is admitted content, and
 `science.identity.v1` would happily digest a return of the wrong shape into a
-perfectly stable identity for a projection §7.6 does not describe. So each
+perfectly stable identity for a projection the epoch format does not describe. So each
 subject value parses the return — closed key set, sorted, distinct, typed —
-and re-emits §7.6's projection itself. `RuleNonconformant` is the refusal, the
+and re-emits the projection itself. `RuleNonconformant` is the refusal, the
 same name the store uses when an implementation fails its fixtures, because it
 is the same fault found one moment later.
 
-**Reading these projections beside §7.6.** The specification writes each
+**Reading these projections.** The epoch format writes each
 projection with an explicit `list(sorted(...))`; `sorted` already returns a
 list, so the code below writes `sorted(...)` and the encoded bytes are the
 same. Nothing else about the four projections differs from the text.
 
 **Identity domains, pinned here.** `science.producer-snapshot.v1`,
 `science.retraction-enumeration.v1`, `science.certification-inventory.v1` and
-`science.coreference-map.v1` are §7.6's four, minted by that amendment. The
+`science.coreference-map.v1` are the four, minted with the world epoch. The
 receipt domain is `epoch.RECEIPT_DOMAIN`, and a receipt digests the *subject
 projection identity* — never the subject bytes a second time.
 
 **One belief input.** The producer snapshot identity is the only member of an
-epoch that reaches belief (§7.3). The coreference map is outside belief by the
-world-address ruling §5.3, so its receipt carries no semantic identity — and
+epoch that reaches belief. The coreference map is outside belief by
+design, so its receipt carries no semantic identity — and
 because the four receipts share one contract, the absence has to be a property
 of the receipt's field set rather than a rule about one kind. `DerivationReceipt`
 therefore has nowhere to put a semantic identity or a belief member at all;
@@ -119,29 +119,29 @@ CERTIFICATION_INVENTORY_DOMAIN = "science.certification-inventory.v1"
 COREFERENCE_MAP_DOMAIN = "science.coreference-map.v1"
 
 RECEIPT_OUTCOMES: tuple[str, ...] = ("validated", "refuted", "unresolvable", "malformed", "retracted")
-"""§7.5's closed outcome set, in the order the specification writes it.
+"""The closed outcome set, in the order the receipt contract lists it.
 
-Declared here because the outcomes are values of this slice's derivation
-contract; deciding one is Task 10's receipt validator, which reads this set.
-`retracted` (slice 2 decision 4) is the producer receipt's only, decided
+Declared here because the outcomes are values of this module's derivation
+contract; deciding one is the receipt validator, which reads this set.
+`retracted` is the producer receipt's only, decided
 before availability.
 """
 
 BELIEF_INPUT_KIND = "producer"
-"""The one receipt kind whose subject identity is a belief input (§7.3)."""
+"""The one receipt kind whose subject identity is a belief input."""
 
 ReceiptKind = Literal["producer", "retraction-enumeration", "certification-enumeration", "coreference-reduction"]
-"""§7.5's four kinds, as a type. The *values* live in `epoch.RECEIPT_KINDS`,
-which is where the join to §6.1's member names is; this exists so a signature
+"""The four kinds, as a type. The *values* live in `epoch.RECEIPT_KINDS`,
+which is where the join to the member names is; this exists so a signature
 naming a kind says which four it means."""
 
 
 @dataclass(frozen=True)
 class ReceiptOutcome:
-    """One receipt's validation verdict, and why (§7.5).
+    """One receipt's validation verdict, and why.
 
     Three members and no more. `outcome` is the whole answer — the closed set
-    §7.5 fixes — and `kind` says which receipt it is the answer for, because a
+    the receipt contract fixes — and `kind` says which receipt it is the answer for, because a
     verdict travelling without its subject is a verdict a caller has to
     remember the provenance of. `detail` is the finding in words: which key was
     outside the closed set, which corpus no longer stands where it stood, which
@@ -192,7 +192,7 @@ class CapturedRetraction:
     resolution: str
     arm: str
     """The target arm the facet declares: `node`, `route` or `snapshot`. Read by
-    the v2 rule input (cut 48 §4.5); not a member of `projection()`, so the v1
+    the v2 rule input; not a member of `projection()`, so the v1
     input, every v1 fixture and every v1 identity stay as they are."""
 
     def __post_init__(self) -> None:
@@ -206,7 +206,7 @@ class CapturedRetraction:
 class CapturedCertification:
     """One captured certification: its kind and its ref, and nothing else.
 
-    Location-free and resolution-free by construction (§7.6). The corpus the
+    Location-free and resolution-free by construction. The corpus the
     record was found in lives on `CapturedCorpus`, and whether the ref resolves
     is a property of the world reading the epoch — so neither is here to be
     accidentally carried into the inventory.
@@ -222,8 +222,7 @@ class CapturedCertification:
 
 @dataclass(frozen=True)
 class CapturedCoreference:
-    """One captured coreference attestation, as the world-address ruling §5.1
-    defines it.
+    """One captured coreference attestation.
 
     The endpoints are held **as captured**, not canonicalized here: sorting them
     is part of the reduction the coreference rule performs and is checkable in
@@ -279,7 +278,7 @@ class CapturedRecord:
     content: str = field(kw_only=True)
     """The record's content identity (`registry.content_identity`), read by the
     address map alone: two holders of one address are one record iff these are
-    equal (cut 48 §4.1). Not a member of `projection()`, so no rule input and
+    equal. Not a member of `projection()`, so no rule input and
     no receipt subject moves."""
 
     def __post_init__(self) -> None:
@@ -355,7 +354,7 @@ class Capture:
     """Every covered corpus's capture, and nothing else.
 
     The declared coverage is not a separate field: it is exactly the set of
-    `corpus_id` values captured, because §7.1 admits no third state where a
+    `corpus_id` values captured, because capture admits no third state where a
     corpus is covered and not captured or captured and not covered. Coverage
     checking — admitted, live, singly resolvable — happens in preflight, before
     a capture exists.
@@ -382,7 +381,7 @@ class Capture:
     @property
     def corpus_states(self) -> tuple[tuple[str, str], ...]:
         """The sorted `(corpus_id, corpus_state_identity)` pairs every receipt
-        of this epoch carries — identically, by §7.5."""
+        of this epoch carries — identically."""
         return tuple(sorted((captured.corpus_id, captured.corpus_state) for captured in self.corpora))
 
     def located_records(self) -> tuple[tuple[str, CapturedRecord], ...]:
@@ -399,8 +398,8 @@ class Capture:
 
     def rule_input(self, version: str | None = None) -> dict[str, object]:
         """The one projection value the reducers receive, in the version the
-        held rule declares (cut 48 §4.5): `None` is the v1 input every rule held
-        before cut 48 reads, byte-identical to what it was;
+        held rule declares: `None` is the v1 input every rule held
+        before the rule-input version existed, byte-identical to what it was;
         `science.rule-input.v2` adds each retraction member's `arm`.
 
         Records are ordered by `(corpus_id, address)` so that a rule which
@@ -427,10 +426,10 @@ class Capture:
 
 @dataclass(frozen=True)
 class AddressEntry:
-    """One address's record and the corpora holding it (cut 48 §4.2).
+    """One address's record and the corpora holding it.
 
     `holders` is sorted and non-empty. `content` is the record's content
-    identity, or `None` for an entry read back from a legacy epoch (§4.3),
+    identity, or `None` for an entry read back from a legacy epoch,
     which named one holder and no content: such an entry makes no claim a
     later reader can check a copy against.
     """
@@ -450,17 +449,17 @@ class AddressEntry:
 
 
 def address_map(capture: Capture) -> Mapping[str, AddressEntry]:
-    """§7.2's address map: every live address **and** every `deprecated_ids`
+    """The address map: every live address **and** every `deprecated_ids`
     entry, each mapped to the record and the corpora holding it.
 
     A retired address is a publication member rather than a corpus-local
     redirect, so its answer survives its corpus being absent — that is the
     whole reason the deprecated entries are here and not left in the corpus.
 
-    W8b distinguishes uid corruption from duplicate location. Check canonical
+    A uid held at two locations is distinguished as uid corruption from duplicate location. Check canonical
     claims before redirects, and corruption before offering consolidation:
     a shared uid at two locations may also name a third, different address.
-    Neither violation is resolved by precedence. From cut 48 the map is
+    Neither violation is resolved by precedence. The map is
     multi-holder: claims on one address with equal content identity are one
     record held in several corpora, and only differing content is
     `duplicate-location`. Deprecated addresses of one record remain
@@ -509,13 +508,13 @@ def address_map(capture: Capture) -> Mapping[str, AddressEntry]:
             if held != entry:
                 raise ResolutionRefused(
                     f"{address!r} is claimed by {(held.holders, held.uid)} and by {(corpus_id, record.uid)}; "
-                    "a retired address answers for one record (world §4.3)"
+                    "a retired address answers for one record"
                 )
     return MappingProxyType(mapping)
 
 
 def address_map_projection(mapping: Mapping[str, AddressEntry]) -> dict[str, object]:
-    """The `address-map.yaml` member's projection, sorted by address (cut 48 §4.3)."""
+    """The `address-map.yaml` member's projection, sorted by address."""
     return {
         "addresses": [
             {"address": address, "content": entry.content, "holders": list(entry.holders), "uid": entry.uid}
@@ -525,7 +524,7 @@ def address_map_projection(mapping: Mapping[str, AddressEntry]) -> dict[str, obj
 
 
 def retraction_discovery_map(capture: Capture) -> Mapping[str, tuple[str, ...]]:
-    """§7.4's retraction-discovery map: target identity → sorted retraction
+    """The retraction-discovery map: target identity → sorted retraction
     addresses.
 
     Several retractions may name one target — event tokens keep genuinely
@@ -552,7 +551,7 @@ def retraction_discovery_map_projection(mapping: Mapping[str, tuple[str, ...]]) 
 
 @dataclass(frozen=True)
 class ProducerSnapshot:
-    """§7.3's producer snapshot: the producers map and the declared coverage.
+    """The producer snapshot: the producers map and the declared coverage.
 
     Coverage is stable `corpus_id` values, **not** captured states. That split
     is what makes this identity semantic: moving an unchanged entity between
@@ -581,7 +580,7 @@ class ProducerSnapshot:
 def producers_map_projection(producers: Mapping[str, tuple[str, ...]]) -> dict[str, object]:
     """The `producers-map.yaml` member: the map alone.
 
-    §6.1 stores the map and the snapshot as two members, and only the snapshot
+    An epoch stores the map and the snapshot as two members, and only the snapshot
     declares what it was built over — a map carrying its own coverage would be
     a second, unreceipted place for the declaration to live.
     """
@@ -589,7 +588,7 @@ def producers_map_projection(producers: Mapping[str, tuple[str, ...]]) -> dict[s
 
 
 def producer_snapshot(produced: object) -> ProducerSnapshot:
-    """The producer rule's return, parsed as §7.6's producer snapshot."""
+    """The producer rule's return, parsed as the producer snapshot."""
     document = _closed(produced, ("coverage", "producers"), "a producer snapshot")
     producers: dict[str, tuple[str, ...]] = {}
     datasets: list[str] = []
@@ -603,11 +602,11 @@ def producer_snapshot(produced: object) -> ProducerSnapshot:
 
 
 def retraction_enumeration(produced: object) -> RetractionEnumeration:
-    """The retraction rule's return, parsed as §7.6's retraction enumeration.
+    """The retraction rule's return, parsed as the retraction enumeration.
 
     The value is `beliefs.closure.RetractionEnumeration` — the belief closure's
-    own member — rather than a second type of the same shape. Correction
-    lifecycle §6 puts *this* enumeration in the closure, so an epoch that
+    own member — rather than a second type of the same shape. The correction
+    lifecycle puts *this* enumeration in the closure, so an epoch that
     published one shape while belief digested another would be two readings of
     one contract.
     """
@@ -624,7 +623,7 @@ def retraction_enumeration(produced: object) -> RetractionEnumeration:
 
 
 def retraction_enumeration_projection(enumeration: RetractionEnumeration) -> dict[str, object]:
-    """§7.6's retraction enumeration projection."""
+    """The retraction enumeration projection."""
     return {
         "found": [list(pair) for pair in sorted(enumeration.found)],
         "coverage": sorted(enumeration.coverage),
@@ -638,7 +637,7 @@ def retraction_enumeration_identity(enumeration: RetractionEnumeration) -> str:
 
 @dataclass(frozen=True)
 class CertificationInventory:
-    """§7.6's certification inventory: sorted refs under each kind, and the
+    """The certification inventory: sorted refs under each kind, and the
     coverage. Location-free and resolution-free — the projection has nowhere to
     put a corpus or a resolution, which is stronger than declining to fill one
     in."""
@@ -660,7 +659,7 @@ class CertificationInventory:
 
 
 def certification_inventory(produced: object) -> CertificationInventory:
-    """The certification rule's return, parsed as §7.6's inventory."""
+    """The certification rule's return, parsed as the inventory."""
     document = _closed(produced, ("by_kind", "coverage"), "a certification inventory")
     by_kind: dict[str, tuple[str, ...]] = {}
     kinds: list[str] = []
@@ -675,7 +674,7 @@ def certification_inventory(produced: object) -> CertificationInventory:
 
 @dataclass(frozen=True)
 class CoreferenceMap:
-    """§7.6's coreference map: sorted endpoint pair → `(balance, distinct-key
+    """The coreference map: sorted endpoint pair → `(balance, distinct-key
     count)`.
 
     The reduced values only. `active`, `inactive` and `indeterminate` are
@@ -694,8 +693,7 @@ class CoreferenceMap:
         `coreference_map` refuses the same three faults as `RuleNonconformant`,
         because there they are a statement about what an implementation
         returned. Here they are a statement about what a coreference map *is*:
-        §7.6 stores every pair with `left < right`, and the world-address
-        ruling §5.2's unit weights make `abs(balance) <= count` arithmetic
+        An epoch stores every pair with `left < right`, and the unit weights make `abs(balance) <= count` arithmetic
         rather than convention. Without this, a value constructed directly with
         `("b", "a")` would project unordered endpoints straight into a digest —
         a second, wrong identity for a reduction the rule got right.
@@ -734,7 +732,7 @@ class CoreferenceMap:
 
 
 def coreference_map(produced: object) -> CoreferenceMap:
-    """The coreference rule's return, parsed as §7.6's coreference map."""
+    """The coreference rule's return, parsed as the coreference map."""
     document = _closed(produced, ("pairs",), "a coreference map")
     pairs: dict[tuple[str, str], tuple[int, int]] = {}
     endpoints: list[tuple[str, str]] = []
@@ -766,10 +764,10 @@ SUBJECT_DOMAINS: Mapping[str, str] = MappingProxyType(
         "coreference-reduction": COREFERENCE_MAP_DOMAIN,
     }
 )
-"""Each receipt kind's subject-identity domain (§7.6).
+"""Each receipt kind's subject-identity domain.
 
 The four domains are declared individually above because each belongs to its
-own subject; this is the join to §7.5's kind vocabulary, and it exists so that
+own subject; this is the join to the kind vocabulary, and it exists so that
 a validator rebuilding "the subject this kind names" reads one table instead of
 branching four times.
 """
@@ -789,7 +787,7 @@ def subject_projection(kind: str, produced: object) -> dict[str, object]:
 
     The receipt validator rebuilds a subject by running the exact named
     implementation and comparing what came back with what the epoch published.
-    That comparison is over the §7.6 *projection* — the canonical value the
+    That comparison is over the *projection* — the canonical value the
     subject identity digests — so the parse and the projection have to be one
     step, taken the same way here as at build time. `RuleNonconformant` for a
     return that is not this kind's subject at all.
@@ -801,7 +799,7 @@ def subject_projection(kind: str, produced: object) -> dict[str, object]:
 
 
 def subject_identity(kind: str, projection: Mapping[str, object]) -> str:
-    """The §7.6 identity of one subject projection, under its kind's domain.
+    """The identity of one subject projection, under its kind's domain.
 
     Taken over the projection rather than over the parsed value, so that a
     projection lifted back out of a published member digests to exactly what
@@ -823,15 +821,15 @@ def _require_kind(kind: str) -> str:
 
 @dataclass(frozen=True)
 class DerivationReceipt:
-    """§7.5's receipt: one contract, four kinds, one domain.
+    """The receipt: one contract, four kinds, one domain.
 
     The five identity members are what the identity digests. The two
     projection-bearing members are the enumeration the retraction receipt
-    carries and the inventory the certification receipt carries — §7.5 puts
+    carries and the inventory the certification receipt carries — the receipt contract puts
     each *inside* its receipt rather than beside it as another epoch member.
 
     There is no semantic-identity member and no belief member, for any kind.
-    The coreference receipt must carry neither (world-address ruling §5.3), and
+    The coreference receipt must carry neither, and
     one contract across four kinds means the only honest way to guarantee that
     is a shape with nowhere to put one. What a receipt carries is the *subject*
     identity; whether that subject is a belief input is `BELIEF_INPUT_KIND`'s
@@ -860,7 +858,7 @@ class DerivationReceipt:
             _require_text(pair[0], "corpus_id")
             _require_lower_hex(pair[1], 64, "corpus_state")
         if list(self.corpus_states) != sorted(self.corpus_states):
-            raise ValueError("corpus_states is sorted; §7.5's identity formula names sorted pairs")
+            raise ValueError("corpus_states must be sorted: a receipt's identity is taken over the sorted pairs")
         if len({corpus_id for corpus_id, _state in self.corpus_states}) != len(self.corpus_states):
             raise ValueError("corpus_states names one corpus twice")
         self._require_projection(self.enumeration, "enumeration", "retraction-enumeration")
@@ -876,11 +874,11 @@ class DerivationReceipt:
 
     @property
     def member(self) -> str:
-        """The §6.1 epoch member this receipt is written to."""
+        """The epoch member this receipt is written to."""
         return _MEMBERS[self.kind]
 
     def identity(self) -> str:
-        """§7.5's receipt identity, over the five members that fix what ran."""
+        """The receipt identity, over the five members that fix what ran."""
         return epoch.receipt_identity(
             self.kind,
             self.subject_identity,
@@ -903,9 +901,9 @@ def derivation_receipts(
     corpus_states: Sequence[tuple[str, str]],
     bindings: Mapping[str, tuple[str, str]],
 ) -> tuple[DerivationReceipt, ...]:
-    """The four receipts of one epoch, in §6.1's member order.
+    """The four receipts of one epoch, in the member order.
 
-    One `corpus_states` argument for all four, because §7.5 requires that all
+    One `corpus_states` argument for all four, because the receipt contract requires that all
     four carry identical per-corpus states within one epoch. Passing it once is
     how that stops being a convention a publisher has to remember.
 
@@ -915,11 +913,11 @@ def derivation_receipts(
     epoch.
 
     The three subjects that declare a coverage must declare *this* epoch's, and
-    the states must name exactly the corpora they cover. §7.5 says a receipt
+    the states must name exactly the corpora they cover. The contract says a receipt
     carries "the exact captured corpus-state identity for every covered
     corpus", so a snapshot declaring one coverage beside states naming another
     is a receipt whose two halves describe two builds. The check costs nothing
-    and Task 9 derives both from one `Capture`; it exists so that the invariant
+    and the publisher derives both from one `Capture`; it exists so that the invariant
     is the type's rather than the publisher's to remember.
     """
     if set(bindings) != _KINDS:
@@ -962,10 +960,10 @@ def derivation_receipts(
 
 def belief_input_identity(receipts: Sequence[DerivationReceipt]) -> str:
     """The one belief input an epoch contributes: its producer snapshot
-    identity (§7.3).
+    identity.
 
     A receipt set without exactly one producer receipt has no answer, and
-    inventing one would be exactly the fold §7.5 forbids — packaging, receipt
+    inventing one would be exactly the fold the receipt contract forbids — packaging, receipt
     and corpus-state identities are not belief.
     """
     producers = [receipt for receipt in receipts if receipt.kind == BELIEF_INPUT_KIND]
@@ -1017,7 +1015,7 @@ def _require_distinct_text(values: object, location: str) -> tuple[str, ...]:
 
 
 def _require_ordered(values: Sequence[str] | Sequence[tuple[str, str]], location: str) -> None:
-    """§7.6's projections are sorted, so a rule that returned them unsorted
+    """The projections are sorted, so a rule that returned them unsorted
     returned a different projection — and a different identity for the same
     derivation. Sorting the return here instead would hide that."""
     if list(values) != sorted(values):

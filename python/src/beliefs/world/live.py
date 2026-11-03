@@ -1,6 +1,5 @@
 """Live view-query evaluation for attention reads.
 
-Live-query design (`docs/designs/2026-09-24-live-query-evaluation-design.md`).
 `evaluate_live_query` denotes a `ViewQuery` over every corpus the world admits
 with no terminal status, each captured inside its own operation-lock hold, and
 returns a `LiveSelection` stamped with the states it captured. It reads no
@@ -48,7 +47,7 @@ LIVE_SELECTION_VERSION = "science.live-selection.v1"
 @dataclass(frozen=True)
 class CaptureStamp:
     """What a live answer is bound to: one world and the per-corpus states its
-    capture read (decision 2). There is no packaging identity and there will
+    capture read. There is no packaging identity and there will
     not be one: a live selection names bytes it read, never a publication."""
 
     world_id: str
@@ -69,7 +68,7 @@ class CaptureStamp:
 @final
 @dataclass(frozen=True)
 class LiveSelection:
-    """What a query denotes over one live capture (§3). It is not a
+    """What a query denotes over one live capture. It is not a
     `Selection`, so nothing typed for an epoch-bound answer accepts it."""
 
     stamp: CaptureStamp
@@ -103,10 +102,10 @@ class LiveSelection:
 
 @final
 class _LiveCapture:
-    """The capture `_denoted` reads on the live path (decision 9): publish's
+    """The capture `_denoted` reads on the live path: publish's
     address map over the captured world records, those records by corpus and
     uid, and the inbound edges between them. It records no absent corpus's
-    addresses (decision 4), so it never answers `not-present`."""
+    addresses, so it never answers `not-present`."""
 
     def __init__(
         self,
@@ -175,7 +174,7 @@ class _LiveCapture:
 
 
 def evaluate_live_query(world: registry.World, query: ViewQuery) -> LiveSelection:
-    """Denote `query` over every admitted corpus's current state (§3), or refuse."""
+    """Denote `query` over every admitted corpus's current state, or refuse."""
     if type(world) is not registry.World:
         raise TypeError(f"evaluate_live_query takes a registry.World, not {type(world).__name__}")
     if not isinstance(query, ViewQuery):
@@ -202,7 +201,7 @@ def evaluate_live_query(world: registry.World, query: ViewQuery) -> LiveSelectio
 
 
 def _coverage(world: registry.World) -> tuple[dict[str, Path], tuple[str, ...]]:
-    """Decision 3: the registry's live admitted set, read under the world
+    """The registry's live admitted set, read under the world
     barrier and released before any capture, each corpus present or absent as
     `open_world_view` resolves it. No epoch is read."""
     carriers: dict[str, Path] = {}
@@ -231,7 +230,7 @@ def _coverage(world: registry.World) -> tuple[dict[str, Path], tuple[str, ...]]:
 
 
 def _capture(carriers: Mapping[str, Path]) -> tuple[dict[str, tuple[Node, ...]], dict[str, str], list[str]]:
-    """Decisions 5 and 8: one hold per present corpus, serial, in sorted
+    """One hold per present corpus, serial, in sorted
     order. Both state reads and the one enumeration happen inside the hold; a
     moved state discards the whole evaluation, and damage is collected so the
     refusal names every damaged corpus."""
@@ -266,7 +265,7 @@ def _capture(carriers: Mapping[str, Path]) -> tuple[dict[str, tuple[Node, ...]],
 def _address_map(
     captured: Mapping[str, tuple[Node, ...]], states: Mapping[str, str]
 ) -> Mapping[str, derive.AddressEntry]:
-    """Decisions 6 and 7: publish's own `derive.address_map` over the captured
+    """Publish's own `derive.address_map` over the captured
     world-kind records, so its `AddressMapConflict` — `uid-corruption` before
     `duplicate-location` — reaches the caller unchanged."""
     located = [
@@ -300,7 +299,7 @@ def _address_map(
 
 
 def _require_unmapped_uids_unique(captured: Mapping[str, tuple[Node, ...]]) -> None:
-    """Decision 7's scoped W8b check, run only after the map succeeded: a uid
+    """The scoped uid-uniqueness check, run only after the map succeeded: a uid
     held in two corpora where a holder is a record the map excludes."""
     holders: dict[str, list[tuple[str, Node]]] = {}
     for corpus_id in sorted(captured):
@@ -311,7 +310,7 @@ def _require_unmapped_uids_unique(captured: Mapping[str, tuple[Node, ...]]) -> N
         if len(corpora) > 1 and any(node.kind not in stored.WORLD_KINDS for _, node in holders[uid]):
             raise ResolutionRefused(
                 f"uid {uid!r} is held by both {corpora[0]} and {corpora[1]}; world uid uniqueness is enforced "
-                "and its violation is corruption, not a record with two homes (W8b, the view's half)"
+                "and its violation is corruption, not a record with two homes"
             )
 
 
