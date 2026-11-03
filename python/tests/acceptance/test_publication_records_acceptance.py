@@ -1,8 +1,8 @@
 """Publication records.
 Thirteen groups of tests over real roots on the certified volume.
 
-Each test names one behaviour; the sabotage checks patch the
-source each one reads, and a second reader checks the obligations the
+Each test names one behaviour; some patch the source each one
+reads, and a second reader checks the obligations the
 docstrings name. Tests may import `atoms` (one test patches the engine's
 create-file effect); only source modules may not."""
 
