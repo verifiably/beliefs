@@ -4,7 +4,7 @@
  *
  * One class has no Python counterpart and is the more important one:
  * `UncheckableContract`. `ts/` implements the **shared-encoding path** and not a
- * second system (D §9, formal model limitation 9), so there are contract
+ * second system, so there are contract
  * features it cannot validate — succession, and retirement's authoring
  * semantics. It **refuses** those inputs rather than parsing past them. A
  * reduced parser that quietly accepted what the other implementation refuses

@@ -1,9 +1,9 @@
 /**
  * What this implementation refuses to read, and why refusing is the point.
  *
- * `ts/` carries the shared-encoding path (D §9), so there are contract features
+ * `ts/` carries the shared-encoding path, so there are contract features
  * it cannot validate: succession needs a declared predecessor and a two-contract
- * diff (§8.3), and retirement is an authoring-boundary rule (§7.3a) this side
+ * diff, and retirement is an authoring-boundary rule this side
  * has no authoring boundary to enforce.
  *
  * The failure mode this file exists to prevent is **quiet divergence**. A
@@ -121,7 +121,7 @@ describe("the rules this implementation does not carry are refused, not skipped"
 
 describe("the structural refusals both implementations share", () => {
   it("refuses an unknown field rather than ignoring it", () => {
-    // D5: refused at load, never ignored — otherwise the reader and the loader
+    // Refused at load, never ignored — otherwise the reader and the loader
     // disagree about what the document says.
     expect(() => parseBaseContract(`${BASE}surprise: true\n`, "<base>")).toThrow(MalformedContract);
     expect(() => parseDomainContract(`${DOMAIN}surprise: true\n`, "<domain>", base)).toThrow(MalformedContract);
@@ -133,7 +133,7 @@ describe("the structural refusals both implementations share", () => {
   });
 
   it("refuses a sign-inapt tag that is also an assertable polarity", () => {
-    // §7.5: `inapt` and `unsigned` are different facts.
+    // `inapt` and `unsigned` are different facts.
     const collided = BASE.replace("sign_inapt_tag: inapt", "sign_inapt_tag: unsigned");
     expect(() => parseBaseContract(collided, "<base>")).toThrow(/assertable polarity/);
   });
@@ -154,7 +154,7 @@ describe("the structural refusals both implementations share", () => {
   });
 });
 
-describe("a cross-contract sort reference (biology pack design §4)", () => {
+describe("a cross-contract sort reference", () => {
   const crossing = `
 contract: crossing
 version: 1
@@ -204,7 +204,7 @@ operators:
   });
 });
 
-describe("an estimand declaration (estimand-typing design §5.1)", () => {
+describe("an estimand declaration", () => {
   it("reads a declaration keyed by a declared operator", () => {
     const contract = parseDomainContract(WITH_ESTIMAND, "<domain>", base);
     expect(Object.keys(contract.estimands)).toEqual(["subtype-of"]);

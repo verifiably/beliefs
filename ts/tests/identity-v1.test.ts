@@ -6,7 +6,7 @@
  * the fixture pins the value contract only over the shapes `π_claim` uses —
  * strings, arrays and string-keyed objects — so integers, decimals, escapes and
  * the astral key-ordering rule are covered here and **nowhere across the two
- * languages**. A values-level parity fixture is owed and is not in cut 1.
+ * languages**. A values-level parity fixture is owed.
  */
 
 import { describe, expect, it } from "vitest";

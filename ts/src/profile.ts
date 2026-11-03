@@ -2,10 +2,10 @@
  * The compiled runtime profile, in the reduced form the shared-encoding path
  * needs: **resolution**, and the declarations a claim is typed against.
  *
- * `ProfileSpec` resolves; contracts authorize (§7.5). This side does the
+ * `ProfileSpec` resolves; contracts authorize. This side does the
  * resolving — local names become term identifiers, because a claim's projection
  * carries term identifiers and a local name is not one — and nothing else. In
- * particular there is **no `compiled_identity` here**: §8 sites claim-schema
+ * particular there is **no `compiled_identity` here**: claim-schema
  * compilation as Python-only, on the ground that compilation is not a shared
  * encoding and no parity obligation reaches it. Computing one here would be a
  * second implementation of something no row requires, and two implementations of
@@ -113,7 +113,7 @@ export class ProfileSpec {
     }
     if (token !== MINT) {
       throw new ProfileError(
-        "ProfileSpec is compiled, never authored — use compileProfile(base, domains). D §6 retired the " +
+        "ProfileSpec is compiled, never authored — use compileProfile(base, domains). The contracts retired the " +
           "second per-kind source of truth; an authored profile would reintroduce it through the constructor.",
       );
     }
@@ -175,7 +175,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     if (!DomainContract.is(contract)) {
       throw new UnparsedContract(
         "a domain contract was not parsed from its document — use parseDomainContract(text, source, base). " +
-          "Operators are domain-issued (§7.1), and an authored contract issues them on no authority.",
+          "Operators are domain-issued, and an authored contract issues them on no authority.",
       );
     }
     if (contract.base !== base) {
@@ -185,12 +185,12 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       // afterwards — so compiling it here would put a claim on a layer the base
       // in force does not declare, with nothing forged anywhere.
       throw new ContractMismatch(
-        `domain contract ${JSON.stringify(contract.namespace)} was parsed against a different base contract than the one being compiled with. A domain selects its layers from the base vocabulary and may not extend it (§7.1); that check ran against another document, so nothing here can stand behind it.`,
+        `domain contract ${JSON.stringify(contract.namespace)} was parsed against a different base contract than the one being compiled with. A domain selects its layers from the base vocabulary and may not extend it; that check ran against another document, so nothing here can stand behind it.`,
       );
     }
     if (seen.has(contract.namespace)) {
       // Contributions in different namespaces compose; two to one namespace are
-      // refused at compile, never resolved last-writer-wins (D §8).
+      // refused at compile, never resolved last-writer-wins.
       throw new ProfileError(`two contracts contribute to namespace ${JSON.stringify(contract.namespace)}`);
     }
     seen.add(contract.namespace);
@@ -295,14 +295,14 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
 /**
  * Resolve an operator term identifier, or refuse.
  *
- * §7.4 row 4a: a claim naming an operator whose declaring contract is not in the
+ * A claim naming an operator whose declaring contract is not in the
  * profile is a local, static failure, so it refuses here and nothing is minted.
  */
 export function resolveOperator(profile: ProfileSpec, term: string): CompiledOperator {
   const operator = profile.operators[term];
   if (operator === undefined) {
     throw new ProfileError(
-      `no operator ${JSON.stringify(term)} in this profile. Operators are domain-issued (§7.1); ` +
+      `no operator ${JSON.stringify(term)} in this profile. Operators are domain-issued; ` +
         `this profile resolves ${JSON.stringify(Object.keys(profile.operators).sort())}.`,
     );
   }

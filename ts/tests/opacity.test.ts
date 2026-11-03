@@ -3,7 +3,7 @@
  * and the brands and freezes that close them.
  *
  * Each test below **was a working exploit** before the fix, and each produced a
- * value that reached `projectClaim` or `claimIdentity` — so each one is M13's
+ * value that reached `projectClaim` or `claimIdentity` — so each one is the opacity
  * guarantee failing in a language where `instanceof` was never a check and
  * `readonly` was never a restriction.
  *
@@ -18,7 +18,7 @@
  *
  * The general lesson, recorded because it is not the Python one: there,
  * `isinstance` is forgeable only through `object.__new__`, which is the same act
- * as a raw write to disk — §6.3's third row, an audit finding rather than a
+ * as a raw write to disk — an audit finding rather than a
  * refusal. Here a derived constructor may `return` an object *instead of*
  * calling `super`, so a forgery needs no unusual call at all. The private-field
  * brand is therefore the load-bearing part on this side, and `readonly` is
@@ -248,7 +248,7 @@ describe("a profile that did not come from the contracts is not a profile", () =
   it("is refused even when it is given the prototype, which is all instanceof asks about", () => {
     // The arm that distinguishes the brand from an `instanceof` check: this
     // object passes the latter and never went near `compileProfile`. Found by
-    // sabotage — with only the plain literal above, swapping the brand for
+    // mutation — with only the plain literal above, swapping the brand for
     // `instanceof` left the suite green.
     const prototyped = Object.assign(Object.create(ProfileSpec.prototype), forgedProfile);
     expect(prototyped instanceof ProfileSpec).toBe(true);
@@ -309,7 +309,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
     // Both arms, and the second only because the first was written alone: with
     // just the plain literals above, swapping either brand for `instanceof` left
     // the suite green — the literal has no prototype and fails that check too.
-    // Third time this exact vacuous test has been caught by sabotage.
+    // Third time this exact vacuous test has been caught by mutation.
     const prototypedBase = Object.assign(Object.create(BaseContract.prototype), forgedBase);
     expect(prototypedBase instanceof BaseContract).toBe(true);
     expect(BaseContract.is(prototypedBase)).toBe(false);

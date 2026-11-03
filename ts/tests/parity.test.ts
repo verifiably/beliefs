@@ -1,5 +1,5 @@
 /**
- * M10 — the cross-language parity fixture, TypeScript half.
+ * The cross-language parity fixture, TypeScript half.
  *
  * This side reads the **same frozen artifact** the Python side reads, and makes
  * the same four comparisons: components → `buildClaim` → `projectClaim` →
@@ -15,7 +15,7 @@
  * The profile is compiled from the **contracts**, not from anything the Python
  * side emitted. If this implementation had read different declarations,
  * `buildClaim` would refuse rather than project something else — which is what
- * stands in for the fixture's `profile_compiled_identity` pin, since §8 sites
+ * stands in for the fixture's `profile_compiled_identity` pin, since compilation is Python-only
  * compilation as Python-only and this side computes no compiled identity.
  */
 

@@ -1,8 +1,8 @@
 /**
- * The shared-encoding path, and nothing else (D §9).
+ * The shared-encoding path, and nothing else.
  *
  * `science.identity.v1` and `π_claim` are the only surfaces two implementations
- * must agree on — formal model limitation 9 records M10 as the one
+ * must agree on — the parity fixture is the one
  * cross-implementation row. Contract reading, profile resolution and the
  * validated constructor are here because a projection is of a *typed* claim, not
  * because `ts/` is a second system.

@@ -7,14 +7,14 @@ import { compileProfile } from "../src/profile.js";
 const REPO_ROOT = new URL("../../", import.meta.url);
 const SHIPPED = readFileSync(new URL("contracts/science/CONTRACT.yaml", REPO_ROOT), "utf-8");
 
-describe("document load refuses duplicate keys (design §3.7)", () => {
+describe("document load refuses duplicate keys", () => {
   it("refuses a duplicate top-level key rather than keeping the last", () => {
     const text = "contract: science\ncontract: science\nversion: 1\nclaim_grammar: {}\n";
     expect(() => parseBaseContract(text, "<dup>")).toThrow(/unique/i);
   });
 });
 
-describe("the base contract's declarations (design §3.1–§3.4)", () => {
+describe("the base contract's declarations", () => {
   const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
   it("declares fourteen world kinds and three prose kinds", () => {
     expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(14);
@@ -105,7 +105,7 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
     expect(base.kinds.discussion.role).toBe("prose");
     expect(Object.keys(base.kinds.discussion.facets)).toEqual(["display"]);
   });
-  it("declares the estimand grammar's three closed sets (estimand-typing §3.1)", () => {
+  it("declares the estimand grammar's three closed sets", () => {
     expect(base.estimandGrammar.contrastKinds).toEqual(["levels", "continuous"]);
     expect(base.estimandGrammar.scales).toEqual(["additive", "multiplicative"]);
     expect(base.estimandGrammar.uncertaintyKinds).toEqual(["interval", "standard-error"]);
@@ -124,7 +124,7 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
   });
 });
 
-describe("a domain contract's facets (design §3.3)", () => {
+describe("a domain contract's facets", () => {
   const TESTING = readFileSync(new URL("fixtures/contracts/testing.yaml", REPO_ROOT), "utf-8");
   const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
   it("namespaces facet keys and carries attaches_to", () => {
@@ -153,7 +153,7 @@ describe("a domain contract's facets (design §3.3)", () => {
   });
 });
 
-describe("compileProfile enforces the declaration constraints (design §7.2)", () => {
+describe("compileProfile enforces the declaration constraints", () => {
   const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
   const TESTING = readFileSync(new URL("fixtures/contracts/testing.yaml", REPO_ROOT), "utf-8");
   it("carries kinds, relations and facets", () => {
