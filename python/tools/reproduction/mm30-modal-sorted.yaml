@@ -1,7 +1,7 @@
 # mm30's claim vocabulary — **per-slot sorts, assigned by a stated rule**.
 #
-# An exercise artifact for ledger item 11, not a shipped domain contract. It
-# differs from the deleted unsorted mm30 vocabulary (one sort covering every
+# An exercise artifact for the mm30 reproduction, not a shipped domain contract. It
+# differs from the unsorted mm30 vocabulary in `mm30-reproduction.yaml` (one sort covering every
 # term) in exactly one respect — `arg_sorts`; the placeholder vocabulary binding,
 # which parts of a result are fitted, and the polarity partition are the same.
 #

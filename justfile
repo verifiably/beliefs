@@ -27,7 +27,7 @@ tt := "python3 tools/tt"
 # `uv run --frozen pytest -q` is therefore a second `-q`, i.e. `-qq`, which drops the
 # summary line the wrapper counts tests from.
 #
-# `pyright` takes no path argument, deliberately: python/README.md records that naming a
+# `pyright` takes no path argument, deliberately: docs/development.md records that naming a
 # path narrows the check and hides diagnostics outside it, which is how tests/ drifted
 # once already. The gate is the whole project or it is not the gate.
 py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup)"
@@ -62,7 +62,7 @@ docs_paths := "AGENTS.md README.md docs/*.md"
 ci_suite_refs := "refs/heads/*"
 ci_remote := "origin"
 
-# Fixed fast set (act design form 3): all Python tests plus all TS tests.
+# Fixed fast set (ops test-ci-act design, form 3): all Python tests plus all TS tests.
 # Vitest's unbased --changed selection sees no committed push changes in a clean tree.
 push_fast_cmd := py_fast_cmd + " && " + ts_test_cmd
 
@@ -163,7 +163,7 @@ hook-pre-push-fast:
 # CI keeps a two-job matrix (Python 3.11/3.13, Node 20/24); each job runs the recipe for
 # its package, so the whole job is one recorded number. These run exactly what `test` and
 # `check` run for that package. `tasks check` is not in them: the tasks binary is not on
-# a runner, which is why CI runs these rather than `just gate` (design section 4.6).
+# a runner, which is why CI runs these rather than `just gate` (ops test-ci-audit design §4.6).
 # A runner has no host-budget, so ci.yml sets the xdist worker variable.
 #
 # Each also writes JUnit into BELIEFS_CI_EVIDENCE_DIR, which ci.yml uploads; the

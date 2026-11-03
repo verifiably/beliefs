@@ -4,9 +4,7 @@
 # (one sort covering every term; a placeholder vocabulary binding; operator names,
 # `sign_apt` and `layers` read off mm30's own `predicate`, `polarity` and
 # `claim_layer` fields, so fitted, not evidence), except `contract.contract`, which
-# names this exercise. The unsorted vocabulary used to live in
-# `python/tools/vocabularies/mm30-unsorted.yaml`, which no longer exists; this
-# file is now its only copy.
+# names this exercise. This file holds that unsorted vocabulary.
 #
 # Why the unsorted vocabulary and not the modal-sorted one: the target
 # is `concept:disease-stage affects protein:PHF19`, a

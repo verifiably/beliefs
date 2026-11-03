@@ -1,7 +1,7 @@
 [project]
 # The distribution name follows the stack-wide `verifiably-<layer>` scheme decided
-# 2026-09-07; nothing here is published yet. The import name is `beliefs`, renamed from
-# the domain-extension design §9's `science` on 2026-08-30 (adoption ledger §5).
+# 2026-09-07; nothing here is published yet. The import name is `beliefs` (it was
+# `science` until 2026-08-30).
 name = "verifiably-beliefs"
 version = "0.0.0"
 description = "beliefs, the epistemic kernel of verifiably: recording scientific belief and the evidence it rests on"
@@ -24,7 +24,7 @@ dependencies = [
 
 # The engine and the substrate are unpublished, so their source is overridden with
 # the sibling checkouts. Publication removes these entries and adds released-version
-# bounds above; nothing else about the dependency changes (adapter design §8).
+# bounds above; nothing else about the dependency changes.
 [tool.uv.sources]
 verifiably-atoms = { path = "../../atoms/python", editable = true }
 verifiably-nodes = { path = "../../nodes/python", editable = true }
@@ -39,7 +39,7 @@ packages = ["src/beliefs"]
 [tool.pytest.ini_options]
 # The acceptance arms are excluded from the ordinary run rather than skipped
 # inside it: they require the certified tuple and error without it, and an
-# ordinary unit-test run must stay portable (adapter design §7).
+# ordinary unit-test run must stay portable.
 addopts = "-q --ignore=tests/acceptance"
 testpaths = ["tests"]
 pythonpath = ["tools"]
