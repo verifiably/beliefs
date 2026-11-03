@@ -1,17 +1,16 @@
-"""The consulted-contract set — computed, never supplied (cut 2 §3).
+"""The consulted-contract set — computed, never supplied.
 
 A digest over a supplied consulted set cannot fail when a contract that should
 have entered it was withheld, and an arm that cannot fail is malformed under
 N2. So membership is walked here: the base contract unconditionally, each
 domain contract only if the derivation actually read something it declares —
-which in this slice means the claim schema: the proposition's operator, whose
-compiled declaration carries the namespace that declared it (formal model ρA6:
-a facet-only walk would miss exactly this), plus the explicit facet-read arm,
+which here means the claim schema: the proposition's operator, whose
+compiled declaration carries the namespace that declared it (a facet-only walk
+would miss exactly this), plus the explicit facet-read arm,
 plus — for every typed estimand an assessment carries — the contract declaring
-its `estimands:` entry and each of its four sorts (estimand-typing §5.4, D6
-amended a second time): an assessment reaches those contracts even when its
+its `estimands:` entry and each of its four sorts: an assessment reaches those contracts even when its
 claim's operator does not. Resolution runs against supplied
-per-corpus pins; §8.1's agreement rule refuses a closure whose corpora disagree.
+per-corpus pins; the agreement rule refuses a closure whose corpora disagree.
 """
 
 from __future__ import annotations
@@ -69,7 +68,7 @@ def consulted_contracts(
         )
 
     # Exactly one science_contract, always — agreement unconditional, whether
-    # or not any base-profile facet is read (D §8).
+    # or not any base-profile facet is read.
     base_identities = {pins[corpus].science_contract for corpus in corpora}
     if len(base_identities) != 1:
         raise ContractDisagreement(
@@ -81,13 +80,13 @@ def consulted_contracts(
         raise ContractMismatch(
             f"profile-pin-mismatch: science is pinned {base_identity[:20]}… but the profile carries "
             f"science:{profile.base_contract_identity[:12]}…; a derivation validates and digests under one identity, "
-            "never two (biology pack §5.3a)"
+            "never two"
         )
     consulted: dict[str, str] = {BASE_NAMESPACE: base_identity}
 
     # Each domain contract only if actually read. A claim reaches its
     # contract through the operator, and through every sort and dimension the
-    # operator declares (D §8, ρA6); a facet read reaches its namespace.
+    # operator declares; a facet read reaches its namespace.
     read: set[str] = set()
     for claim in claims.values():
         operator = profile.operator(claim.operator)
@@ -100,7 +99,7 @@ def consulted_contracts(
             read.add(profile.sorts[declared.restriction_sort].contract)
 
     # An assessment reaches its contract through the estimand's declaration and
-    # its four sorts (estimand-typing §5.4, D6's third trigger). Keyed by
+    # its four sorts. Keyed by
     # assessment identity so the walk is over what the derivation read.
     for estimand in estimands.values():
         declaration = profile.estimand(estimand.operator)
@@ -131,7 +130,7 @@ def consulted_contracts(
         if len(identities) != 1:
             raise ContractDisagreement(
                 f"namespace {namespace!r} resolves to {sorted(identities)} across corpora {corpora}; "
-                "one derivation, one identity per namespace (D §8.1)"
+                "one derivation, one identity per namespace"
             )
         identity = identities.pop()
         expected = profile.activated_contracts.get(namespace)
@@ -139,7 +138,7 @@ def consulted_contracts(
             raise ContractMismatch(
                 f"profile-pin-mismatch: {namespace} is pinned {identity[:20]}… but the profile carries "
                 f"{namespace}:{str(expected)[:12]}…; a derivation validates and digests under one identity, "
-                "never two (biology pack §5.3a)"
+                "never two"
             )
         consulted[namespace] = identity
     return tuple(sorted(consulted.items()))

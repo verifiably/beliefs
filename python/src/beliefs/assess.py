@@ -1,12 +1,12 @@
-"""Derive an assessment from one completed assessment run (R22, R7).
+"""Derive an assessment from one completed assessment run.
 
-Computation §5.1 has one constructor: it resolves the run's frozen spec and
+Derivation has one constructor: it resolves the run's frozen spec and
 bound interpretation implementation, evaluates only the result manifest, and
 derives every assessment facet. No facet is authored through this API.
 
 Assessments have no revisions: changing the rule or applicability requires a
 successor spec and a new run. Explicit import, raw-write, and audit negatives
-remain deferred with the store and audit (cut 3 §4.2).
+remain deferred with the store and audit.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def build_assessment(
     if type(run) is not RunClosure:
         raise MalformedClosure("build_assessment requires a RunClosure")
     if run.recipe.shape == "dataset-production":
-        raise SignatureRefused("a dataset-production run has no `assesses` descendant (R7)")
+        raise SignatureRefused("a dataset-production run has no `assesses` descendant")
 
     run_address = run.address()
     try:
@@ -76,7 +76,7 @@ def build_assessment(
         if extra:
             raise TypeError(
                 f"the interpretation rule returned {extra}; a rule yields outcome, estimate and uncertainty only — "
-                "the reference and scale are the spec's, and a rule restating them is a rule that lies (estimand-typing §6)"
+                "the reference and scale are the spec's, and a rule restating them is a rule that lies"
             )
         outcome = derived.get("outcome")
         if type(outcome) is not str:
@@ -107,7 +107,7 @@ def build_assessment(
 
 
 def run_record(run: RunClosure) -> RunValue:
-    """Bridge a run closure into the cut-2 admission record."""
+    """Bridge a run closure into the admission record."""
     if type(run) is not RunClosure:
         raise MalformedClosure("run_record requires a RunClosure")
     return RunValue(

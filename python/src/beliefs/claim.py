@@ -4,11 +4,11 @@
 Claim  =  Σ (op : Operator).  Args(op) × Qualifiers(op) × Polarity(op) × Layer(op)
 ```
 
-§6.2's dependent sum, as far as a language without a code-generation layer can
+A dependent sum, as far as a language without a code-generation layer can
 carry it. Choosing the operator determines the *types* of everything else, and
 the operators arrive through a runtime-loaded `ProfileSpec` — so neither Python
-nor TypeScript can vary this constructor's static signature by them. §6.3 says
-exactly what survives that, and **M13 is scoped to it**: `Claim` is opaque, its
+nor TypeScript can vary this constructor's static signature by them. What survives that is
+exactly this: `Claim` is opaque, its
 only route is the validated constructor, and the profile-dependent checks
 therefore happen **once**, at one place, after which no downstream reader
 re-validates.
@@ -16,9 +16,9 @@ re-validates.
 What is *not* claimed here: that an ill-typed claim is unspellable. It is
 refused, not unconstructible, and the refusals below are ordinary runtime
 refusals. Writing that a Python dataclass makes wrong-sorted arguments
-unspellable would be the slogan §6.2 warns against, one layer down.
+unspellable would be exactly the slogan this design avoids, one layer down.
 
-**Retirement is enforced on the authoring route and nowhere else** (§7.3a).
+**Retirement is enforced on the authoring route and nowhere else**.
 `build_claim` refuses a withdrawn operator or dimension; `Claim._checked` does
 not, because decode, import and restore type a *historical* claim against the
 frozen declaration and refusing there would corrupt the history retirement
@@ -26,11 +26,11 @@ exists to preserve. The two routes share every profile-dependent check and
 differ in exactly that one respect.
 
 **Referent membership is not checked here.** Whether an argument's term is in
-its sort's bound vocabulary depends on the `ResolutionSnapshot` (§7.2) — a
+its sort's bound vocabulary depends on the `ResolutionSnapshot` — a
 parameter this module does not take, since a check whose result varies with what
-happens to be readable cannot be a property of the value. That is M4's, and it
-arrives with `decodeClaim`. Until it does, `build_claim` types a claim's shape
-against the profile and says nothing about whether its referents exist.
+happens to be readable cannot be a property of the value. That check belongs to
+`decode_claim`; `build_claim` types a claim's shape against the profile and
+says nothing about whether its referents exist.
 """
 
 from __future__ import annotations
@@ -68,13 +68,13 @@ __all__ = ["Claim", "Qualifier", "Referent", "build_claim"]
 class Referent:
     """A bound referent: a term identifier **together with the sort it came from**.
 
-    §6.2 types an argument slot as `Referent(ArgSort(op, i))`, and `Referent(gene)`
+    An argument slot is typed `Referent(ArgSort(op, i))`, and `Referent(gene)`
     and `Referent(phenotype)` are different types — a term of one does not inhabit
     the other. What that becomes at runtime is that the sort travels *with* the
-    value: a bare string cannot occupy a slot at all (M4), because a string
+    value: a bare string cannot occupy a slot at all, because a string
     carries no sort and so there is nothing to compare against the slot.
 
-    Freely constructible: the opacity M13 requires is `Claim`'s, and a `Referent`
+    Freely constructible: the opacity the design requires is `Claim`'s, and a `Referent`
     is an ordinary typed value that a check *admits* rather than trusts. But it
     owns its own field invariant, because **`term` is the one position in a claim
     that nothing downstream checks**. The operator, the layer, the dimensions and
@@ -100,9 +100,9 @@ class Referent:
 @final
 @dataclass(frozen=True)
 class Qualifier:
-    """One entry of the flat fragment: `d ↦ ⟨quantifier, restriction⟩` (§6.4).
+    """One entry of the flat fragment: `d ↦ ⟨quantifier, restriction⟩`.
 
-    The quantifier is **explicit and kernel-owned**, never inferred. Kernel §4.1's
+    The quantifier is **explicit and kernel-owned**, never inferred. The
     founding example turns on it: *"in adults"* is generic over a population and
     *"in all humans"* is universal over one, and a structure that defaulted the
     quantifier would make the two differ only where an editor happened to look.
@@ -127,34 +127,34 @@ class Claim:
     """**Opaque, and reachable only through a validated construction.**
 
     There is no public field-wise constructor and no coercion from a wire value.
-    That is M13's whole content, and it is what makes the check happen once: a
+    That is the whole content of the opacity, and it is what makes the check happen once: a
     `Claim` in hand has already been typed against a profile, so no downstream
     code needs a defensive re-check, and none should have one.
 
     The guarantee is worth exactly what `isinstance` is worth, which is why the
     type is sealed, and why every value type whose invariant it *trusts* —
     `Referent` and `Qualifier`, not `str` or `tuple` — is sealed and checks its
-    own fields (§6.3). `object.__new__` and direct attribute writes still reach
+    own fields. `object.__new__` and direct attribute writes still reach
     past all of it — that is the same act as a hand-edited file on disk, the
-    third row of §6.3's table, and it produces an audit finding rather than a
+    "raw write" case, and it produces an audit finding rather than a
     refusal.
     """
 
     operator: str
-    """The operator's term identifier (§6.5) — never a local name."""
+    """The operator's term identifier — never a local name."""
 
     args: tuple[Referent, ...]
     """One referent per slot of `Fin(arity(op))`, in slot order. Slots are
-    ordered and stay ordered; the sets around them are sorted (§6.2)."""
+    ordered and stay ordered; the sets around them are sorted."""
 
     qualifiers: Mapping[str, Qualifier]
     """Dimension term identifier → qualifier, for the dimensions this claim
-    restricts. Insertion order is not meaningful: §6.5 sorts by dimension
-    identifier in the projection, and mapping equality ignores order."""
+    restricts. Insertion order is not meaningful: the projection sorts by dimension
+    identifier, and mapping equality ignores order."""
 
     polarity: str
     """Always a tag, and for a sign-inapt operator always the base contract's
-    `sign_inapt_tag` (§7.5). The claim carries no absent-polarity state, so
+    `sign_inapt_tag`. The claim carries no absent-polarity state, so
     `π_claim`'s shape can never depend on a contract field."""
 
     layer: str
@@ -169,8 +169,8 @@ class Claim:
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise ClaimError(
             "Claim is validated at construction — use build_claim(profile, ...). A field-wise "
-            "constructor would put an unchecked claim downstream of the one boundary that checks "
-            "(M13), and every reader that trusts a Claim unconditionally would then be wrong."
+            "constructor would put an unchecked claim downstream of the one boundary that checks"
+            ", and every reader that trusts a Claim unconditionally would then be wrong."
         )
 
     @classmethod
@@ -186,7 +186,7 @@ class Claim:
     ) -> Claim:
         """Type the parts against the profile, or refuse.
 
-        Every check here is profile-dependent and therefore runtime (§6.3), and
+        Every check here is profile-dependent and therefore runtime, and
         every one is shared by the authoring route and by decode. Retirement is
         **not** among them — see the module docstring.
 
@@ -222,12 +222,12 @@ class Claim:
             if dimension not in permitted:
                 raise UndeclaredDimension(
                     f"{operator!r} does not permit dimension {dimension!r}; it permits "
-                    f"{sorted(permitted)}. Dims(op) is declared per operator (§6.2)."
+                    f"{sorted(permitted)}. Dims(op) is declared per operator."
                 )
             if qualifier.quantifier not in profile.claim_grammar.quantifiers:
                 raise UnknownQuantifier(
                     f"quantifier {qualifier.quantifier!r} on {dimension!r} is outside the kernel's closed "
-                    f"set {list(profile.claim_grammar.quantifiers)} (§6.4)."
+                    f"set {list(profile.claim_grammar.quantifiers)}."
                 )
             # The restriction needs no type check here: `Qualifier` owns that
             # invariant, and it is sealed, so there is no `Qualifier` whose
@@ -255,9 +255,9 @@ class Claim:
         else:
             if polarity is not None:
                 raise PolarityRefused(
-                    f"{operator!r} is sign-inapt: Polarity(op) is the unit type (§6.3), so there is no "
+                    f"{operator!r} is sign-inapt: Polarity(op) is the unit type, so there is no "
                     f"polarity to supply — not even {grammar.sign_inapt_tag!r}, which the projection "
-                    "carries on the claim's behalf (§7.5) and an author never chooses."
+                    "carries on the claim's behalf and an author never chooses."
                 )
             tag = grammar.sign_inapt_tag
 
@@ -300,7 +300,7 @@ def build_claim(
     if withdrawn:
         raise WithdrawnFromAuthoring(
             f"dimension(s) {withdrawn} are permitted for {operator!r} but retired — either themselves or "
-            "through their restriction sort. §7.3a: they stay resolvable for decode, which types a "
+            "through their restriction sort. They stay resolvable for decode, which types a "
             "historical claim against the frozen declaration."
         )
     return Claim._checked(profile, operator=operator, args=args, qualifiers=qualifiers, polarity=polarity, layer=layer)
@@ -328,23 +328,23 @@ def _require_profile(value: object) -> None:
 def _require_referent(value: object, where: str) -> None:
     if not isinstance(value, Referent):
         raise UntypedReferent(
-            f"{where} holds {type(value).__name__}, not a Referent. A slot is typed Referent(s) (§6.2), "
+            f"{where} holds {type(value).__name__}, not a Referent. A slot is typed Referent(s), "
             "and a bare term carries no sort to check against the one declared."
         )
 
 
 def require_identifier(value: object, where: str) -> None:
-    """Every position in the projection is an identifier (§6.5).
+    """Every position in the projection is an identifier.
 
     A referent's two fields are the only ones a claim carries that are not
     matched against a table somewhere, so this is where that sentence has to be
     made true rather than assumed. Public: a composite's node also checks its
-    sort and term against this same identifier grammar (composite-claims
-    design §4.1), and a second copy of the check is what this exists to avoid.
+    sort and term against this same identifier grammar, and a second copy of
+    the check is what this exists to avoid.
     """
     problem = not_an_identifier(value)
     if problem is not None:
         raise MalformedReferent(
-            f"{where}: {problem}. Every position in π_claim is an identifier (§6.5), and a referent's "
+            f"{where}: {problem}. Every position in π_claim is an identifier, and a referent's "
             "fields are the only ones no downstream check would catch."
         )

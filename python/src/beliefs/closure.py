@@ -1,14 +1,14 @@
-"""The belief input closure and its digest (kernel §5.1, G3, P3).
+"""The belief input closure and its digest.
 
-**"A member is in the closure because something reads it"** (kernel §5.1) —
+**"A member is in the closure because something reads it"** —
 never because it is the tidiest description of the lineage. The projection
 below is exactly `science.belief.v1`'s reads, and nothing else: a candidate
 member that no evaluation step consults does not belong here, and a member
 the evaluation reads but this projection omits is a digest that cannot move
-when that read's answer does (G3).
+when that read's answer does.
 
 **Membership is computed from what the caller supplies as records, not
-enumerated by the caller** (cut 2 §3): the `assessment_facets`,
+enumerated by the caller**: the `assessment_facets`,
 `propositions`, `verifications` and `observes` members are built by filtering
 `assessments`, `runs` and `verifications` down to `proposition` — never
 handed in pre-filtered, so a record that should have entered cannot be
@@ -17,19 +17,18 @@ concern this closure exists to close). The remaining members — the lineage
 snapshot's projection, the producer-snapshot identity, the retraction
 enumeration, the policy binding, the consulted-contract pairs — are supplied
 as already-computed values: this module digests them, it does not compute
-them (the consulted walk is task 6's, independence certification is task 8's).
+them (the consulted walk and the independence certification are separate).
 
 Source assertions have no parameter here at all. Nothing filters, projects or
-digests a `SourceAssertion` — that absence is G1's digest half, and the N2
+digests a `SourceAssertion` — that absence is the digest half of the rule, and the N2
 sabotage that reintroduces one is what it must be caught by.
 
 Heldness is **not** a member: it selects the shape of the evaluator's answer
 (whether a `held`-eligible input is even available to weigh), never the
-answer's value, so it has nothing here to be a read of (G3's arm restriction,
-ρA8).
+answer's value, so it has nothing here to be a read of (the arm restriction).
 
 `binding` is a plain `(rule identity, implementation identity)` pair, not
-`PolicyBinding` — that type arrives in task 8. This module digests the pair;
+`PolicyBinding` — that type belongs to the evaluator. This module digests the pair;
 the evaluator owns the type and passes `(binding.rule, binding.implementation)`.
 """
 
@@ -112,8 +111,7 @@ def build_closure(
     observed_facets: tuple[FacetRead, ...],
     acceptance_statement: str | None = None,
 ) -> Closure:
-    """Build the closure over one proposition's belief inputs (kernel §5.1's
-    projection table).
+    """Build the closure over one proposition's belief inputs (the projection table).
 
     Computed from the record pool, filtered to `proposition`:
 

@@ -1,11 +1,11 @@
-"""The audit operation (act-report-remainder design §3).
+"""The audit operation.
 
 One operation intent, then `audit_corpus` over the writer's own view, then
 one act-report carrying one subject-evaluation entry per finding — every
 step under the caller's hold and the root lock, so the state the evaluator
-judged is the state at the intent's chain position (decision 4). The
+judged is the state at the intent's chain position. The
 evaluator stays read-only: `audit.py` and `world/audit.py` define no
-`WRITE_ENTRY_POINTS` member and reach no write primitive (BI-1); this
+`WRITE_ENTRY_POINTS` member and reach no write primitive; this
 wrapper reports.
 """
 
@@ -48,7 +48,7 @@ def _now() -> str:
 
 def _finding_payload(finding: Finding) -> str:
     """`severity`, `code` and `detail` — never `message`, which `Finding`
-    makes normative for nothing (decision 3): a reworded message moves no
+    makes normative for nothing: a reworded message moves no
     report identity. A detail the canonical encoder refuses propagates."""
     return v1.encode({"severity": finding.severity, "code": finding.code, "detail": finding.detail}).decode("utf-8")
 
@@ -68,8 +68,8 @@ def audit(
 ) -> AuditOutcome:
     """`hold` is the caller's outer lock — the session route passes the one
     `ScopedWriter._act` takes first — entered before the root lock and held,
-    with it, across the evaluator's read (decision 4)."""
-    # 1. Checks, before any effect (§3 step 1).
+    with it, across the evaluator's read."""
+    # 1. Checks, before any effect.
     if type(evidence) is not DerivationEvidence:
         raise MalformedRecord("audit takes a DerivationEvidence")
     writer.authority.require("corpus-write", ("act-report",))
@@ -83,7 +83,7 @@ def audit(
     if port is None and writer._operation_port is None:
         raise AuditRefused("this corpus has no operation port; audit is a boundary operation")
     writer._require_bound_port(port)
-    # 2. The hold: the caller's, then the root's (decision 4).
+    # 2. The hold: the caller's, then the root's.
     outer = nullcontext() if hold is None else hold()
     with outer, writer._operation:
         # 3. Open.

@@ -1,14 +1,12 @@
 """Begin, execute, capture, and mint runs through the minimal adapter, or
-through the confined policy's snapshot-and-sandbox path (run-confinement
-design §5).
+through the confined policy's snapshot-and-sandbox path.
 
 The scratch root is staging under the minimal policy and the host side of the
 output root under the confined one. The boundary renders configuration,
 environment, and argv, never the workflow definition. The ``.seeds`` channel
-is cooperative job reporting whose claims conformance evaluates later. Cut 3
-§3's input-safety rules are enforced here: assessment runs require a frozen
-spec, URL/accession inputs are acquisition rather than a run, and every
-declared input must already be held.
+is cooperative job reporting whose claims conformance evaluates later. The input-safety rules are
+enforced here: assessment runs require a frozen spec, URL/accession inputs are acquisition rather
+than a run, and every declared input must already be held.
 """
 
 from __future__ import annotations
@@ -156,7 +154,7 @@ class RunRefused:
     registration: Registration | None
     detail: str = ""
     """In-memory only: the refusing error's message. The durable ``RunRefusal``
-    and the act-report carry the stable reason alone (design §8)."""
+    and the act-report carry the stable reason alone."""
 
 
 def _digest(path: Path) -> str:
@@ -231,7 +229,7 @@ def _report_plan(report: ActReport | None) -> tuple[CreateOp, ...]:
 
 
 def acquisition_guard(run: RunClosure) -> Callable[[ReadView], str | None]:
-    """§5.4: refuse a run that would produce a facet-bearing dataset."""
+    """Refuse a run that would produce a facet-bearing dataset."""
     _, _, (operation,) = publication_plan(run)
     proposed = node_from_markdown(operation.content.decode("utf-8"))
 
@@ -318,7 +316,7 @@ def _mint_acquisition_report(
     closed_at: str,
     entries: tuple[Entry, ...],
 ) -> ActReport:
-    """The acquisition operation's terminal record (url-retrieval design §6):
+    """The acquisition operation's terminal record:
     per resource a locator entry and, where materialized, a mutation entry, in
     request order; then the declaration pin when a dataset minted."""
     if type(intent) is not OperationIntent or intent.kind != "acquisition":
@@ -344,7 +342,7 @@ def _mint_audit_report(
     closed_at: str,
     entries: tuple[Entry, ...],
 ) -> ActReport:
-    """The audit operation's terminal record (act-report-remainder design §3):
+    """The audit operation's terminal record:
     one subject-evaluation entry per finding, in the evaluator's order; a
     clean audit's entries are empty."""
     if type(intent) is not OperationIntent or intent.kind != "audit":
@@ -374,7 +372,7 @@ def _mint_publish_report(
     lifecycle: tuple[Entry, ...] = (),
 ) -> ActReport:
     """The publish report: the lifecycle entries in step order, then the one
-    publication-binding entry (publish-act-local §7), closing the domain-tagged
+    publication-binding entry, closing the domain-tagged
     publish intent and nothing else."""
     if type(intent) is not PublishIntent:
         raise MalformedRecord("a publish report closes a publish intent")
@@ -405,7 +403,7 @@ def _mint_publish_refusal(
     closed_at: str,
     entries: tuple[Entry, ...],
 ) -> ActReport:
-    """A publish refused before its binding (publish-act-local §7): the lifecycle
+    """A publish refused before its binding: the lifecycle
     entries reached, the refusing one last, or the request refusal alone."""
     if type(intent) is not PublishIntent:
         raise MalformedRecord("a publish report closes a publish intent")
@@ -434,8 +432,8 @@ def _mint_recheck_report(
     closed_at: str,
     entries: tuple[Entry, ...],
 ) -> ActReport:
-    """The re-check operation's terminal record (act-report-remainder design
-    §4): one locator entry per requested location, in request order."""
+    """The re-check operation's terminal record: one locator entry per
+    requested location, in request order."""
     if type(intent) is not OperationIntent or intent.kind != "re-check":
         raise MalformedRecord("a re-check report requires a re-check operation intent")
     if type(entries) is not tuple or any(type(entry) is not LocatorEntry for entry in entries):
@@ -793,7 +791,7 @@ def _execute_run(
         run = mint_run(recipe, manifest, occurrence, scratch)
         return RunMinted(run, intent, Registration(intent.event_token, run.address()))
     except ConfinementRefusal as error:
-        return _refused(getattr(error, "reason"), subject, actor, observer, started_at, intent, detail=str(error))  # noqa: B009 — ConfinementRefusal's base deliberately carries no `reason` (design §8); every raised instance is a named subclass that does
+        return _refused(getattr(error, "reason"), subject, actor, observer, started_at, intent, detail=str(error))  # noqa: B009 — ConfinementRefusal's base deliberately carries no `reason`; every raised instance is a named subclass that does
     except (ScienceError, OSError) as error:
         return _refused(str(error), subject, actor, observer, started_at, intent)
 
@@ -824,7 +822,7 @@ def _execute_confined(
     scratch_base: Path,
     cores: int,
 ) -> RunMinted | RunRefused:
-    """Design §5.6 steps 3–5: the scratch root's ``out/`` is the host side of
+    """The scratch root's ``out/`` is the host side of
     the output root; the closure is snapshotted, verified, bound and observed;
     the engine runs only after the gate; the post-exit check precedes every
     read. One capture (the caller's), one pre-bind observation (the bundle's

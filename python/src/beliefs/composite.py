@@ -1,4 +1,4 @@
-"""Composite claims (composite-claims design §3–§5): a declared node set over
+"""Composite claims: a declared node set over
 propositions whose typed claims form the directed edges of one shape.
 
 The value is built, never authored; its members are corpus refs resolved
@@ -37,7 +37,7 @@ from beliefs.stored import composite_value as stored_composite_value
 COMPOSITE_DOMAIN = "science.composite.v1"
 EMPTY_SNAPSHOT = build_snapshot()
 """The consult-nothing snapshot. The boundary and the audit restore member
-claims under it (design §4.2 step 1): every referent resolves
+claims under it: every referent resolves
 `not-consulted`, nothing refuses, and membership is left to the constructor
 and the reading, which take a caller's snapshot."""
 
@@ -178,7 +178,7 @@ def require_node_sorts(profile: ProfileSpec, nodes: Sequence[CompositeNode]) -> 
 
 
 def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, Claim]) -> tuple[Edge, ...]:
-    """§3.4's table for `shape: dag`. `claims` is keyed by member identity and
+    """The classification table for `shape: dag`. `claims` is keyed by member identity and
     must cover every member; a missing key is the caller's defect. The whole
     node-set contract is checked here, because this is the one function the
     constructor, the boundary and the audit share."""
@@ -200,7 +200,7 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
         if edge.retired:
             raise CompositeError(
                 "composite-member-retired",
-                f"member {member}: the edge declaration for {claim.operator!r} is retired; a retired row types history and admits no new structure (§7.3a)",
+                f"member {member}: the edge declaration for {claim.operator!r} is retired; a retired row types history and admits no new structure",
             )
         if claim.layer != "causal":
             raise CompositeError(
@@ -230,7 +230,7 @@ def check_composes_relations(node: Node, facet: CompositeFacet) -> str | None:
 
 
 def _refuse_cycle(nodes: Sequence[CompositeNode], edges: Sequence[Edge]) -> None:
-    """Every member is an arrow, whatever its sign (§3.4); a cycle through a
+    """Every member is an arrow, whatever its sign; a cycle through a
     negative edge is a cycle. Depth-first, reporting the first cycle found."""
     out: dict[CompositeNode, list[CompositeNode]] = {n: [] for n in nodes}
     for edge in edges:
@@ -491,7 +491,7 @@ def read_composite(
     binding: PolicyBinding,
     profile: ProfileSpec,
 ) -> CompositeReading:
-    """Design §6: a pure function of exactly these arguments. Each row's
+    """A pure function of exactly these arguments. Each row's
     belief is `evaluate_over_traced`'s answer for the member, and the
     identification column is read from the same traced admission."""
     if not isinstance(resolution, ResolutionSnapshot):
@@ -516,7 +516,7 @@ def read_composite(
     claims = restore_members(view, facet.members, refs, profile=profile, snapshot=resolution)
     edges = {edge.member: edge for edge in classify(profile, facet, claims)}
 
-    # U3: construction and reading refuse alike under an excluding snapshot;
+    # Construction and reading refuse alike under an excluding snapshot;
     # only the boundary and the audit, which hold no snapshot, check form alone.
     outcomes = _member_outcomes(facet.nodes, profile, resolution)
 

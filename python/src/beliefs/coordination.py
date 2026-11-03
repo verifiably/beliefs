@@ -44,7 +44,7 @@ __all__ = [
 VIEW_KINDS = ("project", "question", "hypothesis", "topic", "theme")
 ORDINARY_COORDINATION_KINDS = (*VIEW_KINDS, "task", "decision", "note")
 PUBLICATION_KINDS = ("publication", "publication-binding")
-"""Minted only by the publish doors (publication-records design decision 6)."""
+"""Minted only by the publish doors."""
 COORDINATION_KINDS = (*ORDINARY_COORDINATION_KINDS, *PUBLICATION_KINDS)
 _ADDRESS = re.compile(r"coord:([0-9a-f]{32})(?:/([0-9a-f]{32}))?(?:@([0-9a-f]{32}))?")
 _HEX = re.compile(r"[0-9a-f]{32}")
@@ -120,7 +120,7 @@ class CoordinationRevision:
 @final
 @dataclass(frozen=True)
 class Anchor:
-    """One mounted root's head at a publish intent (publication-records design decision 3)."""
+    """One mounted root's head at a publish intent."""
 
     corpus_id: str
     genesis: str
@@ -216,7 +216,7 @@ def standing_tips(revisions: Sequence[CoordinationRevision]) -> tuple[Coordinati
     )
 
 
-# --- the intent-position judgment (publication-records design §6) -------------
+# --- the intent-position judgment -------------
 
 PositionRefusalReason = Literal[
     "mounts-changed",
@@ -273,7 +273,7 @@ class ChainBound:
 def bounds(
     mounts: Mapping[Path, str], *, written: Path, position: str, anchors: Sequence[Anchor], seam: MomentSeam
 ) -> tuple[ChainBound, ...] | PositionRefused:
-    """Each mounted root's bound (spec §6): the written root's is the entry
+    """Each mounted root's bound: the written root's is the entry
     `position`; every other root's is its anchor's placement."""
     from beliefs.world.events import place
     from beliefs.world.logmodel import AbsentView, MalformedView, WellFormedView
@@ -332,7 +332,7 @@ def _creates(registration: RegisteredEntryView, path: str, seam: MomentSeam) -> 
 
 
 def inventory(bound: ChainBound, prefix: str, seam: MomentSeam) -> dict[str, object] | PositionRefused:
-    """Replay the committed registrations up to the bound over paths under `prefix` (spec §6).
+    """Replay the committed registrations up to the bound over paths under `prefix`.
 
     Only an ABSENT → file transition (on the registration's own `initial`) enters
     the inventory. Any other committed transition of an address path — a file
@@ -375,7 +375,7 @@ def present_records(
     bound: ChainBound, prefix: str, seam: MomentSeam
 ) -> tuple[tuple[str, bytes], ...] | PositionRefused:
     """Every inventoried path's bytes, read and matched; every unaccounted file
-    classified by a re-read of the chain (spec §6): a file some registration in
+    classified by a re-read of the chain: a file some registration in
     the re-read creates — pending, rolled back, or committed after the bound —
     is not present and not a refusal; any other is `unregistered-revision`."""
     from beliefs.world.logmodel import AbsentView, MalformedView, WellFormedView
@@ -428,7 +428,7 @@ def standing_at(
     anchors: Sequence[Anchor],
     seam: MomentSeam,
 ) -> tuple[CoordinationRevision, ...] | PositionRefused:
-    """The standing tips of `address` at the intent's position (spec §6): the
+    """The standing tips of `address` at the intent's position: the
     family's one tip rule over the chain's inventory at each root's bound."""
     from nodes.core.frontmatter import node_from_bytes
 
