@@ -1,6 +1,6 @@
 """``science.identity.v1``.
 
-The four collisions computation §4.3 records get named tests of their own. §4.3's
+The four recorded collisions get named tests of their own. The
 point is that *two of the four were introduced by the fixes for the other two*,
 so a suite that tests only the first pair passes on an encoding that is still not
 injective.
@@ -35,7 +35,7 @@ def enc(value: object) -> str:
 
 
 class TestTheFourCollisions:
-    """§4.3's table, one test per row."""
+    """The collision table, one test per row."""
 
     def test_binary_float_bytes_are_platform_dependent(self):
         with pytest.raises(BinaryFloatRefused):
@@ -160,7 +160,7 @@ class TestObjects:
             v1.encode({1: "a"})
 
     def test_nesting_is_checked_at_every_depth(self):
-        # §4.3: injectivity cannot come from a top-level discriminator, so a null
+        # Injectivity cannot come from a top-level discriminator, so a null
         # three levels down has to be caught on its own.
         with pytest.raises(NullRefused):
             v1.encode({"a": [{"b": None}]})

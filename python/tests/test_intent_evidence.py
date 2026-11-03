@@ -1,4 +1,4 @@
-"""Captured bytes to qualification evidence (spec §3.1)."""
+"""Captured bytes to qualification evidence."""
 
 import pytest
 from closure_fixtures import make_closure, sample_report

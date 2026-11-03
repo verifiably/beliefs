@@ -421,7 +421,7 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(tmp_path, monkeypat
     assert isinstance(outcome, ImportedRecords)
     # Exactly one finding, and it is not an unresolved-input one: the hand-built
     # run carries no closure projection, so the assessment's derivation is
-    # R19's third case — unchecked here, never a verdict.
+    # The third case — unchecked here, never a verdict.
     assert len(outcome.findings) == 1
     assert outcome.findings[0].startswith(f"derivation-unchecked: {assessment.id}: ")
     assert all(writer_with_port.read_view.holds(record.id) for record in (assessment, run, proposition, dataset))
@@ -659,7 +659,7 @@ def test_contradictory_nondeterminism_contract_refused(tmp_path, monkeypatch):
     # The unfreezable pair, built from the raw mapping exactly as
     # `test_spec.py`'s `_identified` case does: `freeze` itself refuses this
     # combination, so the only way to a self-consistent stored record of it is
-    # the mapping (V8's r20 refusal is `restore`'s `UnfreezableSpec`, surfaced
+    # the mapping (the r20 refusal is `restore`'s `UnfreezableSpec`, surfaced
     # by `_refuse_r20_contradiction` as document validation).
     writer = _testing_profile_writer(tmp_path, monkeypatch)
     mapping = {

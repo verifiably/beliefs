@@ -1,4 +1,4 @@
-"""The one interior: generated from the shared holdings shape (spec §4)."""
+"""The one interior: generated from the shared holdings shape."""
 
 from importlib import resources
 

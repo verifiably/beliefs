@@ -1,4 +1,4 @@
-"""The re-check operation (act-report-remainder design §4) — portable, over a recording port and a scripted store seam."""
+"""The re-check operation — portable, over a recording port and a scripted store seam."""
 
 from __future__ import annotations
 

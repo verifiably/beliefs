@@ -1,4 +1,4 @@
-"""T1 and T4: reports are boundary-minted and inert to belief."""
+"""Reports are boundary-minted and inert to belief."""
 
 import dataclasses
 import inspect
@@ -41,7 +41,7 @@ def test_adding_and_removing_reports_leaves_belief_admission_and_eligibility_byt
     kwargs = closure_kwargs((assessment,), {"run-1": run})
     before_digest = build_closure(**kwargs).digest()
     before_admission = admit(assessment, run, observations, admitting)
-    # T4 asserts admission is *unchanged*; two equal refusals satisfy that
+    # The test asserts admission is *unchanged*; two equal refusals satisfy that
     # vacuously, so the scenario has to be admitted for the row to say anything.
     assert isinstance(before_admission, Admitted), before_admission
     before_state = admission_state(d, observations[address])
@@ -67,7 +67,7 @@ def test_no_belief_bearing_signature_names_a_report():
 
 def test_the_belief_modules_never_import_the_report_layer():
     # Inert BY TYPE: the reference conveys neither protection nor force, and
-    # the derivations cannot even see the layer (act-report §2.3).
+    # the derivations cannot even see the layer.
     import beliefs.admission
     import beliefs.belief
     import beliefs.closure
@@ -97,7 +97,7 @@ def test_no_construction_path_authors_an_act_report():
 
 def test_the_constructor_is_reachable_only_from_the_boundary():
     # The one src caller of the private constructor is the boundary — the
-    # in-slice form of "minted only by the boundary" (cut 3 §9 item 2).
+    # in-process form of "minted only by the boundary".
     src = Path(beliefs.__file__).parent
     callers = [path.name for path in src.rglob("*.py") if "_mint_report" in path.read_text(encoding="utf-8")]
     assert sorted(callers) == ["boundary.py", "report.py"]

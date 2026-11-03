@@ -1,4 +1,4 @@
-"""R19 and R22 at the explicit-import boundary (world-changing families §6.3).
+"""Derivation recomputation at the explicit-import boundary.
 
 Explicit import is an **operation**, and this is where a derivation is
 recomputed before anything is written: a verification whose two runs resolve
@@ -52,8 +52,7 @@ def _writer(root):
     """`test_relocation._writer`, but `TESTING_PROFILE`: every derived
     assessment here carries a typed estimand against `testing/affects`, which
     BASE does not declare, and the import boundary's recomputation
-    (`check_assessment`) decodes it under the writer's own profile
-    (estimand-typing §6, §9)."""
+    (`check_assessment`) decodes it under the writer's own profile."""
     return _testing_writer(root)
 
 
@@ -95,7 +94,7 @@ verdict a forgery claiming `passed` contradicts."""
 
 
 def _evidence(frozen) -> DerivationEvidence:
-    """Task 3's interpretation evidence, plus the equivalence implementation a
+    """The interpretation evidence, plus the equivalence implementation a
     verification recomputation resolves from the original run's bindings."""
     return replace(_interpretation_evidence(frozen), held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY})
 
@@ -147,7 +146,7 @@ def _report_findings(report) -> tuple[str, ...]:
 
 
 def _admission(w, identity: str) -> str:
-    """Kernel §3.3's state for one assessment identity, over every verification
+    """The state for one assessment identity, over every verification
     the corpus holds — the only thing the mount, the audit and the superseding
     act are allowed to move, and only the last of them may."""
     return lifecycle_state(
@@ -167,9 +166,9 @@ def _two_runs(corpus, *, mount: bool, agreeing: bool) -> SimpleNamespace:
     `build_verification` derives from them.
 
     `mount=False` leaves the runs out of the corpus but keeps their stored
-    records, so a later import is the mount R19 transition (b) asks for.
+    records, so a later import is the mount transition asks for.
 
-    `corpus` is a path here and an open durable writer in Task 8's acceptance
+    `corpus` is a path here and an open durable writer in the acceptance
     module, so both suites build the pair through one construction.
     """
     writer = _writer_for(corpus)
@@ -380,7 +379,7 @@ class TestR19NegativesDAndE:
         """A raw-written run whose own hashes agree is invisible to every read
         path — nothing structural is wrong, because nothing is — and a forged
         verification differs from a genuine one on no read-path predicate at
-        all. Log-backed detection is Task 8's durable arm; this closes neither
+        all. Log-backed detection is the durable module's job; this closes neither
         limitation, it pins them."""
         third = assessment_closure(derived.spec, token="tok-raw")
         raw_write(derived.writer.root, run_publication(third))
@@ -472,7 +471,7 @@ class TestR22ExplicitImport:
         ] == ["assessment-derivation-contradicted"]
 
 
-# --- V4 / V5 / V6 at the import boundary (design §5.4) ------------------------
+# --- at the import boundary ------------------------
 from test_audit import V4_FORGERIES, V4_IDS
 from verification_fixtures import forgeries, publish_corpus, self_consistent_forgery
 

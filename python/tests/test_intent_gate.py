@@ -1,4 +1,4 @@
-"""The total decode gate and per-shape matching requirements (spec §2.2, §3.2)."""
+"""The total decode gate and per-shape matching requirements."""
 
 from beliefs.identity import v1
 from beliefs.intents import shapes
@@ -205,7 +205,7 @@ def test_matching_requirements_per_shape() -> None:
 
 
 def test_a_domainless_publish_triple_is_malformed_not_an_operation():
-    """Decision 10 (publication-records design §2): `publish` opens only through
+    """`publish` opens only through
     its domain intent, so the domainless triple naming it is malformed."""
     payload = v1.encode({"kind": "publish", "event_token": "c" * 32, "actor": "actor"})
     decoded = shapes.decode_intent("0" * 64, payload)

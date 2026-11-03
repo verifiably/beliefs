@@ -252,7 +252,7 @@ def test_corpus_check_rejects_raw_cycle_shapes_before_cycle_classification(tmp_p
 
 
 def test_a_snapshot_arm_retraction_is_a_vertex_and_never_refuses_the_local_read(tmp_path):
-    """slice 2 §4: standing_in_local_view has no world and must not refuse for lack of one."""
+    """standing_in_local_view has no world and must not refuse for lack of one."""
     from test_snapshot_retraction import snapshot_retraction
 
     target = assessment()

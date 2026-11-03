@@ -1,4 +1,4 @@
-"""The one intent-qualification precedence reducer (spec §2.1, §3.3)."""
+"""The one intent-qualification precedence reducer."""
 
 from dataclasses import dataclass
 

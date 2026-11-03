@@ -1,4 +1,4 @@
-"""The lifecycle wrappers and the writability-gate precedence (plan Task 5).
+"""The lifecycle wrappers and the writability-gate precedence.
 
 Real engine, real volume: every root lives under `certified_work`, on the
 repository's own certified configuration, and every state below is read back

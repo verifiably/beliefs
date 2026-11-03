@@ -89,7 +89,7 @@ def test_the_path_grammar_agrees_with_the_engine(path: str):
 
 
 CANONICAL = [
-    # (spelling, canonical): one row per profile clause of decision 1
+    # (spelling, canonical): one row per profile clause
     ("HTTPS://Example.ORG/data", "https://example.org/data"),
     ("https://example.org:443/data", "https://example.org/data"),
     ("http://example.org:80/data", "http://example.org/data"),
