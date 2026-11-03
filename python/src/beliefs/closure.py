@@ -12,24 +12,25 @@ enumerated by the caller**: the `assessment_facets`,
 `propositions`, `verifications` and `observes` members are built by filtering
 `assessments`, `runs` and `verifications` down to `proposition` — never
 handed in pre-filtered, so a record that should have entered cannot be
-withheld by a caller's omission and still leave a passing digest (the N2
-concern this closure exists to close). The remaining members — the lineage
+withheld by a caller's omission and still leave a passing digest (a test that
+omits such a record must see the digest move; that is the concern this
+closure exists to close). The remaining members — the lineage
 snapshot's projection, the producer-snapshot identity, the retraction
 enumeration, the policy binding, the consulted-contract pairs — are supplied
 as already-computed values: this module digests them, it does not compute
 them (the consulted walk and the independence certification are separate).
 
 Source assertions have no parameter here at all. Nothing filters, projects or
-digests a `SourceAssertion` — that absence is the digest half of the rule, and the N2
-sabotage that reintroduces one is what it must be caught by.
+digests a `SourceAssertion`: source assertions are never digested, and
+a test that adds one as a member must fail.
 
 Heldness is **not** a member: it selects the shape of the evaluator's answer
 (whether a `held`-eligible input is even available to weigh), never the
 answer's value, so it has nothing here to be a read of (the arm restriction).
 
 `binding` is a plain `(rule identity, implementation identity)` pair, not
-`PolicyBinding` — that type belongs to the evaluator. This module digests the pair;
-the evaluator owns the type and passes `(binding.rule, binding.implementation)`.
+`PolicyBinding` — that type belongs to the evaluator. This module digests
+the pair; the evaluator owns the type and passes `(binding.rule, binding.implementation)`.
 """
 
 from __future__ import annotations

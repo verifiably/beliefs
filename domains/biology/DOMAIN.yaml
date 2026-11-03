@@ -1,7 +1,8 @@
 # The biology domain contract — the first domain the package ships. It
 # declares what is biology's regardless of corpus: one sort bound to HGNC at an
-# exact release, the three protein→protein relations mm30 recorded, and the gene-axis facet a
-# tabular dataset carries when one axis holds molecular entities.
+# exact release, the three protein→protein relations mm30 recorded, and the
+# gene-axis facet a tabular dataset carries when one axis holds molecular
+# entities.
 #
 # The HGNC release is the most recent quarterly archive date on or before
 # the date the contract was written (2026-09-08). No release is held with the

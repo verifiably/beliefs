@@ -1,6 +1,6 @@
 """Datasets: the declaration, the basis projection, and the derived state.
 
-The admission ramp, executable. Three states decided in
+Three states, decided in
 order — basis first, then holding — and the state is **derived, never stored**:
 nothing here has a state field, `admission_state` recomputes from a declaration
 and the byte observations *supplied to the call*, and no API accepts an authored
@@ -139,8 +139,9 @@ class ResourceFinding:
 @final
 @dataclass(frozen=True)
 class CurationNote:
-    """No content identity: not a dataset entity, not addressable. The ramp's repair is explicit in
-    both directions — pin the last resource, or narrow the declaration to what is pinned."""
+    """No content identity: not a dataset entity, not addressable. The repair is explicit in
+    both directions: pin the last resource, or narrow the declaration to what is
+    pinned."""
 
     reason: str
 
@@ -168,7 +169,7 @@ class Held:
 def admission_state(
     declaration: DatasetDeclaration, observations: tuple[ByteObservation, ...]
 ) -> CurationNote | Declared | Held:
-    """Derive the ramp's state, per query, from the declaration and the
+    """Derive the dataset's state, per query, from the declaration and the
     observations supplied to this call. Held is quantified over the **whole**
     declaration — a proper subset does not promote — and an observation matches
     by digest alone: location is carried for reporting and never read here."""

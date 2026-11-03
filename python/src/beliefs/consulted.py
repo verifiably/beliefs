@@ -1,16 +1,15 @@
 """The consulted-contract set — computed, never supplied.
 
 A digest over a supplied consulted set cannot fail when a contract that should
-have entered it was withheld, and an arm that cannot fail is malformed under
-N2. So membership is walked here: the base contract unconditionally, each
+have entered it was withheld, and a check that cannot fail proves nothing. So
+membership is walked here: the base contract unconditionally, each
 domain contract only if the derivation actually read something it declares —
 which here means the claim schema: the proposition's operator, whose
 compiled declaration carries the namespace that declared it (a facet-only walk
 would miss exactly this), plus the explicit facet-read arm,
 plus — for every typed estimand an assessment carries — the contract declaring
 its `estimands:` entry and each of its four sorts: an assessment reaches those contracts even when its
-claim's operator does not. Resolution runs against supplied
-per-corpus pins; the agreement rule refuses a closure whose corpora disagree.
+claim's operator does not. Resolution runs against supplied per-corpus pins; the agreement rule refuses a closure whose corpora disagree.
 """
 
 from __future__ import annotations

@@ -9,8 +9,9 @@ base contract may not issue one.
 **A tag's canonical bytes are its symbol.** The base contract must fix the
 closed sets and their bytes, not their spelling, and an implementation must not
 choose a different serialization for a tag. Those are one requirement, not two:
-what must not happen is an implementation deciding the bytes for itself. So the contract declares the encoding rule (``tag_encoding``)
-and the symbols, and the bytes follow from both.
+what must not happen is an implementation deciding the bytes for itself. So the
+contract declares the encoding rule (``tag_encoding``) and the symbols, and the
+bytes follow from both.
 
 The alternative — a second, independent encoding per tag, so a symbol could be
 renamed without re-minting — was considered and rejected. It buys renaming of a

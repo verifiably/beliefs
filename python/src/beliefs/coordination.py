@@ -216,7 +216,7 @@ def standing_tips(revisions: Sequence[CoordinationRevision]) -> tuple[Coordinati
     )
 
 
-# --- the intent-position judgment -------------
+# --- the intent-position judgment ---------------------------------------------
 
 PositionRefusalReason = Literal[
     "mounts-changed",
