@@ -295,7 +295,7 @@ any quantity; `transforms` is dataset-production lineage input."""
 ACCEPTED_EXTERNAL_IDENTIFIERS = source_basis_projection.SCHEMES
 """The accepted external identifiers for a `source` — one tuple, in precedence
 order. A closed set: a fallback derived from title and year is
-exactly the coercion the row refuses."""
+exactly the coercion a closed set refuses."""
 
 SEMANTIC_DOMAINS: Mapping[str, str] = MappingProxyType(
     {name: kind.domain for name, kind in _WORLD.items() if kind.domain is not None}

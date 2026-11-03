@@ -403,7 +403,7 @@ class TestStructure:
         assert anchors_module.CORPUS_GENESIS_DOMAIN == science_root.GENESIS_DOMAIN
 
     def test_the_genesis_form_is_the_export_act_s_own_predicate(self) -> None:
-        """One statement of each form (M-2): the evaluator's step-1 check and the
+        """One statement of each form: the evaluator's step-1 check and the
         export act's subject binding read the same two parsers, so the two
         cannot drift apart on what a Science genesis is."""
         assert anchors_module.parse_corpus_genesis(CORPUS_GENESIS_PAYLOAD) is None

@@ -556,7 +556,7 @@ class ScopedWriter:
         """Restore a fetched copy at `root` under this invocation and ledger
         `fetched` with the report's outcome as the verdict.
         The copy's lifecycle state, not the line, says whether it is serviceable.
-        The spec's parameter name `copy` is a byte-mutation primitive's name,
+        The parameter would naturally be named `copy`, a byte-mutation primitive's name,
         which the capability boundary's raw-write scan refuses in this module.
 
         The session lock is held from the currency check across the act and the

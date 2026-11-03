@@ -297,7 +297,7 @@ class TestCommensuration:
     def test_two_estimands_differing_only_in_identification_are_commensurable(self, profile, claim, snapshot):
         # `control.identification` is the one member `commensuration_key`
         # removes: it is corpus-local (the fixture's identification vocabulary
-        # is local to its corpus), and the design key a weight table reads is the one
+        # is local to its corpus), and the key a weight table reads is the one
         # member outside it. A second identification term is added to this
         # test's own snapshot to exercise the difference — the fixture names only
         # `within-series-surrogate`; a distinct scheme is legitimate test data

@@ -286,8 +286,8 @@ class DomainContract:
     predecessor: str | None
     """``None`` is ``genesis``. Genesis is an escape hatch: the
     rules enforce immutability **within a declared lineage**, not across a
-    namespace, and closing the parallel-genesis case needs governance this
-    design does not supply (open)."""
+    namespace, and closing the parallel-genesis case needs governance the
+    kernel does not supply (open; see the lineage rules in docs/contracts.md)."""
 
     sorts: Mapping[str, SortDecl]
     dimensions: Mapping[str, DimensionDecl]
@@ -370,8 +370,8 @@ class DomainContract:
         """Every claim-vocabulary identifier and its canonical schema projection.
 
         The scope restriction is deliberate: these rules govern claim
-        vocabulary and nothing else. An unscoped "every identifier" would have
-        this design quietly deciding facet versioning, which is left open.
+        vocabulary and nothing else. An unscoped "every identifier" would
+        quietly decide facet versioning, which is left open.
         """
         return {key: decl.schema_projection() for key, decl in self._declarations()}
 

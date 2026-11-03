@@ -461,7 +461,7 @@ def _ambiguous(read, registry, selected):
 
 
 def test_own_holder_wins_over_a_carried_copy():
-    """An own holder beside a carried copy yields no entry (rule 3.1), under v2 and v3."""
+    """An own holder beside a carried copy yields no entry (own holder wins), under v2 and v3."""
     import beliefs.publish as act
 
     for provenance in (Fresh(), ForkOf(C, "c" * 64)):
@@ -475,7 +475,7 @@ def test_own_holder_wins_over_a_carried_copy():
 
 
 def test_carriers_agree():
-    """Two carriers yielding one triple forward it (rule 3.2); the forwarded entry and a
+    """Two carriers yielding one triple forward it (carriers agree); the forwarded entry and a
     first carry of the same origin agree."""
     import beliefs.publish as act
 
@@ -494,7 +494,7 @@ def test_carriers_agree():
 
 
 def test_earliest_origin(monkeypatch):
-    """Rule 3.3: the claim whose marker every other claimed marker supersedes."""
+    """Earliest origin: the claim whose marker every other claimed marker supersedes."""
     import beliefs.publish as act
 
     chain = {C: (_origin(A),), D: (_origin(C),), E: (_origin(A),)}  # P3 ⊐ P1, P7 ⊐ P3, P3' ⊐ P1
@@ -526,7 +526,7 @@ def test_earliest_origin(monkeypatch):
         supersedes=chain,
     )
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
-    # P7 → P3 → P1, P3 an idle replica holding no selected record: read only at rule 3.3.
+    # P7 → P3 → P1, P3 an idle replica holding no selected record: read only when the earliest origin is selected.
     read, registry, _ = capture_fixture(
         {A: (ReplicaOf(A), ("run:a",)), C: (ReplicaOf(C), ("run:c",)), D: (ReplicaOf(D), ("run:a",))},
         source_version=3,
@@ -537,7 +537,7 @@ def test_earliest_origin(monkeypatch):
     read.captured_records = lambda cid: calls.append(cid) or records_at(cid)
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
     assert C in calls
-    # The idle replica's invalid marker refuses, naming it with empty refs, only when rule 3.3 is reached.
+    # The idle replica's invalid marker refuses, naming it with empty refs, only when the earliest-origin step is reached.
     read, registry, captures = capture_fixture(
         {A: (ReplicaOf(A), ("run:a",)), C: (ReplicaOf(C), ("run:c",)), D: (ReplicaOf(D), ("run:a",))},
         source_version=3,
@@ -557,11 +557,11 @@ def test_earliest_origin(monkeypatch):
         supersedes=chain,
     )
     captures[C] = captures[C][:-1]
-    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == ()  # rule 3.1 settled it
+    assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == ()  # the own-holder rule settled it
 
 
 def test_ambiguous_refuses():
-    """Rule 3.4: unrelated origins, and a chain whose intermediate is unheld, refuse
+    """Ambiguity: unrelated origins, and a chain whose intermediate is unheld, refuse
     `attribution-ambiguous` carrying the claims."""
     read, registry, _ = capture_fixture(
         {B: (ReplicaOf(B), ("run:a",)), C: (ReplicaOf(C), ("run:a",))}, source_version=3

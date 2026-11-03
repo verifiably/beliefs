@@ -16,7 +16,7 @@ re-validates.
 What is *not* claimed here: that an ill-typed claim is unspellable. It is
 refused, not unconstructible, and the refusals below are ordinary runtime
 refusals. Writing that a Python dataclass makes wrong-sorted arguments
-unspellable would be exactly the slogan this design avoids, one layer down.
+unspellable would be exactly the slogan this module avoids, one layer down.
 
 **Retirement is enforced on the authoring route and nowhere else**.
 `build_claim` refuses a withdrawn operator or dimension; `Claim._checked` does
@@ -74,7 +74,7 @@ class Referent:
     value: a bare string cannot occupy a slot at all, because a string
     carries no sort and so there is nothing to compare against the slot.
 
-    Freely constructible: the opacity the design requires is `Claim`'s, and a `Referent`
+    Freely constructible: the opacity that matters is `Claim`'s, and a `Referent`
     is an ordinary typed value that a check *admits* rather than trusts. But it
     owns its own field invariant, because **`term` is the one position in a claim
     that nothing downstream checks**. The operator, the layer, the dimensions and

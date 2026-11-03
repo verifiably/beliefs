@@ -312,12 +312,12 @@ class ProfileSpec:
     """Namespace → content identity, for the domains **activated** in this
     profile.
 
-    **Activated is not consulted, and the two must never be conflated.** The
-    conditional arm is explicit that an activated-but-unconsulted contract
-    contributes *nothing* to `belief_input_digest`; a computation that took
+    **Activated is not consulted, and the two must never be conflated.** An
+    activated-but-unconsulted contract contributes *nothing* to
+    `belief_input_digest`; a computation that took
     ``activated_contracts.values()`` wholesale would move a belief because an
-    unrelated domain was switched on, which is the exact defect the negative arm
-    tests for. This is a **resolution table** — what a claim's identifiers can be
+    unrelated domain was switched on, which is the defect the tests for an
+    unconsulted contract exist to catch. This is a **resolution table** — what a claim's identifiers can be
     resolved against — and the consulted subset is whatever a derivation actually
     reaches. Nothing here computes it: the walk that would reaches through operator,
     dimension, sort and vocabulary-binding triggers, not only facet namespaces.

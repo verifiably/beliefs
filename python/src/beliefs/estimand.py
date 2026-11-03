@@ -415,8 +415,8 @@ def uncertainty_from_mapping(mapping: object, *, estimate: Decimal | None, scale
 
 
 def commensuration_key(estimand: Estimand) -> dict[str, object]:
-    """The projection with `control.identification` removed — the design
-    key a weight table reads is the one member outside the key."""
+    """The projection with `control.identification` removed: the commensuration
+    key a weight table reads. `identification` is the one member outside it."""
     projection = estimand_projection(estimand)
     control: dict[str, object] = dict(projection["control"])  # type: ignore[arg-type]
     del control["identification"]

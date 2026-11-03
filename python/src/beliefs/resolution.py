@@ -358,7 +358,8 @@ class BindingCheckReceipt:
     claim_identity: str
     """The claim these outcomes were taken for.
 
-    **Beyond the outcomes and the snapshot identity.** Without it a receipt is a set of slot labels with no way to tell
+    The receipt carries this in addition to the outcomes and the snapshot
+    identity. Without it a receipt is a set of slot labels with no way to tell
     which claim's slots they were — and a diagnostic that cannot be attached to
     its subject is not much of one. It also pins the sorts: the claim identity
     fixes the operator, and redefining an operator's `arg_sorts`

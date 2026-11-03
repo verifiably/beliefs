@@ -3,7 +3,7 @@
  *
  * The three load-bearing choices are the Python side's, and they are load-bearing
  * here for the same reasons — restated rather than cross-referenced, because a
- * reader of this file is checking it against the specification, not against the other
+ * reader of this file is checking it against the contract, not against the other
  * implementation:
  *
  * * **arguments emit `term`, never `sort`** — the projection admits the referent

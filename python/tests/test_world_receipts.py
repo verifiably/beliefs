@@ -688,8 +688,8 @@ class TestReceiptOutcomes:
         a configuration fault — and that refusal reaches validation. It is
         converted here instead of propagating, because the edge rules make an edge whose
         receipt is anything but ``validated`` ``indeterminate``, and a query
-        that raised would leave the caller with nothing where the specification
-        promises a state. `resolve_address` converts the same fault the other
+        that raised would leave the caller with nothing where the edge rules
+        promise a state. `resolve_address` converts the same fault the other
         way, to `ResolutionRefused`, because the resolution rules close *its* answer set at
         three arms and names the malformed manifest as one of the refusals.
         """

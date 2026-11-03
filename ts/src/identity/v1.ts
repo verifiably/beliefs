@@ -1,12 +1,11 @@
 /**
  * `science.identity.v1` — the canonical value contract, TypeScript half.
  *
- * The same contract the Python implementation carries, specified by the
- * the Python implementation's spec. This is one of exactly two things
+ * The same contract the Python implementation carries. This is one of exactly two things
  * `ts/` exists for; the other is `π_claim`.
  *
  * Three rules below are where two implementations of "canonical JSON" diverge,
- * and all three are pinned by the spec rather than left to
+ * and all three are pinned by the contract rather than left to
  * each language's defaults:
  *
  * * **String escaping is exact.** `JSON.stringify` is not the specification —

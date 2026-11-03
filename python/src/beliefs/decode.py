@@ -283,7 +283,7 @@ def claim_from_stored(
     left for `decode_claim` to reach on its own. Every ill-formed input
     refuses **before** delegation, with nothing minted and no `KeyError` or
     `AttributeError` on the way in: a restore helper is exactly where
-    "be liberal in what you accept" would defeat the row.
+    "be liberal in what you accept" would defeat that refuse-before-delegation rule.
     """
     wire = _stored_wire(node)
     _wire_parts(wire)

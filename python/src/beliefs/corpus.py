@@ -2704,7 +2704,7 @@ class CorpusWriter:
         same record-local guards as `_stage_record` — facet payloads, display
         facet, governed stamp, rendering, collision. The marker's closed content
         rule refuses any facet beside its coordination one first; the display
-        and stamp guards stand behind it, as the spec requires on both doors."""
+        and stamp guards stand behind it, so both write routes apply them."""
         self._authority.require("publish", ("publication",))
         from beliefs.publication import (
             MARKER_KIND,

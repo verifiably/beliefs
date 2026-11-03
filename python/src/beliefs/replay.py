@@ -276,7 +276,9 @@ def derive_scope(
     *,
     certification: CodeLineageCertification | None,
 ) -> str:
-    """Walk every row of the scope table."""
+    """Derive the verification scope: `not-certified` unless both closures conform,
+    then `clean-environment` or `same-environment` for identical recipes, and
+    `independent-implementation` for a certified different code lineage."""
     if conformance(original) != CONFORMING or conformance(replayed) != CONFORMING:
         return "not-certified"
     if original.recipe.identity() == replayed.recipe.identity():
@@ -298,8 +300,9 @@ def derive_scope(
     return "not-certified"
 
 
-derive_scope.__doc__ = """Derive verification scope from two conforming closures — every row of
-the scope table. The `clean-environment` row is reached only through the replay's
+derive_scope.__doc__ = """Derive verification scope from two conforming closures: one of
+`not-certified`, `same-environment`, `clean-environment` and
+`independent-implementation`. `clean-environment` is reached only through the replay's
 receipt qualifying; the original's receipt is
 not read, because the requirement is that the replay ran through the boundary.
 """
