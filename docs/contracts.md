@@ -90,6 +90,9 @@ integer), `lineage`, `sorts`, `dimensions` and `operators`. It may add
 
 Sorts, dimensions, operators and edges may carry `description` and `retired`.
 
+How to write, load and ship a domain contract is in
+[development.md](development.md#adding-a-domain-contract).
+
 ## Facet fields
 
 A field name matches `[a-z][a-z0-9_]*`. Its `type` is one of `string`, `integer`,
@@ -161,23 +164,6 @@ publication markers.
 A practice document has exactly four fields: `practice` (a non-empty name),
 `version` (a positive integer), `description` and `guidance` (a list of paths).
 A practice carries procedure only. It never compiles into a profile.
-
-## Adding a domain contract
-
-1. Write the document with `lineage: genesis`. Name each operator's sorts, layers
-   and dimensions, and add `estimands` and `edges` where specs and composites need
-   them.
-2. Load it with `load_domain_contract(path, base=..., predecessor=None)`, then
-   compile it with the base contract into a profile.
-3. Pin the new contract in a corpus's manifest, by adopting the manifest under that
-   profile.
-4. To change the contract later, write a successor that names the old contract's
-   identity, and retire identifiers instead of removing them.
-
-A pack shipped with beliefs is read from
-`python/src/beliefs/domains/<namespace>/DOMAIN.yaml`. The biology pack also has a
-copy at `domains/biology/DOMAIN.yaml`, and a test checks that the two are
-byte-identical.
 
 ## Versions
 

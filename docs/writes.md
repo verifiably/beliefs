@@ -38,9 +38,9 @@ the empty permit, so every act through it is refused.
 
 ## Opening a corpus
 
-1. `init_corpus_root(root, authority=...)` requires `lifecycle` and registers the
-   root with the engine. A root must be registered explicitly; a write against an
-   unregistered root is refused.
+1. `init_corpus_root(root, authority=...)` requires `lifecycle` and
+   [registers](glossary.md#registration) the root with the engine. A root must be
+   registered explicitly; a write against an unregistered root is refused.
 2. `open_corpus(root, authority=..., profile=...)` returns a writer. The profile's
    base contract must be the one the runtime ships. The root does not need a
    manifest yet.
@@ -76,9 +76,9 @@ The `science` layer writes through a session:
 1. `open_attended_session(world_config, operations_root, write_root=..., profile=...)`
    opens one. `write_root` must be one of the world's configured corpus roots, and
    `mounts`, when given, must name every configured root exactly once. The corpus
-   must have a manifest whose pins agree with the profile, and its chain must be
-   well-formed. The session's actor is `session:<32 hex>`, derived from a fresh
-   session id. The session writes `session-open` to its ledger and reconciles the
+   must have a manifest whose pins agree with the profile, and its
+   [chain](glossary.md#roots-log) must be well-formed. The session's actor is
+   `session:<32 hex>`, derived from a fresh session id. The session writes `session-open` to its ledger and reconciles the
    other sessions' ledgers.
 2. `claim_invocation(id, command, input_digest)` writes `invocation-open` for a new
    id and returns `ClaimFresh`. For an id it has seen, it returns `ClaimDone` (with
@@ -89,7 +89,8 @@ The `science` layer writes through a session:
 4. Each write through the scoped writer first checks that the invocation is the
    current one. It then appends a `corpus-write` operation intent, commits the
    write as the transaction that fulfils that intent, and writes an `act` line that
-   names the intent, the registration and the records written.
+   names the intent, the [registration](glossary.md#registration) and the records
+   written.
 5. `close_invocation(id, outcome)` writes `invocation-close`, and `close()` writes
    `session-close`.
 
@@ -101,9 +102,9 @@ Every line is written, flushed and fsynced before the call that wrote it returns
 A session with read mounts writes only to its write root, but a record may cite
 records in any mount. Citations include an assessment's run and its datasets, a
 spec's target, a verification's assessment and a composite's members. Each mount
-is opened inside that mount's capture hold, which never waits. A write that
-changes a record (`supersede`, `revise`, `delete`) resolves that record in the
-write root only.
+is opened inside that mount's [capture hold](glossary.md#capture-hold), which never
+waits. A write that changes a record (`supersede`, `revise`, `delete`) resolves
+that record in the write root only.
 
 ## Operations
 
@@ -111,8 +112,9 @@ An operation is an act made of several member acts. Its kind is one of `acquisit
 `audit`, `consolidate`, `corpus-write`, `import`, `move`, `publish`, `re-check` and
 `run-attempt`. An operation proceeds in three steps:
 
-1. Append an intent to the root's log, before any member act. The intent is
-   `{kind, event_token, actor}`, and its actor must be the writer's.
+1. Append an intent to [the root's log](glossary.md#roots-log), before any member
+   act. The intent is `{kind, event_token, actor}`, and its actor must be the
+   writer's.
 2. Perform the member acts.
 3. Close by registering one terminal record that fulfils the intent. That record is
    the operation's act report, or a run closure for a run.
@@ -123,8 +125,8 @@ its dataset and its act report in the same transaction.
 
 Completion is read from the log and never stored:
 
-- `closed`: a registration carrying the intent's token points to a held record of
-  the matching shape;
+- `closed`: a registration carrying the intent's token points to a
+  [held](glossary.md#held) record of the matching shape;
 - `indeterminate`: a matching registration's record is not held here;
 - `unfinished`: neither.
 
@@ -152,10 +154,10 @@ staging_profile=..., clock=..., seam=...)` shares what a saved view selects; see
 the function's signature for its optional arguments. It runs these steps:
 
 1. Require the publish, `corpus-write`, `lifecycle` and `registry` families.
-2. Resolve the view and evaluate it at the current epoch. The publish is refused
-   if the selection is incomplete (`selection-incomplete`), if it is empty
-   (`empty-selection`), or if a selected record depends on one left out
-   (`closure-incomplete`).
+2. Resolve the view and evaluate it at the current [epoch](glossary.md#epoch).
+   The publish is refused if the selection is incomplete (`selection-incomplete`),
+   if it is empty (`empty-selection`), or if a selected record depends on one left
+   out (`closure-incomplete`).
 3. Append the publish intent. Then write `selection.v1` and `request.v1`
    create-only under `<operations_root>/publish/<token>/`.
 4. Stage the selected records, together with one `publication` marker, in a fresh

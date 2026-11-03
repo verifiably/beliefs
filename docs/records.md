@@ -59,8 +59,9 @@ against its fields, and decodes the `display`, `analysis-spec`, `verification`,
 `dataset`, `source`, `composite` and `run-closure` facets. `retract` and
 `attest_coreference` decode their own records, and import decodes act reports. A
 proposition's claim, an assessment's facet, a `lineage-basis` and a run without a
-closure are checked only when read. A `source-assertion` facet is never checked:
-its declared reader does not exist.
+closure are checked only when read. A `source-assertion` record must carry its
+facet, as the profile requires, but the facet's payload is never checked: its
+declared reader does not exist.
 
 The prose kinds, `interpretation`, `discussion` and `story`, carry only an optional
 `display` facet. They have no identity domain and never enter a belief's inputs.
@@ -215,9 +216,10 @@ A verification has one of two shapes:
   verification carries `assessment` (the assessment's identity) and exactly one
   `verifies` edge. A dataset-production verification carries neither. The id must
   recompute from the fields (see [Identity](#identity)).
-- **Without a report.** The facet carries `assessment`, `scope`, `verdict` and,
-  optionally, `supersedes` and `derivation`. The write boundary admits it without
-  decoding it further.
+- **Without a report.** The facet is expected to carry `assessment`, `scope`,
+  `verdict` and, optionally, `supersedes` and `derivation`. The write boundary
+  admits it without decoding it further; only `scope` and `verdict` are checked,
+  when it is read, and a missing `assessment` reads as empty.
 
 The scope is one of `same-environment`, `clean-environment`,
 `independent-implementation` and `not-certified`. The verdict is one of `passed`,

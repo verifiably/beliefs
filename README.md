@@ -14,6 +14,17 @@ Part of **verifiably**: verifiably builds understanding of the world from small,
 [atoms](https://github.com/verifiably/atoms "Crash-safe filesystem effects") · [nodes](https://github.com/verifiably/nodes "Generic record and relation storage") · [refs](https://github.com/verifiably/refs "External references pinned to vocabulary releases") · **beliefs** · [science](https://github.com/verifiably/science "The daily surface: commands for people and agents") · [autonomy](https://github.com/verifiably/autonomy "Running the daily surface unattended")
 <!-- ops:family end -->
 
+beliefs is meant to hold everything a reproducible analysis establishes about the world,
+so that understanding can be built up from many small, checked analyses. Today it
+implements one complete path: a typed claim, a held dataset, a frozen analysis, a
+confined run, a verification that reproduces it, and a belief computed by
+`science.belief.v1`, which counts independent assessments with equal weight. Around
+that path it implements worlds and epochs, additive correction, a tamper-evident log
+and publication. Weighing evidence instead of counting it, comparing competing models,
+and analyses that start from the data rather than a stated claim are recorded
+directions without a design yet (see the overview's
+[Where the design is heading](https://github.com/verifiably/docs/blob/main/overview.md#where-the-design-is-heading)).
+
 ## Install
 
 `verifiably-beliefs` is not yet published, and neither are `verifiably-atoms` and
@@ -31,9 +42,10 @@ cd ../ts && npm ci
 
 ## Usage
 
-The kernel is a library; the `science` CLI is its daily surface. Directly: register a
-corpus root under an authority, open it under the shipped base profile, and add one
-proposition. The root must sit on a certified ext4 volume, as `atoms` requires:
+The kernel is a library; the [`science`](https://github.com/verifiably/science) CLI
+is its daily surface. Directly: register a corpus root under an authority, open it
+under the shipped base profile, and add one proposition. The root must sit on a
+certified ext4 volume, as `atoms` requires:
 
 ```python
 import tempfile
@@ -51,34 +63,39 @@ node = writer.add(stored.proposition_node("p", title="p", claim={"operator": "af
 print(writer.read_view.get(node.id).id)  # proposition:p
 ```
 
-For a whole walk from held data to a belief, the
-[mm30 reproduction](docs/designs/2026-09-05-mm30-reproduction.md) drives the kernel
-the same way.
+This shows the write path only. `add` stores the claim as given and does not type it,
+and the base profile declares no operators, so this claim would be refused when read
+as a typed claim; a real one is built with `build_claim` under a profile that
+activates a domain contract ([records](docs/records.md#propositions-and-claims)). For a
+whole walk from held data to a belief, see the guide's
+[worked walk](docs/guide.md#from-held-data-to-a-belief).
 
 ## Layout
 
 ```
-python/     the implementation, package `beliefs` (substrate §11 puts the composition root here)
-ts/         the one shared encoding, and nothing else (formal model lim. 9)
-fixtures/   the cross-language parity corpus, owned by neither
-contracts/  the science base contract
+python/     the implementation, package `beliefs`
+ts/         the TypeScript mirror of the shared identity encoding and claim projection
+fixtures/   the cross-language parity corpus both test suites read
+contracts/  the Science base contract
 domains/    the packaged domain contracts (biology)
-docs/       guide/, and the designs, plans, notes and slice specs the tree cites (see Documentation)
+docs/       the guide, reference documents and glossary listed below
+tools/      vendored ops tools (timing wrapper, hygiene and docs checks)
 ```
 
 ## Documentation
 
-- [Contributor guide](docs/guide/README.md) — the key ideas, reading paths, glossary
-  and open questions; start here.
-- [Designs index](docs/designs/README.md) — the banked designs, conformance cuts and
-  rulings, in reading order; every guarantee table is frozen under its identifiers.
-- [Adoption ledger, current state](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-10-28)
-  — the sole authority for what is built and what remains, each remainder with its
-  owner. The per-cut results records under [`docs/plans/`](docs/plans/) are the
-  evidence trail. Task records and newer working documents live in the project's records
-  directory, outside this repository.
-- [User and autonomy layer design](docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md)
-  — the layers above the kernel, `science` and `autonomy`.
+1. [Guide](docs/guide.md) — the model in plain language, a worked walk from held data
+   to a belief, and where each contract is specified.
+2. [Records](docs/records.md) — the records a corpus holds, their identity, and what
+   decoding rejects.
+3. [Contracts](docs/contracts.md) — the base contract, domain contracts and profiles.
+4. [Writes](docs/writes.md) — how a write reaches a corpus, and how it fails.
+5. [Development](docs/development.md) — layout, gates, the certified host, and adding a
+   record kind or a domain contract.
+6. [Glossary](docs/glossary.md) — the terms these documents use.
+
+For day-to-day work — stating claims, holding data, running and verifying analyses —
+use [`science`](https://github.com/verifiably/science), which drives this kernel.
 
 ## License
 
