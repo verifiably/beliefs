@@ -1,10 +1,9 @@
 # mm30's claim vocabulary — **per-slot sorts, assigned by a stated rule**.
 #
-# An exercise artifact for ledger item 11, not a shipped domain contract. Read
-# `mm30-unsorted.yaml` first: everything there about the placeholder vocabulary
-# binding, about which parts of a result are fitted, and about the polarity
-# partition applies here unchanged. This file differs from it in exactly one
-# respect — `arg_sorts`.
+# An exercise artifact for ledger item 11, not a shipped domain contract. It
+# differs from the deleted unsorted mm30 vocabulary (one sort covering every
+# term) in exactly one respect — `arg_sorts`; the placeholder vocabulary binding,
+# which parts of a result are fitted, and the polarity partition are the same.
 #
 # **The assignment rule, stated before the run so the result is not a choice.**
 # Each operator's two slots take the sorts of the subject/object kind pair that

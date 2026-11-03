@@ -30,8 +30,8 @@ tt := "python3 tools/tt"
 # `pyright` takes no path argument, deliberately: python/README.md records that naming a
 # path narrows the check and hides diagnostics outside it, which is how tests/ drifted
 # once already. The gate is the whole project or it is not the gate.
-py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py)"
-py_test_cmd := py_fast_cmd + " && (cd python && uv run --frozen pytest tests/test_n2.py)"
+py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup)"
+py_test_cmd := py_fast_cmd
 py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen ruff format --check . && uv run --frozen pyright)"
 
 # `npm ci` is installation, not a gate, so it stays out of the gate recipes and lives in
@@ -61,7 +61,7 @@ docs_paths := "AGENTS.md tasks/*.md"
 ci_suite_refs := "refs/heads/*"
 ci_remote := "origin"
 
-# Fixed fast set (act design form 3): all non-N2 Python tests plus all TS tests.
+# Fixed fast set (act design form 3): all Python tests plus all TS tests.
 # Vitest's unbased --changed selection sees no committed push changes in a clean tree.
 push_fast_cmd := py_fast_cmd + " && " + ts_test_cmd
 
@@ -78,11 +78,10 @@ setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)
 # An empty vitest selection is a result, not a failure.
 #
 # `test`, `test-fast`, `test-push` and `test-one` run under ops' `host-budget run`, which sizes
-# them to this host's CPU budget: `-n auto` reads PYTEST_XDIST_AUTO_NUM_WORKERS, and
-# N2's pool reads OPS_WORKERS and refuses to run without it (ops
+# them to this host's CPU budget: `-n auto` reads PYTEST_XDIST_AUTO_NUM_WORKERS (ops
 # docs/specs/2026-09-24-host-budget-design.md). `tt` stays outside so it times the run.
 #
-# The documented fast local loop: xdist with N2 excluded, plus the affected TS tests.
+# The documented fast local loop: xdist over the Python tests, plus the affected TS tests.
 test-fast:
     {{tt}} test-fast -- host-budget run -- sh -c '{{fast_cmd}}'
 
@@ -90,9 +89,6 @@ test-fast:
 test-one +args:
     {{tt}} test-one -- host-budget run -- sh -c '{{one_cmd}} "$@" 2>&1' test-one "$@"
 
-# The complete Python gate: parallel non-N2 tests, then N2 alone with its full
-# OPS_WORKERS pool. Both summaries are counted by tt as one recorded run.
-#
 # The full suite, both packages.
 test:
     {{tt}} test -- host-budget run -- sh -c '{{test_cmd}}'
@@ -102,7 +98,7 @@ test:
 test-full:
     TT_FORCE=1 just test
 
-# The fixed push set (all non-N2 Python tests plus all TS tests), its own recorded target.
+# The fixed push set (all Python tests plus all TS tests), its own recorded target.
 test-push:
     {{tt}} test-push -- host-budget run -- sh -c '{{push_fast_cmd}}'
 
@@ -161,13 +157,12 @@ hook-pre-push-fast:
 # its package, so the whole job is one recorded number. These run exactly what `test` and
 # `check` run for that package. `tasks check` is not in them: the tasks binary is not on
 # a runner, which is why CI runs these rather than `just gate` (design section 4.6).
-# A runner has no host-budget, so ci.yml sets both worker variables for the
-# parallel first phase and the standalone N2 pool.
+# A runner has no host-budget, so ci.yml sets the xdist worker variable.
 #
 # Each also writes JUnit into BELIEFS_CI_EVIDENCE_DIR, which ci.yml uploads; the
 # reporting flags select nothing, so the suites are py_test_cmd's and ts_test_cmd's.
 ci_evidence_cmd := "case \"${BELIEFS_CI_EVIDENCE_DIR:?set BELIEFS_CI_EVIDENCE_DIR}\" in /*) ;; *) echo \"CI evidence path must be absolute\" >&2; exit 2;; esac"
-ci_py_test_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest.xml\") && (cd python && uv run --frozen pytest tests/test_n2.py --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest-n2.xml\")"
+ci_py_test_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest.xml\")"
 ci_ts_test_cmd := "(cd ts && npm test -- --reporter=default --reporter=junit --outputFile.junit=\"$BELIEFS_CI_EVIDENCE_DIR/vitest.xml\")"
 
 # The Python job: both pytest phases, then ruff and pyright.

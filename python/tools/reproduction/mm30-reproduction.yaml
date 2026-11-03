@@ -1,8 +1,11 @@
 # The mm30 reproduction's claim vocabulary — the exercise's own copy.
 #
-# The `contract:` and `plan:` blocks are `tools/vocabularies/mm30-unsorted.yaml`
-# verbatim, except `contract.contract`, which names this exercise. Read that
-# file's header for what is fitted and what is not; nothing here changes it.
+# The `contract:` and `plan:` blocks are the unsorted mm30 vocabulary verbatim
+# (one sort covering every term; a placeholder vocabulary binding; operator names,
+# `sign_apt` and `layers` read off mm30's own `predicate`, `polarity` and
+# `claim_layer` fields, so fitted, not evidence), except `contract.contract`, which
+# names this exercise. That file was deleted; it is in the history before this
+# comment's commit.
 #
 # Why the unsorted vocabulary and not the modal-sorted one: the target
 # (record §2) is `concept:disease-stage affects protein:PHF19`, a

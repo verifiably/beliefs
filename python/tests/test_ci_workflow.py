@@ -19,7 +19,7 @@ PR_CONDITION = (
     "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository"
 )
 REQUIRED = {
-    "python": ["pytest.xml", "pytest-n2.xml", "module-inventory.txt"],
+    "python": ["pytest.xml", "module-inventory.txt"],
     "typescript": ["vitest.xml", "module-inventory.txt"],
 }
 CAPABILITY_SKIP = "certified tuple unavailable on this host:"
@@ -77,7 +77,7 @@ def test_ci_requires_absolute_evidence_path(tmp_path: Path, target: str, path: s
     assert checkout.events() == []
 
 
-def test_pytest_junit_persists_both_phases_and_skip_reasons(tmp_path: Path) -> None:
+def test_pytest_junit_persists_skip_reasons(tmp_path: Path) -> None:
     checkout = Checkout(tmp_path)
     # The real pytest, from this environment, behind the uv stub's argv.
     (checkout.root / "bin/uv").write_text(
@@ -90,7 +90,6 @@ def test_pytest_junit_persists_both_phases_and_skip_reasons(tmp_path: Path) -> N
         f"import pytest\n\ndef test_pass():\n    pass\n\ndef test_capability():\n"
         f"    pytest.skip({CAPABILITY_SKIP + ' fixture'!r})\n"
     )
-    (tests / "test_n2.py").write_text("def test_n2():\n    pass\n")
     evidence = checkout.root / "evidence with spaces"
     evidence.mkdir()
     checkout.env["BELIEFS_CI_EVIDENCE_DIR"] = str(evidence)
@@ -101,13 +100,10 @@ def test_pytest_junit_persists_both_phases_and_skip_reasons(tmp_path: Path) -> N
     assert all(case.attrib["classname"].endswith("test_some") for case in cases)
     skips = [skip for case in cases if (skip := case.find("skipped")) is not None]
     assert [skip.attrib["message"] for skip in skips] == [CAPABILITY_SKIP + " fixture"]
-    n2 = ET.parse(evidence / "pytest-n2.xml").findall(".//testcase")
-    assert [case.attrib["name"] for case in n2] == ["test_n2"]
-    assert n2[0].attrib["classname"].endswith("test_n2")
     assert checkout.rows()[-1]["target"] == "ci-python"
     # A failing static check after the suite must not erase the reports it produced.
     assert checkout.just("--set", "py_check_cmd", "false", "ci-python").returncode != 0
-    assert (evidence / "pytest.xml").is_file() and (evidence / "pytest-n2.xml").is_file()
+    assert (evidence / "pytest.xml").is_file()
 
 
 def test_vitest_reporter_arguments(tmp_path: Path) -> None:
@@ -172,9 +168,9 @@ def test_inventory_lists_eligible_modules_and_siblings(tmp_path: Path, job: str)
     checkout = Checkout(tmp_path)
     package = checkout.root / ("python" if job == "python" else "ts")
     if job == "python":
-        files = ["tests/test_a b.py", "tests/test_n2.py", "tests/acceptance/test_c.py", "tests/conftest.py"]
+        files = ["tests/test_a b.py", "tests/test_d.py", "tests/acceptance/test_c.py", "tests/conftest.py"]
         files += ["tests/x_fixtures.py"]
-        eligible, manifest = ["tests/test_a b.py", "tests/test_n2.py"], "pyproject.toml"
+        eligible, manifest = ["tests/test_a b.py", "tests/test_d.py"], "pyproject.toml"
     else:
         files, eligible, manifest = ["tests/a.test.ts", "tests/helper.ts"], ["tests/a.test.ts"], "package.json"
     for name in files:

@@ -135,7 +135,7 @@ def test_failing_code_check_stops_the_suite(tmp_path: Path, recipe: str) -> None
         ("hook-pre-commit", _HYGIENE + _CHECK_CODE, ["hook-pre-commit", "check-code"]),
         (
             "hook-pre-push",
-            _HYGIENE + _CHECK_CODE + ["host-budget", "uv", "uv", "npm"],
+            _HYGIENE + _CHECK_CODE + ["host-budget", "uv", "npm"],
             ["hook-pre-push", "check-code", "test"],
         ),
         (

@@ -22,7 +22,7 @@ CUT22_DOCUMENT = Path(__file__).with_name("mm30-cut22.yaml")
 # The cut-31 document, byte-for-byte: the estimand lane's contract, which this
 # lane's `edges:` table succeeds. The chain is walked, not summarized.
 CUT31_DOCUMENT = Path(__file__).with_name("mm30-cut31.yaml")
-MODAL_SORTED = paths.REPO / "python" / "tools" / "vocabularies" / "mm30-modal-sorted.yaml"
+MODAL_SORTED = paths.REPO / "python" / "tools" / "reproduction" / "mm30-modal-sorted.yaml"
 # Each sort binds the dataset address of a list held before anything adopts
 # (`lists.py`, `concepts.py`): the contract cannot compile without them.
 VOCABULARY_TOKENS = {
