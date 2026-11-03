@@ -70,9 +70,12 @@ def check_file(path: Path, root: Path) -> list[str]:
             resolved = path if not parsed.path else (path.parent / unquote(parsed.path))
             if not resolved.exists():
                 errors.append(f"{shown}:{number}: missing link target: {target}")
-            elif parsed.fragment and resolved.suffix == ".md":
-                if unquote(parsed.fragment) not in anchors(resolved.read_text(encoding="utf-8")):
-                    errors.append(f"{shown}:{number}: the file exists but the anchor does not: {target}")
+            elif (
+                parsed.fragment
+                and resolved.suffix == ".md"
+                and unquote(parsed.fragment) not in anchors(resolved.read_text(encoding="utf-8"))
+            ):
+                errors.append(f"{shown}:{number}: the file exists but the anchor does not: {target}")
     return errors
 
 
