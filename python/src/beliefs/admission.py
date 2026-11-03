@@ -70,7 +70,7 @@ def admit(
                 uid, f"input-not-held: a {run_input.role} input reads {type(state).__name__} under these observations"
             )
     if lifecycle_state(tuple(v for v in verifications if v.assessment == uid)) != ADMITTED:
-        return AdmissionRefused(uid, "not-admitted-verification-state: kernel 3.3 admits only clean-environment passes")
+        return AdmissionRefused(uid, "not-admitted-verification-state: only clean-environment passes are admitted")
     return Admitted(uid)
 
 
