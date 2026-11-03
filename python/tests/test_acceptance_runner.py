@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import acceptance_runner as runner
+import pytest
 
 
 def _python_root(tmp_path: Path, names: list[str]) -> Path:
@@ -74,3 +75,17 @@ def test_an_old_cut_root_variable_is_refused(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("SCIENCE_CUT4_ROOT", "/x")
     assert runner.main([]) == runner.OLD_ROOT_REFUSED
     assert called == [] and "SCIENCE_CUT4_ROOT" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("create", [True, False])
+def test_no_acceptance_modules_is_an_error(tmp_path, monkeypatch, capsys, create):
+    root = tmp_path / "python"
+    if create:
+        (root / "tests" / "acceptance").mkdir(parents=True)
+    else:
+        root.mkdir()
+    commands = _record(monkeypatch)
+    status = runner.run_acceptance(python_root=root, work=tmp_path / "work", argv=[])
+    err = capsys.readouterr().err
+    assert status == runner.NO_MODULES and status != 0 and commands == []
+    assert str(root / "tests" / "acceptance") in err

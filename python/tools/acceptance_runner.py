@@ -15,6 +15,8 @@ from checkout import MAIN_CHECKOUT
 
 PROBE_REFUSED = 2
 OLD_ROOT_REFUSED = 3
+# No `test_*.py` module under tests/acceptance: running nothing is never success.
+NO_MODULES = 4
 
 DEFAULT_ACCEPTANCE_ROOT = MAIN_CHECKOUT / ".work" / "acceptance"
 
@@ -58,6 +60,12 @@ def _probe(run: Path, actor: str) -> str | None:
 def run_acceptance(*, python_root: Path, work: Path, argv: list[str]) -> int:
     acceptance = python_root / "tests" / "acceptance"
     modules = sorted(acceptance.glob("test_*.py"))
+    if not modules:
+        print(
+            f"no acceptance modules found under {acceptance}. This is an error, not a skip.",
+            file=sys.stderr,
+        )
+        return NO_MODULES
     work.mkdir(parents=True, exist_ok=True)
     run = Path(tempfile.mkdtemp(prefix="run-", dir=work))
     try:
