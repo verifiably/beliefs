@@ -65,7 +65,7 @@ records each run.
 |---|---|
 | `just test-one <args>` | A focused pytest selection, paths relative to `python/`: a file, `file::test`, or `-k "expr"` |
 | `just --set one_cmd "cd ts && npx --no-install vitest run" test-one <filter> -t "<name>"` | A focused Vitest selection, filters relative to `ts/` |
-| `just check-hygiene` | ops-check, `ops-docs check` and `tasks check` |
+| `just check-hygiene` | ops-check, `ops-docs check`, the document link and anchor check, and `tasks check` |
 | `just check-code` | ruff check, ruff format --check, pyright, tsc and biome |
 | `just check` | `check-hygiene`, then `check-code` |
 | `just test-fast` | All Python tests in parallel, plus the TypeScript tests Vitest selects as changed |
