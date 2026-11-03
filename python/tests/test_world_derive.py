@@ -1169,7 +1169,7 @@ class TestW19MultiHolderMap:
     """One address held in several corpora with equal content identity maps one
     entry; differing content refuses; deprecated keys follow the record."""
 
-    def test_w19_a_equal_content_reads_once(self):
+    def test_equal_content_reads_once(self):
         shared = record("dataset:shared", uid="uid-shared")
         entry = derive.AddressEntry("uid-shared", shared.content, ("corpus-a", "corpus-b"))
         two = capture(corpus("corpus-a", shared, at="a"), corpus("corpus-b", shared, at="b"))
@@ -1186,7 +1186,7 @@ class TestW19MultiHolderMap:
         [{"uid": "uid-shared", "content": digest("f")}, {"uid": "uid-other"}],
         ids=["shared-uid-differing-content", "distinct-uids"],
     )
-    def test_w19_b_differing_content_refuses(self, other):
+    def test_differing_content_refuses(self, other):
         clash = capture(
             corpus("corpus-a", record("dataset:one", uid="uid-shared"), at="a"),
             corpus("corpus-b", record("dataset:one", **other), at="b"),
@@ -1198,7 +1198,7 @@ class TestW19MultiHolderMap:
         assert "corpus-a" in finding.detail and "corpus-b" in finding.detail
 
     @pytest.mark.parametrize("reverse", [False, True])
-    def test_w19_c_corruption_outranks(self, reverse):
+    def test_corruption_outranks(self, reverse):
         """The uid at two addresses is refused before the duplicate location the same
         capture also carries (corpus-c's differing claim on `dataset:one`), either order."""
         shared = record("dataset:one", uid="shared")
@@ -1216,7 +1216,7 @@ class TestW19MultiHolderMap:
             derive.address_map(capture(*(reversed(corpora) if reverse else corpora)))
         assert caught.value.finding.code == "uid-corruption" and caught.value.finding.ref == "shared"
 
-    def test_w19_d_deprecated_key_entry(self):
+    def test_deprecated_key_entry(self):
         from beliefs.errors import ResolutionRefused
 
         renamed = record("dataset:two", uid="uid-two", deprecated_ids=("dataset:retired",))
@@ -1236,7 +1236,7 @@ class TestW19MultiHolderMap:
         with pytest.raises(ResolutionRefused, match="dataset:retired"):
             derive.address_map(capture(corpus("corpus-a", renamed, at="a"), corpus("corpus-b", other, at="b")))
 
-    def test_w19_f_discovery_once(self):
+    def test_discovery_once(self):
         held_twice = record("retraction:one", kind="retraction", retraction=retraction("target-1"))
         mapping = derive.retraction_discovery_map(
             capture(corpus("corpus-a", held_twice, at="a"), corpus("corpus-b", held_twice, at="b"))

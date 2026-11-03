@@ -136,7 +136,7 @@ def _assessment(tmp_path, port, **overrides):
     return execute_assessment_run(**kwargs)
 
 
-def test_e7_a_permit_lacking_run_refuses_with_no_intent_and_no_report(tmp_path):
+def test_a_permit_lacking_run_refuses_with_no_intent_and_no_report(tmp_path):
     port = _NarrowPort(narrowed(kinds=("run", "act-report"), families=("corpus-write",)))
     outcome = _assessment(tmp_path, port)
     assert isinstance(outcome, RunRefused)
@@ -146,7 +146,7 @@ def test_e7_a_permit_lacking_run_refuses_with_no_intent_and_no_report(tmp_path):
     assert port.appended == []
 
 
-def test_e7_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
+def test_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
     port = _NarrowPort(narrowed(kinds=("run",), families=("run",)))
     outcome = _assessment(tmp_path, port)
     assert isinstance(outcome, RunRefused) and outcome.reason == "permit-exceeded"
@@ -154,7 +154,7 @@ def test_e7_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
     assert port.appended == []
 
 
-def test_e7_a_production_run_under_a_permit_lacking_run_refuses_with_no_intent(tmp_path):
+def test_a_production_run_under_a_permit_lacking_run_refuses_with_no_intent(tmp_path):
     from fixtures_cut3 import run_production as production_run
 
     port = _NarrowPort(narrowed(kinds=("run", "act-report", "dataset"), families=("corpus-write",)))
@@ -164,7 +164,7 @@ def test_e7_a_production_run_under_a_permit_lacking_run_refuses_with_no_intent(t
     assert port.appended == []
 
 
-def test_e7_a_non_permit_refusal_after_the_check_still_mints_its_report(tmp_path):
+def test_a_non_permit_refusal_after_the_check_still_mints_its_report(tmp_path):
     class Port(MemoryPort):
         authority = FULL
 
@@ -180,7 +180,7 @@ def test_e7_a_non_permit_refusal_after_the_check_still_mints_its_report(tmp_path
     assert outcome.report is not None and len(port.executed) == 1
 
 
-def test_e3_the_run_intent_carries_the_ports_actor(tmp_path):
+def test_the_run_intent_carries_the_ports_actor(tmp_path):
     class Port(MemoryPort):
         authority = narrowed(kinds=("run", "act-report"), families=("run",), actor="port-actor")
 
@@ -466,14 +466,14 @@ def test_the_boundary_refuses_a_definition_the_entrypoint_does_not_embody(tmp_pa
 
 
 # --- G2a / R12 ----------------------------------------------------------------
-def test_g2a_a_run_naming_no_frozen_spec_is_refused_not_downgraded(tmp_path):
+def test_a_run_naming_no_frozen_spec_is_refused_not_downgraded(tmp_path):
     outcome = run_assessment(tmp_path, spec=spec_draft())
     assert isinstance(outcome, RunRefused) and outcome.reason == "no-frozen-spec"
     assert outcome.intent is None and outcome.registration is None
     assert isinstance(outcome.report, ActReport)
 
 
-def test_g2a_a_spec_frozen_mid_execution_is_refused_not_downgraded(tmp_path):
+def test_a_spec_frozen_mid_execution_is_refused_not_downgraded(tmp_path):
     draft = spec_draft()
     refused = run_assessment(tmp_path, spec=draft)
     assert isinstance(refused, RunRefused)
@@ -482,13 +482,13 @@ def test_g2a_a_spec_frozen_mid_execution_is_refused_not_downgraded(tmp_path):
     assert frozen_later.identity
 
 
-def test_r12_the_boundary_refuses_a_bare_spec_identity_string(tmp_path):
+def test_the_boundary_refuses_a_bare_spec_identity_string(tmp_path):
     frozen = freeze(spec_draft(), held_rules=spec_rules())
     outcome = run_assessment(tmp_path, spec=frozen.identity)
     assert isinstance(outcome, RunRefused) and outcome.reason == "no-frozen-spec"
 
 
-def test_g2a_r12_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectable(tmp_path):
+def test_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectable(tmp_path):
     code, _ = stage(tmp_path)
     scratch = create_scratch_root(tmp_path / "s")
     (scratch / "inputs").mkdir()
@@ -527,7 +527,7 @@ def test_g2a_r12_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectabl
 
 
 # --- R10 ----------------------------------------------------------------------
-def test_r10_a_url_valued_input_is_refused_as_a_run_input(tmp_path):
+def test_url_valued_input_is_refused_as_a_run_input(tmp_path):
     spec = freeze(
         spec_draft(input_roles=(SpecInput(role="observes", dataset="https://example.org/series"),)),
         held_rules=spec_rules(),
@@ -536,7 +536,7 @@ def test_r10_a_url_valued_input_is_refused_as_a_run_input(tmp_path):
     assert isinstance(outcome, RunRefused) and outcome.reason == "acquisition-not-a-run"
 
 
-def test_r10_an_accession_is_refused_and_no_fallback_synthesizes_a_dataset(tmp_path):
+def test_an_accession_is_refused_and_no_fallback_synthesizes_a_dataset(tmp_path):
     spec = freeze(
         spec_draft(input_roles=(SpecInput(role="observes", dataset="accession:GSE00001"),)),
         held_rules=spec_rules(),
@@ -547,7 +547,7 @@ def test_r10_an_accession_is_refused_and_no_fallback_synthesizes_a_dataset(tmp_p
 
 
 # --- R3 (and R2's execution-level negative) -----------------------------------
-def test_r3_two_executions_of_one_recipe_are_two_runs(tmp_path):
+def test_two_executions_of_one_recipe_are_two_runs(tmp_path):
     first = run_assessment(tmp_path / "a")
     second = run_assessment(tmp_path / "b")
     assert isinstance(first, RunMinted) and isinstance(second, RunMinted)
@@ -559,7 +559,7 @@ def test_r3_two_executions_of_one_recipe_are_two_runs(tmp_path):
     }
 
 
-def test_r3_identical_timestamp_actor_and_host_still_yield_distinct_addresses(tmp_path):
+def test_identical_timestamp_actor_and_host_still_yield_distinct_addresses(tmp_path):
     first = run_assessment(
         tmp_path / "a",
         started_at="2026-08-12T00:00:00Z",
@@ -590,20 +590,20 @@ def test_r3_identical_timestamp_actor_and_host_still_yield_distinct_addresses(tm
 
 
 # --- T2's in-cell arms ---------------------------------------------------------
-def test_t2_a_dataset_production_attempt_opens_the_operation_intent(tmp_path):
+def test_dataset_production_attempt_opens_the_operation_intent(tmp_path):
     outcome = run_production(tmp_path)
     assert isinstance(outcome, RunMinted)
     assert isinstance(outcome.intent, OperationIntent) and outcome.intent.kind == "run-attempt"
 
 
-def test_t2_negative_b_a_complete_non_conforming_execution_mints_a_run_never_an_act_report(
+def test_a_complete_non_conforming_execution_mints_a_run_never_an_act_report(
     tmp_path,
 ):
     outcome = run_assessment(tmp_path, snakefile=SNAKEFILE_SEED_VIOLATING)
     assert isinstance(outcome, RunMinted)
 
 
-def test_t2_a_missing_spec_refusal_publishes_an_unfulfilling_report(tmp_path):
+def test_missing_spec_refusal_publishes_an_unfulfilling_report(tmp_path):
     outcome = run_assessment(tmp_path, spec=None.__class__)
     assert isinstance(outcome, RunRefused)
     assert outcome.intent is None
@@ -614,7 +614,7 @@ def test_t2_a_missing_spec_refusal_publishes_an_unfulfilling_report(tmp_path):
 
 
 # --- R21's boundary arms -------------------------------------------------------
-def test_r21_manifest_missing_output_mints_no_run(tmp_path):
+def test_manifest_missing_output_mints_no_run(tmp_path):
     code, held = stage(tmp_path)
     spec = freeze(spec_draft(), held_rules=spec_rules())
     outcome = execute_assessment_run(
@@ -639,13 +639,13 @@ def test_r21_manifest_missing_output_mints_no_run(tmp_path):
     assert outcome.intent is not None and outcome.report is not None
 
 
-def test_r21_the_manifest_is_constructed_by_the_boundary_and_no_supplied_path_exists():
+def test_the_manifest_is_constructed_by_the_boundary_and_no_supplied_path_exists():
     for fn in (execute_assessment_run, execute_production_run):
         params = set(inspect.signature(fn).parameters)
         assert not {"manifest", "outputs", "result"} & params
 
 
-def test_r21_a_digest_disagreeing_with_the_bytes_on_disk_mints_no_run(tmp_path, minted):
+def test_a_digest_disagreeing_with_the_bytes_on_disk_mints_no_run(tmp_path, minted):
     scratch = create_scratch_root(tmp_path)
     (scratch / "outputs").mkdir()
     (scratch / "outputs" / "result.txt").write_text("HELLO")
@@ -655,21 +655,21 @@ def test_r21_a_digest_disagreeing_with_the_bytes_on_disk_mints_no_run(tmp_path, 
         mint_run(minted.run.recipe, manifest, minted.run.occurrence, scratch)
 
 
-def test_r21_intermediates_are_excluded_and_scratch_files_leave_the_manifest_equal(tmp_path):
+def test_intermediates_are_excluded_and_scratch_files_leave_the_manifest_equal(tmp_path):
     first = run_assessment(tmp_path / "a", snakefile=SNAKEFILE_SCRATCHY)
     second = run_assessment(tmp_path / "b", snakefile=SNAKEFILE_SCRATCHY)
     assert isinstance(first, RunMinted) and isinstance(second, RunMinted)
     assert first.run.result == second.run.result
 
 
-def test_r21_negative_a_a_scheduling_only_option_leaves_the_recipe_identity_unchanged(tmp_path):
+def test_a_scheduling_only_option_leaves_the_recipe_identity_unchanged(tmp_path):
     one = run_assessment(tmp_path / "a", cores=1)
     two = run_assessment(tmp_path / "b", cores=2)
     assert isinstance(one, RunMinted) and isinstance(two, RunMinted)
     assert one.run.recipe.identity() == two.run.recipe.identity()
 
 
-def test_r21_negative_c_two_differently_mounted_scratch_roots_yield_equal_recipe_identities(
+def test_two_differently_mounted_scratch_roots_yield_equal_recipe_identities(
     tmp_path,
 ):
     a = run_assessment(tmp_path / "mount-a")
@@ -682,7 +682,7 @@ def test_r21_negative_c_two_differently_mounted_scratch_roots_yield_equal_recipe
     assert a.run.occurrence.receipt.execution.scratch_mapping not in json.dumps(a.run.recipe.identity())
 
 
-def test_r21_negative_e_the_two_failure_states_are_distinct(tmp_path):
+def test_the_two_failure_states_are_distinct(tmp_path):
     disobeyed = run_assessment(tmp_path / "a", snakefile=SNAKEFILE_SEED_VIOLATING)
     assert isinstance(disobeyed, RunMinted)
     incompletable = run_assessment(
@@ -696,7 +696,7 @@ def test_r21_negative_e_the_two_failure_states_are_distinct(tmp_path):
 
 
 # --- R16's mint arm ------------------------------------------------------------
-def test_r16_a_seed_violating_execution_still_mints_a_run(tmp_path):
+def test_a_seed_violating_execution_still_mints_a_run(tmp_path):
     outcome = run_assessment(tmp_path, snakefile=SNAKEFILE_SEED_VIOLATING)
     assert isinstance(outcome, RunMinted)
     key = job_key("transform", ())
@@ -705,7 +705,7 @@ def test_r16_a_seed_violating_execution_still_mints_a_run(tmp_path):
 
 
 # --- R17's execution halves ----------------------------------------------------
-def test_r17_no_path_supplies_inputs_parameters_or_contract_on_an_assessment_run():
+def test_no_path_supplies_inputs_parameters_or_contract_on_an_assessment_run():
     params = set(inspect.signature(execute_assessment_run).parameters)
     assert (
         not {
@@ -725,14 +725,14 @@ def test_r17_no_path_supplies_inputs_parameters_or_contract_on_an_assessment_run
     )
 
 
-def test_r17_the_boundary_renders_the_configuration_from_the_projected_members(minted):
+def test_the_boundary_renders_the_configuration_from_the_projected_members(minted):
     rendered = dict(minted.run.occurrence.receipt.execution.rendered_config)
     assert rendered["alpha"] == "0.05"
     assert json.loads(rendered["seed_roots"]) == {"model-initialization": "11"}
     assert rendered["seed_derivation_rule"] == "seed-derivation/v1"
 
 
-def test_r17_seed_shopping_cannot_occur_at_all(minted):
+def test_seed_shopping_cannot_occur_at_all(minted):
     successor = revise(
         freeze(spec_draft(), held_rules=spec_rules()),
         edits={
@@ -752,7 +752,7 @@ def test_r17_seed_shopping_cannot_occur_at_all(minted):
     assert minted.run.recipe.spec_identity == freeze(spec_draft(), held_rules=spec_rules()).identity
 
 
-def test_r17_a_deleted_or_never_recorded_attempt_is_undetectable(tmp_path):
+def test_a_deleted_or_never_recorded_attempt_is_undetectable(tmp_path):
     refused = run_assessment(tmp_path, spec=spec_draft())
     assert isinstance(refused, RunRefused)
     assert refused.report is not None
@@ -761,7 +761,7 @@ def test_r17_a_deleted_or_never_recorded_attempt_is_undetectable(tmp_path):
     assert held_records == {}
 
 
-def test_r17_negative_b_a_dataset_production_recipe_is_authored_directly(tmp_path):
+def test_a_dataset_production_recipe_is_authored_directly(tmp_path):
     params = set(inspect.signature(execute_production_run).parameters)
     assert {"inputs", "parameters", "nondeterminism"} <= params
     outcome = run_production(tmp_path, nondeterminism=seeded())
@@ -788,7 +788,7 @@ def test_the_boundary_policy_has_no_default_and_no_ambient_constant():
     assert not hasattr(_boundary, "_POLICY")
 
 
-def test_k1_an_unsupported_policy_refuses_before_intent(tmp_path):
+def test_an_unsupported_policy_refuses_before_intent(tmp_path):
     outcome = run_assessment(tmp_path, boundary_policy=_dc.replace(CONFINED_POLICY, scope_rule="scope-derivation/v2"))
     assert isinstance(outcome, RunRefused)
     assert outcome.reason == "boundary-policy-unsupported"

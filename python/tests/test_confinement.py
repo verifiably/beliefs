@@ -101,7 +101,7 @@ def test_a_snapshot_is_built_verified_and_published_under_its_environment_identi
     assert not [entry for entry in environments.iterdir() if ".build-" in entry.name]
 
 
-def test_k2_an_existing_mismatching_snapshot_refuses_and_is_never_rebuilt(tmp_path):
+def test_an_existing_mismatching_snapshot_refuses_and_is_never_rebuilt(tmp_path):
     captured = synthetic(tmp_path)
     environments = tmp_path / "environments"
     snapshot = materialize_snapshot(captured, environments)
@@ -125,7 +125,7 @@ def test_a_snapshot_with_an_unmanifested_file_or_a_missing_row_refuses(tmp_path)
         verify_snapshot(snapshot, captured)
 
 
-def test_k2_a_concurrent_winner_is_verified_and_reused_or_refused(tmp_path, monkeypatch):
+def test_a_concurrent_winner_is_verified_and_reused_or_refused(tmp_path, monkeypatch):
     import shutil
 
     captured = synthetic(tmp_path)
@@ -321,7 +321,7 @@ def test_canonical_mounts_keeps_every_row_classifies_by_planned_role_and_unescap
     )
 
 
-def test_k6_a_namespace_equal_to_the_parents_refuses(tmp_path):
+def test_a_namespace_equal_to_the_parents_refuses(tmp_path):
     plan = _plan(tmp_path)
     facts = InstanceFacts(distinct=tuple(name for name in NAMESPACES if name != "net"), mounts=plan.expected)
     with pytest.raises(ConfinementNotEstablished, match="net"):
@@ -329,7 +329,7 @@ def test_k6_a_namespace_equal_to_the_parents_refuses(tmp_path):
     judge_instance(InstanceFacts(distinct=NAMESPACES, mounts=plan.expected), plan)
 
 
-def test_k6_a_mount_table_unequal_to_the_plan_refuses(tmp_path):
+def test_a_mount_table_unequal_to_the_plan_refuses(tmp_path):
     plan = _plan(tmp_path)
     extra = InstanceFacts(distinct=NAMESPACES, mounts=tuple(sorted((*plan.expected, ("/etc", UNPLANNED, "ro")))))
     with pytest.raises(ConfinementNotEstablished, match="/etc"):
@@ -428,7 +428,7 @@ def test_a_good_report_yields_every_capability(tmp_path):
         (lambda r: r["loader"].update({"/science/env/site/extra.so": dict(_entry(r))}), "loader"),  # an extra ELF
     ],
 )
-def test_k6_each_report_deviation_refuses(tmp_path, mutate, match):
+def test_each_report_deviation_refuses(tmp_path, mutate, match):
     captured = synthetic(tmp_path)
     environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
     report = good_report(captured, environment)
@@ -464,7 +464,7 @@ def test_a_malformed_report_shape_is_not_a_traceback_of_its_own(tmp_path, broken
         judge_report(report, environment=environment, captured=captured, inner_argv=INNER)
 
 
-def test_k6_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_path):
+def test_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_path):
     """Ruling R6: an architecture-matched loadable ELF that resolves zero
     dependencies of its own (a modern libc.so.6, say) stays a key in
     `loader_elves` with an empty map — the probe's equally empty entry for

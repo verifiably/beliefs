@@ -137,7 +137,7 @@ def verification_of(pair, **overrides) -> AssessmentVerification:
 
 
 # --- R19 ----------------------------------------------------------------------
-def test_r19_the_constructor_list_is_closed(pair):
+def test_the_constructor_list_is_closed(pair):
     params = list(inspect.signature(build_verification).parameters)
     assert params == [
         "original",
@@ -165,7 +165,7 @@ def test_r19_the_constructor_list_is_closed(pair):
         verification_of(pair, evaluator=lambda a, b: "passed")
 
 
-def test_r19_the_evaluator_resolves_from_the_frozen_spec_and_rule_bindings(pair):
+def test_the_evaluator_resolves_from_the_frozen_spec_and_rule_bindings(pair):
     # A second conforming implementation held BESIDE the bound one changes
     # nothing: the binding froze before execution, and no selection argument
     # exists (computation §4.2a, 5b §6).
@@ -179,7 +179,7 @@ def test_r19_the_evaluator_resolves_from_the_frozen_spec_and_rule_bindings(pair)
     assert with_beside.verdict == without.verdict == "passed"
 
 
-def test_r19_the_assessment_edge_is_derived_never_authored(pair):
+def test_the_assessment_edge_is_derived_never_authored(pair):
     # The assessment shape carries the verifies → assessment edge (§5.3), and
     # the constructor derives it from the original run's frozen records — no
     # authored argument exists for it.
@@ -200,7 +200,7 @@ def test_r19_the_assessment_edge_is_derived_never_authored(pair):
     assert "assessment" not in inspect.signature(build_verification).parameters
 
 
-def test_r19_a_mixed_shape_pair_is_refused(pair, production_pair):
+def test_a_mixed_shape_pair_is_refused(pair, production_pair):
     assessment_run, _ = pair
     production_run, _ = production_pair
     with pytest.raises(MixedShapes):
@@ -215,7 +215,7 @@ def test_r19_a_mixed_shape_pair_is_refused(pair, production_pair):
 
 
 # --- R18 ----------------------------------------------------------------------
-def test_r18_two_certifications_yield_two_verification_addresses(pair):
+def test_two_certifications_yield_two_verification_addresses(pair):
     a = verification_of(
         pair,
         certification=CodeLineageCertification(rationale="independent rewrite", attribution="alice"),
@@ -227,7 +227,7 @@ def test_r18_two_certifications_yield_two_verification_addresses(pair):
     assert a.identity() != b.identity()
 
 
-def test_r18_the_report_carries_the_evidence_inline_and_the_basis_names_it_once(pair):
+def test_the_report_carries_the_evidence_inline_and_the_basis_names_it_once(pair):
     certification = CodeLineageCertification(rationale="independent rewrite", attribution="alice")
     certified = verification_of(pair, certification=certification)
     report = certified.report
@@ -246,7 +246,7 @@ def test_r18_the_report_carries_the_evidence_inline_and_the_basis_names_it_once(
     assert "receipts" not in basis and "certification" not in basis
 
 
-def test_r18_mutating_any_receipt_field_moves_receipt_report_and_verification(pair):
+def test_mutating_any_receipt_field_moves_receipt_report_and_verification(pair):
     from beliefs.verify import _mint_comparison_report, _mint_verification
 
     # Locked carriers refuse dataclasses.replace; these private mints are the
@@ -292,7 +292,7 @@ def test_r18_mutating_any_receipt_field_moves_receipt_report_and_verification(pa
             assert moved_verification.identity() != verification.identity()
 
 
-def test_r19_only_build_verification_mints_the_carriers():
+def test_only_build_verification_mints_the_carriers():
     import beliefs
     import beliefs.verify as verify_module
 
@@ -347,7 +347,7 @@ def test_r19_only_build_verification_mints_the_carriers():
         )
 
 
-def test_r18_deleting_the_external_certification_leaves_the_verification_unchanged(pair):
+def test_deleting_the_external_certification_leaves_the_verification_unchanged(pair):
     external = {"cert-1": CodeLineageCertification(rationale="independent rewrite", attribution="alice")}
     verification = verification_of(pair, certification=external["cert-1"])
     frozen_identity = verification.identity()
@@ -356,7 +356,7 @@ def test_r18_deleting_the_external_certification_leaves_the_verification_unchang
     assert verification.report.certification is not None
 
 
-def test_t6_r18_deleting_the_cited_report_leaves_the_verification_unchanged(pair):
+def test_deleting_the_cited_report_leaves_the_verification_unchanged(pair):
     published = report()
     verification = verification_of(pair, citation=(published, 1))
     assert verification.report.citation is not None
@@ -369,14 +369,14 @@ def test_t6_r18_deleting_the_cited_report_leaves_the_verification_unchanged(pair
     assert verification.report.citation.content
 
 
-def test_t6_an_out_of_range_citation_is_refused_at_the_citing_site(pair):
+def test_an_out_of_range_citation_is_refused_at_the_citing_site(pair):
     published = report()
     with pytest.raises(CitationRefused):
         verification_of(pair, citation=(published, 99))
 
 
 # --- R11 ----------------------------------------------------------------------
-def test_r11_a_tolerance_on_a_dataset_production_replay_is_refused(production_pair):
+def test_a_tolerance_on_a_dataset_production_replay_is_refused(production_pair):
     # Two spellability routes, both absent: no tolerance argument exists on the
     # constructor, and no equivalence-rule member exists on a production recipe.
     assert "tolerance" not in inspect.signature(build_verification).parameters
@@ -384,7 +384,7 @@ def test_r11_a_tolerance_on_a_dataset_production_replay_is_refused(production_pa
     assert first.run.recipe.spec_identity is None
 
 
-def test_r11_a_nondeterministic_transform_yields_all_four(tmp_path):
+def test_a_nondeterministic_transform_yields_all_four(tmp_path):
     from test_belief import scenario as belief_scenario
 
     from beliefs.belief import evaluate
@@ -437,7 +437,7 @@ def test_r11_a_nondeterministic_transform_yields_all_four(tmp_path):
     assert evaluate(**belief_inputs) == prior_belief
 
 
-def test_r11_the_dataset_production_verification_carries_no_verifies_assessment_edge(
+def test_the_dataset_production_verification_carries_no_verifies_assessment_edge(
     production_pair,
 ):
     first, second = production_pair
@@ -455,7 +455,7 @@ def test_r11_the_dataset_production_verification_carries_no_verifies_assessment_
 
 
 # --- R8 -----------------------------------------------------------------------
-def test_r8_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
+def test_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
     # A deterministic-declared spec over a byte-nondeterministic definition is
     # the honest way to obtain a failing replay on the minimal surface.
     spec = freeze(spec_draft(nondeterminism=Deterministic()), held_rules=spec_rules())
@@ -493,7 +493,7 @@ def test_r8_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
 
 
 # --- K5: the admission join ---------------------------------------------------
-def test_k5_admission_record_is_the_total_projection_of_a_derived_verification(pair):
+def test_admission_record_is_the_total_projection_of_a_derived_verification(pair):
     verification = verification_of(pair)
     record = admission_record(verification)
     assert record == Verification(
@@ -506,7 +506,7 @@ def test_k5_admission_record_is_the_total_projection_of_a_derived_verification(p
     assert set(inspect.signature(admission_record).parameters) == {"derived"}
 
 
-def test_k5_admission_record_carries_supersedes(pair):
+def test_admission_record_carries_supersedes(pair):
     base = verification_of(pair)
     superseding = _mint_verification(
         original=base.original,
@@ -523,7 +523,7 @@ def test_k5_admission_record_carries_supersedes(pair):
     assert admission_record(superseding).supersedes == base.identity()
 
 
-def test_k5_a_production_verification_is_refused_by_the_join(production_pair):
+def test_a_production_verification_is_refused_by_the_join(production_pair):
     first, second = production_pair
     verification = build_verification(
         first.run,

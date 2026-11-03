@@ -42,7 +42,7 @@ def marker(entries=None, selection=("run:a",)):
     return marker_record(intent(), world_id="a" * 32, epoch="b" * 64, selection=selection, attributions=entries)
 
 
-def test_y18_a_closed_shapes():
+def test_closed_shapes():
     old = marker_record(intent(), world_id="a" * 32, epoch="b" * 64, selection=("run:a",))
     assert node_to_markdown(old).encode() == (FIXTURES / "publication-v2-marker.md").read_bytes()
     for entries in (None, (), (ORIGIN,)):
@@ -55,7 +55,7 @@ def test_y18_a_closed_shapes():
 @pytest.mark.parametrize(
     "entries", [[], [ORIGIN], (list(ORIGIN),), (("run:a", "c" * 32),), (("run:a", "c" * 32, 1),), "bad"]
 )
-def test_y18_b_member_types(entries):
+def test_member_types(entries):
     with pytest.raises(MalformedRecord):
         marker(entries)
     node = marker(())
@@ -64,7 +64,7 @@ def test_y18_b_member_types(entries):
 
 
 @pytest.mark.parametrize("entries", [(ORIGIN, ORIGIN), (("run:b", "c" * 32, "d" * 32), ORIGIN)])
-def test_y18_c_strict_order(entries):
+def test_strict_order(entries):
     assert not publication_content_malformed(marker(()))
     with pytest.raises(MalformedRecord):
         marker(entries, ("run:a", "run:b"))
@@ -74,7 +74,7 @@ def test_y18_c_strict_order(entries):
 
 
 @pytest.mark.parametrize("ref", ["run:b", "bad", "project:a", ""])
-def test_y18_d_selected_addresses(ref):
+def test_selected_addresses(ref):
     with pytest.raises(MalformedRecord):
         marker(((ref, "c" * 32, "d" * 32),))
     node = marker(())
@@ -82,7 +82,7 @@ def test_y18_d_selected_addresses(ref):
     assert publication_content_malformed(node)
 
 
-def test_y18_e_identity_split():
+def test_identity_split():
     old, carried = marker(), marker((ORIGIN,))
     other = marker((("run:a", "e" * 32, "f" * 32),))
     assert old.id == carried.id == other.id and old.uid == carried.uid == other.uid
@@ -90,7 +90,7 @@ def test_y18_e_identity_split():
     assert len({node_to_markdown(node) for node in (old, carried, other)}) == 3
 
 
-def test_y18_p_v3_succession():
+def test_v3_succession():
     v2, v3 = shipped_coordination(2), shipped_coordination(3)
     assert v3.predecessor == v2.content_identity
     assert v3.schema_projection() == v2.schema_projection()
@@ -104,7 +104,7 @@ def writer_at(tmp_path, version):
     return writer
 
 
-def test_y18_q_explicit_activation(tmp_path):
+def test_explicit_activation(tmp_path):
     assert shipped_coordination() is shipped_coordination(2)
     writer = writer_at(tmp_path / "new", 3)
     writer._stage_marker(marker(()))
@@ -115,7 +115,7 @@ def test_y18_q_explicit_activation(tmp_path):
 
 
 @pytest.mark.parametrize("version,entries", [(2, (ORIGIN,)), (3, None)])
-def test_y18_j_staged_release(tmp_path, version, entries):
+def test_staged_release(tmp_path, version, entries):
     node = marker(entries)
     assert all(
         _marker_release_malformed(node, pin)
@@ -130,7 +130,7 @@ def test_y18_j_staged_release(tmp_path, version, entries):
 
 
 @pytest.mark.parametrize("version,entries", [(2, (ORIGIN,)), (3, None)])
-def test_y18_k_audit_release(tmp_path, version, entries):
+def test_audit_release(tmp_path, version, entries):
     writer = writer_at(tmp_path, version)
     raw_add(writer.root, marker(entries))
     findings = corpus_check(writer.read_view, coordination_profile(None, version=version))
@@ -139,7 +139,7 @@ def test_y18_k_audit_release(tmp_path, version, entries):
 
 
 @pytest.mark.parametrize("version,entries", [(2, (ORIGIN,)), (3, None)])
-def test_y18_l_arrival_release(tmp_path, monkeypatch, version, entries):
+def test_arrival_release(tmp_path, monkeypatch, version, entries):
     writer = writer_at(tmp_path, version)
     raw_add(writer.root, stored.run_node("a", title="a", spec="s", produces=[]), marker(entries))
     calls = []
@@ -150,7 +150,7 @@ def test_y18_l_arrival_release(tmp_path, monkeypatch, version, entries):
 
 
 @pytest.mark.parametrize("version,entries", [(2, (ORIGIN,)), (3, None)])
-def test_y18_m_tip_release(tmp_path, version, entries):
+def test_tip_release(tmp_path, version, entries):
     writer = writer_at(tmp_path, version)
     raw_add(writer.root, stored.run_node("a", title="a", spec="s", produces=[]), marker(entries))
     with pytest.raises(PublicationReadingRefused) as caught:
@@ -168,7 +168,7 @@ def records():
     return ((row["id"], row["text"]),)
 
 
-def test_y18_f_snapshot_formats():
+def test_snapshot_formats():
     from beliefs.publish_request import Snapshot, decode_snapshot, encode_snapshot
 
     old = Snapshot("e" * 32, records())
@@ -198,7 +198,7 @@ def test_y18_f_snapshot_formats():
             Snapshot("e" * 32, records(), cast(Any, bad))
 
 
-def test_y18_g_snapshot_commitment():
+def test_snapshot_commitment():
     from beliefs.publish_request import Snapshot
 
     old, empty = Snapshot("e" * 32, records()), Snapshot("e" * 32, records(), ())
@@ -212,7 +212,7 @@ def pin(version):
     return "coordination:" + shipped_coordination(version).content_identity
 
 
-def test_y5_c_v3_destination_pins():
+def test_v3_destination_pins():
     from beliefs.publish_request import derive_pins
 
     base = "science:" + "b" * 64
@@ -230,7 +230,7 @@ def test_y5_c_v3_destination_pins():
 
 
 @pytest.mark.parametrize("domain", ["science_contract", "biology", "physics"])
-def test_y5_d_v3_disagreement(domain):
+def test_v3_disagreement(domain):
     from beliefs.publish_request import derive_pins
 
     base = "science:" + "b" * 64
@@ -293,7 +293,7 @@ def capture_fixture(holdings, *, source_version=2, carried=None, supersedes=None
 
 
 @pytest.mark.parametrize("version", [2, 3])
-def test_y17_a_local_holdings(version):
+def test_local_holdings(version):
     import beliefs.publish as act
 
     read, registry, _ = capture_fixture(
@@ -305,7 +305,7 @@ def test_y17_a_local_holdings(version):
 
 
 @pytest.mark.parametrize("kind", sorted(stored.WORLD_KINDS))
-def test_y17_b_first_carry(kind):
+def test_first_carry(kind):
     import beliefs.publish as act
 
     cid = "a" * 32
@@ -313,7 +313,7 @@ def test_y17_b_first_carry(kind):
     assert act._selected_attributions(read, registry, (kind + ":a",), pin(3)) == ((kind + ":a", cid, marker_uid(cid)),)
 
 
-def test_y17_c_forwarded_origin():
+def test_forwarded_origin():
     import beliefs.publish as act
 
     cid = "a" * 32
@@ -321,7 +321,7 @@ def test_y17_c_forwarded_origin():
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (ORIGIN,)
 
 
-def test_y17_d_selection_scope():
+def test_selection_scope():
     import beliefs.publish as act
 
     cid = "a" * 32
@@ -332,7 +332,7 @@ def test_y17_d_selection_scope():
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (ORIGIN,)
 
 
-def test_y17_e_distinct_holders():
+def test_distinct_holders():
     import beliefs.publish as act
 
     a, b = "a" * 32, "b" * 32
@@ -343,7 +343,7 @@ def test_y17_e_distinct_holders():
     )
 
 
-def test_y17_f_v2_refusal():
+def test_v2_refusal():
     import beliefs.publish as act
 
     a, b = "a" * 32, "b" * 32
@@ -353,7 +353,7 @@ def test_y17_f_v2_refusal():
     assert caught.value.reason == "attribution-contract-unpinned" and caught.value.corpus_ids == (a, b)
 
 
-def test_y17_h_markerless_replica():
+def test_markerless_replica():
     import beliefs.publish as act
 
     a = "a" * 32
@@ -371,7 +371,7 @@ def test_y17_h_markerless_replica():
 
 @pytest.mark.parametrize("version", [2, 3])
 @pytest.mark.parametrize("provenance", [Fresh(), ReplicaOf("a" * 32)])
-def test_y17_i_missing_holder(version, provenance):
+def test_missing_holder(version, provenance):
     import beliefs.publish as act
 
     a = "a" * 32
@@ -385,7 +385,7 @@ def test_y17_i_missing_holder(version, provenance):
     )
 
 
-def test_y17_j_invalid_source_order():
+def test_invalid_source_order():
     import beliefs.publish as act
 
     a, b = "a" * 32, "b" * 32
@@ -400,7 +400,7 @@ def test_y17_j_invalid_source_order():
     assert (caught.value.corpus_ids, caught.value.field) == ((a,), "marker-absent")
 
 
-def test_y17_k_admission_before_layout():
+def test_admission_before_layout():
     import beliefs.publish as act
 
     a, b = "a" * 32, "b" * 32
@@ -412,7 +412,7 @@ def test_y17_k_admission_before_layout():
     assert caught.value.reason == "attribution-holder-unregistered" and caught.value.corpus_ids == (b,)
 
 
-def test_y17_l_held_capture(monkeypatch):
+def test_held_capture(monkeypatch):
     import beliefs.publish as act
 
     a = "a" * 32
@@ -428,7 +428,7 @@ def test_y17_l_held_capture(monkeypatch):
     assert calls == [("records", a), ("manifest", a)]
 
 
-def test_y17_p_legacy_source():
+def test_legacy_source():
     import beliefs.publish as act
 
     a = "a" * 32
@@ -460,7 +460,7 @@ def _ambiguous(read, registry, selected):
     return caught.value
 
 
-def test_y19_a_own_wins():
+def test_own_holder_wins_over_a_carried_copy():
     """An own holder beside a carried copy yields no entry (rule 3.1), under v2 and v3."""
     import beliefs.publish as act
 
@@ -474,7 +474,7 @@ def test_y19_a_own_wins():
     assert act._selected_attributions(read, registry, ("run:a",), pin(2), own_corpora=frozenset({A})) is None
 
 
-def test_y19_b_carriers_agree():
+def test_carriers_agree():
     """Two carriers yielding one triple forward it (rule 3.2); the forwarded entry and a
     first carry of the same origin agree."""
     import beliefs.publish as act
@@ -493,7 +493,7 @@ def test_y19_b_carriers_agree():
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == (_claim("run:a", A),)
 
 
-def test_y19_c_earliest_origin(monkeypatch):
+def test_earliest_origin(monkeypatch):
     """Rule 3.3: the claim whose marker every other claimed marker supersedes."""
     import beliefs.publish as act
 
@@ -560,7 +560,7 @@ def test_y19_c_earliest_origin(monkeypatch):
     assert act._selected_attributions(read, registry, ("run:a",), pin(3)) == ()  # rule 3.1 settled it
 
 
-def test_y19_d_ambiguous_refuses():
+def test_ambiguous_refuses():
     """Rule 3.4: unrelated origins, and a chain whose intermediate is unheld, refuse
     `attribution-ambiguous` carrying the claims."""
     read, registry, _ = capture_fixture(
@@ -578,7 +578,7 @@ def test_y19_d_ambiguous_refuses():
     assert (refused.reason, refused.refs, refused.corpus_ids) == ("attribution-ambiguous", ("run:a",), (A, D))
 
 
-def test_y19_e_order_independent():
+def test_order_independent():
     """Captures and admissions supplied in both orders, each putting a different replica
     holder first, yield equal tuples."""
     import beliefs.publish as act
@@ -594,7 +594,7 @@ def test_y19_e_order_independent():
     assert results[0] == results[1] == (_claim("run:a", A),)
 
 
-def test_y19_f_v2_narrowing():
+def test_v2_narrowing():
     """Under v2 the refusal names only replica holders of a carried selected record."""
     import beliefs.publish as act
 
@@ -613,7 +613,7 @@ def test_y19_f_v2_narrowing():
 
 
 @pytest.mark.parametrize("source_version,entries", [(2, (ORIGIN,)), (3, None)])
-def test_y18_n_source_release(source_version, entries):
+def test_source_release(source_version, entries):
     import beliefs.publish as act
 
     a = "a" * 32
@@ -704,7 +704,7 @@ def wrapper_fixture(tmp_path, monkeypatch, *, writer_version=3, source_version=2
     )
 
 
-def test_y5_e_v2_pin_precedence(tmp_path, monkeypatch):
+def test_v2_pin_precedence(tmp_path, monkeypatch):
     s = wrapper_fixture(tmp_path, monkeypatch, writer_version=2, source_version=3)
     before = tuple(s.writer.read_view.iter_stored())
     with pytest.raises(PublicationRefused) as caught:
@@ -713,7 +713,7 @@ def test_y5_e_v2_pin_precedence(tmp_path, monkeypatch):
     assert s.calls == [] and list(s.ops.iterdir()) == [] and tuple(s.writer.read_view.iter_stored()) == before
 
 
-def test_y17_g_before_intent(tmp_path, monkeypatch):
+def test_before_intent(tmp_path, monkeypatch):
     s = wrapper_fixture(tmp_path, monkeypatch, writer_version=2)
     before = tuple(s.writer.read_view.iter_stored())
     with pytest.raises(PublicationRefused) as caught:
@@ -725,7 +725,7 @@ def test_y17_g_before_intent(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "scenario", ["retired", "scan-error", "missing-replica", "missing-fresh-v2", "missing-fresh-v3"]
 )
-def test_y17_o_registry_boundary(tmp_path, monkeypatch, scenario):
+def test_registry_boundary(tmp_path, monkeypatch, scenario):
     import beliefs.publish as act
 
     version = 2 if scenario == "missing-fresh-v2" else 3
@@ -795,7 +795,7 @@ def frozen_attempt(tmp_path, *, destination=None, entries=(ORIGIN,), coordinatio
     )
 
 
-def test_y17_m_local_frozen_marker(tmp_path, monkeypatch):
+def test_local_frozen_marker(tmp_path, monkeypatch):
     import beliefs.publish as act
 
     a = frozen_attempt(tmp_path)
@@ -806,7 +806,7 @@ def test_y17_m_local_frozen_marker(tmp_path, monkeypatch):
     assert node.facets["coordination"]["published_from"]["attributions"] == [list(ORIGIN)]
 
 
-def test_y17_n_remote_frozen_marker(tmp_path, monkeypatch):
+def test_remote_frozen_marker(tmp_path, monkeypatch):
     import beliefs.publish as act
 
     a = frozen_attempt(tmp_path, destination=Destination.remote("https://remote.test/pub"))
@@ -820,7 +820,7 @@ def test_y17_n_remote_frozen_marker(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("change", ["origin", "malformed"])
-def test_y18_h_snapshot_tamper(tmp_path, change):
+def test_snapshot_tamper(tmp_path, change):
     import beliefs.publish as act
     from beliefs.publish_request import encode_request
 
@@ -837,7 +837,7 @@ def test_y18_h_snapshot_tamper(tmp_path, change):
 @pytest.mark.parametrize(
     "entries,version", [(None, 3), ((), 2), ((), 1), (None, 1), ((), None), (None, None), ((), "unsupported")]
 )
-def test_y18_i_snapshot_pin(tmp_path, entries, version):
+def test_snapshot_pin(tmp_path, entries, version):
     import beliefs.publish as act
     from beliefs.publish_request import encode_request, encode_snapshot
 
@@ -855,7 +855,7 @@ def test_y18_i_snapshot_pin(tmp_path, entries, version):
 
 
 @pytest.mark.parametrize("version,entries", [(2, (ORIGIN,)), (3, None), (2, None), (3, ())])
-def test_y18_o_remote_release(tmp_path, monkeypatch, version, entries):
+def test_remote_release(tmp_path, monkeypatch, version, entries):
     import beliefs.publish as act
     from beliefs.publish_request import TransportMark
 

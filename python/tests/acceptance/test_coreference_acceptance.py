@@ -341,7 +341,7 @@ def test_coreference_between_retractions_closes_no_route_durably(durable_world, 
     # Cut 18's raw shapes: malformed controlled identities, not a constructible controlled cycle.
     # From cut 48 (§4.5) standing is folded once over every holder at derivation, so a raw
     # cycle written across the two corpora refuses the build as `RuleNonconformant`
-    # (`test_g14_i_v2_fold_world` pins it); the raw pair here is a chain whose tail resolves nowhere.
+    # (`test_v2_fold_world` pins it); the raw pair here is a chain whose tail resolves nowhere.
     raw = (raw_retraction("retraction:r1", "retraction:r2"), raw_retraction("retraction:r2", "retraction:r3"))
     for writer, node in zip(writers, raw, strict=True):
         raw_write(writer.root, node)

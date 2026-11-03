@@ -324,7 +324,7 @@ STEP_0 = {
 
 
 @pytest.mark.parametrize("reason", list(STEP_0))
-def test_y5_a_every_step_0_refusal_writes_nothing_durably(source, reason):
+def test_every_step_0_refusal_writes_nothing_durably(source, reason):
     """Y5-a: each pre-intent refusal leaves the chain's tip and the operations root byte-unchanged."""
     prepare, refusal, refs = STEP_0[reason]
     changes = prepare(source)
@@ -337,7 +337,7 @@ def test_y5_a_every_step_0_refusal_writes_nothing_durably(source, reason):
     assert chain_tip(source) == tip and _ops_tree(source) == ops == []
 
 
-def test_y5_b_a_view_revised_between_evaluation_and_lock_refuses_durably(source, monkeypatch):
+def test_a_view_revised_between_evaluation_and_lock_refuses_durably(source, monkeypatch):
     """Y5-b: a view revised between evaluation and lock refuses `view-revised`; nothing is appended."""
     original = act._open_publication
     evaluated = _project(source).uid
@@ -364,7 +364,7 @@ def test_y5_b_a_view_revised_between_evaluation_and_lock_refuses_durably(source,
 # --- Y6 -------------------------------------------------------------------------
 
 
-def test_y6_a_the_selection_is_fixed_before_the_intent_and_a_drift_after_it_strands_nothing_durably(
+def test_the_selection_is_fixed_before_the_intent_and_a_drift_after_it_strands_nothing_durably(
     source, monkeypatch
 ):
     """Y6-a: the world drifts after the intent; re-evaluation refuses `corpus-drifted`;
@@ -394,7 +394,7 @@ def test_y6_a_the_selection_is_fixed_before_the_intent_and_a_drift_after_it_stra
     }
 
 
-def test_y6_b_a_rewritten_snapshot_is_request_corrupt_durably(source, monkeypatch):
+def test_a_rewritten_snapshot_is_request_corrupt_durably(source, monkeypatch):
     """Y6-b: the snapshot rewritten with other bytes → `request-corrupt`, closed, no binding."""
     crash(monkeypatch, "_initialize", before=True)
     with pytest.raises(Crash):
@@ -422,7 +422,7 @@ def test_y6_b_a_rewritten_snapshot_is_request_corrupt_durably(source, monkeypatc
 # --- Y7 -------------------------------------------------------------------------
 
 
-def test_y7_a_a_crash_after_k_staged_records_resumes_at_k_plus_one_durably(source, monkeypatch):
+def test_a_crash_after_k_staged_records_resumes_at_k_plus_one_durably(source, monkeypatch):
     """Y7-a: a crash after one staged record → the resume writes records 2 … 4 once each."""
     staged = {"n": 0}
     original = CorpusWriter._stage_record
@@ -451,7 +451,7 @@ def test_y7_a_a_crash_after_k_staged_records_resumes_at_k_plus_one_durably(sourc
     assert type(outcome) is Published and written == [text for _, text in snapshot.records[1:]]
 
 
-def test_y7_b_an_extra_staged_record_is_staging_corrupt_and_staging_is_retained_durably(source, monkeypatch):
+def test_an_extra_staged_record_is_staging_corrupt_and_staging_is_retained_durably(source, monkeypatch):
     """Y7-b: an extra record raw-written into staging → `staging-corrupt` naming it,
     the report alone, staging retained."""
     crash(monkeypatch, "_initialize")
@@ -472,7 +472,7 @@ def test_y7_b_an_extra_staged_record_is_staging_corrupt_and_staging_is_retained_
 # --- Y8 -------------------------------------------------------------------------
 
 
-def test_y8_a_a_publication_lands_at_its_corpus_id_and_a_second_lands_beside_it_durably(source):
+def test_a_publication_lands_at_its_corpus_id_and_a_second_lands_beside_it_durably(source):
     """Y8-a: read-only-serviceable at `<destination>/<corpus_id>` with the sibling
     beside it; a second publish lands beside it, and its marker supersedes the first's."""
     first = run(source)
@@ -510,7 +510,7 @@ def test_two_attempts_do_not_share_directories(source, monkeypatch):
     assert after == before
 
 
-def test_y8_b_a_colliding_sibling_is_export_collision_and_binds_nothing_durably(source, monkeypatch):
+def test_a_colliding_sibling_is_export_collision_and_binds_nothing_durably(source, monkeypatch):
     """Y8-b: a pre-existing sibling with other bytes → `export-collision`, no binding."""
     crash(monkeypatch, "_write_sibling", before=True)
     with pytest.raises(Crash):
@@ -575,7 +575,7 @@ BOUNDARIES = [
 
 
 @pytest.mark.parametrize("step, before", BOUNDARIES, ids=[f"{'before' if b else 'after'}{s}" for s, b in BOUNDARIES])
-def test_y9_a_a_crash_at_every_local_step_resumes_to_one_binding_and_one_report_durably(
+def test_a_crash_at_every_local_step_resumes_to_one_binding_and_one_report_durably(
     source, monkeypatch, step, before
 ):
     """Y9-a: for each step boundary 1–6 and 8, crash then resume → `Published`,
@@ -598,7 +598,7 @@ def test_y9_a_a_crash_at_every_local_step_resumes_to_one_binding_and_one_report_
     assert read_lifecycle_state(source.dest / outcome.corpus_id) is LifecycleState.READ_ONLY_SERVICEABLE
 
 
-def test_y9_a_a_lost_sibling_after_replication_is_rewritten_byte_identically_durably(source, monkeypatch):
+def test_a_lost_sibling_after_replication_is_rewritten_byte_identically_durably(source, monkeypatch):
     """Y9-a's `stamped copy, sibling missing` row: export (pure) and step 5 again."""
     crash(monkeypatch, "_replicate")
     with pytest.raises(Crash):
@@ -612,7 +612,7 @@ def test_y9_a_a_lost_sibling_after_replication_is_rewritten_byte_identically_dur
     assert type(resume(source, token)) is Published and sibling.read_bytes() == kept
 
 
-def test_y9_b_a_binding_beside_an_unfinished_intent_is_unresolved_durably(source, monkeypatch):
+def test_a_binding_beside_an_unfinished_intent_is_unresolved_durably(source, monkeypatch):
     """Y9-b: a binding revision raw-written beside an unfinished intent →
     `PublishUnresolved("binding-without-report")`, nothing written."""
     crash(monkeypatch, "_bind", before=True)
@@ -631,7 +631,7 @@ def test_y9_b_a_binding_beside_an_unfinished_intent_is_unresolved_durably(source
     assert chain_tip(source) == tip and _ops_tree(source) == ops and _publish_reports(source, token) == []
 
 
-def test_y9_c_pending_lists_crashed_attempts_only_durably(source, monkeypatch):
+def test_pending_lists_crashed_attempts_only_durably(source, monkeypatch):
     """Y9-c: `pending_publishes` lists a crashed attempt and omits a done one and a
     requestless intent; the requestless intent resumes to `no-request`."""
     done = run(source)
@@ -658,7 +658,7 @@ def test_y9_c_pending_lists_crashed_attempts_only_durably(source, monkeypatch):
     )
 
 
-def test_y9_d_a_crash_inside_step_9_is_finished_by_the_resume_durably(source, monkeypatch):
+def test_a_crash_inside_step_9_is_finished_by_the_resume_durably(source, monkeypatch):
     """Y9-d: done, then a crash inside step 9 → the resume discards staging and answers `Published`."""
     crash(monkeypatch, "_discard", before=True)
     with pytest.raises(Crash):
@@ -676,7 +676,7 @@ def test_y9_d_a_crash_inside_step_9_is_finished_by_the_resume_durably(source, mo
     assert chain_tip(source) == tip and len(_binding_files(source)) == 1
 
 
-def test_y9_e_the_next_publish_reads_success_and_pre_binding_reports_durably(source, monkeypatch):
+def test_the_next_publish_reads_success_and_pre_binding_reports_durably(source, monkeypatch):
     """Y9-e: the next publish's step-0 fold reads a successful report (its marker is
     carried) and a pre-binding refused one (its marker is not), and binds."""
     first = run(source)
@@ -756,7 +756,7 @@ def _world_tree(world) -> list[tuple[str, bytes | None]]:
     return sorted((str(p.relative_to(root)), p.read_bytes() if p.is_file() else None) for p in root.rglob("*"))
 
 
-def test_y10_a_a_second_world_admits_a_publication_and_nothing_without_a_marker_durably(source):
+def test_a_second_world_admits_a_publication_and_nothing_without_a_marker_durably(source):
     """Y10-a: a second world admits the published root through `admit_publication`,
     and its epoch sees the selection; a plain replica with no marker is refused `marker-absent`."""
     outcome = run(source)
@@ -781,7 +781,7 @@ def test_y10_a_a_second_world_admits_a_publication_and_nothing_without_a_marker_
     assert _world_tree(other) == before
 
 
-def test_y10_b_a_verified_root_with_records_beyond_its_selection_is_refused_before_admission_durably(source):
+def test_a_verified_root_with_records_beyond_its_selection_is_refused_before_admission_durably(source):
     """Y10-b: a root built through the staging doors with one record beyond its
     marker's selection, exported, replicated and restored against its own
     artifact → `selection-mismatch`, and the recipient's registry is unchanged."""

@@ -198,7 +198,7 @@ def test_content_is_closed_and_tier_checked(tmp_path, base_contract, mutation):
         writer.mint_coordination(kind, project=project_address, content=content)
 
 
-def test_w18c_a_query_kind_outside_the_contract_refuses(tmp_path, base_contract):
+def test_a_query_kind_outside_the_contract_refuses(tmp_path, base_contract):
     document = deepcopy(COORDINATION_DOCUMENT)
     document["query_vocabulary"]["kinds"].remove("dataset")
     writer = writer_with_document(tmp_path, base_contract, document)
@@ -210,7 +210,7 @@ def test_w18c_a_query_kind_outside_the_contract_refuses(tmp_path, base_contract)
         writer.mint_coordination("project", content=content_for("project", query=query))
 
 
-def test_w18d_a_query_relation_outside_the_contract_refuses(tmp_path, base_contract):
+def test_a_query_relation_outside_the_contract_refuses(tmp_path, base_contract):
     document = deepcopy(COORDINATION_DOCUMENT)
     document["query_vocabulary"]["relations"].remove("reads")
     writer = writer_with_document(tmp_path, base_contract, document)
@@ -471,7 +471,7 @@ def test_the_coordination_door_refuses_every_world_kind(tmp_path, base_contract,
         writer.mint_coordination(kind, content=content_for("project"))
 
 
-def test_w17e_an_already_minted_revision_pair_refuses_before_plan(tmp_path, base_contract, monkeypatch):
+def test_an_already_minted_revision_pair_refuses_before_plan(tmp_path, base_contract, monkeypatch):
     profile = coordination_profile(base_contract)
     mounted_root(tmp_path, profile, Recorder)
     resolver = CoordinationResolver({tmp_path: profile})

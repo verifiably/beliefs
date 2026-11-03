@@ -175,7 +175,7 @@ def _tree(root: Path) -> dict[str, bytes]:
 # --- L13 ---------------------------------------------------------------------
 
 
-def test_l13a_a_logged_removal_is_in_the_timeline_and_draws_record_removed_durably(lane):
+def test_a_logged_removal_is_in_the_timeline_and_draws_record_removed_durably(lane):
     """L13-a. The removal is in the replayed timeline — `validated`, no
     disagreement — and draws `record-removed` naming the path and the removing
     transaction, unchanged in code, severity, ref, detail and message."""
@@ -191,7 +191,7 @@ def test_l13a_a_logged_removal_is_in_the_timeline_and_draws_record_removed_durab
     assert removed.message == "a committed transaction removed a registered-surface record"
 
 
-def test_l13b_the_surviving_preimage_classifies_the_removal_on_the_writable_root_durably(lane):
+def test_the_surviving_preimage_classifies_the_removal_on_the_writable_root_durably(lane):
     """L13-b. No `history`: the writable root's retained preimage resolves by
     the removed state's digest and classifies the removal as a failing
     verification's, `source=preimage`, the digest equal to sha256 of the bytes
@@ -208,7 +208,7 @@ def test_l13b_the_surviving_preimage_classifies_the_removal_on_the_writable_root
     assert "held copy" not in classified.message
 
 
-def test_l13c_a_held_copy_of_another_version_of_the_record_resolves_nothing_durably(lane):
+def test_a_held_copy_of_another_version_of_the_record_resolves_nothing_durably(lane):
     """L13-c. `history` holds the same record rendered with verdict `passed`
     (same id, same claimed path, another digest). On the writable root the
     preimage classifies `verdict=failed` and the copy is named nowhere; on the
@@ -231,7 +231,7 @@ def test_l13c_a_held_copy_of_another_version_of_the_record_resolves_nothing_dura
     assert _sha(OTHER_VERSION) not in absent.detail and _sha(OTHER_VERSION) not in absent.message
 
 
-def test_l13d_no_local_history_is_stated_and_a_held_copy_of_the_removed_bytes_resolves_durably(lane):
+def test_no_local_history_is_stated_and_a_held_copy_of_the_removed_bytes_resolves_durably(lane):
     """L13-d. The restored read-only copy retains no preimage: the audit reads
     `removal-unclassified preimage=refused` with the engine's lifecycle words;
     the detached arrival of a raw copy reports `preimage=not-consulted`; with
@@ -261,7 +261,7 @@ def test_l13d_no_local_history_is_stated_and_a_held_copy_of_the_removed_bytes_re
     assert _findings(arrival_with_copy)[1].detail.endswith("source=held-copy")
 
 
-def test_l13e_corrupt_local_history_refuses_the_act_and_touches_no_project_file_durably(lane):
+def test_corrupt_local_history_refuses_the_act_and_touches_no_project_file_durably(lane):
     """L13-e. The indexed preimage leaf under the metadata root is unlinked
     (a truncated leaf trips the registered inspection's own store checks
     first, as raw `MetadataStoreInvalid`; a missing one is found by the
@@ -280,7 +280,7 @@ def test_l13e_corrupt_local_history_refuses_the_act_and_touches_no_project_file_
     assert _tree(source) == before
 
 
-def test_l13f_a_removed_record_of_another_kind_classifies_as_not_a_verification_durably(lane):
+def test_a_removed_record_of_another_kind_classifies_as_not_a_verification_durably(lane):
     """L13-f. A removed `discussion` record resolves through its preimage and
     reads `removal-classified kind=discussion source=preimage` at `warning`.
     The unreadable-facet, not-a-record and `digest=none` arms are declared at
@@ -294,7 +294,7 @@ def test_l13f_a_removed_record_of_another_kind_classifies_as_not_a_verification_
     assert _codes(report) == ["record-removed", "failing-verification-removed"]
 
 
-def test_l13g_retirement_appends_a_status_event_and_deletes_nothing_durably(lane):
+def test_retirement_appends_a_status_event_and_deletes_nothing_durably(lane):
     """L13-g (relabel; cut 8's L13u4 cited). A real world retires an admitted
     corpus: the registry gains one record, none is removed, and the world
     chain's committed removals are empty."""
@@ -315,7 +315,7 @@ def test_l13g_retirement_appends_a_status_event_and_deletes_nothing_durably(lane
     assert verify.committed_removals(view, science_root._log_seam().absent_state) == ()
 
 
-def test_l13h_preimage_gc_appears_in_no_chain_and_a_read_appends_nothing_durably(lane):
+def test_preimage_gc_appears_in_no_chain_and_a_read_appends_nothing_durably(lane):
     """L13-h (relabel; cut 8's L13u5 cited). The entry-class union is closed
     and carries no collection member; an audit that resolved a preimage leaves
     the corpus chain's entries and tip byte-identical."""
@@ -378,7 +378,7 @@ def _probing_seam(monkeypatch, root: Path, observed: list[tuple[str, str]]):
     return seam
 
 
-def test_bi1_the_reads_are_inside_the_hold_after_the_captures_with_the_chains_arguments_durably(lane, monkeypatch):
+def test_the_reads_are_inside_the_hold_after_the_captures_with_the_chains_arguments_durably(lane, monkeypatch):
     """BI-1. One read per committed removal with a file pre-state, made under
     the writer hold after both captures complete, with the chain's txid, path and
     byte_len; arrival and restore make none."""
@@ -417,7 +417,7 @@ def test_bi1_the_reads_are_inside_the_hold_after_the_captures_with_the_chains_ar
     assert calls == []
 
 
-def test_bi2_a_read_mutates_nothing_and_joins_no_write_inventory_durably(lane):
+def test_a_read_mutates_nothing_and_joins_no_write_inventory_durably(lane):
     """BI-2. Every file under the root and under its metadata sibling's
     `blobs/` tree is byte-identical across an audit that resolved a preimage,
     and `read_preimage` is in no `WRITE_ENTRY_POINTS` row."""
@@ -430,7 +430,7 @@ def test_bi2_a_read_mutates_nothing_and_joins_no_write_inventory_durably(lane):
     assert not any("preimage" in name for name in WRITE_ENTRY_POINTS)
 
 
-def test_bi3_a_preimage_that_hashes_elsewhere_refuses_before_any_finding_durably(lane, monkeypatch):
+def test_a_preimage_that_hashes_elsewhere_refuses_before_any_finding_durably(lane, monkeypatch):
     """BI-3. Over a real chain with every other seam callable the production
     one, a `read_preimage` returning bytes of another digest refuses
     `PreimageMismatch` and no report is produced."""

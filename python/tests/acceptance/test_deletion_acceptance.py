@@ -300,7 +300,7 @@ def _view_writer(writer: CorpusWriter):
 # --- G2c ----------------------------------------------------------------------
 
 
-def test_g2c_lifecycle_walk_over_durable_records(durable_writer):
+def test_lifecycle_walk_over_durable_records(durable_writer):
     """Kernel §3.3's lifecycle table, every row walked over durable records,
     with `active` read under the standing-retraction amendment; `delete`'s
     committed chain shape where a row removes the seeded pass; and the
@@ -353,7 +353,7 @@ def test_g2c_lifecycle_walk_over_durable_records(durable_writer):
 # --- G8 and C6: the log half (§5 obligation 4) --------------------------------
 
 
-def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, durable_root):
+def test_raw_removal_refutes_and_managed_delete_validates(work_directory, durable_root):
     """The asymmetry §3.1 tables, read where it is actually visible. Two
     registered corpora hold the same records; one raw-`unlink`s the failing
     verification and one calls `delete`. The **corpus** read cannot tell them
@@ -445,7 +445,7 @@ def _r5_records() -> Records:
     )
 
 
-def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(certified_work):
+def test_the_managed_holdings_delete_ends_heldness_and_changes_admission(certified_work):
     """R5 negative (a): the last held copy of an `observes` input is destroyed
     by the **managed** act — `holdings.boundary.delete`, which publishes an
     `absent` observation superseding the write's — and the whole reduction is
@@ -539,7 +539,7 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
 # --- S5's deletion half -------------------------------------------------------
 
 
-def test_s5_deletion_half_durably(durable_writer):
+def test_deletion_half_durably(durable_writer):
     """Delete an ancestor a stamped basis names → `lineage-incomplete`,
     `not-certified`, the belief digest moved and no belief rise. Then delete a
     **divergent producer** → the certificate restored, belief rises, and every
@@ -584,7 +584,7 @@ def test_s5_deletion_half_durably(durable_writer):
 # --- R23's deletion and audit clauses -----------------------------------------
 
 
-def test_r23_deletion_and_audit_clauses_durably(durable_writer):
+def test_deletion_and_audit_clauses_durably(durable_writer):
     """The stored ref and its `null` resolution recorded **separately**, for a
     deleted producing run and for a deleted ancestor; a second surviving run
     repairing nothing; §11.14's residue after deleting `R2`; and the audit's
@@ -669,7 +669,7 @@ def test_r23_deletion_and_audit_clauses_durably(durable_writer):
 # --- W16's remaining arm ------------------------------------------------------
 
 
-def test_w16_conflict_survives_deleting_either_producer_durably(work_directory):
+def test_conflict_survives_deleting_either_producer_durably(work_directory):
     """A consolidated `conflict` basis is decided on its **tag**, and no API
     removes a route: deleting either producing run leaves both routes stored,
     the dataset `lineage-divergent`, and independence over it `not-certified`.
@@ -719,7 +719,7 @@ def test_w16_conflict_survives_deleting_either_producer_durably(work_directory):
 # --- C1, re-read under §2.2's narrowing ---------------------------------------
 
 
-def test_c1_retraction_never_removes_its_target_durably(durable_writer):
+def test_retraction_never_removes_its_target_durably(durable_writer):
     """Retraction is additive while a deletion API exists: the operation never
     reaches the delete seam, the target's bytes and address are unchanged, and
     it still resolves — read back from disk after the engine committed."""
@@ -747,7 +747,7 @@ def test_c1_retraction_never_removes_its_target_durably(durable_writer):
 # --- T8, re-read against `delete` ---------------------------------------------
 
 
-def test_t8_delete_refuses_an_act_report_durably(durable_writer):
+def test_delete_refuses_an_act_report_durably(durable_writer):
     """No ordinary API deletes a report: `delete` refuses an act-report subject
     on the excluded-kind rule, the report survives the refusal, and the refused
     call mints no report of its own."""
@@ -771,7 +771,7 @@ M13_SNAPSHOT = build_snapshot(readable={EX: [GENE, OTHER_GENE, OUTCOME], COHORT_
 """Both vocabularies read, holding every term the restore seam binds here."""
 
 
-def test_m13_claim_from_stored_is_opaque_over_a_durable_record(durable_writer):
+def test_claim_from_stored_is_opaque_over_a_durable_record(durable_writer):
     """§2.5's opacity arms against a record the certified engine committed: no
     wire type in or out of the signature, delegation to `decode_claim` with the
     seam's own typing path, and the brand chain intact through the new route —
@@ -799,7 +799,7 @@ def test_m13_claim_from_stored_is_opaque_over_a_durable_record(durable_writer):
     assert claim_identity(claim) == claim_identity(direct)
 
 
-def test_m11_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_record(durable_writer):
+def test_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_record(durable_writer):
     """§2.5's decode arms: the same durable record decoded in **another
     process** from the same bytes yields an identical claim identity and
     receipt; availability stays a parameter; and a wrong kind, a missing, an
@@ -867,7 +867,7 @@ def test_m11_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_rec
 # --- R19 ----------------------------------------------------------------------
 
 
-def test_r19_import_validation_and_transition_b_durably(durable_writer):
+def test_import_validation_and_transition_b_durably(durable_writer):
     """Explicit-import derivation validation over complete closure evidence —
     a contradicted verification refused **before any payload write** — then
     transition (b) end to end: a forged verification whose runs do not resolve
@@ -978,7 +978,7 @@ def test_r19_import_validation_and_transition_b_durably(durable_writer):
 # --- R22 ----------------------------------------------------------------------
 
 
-def test_r22_import_recomputation_and_audit_durably(durable_writer):
+def test_import_recomputation_and_audit_durably(durable_writer):
     """Negative (c)'s two halves over the certified engine: **explicit import**
     recomputes the assessment facet from the run and refuses a mismatch before
     any write, and the same forgery written straight into the corpus directory
@@ -1015,7 +1015,7 @@ def test_r22_import_recomputation_and_audit_durably(durable_writer):
 # --- M1 -----------------------------------------------------------------------
 
 
-def test_m1_containment_over_a_durable_corpus(durable_writer):
+def test_containment_over_a_durable_corpus(durable_writer):
     """The recorded read-set is contained in the declared closure, over a
     durable corpus exercising **every** corpus-read kind the resolver has; and
     the sabotage — one extra verification of a different proposition read
@@ -1059,7 +1059,7 @@ def test_m1_containment_over_a_durable_corpus(durable_writer):
 # --- M3 -----------------------------------------------------------------------
 
 
-def test_m3_audit_classification_and_admission_order_durably(work_directory):
+def test_audit_classification_and_admission_order_durably(work_directory):
     """Ω_valid first: a raw-written cyclic retraction configuration is
     classified **malformed** before any standing or belief evaluation — both
     are made to raise, so a reading that happened would fail the test — and
@@ -1113,7 +1113,7 @@ def test_m3_audit_classification_and_admission_order_durably(work_directory):
 M5_SNAPSHOT = build_snapshot(readable={EX: [GENE, PHENO, SETTING], COHORT_DATASET: [ADULTS, CHILDREN]})
 
 
-def test_m5_qualification_identity_durably(durable_writer):
+def test_qualification_identity_durably(durable_writer):
     """Restriction only, quantifier tag only, and one omitting the dimension
     the others carry: each moves the stored semantic identity of a record the
     engine committed and each moves `I_claim` through the restore seam. The

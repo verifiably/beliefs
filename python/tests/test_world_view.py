@@ -567,7 +567,7 @@ def world_kwargs(view, profile):
     return {**kwargs, "context": context}
 
 
-def test_j20_the_two_installation_split_evaluates_as_one_corpus(tmp_path):
+def test_the_two_installation_split_evaluates_as_one_corpus(tmp_path):
     """J20: assessments and runs in ALPHA (W); the proposition and observed datasets in BETA (M)."""
     from beliefs.belief import Belief
     from beliefs.evaluation import evaluate_over_traced, gather
@@ -1181,7 +1181,7 @@ def revise_in_place(root: Path, address: str) -> None:
 
 
 class TestW20ServedSurface:
-    def test_w20_a_view_serves_once(self, tmp_path):
+    def test_view_serves_once(self, tmp_path):
         target = stored.dataset_node(title="target", resources=pinned("target"))
         shared_run = stored.run_node("shared-run", title="shared-run", spec="analysis-spec:s", produces=[target.id])
         world, _roots, published, shared = overlap_world(
@@ -1200,7 +1200,7 @@ class TestW20ServedSurface:
         assert [h for h, n in view._mapped_holders() if n.uid == shared.uid] == [(ALPHA, BETA)]
         assert sum(1 for n in view.iter_stored() if n.uid == shared.uid) == 1
 
-    def test_w20_b_holders_disagree_refuses(self, tmp_path):
+    def test_holders_disagree_refuses(self, tmp_path):
         from test_world_build import GAMMA
 
         world, roots, published, shared = overlap_world(tmp_path, holders=(ALPHA, BETA, GAMMA))
@@ -1210,7 +1210,7 @@ class TestW20ServedSurface:
         assert shared.id in str(caught.value)
         assert all(corpus_id in str(caught.value) for corpus_id in (ALPHA, BETA, GAMMA))
 
-    def test_w20_d_owners_check_narrowed(self, tmp_path):
+    def test_owners_check_narrowed(self, tmp_path):
         from test_world_build import GAMMA
 
         world, roots, published, shared = overlap_world(tmp_path, extra={GAMMA: sample_nodes("gamma")})
@@ -1220,7 +1220,7 @@ class TestW20ServedSurface:
         with pytest.raises(ResolutionRefused, match="uid uniqueness"):
             open_world_view(world, published)
 
-    def test_w20_e_damaged_holder_rule(self, tmp_path):
+    def test_damaged_holder_rule(self, tmp_path):
         from beliefs.errors import CorpusDamaged
 
         world, roots, published, shared = overlap_world(tmp_path)
@@ -1235,7 +1235,7 @@ class TestW20ServedSurface:
             drifted.get(shared.id)
         assert caught.value.corpus_id == BETA
 
-    def test_w20_h_mapped_view_and_absence(self, tmp_path):
+    def test_mapped_view_and_absence(self, tmp_path):
         from beliefs.corpus import _absence_of
 
         world, roots, published, shared = overlap_world(tmp_path)

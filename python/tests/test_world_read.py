@@ -705,7 +705,7 @@ class TestCoreferenceEdges:
 
 
 class TestOverlapResolution:
-    def test_w19_e_epoch_shapes(self, tmp_path):
+    def test_epoch_shapes(self, tmp_path):
         from test_world_view import overlap_world
 
         from beliefs.errors import EpochMalformed
@@ -728,7 +728,7 @@ class TestOverlapResolution:
         with pytest.raises(EpochMalformed):
             repackage(world, published, {"address-map.yaml": mixed})
 
-    def test_w20_f_resolve_address_holders(self, tmp_path):
+    def test_resolve_address_holders(self, tmp_path):
         from nodes.core.frontmatter import node_to_markdown
         from test_world_view import overlap_world
 

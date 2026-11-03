@@ -243,7 +243,7 @@ def triple(entries, offset: int) -> tuple[IntentEntryView, RegisteredEntryView, 
 
 
 # --- J1 ---------------------------------------------------------------------------
-def test_j1_each_scoped_write_is_one_intent_and_one_fulfilling_registration(session_rig, work_directory):
+def test_each_scoped_write_is_one_intent_and_one_fulfilling_registration(session_rig, work_directory):
     session, root, _ = session_rig
     # An eligible retraction target (assessment) minted through the library path: a proposition is not retractable.
     target = mint_eligible_assessment(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY))
@@ -284,7 +284,7 @@ def test_j1_each_scoped_write_is_one_intent_and_one_fulfilling_registration(sess
     assert intents(twin) == []
 
 
-def test_j1_refusals_append_nothing_of_their_own(session_rig):
+def test_refusals_append_nothing_of_their_own(session_rig):
     session, root, _ = session_rig
     settled_head = chain(root).tip  # the probe: a settled, non-writing read
     w = fresh(session, "A", PROPOSITIONS)
@@ -340,7 +340,7 @@ def test_j1_refusals_append_nothing_of_their_own(session_rig):
     assert intents(root) == []
 
 
-def test_j1_coordination_writes_commit_as_operations(work_directory, base_contract):
+def test_coordination_writes_commit_as_operations(work_directory, base_contract):
     from beliefs.corpus import CoordinationResolver
     from beliefs.errors import CoordinationUnavailable
 
@@ -392,7 +392,7 @@ def test_j1_coordination_writes_commit_as_operations(work_directory, base_contra
 
 
 # --- J3 -----------------------------------------------------------------------------
-def test_j3_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(session_rig):
+def test_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(session_rig):
     session, root, _ = session_rig
     head = chain(root).tip
     w = fresh(session, "A")
@@ -415,7 +415,7 @@ def test_j3_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(sess
 
 
 # --- J4 -----------------------------------------------------------------------------
-def test_j4_every_intent_carries_the_session_actor(session_rig):
+def test_every_intent_carries_the_session_actor(session_rig):
     session, root, _ = session_rig
     target = mint_eligible_assessment(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY))
     w = fresh(session, "A", ORDINARY)
@@ -434,7 +434,7 @@ def test_j4_every_intent_carries_the_session_actor(session_rig):
 
 
 # --- J5 -----------------------------------------------------------------------------
-def test_j5_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the_lock(session_rig, monkeypatch):
+def test_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the_lock(session_rig, monkeypatch):
     session, root, ops = session_rig
     ledger_file = ledger_path(ops, session.session_id)
     lock = _operation_lock_for(root)
@@ -479,7 +479,7 @@ def test_j5_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the
 
 
 # --- J9 -----------------------------------------------------------------------------
-def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
+def test_lifecycle_and_the_refusing_configurations(work_directory):
     root = adopted(work_directory, "corpus")
     # `attended` mints the world config inside itself, and J9 compares the world id the
     # `session-open` line carries against the config's *exactly*, so this arm builds the
@@ -557,7 +557,7 @@ def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
 
 
 # --- J10 ----------------------------------------------------------------------------
-def test_j10_a_session_write_is_indistinguishable_on_ordinary_read(work_directory):
+def test_a_session_write_is_indistinguishable_on_ordinary_read(work_directory):
     twin_a = adopted(work_directory, "twin-a")
     twin_b = adopted(work_directory, "twin-b")
     session, _ops = attended(work_directory, twin_a)
@@ -590,7 +590,7 @@ def inventory(root: Path) -> list[str]:
 
 
 # --- J11 ----------------------------------------------------------------------------
-def test_j11_a_writer_is_bound_to_one_invocation_durably(session_rig):
+def test_a_writer_is_bound_to_one_invocation_durably(session_rig):
     session, root, ops = session_rig
 
     def ledgered(invocation: str) -> list[str]:
@@ -697,7 +697,7 @@ def halting_session(work_directory: Path, root: Path) -> tuple[WriterSession, Ha
 
 
 # --- J2 -------------------------------------------------------------------------------
-def test_j2_a_failure_before_submission_leaves_an_intent_and_no_record(session_rig, monkeypatch):
+def test_a_failure_before_submission_leaves_an_intent_and_no_record(session_rig, monkeypatch):
     session, root, ops = session_rig
     w = fresh(session, "A")
 
@@ -727,7 +727,7 @@ def test_j2_a_failure_before_submission_leaves_an_intent_and_no_record(session_r
     assert chain(root).tip == head
 
 
-def test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_committed(session_rig, monkeypatch):
+def test_a_readback_failure_leaves_the_root_unresolved_and_the_registration_committed(session_rig, monkeypatch):
     session, root, ops = session_rig
     w = fresh(session, "A")
     monkeypatch.setattr(
@@ -757,7 +757,7 @@ def test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_c
     )
 
 
-def test_j2_a_post_commit_rebuild_failure_on_delete_leaves_the_root_unresolved(session_rig, monkeypatch):
+def test_a_post_commit_rebuild_failure_on_delete_leaves_the_root_unresolved(session_rig, monkeypatch):
     """Session `add` updates the index incrementally and never rebuilds after commit; `delete`
     does (`_delete_locked` reconstructs after its execute). Fault that rebuild only."""
     session, root, ops = session_rig
@@ -786,7 +786,7 @@ def test_j2_a_post_commit_rebuild_failure_on_delete_leaves_the_root_unresolved(s
     assert state_of(root).unresolved is False
 
 
-def test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(session_rig, monkeypatch):
+def test_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(session_rig, monkeypatch):
     session, root, ops = session_rig
     w = fresh(session, "A")
     w.add(proposition("p0"))
@@ -812,7 +812,7 @@ def test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(sessio
     )
 
 
-def test_j2_a_ledger_write_failure_after_commit_leaves_the_registration_uncovered(work_directory, monkeypatch):
+def test_a_ledger_write_failure_after_commit_leaves_the_registration_uncovered(work_directory, monkeypatch):
     """J2's ledger clause proper: the append fails with **no bytes on disk**, so the
     committed registration is covered by no `act` line and reconciliation reports it."""
     # Not `session_rig`: this arm makes the ledger terminal, and the rig's teardown
@@ -856,7 +856,7 @@ def test_j2_a_ledger_write_failure_after_commit_leaves_the_registration_uncovere
             call()
 
 
-def test_j2_a_ledger_fsync_failure_after_a_complete_act_line_ends_the_session(work_directory, monkeypatch):
+def test_a_ledger_fsync_failure_after_a_complete_act_line_ends_the_session(work_directory, monkeypatch):
     """The other half of the ledger clause: the write and flush succeeded and only the
     fsync raised, so the complete `act` line *is* on disk and covers the registration —
     what the arm proves is that the rebuild finished before the append and that the
@@ -888,7 +888,7 @@ def test_j2_a_ledger_fsync_failure_after_a_complete_act_line_ends_the_session(wo
             call()
 
 
-def test_j2_a_raced_precondition_is_an_execution_error(session_rig, monkeypatch):
+def test_a_raced_precondition_is_an_execution_error(session_rig, monkeypatch):
     session, root, ops = session_rig
     w = fresh(session, "A")
     real = science_root._mapped_submit
@@ -912,7 +912,7 @@ def test_j2_a_raced_precondition_is_an_execution_error(session_rig, monkeypatch)
     w.add(proposition("p2"))  # settles, then commits
 
 
-def test_j1_a_refusal_on_a_root_left_unresolved_moves_the_head_only_by_settlement(work_directory):
+def test_a_refusal_on_a_root_left_unresolved_moves_the_head_only_by_settlement(work_directory):
     """J1's last check, which needs J2's halting fixture: a refusal on a root left
     unresolved by a prior failed submission moves the head by recovery's settlement
     of that prior work and by nothing of the refused call's own."""
@@ -941,7 +941,7 @@ def test_j1_a_refusal_on_a_root_left_unresolved_moves_the_head_only_by_settlemen
     session.close()
 
 
-def test_j2_the_halting_backends_skip_count_names_the_records_publish(work_directory):
+def test_the_halting_backends_skip_count_names_the_records_publish(work_directory):
     """`PUBLISH_CALLS_BEFORE_RECORD` is an empirical count of the engine's publish
     sequence (§13 item 4), re-derived here through the instrument that fixed it, so a
     change in that sequence fails on the count rather than as a puzzling assertion
@@ -989,7 +989,7 @@ def test_j2_the_halting_backends_skip_count_names_the_records_publish(work_direc
     assert len([name for name in fresh_backend.calls if name in PUBLISH_PHASE]) == PUBLISH_CALLS_BEFORE_RECORD + 3
 
 
-def test_j2_continuation_after_unresolved_effects_recovers_before_the_prepare(work_directory):
+def test_continuation_after_unresolved_effects_recovers_before_the_prepare(work_directory):
     root = adopted(work_directory, "halting")
     assessment_grounds(root)
     session, backend, _ops = halting_session(work_directory, root)
@@ -1026,7 +1026,7 @@ def test_j2_continuation_after_unresolved_effects_recovers_before_the_prepare(wo
     session.close()
 
 
-def test_j2_a_fresh_process_settles_before_its_first_prepare(work_directory):
+def test_a_fresh_process_settles_before_its_first_prepare(work_directory):
     import json
     import subprocess
     import sys
@@ -1094,7 +1094,7 @@ session.close()
     session.close()
 
 
-def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
+def test_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
     root = adopted(work_directory, "handles")
     session, _ops = attended(work_directory, root)
     w = fresh(session, "A", RETRACTABLE)
@@ -1180,7 +1180,7 @@ def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
     session.close()
 
 
-def test_j2_a_failed_recovery_refuses_the_write_before_any_prepare(session_rig, monkeypatch):
+def test_a_failed_recovery_refuses_the_write_before_any_prepare(session_rig, monkeypatch):
     session, root, _ops = session_rig
     w = fresh(session, "A")
     monkeypatch.setattr(
@@ -1210,7 +1210,7 @@ def test_j2_a_failed_recovery_refuses_the_write_before_any_prepare(session_rig, 
 
 
 # --- J8 -------------------------------------------------------------------------------
-def test_j8_reconciliation_over_the_real_root(work_directory, monkeypatch):
+def test_reconciliation_over_the_real_root(work_directory, monkeypatch):
     root = adopted(work_directory, "reconcile")
     session, ops = attended(work_directory, root)
     fresh(session, "A").add(proposition("p1"))
@@ -1253,7 +1253,7 @@ def test_j8_reconciliation_over_the_real_root(work_directory, monkeypatch):
     session.close()
 
 
-def test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write(work_directory):
+def test_reconciliation_is_lock_coherent_under_an_interleaved_write(work_directory):
     root = adopted(work_directory, "interleave")
     session, ops = attended(work_directory, root)
     w = fresh(session, "A")
@@ -1295,7 +1295,7 @@ def test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write(work_dire
     session.close()
 
 
-def test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory, monkeypatch):
+def test_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory, monkeypatch):
     """The chain read and the ledger read both run on a thread that holds the root's operation lock
     as a writer, and the lock is held before the first and still at the second. Observed at the two
     read points themselves, not through a racing writer: an earlier form of this check let a writer

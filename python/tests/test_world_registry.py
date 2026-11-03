@@ -63,7 +63,7 @@ def _registry_files(world_root):
     return sorted(path.name for path in directory.glob("*.yaml")) if directory.exists() else []
 
 
-def test_e1_admit_under_a_permit_lacking_registry_refuses_and_writes_nothing(tmp_path):
+def test_admit_under_a_permit_lacking_registry_refuses_and_writes_nothing(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     world = world_module.World(
@@ -79,7 +79,7 @@ def test_e1_admit_under_a_permit_lacking_registry_refuses_and_writes_nothing(tmp
     assert _registry_files(tmp_path / "world") == []
 
 
-def test_e3_an_admission_carries_the_bound_actor_and_takes_none(tmp_path):
+def test_an_admission_carries_the_bound_actor_and_takes_none(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     world = make_world(tmp_path, corpus)
@@ -90,7 +90,7 @@ def test_e3_an_admission_carries_the_bound_actor_and_takes_none(tmp_path):
     assert world.retire(record.corpus_id).actor == ACTOR
 
 
-def test_e2_open_world_and_world_require_an_authority(tmp_path):
+def test_open_world_and_world_require_an_authority(tmp_path):
     with pytest.raises(TypeError):
         world_module.World(
             world_module.WorldConfig(tmp_path / "world", "f" * 32, ()),

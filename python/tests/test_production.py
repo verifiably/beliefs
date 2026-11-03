@@ -26,7 +26,7 @@ def produced(tmp_path_factory):
     return outcome
 
 
-def test_r23_the_address_is_the_basis_projection_over_the_manifest(produced):
+def test_the_address_is_the_basis_projection_over_the_manifest(produced):
     declaration = DatasetDeclaration(
         resources=tuple(ResourceDeclaration(name=name, digest=digest) for name, digest in produced.run.result.outputs)
     )
@@ -35,7 +35,7 @@ def test_r23_the_address_is_the_basis_projection_over_the_manifest(produced):
     assert minted.address == expected  # §6.2: dedupe, sort, fold — reused from cut 2, not rebuilt
 
 
-def test_r23_the_produces_edge_is_emitted_with_the_run(produced):
+def test_the_produces_edge_is_emitted_with_the_run(produced):
     minted = mint_dataset(produced.run, existing_bases={})
     assert minted.edge == ProducesEdge(run=produced.run.address(), dataset=minted.address)
     # No path attaches an edge naming an output absent from the manifest:
@@ -45,7 +45,7 @@ def test_r23_the_produces_edge_is_emitted_with_the_run(produced):
     assert signature.parameters["existing_bases"].default is inspect.Parameter.empty
 
 
-def test_r23_no_edge_can_name_output_absent_from_the_manifest(produced):
+def test_no_edge_can_name_output_absent_from_the_manifest(produced):
     minted = mint_dataset(produced.run, existing_bases={})
     manifest_address = dataset_address(
         DatasetDeclaration(
@@ -57,12 +57,12 @@ def test_r23_no_edge_can_name_output_absent_from_the_manifest(produced):
     assert minted.edge.dataset == manifest_address
 
 
-def test_r23_refuses_a_non_production_closure():
+def test_refuses_a_non_production_closure():
     with pytest.raises(MalformedClosure):
         mint_dataset(closure(), existing_bases={})
 
 
-def test_r23_production_values_are_strict_and_immutable(produced):
+def test_production_values_are_strict_and_immutable(produced):
     minted = mint_dataset(produced.run, existing_bases={})
     with pytest.raises(dataclasses.FrozenInstanceError):
         minted.stamped = False  # type: ignore[misc]
@@ -70,7 +70,7 @@ def test_r23_production_values_are_strict_and_immutable(produced):
         StampedBasis(run=produced.run.address(), transforms=[D_IN])  # type: ignore[arg-type]
 
 
-def test_r23_no_produced_by_edge_is_reachable_in_either_direction(produced):
+def test_no_produced_by_edge_is_reachable_in_either_direction(produced):
     import beliefs.production as production_module
 
     assert not any("produced_by" in name for name in production_module.__all__)
@@ -79,7 +79,7 @@ def test_r23_no_produced_by_edge_is_reachable_in_either_direction(produced):
         assert "produced_by" not in {f.name for f in dataclasses.fields(value)}
 
 
-def test_r23_negative_a_byte_identical_output_under_two_logical_names_yields_one_address(tmp_path):
+def test_byte_identical_output_under_two_logical_names_yields_one_address(tmp_path):
     outcome = run_production(
         tmp_path,
         snakefile=SNAKEFILE_TWO_NAMES,
@@ -96,7 +96,7 @@ def test_r23_negative_a_byte_identical_output_under_two_logical_names_yields_one
     assert minted.address == single  # the name never entered; the projection deduplicated
 
 
-def test_r23_replay_cardinality_one_address_two_edges_nothing_mutated(tmp_path):
+def test_replay_cardinality_one_address_two_edges_nothing_mutated(tmp_path):
     first = run_production(tmp_path / "a")
     second = run_production(tmp_path / "b")
     assert isinstance(first, RunMinted) and isinstance(second, RunMinted)
@@ -111,7 +111,7 @@ def test_r23_replay_cardinality_one_address_two_edges_nothing_mutated(tmp_path):
     assert bases == {first_minted.address: first_minted.basis}  # no existing node mutated
 
 
-def test_r23_the_certified_exclusion_is_inline_and_mints_a_recipe_not_a_run():
+def test_the_certified_exclusion_is_inline_and_mints_a_recipe_not_a_run():
     certified = recipe(
         shape="dataset-production",
         spec_identity=None,
@@ -141,7 +141,7 @@ def test_r23_the_certified_exclusion_is_inline_and_mints_a_recipe_not_a_run():
     assert not hasattr(certified, "address")
 
 
-def test_r23_negative_h_reclassifying_an_inputs_role_mints_a_different_recipe():
+def test_reclassifying_an_inputs_role_mints_a_different_recipe():
     as_transforms = recipe(
         shape="dataset-production",
         spec_identity=None,

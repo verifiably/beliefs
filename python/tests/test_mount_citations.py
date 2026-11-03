@@ -145,7 +145,7 @@ def test_a_citation_held_by_the_write_root_and_a_mount_refuses_naming_both(roots
     assert {path: path.read_bytes() for path in roots["w"].rglob("*") if path.is_file()} == before
 
 
-def test_j17_c_a_citation_of_equal_content_resolves_once_with_every_contract_checked(roots):
+def test_a_citation_of_equal_content_resolves_once_with_every_contract_checked(roots):
     """Cut 48 §8: two session corpora holding equal content resolve once — through the
     write root when it holds the record, else the least corpus id's mount — with every
     mount holder's contract checked; differing content refuses naming every holder."""

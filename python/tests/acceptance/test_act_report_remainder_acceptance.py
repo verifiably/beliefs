@@ -130,7 +130,7 @@ class RefusingPort(CountingPort):
 # --- T2 ----------------------------------------------------------------------------
 
 
-def test_t2e_an_audit_closes_through_exactly_one_report_after_its_intent_and_the_evaluator_ran_between_durably(
+def test_an_audit_closes_through_exactly_one_report_after_its_intent_and_the_evaluator_ran_between_durably(
     observer, monkeypatch
 ):
     ctx, writer = observer.ctx, observer.writer
@@ -173,7 +173,7 @@ def test_t2e_an_audit_closes_through_exactly_one_report_after_its_intent_and_the
     assert closed(ctx.observer_root, "audit", outcome.report_ref, outcome.report)
 
 
-def test_t2f_a_recheck_closes_through_one_report_and_its_operation_intent_precedes_every_holdings_intent_durably(
+def test_a_recheck_closes_through_one_report_and_its_operation_intent_precedes_every_holdings_intent_durably(
     observer,
 ):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
@@ -194,7 +194,7 @@ def test_t2f_a_recheck_closes_through_one_report_and_its_operation_intent_preced
 
 
 @pytest.mark.parametrize("spoil", ["wrong-root", "no-port", "refusing-port", "foreign-store"])
-def test_t2g_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_no_act_for_both_kinds_durably(
+def test_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_no_act_for_both_kinds_durably(
     observer, certified_work, spoil, monkeypatch
 ):
     """The audit has no root-selection or store arm (one writer, no store), so under
@@ -236,7 +236,7 @@ def test_t2g_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_n
         assert not any(node.kind == "act-report" for node in recheck_writer.read_view.iter_stored())
 
 
-def test_t2h_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_refused_durably(
+def test_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_refused_durably(
     observer, certified_work
 ):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
@@ -268,7 +268,7 @@ def test_t2h_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_
     assert view.defect.kind == "duplicate-fulfillment"
 
 
-def test_t2i_a_port_bound_to_another_root_is_refused_by_both_kinds_before_any_intent_durably(observer, certified_work):
+def test_a_port_bound_to_another_root_is_refused_by_both_kinds_before_any_intent_durably(observer, certified_work):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a = held(ctx, store_id, "a.bin", b"alpha")
     other = certified_work / "other"
@@ -287,7 +287,7 @@ def test_t2i_a_port_bound_to_another_root_is_refused_by_both_kinds_before_any_in
 @pytest.mark.parametrize(
     "spoil", ["empty-instrument", "unencodable-observer", "standing-elsewhere", "standing-unrequested"]
 )
-def test_t2j_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_holdings_intent_and_no_read_durably(
+def test_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_holdings_intent_and_no_read_durably(
     observer, spoil
 ):
     from beliefs.holdings.records import Found, holdings_observation
@@ -325,7 +325,7 @@ def test_t2j_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_
 # --- T5, T6 ------------------------------------------------------------------------
 
 
-def test_t5d_an_inconclusive_recheck_location_spells_untested_or_failed_by_whether_the_read_began_durably(observer):
+def test_an_inconclusive_recheck_location_spells_untested_or_failed_by_whether_the_read_began_durably(observer):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a, b, c = held(ctx, store_id, "a.bin", b"alpha"), StoreLocator(store_id, "b.bin"), StoreLocator(store_id, "c.bin")
     inner = ctx.seam.read_path
@@ -349,7 +349,7 @@ def test_t5d_an_inconclusive_recheck_location_spells_untested_or_failed_by_wheth
     assert closed(ctx.observer_root, "re-check", outcome.report_ref, outcome.report)
 
 
-def test_t6d_cite_resolves_each_finding_in_evaluator_order_and_a_permutation_moves_the_identity_durably(
+def test_cite_resolves_each_finding_in_evaluator_order_and_a_permutation_moves_the_identity_durably(
     observer, monkeypatch
 ):
     writer = observer.writer
@@ -377,7 +377,7 @@ def test_t6d_cite_resolves_each_finding_in_evaluator_order_and_a_permutation_mov
     assert permuted.identity() != outcome.report.identity()
 
 
-def test_t6e_findings_differing_only_in_message_mint_equal_entries_and_one_identity_under_a_fixed_envelope_durably(
+def test_findings_differing_only_in_message_mint_equal_entries_and_one_identity_under_a_fixed_envelope_durably(
     observer, monkeypatch
 ):
     writer = observer.writer
@@ -409,7 +409,7 @@ def test_t6e_findings_differing_only_in_message_mint_equal_entries_and_one_ident
 # --- BI ------------------------------------------------------------------------------
 
 
-def test_bi1_the_evaluator_modules_define_no_write_entry_point_and_reach_no_primitive_durably():
+def test_the_evaluator_modules_define_no_write_entry_point_and_reach_no_primitive_durably():
     evaluators = {"audit.py", "world/audit.py"}
     assert not {key for key in WRITE_ENTRY_POINTS if key.split(":", 1)[0] in evaluators}
     for module in modules():
@@ -426,7 +426,7 @@ def test_bi1_the_evaluator_modules_define_no_write_entry_point_and_reach_no_prim
     assert seen == wrappers
 
 
-def test_bi2_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_raced_write_lands_after_the_report_durably(
+def test_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_raced_write_lands_after_the_report_durably(
     observer, monkeypatch
 ):
     ctx, writer = observer.ctx, observer.writer
@@ -465,7 +465,7 @@ def test_bi2_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_
     assert outcome.entries == ()  # the raced record was not in the judged state
 
 
-def test_bi3_the_session_routes_write_one_act_line_per_committed_transaction_and_name_the_session_actor_durably(
+def test_the_session_routes_write_one_act_line_per_committed_transaction_and_name_the_session_actor_durably(
     certified_work,
 ):
     session = _durable_session(certified_work)

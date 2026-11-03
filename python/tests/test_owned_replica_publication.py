@@ -35,7 +35,7 @@ class StringSubclass(str):
         (frozenset({A, "unused-invalid"}), ValueError),
     ],
 )
-def test_y5_f_declaration_validation(declaration, error):
+def test_declaration_validation(declaration, error):
     resolver = SimpleNamespace(resolve=lambda *a: pytest.fail("resolved before validation"))
     with pytest.raises(error) as caught:
         act.publication_preview(
@@ -45,7 +45,7 @@ def test_y5_f_declaration_validation(declaration, error):
 
 
 @pytest.mark.parametrize("version", [2, 3], ids=["v2", "v3"])
-def test_y17_q_owned_replica(version):
+def test_owned_replica(version):
     read, registry, captures = capture_fixture({A: (ReplicaOf(A), ("run:a",))})
     captures[A] = captures[A][:-1]
     before = registry
@@ -57,7 +57,7 @@ def test_y17_q_owned_replica(version):
 
 @pytest.mark.parametrize("version", [2, 3], ids=["v2", "v3"])
 @pytest.mark.parametrize("declaration", [frozenset(), frozenset({C})])
-def test_y17_r_explicit_scope(version, declaration):
+def test_explicit_scope(version, declaration):
     read, registry, captures = capture_fixture({A: (ReplicaOf(A), ("run:a",))})
     captures[A] = captures[A][:-1]
     with pytest.raises(PublicationRefused) as caught:
@@ -70,7 +70,7 @@ def test_y17_r_explicit_scope(version, declaration):
 @pytest.mark.parametrize("version", [2, 3], ids=["v2", "v3"])
 @pytest.mark.parametrize("provenance", [Fresh(), ForkOf(A, "d" * 64), ReplicaOf(A)])
 @pytest.mark.parametrize("malformed", [False, True])
-def test_y17_s_captured_marker_veto(version, provenance, malformed):
+def test_captured_marker_veto(version, provenance, malformed):
     read, registry, captures = capture_fixture({A: (provenance, ("run:a",))})
     marker = captures[A][-1]
     assert marker.kind == MARKER_KIND and read.corpus_of(marker.id) is None
@@ -87,7 +87,7 @@ def test_y17_s_captured_marker_veto(version, provenance, malformed):
 
 
 @pytest.mark.parametrize("version", [2, 3], ids=["v2", "v3"])
-def test_y17_t_refusal_order(version):
+def test_refusal_order(version):
     read, registry, captures = capture_fixture(
         {C: (ReplicaOf(C), ("run:c",)), B: (ReplicaOf(B), ("run:b",)), A: (ReplicaOf(A), ("run:a",))}
     )
@@ -112,7 +112,7 @@ def test_y17_t_refusal_order(version):
 
 
 @pytest.mark.parametrize("version", [2, 3], ids=["v2", "v3"])
-def test_y17_u_mixed_origins(version):
+def test_mixed_origins(version):
     origin = ("run:b", C, "d" * 32)
     read, registry, captures = capture_fixture(
         {A: (ReplicaOf(A), ("run:a",)), B: (ReplicaOf(B), ("run:b",))}, source_version=3, carried={B: (origin,)}
@@ -129,7 +129,7 @@ def test_y17_u_mixed_origins(version):
 
 
 @pytest.mark.parametrize("version", [2, 3], ids=["v2", "v3"])
-def test_y17_v_preview_matches_freeze(tmp_path, monkeypatch, version):
+def test_preview_matches_freeze(tmp_path, monkeypatch, version):
     s = wrapper_fixture(tmp_path, monkeypatch, writer_version=version)
     for cid in (A, B):
         s.captures[cid] = s.captures[cid][:-1]
@@ -153,7 +153,7 @@ def test_y17_v_preview_matches_freeze(tmp_path, monkeypatch, version):
     [Destination.local("/publication"), Destination.remote("https://remote.test/pub")],
     ids=["local", "remote-with-snapshot"],
 )
-def test_y17_x_frozen_owned_marker(tmp_path, monkeypatch, version, destination):
+def test_frozen_owned_marker(tmp_path, monkeypatch, version, destination):
     entries = None if version == 2 else ()
     a = frozen_attempt(tmp_path, destination=destination, entries=entries, coordination_pin=pin(version))
     expected = marker_record(

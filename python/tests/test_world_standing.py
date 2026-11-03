@@ -226,7 +226,7 @@ def _overlap(tmp_path, *, counter_in=ALPHA, deeper=False):
     return world, roots, profile, first, counter
 
 
-def test_g14_i_v2_fold_world(tmp_path):
+def test_v2_fold_world(tmp_path):
     """Cut 48 §4.5: the v2-bound build folds standing once over the merged holders."""
     from dataset_fixtures import pinned
     from fixtures_cut4 import raw_write as raw

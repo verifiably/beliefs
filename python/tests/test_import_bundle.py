@@ -114,7 +114,7 @@ def _narrowed_writer(tmp_path, authority):
     )
 
 
-def test_e8_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path):
+def test_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path):
     writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",)))
     with pytest.raises(PermitExceeded) as caught:
         _import(writer, [prop("p1"), stored.source_node(title="s", identifiers={"doi": "10.1234/x"})])
@@ -122,7 +122,7 @@ def test_e8_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path
     assert FakePort.intents == [] and FakePort.executed == [] and FakePort.fulfilling == []
 
 
-def test_e8_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
+def test_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
     writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition",), families=("corpus-write",)))
     with pytest.raises(PermitExceeded) as caught:
         _import(writer, [prop("p1")])
@@ -130,21 +130,21 @@ def test_e8_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
     assert FakePort.intents == []
 
 
-def test_e8_every_member_kind_plus_act_report_imports_with_one_fulfilling_report(tmp_path):
+def test_every_member_kind_plus_act_report_imports_with_one_fulfilling_report(tmp_path):
     writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",)))
     report = _import(writer, [prop("p1")])
     assert report.actor == ACTOR
     assert len(FakePort.intents) == 1 and len(FakePort.fulfilling) == 1
 
 
-def test_e3_the_import_intent_carries_the_bound_actor(writer_with_port):
+def test_the_import_intent_carries_the_bound_actor(writer_with_port):
     FakePort.intents = []
     _import(writer_with_port, [prop("p2")])
     payload = v1.decode(FakePort.intents[0])
     assert isinstance(payload, dict) and payload["actor"] == ACTOR
 
 
-def test_e3_an_imported_member_naming_a_foreign_actor_is_stored_verbatim(tmp_path):
+def test_an_imported_member_naming_a_foreign_actor_is_stored_verbatim(tmp_path):
     from fixtures_cut3 import closure as minted_closure
     from nodes.core.frontmatter import node_from_markdown
 

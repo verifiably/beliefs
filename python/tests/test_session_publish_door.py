@@ -533,7 +533,7 @@ def test_the_door_opens_the_publication_inside_the_closing_hold(certified_work, 
 
 
 @pytest.mark.parametrize("scenario", ["forward", "closed", "stale", "permit", "resolver"])
-def test_y17_w_scoped_ownership(readonly_source, tmp_path, monkeypatch, scenario):
+def test_scoped_ownership(readonly_source, tmp_path, monkeypatch, scenario):
     s = scoped_source(readonly_source, tmp_path)
     session, writer = publishing_session(
         s,

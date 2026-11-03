@@ -142,7 +142,7 @@ def recipient_world(s, roots: tuple[Path, ...]):
 
 
 @pytest.mark.parametrize("fault", ["altered", "extra"])
-def test_y11_a_a_listing_that_disagrees_is_transport_incomplete_durably(remote, fault):
+def test_a_listing_that_disagrees_is_transport_incomplete_durably(remote, fault):
     """Y11-a: a file altered, or an extra file added, at the remote after `push` → listing-mismatch."""
 
     def after_push(target: Path) -> None:
@@ -166,7 +166,7 @@ def test_y11_a_a_listing_that_disagrees_is_transport_incomplete_durably(remote, 
 # --- Y12 ------------------------------------------------------------------------
 
 
-def test_y12_a_a_crash_inside_push_leaves_the_mark_and_blocks_the_next_publish_durably(remote):
+def test_a_crash_inside_push_leaves_the_mark_and_blocks_the_next_publish_durably(remote):
     """Y12-a: the mark is on disk before the first byte leaves."""
     remote.transport.fail_after_files = 1
     with pytest.raises(TransportFault):
@@ -181,7 +181,7 @@ def test_y12_a_a_crash_inside_push_leaves_the_mark_and_blocks_the_next_publish_d
     assert chain_tip(remote) == tip and _ops_tree(remote) == ops
 
 
-def test_y12_b_a_resume_after_the_mark_never_rereads_staging_durably(remote, monkeypatch):
+def test_a_resume_after_the_mark_never_rereads_staging_durably(remote, monkeypatch):
     """Y12-b: an extra record raw-written into staging after the mark is never seen."""
     crash(monkeypatch, "_verify", before=True)
     with pytest.raises(Crash):
@@ -197,7 +197,7 @@ def test_y12_b_a_resume_after_the_mark_never_rereads_staging_durably(remote, mon
 
 
 @pytest.mark.parametrize("field", ["corpus_id", "artifact"])
-def test_y12_c_a_mark_disagreeing_with_its_export_fails_closed_durably(remote, monkeypatch, field):
+def test_a_mark_disagreeing_with_its_export_fails_closed_durably(remote, monkeypatch, field):
     """Y12-c: a mark rewritten with another corpus_id or artifact → transport-mark-corrupt, nothing written."""
     crash(monkeypatch, "_push", before=True)
     with pytest.raises(Crash):
@@ -216,7 +216,7 @@ def test_y12_c_a_mark_disagreeing_with_its_export_fails_closed_durably(remote, m
 # --- Y13 ------------------------------------------------------------------------
 
 
-def test_y13_a_an_abandoned_transport_is_an_orphan_the_next_publish_supersedes_durably(remote):
+def test_an_abandoned_transport_is_an_orphan_the_next_publish_supersedes_durably(remote):
     """Y13-a: the fake abandons; the next publish binds and its marker supersedes the abandoned pair."""
     remote.transport.abandon = True
     abandoned = publish_remote(remote)
@@ -227,7 +227,7 @@ def test_y13_a_an_abandoned_transport_is_an_orphan_the_next_publish_supersedes_d
     assert type(bound) is Published and pair in supersedes(remote, bound)
 
 
-def test_y13_b_an_orphan_named_by_an_abandoned_attempt_is_not_retired_durably(remote):
+def test_an_orphan_named_by_an_abandoned_attempt_is_not_retired_durably(remote):
     """Y13-b: O abandons; T, naming O, abandons; N supersedes both."""
     remote.transport.abandon = True
     o = publish_remote(remote)
@@ -242,7 +242,7 @@ def test_y13_b_an_orphan_named_by_an_abandoned_attempt_is_not_retired_durably(re
 
 
 @pytest.mark.parametrize("damage", ["deleted", "altered", "unreadable", "undecodable"])
-def test_y13_c_an_export_damaged_after_the_mark_closes_as_an_orphan_durably(remote, monkeypatch, damage):
+def test_an_export_damaged_after_the_mark_closes_as_an_orphan_durably(remote, monkeypatch, damage):
     """Y13-c: a selected record deleted from, altered in, made unreadable in or
     replaced by undecodable bytes in the serviceable export after the mark → the
     resume refuses `export-damaged` without pushing (never `transport-mark-corrupt`),
@@ -280,7 +280,7 @@ def test_y13_c_an_export_damaged_after_the_mark_closes_as_an_orphan_durably(remo
 # --- Y14 ------------------------------------------------------------------------
 
 
-def test_y14_a_a_stranded_marked_attempt_blocks_until_resumed_durably(remote, monkeypatch):
+def test_a_stranded_marked_attempt_blocks_until_resumed_durably(remote, monkeypatch):
     """Y14-a (Ruling 12): step 8 raises before any effect after a verified
     transport; the next publish refuses until the attempt is resumed."""
     crash(monkeypatch, "_bind", before=True)
@@ -301,7 +301,7 @@ def test_y14_a_a_stranded_marked_attempt_blocks_until_resumed_durably(remote, mo
     assert type(after) is Published and (resumed.corpus_id, resumed.marker) in supersedes(remote, after)
 
 
-def test_y14_b_an_attempt_without_a_mark_never_blocks_durably(remote, monkeypatch):
+def test_an_attempt_without_a_mark_never_blocks_durably(remote, monkeypatch):
     """Y14-b: a request and no mark → the next publish binds."""
     crash(monkeypatch, "_initialize")
     with pytest.raises(Crash):
@@ -322,7 +322,7 @@ def test_y14_b_an_attempt_without_a_mark_never_blocks_durably(remote, monkeypatc
     [("_mark", False), ("_push", True), ("_push", False), ("_verify", True), ("_verify", False), ("_bind", True)],
     ids=["after-mark", "before-push", "after-push", "before-verify", "after-verify", "before-bind"],
 )
-def test_y15_a_a_crash_at_every_remote_step_resumes_to_one_binding_and_one_report_durably(
+def test_a_crash_at_every_remote_step_resumes_to_one_binding_and_one_report_durably(
     remote, monkeypatch, step, before
 ):
     """Y15-a: crash, resume → Published; one binding, one report of the whole
@@ -343,7 +343,7 @@ def test_y15_a_a_crash_at_every_remote_step_resumes_to_one_binding_and_one_repor
     assert not (op / "staging").exists() and not (op / "world").exists()
 
 
-def test_y15_b_a_remote_step_8_refusal_is_an_orphan_the_next_publish_names_durably(remote):
+def test_a_remote_step_8_refusal_is_an_orphan_the_next_publish_names_durably(remote):
     """Y15-b: cut 39's W17-p-a race through the act. P binds; A's port runs a whole
     remote publish B, superseding P, inside `append_intent` after A's tip read;
     A transports, then refuses `predecessor-not-standing` with `remotely_revealed`."""
@@ -380,7 +380,7 @@ def test_y15_b_a_remote_step_8_refusal_is_an_orphan_the_next_publish_names_durab
 # --- Y16 ------------------------------------------------------------------------
 
 
-def test_y16_a_a_recipient_restores_admits_and_reads_the_current_publication_durably(remote):
+def test_a_recipient_restores_admits_and_reads_the_current_publication_durably(remote):
     """Y16-a: materialize, restore against the transported artifact, admit, read the tip;
     the same copy missing one file restores to a non-validated verdict and is refused."""
     outcome = publish_remote(remote)
@@ -402,7 +402,7 @@ def test_y16_a_a_recipient_restores_admits_and_reads_the_current_publication_dur
         admit_publication(recipient_world(remote, (partial,)), partial, observers)
 
 
-def test_y16_b_sibling_publications_are_divergent_until_one_supersedes_both_durably(remote, monkeypatch):
+def test_sibling_publications_are_divergent_until_one_supersedes_both_durably(remote, monkeypatch):
     """Y16-b: A crashed before its mark, B bound, A resumed and bound as a sibling.
     Both select the same records; the recipient's epoch (cut 48 §4.2) holds each once
     in both publications, and `publication_tip` reads them side by side as divergent
@@ -432,7 +432,7 @@ def test_y16_b_sibling_publications_are_divergent_until_one_supersedes_both_dura
     assert publication_tip((a_root, b_root, c_root), remote.view, REMOTE) == CurrentPublication(c.corpus_id, c.marker)
 
 
-def test_y16_c_a_held_root_with_an_unreadable_record_file_refuses_capture_damaged_durably(remote):
+def test_a_held_root_with_an_unreadable_record_file_refuses_capture_damaged_durably(remote):
     """Y16-c (the round-3 reviewer's probe): an unreadable extra record file in a
     held root refuses `capture-damaged`, and arrival of the same bytes refuses too."""
     if os.geteuid() == 0:

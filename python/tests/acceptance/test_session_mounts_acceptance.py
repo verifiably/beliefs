@@ -130,7 +130,7 @@ def state(root: Path):
 
 
 @pytest.mark.parametrize("case", ["outside", "zero-roots"])
-def test_j12_a_a_write_root_outside_the_configured_roots_refuses_durably(corpora, case):
+def test_a_write_root_outside_the_configured_roots_refuses_durably(corpora, case):
     """J12-a: the membership check, which also refuses a configuration naming no root."""
     s = corpora
     if case == "outside":
@@ -140,7 +140,7 @@ def test_j12_a_a_write_root_outside_the_configured_roots_refuses_durably(corpora
 
 
 @pytest.mark.parametrize("case", ["missing", "extra", "repeated", "unadopted", "profile"])
-def test_j12_b_a_mount_set_other_than_the_configured_roots_refuses_durably(corpora, case):
+def test_a_mount_set_other_than_the_configured_roots_refuses_durably(corpora, case):
     """J12-b: the mount set is exactly the configured roots, each once; a read mount's
     manifest loads; the writer's profile is its own mount's."""
     s = corpora
@@ -162,7 +162,7 @@ def test_j12_b_a_mount_set_other_than_the_configured_roots_refuses_durably(corpo
 
 
 @pytest.mark.parametrize("case", ["a", "d", "one-root"])
-def test_j12_c_the_session_writes_the_named_root_and_only_it_durably(corpora, case):
+def test_the_session_writes_the_named_root_and_only_it_durably(corpora, case):
     """J12-c: each configured root as the write root in turn; the negative, a
     one-root world, opens as J9's sessions do."""
     s = corpora
@@ -193,7 +193,7 @@ def test_j12_c_the_session_writes_the_named_root_and_only_it_durably(corpora, ca
 # --- J14 ------------------------------------------------------------------------
 
 
-def test_j14_a_coordination_resolves_over_every_mount_durably(corpora):
+def test_coordination_resolves_over_every_mount_durably(corpora):
     """J14-a: a project minted in B is the initial selection of a session writing
     A; its revision lands in A and resolves; a second tip in B makes it divergent;
     without mounts, coordination is unavailable."""
@@ -231,7 +231,7 @@ def test_j14_a_coordination_resolves_over_every_mount_durably(corpora):
 # --- J15 ------------------------------------------------------------------------
 
 
-def test_j15_a_a_session_never_writes_a_read_mount_durably(corpora):
+def test_a_session_never_writes_a_read_mount_durably(corpora):
     """J15-a: an ordinary write, a coordination mint and a revision of a read-mount
     predecessor leave every read mount byte-identical, and reconciliation finds nothing."""
     s = corpora

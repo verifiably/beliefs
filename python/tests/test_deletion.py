@@ -246,7 +246,7 @@ def test_deletion_refusals_are_write_refusals():
 # --- T8 re-read against delete -------------------------------------------------
 
 
-def test_t8_delete_refuses_an_act_report_and_mints_none(writer):
+def test_delete_refuses_an_act_report_and_mints_none(writer):
     report = _stored_act_report(writer)
     # `import_bundle` mints its own act-report for the import operation, on top
     # of the foreign report it stores — so the live count is 2, not 1. What
@@ -261,7 +261,7 @@ def test_t8_delete_refuses_an_act_report_and_mints_none(writer):
 # --- C1 re-read under §2.2's narrowing ----------------------------------------
 
 
-def test_c1_retract_never_deletes_or_re_addresses_its_target(writer, monkeypatch):
+def test_retract_never_deletes_or_re_addresses_its_target(writer, monkeypatch):
     target = mint_eligible_assessment(writer)
     before = path_for(writer.root, target.id).read_bytes()
     calls: list[str] = []
@@ -309,7 +309,7 @@ def test_supersede_refuses_a_predecessor_deleted_under_it(writer, monkeypatch):
     assert writer.read_view.resolve(successor.id) is None
 
 
-def test_e1_delete_requires_the_corpus_write_permit_on_the_resolved_kind(writer):
+def test_delete_requires_the_corpus_write_permit_on_the_resolved_kind(writer):
     """E1 for `delete` (write-permits design §15).
 
     The permit is required on the **resolved** record's kind, before every
@@ -341,7 +341,7 @@ def test_e1_delete_requires_the_corpus_write_permit_on_the_resolved_kind(writer)
     assert not path.exists()
 
 
-def test_e1_delete_requires_before_the_excluded_kind_rule(writer):
+def test_delete_requires_before_the_excluded_kind_rule(writer):
     """The permit check precedes `_refuse_excluded_kind`, so an authority that
     may not write the kind reads `PermitExceeded`, never `DeletionKindExcluded`."""
     from test_relocation import _rebind

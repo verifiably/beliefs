@@ -384,7 +384,7 @@ def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixtu
     )
 
 
-def test_m1_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_fixture):
+def test_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
 
     inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
@@ -421,7 +421,7 @@ def test_the_records_are_already_proposition_scoped(corpus_fixture):
     assert records.source_assertions == ()
 
 
-def test_m1_sabotage_shape_an_unrelated_verification_read_fails_containment(corpus_fixture, monkeypatch):
+def test_sabotage_shape_an_unrelated_verification_read_fails_containment(corpus_fixture, monkeypatch):
     from domain_facet_fixtures import over_kwargs
 
     """The sabotage N2 declares: `gather` reads one verification belonging to a

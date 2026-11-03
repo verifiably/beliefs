@@ -305,7 +305,7 @@ def overlapping_builds(world) -> tuple[Event, Event, str, str, str, str]:
     return a, b, e1, e2, e3, e4
 
 
-def test_l8a_a_freeze_before_a_run_intent_across_ordered_cuts_orders_and_is_antisymmetric_durably(world):
+def test_a_freeze_before_a_run_intent_across_ordered_cuts_orders_and_is_antisymmetric_durably(world):
     a = world.freeze()
     e1 = world.build()
     b = world.run_intent()
@@ -315,7 +315,7 @@ def test_l8a_a_freeze_before_a_run_intent_across_ordered_cuts_orders_and_is_anti
     assert world.order(b, a) == "b-precedes-a"
 
 
-def test_l8b_co_appearance_is_unordered_and_later_cuts_holding_both_do_not_reverse_a_witness_durably(world):
+def test_co_appearance_is_unordered_and_later_cuts_holding_both_do_not_reverse_a_witness_durably(world):
     """Two claims, and the second is what the exclusion clause defends: with
     exclusion dropped, E2 and E3 (both holding both events) would witness
     `b` before `a` too, and the answer would collapse to `unordered`."""
@@ -331,14 +331,14 @@ def test_l8b_co_appearance_is_unordered_and_later_cuts_holding_both_do_not_rever
     assert world.order(c, d) == "a-precedes-b" and world.order(d, c) == "b-precedes-a"
 
 
-def test_l8c_epoch_sequence_numbers_are_read_by_nothing_durably(world):
+def test_epoch_sequence_numbers_are_read_by_nothing_durably(world):
     assert [name for name in dir(epoch.Epoch) if "sequence" in name] == []
     for core in (verify._ordered_by_descent, verify._witnessed, verify._event_order):
         code, _docstring, rest = inspect.getsource(core).split('"""', 2)
         assert "sequence" not in code + rest, core.__name__
 
 
-def test_l8d_a_cut_covering_one_corpus_establishes_nothing_durably(world):
+def test_a_cut_covering_one_corpus_establishes_nothing_durably(world):
     a = world.freeze()
     world.build(world.a)  # A only: no anchor for B
     b = world.intent()
@@ -352,7 +352,7 @@ def test_l8d_a_cut_covering_one_corpus_establishes_nothing_durably(world):
     unordered_both_ways(world, a, b)  # b was in every covering cut that holds a: still unwitnessed
 
 
-def test_l8e_a_chain_replaced_under_another_fork_genesis_establishes_nothing_durably(world):
+def test_a_chain_replaced_under_another_fork_genesis_establishes_nothing_durably(world):
     a = world.freeze()
     e1 = world.build()
     b = world.intent()
@@ -369,12 +369,12 @@ def test_l8e_a_chain_replaced_under_another_fork_genesis_establishes_nothing_dur
         world.order(a, b)  # the old chain's registration is gone
 
 
-def test_l8f_the_double_witness_is_unordered_durably(world):
+def test_the_double_witness_is_unordered_durably(world):
     a, b, _e1, _e2, _e3, _e4 = overlapping_builds(world)
     unordered_both_ways(world, a, b)
 
 
-def test_l8g_valid_prefix_truncation_invalidates_every_witness_and_unknowns_the_removed_event_durably(world):
+def test_valid_prefix_truncation_invalidates_every_witness_and_unknowns_the_removed_event_durably(world):
     a = world.freeze()
     a_settled = settlement_of(world.alpha, a.digest).digest
     later = world.freeze()  # E1's A head will sit after this
@@ -394,7 +394,7 @@ def test_l8g_valid_prefix_truncation_invalidates_every_witness_and_unknowns_the_
         world.order(later, b)
 
 
-def test_l8h_same_chain_orders_by_ancestry_and_equal_moments_are_unordered_durably(world):
+def test_same_chain_orders_by_ancestry_and_equal_moments_are_unordered_durably(world):
     first = world.freeze()
     second = world.freeze()
     assert world.order(first, second) == "a-precedes-b" and world.order(second, first) == "b-precedes-a"
@@ -405,7 +405,7 @@ def test_l8h_same_chain_orders_by_ancestry_and_equal_moments_are_unordered_durab
     assert world.order(genesis, first) == "a-precedes-b"
 
 
-def test_l8i_a_pending_or_rolled_back_registration_has_no_moment_durably(world):
+def test_a_pending_or_rolled_back_registration_has_no_moment_durably(world):
     """Stand-in inspection for A only: the live chain plus a pending and a
     rolled-back registration, by entry class; the world and B are the engine's."""
     first = world.freeze()
@@ -421,7 +421,7 @@ def test_l8i_a_pending_or_rolled_back_registration_has_no_moment_durably(world):
         assert verify._event_order(world.config, Event(world.a, digest_), first, seam=seam) == "unordered"
 
 
-def test_l8j_same_chain_independence_from_a_malformed_carrier_and_world_chain_durably(world, work_directory):
+def test_same_chain_independence_from_a_malformed_carrier_and_world_chain_durably(world, work_directory):
     first = world.freeze()
     second = world.freeze()
     identity = world.build()
@@ -438,7 +438,7 @@ def test_l8j_same_chain_independence_from_a_malformed_carrier_and_world_chain_du
     shutil.rmtree(aside, ignore_errors=True)
 
 
-def test_l8k_the_refusals_and_a_terminal_corpus_durably(world, work_directory):
+def test_the_refusals_and_a_terminal_corpus_durably(world, work_directory):
     first = world.freeze()
     second = world.freeze()
     with pytest.raises(EventCorpusUnknown):
@@ -464,7 +464,7 @@ def test_l8k_the_refusals_and_a_terminal_corpus_durably(world, work_directory):
     assert world.order(first, second) == "a-precedes-b"
 
 
-def test_l4a_a_deleted_chain_refutes_against_its_registry_anchor_bound_by_corpus_id_durably(world):
+def test_a_deleted_chain_refutes_against_its_registry_anchor_bound_by_corpus_id_durably(world):
     """Relabel unit; the cut document cites every clause of cuts 8 and 9."""
     world.freeze()
     records = anchor_heads(world.world, frozenset({world.a, world.b}))
@@ -480,7 +480,7 @@ def test_l4a_a_deleted_chain_refutes_against_its_registry_anchor_bound_by_corpus
     assert sibling.outcome == "validated"
 
 
-def test_l10a_a_replica_under_a_fresh_manifest_refuses_subject_mismatch_at_arrival_durably(world, work_directory):
+def test_a_replica_under_a_fresh_manifest_refuses_subject_mismatch_at_arrival_durably(world, work_directory):
     """Relabel unit; cut 8's L10u1 construction: replicate A, rewrite the copy's
     `corpus.yaml` to a fresh id, arrive as a replica of A."""
     world.freeze()
@@ -497,7 +497,7 @@ def test_l10a_a_replica_under_a_fresh_manifest_refuses_subject_mismatch_at_arriv
         shutil.rmtree(metadata_root_for(copy), ignore_errors=True)
 
 
-def test_bi1_recovery_precedes_resolution_on_both_paths_durably(world, monkeypatch):
+def test_recovery_precedes_resolution_on_both_paths_durably(world, monkeypatch):
     first, second = world.freeze(), world.freeze()
     b = world.intent()
     order: list[str] = []
@@ -518,7 +518,7 @@ def test_bi1_recovery_precedes_resolution_on_both_paths_durably(world, monkeypat
     assert order[:2] == ["inspect-world", "scan"]
 
 
-def test_bi2_one_world_inspection_and_the_world_lock_released_before_sorted_unnested_corpus_locks_durably(world):
+def test_one_world_inspection_and_the_world_lock_released_before_sorted_unnested_corpus_locks_durably(world):
     a = world.freeze()
     world.build()
     b = world.intent()
@@ -550,7 +550,7 @@ def test_bi2_one_world_inspection_and_the_world_lock_released_before_sorted_unne
     assert seen[1:] == [world.alpha.resolve(), world.beta.resolve()]
 
 
-def test_bi3_the_genesis_clause_alone_decides_a_placement_durably(world):
+def test_the_genesis_clause_alone_decides_a_placement_durably(world):
     """Spec §8.2 case 4, isolated on the anchor's side: a genuine well-formed
     view, the epoch's own anchor with its reachable head, only the declared
     genesis replaced."""

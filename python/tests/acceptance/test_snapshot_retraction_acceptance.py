@@ -145,7 +145,7 @@ def _findings(report) -> list[tuple[str, str, str, str, str]]:
 # --- C8: a retracted snapshot is refused where recomputation already happens -----
 
 
-def test_c8a_import_of_a_retracted_producer_subject_refuses_before_any_write(durable_world, replica, tmp_path):
+def test_import_of_a_retracted_producer_subject_refuses_before_any_write(durable_world, replica, tmp_path):
     world, roots, old, a, _b, profile = _world(durable_world)
     other = replica(world, roots)
     _writer(roots[a], profile, world).retract(snapshot_retraction(_identity(old)))
@@ -158,7 +158,7 @@ def test_c8a_import_of_a_retracted_producer_subject_refuses_before_any_write(dur
     assert _inventory(other.config.world_root) == before
 
 
-def test_c8b_the_audit_reports_retracted_without_a_finding(durable_world):
+def test_the_audit_reports_retracted_without_a_finding(durable_world):
     world, roots, old, a, _b, profile = _world(durable_world)
     identity = _identity(old)
     _writer(roots[a], profile, world).retract(snapshot_retraction(identity))
@@ -169,7 +169,7 @@ def test_c8b_the_audit_reports_retracted_without_a_finding(durable_world):
     assert [f for f in audit.findings if f.ref == identity or "retract" in f.code] == []
 
 
-def test_c8c_the_query_reports_retracted_and_the_successor_unchecked(durable_world):
+def test_the_query_reports_retracted_and_the_successor_unchecked(durable_world):
     world, roots, old, a, _b, profile = _world(durable_world)
     new = publish(world, (a,), hold_shipped(world))
     old_identity, new_identity = _identity(old), _identity(new)
@@ -186,7 +186,7 @@ def test_c8c_the_query_reports_retracted_and_the_successor_unchecked(durable_wor
     assert "no longer stands at the state" in successor.receipts[0][1].detail
 
 
-def test_c8d_mounting_writes_nothing_and_validates_nothing(durable_world, monkeypatch):
+def test_mounting_writes_nothing_and_validates_nothing(durable_world, monkeypatch):
     world, roots, old, a, _b, profile = _world(durable_world)
     identity = _identity(old)
     _writer(roots[a], profile, world).retract(snapshot_retraction(identity))
@@ -224,14 +224,14 @@ def _narrowed(durable_world):
     return world, roots, old, new, a, b, profile, before, answer_before, retraction
 
 
-def test_c9a_a_computation_bound_to_the_old_snapshot_refuses(durable_world):
+def test_a_computation_bound_to_the_old_snapshot_refuses(durable_world):
     world, _roots, old, _new, a, b, profile, _before, _answer_before, _r = _narrowed(durable_world)
     with pytest.raises(ProducerSnapshotRetracted) as refused:
         _read(world, old, profile, a, b)
     assert refused.value.identity == _identity(old)
 
 
-def test_c9b_bound_to_the_new_snapshot_proceeds_and_the_digest_moves(durable_world):
+def test_bound_to_the_new_snapshot_proceeds_and_the_digest_moves(durable_world):
     world, _roots, old, new, a, b, profile, before, answer_before, _r = _narrowed(durable_world)
     _view, inputs = _read(world, new, profile, a, b)
     assert inputs.producer_snapshot_identity == _identity(new)
@@ -242,7 +242,7 @@ def test_c9b_bound_to_the_new_snapshot_proceeds_and_the_digest_moves(durable_wor
     assert answer.belief_input_digest != answer_before.belief_input_digest
 
 
-def test_c9c_the_old_epoch_is_byte_unchanged(durable_world):
+def test_the_old_epoch_is_byte_unchanged(durable_world):
     world, roots, old, a, _b, profile = _world(durable_world)
     new = publish(world, (a,), hold_shipped(world))
     members, receipts = _members_and_receipts(world, old)
@@ -256,7 +256,7 @@ def test_c9c_the_old_epoch_is_byte_unchanged(durable_world):
     assert _inventory(carrier) == inventory
 
 
-def test_c9d_nothing_resolves_through_the_retraction_to_its_successor(durable_world):
+def test_nothing_resolves_through_the_retraction_to_its_successor(durable_world):
     world, _roots, old, new, a, b, profile, _before, _answer_before, _r = _narrowed(durable_world)
     with pytest.raises(ProducerSnapshotMismatch) as refused:
         _read(world, new, profile, a, b, identity=_identity(old))
@@ -269,7 +269,7 @@ def test_c9d_nothing_resolves_through_the_retraction_to_its_successor(durable_wo
 # --- boundary invariants ----------------------------------------------------------
 
 
-def test_bi1_a_snapshot_retraction_outside_the_targets_coverage_is_refused_at_authoring(durable_world):
+def test_a_snapshot_retraction_outside_the_targets_coverage_is_refused_at_authoring(durable_world):
     world, roots, _old, a, b, profile = _world(durable_world)
     new = publish(world, (a,), hold_shipped(world))
     with pytest.raises(RetractionTargetUnresolvable, match=f"corpus {b} is outside the coverage"):
@@ -280,7 +280,7 @@ def test_bi1_a_snapshot_retraction_outside_the_targets_coverage_is_refused_at_au
     assert ReadView.opened_at(roots[a]).get(admitted.id).id == admitted.id
 
 
-def test_bi2_a_writer_without_the_port_refuses_the_arm(durable_world):
+def test_a_writer_without_the_port_refuses_the_arm(durable_world):
     world, roots, old, a, _b, profile = _world(durable_world)
     root = Path(roots[a]).resolve()
     without = CorpusWriter(
@@ -297,7 +297,7 @@ def test_bi2_a_writer_without_the_port_refuses_the_arm(durable_world):
     assert _writer(roots[a], profile, world).retract(snapshot_retraction(_identity(old))).kind == "retraction"
 
 
-def test_bi3_retracted_precedes_availability(durable_world):
+def test_retracted_precedes_availability(durable_world):
     world, roots, old, a, _b, profile = _world(durable_world)
     assert registry.corpus_state_identity(roots[a]) == dict(old.coverage)[a]
     _writer(roots[a], profile, world).retract(snapshot_retraction(_identity(old)))
@@ -307,7 +307,7 @@ def test_bi3_retracted_precedes_availability(durable_world):
     assert next(v for v in audit_epochs(world).snapshots if v.subject_identity == _identity(old)).state == "retracted"
 
 
-def test_bi4_a_counter_retraction_restores_the_snapshot(durable_world):
+def test_a_counter_retraction_restores_the_snapshot(durable_world):
     world, roots, old, a, b, profile = _world(durable_world)
     identity = _identity(old)
     members, receipts = _members_and_receipts(world, old)
@@ -324,7 +324,7 @@ def test_bi4_a_counter_retraction_restores_the_snapshot(durable_world):
     assert _members_and_receipts(world, old) == (members, receipts)
 
 
-def test_bi5_an_older_snapshots_retraction_is_out_of_the_closure(durable_world):
+def test_an_older_snapshots_retraction_is_out_of_the_closure(durable_world):
     world, roots, old, a, b, profile = _world(durable_world)
     _view, baseline = _read(world, old, profile, a, b)
     narrow = publish(world, (a,), hold_shipped(world))  # a different identity
@@ -337,7 +337,7 @@ def test_bi5_an_older_snapshots_retraction_is_out_of_the_closure(durable_world):
     assert inputs.closure().digest() == baseline.closure().digest()
 
 
-def test_bi6_a_raw_written_snapshot_retraction_is_reported_by_audit_world_from_captured_records(durable_world):
+def test_a_raw_written_snapshot_retraction_is_reported_by_audit_world_from_captured_records(durable_world):
     world, roots, old, a, _b, profile = _world(durable_world)
     node = snapshot_retraction(UNRETAINED)  # retained nowhere; the epoch predates the write
     raw_write(roots[a], node)
@@ -346,7 +346,7 @@ def test_bi6_a_raw_written_snapshot_retraction_is_reported_by_audit_world_from_c
     assert [f for f in corpus_check(ReadView.opened_at(roots[a]), profile) if f.ref == node.id] == []
 
 
-def test_bi7_history_is_in_the_digest(durable_world):
+def test_history_is_in_the_digest(durable_world):
     world, roots, old, a, b, profile = _world(durable_world)
     _view, never = _read(world, old, profile, a, b)
     writer = _writer(roots[a], profile, world)
@@ -359,7 +359,7 @@ def test_bi7_history_is_in_the_digest(durable_world):
     assert _answer(world, old, profile, a, b).belief_input_digest == inputs.closure().digest()
 
 
-def test_bi8_an_unreadable_counter_retraction_refuses_rather_than_restores(durable_world, replica, tmp_path):
+def test_an_unreadable_counter_retraction_refuses_rather_than_restores(durable_world, replica, tmp_path):
     world, roots, old, a, b, profile = _world(durable_world)
     identity = _identity(old)
     r = _writer(roots[a], profile, world).retract(snapshot_retraction(identity))
@@ -406,7 +406,7 @@ def test_bi8_an_unreadable_counter_retraction_refuses_rather_than_restores(durab
     assert sum("never mapped" in row[4] for row in rest) == sum("never mapped" in row[4] for row in readable) + 1
 
 
-def test_bi9_a_rebuild_restores_nothing_and_duplicates_nothing(durable_world):
+def test_a_rebuild_restores_nothing_and_duplicates_nothing(durable_world):
     world, roots, old, a, b, profile = _world(durable_world)
     identity = _identity(old)
     writer = _writer(roots[a], profile, world)

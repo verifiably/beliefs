@@ -125,7 +125,7 @@ def run_then(w, d):
 # --- J16 ------------------------------------------------------------------------
 
 
-def test_j16_a_session_cites_a_mount_dataset_and_proposition_durably(corpora):
+def test_session_cites_a_mount_dataset_and_proposition_durably(corpora):
     s = corpora
     d, p = seeded(s)
     before = state(s.m)
@@ -137,7 +137,7 @@ def test_j16_a_session_cites_a_mount_dataset_and_proposition_durably(corpora):
     assert ReadView.opened_at(s.w).holds(held.id) and state(s.m) == before
 
 
-def test_j16_a_citation_across_differing_identities_refuses_durably(corpora):
+def test_citation_across_differing_identities_refuses_durably(corpora):
     s = corpora
     d, _p = seeded(s)
     p2 = library_on(s.m2, TYPED_OTHER).add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
@@ -155,7 +155,7 @@ def test_j16_a_citation_across_differing_identities_refuses_durably(corpora):
     assert refused.value.writer == f"biology:{biology('fixture').content_identity}"
 
 
-def test_j16_producers_held_in_a_third_mount_refuse_durably(corpora):
+def test_producers_held_in_a_third_mount_refuse_durably(corpora):
     s = corpora
     d, p = seeded(s)
     library_on(s.m3, TYPED).add(stored.run_node("r3", title="r3", spec="analysis-spec:s1", produces=[d.id]))
@@ -167,7 +167,7 @@ def test_j16_producers_held_in_a_third_mount_refuse_durably(corpora):
     session.close()
 
 
-def test_j16_no_mount_is_written_durably(corpora):
+def test_no_mount_is_written_durably(corpora):
     s = corpora
     d, p = seeded(s)
     before = {root: state(root) for root in (s.m, s.m3)}
@@ -182,7 +182,7 @@ def test_j16_no_mount_is_written_durably(corpora):
 # --- J17 ------------------------------------------------------------------------
 
 
-def test_j17_a_duplicate_citation_refuses_naming_both_durably(corpora):
+def test_duplicate_citation_refuses_naming_both_durably(corpora):
     s = corpora
     d, p = seeded(s)
     library_on(s.m3, TYPED).add(observed("d"))
@@ -199,7 +199,7 @@ def test_j17_a_duplicate_citation_refuses_naming_both_durably(corpora):
     assert (refused.value.finding.code, refused.value.finding.detail) == ("duplicate-location", ", ".join(ids))
 
 
-def test_j17_a_held_mount_refuses_build_contended_durably(corpora):
+def test_held_mount_refuses_build_contended_durably(corpora):
     s = corpora
     d, p = seeded(s)
     session = open_session(s, (s.w, s.m))
@@ -217,7 +217,7 @@ def test_j17_a_held_mount_refuses_build_contended_durably(corpora):
 # --- J18 ------------------------------------------------------------------------
 
 
-def test_j18_the_session_corpus_check_warns_not_errs_durably(corpora):
+def test_the_session_corpus_check_warns_not_errs_durably(corpora):
     s = corpora
     d, p = seeded(s)
     session = open_session(s, (s.w, s.m))
@@ -279,7 +279,7 @@ def _eligibility(audit, corpus_id):
     return [(f.severity, f.code, f.ref, f.detail) for f in audit.corpora[corpus_id] if f.code.startswith("eligibility")]
 
 
-def test_j19_the_world_audit_supports_the_split_durably(corpora):
+def test_the_world_audit_supports_the_split_durably(corpora):
     s = corpora
     world, roots, published = _split_seed(s)
     w_id, m_id = ReadView.opened_at(s.w).corpus_id, ReadView.opened_at(s.m).corpus_id
@@ -304,7 +304,7 @@ def test_j19_the_world_audit_supports_the_split_durably(corpora):
     assert others <= {(f.code, f.ref) for f in absent.corpora[w_id]}
 
 
-def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
+def test_belief_over_the_world_matches_one_corpus_durably(corpora):
     s = corpora
     world, roots, published = _split_seed(s)
     w_id, m_id = ReadView.opened_at(s.w).corpus_id, ReadView.opened_at(s.m).corpus_id
@@ -382,7 +382,7 @@ def _without_corpus_names(projection: Mapping[str, object]) -> dict[str, object]
 # --- J21 ------------------------------------------------------------------------
 
 
-def test_j21_a_local_read_of_the_split_refuses_durably(corpora):
+def test_local_read_of_the_split_refuses_durably(corpora):
     s = corpora
     d, _p = seeded(s)
     own = library_on(s.w, W_PROFILE)  # W's own d-a and d-b: the roots `kwargs_for`'s lineage snapshot walks

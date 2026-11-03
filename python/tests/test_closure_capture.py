@@ -302,7 +302,7 @@ def _site(tmp_path: Path) -> tuple[_Closure, Path]:
     return walker, purelib
 
 
-def test_k7_a_mixed_pth_is_refused(tmp_path):
+def test_a_mixed_pth_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     tree = tmp_path / "tree"
     tree.mkdir()
@@ -374,7 +374,7 @@ def test_an_import_pth_may_name_a_stdlib_module_only_when_the_closure_carries_it
     assert walker.rows[f"{SANDBOX_SITE}/_wrap.pth"][0] == "file"
 
 
-def test_k7_a_symlink_escaping_the_closure_is_refused(tmp_path):
+def test_a_symlink_escaping_the_closure_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     (purelib / "escape").symlink_to("../../outside")
     with pytest.raises(ClosureUnsupported, match="escapes"):
@@ -469,7 +469,7 @@ def test_add_chain_captures_every_link_and_returns_the_terminal(tmp_path):
     assert walker.rows[f"{SANDBOX_SITE}/python3.13"][0] == "file"
 
 
-def test_k7_a_soname_collision_is_refused(tmp_path):
+def test_a_soname_collision_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     a, b = tmp_path / "a", tmp_path / "b"
     a.mkdir()
@@ -491,7 +491,7 @@ def test_k7_a_soname_collision_is_refused(tmp_path):
     assert single.loader_map == [(f"{SANDBOX_SITE}/one.so", "libz.so.1", f"{SANDBOX_LIB}/libz.so.1")]
 
 
-def test_k7_a_soname_collision_between_two_registered_roots_is_refused(tmp_path):
+def test_a_soname_collision_between_two_registered_roots_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     base = tmp_path / "base"
     (base / "lib").mkdir(parents=True)
@@ -549,7 +549,7 @@ def test_add_native_closes_over_the_libraries_it_adds_and_maps_in_root_targets_t
     )
 
 
-def test_r4_a_foreign_class_or_machine_elf_is_a_row_but_never_listed_or_mapped(tmp_path):
+def test_a_foreign_class_or_machine_elf_is_a_row_but_never_listed_or_mapped(tmp_path):
     """Ruling R4: an ELF joins the loader listing and map only when its
     class, data encoding and machine equal the capturing interpreter's own —
     a foreign-architecture file stays an ordinary digest-verified row."""

@@ -39,7 +39,7 @@ from beliefs.world import derive
 from beliefs.world.view import open_world_view
 
 
-def test_g13_b_complete_report(tmp_path):
+def test_complete_report(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     seen = []
     policy = belief.AcceptancePolicy(
@@ -53,7 +53,7 @@ def test_g13_b_complete_report(tmp_path):
     assert set(inputs.read_trace) <= inputs.declared_refs()
 
 
-def test_g13_c_early_error(tmp_path, monkeypatch):
+def test_early_error(tmp_path, monkeypatch):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     nodes = tuple(fixture.view.iter_stored())
 
@@ -74,7 +74,7 @@ def test_g13_c_early_error(tmp_path, monkeypatch):
     assert answers == [belief.AcceptanceContext("fixture policy", (), False)] * 2
 
 
-def test_g13_d_late_error(tmp_path, monkeypatch):
+def test_late_error(tmp_path, monkeypatch):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     seen = []
 
@@ -89,7 +89,7 @@ def test_g13_d_late_error(tmp_path, monkeypatch):
     assert admission == belief.NotReached() and len(seen) == len(set(seen)) == 6
 
 
-def test_g13_e_late_absence(tmp_path):
+def test_late_absence(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     context = replace(
         fixture.context,
@@ -103,7 +103,7 @@ def test_g13_e_late_absence(tmp_path):
     assert admission == belief.NotReached()
 
 
-def test_g13_f_supplied_context(tmp_path, monkeypatch):
+def test_supplied_context(tmp_path, monkeypatch):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     context = replace(fixture.context, acceptance=belief.AcceptanceContext("forged", (), True))
 
@@ -117,7 +117,7 @@ def test_g13_f_supplied_context(tmp_path, monkeypatch):
             gather(fixture.view, PROPOSITION_REF, **{**fixture.gather_kwargs, "context": context}, acceptance=policy)
 
 
-def test_g13_h_closure_statement(tmp_path):
+def test_closure_statement(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
 
     def run(statement, reject=()):
@@ -139,7 +139,7 @@ def test_g13_h_closure_statement(tmp_path):
     assert "acceptance_policy" not in unrestricted.closure().projection
 
 
-def test_g13_i_two_policies(tmp_path):
+def test_two_policies(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     seen = []
     for rejected in (("assessment:a-3",), ("verification:v-3",)):
@@ -162,7 +162,7 @@ def test_g13_i_two_policies(tmp_path):
         _gather_world(view, {counter.id})
 
 
-def test_g13_j_capture_integrity(tmp_path):
+def test_capture_integrity(tmp_path):
     from test_world_view import damage, make_absent
 
     for condition in ("absent", "damaged"):
@@ -187,7 +187,7 @@ def test_g13_j_capture_integrity(tmp_path):
 @pytest.mark.parametrize(
     "case", ("clean", "counter", "split", "corrupt", "malformed", "drift", "snapshot", "absent", "binding")
 )
-def test_g12_l_accept_all_refusal_parity(tmp_path, case):
+def test_accept_all_refusal_parity(tmp_path, case):
     from test_world_view import make_absent
 
     length = 2 if case in {"counter", "split"} else 1 if case == "corrupt" else 0
@@ -336,7 +336,7 @@ def _admission(root, fixture, policy):
     return admission.admitted
 
 
-def test_g10_a_all_assessments_rejected(tmp_path):
+def test_all_assessments_rejected(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     answer, admission = evaluate_over_traced(
         fixture.view,
@@ -348,7 +348,7 @@ def test_g10_a_all_assessments_rejected(tmp_path):
     assert admission == belief.Reached(frozenset())
 
 
-def test_g10_b_contradictory_twin(tmp_path):
+def test_contradictory_twin(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     twin = _twin(tmp_path, outcome="refuted")
     answer, _ = evaluate_over_traced(reopen(tmp_path), PROPOSITION_REF, **fixture.kwargs, acceptance=_policy(twin.id))
@@ -357,7 +357,7 @@ def test_g10_b_contradictory_twin(tmp_path):
     assert isinstance(answer, belief.Refused) and "disagree" in answer.reason
 
 
-def test_g10_c_malformed_assessment(tmp_path, monkeypatch):
+def test_malformed_assessment(tmp_path, monkeypatch):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     twin = _twin(tmp_path)
     raw_write(tmp_path, twin.model_copy(update={"facets": {}}))
@@ -372,7 +372,7 @@ def test_g10_c_malformed_assessment(tmp_path, monkeypatch):
     assert len(inputs.assessments) == 2
 
 
-def test_g10_d_canonical_holder(tmp_path):
+def test_canonical_holder(tmp_path):
     world, roots, published = split_evaluation_world(tmp_path)
     view = open_world_view(world, published)
     node = support_in(view, ALPHA).model_copy(deep=True)
@@ -395,7 +395,7 @@ def test_g10_d_canonical_holder(tmp_path):
     assert len(seen) == len(set(seen))
 
 
-def test_g10_e_manifest_preflight(tmp_path, monkeypatch):
+def test_manifest_preflight(tmp_path, monkeypatch):
     from beliefs.errors import ManifestMalformed, ManifestMissing
 
     fixture = _fixture(tmp_path, PROPOSITION_REF)
@@ -414,7 +414,7 @@ def test_g10_e_manifest_preflight(tmp_path, monkeypatch):
         gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs, acceptance=_policy())
 
 
-def test_g10_f_accepted_attribution(tmp_path):
+def test_accepted_attribution(tmp_path):
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     view = open_world_view(world, published)
     accepted = support_in(view, ALPHA)
@@ -429,19 +429,19 @@ def test_g10_f_accepted_attribution(tmp_path):
     assert inputs.node_corpus[identity] == (ALPHA,)
 
 
-def test_g11_a_rejected_failure(tmp_path):
+def test_rejected_failure(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     failure = _verification(tmp_path, fixture)
     assert fixture.assessments[0].identity() in _admission(tmp_path, fixture, _policy(failure.id))
     assert fixture.assessments[0].identity() not in _admission(tmp_path, fixture, _policy())
 
 
-def test_g11_b_rejected_pass(tmp_path):
+def test_rejected_pass(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     assert fixture.assessments[0].identity() not in _admission(tmp_path, fixture, _policy("verification:v-1"))
 
 
-def test_g11_c_rejected_superseder(tmp_path):
+def test_rejected_superseder(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     failure = _verification(tmp_path, fixture)
     later = stored.verification_node(
@@ -458,21 +458,21 @@ def test_g11_c_rejected_superseder(tmp_path):
     assert fixture.assessments[0].identity() in _admission(tmp_path, fixture, _policy())
 
 
-def test_g11_d_failure_names_rejected_twin(tmp_path):
+def test_failure_names_rejected_twin(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     twin = _twin(tmp_path)
     _verification(tmp_path, fixture, edge=twin.id)
     assert fixture.assessments[0].identity() not in _admission(tmp_path, fixture, _policy(twin.id))
 
 
-def test_g11_e_pass_names_rejected_twin(tmp_path):
+def test_pass_names_rejected_twin(tmp_path):
     fixture = _fixture(tmp_path, PROPOSITION_REF)
     twin = _twin(tmp_path)
     _verification(tmp_path, fixture, edge=twin.id, verdict="passed")
     assert fixture.assessments[0].identity() in _admission(tmp_path, fixture, _policy(twin.id, "verification:v-1"))
 
 
-def test_g11_f_edge_scope(tmp_path):
+def test_edge_scope(tmp_path):
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     view = open_world_view(world, published)
     rejected = support_in(view, ALPHA)
@@ -504,7 +504,7 @@ def test_acceptance_value_validation():
         selection.statement = "changed"  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def test_g13_g_pure_incomplete(monkeypatch):
+def test_pure_incomplete(monkeypatch):
     selection = belief.AcceptanceContext("policy", (), False)
     kwargs = scenario()
     kwargs["context"] = replace(kwargs["context"], acceptance=selection)
@@ -579,7 +579,7 @@ def _ordinary_chain(tmp_path, length=1):
     return world, roots, published, chain
 
 
-def test_g12_a_node_retraction(tmp_path):
+def test_node_retraction(tmp_path):
     world, _roots, published, (root,) = _ordinary_chain(tmp_path)
     view = open_world_view(world, published)
     kept = _gather_world(view, {root.id})
@@ -588,7 +588,7 @@ def test_g12_a_node_retraction(tmp_path):
     assert root.id not in dict(kept.retractions.found)
 
 
-def test_g12_b_route_retraction(tmp_path):
+def test_route_retraction(tmp_path):
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     writer = writer_at(roots[ALPHA], profile_with())
     from dataset_fixtures import dataset_ref
@@ -632,7 +632,7 @@ def test_g12_b_route_retraction(tmp_path):
     assert effective_routes(retired.snapshot, target.id) == ()
 
 
-def test_g12_c_counter_retraction(tmp_path):
+def test_counter_retraction(tmp_path):
     world, _roots, published, (root, counter) = _ordinary_chain(tmp_path, 2)
     view = open_world_view(world, published)
     before = _gather_world(view)
@@ -642,7 +642,7 @@ def test_g12_c_counter_retraction(tmp_path):
     assert counter.id not in dict(after.retractions.found)
 
 
-def test_g12_d_changed_chain_receipt(tmp_path):
+def test_changed_chain_receipt(tmp_path):
     world, _roots, published, (root, counter, deep) = _ordinary_chain(tmp_path, 3)
     view = open_world_view(world, published)
     assert dict(view.retraction_enumeration().found)[root.id] == RETRACTION_UPHELD
@@ -650,7 +650,7 @@ def test_g12_d_changed_chain_receipt(tmp_path):
     assert dict(selected.retractions.found) == {root.id: RETRACTION_OVERTURNED, counter.id: RETRACTION_UPHELD}
 
 
-def test_g12_e_malformed_snapshot_candidate(tmp_path):
+def test_malformed_snapshot_candidate(tmp_path):
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     malformed = Node(id="retraction:malformed", kind="retraction", title="malformed")
     raw_write(roots[ALPHA], malformed)
@@ -660,7 +660,7 @@ def test_g12_e_malformed_snapshot_candidate(tmp_path):
     assert _gather_world(view, {malformed.id}).assessments
 
 
-def test_g12_f_accepted_snapshot_chain(tmp_path):
+def test_accepted_snapshot_chain(tmp_path):
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     initial = open_world_view(world, published)
     root = snapshot_retraction(initial.producer_snapshot_identity())
@@ -673,7 +673,7 @@ def test_g12_f_accepted_snapshot_chain(tmp_path):
     assert caught.value.ref == broken.id
 
 
-def test_g12_g_mapped_oracle(tmp_path, monkeypatch):
+def test_mapped_oracle(tmp_path, monkeypatch):
     world, roots, published, (root,) = _ordinary_chain(tmp_path)
     alias = "retraction:former"
     root = root.model_copy(update={"deprecated_ids": [alias]})
@@ -723,7 +723,7 @@ def test_g12_g_mapped_oracle(tmp_path, monkeypatch):
     assert calls == [], "ordinary fold used the full capture instead of its mapped resolver"
 
 
-def test_g12_h_split_with_exclusion(tmp_path):
+def test_split_with_exclusion(tmp_path):
     """Cut 48 §4.5: the shipped binding folds standing once over the whole capture, so
     a counter moved apart from its target still overturns it and an unrelated
     exclusion reads through (until cut 48 this refused `RetractionResolutionDisagreement`)."""
@@ -752,7 +752,7 @@ def test_g12_h_split_with_exclusion(tmp_path):
     assert caught.value.ref == root.id
 
 
-def test_g12_i_unchanged_receipt(tmp_path):
+def test_unchanged_receipt(tmp_path):
     world, roots, published, (root,) = _ordinary_chain(tmp_path)
     alpha = writer_at(roots[ALPHA], profile_with())
     unrelated = alpha.retract(retracts(alpha.read_view.get("assessment:a-2"), "unrelated"))
@@ -774,7 +774,7 @@ def test_g12_i_unchanged_receipt(tmp_path):
     assert caught.value.ref == root.id
 
 
-def test_g12_j_snapshot_root(tmp_path):
+def test_snapshot_root(tmp_path):
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     root = snapshot_retraction(open_world_view(world, published).producer_snapshot_identity())
     raw_write(roots[ALPHA], root)
@@ -784,7 +784,7 @@ def test_g12_j_snapshot_root(tmp_path):
     assert _gather_world(view, {root.id}).assessments
 
 
-def test_g12_k_snapshot_history(tmp_path):
+def test_snapshot_history(tmp_path):
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     root = snapshot_retraction(open_world_view(world, published).producer_snapshot_identity())
     counter = retracts(root, "snapshot-counter")
@@ -837,7 +837,7 @@ def _gather_with(view, policy, *, context=None):
     )
 
 
-def test_g14_c_predicate_per_holder(tmp_path):
+def test_predicate_per_holder(tmp_path):
     """A retraction held in two corpora, rejected under the least holder and accepted
     under the other, takes effect: the record counts if any holder's branch says so
     (cut 48 §6), each holder asked once and the rejected pair reported."""
@@ -861,7 +861,7 @@ def test_g14_c_predicate_per_holder(tmp_path):
     assert seen.count((ALPHA, root.id)) == 1 and seen.count((BETA, root.id)) == 1
 
 
-def test_g14_d_filtered_graphs(tmp_path):
+def test_filtered_graphs(tmp_path):
     """R and C in ALPHA, R in BETA: rejecting C upholds R with C's rejection reported and
     the fidelity check passing; accepting C overturns R. With both holding R and C, C
     accepted through BETA alone still overturns R (cut 48 §4.5, §6)."""
@@ -887,7 +887,7 @@ def test_g14_d_filtered_graphs(tmp_path):
     assert len(through_beta.assessments) == len(accepted.assessments)
 
 
-def test_g14_g_filtered_fidelity_one_comparison(tmp_path):
+def test_filtered_fidelity_one_comparison(tmp_path):
     """The fidelity check is one comparison against gather's own fold: a receipt that
     disagrees for a surviving retraction refuses, and an enumeration carrying two
     resolutions for one ref refuses explicitly even when the ref is in the affected
@@ -929,7 +929,7 @@ def test_g14_g_filtered_fidelity_one_comparison(tmp_path):
 # --- cut 48: acceptance over holders (G14-a, G14-b, J20-b) --------------------------------------
 
 
-def test_g14_a_union_over_holders(tmp_path, monkeypatch):
+def test_union_over_holders(tmp_path, monkeypatch):
     """An assessment rejected under one holder and accepted under another counts: read
     once, attributed to the accepting holder, the rejected pair reported (cut 48 §6)."""
     world, _roots, published = overlap_evaluation_world(tmp_path)
@@ -959,7 +959,7 @@ def test_g14_a_union_over_holders(tmp_path, monkeypatch):
     assert [ref for kind, ref in inputs.read_trace if kind == "assessment"].count(identity) == 1
 
 
-def test_g14_b_rejected_everywhere_inert(tmp_path):
+def test_rejected_everywhere_inert(tmp_path):
     """A verification rejected under every holder is inert and every pair is reported; one
     accepting holder admits it once (cut 48 §6)."""
     world, _roots, published = overlap_evaluation_world(tmp_path)
@@ -976,7 +976,7 @@ def test_g14_b_rejected_everywhere_inert(tmp_path):
     assert [ref for kind, ref in through_beta.read_trace if kind == "verification"].count("verification:v-1") == 1
 
 
-def test_j20_b_node_corpus_holder_set(tmp_path):
+def test_node_corpus_holder_set(tmp_path):
     """An assessment, a run and an observed dataset held in two corpora are attributed to
     both holders without a policy and to the accepting holders with one (cut 48 §6)."""
     from dataset_fixtures import dataset_ref
@@ -997,7 +997,7 @@ def test_j20_b_node_corpus_holder_set(tmp_path):
     assert filtered.node_corpus[dataset_ref("d-a")] == (ALPHA, BETA)
 
 
-def test_g13_a_policy_validation(tmp_path):
+def test_policy_validation(tmp_path):
     test_acceptance_value_validation()
     # Truth coercion or retrying a raising predicate must fail this check.
     world, _roots, published, _chain = _ordinary_chain(tmp_path)

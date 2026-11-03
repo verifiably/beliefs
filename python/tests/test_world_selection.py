@@ -412,7 +412,7 @@ class TestLocatedState:
 
 
 class TestW20Holders:
-    def test_w20_c_absence_over_holders(self, tmp_path):
+    def test_absence_over_holders(self, tmp_path):
         shared = stored.dataset_node(title="shared", resources=pinned("shared"))
         topic = raw_coordination_node(
             "topic",
@@ -433,7 +433,7 @@ class TestW20Holders:
             evaluate_topic(world, roots, published, topic)
         assert "address-not-present" in str(caught.value) and caught.value.corpus_ids == (ALPHA, BETA)
 
-    def test_w20_g_contributing_union(self, tmp_path):
+    def test_contributing_union(self, tmp_path):
         shared = stored.dataset_node(title="shared", resources=pinned("shared"))
         world, roots, published, topic = topic_world(
             tmp_path, [{"kinds": ["dataset"]}], alpha_extra=(shared,), beta_extra=(shared,)

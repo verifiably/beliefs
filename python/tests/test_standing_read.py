@@ -361,7 +361,7 @@ def test_a_found_retraction_missing_from_the_local_index_is_unreadable(tmp_path)
 
 @pytest.mark.parametrize("order", ("original-in-alpha", "original-in-beta"))
 @pytest.mark.parametrize("conflict", ("differing-content", "differing-address", "distinct-uids", "deprecated-key"))
-def test_g14_f_merge_self_check(tmp_path, conflict, order):
+def test_merge_self_check(tmp_path, conflict, order):
     """`snapshot_standing`'s merge applies the address map's classification between
     holders before collapsing anything (cut 48 §4.5): through `validate_receipt` the
     verdict is `unresolvable`, never `retracted` and never an exception, and

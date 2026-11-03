@@ -234,7 +234,7 @@ def _vitest(module: str) -> None:
 # --- U1 ---------------------------------------------------------------------
 
 
-def test_u1_grammar_kind_and_relations(corpora):
+def test_grammar_kind_and_relations(corpora):
     """U1: the grammar, the kind and the two relations, in both implementations;
     an unknown shape, a missing grammar and a `composes` signature outside
     `composite → proposition` refuse at parse."""
@@ -298,7 +298,7 @@ def test_u1_grammar_kind_and_relations(corpora):
 # --- U2 ---------------------------------------------------------------------
 
 
-def test_u2_edges_declared_and_never_redefined(corpora, base_contract, testing_document):
+def test_edges_declared_and_never_redefined(corpora, base_contract, testing_document):
     """U2: `test_domain_contract.TestEdges`, plus the compiled keying and the
     durable corpus's own pinned profile."""
 
@@ -384,7 +384,7 @@ def _hand_built(writer, members, refs, *, nodes=(A, B, C), slug="x"):
     return node
 
 
-def test_u3_form_classification_and_vocabulary_arms(corpora):
+def test_form_classification_and_vocabulary_arms(corpora):
     """U3: every form and classification row refused at construction and at
     `add`; the vocabulary halves — the boundary checks form only, the
     constructor and the reading resolve nodes under their caller's snapshot."""
@@ -604,7 +604,7 @@ def test_u3_form_classification_and_vocabulary_arms(corpora):
 # --- U4 ---------------------------------------------------------------------
 
 
-def test_u4_belief_inert(corpora):
+def test_composite_leaves_proposition_belief_inert(corpora):
     """U4: minting, superseding and deleting a composite naming a proposition
     moves no byte of that proposition's belief input digest, and `assesses`
     cannot target a composite — at `add` and at `import_bundle` alike."""
@@ -664,7 +664,7 @@ def test_u4_belief_inert(corpora):
 # --- U5 ---------------------------------------------------------------------
 
 
-def test_u5_identity(corpora):
+def test_composite_content_identity_ignores_authoring_order_and_display_prose(corpora):
     """U5: content identity over the covered facet — authoring order does not
     move it, a node with no member does, display prose does not."""
     writer = _seeded(corpora())
@@ -705,7 +705,7 @@ def test_u5_identity(corpora):
 # --- U6 ---------------------------------------------------------------------
 
 
-def test_u6_boundary_resolution_and_identity(corpora):
+def test_boundary_resolution_and_identity(corpora):
     """U6: each `composes` target resolves to a proposition whose semantic
     identity equals the facet's member at that position — through `add` and
     through `import_bundle`."""
@@ -760,7 +760,7 @@ def test_u6_boundary_resolution_and_identity(corpora):
 # --- U7 ---------------------------------------------------------------------
 
 
-def test_u7_audit_codes(corpora):
+def test_composite_audit_codes_are_contradictions_not_malformedness(corpora):
     """U7: the four composite codes and `supersedes-cross-kind`, as
     contradictions rather than malformedness, with the record read again."""
     writer = _seeded(corpora())
@@ -900,7 +900,7 @@ def _read_in_a_fresh_process(root: Path, ref: str, address: str) -> bytes:
     return completed.stdout
 
 
-def test_u8_reading_equals_the_wrapper(corpora):
+def test_reading_equals_the_wrapper(corpora):
     """U8: every row's belief **equals** `evaluate_over`'s answer for that
     member under the same arguments, the identification column is drawn from
     the same traced admission, and two processes agree byte for byte."""
@@ -1064,7 +1064,7 @@ def _assert_one_admission(writer, ref: str, address: str) -> None:
 # --- U9 ---------------------------------------------------------------------
 
 
-def test_u9_supersession(corpora, base_contract):
+def test_composite_supersession_family_and_refusal_paths(corpora, base_contract):
     """U9: the family calls, the shared refusal path for `add` and
     `import_bundle` in both directions, the audited raw pair, and `same_kind`
     refused on unequal endpoint sets by both parsers."""
@@ -1127,7 +1127,7 @@ def test_u9_supersession(corpora, base_contract):
 # --- U10 --------------------------------------------------------------------
 
 
-def test_u10_reproduction():
+def test_reproduction_driver_state_is_read_by_name():
     """U10: the driver's own recorded state, read by name. The reproduction
     step is the driver's and is not re-run here."""
     from reproduction.paths import STATE

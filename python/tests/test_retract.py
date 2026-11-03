@@ -77,7 +77,7 @@ def retraction_for(target: Node, *, reason: str = "defective-code") -> Node:
     )
 
 
-def test_e3_a_retraction_naming_another_actor_is_refused(tmp_path):
+def test_a_retraction_naming_another_actor_is_refused(tmp_path):
     writer = CorpusWriter(
         tmp_path,
         Recorder,
@@ -93,7 +93,7 @@ def test_e3_a_retraction_naming_another_actor_is_refused(tmp_path):
         writer.retract(retraction_for(target))
 
 
-def test_e3_a_retraction_under_its_own_actor_mints(tmp_path):
+def test_a_retraction_under_its_own_actor_mints(tmp_path):
     writer = CorpusWriter(
         tmp_path,
         Recorder,

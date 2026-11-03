@@ -382,7 +382,7 @@ admits nothing, and a standing retraction of the failure restores admission."""
 
 
 @pytest.mark.parametrize("row", LIFECYCLE_ROWS, ids=lambda row: row.label)
-def test_g2c_every_lifecycle_row_over_stored_records(tmp_path, row):
+def test_every_lifecycle_row_over_stored_records(tmp_path, row):
     # Keyed by the row label, not a fixed name: pytest hands consecutive
     # parametrizations of a long test name the *same* `tmp_path`, and two
     # corpora at one root would collide on the first record.
@@ -402,7 +402,7 @@ def test_g2c_every_lifecycle_row_over_stored_records(tmp_path, row):
         assert scenario.belief().value == row.belief
 
 
-def test_g2c_g8_c6_raw_deletion_restores_admission_undetected_on_read(tmp_path):
+def test_raw_deletion_restores_admission_undetected_on_read(tmp_path):
     """The negative all three rows share: a raw `unlink` of a failing
     verification returns the assessment to admitted, and nothing on the corpus
     read says so. §3.2's undetectable-history limit, not a tamper-evidence
@@ -429,7 +429,7 @@ def test_g2c_g8_c6_raw_deletion_restores_admission_undetected_on_read(tmp_path):
 # --- G8 and C6: the managed half reads the same; the log half is Task 8's -----
 
 
-def test_g8_c6_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
+def test_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
     """Two corpora holding the same records, one raw-unlinking the failing
     verification and one calling `delete`: the corpus read, admission and the
     belief digest cannot tell them apart. The log audit can — it reads the
@@ -527,7 +527,7 @@ def _epistemic_readings(scenario: Scenario) -> dict[str, Any]:
     }
 
 
-def test_s5_deleting_a_basis_ancestor_yields_incomplete_and_moves_the_digest(tmp_path):
+def test_deleting_a_basis_ancestor_yields_incomplete_and_moves_the_digest(tmp_path):
     """The deletion half's first arm: an ancestor a stamped basis names is
     deleted, the basis entry goes unresolved, independence over the dataset
     stops certifying, and kernel §5.1's digest moves without belief rising."""
@@ -551,7 +551,7 @@ def test_s5_deleting_a_basis_ancestor_yields_incomplete_and_moves_the_digest(tmp
     assert after.value < before.value, "deleting an ancestor never raises belief; here it lowers it"
 
 
-def test_s5_deleting_a_divergent_producer_restores_the_certificate_indistinguishably(tmp_path):
+def test_deleting_a_divergent_producer_restores_the_certificate_indistinguishably(tmp_path):
     """Corpus X mints `R2` and then deletes it; corpus Y never mints one. Every
     epistemic reading agrees afterwards — and disagrees before, so the
     comparison is not vacuous."""
@@ -572,7 +572,7 @@ def test_s5_deleting_a_divergent_producer_restores_the_certificate_indistinguish
 # --- R23's deletion and audit clauses ----------------------------------------
 
 
-def test_r23_stored_ref_and_null_resolution_are_recorded_separately(tmp_path):
+def test_stored_ref_and_null_resolution_are_recorded_separately(tmp_path):
     """Recording the stored ref alone, or the resolution alone, loses the
     deletion; the projection carries both, for the producing run and for the
     ancestor, and the digest moves for each."""
@@ -599,7 +599,7 @@ def test_r23_stored_ref_and_null_resolution_are_recorded_separately(tmp_path):
         assert scenario.belief().belief_input_digest != before.belief_input_digest
 
 
-def test_r23_a_second_surviving_run_does_not_repair_the_first_basis(tmp_path):
+def test_second_surviving_run_does_not_repair_the_first_basis(tmp_path):
     """The basis is one stamped route, not a query over the producer set: a
     second run producing the same address by another route survives the
     deletion and leaves the first basis exactly as unresolved as it was."""
@@ -617,7 +617,7 @@ def test_r23_a_second_surviving_run_does_not_repair_the_first_basis(tmp_path):
     assert "lineage-incomplete" in certification.findings, "the surviving producer repairs nothing"
 
 
-def test_r23_the_residue_after_deleting_r2(tmp_path):
+def test_the_residue_after_deleting_r2(tmp_path):
     """§11.14, worded as R23 words it: certification is restored, no prior
     digest is retained anywhere — belief is a computed view — and no test
     distinguishes the corpus from one in which `R2` never existed."""
@@ -635,7 +635,7 @@ def test_r23_the_residue_after_deleting_r2(tmp_path):
     assert not any(diverged_digest.encode() in payload for payload in on_disk), "no retained prior digest"
 
 
-def test_r23_the_audit_detects_a_forged_single_while_b_stands_then_reports_no_contradiction(tmp_path):
+def test_the_audit_detects_a_forged_single_while_b_stands_then_reports_no_contradiction(tmp_path):
     """`single(A)` forged by a raw write while `B`'s run stands is contradicted
     by recomputation; once `B`'s run is deleted, nothing contradicts it. §7:
     the assertion is the **absence of the semantic contradiction code**, never
@@ -662,7 +662,7 @@ into the survivor's `conflict` basis, sorted."""
 
 
 @pytest.mark.parametrize("doomed", CONFLICT_ROUTES)
-def test_w16_the_conflict_survives_deleting_either_producing_run(tmp_path, doomed):
+def test_the_conflict_survives_deleting_either_producing_run(tmp_path, doomed):
     """Deleting a producing run resolves nothing: unlike the single-basis case,
     where the deletion is what makes the lineage incomplete, a `conflict` is
     decided on its tag and no API removes a route."""
@@ -750,7 +750,7 @@ nothing else. The retraction chain is what makes this M3's negative rather than
 a generic ordering test."""
 
 
-def test_m3_admission_order_leaves_every_identity_and_the_digest_unchanged(tmp_path):
+def test_admission_order_leaves_every_identity_and_the_digest_unchanged(tmp_path):
     """M3's negative: no topological rank is stored anywhere, so the same
     records admitted in two orders leave every stored identity and the belief
     digest exactly where they were."""
@@ -819,7 +819,7 @@ def claim_snapshot():
     return build_snapshot(readable={EX: [GENE, PHENO, SETTING], COHORT_DATASET: [ADULTS, CHILDREN]})
 
 
-def test_m5_qualification_participates_in_stored_identity(tmp_path, claim_profile, claim_snapshot):
+def test_qualification_participates_in_stored_identity(tmp_path, claim_profile, claim_snapshot):
     """Restriction only, quantifier tag only, and one omitting the dimension
     the others carry: each moves the record's stored semantic identity and each
     moves `I_claim` through the restore seam."""
@@ -839,7 +839,7 @@ def test_m5_qualification_participates_in_stored_identity(tmp_path, claim_profil
     assert len(set(identities.values())) == len(M5_VARIANTS), "and moves I_claim"
 
 
-def test_m5_qualifier_key_order_leaves_the_identity_unchanged(tmp_path, claim_profile, claim_snapshot):
+def test_qualifier_key_order_leaves_the_identity_unchanged(tmp_path, claim_profile, claim_snapshot):
     """The negative: the same qualification, re-serialized with its keys in a
     different order, is the same claim. `science.identity.v1` sorts object keys
     at encode time, so neither the stored stamp nor `I_claim` moves."""

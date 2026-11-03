@@ -43,12 +43,12 @@ def test_the_vocabulary_is_closed_and_the_requirement_is_its_own_explicit_tuple(
         BoundaryPolicy(identity="p", scope_rule="scope-derivation/v1", capabilities=("teleportation",))
 
 
-def test_k1_a_duplicate_capability_is_unspellable():
+def test_a_duplicate_capability_is_unspellable():
     with pytest.raises(MalformedClosure):
         BoundaryPolicy(identity="p", scope_rule="scope-derivation/v1", capabilities=("from-bundle", "from-bundle"))
 
 
-def test_k1_the_two_known_definitions_are_exact():
+def test_the_two_known_definitions_are_exact():
     assert MINIMAL_POLICY == BoundaryPolicy(identity="boundary-policy/minimal-v1", scope_rule="scope-derivation/v1")
     assert CONFINED_POLICY.capabilities == CAPABILITIES
     assert SUPPORTED_POLICIES == (MINIMAL_POLICY, CONFINED_POLICY)
@@ -56,12 +56,12 @@ def test_k1_the_two_known_definitions_are_exact():
     assert supported_policy(BoundaryPolicy(**dataclasses.asdict(CONFINED_POLICY))) == CONFINED_POLICY
 
 
-def test_k1_a_known_identity_with_another_scope_rule_is_unsupported():
+def test_a_known_identity_with_another_scope_rule_is_unsupported():
     with pytest.raises(BoundaryPolicyUnsupported):
         supported_policy(dataclasses.replace(CONFINED_POLICY, scope_rule="scope-derivation/v2"))
 
 
-def test_k1_a_reordered_spelling_of_a_known_capability_set_is_that_definition():
+def test_a_reordered_spelling_of_a_known_capability_set_is_that_definition():
     reordered = BoundaryPolicy(
         identity=CONFINED_POLICY.identity,
         scope_rule=CONFINED_POLICY.scope_rule,
@@ -71,7 +71,7 @@ def test_k1_a_reordered_spelling_of_a_known_capability_set_is_that_definition():
     assert supported_policy(reordered) is CONFINED_POLICY
 
 
-def test_k1_a_known_identity_with_fewer_capabilities_is_unsupported():
+def test_a_known_identity_with_fewer_capabilities_is_unsupported():
     with pytest.raises(BoundaryPolicyUnsupported):
         supported_policy(dataclasses.replace(CONFINED_POLICY, capabilities=CAPABILITIES[:2]))
     with pytest.raises(BoundaryPolicyUnsupported):
@@ -81,14 +81,14 @@ def test_k1_a_known_identity_with_fewer_capabilities_is_unsupported():
 
 
 # --- K3: the instance attestation ---------------------------------------------
-def test_k3_a_mount_plan_identity_disagreeing_with_its_mounts_is_malformed():
+def test_a_mount_plan_identity_disagreeing_with_its_mounts_is_malformed():
     with pytest.raises(MalformedClosure):
         instance(mount_plan_identity="sha256:" + "00" * 32)
     fewer = MOUNTS[:-1]
     assert instance(mounts=fewer, mount_plan_identity=mount_plan_identity(fewer)).mounts == fewer
 
 
-def test_k3_an_instance_attests_every_namespace_and_no_other():
+def test_an_instance_attests_every_namespace_and_no_other():
     with pytest.raises(MalformedClosure):
         instance(namespaces=NAMESPACES[:-1])
     with pytest.raises(MalformedClosure):
@@ -96,7 +96,7 @@ def test_k3_an_instance_attests_every_namespace_and_no_other():
     assert instance(namespaces=tuple(reversed(NAMESPACES))).namespaces == tuple(reversed(NAMESPACES))
 
 
-def test_k3_the_confined_members_are_all_present_or_all_absent():
+def test_the_confined_members_are_all_present_or_all_absent():
     with pytest.raises(MalformedClosure):
         confined_receipt(mounts=None)
     with pytest.raises(MalformedClosure):
@@ -114,7 +114,7 @@ def test_a_receipt_capability_outside_the_vocabulary_is_unspellable():
 
 
 # --- K4: the domains ----------------------------------------------------------
-def test_k4_the_minimal_receipt_projection_is_byte_stable_under_v1():
+def test_the_minimal_receipt_projection_is_byte_stable_under_v1():
     launch = LaunchAttestation(
         scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=(("alpha", "0.05"),)
     )
@@ -137,7 +137,7 @@ def test_k4_the_minimal_receipt_projection_is_byte_stable_under_v1():
     assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v3"
 
 
-def test_k4_a_confined_receipt_projects_its_three_members_under_v2():
+def test_a_confined_receipt_projects_its_three_members_under_v2():
     receipt = confined_receipt()
     projection = _receipt_projection(receipt)
     assert set(projection) == {"planning", "execution"}
@@ -150,7 +150,7 @@ def test_k4_a_confined_receipt_projects_its_three_members_under_v2():
     assert CONFINED_RECEIPT_DOMAIN == "science.boundary-receipt.v4"
 
 
-def test_k4_a_confined_receipt_makes_a_v2_run():
+def test_a_confined_receipt_makes_a_v2_run():
     assert run_domain_for(recipe_v2=False, confined=False) == RUN_DOMAIN == "science.run.v1"
     assert run_domain_for(recipe_v2=False, confined=True) == CONFINED_RUN_DOMAIN == "science.run.v2"
     minimal = closure()

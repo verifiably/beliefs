@@ -188,7 +188,7 @@ def make_code_root(tmp_path: Path) -> Path:
     return root
 
 
-def test_r13_modifying_an_untracked_file_changes_code_identity(tmp_path):
+def test_modifying_an_untracked_file_changes_code_identity(tmp_path):
     root = make_code_root(tmp_path)
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "add", "helper.py"], cwd=root, check=True)
@@ -199,7 +199,7 @@ def test_r13_modifying_an_untracked_file_changes_code_identity(tmp_path):
     assert before != after  # the capture is real — the bundle covers what ran
 
 
-def test_r13_modifying_a_tracked_but_uncommitted_file_does_the_same(tmp_path):
+def test_modifying_a_tracked_but_uncommitted_file_does_the_same(tmp_path):
     root = make_code_root(tmp_path)
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "add", "-A"], cwd=root, check=True)

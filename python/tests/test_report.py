@@ -66,7 +66,7 @@ from beliefs.report import (
 
 
 # --- T5 ----------------------------------------------------------------------
-def test_t5_byte_locator_untested_is_unspellable_on_a_managed_mutation_entry():
+def test_byte_locator_untested_is_unspellable_on_a_managed_mutation_entry():
     with pytest.raises(OutcomeRefused):
         ManagedMutationEntry(
             subject="store://data/x",
@@ -74,7 +74,7 @@ def test_t5_byte_locator_untested_is_unspellable_on_a_managed_mutation_entry():
         )
 
 
-def test_t5_byte_locator_untested_is_unspellable_on_a_record_import_entry():
+def test_byte_locator_untested_is_unspellable_on_a_record_import_entry():
     with pytest.raises(OutcomeRefused):
         RecordImportEntry(
             subject="record:abc",
@@ -82,7 +82,7 @@ def test_t5_byte_locator_untested_is_unspellable_on_a_record_import_entry():
         )
 
 
-def test_t5_byte_locator_untested_is_unspellable_on_a_subject_evaluation_entry():
+def test_byte_locator_untested_is_unspellable_on_a_subject_evaluation_entry():
     with pytest.raises(OutcomeRefused):
         SubjectEvaluationEntry(
             subject="record:abc",
@@ -90,7 +90,7 @@ def test_t5_byte_locator_untested_is_unspellable_on_a_subject_evaluation_entry()
         )
 
 
-def test_t5_a_locator_entry_can_carry_it():
+def test_locator_entry_can_carry_it():
     entry = LocatorEntry(subject="url://example", outcome=ByteLocatorUntested(reason="cooperative stop"))
     assert entry.outcome.reason == "cooperative stop"  # type: ignore[union-attr]
 
@@ -186,18 +186,18 @@ def test_an_acquisition_report_requires_an_acquisition_intent_and_keeps_entry_or
 
 
 # --- T3 ----------------------------------------------------------------------
-def test_t3_an_unmatched_intent_reads_unfinished():
+def test_an_unmatched_intent_reads_unfinished():
     intent = OperationIntent(kind="acquisition", event_token="tok-1", actor="tester")
     assert completion(intent, registrations=(), held={}) == UNFINISHED
 
 
-def test_t3_an_unreadable_fulfillment_pointer_reads_indeterminate_never_unfinished():
+def test_an_unreadable_fulfillment_pointer_reads_indeterminate_never_unfinished():
     intent = OperationIntent(kind="acquisition", event_token="tok-1", actor="tester")
     reading = completion(intent, (Registration(intent_token="tok-1", pointer="gone"),), held={})
     assert reading == INDETERMINATE
 
 
-def test_t3_a_mapping_cannot_fabricate_a_missing_fulfillment_pointer():
+def test_a_mapping_cannot_fabricate_a_missing_fulfillment_pointer():
     intent = OperationIntent(kind="acquisition", event_token="tok-1", actor="tester")
     held: defaultdict[str, object] = defaultdict(object)
     registrations = (Registration(intent_token="tok-1", pointer="gone"),)
@@ -205,27 +205,27 @@ def test_t3_a_mapping_cannot_fabricate_a_missing_fulfillment_pointer():
     assert "gone" not in held
 
 
-def test_t3_a_fulfilled_intent_reads_closed():
+def test_a_fulfilled_intent_reads_closed():
     published = report()
     intent = OperationIntent(kind="acquisition", event_token=published.event_token, actor="tester")
     registrations = (Registration(intent_token=published.event_token, pointer=published.identity()),)
     assert completion(intent, registrations, held={published.identity(): published}) == CLOSED
 
 
-def test_t3_a_non_qualifying_pointer_never_matches():
+def test_a_non_qualifying_pointer_never_matches():
     published = report(event_token="tok-other")  # a report carrying a DIFFERENT token
     intent = OperationIntent(kind="acquisition", event_token="tok-1", actor="tester")
     registrations = (Registration(intent_token="tok-1", pointer=published.identity()),)
     assert completion(intent, registrations, held={published.identity(): published}) == UNFINISHED
 
 
-def test_t3_no_status_field_is_spellable_on_any_record():
+def test_no_status_field_is_spellable_on_any_record():
     for kind in (ActReport, OperationIntent, AssessmentRunIntent, RunClosure):
         names = {f.name for f in dataclasses.fields(kind)}
         assert not names & {"status", "state", "completion"}, kind
 
 
-def test_t3_deleting_a_report_moves_closed_to_indeterminate_not_unfinished():
+def test_deleting_a_report_moves_closed_to_indeterminate_not_unfinished():
     published = report()
     intent = OperationIntent(kind="acquisition", event_token=published.event_token, actor="tester")
     registrations = (Registration(intent_token=published.event_token, pointer=published.identity()),)
@@ -258,19 +258,19 @@ def test_existing_completion_vocabulary_is_preserved() -> None:
 
 
 # --- T6 (the citation half; the R18 arm is Task 10's) -------------------------
-def test_t6_permuting_two_entries_moves_the_report_identity():
+def test_permuting_two_entries_moves_the_report_identity():
     ordered = report()
     permuted = report(entries=tuple(reversed(ordered.entries)))
     assert ordered.identity() != permuted.identity()
 
 
-def test_t6_a_citation_resolves_to_exactly_one_entry():
+def test_a_citation_resolves_to_exactly_one_entry():
     published = report()
     assert cite(published, 0) is published.entries[0]
     assert cite(published, 1) is published.entries[1]
 
 
-def test_t6_an_out_of_range_index_is_refused_at_the_citing_site():
+def test_an_out_of_range_index_is_refused_at_the_citing_site():
     published = report()
     with pytest.raises(CitationRefused):
         cite(published, 2)
@@ -279,13 +279,13 @@ def test_t6_an_out_of_range_index_is_refused_at_the_citing_site():
 
 
 # --- T8 ----------------------------------------------------------------------
-def test_t8_equal_facets_with_distinct_event_tokens_are_two_reports():
+def test_equal_facets_with_distinct_event_tokens_are_two_reports():
     a, b = report(event_token="tok-a"), report(event_token="tok-b")
     assert a.entries == b.entries and a.actor == b.actor and a.opened_at == b.opened_at
     assert a.identity() != b.identity()  # the R3 discipline at the report
 
 
-def test_t8_every_facet_member_moves_the_identity():
+def test_every_facet_member_moves_the_identity():
     baseline = report().identity()
     for field, value in [
         ("operation", "audit"),
@@ -300,7 +300,7 @@ def test_t8_every_facet_member_moves_the_identity():
     assert report(entries=report().entries[:1]).identity() != baseline
 
 
-def test_t8_no_ordinary_api_edits_supersedes_or_deletes_a_report():
+def test_no_ordinary_api_edits_supersedes_or_deletes_a_report():
     import beliefs.report as report_module
 
     assert not any(
@@ -312,7 +312,7 @@ def test_t8_no_ordinary_api_edits_supersedes_or_deletes_a_report():
 
 
 # --- T2's intent-type half (the operational arms are Task 6's) ----------------
-def test_t2_the_assessment_run_intent_is_unspellable_without_a_spec_identity():
+def test_the_assessment_run_intent_is_unspellable_without_a_spec_identity():
     with pytest.raises(TypeError):
         AssessmentRunIntent(event_token="tok-1", actor="tester")  # type: ignore[call-arg]
     with pytest.raises(MalformedRecord):

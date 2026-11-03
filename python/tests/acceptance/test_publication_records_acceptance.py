@@ -262,7 +262,7 @@ def _bindings_on_disk(root: Path) -> set[str]:
 # --- W17: the intent-position rule, operationally --------------------------------
 
 
-def test_w17_p_a_a_second_writer_between_tip_read_and_append_is_refused_durably(pair):
+def test_a_second_writer_between_tip_read_and_append_is_refused_durably(pair):
     """§6: the second writer commits between step 0's tip read and its
     `append_intent` — a port wrapper, not a thread — and the refusal is the
     guard's recomputation at the intent's position."""
@@ -298,7 +298,7 @@ def test_w17_p_a_a_second_writer_between_tip_read_and_append_is_refused_durably(
     _closed_durably(pair.writers[0], opened, outcome)
 
 
-def test_w17_p_b_a_supersession_after_the_intent_commits_a_lawful_sibling_durably(pair):
+def test_a_supersession_after_the_intent_commits_a_lawful_sibling_durably(pair):
     publish(pair)  # B1
     opened = open_at(pair)
     _, b3 = publish(pair)  # B3 supersedes B1, after this intent
@@ -313,7 +313,7 @@ def test_w17_p_b_a_supersession_after_the_intent_commits_a_lawful_sibling_durabl
     assert resolved.kind == BINDING_KIND and resolved.uid == repair.binding.uid
 
 
-def test_w17_p_c_a_revision_past_its_anchor_is_not_present_durably(pair):
+def test_a_revision_past_its_anchor_is_not_present_durably(pair):
     """§6: the anchor is the one the intent carries, read back from the chain."""
     _, earlier = publish(pair, side=1)  # B1 in the other root
     opened = open_at(pair)
@@ -336,7 +336,7 @@ def test_w17_p_c_a_revision_past_its_anchor_is_not_present_durably(pair):
     assert reopened.intent.binding_tips == (bound(later).uid,)
 
 
-def test_w17_p_d_mount_order_moves_neither_anchors_nor_tips_durably(work_directory, base_contract, monkeypatch):
+def test_mount_order_moves_neither_anchors_nor_tips_durably(work_directory, base_contract, monkeypatch):
     """Three roots: the written `-a`, then `-b` and `-c`, whose ids ("8"*32, "0"*32)
     run opposite to their path order. `CoordinationResolver` sorts its own mounts
     by path, so mount order is varied where the judgment takes it: the mapping
@@ -390,7 +390,7 @@ def test_w17_p_d_mount_order_moves_neither_anchors_nor_tips_durably(work_directo
 
 
 @pytest.mark.parametrize("damage", ["missing", "mismatch", "unregistered", "rewritten"])
-def test_w17_p_e_the_chain_not_the_directory_says_which_revisions_exist_durably(pair, damage):
+def test_the_chain_not_the_directory_says_which_revisions_exist_durably(pair, damage):
     """§6: each refusal is raised by the chain's inventory (and its re-read), not
     by the resolver's live read of the directory — which would, in every case,
     answer a standing tip."""
@@ -437,7 +437,7 @@ def test_w17_p_e_the_chain_not_the_directory_says_which_revisions_exist_durably(
     assert refused.value.reason == expected
 
 
-def test_w17_p_f_a_rolled_back_creation_is_absent_and_its_retry_present_once_durably(pair, monkeypatch):
+def test_a_rolled_back_creation_is_absent_and_its_retry_present_once_durably(pair, monkeypatch):
     """ROLLBACK_MEANS = patched create effect; RETRY_AFTER_ROLLBACK = same intent (Task 0)."""
     _, first = publish(pair, side=1)  # B1 in the other root
     opened = open_at(pair, side=1)
@@ -477,7 +477,7 @@ def test_w17_p_f_a_rolled_back_creation_is_absent_and_its_retry_present_once_dur
 # --- Y1: the kinds are declared, gated and inert ---------------------------------
 
 
-def test_y1_a_version_and_door_refusals_durably(work_directory, base_contract, pair):
+def test_version_and_door_refusals_durably(work_directory, base_contract, pair):
     v1_profile = coordination_profile(base_contract, version=1)
     root = (work_directory / f"publication-v1-{os.getpid()}-{next(_counter)}").resolve()
     try:
@@ -530,7 +530,7 @@ _WORLD_MEMBERS = (
 )
 
 
-def test_y1_b_publication_records_are_inert_to_the_world_and_to_belief_durably(work_directory, base_contract, pair):
+def test_publication_records_are_inert_to_the_world_and_to_belief_durably(work_directory, base_contract, pair):
     corpus_root = pair.roots[0]
     world_root = (work_directory / f"publication-world-{os.getpid()}-{next(_counter)}").resolve()
     config = WorldConfig(world_root, "e" * 32, (corpus_root,))
@@ -594,7 +594,7 @@ def test_y1_b_publication_records_are_inert_to_the_world_and_to_belief_durably(w
 # --- Y2: byte-functions of the intent ---------------------------------------------
 
 
-def test_y2_a_the_committed_binding_is_the_factory_of_its_decoded_intent_durably(pair):
+def test_the_committed_binding_is_the_factory_of_its_decoded_intent_durably(pair):
     """§6: the clock advances on every read, so a door that read it into the
     record would commit bytes the factory over the decoded intent does not make."""
     clock = Clock()
@@ -611,7 +611,7 @@ def test_y2_a_the_committed_binding_is_the_factory_of_its_decoded_intent_durably
 # --- Y3: the audit reads publish intents by their domain ----------------------------
 
 
-def test_y3_a_the_audit_reads_publish_intents_by_their_domain_durably(pair):
+def test_the_audit_reads_publish_intents_by_their_domain_durably(pair):
     opened, _ = publish(pair)
     unclosed = open_at(pair)
     port = pair.writers[0]._operation_port
@@ -647,7 +647,7 @@ class _CountingPort:
         return getattr(self._inner, name)
 
 
-def test_y4_a_one_fulfilling_submission_each_way_and_no_binding_on_refusal_durably(pair):
+def test_one_fulfilling_submission_each_way_and_no_binding_on_refusal_durably(pair):
     """§6: the count is of `execute_fulfilling_guarded` calls on a wrapper over the durable port."""
     writer = pair.writers[0]
     success_port = _CountingPort(writer._operation_port)
@@ -667,7 +667,7 @@ def test_y4_a_one_fulfilling_submission_each_way_and_no_binding_on_refusal_durab
     _closed_durably(pair.writers[0], opened, refused)
 
 
-def test_y4_b_a_remotely_revealed_refusal_is_an_orphan_until_a_shared_publish_retires_it_durably(pair):
+def test_a_remotely_revealed_refusal_is_an_orphan_until_a_shared_publish_retires_it_durably(pair):
     one_root = CoordinationResolver({pair.roots[0]: pair.profile})
     opened = open_at(pair, destination=REMOTE)
     refused = bind(pair, opened, resolver=one_root, remotely_revealed=True)
@@ -683,7 +683,7 @@ def test_y4_b_a_remotely_revealed_refusal_is_an_orphan_until_a_shared_publish_re
     assert (CORPUS_ID, local.intent.event_token) not in publish(pair)[0].intent.marker_tips
 
 
-def test_y4_c_a_lost_refusal_report_refuses_rather_than_dropping_the_orphan_durably(pair):
+def test_a_lost_refusal_report_refuses_rather_than_dropping_the_orphan_durably(pair):
     one_root = CoordinationResolver({pair.roots[0]: pair.profile})
     opened = open_at(pair, destination=REMOTE)
     refused = bind(pair, opened, resolver=one_root, remotely_revealed=True)

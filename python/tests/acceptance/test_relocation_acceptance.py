@@ -319,7 +319,7 @@ def _produce_single_basis(
     return record, snapshot.bases[record.id]
 
 
-def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_factory):
+def test_move_changes_only_location_and_preserves_producer_semantics(durable_factory):
     writer, make_world = durable_factory
     source = writer("w5-source")
     destination = writer("w5-destination")
@@ -374,13 +374,13 @@ def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_
     assert _belief_digest(produced["before"]) == _belief_digest(produced["after"])
 
 
-def test_g3_location_is_not_a_belief_closure_member(durable_factory):
+def test_location_is_not_a_belief_closure_member(durable_factory):
     moved = _move_produced_dataset(durable_factory)
     assert moved["before"].members["address-map.yaml"] != moved["after"].members["address-map.yaml"]
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_c3_move_changes_exact_receipt_states_but_not_the_belief(durable_factory):
+def test_move_changes_exact_receipt_states_but_not_the_belief(durable_factory):
     moved = _move_produced_dataset(durable_factory)
     before = moved["before"].receipts["producer-receipt.yaml"]
     after = moved["after"].receipts["producer-receipt.yaml"]
@@ -390,7 +390,7 @@ def test_c3_move_changes_exact_receipt_states_but_not_the_belief(durable_factory
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_r23_location_and_receipt_identity_are_not_belief_inputs(durable_factory):
+def test_location_and_receipt_identity_are_not_belief_inputs(durable_factory):
     moved = _move_produced_dataset(durable_factory)
     before = moved["before"].receipts["producer-receipt.yaml"]
     after = moved["after"].receipts["producer-receipt.yaml"]
@@ -401,7 +401,7 @@ def test_r23_location_and_receipt_identity_are_not_belief_inputs(durable_factory
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_w16_consolidates_one_address_without_asserting_identity(durable_factory, tmp_path):
+def test_consolidates_one_address_without_asserting_identity(durable_factory, tmp_path):
     writer, make_world = durable_factory
     keep_writer = writer("w16-keep")
     other_writer = writer("w16-other")
@@ -546,7 +546,7 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
 
 @pytest.mark.parametrize("operation", ["move", "consolidate"])
 @pytest.mark.parametrize("fault", ["domain", "base", "missing"])
-def test_d7_each_public_relocation_refuses_contract_disagreement(durable_factory, operation: str, fault: str):
+def test_each_public_relocation_refuses_contract_disagreement(durable_factory, operation: str, fault: str):
     writer, _ = durable_factory
     from test_relocation import _node
 
@@ -584,7 +584,7 @@ def test_d7_each_public_relocation_refuses_contract_disagreement(durable_factory
         call()
 
 
-def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durable_factory):
+def test_consolidates_retraction_replicas_without_touching_the_counter(durable_factory):
     writer, _ = durable_factory
     keep = writer("m3-keep")
     other = writer("m3-other")
@@ -653,7 +653,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
     assert counter.relations[0].target == first.id
 
 
-def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_factory):
+def test_each_root_records_one_intent_before_one_qualifying_report(durable_factory):
     moved = _move_produced_dataset(durable_factory)
     writer, _ = durable_factory
     keep = writer("t2-keep")
@@ -702,7 +702,7 @@ def _store_report(corpus, report) -> None:
     corpus._publish_operation_report(report, digest)
 
 
-def test_t8_move_and_consolidate_refuse_act_reports(durable_factory):
+def test_move_and_consolidate_refuse_act_reports(durable_factory):
     writer, _ = durable_factory
     move_source = writer("t8-move-source")
     move_destination = writer("t8-move-destination")

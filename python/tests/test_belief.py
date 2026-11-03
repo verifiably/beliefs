@@ -197,7 +197,7 @@ def test_node_corpus_attributes_nodes_to_sorted_nonempty_string_tuples(node_corp
         replace(scenario()["context"], node_corpus=node_corpus)
 
 
-def test_w18j_a_coordination_pin_never_enters_the_belief_input_digest():
+def test_a_coordination_pin_never_enters_the_belief_input_digest():
     ordinary = scenario()
     first = evaluate(**ordinary)
     pin = ordinary["context"].pins["c1"]

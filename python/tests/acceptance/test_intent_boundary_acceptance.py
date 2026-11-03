@@ -88,7 +88,7 @@ def _non_qualifying_reason(findings):
     return details[0]
 
 
-def test_u2_wrong_purpose_member(certified_work):
+def test_wrong_purpose_member(certified_work):
     root, port = _port(certified_work, "u2-wrong-purpose")
     port.execute_fulfilling(_observation_plan(), _append_assessment(port))
     rows, findings = _qualification(root)
@@ -96,7 +96,7 @@ def test_u2_wrong_purpose_member(certified_work):
     assert "reason=wrong-purpose" in _non_qualifying_reason(findings)
 
 
-def test_u2_wrong_spec_member(certified_work):
+def test_wrong_spec_member(certified_work):
     root, port = _port(certified_work, "u2-wrong-spec")
     _, _, plan = publication_plan(make_closure(spec="x" * 64))
     port.execute_fulfilling(plan, _append_assessment(port))
@@ -105,7 +105,7 @@ def test_u2_wrong_spec_member(certified_work):
     assert "reason=wrong-spec" in _non_qualifying_reason(findings)
 
 
-def test_u2_wrong_token_member(certified_work):
+def test_wrong_token_member(certified_work):
     root, port = _port(certified_work, "u2-wrong-token")
     _, _, plan = publication_plan(make_closure(token="other"))
     port.execute_fulfilling(plan, _append_assessment(port))
@@ -114,7 +114,7 @@ def test_u2_wrong_token_member(certified_work):
     assert "reason=wrong-token" in _non_qualifying_reason(findings)
 
 
-def test_u2_no_record_member(certified_work):
+def test_no_record_member(certified_work):
     root, port = _port(certified_work, "u2-no-record")
     port.execute_fulfilling(
         (CreateOp("notes/discussion.md", b"no record here"),),
@@ -125,7 +125,7 @@ def test_u2_no_record_member(certified_work):
     assert "reason=no-record" in _non_qualifying_reason(findings)
 
 
-def test_u3_decayed_genuine_run_is_unresolvable_silently(certified_work):
+def test_decayed_genuine_run_is_unresolvable_silently(certified_work):
     root, port = _port(certified_work, "u3")
     closure = make_closure()
     _, path, plan = publication_plan(closure)
@@ -139,7 +139,7 @@ def test_u3_decayed_genuine_run_is_unresolvable_silently(certified_work):
     assert findings == ()
 
 
-def test_u5_raced_appends_serialize_into_one_chain(certified_work):
+def test_raced_appends_serialize_into_one_chain(certified_work):
     root, port = _port(certified_work, "u5")
     barrier = threading.Barrier(2)
 
@@ -161,7 +161,7 @@ class _Cancelled(BaseException):
     pass
 
 
-def test_u8_negative_discarded_attempt_is_indistinguishable(certified_work, tmp_path):
+def test_negative_discarded_attempt_is_indistinguishable(certified_work, tmp_path):
     from fixtures_cut3 import run_assessment
 
     root, inner = _port(certified_work, "u8")
@@ -191,7 +191,7 @@ def test_u8_negative_discarded_attempt_is_indistinguishable(certified_work, tmp_
     assert rows == () and findings == ()
 
 
-def test_u9_wrong_operation_token_fails_qualification(certified_work):
+def test_wrong_operation_token_fails_qualification(certified_work):
     root, port = _port(certified_work, "u9")
     port.execute_fulfilling(
         _report_plan(sample_report(operation="import", token="other")),
@@ -202,7 +202,7 @@ def test_u9_wrong_operation_token_fails_qualification(certified_work):
     assert "reason=wrong-token" in _non_qualifying_reason(findings)
 
 
-def test_u10_wrong_kind_report_fails_qualification(certified_work):
+def test_wrong_kind_report_fails_qualification(certified_work):
     root, port = _port(certified_work, "u10")
     port.execute_fulfilling(
         _report_plan(sample_report(operation="audit", token="tok")),
@@ -213,7 +213,7 @@ def test_u10_wrong_kind_report_fails_qualification(certified_work):
     assert "reason=wrong-kind" in _non_qualifying_reason(findings)
 
 
-def test_u11_run_for_non_run_operation_fails_qualification(certified_work):
+def test_run_for_non_run_operation_fails_qualification(certified_work):
     root, port = _port(certified_work, "u11")
     _, _, plan = publication_plan(make_closure())
     port.execute_fulfilling(plan, _append_operation(port, kind="import"))
@@ -222,7 +222,7 @@ def test_u11_run_for_non_run_operation_fails_qualification(certified_work):
     assert "reason=wrong-purpose" in _non_qualifying_reason(findings)
 
 
-def test_u12_no_terminal_record_fails_qualification(certified_work):
+def test_no_terminal_record_fails_qualification(certified_work):
     root, port = _port(certified_work, "u12")
     port.execute_fulfilling(
         (CreateOp("notes/no-terminal.md", b"nothing"),),

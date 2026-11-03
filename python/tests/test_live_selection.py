@@ -169,7 +169,7 @@ class TestEvaluation:
 
 
 class TestW19LiveMapHolders:
-    def test_w19_g_live_map_holders(self, tmp_path):
+    def test_live_map_holders(self, tmp_path):
         from beliefs.errors import AddressMapConflict
 
         (shared,) = datasets("d-shared")

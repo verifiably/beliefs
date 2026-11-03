@@ -40,7 +40,7 @@ _OTHER_MACHINE = "f" * 32
 CORPUS_ID = "a1" * 16
 
 
-def test_e1_init_corpus_root_under_a_permit_lacking_lifecycle_creates_nothing(certified_work):
+def test_init_corpus_root_under_a_permit_lacking_lifecycle_creates_nothing(certified_work):
     root = certified_work / "never"
     with pytest.raises(PermitExceeded) as caught:
         init_corpus_root(root, authority=narrowed(families=("corpus-write",)))
@@ -48,14 +48,14 @@ def test_e1_init_corpus_root_under_a_permit_lacking_lifecycle_creates_nothing(ce
     assert not root.exists() and not metadata_root_for(root).exists()
 
 
-def test_e1_init_world_root_refuses_before_its_mkdir(certified_work):
+def test_init_world_root_refuses_before_its_mkdir(certified_work):
     root = certified_work / "never-world"
     with pytest.raises(PermitExceeded):
         init_world_root(WorldConfig(root, "0" * 32, ()), authority=narrowed(families=("registry",)))
     assert not root.exists()
 
 
-def test_e1_the_lifecycle_permit_initializes(certified_work):
+def test_the_lifecycle_permit_initializes(certified_work):
     root = certified_work / "corpus"
     init_corpus_root(root, authority=narrowed(families=("lifecycle",)))
     assert metadata_root_for(root).exists()

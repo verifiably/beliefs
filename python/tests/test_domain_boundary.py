@@ -149,7 +149,7 @@ def _validate_outcome(registry: Registry, node: Node) -> type[BaseException] | N
 
 
 @pytest.mark.parametrize("rho", list(RENAMINGS.values()), ids=list(RENAMINGS))
-def test_d1_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path):
+def test_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path):
     identity: dict[str, str] = {}
     registry, renamed_registry = _registry(identity), _registry(rho)
     # the fixture nodes ships parses to the facets the constructed node carries

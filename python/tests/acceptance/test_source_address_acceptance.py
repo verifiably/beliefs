@@ -97,7 +97,7 @@ def world(work_directory):
             shutil.rmtree(metadata_root_for(root), ignore_errors=True)
 
 
-def test_w1_distinct_bases_never_become_one_node(world):
+def test_distinct_bases_never_become_one_node(world):
     registry, (a, left), (b, right) = world
     for citekey, first, second in PAIRS:
         left.add(stored.source_node(title=citekey, identifiers={"doi": first}))
@@ -111,7 +111,7 @@ def test_w1_distinct_bases_never_become_one_node(world):
     assert all(view.resolve(address) == address for address in addresses)
 
 
-def test_w2_a_shared_basis_is_one_address(world):
+def test_shared_basis_is_one_address(world):
     registry, (a, left), (b, right) = world
     one = left.add(stored.source_node(title="x", identifiers={"doi": "10.1234/ABC"}))
     two = stored.source_node(title="y", identifiers={"doi": "https://doi.org/10.1234/abc"})
@@ -138,7 +138,7 @@ def test_w2_a_shared_basis_is_one_address(world):
     publish(registry, (a, b), hold_shipped(registry))
 
 
-def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
+def test_dataset_arm_a_rehold_is_a_new_entity(world):
     _, (_, left), _ = world
     assessment = mint_eligible_assessment(left)  # observes dataset:raw through run:r1
     run = left.read_view.get("run:r1")
@@ -168,7 +168,7 @@ def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
     assert left.read_view.get(d.id).facets[stored.DATASET_FACET] == d.facets[stored.DATASET_FACET]
 
 
-def test_w5a_source_arm_rename_preserves_uid_and_redirects(world):
+def test_source_arm_rename_preserves_uid_and_redirects(world):
     registry, (a, left), (b, _right) = world
     paper = left.add(stored.source_node(title="p", identifiers={"doi": "10.1234/wrong"}))
     # The referrer: a retraction grounded in the source (a source is not a retraction NodeTarget).

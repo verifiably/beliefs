@@ -152,13 +152,13 @@ def test_a_planned_job_key_must_name_its_family():
 
 
 # --- R1 ----------------------------------------------------------------------
-def test_r1_an_incomplete_closure_is_refused_and_no_run_value_exists():
+def test_an_incomplete_closure_is_refused_and_no_run_value_exists():
     # A declared output the result lacks: refusal, not a weaker run (§2).
     with pytest.raises(MalformedClosure):
         closure(result=ResultManifest(outputs=()))
 
 
-def test_r1_the_note_is_a_separate_act_and_the_member_is_then_supplied():
+def test_the_note_is_a_separate_act_and_the_member_is_then_supplied():
     # Mirroring W3: the source-assertion is its own explicit authored act (cut
     # 2's typed constructor); only the supplied member mints the run value.
     note = SourceAssertion(
@@ -172,7 +172,7 @@ def test_r1_the_note_is_a_separate_act_and_the_member_is_then_supplied():
     assert len(run.address()) == 64  # a bare v1 digest
 
 
-def test_r1_no_unknown_or_attested_component_is_representable():
+def test_no_unknown_or_attested_component_is_representable():
     for field in ("code_identity", "workflow_definition"):
         for value in ("unknown", "attested", ""):
             with pytest.raises(MalformedClosure):
@@ -181,7 +181,7 @@ def test_r1_no_unknown_or_attested_component_is_representable():
         recipe(inputs=(RecipeInput(role="observes", dataset="dataset:x", content="unknown"),))
 
 
-def test_r1_a_bare_lockfile_digest_is_refused_as_environment_identity():
+def test_a_bare_lockfile_digest_is_refused_as_environment_identity():
     with pytest.raises(MalformedClosure):
         recipe(environment="sha256:" + "99" * 32)
 
@@ -269,14 +269,14 @@ RECIPE_MUTATIONS = [
 
 
 @pytest.mark.parametrize("name,mutate", RECIPE_MUTATIONS, ids=[n for n, _ in RECIPE_MUTATIONS])
-def test_r2_every_recipe_member_moves_the_run_address(name, mutate):
+def test_every_recipe_member_moves_the_run_address(name, mutate):
     mutated_recipe = mutate()
     assert mutated_recipe.identity() != recipe().identity()
     mutated = closure(recipe=mutated_recipe)
     assert mutated.address() != closure().address()
 
 
-def test_r2_the_result_and_each_occurrence_member_move_the_address():
+def test_the_result_and_each_occurrence_member_move_the_address():
     baseline = closure().address()
     assert (
         closure(result=ResultManifest(outputs=(("outputs/result.txt", "sha256:" + "56" * 32),))).address() != baseline
@@ -308,7 +308,7 @@ def test_r2_the_result_and_each_occurrence_member_move_the_address():
     )
 
 
-def test_r2_equal_recipes_despite_differing_seeds_and_event_tokens():
+def test_equal_recipes_despite_differing_seeds_and_event_tokens():
     # The retained negative (cut 3 §7.3 item 1): seeds and tokens are
     # occurrence members; the recipe holds nothing post-execution.
     a = closure()
@@ -453,14 +453,14 @@ def test_identity_values_refuse_wrong_scalar_pair_and_composite_types_at_constru
 
 
 # --- R14 at run and closure positions ----------------------------------------
-def test_r14_binary_floats_are_refused_at_every_run_position():
+def test_binary_floats_are_refused_at_every_run_position():
     with pytest.raises(BinaryFloatRefused):
         recipe(parameters={"alpha": 0.05}).identity()
     with pytest.raises(BinaryFloatRefused):
         recipe(parameters={"nested": {"deep": [0.1 + 0.2]}}).identity()
 
 
-def test_r14_the_four_collisions_walked_at_the_recipe_position():
+def test_the_four_collisions_walked_at_the_recipe_position():
     assert recipe(parameters={"x": Decimal("0.5")}).identity() != recipe(parameters={"x": "0.5"}).identity()
     with pytest.raises(NullRefused):
         recipe(parameters={"x": None}).identity()
@@ -470,7 +470,7 @@ def test_r14_the_four_collisions_walked_at_the_recipe_position():
         recipe(parameters={"é": 1, "é": 2}).identity()
 
 
-def test_r14_nan_and_infinity_are_refused_in_every_position():
+def test_nan_and_infinity_are_refused_in_every_position():
     for bad in (Decimal("NaN"), Decimal("Infinity"), Decimal("-Infinity")):
         with pytest.raises(NonFiniteDecimal):
             recipe(parameters={"x": bad}).identity()
@@ -478,7 +478,7 @@ def test_r14_nan_and_infinity_are_refused_in_every_position():
             recipe(parameters={"deep": [{"y": bad}]}).identity()
 
 
-def test_r14_kind_domains_separate_and_v2_never_equals_v1():
+def test_kind_domains_separate_and_v2_never_equals_v1():
     payload = {"same": "bytes"}
     assert v1.digest("science.recipe.v1", payload) != v1.digest("science.run.v1", payload)
     assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v3"
@@ -487,7 +487,7 @@ def test_r14_kind_domains_separate_and_v2_never_equals_v1():
 
 
 # --- R17's value halves -------------------------------------------------------
-def test_r17_projection_offers_no_caller_path_for_the_projected_members():
+def test_projection_offers_no_caller_path_for_the_projected_members():
     params = inspect.signature(project_recipe).parameters
     assert list(params) == [
         "spec",
@@ -501,7 +501,7 @@ def test_r17_projection_offers_no_caller_path_for_the_projected_members():
     assert not {"inputs", "parameters", "nondeterminism"} & set(params)
 
 
-def test_r17_the_projected_recipe_carries_the_spec_whole():
+def test_the_projected_recipe_carries_the_spec_whole():
     spec = freeze(spec_draft(), held_rules=spec_rules())
     projected = project_recipe(
         spec,
@@ -545,7 +545,7 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
     assert reprojected.inputs[1].exclusion == certified.input_roles[1].exclusion
 
 
-def test_r17_projection_refuses_a_declared_input_that_is_not_held():
+def test_projection_refuses_a_declared_input_that_is_not_held():
     spec = freeze(spec_draft(), held_rules=spec_rules())
     with pytest.raises(MalformedClosure, match="not held"):
         project_recipe(
@@ -561,7 +561,7 @@ def test_r17_projection_refuses_a_declared_input_that_is_not_held():
         )
 
 
-def test_r17_invocation_holds_bindings_not_values():
+def test_invocation_holds_bindings_not_values():
     assert {f.name for f in dataclasses.fields(Invocation)} == {
         "entrypoint",
         "targets",
@@ -573,7 +573,7 @@ def test_r17_invocation_holds_bindings_not_values():
 
 
 # --- M2 ----------------------------------------------------------------------
-def test_m2_substituting_any_input_moves_the_assessment_identity_every_time():
+def test_substituting_any_input_moves_the_assessment_identity_every_time():
     inputs = (
         RecipeInput(role="observes", dataset="dataset:x", content=D_IN),
         RecipeInput(role="reads", dataset="dataset:y", content="sha256:" + "34" * 32),
@@ -608,7 +608,7 @@ def test_m2_substituting_any_input_moves_the_assessment_identity_every_time():
         assert original.identity() != moved.identity()
 
 
-def test_m2_an_input_no_declared_role_partition_covers_is_refused_not_ignored():
+def test_an_input_no_declared_role_partition_covers_is_refused_not_ignored():
     with pytest.raises(MalformedClosure):
         recipe(inputs=(RecipeInput(role="transforms", dataset="dataset:x", content=D_IN),))
     with pytest.raises(MalformedClosure):
@@ -620,12 +620,12 @@ def test_m2_an_input_no_declared_role_partition_covers_is_refused_not_ignored():
 
 
 # --- R21's value-level manifest refusals (the boundary arms are Task 6's) -----
-def test_r21_an_undeclared_manifest_entry_mints_no_run():
+def test_an_undeclared_manifest_entry_mints_no_run():
     with pytest.raises(MalformedClosure):
         closure(result=ResultManifest(outputs=(("outputs/result.txt", D_OUT), ("outputs/extra.txt", D_IN))))
 
 
-def test_r21_absolute_and_root_escaping_output_declarations_are_refused():
+def test_absolute_and_root_escaping_output_declarations_are_refused():
     with pytest.raises(UnsafeInvocation):
         invocation(declared_outputs=("/etc/passwd",))
     with pytest.raises(UnsafeInvocation):
@@ -634,7 +634,7 @@ def test_r21_absolute_and_root_escaping_output_declarations_are_refused():
         invocation(declared_outputs=("outputs/../../outside.txt",))
 
 
-def test_r21_a_duplicate_logical_name_is_refused():
+def test_a_duplicate_logical_name_is_refused():
     with pytest.raises(MalformedClosure):
         ResultManifest(outputs=(("a", D_OUT), ("a", D_IN)))
     with pytest.raises(MalformedClosure):

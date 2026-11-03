@@ -80,7 +80,7 @@ def three_retained(tmp_path: Path):
     return world, recorder, bindings, (first, second, third)
 
 
-def test_e1_delete_epoch_under_a_permit_lacking_epoch_refuses_and_keeps_the_members(tmp_path):
+def test_delete_epoch_under_a_permit_lacking_epoch_refuses_and_keeps_the_members(tmp_path):
     world, _recorder, _bindings, (first, _second, _third) = three_retained(tmp_path)
     narrowed_world = registry.World(
         world.config,

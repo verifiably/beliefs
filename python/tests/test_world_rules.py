@@ -1240,7 +1240,7 @@ def v2_fixture_without_arm(shipped: rules.RuleBundle) -> rules.RuleBundle:
 
 
 class TestG14V2RuleBinding:
-    def test_g14_h_v2_rule_binding(self, tmp_path):
+    def test_v2_rule_binding(self, tmp_path):
         from test_world_build import ALPHA, sample_nodes
         from test_world_receipts import corpora, hold_shipped, publish, world_over
 

@@ -163,7 +163,7 @@ def _derive(spec, output):
 # --- Q1 ---------------------------------------------------------------------
 
 
-def test_q1_the_estimands_structure_is_kernel_owned_and_closed(corpora):
+def test_the_estimands_structure_is_kernel_owned_and_closed(corpora):
     """Q1: the closed sets live in the base contract and nowhere else, and the
     implementation cannot widen one without the contract saying so."""
     writer = corpora()
@@ -223,7 +223,7 @@ def test_q1_the_estimands_structure_is_kernel_owned_and_closed(corpora):
 # --- Q2 ---------------------------------------------------------------------
 
 
-def test_q2_estimands_is_domain_issued_operator_bound_and_succession_governed(corpora):
+def test_estimands_is_domain_issued_operator_bound_and_succession_governed(corpora):
     """Q2: the declaration is the domain's, keyed by an operator it declares,
     and governed by the four succession rules M6 already carries."""
     writer = corpora()
@@ -322,7 +322,7 @@ def test_q2_estimands_is_domain_issued_operator_bound_and_succession_governed(co
 # --- Q3 ---------------------------------------------------------------------
 
 
-def test_q3_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(corpora):
+def test_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(corpora):
     """Q3: every §7.1 refusal names its position, the fragment refuses rather
     than flattens, and `claim` and `operator` come from the `Claim` handed in."""
     writer = corpora()
@@ -452,7 +452,7 @@ def test_q3_an_estimand_is_unconstructible_outside_its_claims_operator_declarati
 # --- Q4 ---------------------------------------------------------------------
 
 
-def test_q4_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(corpora):
+def test_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(corpora):
     """Q4: the map is the claim grammar's flat fragment over the operator's own
     dimensions, comparable in both directions, and read by no P row."""
     writer = corpora()
@@ -532,7 +532,7 @@ def test_q4_applicability_is_a_qualifier_map_over_the_target_operators_dimension
 # --- Q5 ---------------------------------------------------------------------
 
 
-def test_q5_estimate_and_uncertainty_are_typed_on_the_specs_scale(corpora):
+def test_estimate_and_uncertainty_are_typed_on_the_specs_scale(corpora):
     """Q5: the rule yields decimals on the spec's scale and nothing else; each
     violation is an `AssessmentFinding` naming it, and never `inconclusive`."""
     writer = corpora()
@@ -650,7 +650,7 @@ def test_q5_estimate_and_uncertainty_are_typed_on_the_specs_scale(corpora):
 # --- Q6 ---------------------------------------------------------------------
 
 
-def test_q6_structural_match_is_checked_at_the_write_boundary_and_under_audit(corpora):
+def test_structural_match_is_checked_at_the_write_boundary_and_under_audit(corpora):
     """Q6: the spec's estimand must name its target's claim **and** operator at
     the write boundary and at import, and the audit contradicts what a raw
     write got past. Semantic match is not claimed."""
@@ -780,7 +780,7 @@ def test_q6_structural_match_is_checked_at_the_write_boundary_and_under_audit(co
 # --- Q7 ---------------------------------------------------------------------
 
 
-def test_q7_every_member_enters_identity_and_only_members_do(corpora):
+def test_every_member_enters_identity_and_only_members_do(corpora):
     """Q7: each estimand and applicability member moves the spec identity;
     conditioning order and decimal spelling do not; on the assessment the facet
     digest moves and the belief value does not."""
@@ -908,7 +908,7 @@ def test_q7_every_member_enters_identity_and_only_members_do(corpora):
 # --- Q8 ---------------------------------------------------------------------
 
 
-def test_q8_the_estimands_contracts_are_consulted(corpora):
+def test_the_estimands_contracts_are_consulted(corpora):
     """Q8: an assessment reaches the contracts its estimand binds, and only
     those — D6's third trigger."""
     from beliefs.consulted import CorpusPins, consulted_contracts
@@ -976,7 +976,7 @@ def test_q8_the_estimands_contracts_are_consulted(corpora):
 # --- Q9 ---------------------------------------------------------------------
 
 
-def test_q9_commensuration_is_total_decidable_and_unread_by_v1(corpora):
+def test_commensuration_is_total_decidable_and_unread_by_v1(corpora):
     """Q9: both predicates are total over admitted values, `identification` is
     the one member outside the key, and v1's evaluator reads neither."""
     import inspect
@@ -1030,7 +1030,7 @@ def test_q9_commensuration_is_total_decidable_and_unread_by_v1(corpora):
 # --- Q10 --------------------------------------------------------------------
 
 
-def test_q10_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corpora):
+def test_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corpora):
     """Q10: the driver's own recorded report, read by name, beside the
     transition arms this module can exercise on a successor-pinned corpus."""
     from reproduction.paths import STATE

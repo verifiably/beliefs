@@ -40,22 +40,22 @@ from beliefs.spec import (
 # --- R20: the union's type refusals -----------------------------------------
 
 
-def test_r20_deterministic_with_a_plan_is_unspellable():
+def test_deterministic_with_a_plan_is_unspellable():
     with pytest.raises(TypeError):
         Deterministic(plan=plan())  # type: ignore[call-arg]  # the variant carries nothing — refused by the type
 
 
-def test_r20_stochastic_unseeded_with_a_plan_is_unspellable():
+def test_stochastic_unseeded_with_a_plan_is_unspellable():
     with pytest.raises(TypeError):
         StochasticUnseeded(rationale="honest", plan=plan())  # type: ignore[call-arg]
 
 
-def test_r20_seeded_without_a_plan_is_unspellable():
+def test_seeded_without_a_plan_is_unspellable():
     with pytest.raises(TypeError):
         Seeded()  # type: ignore[call-arg]
 
 
-def test_r20_multi_root_plan_without_a_total_mapping_is_refused():
+def test_multi_root_plan_without_a_total_mapping_is_refused():
     with pytest.raises(MalformedSpec):
         SeedPlan(
             derivation_rule="seed-derivation/v1",
@@ -65,12 +65,12 @@ def test_r20_multi_root_plan_without_a_total_mapping_is_refused():
         )
 
 
-def test_r20_a_mapped_root_must_be_declared():
+def test_a_mapped_root_must_be_declared():
     with pytest.raises(MalformedSpec):
         plan(stream_roots={"model-initialization": "root-missing"})
 
 
-def test_r20_stochastic_unseeded_with_a_rationale_is_freezable():
+def test_stochastic_unseeded_with_a_rationale_is_freezable():
     spec = freeze(
         draft(
             nondeterminism=StochasticUnseeded(rationale="MCMC without a fixed seed"),
@@ -81,21 +81,21 @@ def test_r20_stochastic_unseeded_with_a_rationale_is_freezable():
     assert isinstance(spec, FrozenSpec)
 
 
-def test_r20_unseeded_beside_a_bitwise_rule_is_caught_at_freeze():
+def test_unseeded_beside_a_bitwise_rule_is_caught_at_freeze():
     # Negative (a)'s freeze-time half. The import half is the import boundary's
     # and is deferred (cut 3 §4.2).
     with pytest.raises(UnfreezableSpec):
         freeze(draft(nondeterminism=StochasticUnseeded(rationale="honest")), held_rules=held_rules())
 
 
-def test_r20_the_spec_names_logical_streams_only_no_family_field_exists():
+def test_the_spec_names_logical_streams_only_no_family_field_exists():
     # Negative (d)'s spellability half: no workflow rule or process name is
     # spellable in the frozen spec — there is no field to put one in.
     assert "families" not in {f.name for f in dataclasses.fields(SeedPlan)}
     assert "family_streams" not in {f.name for f in dataclasses.fields(SpecDraft)}
 
 
-def test_r20_two_stream_two_root_seeds_cannot_be_keyed_by_job_alone():
+def test_two_stream_two_root_seeds_cannot_be_keyed_by_job_alone():
     # Negative (b): the occurrence cannot represent a flat record.
     with pytest.raises(MalformedRecord):
         RealizedSeeds(seeds={"transform": 7})  # type: ignore[dict-item]
@@ -121,7 +121,7 @@ def test_rule_binding_is_the_exact_pair():
         bind_rules(("unheld-rule/v1",), held_rules())
 
 
-def test_r22_a_fixture_failing_implementation_is_not_that_rule():
+def test_a_fixture_failing_implementation_is_not_that_rule():
     broken = RuleImplementation(
         identity="impl-broken",
         evaluate=lambda manifest: {"outcome": "refuted"},
@@ -134,7 +134,7 @@ def test_r22_a_fixture_failing_implementation_is_not_that_rule():
 # --- R7 (spec half), identity, R8's mint half, G4 ----------------------------
 
 
-def test_r7_an_assessment_spec_with_no_target_is_refused():
+def test_an_assessment_spec_with_no_target_is_refused():
     with pytest.raises(MalformedSpec):
         freeze(draft(target=""), held_rules=held_rules())
 
@@ -257,7 +257,7 @@ def test_the_exclusion_certification_is_spellable_only_on_a_reads_declaration():
     assert certified.identity != plain.identity
 
 
-def test_r8_editing_the_equivalence_rule_mints_a_successor_that_references():
+def test_editing_the_equivalence_rule_mints_a_successor_that_references():
     original = freeze(draft(), held_rules=held_rules())
     rules = {**held_rules(), "tolerance-1e-6/v1": held_rules()["content-identity-equality/v1"]}
     successor = revise(
@@ -270,7 +270,7 @@ def test_r8_editing_the_equivalence_rule_mints_a_successor_that_references():
     assert successor.supersedes == original.identity
 
 
-def test_r8_changing_a_root_seed_mints_a_successor_spec():
+def test_changing_a_root_seed_mints_a_successor_spec():
     # §3.1: the seed is normative spec content; changing a root is a semantic
     # revision, never a runtime choice.
     original = freeze(draft(), held_rules=held_rules())
@@ -283,7 +283,7 @@ def test_r8_changing_a_root_seed_mints_a_successor_spec():
     assert successor.identity != original.identity and successor.supersedes == original.identity
 
 
-def test_g4_an_unreferenced_successor_to_a_recorded_failed_replay_is_refused():
+def test_an_unreferenced_successor_to_a_recorded_failed_replay_is_refused():
     original = freeze(draft(), held_rules=held_rules())
     unreferenced = freeze(
         draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules()
@@ -292,7 +292,7 @@ def test_g4_an_unreferenced_successor_to_a_recorded_failed_replay_is_refused():
     assert isinstance(verdict, SuccessorRefused)
 
 
-def test_g4_a_referencing_successor_is_admitted():
+def test_a_referencing_successor_is_admitted():
     original = freeze(draft(), held_rules=held_rules())
     successor = revise(
         original,
@@ -305,7 +305,7 @@ def test_g4_a_referencing_successor_is_admitted():
     )
 
 
-def test_g4_a_discarded_failed_attempt_is_undetectable():
+def test_a_discarded_failed_attempt_is_undetectable():
     # The negative: activeness and reference are over the slice's VALUE state —
     # a failure absent from the supplied set never happened, and nothing can
     # tell (kernel G4's bound, pinned rather than papered over).
@@ -314,7 +314,7 @@ def test_g4_a_discarded_failed_attempt_is_undetectable():
     assert isinstance(admit_successor(unreferenced, original, frozenset(), frozenset()), SuccessorAdmitted)
 
 
-def test_g4_an_unreferenced_successor_to_an_unfinished_recorded_attempt_is_refused():
+def test_an_unreferenced_successor_to_an_unfinished_recorded_attempt_is_refused():
     original = freeze(draft(), held_rules=held_rules())
     unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
     verdict = admit_successor(unreferenced, original, frozenset(), frozenset({original.identity}))
@@ -322,7 +322,7 @@ def test_g4_an_unreferenced_successor_to_an_unfinished_recorded_attempt_is_refus
     assert verdict.reason == "an unreferenced successor to an unfinished recorded attempt"
 
 
-def test_g4_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
+def test_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
     original = freeze(draft(), held_rules=held_rules())
     unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
     both = frozenset({original.identity})
@@ -331,7 +331,7 @@ def test_g4_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
     assert verdict.reason == "an unreferenced successor to a recorded failed replay"
 
 
-def test_g4_a_referencing_successor_lifts_both_classes():
+def test_a_referencing_successor_lifts_both_classes():
     original = freeze(draft(), held_rules=held_rules())
     successor = revise(
         original,
@@ -343,7 +343,7 @@ def test_g4_a_referencing_successor_lifts_both_classes():
     assert isinstance(admit_successor(successor, original, both, both), SuccessorAdmitted)
 
 
-def test_g4_the_core_keeps_cut_3s_anchor_line():
+def test_the_core_keeps_cut_3s_anchor_line():
     # K5: cut 3's three G4 sabotages name this exact line; it must occur once.
     from pathlib import Path
 

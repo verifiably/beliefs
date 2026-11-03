@@ -1131,7 +1131,7 @@ def _work(case: Case, tmp_path: Path, request, sub: str) -> Path:
 
 
 @pytest.mark.parametrize("case", CASES, ids=[case.id for case in CASES])
-def test_e1_the_family_is_refused_with_no_effect(case, tmp_path, request):
+def test_the_family_is_refused_with_no_effect(case, tmp_path, request):
     work = _work(case, tmp_path, request, "-family")
     case.prepare(work, request)
     before = case.probe(work)
@@ -1142,7 +1142,7 @@ def test_e1_the_family_is_refused_with_no_effect(case, tmp_path, request):
 
 
 @pytest.mark.parametrize("case", [case for case in CASES if case.kinds], ids=[case.id for case in CASES if case.kinds])
-def test_e1_each_emitted_kind_is_refused_by_name_with_no_effect(case, tmp_path, request):
+def test_each_emitted_kind_is_refused_by_name_with_no_effect(case, tmp_path, request):
     for kind in case.kinds:
         work = _work(case, tmp_path, request, f"-{kind}")
         case.prepare(work, request)
@@ -1154,7 +1154,7 @@ def test_e1_each_emitted_kind_is_refused_by_name_with_no_effect(case, tmp_path, 
 
 
 @pytest.mark.parametrize("case", CASES, ids=[case.id for case in CASES])
-def test_e1_the_exact_requirement_is_accepted(case, tmp_path, request):
+def test_the_exact_requirement_is_accepted(case, tmp_path, request):
     work = _work(case, tmp_path, request, "-exact")
     case.prepare(work, request)
     authority = narrowed(kinds=case.kinds, families=(case.family, *case.extra_families))

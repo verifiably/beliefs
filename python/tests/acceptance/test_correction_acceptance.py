@@ -138,7 +138,7 @@ def _route(writer, name, ref):
     )
 
 
-def test_c7a_retiring_one_conflicting_route_certifies_over_the_survivor(durable_writer):
+def test_retiring_one_conflicting_route_certifies_over_the_survivor(durable_writer):
     writer = _seed(durable_writer, conflict=True, outcomes=("supported", "supported"))
     before, answer = _read(writer)
     roots = ((dataset_ref("d-a"), dataset_ref("one")), (dataset_ref("d-b"),))
@@ -160,7 +160,7 @@ def test_c7a_retiring_one_conflicting_route_certifies_over_the_survivor(durable_
     assert after.closure().digest() == answer.belief_input_digest
 
 
-def test_c7b_retiring_every_route_is_not_certified_with_lineage_incomplete(durable_writer):
+def test_retiring_every_route_is_not_certified_with_lineage_incomplete(durable_writer):
     writer = _seed(durable_writer, conflict=True)
     for name in ("one", "two"):
         writer.retract(_route(writer, name, dataset_ref("d-a")))
@@ -170,7 +170,7 @@ def test_c7b_retiring_every_route_is_not_certified_with_lineage_incomplete(durab
     assert certification.findings == ("lineage-incomplete",)
 
 
-def test_c7c_the_stored_basis_is_byte_unchanged_and_retract_writes_one_record(durable_writer):
+def test_the_stored_basis_is_byte_unchanged_and_retract_writes_one_record(durable_writer):
     writer = _seed(durable_writer, conflict=True)
     ref = dataset_ref("d-a")
     original = path_for(writer.root, ref).read_bytes()
@@ -202,7 +202,7 @@ def _world_read(world, epoch, a, b, profile, proposition="proposition:p"):
     return view, gather(view, proposition, **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
 
 
-def test_c3a_an_uncovered_retraction_moves_nothing_and_coverage_is_a_digest_member(durable_world):
+def test_an_uncovered_retraction_moves_nothing_and_coverage_is_a_digest_member(durable_world):
     world, _roots, _epoch, a, b, profile, (alpha, beta) = _world(durable_world)
     baseline_epoch = publish(world, (a,), hold_shipped(world))
     _, before = _world_read(world, baseline_epoch, a, b, profile)
@@ -220,7 +220,7 @@ def test_c3a_an_uncovered_retraction_moves_nothing_and_coverage_is_a_digest_memb
     assert len(inputs.assessments) == 1
 
 
-def test_c3b_an_in_coverage_move_leaves_the_digest_and_moves_the_receipts(durable_world):
+def test_an_in_coverage_move_leaves_the_digest_and_moves_the_receipts(durable_world):
     world, _roots, _epoch, a, b, profile, (alpha, beta) = _world(durable_world)
     target = alpha.read_view.get("assessment:a-1")
     alpha.retract(retracts(target, "standing"))
@@ -237,7 +237,7 @@ def test_c3b_an_in_coverage_move_leaves_the_digest_and_moves_the_receipts(durabl
     assert dict(second.coverage) != dict(first.coverage)
 
 
-def test_c10a_raw_written_refused_shapes_are_reported_by_both_audits(durable_world):
+def test_raw_written_refused_shapes_are_reported_by_both_audits(durable_world):
     world, roots, _epoch, a, b, profile, (alpha, _beta) = _world(durable_world)
     note = Node(id="note:ineligible", kind="note", title="ineligible")
     raw_write(roots[a], note)
@@ -281,7 +281,7 @@ def test_c10a_raw_written_refused_shapes_are_reported_by_both_audits(durable_wor
         assert {n.id for n in invalid} <= {f.ref for f in findings if f.code == "retraction-target-invalid"}
 
 
-def test_bi1_node_standing_subtracts_at_the_read(durable_writer):
+def test_node_standing_subtracts_at_the_read(durable_writer):
     writer = _seed(durable_writer)
     before, answer_before = _read(writer)
     retraction = writer.retract(retracts(writer.read_view.get("assessment:a-1"), "subtract"))
@@ -293,7 +293,7 @@ def test_bi1_node_standing_subtracts_at_the_read(durable_writer):
     assert after.closure().digest() == answer_after.belief_input_digest
 
 
-def test_bi2_a_retracted_verification_leaves_the_read_set(durable_writer):
+def test_a_retracted_verification_leaves_the_read_set(durable_writer):
     writer = _seed(durable_writer)
     target = writer.read_view.get("assessment:a-1")
     failing = writer.add(verification_for(target, scope="clean-environment", verdict="failed", slug="failure"))
@@ -317,7 +317,7 @@ def test_bi2_a_retracted_verification_leaves_the_read_set(durable_writer):
     assert isinstance(admission, AdmissionRefused) and state == INVALIDATED and answer.value == -1
 
 
-def test_bi3_the_enumeration_is_the_views_and_input_scoped(durable_world):
+def test_the_enumeration_is_the_views_and_input_scoped(durable_world):
     world, _roots, _epoch, a, b, profile, (alpha, _beta) = _world(durable_world)
     alpha.add(stored.proposition_node("q", title="q", claim=CLAIM_FACET))
     other = alpha.add(
@@ -348,7 +348,7 @@ def test_bi3_the_enumeration_is_the_views_and_input_scoped(durable_world):
         replace(world_kwargs(view, profile, a, b)["context"], retractions=inputs.retractions)
 
 
-def test_bi4_an_unreadable_found_retraction_refuses(durable_writer):
+def test_an_unreadable_found_retraction_refuses(durable_writer):
     writer = _seed(durable_writer)
     target = writer.read_view.get("assessment:a-1")
     for shape in ("stale-target", "wrong-identity", "stale-stamp"):
@@ -378,7 +378,7 @@ def test_bi4_an_unreadable_found_retraction_refuses(durable_writer):
     assert refused.value.cause == str(refused.value.__cause__)
 
 
-def test_bi5_a_resolution_disagreement_refuses(durable_world):
+def test_a_resolution_disagreement_refuses(durable_world):
     world, _roots, _epoch, a, b, profile, (alpha, beta) = _world(durable_world)
     first = alpha.retract(retracts(alpha.read_view.get("assessment:a-1"), "first"))
     counter = alpha.retract(retracts(first, "counter"))

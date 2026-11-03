@@ -288,7 +288,7 @@ def test_dogfood_payload_change_moves_the_digest(tmp_path):
 # --- M8's added arm (design §7) --------------------------------------------
 
 
-def test_m8_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest(tmp_path):
+def test_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest(tmp_path):
     """The claim is at `crossing/affects-local-entity`, no domain facet is in
     the closure (`axis=None`), and the bumped contract is `testing`, reached
     **through the claim** by slot 1's sort and nothing else.
