@@ -9,7 +9,7 @@ where durability cannot be exercised must not be able to report cut-4 discharge.
 **The work directory has to sit on the certified volume**, which the platform
 temporary directory generally does not — `/tmp` is a tmpfs on most hosts, and a
 tmpfs has no barrier-option table at all. So the default is a directory beside
-the main checkout, and `SCIENCE_CUT4_ROOT` overrides it for a host that keeps its
+the main checkout, and `BELIEFS_ACCEPTANCE_ROOT` overrides it for a host that keeps its
 certified volume elsewhere.
 """
 
@@ -22,6 +22,7 @@ from itertools import count
 from pathlib import Path
 
 import pytest
+from acceptance_runner import refuse_old_roots
 from authority import FULL
 from checkout import MAIN_CHECKOUT
 from fixtures_cut3 import TESTING_PROFILE
@@ -36,7 +37,11 @@ from beliefs.root import (
 )
 from beliefs.world import Fresh, WorldConfig
 
-DEFAULT_WORK = MAIN_CHECKOUT / ".cut4-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance"
+
+_refusal = refuse_old_roots(os.environ)
+if _refusal is not None:
+    raise pytest.UsageError(_refusal)
 
 _counter = count()
 
@@ -50,12 +55,12 @@ def work_directory() -> Path:
     """The shared directory the per-test roots live under.
 
     **It is created and never removed here.** Concurrent acceptance processes
-    share it — the N2 audit runs a `pytest` per check, eight at a time — and a
+    share it — the acceptance runner starts one `pytest` per module — and a
     session teardown that deleted the directory would delete the roots of every
     other process still running. Each root cleans up after itself; the work
     directory is the acceptance command's to remove.
     """
-    configured = os.environ.get("SCIENCE_CUT4_ROOT")
+    configured = os.environ.get("BELIEFS_ACCEPTANCE_ROOT")
     work = Path(configured) if configured else DEFAULT_WORK
     work.mkdir(parents=True, exist_ok=True)
     return work
@@ -76,7 +81,7 @@ def durable_root(work_directory) -> Iterator[Path]:
     except Exception as refused:
         raise UncertifiedVolume(
             f"the durable acceptance arms need a certified volume under {work_directory}; "
-            f"the engine refused: {refused}. Set SCIENCE_CUT4_ROOT to a certified volume. "
+            f"the engine refused: {refused}. Set BELIEFS_ACCEPTANCE_ROOT to a certified volume. "
             "This is an error and not a skip: an environment that cannot exercise durability "
             "must not be able to report cut-4 discharge."
         ) from refused

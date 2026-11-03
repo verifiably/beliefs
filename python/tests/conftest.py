@@ -15,6 +15,7 @@ from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 
 import pytest
+from acceptance_runner import refuse_old_roots
 from atoms.core.errors import CapabilityUnavailable
 from checkout import MAIN_CHECKOUT
 from confinement_constants import CONFINED_MOUNTS, ENVIRONMENT, RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
@@ -151,12 +152,17 @@ def confined_launch():
     return build
 
 
+_refusal = refuse_old_roots(os.environ)
+if _refusal is not None:
+    raise pytest.UsageError(_refusal)
+
+
 @contextmanager
 def certified_work_dir() -> Iterator[Path]:
     """A fresh directory on the selected certified volume, removed afterwards.
 
     The lifecycle-wrapper tests run the real engine, whose durability
-    allowlist requires an exact configuration tuple. Cut 10 supplies its run
+    allowlist requires an exact configuration tuple. `BELIEFS_TEST_ROOT` supplies a run
     root; ordinary tests use the fallback beside the main checkout. Every root a
     test creates lives inside this directory, which keeps the derived metadata
     siblings inside it too.
@@ -166,12 +172,8 @@ def certified_work_dir() -> Iterator[Path]:
     behind, and the worker's corpus and world registries forget every root that
     lived under it, since a later directory may reuse the path.
     """
-    configured = (
-        os.environ.get("SCIENCE_CUT10_ROOT")
-        or os.environ.get("SCIENCE_CUT12_ROOT")
-        or os.environ.get("SCIENCE_CUT13_ROOT")
-    )
-    base = Path(configured) if configured else MAIN_CHECKOUT / ".lifecycle-wrappers-test"
+    configured = os.environ.get("BELIEFS_TEST_ROOT")
+    base = Path(configured) if configured else MAIN_CHECKOUT / ".work" / "tests"
     base.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="t-", dir=base))
     try:

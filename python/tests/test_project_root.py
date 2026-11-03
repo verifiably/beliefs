@@ -16,6 +16,7 @@ than the fourteenth silent variant.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from checkout import MAIN_CHECKOUT
@@ -73,15 +74,21 @@ def test_the_project_root_holds_no_unlisted_directory() -> None:
     assert not unlisted, (
         f"unlisted director{'y' if len(unlisted) == 1 else 'ies'} at the project root: "
         f"{', '.join(unlisted)}. Work roots — acceptance runs, reproduction corpora, "
-        "caches — belong under .work/ (beliefs-5aad8c; set SCIENCE_CUT<n>_ROOT or the "
-        "runner's DEFAULT_WORK there). Add a name to EXPECTED only for something that "
+        "caches — belong under .work/ (beliefs-5aad8c; set BELIEFS_TEST_ROOT or "
+        "BELIEFS_ACCEPTANCE_ROOT there). Add a name to EXPECTED only for something that "
         "is not scratch."
     )
 
 
-def test_an_empty_cut10_root_uses_the_main_checkout_fallback(monkeypatch, request):
-    monkeypatch.delenv("SCIENCE_CUT12_ROOT", raising=False)
-    monkeypatch.delenv("SCIENCE_CUT13_ROOT", raising=False)
-    monkeypatch.setenv("SCIENCE_CUT10_ROOT", "")
+def test_an_empty_test_root_uses_the_main_checkout_fallback(monkeypatch, request):
+    monkeypatch.setenv("BELIEFS_TEST_ROOT", "")
     work = request.getfixturevalue("certified_work")
-    assert work.parent.resolve() == (MAIN_CHECKOUT / ".lifecycle-wrappers-test").resolve()
+    assert work.parent.resolve() == (MAIN_CHECKOUT / ".work" / "tests").resolve()
+
+
+def test_an_old_cut_root_variable_names_its_replacement(monkeypatch):
+    from acceptance_runner import refuse_old_roots
+
+    monkeypatch.setenv("SCIENCE_CUT10_ROOT", "/x")
+    message = refuse_old_roots(os.environ)
+    assert message is not None and "BELIEFS_TEST_ROOT" in message

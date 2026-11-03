@@ -34,7 +34,6 @@ jobs:
     # past a checkout policy that would skip it locally.
     env:
       TT_FORCE: "1"
-      OPS_WORKERS: "4"
       PYTEST_XDIST_AUTO_NUM_WORKERS: "4"
     defaults:
       run:

@@ -133,7 +133,7 @@ def test_triggers_concurrency_and_jobs() -> None:
     assert jobs["python"]["strategy"]["matrix"] == {"python-version": ["3.11", "3.13"]}
     assert jobs["typescript"]["strategy"]["matrix"] == {"node-version": ["20", "24"]}
     python = jobs["python"]
-    assert python["env"]["OPS_WORKERS"] == "4" and python["env"]["PYTEST_XDIST_AUTO_NUM_WORKERS"] == "4"
+    assert python["env"]["PYTEST_XDIST_AUTO_NUM_WORKERS"] == "4"
     run = next(s for s in python["steps"] if s.get("run") == "just ci-python")
     assert run["env"] == {"VERIFIABLY_UNCERTIFIED_HOST": "1"}
     checkouts = [s["with"] for s in python["steps"] if str(s.get("uses", "")).startswith("actions/checkout@")]

@@ -398,7 +398,7 @@ def test_certified_work_dir_cleans_up_and_forgets_registries_on_exception(
     from beliefs import corpus
 
     vol = tmp_path / "vol"
-    monkeypatch.setenv("SCIENCE_CUT10_ROOT", str(vol))
+    monkeypatch.setenv("BELIEFS_TEST_ROOT", str(vol))
     forgotten_corpora: list[Path] = []
     forgotten_worlds: list[Path] = []
     real_forget_corpora = corpus._forget_roots_under

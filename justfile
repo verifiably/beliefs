@@ -85,6 +85,11 @@ setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)
 test-fast:
     {{tt}} test-fast -- host-budget run -- sh -c '{{fast_cmd}}'
 
+# Every real-engine acceptance module, each in its own process (about 40 minutes). Not a
+# broad target: tt policy never skips it. BELIEFS_ACCEPTANCE_ROOT overrides the work root.
+test-acceptance *args:
+    {{tt}} test-acceptance -- host-budget run -- sh -c 'cd python && uv run --frozen python tools/acceptance_runner.py "$@"' test-acceptance "$@"
+
 # One path, path::test, or -k expression; argument boundaries reach the runner intact.
 test-one +args:
     {{tt}} test-one -- host-budget run -- sh -c '{{one_cmd}} "$@" 2>&1' test-one "$@"
@@ -165,7 +170,7 @@ ci_evidence_cmd := "case \"${BELIEFS_CI_EVIDENCE_DIR:?set BELIEFS_CI_EVIDENCE_DI
 ci_py_test_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest.xml\")"
 ci_ts_test_cmd := "(cd ts && npm test -- --reporter=default --reporter=junit --outputFile.junit=\"$BELIEFS_CI_EVIDENCE_DIR/vitest.xml\")"
 
-# The Python job: both pytest phases, then ruff and pyright.
+# The Python job: the pytest suite, then ruff and pyright.
 ci-python:
     {{tt}} ci-python -- sh -c '{{ci_evidence_cmd}} && {{ci_py_test_cmd}} && {{py_check_cmd}}'
 
