@@ -1,4 +1,4 @@
-"""Step 0's pure pieces (publish-act-local design §4): the publication closure,
+"""Step 0's pure pieces: the publication closure,
 the destination pins, the usable operations root and destination, and the two
 records the operations root holds — the selection snapshot and the request."""
 
@@ -51,14 +51,13 @@ PUBLISHING_COORDINATION = frozenset(
     for version in (1, 2, 3)
     if "publication" in shipped_coordination(version).kinds
 )
-"""The coordination pins that authorize a publication marker (spec §4.1 item 6)."""
+"""The coordination pins that authorize a publication marker."""
 V3_PIN = "coordination:" + shipped_coordination(3).content_identity
 
 
 def closure_missing(view, selected: tuple[str, ...]) -> tuple[str, ...]:
-    """Every world-relation endpoint of a selected record outside the selection
-    (spec §4.1 item 5), by its live address, or by its stored spelling when it
-    does not resolve. `view` answers `get(id)` and `resolve(ref)`."""
+    """Every world-relation endpoint of a selected record outside the selection, by its live
+    address, or by its stored spelling when it does not resolve. `view` answers `get(id)` and `resolve(ref)`."""
     chosen = set(selected)
     missing: set[str] = set()
     for address in selected:
@@ -78,7 +77,7 @@ def closure_missing(view, selected: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def derive_pins(manifests: Mapping[str, CorpusPins], written: CorpusPins) -> CorpusPins:
-    """The destination's one `CorpusPins` (spec §4.1 item 6): one base contract,
+    """The destination's one `CorpusPins`: one base contract,
     the union of the contributing domains, and the written root's coordination
     pin, which must authorize `publication`."""
     corpus_ids = tuple(sorted(manifests))
@@ -116,8 +115,7 @@ def _inside(path: Path, other: Path) -> bool:
 def require_usable(
     operations_root: Path, destination: Destination, *, forbidden: Sequence[Path]
 ) -> tuple[Path, Destination]:
-    """The resolved operations root and the destination the intent freezes
-    (publish-act-local §4.1 item 7; publish-act-remote §4.1): the operations root
+    """The resolved operations root and the destination the intent freezes: the operations root
     is an existing directory outside every mounted corpus root and the world root
     (`forbidden`). A local destination is an existing directory, resolved, neither
     it nor the operations root inside the other or inside `forbidden`. A remote
@@ -151,7 +149,7 @@ def _hex(value: object, pattern: re.Pattern[str], where: str) -> None:
 
 @dataclass(frozen=True)
 class Snapshot:
-    """The selected records' canonical text, frozen at step 0 (spec §4.3)."""
+    """The selected records' canonical text, frozen at step 0."""
 
     event_token: str
     records: tuple[tuple[str, str], ...]
@@ -231,7 +229,7 @@ def decode_snapshot(data: bytes) -> Snapshot:
 
 @dataclass(frozen=True)
 class PublishRequest:
-    """Every identity-bearing input of one attempt, frozen at step 0 (spec §4.5)."""
+    """Every identity-bearing input of one attempt, frozen at step 0."""
 
     event_token: str
     view: CoordinationAddress
@@ -309,8 +307,8 @@ _MARK_FIELDS = frozenset({"domain", "event_token", "destination", "corpus_id", "
 
 @dataclass(frozen=True)
 class TransportMark:
-    """The durable record that a remote reveal may have begun (publish-act-remote
-    §4.2, decision 2): written create-only after step 6 and before the first `push`."""
+    """The durable record that a remote reveal may have begun:
+    written create-only after step 6 and before the first `push`."""
 
     event_token: str
     destination: Destination

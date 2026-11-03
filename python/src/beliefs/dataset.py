@@ -1,16 +1,16 @@
-"""Datasets: the declaration, the §6.2 basis projection, and the derived state.
+"""Datasets: the declaration, the basis projection, and the derived state.
 
-The admission ramp's ruling (2026-08-09 §6), executable. Three states decided in
+The admission ramp, executable. Three states decided in
 order — basis first, then holding — and the state is **derived, never stored**:
 nothing here has a state field, `admission_state` recomputes from a declaration
 and the byte observations *supplied to the call*, and no API accepts an authored
-`held` (G9).
+`held`.
 
-Where a verified observation is *recorded* is the ramp's §8 item 2 and is
-undesigned; an argument's type is not a storage design (cut 2 §2.1). That is why
-`ByteObservation` is two fields and no timestamp: §8 item 1 (probe-evidence
-lifetime) is open, a supplied observation's currency is the caller's assertion,
-and a field would invite reading it.
+Where a verified observation is *recorded* is not decided here; an argument's
+type is not a storage design. That is why `ByteObservation` is two fields and no
+timestamp: how long probe evidence stays valid is open, a supplied
+observation's currency is the caller's assertion, and a field would invite
+reading it.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ __all__ = [
     "dataset_address",
 ]
 
-# Which digest algorithms pin bytes is owed to the profile (ramp §6.2) and not
+# Which digest algorithms pin bytes is owed to the profile and not
 # yet ruled; every digest in the measured corpus is sha256. The projection's
 # algorithm prefix is what makes the set expressible when it is ruled.
 ACCEPTED_ALGORITHMS: frozenset[str] = frozenset({"sha256"})
@@ -55,7 +55,7 @@ def _require_digest(value: str, where: str) -> None:
 class ResourceDeclaration:
     """One declared resource. `digest is None` means the record declares no
     digest for it — an unpinned resource, which leaves the whole dataset
-    without a content identity (§6.2, all-or-nothing)."""
+    without a content identity (all-or-nothing)."""
 
     name: str
     digest: str | None
@@ -82,7 +82,7 @@ class DatasetDeclaration:
 class ByteObservation:
     """A byte observation supplied as an argument: bytes were produced and
     hashed, and this is their digest. Location is reporting material and never
-    the discriminator (G9, kernel §2.2)."""
+    the discriminator."""
 
     digest: str
     location: str
@@ -109,7 +109,7 @@ def _pinned(declaration: DatasetDeclaration) -> tuple[str, ...] | None:
 
 
 def dataset_address(declaration: DatasetDeclaration) -> str | None:
-    """The dataset basis projection (ramp §6.2): dedupe, sort byte-wise, join
+    """The dataset basis projection: dedupe, sort byte-wise, join
     with newlines and terminate with one, UTF-8, sha256. Names, order,
     repetition and byte counts do not participate. None = no content identity —
     the projection is never applied to an empty set, so sha256 of the empty
@@ -130,7 +130,7 @@ class ResourceFinding:
     """`matched` | `mismatch` | `no-matching-observation-in-coverage`.
 
     The third is never spelled `unheld`: a run over one coverage cannot
-    conclude absence, only that it saw no matching bytes (ramp §6.5)."""
+    conclude absence, only that it saw no matching bytes."""
 
     observed: tuple[str, ...] = ()
 
@@ -139,9 +139,8 @@ class ResourceFinding:
 @final
 @dataclass(frozen=True)
 class CurationNote:
-    """No content identity: not a dataset entity, not addressable (W3 as
-    amended). The ramp's repair is explicit in both directions — pin the last
-    resource, or narrow the declaration to what is pinned."""
+    """No content identity: not a dataset entity, not addressable. The ramp's repair is explicit in
+    both directions — pin the last resource, or narrow the declaration to what is pinned."""
 
     reason: str
 
@@ -151,7 +150,7 @@ class CurationNote:
 @dataclass(frozen=True)
 class Declared:
     """A world entity, addressable and authorable — and never belief-eligible
-    (G2b refuses it)."""
+    (admission refuses it)."""
 
     findings: tuple[ResourceFinding, ...]
 
@@ -161,7 +160,7 @@ class Declared:
 @dataclass(frozen=True)
 class Held:
     """Every declared digest has a matching byte observation. Belief-eligible,
-    subject to the rest of kernel §3."""
+    subject to the rest of the admission rules."""
 
     digests: tuple[str, ...]
 

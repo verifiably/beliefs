@@ -1,11 +1,10 @@
-"""Lineage snapshot values and independence certification (substrate §5, S5).
+"""Lineage snapshot values and independence certification.
 
 Consumes a **supplied** snapshot only. The walk that *produces* a snapshot from
 a store — resolving refs against `nodes`, following the boundary-minted basis
-across a live corpus — is S1a's and the write API's, and stays out of this
-module by cut 2 §4.2. What lives here is the pure computation substrate §5
-specifies once a snapshot is in hand: the tagged basis, the divergence test,
-and the certification procedure over it.
+across a live corpus — is the store's and the write API's, and stays out of
+this module. What lives here is the pure computation once a snapshot is in hand: the tagged basis,
+the divergence test, and the certification procedure over it.
 
 **Orientation and the basis.** `derived_from` is a *view* over a run's
 `produces ∘ transforms`, not a stored edge, so what is durable is the
@@ -17,23 +16,22 @@ content address disagree. `Basis` enforces the tagging at construction: a
 distinct sorted routes, is refused (`MalformedSnapshot`) so that a conflict
 that never occurred cannot be spelled (one representation per fact).
 
-**Certification (substrate §5's procedure, condensed to the supplied-snapshot
-form).** For each side's roots: the inspected set is `{root} ∪ closure`,
-walked through basis routes' resolved ancestors — start-excluding traversal
+**Certification (condensed to the supplied-snapshot form).** For each side's roots: the inspected
+set is `{root} ∪ closure`, walked through basis routes' resolved ancestors — start-excluding traversal
 plus the explicit root, because deleting the root's own immediate parent must
-still be seen (§5 step 1). Then, in order: any `conflict` basis in the
+still be seen. Then, in order: any `conflict` basis in the
 inspected set decides `lineage-divergent` on the **tag alone**, before any
-resolution or comparison (§5 step 2, short-circuit); any unresolved basis
-entry, absent input, or cycle decides `lineage-incomplete` (§5 step 2b); any
+resolution or comparison (short-circuit); any unresolved basis
+entry, absent input, or cycle decides `lineage-incomplete`; any
 remaining `single` basis whose producer set holds a `transforms` divergence
-from the route decides `lineage-divergent` (§5 step 3, and *only* against
+from the route decides `lineage-divergent` (*only* against
 `single` — a conflict has no one route to diverge from, already decided). Only
 complete, undiverged, **disjoint** closures certify
 `independent`; complete, undiverged, overlapping closures certify
 `shared-source`; anything else is `not-certified` — never a synonym for
 `shared-source`, which asserts *demonstrated* common ancestry.
 
-**The projection (kernel §5.1).** `snapshot_projection` renders the snapshot
+**The projection.** `snapshot_projection` renders the snapshot
 as content the identity contract can digest: roots, basis tuples with the tag
 inside, producer sets, and derived divergence states. Every stored ref and its
 resolution are recorded **separately** — `{"stored": ref, "resolved": [] |
@@ -134,7 +132,7 @@ def _route_sort_key(route: Route) -> tuple[object, ...]:
 class Basis:
     """`single` (exactly one route) or `conflict` (at least two, distinct,
     sorted) — anything else is refused at construction, so a conflict that
-    never occurred cannot be spelled (substrate §5, sub-problem 4 §5.2)."""
+    never occurred cannot be spelled."""
 
     tag: str
     routes: tuple[Route, ...]
@@ -181,7 +179,7 @@ class LineageSnapshot:
     """The supplied snapshot: observed roots, one basis per dataset that has
     one, and the producer set per dataset. A root absent from `bases` is a
     root whose own basis names nothing — not an error, and not incompleteness
-    on its own (§5 step 1 still inspects it)."""
+    on its own (the walk still inspects it)."""
 
     roots: tuple[str, ...]
     bases: Mapping[str, Basis]
@@ -264,9 +262,8 @@ def divergence_state(snapshot: LineageSnapshot, dataset: str) -> str:
     `single` basis route; `"incomplete"` if an input is absent; `"undiverged"`
     otherwise. A replay whose transforms equal the route's is not divergence.
 
-    Defined **only** against an effectively single basis — one surviving route
-    (slice 1 §5). An unresolved producer's `transforms` are still literal,
-    stored data and participate in the comparison unless the producer is
+    Defined **only** against an effectively single basis — one surviving route. An unresolved
+    producer's `transforms` are still literal, stored data and participate in the comparison unless the producer is
     explicitly absent, when its empty transforms are unknown.
 
     Raises `BasisTagMismatch` for a `conflict` basis: the snapshot itself is
@@ -298,7 +295,7 @@ def _closure(snapshot: LineageSnapshot, root: str) -> tuple[frozenset[str], tupl
     """Inspected set and findings for one root: `{root} ∪` transitive
     ancestors through basis routes. Start-excluding traversal plus the
     explicit root — a root whose own parent is gone must still be inspected
-    (substrate §5 step 1).
+    (the walk always inspects the root).
 
     A `single` basis gives each dataset exactly one route, so one root's walk
     through `single` bases is a single chain: a dataset reached a second time
@@ -359,7 +356,7 @@ def _walk_all(snapshot: LineageSnapshot, roots: tuple[str, ...]) -> tuple[frozen
 
 
 def certify(snapshot: LineageSnapshot, roots_a: tuple[str, ...], roots_b: tuple[str, ...]) -> Certification:
-    """Substrate §5's procedure over the supplied snapshot: walk each side's
+    """The certification procedure over the supplied snapshot: walk each side's
     roots, and decide in order — conflict (tag alone), then
     incomplete/cycle, then single-basis divergence, folded together per
     dataset by `_closure`; findings are deduplicated order-stably. Only
@@ -403,8 +400,7 @@ def absences(snapshot: LineageSnapshot) -> tuple[Absence, ...]:
 
 def _ref_projection(stored: str, resolved: str | None) -> dict[str, object]:
     """`{"stored": ref, "resolved": [] | [uid]}` — the identity encoder
-    refuses `None`, and recording either half alone loses a deletion (kernel
-    §5.1)."""
+    refuses `None`, and recording either half alone loses a deletion."""
     return {"stored": stored, "resolved": [] if resolved is None else [resolved]}
 
 
@@ -427,14 +423,13 @@ def _producer_projection(producer: Producer) -> dict[str, object]:
 
 
 def snapshot_projection(snapshot: LineageSnapshot) -> dict[str, object]:
-    """The kernel §5.1 snapshot components as identity-encodable content:
+    """The snapshot components as identity-encodable content:
     sorted roots; every basis, tagged, with each route's stored ref and
     resolution recorded separately; every producer set, the same way, with
     transforms; and the derived divergence state per basis — `"divergent"` on
     the tag alone for a `conflict`, else `divergence_state`'s result.
 
-    It also records the absent corpus per not-present reference
-    (world-resolution slice 1 §5.1)."""
+    It also records the absent corpus per not-present reference."""
     bases = {
         dataset: {
             "tag": basis.tag,

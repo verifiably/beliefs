@@ -1,10 +1,10 @@
-"""The typed estimand (estimand-typing design §3, §7.1, §7.3).
+"""The typed estimand.
 
 `Estimand` is opaque and reachable only through `build_estimand`, which types
 it against the **claim** it answers: the claim's operator fixes every sort
 through the operator's `estimands:` declaration, and the claim's identity
 enters the value so the estimand says which proposition it answers. Every
-referent is resolved under D3's five outcomes; only `not-member` refuses.
+referent is resolved under its five outcomes; only `not-member` refuses.
 Nothing here is read by `science.belief.v1`.
 """
 
@@ -165,7 +165,7 @@ class StandardError:
 @final
 @dataclass(frozen=True, init=False)
 class Estimand:
-    """Opaque: the only route in is `build_estimand` (M13's shape, one artifact over)."""
+    """Opaque: the only route in is `build_estimand` (the same shape as `Claim`, one artifact over)."""
 
     claim: str
     operator: str
@@ -289,11 +289,11 @@ def build_estimand(
 
     `**richer` exists to be refused: a second measure, a second reference, a
     multi-arm contrast handed in under any keyword is outside the inhabited
-    fragment (§3.3), and the refusal names it rather than flattening it."""
+    fragment, and the refusal names it rather than flattening it."""
     if richer:
         raise EstimandFragmentRefused(
             f"the inhabited fragment admits one contrast on one slot, one measure, one reference, one identification and "
-            f"one flat conditioning set; {sorted(richer)} is outside it and is refused, not flattened (estimand-typing §3.3)"
+            f"one flat conditioning set; {sorted(richer)} is outside it and is refused, not flattened"
         )
     if not isinstance(claim, Claim):
         raise UntypedEstimandMember(f"an estimand is built against a Claim, found {type(claim).__name__}")
@@ -320,8 +320,8 @@ def build_estimand(
 def build_applicability(
     profile: ProfileSpec, claim: Claim, qualifiers: Mapping[str, Qualifier], *, snapshot: ResolutionSnapshot
 ) -> tuple[Mapping[str, Qualifier], BindingCheckReceipt]:
-    """The claim grammar's flat fragment over the target operator's dimensions
-    (§4): every check `Claim._checked` performs on a qualifier, performed here on
+    """The claim grammar's flat fragment over the target operator's dimensions:
+    every check `Claim._checked` performs on a qualifier, performed here on
     the applicability map, then each restriction resolved."""
     if not isinstance(claim, Claim):
         raise UntypedEstimandMember(f"applicability is built against a Claim, found {type(claim).__name__}")
@@ -342,7 +342,7 @@ def _referent(referent: Referent) -> dict[str, str]:
 
 
 def estimand_projection(estimand: Estimand) -> dict[str, object]:
-    """The canonical projection (§3.2): `claim`, `operator`, the contrast by kind,
+    """The canonical projection: `claim`, `operator`, the contrast by kind,
     `measure`, `reference`, `control` with conditioning sorted. Decimals stay
     `Decimal`; identity v1 renders them canonically at encode."""
     contrast: dict[str, object] = {"slot": estimand.contrast.slot}
@@ -385,7 +385,7 @@ def uncertainty_projection(uncertainty: Interval | StandardError) -> dict[str, o
 
 
 def uncertainty_from_mapping(mapping: object, *, estimate: Decimal | None, scale: str) -> Interval | StandardError:
-    """`uncertainty_projection`'s inverse, checked (§6): decode a `{"kind": …}`
+    """`uncertainty_projection`'s inverse, checked: decode a `{"kind": …}`
     body — a rule's raw output or a stored record's restored `typed` member —
     into an `Interval` or a `StandardError`, then run `check_uncertainty`
     against the estimate it accompanies and the estimand's scale. The one
@@ -415,7 +415,7 @@ def uncertainty_from_mapping(mapping: object, *, estimate: Decimal | None, scale
 
 
 def commensuration_key(estimand: Estimand) -> dict[str, object]:
-    """§7.3: the projection with `control.identification` removed — the design
+    """The projection with `control.identification` removed — the design
     key a weight table reads is the one member outside the key."""
     projection = estimand_projection(estimand)
     control: dict[str, object] = dict(projection["control"])  # type: ignore[arg-type]
@@ -429,7 +429,7 @@ def commensurable(a: Estimand, b: Estimand) -> bool:
 
 
 def co_scoped(a: Mapping[str, Qualifier], b: Mapping[str, Qualifier]) -> bool:
-    """Canonical map equality over two applicability maps (M5's). Outside the
+    """Canonical map equality over two applicability maps. Outside the
     estimand and outside `commensurable`; a successor policy reads both."""
     return applicability_projection(a) == applicability_projection(b)
 
@@ -444,7 +444,7 @@ def check_estimate(estimate: Decimal, scale: str) -> Decimal:
 
 
 def check_uncertainty(uncertainty: Interval | StandardError, estimate: Decimal, scale: str) -> None:
-    """§6's one meaning per kind: a two-sided central interval at `level` around
+    """One meaning per kind: a two-sided central interval at `level` around
     the estimate on its own scale; a standard error on the scale's additive form."""
     if scale not in SUPPORTED_SCALES:
         raise UncertaintyRefused(f"scale {scale!r} is not operable")

@@ -1,8 +1,8 @@
-"""Payload validation for schema-shaped facets (facet-contracts design §3.4, §4.1).
+"""Payload validation for schema-shaped facets.
 
 Shape only: a `ref` is checked for its kind prefix and a non-empty local, never
-for resolution, which is the writer's seam rule (§5.2); an `actor` is checked
-non-empty, never for identity, which is the writer's binding rule (§5.3).
+for resolution, which is the writer's seam rule; an `actor` is checked
+non-empty, never for identity, which is the writer's binding rule.
 """
 
 from __future__ import annotations

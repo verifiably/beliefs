@@ -1,4 +1,4 @@
-"""The held probe that gates the confined engine (design §6.1–§6.2).
+"""The held probe that gates the confined engine.
 
 It runs inside the sandbox as the engine's own process: performs its checks,
 writes the report and READY on the report descriptor, waits for GO on the go
@@ -91,7 +91,7 @@ def _elf_architecture(path: str) -> tuple[int, int, int]:
     """(EI_CLASS, EI_DATA, e_machine) — the same identity triple adapter.py's
     ``_elf_architecture`` computes on the host, mirrored here so the probe
     lists exactly the architecture-matched set the capture's loader map
-    covers (design §5.3, ruling R4)."""
+    covers."""
     with open(path, "rb") as handle:
         header = handle.read(20)
     endian = "<" if header[5] == 1 else ">"
@@ -102,9 +102,8 @@ def _elf_architecture(path: str) -> tuple[int, int, int]:
 def _elves() -> list[str]:
     """Every loadable ELF regular file under the environment root whose
     architecture matches the running interpreter's own — the same
-    architecture-matched set the boundary's loader map covers (design §5.3,
-    ruling R4); symlinked directories are not followed. A foreign-architecture
-    file (a vendored solver for another platform, say) stays outside the
+    architecture-matched set the boundary's loader map covers; symlinked directories are not
+    followed. A foreign-architecture file (a vendored solver for another platform, say) stays outside the
     probe's listing exactly as it stayed outside the captured map."""
     reference = _elf_architecture(os.path.realpath(sys.executable))
     found: list[str] = []
@@ -125,7 +124,7 @@ def _elf_library_path(path: str) -> tuple[str, ...]:
     """DT_RUNPATH if present, else DT_RPATH, $ORIGIN-expanded against the
     binary's own real location, deduplicated in order — the interpreter's
     own resolution context, read fresh from the in-layout copy rather than
-    imported from `adapter.py` (design §5.3, ruling R6: the probe's listing
+    imported from `adapter.py` (the probe's listing
     supplies the same explicit `--library-path` the host capture does, so
     both model the one RPATH inheritance the runtime actually has)."""
     with open(path, "rb") as handle:
@@ -219,7 +218,7 @@ def _elf_library_path(path: str) -> tuple[str, ...]:
         # probe has no such second pass and reports the loader's own listed
         # path verbatim, so an un-normalized directory here would make the
         # loader echo a "resolved" string the captured map never recorded,
-        # even though both name the identical file (ruling R6).
+        # even though both name the identical file.
         expanded = os.path.normpath(part.replace("$ORIGIN", origin).replace("${ORIGIN}", origin))
         if expanded not in seen:
             seen.add(expanded)
@@ -236,7 +235,7 @@ def _listing(loader: str, path: str, library_path: tuple[str, ...]) -> dict[str,
     supplementing it, so `library_path` carries the declared
     `LD_LIBRARY_PATH` (`_ENV_LIB`) alongside the interpreter's own RPATH
     directories — otherwise a plain flat-lib dependency no longer resolves
-    once `--library-path` is given at all (ruling R6)."""
+    once `--library-path` is given at all."""
     argv = [loader]
     if library_path:
         argv.extend(["--library-path", ":".join(library_path)])

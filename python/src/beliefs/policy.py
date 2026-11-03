@@ -1,18 +1,17 @@
 """``science.belief.v1`` — the reference aggregation policy.
 
-Belief-policy §2–§3: `V = ℤ`, prior `0`, distance `|a − b|`, unit weight, sum.
+The reference policy: `V = ℤ`, prior `0`, distance `|a − b|`, unit weight, sum.
 The value is a **signed evidence balance** — independent corroboration minus
 effective contestation — and must **never be rendered as odds or a
-probability** (belief-policy §3.1). Implementations use unbounded integers; a
-fixed-width implementation that would overflow must **refuse**, not saturate
-(§3.5).
+probability**. Implementations use unbounded integers; a
+fixed-width implementation that would overflow must **refuse**, not saturate.
 
 The policy identity binds `aggregate` **end to end**, not a decomposition of
-it (§2.1): every step of kernel §4.2.1's algorithm — the independent-set
+it: every step of the algorithm — the independent-set
 selection, the contestation reduction, the clamp, the candidate ordering, the
 tie-break — is normative, and a change to any of them changes belief. That is
-what the fixture set below exists to pin (§2.2), and what P5 (see
-`tests/test_aggregation.py`) exercises as a live check: an implementation that
+what the fixture set below exists to pin, and what the weight check in
+`tests/test_aggregation.py` exercises as a live check: an implementation that
 smuggles in a per-assessment weight is a different policy, and must fail these
 fixtures even though it is *called* `science.belief.v1`.
 """
@@ -45,9 +44,8 @@ __all__ = [
 @final
 @dataclass(frozen=True)
 class PolicyBinding:
-    """`(policy rule identity, implementation content identity)` (belief-policy
-    §2.2) — the exact pair a belief computation carries, never the rule alone:
-    finite fixtures cannot force two conforming implementations to agree
+    """`(policy rule identity, implementation content identity)` — the exact pair a belief
+    computation carries, never the rule alone: finite fixtures cannot force two conforming implementations to agree
     outside them, so a derivation names the implementation it actually used."""
 
     rule: str
@@ -67,10 +65,10 @@ class DirectionalInput:
     """A vertex of the dependency graph: an assessment uid and its direction.
 
     `sign` is `+1` or `-1` only. `inconclusive` (`direction = 0`) is not a
-    vertex (belief-policy §3.4): a zero-weight vertex would still compete for
+    vertex: a zero-weight vertex would still compete for
     cardinality in a cardinality-first selection, displacing a contributing
     assessment from the winning selection through a channel with no evidential
-    content. Weight has no field here — P5 turns on that absence."""
+    content. Weight has no field here — the weight check turns on that absence."""
 
     assessment: str
     sign: int
@@ -78,8 +76,7 @@ class DirectionalInput:
     def __post_init__(self) -> None:
         if self.sign not in (1, -1):
             raise MalformedRecord(
-                f"a directional input's sign must be +1 or -1, got {self.sign!r}; "
-                "inconclusive (0) is not a vertex (belief-policy §3.4)"
+                f"a directional input's sign must be +1 or -1, got {self.sign!r}; inconclusive (0) is not a vertex"
             )
 
 
@@ -87,7 +84,7 @@ class DirectionalInput:
 @final
 @dataclass(frozen=True)
 class AggregationInput:
-    """The dependency graph kernel §4.2.1 aggregates over: directional vertices
+    """The dependency graph the aggregation runs over: directional vertices
     and the certified-dependency edges between them. An edge joins every pair
     of assessments *not* certified independent — so its absence is a positive
     claim of independence, not the default state of ignorance."""
@@ -119,7 +116,7 @@ def _independent(combo: tuple[str, ...], edges: frozenset[frozenset[str]]) -> bo
 def _maximum_selections(ids: tuple[str, ...], edges: frozenset[frozenset[str]]) -> list[tuple[str, ...]]:
     """Every maximum-cardinality independent set. Exact, always — no bound, no
     greedy fallback: a lower bound on cardinality is not a lower bound on
-    belief (kernel §4.2.1)."""
+    belief."""
     for size in range(len(ids), 0, -1):
         found = [c for c in itertools.combinations(ids, size) if _independent(c, edges)]
         if found:
@@ -144,7 +141,7 @@ def aggregate_v1(problem: AggregationInput) -> int:
         # The same exact enumerator over the contrary subgraph. Under unit
         # weight every maximum contrary selection has the same magnitude, so
         # inheriting the outer objective is invisible here — that edge is
-        # S6(h), a named acceptance condition binding the first successor
+        # a named acceptance condition binding the first successor
         # policy admitting unequal weights, recorded rather than run.
         magnitude = len(_maximum_selections(contrary, edges)[0])
         return value - direction * min(magnitude, abs(value))  # clamped at the prior
@@ -179,7 +176,7 @@ def _fixture(signs: dict[str, int], edges: tuple[tuple[str, str], ...], expected
 
 BELIEF_V1_FIXTURES: tuple[FixtureCase, ...] = (
     # Two independent supports: no edge between A and C, so both are
-    # selected and the value is 2. P5's detector — a per-assessment weight on
+    # selected and the value is 2. The weight check's detector — a per-assessment weight on
     # either vertex changes this away from the plain count.
     _fixture({"A": 1, "C": 1}, (), 2),
     # A—B—C chain, all supporting: {A, C} is the unique maximum independent
@@ -213,7 +210,7 @@ BELIEF_V1_FIXTURES: tuple[FixtureCase, ...] = (
 @dataclass(frozen=True)
 class PolicyImplementation:
     """A named `aggregate` callable — the exact content identity a
-    `PolicyBinding` pins (belief-policy §2.2)."""
+    `PolicyBinding` pins."""
 
     identity: str
     aggregate: Callable[[AggregationInput], int]

@@ -1,4 +1,4 @@
-"""Derivation-side reads of domain facets (biology pack design §5)."""
+"""Derivation-side reads of domain facets."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ class FacetRead:
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise MalformedRecord(
             "FacetRead is minted by the reader — use read_observed_facets(profile, view, target). A field-wise "
-            "constructor would let a caller author the read ledger the consulted walk digests (F §5.6)."
+            "constructor would let a caller author the read ledger the consulted walk digests."
         )
 
     @classmethod
@@ -60,7 +60,7 @@ def read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> t
     if type(view) is not ReadView:
         raise MalformedRecord(
             f"the domain-facet reader reads through a corpus ReadView, not a {type(view).__name__}; a row is a "
-            "receipt for a read against a corpus, and nothing else can mint one (B3)"
+            "receipt for a read against a corpus, and nothing else can mint one"
         )
     if not view.holds(target):
         raise MalformedRecord(

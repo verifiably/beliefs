@@ -1,9 +1,8 @@
-"""Mint a produced dataset from one production run's manifest (R23).
+"""Mint a produced dataset from one production run's manifest.
 
 The stamped basis attests one derivation route when an address is first minted;
-a later producing run adds its own edge and preserves that basis unchanged
-(computation §5.2). Divergence, deletion, conflict, and all store/audit
-behaviour are deliberately deferred to the store and audit.
+a later producing run adds its own edge and preserves that basis unchanged. Divergence, deletion,
+conflict, and all store/audit behaviour are deliberately deferred to the store and audit.
 """
 
 from __future__ import annotations

@@ -1,5 +1,4 @@
-"""The instrumented resolver — the only corpus-backed belief evaluation path
-(world-changing families §6.3, formal model M1).
+"""The instrumented resolver — the only corpus-backed belief evaluation path.
 
 `gather` is **the** resolver: every value a belief evaluation obtains from a
 corpus comes through it, and it appends to `read_trace` at the moment each
@@ -13,7 +12,7 @@ filtering member for member, and containment is `read_trace ⊆ declared_refs`.
 resolves to nothing yields no value and traces nothing, which is why a
 proposition carrying no claim record needs no declaration for the attempt.
 
-**M1's bound is real and stays stated:** the row is bounded by this resolver.
+**The bound is real and stays stated:** the containment check is bounded by this resolver.
 A read that never crosses it — a module-level constant, an environment
 lookup, a cached global, a file opened directly — is invisible and passes.
 
@@ -23,7 +22,7 @@ set, and it is named here rather than left for a reader to discover.
 declaration for **every** role — `reads` and `transforms` as well as
 `observes` — so a `reads` declaration is handed out inside a run value
 without a `("dataset", …)` trace entry. That is not a gap in the
-instrumentation but the closure's own shape: the design's `declared_refs`
+instrumentation but the closure's own shape: `declared_refs`
 table admits dataset refs only under `observes`, mirroring `build_closure`'s
 `observes` member, and no closure member consumes any other role's
 declaration. Tracing one would record a read the digest cannot move for,
@@ -149,7 +148,7 @@ class EvaluationInputs:
         """`build_closure`'s filtering, member for member, as `(kind, ref)`
         pairs. The two exclusions are the point: **not** every key of `runs`
         and **not** every verification — declaring those would admit a read
-        of an unrelated run or verification that the digest omits, and M1
+        of an unrelated run or verification that the digest omits, and the containment check
         would pass on exactly the code it exists to catch."""
         ours = tuple(a for a in self.assessments if a.proposition == self.proposition)
         ids = {a.identity() for a in ours}
@@ -186,7 +185,7 @@ class EvaluationInputs:
 
 
 def _verification_selected(value: Verification, ids: frozenset[str]) -> bool:
-    """The one predicate M1's sabotage flips: an unrelated verification read
+    """The one predicate the containment sabotage flips: an unrelated verification read
     through the resolver must fail containment while leaving the digest alone."""
     return value.assessment in ids
 
@@ -199,7 +198,7 @@ def _expected_facet_rows(node: Node, address: str) -> frozenset[tuple[str, str, 
 
 
 def _facets_held_to_capture(profile: ProfileSpec, view: WorldReadView, target: str) -> tuple[FacetRead, ...]:
-    """Read through the holding corpus's exact ReadView, then bind its rows to the capture (§5.3)."""
+    """Read through the holding corpus's exact ReadView, then bind its rows to the capture."""
     captured = view.get(target)
     address = dataset_address(stored.dataset_declaration(captured))
     rows = read_observed_facets(profile, view.corpus_view(target), target)
@@ -215,7 +214,7 @@ def _facets_held_to_capture(profile: ProfileSpec, view: WorldReadView, target: s
 
 
 def _captured_holders(view: WorldReadView, ref: str) -> tuple[str, ...]:
-    """The captured corpora holding `ref` (cut 48 §6): the epoch's holders minus
+    """The captured corpora holding `ref`: the epoch's holders minus
     the absent ones; a damaged holder refused the read before any loop."""
     present = view.captured()
     return tuple(holder for holder in view.holders_of(ref) if holder in present)
@@ -285,7 +284,7 @@ def _check_filtered_world_standing(
     facets: Mapping[str, Mapping[str, object]],
     standing: Mapping[str, bool],
 ) -> None:
-    """One comparison of the filtered fold against the receipt (cut 48 §4.5).
+    """One comparison of the filtered fold against the receipt.
 
     `standing` is gather's own world fold over the accepted facets, resolved
     through the epoch's address map alone. The affected set is every rejected
@@ -308,7 +307,7 @@ def _check_filtered_world_standing(
                 computed,
                 detail=(
                     f"{canonical}: the enumeration records two resolutions, {earlier!r} and {recorded!r}; "
-                    "one fold cannot reproduce both (cut 48 §4.5: the epoch folded per corpus over a split)"
+                    "one fold cannot reproduce both (the epoch folded per corpus over a split)"
                 ),
             )
     affected = {ref for ref in receipt if ref not in facets}
@@ -370,8 +369,7 @@ def _gather(
     """Resolve one proposition's belief inputs from a corpus, tracing each
     value at the moment it is handed out.
 
-    Standing is decided here, before any assessment is read (correction-
-    remainder slice 1 §4): the retraction enumeration is the view's — the
+    Standing is decided here, before any assessment is read: the retraction enumeration is the view's — the
     bound epoch's for a world read, the corpus's own fold for a corpus-local
     read — never the caller's; every found retraction is dereferenced and the
     fold recomputed over what it names; a node-arm target of a standing
@@ -421,7 +419,7 @@ def _gather(
             canonical = view.resolve(ref)
             if canonical is None:
                 raise RetractionUnreadable(ref, "the inventoried reference does not resolve")
-            # Accepted iff any captured holder's branch says so (cut 48 §6), every holder asked;
+            # Accepted iff any captured holder's branch says so, every holder asked;
             # a damaged holder refused the read above, and an absent one is not captured.
             if isinstance(view, WorldReadView):
                 holders = _captured_holders(view, ref)
@@ -487,7 +485,7 @@ def _gather(
     attribution: dict[str, set[str]] = {}
     matched: list[AssessmentValue] = []
     proposition_refs: list[str] = []
-    visited: set[str] = set()  # this proposition's assessment ids, subtracted included (decision 10)
+    visited: set[str] = set()  # this proposition's assessment ids, subtracted included
     verification_targets: set[str] = set()
     candidates: Iterable[tuple[tuple[str | None, ...], Node]] = (
         view._mapped_holders() if world else (((local_corpus,), node) for node in view.iter_stored())
@@ -495,7 +493,7 @@ def _gather(
     for holders, node in candidates:
         if node.kind != "assessment":
             continue
-        # Accepted iff any captured holder's branch says so, every holder asked (cut 48 §6).
+        # Accepted iff any captured holder's branch says so, every holder asked.
         decisions = None if counts is None else [counts(cast(str, holder), node.id) for holder in holders]
         accepted = decisions is None or any(decisions)
         # beliefs-010c6e: membership by the `assesses` edge, before any decode.
@@ -534,7 +532,7 @@ def _gather(
             if corpus_id is not None:
                 absent.append((ref, corpus_id))
             elif not world:
-                # Decision 9 reaches the run itself (spec §13, final review): a session
+                # The refusal reaches the run itself: a session
                 # writes an assessment over a read mount's run, so a corpus-local read
                 # refuses it, never skipping a run `evaluate` then indexes.
                 raise InputOutsideCorpus(a.identity(), ref, (ref,))
@@ -579,21 +577,21 @@ def _gather(
         if node.kind != "verification":
             continue
         if counts is not None:
-            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked (§6)
+            decided = [counts(cast(str, holder), node.id) for holder in holders]  # every holder asked
             if not any(decided):
                 continue
         names = {r.target for r in node.relations if r.predicate == stored.VERIFIES}
         if not any(view.resolve(name) in verification_targets for name in names if view.resolve(name) is not None):
-            continue  # membership by the `verifies` edge, never by decoding (decision 10)
+            continue  # membership by the `verifies` edge, never by decoding
         verification_ids.add(node.id)
         if node.id in subtracted:
-            continue  # the amended G8 clause (§7a): it leaves the read set; `active` recomputes over what remains
+            continue  # it leaves the read set; `active` recomputes over what remains
         value = stored.verification_value(node)
         if _verification_selected(value, ids):
             verifications.append(value)
             trace.append(("verification", value.ref))
 
-    # --- the closure's enumeration: this proposition's inputs, transitively (decision 10)
+    # --- the closure's enumeration: this proposition's inputs, transitively
     scope = visited | verification_ids | set(snapshot.bases)
     taken: set[str] = set()
     grew = True
@@ -603,9 +601,7 @@ def _gather(
             if ref in taken:
                 continue
             target = cast(Mapping[str, str], facet["target"])
-            key = (
-                None if target["arm"] == "snapshot" else target["resolved"]
-            )  # a snapshot arm is never in scope (decision 8)
+            key = None if target["arm"] == "snapshot" else target["resolved"]  # a snapshot arm is never in scope
             if key is not None and (key in scope or key in taken):
                 taken.add(ref)
                 grew = True
@@ -676,7 +672,7 @@ def _evaluate_over_inputs(
     acceptance: AcceptancePolicy | None = None,
 ) -> tuple[Belief | NoBelief | Refused, Admission, EvaluationInputs | None]:
     """`evaluate`'s step-1 guard first, then `gather`, then `evaluate_traced`,
-    carrying the admission and its gathered inputs (design §6.2).
+    carrying the admission and its gathered inputs.
 
     The guard runs before anything is read: without it the wrapper would open
     the corpus, or crash projecting `.rule` off a `None` or a string, before
@@ -749,7 +745,7 @@ def evaluate_over_traced(
     binding: object,
     acceptance: AcceptancePolicy | None = None,
 ) -> tuple[Belief | NoBelief | Refused, Admission]:
-    """Return the answer and its single traced admission (design §6.2)."""
+    """Return the answer and its single traced admission."""
     answer, admission, _inputs = _evaluate_over_inputs(
         view,
         proposition,

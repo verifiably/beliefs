@@ -1,4 +1,4 @@
-"""The publish doors (publication-records design §6): step 0 appends the
+"""The publish doors: step 0 appends the
 evidence-bearing intent; step 8 commits the binding revision with its report,
 or the refusal report alone. Neither has a public route."""
 
@@ -76,16 +76,16 @@ class BindingOutcome:
 @final
 @dataclass(frozen=True)
 class PreBinding:
-    """A publish report that ends before its binding entry (publish-act-local §7).
-    It binds no marker. Only a `transport-incomplete` one carries an orphan
-    (publish-act-remote §5.2): a marker possibly shared, which retires nothing."""
+    """A publish report that ends before its binding entry.
+    It binds no marker. Only a `transport-incomplete` one carries an orphan: a
+    marker possibly shared, which retires nothing."""
 
     outcome: str  # the last entry's outcome type
     orphan: tuple[str, str] | None = None
 
 
 def _orphan_of(entry: Entry) -> tuple[str, str] | None:
-    """§5.2 rule 2: `(corpus_id, marker)` when the last entry is `transport-incomplete`."""
+    """`(corpus_id, marker)` when the last entry is `transport-incomplete`."""
     if type(entry.outcome) is TransportIncomplete:
         return (entry.outcome.corpus_id, entry.outcome.marker)
     return None
@@ -95,7 +95,7 @@ def _reports_at(
     bound: ChainBound, view: CoordinationAddress, destination: Destination, seam: MomentSeam
 ) -> Iterator[tuple[PublishIntent, Mapping[str, object] | PositionRefused | PreBinding]]:
     """Every publish intent for (view, destination) within the bound, with the
-    report its committed fulfilment created, read and matched (spec §6)."""
+    report its committed fulfilment created, read and matched."""
     entries = bound.view.entries[: bound.head + 1]
     committed = {e.registration for e in entries if type(e) is SettledEntryView and e.committed}
     fulfilments: dict[str, list[RegisteredEntryView]] = {}
@@ -190,7 +190,7 @@ def marker_tips_at(
     seam: MomentSeam,
     binding_tips: tuple[CoordinationRevision, ...],
 ) -> tuple[tuple[str, str], ...] | PositionRefused:
-    """`marker_tips` at the position (spec §6): the markers the present binding
+    """`marker_tips` at the position: the markers the present binding
     tips bind, plus the standing orphans — remotely revealed refusals no shared
     publish has since superseded."""
     found = bounds(mounts, written=written, position=position, anchors=anchors, seam=seam)
@@ -242,7 +242,7 @@ def _judge(
     """Both readings at the intent's own position. The engine's refusal to
     inspect a chain (`LogEvidenceRefused`) is the chain refused as evidence:
     the binding door records it as `chain-malformed`, like any evidence
-    refusal, so a revealed marker still leaves its orphan (Ruling 6)."""
+    refusal, so a revealed marker still leaves its orphan."""
     intent = opened.intent
     mounts = resolver.mounted()
     written = Path(writer.root).resolve()
@@ -283,7 +283,7 @@ def _open_publication(
 ) -> OpenedPublication:
     """Step 0: judge at the written root's tip under its lock, freeze the reading
     into the intent, and append it. A `LogEvidenceRefused` propagates: nothing
-    is revealed and nothing written yet (Ruling 6)."""
+    is revealed and nothing written yet."""
     writer.authority.require("publish", ("publication-binding",))
     writer.authority.require("corpus-write", ("act-report",))
     profile = resolver.profile(writer.root)
@@ -300,7 +300,7 @@ def _open_publication(
             raise PublicationRefused("divergent-view", tips=resolved.tips)
         assert type(resolved) is Node
         if expected_view is not None and view.unpinned().pinned(resolved.uid) != expected_view:
-            # spec §4.2: the selection was evaluated before this lock, against another revision
+            # the selection was evaluated before this lock, against another revision
             raise PublicationRefused("view-revised")
         mounts = resolver.mounted()
         written = Path(writer.root).resolve()
@@ -432,9 +432,9 @@ def _refuse_publication(
     clock: Callable[[], str],
     port: OperationPort | None = None,
 ) -> ActReport:
-    """Publish-act-local §7: a refusal before the binding — the lifecycle entries
+    """A refusal before the binding — the lifecycle entries
     reached, the refusing one last — written alone in one fulfilling transaction.
-    Only a `transport-incomplete` entry carries orphan fields (publish-act-remote §5.1)."""
+    Only a `transport-incomplete` entry carries orphan fields."""
     writer.authority.require("publish", ("publication-binding",))
     writer.authority.require("corpus-write", ("act-report",))
     writer._require_pins_agree()
@@ -470,7 +470,7 @@ def _token_of(payload: bytes) -> str | None:
 
 def attempt_reading(writer: CorpusWriter, event_token: str, seam: MomentSeam) -> AttemptReading | None:
     """The completion reading of the publish intent carrying `event_token` on the
-    written chain (publish-act-local §9, planning note), read by the fold's own
+    written chain, read by the fold's own
     rule: no committed fulfilment is `unfinished`; a present, matching,
     qualifying report is `closed`; a report the fold refuses is `indeterminate`.
     `None` when no such intent is on the chain."""
@@ -501,8 +501,8 @@ def unfinished_attempts(
     writer: CorpusWriter, view: CoordinationAddress, destination: Destination, seam: MomentSeam
 ) -> tuple[str, ...]:
     """The tokens of every publish intent for `(view, destination)` on the written
-    chain with no committed fulfilling registration, ascending (publish-act-remote
-    §4.1). It reads chain entries only, never reports."""
+    chain with no committed fulfilling registration, ascending. It reads chain entries
+    only, never reports."""
     written = Path(writer.root).resolve()
     chain_view = seam.inspect_written(written)
     if type(chain_view) is not WellFormedView:

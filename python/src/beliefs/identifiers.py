@@ -24,9 +24,9 @@ non-emptiness and stringness, and nothing about form.
 preserve and a collision to prevent.** A `VocabularyBinding`'s fields are not a
 π_claim position; they are the input to a projection two identities are taken
 over. Two bindings differing only in normalization are two dictionary keys and
-one encoded binding, which is the same collision D §5's sum already had to be
+one encoded binding, which is the same collision a binding's sum already had to be
 closed against, arriving through the text instead of the shape. Refusing is also
-the contract layer's own discipline — D5's *"refused at load, never ignored"* —
+the contract layer's own discipline — the rule *"refused at load, never ignored"* —
 rather than a rule imported from elsewhere.
 
 **Comparison normalizes, because it must agree with `I_claim`.** A snapshot

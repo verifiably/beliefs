@@ -1,4 +1,4 @@
-"""Publication records (publication-records design §3–§4): the two addresses per
+"""Publication records: the two addresses per
 (view, destination), deterministic identities, the closed content rules, the
 factories, and the self-contained marker check. Pure: no clock, no randomness,
 no I/O — every byte is a function of the intent and the named arguments."""
@@ -164,7 +164,7 @@ def marker_record(
 def _world_record_id(value: object) -> bool:
     """A record id the publication can select: `nodes`' own id grammar
     (`NodeId.parse`, `kind:slug`) over a world kind — a publication selects
-    world records, never coordination ones (spec §3, "record ids")."""
+    world records, never coordination ones."""
     if type(value) is not str:
         return False
     try:
@@ -214,7 +214,7 @@ def _marker_release_malformed(node: Node, coordination_pin: str | None) -> bool:
 
 
 def publication_content_malformed(node: Node) -> bool:
-    """The closed per-kind rule beside `_validated_coordination_content` (spec §3)."""
+    """The closed per-kind rule beside `_validated_coordination_content`."""
     try:
         revision = coordination_revision(node)
     except MalformedRecord:
@@ -281,7 +281,7 @@ def publication_content_malformed(node: Node) -> bool:
 
 def marker_consistent(node: Node) -> bool:
     """Recompute the marker's uid, address and id from its own event token,
-    view and destination (spec §4); `False` on any difference or any rule failure."""
+    view and destination; `False` on any difference or any rule failure."""
     if node.kind != MARKER_KIND or publication_content_malformed(node):
         return False
     facet = node.facets[stored.COORDINATION_FACET]
