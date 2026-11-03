@@ -961,7 +961,7 @@ class CitationRefused(RecordError):
 
 
 class SignatureRefused(RecordError):
-    """An edge outside kernel the closed relation signatures — the sharp
+    """An edge outside the kernel's closed relation signatures — the sharp
     case being `assesses` from a source-assertion. Refused in the typed
     constructor: inertness is the default, belief-bearing is the declared
     exception, and the exception is declared exactly once."""

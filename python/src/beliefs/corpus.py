@@ -1725,7 +1725,7 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
     family faults this module can resolve. What it is silent on is a raw write
     that is **self-consistent** — the hash agrees because the writer computed
     it, and nothing structural is wrong because nothing is. That silence is
-    the stated bound, not a gap here. Snapshot-arm retractions are checked
+    a bound of this check: it cannot see a node that is consistent with itself. Snapshot-arm retractions are checked
     for shape and eligibility only; retained-ness needs the world and is
     `audit_world`'s.
     """

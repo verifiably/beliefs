@@ -783,12 +783,10 @@ def _write_intent_digest(plan: WritePlan, domain: str) -> str:
 CONSUMER_TAG = "science-corpus-write-v1"
 """The engine's consumer tag for every transaction this adapter commits.
 
-**Deviation from the original naming.** The original design named
-`science.corpus-write.v1`, which the engine refuses: `compile_spec` runs
+**The tag follows the engine's identifier grammar.** `compile_spec` runs
 `require_valid_identifier` over `consumer_tag`, whose grammar is
 `[A-Za-z0-9_-]{1,64}` — a tag is woven into a scratch-leaf path component, so
-the dot-versioned spelling cannot be shipped. The same name in the admitted
-grammar is used until a conforming tag is minted. Science's own identity
+a dotted spelling such as `science.corpus-write.v1` is refused. Science's own identity
 domains are unaffected: `INTENT_DOMAIN` above is a `science.identity.v1`
 domain and answers to that grammar, not to the engine's.
 """
