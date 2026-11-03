@@ -199,7 +199,7 @@ class UrlLocator:
 
 
 def url_locator(spelling: str) -> UrlLocator:
-    """Canonicalize under holdings §2's exact profile, or refuse."""
+    """Canonicalize under the holdings URL profile (exact, not best-effort), or refuse."""
     return UrlLocator(_canonical_url(spelling))
 
 
