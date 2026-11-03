@@ -34,7 +34,7 @@ OBSERVED = {"locator": "instrument:fixture", "attested_by": ACTOR}
 
 @pytest.fixture()
 def scratch(work_directory):
-    path = Path(mkdtemp(prefix="cut29-", dir=work_directory))
+    path = Path(mkdtemp(prefix="dataset-address-", dir=work_directory))
     try:
         yield path
     finally:
@@ -47,7 +47,7 @@ def handle(seed: str, node_id: str = "dataset:handle"):
     )
 
 
-# --- the dataset arm ---------------------------------------------------------
+# --- the dataset case ---------------------------------------------------------
 
 
 def test_two_corpora_mint_one_address_from_one_declaration_durably(durable_world):
@@ -124,7 +124,7 @@ def test_an_unaccepted_algorithm_has_no_address_at_the_builder_or_the_boundary_d
         writer.add(stored.governed_node("dataset", "md5", "md5", {stored.DATASET_FACET: {"resources": md5}}, ()))
 
 
-# --- the builder arm ---------------------------------------------------------
+# --- the builder case ---------------------------------------------------------
 
 
 def test_the_builder_refuses_without_a_basis_and_mints_a_declared_unheld_dataset_durably(durable_world):

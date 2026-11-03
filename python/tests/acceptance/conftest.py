@@ -80,10 +80,10 @@ def durable_root(work_directory) -> Iterator[Path]:
         init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
-            f"the durable acceptance arms need a certified volume under {work_directory}; "
+            f"the durable acceptance tests need a certified volume under {work_directory}; "
             f"the engine refused: {refused}. Set BELIEFS_ACCEPTANCE_ROOT to a certified volume. "
             "This is an error and not a skip: an environment that cannot exercise durability "
-            "must not be able to report cut-4 discharge."
+            "must not be able to report a discharged durability claim."
         ) from refused
     yield root
     shutil.rmtree(root, ignore_errors=True)
@@ -94,7 +94,7 @@ def durable_root(work_directory) -> Iterator[Path]:
 def durable_writer(durable_root):
     """The composition root's own product, bound to a registered root.
 
-    `TESTING_PROFILE`, not BASE: every acceptance arm that mints an assessment
+    `TESTING_PROFILE`, not BASE: every acceptance test that mints an assessment
     (directly, or through the portable `test_deletion_rows.py` builders this
     module shares) carries a typed estimand against `testing/affects`, which
     BASE does not declare, and the audit's recomputation
@@ -140,9 +140,9 @@ def minted_corpus(work_directory) -> Iterator[Path]:
     """The fixture records, minted **once** through the add path into one
     registered root and never written to again.
 
-    Shared by the read-only arms, which is what they are: every one of them
-    reopens the store from disk. An arm that writes — the raw-write act, a
-    second mint — takes its own root instead, so no arm can observe another's
+    Shared by the read-only tests, which is what they are: every one of them
+    reopens the store from disk. A test that writes — the raw-write act, a
+    second mint — takes its own root instead, so no test can observe another's
     construction.
     """
     from durable_fixture import mint_cut4_corpus
@@ -152,7 +152,7 @@ def minted_corpus(work_directory) -> Iterator[Path]:
         init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
-            f"the durable acceptance arms need a certified volume under {work_directory}; the engine refused: {refused}"
+            f"the durable acceptance tests need a certified volume under {work_directory}; the engine refused: {refused}"
         ) from refused
     mint_cut4_corpus(open_corpus(root, authority=FULL, profile=BASE))
     yield root
@@ -161,7 +161,7 @@ def minted_corpus(work_directory) -> Iterator[Path]:
 
 
 class ConfinementUnavailableHost(Exception):
-    """The confined arms' own error, raised rather than skipped."""
+    """The confined tests' own error, raised rather than skipped."""
 
 
 @pytest.fixture()
@@ -175,6 +175,6 @@ def confined_host() -> None:
     reason = host_prerequisites()
     if reason is not None:
         raise ConfinementUnavailableHost(
-            f"the confined acceptance arms need bubblewrap and user namespaces on this host; {reason}. "
+            f"the confined acceptance tests need bubblewrap and user namespaces on this host; {reason}. "
             "This is an error and not a skip."
         )

@@ -84,7 +84,7 @@ SEED = node_to_markdown(
 def lane(work_directory) -> Iterator[Path]:
     """One directory per test on the certified volume; every root and its
     metadata sibling live inside it, so one `rmtree` removes them all."""
-    base = work_directory.resolve() / f"cut37-{os.getpid()}-{next(_COUNTER)}"
+    base = work_directory.resolve() / f"preimage-{os.getpid()}-{next(_COUNTER)}"
     base.mkdir(parents=True)
     yield base
     shutil.rmtree(base, ignore_errors=True)
@@ -280,7 +280,7 @@ def test_corrupt_local_history_refuses_the_act_and_touches_no_project_file_durab
 def test_a_removed_record_of_another_kind_classifies_as_not_a_verification_durably(lane):
     """A removed `discussion` record resolves through its preimage and
     reads `removal-classified kind=discussion source=preimage` at `warning`.
-    The unreadable-facet, not-a-record and `digest=none` arms are declared at
+    The unreadable-facet, not-a-record and `digest=none` cases are declared at
     the unit level over fabricated views (`test_world_log_replay.py`)."""
     source = _corpus(lane, seed=True)
     report = _audit(lane, source)

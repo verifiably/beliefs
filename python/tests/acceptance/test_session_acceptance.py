@@ -807,7 +807,7 @@ def test_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(session_r
 def test_a_ledger_write_failure_after_commit_leaves_the_registration_uncovered(work_directory, monkeypatch):
     """The ledger clause proper: the append fails with **no bytes on disk**, so the
     committed registration is covered by no `act` line and reconciliation reports it."""
-    # Not `session_rig`: this arm makes the ledger terminal, and the rig's teardown
+    # Not `session_rig`: this test makes the ledger terminal, and the rig's teardown
     # closes outright — `close` on a failed ledger is `SessionLedgerFailed`.
     root = adopted(work_directory, "ledger-write-fault")
     session, ops = attended(work_directory, root)
@@ -851,9 +851,9 @@ def test_a_ledger_write_failure_after_commit_leaves_the_registration_uncovered(w
 def test_a_ledger_fsync_failure_after_a_complete_act_line_ends_the_session(work_directory, monkeypatch):
     """The other half of the ledger clause: the write and flush succeeded and only the
     fsync raised, so the complete `act` line *is* on disk and covers the registration —
-    what the arm proves is that the rebuild finished before the append and that the
+    what the test proves is that the rebuild finished before the append and that the
     session is terminal all the same."""
-    # Not `session_rig`: this arm makes the ledger terminal, and the rig's teardown
+    # Not `session_rig`: this test makes the ledger terminal, and the rig's teardown
     # closes outright — `close` on a failed ledger is `SessionLedgerFailed`.
     root = adopted(work_directory, "ledger-fault")
     session, ops = attended(work_directory, root)
@@ -937,7 +937,7 @@ def test_the_halting_backends_skip_count_names_the_records_publish(work_director
     """`PUBLISH_CALLS_BEFORE_RECORD` is an empirical count of the engine's publish
     sequence, re-derived here through the instrument that fixed it, so a
     change in that sequence fails on the count rather than as a puzzling assertion
-    inside the continuation arm."""
+    inside the continuation test."""
     root = adopted(work_directory, "traced")
     backend = TracingBackend()
     port = DurableOperationPort(
@@ -949,7 +949,7 @@ def test_the_halting_backends_skip_count_names_the_records_publish(work_director
         profile=WITH_BIOLOGY,
     )
     # The kind directory has to exist already: a transaction that must create it publishes
-    # it too, one publish *before* the record's, which is why every arm that arms the halt
+    # it too, one publish *before* the record's, which is why every test that arms the halt
     # writes a record of the same kind first.
     warm = port.append_intent(b"{}")
     port._execute_fulfilling([CreateOp(path="proposition/warm.md", content=b"warm")], warm)
@@ -1304,7 +1304,7 @@ def test_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory, m
     holds: list[tuple[str, bool]] = []
 
     def held_by_this_thread() -> bool:
-        # The lock's holder and owner are the fact this arm is about; there is no other witness.
+        # The lock's holder and owner are the fact this test is about; there is no other witness.
         with lock._condition:
             return lock._holder == "writer" and lock._writer_owner == threading.get_ident()
 

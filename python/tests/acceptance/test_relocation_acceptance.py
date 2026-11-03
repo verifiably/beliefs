@@ -88,7 +88,7 @@ def durable_factory(work_directory):
     managed: list[Path] = []
 
     def writer(label: str, pins: CorpusPins = PINS):
-        corpus_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}"
+        corpus_root = work_directory / f"relocation-{os.getpid()}-{next(_COUNTER)}-{label}"
         root.init_corpus_root(corpus_root, authority=FULL)
         profile = WITH_BIOLOGY_OTHER if pins == OTHER_PINS else WITH_BIOLOGY if pins == PINS else BASE
         assert pins == pins_for(profile)
@@ -98,7 +98,7 @@ def durable_factory(work_directory):
         return opened
 
     def world(label: str, *writers):
-        world_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}-world"
+        world_root = work_directory / f"relocation-{os.getpid()}-{next(_COUNTER)}-{label}-world"
         config = WorldConfig(world_root, f"{next(_COUNTER):032x}"[-32:], tuple(w.root for w in writers))
         root.init_world_root(config, authority=FULL)
         opened = root.open_world(config, authority=FULL)
@@ -130,7 +130,7 @@ def _with_coreference_balance(case):
         world,
         rules.RuleBundle(
             symbol="reduce_coreference",
-            fixtures=(("cut16.balance.yaml", fixture),),
+            fixtures=(("relocation.balance.yaml", fixture),),
             implementation=_COREFERENCE_SOURCE,
         ),
     )
@@ -757,7 +757,7 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
     # the composite-claims boundary refuses an `assesses` edge whose target resolves nowhere on
     # every write path, relocation included, so that a record arriving second cannot
     # establish an edge the boundary would have refused (`corpus.py`,
-    # `_refuse_assesses_target_kind`). The arm below is about re-resolving the
+    # `_refuse_assesses_target_kind`). The test below is about re-resolving the
     # *retraction* target after a real move, and is unchanged by it.
     destination.add(proposition)
     target = source.add(
@@ -820,7 +820,7 @@ def test_boundary_lock_deduplicates_resolved_same_root_before_refusal(durable_fa
     writer, _ = durable_factory
     corpus = writer("dedup")
     node = corpus.add(stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"}))
-    alias = tmp_path / "cut16-root-alias"
+    alias = tmp_path / "relocation-root-alias"
     alias.symlink_to(corpus.root, target_is_directory=True)
     twin = root.open_corpus(alias, authority=FULL, profile=WITH_BIOLOGY)
     events: list[str] = []

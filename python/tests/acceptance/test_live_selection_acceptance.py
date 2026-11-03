@@ -45,7 +45,7 @@ def topic_records():
 
 @pytest.fixture()
 def scratch(work_directory):
-    path = Path(mkdtemp(prefix="cut41-", dir=work_directory))
+    path = Path(mkdtemp(prefix="live-selection-", dir=work_directory))
     try:
         yield path
     finally:

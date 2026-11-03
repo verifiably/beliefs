@@ -55,7 +55,7 @@ KINDS = cast(tuple[derive.ReceiptKind, ...], tuple(epoch.RECEIPT_KINDS.values())
 
 @pytest.fixture()
 def scratch(work_directory):
-    path = Path(mkdtemp(prefix="cut27-", dir=work_directory))
+    path = Path(mkdtemp(prefix="world-audit-", dir=work_directory))
     try:
         yield path
     finally:

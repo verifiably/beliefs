@@ -48,7 +48,7 @@ class HaltingBackend:
 
     **Arm it only over a kind directory that already exists.** A transaction that
     must create `<kind>/` publishes the directory too, one publish-phase call
-    *before* the record's, so the skip count would land one step early; every arm
+    *before* the record's, so the skip count would land one step early; every test
     therefore writes a record of the same kind before arming.
 
     The window stays open for the whole fulfilling execution deliberately: the

@@ -118,7 +118,7 @@ def passed_verification_under_a_tolerance():
     Its scope is whatever the boundary policy derives, and `clean-environment`
     is no more reachable here than it is in the portable tests — confinement is the
     boundary-policy work that is not built here. What the constructor
-    supplies, and what this arm needs, is the verdict and the rule.
+    supplies, and what this test needs, is the verdict and the rule.
     """
     spec = freeze(spec_draft(), held_rules=spec_rules())
     bindings = (("content-identity-equality/v1", "impl-tolerance-1e-6"), ("median-difference/v1", "impl-interp-1"))
@@ -134,7 +134,7 @@ def passed_verification_under_a_tolerance():
     )
 
 
-class TestR19aTheGenuineAvailabilityTransition:
+class TestTheGenuineAvailabilityTransition:
     """Record a `passed` verification under a declared tolerance, mint it
     durably, then make its artifacts unreachable **here** while they remain held
     elsewhere: it is not refused, admission is unchanged, and no `inconclusive`
@@ -281,7 +281,7 @@ class TestR19deTheReadSideNegatives:
         assert corpus_check(view, BASE) == ()
 
 
-class TestR22TheForgeryAtTheCorrectAddress:
+class TestTheForgeryAtTheCorrectAddress:
     """Mint an assessment, take the belief digest over the reloaded store, then
     raw-write a file **at the address a genuine record would occupy** carrying
     `supported` where the derivation from the same run yields `refuted`. The

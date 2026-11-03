@@ -53,7 +53,7 @@ COORDINATION = coordination_profile(None)
 
 @pytest.fixture()
 def scratch(work_directory):
-    path = Path(mkdtemp(prefix="cut28-", dir=work_directory))
+    path = Path(mkdtemp(prefix="world-selection-", dir=work_directory))
     try:
         yield path
     finally:

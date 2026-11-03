@@ -1,6 +1,6 @@
 """World epoch publication, reading and recovery through the shipped derivation rules.
 
-The portable journey walks one world end to end; the durable arms run on the certified tuple.
+The portable journey walks one world end to end; the durable tests run on the certified tuple.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ class ContentHeads:
     A real chain tip moves when a corpus commits, and that is the whole content
     of "the head and the state describe one view". The portable `ChainHeads`
     stub in `test_world_build` answers with a constant derived from the root's
-    name, so it cannot see a corpus move at all — which is precisely why an arm
+    name, so it cannot see a corpus move at all — which is precisely why a test
     resting on it would pass under a relocated head that read a moved corpus.
     Here the corpus roots answer with `corpus_state_identity`, so the anchored
     head is comparable with the captured state, and the world root keeps the
@@ -115,12 +115,12 @@ def test_anchored_head_describes_the_captured_corpus_view(tmp_path):
 #
 # One world, walked end to end with the portable executor: the four shipped
 # rules explicitly held, two corpora admitted, two epochs published, both read
-# back, all four receipts validated, every arm of the resolution union and every
+# back, all four receipts validated, every case of the resolution union and every
 # edge state this journey can reach exercised, and then the two severing acts.
 #
 # It asserts nothing about crashes. Durability is the certified tuple's subject
-# and it is claimed below, by arms that read the engine's own chain; what these
-# arms claim is that the acts of the slice compose — that the epoch a build
+# and it is claimed below, by tests that read the engine's own chain; what these
+# tests claim is that the acts of the slice compose — that the epoch a build
 # published is the epoch `current` selects, that the receipts it carries resolve
 # against the store the build read them from, and that removing one of those
 # inputs is reported rather than discovered later as an unresolvable receipt.
@@ -183,7 +183,7 @@ def journey_corpora(tmp_path: Path) -> dict[str, Path]:
 
 @pytest.fixture()
 def journey(tmp_path) -> Journey:
-    """The whole build path, run for real, before any arm asserts anything.
+    """The whole build path, run for real, before any test asserts anything.
 
     The four shipped rules are held by the composition root's own explicit
     act. The shipped coreference rule reduces the stored attestations above,
@@ -233,10 +233,10 @@ def test_a_published_epoch_opens_by_identity_and_through_current(journey: Journe
 def test_all_four_receipts_validate_against_the_world_that_published_them(journey: Journey):
     """Nothing has moved since capture, so every receipt rebuilds to its subject.
 
-    This is the baseline the two severing arms below are read against: a
+    This is the baseline the two severing tests below are read against: a
     ``validated`` receipt is one whose exact pair is still held here and whose
     named corpora still stand where they stood, re-derived and compared byte for
-    byte. An arm that only ever saw a broken receipt would not know which half
+    byte. A test that only ever saw a broken receipt would not know which half
     of that the break was.
     """
     outcomes = {kind: read.validate_receipt(journey.world, journey.current, kind) for kind in DERIVATION_KINDS}
@@ -248,7 +248,7 @@ def test_all_four_receipts_validate_against_the_world_that_published_them(journe
 
 
 def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
-    """The three resolution arms, all three from one publication.
+    """The three resolution cases, all three from one publication.
 
     The line between `NotPresent` and `Unknown` is what the epoch recorded and
     never what is here now, so both are taken against the *same* epoch: one
@@ -291,7 +291,7 @@ def test_edges_answer_active_inactive_and_indeterminate(journey: Journey):
     `active` and `inactive` come from the stored balance of a reduction this
     world can still stand behind. `indeterminate` is reached here through the
     coverage half — a live corpus the publication never observed — and
-    through the receipt half in the removal arm below, which is the other input
+    through the receipt half in the removal test below, which is the other input
     the section names.
     """
     assert read.EDGE_STATES == ("active", "inactive", "indeterminate")
@@ -439,7 +439,7 @@ def durable_world(work_directory):
         root.init_corpus_root(corpus_root, authority=FULL)
         root.open_corpus(corpus_root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
         # Stored records are placed with the `nodes` handle, exactly as the
-        # portable fixtures place them: what these arms assert is committed
+        # portable fixtures place them: what these tests assert is committed
         # evidence of *world-root* transactions, and the admission gate the
         # write API applies to a dataset is another slice's subject.
         for node in sample_nodes():
@@ -551,7 +551,7 @@ def _attempt(case, bindings, stage: str, standing: str, attempted: list[str]) ->
             pass
 
     assert len(calls) <= 1, (
-        f"{stage}: publication submitted {len(calls)} transactions; §5.4 publishes in one, and a "
+        f"{stage}: publication submitted {len(calls)} transactions; publication is one transaction, and a "
         "kill between two of them is exactly how `current` comes to name incomplete content"
     )
     # A fresh world, so the barrier is crossed by an act that did not survive
@@ -601,7 +601,7 @@ def test_recovery_barrier_never_selects_partial_epoch(durable_world):
         standing = _attempt(case, bindings, stage, standing, attempted)
 
     # Every boundary was actually killed at, in order. A stage silently dropped
-    # from one of the two loops above is a boundary this arm claims to cover and
+    # from one of the two loops above is a boundary this test claims to cover and
     # does not, which nothing else here would notice.
     assert tuple(attempted) == PUBLICATION_STAGES
 

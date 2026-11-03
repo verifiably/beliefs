@@ -10,7 +10,7 @@ wrote it.
 The reproduction test is the exception by design: the mm30 reproduction's re-run is the driver's,
 executed once against the corpus on the certified volume, and this row reads
 what it recorded (the mm30 reproduction state) beside
-the transition arms it can exercise here. It reads the driver's report by name
+the transition checks it can exercise here. It reads the driver's report by name
 and asserts nothing the addendum does not record.
 """
 
@@ -129,7 +129,7 @@ def _testing_document() -> dict:
 
 def _parse_testing(document, *, predecessor=None):
     return domain.parse_domain_contract(
-        document, source="<cut31>", base=shipped_base_contract(), predecessor=predecessor
+        document, source="<estimand>", base=shipped_base_contract(), predecessor=predecessor
     )
 
 
@@ -1002,7 +1002,7 @@ def test_commensuration_is_total_decidable_and_unread_by_v1(corpora):
 
 def test_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corpora):
     """The driver's own recorded report, read by name, beside the
-    transition arms this module can exercise on a successor-pinned corpus."""
+    transition checks this module can exercise on a successor-pinned corpus."""
     from reproduction.paths import STATE
 
     assert STATE.is_file(), (

@@ -90,7 +90,7 @@ class TestTheDurableMint:
         assert len(list((durable_root / ".#~chain").iterdir())) > before
 
 
-class TestW3Durably:
+class TestBasisRefusalDurably:
     def test_a_source_with_no_accepted_external_identifier_is_refused_before_it_lands(
         self, durable_writer, durable_root
     ):
@@ -111,7 +111,7 @@ class TestW3Durably:
         assert reopen(durable_root).holds(second.id)
 
 
-class TestG9DurablyMintedWithNoBytesHeld:
+class TestDurablyMintedWithNoBytesHeld:
     def test_a_declared_dataset_is_minted_and_is_referenceable(self, durable_writer, durable_root):
         declared = durable_writer.add(stored.dataset_node(title="DepMap 24Q2", resources=pinned()))
         durable_writer.add(stored.run_node("r9", title="r9", spec=SPEC, reads=[declared.id]))
@@ -128,7 +128,7 @@ class TestG9DurablyMintedWithNoBytesHeld:
         assert "held" not in facets and "held" not in facets[stored.DATASET_FACET]
 
 
-class TestS7BothBoundariesDurably:
+class TestBothBoundariesDurably:
     def test_the_add_path_refuses_an_inadmissible_assesses_edge(self, durable_writer, durable_root):
         durable_writer.add(stored.run_node("r2", title="r2", spec=SPEC))  # no observes input
         durable_writer.add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
@@ -173,7 +173,7 @@ class TestS7BothBoundariesDurably:
         assert corpus_check(reopen(durable_root), BASE) == ()
 
 
-class TestS8TheNegative:
+class TestTheCapabilityNegative:
     """Write a corpus file with a raw filesystem call and assert the static
     check does **not** fire — the limit pinned, then read through the stale-hash
     check and the corpus check."""

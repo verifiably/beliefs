@@ -2,7 +2,7 @@
 path into one registered corpus root.
 
 Everything here goes through `CorpusWriter.add` — no raw write, no edit, no
-deletion. Where an arm needs a state the add path does not produce, the arm
+deletion. Where a test needs a state the add path does not produce, the test
 itself constructs it with the raw-write act; where it needs a state a deletion
 *would* produce, it is **minted** instead, which is what the add-only reading
 makes selectable: a basis entry naming an address no record carries is a state,

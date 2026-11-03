@@ -55,7 +55,7 @@ def durable_world(work_directory):
     roots = []
 
     def corpus(profile=BASE):
-        path = Path(mkdtemp(prefix="cut23-corpus-", dir=work_directory))
+        path = Path(mkdtemp(prefix="world-view-corpus-", dir=work_directory))
         roots.append(path)
         init_corpus_root(path, authority=FULL)
         writer = open_corpus(path, authority=FULL, profile=profile)
@@ -86,7 +86,7 @@ def durable_world(work_directory):
             assert {n.id for n in writer.read_view.iter_stored()} == {n.id for n in nodes}
         for node in raw:
             raw_write(alpha, node)  # A deliberately forged record, never an admitted write.
-        path = Path(mkdtemp(prefix="cut23-world-", dir=work_directory))
+        path = Path(mkdtemp(prefix="world-view-world-", dir=work_directory))
         roots.append(path)
         config = WorldConfig(path, "e" * 32, (alpha, beta))
         init_world_root(config, authority=FULL)

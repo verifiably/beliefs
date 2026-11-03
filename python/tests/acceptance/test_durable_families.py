@@ -117,7 +117,7 @@ def test_import_bundle_records_the_exact_durable_chain(durable_root):
     report = writer.import_bundle(
         [proposition("imported-a"), proposition("imported-b")],
         observer="corpus",
-        instrument="cut5",
+        instrument="families",
         opened_at="T0",
         closed_at="T1",
     )
@@ -163,7 +163,7 @@ def test_import_on_an_uncertified_tuple_refuses():
             "/dev/shm is unavailable, so the uncertified-tuple family negative cannot run; "
             "this is an error and not a skip"
         )
-    root = shm / f"science-cut5-uncertified-{os.getpid()}"
+    root = shm / f"science-families-uncertified-{os.getpid()}"
     try:
         with pytest.raises(Exception) as registration:
             init_corpus_root(root, authority=FULL)
@@ -173,7 +173,7 @@ def test_import_on_an_uncertified_tuple_refuses():
             open_corpus(root, authority=FULL, profile=BASE).import_bundle(
                 [proposition("uncertified")],
                 observer="corpus",
-                instrument="cut5",
+                instrument="families",
                 opened_at="T0",
                 closed_at="T1",
             )

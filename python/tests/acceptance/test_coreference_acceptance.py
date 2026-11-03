@@ -47,7 +47,7 @@ INVENTORY = (
     "mint_coordination",
     "revise_coordination",
 )
-RELOCATION = {"observer": "corpus", "instrument": "cut24", "opened_at": "T0", "closed_at": "T1"}
+RELOCATION = {"observer": "corpus", "instrument": "coreference", "opened_at": "T0", "closed_at": "T1"}
 
 
 @pytest.fixture()

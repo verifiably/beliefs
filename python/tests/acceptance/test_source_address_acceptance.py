@@ -73,7 +73,7 @@ def world(work_directory):
     roots = []
 
     def corpus():
-        path = Path(mkdtemp(prefix="cut25-corpus-", dir=work_directory))
+        path = Path(mkdtemp(prefix="source-address-corpus-", dir=work_directory))
         roots.append(path)
         init_corpus_root(path, authority=FULL)
         writer = open_corpus(path, authority=FULL, profile=BASE)
@@ -82,7 +82,7 @@ def world(work_directory):
 
     a, alpha, left = corpus()
     b, beta, right = corpus()
-    path = Path(mkdtemp(prefix="cut25-world-", dir=work_directory))
+    path = Path(mkdtemp(prefix="source-address-world-", dir=work_directory))
     roots.append(path)
     config = WorldConfig(path, "e" * 32, (alpha, beta))
     init_world_root(config, authority=FULL)
@@ -197,11 +197,11 @@ def test_source_arm_rename_preserves_uid_and_redirects(world):
     view = open_world_view(registry, published)
     assert view.resolve(paper.id) == corrected.id
 
-    # Negative — three arms, three calls, no chooser.
+    # Negative — three cases, three calls, no chooser.
     assert "case" not in inspect.signature(left.correct_identifier).parameters
-    other = left.add(stored.source_node(title="p2", identifiers={"doi": "10.1234/another"}))  # arm 2: a new work
+    other = left.add(stored.source_node(title="p2", identifiers={"doi": "10.1234/another"}))  # case 2: a new work
     assert other.uid != corrected.uid
-    attestation = stored.coreference_attestation_node(  # arm 3: two identifiers legitimately exist
+    attestation = stored.coreference_attestation_node(  # case 3: two identifiers legitimately exist
         title="same paper",
         endpoints=(corrected.id, other.id),
         stance=1,
@@ -237,7 +237,7 @@ def test_source_arm_rename_preserves_uid_and_redirects(world):
 )
 def test_refusals_leave_no_intent_or_file_effect(work_directory, case, exception, reason):
     """Each refusing stage runs before intent append or file publication."""
-    root = adopted(work_directory, f"cut25-refuse-{case}")
+    root = adopted(work_directory, f"source-address-refuse-{case}")
     session, _backend, ops = halting_session(work_directory, root)
     try:
         w = fresh(session, "setup", SOURCES)
@@ -328,7 +328,7 @@ def correction_halt_positions(work_directory) -> tuple[int, int]:
     state at each halt. The positions are derived from what was observed, never
     from the single-record count, and the sweep must show the create completing
     before the delete begins."""
-    root = adopted(work_directory, "cut25-sweep")
+    root = adopted(work_directory, "source-address-sweep")
     session, backend, _ops = halting_session(work_directory, root)
     w = fresh(session, "warm", SOURCES)
     w.add(stored.source_node(title="warm", identifiers={"pmid": "99"}))  # the kind directory exists
@@ -354,7 +354,7 @@ def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypa
     prefix and the root unresolved; a post-commit readback fault leaves the record
     durable; settlement leaves exactly one record with the subject's uid."""
     halt_before_create, halt_between = correction_halt_positions
-    root = adopted(work_directory, "cut25-halt")
+    root = adopted(work_directory, "source-address-halt")
     session, backend, ops = halting_session(work_directory, root)
     w = fresh(session, "A", SOURCES)
     w.add(stored.source_node(title="warm", identifiers={"pmid": "99"}))  # the kind directory exists

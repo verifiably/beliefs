@@ -61,7 +61,7 @@ def corpora(work_directory):
     """Every case owns one directory under the certified work directory: its
     roots, their `.metadata` siblings, its worlds, links and operations roots.
     Teardown removes it whole (plan review, round 2)."""
-    base = Path(mkdtemp(prefix="cut43-", dir=work_directory)).resolve()
+    base = Path(mkdtemp(prefix="session-mounts-", dir=work_directory)).resolve()
     try:
         yield SimpleNamespace(
             base=base,

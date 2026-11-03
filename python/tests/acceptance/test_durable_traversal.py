@@ -57,7 +57,7 @@ def view(minted_corpus):
     return reopen(minted_corpus)
 
 
-class TestS1TheRelationFixtureWalkedOutOfTheStore:
+class TestTheRelationFixtureWalkedOutOfTheStore:
     def test_a_chain_minted_through_the_add_path_walks_transitively(self, view):
         first, second, third = CHAIN
         assert {second, third} <= set(relation_walk(view, first).reached)
@@ -115,7 +115,7 @@ class TestS1TheRelationFixtureWalkedOutOfTheStore:
         assert sorted(view.get(container.id).facets[MEMBERSHIP]["members"]) == sorted(walked)
 
 
-class TestS1aTheLineageFixtureWalkedAsAFacet:
+class TestTheLineageFixtureWalkedAsAFacet:
     def test_a_basis_chain_walks_transitively(self, view):
         # Compared as an ordered tuple: the walk promises a sorted reached set,
         # and a comparison over sets could not see that promise broken.
@@ -157,7 +157,7 @@ class TestS1aTheLineageFixtureWalkedAsAFacet:
         assert closure(LINEAGE_CYCLE[0], LineageAdjacency(view)).reached == (LINEAGE_CYCLE[1],)
 
 
-class TestS5TheWalkThatProducesTheSnapshot:
+class TestTheWalkThatProducesTheSnapshot:
     def test_the_inspected_set_is_the_observed_root_plus_its_closure(self, view):
         snapshot = lineage_snapshot(view, [LINEAGE_LEAF])
         assert set(snapshot.producers) == {LINEAGE_LEAF, LINEAGE_MIDDLE, LINEAGE_ROOT}
@@ -194,7 +194,7 @@ class TestS5TheWalkThatProducesTheSnapshot:
         assert snapshot.producers[RAW] == ()
 
 
-class TestR23DerivedFromIsAView:
+class TestDerivedFromIsAView:
     def test_derived_from_resolves_over_produces_then_transforms(self, view):
         assert derived_from(view, DERIVED).reached == (RAW,)
 
@@ -218,7 +218,7 @@ class TestR23DerivedFromIsAView:
         out_ref = dataset_ref("out")
         durable_writer.add(stored.run_node("r23", title="r23", spec=SPEC, transforms=[composed.id], produces=[out_ref]))
         # The route records what the producing run transformed, so the only
-        # disagreement is the one this arm is about: the ancestor.
+        # disagreement is the one this test is about: the ancestor.
         disagreeing = stored.dataset_node(
             title="out",
             resources=seed_pinned("out"),

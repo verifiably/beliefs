@@ -109,7 +109,7 @@ def source(work_directory):
     """A source world of two BASE corpora (topic_nodes), a written root under
     coordination v2 holding the view (a project whose query selects datasets and
     runs), an operations root and a destination — all on the certified volume."""
-    base = Path(mkdtemp(prefix="cut40-", dir=work_directory)).resolve()
+    base = Path(mkdtemp(prefix="publish-act-", dir=work_directory)).resolve()
     roots: list[Path] = []
 
     def corpus(profile=BASE, nodes=()):

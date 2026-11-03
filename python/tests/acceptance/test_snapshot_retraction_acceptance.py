@@ -61,7 +61,7 @@ def replica(work_directory):
     made: list[Path] = []
 
     def make(world, roots):
-        path = Path(mkdtemp(prefix="cut34-replica-", dir=work_directory))
+        path = Path(mkdtemp(prefix="snapshot-replica-", dir=work_directory))
         made.append(path)
         config = WorldConfig(path, world.config.world_id, tuple(roots.values()))
         init_world_root(config, authority=FULL)
@@ -200,7 +200,7 @@ def test_mounting_writes_nothing_and_validates_nothing(durable_world, monkeypatc
     monkeypatch.setattr(read, "validate_receipt", counting)
     epochs = world.config.world_root / "epochs"
     before_epochs, before_root = _inventory(epochs), _inventory(world.config.world_root)
-    admitted = world.admit(fresh, provenance=Fresh())  # a root holding a snapshot-arm retraction
+    admitted = world.admit(fresh, provenance=Fresh())  # a root holding a snapshot-target retraction
     world.admit(roots[a], provenance=Fresh())  # a root a retracted snapshot covers
     assert admitted.corpus_id == fresh_id
     assert _inventory(epochs) == before_epochs
@@ -280,7 +280,7 @@ def test_a_snapshot_retraction_outside_the_targets_coverage_is_refused_at_author
     assert ReadView.opened_at(roots[a]).get(admitted.id).id == admitted.id
 
 
-def test_a_writer_without_the_port_refuses_the_arm(durable_world):
+def test_a_writer_without_the_port_refuses_the_snapshot_target(durable_world):
     world, roots, old, a, _b, profile = _world(durable_world)
     root = Path(roots[a]).resolve()
     without = CorpusWriter(

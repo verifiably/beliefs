@@ -120,11 +120,11 @@ def world(work_directory):
     published yet. Each corpus carries a target proposition so a frozen spec
     can be stored in it."""
     roots: list[Path] = []
-    scratch = Path(mkdtemp(prefix="cut36-scratch-", dir=work_directory))
+    scratch = Path(mkdtemp(prefix="event-order-scratch-", dir=work_directory))
     roots.append(scratch)
 
     def corpus():
-        path = Path(mkdtemp(prefix="cut36-corpus-", dir=work_directory))
+        path = Path(mkdtemp(prefix="event-order-corpus-", dir=work_directory))
         roots.append(path)
         init_corpus_root(path, authority=FULL)
         writer = open_corpus(path, authority=FULL, profile=TESTING_PROFILE)
@@ -142,7 +142,7 @@ def world(work_directory):
             (self.a, self.alpha, self.writer_a, self.target_a), (self.b, self.beta, self.writer_b, self.target_b) = (
                 sorted((first, second), key=lambda c: c[0])
             )
-            path = Path(mkdtemp(prefix="cut36-world-", dir=work_directory))
+            path = Path(mkdtemp(prefix="event-order-world-", dir=work_directory))
             roots.append(path)
             self.config = WorldConfig(path, "c" * 32, (self.alpha, self.beta))
             init_world_root(self.config, authority=FULL)
@@ -265,7 +265,7 @@ def overlapping_builds(world) -> tuple[Event, Event, str, str, str, str]:
             outcome["error"] = caught
 
     epoch._root_state_for = gated  # restored in the finally
-    thread = threading.Thread(target=build_e3, name="cut36-e3")
+    thread = threading.Thread(target=build_e3, name="event-order-e3")
     try:
         thread.start()
         assert reached_b.wait(60), "E3 never reached B's capture"
@@ -411,9 +411,9 @@ def test_a_pending_or_rolled_back_registration_has_no_moment_durably(world):
     first = world.freeze()
     world.build()
     live = view_of(world.alpha)
-    pending = registration(digest("cut36-pending"), "tx-p", (("p.md", ABSENT),), (("p.md", state("p.md")),))
-    rolled = registration(digest("cut36-rolled"), "tx-r", (("r.md", ABSENT),), (("r.md", state("r.md")),))
-    rolled_back = settlement(digest("cut36-rolled-settled"), rolled.digest, "tx-r", committed=False)
+    pending = registration(digest("event-order-pending"), "tx-p", (("p.md", ABSENT),), (("p.md", state("p.md")),))
+    rolled = registration(digest("event-order-rolled"), "tx-r", (("r.md", ABSENT),), (("r.md", state("r.md")),))
+    rolled_back = settlement(digest("event-order-rolled-settled"), rolled.digest, "tx-r", committed=False)
     fabricated = chain(live.genesis, *live.entries[1:], pending, rolled, rolled_back)
     seam = seam_with_view(world.alpha, fabricated)
     for digest_ in (pending.digest, rolled.digest, rolled_back.digest):
@@ -430,7 +430,7 @@ def test_same_chain_independence_from_a_malformed_carrier_and_world_chain_durabl
     assert world.order(first, second) == "a-precedes-b"
     with pytest.raises(EpochMalformed):
         world.order(first, b)
-    aside = Path(mkdtemp(prefix="cut36-aside-", dir=work_directory))
+    aside = Path(mkdtemp(prefix="event-order-aside-", dir=work_directory))
     shutil.move(str(world.config.world_root / "epochs" / identity), str(aside / identity))  # out of `epochs/`
     rewrite_an_interior_entry(world.config.world_root)  # a malformed world chain
     assert world.order(first, second) == "a-precedes-b"
@@ -445,7 +445,7 @@ def test_the_refusals_and_a_terminal_corpus_durably(world, work_directory):
         world.order(Event("0" * 32, first.digest), second)
     with pytest.raises(EventUnknown):
         world.order(Event(world.a, world.intent().digest), second)  # B's digest asked of A
-    twin = Path(mkdtemp(prefix="cut36-twin-", dir=work_directory))
+    twin = Path(mkdtemp(prefix="event-order-twin-", dir=work_directory))
     shutil.copytree(world.alpha, twin, dirs_exist_ok=True, symlinks=True)  # a second root claiming A's id
     try:
         with pytest.raises(EventCorpusUnresolvable):
@@ -484,7 +484,7 @@ def test_a_replica_under_a_fresh_manifest_refuses_subject_mismatch_at_arrival_du
     """Replicate A, rewrite the copy's
     `corpus.yaml` to a fresh id, arrive as a replica of A."""
     world.freeze()
-    copy = Path(mkdtemp(prefix="cut36-replica-", dir=work_directory)) / "copy"
+    copy = Path(mkdtemp(prefix="event-order-replica-", dir=work_directory)) / "copy"
     replicate_root(world.alpha, copy, authority=FULL)
     fresh_id = "f" * 32
     manifest = registry.load_manifest(copy)
@@ -559,4 +559,6 @@ def test_the_genesis_clause_alone_decides_a_placement_durably(world):
     live = view_of(world.alpha)
     anchor = world.anchor_for(identity, world.a)
     assert events.place(live, genesis_digest=anchor.genesis_digest, head_digest=anchor.head_digest) is not None
-    assert events.place(live, genesis_digest=digest("cut36-other-genesis"), head_digest=anchor.head_digest) is None
+    assert (
+        events.place(live, genesis_digest=digest("event-order-other-genesis"), head_digest=anchor.head_digest) is None
+    )

@@ -63,7 +63,7 @@ ALL_KINDS = {
 
 
 def retracts(target, token: str, *, grounds=("verification:v-2",)):
-    """A node-arm retraction of `target` whose grounds the publication closure holds."""
+    """A node-target retraction of `target` whose grounds the publication closure holds."""
     content_identity = stored.stored_semantic_hash(target)
     assert content_identity is not None
     return stored.retraction_node(

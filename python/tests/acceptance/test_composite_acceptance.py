@@ -375,7 +375,7 @@ def _hand_built(writer, members, refs, *, nodes=(A, B, C), slug="x"):
     return node
 
 
-def test_form_classification_and_vocabulary_arms(corpora):
+def test_form_classification_and_vocabulary_checks(corpora):
     """Every form and classification row refused at construction and at
     `add`; the vocabulary halves — the boundary checks form only, the
     constructor and the reading resolve nodes under their caller's snapshot."""
@@ -789,7 +789,7 @@ def test_composite_audit_codes_are_contradictions_not_malformedness(corpora):
     # "No longer classifies": retire the
     # `edges:` row by successor and audit. `check_composite` is called directly
     # because the corpus pins the predecessor contract, and `audit_corpus` under
-    # the successor would report `profile-mismatch` and stop before the arm this
+    # the successor would report `profile-mismatch` and stop before the check this
     # row is about — the classification, not the pins.
     fourth = _seeded(corpora())
     retired_composite = fourth.add(
@@ -919,7 +919,7 @@ def test_reading_equals_the_wrapper(corpora):
     # other row: succession moves the resolution column, never the belief column.
     assert row.belief == evaluate_over(writer.read_view, "proposition:ca", **over_kwargs(_inputs(writer, address)))
 
-    # --- the withholding arms ----------------------------------------------
+    # --- the withholding cases ----------------------------------------------
     unheld = read_composite(writer.read_view, minted.id, **_inputs(writer, address, hold=False))
     unheld_row = next(r for r in unheld.rows if r.ref == "proposition:ab")
     assert unheld_row.belief == evaluate_over(
@@ -1109,7 +1109,7 @@ def test_reproduction_driver_state_is_read_by_name():
     state = json.loads(STATE.read_text(encoding="utf-8"))
     if "composite_refusal" in state:
         pytest.skip(
-            f"the reproduction's compose step refused: {state['composite_refusal']} — U10's arm is unrun and the row partial"
+            f"the reproduction's compose step refused: {state['composite_refusal']} — the reproduction check is unrun and the test partial"
         )
     assert state["reading_equal"] is True
     assert state["composite_receipt"] == {"node:0": "not-consulted", "node:1": "member", "node:2": "member"}

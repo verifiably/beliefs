@@ -194,9 +194,9 @@ def test_a_recheck_closes_through_one_report_and_its_operation_intent_precedes_e
 def test_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_no_act_for_both_kinds_durably(
     observer, certified_work, spoil, monkeypatch
 ):
-    """The audit has no root-selection or store arm (one writer, no store), so under
+    """The audit has no root-selection or store case (one writer, no store), so under
     `wrong-root` and `foreign-store` its half reads the port-less writer; the
-    assertion is the same for every arm — no read, no intent, no record."""
+    assertion is the same for every case — no read, no intent, no record."""
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a = held(ctx, store_id, "a.bin", b"alpha")
     reads: list[str] = []

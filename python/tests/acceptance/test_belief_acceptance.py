@@ -131,7 +131,7 @@ def test_node_and_route_corrections(case):
     dataset = writer.add(
         stored.dataset_node(
             title="derived",
-            resources=pinned("cut45-derived"),
+            resources=pinned("belief-derived"),
             basis={
                 "tag": "single",
                 "routes": [

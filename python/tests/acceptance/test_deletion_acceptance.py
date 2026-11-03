@@ -199,7 +199,7 @@ def _durable_corpora(
     try:
         writers: list[CorpusWriter] = []
         for label in labels:
-            root = work / f"cut18-{os.getpid()}-{next(_COUNTER)}-{label}"
+            root = work / f"deletion-{os.getpid()}-{next(_COUNTER)}-{label}"
             init_corpus_root(root, authority=FULL)
             roots.append(root)
             writers.append(
@@ -408,7 +408,7 @@ def test_raw_removal_refutes_and_managed_delete_validates(work_directory, durabl
 # --- the managed holdings deletion as the last-held-copy transition -------
 
 
-R5_CONTENT = b"the observed bytes cut 18 unholds"
+R5_CONTENT = b"the observed bytes the deletion unholds"
 R5_DECLARATION = DatasetDeclaration((ResourceDeclaration("data", f"sha256:{sha256(R5_CONTENT).hexdigest()}"),))
 """The observed dataset, declared at the digest the store act will establish, so
 the reduction's head and the declaration join and the input reads **held**."""
@@ -559,7 +559,7 @@ def test_deletion_half_durably(durable_writer):
         assert certification.state == "not-certified"
         assert "lineage-incomplete" in certification.findings
         after_belief = after.belief()
-        assert after_belief.belief_input_digest != before_belief.belief_input_digest, "kernel §5.1's digest moves"
+        assert after_belief.belief_input_digest != before_belief.belief_input_digest, "the digest moves"
         assert after_belief.value < before_belief.value, "deleting an ancestor never raises belief"
 
         diverged = _lineage_corpus(diverged_root, second_producer=True)

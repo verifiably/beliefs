@@ -421,7 +421,7 @@ def test_the_records_are_already_proposition_scoped(corpus_fixture):
     assert records.source_assertions == ()
 
 
-def test_sabotage_shape_an_unrelated_verification_read_fails_containment(corpus_fixture, monkeypatch):
+def test_an_unrelated_verification_read_fails_containment(corpus_fixture, monkeypatch):
     from domain_facet_fixtures import over_kwargs
 
     """A deliberately wrong read: `gather` reads one verification belonging to a

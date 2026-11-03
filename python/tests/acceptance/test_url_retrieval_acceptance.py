@@ -100,7 +100,7 @@ from beliefs.world.logmodel import IntentEntryView, MalformedView, RegisteredEnt
 from beliefs.world.registry import WorldConfig
 
 DATA = url_locator("https://example.org/data")
-CUT34_MERGE = "3873d16"
+PRE_SUCCESSOR_RULE_COMMIT = "3873d16"
 """The main-checkout commit at which the holdings rule bundle preceded the successor rule."""
 
 
@@ -1034,7 +1034,7 @@ def test_no_lock_is_held_across_the_request(observer, session, tmp_path, monkeyp
 def _show(path: str) -> bytes:
     repo = Path(__file__).resolve().parents[3]
     return subprocess.run(
-        ["git", "-C", str(repo), "show", f"{CUT34_MERGE}:{path}"], check=True, capture_output=True
+        ["git", "-C", str(repo), "show", f"{PRE_SUCCESSOR_RULE_COMMIT}:{path}"], check=True, capture_output=True
     ).stdout
 
 

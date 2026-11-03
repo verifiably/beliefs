@@ -1,8 +1,12 @@
-"""Durable tests: verification publication through an attended session
-on the certified engine and volume
-Every body mirrors its portable twin and additionally
-reopens the corpus — a fresh process for the first checks — so each assertion is
-about bytes the engine committed."""
+"""Durable tests: verification publication through an attended session on the
+certified engine and volume.
+
+Every body mirrors its portable twin and additionally reopens the corpus, so
+each assertion is about bytes the engine committed. The first test
+(`test_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone`)
+and the admission test
+(`test_admission_over_the_corpus_and_the_belief_moves_with_the_record`) do so in
+a fresh process."""
 
 from __future__ import annotations
 
@@ -48,7 +52,7 @@ def _session_over(work_directory):
     return root, session, writer
 
 
-def test_v1_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone(work_directory):
+def test_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
         published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
@@ -70,7 +74,7 @@ def test_v1_a_published_verification_is_recoverable_in_a_fresh_process_with_the_
     assert report["basis"] == json.dumps(derived.basis(), default=lambda r: r.identity(), sort_keys=True)
 
 
-def test_v2_and_v3_admission_over_the_corpus_and_the_belief_moves_with_the_record(work_directory):
+def test_admission_over_the_corpus_and_the_belief_moves_with_the_record(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
         published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
@@ -101,7 +105,7 @@ def test_v2_and_v3_admission_over_the_corpus_and_the_belief_moves_with_the_recor
     assert report["digest"] == digest_here
 
 
-def test_v3_a_superseding_failed_verification_invalidates_through_the_session(work_directory):
+def test_a_superseding_failed_verification_invalidates_through_the_session(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
         published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)

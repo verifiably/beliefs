@@ -1306,8 +1306,7 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
 
 
 def test_explicit_import_refuses_a_spec_whose_target_does_not_resolve_in_the_union(tmp_path):
-    """The `_ImportView` branch of the boundary check (a review finding
-    2), the unresolvable arm: a spec whose target resolves nowhere in the
+    """The `_ImportView` branch of the boundary check (a review finding), the unresolvable case: a spec whose target resolves nowhere in the
     base corpus nor the bundle is refused at import, never admitted
     unchecked."""
     from beliefs.errors import ImportRefused
