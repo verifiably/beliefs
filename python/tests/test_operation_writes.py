@@ -379,7 +379,7 @@ from verification_fixtures import forgeries, publish_corpus
 from beliefs.verify import publication_node
 
 
-def test_v5_each_forgery_is_refused_before_the_intent(tmp_path):
+def test_each_forgery_is_refused_before_the_intent(tmp_path):
     writer, port = writer_over(tmp_path)
     published = publish_corpus(writer)
     cases = forgeries(writer, published)

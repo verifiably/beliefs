@@ -1,6 +1,6 @@
 """The run-confinement values: the closed vocabulary, the two exact policies,
 science.environment.v2, the instance attestation, and the receipt and run
-domains (design §3, §4.1, §6.3)."""
+domains."""
 
 import dataclasses
 
@@ -34,7 +34,7 @@ from beliefs.recipe import (
 from beliefs.replay import qualifies
 
 
-# --- K1: the vocabulary and the two exact policies ----------------------------
+# --- the vocabulary and the two exact policies ----------------------------
 def test_the_vocabulary_is_closed_and_the_requirement_is_its_own_explicit_tuple():
     assert CAPABILITIES == ("from-bundle", "closure-confined-filesystem", "network-denied")
     assert REQUIRED_FOR_CLEAN_ENVIRONMENT == CAPABILITIES
@@ -80,7 +80,7 @@ def test_a_known_identity_with_fewer_capabilities_is_unsupported():
         supported_policy("boundary-policy/confined-v1")
 
 
-# --- K3: the instance attestation ---------------------------------------------
+# --- the instance attestation ---------------------------------------------
 def test_a_mount_plan_identity_disagreeing_with_its_mounts_is_malformed():
     with pytest.raises(MalformedClosure):
         instance(mount_plan_identity="sha256:" + "00" * 32)
@@ -113,7 +113,7 @@ def test_a_receipt_capability_outside_the_vocabulary_is_unspellable():
         LaunchAttestation(scratch_mapping="s", argv=("a",), rendered_config=(), capabilities=("teleportation",))
 
 
-# --- K4: the domains ----------------------------------------------------------
+# --- the domains ----------------------------------------------------------
 def test_the_minimal_receipt_projection_is_byte_stable_under_v1():
     launch = LaunchAttestation(
         scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=(("alpha", "0.05"),)

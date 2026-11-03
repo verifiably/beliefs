@@ -1,4 +1,4 @@
-"""The corpus-local semantic audit (world-changing families §6.3, §7)."""
+"""The corpus-local semantic audit."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ OTHER_CLAIM = build_claim(
 """A claim at `spec_draft`'s own operator but another entity — distinct from
 `TESTING_CLAIM`, which `typed_estimand`'s default estimand answers, so a target
 proposition storing this claim contradicts an unmodified `spec_draft()` spec
-on claim identity alone (estimand-typing §7.2, Q6)."""
+on claim identity alone."""
 
 
 @pytest.fixture()
@@ -55,7 +55,7 @@ def writer(tmp_path):
     # `TESTING_PROFILE`, not BASE: every fixture assessment here carries a
     # typed estimand against `testing/affects`, which the recomputation
     # (`check_assessment`) decodes under the writer's own profile before it
-    # ever reaches the run's closure (estimand-typing §6, §9).
+    # ever reaches the run's closure.
     return _testing_writer(tmp_path / "corpus")
 
 
@@ -100,7 +100,7 @@ def assessment_closure(frozen, *, token: str = "tok", result: ResultManifest | N
         recipe=recipe,
         result=base.result if result is None else result,
         # The closure fixture's occurrence names `tester`; a run closure added
-        # directly must name the writer's bound actor (write permits §4.2).
+        # directly must name the writer's bound actor.
         occurrence=replace(base.occurrence, actor=ACTOR),
     )
 
@@ -332,7 +332,7 @@ class TestTheEvidenceIsExplicit:
 
 class TestOmegaValidComesFirst:
     def test_a_malformed_record_is_classified_and_nothing_reads_it(self, writer, monkeypatch):
-        """M3's audit arm: a raw-written cyclic retraction pair is malformed
+        """The audit case: a raw-written cyclic retraction pair is malformed
         (its content identities cannot close), and the audit says so before
         any standing or belief evaluation — asserted by making both raise."""
         raw_cyclic_retraction_pair(writer)
@@ -381,11 +381,11 @@ class TestTheAuditMintsNothing:
 
 def forged_single_over_two_producers(writer) -> Node:
     """A dataset two runs produce, carrying a raw-written `single(A)` basis —
-    R23's forgery, which the API cannot spell (§11.11). Returns `B`'s run, the
-    record whose deletion leaves nothing to contradict the forgery (§7).
+    The forgery, which the API cannot spell. Returns `B`'s run, the
+    record whose deletion leaves nothing to contradict the forgery.
 
     Module-level rather than inline: `test_deletion_rows.py` builds the same
-    state for the cut-18 R23 row, and one construction serves both.
+    state for the deletion-row tests, and one construction serves both.
     """
     dataset = writer.add(stored.dataset_node(title="d", resources=PINNED))
     writer.add(_producing_run("a", dataset.id))
@@ -405,8 +405,8 @@ def forged_single_over_two_producers(writer) -> Node:
 
 class TestLineageBasisRecomputation:
     def test_a_forged_single_is_contradicted_while_the_second_producer_stands(self, writer):
-        """R23's audit clause: `single(A)` stamped, `B` also produces → finding;
-        delete `B`'s run → the semantic finding disappears (§7)."""
+        """The audit clause: `single(A)` stamped, `B` also produces → finding;
+        delete `B`'s run → the semantic finding disappears."""
         run_b = forged_single_over_two_producers(writer)
 
         codes = [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)]
@@ -524,7 +524,7 @@ class TestTheAuditReportsAndNeverRaises:
         )
         run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
         proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
-        # `outcome="maybe"` is outside the closed set (M13's opacity): the
+        # `outcome="maybe"` is outside the closed set (the closed set is opaque): the
         # typed constructor refuses it at mint, so the malformed record is
         # written behind the boundary — self-consistent (restamped), never
         # constructor-refused — and only the audit's recomputation catches it.
@@ -551,7 +551,7 @@ class TestTheAuditReportsAndNeverRaises:
 
     def test_an_assessment_naming_a_dataset_production_run(self, writer):
         """`build_assessment` refuses a dataset-production closure with
-        `SignatureRefused` (R7), not `MalformedRecord`. Catching only the
+        `SignatureRefused`, not `MalformedRecord`. Catching only the
         latter let one such assessment abort the whole audit and discard every
         finding already collected — the failure mode the malformed-record catch
         was added to close, reopened by a sibling of the same base."""
@@ -656,7 +656,7 @@ class TestOmegaValidIsMalformednessOnly:
 
 
 class TestVerificationRecomputation:
-    """R19's audit arm at the value width. `check_verification` compares two
+    """The audit at the value width. `check_verification` compares two
     members — the verdict and the assessment identity the original run's own
     derivation yields — and each has to be able to disagree on its own, or a
     silently *unchecked* outcome would read the same as an agreeing one."""
@@ -710,7 +710,7 @@ class TestVerificationRecomputation:
 
 
 class TestAssessmentComparisonNamespaces:
-    """R22's comparison compares like with like. The derived value carries the
+    """The comparison compares like with like. The derived value carries the
     spec's claim target and a bare closure address; the stored facet carries
     corpus refs. Comparing them whole would contradict on agreement."""
 
@@ -763,7 +763,7 @@ class TestAssessmentComparisonNamespaces:
 
 def test_a_well_formed_assessment_is_admitted_by_audit_and_by_import(writer, tmp_path):
     """The regression `profile` becoming a required keyword on `check_assessment`
-    guards against (estimand-typing §7.2, Task 8): without it threaded through
+    guards against: without it threaded through
     both `audit_corpus` and `import_bundle`'s recomputation, either would reach
     `stored.assessment_value` with no profile and fail with an uncaught
     `TypeError` before any derivation check runs — never a `RecordError` the
@@ -960,7 +960,7 @@ def test_declaration_malformedness_alone_withholds_audit_recomputation(writer, d
         assert codes == {"facet-retrieval-unresolved"}
 
 
-# --- V4 / V6 / V2: scope, rule, scope rule and report are recomputed (design §6) ---
+# --- scope, rule, scope rule and report are recomputed ---
 from verification_fixtures import publish_corpus, self_consistent_forgery
 
 from beliefs.audit import check_verification
@@ -978,7 +978,7 @@ def _findings(writer, evidence, code="verification-derivation-contradicted"):
     return [f for f in audit_corpus(reopen(writer.root), evidence=evidence, profile=writer.profile) if f.code == code]
 
 
-def test_v4_a_published_verification_audits_checked_with_no_contradiction(writer):
+def test_a_published_verification_audits_checked_with_no_contradiction(writer):
     published = publish_corpus(writer, publish=True)
     assert published.node is not None
     outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=published.evidence)
@@ -989,8 +989,8 @@ def test_v4_a_published_verification_audits_checked_with_no_contradiction(writer
     )
 
 
-def test_v4_a_certified_verification_audits_clean_through_its_stored_certification(writer):
-    """The recomputation takes the certification from the stored report (decision 7): drop it and the report identity moves. [R10]"""
+def test_a_certified_verification_audits_clean_through_its_stored_certification(writer):
+    """The recomputation takes the certification from the stored report: drop it and the report identity moves."""
     published = publish_corpus(writer, publish=True, certification=CERTIFIED)
     assert published.derived.report.certification == CERTIFIED
     assert not _findings(writer, published.evidence)
@@ -1011,7 +1011,7 @@ V4_IDS = ["scope", "verdict", "report-receipt", "report-conformance", "rule", "s
 
 
 @pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
-def test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member(writer, member, mutate, corpus):
+def test_a_self_consistent_forgery_contradicts_on_the_altered_member(writer, member, mutate, corpus):
     published = publish_corpus(writer, publish=True, **corpus)
     assert published.node is not None
     if member == "scope":
@@ -1022,12 +1022,12 @@ def test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member(writer, 
     assert not _findings(writer, published.evidence, code="derivation-malformed")
 
 
-def test_v6_a_report_less_verification_is_checked_for_verdict_and_identity_only(writer):
+def test_a_report_less_verification_is_checked_for_verdict_and_identity_only(writer):
     published = publish_corpus(writer, publish=True)
     assert published.node is not None
     facet = dict(published.node.facets[stored.VERIFICATION_FACET])
     del facet["report"], facet["rule"], facet["scope_rule"]
-    facet["scope"] = "same-environment"  # a lowered scope a report-less record cannot be caught on (cut 18 §7)
+    facet["scope"] = "same-environment"  # a lowered scope a report-less record cannot be caught on
     legacy = stored.stamp_semantic_identity(
         Node(
             id="verification:legacy",
@@ -1058,7 +1058,7 @@ def test_v6_a_report_less_verification_is_checked_for_verdict_and_identity_only(
 
 
 def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
-    """Decision 13: the assessment audit resolves the bare run through the typed ref."""
+    """The assessment audit resolves the bare run through the typed ref."""
     published = publish_corpus(writer, publish=True)
     altered = published.assessment.model_copy(deep=True)
     altered.facets[stored.ASSESSMENT_FACET]["outcome"] = "refuted"
@@ -1085,7 +1085,7 @@ def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
         )
 
 
-# --- V8: no spec disappears silently (design decision 15) --------------------
+# --- no spec disappears silently --------------------
 from beliefs.audit import check_analysis_spec, stored_specs
 
 
@@ -1098,9 +1098,9 @@ def _false_spec_record(spec):
     return stored.stamp_semantic_identity(forged)
 
 
-def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it(tmp_path):
+def test_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it(tmp_path):
     # A writer of its own on `TESTING_PROFILE`, built the same way the shared
-    # `writer` fixture above is (estimand-typing Task 7 moved that fixture off
+    # `writer` fixture above is (the estimand-typing change moved that fixture off
     # BASE too, for the same reason): `spec_draft()`'s typed estimand is
     # against `testing/affects`, which BASE does not declare, and restoration
     # reads the profile that wrote it.
@@ -1109,7 +1109,7 @@ def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_report
 
     writer = _testing_writer(tmp_path / "corpus")
     # The boundary now refuses a spec whose target does not resolve to a
-    # proposition its own estimand answers (estimand-typing §7.2, Task 8), so
+    # proposition its own estimand answers, so
     # `spec_draft`'s default `target` must name a real, matching proposition.
     target = writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
     spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
@@ -1133,13 +1133,13 @@ def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_report
     ] == [forged.id]
 
 
-def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(writer):
+def test_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(writer):
     from fixtures_cut3 import TESTING_CLAIM
 
     # The stored spec's estimand is `spec_draft`'s default, built against
     # `TESTING_CLAIM` (`frozen_for`, via `typed_estimand`); the boundary now
-    # requires the target proposition's own claim to agree (estimand-typing
-    # §7.2, Task 8), so the proposition is minted with that same claim rather
+    # requires the target proposition's own claim to agree,
+    # so the proposition is minted with that same claim rather
     # than `publish_corpus`'s bare `{"operator": "affects"}` default.
     published = publish_corpus(writer, publish=True, claim=project_claim(TESTING_CLAIM))
     assert published.node is not None
@@ -1153,11 +1153,11 @@ def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corp
     assert outcome.checked and outcome.contradiction is None
 
 
-# --- Task 8: the boundary and the audit (estimand-typing §7.2, decision 10) --
+# --- the boundary and the audit ---
 
 
 def test_a_raw_written_mismatching_spec_is_caught_only_under_audit(writer):
-    """§7.3c's shape: a raw write bypasses the boundary entirely, so the
+    """A raw write bypasses the boundary entirely, so the
     mismatch is admitted at read and caught only by the audit's own
     recomputation (`check_spec_target`), never by a reader that coerces."""
     target = writer.add(stored.proposition_node("p-other", title="other", claim=project_claim(OTHER_CLAIM)))
@@ -1170,8 +1170,8 @@ def test_a_raw_written_mismatching_spec_is_caught_only_under_audit(writer):
 
 
 def test_pre_grammar_records_audit_under_their_own_codes(writer):
-    """Decision 10: a pre-grammar spec or assessment is named by its own code,
-    never folded into `derivation-malformed` (Task 6's reviewer note)."""
+    """A pre-grammar spec or assessment is named by its own code,
+    never folded into `derivation-malformed`."""
     from beliefs.identity import v1
 
     spec_node = stored._node(
@@ -1227,7 +1227,7 @@ def test_pre_grammar_records_audit_under_their_own_codes(writer):
 def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_contradicts_on_operator_alone(
     writer, tmp_path
 ):
-    """Q6's stored-pair arm, run through the seams the write-time refusal
+    """The stored-pair case, run through the seams the write-time refusal
     (`test_corpus_write.py::TestEstimandTargetMatch::
     test_the_inconsistent_stored_pair_is_caught_by_operator_equality`) never
     reaches: raw-written, so `_refuse` never sees it. Comparing identities
@@ -1281,7 +1281,7 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
     )
     raw_write(writer.root, node)
 
-    # decodes cleanly: identities only, no cross-check at restore (decision 10 / §7.2).
+    # decodes cleanly: identities only, no cross-check at restore.
     restored = stored.analysis_spec_value(reopen(writer.root).get(node.id), profile=TESTING_PROFILE)
     assert restored.estimand.claim == claim_identity(TESTING_CLAIM)
     assert restored.estimand.operator == "testing/correlates-with"
@@ -1306,7 +1306,7 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
 
 
 def test_explicit_import_refuses_a_spec_whose_target_does_not_resolve_in_the_union(tmp_path):
-    """The `_ImportView` branch of the boundary check (Task 8 review finding
+    """The `_ImportView` branch of the boundary check (a review finding
     2), the unresolvable arm: a spec whose target resolves nowhere in the
     base corpus nor the bundle is refused at import, never admitted
     unchecked."""
@@ -1325,7 +1325,7 @@ def test_explicit_import_refuses_a_spec_whose_target_does_not_resolve_in_the_uni
         )
 
 
-# --- U7: composites and cross-kind succession under audit -------------------
+# --- composites and cross-kind succession under audit -------------------
 from test_composite_boundary import _build, _claim, _proposition
 from test_composite_boundary import _writer as _composite_writer
 

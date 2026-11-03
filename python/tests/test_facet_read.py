@@ -1,4 +1,4 @@
-"""B3 and B4 (biology pack design §5.1–§5.2, §5.5): the corpus reader is the
+"""The corpus reader is the
 only route to a `FacetRead`, the address is the fetched dataset's own, and
 every read is validated. Every row here seeds a corpus by raw write and reads
 it back through a fresh `ReadView`, because that is the only door."""
@@ -37,7 +37,7 @@ def _facet_node():
 
 
 def test_the_reader_refuses_anything_but_a_corpus_view():
-    """The public bypass B3 closes: an in-memory node, or any object shaped
+    """The public bypass the reader closes: an in-memory node, or any object shaped
     like a view, mints nothing."""
     from unittest.mock import Mock
 

@@ -1,4 +1,4 @@
-"""The `estimands:` declaration class (estimand-typing design §5, Q2)."""
+"""The `estimands:` declaration class."""
 
 import copy
 

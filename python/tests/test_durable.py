@@ -1,4 +1,4 @@
-"""The durable create-only write (publish-act-local design §4.4)."""
+"""The durable create-only write."""
 
 from __future__ import annotations
 

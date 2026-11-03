@@ -1,4 +1,4 @@
-"""F1–F3, F7 at the write seams: add, import, relocation. Revision is Task 9's."""
+"""Facet checks at the write seams: add, import, relocation."""
 
 from typing import Any
 

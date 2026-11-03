@@ -662,7 +662,7 @@ def test_v3_stored_verification_has_no_public_constructor():
         )  # type: ignore[call-arg]
 
 
-def test_v5_a_record_id_that_does_not_recompute_is_malformed(pair):
+def test_a_record_id_that_does_not_recompute_is_malformed(pair):
     verification = verification_of(pair)
     with pytest.raises(MalformedRecord, match="recomputed identity"):
         decode_verification(_node_for(verification, identity="f" * 64))
@@ -693,7 +693,7 @@ def test_v5_a_record_id_that_does_not_recompute_is_malformed(pair):
         lambda f: f.__setitem__("report", None),
     ],
 )
-def test_v6_a_present_but_malformed_report_or_member_is_refused(pair, mutate):
+def test_a_present_but_malformed_report_or_member_is_refused(pair, mutate):
     verification = verification_of(pair)
     facet = _facet_for(verification)
     mutate(facet)
@@ -701,7 +701,7 @@ def test_v6_a_present_but_malformed_report_or_member_is_refused(pair, mutate):
         decode_verification(_node_for(verification, facet=facet))
 
 
-def test_v7_the_assessment_member_and_the_verifies_edge_travel_together(pair):
+def test_the_assessment_member_and_the_verifies_edge_travel_together(pair):
     verification = verification_of(pair)
     node = _node_for(verification)
     node.relations = []
@@ -766,7 +766,7 @@ def test_v3_a_superseding_verification_publishes_its_typed_predecessor(pair):
     assert decoded is not None and decoded.supersedes == verification.identity()
 
 
-def test_v7_the_production_shape_publishes_edge_less_and_admits_nothing(production_pair):
+def test_the_production_shape_publishes_edge_less_and_admits_nothing(production_pair):
     verification = _production_verification(production_pair)
     node = publication_node(verification)
     assert node.relations == [] and "assessment" not in node.facets[stored.VERIFICATION_FACET]
@@ -776,7 +776,7 @@ def test_v7_the_production_shape_publishes_edge_less_and_admits_nothing(producti
         admission_record(verification)  # pyright: ignore[reportArgumentType] — invalid type is under test
 
 
-def test_v7_publication_node_refuses_the_cross(pair, production_pair):
+def test_publication_node_refuses_the_cross(pair, production_pair):
     with pytest.raises(MalformedRecord, match="corpus ref"):
         publication_node(verification_of(pair))
     with pytest.raises(MalformedRecord):

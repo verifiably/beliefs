@@ -40,36 +40,36 @@ class TestTheShippedContract:
         assert grammar.layers == ("causal", "structural", "statistical", "methodological")
 
     def test_the_polarity_position_carries_four_inhabitants(self, base_contract_path):
-        # §7.5: always emitted, with the inapt tag for the unit inhabitant.
+        # Always emitted, with the inapt tag for the unit inhabitant.
         grammar = base.load_base_contract(base_contract_path).claim_grammar
         assert grammar.polarity_tags == ("positive", "negative", "unsigned", "inapt")
 
     def test_content_identity_is_derived_not_authored(self, base_contract_path, document):
-        # §7.3 pairs *content-derived, moves on edit* with belief_input_digest.
+        # The contract pairs *content-derived, moves on edit* with belief_input_digest.
         shipped = base.load_base_contract(base_contract_path)
         assert shipped.content_identity == parse(document).content_identity
 
 
 class TestContentIdentity:
     def test_an_editorial_edit_moves_it(self, document):
-        # §7.3: purely editorial changes move the contract identity — and so
+        # Purely editorial changes move the contract identity — and so
         # belief_input_digest — while touching no declared schema.
         edited = copy.deepcopy(document)
         edited["claim_grammar"]["version"] = 2
         assert parse(edited).content_identity != parse(document).content_identity
 
     def test_reformatting_does_not_move_it(self, base_contract_path):
-        # D5's rule, one level up: whitespace, key order and quoting style are
+        # The same rule, one level up: whitespace, key order and quoting style are
         # formatting, and an identity over raw bytes would make them significant.
         original = base_contract_path.read_text(encoding="utf-8")
         reformatted = yaml.safe_load(yaml.safe_dump(yaml.safe_load(original), default_flow_style=True, indent=7))
         assert parse(reformatted).content_identity == base.load_base_contract(base_contract_path).content_identity
 
     def test_a_comment_does_not_move_it(self, base_contract_path):
-        # Recorded rather than hidden: §7.3 lists "a description, a comment, an
+        # Recorded rather than hidden: the contract lists "a description, a comment, an
         # example" as editorial changes that move contract identity. A comment
         # does not survive parsing, so it moves nothing — and it should not,
-        # under the reformatting rule above. §7.3 overstates by that one item.
+        # under the reformatting rule above. The listing overstates by that one item.
         original = base_contract_path.read_text(encoding="utf-8")
         commented = "# an added comment\n" + original
         assert parse(yaml.safe_load(commented)).content_identity == parse(yaml.safe_load(original)).content_identity
@@ -126,7 +126,7 @@ class TestRefusals:
             parse(broken)
 
     def test_a_foreign_tag_encoding_is_refused(self, document):
-        # The rule this enforces is §7.4 row 5's: an implementation must never
+        # The rule this enforces: an implementation must never
         # choose its own serialization for a tag.
         broken = copy.deepcopy(document)
         broken["claim_grammar"]["tag_encoding"] = "science.identity.v2"
@@ -135,7 +135,7 @@ class TestRefusals:
 
     @pytest.mark.parametrize("closed_set", ["quantifiers", "polarities", "layers"])
     def test_an_empty_closed_set_is_refused(self, document, closed_set):
-        # §6.2: an operator admitting no layer would make Claim uninhabited
+        # An operator admitting no layer would make Claim uninhabited
         # there, and the same argument reaches every closed set.
         broken = copy.deepcopy(document)
         broken["claim_grammar"][closed_set] = []
@@ -301,7 +301,7 @@ class TestCompositeGrammarAndKind:
         ],
     )
     def test_a_composes_signature_outside_composite_to_proposition_is_refused(self, document, sources, targets):
-        """§3.1, U1: `composes` has one signature and the kernel owns it. Both
+        """`composes` has one signature and the kernel owns it. Both
         endpoints are named kinds, so kind-existence admits every row here —
         the refusal is the signature's own."""
         document["relations"]["composes"]["sources"] = sources

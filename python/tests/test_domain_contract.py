@@ -1,7 +1,7 @@
 """Domain contracts and succession.
 
-M6's arms selected into cut 1 are here. Its deferred arm — *"consulted belief
-digests move"* on an additive successor — needs belief, which the slice does not
+The succession checks are here. The deferred check — *"consulted belief
+digests move"* on an additive successor — needs belief, which this module does not
 compute, and is not asserted anywhere below.
 """
 
@@ -35,7 +35,7 @@ class TestTheTestingContract:
         assert set(contract.operators) == {"affects", "subtype-of", "correlates-with", "measured-by"}
 
     def test_term_identifiers_are_namespaced(self, parse, testing_document):
-        # §7.3: authored, stable, namespaced — and it is what enters π_claim.
+        # Authored, stable, namespaced — and it is what enters π_claim.
         assert parse(testing_document).term("affects") == "testing/affects"
 
     def test_both_polarity_regimes_are_reachable(self, parse, testing_document):
@@ -44,7 +44,7 @@ class TestTheTestingContract:
         assert operators["subtype-of"].sign_apt is False
 
     def test_restriction_sorts_resolve_through_dimensions_not_operators(self, parse, testing_document):
-        # §7.1: so two operators sharing `population` cannot disagree about what
+        # So two operators sharing `population` cannot disagree about what
         # a population restriction is bound to.
         contract = parse(testing_document)
         assert contract.dimensions["population"].restriction_sort == "cohort"
@@ -61,7 +61,7 @@ class TestVocabularyBindings:
         assert binding.dataset_identity == "0" * 64
 
     def test_a_bare_namespace_is_refused(self, parse, testing_document):
-        # D §5, and the case §7.1's own biology example would fail on.
+        # The case a biology example would fail on.
         broken = copy.deepcopy(testing_document)
         broken["sorts"]["entity"]["vocabulary"] = {"namespace": "EX", "release": None}
         with pytest.raises(MalformedContract, match="bare namespace"):
@@ -75,7 +75,7 @@ class TestVocabularyBindings:
 
 
 class TestTheBindingIsASumAndNotAProduct:
-    """D §5 says *dataset* **or** *namespace with a release*, and three optional
+    """The contract says *dataset* **or** *namespace with a release*, and three optional
     fields say neither. The record admits values off both arms, and ``projection``
     drops ``namespace``/``release`` on the dataset arm — correctly, since there
     they carry nothing — so an off-arm value projects as though the namespace were
@@ -148,14 +148,14 @@ class TestOperatorDeclarations:
             parse(broken)
 
     def test_an_operator_admitting_no_layer_is_refused(self, parse, testing_document):
-        # §6.2: it would make Claim uninhabited at that operator.
+        # It would make Claim uninhabited at that operator.
         broken = copy.deepcopy(testing_document)
         broken["operators"]["affects"]["layers"] = []
         with pytest.raises(MalformedContract, match="non-empty"):
             parse(broken)
 
     def test_a_domain_may_not_mint_a_layer(self, parse, testing_document):
-        # §7.1: the layer set is base-owned but per-operator restricted. A domain
+        # The layer set is base-owned but per-operator restricted. A domain
         # that could mint one would be redefining what kind of thing a claim is.
         broken = copy.deepcopy(testing_document)
         broken["operators"]["affects"]["layers"] = ["teleological"]
@@ -194,7 +194,7 @@ class TestOperatorDeclarations:
 
 
 class TestSortReferences:
-    """Design §4.1–§4.2 (biology pack): a bare name is this contract's; a
+    """A bare name is this contract's; a
     namespaced name is another contract's and is deferred to compile."""
 
     def test_a_namespaced_reference_is_deferred_to_compile(self, parse, testing_document):
@@ -204,7 +204,7 @@ class TestSortReferences:
         contract = parse(crossing)
         assert contract.operators["affects"].arg_sorts == ("entity", "other/thing")
         assert contract.dimensions["population"].restriction_sort == "other/cohort"
-        # As written, in the schema projection too (§4.5).
+        # As written, in the schema projection too.
         assert contract.operators["affects"].schema_projection()["arg_sorts"] == ["entity", "other/thing"]
 
     def test_a_bare_undeclared_name_is_still_refused(self, parse, testing_document):
@@ -235,7 +235,7 @@ class TestSortReferences:
 
 class TestTheBaseContractIssuesNoOperator:
     def test_a_domain_contract_named_science_is_refused(self, parse, testing_document):
-        # §7.1: operators are domain-issued without exception. A base-issued one
+        # Operators are domain-issued without exception. A base-issued one
         # would sit outside the closure walk every other operator goes through.
         broken = copy.deepcopy(testing_document)
         broken["contract"] = "science"
@@ -244,7 +244,7 @@ class TestTheBaseContractIssuesNoOperator:
 
 
 class TestSuccession:
-    """§8.3's adopted rules, refused at contract load.
+    """The adopted succession rules, refused at contract load.
 
     Every case below goes through `parse_domain_contract`, not through
     `check_succession` directly. The check being *reachable* is not the property
@@ -298,7 +298,7 @@ class TestSuccession:
     @pytest.mark.parametrize(
         ("field", "value"),
         [
-            # `arity` and `layers` are picked so `affects`'s edges §3.3 row
+            # `arity` and `layers` are picked so `affects`'s edges row
             # (cause 0, effect 1, causal) stays parse-valid after the mutation —
             # arity grows rather than shrinks below the edge's slots, and
             # `causal` is kept rather than dropped. Otherwise this test would
@@ -355,8 +355,8 @@ class TestSuccession:
             parse(document, predecessor=genesis)
 
     def test_the_scope_is_claim_vocabulary_and_nothing_else(self, genesis):
-        # §8.3's scope restriction: an unscoped "every identifier" would have
-        # this design quietly deciding facet versioning, which D §12 leaves open.
+        # The scope restriction: an unscoped "every identifier" would have
+        # this design quietly deciding facet versioning, which is left open.
         assert all(
             key.split(":")[0] in {"sort", "dimension", "operator", "estimand", "edge"}
             for key in genesis.claim_vocabulary()
@@ -426,10 +426,10 @@ class TestRetirementIsOneWay:
         document, contract = tombstoned
         dropped = copy.deepcopy(document)
         del dropped["operators"]["affects"]
-        # An estimand declaration lives with its operator (estimand-typing §5.1)
+        # An estimand declaration lives with its operator
         # and cannot outlive it in the document, so it is dropped in step to keep
         # the document internally consistent — this test is about the operator
-        # drop being refused, not about the estimand table. An edges §3.3 row
+        # drop being refused, not about the estimand table. An edges row
         # is the same: it names an operator this contract declares, so it
         # cannot outlive that operator either.
         del dropped["estimands"]["affects"]
@@ -441,11 +441,11 @@ class TestRetirementIsOneWay:
 
     def test_a_tombstone_may_not_be_redefined(self, parse, tombstoned):
         # Retirement freezes the declaration; it does not exempt it. A historical
-        # claim is typed against the frozen retired declaration (§7.3a), so an
+        # claim is typed against the frozen retired declaration, so an
         # edit to one changes what that claim means.
         document, contract = tombstoned
         edited = copy.deepcopy(document)
-        # arity grows to 3, not down to 1, so `affects`'s edges §3.3 row (cause
+        # arity grows to 3, not down to 1, so `affects`'s edges row (cause
         # 0, effect 1) stays parse-valid and the edit reaches the redefinition
         # check rather than the edges refusal.
         edited["operators"]["affects"]["arity"] = 3
@@ -500,7 +500,7 @@ class TestTheLoadBoundary:
         # malformed successor through the boundary most callers actually use.
         genesis = parse(testing_document)
         operators = copy.deepcopy(testing_document["operators"])
-        # arity grows to 3, not down to 1, so `affects`'s edges §3.3 row (cause
+        # arity grows to 3, not down to 1, so `affects`'s edges row (cause
         # 0, effect 1) stays parse-valid and the mutated document reaches the
         # succession check rather than the edges refusal.
         operators["affects"]["arity"] = 3
@@ -524,17 +524,17 @@ class TestTheLoadBoundary:
 
 class TestParallelGenesis:
     def test_a_second_genesis_in_one_namespace_is_not_prevented(self, parse, testing_document):
-        # §8.3 rules this an escape hatch and says so: the rules enforce
+        # The succession rules treat this as an escape hatch and says so: the rules enforce
         # immutability *within a declared lineage*, not across a namespace.
         # Closing it needs pin-transition validation or a namespace authority —
-        # governance, not typing — and ρC1 leaves it open. Asserted here so the
+        # governance, not typing — and it is left open. Asserted here so the
         # hole is visible in the suite rather than only in prose.
         first = parse(testing_document)
         forked = copy.deepcopy(testing_document)
         forked["operators"]["affects"]["arity"] = 1
         forked["operators"]["affects"]["arg_sorts"] = ["entity"]
         # Fin(1) has one slot, so no cause/effect pair fits; this fork's point
-        # is the arity shrink, not edges §3.3, so the row is dropped with it.
+        # is the arity shrink, not edges, so the row is dropped with it.
         del forked["edges"]["affects"]
         second = parse(forked)  # also genesis, same namespace, incompatible schema
 

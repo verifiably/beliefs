@@ -1,4 +1,4 @@
-"""P1-P9, G1, G8, D7, S6(e): the evaluator end to end.
+"""The evaluator end to end.
 
 `scenario(**overrides)` builds one complete, valid `evaluate` kwargs dict —
 one claim, two independent supporting assessments, admitting verifications, a
@@ -529,11 +529,11 @@ class TestD7AtTheEvaluator:
 
 
 class TestQ8TheEstimandWalk:
-    """D6's third trigger, at the evaluator (estimand-typing §5.4): an
+    """The third consulted-contracts trigger, at the evaluator: an
     assessment's estimand reaches its contracts whether or not the claim
     schema would. `measures` declares no operator, so the first arm below
     cannot pass on the claim walk alone — dropping the estimand walk in
-    `consulted_contracts` is exactly Task 11's sabotage for this row, and it
+    `consulted_contracts` is exactly the mistake this class catches, and it
     fails here first."""
 
     @staticmethod
@@ -669,7 +669,7 @@ class TestS6eTheDigestHalf:
 
 
 class TestPolicyBindingRefuses:
-    """Carry-over from task 8's review: `PolicyBinding`'s own `MalformedRecord`
+    """`PolicyBinding`'s own `MalformedRecord`
     refusals, untested there."""
 
     def test_empty_rule_refuses(self):
@@ -681,11 +681,11 @@ class TestPolicyBindingRefuses:
             PolicyBinding(rule=BELIEF_V1_RULE, implementation="")
 
 
-# --- the traced evaluator (composite-claims design §6.2) ---------------------
+# --- the traced evaluator ---------------------
 
 
 def test_evaluate_is_the_first_projection_of_evaluate_traced():
-    # P1–P9 carry the proof that the first projection is the answer; this pins only that the tuple's first member is what `evaluate` returns.
+    # The other tests carry the proof that the first projection is the answer; this pins only that the tuple's first member is what `evaluate` returns.
     for overrides in (
         {},
         {"binding": None},

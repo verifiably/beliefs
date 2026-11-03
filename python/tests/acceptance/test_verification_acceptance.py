@@ -126,7 +126,7 @@ def test_v3_a_superseding_failed_verification_invalidates_through_the_session(wo
     assert lifecycle_state(values) == INVALIDATED and {v.ref for v in active(values)} == {successor.id}
 
 
-def test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_directory):
+def test_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
         library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)

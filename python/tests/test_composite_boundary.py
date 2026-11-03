@@ -1,4 +1,4 @@
-"""The composite write boundary (design §4.2, U3, U6, U9)."""
+"""The composite write boundary."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ IMPORT: dict[str, Any] = {
 
 def _estimand(claim):
     """A typed estimand for a biology-fixture `affects` claim, under the profile that stores and restores it —
-    the fixture's `estimands:` row for `affects` (Task 2) names `biology/level`, `biology/measure`, `biology/identification`."""
+    the fixture's `estimands:` row for `affects` names `biology/level`, `biology/measure`, `biology/identification`."""
     estimand, _ = build_estimand(
         WITH_BIOLOGY,
         claim,
@@ -149,7 +149,7 @@ def test_add_checks_form_and_never_vocabulary(writer):
         snapshot=build_snapshot(),
         slug="iso",
     )
-    minted = writer.add(stored.composite_node(value, title="iso"))  # the boundary holds no snapshot (§4.2 step 1)
+    minted = writer.add(stored.composite_node(value, title="iso"))  # the boundary holds no snapshot (the facet decode)
     assert writer.read_view.get(minted.id).kind == "composite"
 
 
@@ -245,7 +245,7 @@ class TestSupersession:
         under the fixture profile (the estimand lane's constructor requires `estimand` and `applicability`)."""
         from test_evaluation import _address, _resources
 
-        address = _address("a")  # dataset ids are content addresses (slice 5); `dataset_node` takes no slug
+        address = _address("a")  # dataset ids are content addresses; `dataset_node` takes no slug
         if not writer.read_view.holds(address):
             writer.add(
                 stored.dataset_node(

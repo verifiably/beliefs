@@ -167,8 +167,8 @@ def test_filesystem_and_formatting_changes_are_inert(tmp_path):
 
 
 def test_a_misplaced_node_file_is_a_malformed_state(tmp_path):
-    # Cut 6 selected "rename a node's file" as an inert change; `nodes` 2.0's
-    # well-placedness (STANDARD §4.1) made a node file at a path other than
+    # Renaming a node's file was once treated as an inert change; `nodes` 2.0's
+    # well-placedness (the nodes standard) made a node file at a path other than
     # its id's mapped path a member strict construction refuses, so the move
     # is no longer inert — it is a placement fault, reported as malformed.
     run = stored.run_node("inert", title="inert", spec="analysis-spec:s1")

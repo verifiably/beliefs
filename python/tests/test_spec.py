@@ -399,7 +399,7 @@ def _identified(mapping) -> tuple[str, bytes]:
     return v1.digest(SPEC_DOMAIN, mapping), v1.encode(mapping)
 
 
-def test_v8_restore_round_trips_every_member_and_the_decimal_by_type():
+def test_restore_round_trips_every_member_and_the_decimal_by_type():
     spec = _rich_spec()
     text = v1.encode(frozen_projection(spec))
     restored = restore(spec.identity, text, profile=TESTING_PROFILE)
@@ -419,7 +419,7 @@ def test_v8_restore_round_trips_every_member_and_the_decimal_by_type():
         lambda m: m["parameters"].__setitem__("alpha", Decimal("0.5")),
     ],
 )
-def test_v8_restore_refuses_a_projection_that_does_not_digest_to_the_identity(corrupt):
+def test_restore_refuses_a_projection_that_does_not_digest_to_the_identity(corrupt):
     spec = _rich_spec()
     mapping = frozen_projection(spec)
     corrupt(mapping)
@@ -440,7 +440,7 @@ def test_v8_restore_refuses_a_projection_that_does_not_digest_to_the_identity(co
         lambda m: m.__setitem__("supersedes", 5),
     ],
 )
-def test_v8_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identity(corrupt):
+def test_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identity(corrupt):
     """[R1] The digest agrees with the text by construction; the members are
     still typed and never coerced, and `freeze`'s invariants hold."""
     mapping = frozen_projection(_rich_spec())
@@ -450,7 +450,7 @@ def test_v8_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identi
         restore(identity, text, profile=TESTING_PROFILE)
 
 
-def test_v8_restore_refuses_a_projection_the_restored_spec_would_not_reproduce():
+def test_restore_refuses_a_projection_the_restored_spec_would_not_reproduce():
     """[R1, second round] `SeedPlan.projection()` sorts its streams; a text
     with them unsorted is canonical, digests to its own identity, and would
     restore to a spec whose projection digests to another."""
@@ -467,7 +467,7 @@ def test_v8_restore_refuses_a_projection_the_restored_spec_would_not_reproduce()
         restore(identity, text, profile=TESTING_PROFILE)
 
 
-def test_v8_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
+def test_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
     spec = _rich_spec()
     text = v1.encode(frozen_projection(spec))
     with pytest.raises(MalformedRecord):

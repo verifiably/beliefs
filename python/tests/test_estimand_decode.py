@@ -1,4 +1,4 @@
-"""Round trips and refusals at the decode boundary (M11's shape, one artifact over)."""
+"""Round trips and refusals at the decode boundary."""
 
 from collections.abc import Mapping
 from decimal import Decimal

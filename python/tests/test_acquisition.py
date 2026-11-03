@@ -1,4 +1,4 @@
-"""§2 items 1 and 14: the predicate and the invariant, over an in-memory view."""
+"""The predicate and the invariant, over an in-memory view."""
 
 from typing import Any, cast
 
@@ -6,7 +6,7 @@ from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut3 import typed_applicability, typed_estimand
 from nodes.core.relations import Relation
 from profiles import BASE
-from test_read_side import seed  # the module's raw-write seeding helper (Task 11 gives it manifest arguments)
+from test_read_side import seed  # the module's raw-write seeding helper
 
 from beliefs import stored
 from beliefs.acquisition import bearer_refusal, validity_refusal

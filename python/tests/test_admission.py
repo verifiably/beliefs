@@ -1,6 +1,6 @@
-"""The assessment admission gate: G2b and G6, over constructed records.
+"""The assessment admission gate, over constructed records.
 
-And D3's one further arm: a dataset identified whose bytes are not held here
+And one further case: a dataset identified whose bytes are not held here
 resolves `not-available` — derived from the admission state — and is never
 reported as `not-present` (world-index territory) nor as `not-member` (a
 finding nobody's look supports).
@@ -141,7 +141,7 @@ class TestD3NotAvailableIsDerived:
         assert readable and members == ("EX:term-1",)
 
 
-# --- V2: admit resolves the bare run through the typed ref (design §3.2) ------
+# --- admit resolves the bare run through the typed ref ------
 def test_v2_admit_matches_a_typed_run_ref_to_the_bare_member():
     from beliefs.admission import AdmissionRefused, admit
     from beliefs.record import AssessmentValue, RunValue

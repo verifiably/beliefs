@@ -1,7 +1,7 @@
-"""G2a, R3, R10, R12, R21's boundary arms, T2's in-cell arms,
-R16's mint arm, R17's execution halves, R2's execution-level negative.
-Deferred: T2's committed-registration and ordering arms (persistence), R12's
-boundary-mediated strengthening (tamper log), R21's two-target arm and
+"""The boundary checks and the in-cell checks,
+the mint check, the execution halves and the execution-level negative.
+Deferred: the committed-registration and ordering checks (persistence), the
+boundary-mediated strengthening (tamper log), the two-target check and
 negative (d) (full workflow surface), write-outside-root fail-closed and
 negative (c)'s clean-environment reachability (confinement)."""
 
@@ -465,7 +465,6 @@ def test_the_boundary_refuses_a_definition_the_entrypoint_does_not_embody(tmp_pa
     assert isinstance(mismatched, RunRefused) and mismatched.reason == "definition-mismatch"
 
 
-# --- G2a / R12 ----------------------------------------------------------------
 def test_a_run_naming_no_frozen_spec_is_refused_not_downgraded(tmp_path):
     outcome = run_assessment(tmp_path, spec=spec_draft())
     assert isinstance(outcome, RunRefused) and outcome.reason == "no-frozen-spec"
@@ -526,7 +525,6 @@ def test_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectable(tmp_pa
     assert "boundary_mediated" not in {f.name for f in dataclasses.fields(Occurrence)}
 
 
-# --- R10 ----------------------------------------------------------------------
 def test_url_valued_input_is_refused_as_a_run_input(tmp_path):
     spec = freeze(
         spec_draft(input_roles=(SpecInput(role="observes", dataset="https://example.org/series"),)),
@@ -546,7 +544,7 @@ def test_an_accession_is_refused_and_no_fallback_synthesizes_a_dataset(tmp_path)
     assert outcome.report is not None and not hasattr(outcome, "dataset")
 
 
-# --- R3 (and R2's execution-level negative) -----------------------------------
+# --- the execution-level negative -----------------------------------
 def test_two_executions_of_one_recipe_are_two_runs(tmp_path):
     first = run_assessment(tmp_path / "a")
     second = run_assessment(tmp_path / "b")
@@ -589,7 +587,7 @@ def test_identical_timestamp_actor_and_host_still_yield_distinct_addresses(tmp_p
     assert twinned.event_token != first.run.occurrence.event_token
 
 
-# --- T2's in-cell arms ---------------------------------------------------------
+# --- the in-cell checks ---------------------------------------------------------
 def test_dataset_production_attempt_opens_the_operation_intent(tmp_path):
     outcome = run_production(tmp_path)
     assert isinstance(outcome, RunMinted)
@@ -613,7 +611,7 @@ def test_missing_spec_refusal_publishes_an_unfulfilling_report(tmp_path):
     assert outcome.registration is None
 
 
-# --- R21's boundary arms -------------------------------------------------------
+# --- the boundary checks -------------------------------------------------------
 def test_manifest_missing_output_mints_no_run(tmp_path):
     code, held = stage(tmp_path)
     spec = freeze(spec_draft(), held_rules=spec_rules())
@@ -695,7 +693,7 @@ def test_the_two_failure_states_are_distinct(tmp_path):
     assert isinstance(incompletable, RunRefused)
 
 
-# --- R16's mint arm ------------------------------------------------------------
+# --- the mint check ------------------------------------------------------------
 def test_a_seed_violating_execution_still_mints_a_run(tmp_path):
     outcome = run_assessment(tmp_path, snakefile=SNAKEFILE_SEED_VIOLATING)
     assert isinstance(outcome, RunMinted)
@@ -704,7 +702,7 @@ def test_a_seed_violating_execution_still_mints_a_run(tmp_path):
     assert realized != derive_seed(11, key, "model-initialization")
 
 
-# --- R17's execution halves ----------------------------------------------------
+# --- the execution halves ----------------------------------------------------
 def test_no_path_supplies_inputs_parameters_or_contract_on_an_assessment_run():
     params = set(inspect.signature(execute_assessment_run).parameters)
     assert (
@@ -769,7 +767,7 @@ def test_a_dataset_production_recipe_is_authored_directly(tmp_path):
     assert outcome.run.recipe.nondeterminism == seeded()
 
 
-# --- cut 13: the policy parameter, pre-intent refusals, stable reasons ---------
+# --- the policy parameter, pre-intent refusals, stable reasons ---------
 import dataclasses as _dc
 
 from fixtures_cut3 import replay_of as _replay_of

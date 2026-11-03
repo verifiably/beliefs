@@ -1,6 +1,6 @@
-"""R22's in-cell arms and R7's constructor/admission halves.
-Deferred: R22's unresolvable-rule clause (rules store), negative (b)'s
-raw-write half and negative (c) (store, audit) — cut 3 §4.2.
+"""The in-cell checks and the constructor/admission halves.
+Deferred: the unresolvable-rule clause (rules store), negative (b)'s
+raw-write half and negative (c) (store, audit).
 """
 
 import dataclasses
@@ -310,7 +310,7 @@ def test_exchanged_facets_move_the_belief_digest(minted, tmp_path):
         sorted(value.facet_digest() for value in (exchanged_a, exchanged_b)),
     )
     assert bags[0] == bags[1]  # the bag of facet digests is identical…
-    assert straight != crossed  # …and the keyed pairing still moves the digest (cut 2's member)
+    assert straight != crossed  # …and the keyed pairing still moves the digest
 
 
 def test_the_reach_arm_an_inline_exclusion_moves_the_digest_with_identical_facets(
@@ -439,7 +439,7 @@ def test_zero_observes_inputs_admit_nothing_at_any_quantity_of_reads():
     assert verdict.reason.startswith("no-observes-input")
 
 
-# --- Q5: estimate and uncertainty are typed on the spec's scale ---
+# --- estimate and uncertainty are typed on the spec's scale ---
 
 
 @pytest.fixture

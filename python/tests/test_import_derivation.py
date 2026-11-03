@@ -491,7 +491,7 @@ def _bundle_around(source, published, *extra) -> tuple[Node, ...]:
 
 
 @pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
-def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate, corpus):
+def test_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate, corpus):
     source = _writer(tmp_path / "source")
     published = publish_corpus(source, publish=True, **corpus)
     assert published.node is not None
@@ -502,7 +502,7 @@ def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tm
     assert not path_for(target.root, forged.id).exists() and not path_for(target.root, published.assessment.id).exists()
 
 
-def test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(tmp_path):
+def test_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(tmp_path):
     source = _writer(tmp_path / "source")
     published = publish_corpus(source, publish=True)
     assert published.node is not None
@@ -522,7 +522,7 @@ def test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(
     assert path_for(target.root, published.node.id).exists()
 
 
-def test_v6_a_report_less_verification_imports_on_cut_18s_terms(tmp_path):
+def test_a_report_less_verification_imports_on_the_ordinary_import_terms(tmp_path):
     source = _writer(tmp_path / "source")
     published = publish_corpus(source)
     legacy = _stored_from(published.derived, slug="legacy")
@@ -548,7 +548,7 @@ def test_v6_a_report_less_verification_imports_on_cut_18s_terms(tmp_path):
         )
 
 
-def test_v8_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):
+def test_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):
     from test_audit import _false_spec_record
 
     from beliefs.evidence import NO_EVIDENCE

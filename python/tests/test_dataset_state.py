@@ -1,9 +1,9 @@
-"""G9's selected arms — the upward transition, derived and never stored.
+"""The upward transition, derived and never stored.
 
 Deferred and deliberately absent here: the "minted as a world entity" clause
-(W3's, needs the world boundary), the replay-eligibility third of R5's answer
-(run boundary), and the three-check independence sabotage (needs R5 and R10 as
-runnable checks). Cut 2 §4.2 records each.
+(needs the world boundary), the replay-eligibility third of the answer
+(run boundary), and the three-check independence check (needs the other two as
+runnable checks).
 """
 
 import dataclasses
@@ -63,7 +63,7 @@ class TestTheBasisProjection:
 
     def test_an_unaccepted_algorithm_is_unpinned_not_an_error(self):
         # md5-recorded is unpinned under the accepted set; the dataset is a
-        # curation note, not a refusal (ramp §6.2 — the profile's question,
+        # curation note, not a refusal (the profile's question,
         # not the tool's).
         assert dataset_address(declaration("md5:" + "ab" * 16)) is None
 
@@ -90,7 +90,7 @@ class TestDeclarationDoesNotPromote:
         assert list(params) == ["declaration", "observations"]
 
     def test_an_observation_carries_no_timestamp(self):
-        # Ramp §8 item 1 is open; a field would invite reading it (cut 2 §2.1).
+        # That question is open; a field would invite reading it.
         assert {f.name for f in dataclasses.fields(ByteObservation)} == {"digest", "location"}
 
 
@@ -127,9 +127,9 @@ class TestAProperSubsetDoesNotPromote:
         assert isinstance(admission_state(declaration(D1, D2, D3), observed(D1, D3)), Declared)
 
     def test_a_partly_pinned_dataset_is_a_curation_note_as_ruled(self):
-        # The first partly-pinned instances anywhere (cut 2 §2.1 item 3): the
+        # The first partly-pinned instances anywhere: the
         # fixture exercises the ruled boundary; it does not corroborate the
-        # ruling — ramp §6.2 is where a future argument starts.
+        # ruling — the profile is where a future argument starts.
         state = admission_state(declaration(D1, None), observed(D1))
         assert isinstance(state, CurationNote)
 
@@ -140,8 +140,8 @@ class TestLocationIsNotTheDiscriminator:
         assert isinstance(state, Held)
 
     def test_unreachable_here_with_a_controlled_copy_leaves_both_halves_unchanged(self):
-        # The digest half and the admission half of R5's answer (the
-        # replay-eligibility third is the run boundary's — cut 2 §4.2). The
+        # The digest half and the admission half of the answer (the
+        # replay-eligibility third is the run boundary's). The
         # local copy gone, a far controlled copy remaining: still Held, and the
         # address cannot even see the change — it is a function of the
         # declaration alone, which the signature pins.

@@ -1,4 +1,4 @@
-"""The seed-based dataset fixtures slice 5 migrates the corpus onto (design §8.2)."""
+"""The seed-based dataset fixtures that migrate the corpus onto."""
 
 import pytest
 from dataset_fixtures import dataset_ref, digest_for, pinned, pinned_for

@@ -1,4 +1,4 @@
-"""Design §3.1, §3.2, §3.4: the declaration grammar's closure, in the base contract."""
+"""The declaration grammar's closure, in the base contract."""
 
 import copy
 from typing import Any, cast

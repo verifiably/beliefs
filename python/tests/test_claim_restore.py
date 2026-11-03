@@ -1,4 +1,4 @@
-"""M13 and M11 re-read against `claim_from_stored` (design §2.5)."""
+"""Opacity and determinism re-read against `claim_from_stored`."""
 
 from __future__ import annotations
 

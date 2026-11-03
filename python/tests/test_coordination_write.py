@@ -251,7 +251,7 @@ def test_an_earlier_contract_version_authorizes_nothing_added_later(tmp_path, ba
     genesis = coordination_contract()
     document = deepcopy(COORDINATION_DOCUMENT)
     document.update(version=2, lineage={"successor": genesis.content_identity})
-    # Not `publication`: since cut 39 that kind is real and refused at the door (KindNotMintedHere).
+    # Not `publication`: that kind is real and refused at the door (KindNotMintedHere).
     document["kinds"]["milestone"] = {
         "fields": ["name", "body", "author", "at"],
         "query_versions": [],
@@ -456,7 +456,7 @@ def test_every_ordinary_family_door_refuses_coordination_kinds(tmp_path, door):
 @pytest.mark.parametrize("door", ["add", "revise"])
 @pytest.mark.parametrize("kind", ["publication", "publication-binding"])
 def test_the_ordinary_family_doors_name_the_publish_doors_for_the_publication_kinds(tmp_path, door, kind):
-    """Not "the coordination family door", which refuses them too since cut 39."""
+    """Not "the coordination family door", which refuses them too."""
     writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE)
     node = Node(id=f"{kind}:old", kind=kind, title="old")
     with pytest.raises(CoordinationKindUnsupported, match="is minted only by the publish doors"):
@@ -527,7 +527,7 @@ def test_the_family_doors_refuse_the_publication_kinds(tmp_path, base_contract, 
 
 
 def test_the_audit_applies_the_publication_content_rule(tmp_path, base_contract):
-    """Publication-records design §3: a stored marker or binding outside its closed rule is malformed at the audit."""
+    """A stored marker or binding outside its closed rule is malformed at the audit."""
     from test_publish_intent import intent
 
     from beliefs.publication import binding_record

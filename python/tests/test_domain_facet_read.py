@@ -1,4 +1,4 @@
-"""B4's absent-dataset arm and B5's read-ledger behavior."""
+"""Absent-dataset reads and the read-ledger behavior."""
 
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def test_gather_and_evaluate_agree_on_the_consulted_set(tmp_path):
 
 
 def test_an_absent_observed_dataset_is_absent_from_gather(tmp_path):
-    """B4's absent-dataset clause, superseded by J21 (mount-citations spec §13): a
+    """An absent-dataset read: a
     corpus-local read of an input the corpus does not hold refuses, never drops it."""
     from beliefs.errors import InputOutsideCorpus
 
@@ -85,7 +85,7 @@ def test_an_absent_observed_dataset_is_absent_from_gather(tmp_path):
 
 
 def test_an_assessment_whose_run_the_corpus_does_not_hold_refuses(tmp_path):
-    """Decision 9 extended to the run itself (mount-citations spec §13, final review):
+    """The same applies to the run itself:
     a corpus-local read of an assessment whose run the corpus does not hold refuses
     `input-outside-corpus`, naming the run, instead of failing on the missing run."""
     from domain_facet_fixtures import LOCAL_CORPUS_ID, seed_nodes
@@ -189,7 +189,7 @@ def test_old_facet_receipts_refuse_under_a_new_profile_identity(tmp_path):
     assert isinstance(stale, Refused) and stale.reason == "facet-read-profile-mismatch: biology"
 
 
-# --- D6's facet arm, the isolated case (design §5.6) ------------------------
+# --- the facet case, isolated ------------------------
 
 
 def _belief(view, profile):
@@ -230,7 +230,7 @@ def test_isolated_case_an_unrelated_bump_leaves_it(tmp_path):
 def test_isolated_case_holds_with_no_claim_record(tmp_path):
     """A proposition with no claim consults the base — plus biology through
     the facet, plus testing through the matched assessments' estimand (which
-    is unconditional on the claim schema, estimand-typing §5.4). The
+    is unconditional on the claim schema). The
     assessments name a proposition the corpus does not hold, as
     `test_evaluation.claimless_fixture` does."""
     absent = "proposition:never-stored"
@@ -241,7 +241,7 @@ def test_isolated_case_holds_with_no_claim_record(tmp_path):
     assert set(dict(inputs.consulted)) == {"science", "biology", "testing"}
 
 
-# --- the dogfood shape: biology by both routes (design §5.6) ----------------
+# --- the dogfood shape: biology by both routes ----------------
 
 BIOLOGY_CLAIM = {
     "operator": "biology/affects",
@@ -285,7 +285,7 @@ def test_dogfood_payload_change_moves_the_digest(tmp_path):
     assert rows.value == columns.value and rows.belief_input_digest != columns.belief_input_digest
 
 
-# --- M8's added arm (design §7) --------------------------------------------
+# --- the added case --------------------------------------------
 
 
 def test_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest(tmp_path):
@@ -296,9 +296,9 @@ def test_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and
     The end-to-end consulted set no longer isolates that route: since
     estimand typing the fixture's assessments carry a typed estimand whose
     declaration is `testing`'s, so `testing` is consulted twice over and a
-    walk that lost the claim's sort collection would still reach it (cut 22's
-    M8a scored vacuous on exactly that). The claim route is therefore measured
-    on its own below, with no estimand supplied — which is what M8a asserts.
+    walk that lost the claim's sort collection would still reach it (an earlier version
+    scored vacuous on exactly that). The claim route is therefore measured
+    on its own below, with no estimand supplied — which is what this test asserts.
     """
     from domain_facet_fixtures import CROSSING_CLAIM
     from profiles import pins_for

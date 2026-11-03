@@ -1,4 +1,4 @@
-"""Q3 (construction refuses rather than flattens), Q7's projection arms, Q9 (commensuration and scope)."""
+"""Construction refuses rather than flattens; the projection; commensuration and scope."""
 
 import re
 from decimal import Decimal
@@ -238,8 +238,8 @@ def test_an_operator_without_a_declaration_refuses(profile, unconsulted):
 
 def test_not_member_refuses_and_not_consulted_mints(profile, claim, unconsulted):
     # `level`, `measure` and `identification` all bind the same `{EX, 2026-01-01}`
-    # vocabulary in fixtures/contracts/testing.yaml (landed in Task 3, after this
-    # test was written) — one VocabularyBinding, shared by value. Declaring it
+    # vocabulary in fixtures/contracts/testing.yaml
+    # — one VocabularyBinding, shared by value. Declaring it
     # readable makes it readable for every sort built on it, so `parts()`'s
     # measure and control terms must be present too, or they resolve `not-member`
     # against a vocabulary that was in fact read.

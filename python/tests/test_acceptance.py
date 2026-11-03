@@ -1,4 +1,4 @@
-"""Cut 45: caller acceptance precedes semantic reads and standing effects."""
+"""Caller acceptance precedes semantic reads and standing effects."""
 
 from dataclasses import FrozenInstanceError, replace
 from typing import Any, cast
@@ -233,7 +233,7 @@ def test_accept_all_refusal_parity(tmp_path, case):
             else:
                 outcomes.append((type(answer), answer.reason, getattr(answer, "detail", None), admission))
     assert outcomes[0] == outcomes[1]
-    if case == "split":  # cut 48 §4.5: the shipped binding reads the moved counter through
+    if case == "split":  # the shipped binding reads the moved counter through
         assert not issubclass(outcomes[0][0], Exception), outcomes[0]
 
 
@@ -724,9 +724,9 @@ def test_mapped_oracle(tmp_path, monkeypatch):
 
 
 def test_split_with_exclusion(tmp_path):
-    """Cut 48 §4.5: the shipped binding folds standing once over the whole capture, so
+    """The shipped binding folds standing once over the whole capture, so
     a counter moved apart from its target still overturns it and an unrelated
-    exclusion reads through (until cut 48 this refused `RetractionResolutionDisagreement`)."""
+    exclusion reads through (it once refused `RetractionResolutionDisagreement`)."""
     world, roots, _published, (root, counter) = _ordinary_chain(tmp_path, 2)
     alpha = writer_at(roots[ALPHA], profile_with())
     beta = writer_at(roots[BETA], profile_with())
@@ -799,12 +799,12 @@ def test_snapshot_history(tmp_path):
     assert before.closure().digest() != after.closure().digest()
 
 
-# --- cut 48: acceptance and standing over holders (G14-c, G14-d, G14-g) --------------------------
+# --- acceptance and standing over holders --------------------------
 
 
 def _overlap_chain(tmp_path, length=1, *, shared=1, retraction="v2"):
     """`_ordinary_chain` whose first `shared` chain members are also held in BETA as
-    raw copies of equal content (one record, two holders; cut 48 §4.5)."""
+    raw copies of equal content (one record, two holders)."""
     world, roots, published = split_evaluation_world(tmp_path, beta_refs=())
     writer = writer_at(roots[ALPHA], profile_with())
     target = support_in(open_world_view(world, published), ALPHA)
@@ -840,7 +840,7 @@ def _gather_with(view, policy, *, context=None):
 def test_predicate_per_holder(tmp_path):
     """A retraction held in two corpora, rejected under the least holder and accepted
     under the other, takes effect: the record counts if any holder's branch says so
-    (cut 48 §6), each holder asked once and the rejected pair reported."""
+    each holder asked once and the rejected pair reported."""
     world, _roots, published, (root,) = _overlap_chain(tmp_path)
     view = open_world_view(world, published)
     assert view.holders_of(root.id) == (ALPHA, BETA) and view.corpus_of(root.id) == ALPHA
@@ -864,7 +864,7 @@ def test_predicate_per_holder(tmp_path):
 def test_filtered_graphs(tmp_path):
     """R and C in ALPHA, R in BETA: rejecting C upholds R with C's rejection reported and
     the fidelity check passing; accepting C overturns R. With both holding R and C, C
-    accepted through BETA alone still overturns R (cut 48 §4.5, §6)."""
+    accepted through BETA alone still overturns R."""
     world, roots, published, (root, counter) = _overlap_chain(tmp_path, 2)
     view = open_world_view(world, published)
     assert view.holders_of(root.id) == (ALPHA, BETA) and view.holders_of(counter.id) == (ALPHA,)
@@ -891,7 +891,7 @@ def test_filtered_fidelity_one_comparison(tmp_path):
     """The fidelity check is one comparison against gather's own fold: a receipt that
     disagrees for a surviving retraction refuses, and an enumeration carrying two
     resolutions for one ref refuses explicitly even when the ref is in the affected
-    set (cut 48 §4.5)."""
+    set."""
     world, _roots, published, (root, counter) = _overlap_chain(tmp_path, 2)
     view = open_world_view(world, published)
     enumeration = replace(
@@ -926,12 +926,12 @@ def test_filtered_fidelity_one_comparison(tmp_path):
     assert caught.value.ref == root.id
 
 
-# --- cut 48: acceptance over holders (G14-a, G14-b, J20-b) --------------------------------------
+# --- acceptance over holders --------------------------------------
 
 
 def test_union_over_holders(tmp_path, monkeypatch):
     """An assessment rejected under one holder and accepted under another counts: read
-    once, attributed to the accepting holder, the rejected pair reported (cut 48 §6)."""
+    once, attributed to the accepting holder, the rejected pair reported."""
     world, _roots, published = overlap_evaluation_world(tmp_path)
     view = open_world_view(world, published)
     assert view.holders_of("assessment:a-1") == (ALPHA, BETA)
@@ -961,7 +961,7 @@ def test_union_over_holders(tmp_path, monkeypatch):
 
 def test_rejected_everywhere_inert(tmp_path):
     """A verification rejected under every holder is inert and every pair is reported; one
-    accepting holder admits it once (cut 48 §6)."""
+    accepting holder admits it once."""
     world, _roots, published = overlap_evaluation_world(tmp_path)
     view = open_world_view(world, published)
     assert view.holders_of("verification:v-1") == (ALPHA, BETA)
@@ -978,7 +978,7 @@ def test_rejected_everywhere_inert(tmp_path):
 
 def test_node_corpus_holder_set(tmp_path):
     """An assessment, a run and an observed dataset held in two corpora are attributed to
-    both holders without a policy and to the accepting holders with one (cut 48 §6)."""
+    both holders without a policy and to the accepting holders with one."""
     from dataset_fixtures import dataset_ref
 
     world, _roots, published = overlap_evaluation_world(tmp_path)

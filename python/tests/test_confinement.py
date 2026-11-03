@@ -1,6 +1,6 @@
-"""The confined boundary's machinery over synthetic inputs: the snapshot (K2),
-the canonical mount comparison and the judgement (K6), fingerprints, the
-declared environment, and the bwrap argv shape (design §4.3–§6)."""
+"""The confined boundary's machinery over synthetic inputs: the snapshot,
+the canonical mount comparison and the judgement, fingerprints, the
+declared environment, and the bwrap argv shape."""
 
 import os
 from hashlib import sha256
@@ -86,7 +86,7 @@ def synthetic(tmp_path: Path) -> CapturedEnvironment:
     )
 
 
-# --- K2: the snapshot ---------------------------------------------------------
+# --- the snapshot ---------------------------------------------------------
 def test_a_snapshot_is_built_verified_and_published_under_its_environment_identity(tmp_path):
     captured = synthetic(tmp_path)
     environments = tmp_path / "environments"
@@ -220,7 +220,7 @@ def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_and_chan
 
 
 def test_no_raw_oserror_leaves_the_snapshot_or_integrity_seams(tmp_path, monkeypatch):
-    """Design §8: a failed read, copy or invocation is the named refusal of its
+    """A failed read, copy or invocation is the named refusal of its
     stage, never a raw OSError reaching _execute_run as a string reason."""
     import dataclasses
 
@@ -272,7 +272,7 @@ def test_fingerprints_move_with_content_and_symlink_targets(tmp_path):
     assert fingerprint(tree) != before
 
 
-# --- the mount plan and the canonical comparison (K6) -------------------------
+# --- the mount plan and the canonical comparison -------------------------
 def _plan(tmp_path: Path) -> MountPlan:
     return mount_plan(
         snapshot=tmp_path / "snap", loader=LOADER, bundle=tmp_path / "bundle", output_root=tmp_path / "out"
@@ -465,7 +465,7 @@ def test_a_malformed_report_shape_is_not_a_traceback_of_its_own(tmp_path, broken
 
 
 def test_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_path):
-    """Ruling R6: an architecture-matched loadable ELF that resolves zero
+    """An architecture-matched loadable ELF that resolves zero
     dependencies of its own (a modern libc.so.6, say) stays a key in
     `loader_elves` with an empty map — the probe's equally empty entry for
     it is accepted, never an extra or a missing ELF."""
@@ -504,7 +504,7 @@ def test_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_path
 def test_a_launch_protocol_failure_is_confinement_not_established_and_the_child_is_reaped(tmp_path, monkeypatch):
     """A stand-in bubblewrap that writes garbage on the info descriptor and then
     sleeps: the launch refuses with the stable reason, terminates and reaps the
-    child, and leaves no descriptor open (design §8)."""
+    child, and leaves no descriptor open."""
     import sys
 
     pid_file = tmp_path / "pid"
@@ -531,10 +531,10 @@ def test_a_launch_protocol_failure_is_confinement_not_established_and_the_child_
 
 
 def test_a_truncated_inner_argv_refuses_with_the_child_reaped(tmp_path, monkeypatch):
-    """F1: a `--snakefile` flag with no following value must not escape
+    """A `--snakefile` flag with no following value must not escape
     `judge_report` as a raw IndexError — the launch still refuses with the
     stable reason, terminates and reaps the child, and leaves no descriptor
-    open (design §8). A stand-in bubblewrap reports a real (unnamespaced)
+    open. A stand-in bubblewrap reports a real (unnamespaced)
     child and a good report, so the launch reaches `judge_report` itself;
     `judge_instance` is stubbed out since this fake child holds none of the
     real namespaces or mounts a real bwrap launch would."""

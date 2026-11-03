@@ -219,7 +219,7 @@ def _testing_writer(root):
     return writer
 
 
-def test_v8_analysis_spec_node_round_trips_through_the_writer_and_the_reader(tmp_path):
+def test_analysis_spec_node_round_trips_through_the_writer_and_the_reader(tmp_path):
     from beliefs.projection import project_claim
 
     writer = _testing_writer(tmp_path / "corpus")
@@ -235,7 +235,7 @@ def test_v8_analysis_spec_node_round_trips_through_the_writer_and_the_reader(tmp
     assert restored == spec and type(restored.parameters["alpha"]) is Decimal
 
 
-def test_v8_a_renamed_or_falsely_identified_record_is_malformed(tmp_path):
+def test_a_renamed_or_falsely_identified_record_is_malformed(tmp_path):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     node = stored.analysis_spec_node(spec)
     renamed = node.model_copy(update={"id": "analysis-spec:elsewhere"})

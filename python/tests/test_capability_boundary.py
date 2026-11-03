@@ -1,18 +1,18 @@
-"""S8's static claim, and the `atoms`-import rule beside it.
+"""The static claim, and the `atoms`-import rule beside it.
 
-**Two boundaries, two checks, neither standing in for the other.** S8 is about
+**Two boundaries, two checks, neither standing in for the other.** The static claim is about
 who holds a **mutable corpus handle**: the write API is its only holder, every
 other module receives a `ReadView`, and constructing or receiving a `Corpus`
 outside `beliefs.corpus` is a static violation. The `atoms`-import confinement
-is about engine capability and is architecture, not an S8 arm — it is asserted
-here because it belongs beside S8, not inside it.
+is about engine capability and is architecture, not part of the static claim — it is asserted
+here because it belongs beside it, not inside it.
 
 **Why a static check and not a scan of writers.** "Discover the writers and
 check them" is a roster wearing a predicate's clothes: a new writer reaching the
 filesystem through an unrecognized primitive is simply not discovered, and the
 scan reports clean. What is checkable is who holds the handle. What it does
 **not** cover — a module writing bytes to a corpus path with a raw filesystem
-call — is stated in §4.2.1 and pinned by the acceptance negative, not by this.
+call — is pinned by the acceptance negative, not by this.
 """
 
 from __future__ import annotations
@@ -31,9 +31,9 @@ import beliefs
 PACKAGE = Path(beliefs.__file__).resolve().parent
 """The package as **imported**, not as checked out.
 
-The sabotage harness runs a check against a copy of the package on
+A test may run a check against a patched copy of the package on
 `PYTHONPATH`; a static check that read the working tree instead would inspect
-the unmutated source and score every sabotage as survived — which is vacuity
+the unpatched source and report every patch as harmless — which is vacuity
 wearing the costume of a static assertion.
 """
 WRITE_API = "corpus.py"
@@ -99,7 +99,7 @@ def parsed(path: Path) -> ast.Module:
     """The module's tree over its **current** bytes, read fresh on every call.
 
     The cache is keyed by the raw bytes and the path, never the path alone, so
-    a sabotage that edits a file on `PYTHONPATH` misses it and is parsed anew.
+    a patch that edits a file on `PYTHONPATH` misses it and is parsed anew.
     Callers treat the returned tree as read-only.
     """
     return _parsed_bytes(path.read_bytes(), str(path))
@@ -408,7 +408,7 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         ]
 
 
-# --- cut 8's declarations over the composition surface ----------------------
+# --- declarations over the composition surface ----------------------
 
 MUTATING_ENGINE_COMMANDS = ("register_root", "append_intent", "run_transaction")
 """The three engine entry points that change a root. Everything else in
@@ -484,32 +484,28 @@ RAW_WRITE_ALLOWLIST = {
     # The environment snapshot: manifested files copied, manifested and
     # rendered symlinks created, rendered files written, the build published
     # by rename, a losing build discarded — under a boundary-owned directory
-    # registered by nothing (run-confinement design §4.3, §10).
+    # registered by nothing.
     "confinement.py": {"copy2", "write_text", "symlink_to", "rename", "rmtree"},
     # The held probe's one write check: a file touched and removed under the
-    # output root, with inventoried operations so this table weighs it
-    # (run-confinement design §6.2, §10).
+    # output root, with inventoried operations so this table weighs it.
     "probe.py": {"touch", "unlink"},
     # A URL look's or an acquisition's retrieved file, under a scratch root
     # `refuse_scratch_root` proves is neither a corpus nor a store root:
-    # deleted when ownership never reached the caller (url-retrieval design
-    # decision 8, §5, §6).
+    # deleted when ownership never reached the caller.
     "holdings/boundary.py": {"unlink"},
     "holdings/acquire.py": {"unlink"},
     # The streamed body's own scratch file: removed on a failed or incomplete
-    # retrieval, before `Retrieved` ever hands it past this module (decision
-    # 7, §4).
+    # retrieval, before `Retrieved` ever hands it past this module.
     "holdings/transport.py": {"unlink"},
     # The durable create-only write's own temporary name: a leftover from a
     # prior attempt and this attempt's own scratch file, both removed under
     # the operations root or the head-artifact sibling's directory — outside
-    # every corpus and world root and registered by nothing (publish-act-local
-    # design §4.4).
+    # every corpus and world root and registered by nothing.
     "durable.py": {"unlink"},
     # Step 9's discard: a done attempt's staging corpus, its staging world and
     # their metadata siblings, private throwaway roots under the operations
-    # root, removed outside any `atoms` operation (publish-act-local design §8,
-    # §16 item 3). The request and the snapshot stay.
+    # root, removed outside any `atoms` operation.
+    # The request and the snapshot stay.
     "publish.py": {"rmtree"},
 }
 """The nine surfaces Science writes with its own hands, all stated. None is
@@ -529,7 +525,7 @@ STATE_VOCABULARY = (
     "capture_states",
     "read_path_state",
 )
-"""L12's one state vocabulary. Every member is the engine's; Science names them
+"""The one state vocabulary. Every member is the engine's; Science names them
 in the composition root and nowhere else, and mints none of its own."""
 
 
@@ -551,7 +547,7 @@ def call_sites(tree: ast.Module, command: str) -> list[str]:
 
 
 def test_no_cooperative_mutation_path_skips_registration():
-    """L1u1. The unspellability arm, over the composition surface.
+    """The unspellability check, over the composition surface.
 
     Three facts, and no cooperative mutation path survives all three. First,
     `beliefs.root` is the only `atoms` importer, so no other module holds
@@ -568,8 +564,8 @@ def test_no_cooperative_mutation_path_skips_registration():
 
     What this does not cover is stated rather than implied: a *new* module
     reaching the filesystem through a primitive absent from
-    `BYTE_MUTATION_PRIMITIVES`. The kill-at-stage arms of L1 are deferred to
-    atoms's own certification (cut 8 §3.1, §8.1).
+    `BYTE_MUTATION_PRIMITIVES`. The kill-at-stage checks are deferred to
+    atoms's own certification.
     """
     for module in modules():
         offending = [
@@ -608,7 +604,7 @@ def test_no_cooperative_mutation_path_skips_registration():
 
 
 def test_science_fingerprints_only_through_the_engine_read_commands():
-    """L12u2. No second summary model: Science fingerprints exclusively through
+    """No second summary model: Science fingerprints exclusively through
     the engine's capture and single-path read commands, asserted over the package surface.
 
     The state vocabulary is the engine's own union, named in the composition

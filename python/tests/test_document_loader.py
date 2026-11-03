@@ -1,4 +1,4 @@
-"""§3.7: a duplicate mapping key is refused at load, at every depth, never kept last."""
+"""A duplicate mapping key is refused at load, at every depth, never kept last."""
 
 import pytest
 

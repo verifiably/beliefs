@@ -1,22 +1,22 @@
-"""Frozen cut-18 row evidence over the ordinary-write `delete`.
+"""Portable evidence over the ordinary-write `delete`.
 
-One section per frozen row of `docs/designs/2026-09-04-conformance-cut-18.md`
-§3, portable over `test_relocation._writer`. Task 8 re-runs the same arms
+One section per lifecycle behaviour,
+portable over `test_relocation._writer`. The durable acceptance module re-runs the same checks
 durably; what runs here is the corpus-read half of every selection, and only
-that half — the log-verification arms G8 and C6 also name are the durable
-module's, and §7's two narrowings are honoured here:
+that half — the log-verification checks are the durable
+module's, and two narrowings are honoured here:
 
-- **S5's "indistinguishable"** is compared over the epistemic readings only —
+- **"Indistinguishable"** is compared over the epistemic readings only —
   stored ids, the lineage snapshot projection, certification, the belief
   digest and admission. Chain and log state are never compared, because a
   managed deletion is perfectly visible there and the row does not claim
   otherwise.
-- **R23's "the audit reports nothing"** is asserted as the absence of the
+- **"The audit reports nothing"** is asserted as the absence of the
   `lineage-basis-contradicted` code, never as an empty finding list.
 
-M3's audit arm (a raw-written cyclic pair classified malformed before any
+The audit check (a raw-written cyclic pair classified malformed before any
 standing or belief evaluation) already runs in
-`test_audit.py::TestOmegaValidComesFirst`; this module adds M3's admission-order
+`test_audit.py::TestOmegaValidComesFirst`; this module adds the admission-order
 negative and does not duplicate it.
 """
 
@@ -74,7 +74,7 @@ def _writer_for(corpus, **options) -> CorpusWriter:
     branch: every assessment `_records` mints carries a typed estimand
     against `testing/affects`, which BASE does not declare, and the audit's
     recomputation (`check_assessment`) decodes it under the writer's own
-    profile (estimand-typing §6, §9). An already-open writer (the acceptance
+    profile. An already-open writer (the acceptance
     module's durable one) is taken as it stands, exactly as the base helper
     does."""
     if isinstance(corpus, CorpusWriter):
@@ -104,7 +104,7 @@ one string — what `production.mint_dataset` mints.
 This is load-bearing, not cosmetic. `belief.evaluate` step 7 keys `certify` by
 `_observes_roots`, which is `dataset_address(...)`, while `lineage_snapshot`
 keys its bases by node **ref**. On a corpus where those differ, every lineage
-finding is invisible to the belief value and S5's *belief may rise* cannot be
+finding is invisible to the belief value and *belief may rise* cannot be
 run at all. Here they coincide, so a certification decision moves belief."""
 
 DERIVED, SIBLING = DATASET_ROOTS
@@ -121,8 +121,8 @@ class Scenario:
     """A writer-backed corpus that yields a `Belief` through `evaluate_over`.
 
     Every reading is recomputed from the live view on each call: a snapshot or
-    an admission state cached across a `delete` would be the very residue S5's
-    row denies, so nothing here is memoized.
+    an admission state cached across a `delete` would be the very residue the deletion
+    rule denies, so nothing here is memoized.
     """
 
     writer: CorpusWriter
@@ -145,7 +145,7 @@ class Scenario:
         )
 
     def belief(self) -> Belief:
-        """Admission and the digest through the instrumented resolver (M1's
+        """Admission and the digest through the instrumented resolver (the
         seam), so these rows read the same path belief actually runs on."""
         answer = evaluate_over(
             self.view,
@@ -164,7 +164,7 @@ class Scenario:
         return answer
 
     def lifecycle(self, assessment: str) -> str:
-        """Kernel §3.3's state for one assessment, over the stored verification
+        """The state for one assessment, over the stored verification
         records, `active` read under the amendment: a verification a standing
         retraction targets is not active. `gather` now applies the same amendment before decoding; this independent
         lifecycle check uses `standing_in_local_view`."""
@@ -187,7 +187,7 @@ def _records(
 ) -> dict[str, tuple[str, Node]]:
     """The one record set every section runs over, each entry tagged with the
     write it arrives through: `add` for the ordinary kinds and `retract` for a
-    retraction, which C10 refuses unless its target already resolves.
+    retraction, which the write boundary refuses unless its target already resolves.
 
     Two assessments on one proposition, each over its own run observing its own
     pinned dataset, each carrying one `clean-environment, passed` verification
@@ -195,7 +195,7 @@ def _records(
     the first run also observes a separate acquisition witness; its derived
     dataset supplies lineage, not acquisition standing.
 
-    One builder, two consumers: `_scenario` admits it in its own order and M3's
+    One builder, two consumers: `_scenario` admits it in its own order and the
     negative admits it in two, so the corpus the digest comparison runs over
     and the corpus every other row runs over cannot drift apart.
     """
@@ -275,7 +275,7 @@ def _admit(
 ) -> Scenario:
     """Admit `records` into a fresh corpus in `order`, through the boundary.
 
-    `corpus` is a path here and an open durable writer in Task 8's acceptance
+    `corpus` is a path here and an open durable writer in the acceptance
     module (`_writer_for`), so both suites admit the same record set through
     the same builder."""
     assert set(order) == set(records), "the order admits exactly the record set"
@@ -312,12 +312,12 @@ def _verification(scenario: Scenario, slug: str, *, scope: str, verdict: str, su
     )
 
 
-# --- G2c: the §3.3 lifecycle-table walk, plus the raw-deletion negative -------
+# --- the lifecycle-table walk, plus the raw-deletion negative -------
 
 
 @dataclass(frozen=True)
 class LifecycleRow:
-    """One row of kernel §3.3's table, or one of the two `active` amendments."""
+    """One row of the lifecycle table, or one of the two `active` amendments."""
 
     label: str
     keep_seeded_pass: bool
@@ -405,7 +405,7 @@ def test_every_lifecycle_row_over_stored_records(tmp_path, row):
 def test_raw_deletion_restores_admission_undetected_on_read(tmp_path):
     """The negative all three rows share: a raw `unlink` of a failing
     verification returns the assessment to admitted, and nothing on the corpus
-    read says so. §3.2's undetectable-history limit, not a tamper-evidence
+    read says so. The undetectable-history limit, not a tamper-evidence
     claim — the log audit's refutation is the durable module's arm."""
     scenario = _scenario(tmp_path / "corpus")
     failing = _verification(scenario, "v-1-fail", scope="clean-environment", verdict="failed")
@@ -426,7 +426,7 @@ def test_raw_deletion_restores_admission_undetected_on_read(tmp_path):
     )
 
 
-# --- G8 and C6: the managed half reads the same; the log half is Task 8's -----
+# --- the managed half reads the same; the log half is the durable module's -----
 
 
 def test_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
@@ -434,7 +434,7 @@ def test_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
     verification and one calling `delete`: the corpus read, admission and the
     belief digest cannot tell them apart. The log audit can — it reads the
     managed removal as `validated` with `record-removed` and the raw one as
-    `refuted` — and that half runs durably (§5 obligation 4)."""
+    `refuted` — and that half runs durably."""
     raw = _scenario(tmp_path / "raw")
     managed = _scenario(tmp_path / "managed")
     failing = {
@@ -454,7 +454,7 @@ def test_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
     assert corpus_check(raw.view, raw.writer.profile) == corpus_check(managed.view, managed.writer.profile) == ()
 
 
-# --- S5's deletion half -------------------------------------------------------
+# --- the deletion half -------------------------------------------------------
 
 ANCESTOR = _address("c")
 PRODUCER = "run:origin"
@@ -469,12 +469,12 @@ def _lineage_corpus(corpus, *, second_producer: bool) -> Scenario:
     """The belief corpus with a stamped derivation on the dataset
     `assessment:a-1`'s run observes: `run:origin` produced `DERIVED` from
     `dataset:origin`, and — optionally — `run:other` produced the same address
-    from `dataset:other` by another route, which is R23 negative (e)'s
-    divergence and S5's *divergent producer*.
+    from `dataset:other` by another route, which is the
+    divergence and the *divergent producer*.
 
     The derived dataset is the **observed** one, so it is the address
     `belief.evaluate` certifies over: the certification decision reaches the
-    belief value, and S5's *belief may rise* is a runnable arm. A separate
+    belief value, and *belief may rise* is a runnable check. A separate
     unproduced acquisition witness supplies the first run's eligibility;
     DERIVED carries only its lineage basis, never an acquisition declaration."""
     extra: list[Node] = [
@@ -491,7 +491,7 @@ def _lineage_corpus(corpus, *, second_producer: bool) -> Scenario:
 
 
 def _projected(snapshot: LineageSnapshot, *path: Any) -> Any:
-    """One member of the kernel §5.1 projection, reached by `path`.
+    """One member of the projection, reached by `path`.
     `snapshot_projection` is typed `dict[str, object]`, so a nested read takes
     one deliberate widening here rather than an `object` index at every step."""
     value: Any = snapshot_projection(snapshot)
@@ -513,7 +513,7 @@ def _certification(scenario: Scenario) -> Certification:
 
 
 def _epistemic_readings(scenario: Scenario) -> dict[str, Any]:
-    """§7's scoping made concrete: the readings S5's *indistinguishable* covers
+    """The scoping made concrete: the readings *indistinguishable* covers
     — the corpus read, the lineage traversal, admission and belief. Log
     verification is deliberately **not** here: a managed deletion is perfectly
     visible in the chain, and the row never claimed otherwise."""
@@ -530,7 +530,7 @@ def _epistemic_readings(scenario: Scenario) -> dict[str, Any]:
 def test_deleting_a_basis_ancestor_yields_incomplete_and_moves_the_digest(tmp_path):
     """The deletion half's first arm: an ancestor a stamped basis names is
     deleted, the basis entry goes unresolved, independence over the dataset
-    stops certifying, and kernel §5.1's digest moves without belief rising."""
+    stops certifying, and the digest moves without belief rising."""
     scenario = _lineage_corpus(tmp_path / "corpus", second_producer=False)
     before = scenario.belief()
     # The certify path is reached, not merely present: an `independent`
@@ -552,7 +552,7 @@ def test_deleting_a_basis_ancestor_yields_incomplete_and_moves_the_digest(tmp_pa
 
 
 def test_deleting_a_divergent_producer_restores_the_certificate_indistinguishably(tmp_path):
-    """Corpus X mints `R2` and then deletes it; corpus Y never mints one. Every
+    """Corpus X mints a second producer and then deletes it; corpus Y never mints one. Every
     epistemic reading agrees afterwards — and disagrees before, so the
     comparison is not vacuous."""
     diverged = _lineage_corpus(tmp_path / "x", second_producer=True)
@@ -569,7 +569,7 @@ def test_deleting_a_divergent_producer_restores_the_certificate_indistinguishabl
     assert _epistemic_readings(diverged) == _epistemic_readings(never)
 
 
-# --- R23's deletion and audit clauses ----------------------------------------
+# --- the deletion and audit clauses ----------------------------------------
 
 
 def test_stored_ref_and_null_resolution_are_recorded_separately(tmp_path):
@@ -618,9 +618,9 @@ def test_second_surviving_run_does_not_repair_the_first_basis(tmp_path):
 
 
 def test_the_residue_after_deleting_r2(tmp_path):
-    """§11.14, worded as R23 words it: certification is restored, no prior
+    """Certification is restored, no prior
     digest is retained anywhere — belief is a computed view — and no test
-    distinguishes the corpus from one in which `R2` never existed."""
+    distinguishes the corpus from one in which the second producer never existed."""
     residue = _lineage_corpus(tmp_path / "residue", second_producer=True)
     never = _lineage_corpus(tmp_path / "never", second_producer=False)
     diverged_digest = residue.belief().belief_input_digest
@@ -637,7 +637,7 @@ def test_the_residue_after_deleting_r2(tmp_path):
 
 def test_the_audit_detects_a_forged_single_while_b_stands_then_reports_no_contradiction(tmp_path):
     """`single(A)` forged by a raw write while `B`'s run stands is contradicted
-    by recomputation; once `B`'s run is deleted, nothing contradicts it. §7:
+    by recomputation; once `B`'s run is deleted, nothing contradicts it.
     the assertion is the **absence of the semantic contradiction code**, never
     the absence of all findings — the log audit still reports the committed
     removal."""
@@ -654,7 +654,7 @@ def test_the_audit_detects_a_forged_single_while_b_stands_then_reports_no_contra
     }
 
 
-# --- W16's remaining arm ------------------------------------------------------
+# --- the remaining case ------------------------------------------------------
 
 CONFLICT_ROUTES = ("a", "z")
 """The two routes `_duplicate_datasets`' inputs carry; consolidation unions them
@@ -695,12 +695,12 @@ def test_the_conflict_survives_deleting_either_producing_run(tmp_path, doomed):
     assert certify(snapshot, (survivor.id,), (sibling.id,)) == divergent
 
 
-# --- M3's admission-order negative -------------------------------------------
+# --- the admission-order negative -------------------------------------------
 
 RANKING_MEMBERS = frozenset(
     {"rank", "order", "position", "sequence", "topological_rank", "topological_order", "admission_order"}
 )
-"""What a stored topological rank would have to be called. M3's negative is
+"""What a stored topological rank would have to be called. The negative is
 that none of them exists: `standing` terminates because the retraction graph
 is a DAG, not because an ordering was recorded when the records arrived."""
 
@@ -744,14 +744,14 @@ ORDER_B = (
 )
 """Two admission orders over `_records(retraction_chain=True)`. Both respect the
 only orderings the write boundary itself demands — an assessment's run resolves
-first (S7), an assessment's `assesses` target resolves first (composite-claims
-§4.2, U4), and a retraction's target resolves first (C10) — and agree on
-nothing else. The retraction chain is what makes this M3's negative rather than
+first, an assessment's `assesses` target resolves first,
+and a retraction's target resolves first — and agree on
+nothing else. The retraction chain is what makes this the negative rather than
 a generic ordering test."""
 
 
 def test_admission_order_leaves_every_identity_and_the_digest_unchanged(tmp_path):
-    """M3's negative: no topological rank is stored anywhere, so the same
+    """No topological rank is stored anywhere, so the same
     records admitted in two orders leave every stored identity and the belief
     digest exactly where they were."""
     records = _records(retraction_chain=True)
@@ -771,7 +771,7 @@ def test_admission_order_leaves_every_identity_and_the_digest_unchanged(tmp_path
             assert _facet_members(node.facets) & RANKING_MEMBERS == set(), f"{node.id} carries a stored rank"
 
 
-# --- M5, portable half (the durable re-run is Task 8) -------------------------
+# --- portable half (the durable re-run is in the acceptance module) -------------------------
 
 CHILDREN = "EX:children"
 """A second cohort term, so a restriction can differ with everything else

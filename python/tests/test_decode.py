@@ -1,13 +1,13 @@
-"""`decode_claim` — M4, M11, and D3's in-cut arms.
+"""`decode_claim`: referent typing, determinism and the five outcomes.
 
 The boundary every import, deserialization and restore comes through. Three
-guarantee rows meet here, and they are kept apart deliberately: **M4** is about
-referent typing and the receipt, **M11** about the function being a function of
-its arguments, and **D3** about the five outcomes staying distinct.
+guarantees meet here, and they are kept apart deliberately: **referent typing** is about
+the receipt, **determinism** about the function being a function of
+its arguments, and the **outcomes** about the five outcomes staying distinct.
 
 One scope note that a reader will otherwise have to reconstruct. `not-available`
-appears in both M4 and D3 and they are **not the same test**. M4's is local — the
-vocabulary could not be read. D3's world-level `not-present` means the dataset's
+appears in both referent typing and the outcomes and they are **not the same test**. The first is local — the
+vocabulary could not be read. The world-level `not-present` means the dataset's
 covered corpus is absent. The cut keeps the two distinct.
 """
 
@@ -94,18 +94,18 @@ class TestM4TypedReferentsAndTheReceipt:
         assert receipt.performed
 
     def test_a_term_absent_from_a_readable_vocabulary_refuses_and_mints_nothing(self, profile, readable):
-        # The sabotage arm of M4's row, and the only one of the five that refuses.
+        # The only one of the five that refuses.
         with pytest.raises(UnboundReferent) as raised:
             decode_claim(affects(args=(ABSENT, OUTCOME)), profile=profile, snapshot=readable)
         assert "argument:0" in str(raised.value)
         assert "Nothing was minted" in str(raised.value)
 
     def test_availability_is_not_membership(self, profile, readable):
-        """M4's negative arm: the same bad term, accepted when nothing was read.
+        """The negative case: the same bad term, accepted when nothing was read.
 
         This is the pair the design exists to keep apart. Refusing here would
         report *"not in the vocabulary"* on the evidence that nobody looked —
-        the same error §7.2 was written to avoid, committed by the decoder.
+        the same error the outcome vocabulary exists to avoid, committed by the decoder.
         """
         bad = affects(args=(ABSENT, OUTCOME))
         with pytest.raises(UnboundReferent):
@@ -118,7 +118,7 @@ class TestM4TypedReferentsAndTheReceipt:
         assert claim.args[0].term == ABSENT
 
     def test_the_two_accepting_receipts_are_distinguishable(self, profile):
-        """Also M4's negative arm: accepted-and-checked must not look like accepted-and-unchecked."""
+        """Also a negative case: accepted-and-checked must not look like accepted-and-unchecked."""
         good = affects()
         checked = decode_claim(good, profile=profile, snapshot=build_snapshot(readable={EX: [GENE, OUTCOME]}))[1]
         unchecked = decode_claim(good, profile=profile, snapshot=build_snapshot(unreadable=[EX]))[1]
@@ -141,7 +141,7 @@ class TestM4TypedReferentsAndTheReceipt:
         assert len(receipt.outcomes) == len(claim.args) + len(claim.qualifiers)
 
     def test_a_restriction_is_resolved_exactly_as_an_argument_is(self, profile):
-        # §6.4: a restriction is sorted as an argument is, so it resolves as one.
+        # A restriction is sorted as an argument is, so it resolves as one.
         # `cohort` binds a dataset, not the EX namespace, so a snapshot holding
         # only EX leaves the restriction unconsulted while the arguments are read.
         wire = affects(qualifiers={"testing/population": {"quantifier": "generic", "restriction": ADULTS}})
@@ -167,7 +167,7 @@ class TestM4TypedReferentsAndTheReceipt:
             ResolutionSnapshot(bindings={}, identity="x")
 
     def test_a_bare_string_cannot_occupy_a_slot_inside(self, profile, readable):
-        """M4's static arm, at this boundary.
+        """The static check, at this boundary.
 
         The wire carries bare strings — that is what a wire is. What the boundary
         guarantees is that nothing bare survives it: every slot of the decoded
@@ -182,7 +182,7 @@ class TestM11DecodeIsAFunctionOfItsArguments:
     def test_the_same_three_inputs_decode_identically_in_another_process(
         self, profile, readable, base_contract_path, testing_contract_path
     ):
-        """M11's first arm, run as it is written: *in different processes*.
+        """The first determinism check, run as it is written: *in different processes*.
 
         Asserting determinism twice inside one interpreter would be asserting
         that a pure function is pure, which it is by construction there. The
@@ -229,7 +229,7 @@ class TestM11DecodeIsAFunctionOfItsArguments:
         assert elsewhere_receipt == receipt.identity()
 
     def test_availability_is_a_parameter_and_has_no_default(self):
-        """M11's sabotage arm, closed by construction rather than by a check.
+        """The ambient-availability check, closed by construction rather than by a check.
 
         *"Make availability ambient rather than a parameter and assert two
         holders now decode the same bytes differently."* There is no way to make
@@ -348,12 +348,12 @@ class TestM11DecodeIsAFunctionOfItsArguments:
             decode_claim(affects(), profile=profile, snapshot=Impostor())  # type: ignore[arg-type]
 
     def test_a_raw_written_claim_is_an_audit_finding_not_a_decode_failure(self, profile):
-        """M11's negative arm.
+        """The negative case.
 
         `object.__new__` reaches past the constructor, and past this boundary
         with it — the same act as a hand-edited file on disk. The distinction
         the row draws is that this is neither a silent accept nor a decode
-        failure: decode was never involved. It is §6.3's third row, and it
+        failure: decode was never involved. It is the third case, and it
         belongs to the audit surface rather than to a refusal.
         """
         forged = object.__new__(Claim)
@@ -363,7 +363,7 @@ class TestM11DecodeIsAFunctionOfItsArguments:
         assert forged.operator == "testing/affects"
 
     def test_retirement_is_not_enforced_at_decode(self, base_contract, testing_document):
-        """§7.3a, and the reason the two routes differ at all.
+        """The reason the two routes differ at all.
 
         Decode sees wire bytes and cannot tell a claim being authored now from
         one being restored from a backup. Refusing a retired identifier here
@@ -396,7 +396,7 @@ class TestM11DecodeIsAFunctionOfItsArguments:
 
 
 class TestD3TheFiveOutcomesStayDistinct:
-    """D3's in-cut arms. `not-present` and `not-available`'s world-level arm are deferred."""
+    """The in-scope cases. `not-present` and `not-available`'s world-level arm are deferred."""
 
     def test_a_readable_vocabulary_yields_member_and_not_member(self, profile, readable):
         _, receipt = decode_claim(affects(), profile=profile, snapshot=readable)
@@ -425,9 +425,9 @@ class TestD3TheFiveOutcomesStayDistinct:
         assert set(values) == {"member", "not-member", "not-consulted", "not-present", "not-available"}
 
     def test_there_is_no_fallback_to_another_release(self, profile):
-        """D3's in-cut arm, and the one a plausible convenience would break.
+        """An in-scope case, and the one a plausible convenience would break.
 
-        A binding is a namespace **with** a release (D §5). A snapshot holding
+        A binding is a namespace **with** a release. A snapshot holding
         `EX@2025-01-01` says nothing about `EX@2026-01-01`, and resolving the
         second through the first would be answering a question about one dataset
         with evidence from another. The honest outcome is that nobody consulted
@@ -453,10 +453,10 @@ class TestD3TheFiveOutcomesStayDistinct:
     def test_not_present_is_unreachable_in_this_cut_and_that_is_recorded(self, profile):
         """Stated as a test rather than left as a silence.
 
-        `not-present` needs the world index and holding machinery — D3's
-        deferred arm. Nothing in cut 1 can construct it, and the outcome is
+        `not-present` needs the world index and holding machinery, which is
+        deferred. Nothing can construct it, and the outcome is
         defined anyway: implementing four of five would be a different closed
-        set than §7.2 rules, and the gap would be invisible.
+        set than the contract rules, and the gap would be invisible.
         """
         reachable = set()
         for snapshot in [
@@ -480,7 +480,7 @@ class TestD3TheFiveOutcomesStayDistinct:
 
 
 class TestM13TheWireTypeIsConfinedToTheDecodeModule:
-    """M13's second clause, testable for the first time now that `WireClaim` exists.
+    """The second clause, testable for the first time now that `WireClaim` exists.
 
     Deferred twice as untestable, correctly: a test that a type does not appear
     where it should not cannot be written before the type does. It is asserted by
@@ -544,21 +544,21 @@ class TestM13TheWireTypeIsConfinedToTheDecodeModule:
 
 
 class TestDecodeInvertsTheProjection:
-    """decode ∘ π_claim = identity, over M10's frozen corpus.
+    """decode ∘ π_claim = identity, over the frozen corpus.
 
     The completeness check the arm-by-arm tests above cannot give. Each of those
     fixes one behaviour; this one asserts that the boundary as a whole puts back
     exactly the claim the projection took apart — for every closed kernel tag,
     since the vector's coverage is asserted complete against the base contract.
 
-    It reuses M10's fixture rather than inventing claims, which is the point: the
+    It reuses that fixture rather than inventing claims, which is the point: the
     `projection` field **is** a wire claim's shape, because a serialized claim is
     a projection. Nothing here re-derives the expected digests; they are the
     frozen ones.
 
-    Written after sabotage found the gap — passing the wire polarity through
+    Written after a patched implementation exposed the gap — passing the wire polarity through
     unmapped left every arm green, because no test decoded a **successful**
-    sign-inapt claim. §7.5 always emits the polarity position, so `inapt` is on
+    sign-inapt claim. The contract always emits the polarity position, so `inapt` is on
     the wire for an operator whose `Polarity(op)` is the unit type, and the
     boundary has to map it back to *there is nothing to supply* rather than
     forward it as an asserted sign.
@@ -607,8 +607,8 @@ class TestDecodeInvertsTheProjection:
 
     def test_the_sign_inapt_row_round_trips_without_an_asserted_sign(self, profile, fixture, every_term_readable):
         # Called out separately because it is the row whose absence made an
-        # earlier sabotage pass: on the wire the position carries `inapt`, and
-        # inside there is no polarity to supply at all (§6.3, §7.5).
+        # earlier patched implementation slip through: on the wire the position carries `inapt`, and
+        # inside there is no polarity to supply at all.
         row = next(r for r in fixture["vector"] if r["name"] == "subtype-of-inapt-structural")
         wire = WireClaim(**{k: row["projection"][k] for k in ("operator", "args", "qualifiers", "polarity", "layer")})
         claim, _ = decode_claim(wire, profile=profile, snapshot=every_term_readable)
@@ -670,7 +670,7 @@ class TestTheWireValueIsCheckedFieldByField:
             pytest.fail(f"a raw TypeError escaped decodeClaim's refusing arm: {exc}")
 
     def test_an_unknown_qualifier_field_is_refused_never_ignored(self, profile, readable):
-        # D5's rule at this boundary: an unrecognized field is refused at load.
+        # The same rule at this boundary: an unrecognized field is refused at load.
         # A wire value carrying one has been written by something that disagrees
         # with this reader about what a claim is, and guessing which of the two
         # is right is not a decision a decoder may take.
@@ -735,7 +735,7 @@ class TestMembershipIsDecidedUnderTheSameEquivalenceAsIdentity:
         assert VocabularyBinding(namespace="caf\u00e9", release="2026-01-01", dataset_identity=None).namespace
 
     def test_the_two_would_have_encoded_alike(self):
-        # What that refusal prevents, reached through §6.3's raw route since the
+        # What that refusal prevents, reached through the raw route since the
         # ordinary one is now closed: two unequal bindings, one encoding.
         one = VocabularyBinding(namespace="caf\u00e9", release="2026-01-01", dataset_identity=None)
         other = object.__new__(VocabularyBinding)
@@ -827,7 +827,7 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
         # member no claim can ever name. `resolve` would then answer
         # `not-member` — the single *refusing* outcome, positive evidence that a
         # vocabulary was read and lacks the term — about a vocabulary that was
-        # told it has it. §7.2 keeps an absence of evidence from being reported
+        # told it has it. The outcome vocabulary keeps an absence of evidence from being reported
         # as evidence of absence; this is the same confusion from the other side,
         # and its victim is a well-formed claim.
         for admitted in [GENE, "1"]:
@@ -843,7 +843,7 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
         # What the refusal above prevents, spelled out: the snapshot is told the
         # vocabulary holds 1, the claim names "1", and the receipt reports
         # `not-member` — a finding of absence about a term that was supplied.
-        # Built through §6.3's raw route, which stands in for the one now closed.
+        # Built through the raw route, which stands in for the one now closed.
         snapshot = ResolutionSnapshot._built(
             resolution._MINT,
             bindings={

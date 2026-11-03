@@ -1,4 +1,4 @@
-"""The fork acts, the fork geneses, and the L6 lift in code (plan Task 7).
+"""The fork acts, the fork geneses, and the lift in code.
 
 Real engine on the certified volume. The parent corpora here carry stored
 nodes written through the `Corpus` handle — the fork reads the parent's

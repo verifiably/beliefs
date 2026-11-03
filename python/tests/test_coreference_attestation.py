@@ -1,5 +1,5 @@
-"""World resolution slice 2: the coreference attestation as a stored kind, its
-capture, its seam, and its reduction (spec 2026-09-10-world-resolution-slice-2-design.md)."""
+"""The coreference attestation as a stored kind, its
+capture, its seam, and its reduction."""
 
 from __future__ import annotations
 
@@ -128,7 +128,7 @@ class TestTheSeam:
 
     def test_a_retired_address_does_not_resolve_exactly(self, writer):
         # A raw rename through the `nodes` handle: the seam under test is the
-        # attestation's, and no kernel rename exists yet (slice 2b).
+        # attestation's, and no kernel rename exists yet.
         writer._corpus.rename(LEFT, "dataset:left-2")
         assert writer.read_view.resolve(LEFT) == "dataset:left-2"
         with pytest.raises(CoreferenceEndpointRefused) as refused:
