@@ -103,7 +103,7 @@ class TestTypedReferentsAndTheReceipt:
     def test_availability_is_not_membership(self, profile, readable):
         """The negative case: the same bad term, accepted when nothing was read.
 
-        This is the pair the design exists to keep apart. Refusing here would
+        This is the pair this boundary exists to keep apart. Refusing here would
         report *"not in the vocabulary"* on the evidence that nobody looked —
         the same error the outcome vocabulary exists to avoid, committed by the decoder.
         """

@@ -22,8 +22,8 @@
 # Every `vocabulary:` binding is the placeholder `mm30-entities` at release
 # `2026-08-07`. No held ontology release supplies membership for any term, so
 # the resolution snapshot declares nothing readable and every binding is
-# `not-consulted`. The design's question 1 (how much of the biology pack the
-# first belief needs) is therefore answered *unmeasured*; what is measured is
+# `not-consulted`. The question of how much of the biology pack the
+# first belief needs is therefore answered *unmeasured*; what is measured is
 # the floor: the operator vocabulary and referent set the pack must at least
 # reproduce.
 

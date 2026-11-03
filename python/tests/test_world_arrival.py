@@ -188,7 +188,7 @@ def registry_files(world: registry.World) -> dict[str, bytes]:
 
 class TestTheArrivalCauses:
     def test_arrival_cause_ranking_from_report_fields(self, tmp_path):
-        # D2. The cause is read off the **report**, never off which precedence
+        # The cause is read off the **report**, never off which precedence
         # step produced the outcome — and the four rank
         # `malformed > refuted > pending > chainless`.
         root = replica_root(tmp_path)
@@ -300,7 +300,7 @@ class TestWhatIsAdmitted:
         assert record == fixture_admission(root)
 
     def test_bare_admit_refusal_and_shared_core_identity(self, tmp_path, monkeypatch):
-        # D3. Two claims, and they are one claim: the verified route is the only
+        # Two claims, and they are one claim: the verified route is the only
         # route for a replica, and it is not a second registration path.
         root = replica_root(tmp_path)
         world = make_world(tmp_path, root)

@@ -287,7 +287,7 @@ def evaluate(
 
 class TestEntry:
     def test_a_corrupt_history_refuses_before_any_outcome(self) -> None:
-        """Step 3 of the brief: history is validated before the chain is read at
+        """History is validated before the chain is read at
         all, so a malformed chain does not get to answer first."""
         with pytest.raises(ValueError, match="not a content hash"):
             evaluate(

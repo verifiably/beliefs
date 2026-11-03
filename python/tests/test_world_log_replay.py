@@ -1,7 +1,7 @@
 """The registered-surface projection, replay, and the removal policy pass.
 
 **Why the states here are inert objects.** Replay compares path states by
-equality and by nothing else — the design's one-summary-model rule is a
+equality and by nothing else — the one-summary-model rule is a
 mechanism only while Science cannot read a state. `Opaque` answers `==` and
 raises on every attribute, so a replay that reached inside a state to
 interpret or re-encode it fails these arms rather than passing them quietly.

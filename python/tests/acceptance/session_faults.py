@@ -16,7 +16,7 @@ from beliefs.root import DurableOperationPort
 
 PUBLISH_PHASE = ("exchange", "transfer_noclobber", "link_anchor")
 #: How many publish-phase calls `run_transaction` makes before the record's own
-#: publish — the registration leaf's, at least. Fixed by Step 2's trace.
+#: publish — the registration leaf's, at least. Fixed by tracing a transaction.
 PUBLISH_CALLS_BEFORE_RECORD = 6
 
 
@@ -97,7 +97,7 @@ class HaltingBackend:
                         # the halt follows at least one staged `write`.
                         assert self.writes > 0, "the halt must follow a staged write"
                         self.halted = True
-                        raise OSError("halted by the J2 fixture before the record's publish")
+                        raise OSError("halted by the fault fixture before the record's publish")
                 return target(*args, **kwargs)
 
             return halting

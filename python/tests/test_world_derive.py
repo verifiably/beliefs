@@ -157,7 +157,7 @@ TWO_CORPORA = capture(
 )
 
 
-# --- Step 1: the address map and the producers map ---------------------------
+# --- the address map and the producers map ---------------------------
 
 
 class TestAddressMap:
@@ -351,7 +351,7 @@ def belief_digest(snapshot: derive.ProducerSnapshot) -> str:
     ).digest()
 
 
-# --- Step 2: retraction, certification, and coreference ----------------------
+# --- retraction, certification, and coreference ----------------------
 
 RETRACTIONS = capture(
     corpus(
@@ -556,7 +556,7 @@ class TestCoreferenceReduction:
             derive.CoreferenceMap(pairs={("address-a",): (1, 1)})  # pyright: ignore[reportArgumentType]
 
 
-# --- Step 3: subject identities and the one receipt contract -----------------
+# --- subject identities and the one receipt contract -----------------
 
 
 class TestSubjectIdentities:
@@ -819,11 +819,11 @@ class TestBeliefBoundary:
         assert derive.RECEIPT_OUTCOMES == ("validated", "refuted", "unresolvable", "malformed", "retracted")
 
 
-# --- Step 5: the shipped fixtures are normative ------------------------------
+# --- the shipped fixtures are normative ------------------------------
 
 
 FAILURE_MODE_FIXTURES = {
-    # Step 5's five named failure modes, each with the shipped fixture whose
+    # The five named failure modes, each with the shipped fixture whose
     # expected bytes an implementation with that defect cannot produce.
     #
     # This is a *claim*, not documentation: `TestFixturesDiscriminate` runs a
@@ -852,7 +852,7 @@ class Mutation:
 
     The set is exact in both directions. A fixture that refuses a defect it was
     not written for is worth knowing about, and a fixture that stops refusing
-    the defect it exists for is the regression Step 5 is guarding against.
+    the defect it exists for is the regression these fixtures guard against.
     """
 
     symbol: str
@@ -1018,7 +1018,7 @@ def refusing_fixtures(symbol: str, source: bytes) -> frozenset[str]:
 
 
 class TestFixturesDiscriminate:
-    """Step 5's point: the fixtures are normative because they *catch* things.
+    """The point: the fixtures are normative because they *catch* things.
 
     `rules._run_fixtures` only ever runs the shipped implementation, so nothing
     in the store notices a fixture that has stopped discriminating. These arms

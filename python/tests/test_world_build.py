@@ -269,7 +269,7 @@ def stray_file(corpus_root: Path, before: frozenset[Path]) -> Path:
     return next(iter(gained))
 
 
-# --- Step 1: the root boundary ------------------------------------------------
+# --- the root boundary ------------------------------------------------
 
 
 class TestTheCompositionRootReadsTheChain:
@@ -352,7 +352,7 @@ def test_each_world_module_imports_first_without_a_cycle(module):
     assert completed.returncode == 0, completed.stderr
 
 
-# --- Step 2: preflight --------------------------------------------------------
+# --- preflight --------------------------------------------------------
 
 
 def test_build_refuses_unadmitted_manifest_carrier(tmp_path):
@@ -612,7 +612,7 @@ class TestPreflightOrder:
         assert draft.world_anchor.genesis_digest == genesis_of(world.config.world_root)
 
 
-# --- Step 3: serial coherent capture ------------------------------------------
+# --- serial coherent capture ------------------------------------------
 
 
 def test_chain_head_and_state_are_captured_in_one_hold(monkeypatch, tmp_path):
@@ -975,7 +975,7 @@ class TestSerialCapture:
             draft.held["producer"] = None  # pyright: ignore[reportIndexIssue]
 
 
-# --- Step 4: the ungoverned enumerated kinds ----------------------------------
+# --- the ungoverned enumerated kinds ----------------------------------
 
 
 @pytest.mark.parametrize("kind", ["instrument-certification"])
@@ -1045,7 +1045,7 @@ class TestUngovernedKindsAreRefusedNotAssumed:
         }
 
 
-# --- Step 6: the pre-publication binding recheck ------------------------------
+# --- the pre-publication binding recheck ------------------------------
 
 
 class TestThePrePublicationRecheck:
@@ -1104,7 +1104,7 @@ class TestThePrePublicationRecheck:
         }
 
 
-# --- Step 7: publication ------------------
+# --- publication ------------------
 #
 # These three arms need a published epoch, which did not exist while the rest of
 # this module was written. They stay here rather than moving to

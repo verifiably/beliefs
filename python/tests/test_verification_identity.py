@@ -1,10 +1,10 @@
-"""V2's failing test, written before conformance cut 21 froze.
+"""The failing test for the one-identity change, written before the fix.
 
 One identity: the assessment identity a stored assessment reads back is the
 identity its run derives, so a verification derived over an original and a
 replayed run of that assessment is admitted by the gate's own clause and
-checked without contradiction by the audit. On the tree the design was
-written against this fails at the first assertion: `stored.assessment_value`
+checked without contradiction by the audit. On the tree before the fix
+this fails at the first assertion: `stored.assessment_value`
 hands back the typed `run:` ref and digests it, while the derivation digests
 the bare closure address.
 """
@@ -48,7 +48,7 @@ def test_one_identity_admits_over_the_corpus_and_audits_clean(writer):
     outcome = check_verification(view, view.get(stored_node.id), evidence=evidence)
     assert outcome.checked and outcome.contradiction is None
 
-    # V2 in full: gather -> admit over the corpus, the gate's every clause.
+    # The full flow: gather -> admit over the corpus, the gate's every clause.
     from verification_fixtures import admission_over
 
     verdict, belief = admission_over(writer, published.proposition.id, original)

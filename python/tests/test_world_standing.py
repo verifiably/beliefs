@@ -58,7 +58,7 @@ def writer_at(root: Path, profile, *, resolver=None) -> CorpusWriter:
 
 def evaluation(world, published, profile):
     view = open_world_view(world, published)
-    kwargs = world_kwargs(view, profile)  # sets producer_snapshot_identity from the view (Step 2)
+    kwargs = world_kwargs(view, profile)  # sets producer_snapshot_identity from the view
     inputs = gather(
         view,
         "proposition:p",

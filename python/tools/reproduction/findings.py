@@ -1,4 +1,4 @@
-"""`findings.jsonl`: one line per finding, under the design's closed classes."""
+"""`findings.jsonl`: one line per finding, under its closed classes."""
 
 from __future__ import annotations
 

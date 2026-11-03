@@ -629,7 +629,7 @@ class TestTheEstimandWalk:
         # estimand's measure sort reaches it. Editorial only: content
         # identity moves, no projection does.
         baseline = evaluate(**self._kwargs(self._profile()))
-        mutated = evaluate(**self._kwargs(self._profile(measures_description="fixture, bumped for Q8")))
+        mutated = evaluate(**self._kwargs(self._profile(measures_description="fixture, bumped description")))
         assert isinstance(baseline, Belief) and isinstance(mutated, Belief)
         assert mutated.value == baseline.value
         assert mutated.belief_input_digest != baseline.belief_input_digest

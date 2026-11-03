@@ -1153,7 +1153,7 @@ def settled_world(
     """A world root, its mirror, and the transaction that created it.
 
     `genesis_id` names the world the *chain* was minted under when it differs
-    from the configured one — D1's subject-mismatch split and L4u6's rewritten
+    from the configured one — the subject-mismatch split and the rewritten
     world both turn on exactly that disagreement.
     """
     root = base / name

@@ -139,7 +139,7 @@ def main() -> int:
         "design-gap",
         "build_assessment hands the interpretation rule a ResultManifest of digests, not output bytes; "
         "the verdict is routed through a canonical outcome file whose digest the rule maps",
-        filed="computation design (where an interpretation rule reads content)",
+        filed="the computation change (where an interpretation rule reads content)",
     )
     findings.record(4, "corpus-work", RELOCATED_CLAUSE)
     print(f"frozen spec {spec.identity} targeting {spec.target}; record {minted.id}")

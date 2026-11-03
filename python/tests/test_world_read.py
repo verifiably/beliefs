@@ -114,7 +114,7 @@ def retired_world(tmp_path: Path):
     return world, bindings, roots, publish(world, coverage, bindings)
 
 
-# --- Step 2: the resolution union ---------------------------------------------
+# --- the resolution union ---------------------------------------------
 
 
 class TestBoundResolution:
@@ -282,7 +282,7 @@ class TestBoundResolution:
         assert driven | {OSError} == set(read._CARRIER_READ_FAULTS)
 
 
-# --- Step 3: the bound stamp, and what it does not claim ----------------------
+# --- the bound stamp, and what it does not claim ----------------------
 
 
 class TestTheBoundStamp:

@@ -286,7 +286,7 @@ def test_build_reports_world_identity_conflicts_without_publishing(tmp_path, sam
     assert len(recorder.plans) == plans
 
 
-# --- Step 1: the deterministic carrier ----------------------------------------
+# --- the deterministic carrier ----------------------------------------
 
 
 class TestTheDeterministicCarrier:
@@ -441,7 +441,7 @@ class TestTheDeterministicCarrier:
         assert not (world.config.world_root / "epochs").exists()
 
 
-# --- Step 2: publication is one transaction -----------------------------------
+# --- publication is one transaction -----------------------------------
 
 
 class TestPublicationIsOneTransaction:
@@ -523,7 +523,7 @@ class TestPublicationIsOneTransaction:
         ]
 
 
-# --- Step 3: exact rebuild, and the same-name carrier -------------------------
+# --- exact rebuild, and the same-name carrier -------------------------
 
 
 class TestExactRebuild:
@@ -641,7 +641,7 @@ class TestExactRebuild:
         assert len(recorder.epoch_plans) == submitted, "a refused rebuild submitted a plan"
 
 
-# --- Step 5: opening, under the one lock --------------------------------------
+# --- opening, under the one lock --------------------------------------
 
 
 class TestOpening:

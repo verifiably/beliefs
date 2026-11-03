@@ -356,7 +356,7 @@ class TestSuccession:
 
     def test_the_scope_is_claim_vocabulary_and_nothing_else(self, genesis):
         # The scope restriction: an unscoped "every identifier" would have
-        # this design quietly deciding facet versioning, which is left open.
+        # the contract quietly deciding facet versioning, which is left open.
         assert all(
             key.split(":")[0] in {"sort", "dimension", "operator", "estimand", "edge"}
             for key in genesis.claim_vocabulary()

@@ -217,7 +217,7 @@ def extra_node(corpus_root: Path, slug: str) -> None:
     Corpus(corpus_root).add(stored.dataset_node(title=f"dataset {slug}", resources=pinned(slug)))
 
 
-# --- Step 1: the four outcomes ------------------------------------------------
+# --- the four outcomes ------------------------------------------------
 
 
 class TestReceiptOutcomes:

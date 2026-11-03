@@ -129,7 +129,7 @@ BARRIER_PREAMBLE = re.compile(r"with world\._state\.lock:\s*\n\s*world\._chain_h
 copy of it, and the order of its two lines is the whole of the barrier's guarantee."""
 
 
-# --- Step 1: the refusals, and the order they are decided in ------------------
+# --- the refusals, and the order they are decided in ------------------
 
 
 class TestRefusalOrder:
@@ -220,7 +220,7 @@ class TestRefusalOrder:
         assert len(recorder.epoch_plans) == submitted
 
     @pytest.mark.parametrize(
-        "sabotage",
+        "corruption",
         [
             "pointer-malformed",
             "target-member-missing",
@@ -230,7 +230,7 @@ class TestRefusalOrder:
             "stray-epoch-entry",
         ],
     )
-    def test_a_carrier_this_world_cannot_read_refuses_before_any_delete(self, tmp_path, sabotage):
+    def test_a_carrier_this_world_cannot_read_refuses_before_any_delete(self, tmp_path, corruption):
         """The carrier rule, applied to every epoch a deletion has to read.
 
         `other-identity-mismatch` is the arm that pins the *strong* reading:
@@ -242,18 +242,18 @@ class TestRefusalOrder:
         world, recorder, _bindings, (first, second, third) = three_retained(tmp_path)
         epochs = world.config.world_root / "epochs"
 
-        if sabotage == "pointer-malformed":
+        if corruption == "pointer-malformed":
             (epochs / epoch.CURRENT_POINTER).write_bytes(b"not-a-packaging-identity\n")
-        elif sabotage == "target-member-missing":
+        elif corruption == "target-member-missing":
             (epochs / first.packaging_identity / "coverage.yaml").unlink()
-        elif sabotage == "other-member-missing":
+        elif corruption == "other-member-missing":
             (epochs / second.packaging_identity / "anchors.yaml").unlink()
-        elif sabotage == "other-identity-mismatch":
+        elif corruption == "other-identity-mismatch":
             path = epochs / second.packaging_identity / "anchors.yaml"
             document = yaml.safe_load(path.read_text(encoding="utf-8"))
             document["world"]["head_digest"] = "tip:a-head-this-epoch-was-not-anchored-against"
             path.write_bytes(yaml.safe_dump(document, sort_keys=True, allow_unicode=True).encode("utf-8"))
-        elif sabotage == "current-member-missing":
+        elif corruption == "current-member-missing":
             (epochs / third.packaging_identity / "coverage.yaml").unlink()
         else:
             (epochs / "notes.yaml").write_bytes(b"note: extra\n")
@@ -267,7 +267,7 @@ class TestRefusalOrder:
         assert len(recorder.epoch_plans) == submitted
 
 
-# --- Step 2: the whole epoch, and the sever report ----------------------------
+# --- the whole epoch, and the sever report ----------------------------
 
 
 class TestWholeEpochDeletion:

@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-#: The broad targets the adopted policy lists (design, Command contract).
+#: The broad targets the adopted policy lists.
 BROAD = ["test", "test-fast", "test-push", "check-code", "ci-python", "ci-typescript"]
 
 _STUB = r"""

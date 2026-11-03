@@ -35,7 +35,7 @@ def corpus(tmp_path):
         stored.proposition_node("ac2", title="ac2", claim=project_claim(_claim("EX:a", "EX:c"))), of=ac.id
     )
     # One admitted assessment of `ab`: an observing run over a held dataset, a passed clean-environment verification,
-    # typed under the profile that restores it (Step 4).
+    # typed under the profile that restores it.
     from test_evaluation import seed_assessed_proposition
 
     dataset_address = seed_assessed_proposition(

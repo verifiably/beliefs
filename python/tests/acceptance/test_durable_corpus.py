@@ -248,8 +248,8 @@ class TestTheMintedRecordsReadBack:
     def test_the_assessment_reads_back_as_the_value_it_was_minted_from(self, minted_corpus):
         view = reopen(minted_corpus)
         value = stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE)
-        # V2 returns the run's bare world identity; this live
-        # expectation had retained the pre-V2 typed reference.
+        # The run's bare world identity is returned; this live
+        # expectation had retained the earlier typed reference.
         assert (value.spec, value.run, value.proposition) == (SPEC, slug(RUN), PROPOSITION)
         assert value.outcome == "supported"
 

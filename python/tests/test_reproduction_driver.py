@@ -185,7 +185,7 @@ def test_classify_scope_attributes_only_same_environment_to_the_host():
 
 
 def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, monkeypatch):
-    """V1 and V8's 10b arms: the report, scope and verdict are read; the only
+    """The 10b checks: the report, scope and verdict are read; the only
     in-process input is the rule implementations; `spec.frozen()` is not
     reachable. The negative: a report-less record reports false."""
     from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, spec_rules

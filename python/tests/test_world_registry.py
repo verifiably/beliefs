@@ -212,7 +212,7 @@ def test_known_id_refuses_fresh_and_replica_provenance(tmp_path):
     with pytest.raises(CorpusIdKnown):
         other_actor.admit(corpus, provenance=world_module.Fresh())
     # A replica refuses too, and now it refuses *sooner*: the log-verification
-    # design moved the replica route to `admit_arrival`, so a bare admit
+    # change moved the replica route to `admit_arrival`, so a bare admit
     # never reaches the known-id check for one. The known-id refusal itself
     # still stands on that route, over the same shared core — armed in
     # `test_world_arrival.py::test_an_id_already_admitted_under_another_provenance_still_refuses`.

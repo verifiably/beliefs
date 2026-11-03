@@ -770,6 +770,6 @@ def test_write_against_a_read_only_replica_raises_store_write_refused_from_the_p
     cause = caught.value.__cause__
     assert isinstance(cause, ExecutionError) and cause.applied == 0
     # `replicate_root` produces `READ_ONLY_UNSERVICEABLE`, refused by the engine
-    # with `PreconditionRefused` (not `ProjectApprovalRefused` as elsewhere in
-    # this design); it is still in the routine set.
+    # with `PreconditionRefused` (not `ProjectApprovalRefused` as elsewhere);
+    # it is still in the routine set.
     assert isinstance(cause.__cause__, PreconditionRefused)

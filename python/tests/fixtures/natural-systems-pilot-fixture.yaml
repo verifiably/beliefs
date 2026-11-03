@@ -1,13 +1,13 @@
 # python/tests/fixtures/natural-systems-pilot-fixture.yaml
 #
-# The corpus-local contract of the estimand-typing design's Appendix A.2 — the
-# natural-systems v2 time-series pilot's surrogate-contrast assessment,
-# transcribed exactly as A.2 spells it. This is a TEST FIXTURE, not a domain:
+# The corpus-local contract of the natural-systems v2 time-series pilot's
+# surrogate-contrast assessment, transcribed exactly as the pilot spells it. This is a TEST FIXTURE,
+# not a domain:
 # the eventual `natural-systems` pack question ("which of this it owns") is
-# that project's, and this fixture decides nothing about it (A.2).
+# that project's, and this fixture decides nothing about it.
 #
 # One operator, one estimand declaration, four one-line-per-term sorts. The
-# release date below is a stand-in for A.2's `<sample date>` placeholder.
+# release date below is a stand-in for the pilot's `<sample date>` placeholder.
 contract: natural-systems-pilot
 version: 1
 lineage: genesis

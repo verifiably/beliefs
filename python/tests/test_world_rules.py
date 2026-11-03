@@ -356,7 +356,7 @@ class TestHeldResolution:
             rules._resolve_rule_binding(world, unknown)
 
     @pytest.mark.parametrize(
-        "sabotage",
+        "corruption",
         [
             "rule-document",
             "fixture-bytes",
@@ -366,20 +366,20 @@ class TestHeldResolution:
             "implementation-absent",
         ],
     )
-    def test_a_raw_swap_of_a_stored_member_unholds_the_binding(self, tmp_path, sabotage):
+    def test_a_raw_swap_of_a_stored_member_unholds_the_binding(self, tmp_path, corruption):
         world = make_world(tmp_path)
         binding = rules.install_rule_binding(world, bundle())
         directory = world.config.world_root / "rules" / binding.rule_identity
 
-        if sabotage == "rule-document":
+        if corruption == "rule-document":
             (directory / "rule.yaml").write_bytes(rules.rule_document_bytes("other_symbol"))
-        elif sabotage == "fixture-bytes":
+        elif corruption == "fixture-bytes":
             (directory / "fixtures" / FIXTURES[0][0]).write_bytes(FIXTURES[0][1] + b"\n")
-        elif sabotage == "fixture-added":
+        elif corruption == "fixture-added":
             (directory / "fixtures" / "sort.extra.yaml").write_bytes(FIXTURES[1][1])
-        elif sabotage == "fixture-removed":
+        elif corruption == "fixture-removed":
             (directory / "fixtures" / FIXTURES[1][0]).unlink()
-        elif sabotage == "implementation-bytes":
+        elif corruption == "implementation-bytes":
             (directory / "implementations" / binding.implementation_identity).write_bytes(OTHER_SOURCE)
         else:
             (directory / "implementations" / binding.implementation_identity).unlink()
@@ -851,10 +851,10 @@ class TestExplicitRemoval:
         assert stored_members(world) == published
 
     @pytest.mark.parametrize(
-        "sabotage",
+        "corruption",
         ["implementation-bytes", "rule-document", "fixture-bytes", "fixture-added", "fixture-removed"],
     )
-    def test_a_stored_member_that_no_longer_recomputes_its_name_is_not_removable(self, tmp_path, sabotage):
+    def test_a_stored_member_that_no_longer_recomputes_its_name_is_not_removable(self, tmp_path, corruption):
         """Deleting content under a name asserts the content *has* that name.
 
         Removal keeps every identity recomputation for exactly this reason: a
@@ -866,13 +866,13 @@ class TestExplicitRemoval:
         binding = rules.install_rule_binding(world, bundle())
         directory = world.config.world_root / "rules" / binding.rule_identity
 
-        if sabotage == "implementation-bytes":
+        if corruption == "implementation-bytes":
             (directory / "implementations" / binding.implementation_identity).write_bytes(OTHER_SOURCE)
-        elif sabotage == "rule-document":
+        elif corruption == "rule-document":
             (directory / "rule.yaml").write_bytes(rules.rule_document_bytes("other_symbol"))
-        elif sabotage == "fixture-bytes":
+        elif corruption == "fixture-bytes":
             (directory / "fixtures" / FIXTURES[0][0]).write_bytes(FIXTURES[0][1] + b"\n")
-        elif sabotage == "fixture-added":
+        elif corruption == "fixture-added":
             (directory / "fixtures" / "sort.extra.yaml").write_bytes(FIXTURES[1][1])
         else:
             (directory / "fixtures" / FIXTURES[1][0]).unlink()
@@ -981,7 +981,7 @@ class TestExplicitRemoval:
         assert len(set(report.severed_receipts)) == 4
 
     @pytest.mark.parametrize(
-        "sabotage",
+        "corruption",
         [
             "member-missing",
             "member-extra",
@@ -1000,7 +1000,7 @@ class TestExplicitRemoval:
             "current-a-symlink",
         ],
     )
-    def test_an_unreadable_carrier_refuses_before_any_delete(self, tmp_path, sabotage):
+    def test_an_unreadable_carrier_refuses_before_any_delete(self, tmp_path, corruption):
         """Removal may make evidence unresolvable; it may not do so silently.
         A carrier it cannot read is a sever report it cannot write.
 
@@ -1017,45 +1017,45 @@ class TestExplicitRemoval:
         directory = epochs / packaging_identity
         receipt = directory / "producer-receipt.yaml"
 
-        if sabotage == "member-missing":
+        if corruption == "member-missing":
             (directory / "coverage.yaml").unlink()
-        elif sabotage == "member-extra":
+        elif corruption == "member-extra":
             (directory / "notes.yaml").write_bytes(b"note: extra\n")
-        elif sabotage == "member-directory":
+        elif corruption == "member-directory":
             (directory / "coverage.yaml").unlink()
             (directory / "coverage.yaml").mkdir()
-        elif sabotage == "receipt-not-yaml":
+        elif corruption == "receipt-not-yaml":
             receipt.write_bytes(b"kind: producer\n  subject: [\n")
-        elif sabotage == "receipt-not-a-mapping":
+        elif corruption == "receipt-not-a-mapping":
             receipt.write_bytes(b"- kind: producer\n")
-        elif sabotage == "receipt-duplicate-key":
+        elif corruption == "receipt-duplicate-key":
             receipt.write_bytes(receipt.read_bytes() + b"kind: producer\n")
-        elif sabotage == "receipt-non-text-identity":
+        elif corruption == "receipt-non-text-identity":
             receipt.write_bytes(
                 receipt.read_bytes().replace(
                     f"rule_identity: {binding.rule_identity}".encode(), b"rule_identity:\n  - nested"
                 )
             )
-        elif sabotage == "receipt-states-not-a-list":
+        elif corruption == "receipt-states-not-a-list":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = {"corpus_id": COVERED_STATES[0][0]}
             receipt.write_bytes(yaml.safe_dump(document, sort_keys=True).encode("utf-8"))
-        elif sabotage == "receipt-state-without-its-pair":
+        elif corruption == "receipt-state-without-its-pair":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = [{"corpus_id": COVERED_STATES[0][0]}]
             receipt.write_bytes(yaml.safe_dump(document, sort_keys=True).encode("utf-8"))
-        elif sabotage == "stray-epoch-entry":
+        elif corruption == "stray-epoch-entry":
             (epochs / "notes.yaml").write_bytes(b"note: extra\n")
-        elif sabotage == "stray-epoch-name":
+        elif corruption == "stray-epoch-name":
             (epochs / "not-a-packaging-identity").mkdir()
-        elif sabotage == "epochs-not-a-directory":
+        elif corruption == "epochs-not-a-directory":
             shutil.rmtree(epochs)
             epochs.write_bytes(b"epochs\n")
-        elif sabotage == "epochs-symlink":
+        elif corruption == "epochs-symlink":
             elsewhere = world.config.world_root / "elsewhere"
             shutil.move(epochs, elsewhere)
             epochs.symlink_to(elsewhere, target_is_directory=True)
-        elif sabotage == "current-a-directory":
+        elif corruption == "current-a-directory":
             (epochs / epoch.CURRENT_POINTER).mkdir()
         else:
             (epochs / epoch.CURRENT_POINTER).symlink_to(directory, target_is_directory=True)
@@ -1069,7 +1069,7 @@ class TestExplicitRemoval:
         assert stored_members(world) == published
 
     @pytest.mark.parametrize(
-        ("sabotage", "severed"),
+        ("corruption", "severed"),
         [
             ("receipt-unknown-key", 4),
             ("receipt-kind-mismatch", 4),
@@ -1081,7 +1081,7 @@ class TestExplicitRemoval:
             ("receipt-null-subject", 3),
         ],
     )
-    def test_a_receipt_that_violates_its_contract_is_not_a_carrier_failure(self, tmp_path, sabotage, severed):
+    def test_a_receipt_that_violates_its_contract_is_not_a_carrier_failure(self, tmp_path, corruption, severed):
         """Carrier validation and receipt validation are separate layers.
 
         Each corruption here breaks the receipt *contract* while leaving a
@@ -1102,19 +1102,19 @@ class TestExplicitRemoval:
         packaging_identity = author_epoch(world, dict.fromkeys(RECEIPT_MEMBERS, binding), "bent")
         receipt = world.config.world_root / "epochs" / packaging_identity / "producer-receipt.yaml"
 
-        if sabotage == "receipt-unknown-key":
+        if corruption == "receipt-unknown-key":
             receipt.write_bytes(receipt.read_bytes() + b"note: extra\n")
-        elif sabotage == "receipt-kind-mismatch":
+        elif corruption == "receipt-kind-mismatch":
             receipt.write_bytes(receipt.read_bytes().replace(b"kind: producer\n", b"kind: coreference-reduction\n"))
-        elif sabotage == "receipt-unsorted-states":
+        elif corruption == "receipt-unsorted-states":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = list(reversed(document["corpus_states"]))
             receipt.write_bytes(yaml.safe_dump(document, sort_keys=True).encode("utf-8"))
-        elif sabotage == "receipt-duplicate-state":
+        elif corruption == "receipt-duplicate-state":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = [document["corpus_states"][0]] * 2
             receipt.write_bytes(yaml.safe_dump(document, sort_keys=True).encode("utf-8"))
-        elif sabotage == "receipt-short-digest":
+        elif corruption == "receipt-short-digest":
             # A value that is not an identity is still text: the receipt reads,
             # and it simply no longer names the pair being removed.
             receipt.write_bytes(
@@ -1122,7 +1122,7 @@ class TestExplicitRemoval:
                     f"rule_identity: {binding.rule_identity}".encode(), b"rule_identity: abcdef"
                 )
             )
-        elif sabotage == "receipt-null-subject":
+        elif corruption == "receipt-null-subject":
             receipt.write_bytes(receipt.read_bytes().replace(b"subject: ", b"subject: null # "))
         else:
             # An *omitted* identity member. The bytes still decode, still parse
@@ -1130,7 +1130,7 @@ class TestExplicitRemoval:
             # and the receipt format puts an unsound receipt contract at
             # outcome `malformed`. The carrier list names epoch *members*,
             # never receipt keys.
-            omitted = b"rule_identity:" if sabotage == "receipt-no-rule-identity" else b"kind:"
+            omitted = b"rule_identity:" if corruption == "receipt-no-rule-identity" else b"kind:"
             receipt.write_bytes(
                 b"".join(line + b"\n" for line in receipt.read_bytes().splitlines() if not line.startswith(omitted))
             )
@@ -1139,14 +1139,14 @@ class TestExplicitRemoval:
         scanned = epoch._retained_receipt_bindings_locked(world.config.world_root)
         assert len(scanned) == 4
         bent = next(one for one in scanned if one.member == "producer-receipt.yaml")
-        if sabotage == "receipt-no-rule-identity":
+        if corruption == "receipt-no-rule-identity":
             assert bent.missing == ("rule_identity",)
             assert bent.binding is None and bent.identity is None
-        elif sabotage == "receipt-no-kind":
+        elif corruption == "receipt-no-kind":
             assert bent.missing == ("kind",)
             assert bent.binding == (binding.rule_identity, binding.implementation_identity)
             assert bent.identity is None
-        elif sabotage == "receipt-null-subject":
+        elif corruption == "receipt-null-subject":
             assert bent.missing == ("subject",)
             assert bent.identity is None
         else:
@@ -1160,7 +1160,7 @@ class TestExplicitRemoval:
 
         # Reordering the corpus states is not a second identity for one
         # receipt, so that arm severs exactly what the pristine carrier would.
-        if sabotage == "receipt-unsorted-states":
+        if corruption == "receipt-unsorted-states":
             assert report.severed_receipts == tuple(
                 sorted(
                     expected_receipt_identity(member, subject=subject_identity(f"bent:{member}"), binding=binding)

@@ -163,7 +163,7 @@ def main() -> int:
             "design-gap",
             f"a clean-environment pass was refused at admission: the verification names the derived identity "
             f"{record.assessment} and the gathered assessment carries {a.identity()}; the audit accepts only the former",
-            filed="assessment/run-record design (one spelling for the run member)",
+            filed="the assessment/run-record change (one spelling for the run member)",
         )
     pins_negative(view)
     answer = answers.payload(evaluate_here(view))
