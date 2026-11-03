@@ -4,23 +4,23 @@ Science's durable corpus writes flow through the certified `atoms` engine, and
 everything the engine needs that is not a plan is decided here: the volume
 binding, the explicit root-registration act, the durable executor that compiles
 one `nodes` write plan into one `TransactionSpec`, and the root-taking factory
-the write API is built with (adapter design §1–§4).
+the write API is built with.
 
 **Why this module and no other.** `atoms` types are engine capability. Confining
 their import to the composition root is an architecture rule, checked as one —
-distinct from S8's capability boundary, which is about who holds a *mutable
+distinct from the capability boundary, which is about who holds a *mutable
 corpus handle* and is checked over `beliefs.corpus`. Two boundaries, two checks,
 neither standing in for the other.
 
 **The corpus supplies its own root.** The factory this module hands the write
 API is `(root: Path) -> DurableExecutor`, using the module-bound backend and
-storage profile and deriving the metadata root by §2's sibling rule. A
+storage profile and deriving the metadata root by the sibling rule. A
 pre-bound executor would let the corpus write through a root it never verified.
 
 **The log seam is the same discipline over reads.** Verification needs to
 inspect a chain, state a surface, read a head and take two locks; it gets all
 five as callables on one `LogSeam`, typed in Science's own vocabulary, built
-here and nowhere else (log-verification design §2, §6.4).
+here and nowhere else.
 """
 
 from __future__ import annotations
@@ -292,7 +292,7 @@ PRODUCTION_STORAGE = StorageProfile(profile_id="flush-honoring-disk.v1")
 A storage profile is a declaration by the trusted composition root, which is
 this module. Science holds no tuple data, no allowlist and no override:
 admitting a new volume configuration is an `atoms` certification amendment, and
-cut 4's *every other tuple fails closed* obligation is exercised as the
+the *every other tuple fails closed* obligation is exercised as the
 engine's own refusal — relied on, never re-implemented.
 """
 
@@ -309,8 +309,8 @@ for a create whose target appeared — each with its own message. Only
 `_registered_root` produces this one, at both of its sites, and only it is
 mapped onto `WorldUninitialized`.
 
-A test pins the string against `atoms`' own source, the treatment R27 gave
-`CORPUS_GENESIS_DOMAIN`. If it ever drifts unnoticed the mapping simply stops
+A test pins the string against `atoms`' own source, the treatment
+`CORPUS_GENESIS_DOMAIN` gets. If it ever drifts unnoticed the mapping simply stops
 firing and the engine's refusal reaches the caller unchanged — a less friendly
 error, never a false statement about a registered root.
 """
@@ -337,7 +337,7 @@ def init_corpus_root(corpus_root: Path, *, authority: Authority) -> None:
     """Make a corpus root durable — the explicit act, never a fallback.
 
     Every write against an unregistered root refuses (the engine's
-    registered-root check, surfaced through the executor's §4 mapping). Lazy
+    registered-root check, surfaced through the executor's error mapping). Lazy
     registration on first write is rejected on purpose: the genesis act is
     attributable and its timing is a recorded decision, not an accident of
     whichever write happened to come first.
@@ -526,7 +526,7 @@ def read_lifecycle_state(root: Path) -> LifecycleState:
 
 
 def replicate_export(staging_root: Path, export_root: Path, *, authority: Authority) -> RootOperationId:
-    """The publish act's replication (publish-act-local design §6 step 6):
+    """The publish act's replication:
     `replicate_root`, reached by a name the act may hold, since only this
     module names an engine command. Reinvoked on every retry, its retained
     operation check proves the export root is the attempt's; a foreign
@@ -535,8 +535,8 @@ def replicate_export(staging_root: Path, export_root: Path, *, authority: Author
 
 
 def read_serviceable(root: Path) -> bool:
-    """Whether `root` is read-only serviceable: the local reveal (publish-act-local
-    design §6). Only this module reads the lifecycle state by its engine name."""
+    """Whether `root` is read-only serviceable: the local reveal. Only this module reads the lifecycle state by its
+    engine name."""
     return read_lifecycle_state(root) is LifecycleState.READ_ONLY_SERVICEABLE
 
 
@@ -590,8 +590,8 @@ def restore_root(
 
 
 def evaluate_copy(dest_root: Path, subject: CorpusSubject | StoreSubject, observers: ObserverSet) -> str:
-    """`restore_root`'s evaluation of a copy, granting nothing (publish-act-remote
-    §4.3): the check a recipient's restore runs, run by the publisher over its own
+    """`restore_root`'s evaluation of a copy, granting nothing: the check a recipient's restore runs, run by the
+    publisher over its own
     retained export before every upload. Writes nothing; takes no authority.
 
     Answers the evaluator's outcome, or `"unreadable"` when the copy cannot be
@@ -611,7 +611,7 @@ def _grant_nothing(_root: Path) -> None:
 
 def export_chain_head(root: Path) -> tuple[str, str] | None:
     """`chain_head_reader()`'s `(genesis, head)` for a retained export, or `None`
-    when the engine refuses its chain as state (publish-act-remote §4.2): a
+    when the engine refuses its chain as state: a
     damaged chain is a mark that names no export, never an exception out of the act."""
     try:
         return _chain_head(root)
@@ -783,12 +783,12 @@ def _write_intent_digest(plan: WritePlan, domain: str) -> str:
 CONSUMER_TAG = "science-corpus-write-v1"
 """The engine's consumer tag for every transaction this adapter commits.
 
-**Design deviation, pending review.** The design names
+**Deviation from the original naming.** The original design named
 `science.corpus-write.v1`, which the engine refuses: `compile_spec` runs
 `require_valid_identifier` over `consumer_tag`, whose grammar is
 `[A-Za-z0-9_-]{1,64}` — a tag is woven into a scratch-leaf path component, so
 the dot-versioned spelling cannot be shipped. The same name in the admitted
-grammar is used until the design says otherwise. Science's own identity
+grammar is used until a conforming tag is minted. Science's own identity
 domains are unaffected: `INTENT_DOMAIN` above is a `science.identity.v1`
 domain and answers to that grammar, not to the engine's.
 """
@@ -1111,7 +1111,7 @@ class DurableOperationPort:
 
 def _registration_for(root: Path, backend: Backend, storage: StorageProfile, metadata_root: Path, fulfills: str) -> str:
     """The digest of the one registration fulfilling `fulfills`, read back from
-    the chain (design §4.4): digests come from the chain itself, as anchor
+    the chain: digests come from the chain itself, as anchor
     carriage already reads them, and the executor's outcome stays discarded."""
     try:
         view = read_chain(backend, str(root), str(metadata_root), storage)
@@ -1132,9 +1132,9 @@ def _committed_registration_for(
     root: Path, backend: Backend, storage: StorageProfile, metadata_root: Path, fulfills: str
 ) -> str:
     """The digest of the one registration fulfilling `fulfills` whose settlement
-    committed, read back from the chain (sharing-doors design §4.6). A rolled-back
-    fulfilment leaves the intent open for a retry under the same intent (cut 39's
-    `RETRY_AFTER_ROLLBACK`), so the chain may hold earlier registrations for it;
+    committed, read back from the chain. A rolled-back
+    fulfilment leaves the intent open for a retry under the same intent (`RETRY_AFTER_ROLLBACK`), so the chain may
+    hold earlier registrations for it;
     the engine refuses a second committed one, so exactly one is required."""
     try:
         view = read_chain(backend, str(root), str(metadata_root), storage)
@@ -1437,7 +1437,7 @@ def _refuse_over_ceiling(plan: WritePlan) -> None:
 
 
 def plan_preflight(plan: WritePlan) -> None:
-    """Writer-session design §4.3 step 3: the two checks that need no engine state."""
+    """The two checks that need no engine state."""
     _refuse_malformed(plan)
     _refuse_over_ceiling(plan)
 
@@ -1455,20 +1455,20 @@ def _durable_executor(root: Path) -> DurableExecutor:
 
 class _DurableExecutorFactory:
     """The stable root-taking factory the write API is built with, carrying the
-    root's recovery capability (writer-session design decision 19)."""
+    root's recovery capability."""
 
     def __call__(self, root: Path) -> DurableExecutor:
         return _durable_executor(root)
 
     def recover(self, root: Path) -> None:
-        """Resolve the engine's recovery for `root` (§13 item 3): a no-op on a
+        """Resolve the engine's recovery for `root`: a no-op on a
         root that is not writable — the write itself refuses registration —
         else `read_chain`, which resolves recovery under the project lock."""
         target = Path(root)
         try:
             state = read_lifecycle_state(target)
         except CapabilityUnavailable:
-            # §13 item 19: an uncertified tuple is not writable by the engine's own
+            # An uncertified tuple is not writable by the engine's own
             # judgment, and the write itself refuses with this same cause — recovery
             # has nothing to do and must not manufacture a different refusal shape.
             return
@@ -1520,7 +1520,7 @@ def _chain_head(root: Path) -> tuple[str, str]:
 
     **The seam's `_read_head` issues the identical `read_chain` call with a
     deliberately different error contract, and the asymmetry is not drift.**
-    That one is a seam adapter, so §6.4 obliges it to translate
+    That one is a seam adapter, so it must translate
     `ChainStateInvalid` and `TransactionHalted` into `LogEvidenceRefused`;
     this one is the build's chain reader, whose callers — preflight,
     publication — already handle the engine's own exceptions and would be
@@ -1578,7 +1578,7 @@ _DEFECT_KINDS: dict[DefectKind, ViewDefectKind] = {
 Three names differ between the vocabularies and the difference is deliberate,
 not drift: the engine's `NAME_BYTES_MISMATCH`, `SETTLEMENT_WITHOUT_REGISTRATION`
 and `FULFILLS_UNRESOLVED` are spelled `name-mismatch`,
-`settlement-unregistered` and `fulfills-invalid` in the design's taxonomy. The
+`settlement-unregistered` and `fulfills-invalid` in the chain defect taxonomy. The
 mapping is **closed**: an engine member absent from it raises rather than
 producing a view, because a fifteenth defect kind Science silently dropped
 would be a malformed chain reported as something else.
@@ -1648,7 +1648,7 @@ def _chain_view(inspection: ChainInspection) -> ChainView:
 
 @contextmanager
 def _inspect_escapes() -> Iterator[None]:
-    """§6.4's two inspect-phase translations, minted in one place.
+    """The two inspect-phase translations, minted in one place.
 
     Exactly two exceptions are caught: everything else — `ProtocolError`, the
     volume and store setup errors, anything unforeseen — keeps its own
@@ -1676,13 +1676,13 @@ def _inspect_detached(root: Path) -> ChainView:
 
 
 def _read_preimage(root: Path, txid: str, path: str, max_bytes: int) -> PreimageEvidence:
-    """The seam's preimage read (l13-preimage spec §4): the engine's owned
+    """The seam's preimage read: the engine's owned
     bytes, its availability refusal as evidence, its integrity refusals as
     `LogEvidenceRefused`.
 
     Exactly four engine exceptions are caught. `PreconditionRefused` — a
     non-writable root, a non-file pre-state, history not retained — is what
-    the absence finding records; the other three are the §6.4 states and
+    the absence finding records; the other three are the engine states that escape the inspecting commands, and
     corrupt local history, none of which is judged. `ProtocolError` and the
     setup errors keep their own contracts, as `_inspect_escapes` rules.
     """
@@ -1742,8 +1742,7 @@ _STORE_ROUTINE_REFUSALS = (ProjectApprovalRefused, PreconditionRefused, PendingU
 
 
 def _store_refusal(caught: Exception) -> bool:
-    """A routine engine refusal of the store transaction (url-retrieval design
-    decision 10): raised before any mutation or refusing cleanly, `applied ==
+    """A routine engine refusal of the store transaction: raised before any mutation or refusing cleanly, `applied ==
     0`, and a cause in the closed set. `_mapped_submit` wraps every exception
     as `ExecutionError`, so neither the class nor the phase alone says a
     refusal happened. This predicate is the composition root's own — the only
@@ -1822,7 +1821,7 @@ def _log_seam() -> LogSeam:
 
 
 def log_seam() -> LogSeam:
-    """The production log seam, exposed for the session composition (§13 item 1)."""
+    """The production log seam, exposed for the session composition."""
     return _log_seam()
 
 
@@ -1841,7 +1840,7 @@ _MOMENT_SEAM = MomentSeam(
     # The written root is read registered: its recovery runs under the lock this
     # process holds. Every other root is read detached — `inspect_registered`
     # can append to a chain through recovery, and taking that root's lock would
-    # nest inside the written root's (publication-records design §6).
+    # nest inside the written root's.
     inspect_written=_inspect_registered,
     inspect_other=_inspect_detached,
     absent_state=ABSENT,
@@ -1851,8 +1850,8 @@ _MOMENT_SEAM = MomentSeam(
 
 
 def moment_seam() -> MomentSeam:
-    """The production seam of the intent-position judgment (publication-records
-    design §6): the engine's `FileState` comparison and `ABSENT`, as callables."""
+    """The production seam of the intent-position judgment: the engine's `FileState` comparison and `ABSENT`, as
+    callables."""
     return _MOMENT_SEAM
 
 
@@ -1866,8 +1865,7 @@ def anchor_heads(
 
     The wrapper is the whole of what this module adds — the production seam.
     The act itself is `beliefs.world.anchors._anchor_heads`, which holds no
-    engine capability of its own and is testable against a stand-in seam
-    (log-verification design §3.3). Each `store_roots` pair is
+    engine capability of its own and is testable against a stand-in seam. Each `store_roots` pair is
     `(store_id, root)`: a store resolves through no registry, so the caller
     supplies the carrier, and the genesis is verified to carry that
     `store_id` before head acceptance or registry mutation.
@@ -1880,7 +1878,7 @@ def export_head_artifact(world: World, subject: Subject, *, store_root: Path | N
 
     Writes nothing and mints no record: export *is* the return of the value,
     and storing it with an external holder is the holder's job — which is also
-    what makes it the one act that can anchor the world chain (§3.2, L11).
+    what makes it the one act that can anchor the world chain.
     A store subject supplies its root, under the same binding the anchor act
     holds: the genesis must carry the subject's own `store_id`.
     """
@@ -1902,7 +1900,7 @@ def audit_log(
     The wrapper is the whole of what this module adds — the production seam.
     The act is `beliefs.world.verify._audit_log`, which takes the world
     **configuration** rather than an opened `World` precisely so that it runs
-    on the worlds `open_world` refuses (log-verification design §6.1, §6.3),
+    on the worlds `open_world` refuses,
     and an **explicit** target root, which is never associated to the subject
     by reading its manifest.
     """
@@ -1924,11 +1922,11 @@ def admit_arrival(
     root's manifest itself under that root's own lock, verifies against
     `Corpus(provenance.parent_corpus_id)` — the chain a replica carries is its
     parent's — and commits through the one admission core `World.admit` commits
-    through (log-verification design §6.2).
+    through.
 
     Returns the `AdmissionRecord` and the verification report **side by side**:
     the observer bound is never discarded, and it never enters admission
-    identity, which this design does not amend. `World.admit` refuses
+    identity, which this act does not amend. `World.admit` refuses
     `ReplicaOf` outright, since it holds no verdict to report.
     """
     return _admit_arrival(world, corpus_root, provenance, observers, history=history, seam=_log_seam())
@@ -1937,29 +1935,29 @@ def admit_arrival(
 def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
     """Whether `e2` orders after `e1`, by the world chain's own ancestry.
 
-    Log-verification design §7: ordered iff E2's build-start world head
+    Ordered iff E2's build-start world head
     descends from the settlement that committed E1's publication; a missing or
     rolled-back publication is `unordered`. Epoch sequence numbers are read by
-    nothing. This is the log design §7's predicate only — the event-level
-    relation is `event_order` (cut 36).
+    nothing. This is the predicate only — the event-level
+    relation is `event_order`.
     """
     return _epochs_ordered(config, e1, e2, seam=_log_seam())
 
 
 def event_order(config: WorldConfig, a: Event, b: Event) -> Order:
     """Whether `a` precedes `b`, `b` precedes `a`, or neither — the event-level
-    relation of the log design §7, over captured corpus heads.
+    relation, over captured corpus heads.
 
     Same chain by ancestry; across chains only through world-ancestry-ordered
     cuts, witness-asymmetrically (`a-precedes-b` iff `W(a, b)` and not
     `W(b, a)`), `unordered` the default answer. Epoch sequence numbers are read
-    by nothing. Cut 36; spec `2026-09-21-event-level-l8-design.md`.
+    by nothing.
     """
     return _event_order(config, a, b, seam=_log_seam())
 
 
 def durable_operation_port(root: Path, authority: Authority, *, profile: ProfileSpec) -> DurableOperationPort:
-    """The port `open_corpus` binds, exposed for the session composition (§13 item 1)."""
+    """The port `open_corpus` binds, exposed for the session composition."""
     resolved = Path(root).resolve()
     return DurableOperationPort(
         resolved,
@@ -2015,8 +2013,7 @@ def open_world(config: WorldConfig, *, authority: Authority) -> World:
     A world says who it is in three places — the configuration the caller holds,
     the `world.yaml` mirror, and the chain genesis the root was minted under —
     and this is the surface every ordinary consumer crosses, so it is where the
-    disagreement is **refused** (log-verification design §6.3, discharging the
-    slice-1/2 deferral). The genesis payload is read through `read_chain`, and
+    disagreement is **refused**. The genesis payload is read through `read_chain`, and
     the two refusals it can raise are the export act's own, single-homed in
     `anchors._require_world_genesis`: a payload that is not a Science world
     genesis at all says the root was never initialized as one
@@ -2027,7 +2024,7 @@ def open_world(config: WorldConfig, *, authority: Authority) -> World:
     `read_chain` reports it as `PreconditionRefused`, and `WorldUninitialized` is
     already Science's name for the state — the very name the mirror loader raises
     for a root `init_world_root` never made. The mapping is made **here**, at the
-    boundary that made the read, and not in the seam: §6.4's translation
+    boundary that made the read, and not in the seam: the translation
     vocabulary is closed at three engine states and this is not one of them.
 
     **The mapping is conditioned, not by type.** `PreconditionRefused` is not
@@ -2049,7 +2046,7 @@ def open_world(config: WorldConfig, *, authority: Authority) -> World:
     The detection/refusal split is deliberate: `audit_log` **reports** the same
     fact as a subject-mismatch finding and takes the configuration rather than
     an opened `World` precisely so that auditing the worlds this call refuses
-    stays possible (§6.1).
+    stays possible.
     """
     mirror_id = _load_world_mirror(config.world_root)
     if mirror_id != config.world_id:
@@ -2079,7 +2076,7 @@ def open_world_read(config: WorldConfig) -> World:
     """Open one configured world root for reading alone.
 
     The read door for consumers that hold no permit at all — the `science`
-    layer's read context (its command-framework design §4.2, §9.2), which may
+    layer's read context, which may
     not construct one. It is `open_world` under `permit.READ_ONLY`, stated here
     rather than defaulted: the three identity claims are checked the same way
     and the same worlds are refused, and every act on the returned `World`

@@ -1,6 +1,6 @@
 """The write API and the read side — the one module that holds a mutable corpus.
 
-**S8's capability boundary is what this module's shape is for.** A `Corpus`
+**The capability boundary is what this module's shape is for.** A `Corpus`
 structurally satisfies any read-only `Protocol` despite carrying mutation
 methods, so a protocol is not a capability boundary. What is one is a concrete
 facade: `ReadView` holds its `Corpus` privately and exposes exactly the read
@@ -176,7 +176,7 @@ __all__ = [
 DIRECTIONS = ("inbound", "outbound")
 ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
 EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("act-report", "holdings-observation", *COORDINATION_KINDS)
-"""The statically excluded kinds no world-changing operation accepts (§3.0):
+"""The statically excluded kinds no world-changing operation accepts:
 as a `delete` target, a `move` subject, or a `consolidate` input.
 `relocation.py` imports this. The table is the whole exclusion for `move` and
 `consolidate`; `delete` refuses on a wider set, because `_refuse_excluded_kind`
@@ -186,7 +186,7 @@ _COORDINATION_AT = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:
 
 
 def _publication_content_malformed(node: Node, coordination_pin: str | None) -> bool:
-    """The publication kinds' closed content rule (publication-records design §3), for the audit."""
+    """The publication kinds' closed content rule, for the audit."""
     if node.kind not in PUBLICATION_KINDS:
         return False
     from beliefs.publication import MARKER_KIND, _marker_release_malformed, publication_content_malformed
@@ -259,12 +259,12 @@ def validated_node(node: Node) -> Node:
 class ReadView:
     """The read-only facade. Concrete, not a protocol — see the module docstring.
 
-    Sealed and final, and built only over the exact `nodes` corpus class
-    (biology pack §5.2, B3): a `FacetRead` is a receipt for a read through
+    Sealed and final, and built only over the exact `nodes` corpus class,
+    because a `FacetRead` is a receipt for a read through
     this facade, and a subclass overriding `get`, or a view over a fabricated
     corpus object, would mint receipts for reads that never touched a corpus.
     What this does **not** authenticate is the bytes: a `Corpus` over a
-    directory of forged records is a corpus (S8's raw-write class), and the
+    directory of forged records is a corpus (the raw-write class), and the
     audit's stamp discipline is what meets that.
     """
 
@@ -272,7 +272,7 @@ class ReadView:
         if type(corpus) is not Corpus:
             raise MalformedRecord(
                 f"a ReadView reads exactly nodes.core.corpus.Corpus, not {type(corpus).__name__}; a view over "
-                "anything else would hand out records no corpus holds (B3)"
+                "anything else would hand out records no corpus holds"
             )
         self._corpus = corpus
         self._base_pin_stamp: tuple[int, int] | None = None
@@ -309,21 +309,21 @@ class ReadView:
         an unstamped governed kind (`semantic-hash-missing`), and a malformed
         source correction history (`FacetPayloadRefused`).
 
-        The stale refusal is S3's read-side check; the missing refusal is the
-        2026-08-18 review's strengthening — a governed kind is minted stamped
+        The stale refusal is the read-side check; the missing refusal is the
+        later strengthening — a governed kind is minted stamped
         without exception, so omission is statically detectable. What neither
         can see is an edit that moved the fields **and** the stamp together:
         the store compares a state against itself and has no record of what
-        preceded it — substrate §4.3's bound, inherited here rather than
+        preceded it — substrate the bound, inherited here rather than
         papered over.
         """
         self._require_base_pin()
         return self._validated(self._corpus.get(ref))
 
     def _require_base_pin(self) -> None:
-        """§7.1: a validated read judges nothing under a base the corpus does not
+        """A validated read judges nothing under a base the corpus does not
         pin. Construction never checks (the check would refuse the audit that
-        reports the mismatch, §5.5); iteration never checks."""
+        reports the mismatch); iteration never checks."""
         path = self._corpus.store.root / "corpus.yaml"
         try:
             stamp = (path.stat().st_mtime_ns, path.stat().st_size)
@@ -491,7 +491,7 @@ class OperationLock:
 
 @dataclass
 class _Fulfillment:
-    """One locked call's binding (§13 item 11): the exact authority and port
+    """One locked call's binding: the exact authority and port
     whose submission the routed executor commits, and the result."""
 
     authority: Authority
@@ -523,7 +523,7 @@ def _encode_operation_intent(kind: str, event_token: str, intent_actor: str) -> 
 
 
 def _plan_kinds(plan: WritePlan) -> tuple[str, ...]:
-    """The kinds a plan emits, from the record layout `<kind>/<slug>.md` (§13 item 13)."""
+    """The kinds a plan emits, from the record layout `<kind>/<slug>.md`."""
     kinds: list[str] = []
     for op in plan:
         kind, _, rest = op.path.partition("/")
@@ -537,7 +537,7 @@ def _plan_kinds(plan: WritePlan) -> tuple[str, ...]:
 @final
 @dataclass(frozen=True)
 class OperationCommit:
-    """What one operation write committed (writer-session design §4.2)."""
+    """What one operation write committed."""
 
     record: Node | None
     event_token: str
@@ -546,7 +546,7 @@ class OperationCommit:
 
 
 class _RoutedExecutor:
-    """The executor the corpus holds (§13 items 12–13): an implementation of the
+    """The executor the corpus holds: an implementation of the
     `execute` primitive. Ordinary submissions mark the root unresolved and
     delegate; a fulfilling scope's one submission is committed by
     `commit_fulfilling`, the inventoried seam.
@@ -577,7 +577,7 @@ class _RoutedExecutor:
         self.commit_fulfilling(scope, plan)
 
     def commit_fulfilling(self, scope: _Fulfillment, plan: WritePlan) -> None:
-        """The commit seam (design §4.3, §13 item 13): require, preflight, intent,
+        """The commit seam: require, preflight, intent,
         fulfilling execution — in that order and no other."""
         require_pins_agree(self._state.corpus.store.root, scope.port.profile)
         scope.authority.require("corpus-write", _plan_kinds(plan))
@@ -609,7 +609,7 @@ def _routed_factory(
 
 @final
 class _SettlingHold:
-    """`CorpusWriter._operation` (§13 item 10): the raw root lock, plus
+    """`CorpusWriter._operation`: the raw root lock, plus
     settlement on entry and the `unresolved` clear on the outermost clean exit."""
 
     def __init__(self, writer: CorpusWriter) -> None:
@@ -671,7 +671,7 @@ class _ImportView:
 
 
 class _CheckView:
-    """Unvalidated neighbours: a stale record is reported where it stands (§5.5)."""
+    """Unvalidated neighbours: a stale record is reported where it stands."""
 
     def __init__(self, view: ReadView) -> None:
         self._view = view
@@ -697,7 +697,7 @@ class _CheckView:
 class _CapturedCheckView:
     """`_CheckView`'s shape over one corpus's captured records — mapped and
     drift alike — resolving live and deprecated ids over that set and nothing
-    else, so "does not resolve locally" means the capture (slice 3 §5.3)."""
+    else, so "does not resolve locally" means the capture."""
 
     def __init__(self, records: Sequence[Node], *, addresses: Mapping[str, str] | None = None) -> None:
         self._by_id = {node.id: node for node in records}
@@ -729,7 +729,7 @@ class _CapturedCheckView:
 
 class MountCitations:
     """Citation reads over a session's write root and read mounts
-    (mount-citations decisions 1–5, §3.1). A read mount opens at its first use,
+    A read mount opens at its first use,
     inside its own capture hold, which never queues; `close` releases every hold.
     One instance serves one refusal chain."""
 
@@ -771,7 +771,7 @@ class MountCitations:
         return found
 
     def _one(self, ref: str, base: ReadView | _ImportView) -> ReadView | _ImportView | None:
-        """Decision 4, amended by cut 48 §8: one holder, or several holding equal
+        """One holder, or several holding equal
         content — resolved through the write root when it holds the record, else
         the least corpus id's read mount, every read-mount holder's contract
         checked — or a refusal naming every holder; never a pick by corpus order."""
@@ -844,7 +844,7 @@ class MountCitations:
 
 
 class _SessionOverlay:
-    """An import path's acquisition-boundary view (decision 3a): `base` (the
+    """An import path's acquisition-boundary view: `base` (the
     overlay, or the write root) first, then the read mounts, one holder or a
     refusal; producers are the union."""
 
@@ -962,7 +962,7 @@ def mark_root_unresolved(root: Path) -> None:
     """Mark a root's shared writer state unresolved before an effect made
     outside every writer's executors — the durable operation port's intents and
     commits (beliefs-40e593). The state's index is current only for writes routed
-    through it, so the next write hold recovers and rebuilds (§4.3) instead of
+    through it, so the next write hold recovers and rebuilds instead of
     judging against an index that never saw the commit. A root no writer has
     opened in this process has no state to mark."""
     with _ROOT_STATES_LOCK:
@@ -1143,7 +1143,7 @@ def derived_from(view: ReadView | WorldReadView, dataset: str) -> Reach:
     One step: the runs whose `produces` edge names this dataset, and what each
     of those runs `transforms`. Independence does not read this view — it walks
     the stamped basis — and the two are allowed to disagree, which is the
-    disagreement R23's fixture constructs.
+    disagreement a test fixture constructs.
     """
     return closure(dataset, _DerivedFromAdjacency(view))
 
@@ -1200,8 +1200,8 @@ def local_retraction_enumeration(
 
 @dataclass(frozen=True)
 class SnapshotStanding:
-    """Which subjects a live fold finds retracted, and each subject's history
-    (slice 2 §5): every snapshot-arm retraction naming it and, transitively,
+    """Which subjects a live fold finds retracted, and each subject's history: every snapshot-arm retraction naming
+    it and, transitively,
     every retraction naming one of those, each with its folded resolution."""
 
     retracted: frozenset[str]
@@ -1215,7 +1215,7 @@ def _merged_capture(
     views: Mapping[str, ReadView | _CapturedCheckView],
 ) -> tuple[_CapturedCheckView, Mapping[str, tuple[str, ...]]]:
     """Every holder's records as one capture, after the address map's own
-    classification between holders (cut 48 §4.2 rules, §4.5).
+    classification between holders.
 
     Two records of one uid under different live addresses refuse
     `AddressMapConflict("uid-corruption")`; two records of one uid whose
@@ -1282,7 +1282,7 @@ def _merged_capture(
                     code="deprecated-key-collision",
                     ref=address,
                     detail=f"corpus/uid claims={tuple(claimed)!r}",
-                    message="a retired address answers for one record (world §4.3)",
+                    message="a retired address answers for one record",
                 )
             )
     return _CapturedCheckView(records), MappingProxyType(holders)
@@ -1299,10 +1299,10 @@ def snapshot_standing(
     The holders' records are merged first (`_merged_capture`, which checks
     its own well-definedness and relies on no caller), so a counter-retraction
     held apart from the retraction it counters still resolves its target, and
-    one record held in several corpora is one vertex (cut 48 §4.5). With a
+    one record held in several corpora is one vertex. With a
     policy, a retraction enters the fold iff `counts(h, address)` is true for
-    some holder `h` of it, every holder asked so each decision is recorded
-    (§6). Every chain member is validated with the write boundary's own checks
+    some holder `h` of it, every holder asked so each decision is recorded. Every chain member is validated with
+    the write boundary's own checks
     over the merged view before it is trusted — `retraction_standing` resolves
     a ref and nothing else, and a raw-written counter-retraction with a wrong
     content identity would otherwise restore a retracted snapshot. Retractions
@@ -1385,7 +1385,7 @@ def standing_in_local_view(view: ReadView, ref: str) -> bool:
     This is deliberately non-authoritative and corpus-local. Route-arm targets
     name an embedded route, not a record, so they never subtract node standing.
     A snapshot-arm retraction is a vertex here: it names no node, and its
-    retained-epoch resolution is the writer's and the world audit's (slice 2 §4).
+    retained-epoch resolution is the writer's and the world audit's.
     """
     facets: dict[str, Mapping[str, object]] = {}
     for stored_node in view.iter_stored():
@@ -1515,7 +1515,7 @@ class _DerivedFromAdjacency:
 
 
 def run_value(view: ReadView | WorldReadView, ref: str) -> RunValue:
-    """A stored run as cut 2's value: its spec, and its role-partitioned inputs
+    """A stored run as a value: its spec, and its role-partitioned inputs
     with each input dataset's declaration read from the dataset itself.
 
     Over a world view the filter is the same and the absence is reported by
@@ -1542,7 +1542,7 @@ def _absence_of(view: ReadView | WorldReadView, ref: str) -> str | None:
 
 
 def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> LineageSnapshot:
-    """Produce substrate §5's snapshot from a read view.
+    """Produce substrate the snapshot from a read view.
 
     The inspected set is `{observed root} ∪ closure` — the union written out,
     because the walk is start-excluding and a root whose own immediate parent is
@@ -1640,12 +1640,12 @@ def _producers_of(view: ReadView | WorldReadView, dataset: str) -> list[Producer
     return producers
 
 
-# --- the §6.2 corpus check ---------------------------------------------------
+# --- the corpus check ---------------------------------------------------
 
 
 @dataclass(frozen=True)
 class EligibilityOutcome:
-    """Why an `assesses` edge is inadmissible (mount-citations decision 7): the
+    """Why an `assesses` edge is inadmissible: the
     edge is `unresolved` when it rests on references the reading view does not
     hold and nothing held is valid; otherwise it is `unmet`."""
 
@@ -1661,8 +1661,8 @@ def eligibility_outcome(
     judge: ProducerView | None = None,
     reports: Callable[[str], ReportView | None] | None = None,
 ) -> EligibilityOutcome | None:
-    """S7's cross-node predicate. `view` finds the run and its datasets; `judge`
-    answers each dataset's producers (the session's, decision 3a); `reports`
+    """The cross-node predicate. `view` finds the run and its datasets; `judge`
+    answers each dataset's producers (the session's); `reports`
     names the corpus holding a dataset's retrieval report.
 
     assessment → run → `observes` → dataset → facet. `reads` inputs never
@@ -1717,7 +1717,7 @@ def eligibility_refusal(
 
 
 def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
-    """The profile-level check (substrate §6.2 item 2), reported and never raised.
+    """The profile-level check, reported and never raised.
 
     Files are canonical and hand-editable, so a node can reach the store without
     passing the write boundary. What this reports is what such a node can be
@@ -1725,9 +1725,9 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
     family faults this module can resolve. What it is silent on is a raw write
     that is **self-consistent** — the hash agrees because the writer computed
     it, and nothing structural is wrong because nothing is. That silence is
-    §4.2.1's stated bound, not a gap here. Snapshot-arm retractions are checked
+    the stated bound, not a gap here. Snapshot-arm retractions are checked
     for shape and eligibility only; retained-ness needs the world and is
-    `audit_world`'s (slice 2 §7.4).
+    `audit_world`'s.
     """
     findings: list[Finding] = []
     manifest_path = view._corpus.store.root / "corpus.yaml"
@@ -1981,7 +1981,7 @@ def _record_findings(
 
 
 class SnapshotResolver(Protocol):
-    """What a writer needs to resolve a snapshot-arm target (slice 2 §4): the
+    """What a writer needs to resolve a snapshot-arm target: the
     world's retained subjects of one kind, each with its covered corpus ids."""
 
     def retained(self, subject_kind: str) -> Mapping[str, tuple[str, ...]]: ...
@@ -2013,7 +2013,7 @@ class CoordinationResolver:
         return self._mounts.get(Path(root).resolve())
 
     def mounted(self) -> Mapping[Path, str]:
-        """Each mounted root and its corpus id, in the resolver's path order (publication-records design §6)."""
+        """Each mounted root and its corpus id, in the resolver's path order."""
         from beliefs.world import load_manifest
 
         return MappingProxyType({root: load_manifest(root).corpus_id for root in self._mounts})
@@ -2091,7 +2091,7 @@ MismatchScope = Literal["none", "domains", "base", "malformed"]
 
 
 def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, str, frozenset[str]]:
-    """§5.5: pin disagreement scope, explanation, and activated namespaces."""
+    """Pin disagreement scope, explanation, and activated namespaces."""
     if profile.base_contract_identity != shipped_base().base_contract_identity:
         return "base", "the supplied profile requires a different base than this runtime ships", frozenset()
     manifest_path = Path(root) / "corpus.yaml"
@@ -2144,7 +2144,7 @@ def _manifest_findings(
 
 
 def require_pins_agree(root: Path, profile: ProfileSpec) -> None:
-    """§5.1: refuse unreadable or disagreeing pins before any write effect."""
+    """Refuse unreadable or disagreeing pins before any write effect."""
     scope, detail, _ = profile_mismatch(root, profile)
     if scope != "none":
         message = "manifest pins cannot be read" if scope == "malformed" else "manifest pins do not match the profile"
@@ -2182,7 +2182,7 @@ class CorpusWriter:
     **The world-changing families exist, so no target is monotone.** Consolidate
     and move can remove a record another operation resolved, so `retract` and
     `supersede` re-resolve their target under this lock immediately before plan
-    construction and refuse if it has gone (world-changing families §3.6). The
+    construction and refuse if it has gone. The
     collision predicates remain what they were: two planners can each pass
     `assert_addable` for one uid under different ids, so the single-planner
     restriction stands — in-process this lock, cross-process a stated deployment
@@ -2220,7 +2220,7 @@ class CorpusWriter:
         own = Path(root).resolve()
         resolved = [path.resolve() for path in read_mounts or ()]
         if own in resolved or len(set(resolved)) != len(resolved):
-            raise ValueError("read_mounts names the writer's own root, or one root twice (mount-citations §3.2)")
+            raise ValueError("read_mounts names the writer's own root, or one root twice")
         self._read_mounts: tuple[Path, ...] = tuple(sorted(resolved))
         self._citations: MountCitations | None = None
         # Binding a writer establishes its root directory. `nodes` 2.0 refuses to
@@ -2260,7 +2260,7 @@ class CorpusWriter:
 
     @contextmanager
     def _citing(self) -> Iterator[None]:
-        """One citation scope per refusal chain (decision 5): read mounts open
+        """One citation scope per refusal chain: read mounts open
         lazily inside it and their holds release when the outermost scope ends."""
         if not self._read_mounts or self._citations is not None:
             yield
@@ -2276,7 +2276,7 @@ class CorpusWriter:
         if not self._read_mounts:
             return self._view
         if self._citations is None:
-            raise RuntimeError("a citation read outside a citation scope (mount-citations decision 5)")
+            raise RuntimeError("a citation read outside a citation scope")
         return self._citations
 
     @property
@@ -2302,7 +2302,7 @@ class CorpusWriter:
 
     @contextmanager
     def _fulfilling(self) -> Iterator[_Fulfillment]:
-        """Bind this writer's authority and port for one submission (§13 item 11).
+        """Bind this writer's authority and port for one submission.
         Entered under the raw root lock by `OperationWrites` only; the ordinary
         method it wraps takes the settling hold itself, after its `require`."""
         port = self._operation_port
@@ -2341,7 +2341,7 @@ class CorpusWriter:
     def delete(self, ref: str) -> None:
         """Remove exactly one record's file — an ordinary write, like `add`.
 
-        No intent, no act-report, one engine effect (§3.1): an act-report is a
+        No intent, no act-report, one engine effect: an act-report is a
         live corpus node, so a delete that minted one would be distinguishable
         from a raw `unlink` on an ordinary read, and the managed/raw asymmetry
         would collapse. No referential check: the records naming the target
@@ -2349,11 +2349,11 @@ class CorpusWriter:
         No tombstone: the chain's committed removal is the history.
 
         The permit is required on the resolved record's kind before any other
-        refusal (write-permits design §15): the target resolves under the lock
+        refusal: the target resolves under the lock
         first, so a missing ref still refuses `DeletionTargetMissing`, and an
         authority that may not write that kind is refused before the excluded
-        kinds are read. `_delete_locked` requires again on the same kind; §4.3
-        rules the repeat harmless.
+        kinds are read. `_delete_locked` requires again on the same kind; the
+        repeat is harmless.
         """
         with self._operation:
             self._require_pins_agree()
@@ -2398,7 +2398,7 @@ class CorpusWriter:
             raise CollisionRefused(str(caught)) from caught
 
     def _preflight_replace_locked(self, node: Node, *, provenance: bool = False) -> None:
-        """The replacement checks inside one citation scope (mount-citations decision 5)."""
+        """The replacement checks inside one citation scope."""
         with self._citing():
             self._preflight_replace_cited(node, provenance=provenance)
 
@@ -2675,7 +2675,7 @@ class CorpusWriter:
             return manifest
 
     def _stage_record(self, text: str) -> Node:
-        """Publish-act-local §5: one snapshot record, written into a staging corpus
+        """One snapshot record, written into a staging corpus
         byte for byte as its snapshot text. The ordinary writer's record-local
         guards — document, registry and facet payloads under the staging profile,
         display facet, governed stamp, rendering, collision — and none of the
@@ -2699,7 +2699,7 @@ class CorpusWriter:
             return self._corpus.add(node)
 
     def _stage_marker(self, node: Node) -> Node:
-        """Publish-act-local §5: the factory's marker, written last into a staging
+        """The factory's marker, written last into a staging
         corpus. Only a well-formed, self-consistent marker is written, under the
         same record-local guards as `_stage_record` — facet payloads, display
         facet, governed stamp, rendering, collision. The marker's closed content
@@ -2741,10 +2741,10 @@ class CorpusWriter:
 
     def _require_bound_port(self, port: OperationPort | None) -> OperationPort:
         """The port an operation runs on: this writer's own for `None`, or a
-        supplied one bound to the same root, authority and profile
-        (act-report-remainder design decision 13). The writer's own port is
-        bound at construction (`root.py`'s `open_corpus` hands both one root,
-        authority and profile), so only a supplied port is compared."""
+         supplied one bound to the same root, authority and profile
+        . The writer's own port is
+         bound at construction (`root.py`'s `open_corpus` hands both one root,
+         authority and profile), so only a supplied port is compared."""
         if port is None:
             assert self._operation_port is not None
             return self._operation_port
@@ -2773,7 +2773,7 @@ class CorpusWriter:
             )
         operation_port = self._require_bound_port(port)
         if payload is not None:
-            # its own branch: the operation-intent line below is pinned by a live arm (cut 35's T2-c)
+            # its own branch: the operation-intent line below is pinned by a live arm
             return self._checked_intent_digest(
                 operation_port.append_intent(self._checked_domain_intent(kind, token, payload))
             )
@@ -2781,7 +2781,7 @@ class CorpusWriter:
         return self._checked_intent_digest(digest)
 
     def _checked_domain_intent(self, kind: str, token: str, payload: bytes) -> bytes:
-        """A pre-encoded domain intent (publication-records design §6 step 0): its
+        """A pre-encoded domain intent: its
         kind, token and actor must be the ones this append is called with."""
         from beliefs.intents.publish import decode_publish_intent
 
@@ -2816,8 +2816,7 @@ class CorpusWriter:
         port: OperationPort | None = None,
     ) -> report_values.ActReport:
         """One transaction fulfilling the operation intent: the report alone,
-        or `operations` — an acquisition's dataset beside its report
-        (url-retrieval design §6 step 4)."""
+        or `operations` — an acquisition's dataset beside its report."""
         self._require_pins_agree()
         self.authority.require("corpus-write", ("act-report",))
         operation_port = self._require_bound_port(port)
@@ -2846,7 +2845,7 @@ class CorpusWriter:
         actor they carry as provenance; the intent names the bound importer.
 
         `evidence` is what this importer holds — frozen specs and rule
-        implementations — and it is **supplied, never ambient** (M11): a member
+        implementations — and it is **supplied, never ambient**: a member
         whose derivation this caller cannot recompute is *unchecked*, which is
         a finding and never a verdict. The default holds nothing, so an
         importer that recomputes nothing says so rather than defaulting into an
@@ -2972,7 +2971,7 @@ class CorpusWriter:
                         except RefError as caught:
                             raise RelocationTargetMissing(
                                 f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
-                                "or deletion removed it (world-changing families §3.6)"
+                                "or deletion removed it"
                             ) from caught
                     raise
 
@@ -2983,13 +2982,13 @@ class CorpusWriter:
                 except RefError as caught:
                     raise RelocationTargetMissing(
                         f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
-                        "or deletion removed it (world-changing families §3.6)"
+                        "or deletion removed it"
                     ) from caught
             return self._corpus.add(record)
 
     def attest_coreference(self, record: Node, *, view: ReadView | WorldReadView | None = None) -> Node:
         """Mint one coreference attestation whose endpoints resolve exactly,
-        touching neither endpoint (slice 2 design §4.1).
+        touching neither endpoint.
 
         `view` is where the endpoints resolve: this corpus by default, or a
         `WorldReadView` the caller opened **before** this call for a pair held
@@ -3029,7 +3028,7 @@ class CorpusWriter:
 
     def correct_identifier(self, ref: str, identifiers: Mapping[str, object], *, grounds: str) -> Node:
         """Change a source's identifiers under one attributed assertion — "same
-        work; the removed identifiers were erroneous" (slice 2b §6). The
+        work; the removed identifiers were erroneous". The
         address moves iff the selected basis changes; the old address is
         retained in `deprecated_ids`; `uid` is preserved; no referrer is read
         or rewritten. One executor submission."""
@@ -3139,8 +3138,8 @@ class CorpusWriter:
         attestation: stored.CoreferenceAttestation,
         view: ReadView | _ImportView | WorldReadView,
     ) -> None:
-        """The four endpoint refusals, in the order slice 2 design §4.1 step 6
-        states them; a record reaching here has two distinct endpoints."""
+        """The four endpoint refusals, in the order the endpoint rules
+        state them; a record reaching here has two distinct endpoints."""
         from beliefs.world.read import NotPresent, Unknown
         from beliefs.world.view import WorldReadView as _WorldReadView
 
@@ -3183,8 +3182,7 @@ class CorpusWriter:
                 predecessor = self._view.get(of)
             except RefError as caught:
                 raise RelocationTargetMissing(
-                    f"{of}: the target no longer resolves in this corpus; a concurrent move "
-                    "or deletion removed it (world-changing families §3.6)"
+                    f"{of}: the target no longer resolves in this corpus; a concurrent move or deletion removed it"
                 ) from caught
             predecessor_id = predecessor.id
             if predecessor.kind != successor.kind or successor.kind not in ("proposition", "composite"):
@@ -3217,13 +3215,12 @@ class CorpusWriter:
                 self._view.get(predecessor_id)
             except RefError as caught:
                 raise RelocationTargetMissing(
-                    f"{of}: the target no longer resolves in this corpus; a concurrent move "
-                    "or deletion removed it (world-changing families §3.6)"
+                    f"{of}: the target no longer resolves in this corpus; a concurrent move or deletion removed it"
                 ) from caught
             return self._corpus.add(candidate)
 
     def revise(self, node: Node) -> Node:
-        """Replace proposition prose or a dataset within §5.3's boundary."""
+        """Replace proposition prose or a dataset within the boundary."""
         self._authority.require("corpus-write", (node.kind,))
         with self._operation:
             self._require_pins_agree()
@@ -3267,7 +3264,7 @@ class CorpusWriter:
     _DATASET_REVISION_FACETS = frozenset({stored.EMPIRICAL_OBSERVATION_FACET, stored.DISPLAY_FACET})
 
     def _revise_dataset_locked(self, node: Node, current: Node) -> Node:
-        """Apply §5.3's dataset interpretation-and-prose boundary."""
+        """Apply the dataset interpretation-and-prose boundary."""
         self._require_pins_agree()
         self._authority.require("corpus-write", (current.kind,))
         candidate_fields = node.model_dump()
@@ -3293,7 +3290,7 @@ class CorpusWriter:
         if before is not None and after is None:
             raise ReviseOutsideAllowlist(
                 f"{node.id}: removing {stored.EMPIRICAL_OBSERVATION_FACET!r} withdraws standing; that is a "
-                "record-level act the correction lifecycle has not designed (facet-contracts §2 item 3)"
+                "record-level act the correction lifecycle has not designed"
             )
         for key, payload in node.facets.items():
             facet = self._profile.facets.get(key)
@@ -3500,7 +3497,7 @@ class CorpusWriter:
             )
 
     def _resolve_snapshot_target(self, record: Node, corpus_id: str) -> None:
-        """Slice 2 §4: a snapshot arm resolves iff a retained epoch carries the
+        """A snapshot arm resolves iff a retained epoch carries the
         identity and this corpus is in that snapshot's coverage; a successor
         must be retained and must not be the target."""
         target = _validated_retraction_target(record)
@@ -3541,7 +3538,7 @@ class CorpusWriter:
             raise ValidationRefused(f"{record.id}: {caught}") from caught
 
     def _refuse_estimand_target_mismatch(self, record: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
-        """Estimand-typing §7.2: the spec's estimand names the claim its target
+        """The spec's estimand names the claim its target
         record carries — both the identity and the operator, since a stored
         estimand carries the two as independent members with no preimage."""
         from beliefs.decode import claim_from_stored
@@ -3552,7 +3549,7 @@ class CorpusWriter:
         if not view.holds(spec.target):
             raise ValidationRefused(
                 f"{record.id}: estimand-target-unresolvable: target {spec.target!r} does not resolve in this corpus; "
-                "a cross-corpus target is world-resolution's read (estimand-typing §13)"
+                "a cross-corpus target is world-resolution's read"
             )
         target = view.get(spec.target)
         if target.kind != "proposition":
@@ -3579,7 +3576,7 @@ class CorpusWriter:
 
     def _refuse_dataset_shape(self, node: Node) -> None:
         """The request-only half of a dataset's validation, run before an
-        acquisition opens its intent (url-retrieval design §6 step 1): family,
+        acquisition opens its intent: family,
         document, registry membership and every facet payload's shape. Nothing
         here reads the view — the report the record will name does not exist
         yet — so `attested_by`, bearer and validity are the close's."""
@@ -3588,8 +3585,7 @@ class CorpusWriter:
         self._refuse_facet_shapes(node)
 
     def _refuse_acquired_dataset(self, node: Node, report: Node) -> None:
-        """Validate a dataset the acquisition mints beside its report
-        (url-retrieval design §6 step 4): the report is an arriving member of the
+        """Validate a dataset the acquisition mints beside its report: the report is an arriving member of the
         same transaction, so `retrieval` resolves through the overlay exactly as
         an import's members resolve through theirs. The attester is the bound
         actor — `provenance` is not set."""
@@ -3662,7 +3658,7 @@ class CorpusWriter:
         return CreateOp(path=self._relative_path(record), content=content)
 
     def _settle(self) -> None:
-        """Recover and rebuild an unresolved root before any state-dependent read (§4.3)."""
+        """Recover and rebuild an unresolved root before any state-dependent read."""
         state = self._state
         if not state.unresolved:
             return
@@ -3803,7 +3799,7 @@ class CorpusWriter:
         self._refuse_collision(node)
 
     def _refuse_facet_shapes(self, node: Node) -> None:
-        """§5.2's view-free half: registry membership and every facet payload's shape."""
+        """The view-free half: registry membership and every facet payload's shape."""
         try:
             self._profile.validate_document(node)
         except UnknownKindError as caught:
@@ -3819,9 +3815,9 @@ class CorpusWriter:
     def _refuse_facets(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None, provenance: bool = False
     ) -> None:
-        """§5.2: registry, payload, bearer, actor, and acquisition validity. With
+        """Registry, payload, bearer, actor, and acquisition validity. With
         read mounts, bearer and validity are judged over the session; a retrieval
-        report is read in the record's own corpus (decision 3a). Provenance
+        report is read in the record's own corpus. Provenance
         preserves the attestation of an arriving record."""
         self._refuse_facet_shapes(node)
 
@@ -3860,7 +3856,7 @@ class CorpusWriter:
             raise ValidationRefused(f"{node.id}: semantic-identity stamp cannot be recomputed: {caught}") from caught
 
     def _refuse_composite(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
-        """Design §4.2, steps 1–4, re-derived from the stored record: form,
+        """Re-derived from the stored record: form,
         the relation set, member resolution and identity, classification.
         No vocabulary membership is read — the boundary holds no snapshot."""
         from beliefs import composite as composite_module
@@ -3880,7 +3876,7 @@ class CorpusWriter:
         composite_module.classify(self._profile, facet, claims)  # step 4
 
     def _refuse_assesses_target_kind(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
-        """`assesses` targets a proposition and nothing else (kernel §4.1, U4).
+        """`assesses` targets a proposition and nothing else.
         The eligibility predicate reads the run and its observed dataset and
         never the target's kind, so without this an otherwise eligible
         assessment could name a composite and enter the pool `gather` matches."""
@@ -3905,7 +3901,7 @@ class CorpusWriter:
                 )
 
     def _refuse_supersedes_same_kind(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
-        """Design §3.1's `same_kind` rule, on the shared path every route takes
+        """The `same_kind` rule, on the shared path every route takes
         and outside the `document_validated` shortcut: a `supersedes` edge whose
         target is a record of another kind is a signature violation, whoever
         authored it."""
@@ -3922,14 +3918,14 @@ class CorpusWriter:
             if target.kind != node.kind:
                 raise SignatureRefused(
                     f"{node.id}: supersedes-cross-kind: a {node.kind!r} names a {target.kind!r} predecessor "
-                    f"({relation.target}); supersedes is same-kind succession (kernel §4.1, composite-claims §3.1)"
+                    f"({relation.target}); supersedes is same-kind succession"
                 )
 
     def _refuse_verification(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
-        """Self-consistency of a published verification, before the intent
-        (design §5.3): the record decodes — id, report identity, edge
+        """Self-consistency of a published verification, before the intent: the record decodes — id, report
+        identity, edge
         cardinality — and its `verifies` target is an assessment carrying the
-        named identity. A report-less verification is admitted on cut 18's
+        named identity. A report-less verification is admitted on its own
         terms. No run is read: derivation validation is the import's and the
         audit's alone."""
         from beliefs.verify import decode_verification  # local: `audit` imports this module
@@ -3982,11 +3978,11 @@ class CorpusWriter:
             )
 
     def _refuse_source(self, node: Node, *, provenance: bool = False) -> None:
-        """Slice 2b §5.1, in order: canonical identifiers (every entry), a
+        """In order: canonical identifiers (every entry), a
         basis, the derived address, a well-formed history, redirect agreement.
         `provenance` admits a history (import, relocation, the seam); an
         ordinary add refuses one — history is minted by `correct_identifier`.
-        A nested (consolidation) history is validated by the same reader (slice 6 §3.2)."""
+        A nested (consolidation) history is validated by the same reader."""
         if node.kind != "source":
             return
         facet = stored._facet(node, stored.SOURCE_FACET) or {}
@@ -4019,9 +4015,8 @@ class CorpusWriter:
             raise ValidationRefused(f"{node.id}: refused by document validation: {caught}") from caught
 
     def _refuse_dataset_basis(self, node: Node) -> None:
-        """W3 as narrowed, the dataset half (clause 1); slice 5 §5's id/address
-        agreement (clause 2). The first clause's line is matched by cut 4's
-        W3 arms and cut 25's declarations and does not move."""
+        """The dataset half (clause 1) and the id/address agreement (clause 2).
+        The first clause's line is pinned by tests and does not move."""
         if node.kind == "dataset" and dataset_address(stored.dataset_declaration(node)) is None:
             raise BasisMissing(
                 f"{node.id}: a dataset carries a content identity — every declared resource pinned by an "
@@ -4033,9 +4028,9 @@ class CorpusWriter:
                 raise DatasetAddressDisagreement(f"{node.id}: the declaration derives {address}")
 
     def _refuse_ineligible(self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None) -> None:
-        """S7's write boundary. An import overlay finds the run and its datasets
+        """The write boundary. An import overlay finds the run and its datasets
         through itself and judges them with the session's producers; every other
-        path reads the citation view (mount-citations §3.1), which a `None` view
+        path reads the citation view, which a `None` view
         means. With read mounts, both are judged only inside a citation scope:
         outside one this raises `RuntimeError`, as `_citation_view` does."""
         reading = self._citation_view() if view is None else view
@@ -4044,7 +4039,7 @@ class CorpusWriter:
         if self._read_mounts:
             citations = self._citations
             if citations is None:
-                raise RuntimeError("eligibility judged outside a citation scope (mount-citations decision 5)")
+                raise RuntimeError("eligibility judged outside a citation scope")
             if isinstance(reading, _ImportView):
                 judge, reports = citations.overlay(reading), (lambda _ref: reading)
             else:
@@ -4070,7 +4065,7 @@ class CorpusWriter:
 
 
 class OperationWrites:
-    """The nine session-mediated writes (design §4.2, §13 item 9): each is the
+    """The nine session-mediated writes: each is the
     ordinary method, run inside a fulfilling scope under the settling hold."""
 
     def __init__(self, writer: CorpusWriter) -> None:
@@ -4079,7 +4074,7 @@ class OperationWrites:
     def _run(self, perform: Callable[[], Node | None]) -> OperationCommit:
         """Bind fulfillment under the *raw* lock, then let the ordinary method run
         exactly as it does for a library caller: its `require` first, then its own
-        settling hold, then its refusals, then the one submission (§13 item 11).
+        settling hold, then its refusals, then the one submission.
         Entering the settling hold here would recover — and could move bytes —
         before the permit was judged, which the ordinary path never does."""
         writer = self._writer
@@ -4090,8 +4085,8 @@ class OperationWrites:
                 raise
             except Exception as caught:
                 if scope.submitted:
-                    # The intent was appended (§13 item 12); what failed came after the submission began —
-                    # the engine, the readback, or the state update. J2's boundary: ExecutionError.
+                    # The intent was appended; what failed came after the submission began —
+                    # the engine, the readback, or the state update. The boundary is ExecutionError.
                     raise ExecutionError(f"failure after submission: {caught}", index=None, applied=None) from caught
                 raise  # a refusal — the permit's, the body's, or the preflight's — before any effect
             if scope.result is None:

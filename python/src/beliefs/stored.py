@@ -9,39 +9,38 @@ meanings, so the mapping is code in one module rather than convention repeated
 at each call site.
 
 **Facet keys are unnamespaced.** They are declared by the base contract and
-compiled, not named in code or owned by a domain contract (domain-extension
-boundary §3.4); `empirical-observation` is the one the eligibility predicate
+compiled, not named in code or owned by a domain contract; `empirical-observation` is the one the eligibility
+predicate
 turns on.
 
-**Relation predicates are kernel §4.1's closed signatures**, and the role-typed
+**Relation predicates are kernel the closed signatures**, and the role-typed
 inputs are stored as relations rather than as facet payload: they are edges the
 substrate already resolves, and duplicating them inside a facet would create a
 second answer to *what did this run observe*.
 
 Two positions genuinely carry the same ref twice, and it is worth saying why
 rather than tidying it away. An assessment's `assesses` and `produced_by` edges
-are what the substrate resolves and what kernel §4.1 makes the guarantee out of;
+are what the substrate resolves and what the kernel makes the guarantee out of;
 its facet's `proposition` and `run` fields are what `(spec, run, proposition)`
 digests. The builders below write both from one argument, so nothing this slice
 mints can disagree with itself; a raw write that makes them disagree is an
 untrusted import, subject to the same stated bound as every other one.
 
 **The semantic hash covers a fixed set of facets per kind, declared by the base
-contract and compiled (facet-contracts design §4.2).** A
+contract and compiled.** A
 stored `covers` list would be data an untrusted writer could shorten, which is a
 hash that certifies whatever it was pointed at. What is stored is the digest
 alone; the coverage is `COVERED_FACETS`, and the projection records which
 covered facets are **present**, so adding a governed facet to a stored node
 without restamping is a disagreement rather than a silent extension.
 
-**A governed kind must carry a stamp; a prose kind never has to** *(post-freeze
-strengthening, adapter design review 2026-08-18)*. `SEMANTIC_DOMAINS` already
+**A governed kind must carry a stamp; a prose kind never has to**. `SEMANTIC_DOMAINS` already
 partitions the corpus: a kind with a semantic domain is minted stamped by the
 boundary without exception, so an unstamped stored record of such a kind is a
 raw write that skipped even self-stamping — statically detectable, and refused
 (`semantic-hash-missing`) rather than admitted as the cheapest forgery. Kinds
 with no semantic domain — every hand-authored prose node — carry no stamp
-obligation. The recorded-history bound (substrate §4.2.1) is unchanged and
+obligation. The recorded-history bound is unchanged and
 covers exactly what it says: fields and stamp moved *together* are undetectable.
 """
 
@@ -211,8 +210,7 @@ COREFERENCE_ENDPOINT_KINDS: tuple[str, ...] = (
     "instrument-certification",
     "composite",
 )
-"""The kinds a coreference attestation may name as endpoints (slice 2 design
-§2 item 4): the world kinds less the attestation itself and the two
+"""The kinds a coreference attestation may name as endpoints: the world kinds less the attestation itself and the two
 boundary-minted occurrence records. `test_coreference_attestation.py` holds
 this equal to `WORLD_KINDS - {coreference-attestation} - EXCLUDED_MUTATION_KINDS`."""
 HOLDINGS_OBSERVATION_FACET = "holdings-observation"
@@ -224,7 +222,7 @@ def used_facet_namespaces(node: Node) -> frozenset[str]:
     return frozenset(key.partition("/")[0] for key in node.facets if "/" in key)
 
 
-# --- kernel §4.1's closed relation signatures --------------------------------
+# --- kernel the closed relation signatures --------------------------------
 
 ASSESSES = "assesses"
 PRODUCED_BY = "produced_by"
@@ -259,7 +257,7 @@ WORLD_RELATIONS: tuple[str, ...] = tuple(
 
 
 def typed_ref(kind: str, local: str) -> str:
-    """`kind:local` — the one place a kind prefix is added (design §3.1). A
+    """`kind:local` — the one place a kind prefix is added. A
     stored facet spells a reference typed; a derived value spells an identity
     bare; this and `local_id` are the whole bridge."""
     if kind not in WORLD_KINDS:
@@ -295,8 +293,8 @@ INPUT_ROLES = (OBSERVES, READS, TRANSFORMS)
 any quantity; `transforms` is dataset-production lineage input."""
 
 ACCEPTED_EXTERNAL_IDENTIFIERS = source_basis_projection.SCHEMES
-"""W3's accepted external identifiers for a `source` — one tuple, in precedence
-order (slice 2b §3). A closed set: a fallback derived from title and year is
+"""The accepted external identifiers for a `source` — one tuple, in precedence
+order. A closed set: a fallback derived from title and year is
 exactly the coercion the row refuses."""
 
 SEMANTIC_DOMAINS: Mapping[str, str] = MappingProxyType(
@@ -382,7 +380,7 @@ def is_empirical_observation(node: Node) -> bool:
 
 def external_identifiers(node: Node) -> tuple[str, ...]:
     """The accepted external identifiers a `source` carries, sorted. Empty is
-    W3's refusal case at the write boundary."""
+    the refusal case at the write boundary."""
     facet = _facet(node, SOURCE_FACET) or {}
     identifiers = facet.get("identifiers")
     if not isinstance(identifiers, dict):
@@ -415,7 +413,7 @@ def source_address_of(node: Node) -> str | None:
 
 
 def dataset_address_of(node: Node) -> str | None:
-    """The address the stored declaration derives (slice 5 §3) — what the
+    """The address the stored declaration derives — what the
     boundary compares `node.id` against. All-or-nothing, like the fold it
     calls: an unpinned resource gives `None`, never a partial address."""
     return dataset_address(dataset_declaration(node))
@@ -425,8 +423,8 @@ def dataset_address_of(node: Node) -> str | None:
 @final
 @dataclass(frozen=True)
 class IdentifierCorrection:
-    """One attributed entry of a source's identifier-correction history (slice 2b
-    §5.2). A consolidation entry (slice 6 §3.1) has `from == to` and a non-empty
+    """One attributed entry of a source's identifier-correction history. A consolidation entry has `from == to` and
+    a non-empty
     `absorbed` chain — the other replica's events, verbatim; a correction entry
     has `absorbed == ()`."""
 
@@ -455,7 +453,7 @@ def _correction_map(raw: object, where: str) -> Mapping[str, str]:
 
 
 def _read_chain(raw_entries: object, where: str, seen: dict[str, dict]) -> tuple[IdentifierCorrection, ...]:
-    """One chain (slice 6 §3.2): the spine, or one `absorbed` list. Tokens are
+    """One chain: the spine, or one `absorbed` list. Tokens are
     distinct within the chain; across chains `seen` (token → raw entry) holds
     every occurrence of a token to one event."""
     if not isinstance(raw_entries, list) or not raw_entries:
@@ -504,7 +502,7 @@ def _read_chain(raw_entries: object, where: str, seen: dict[str, dict]) -> tuple
 
 
 def identifier_corrections(node: Node) -> tuple[IdentifierCorrection, ...]:
-    """Read history validated to slice 2b §5.2 and slice 6 §3.2, or raise `MalformedRecord`."""
+    """Read history validated, or raise `MalformedRecord`."""
     if IDENTIFIER_CORRECTION_FACET not in node.facets:
         return ()
     facet = node.facets[IDENTIFIER_CORRECTION_FACET]
@@ -601,7 +599,7 @@ def _declaration_of(facet: Mapping[str, Any]) -> DatasetDeclaration:
 
 
 def dataset_declaration(node: Node) -> DatasetDeclaration:
-    """The stored declaration as cut 2's value. A resource with no digest stays
+    """The stored declaration as a value. A resource with no digest stays
     unpinned rather than being dropped: `dataset_address` is all-or-nothing, and
     silently discarding the unpinned resource would manufacture an address the
     record does not have."""
@@ -671,23 +669,23 @@ def assessment_reference(node: Node) -> AssessmentRef:
 
 
 def assessment_value(node: Node, *, profile: ProfileSpec) -> AssessmentValue:
-    """The stored assessment as the typed value (estimand-typing §9): `(spec,
-    run, proposition)` and the facet kernel §4.2.1 tables, with `estimand` and
+    """The stored assessment as the typed value: `(spec,
+    run, proposition)` and the facet kernel tables, with `estimand` and
     `applicability` restored from the `typed` member's canonical text against
     `profile`. Absent optionals stay absent.
 
     `run` is handed back bare — the run's address, the world identity the
     derivation digests — and a facet whose `run` is absent or untyped is
-    malformed (design §3.2). A facet minted before `science.estimand.v1` (no
+    malformed. A facet minted before `science.estimand.v1` (no
     `typed` member, prose `estimand`) is refused by name (`PreGrammarAssessment`),
-    never coerced (decision 10)."""
+    never coerced."""
     facet = _facet(node, ASSESSMENT_FACET)
     if facet is None:
         raise MalformedRecord(f"{node.id}: an assessment carries an {ASSESSMENT_FACET!r} facet")
     if "typed" not in facet and isinstance(facet.get("estimand"), str | type(None)):
         raise PreGrammarAssessment(
             f"{node.id}: pre-grammar assessment — minted before science.estimand.v1 with prose members. "
-            "Refused, never coerced (estimand-typing decision 10)."
+            "Refused, never coerced."
         )
     if set(facet) != _ASSESSMENT_FACET_KEYS or any(type(facet[k]) is not str for k in _ASSESSMENT_FACET_KEYS):
         raise MalformedRecord(
@@ -748,7 +746,7 @@ def verification_value(node: Node) -> Verification:
 
 def verification_derivation(node: Node) -> tuple[str, str] | None:
     """The two run refs a stored verification names, or `None` when it names
-    none. Refuses a malformed member rather than repairing it (M11): a
+    none. Refuses a malformed member rather than repairing it: a
     derivation that cannot be read is not a derivation that reads as absent."""
     facet = _facet(node, VERIFICATION_FACET)
     if facet is None:
@@ -1032,7 +1030,7 @@ class RouteTarget:
 
 @dataclass(frozen=True)
 class SnapshotTarget:
-    """An epoch subject named by kind and identity (slice 2 §3). The snapshot
+    """An epoch subject named by kind and identity. The snapshot
     has no stored record, so neither arm above can name it."""
 
     subject_kind: str
@@ -1051,7 +1049,7 @@ def _node(kind: str, slug: str, title: str, facets: Mapping[str, Any], relations
 
 def governed_node(kind: str, local: str, title: str, facets: Mapping[str, Any], relations: Sequence[Relation]) -> Node:
     """`_node`'s public twin for builders outside this module (verification
-    publication, design §5.1): a stamped record of a governed kind. The stamp's
+    publication): a stamped record of a governed kind. The stamp's
     one construction authority is unchanged."""
     if kind not in SEMANTIC_DOMAINS:
         raise MalformedRecord(f"kind {kind!r} has no semantic-identity domain")
@@ -1080,7 +1078,7 @@ def proposition_node(slug: str, *, title: str, claim: Mapping[str, Any], display
 
 
 def source_node(*, title: str, identifiers: Mapping[str, object]) -> Node:
-    """A source at its basis-derived address (slice 2b §4): every identifier
+    """A source at its basis-derived address: every identifier
     canonical, the id the digest over the selected basis. No slug — a handle
     never participates in an address. Refuses an empty basis itself, since no
     id exists without one; the boundary refuses it again for hand-built records."""
@@ -1103,7 +1101,7 @@ def dataset_node(
     basis: Mapping[str, Any] | None = None,
     domain_facets: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> Node:
-    """A dataset at its content-derived address (slice 5 §4): the id is the
+    """A dataset at its content-derived address: the id is the
     ruled fold over the declared digests, never a handle. Refuses a
     declaration with no content identity itself, since no id exists without
     one; the boundary refuses it again for hand-built records."""
@@ -1115,7 +1113,7 @@ def dataset_node(
     for key, payload in (domain_facets or {}).items():
         if "/" not in key:
             raise MalformedRecord(
-                f"{key!r} is not a namespaced facet key; a domain facet is `<namespace>/<name>` (F §3.3), and a base "
+                f"{key!r} is not a namespaced facet key; a domain facet is `<namespace>/<name>`, and a base "
                 "facet has its own parameter"
             )
         facets[key] = dict(payload)
@@ -1239,7 +1237,7 @@ def verification_node(
     derivation: tuple[str, str] | None = None,
 ) -> Node:
     """`assessment` is the assessment **identity** the verification is about —
-    what cut 2's lifecycle table matches on — and `assessment_ref` is the corpus
+    what the lifecycle table matches on — and `assessment_ref` is the corpus
     address the `verifies` edge binds. The two are different facts: an identity
     survives a corpus that never held the record, and an address does not.
 
@@ -1263,8 +1261,7 @@ def verification_node(
 def analysis_spec_node(spec: FrozenSpec) -> Node:
     """A frozen spec as a stored record: its identity and its canonical
     projection text — the run record's pattern, so a `Decimal` parameter
-    round-trips and the identity is the text's digest by construction
-    (design §7)."""
+    round-trips and the identity is the text's digest by construction."""
     if type(spec) is not FrozenSpec:
         raise MalformedRecord("analysis_spec_node requires a FrozenSpec")
     projection = v1.encode(frozen_projection(spec)).decode("utf-8")
@@ -1274,7 +1271,7 @@ def analysis_spec_node(spec: FrozenSpec) -> Node:
 
 def analysis_spec_value(node: Node, *, profile: ProfileSpec) -> FrozenSpec:
     """The frozen spec a stored record carries, restored and refused on any
-    disagreement between its text, its identity and its id (M11)."""
+    disagreement between its text, its identity and its id."""
     if node.kind != "analysis-spec":
         raise MalformedRecord(f"{node.id}: not an analysis-spec record")
     facet = _facet(node, ANALYSIS_SPEC_FACET)
@@ -1375,7 +1372,7 @@ def retraction_node(
 
 @dataclass(frozen=True)
 class CoreferenceAttestation:
-    """The stored facet as a value (world address ruling §5.1). Endpoints are
+    """The stored facet as a value. Endpoints are
     sorted; every text member is NFC."""
 
     endpoints: tuple[str, str]
@@ -1421,8 +1418,7 @@ def _coreference_fields(facet: Mapping[str, Any]) -> CoreferenceAttestation:
 
 
 def composite_value(node: Node) -> CompositeFacet:
-    """The facet reader the base contract names for the kind — form only
-    (composite-claims design §4.2 step 1): grammar tag, shape tag, canonical
+    """The facet reader the base contract names for the kind — form only: grammar tag, shape tag, canonical
     nodes, canonical members. Membership of a node's term in its vocabulary
     is never read here."""
     from beliefs.composite import CompositeFacet, CompositeNode
