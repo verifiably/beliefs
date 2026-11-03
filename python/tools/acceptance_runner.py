@@ -17,6 +17,9 @@ PROBE_REFUSED = 2
 OLD_ROOT_REFUSED = 3
 # No `test_*.py` module under tests/acceptance: running nothing is never success.
 NO_MODULES = 4
+# Any argument at all: the runner has no narrowing option, and a silent one would run
+# every module but narrow only the last.
+ARGUMENTS_REFUSED = 5
 
 DEFAULT_ACCEPTANCE_ROOT = MAIN_CHECKOUT / ".work" / "acceptance"
 
@@ -57,7 +60,7 @@ def _probe(run: Path, actor: str) -> str | None:
         shutil.rmtree(metadata_root_for(corpus_root), ignore_errors=True)
 
 
-def run_acceptance(*, python_root: Path, work: Path, argv: list[str]) -> int:
+def run_acceptance(*, python_root: Path, work: Path) -> int:
     acceptance = python_root / "tests" / "acceptance"
     modules = sorted(acceptance.glob("test_*.py"))
     if not modules:
@@ -88,13 +91,7 @@ def run_acceptance(*, python_root: Path, work: Path, argv: list[str]) -> int:
         for index, module in enumerate(modules, start=1):
             print(f"[acceptance {index}/{len(modules)}] {module.name}", flush=True)
             completed = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "pytest",
-                    str(module),
-                    *(argv if index == len(modules) else []),
-                ],
+                [sys.executable, "-m", "pytest", str(module)],
                 cwd=python_root,
                 check=False,
                 env=environment,
@@ -107,13 +104,21 @@ def run_acceptance(*, python_root: Path, work: Path, argv: list[str]) -> int:
 
 
 def main(argv: list[str]) -> int:
+    if argv:
+        print(
+            f"test-acceptance takes no arguments (got: {' '.join(argv)}). "
+            "For a focused run use `just test-one tests/acceptance/<module>.py`. "
+            "This is an error, not a narrowing.",
+            file=sys.stderr,
+        )
+        return ARGUMENTS_REFUSED
     refusal = refuse_old_roots(os.environ)
     if refusal is not None:
         print(refusal, file=sys.stderr)
         return OLD_ROOT_REFUSED
     configured = os.environ.get("BELIEFS_ACCEPTANCE_ROOT")
     work = Path(configured) if configured else DEFAULT_ACCEPTANCE_ROOT
-    return run_acceptance(python_root=Path(__file__).resolve().parents[1], work=work, argv=argv)
+    return run_acceptance(python_root=Path(__file__).resolve().parents[1], work=work)
 
 
 if __name__ == "__main__":

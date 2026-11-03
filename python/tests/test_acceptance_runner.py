@@ -36,17 +36,17 @@ def _record(monkeypatch, statuses: dict[str, int] | None = None) -> list[list[st
 def test_runs_every_acceptance_module_in_its_own_process_in_sorted_order(tmp_path, monkeypatch):
     root = _python_root(tmp_path, ["test_c.py", "test_a.py", "test_b.py"])
     commands = _record(monkeypatch)
-    status = runner.run_acceptance(python_root=root, work=tmp_path / "work", argv=["-k", "x"])
+    status = runner.run_acceptance(python_root=root, work=tmp_path / "work")
     assert status == 0
     assert [Path(c[3]).name for c in commands] == ["test_a.py", "test_b.py", "test_c.py"]
     assert all(c[1:3] == ["-m", "pytest"] for c in commands)
-    assert [c[4:] for c in commands] == [[], [], ["-k", "x"]]
+    assert [c[4:] for c in commands] == [[], [], []]
 
 
 def test_stops_at_the_first_failing_module_and_returns_its_status(tmp_path, monkeypatch):
     root = _python_root(tmp_path, ["test_a.py", "test_b.py", "test_c.py"])
     commands = _record(monkeypatch, {"test_b.py": 1})
-    assert runner.run_acceptance(python_root=root, work=tmp_path / "work", argv=[]) == 1
+    assert runner.run_acceptance(python_root=root, work=tmp_path / "work") == 1
     assert [Path(c[3]).name for c in commands] == ["test_a.py", "test_b.py"]
 
 
@@ -54,7 +54,7 @@ def test_probe_refusal_is_an_error_naming_the_variable(tmp_path, monkeypatch, ca
     root = _python_root(tmp_path, ["test_a.py"])
     commands = _record(monkeypatch)
     monkeypatch.setattr(runner, "_probe", lambda _run, _actor: "CapabilityUnavailable: tmpfs")
-    status = runner.run_acceptance(python_root=root, work=tmp_path / "work", argv=[])
+    status = runner.run_acceptance(python_root=root, work=tmp_path / "work")
     err = capsys.readouterr().err
     assert status == runner.PROBE_REFUSED and commands == []
     assert "BELIEFS_ACCEPTANCE_ROOT" in err and "not a skip" in err and "tmpfs" in err
@@ -77,6 +77,16 @@ def test_an_old_cut_root_variable_is_refused(tmp_path, monkeypatch, capsys):
     assert called == [] and "SCIENCE_CUT4_ROOT" in capsys.readouterr().err
 
 
+def test_arguments_are_refused_not_forwarded(monkeypatch, capsys):
+    called: list[object] = []
+    monkeypatch.setattr(runner, "run_acceptance", lambda **kw: called.append(kw) or 0)
+    assert runner.main(["-k", "x"]) == runner.ARGUMENTS_REFUSED
+    err = capsys.readouterr().err
+    assert called == []
+    assert "just test-one tests/acceptance/" in err and "-k x" in err
+    assert runner.main([]) == 0 and len(called) == 1
+
+
 @pytest.mark.parametrize("create", [True, False])
 def test_no_acceptance_modules_is_an_error(tmp_path, monkeypatch, capsys, create):
     root = tmp_path / "python"
@@ -85,7 +95,7 @@ def test_no_acceptance_modules_is_an_error(tmp_path, monkeypatch, capsys, create
     else:
         root.mkdir()
     commands = _record(monkeypatch)
-    status = runner.run_acceptance(python_root=root, work=tmp_path / "work", argv=[])
+    status = runner.run_acceptance(python_root=root, work=tmp_path / "work")
     err = capsys.readouterr().err
     assert status == runner.NO_MODULES and status != 0 and commands == []
     assert str(root / "tests" / "acceptance") in err

@@ -86,10 +86,11 @@ setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)
 test-fast:
     {{tt}} test-fast -- host-budget run -- sh -c '{{fast_cmd}}'
 
-# Every real-engine acceptance module, each in its own process (about 40 minutes). Not a
+# Every real-engine acceptance module, each in its own process (about 25 minutes). Not a
 # broad target: tt policy never skips it. BELIEFS_ACCEPTANCE_ROOT overrides the work root.
-test-acceptance *args:
-    {{tt}} test-acceptance -- host-budget run -- sh -c 'cd python && uv run --frozen python tools/acceptance_runner.py "$@"' test-acceptance "$@"
+# It takes no arguments; a focused run is `just test-one tests/acceptance/<module>.py`.
+test-acceptance:
+    {{tt}} test-acceptance -- host-budget run -- sh -c 'cd python && uv run --frozen python tools/acceptance_runner.py'
 
 # One path, path::test, or -k expression; argument boundaries reach the runner intact.
 test-one +args:

@@ -125,7 +125,7 @@ through a symbolic link (`ELOOP`): run from a checkout's canonical path.
 `python/tests/acceptance/` drives the real engine on a real volume and is excluded
 from every other run (`addopts` ignores it). `just test-acceptance` runs it: each
 module in its own `pytest` process, in order, stopping at the first module that
-fails and returning its exit code. It takes about 40 minutes. Each invocation works
+fails and returning its exit code. It takes about 25 minutes. Each invocation works
 in a fresh directory under the work root, removed afterwards, and registers a probe
 corpus there before the first module. It errors and never skips:
 
@@ -134,11 +134,14 @@ corpus there before the first module. It errors and never skips:
 | 2 | The probe was refused: the work root is not on a certified volume, or the host is off the certified configuration. The message gives the engine's words. |
 | 3 | An old `SCIENCE_CUT<n>_ROOT` variable is set. The message names its replacement; unset it. |
 | 4 | No acceptance modules were found. |
+| 5 | An argument was given. The recipe takes none; narrowing would silently skip modules. |
 
-Codes 2, 3 and 4 have these meanings only before any module runs. Once the probe
+Codes 2 to 5 have these meanings only before any module runs. Once the probe
 passes, a non-zero exit is the failing module's own `pytest` exit code, and pytest
 also uses 2 (interrupted, or a collection error) and 4 (a usage error); the
 message printed above the exit tells the cases apart.
+
+For a focused run of one module use `just test-one tests/acceptance/<module>.py`.
 
 The ordinary suite refuses an old `SCIENCE_CUT<n>_ROOT` variable too, before any
 test runs.
