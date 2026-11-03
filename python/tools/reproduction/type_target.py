@@ -3,7 +3,7 @@
 Before the mint, one pure measurement: `build_claim` under the modal-sorted
 vocabulary, which excludes the target's concept→protein pair by its stated
 rule. Its refusal is recorded as the answer to "what `build_claim` refused
-and why" (design §6, the fourth question); nothing is minted from it.
+and why"; nothing is minted from it.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def main() -> int:
         2,
         "corpus-work",
         f"under mm30-modal-sorted, build_claim on the target: {modal}",
-        filed="record §2 / §5 (the fourth question); the exercise types under the unsorted vocabulary",
+        filed="the exercise types under the unsorted vocabulary",
     )
     print(f"modal-sorted measurement: {modal}")
     # The mint, under the exercise's vocabulary.
@@ -85,7 +85,7 @@ def main() -> int:
         2,
         "closed",
         f"slot 0 {target['subject']} resolved {concept.value} against the held concept list; "
-        "slot 1 is biology/molecular-entity, not-consulted (design §6.4)",
+        "slot 1 is biology/molecular-entity, not-consulted",
     )
     print(f"minted {minted.id}; claim identity {claim_identity(claim)}")
     return 0

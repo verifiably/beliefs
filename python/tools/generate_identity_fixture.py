@@ -1,4 +1,4 @@
-"""Generate the values-level parity fixture for `science.identity.v1` (facet-contracts §7.3).
+"""Generate the values-level parity fixture for `science.identity.v1`.
 **Run by hand, never by tests:** `uv run python tools/generate_identity_fixture.py`.
 
 Every row carries a **tagged** component tree, because JSON numbers cannot say

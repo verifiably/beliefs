@@ -3,9 +3,7 @@
 Five steps (belief, rederive, close, compose's receipt check, `read --again`)
 record a defect and still exit zero, so a recreation's exit codes alone cannot
 say it reproduced. This step reads what they recorded and exits non-zero
-naming every failed line of the verdict
-(`docs/notes/2026-09-29-reproduction-audit-backlog-brief.md`, "The minimal
-terminal verdict"). It writes nothing.
+naming every failed line of the minimal terminal verdict. It writes nothing.
 
 The expected values are run-invariant and copied from the fixture's
 `state.json` (the 2026-09-16 recreation). Run, assessment, verification and
@@ -14,7 +12,7 @@ compared only with each other. `findings.jsonl` is append-only and each
 `rederive` re-run adds two step-10 lines, so the verdict is defined over a
 fresh work directory that ran the sequence once.
 
-Throwaway by declaration (mm30 reproduction design §8 item 3).
+Throwaway by declaration.
 """
 
 from __future__ import annotations
@@ -97,7 +95,7 @@ EXPECTED: dict[str, dict[str, object]] = {
 
 # The lines outside `closed` that the fixture's first pass left, as
 # (step, class): step 2's modal-sorted refusal, step 4's two, step 9's
-# unanchored chain under the empty observer set, and step 10's Q10 spec half.
+# unanchored chain under the empty observer set, and step 10's estimand spec half.
 EXPECTED_OPEN = Counter(
     [(2, "corpus-work"), (4, "design-gap"), (4, "corpus-work"), (9, "corpus-work"), (10, "design-gap")]
 )

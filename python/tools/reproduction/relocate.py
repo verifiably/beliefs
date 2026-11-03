@@ -1,6 +1,6 @@
 """Relocate the reproduced corpus and store into a world outside the checkout.
 
-The science projects design (2026-09-23 §3.1) puts a research world at the
+The projects layout puts a research world at the
 user's data location, outside every code checkout; the world beside the main
 checkout stays the reproduction's measurement fixture and is not touched here.
 Nothing is copied by hand: each root travels by `replicate_root` and is

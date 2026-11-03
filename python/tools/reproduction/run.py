@@ -49,7 +49,7 @@ def now() -> str:
 
 
 def classify_scope(scope: str, *, conforming: tuple[bool, bool], recipes_agree: bool) -> str:
-    """Design §2 rule 4. `same-environment` with agreeing recipes is the
+    """`same-environment` with agreeing recipes is the
     host's; `not-certified` is a non-conforming closure (defect) or
     disagreeing recipes (authoring, i.e. corpus work). Never the host by
     default."""

@@ -39,7 +39,7 @@ def main() -> int:
     """Three phases in one step, and the order is the whole point: the address
     is computed and saved **before** `world.adopt()`, which compiles the
     contract, and the contract binds this list's address along with the three
-    `lists.py` writes (design §9). The held copy and the dataset record follow
+    `lists.py` writes. The held copy and the dataset record follow
     adoption, because minting needs a manifest."""
     content = concept_lines(paths.PREDECESSOR)
     count = content.count(b"\n")
@@ -68,7 +68,7 @@ def main() -> int:
     findings.record(
         1,
         "closed",
-        f"held {count} concept identifiers as {digest}; dataset {minted.id}; the line format is the tool's (design §6.3)",
+        f"held {count} concept identifiers as {digest}; dataset {minted.id}; the line format is the tool's",
     )
     print(f"held {count} concepts as {digest}; dataset {minted.id}")
     return 0

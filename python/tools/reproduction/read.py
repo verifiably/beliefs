@@ -1,4 +1,4 @@
-"""Step 12: read the composite, in a fresh process, twice (composite-claims design §6, §9; U8, U10)."""
+"""Step 12: read the composite, in a fresh process, twice."""
 
 from __future__ import annotations
 

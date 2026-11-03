@@ -45,7 +45,7 @@ def context(view: ReadView) -> SuppliedContext:
     st = state.load()
     return SuppliedContext(
         snapshot=lineage_snapshot(view, [st["dataset_address"]]),
-        producer_snapshot_identity="no-epoch-published",  # supplied: this exercise builds no epoch (record §3)
+        producer_snapshot_identity="no-epoch-published",  # supplied: this exercise builds no epoch
         node_corpus={st["assessment_identity_stored"]: (st["corpus_id"],)},
         pins={st["corpus_id"]: world.open_writer().manifest_pins()},
     )

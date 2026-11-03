@@ -57,9 +57,9 @@ def render_snakefile() -> bytes:
 
 def held_rules() -> dict:
     """The driver's identities, bound to the kernel's implementations
-    (session-routes design §5.2). The record's spec identity is unchanged:
-    `freeze` digests (rule identity, implementation identity) pairs, and both
-    pairs are the ones the 2026-09-05 record carries.
+    . The record's spec identity is unchanged:
+        `freeze` digests (rule identity, implementation identity) pairs, and both
+        pairs are the ones the 2026-09-05 record carries.
     """
     return {INTERPRETATION_RULE: INTERPRETATION, EQUIVALENCE_RULE: EQUIVALENCE}
 
@@ -71,7 +71,7 @@ def definition() -> WorkflowDefinition:
 RELOCATED_CLAUSE = (
     "prose applicability clause 'whose ids carry a stage token and whose value is finite' refused at retyping "
     "(no declared dimension); re-authored in `method` as estimator behaviour — the estimator refuses a non-finite "
-    "value as malformed input, it does not exclude the sample — an authored judgment (design §4, §9)"
+    "value as malformed input, it does not exclude the sample — an authored judgment"
 )
 
 
@@ -125,7 +125,7 @@ def frozen() -> FrozenSpec:
 
 
 def spec_record(spec: FrozenSpec) -> Node:
-    """The kernel's own builder (verification-publication design §7)."""
+    """The kernel's own builder."""
     return stored.analysis_spec_node(spec)
 
 

@@ -1,4 +1,4 @@
-"""Task 2: enumerate candidates under the design's §3 four criteria and write target.yaml."""
+"""Enumerate candidates under the four selection criteria and write target.yaml."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def front(path: Path) -> dict:
 
 def rank(candidates: list[dict]) -> list[dict]:
     """Empirical layer first, then a dataset under the predecessor's own
-    `data/` before one resolved elsewhere on the host (§3 "locally held"),
+    `data/` before one resolved elsewhere on the host,
     then the smallest held dataset, then the most empirical evidence lines;
     the id breaks ties so the order is total."""
     return sorted(
@@ -108,7 +108,7 @@ def main() -> int:
                 )
     ordered = rank(candidates)
     if not ordered:
-        print("no proposition joins to a held dataset through its own fields; relax per spec §3 and record which")
+        print("no proposition joins to a held dataset through its own fields; relax the criteria and record which")
         return 2
     chosen = dict(ordered[0])
     chosen["alternatives"] = ordered[1:5]

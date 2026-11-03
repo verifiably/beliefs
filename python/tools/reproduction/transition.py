@@ -1,7 +1,6 @@
-"""Step 13: the cut-31 corpus state under the successor profile, in its own process.
+"""Step 13: the prior corpus state under the successor profile, in its own process.
 
-Composite-claims decision 11's transition arm, measured rather than restated
-(reproduction record §11.5). The corpus state moved aside at recreation pins
+The transition check, measured rather than restated. The corpus state moved aside at recreation pins
 the estimand lane's base contract, which the successor does not ship, so
 `audit_corpus`'s profile-disagreement rule answers before any record is
 reached. The step passes on exactly that measurement — one finding,
@@ -63,13 +62,13 @@ def counted_reads(view: ReadView) -> Iterator[list[str]]:
 
 def cut31_state(root: Path) -> dict[str, object]:
     """What the archived corpus state at `root` answers, read-only, under the
-    successor profile: the route `rederive.prior_state` takes over the cut-22
+    successor profile: the route `rederive.prior_state` takes over the earlier
     state, with the audit's record reads counted."""
     for required in (root / "corpus" / "corpus.yaml", root / "state.json"):
         if not required.is_file():
             raise RuntimeError(
-                f"the cut-31 corpus state is not at {root}: {required.name} is missing. It is moved aside, never "
-                "deleted, when the corpus is recreated under the successor contracts (composite-claims decision 11); "
+                f"the prior corpus state is not at {root}: {required.name} is missing. It is moved aside, never "
+                "deleted, when the corpus is recreated under the successor contracts; "
                 "name it with --archive"
             )
     archived = json.loads((root / "state.json").read_text())
@@ -94,7 +93,7 @@ def cut31_state(root: Path) -> dict[str, object]:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="reproduction.transition", description=__doc__)
-    parser.add_argument("--archive", type=Path, default=paths.CUT31, help="the archived cut-31 work directory")
+    parser.add_argument("--archive", type=Path, default=paths.CUT31, help="the archived prior work directory")
     measured = cut31_state(parser.parse_args(argv).archive)
     state.save(cut31_corpus_state=measured)
     print(json.dumps(measured, indent=2, sort_keys=True))
@@ -103,7 +102,7 @@ def main(argv: list[str]) -> int:
     findings.record(
         13,
         "defect",
-        f"the cut-31 corpus state under the successor profile: expected audit_corpus {EXPECTED_AUDIT} and no record "
+        f"the prior corpus state under the successor profile: expected audit_corpus {EXPECTED_AUDIT} and no record "
         f"read; measured {measured['audit']} with {measured['records_read']} read",
     )
     return 1

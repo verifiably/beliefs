@@ -1,4 +1,4 @@
-"""Step 11: mint the h1-prognosis spine and compose the fragment (composite-claims design §9)."""
+"""Step 11: mint the h1-prognosis spine and compose the fragment."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def main() -> int:
             11,
             "design-gap" if refused.code == "composite-node-not-member" else "defect",
             f"build_composite refused: {refused}",
-            filed="composite-claims design §9",
+            filed="the composite-claims change",
         )
         state.save(spine_ref=spine.id, composite_refusal=f"{refused.code}: {refused}")
         print(f"REFUSED: {refused}")
@@ -73,7 +73,7 @@ def main() -> int:
     outcomes = state.load()["composite_receipt"]
     # The reproduction's snapshot consults concepts, levels, measures and identifications and leaves
     # `biology/molecular-entity` unconsulted, so PHF19 — node:0, since "biology" sorts before "mm30" —
-    # resolves `not-consulted`, and the two concepts `member` (design §4.1: a check not performed is not a finding).
+    # resolves `not-consulted`, and the two concepts `member`.
     expected = {"node:0": "not-consulted", "node:1": "member", "node:2": "member"}
     findings.record(
         11,
