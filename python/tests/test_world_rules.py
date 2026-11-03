@@ -356,7 +356,7 @@ class TestHeldResolution:
             rules._resolve_rule_binding(world, unknown)
 
     @pytest.mark.parametrize(
-        "sabotage",
+        "corruption",
         [
             "rule-document",
             "fixture-bytes",
@@ -366,20 +366,20 @@ class TestHeldResolution:
             "implementation-absent",
         ],
     )
-    def test_a_raw_swap_of_a_stored_member_unholds_the_binding(self, tmp_path, sabotage):
+    def test_a_raw_swap_of_a_stored_member_unholds_the_binding(self, tmp_path, corruption):
         world = make_world(tmp_path)
         binding = rules.install_rule_binding(world, bundle())
         directory = world.config.world_root / "rules" / binding.rule_identity
 
-        if sabotage == "rule-document":
+        if corruption == "rule-document":
             (directory / "rule.yaml").write_bytes(rules.rule_document_bytes("other_symbol"))
-        elif sabotage == "fixture-bytes":
+        elif corruption == "fixture-bytes":
             (directory / "fixtures" / FIXTURES[0][0]).write_bytes(FIXTURES[0][1] + b"\n")
-        elif sabotage == "fixture-added":
+        elif corruption == "fixture-added":
             (directory / "fixtures" / "sort.extra.yaml").write_bytes(FIXTURES[1][1])
-        elif sabotage == "fixture-removed":
+        elif corruption == "fixture-removed":
             (directory / "fixtures" / FIXTURES[1][0]).unlink()
-        elif sabotage == "implementation-bytes":
+        elif corruption == "implementation-bytes":
             (directory / "implementations" / binding.implementation_identity).write_bytes(OTHER_SOURCE)
         else:
             (directory / "implementations" / binding.implementation_identity).unlink()
@@ -510,10 +510,10 @@ def test_shipped_rules_install_from_a_built_wheel(tmp_path):
 # --- explicit removal and its sever report ----------------------------------
 #
 # Epoch publication does not exist yet, so the retained epochs these arms need
-# are authored here as raw closed eleven-member carriers under the cut's
-# raw-write license. Only the four receipt members carry content this slice
+# are authored here as raw closed eleven-member carriers under the
+# raw-write license. Only the four receipt members carry content these tests
 # reads; the other seven are present, deterministic, closed placeholders whose
-# exact shapes Task 9's publication pins.
+# exact shapes publication pins.
 
 RECEIPT_MEMBERS: tuple[str, ...] = (
     "producer-receipt.yaml",
@@ -552,9 +552,9 @@ def subject_identity(marker: str) -> str:
 
 
 RECEIPT_PROJECTIONS: dict[str, dict[str, object]] = {
-    # §7.5: the retraction receipt carries its retraction enumeration
+    # The retraction receipt carries its retraction enumeration
     # projection and the certification receipt its inventory, inside the
-    # receipt rather than as further epoch members. §7.6 pins both shapes.
+    # receipt rather than as further epoch members.
     "retraction-receipt.yaml": {"enumeration": {"found": [], "coverage": []}},
     "certification-receipt.yaml": {"inventory": {"by_kind": [], "coverage": []}},
 }
@@ -590,7 +590,7 @@ def expected_receipt_identity(
     binding: rules.RuleBinding,
     states: tuple[tuple[str, str], ...] = COVERED_STATES,
 ) -> str:
-    """Spec §7.5's formula, written out here rather than borrowed from the
+    """The receipt formula, written out here rather than borrowed from the
     module under test."""
     return v1.digest(
         "science.derivation-receipt.v1",
@@ -606,7 +606,7 @@ def expected_receipt_identity(
 
 def author_epoch(world: world_module.World, receipts: dict[str, rules.RuleBinding], marker: str) -> str:
     """Write one closed eleven-member epoch carrier directly, and answer the
-    packaging identity naming it (§6.2: `science.epoch.v1` over sorted
+    packaging identity naming it (`science.epoch.v1` over sorted
     `(member name, member content digest)` pairs)."""
     members = dict(PLACEHOLDER_MEMBERS)
     for member in RECEIPT_MEMBERS:
@@ -654,7 +654,7 @@ class TestTheEpochInventory:
         assert epoch.RECEIPT_DOMAIN == "science.derivation-receipt.v1"
 
     def test_the_two_projection_bearing_kinds_carry_one_member_more(self):
-        """§7.5 puts the retraction enumeration projection and the
+        """The receipt format puts the retraction enumeration projection and the
         certification inventory inside their receipts. One closed key set
         across all four kinds would be wrong for two of them."""
         assert epoch.RECEIPT_IDENTITY_KEYS == {
@@ -675,7 +675,7 @@ class TestTheEpochInventory:
         assert frozenset.intersection(*epoch.RECEIPT_KEYS.values()) == epoch.RECEIPT_IDENTITY_KEYS
 
     def test_the_receipt_identity_is_over_sorted_corpus_state_pairs(self):
-        """§7.5's projection names *sorted* pairs, so the order a document
+        """The projection names *sorted* pairs, so the order a document
         happens to use is not a second identity for one receipt."""
         forward = (("aa" * 16, "1a" * 32), ("bb" * 16, "2b" * 32))
         assert epoch.receipt_identity("producer", "c" * 64, forward, "d" * 64, "e" * 64) == epoch.receipt_identity(
@@ -851,10 +851,10 @@ class TestExplicitRemoval:
         assert stored_members(world) == published
 
     @pytest.mark.parametrize(
-        "sabotage",
+        "corruption",
         ["implementation-bytes", "rule-document", "fixture-bytes", "fixture-added", "fixture-removed"],
     )
-    def test_a_stored_member_that_no_longer_recomputes_its_name_is_not_removable(self, tmp_path, sabotage):
+    def test_a_stored_member_that_no_longer_recomputes_its_name_is_not_removable(self, tmp_path, corruption):
         """Deleting content under a name asserts the content *has* that name.
 
         Removal keeps every identity recomputation for exactly this reason: a
@@ -866,13 +866,13 @@ class TestExplicitRemoval:
         binding = rules.install_rule_binding(world, bundle())
         directory = world.config.world_root / "rules" / binding.rule_identity
 
-        if sabotage == "implementation-bytes":
+        if corruption == "implementation-bytes":
             (directory / "implementations" / binding.implementation_identity).write_bytes(OTHER_SOURCE)
-        elif sabotage == "rule-document":
+        elif corruption == "rule-document":
             (directory / "rule.yaml").write_bytes(rules.rule_document_bytes("other_symbol"))
-        elif sabotage == "fixture-bytes":
+        elif corruption == "fixture-bytes":
             (directory / "fixtures" / FIXTURES[0][0]).write_bytes(FIXTURES[0][1] + b"\n")
-        elif sabotage == "fixture-added":
+        elif corruption == "fixture-added":
             (directory / "fixtures" / "sort.extra.yaml").write_bytes(FIXTURES[1][1])
         else:
             (directory / "fixtures" / FIXTURES[1][0]).unlink()
@@ -889,7 +889,7 @@ class TestExplicitRemoval:
     def test_a_binding_whose_implementation_stopped_conforming_is_still_removable(self, tmp_path):
         """Removal recomputes names; it does not run fixtures.
 
-        §4.3's act exists so an operator can unhold what a world holds. A store
+        The removal act exists so an operator can unhold what a world holds. A store
         one can install into but not clean up is a trap, and the binding most
         in need of removal is precisely the one that has stopped working: it is
         intact, correctly named, and no longer conformant. Nothing goes silent
@@ -981,7 +981,7 @@ class TestExplicitRemoval:
         assert len(set(report.severed_receipts)) == 4
 
     @pytest.mark.parametrize(
-        "sabotage",
+        "corruption",
         [
             "member-missing",
             "member-extra",
@@ -1000,11 +1000,11 @@ class TestExplicitRemoval:
             "current-a-symlink",
         ],
     )
-    def test_an_unreadable_carrier_refuses_before_any_delete(self, tmp_path, sabotage):
+    def test_an_unreadable_carrier_refuses_before_any_delete(self, tmp_path, corruption):
         """Removal may make evidence unresolvable; it may not do so silently.
         A carrier it cannot read is a sever report it cannot write.
 
-        Every arm here is a *carrier* failure in §8.2's closed sense: invalid
+        Every arm here is a *carrier* failure in the closed sense: invalid
         YAML, or a missing/extra/unreadable epoch **member** — one of the
         eleven files — or a member that is present and is not the shape the
         identity formula digests. A receipt that merely violates its contract,
@@ -1017,45 +1017,45 @@ class TestExplicitRemoval:
         directory = epochs / packaging_identity
         receipt = directory / "producer-receipt.yaml"
 
-        if sabotage == "member-missing":
+        if corruption == "member-missing":
             (directory / "coverage.yaml").unlink()
-        elif sabotage == "member-extra":
+        elif corruption == "member-extra":
             (directory / "notes.yaml").write_bytes(b"note: extra\n")
-        elif sabotage == "member-directory":
+        elif corruption == "member-directory":
             (directory / "coverage.yaml").unlink()
             (directory / "coverage.yaml").mkdir()
-        elif sabotage == "receipt-not-yaml":
+        elif corruption == "receipt-not-yaml":
             receipt.write_bytes(b"kind: producer\n  subject: [\n")
-        elif sabotage == "receipt-not-a-mapping":
+        elif corruption == "receipt-not-a-mapping":
             receipt.write_bytes(b"- kind: producer\n")
-        elif sabotage == "receipt-duplicate-key":
+        elif corruption == "receipt-duplicate-key":
             receipt.write_bytes(receipt.read_bytes() + b"kind: producer\n")
-        elif sabotage == "receipt-non-text-identity":
+        elif corruption == "receipt-non-text-identity":
             receipt.write_bytes(
                 receipt.read_bytes().replace(
                     f"rule_identity: {binding.rule_identity}".encode(), b"rule_identity:\n  - nested"
                 )
             )
-        elif sabotage == "receipt-states-not-a-list":
+        elif corruption == "receipt-states-not-a-list":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = {"corpus_id": COVERED_STATES[0][0]}
             receipt.write_bytes(yaml.safe_dump(document, sort_keys=True).encode("utf-8"))
-        elif sabotage == "receipt-state-without-its-pair":
+        elif corruption == "receipt-state-without-its-pair":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = [{"corpus_id": COVERED_STATES[0][0]}]
             receipt.write_bytes(yaml.safe_dump(document, sort_keys=True).encode("utf-8"))
-        elif sabotage == "stray-epoch-entry":
+        elif corruption == "stray-epoch-entry":
             (epochs / "notes.yaml").write_bytes(b"note: extra\n")
-        elif sabotage == "stray-epoch-name":
+        elif corruption == "stray-epoch-name":
             (epochs / "not-a-packaging-identity").mkdir()
-        elif sabotage == "epochs-not-a-directory":
+        elif corruption == "epochs-not-a-directory":
             shutil.rmtree(epochs)
             epochs.write_bytes(b"epochs\n")
-        elif sabotage == "epochs-symlink":
+        elif corruption == "epochs-symlink":
             elsewhere = world.config.world_root / "elsewhere"
             shutil.move(epochs, elsewhere)
             epochs.symlink_to(elsewhere, target_is_directory=True)
-        elif sabotage == "current-a-directory":
+        elif corruption == "current-a-directory":
             (epochs / epoch.CURRENT_POINTER).mkdir()
         else:
             (epochs / epoch.CURRENT_POINTER).symlink_to(directory, target_is_directory=True)
@@ -1069,7 +1069,7 @@ class TestExplicitRemoval:
         assert stored_members(world) == published
 
     @pytest.mark.parametrize(
-        ("sabotage", "severed"),
+        ("corruption", "severed"),
         [
             ("receipt-unknown-key", 4),
             ("receipt-kind-mismatch", 4),
@@ -1081,19 +1081,19 @@ class TestExplicitRemoval:
             ("receipt-null-subject", 3),
         ],
     )
-    def test_a_receipt_that_violates_its_contract_is_not_a_carrier_failure(self, tmp_path, sabotage, severed):
-        """§8.2: carrier validation and receipt validation are separate layers.
+    def test_a_receipt_that_violates_its_contract_is_not_a_carrier_failure(self, tmp_path, corruption, severed):
+        """Carrier validation and receipt validation are separate layers.
 
-        Each sabotage here breaks the receipt *contract* while leaving a
+        Each corruption here breaks the receipt *contract* while leaving a
         document that still parses, so it is receipt outcome `malformed` for
         the validator to return — not `EpochMalformed`, which would close the
-        path §8.2 exists to keep open. The scan reads straight through and
-        removal proceeds; the severed count moves only where the sabotage cost
+        path that separation exists to keep open. The scan reads straight through and
+        removal proceeds; the severed count moves only where the corruption cost
         the receipt its identity or its binding.
 
         The three arms that drop a member below the identity are worth naming.
         A receipt that carried too little to have an identity is not severed —
-        not because naming it is awkward, but because §7.5 already put it at
+        not because naming it is awkward, but because the receipt format already puts it at
         `malformed`, an outcome decided before resolvability is ever asked,
         which no change to what this store holds can move.
         """
@@ -1102,19 +1102,19 @@ class TestExplicitRemoval:
         packaging_identity = author_epoch(world, dict.fromkeys(RECEIPT_MEMBERS, binding), "bent")
         receipt = world.config.world_root / "epochs" / packaging_identity / "producer-receipt.yaml"
 
-        if sabotage == "receipt-unknown-key":
+        if corruption == "receipt-unknown-key":
             receipt.write_bytes(receipt.read_bytes() + b"note: extra\n")
-        elif sabotage == "receipt-kind-mismatch":
+        elif corruption == "receipt-kind-mismatch":
             receipt.write_bytes(receipt.read_bytes().replace(b"kind: producer\n", b"kind: coreference-reduction\n"))
-        elif sabotage == "receipt-unsorted-states":
+        elif corruption == "receipt-unsorted-states":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = list(reversed(document["corpus_states"]))
             receipt.write_bytes(yaml.safe_dump(document, sort_keys=True).encode("utf-8"))
-        elif sabotage == "receipt-duplicate-state":
+        elif corruption == "receipt-duplicate-state":
             document = yaml.safe_load(receipt.read_text(encoding="utf-8"))
             document["corpus_states"] = [document["corpus_states"][0]] * 2
             receipt.write_bytes(yaml.safe_dump(document, sort_keys=True).encode("utf-8"))
-        elif sabotage == "receipt-short-digest":
+        elif corruption == "receipt-short-digest":
             # A value that is not an identity is still text: the receipt reads,
             # and it simply no longer names the pair being removed.
             receipt.write_bytes(
@@ -1122,15 +1122,15 @@ class TestExplicitRemoval:
                     f"rule_identity: {binding.rule_identity}".encode(), b"rule_identity: abcdef"
                 )
             )
-        elif sabotage == "receipt-null-subject":
+        elif corruption == "receipt-null-subject":
             receipt.write_bytes(receipt.read_bytes().replace(b"subject: ", b"subject: null # "))
         else:
             # An *omitted* identity member. The bytes still decode, still parse
             # as YAML, still yield a mapping — every structural property holds,
-            # and §7.5's closing sentence puts an unsound receipt contract at
-            # outcome `malformed`. §8.2's carrier list names epoch *members*,
+            # and the receipt format puts an unsound receipt contract at
+            # outcome `malformed`. The carrier list names epoch *members*,
             # never receipt keys.
-            omitted = b"rule_identity:" if sabotage == "receipt-no-rule-identity" else b"kind:"
+            omitted = b"rule_identity:" if corruption == "receipt-no-rule-identity" else b"kind:"
             receipt.write_bytes(
                 b"".join(line + b"\n" for line in receipt.read_bytes().splitlines() if not line.startswith(omitted))
             )
@@ -1139,14 +1139,14 @@ class TestExplicitRemoval:
         scanned = epoch._retained_receipt_bindings_locked(world.config.world_root)
         assert len(scanned) == 4
         bent = next(one for one in scanned if one.member == "producer-receipt.yaml")
-        if sabotage == "receipt-no-rule-identity":
+        if corruption == "receipt-no-rule-identity":
             assert bent.missing == ("rule_identity",)
             assert bent.binding is None and bent.identity is None
-        elif sabotage == "receipt-no-kind":
+        elif corruption == "receipt-no-kind":
             assert bent.missing == ("kind",)
             assert bent.binding == (binding.rule_identity, binding.implementation_identity)
             assert bent.identity is None
-        elif sabotage == "receipt-null-subject":
+        elif corruption == "receipt-null-subject":
             assert bent.missing == ("subject",)
             assert bent.identity is None
         else:
@@ -1160,7 +1160,7 @@ class TestExplicitRemoval:
 
         # Reordering the corpus states is not a second identity for one
         # receipt, so that arm severs exactly what the pristine carrier would.
-        if sabotage == "receipt-unsorted-states":
+        if corruption == "receipt-unsorted-states":
             assert report.severed_receipts == tuple(
                 sorted(
                     expected_receipt_identity(member, subject=subject_identity(f"bent:{member}"), binding=binding)
@@ -1169,7 +1169,7 @@ class TestExplicitRemoval:
             )
 
     def test_a_spec_shaped_projection_bearing_receipt_is_read_not_refused(self, tmp_path):
-        """§7.5's retraction and certification receipts carry their subject
+        """The retraction and certification receipts carry their subject
         projections inside the document. A single closed five-key reading would
         make one published epoch refuse every removal in the world."""
         world = make_world(tmp_path)
@@ -1215,7 +1215,7 @@ class TestExplicitRemoval:
         assert facade.RuleRemovalReport is rules.RuleRemovalReport
 
 
-# --- cut 48: the versioned rule input and the v2 retraction rule (G14-h) -----------------------
+# --- the versioned rule input and the v2 retraction rule -----------------------
 
 V2_SYMBOL = "enumerate_retractions_v2"
 
@@ -1239,8 +1239,8 @@ def v2_fixture_without_arm(shipped: rules.RuleBundle) -> rules.RuleBundle:
     return rules.RuleBundle(shipped.symbol, fixtures, shipped.implementation, input_version=shipped.input_version)
 
 
-class TestG14V2RuleBinding:
-    def test_g14_h_v2_rule_binding(self, tmp_path):
+class TestV2RuleBinding:
+    def test_v2_rule_binding(self, tmp_path):
         from test_world_build import ALPHA, sample_nodes
         from test_world_receipts import corpora, hold_shipped, publish, world_over
 

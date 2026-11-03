@@ -1,5 +1,5 @@
-"""Cut 17's durable arms: E1, E2, E7 and E8 through the composition root on the
-certified volume (design §9.2). Chains and world roots are byte-identical before
+"""Durable permit tests through the composition root on the
+certified volume. Chains and world roots are byte-identical before
 and after every refusal."""
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def _tree_bytes(root: Path) -> dict[str, bytes]:
     return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
 
 
-def test_e1_add_through_open_corpus_refuses_before_the_chain_moves(durable_root):
+def test_add_through_open_corpus_refuses_before_the_chain_moves(durable_root):
     writer = open_corpus(durable_root, authority=lacking(kinds=("proposition",)), profile=WITH_BIOLOGY)
     before = _head(durable_root)
     with pytest.raises(PermitExceeded) as caught:
@@ -65,7 +65,7 @@ def test_e1_add_through_open_corpus_refuses_before_the_chain_moves(durable_root)
     assert open_corpus(durable_root, authority=FULL, profile=WITH_BIOLOGY).add(proposition("p1")).kind == "proposition"
 
 
-def test_e1_an_ungoverned_kind_mints_under_the_full_permit_and_refuses_under_a_governed_one(durable_root):
+def test_an_ungoverned_kind_mints_under_the_full_permit_and_refuses_under_a_governed_one(durable_root):
     from durable_fixture import discussion
 
     with pytest.raises(PermitExceeded) as caught:
@@ -79,7 +79,7 @@ def test_e1_an_ungoverned_kind_mints_under_the_full_permit_and_refuses_under_a_g
     )
 
 
-def test_e2_the_composition_root_binds_one_authority_to_writer_and_port(durable_root):
+def test_the_composition_root_binds_one_authority_to_writer_and_port(durable_root):
     writer = open_corpus(durable_root, authority=FULL, profile=WITH_BIOLOGY)
     assert writer.authority is FULL
     other = DurableOperationPort(
@@ -100,7 +100,7 @@ def test_e2_the_composition_root_binds_one_authority_to_writer_and_port(durable_
         )
 
 
-def test_e7_the_run_boundary_refuses_with_no_intent_through_a_real_port(durable_root, tmp_path):
+def test_the_run_boundary_refuses_with_no_intent_through_a_real_port(durable_root, tmp_path):
     port = durable_port(durable_root, authority=lacking(families=("run",)))
     before = _head(durable_root)
     code, held = stage(tmp_path)
@@ -124,7 +124,7 @@ def test_e7_the_run_boundary_refuses_with_no_intent_through_a_real_port(durable_
     assert _head(durable_root) == before
 
 
-def test_e7_a_holdings_act_refuses_with_the_store_and_observer_chains_unchanged(work_directory):
+def test_a_holdings_act_refuses_with_the_store_and_observer_chains_unchanged(work_directory):
     observer_root = work_directory / f"observer-{os.getpid()}-permit"
     store_root = work_directory / f"store-{os.getpid()}-permit"
     init_corpus_root(observer_root, authority=FULL)
@@ -144,7 +144,7 @@ def test_e7_a_holdings_act_refuses_with_the_store_and_observer_chains_unchanged(
     assert (_head(observer_root), _tree_bytes(store_root)) == before
 
 
-def test_e7_world_admit_refuses_with_the_world_root_unchanged(durable_root, work_directory):
+def test_world_admit_refuses_with_the_world_root_unchanged(durable_root, work_directory):
     open_corpus(durable_root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
     world_root = work_directory / f"world-{os.getpid()}-permit"
     config = WorldConfig(world_root, "0" * 32, (durable_root,))
@@ -157,7 +157,7 @@ def test_e7_world_admit_refuses_with_the_world_root_unchanged(durable_root, work
     assert open_world(config, authority=FULL).admit(durable_root, provenance=Fresh()).actor == ACTOR
 
 
-def test_e8_an_unpermitted_member_refuses_the_bundle_with_the_chain_unchanged(durable_root):
+def test_an_unpermitted_member_refuses_the_bundle_with_the_chain_unchanged(durable_root):
     writer = open_corpus(durable_root, authority=lacking(kinds=("source",)), profile=WITH_BIOLOGY)
     before = _head(durable_root)
     members = [proposition("p2"), stored.source_node(title="s", identifiers={"doi": "10.1234/x"})]
@@ -178,7 +178,7 @@ def test_e8_an_unpermitted_member_refuses_the_bundle_with_the_chain_unchanged(du
     )
 
 
-def test_e1_relocation_refuses_before_either_intent_then_succeeds(work_directory):
+def test_relocation_refuses_before_either_intent_then_succeeds(work_directory):
     token = secrets.token_hex(6)
     a = work_directory / f"permit-move-{os.getpid()}-{token}-a"
     b = work_directory / f"permit-move-{os.getpid()}-{token}-b"

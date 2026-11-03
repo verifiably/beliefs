@@ -1,6 +1,6 @@
 """The log seam, the registered-surface projection, and replay.
 
-`LogSeam` is the whole of what an act of slice 3 may do with the engine —
+`LogSeam` is the whole of what a verification act may do with the engine —
 inspect a chain in either mode, state a set of paths, read a validated head,
 and take the two locks that make those answers true. Every act core takes one
 as a parameter, and `beliefs.root` is the only constructor of a production
@@ -16,18 +16,18 @@ itself.
 
 **The adapters' one translation.** Three engine states escape the inspecting
 commands' never-raises envelope, and the seam's adapters translate exactly
-those three into `LogEvidenceRefused` (design §6.4) — a refusal to judge, not
+those three into `LogEvidenceRefused` — a refusal to judge, not
 a judgment. Everything else, `ProtocolError` and setup errors included, keeps
 its own contract.
 
-**Replay lives here too**, over the one projection (design §5): the surface a
+**Replay lives here too**, over the one projection: the surface a
 root's declared layout claims, the accumulated timeline compared against it,
 and the policy pass that turns a committed removal into a finding. None of it
 imports the engine — the states it compares arrive through the seam.
 
-**And the evaluator** (design §4): the one read-only function that turns a
-chain view, an observer set and a scanned surface into a `LogReport`, in the
-four steps §4.2 fixes. It is the entire judgment surface — audit and arrival
+**And the evaluator**: the one read-only function that turns a
+chain view, an observer set and a scanned surface into a `LogReport`, in
+four steps. It is the entire judgment surface — audit and arrival
 both call it, and no third path evaluates.
 """
 
@@ -176,8 +176,8 @@ class LogSeam:
     read_preimage: Callable[[Path, str, str, int], PreimageEvidence] = _unwired_read_preimage
     """One settled transaction's file preimage on this root, `(root, txid,
     path, max_bytes)` → the engine's owned bytes or its availability refusal
-    as evidence; its integrity refusals arrive as `LogEvidenceRefused`
-    (l13-preimage spec §4). The audit is the one caller (§5)."""
+    as evidence; its integrity refusals arrive as `LogEvidenceRefused`.
+    The audit is the one caller."""
 
 
 @dataclass(frozen=True)
@@ -210,7 +210,7 @@ something the evaluator goes looking for.
 """
 
 
-# --- the registered-surface projection (design §5.1) ------------------------
+# --- the registered-surface projection ------------------------
 
 RootKind: TypeAlias = Literal["corpus", "world", "store"]
 
@@ -227,7 +227,7 @@ RECORD_SUFFIX = ".md"
 def registered_surface_paths(root: Path, kind: RootKind) -> tuple[str, ...]:
     """The paths `root`'s declared layout claims, sorted, root-relative POSIX.
 
-    One projection, instantiated per root kind (log design §3, spec §5.1): the
+    One projection, instantiated per root kind: the
     genesis baseline fingerprints it, every transaction states its
     initial/final over it, and replay compares its accumulated state against
     exactly it.
@@ -235,7 +235,7 @@ def registered_surface_paths(root: Path, kind: RootKind) -> tuple[str, ...]:
     - **corpus:** every claimed node-layout path — `nodes`' own corpus-file
       claim, a `.md` leaf anywhere beneath the root — plus `corpus.yaml`. An
       undeclared foreign path (`notes.txt`) is outside the surface and outside
-      this design (log design limitation 3).
+      what the log judges.
     - **world:** everything beneath the three declared grammars, plus
       `world.yaml`. A namespace is a namespace: a file beneath `registry/` is
       claimed whether or not it parses as a record, which is what makes a
@@ -328,7 +328,7 @@ def _present(path: Path) -> bool:
     return path.is_symlink() or path.exists()
 
 
-# --- the supplied historical bytes (design §5.3) ----------------------------
+# --- the supplied historical bytes ----------------------------
 
 CONTENT_HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
 """`atoms`' exact content-hash form. Spelled as a pattern rather than
@@ -346,7 +346,7 @@ def validate_history(history: Mapping[str, bytes]) -> None:
     *partially* ignored either — the act refuses rather than classifying from
     the pairs that happened to hold.
 
-    The evaluator calls this at entry (Task 7), before any outcome is
+    The evaluator calls this at entry, before any outcome is
     produced, so a corrupt history refuses even when evaluation would stop
     before replay; `replay` calls it again, so a digest it names is always one
     it checked.
@@ -361,7 +361,7 @@ def validate_history(history: Mapping[str, bytes]) -> None:
             raise ValueError(f"{key}: the held bytes hash to sha256:{actual}")
 
 
-# --- committed removals and their evidence (l13-preimage spec §3) -----------
+# --- committed removals and their evidence -----------
 
 
 @dataclass(frozen=True, slots=True)
@@ -386,7 +386,7 @@ def committed_removals(view: WellFormedView, absent_state: object) -> tuple[Remo
     declared `initial` state is not absent. A rolled-back registration, and
     one nothing has settled, is no transition at all. The audit reads
     preimages for exactly this set and the policy pass classifies exactly this
-    set, so the two name one inventory (spec §3.1).
+    set, so the two name one inventory.
     """
     committed = {entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed}
     removals: list[Removal] = []
@@ -412,7 +412,7 @@ def _file_facts(state: object, state_facts: Callable[[object], tuple[tuple[str, 
 
 def removed_digest(state: object, state_facts: Callable[[object], tuple[tuple[str, str], ...]]) -> str | None:
     """The content digest a removed file state declares, in `history`'s key
-    form, or `None` for a pre-state that is not a file (spec §3.2)."""
+    form, or `None` for a pre-state that is not a file."""
     facts = _file_facts(state, state_facts)
     return None if facts is None else facts[0]
 
@@ -439,7 +439,7 @@ NO_PREIMAGES: Preimages = MappingProxyType({})
 and every evaluator caller but the audit."""
 
 
-# --- replay (design §5.2) and the policy pass (design §5.3, spec §3.3–3.4) --
+# --- replay and the policy pass --
 
 
 @dataclass(frozen=True, slots=True)
@@ -498,9 +498,8 @@ def replay(
     the first disagreement would be a silently short one.
 
     `preimages` is the audit's evidence, keyed by the removing `(txid, path)`;
-    `history` is the caller's. Both resolve by the removed state's digest
-    (spec §3.3), and `state_facts` is required because a replay that could
-    not render that digest would silently regress to no classification.
+    `history` is the caller's. Both resolve by the removed state's digest, and `state_facts` is required because a replay that
+    could not render that digest would silently regress to no classification.
     """
     if history is not None:
         validate_history(history)
@@ -542,12 +541,12 @@ def _removal_findings(
     state_facts: Callable[[object], tuple[tuple[str, str], ...]],
 ) -> tuple[Finding, ...]:
     """One committed removal's findings: the removal, then exactly one of a
-    classification or the stated absence (spec §3.3's order, §3.4's table).
+    classification or the stated absence.
 
-    Logged is not permitted (log design §8): the removal finding is emitted
+    Logged is not permitted: the removal finding is emitted
     for every committed removal of a claimed path, including one a legitimate
     act made, because the judgment it supports is the consumer contract's and
-    not this design's. Classification is the separate claim, and it is made
+    not the log's. Classification is the separate claim, and it is made
     only from bytes that hash to the digest the chain declares — the
     preimage first, the held copy otherwise — so every classification speaks
     about the removed bytes.
@@ -579,7 +578,7 @@ def _removal_findings(
 
 
 def _unclassified(removal: Removal, digest: str, consulted: str, reason: str | None) -> Finding:
-    """The classification stated absent, with why (spec §2 decision 7). No
+    """The classification stated absent, with why. No
     `held=` token: this finding's existence says nothing was held under the
     removed digest, and copies under other digests support no removal."""
     message = "no historical content resolves the removed bytes; the classification is absent"
@@ -644,7 +643,7 @@ def _classification(removal: Removal, digest: str, source: str, payload: bytes) 
     )
 
 
-# --- the observer carriers (design §4.1) ------------------------------------
+# --- the observer carriers ------------------------------------
 #
 # `beliefs.world.anchors` imports this module for `LogSeam`, so the codecs and
 # subjects it owns are reached **at call time, in the module form** — the same
@@ -654,12 +653,12 @@ def _classification(removal: Removal, digest: str, source: str, payload: bytes) 
 # type checker through the `TYPE_CHECKING` block alone.
 
 Provenance: TypeAlias = Literal["named-local", "supplied-export"]
-"""§4.1's provenance discriminator: read from the world root under
+"""The provenance discriminator: read from the world root under
 verification, or held by the caller from outside it.
 
 It is a member of every carrier and not only of the epoch arm, because the
 eligibility rule the discriminator exists for (`world` accepts supplied-export
-only, L11) has to be answerable for whatever a caller supplied. A registry
+only) has to be answerable for whatever a caller supplied. A registry
 record is `named-local` by construction — the registry it is read from is the
 world root's own — and a head artifact is `supplied-export` by construction:
 its bytes reached the caller's hands to be passed in at all.
@@ -668,7 +667,7 @@ its bytes reached the caller's hands to be passed in at all.
 CHAIN_ABSENT = "chain-absent"
 """The finding code that says the chain view carried no durable claim.
 
-A module-level constant because it is a **contract between two acts**: §6.2's
+A module-level constant because it is a **contract between two acts**: the
 arrival causes derive from the report's fields, and this code is the whole of
 what separates `chainless` (a `ReplicaOf` that did not carry its chain — always
 refused) from a fresh chain nobody has anchored yet (admissible). The arrival
@@ -726,7 +725,7 @@ class RegistryCarrier:
 
     Provenance is `named-local`: a record is read from the world root's own
     registry. That is never a limitation for the subjects a record can carry —
-    a `world` subject is not in the record's union at all (§3.1/L11) — and it
+    a `world` subject is not in the record's union at all — and it
     is exactly right for a corpus subject, whose chain lives in a different
     root from the registry anchoring it.
     """
@@ -744,7 +743,7 @@ class RegistryCarrier:
 
     @staticmethod
     def from_record(record: LogHeadRecord) -> RegistryCarrier:
-        """§4.1's record arm: the grammar re-checked, then the anchor lifted.
+        """The record arm: the grammar re-checked, then the anchor lifted.
 
         The record's own projection is decoded back through the codec rather
         than trusted: a dataclass whose fields were written past `__post_init__`
@@ -818,14 +817,14 @@ class EpochCarrier:
 
     What a factory name cannot prove is custody. A caller may read the local
     members itself and hand them to `from_export`, so `supplied-export` is
-    **caller-attested custody evidence** under the deferred holder protocol
-    (§10.9): nothing in this slice learns which exported anchors actually
-    survive outside the root they describe.
+    **caller-attested custody evidence** under the deferred holder protocol:
+    nothing in this module learns which exported anchors actually survive
+    outside the root they describe.
 
     **What is revalidated.** The member set is closed and the packaging
     identity is recomputed over every member's bytes — the whole eleven, which
     is why `from_export` takes the complete mapping — and the `anchors.yaml`
-    member is parsed as the document §6.1 fixes, because that is the member
+    member is parsed as the document an epoch fixes, because that is the member
     read here. The other ten are covered by the identity and are the epoch
     reader's to interpret; an observer carrier is not a second epoch opener.
     """
@@ -912,7 +911,7 @@ def _epoch_carrier(members: dict[str, bytes], packaging_identity: str, provenanc
     # closed-document check has already run when the triples are lifted.
     except (EpochMalformed, ValueError) as caught:
         raise ObserverCarrierInvalid(
-            f"{packaging_identity}: the anchors member is not the triples §6.1 fixes: {caught}"
+            f"{packaging_identity}: the anchors member is not the triples an epoch fixes: {caught}"
         ) from caught
     return EpochCarrier(_FACTORY_TOKEN, packaging_identity, MappingProxyType(members), observed)
 
@@ -922,7 +921,7 @@ ObserverCarrier: TypeAlias = RegistryCarrier | EpochCarrier | ArtifactCarrier
 
 @dataclass(frozen=True, slots=True)
 class ObserverSet:
-    """§4.1's explicit observer set. Nothing is searched for.
+    """The explicit observer set. Nothing is searched for.
 
     A member that is not a carrier is a `TypeError` and not
     `ObserverCarrierInvalid`: the carriers in a set have already validated (a
@@ -940,7 +939,7 @@ class ObserverSet:
                 raise TypeError(f"{type(carrier).__name__} is not an observer carrier")
 
 
-# --- the report (design §4.1) -----------------------------------------------
+# --- the report -----------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -950,7 +949,7 @@ class LogReport:
     `outcome` is the only judgment: no error doubles as an outcome and no
     outcome doubles as an error. `anchored_through` is the maximal anchored
     head by chain ancestry — never by record order — and `unanchored_tail` is
-    L5's residue after it, which is the whole chain where nothing anchors it.
+    the residue after it, which is the whole chain where nothing anchors it.
     `qualification` carries one total row per intent in chain order.
     `observer_bound` names every anchor the subject filter and the
     eligibility rule admitted, with its provenance, and is never discarded.
@@ -987,7 +986,7 @@ def _report(
     )
 
 
-# --- the evaluator (design §4.2) --------------------------------------------
+# --- the evaluator --------------------------------------------
 
 
 def evaluate_log(
@@ -1002,7 +1001,7 @@ def evaluate_log(
     history: Mapping[str, bytes] | None = None,
     preimages: Preimages = NO_PREIMAGES,
 ) -> LogReport:
-    """§4's one read-only judgment surface: four steps, four outcomes.
+    """The one read-only judgment surface: four steps, four outcomes.
 
     Audit and arrival both call this and no third path evaluates. Nothing is
     searched for: the chain view, the observer set, the scanned surface and the
@@ -1010,22 +1009,21 @@ def evaluate_log(
     mints anything.
 
     **Before the precedence**, one refusal that is not a judgment. A `history`
-    that does not validate refuses the act outright (§5.3) — corrupt evidence
+    that does not validate refuses the act outright — corrupt evidence
     is never silently ignored, and the refusal comes before any outcome is
     produced, so a malformed chain does not get to answer first. Store
-    subjects are judged like the other two kinds: the shape-only refusal was
-    the log slice's, and the root-lifecycle slice removed it.
+    subjects are judged like the other two kinds.
 
-    **Then §4.2's four steps, in order, so no state earns two outcomes:**
+    **Then the four steps, in order, so no state earns two outcomes:**
 
     1. **Structure.** A malformed chain is `malformed`, stopping with the
        defect named; an absent chain skips to step 2; a present chain's genesis
        form is validated *now* — the Science payload for the subject's kind and
-       the empty baseline §1.3 requires. A valid world genesis naming a
-       different `world_id` is §6.3's subject mismatch instead, never malformed.
+       the empty baseline a non-fork genesis requires. A valid world genesis naming a
+       different `world_id` is the subject mismatch instead, never malformed.
     2. **Anchors.** The subject filter runs first and alone — the presented
        identity never admits or discards an anchor — then the eligibility rule
-       (a world subject accepts supplied-export carriers only, L11). Per bound
+       (a world subject accepts supplied-export carriers only). Per bound
        anchor: a wholly absent chain refutes (removal); a genesis the chain does
        not share refutes (replacement); a head the chain's ancestry cannot reach
        refutes, and so does a pair the chain cannot order. A reachable old
@@ -1036,13 +1034,13 @@ def evaluate_log(
     4. **Replay.** Any disagreement refutes; otherwise `validated`, with the
        unanchored tail stated.
 
-       `preimages` is the audit's evidence for the policy pass (spec §3.3);
+       `preimages` is the audit's evidence for the policy pass;
        every other caller supplies none.
 
-    **Subject-mismatch findings** (§6.3) compare the presented identity and the
+    **Subject-mismatch findings** compare the presented identity and the
     genesis against the selected subject. They are findings in every outcome —
     including `validated`, since a cooperatively logged identity rewrite
-    replays consistently (§1.2) — and they never filter anchors. Turning one
+    replays consistently — and they never filter anchors. Turning one
     into a refusal is the arrival boundary's act, not this function's.
 
     A `LogEvidenceRefused` raised by a seam call the caller made before this
@@ -1188,17 +1186,17 @@ def _subject_label(subject: Subject) -> str:
 def _bound_anchors(
     subject: Subject, observers: ObserverSet, kind: SubjectKind
 ) -> tuple[tuple[_ObservedAnchor, ...], tuple[Finding, ...]]:
-    """§4.2 step 2's two admissions, in their ruled order.
+    """The two anchor admissions, in their fixed order.
 
     **The subject filter is first and it is the sole filter**: an anchor for
     another subject is not this subject's evidence, and since every corpus
-    chain shares the identical genesis digest (§1.2) a filter that looked at
+    chain shares the identical genesis digest a filter that looked at
     genesis would pool two corpora's anchors into one comparison.
 
     **Then eligibility**, which is about custody rather than about the bytes: a
     world subject accepts `supplied-export` carriers only, because an epoch
     copy or artifact that never left the world root anchors nothing about that
-    root (L11). Identical epoch bytes, different eligibility. An excluded
+    root. Identical epoch bytes, different eligibility. An excluded
     carrier is reported as a finding rather than dropped in silence — a caller
     who supplied evidence is told why it bound nothing.
     """
@@ -1232,7 +1230,7 @@ _CUSTODY: Mapping[Provenance, str] = MappingProxyType(
 A factory fixes the discriminator from the authority it read, but a factory
 name cannot prove custody: a caller may read the local epoch members itself and
 hand them to `from_export`. So `supplied-export` is caller-attested evidence
-under the deferred holder protocol (§10.9) — nothing in this slice learns which
+under the deferred holder protocol — nothing in this module learns which
 exported anchors survive outside the root they describe — while `named-local`
 is a read this module performed. A reader of the bound is told which of the two
 they are holding.
@@ -1273,12 +1271,12 @@ def _genesis_defect(genesis: GenesisEntryView, reason: str) -> Finding:
 
 
 def _genesis_form(kind: SubjectKind, genesis: GenesisEntryView) -> tuple[Finding | None, str | None]:
-    """§4.2 step 1's genesis-form validation: the defect, and the named identity.
+    """Genesis-form validation: the defect, and the named identity.
 
     Returns `(None, identity)` for a well-formed genesis — the world or store
     id the payload names, which the subject-mismatch check then compares
     against the selected subject, and `None` for a corpus genesis, whose
-    payload carries no identity at all (§1.2).
+    payload carries no identity at all.
 
     **The form itself is `anchors`'** (`parse_corpus_genesis`,
     `parse_world_genesis`), which is also what the export act's subject binding
@@ -1288,9 +1286,9 @@ def _genesis_form(kind: SubjectKind, genesis: GenesisEntryView) -> tuple[Finding
     about the chain's first entry rather than about its payload.
 
     A world genesis naming *another* well-formed world is not a defect here on
-    purpose: it is §6.3's mismatch, and calling it malformed would report a
+    purpose: it is the mismatch, and calling it malformed would report a
     lifecycle fact as structural damage — and would make the audit of exactly
-    the world `open_world` refuses report the wrong thing (§6.1).
+    the world `open_world` refuses report the wrong thing.
     """
     from beliefs.world import anchors
 
@@ -1310,8 +1308,7 @@ def _genesis_form(kind: SubjectKind, genesis: GenesisEntryView) -> tuple[Finding
         return _genesis_defect(
             genesis,
             "a non-fork genesis baseline is empty: the Science initializers register the empty surface, and only "
-            "a fork genesis — whose payload states forked_from — registers the destination surface it copied "
-            "(§1.3, the fork-baseline lift)",
+            "a fork genesis — whose payload states forked_from — registers the destination surface it copied",
         ), None
     return None, identity
 
@@ -1329,7 +1326,7 @@ def _mismatch(source: str, claimed: str, subject: Subject) -> Finding:
 def _presented_findings(
     subject: Subject, kind: SubjectKind, presented: PresentedIdentity | None
 ) -> tuple[Finding, ...]:
-    """§6.3's mismatch, on the side of it the chain cannot answer.
+    """The mismatch, on the side of it the chain cannot answer.
 
     A state fingerprint proves what happened to a surface, never which corpus
     or world the operator believes they hold, so the claim is compared as an
@@ -1364,8 +1361,8 @@ def _presented_findings(
 
 
 def _genesis_findings(subject: Subject, kind: SubjectKind, genesis_identity: str | None) -> tuple[Finding, ...]:
-    """The genesis half of §6.3's comparison. The corpus genesis names nobody,
-    so there is nothing to compare there (§1.2); world and store geneses each
+    """The genesis half of the comparison. The corpus genesis names nobody,
+    so there is nothing to compare there; world and store geneses each
     name their own id and compare against the selected subject."""
     if genesis_identity is None or kind == "corpus":
         return ()
@@ -1404,7 +1401,7 @@ def _chainless_finding() -> Finding:
     """The absent chain, stated as a fact of the report rather than left to the
     caller's own copy of the view.
 
-    §6.2's arrival causes derive from the report's fields, and `chainless` — a
+    the arrival causes derive from the report's fields, and `chainless` — a
     `ReplicaOf` that did not carry its chain — is otherwise indistinguishable
     in a report from a fresh chain nobody has anchored yet. Those two are
     admissible and refused respectively, so the difference has to be readable
@@ -1443,12 +1440,12 @@ def _disagreement_finding(disagreement: str) -> Finding:
 def _anchor_refutations(
     bound: tuple[_ObservedAnchor, ...], chain_genesis: str, positions: Mapping[str, int]
 ) -> tuple[Finding, ...]:
-    """§4.2 step 2's three refutations over a present, well-formed chain.
+    """The three refutations over a present, well-formed chain.
 
     Every bound anchor is checked, never only the maximal one: a reachable old
     anchor never hides a missing newer one.
 
-    **Genesis, then ancestry, scoped by `(subject, genesis_digest)`** (§1.2).
+    **Genesis, then ancestry, scoped by `(subject, genesis_digest)`**.
     For a world subject and for a future fork genesis the genesis comparison is
     the replacement arm; for a corpus subject it can never fire, because the
     corpus genesis is a constant — a replaced corpus chain is caught one line
@@ -1516,10 +1513,10 @@ def _extent(
     positions: Mapping[str, int],
     digests: tuple[str, ...],
 ) -> tuple[str | None, tuple[str, ...]]:
-    """The maximal anchored head by ancestry, and L5's residue after it.
+    """The maximal anchored head by ancestry, and the residue after it.
 
     Maximality is chain position and never record order — records are immutable
-    and unordered (§3.1). Where no bound anchor is placed at all the extent is
+    and unordered. Where no bound anchor is placed at all the extent is
     the whole chain, which is the same statement `unanchored_tail` makes for a
     chain nothing anchors.
     """
@@ -1532,7 +1529,7 @@ def _extent(
     return digests[top], digests[top + 1 :]
 
 
-# --- the audit boundary (design §6.1) ----------------------------------------
+# --- the audit boundary ----------------------------------------
 #
 # Like the two acts in `anchors`, the cores below take the seam as a parameter
 # and hold no capability of their own, and they reach `beliefs.world.registry`
@@ -1550,13 +1547,13 @@ def _audit_log(
     history: Mapping[str, bytes] | None = None,
     seam: LogSeam,
 ) -> LogReport:
-    """§6.1: the evaluator plus a report, and **nothing else**. Writes nothing.
+    """The evaluator plus a report, and **nothing else**. Writes nothing.
 
     **The configuration, never an opened `World`.** The act needs the
     configured root set and the world id, and it must stay callable when
     ordinary `open_world` refuses a genesis/configuration/mirror disagreement —
-    auditing a broken world is the point (§6.3). So it is built from `config`
-    directly, which also settles R12 by construction: there is no `World` here
+    auditing a broken world is the point. So it is built from `config`
+    directly, which also keeps `World` methods out of the lock by construction: there is no `World` here
     to call a method on under the lock.
 
     **The target root is explicit and never associated by manifest.** The
@@ -1574,7 +1571,7 @@ def _audit_log(
     which constructing a `Corpus` would refuse before judging — or the world
     root's lock, the identical object an opened `World` takes. Taking a
     corpus's lock in writer mode can refuse `BuildHold` while an epoch build
-    holds that root's capture, exactly as the export act can (R15): a surface
+    holds that root's capture, exactly as the export act can: a surface
     stated from the far side of a capture would not be the surface the chain
     was inspected against.
 
@@ -1585,7 +1582,7 @@ def _audit_log(
     that is a pre-recovery claim standing beside a post-recovery surface, and
     the report would then state a subject mismatch about bytes the act's own
     inspection had already replaced. **Then the preimage reads, still inside
-    the hold** (l13-preimage spec §5): one per committed removal the inspected
+    the hold**: one per committed removal the inspected
     view declares, so the bytes and the chain that names them are one view.
     Arrival and restore make none. **Evaluation is outside the hold**: the
     evaluator is pure over values already captured, and the hold exists to make
@@ -1593,14 +1590,14 @@ def _audit_log(
 
     **The caller's own inputs are checked before the root is touched**: an
     unencodable actor, a store subject, a target root outside the
-    configuration, and a `history` that does not validate (§5.3) are all facts
+    configuration, and a `history` that does not validate are all facts
     about the call rather than about the root, and refusing them after a lock
     and an inspection would state a surface nobody could be told about. The
     evaluator validates the history again — it is the judgment surface and
     keeps its own guarantee — exactly as `replay` does after it.
 
     A `LogEvidenceRefused` from either seam call propagates untranslated: the
-    act refused to judge, it did not judge (§6.4).
+    act refused to judge, it did not judge.
     """
     from beliefs.world import registry
 
@@ -1653,13 +1650,13 @@ def _assemble_evaluation_inputs(
 
 
 def _read_preimages(seam: LogSeam, root: Path, view: WellFormedView) -> Preimages:
-    """The audit's preimage reads (spec §5): one per committed removal whose
+    """The audit's preimage reads: one per committed removal whose
     declared pre-state is a file, in chain order, with the chain's own `txid`,
     `path` and `byte_len` — never a caller's — made under the caller's hold.
 
     A removal whose pre-state is not a file has no digest to match and is not
     read. A `LogEvidenceRefused` from the seam propagates: the act refused to
-    judge (§6.4). A refusal that is evidence about availability arrives as a
+    judge. A refusal that is evidence about availability arrives as a
     `PreimageUnavailable` value and is carried to the policy pass.
     """
     evidence: dict[tuple[str, str], PreimageEvidence] = {}
@@ -1675,7 +1672,7 @@ def _read_preimages(seam: LogSeam, root: Path, view: WellFormedView) -> Preimage
 def _restore_subject_agrees(
     subject: Subject, kind: SubjectKind, view: ChainView, presented: PresentedIdentity | None
 ) -> bool:
-    """Spec §7.2 step 4: the separate lifecycle precondition, never a verdict.
+    """The separate lifecycle precondition, never a verdict.
 
     Store: the validated chain's own genesis names the subject's `store_id`.
     Corpus: the presented manifest names the subject's `corpus_id` — the
@@ -1706,7 +1703,7 @@ def _restore_root(
     seam: LogSeam,
     grant: Callable[[Path], None],
 ) -> LogReport:
-    """§7.2: the one held restore boundary — inspect, claim, capture,
+    """The one held restore boundary — inspect, claim, capture,
     evaluate, gate, grant — and the existing report, unwrapped.
 
     Admission is observed through the lifecycle state, never the return
@@ -1745,14 +1742,14 @@ def _restore_root(
 
 
 def _subject_hold(seam: LogSeam, kind: RootKind, root: Path) -> AbstractContextManager[object]:
-    """§6.1's one hold, per root kind: the world root's own lock, or — for a
+    """The one hold, per root kind: the world root's own lock, or — for a
     corpus and a store alike — the root's operation lock through the
     lock-only lookup, which is per-root state and constructs nothing."""
     return seam.world_lock(root) if kind == "world" else seam.corpus_lock(root)
 
 
 def _configured_target(config: WorldConfig, kind: SubjectKind, root: Path) -> None:
-    """The target-root rule, and the whole of it (§6.1).
+    """The target-root rule, and the whole of it.
 
     Membership of the configured tuple, compared as resolved paths —
     `WorldConfig` resolves both members on construction — and **never** a
@@ -1813,11 +1810,11 @@ def _presented_identity(config: WorldConfig | None, kind: RootKind, root: Path) 
     return PresentedWorldIds(config.world_id, mirrored)
 
 
-# --- the arrival boundary (design §6.2, §6.3) ---------------------------------
+# --- the arrival boundary ---------------------------------
 
 
 def _arrival_cause(report: LogReport) -> ArrivalCause | None:
-    """§6.2's four causes, ranked, **derived from the report's fields**.
+    """The four causes, ranked, **derived from the report's fields**.
 
     Not from which precedence step produced the outcome, and that is the whole
     point of the function: a pending chain with an empty observer set is
@@ -1828,7 +1825,7 @@ def _arrival_cause(report: LogReport) -> ArrivalCause | None:
     `chainless` is the one cause with no outcome of its own — an `AbsentChain`
     and a fresh chain nobody has anchored are both `unresolvable` — so it is
     read from the evaluator's own `chain-absent` finding, under the constant the
-    evaluator exports (R24). Arrival keeps no second copy of the view.
+    evaluator exports. Arrival keeps no second copy of the view.
 
     `None` is the admissible state: none of the four, which for `unresolvable`
     means a well-formed chain with an empty pending set — an arrival at a fresh
@@ -1854,7 +1851,7 @@ def _admit_arrival(
     history: Mapping[str, bytes] | None = None,
     seam: LogSeam,
 ) -> tuple[AdmissionRecord, LogReport]:
-    """§6.2: verify an arriving replica's chain, then admit it. Or refuse.
+    """Verify an arriving replica's chain, then admit it. Or refuse.
 
     **The manifest is loaded here, never supplied.** A caller-supplied manifest
     could disagree with the bytes the lock protects, and the whole act exists to
@@ -1879,7 +1876,7 @@ def _admit_arrival(
     rather than rediscovered if the mode ever changes.
 
     **The refusals, in their ruled order.** The report's own causes first,
-    ranked `malformed > refuted > pending > chainless`; then §6.3's
+    ranked `malformed > refuted > pending > chainless`; then
     `SubjectMismatch`, which fires even on a `validated` report and fires
     **before** the transaction, so no mismatched subject is ever admitted; then
     the admission core's own refusals, which verification does not weaken.
@@ -1890,13 +1887,13 @@ def _admit_arrival(
     manifest, provenance and actor. The observer bound is returned beside the
     record and never enters admission identity.
 
-    No `World` method is called under the lock (R12): the world lock the seam
+    No `World` method is called under the lock: the world lock the seam
     hands back *is* the one `World.registry()` takes, so the core reads registry
     state through its own scan and this act reaches only for attributes.
 
     A `LogEvidenceRefused` from either seam call propagates untranslated: the
     act refused to judge, it did not judge, and it is neither an outcome nor an
-    arrival cause (§6.4).
+    arrival cause.
     """
     from beliefs.world import anchors, registry
 
@@ -1942,7 +1939,7 @@ def _admit_arrival(
             raise SubjectMismatch(
                 f"{root}: the arriving manifest claims corpus {manifest.corpus_id}, but the chain it traveled "
                 f"with is {_subject_label(subject)}'s — a validated chain under another corpus's identity is a "
-                "lifecycle refusal, not a finding (§6.3)"
+                "lifecycle refusal, not a finding"
             )
         record = registry._locked_admit(
             world._state,
@@ -1955,7 +1952,7 @@ def _admit_arrival(
     return record, report
 
 
-# --- the ordered-cuts predicate (design §7) ----------------------------------
+# --- the ordered-cuts predicate ----------------------------------
 
 Ordering: TypeAlias = Literal["ordered", "unordered"]
 
@@ -1971,7 +1968,7 @@ than leaving one half quietly answering about nothing.
 
 
 def _epochs_ordered(config: WorldConfig, e1: str, e2: str, *, seam: LogSeam) -> Ordering:
-    """§7: does E2 order after E1, over already validated epochs and chain?
+    """Does E2 order after E1, over already validated epochs and chain?
 
     Ordered **iff** E2's build-start world head descends by ancestry from the
     settlement that committed E1's publication. Both halves are read from
@@ -1997,10 +1994,10 @@ def _epochs_ordered(config: WorldConfig, e1: str, e2: str, *, seam: LogSeam) -> 
     Under the world lock throughout, in the pinned order: inspect first — which
     completes recovery — and then read the epoch, so the members read are the
     members recovery left. `_locked_open_epoch` is the world's own epoch reader
-    and assumes the hold; no `World` method is called under the lock (R12).
+    and assumes the hold; no `World` method is called under the lock.
 
-    This is the log design §7's predicate **only**; the event-level relation is
-    `_event_order` (cut 36).
+    This is the predicate **only**; the event-level relation is
+    `_event_order`.
     """
     from beliefs.world import epoch
 
@@ -2019,11 +2016,11 @@ def _ordered_by_descent(view: WellFormedView, e1: str, built_from: str, absent_s
 
     Ordered **iff** `built_from` — the world head an epoch recorded at
     preflight — is at or after the settlement that committed `e1`'s
-    publication. Descent includes the settlement itself (R29). `unordered`
+    publication. Descent includes the settlement itself. `unordered`
     where `e1` has no committed publication in this view or `built_from` is no
     entry of it. The event-level relation (`_event_order`) asks this of one
     captured view for every candidate pair, so no pair is judged against a
-    different observation of the chain (spec decision 7).
+    different observation of the chain.
     """
     settlement = _publication_settlement(view, e1, absent_state)
     positions = {entry.digest: index for index, entry in enumerate(view.entries)}
@@ -2050,11 +2047,11 @@ def _publication_settlement(view: WellFormedView, packaging_identity: str, absen
     members: the registration declares the witness path absent and states it
     present. The earliest committed settlement of such a registration is the
     moment the epoch became published, which is what a later build descends
-    from; a republication after §9's deletion recreates the same members and
+    from; a republication after the deletion recreates the same members and
     does not move that moment.
 
     `None` where no registration published it, and where every one that did
-    settled as a rollback — the two ways §7 words a missing publication.
+    settled as a rollback — the two ways a publication is missing.
     """
     witness = f"epochs/{packaging_identity}/{PUBLICATION_WITNESS}"
     publications = {
@@ -2091,19 +2088,19 @@ def _publishes(entry: RegisteredEntryView, witness: str, absent_state: object) -
     )
 
 
-# --- the event-level relation (cut 36) ---------------------------------------
+# --- the event-level relation ---------------------------------------
 
 
 def _event_order(config: WorldConfig, a: Event, b: Event, *, seam: LogSeam) -> Order:
     """Does `a` precede `b`, `b` precede `a`, or neither — at the granularity
-    the log design §7 states.
+    of the event-level relation.
 
     Same chain: by ancestry, after both moments resolve. Cross chain: by the
     witness predicate `_witnessed` over the world's retained epochs, and
     **witness-asymmetrically** — `a-precedes-b` exactly when `W(a, b)` holds
     and `W(b, a)` does not. Two overlapping builds can witness both
-    directions; that is §7's build-window residual, and the answer is then
-    `unordered`, never a positive claim (spec decision 5).
+    directions; that is the build-window residual, and the answer is then
+    `unordered`, never a positive claim.
 
     **Reads, in lock order.** Under the world lock: inspect the world chain
     *first* — the inspection completes recovery, and recovery can rewrite the
@@ -2111,11 +2108,11 @@ def _event_order(config: WorldConfig, a: Event, b: Event, *, seam: LogSeam) -> O
     each corpus's carrier, and, for a cross-chain question only, open every
     retained epoch. A same-chain question opens no epoch and never consults
     the world view's classification, so a malformed world chain or retained
-    epoch cannot defeat corpus ancestry (decision 4). Then, with the world lock
+    epoch cannot defeat corpus ancestry. Then, with the world lock
     released, each corpus chain is inspected once under its own operation
     lock, in sorted `corpus_id` order and never nested. The world chain is
     inspected exactly once per call, and every ordered-cuts question is asked
-    of that one view through `_ordered_by_descent` (decision 7).
+    of that one view through `_ordered_by_descent`.
 
     **Refusals are the caller's facts; `unordered` is the evidence's.** An
     unadmitted corpus, an unresolvable carrier and a digest absent from a
@@ -2147,7 +2144,7 @@ def _event_order(config: WorldConfig, a: Event, b: Event, *, seam: LogSeam) -> O
         with seam.corpus_lock(carriers[corpus_id]):
             view = seam.inspect_registered(carriers[corpus_id])
         if type(view) is not WellFormedView:
-            # Spec §4.3 step 2: the first chain that can place nothing answers
+            # The first chain that can place nothing answers
             # at once — the other corpus's lock is never taken for it.
             return "unordered"
         views[corpus_id] = view
@@ -2192,7 +2189,7 @@ def _witnessed(
 ) -> bool:
     """`W(first, second)`: some ordered pair of retained epochs E1, E2 has E1
     containing `first` and excluding `second`, E2 containing `second`, and
-    both cuts placing both chains (spec §4.2, decision 6). E2 orders after E1
+    both cuts placing both chains. E2 orders after E1
     by `_ordered_by_descent` over the one captured world view."""
     for e1 in epochs:
         on_first = _placement(first.view, e1, first.corpus_id)
@@ -2218,7 +2215,7 @@ def _witnessed(
 
 def _placement(view: WellFormedView, epoch_: Epoch, corpus_id: str) -> Placement | None:
     """The cut's placement of this chain, or `None` where the epoch carries no
-    anchor for the corpus — the coverage half of decision 6; `place` decides
+    anchor for the corpus — the coverage half; `place` decides
     the genesis and head halves."""
     for anchor in epoch_.anchors:
         if anchor.subject == corpus_id:
@@ -2229,7 +2226,7 @@ def _placement(view: WellFormedView, epoch_: Epoch, corpus_id: str) -> Placement
 def _event_carrier(config: WorldConfig, registry_view: RegistryView, corpus_id: str) -> Path:
     """The one configured root whose manifest claims `corpus_id`, for an
     admitted corpus — terminal status permitted, since a retired corpus's
-    chain still carries its events (decision 8)."""
+    chain still carries its events."""
     from beliefs.world import registry
 
     if not any(record.corpus_id == corpus_id for record in registry_view.admissions):

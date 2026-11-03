@@ -16,13 +16,13 @@ from beliefs.resolution import ResolutionSnapshot, build_snapshot
 from reproduction import paths, state
 
 DOCUMENT = Path(__file__).with_name("mm30.yaml")
-# The cut-22 document, byte-for-byte, so `check_succession` runs against the
+# The earliest document, byte-for-byte, so `check_succession` runs against the
 # real predecessor rather than against a contract written to pass.
 CUT22_DOCUMENT = Path(__file__).with_name("mm30-cut22.yaml")
-# The cut-31 document, byte-for-byte: the estimand lane's contract, which this
+# The estimand-era document, byte-for-byte: the estimand contract, which this
 # lane's `edges:` table succeeds. The chain is walked, not summarized.
 CUT31_DOCUMENT = Path(__file__).with_name("mm30-cut31.yaml")
-MODAL_SORTED = paths.REPO / "python" / "tools" / "vocabularies" / "mm30-modal-sorted.yaml"
+MODAL_SORTED = paths.REPO / "python" / "tools" / "reproduction" / "mm30-modal-sorted.yaml"
 # Each sort binds the dataset address of a list held before anything adopts
 # (`lists.py`, `concepts.py`): the contract cannot compile without them.
 VOCABULARY_TOKENS = {
@@ -60,14 +60,14 @@ def biology() -> DomainContract:
 
 
 PREDECESSORS = {DOCUMENT: CUT31_DOCUMENT, CUT31_DOCUMENT: CUT22_DOCUMENT}
-"""Each document and the one it succeeds: cut 22 → cut 31 → current. The
+"""Each document and the one it succeeds: earliest → estimand-era → current. The
 chain is parsed document by document, never summarized by identity."""
 
 
 @cache
 def contract(path: Path = DOCUMENT) -> DomainContract:
     """The successor mm30 contract, checked against the document it succeeds —
-    the cut-31 document, which itself succeeds the cut-22 one. Each predecessor
+    the estimand-era document, which itself succeeds the earliest one. Each predecessor
     is parsed here rather than trusted by shape: `check_succession` certifies
     nothing against an authored stand-in."""
     ancestor = PREDECESSORS.get(path)
@@ -132,7 +132,7 @@ def concept_binding() -> VocabularyBinding:
 
 
 # Every held list, by the `state.json` prefix its step saved and the sort the
-# contract binds it to. One snapshot covers all four (design §9).
+# contract binds it to. One snapshot covers all four.
 HELD_SORTS = {
     "concepts": "concept",
     "levels": "stage-level",

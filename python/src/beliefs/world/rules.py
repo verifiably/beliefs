@@ -3,9 +3,8 @@
 A derivation receipt names the exact rule that produced its map, so the world
 has to be able to *hold* that rule — store its normative fixtures, store one or
 more conforming implementations of it, and prove at any later moment that the
-implementation it is about to run is still the one the receipt names. Slice 2's
-specification §4 pins the two identities that make this possible, and both
-domain strings are minted here:
+implementation it is about to run is still the one the receipt names. The epoch format pins the two identities
+that make this possible, and both domain strings are minted here:
 
 * a **fixture-set identity** is `science.fixture-set.v1` over the sorted
   `(member name, member content digest)` pairs; and
@@ -80,9 +79,9 @@ FIXTURE_SET_DOMAIN = "science.fixture-set.v1"
 RULE_DOMAIN = "science.enumeration-rule.v1"
 
 RULE_INPUT_V2 = "science.rule-input.v2"
-"""The one declared rule-input version (cut 48 §4.5): the v1 projection with
+"""The one declared rule-input version: the v1 projection with
 each retraction member carrying its `arm`. A bundle declaring no version reads
-the v1 input (`Capture.rule_input()`), exactly as every rule held before cut 48;
+the v1 input (`Capture.rule_input()`), exactly as every rule held before versions existed;
 the holdings reduction bundle declares none and is handed its own capture."""
 
 _INPUT_VERSIONS: tuple[str, ...] = (RULE_INPUT_V2,)
@@ -98,8 +97,7 @@ _SHIPPED: tuple[tuple[str, str, str | None], ...] = (
     ("retraction_v2", "enumerate_retractions_v2", RULE_INPUT_V2),
 )
 """The five enumeration rules this package ships, as `(module, symbol, input version)`:
-the four v1 rules, which declare no version, and `retraction-enumeration` v2
-(cut 48 §4.5), which declares `RULE_INPUT_V2`.
+the four v1 rules, which declare no version, and `retraction-enumeration` v2, which declares `RULE_INPUT_V2`.
 
 The module is the implementation resource `rules_v1/<module>.py` and the prefix
 of its fixture members, `rules_v1/fixtures/<module>.<case>.yaml` (so no module
@@ -146,7 +144,7 @@ class RuleBundle:
     fixtures: tuple[tuple[str, bytes], ...]
     implementation: bytes
     input_version: str | None = None
-    """The rule-input version the implementation reads (cut 48 §4.5), or `None`
+    """The rule-input version the implementation reads, or `None`
     for a bundle stored as `{symbol}`: the v1 world rules and any bundle whose
     caller supplies its own capture."""
 
@@ -203,7 +201,7 @@ def invoke_held(held: _HeldRule, kind: str, value: object) -> object:
     Rule content may import nothing and so can raise only a plain exception; a
     raise here becomes `RuleNonconformant` naming the kind and the pair, so a
     build propagates it and `validate_receipt` reports it as it reports a
-    nonconformant output (cut 48 §4.5). The fixture runner keeps its own catch.
+    nonconformant output. The fixture runner keeps its own catch.
     """
     try:
         return held.invoke(value)
@@ -240,7 +238,7 @@ def fixture_set_identity(fixtures: Iterable[tuple[str, bytes]]) -> str:
 def rule_identity(symbol: str, fixtures: Iterable[tuple[str, bytes]], input_version: str | None = None) -> str:
     """`science.enumeration-rule.v1` over `(symbol, fixture-set identity)`, or
     over `(symbol, fixture-set identity, input version)` for a bundle that
-    declares one (cut 48 §4.5; normative contract §6 and slice 2 §4.1, amended).
+    declares one.
 
     The pair is encoded as a two-member list, the same shape the fixture-set
     pairs use, so one reading of "a pair" serves both formulas; a declared
@@ -265,7 +263,7 @@ def binding_for(bundle: RuleBundle) -> RuleBinding:
 
 def rule_document_bytes(symbol: str, input_version: str | None = None) -> bytes:
     """`rule.yaml`: exactly the rule symbol, plus `input` for a bundle that
-    declares a rule-input version (cut 48 §4.5), and nothing else."""
+    declares a rule-input version, and nothing else."""
     document: dict[str, str] = {"symbol": _require_symbol(symbol)}
     if _require_input_version(input_version) is not None:
         document["input"] = input_version  # type: ignore[assignment]
@@ -276,7 +274,7 @@ def parse_rule_document(content: bytes) -> tuple[str, str | None]:
     """The symbol and the declared input version a stored `rule.yaml` carries, or a refusal.
 
     Two closed shapes: `{symbol}` (no declared version, every rule held before
-    cut 48) and `{symbol, input}` naming a declared version. Anything else — a
+    versions existed) and `{symbol, input}` naming a declared version. Anything else — a
     duplicate key, an unknown key, a missing or non-symbol value, an `input`
     naming the undeclared v1 — means the store cannot say which entry point the
     rule names or what it reads, so the binding is not held.
@@ -306,7 +304,7 @@ _V2_RETRACTION_KEYS = frozenset({"target", "resolution", "arm"})
 
 
 def _require_fixture_schema(symbol: str, fixtures: Sequence[tuple[str, bytes]], input_version: str | None) -> None:
-    """The conformance half of a declared input version (cut 48 §4.5): every
+    """The conformance half of a declared input version: every
     fixture input's retraction member carries the declared version's keys.
     Applied only to a bundle that declares a version; an undeclared bundle's
     fixtures are its own business, as they always were. Lives with the running
@@ -536,7 +534,7 @@ def _locked_stored_rule(world_root: Path, binding: RuleBinding) -> _StoredRule:
     implementation still satisfy its fixtures?" is what makes it trustworthy to
     run, and an act that only deletes does not need an answer.
 
-    Resolution needs both and takes both. Removal (§4.3) needs the first alone,
+    Resolution needs both and takes both. Removal needs the first alone,
     so that a store you can install into does not become a store you cannot
     clean up: an intact, correctly named binding whose implementation has
     stopped conforming is exactly the binding an operator most needs to be able
@@ -642,10 +640,10 @@ def _severed_receipts(world_root: Path, binding: RuleBinding) -> tuple[str, ...]
     severed is one receipt either way.
 
     A receipt the carrier layer could read but that did not carry all five of
-    §7.5's identity members is *not* severed, and this is the one subtlety
+    the identity members is *not* severed, and this is the one subtlety
     worth stating. Such a receipt has no identity to report, but the reason it
-    is left out is not that it is awkward to name: §7.5 puts an unsound receipt
-    contract at outcome ``malformed``, which is decided before resolvability is
+    is left out is not that it is awkward to name: an unsound receipt
+    contract is outcome ``malformed``, which is decided before resolvability is
     ever asked, so no change to what this store holds can move it. It was
     already the validator's finding, and it still is.
     """

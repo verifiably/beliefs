@@ -2,7 +2,7 @@
 
 The ``build_verification`` constructor owns the comparison report, equivalence verdict,
 scope, and assessment edge. Explicit import and audit validation remain
-deferred with the store and world resolver (cut 3 §4.2, R19).
+deferred with the store and world resolver.
 """
 
 from __future__ import annotations
@@ -136,7 +136,7 @@ class ComparisonReport:
 
     def projection(self) -> dict[str, object]:
         """The canonical mapping `identity()` digests — and what a published
-        verification stores under `report` (design §4.1)."""
+        verification stores under `report`."""
         projection: dict[str, object] = {
             "original_conformance": self.original_conformance,
             "replay_conformance": self.replay_conformance,
@@ -281,8 +281,8 @@ RunVerification: TypeAlias = AssessmentVerification | DatasetProductionVerificat
 class StoredVerification:
     """A published verification read back: the same basis as the derived
     value, minted only by `decode_verification` after the record's id
-    recomputes from its members (design §4.2). Distinct from the derived
-    types on purpose — R19 admits no constructor that accepts a report — and
+    recomputes from its members. Distinct from the derived
+    types on purpose — no constructor that accepts a report — and
     closed the same way they are."""
 
     original: str
@@ -380,10 +380,9 @@ def _restore_report(node_id: str, member: object) -> ComparisonReport:
 
 def decode_verification(node: Node) -> StoredVerification | None:
     """A published verification read back, or `None` for one that carries no
-    report (cut 18 ruling R2: not malformed, only unchecked for scope). A
+    report (not malformed, only unchecked for scope). A
     present member that is malformed — a null derivation included — or an id
-    that does not recompute from the members is refused, never repaired
-    (M11). Pure over the node."""
+    that does not recompute from the members is refused, never repaired. Pure over the node."""
     if node.kind != "verification":
         raise MalformedRecord(f"{node.id}: not a verification record")
     facet = node.facets.get(stored.VERIFICATION_FACET)
@@ -433,9 +432,8 @@ def decode_verification(node: Node) -> StoredVerification | None:
 
 
 def publication_node(derived: RunVerification, *, assessment_ref: str | None = None) -> Node:
-    """The stored record of a derived verification, total over both shapes
-    (design §5.1). Pure: reads no view, holds no lock; `decode_verification`
-    over the result restores the same basis."""
+    """The stored record of a derived verification, total over both shapes. Pure: reads no view,
+    holds no lock; `decode_verification` over the result restores the same basis."""
     if type(derived) is AssessmentVerification:
         if assessment_ref is None:
             raise MalformedRecord("an assessment verification publishes against its assessment's corpus ref")
@@ -512,7 +510,7 @@ def active_verifications(verifications: tuple[RunVerification, ...]) -> tuple[Ru
 
 def admission_record(derived: AssessmentVerification) -> Verification:
     """The total projection from a derived assessment verification to the
-    record `admit()` and belief evaluation read (design §7.2). No
+    record `admit()` and belief evaluation read. No
     caller-supplied field. A production verification has no assessment to
     admit and is refused early."""
     if type(derived) is not AssessmentVerification:
@@ -581,8 +579,7 @@ def _derive(
     certification: CodeLineageCertification | None,
     citation: EmbeddedCitation | None,
 ) -> _Derived:
-    """The one derivation, for the constructor and for the audit (design
-    decision 8). Every scope-bearing fact is read from the runs; the
+    """The one derivation, for the constructor and for the audit. Every scope-bearing fact is read from the runs; the
     certification and citation are the authored claims the caller embeds."""
     rule, implementation_identity, implementation, spec = _resolve_rule(original, specs=specs, held_rules=held_rules)
     verdict = implementation.evaluate(original.result, replayed.result)
@@ -622,11 +619,11 @@ def build_verification(
     certification: CodeLineageCertification | None = None,
     citation: tuple[ActReport, int] | None = None,
 ) -> RunVerification:
-    """Derive a verification from the selected records available in this slice.
+    """Derive a verification from the selected records available here.
 
     ``contract_identity`` and ``epoch`` select certification discovery at the
     future world/store seam. That seam is deferred here, and packaging
-    selection is deliberately absent from both derived value shapes (W5).
+    selection is deliberately absent from both derived value shapes.
     """
     if type(original) is not RunClosure or type(replayed) is not RunClosure:
         raise MalformedClosure("build_verification requires two RunClosure values")

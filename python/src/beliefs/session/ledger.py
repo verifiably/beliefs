@@ -1,4 +1,4 @@
-"""The session ledger (writer-session design §3.2, §3.5): canonical JSON lines,
+"""The session ledger: canonical JSON lines,
 appended and fsynced before the index learns them; a reader that refuses a
 malformed line and reports a torn tail; and the evidence union reconciliation
 takes when a ledger is missing, empty, or unreadable."""
@@ -79,7 +79,7 @@ def require_hex(value: object, width: int, what: str) -> str:
 
 def require_selection(value: object, what: str) -> CoordinationAddress | None:
     """A recorded selection: `null`, or a project address pinned to the revision it
-    resolved to (selection design decision 1)."""
+    resolved to."""
     if value is None:
         return None
     if type(value) is not str:
@@ -92,7 +92,7 @@ def require_selection(value: object, what: str) -> CoordinationAddress | None:
 
 def require_sharing_view(value: object, what: str) -> CoordinationAddress:
     """A sharing line's view: a view address pinned to its revision, `local` set or
-    not (sharing design decision 2)."""
+    not."""
     if type(value) is not str:
         raise ValueError(f"{what} must be a view address pinned to a revision")
     try:
@@ -129,7 +129,7 @@ def _pairs(value: object, what: str) -> tuple[tuple[str, str], ...]:
 
 
 def validated_outcome(outcome: object) -> dict[str, object]:
-    """§3.3: exactly `{"done": pairs}` or `{"refusal": {code, message, data}}`."""
+    """Exactly `{"done": pairs}` or `{"refusal": {code, message, data}}`."""
     if not isinstance(outcome, Mapping) or len(outcome) != 1:
         raise ValueError("an outcome carries exactly one key, done or refusal")
     if "done" in outcome:
@@ -165,7 +165,7 @@ class ActLine:
 @dataclass(frozen=True)
 class SelectLine:
     """One `select` line: the invocation that changed the selection, and the new
-    value — pinned, or None for a clear (selection design §4.3)."""
+    value — pinned, or None for a clear."""
 
     invocation: str
     project: CoordinationAddress | None
@@ -176,7 +176,7 @@ class SelectLine:
 @dataclass(frozen=True)
 class SharingEvidence:
     """What a sharing step records about the artifact it handled; the form of each
-    field is the `sharing` line's (§3 of the sharing design)."""
+    field is the `sharing` line's."""
 
     corpus: str
     marker: str
@@ -232,7 +232,7 @@ class InvocationRecord:
 
 class LedgerWriter:
     """Append-only; every line is written, flushed and fsynced before the call
-    returns, and a failure anywhere in that sequence is terminal (§3.2)."""
+    returns, and a failure anywhere in that sequence is terminal."""
 
     def __init__(self, path: Path) -> None:
         self._path = Path(path)
@@ -300,7 +300,7 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
             },
         }[kind]
         if kind == "session-open" and "project" in line:
-            expected = expected | {"project"}  # a pre-amendment session-open omits it (selection design decision 6)
+            expected = expected | {"project"}  # an earlier session-open omits it
         if set(line) != expected:
             raise ValueError(f"{kind} carries exactly {sorted(expected)}")
         if kind == "session-open":
@@ -353,7 +353,7 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
 
 
 class LedgerReader:
-    """One ledger, parsed in full (§3.5).
+    """One ledger, parsed in full.
 
     By the time a line reaches this constructor, `_parse` has already refused
     any line the writer's protocol cannot produce (an `act` or
@@ -450,8 +450,7 @@ class LedgerReader:
 
     def attributed_acts(self) -> tuple[tuple[ActLine, CoordinationAddress | None], ...]:
         """Every act in ledger order, with the selection standing at its line: the
-        latest `select` before it, else session-open's value (selection design
-        decision 4)."""
+        latest `select` before it, else session-open's value."""
         return self._attributed
 
     def sharing(self) -> tuple[SharingLine, ...]:
@@ -472,7 +471,7 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
     already closed, a repeated `invocation-open`, a `select` naming an
     invocation never opened, one naming anything but the current invocation
     (the writer's currency, replayed), a second `select` in one invocation, or
-    any line after `session-close` (design §7 row J7; fail-early forbids salvaging any of
+    any line after `session-close` (fail-early forbids salvaging any of
     these rather than tolerating and reporting around them)."""
     if not raw:
         raise LedgerMalformed("line 1: the ledger is empty; no session-open")
@@ -482,7 +481,7 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
     opened: set[str] = set()
     closed: set[str] = set()
     session_closed_at: int | None = None
-    current: str | None = None  # the writer's currency, replayed (selection design decision 7)
+    current: str | None = None  # the writer's currency, replayed
     selected: set[str] = set()
     for number, chunk in enumerate(chunks, start=1):
         try:
@@ -579,7 +578,7 @@ LedgerEvidence: TypeAlias = LedgerReader | LedgerMissing | LedgerEmpty | LedgerU
 
 
 def read_ledger_evidence(operations_root: Path, session_id: str) -> LedgerEvidence:
-    """Reconciliation's input (§6, decision 14): never raises on ledger state."""
+    """Reconciliation's input: never raises on ledger state."""
     path = ledger_path(operations_root, session_id)
     try:
         raw = path.read_bytes()

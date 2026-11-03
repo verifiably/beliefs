@@ -1,4 +1,4 @@
-"""View-query evaluation over the world read view (slice 4)."""
+"""View-query evaluation over the world read view."""
 
 from __future__ import annotations
 
@@ -400,7 +400,7 @@ class TestAbsenceAndValidation:
 
 
 class TestLocatedState:
-    """The evaluator reads `locate` as three states (live-query design decision 9)."""
+    """The evaluator reads `locate` as three states."""
 
     def test_the_three_states_follow_locate(self, tmp_path):
         world, roots, published, _topic = topic_world(tmp_path, [{"kinds": ["dataset"]}])
@@ -411,8 +411,8 @@ class TestLocatedState:
         assert open_world_view(world, published)._located_state(dataset_ref("d-b")) == "not-present"
 
 
-class TestW20Holders:
-    def test_w20_c_absence_over_holders(self, tmp_path):
+class TestHolders:
+    def test_absence_over_holders(self, tmp_path):
         shared = stored.dataset_node(title="shared", resources=pinned("shared"))
         topic = raw_coordination_node(
             "topic",
@@ -433,7 +433,7 @@ class TestW20Holders:
             evaluate_topic(world, roots, published, topic)
         assert "address-not-present" in str(caught.value) and caught.value.corpus_ids == (ALPHA, BETA)
 
-    def test_w20_g_contributing_union(self, tmp_path):
+    def test_contributing_union(self, tmp_path):
         shared = stored.dataset_node(title="shared", resources=pinned("shared"))
         world, roots, published, topic = topic_world(
             tmp_path, [{"kinds": ["dataset"]}], alpha_extra=(shared,), beta_extra=(shared,)

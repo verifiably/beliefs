@@ -5,7 +5,7 @@ is a validated constructor still admits an unchecked object if it can be
 subclassed: the subclass defines its own `__init__`, mints whatever it likes, and
 the result satisfies `isinstance(x, Claim)`. Every downstream reader that trusts
 a `Claim` unconditionally — which is the whole point of checking once, at one
-place (M13) — is then wrong, with no line of the checked type edited.
+place — is then wrong, with no line of the checked type edited.
 
 `typing.final` states the rule for a static checker and enforces nothing at run
 time, which is the wrong half: the object that reaches a reader is a runtime

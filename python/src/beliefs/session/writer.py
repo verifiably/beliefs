@@ -1,5 +1,4 @@
-"""The attended writer session and its invocation-bound scoped writer
-(writer-session design §3, §5)."""
+"""The attended writer session and its invocation-bound scoped writer."""
 
 from __future__ import annotations
 
@@ -113,7 +112,7 @@ Claim: TypeAlias = ClaimFresh | ClaimDone | ClaimOpen | ClaimMismatch
 
 class KernelRefusalValue(Exception):
     """A value-style kernel refusal carried as an exception so the dispatcher has
-    one normalization path (design §5). Unraised by this slice's nine methods."""
+    one normalization path. Unraised by the nine methods here."""
 
     def __init__(self, value: object) -> None:
         super().__init__(str(getattr(value, "reason", repr(value))))
@@ -131,8 +130,8 @@ class _Invocation:
 
 
 def require_project_address(address: object) -> CoordinationAddress:
-    """An unpinned project address: the only thing a caller may ask to select
-    (selection design §4). The kernel pins it; a caller never supplies a revision."""
+    """An unpinned project address: the only thing a caller may ask to select. The kernel pins it; a caller never
+    supplies a revision."""
     if type(address) is not CoordinationAddress or address.local is not None or address.revision is not None:
         raise ValueError(f"a selection names an unpinned project address, not {address!r}")
     return address
@@ -140,7 +139,7 @@ def require_project_address(address: object) -> CoordinationAddress:
 
 def resolve_project(resolver: CoordinationResolver | None, address: CoordinationAddress) -> CoordinationAddress:
     """`address` resolved through `resolver` to its one standing `project` tip, and
-    pinned to that revision (selection design decision 2)."""
+    pinned to that revision."""
     if resolver is None:
         raise CoordinationUnavailable(f"{address}: no coordination resolver is mounted to resolve a project")
     resolved = resolver.resolve(address)
@@ -156,8 +155,8 @@ def resolve_project(resolver: CoordinationResolver | None, address: Coordination
 def _bind_sharing_evidence(
     root: Path, evidence: SharingEvidence, observers: ObserverSet, *, subject: CorpusSubject | None
 ) -> None:
-    """Bind a sharing door's evidence to the root it acts on, before any effect
-    (sharing design §2 decision 4): refuse `SharingEvidenceDisagrees` on the
+    """Bind a sharing door's evidence to the root it acts on, before any effect: refuse `SharingEvidenceDisagrees`
+    on the
     first field the subject, the root or the observers disagree with, in the
     order `corpus`, `artifact`, `marker`, `world`, `view`. A record the root's
     reader cannot parse refuses `PublicationReadingRefused("capture-damaged")`,
@@ -202,7 +201,7 @@ def _bind_sharing_evidence(
 
 
 class WriterSession:
-    """The trusted server-side object (design §3.1). Holds the ceiling, the
+    """The trusted server-side object. Holds the ceiling, the
     ledger and the index; constructs no writer of its own."""
 
     def __init__(
@@ -226,7 +225,7 @@ class WriterSession:
         world_config: WorldConfig | None = None,
     ) -> None:
         self.session_id = require_hex(session_id, 32, "session id")
-        self.actor = f"session:{self.session_id}"  # derived, never supplied (J4)
+        self.actor = f"session:{self.session_id}"  # derived, never supplied
         self.world_id = require_hex(world_id, 32, "world id")
         if world_config is not None:
             if type(world_config) is not WorldConfig:
@@ -253,7 +252,7 @@ class WriterSession:
             raise ValueError(f"an initial selection is a project address pinned to its revision, not {project!r}")
         self._coordination_resolver = coordination_resolver
         # Re-entrant: a scoped act holds this lock for its whole duration and the
-        # helpers it calls take it again (§13 item 18). `claim_invocation` and
+        # helpers it calls take it again. `claim_invocation` and
         # `close_invocation` are unchanged by that — they still take it once.
         self._lock = threading.RLock()
         self._index: dict[str, _Invocation] = {}
@@ -330,7 +329,7 @@ class WriterSession:
                 return ClaimMismatch()
             if entry.outcome is None:
                 return ClaimOpen()
-            return ClaimDone(deepcopy(entry.outcome))  # the index is never handed out (§3.3)
+            return ClaimDone(deepcopy(entry.outcome))  # the index is never handed out
 
     def close_invocation(self, invocation_id: str, outcome: Mapping[str, object]) -> None:
         invocation = require_invocation_id(invocation_id)
@@ -350,7 +349,7 @@ class WriterSession:
             entry = self._index.get(invocation)
             return () if entry is None else tuple(entry.acts)
 
-    # --- selection (selection design §4.2) -----------------------------------------------
+    # --- selection -----------------------------------------------
     def select_project(self, invocation_id: str, address: CoordinationAddress | None) -> CoordinationAddress | None:
         """Ledger the current invocation's one selection change and return it
         pinned, or None for a clear. The index learns it only after the append
@@ -379,7 +378,7 @@ class WriterSession:
             found = self._index.get(invocation)
             return None if found is None else found.selection
 
-    # --- sharing (sharing design §4.3) ---------------------------------------------------
+    # --- sharing ---------------------------------------------------
     def _record_sharing(
         self, invocation: str, evidence: SharingEvidence, *, transition: str, verdict: str
     ) -> SharingLine:
@@ -452,8 +451,7 @@ class WriterSession:
         already holds this lock and checked currency under it, so the
         re-check below is an invariant, not a refusal: an operation whose
         registration is durable can no longer be refused, and only a crash or a
-        ledger I/O failure — both terminal — may leave it unledgered (§5,
-        §13 item 18)."""
+        ledger I/O failure — both terminal — may leave it unledgered."""
         with self._lock:
             self._require_live()
             if self._current != invocation:
@@ -493,7 +491,7 @@ _NO_WORLD = "this session was opened with no world configuration; the admit and 
 
 
 def _require_door_arguments(root: Path, observers: ObserverSet, evidence: SharingEvidence) -> None:
-    """A sharing door's argument types, refused before any check (sharing design §4.4)."""
+    """A sharing door's argument types, refused before any check."""
     from beliefs.world.verify import ObserverSet
 
     if not isinstance(root, Path):
@@ -506,15 +504,15 @@ def _require_door_arguments(root: Path, observers: ObserverSet, evidence: Sharin
 
 def _terminal_status(statuses: Sequence[StatusRecord], corpus_id: str) -> str | None:
     """A corpus's terminal status by any actor, or `None`: a world holds at
-    most one (retirement door design §3 decision 4)."""
+    most one."""
     return next((record.status for record in statuses if record.corpus_id == corpus_id), None)
 
 
 class ScopedWriter:
-    """The facade a handler holds (design §5): nine corpus-write methods, the
-    two routes of the session-routes design §3.3, the sharing record and its
-    three act doors (the retirement door per the retirement door design §4),
-    the publish and resume doors (sharing design §4.4), one invocation."""
+    """The facade a handler holds: nine corpus-write methods, the
+    two session routes, the sharing record and its
+    three act doors (including the retirement door),
+    the publish and resume doors, one invocation."""
 
     __slots__ = ("_authority", "_invocation", "_session", "_writer")
 
@@ -556,9 +554,9 @@ class ScopedWriter:
         self, root: Path, subject: CorpusSubject, observers: ObserverSet, *, evidence: SharingEvidence
     ) -> SharingLine:
         """Restore a fetched copy at `root` under this invocation and ledger
-        `fetched` with the report's outcome as the verdict (sharing design §4.4).
+        `fetched` with the report's outcome as the verdict.
         The copy's lifecycle state, not the line, says whether it is serviceable.
-        The spec's parameter name `copy` is a byte-mutation primitive's name,
+        The parameter would naturally be named `copy`, a byte-mutation primitive's name,
         which the capability boundary's raw-write scan refuses in this module.
 
         The session lock is held from the currency check across the act and the
@@ -584,10 +582,10 @@ class ScopedWriter:
     def admit_publication(self, root: Path, observers: ObserverSet, *, evidence: SharingEvidence) -> SharingLine:
         """Admit a publication's root into the session's world as a replica of
         itself, under this invocation's authority, and ledger `admitted` with the
-        arrival report's outcome as the verdict (sharing design §4.4). A refusal
+        arrival report's outcome as the verdict. A refusal
         from the layout check or from verified arrival propagates and appends
         nothing. The world is opened per call from the session's configuration,
-        so the admission record carries the session actor (decision 6)."""
+        so the admission record carries the session actor."""
         from beliefs.publication_arrival import admit_publication as admit
 
         _require_door_arguments(root, observers, evidence)
@@ -603,7 +601,7 @@ class ScopedWriter:
 
     def retire(self, root: Path, observers: ObserverSet, *, evidence: SharingEvidence) -> SharingLine:
         """Retire an adopted publication in the session's world under this
-        invocation's authority and ledger `retired` (retirement door design §3).
+        invocation's authority and ledger `retired`.
         The evidence binds to `root` as `admit_publication` binds it, and only a
         corpus admitted as a replica of itself is the sharing class's to retire.
 
@@ -659,13 +657,12 @@ class ScopedWriter:
         transport: Transport | None = None,
         own_corpora: frozenset[str] = frozenset(),
     ) -> PublishOutcome:
-        """Run the publish act under this invocation (sharing design §2
-        decision 7, §4.4): the scoped writer, the session's coordination
+        """Run the publish act under this invocation: the scoped writer, the session's coordination
         resolver, a world opened under the scoped authority, this invocation's
         ledgered port, the ledger's UTC clock and the production moment seam.
         The binding and its report, or the refusal report, reach the ledger as
         `act` lines through the port. Step 0's intent is appended under
-        `_closing_hold` (decision 9); no lock of this facade is held across the
+        `_closing_hold`; no lock of this facade is held across the
         act's other steps, which a remote publish spends uploading."""
         from beliefs.publish import publish as run_publish
 
@@ -695,8 +692,8 @@ class ScopedWriter:
         transport: Transport | None = None,
     ) -> PublishOutcome:
         """Resume a publish attempt under this invocation, with the parts
-        `publish` takes (sharing design §2 decision 7). The act still requires
-        the intent's actor (decision 12), which is this session's."""
+        `publish` takes. The act still requires
+        the intent's actor, which is this session's."""
         from beliefs.publish import resume_publish as run_resume
 
         resolver, _ = self._publishing()
@@ -713,7 +710,7 @@ class ScopedWriter:
         )
 
     def _publishing(self) -> tuple[CoordinationResolver, World]:
-        """The publish doors' entry (sharing design §2 decision 7): under the
+        """The publish doors' entry: under the
         session lock, liveness and currency, then the publication permit, then
         the resolver and the world configuration, and only then the world open,
         which resolves recovery on the world root. A stale, closed or
@@ -775,10 +772,10 @@ class ScopedWriter:
         seam: UrlSeam | None = None,
         standing: Mapping[str, tuple[HoldingsObservation, ...]] | None = None,
     ) -> AcquisitionOutcome:
-        """This invocation's acquisition route (url-retrieval design §8): the
+        """This invocation's acquisition route: the
         holdings context supplies the ledgered store seam, `operation_port()` the
         ledgered operation port, and no lock of this facade is held across the
-        request (decision 15)."""
+        request."""
         from beliefs.holdings.acquire import acquire as run_acquisition
         from beliefs.holdings.transport import url_seam
 
@@ -795,10 +792,10 @@ class ScopedWriter:
         )
 
     def audit(self, *, instrument: str, evidence: DerivationEvidence) -> AuditOutcome:
-        """This invocation's audit route (act-report-remainder design §5): the
+        """This invocation's audit route: the
         ledgered operation port, and this session's lock taken before the root
         lock across the whole operation — the evaluator reads the writer's own
-        index and does no I/O outside the root (decision 4)."""
+        index and does no I/O outside the root."""
         from beliefs.audit_operation import audit as run_audit
 
         return run_audit(
@@ -817,10 +814,10 @@ class ScopedWriter:
         instrument: str,
         standing: Mapping[str, tuple[HoldingsObservation, ...]] | None = None,
     ) -> RecheckOutcome:
-        """This invocation's re-check route (act-report-remainder design §5):
+        """This invocation's re-check route:
         the holdings context supplies the ledgered store seam, `operation_port()`
         the ledgered operation port, and no lock of this facade is held across
-        an act (decision 6)."""
+        an act."""
         from beliefs.holdings.recheck import recheck_locations
 
         ctx = self.holdings_context(instrument=instrument)
@@ -836,8 +833,8 @@ class ScopedWriter:
     @contextmanager
     def _closing_hold(self) -> Iterator[None]:
         """The acquisition's close under this session's lock, taken before the
-        root lock exactly as `_act` takes it, currency re-checked on entry (§13
-        item 18). The ledgered port's `execute_fulfilling` re-enters the same
+        root lock exactly as `_act` takes it, currency re-checked on entry. The ledgered port's
+        `execute_fulfilling` re-enters the same
         `RLock` inside."""
         with self._session._lock:
             self._session._require_current(self._invocation)
@@ -853,8 +850,7 @@ class ScopedWriter:
         lock, so the two never deadlock. Holding the session lock only for the
         currency check would leave a window in which another thread closes or
         re-claims between the durable commit and the ledger, producing a
-        committed registration with no `act` line in a session that stays live
-        (§13 item 18).
+        committed registration with no `act` line in a session that stays live.
         """
         with self._session._lock, _operation_lock_for(self._writer.root):
             self._session._require_current(self._invocation)

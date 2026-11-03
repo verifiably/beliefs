@@ -1,15 +1,15 @@
-"""The analysis spec is the pre-registration (computation §3), frozen as a value.
+"""The analysis spec is the pre-registration, frozen as a value.
 
-Carries R20's discriminated union — incoherent contract/plan combinations are
-unspellable by type, not caught by a validator — R7's no-target refusal, R8's
-successor mint, and G4's successor admissibility over the slice's value state
-(cut 3 §4.1: activeness and reference are over the recorded-failure set the
-boundary holds, and a discarded failure is undetectable — kernel G4's bound).
+Carries a discriminated union — incoherent contract/plan combinations are
+unspellable by type, not caught by a validator — the no-target refusal, the
+successor mint, and successor admissibility over this value state (activeness
+and reference are over the recorded-failure set the boundary holds, and a
+discarded failure is undetectable).
 
 Rule identities bind to behaviour through held, fixture-carrying
-implementations supplied to the freeze (computation §3.1b). The registry/
-resolver route — and R22's unresolvable-rule refusal clause — is the rules
-store's, excluded exactly as cut 2's P1 cell ruled (cut 3 §4.2, R22 row).
+implementations supplied to the freeze. The registry/
+resolver route — and the unresolvable-rule refusal clause — is the rules
+store's, and is not handled here.
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ SPEC_INPUT_ROLES = ("observes", "reads")
 
 
 def derive_seed(stream_root: int, semantic_job_key: str, stream_key: str) -> int:
-    """`seed = f(stream_root, semantic_job_key, stream_key)` (computation §6.2),
+    """`seed = f(stream_root, semantic_job_key, stream_key)`,
     the v1 derivation rule: deterministic, keyed by job AND stream."""
     material = f"{stream_root}\n{semantic_job_key}\n{stream_key}".encode()
     return int.from_bytes(sha256(material).digest()[:8], "big")
@@ -92,8 +92,8 @@ class SeedPlan:
     streams: tuple[str, ...]
     """Logical stream identities — analytical roles (`model-initialization`),
     never library or workflow-rule names. No field for families exists here:
-    the per-family declaration is the workflow-definition snapshot's (§3.1a),
-    which is what keeps `independent-implementation` reachable (R20 neg. (d))."""
+    the per-family declaration is the workflow-definition snapshot's,
+    which is what keeps `independent-implementation` reachable."""
     roots: Mapping[str, int]
     stream_roots: Mapping[str, str]
 
@@ -159,9 +159,9 @@ NondeterminismContract = Deterministic | Seeded | StochasticUnseeded
 @final
 @dataclass(frozen=True)
 class RealizedSeeds:
-    """Occurrence member: `[semantic job key][stream key] -> seed` (§6.2).
+    """Occurrence member: `[semantic job key][stream key] -> seed`.
     Nested by construction — a flat, job-keyed record has one slot for two
-    streams and cannot represent a two-stream plan (R20 negative (b))."""
+    streams and cannot represent a two-stream plan."""
 
     seeds: Mapping[str, Mapping[str, int]]
 
@@ -170,7 +170,7 @@ class RealizedSeeds:
             if not isinstance(per_stream, Mapping):
                 raise MalformedRecord(
                     f"realized seeds are keyed [job][stream]; {job_key!r} carries a bare value — "
-                    "one slot cannot hold two streams (computation §6.2)"
+                    "one slot cannot hold two streams"
                 )
         object.__setattr__(
             self, "seeds", MappingProxyType({k: MappingProxyType(dict(v)) for k, v in self.seeds.items()})
@@ -189,7 +189,7 @@ class ExclusionCertification:
 
     def __post_init__(self) -> None:
         if not self.rationale or not self.attribution:
-            raise MalformedSpec("an exclusion certification carries a rationale and an attribution (§5.2)")
+            raise MalformedSpec("an exclusion certification carries a rationale and an attribution")
 
 
 @sealed
@@ -204,7 +204,7 @@ class SpecInput:
         if self.role not in SPEC_INPUT_ROLES:
             raise MalformedSpec(f"input role {self.role!r} is outside the closed set {SPEC_INPUT_ROLES}")
         if self.exclusion is not None and self.role != "reads":
-            raise MalformedSpec("an exclusion certification is inline on a `reads` entry only (§5.2)")
+            raise MalformedSpec("an exclusion certification is inline on a `reads` entry only")
 
 
 @sealed
@@ -258,7 +258,7 @@ def bind_rules(named: tuple[str, ...], held: Mapping[str, HeldImplementation]) -
         if rule not in held:
             raise RuleUnbound(f"{rule!r} names no held implementation — the registry route is the rules store's")
         if not implementation_conforms(held[rule]):
-            raise RuleUnbound(f"{rule!r}: the held implementation fails its fixtures and is not that rule (§3.1b)")
+            raise RuleUnbound(f"{rule!r}: the held implementation fails its fixtures and is not that rule")
         bound[rule] = held[rule].identity
     return tuple(sorted(bound.items()))
 
@@ -379,11 +379,10 @@ def admit_successor(
     recorded_failures: frozenset[str],
     unfinished_attempts: frozenset[str],
 ) -> SuccessorAdmitted | SuccessorRefused:
-    """G4 over the slice's value state — the two blocker classes the boundary
-    derives (successor-admission design §3). The first check is byte-identical
-    to cut 3's line, so a spec in both classes refuses with the recorded-failure
-    reason by statement order, never by set iteration. A failure absent from
-    both sets never happened: undetectable."""
+    """Successor admissibility over the value state — the two blocker classes the
+    boundary derives. The first check comes first, so a spec in both classes
+    refuses with the recorded-failure reason by statement order, never by set
+    iteration. A failure absent from both sets never happened: undetectable."""
     if superseded.identity in recorded_failures and candidate.supersedes != superseded.identity:
         return SuccessorRefused(candidate.identity, "an unreferenced successor to a recorded failed replay")
     if superseded.identity in unfinished_attempts and candidate.supersedes != superseded.identity:
@@ -424,11 +423,11 @@ def freeze(
     draft: SpecDraft, *, held_rules: Mapping[str, HeldImplementation], supersedes: str | None = None
 ) -> FrozenSpec:
     if not draft.target:
-        raise MalformedSpec("an assessment spec targets a proposition; an empty target is not a spec (R7)")
+        raise MalformedSpec("an assessment spec targets a proposition; an empty target is not a spec")
     if isinstance(draft.nondeterminism, StochasticUnseeded) and draft.equivalence_rule in BITWISE_EQUIVALENCE_RULES:
         raise UnfreezableSpec(
-            "stochastic-unseeded cannot support a bitwise equivalence rule — the §1.2 contradiction, "
-            "caught at freeze because both halves are now in one frozen record (computation §3.1a)"
+            "stochastic-unseeded cannot support a bitwise equivalence rule — a contradiction, "
+            "caught at freeze because both halves are now in one frozen record"
         )
     rule_bindings = bind_rules((draft.interpretation_rule, draft.equivalence_rule), held_rules)
     identity = v1.digest(SPEC_DOMAIN, _facet_projection(draft, rule_bindings, supersedes))
@@ -438,7 +437,7 @@ def freeze(
 
 def frozen_projection(spec: FrozenSpec) -> dict[str, object]:
     """The mapping `SPEC_DOMAIN` digests for a frozen spec — what a stored
-    `analysis-spec` record carries as canonical text (design §7)."""
+    `analysis-spec` record carries as canonical text."""
     if type(spec) is not FrozenSpec:
         raise MalformedRecord("frozen_projection requires a FrozenSpec")
     return _facet_projection(spec, spec.rule_bindings, spec.supersedes)
@@ -518,16 +517,15 @@ def _restore_nondeterminism(value: object, where: str) -> NondeterminismContract
 
 
 def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> FrozenSpec:
-    """The third mint: a frozen spec from its stored canonical projection
-    (design §7). Refuses text that is not canonical, a mapping that is not
-    exactly the frozen members, a digest that is not `identity`, any member of
+    """The third mint: a frozen spec from its stored canonical projection. Refuses text that is not
+    canonical, a mapping that is not exactly the frozen members, a digest that is not `identity`, any member of
     the wrong type — nothing is coerced — and the pair `freeze` refuses, so a
     stored spec is exactly one `freeze` produced.
 
     A projection with no `estimand_grammar` member is refused by name
     (`PreGrammarSpec`), never coerced: it was frozen before
     `science.estimand.v1`, and its `estimand`/`applicability` are prose, not
-    the typed members this reader restores (estimand-typing decision 10)."""
+    the typed members this reader restores."""
     where = f"analysis-spec {identity[:12]}"
     try:
         mapping = v1.decode(projection)
@@ -536,7 +534,7 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
     if isinstance(mapping, dict) and "estimand_grammar" not in mapping:
         raise PreGrammarSpec(
             f"{where}: pre-grammar spec — frozen before {ESTIMAND_GRAMMAR}, its estimand and applicability are prose. "
-            "Refused, never coerced: a corpus holding one was not recreated (estimand-typing decision 10)."
+            "Refused, never coerced: a corpus holding one was not recreated."
         )
     if not isinstance(mapping, dict) or not _FROZEN_MEMBERS <= set(mapping) <= _FROZEN_MEMBERS | {"supersedes"}:
         raise MalformedRecord(f"{where}: the projection carries exactly the frozen members")
@@ -554,7 +552,7 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
         raise MalformedRecord(f"{where}: the typed members do not restore: {refused}") from refused
     text = {name: _text(mapping, name, where) for name in _TEXT_MEMBERS}
     if not text["target"]:
-        raise MalformedRecord(f"{where}: an assessment spec targets a proposition; an empty target is not a spec (R7)")
+        raise MalformedRecord(f"{where}: an assessment spec targets a proposition; an empty target is not a spec")
     if not isinstance(mapping["input_roles"], list):
         raise MalformedRecord(f"{where}: input_roles is a list")
     if not isinstance(mapping["parameters"], dict) or any(type(k) is not str for k in mapping["parameters"]):
@@ -566,7 +564,7 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
         raise MalformedRecord(f"{where}: rule bindings are string pairs")
     nondeterminism = _restore_nondeterminism(mapping["nondeterminism"], where)
     if isinstance(nondeterminism, StochasticUnseeded) and text["equivalence_rule"] in BITWISE_EQUIVALENCE_RULES:
-        raise UnfreezableSpec("stochastic-unseeded cannot support a bitwise equivalence rule (computation §3.1a)")
+        raise UnfreezableSpec("stochastic-unseeded cannot support a bitwise equivalence rule")
     supersedes = mapping.get("supersedes")
     if supersedes is not None and type(supersedes) is not str:
         raise MalformedRecord(f"{where}: supersedes is a string")
@@ -599,7 +597,7 @@ def revise(
     """The only edit path. Always mints with `supersedes=original.identity`,
     so the successor to a recorded failed replay carries its reference by
     construction; `admit_successor` is the value-state check the boundary
-    applies to specs it did not mint (G4)."""
+    applies to specs it did not mint."""
     draft = SpecDraft(
         target=cast(str, edits.get("target", original.target)),
         estimand=cast(Estimand, edits.get("estimand", original.estimand)),

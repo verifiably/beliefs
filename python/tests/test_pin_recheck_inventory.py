@@ -1,4 +1,4 @@
-"""F5: effect guards precede effects under their owner lock, including inherited locks."""
+"""Effect guards precede effects under their owner lock, including inherited locks."""
 
 import ast
 from pathlib import Path
@@ -6,7 +6,7 @@ from typing import TypeGuard
 
 import beliefs
 
-# Inspect the imported package so a sabotaged package copy is actually judged.
+# Inspect the imported package so a patched package copy is actually judged.
 SRC = Path(beliefs.__file__).resolve().parent
 MODULES = ("corpus.py", "relocation.py", "root.py", "holdings/boundary.py")
 EFFECTS = {

@@ -1,4 +1,4 @@
-"""The confined boundary policy's machinery (run-confinement design §4.3–§6).
+"""The confined boundary policy's machinery.
 
 The snapshot and its verification, the mount plan, the bubblewrap launch gated
 by the held probe, the boundary-side observation of the child's namespaces and
@@ -86,7 +86,7 @@ _NETWORK_UNREACHABLE = ("EAFNOSUPPORT", "ENETUNREACH", "EADDRNOTAVAIL")
 
 
 def sandbox_environment(trace_file: str) -> tuple[tuple[str, str], ...]:
-    """The explicit environment, exactly (design §5.4). Sorted by name."""
+    """The explicit environment, exactly. Sorted by name."""
     return (
         ("HOME", f"{OUTPUT_ROOT}/{HOME_DIR}"),
         ("LC_CTYPE", "C.UTF-8"),
@@ -146,8 +146,8 @@ def _within(root: Path, sandbox: str) -> Path:
 
 def verify_snapshot(root: Path, captured: CapturedEnvironment) -> None:
     """Every manifested row by digest, every rendered row by content, and
-    nothing else (design §4.3). A read that fails is a mismatch — no raw
-    OSError leaves this module (design §8)."""
+    nothing else. A read that fails is a mismatch — no raw
+    OSError leaves this module."""
     try:
         _verify_rows(root, captured)
     except OSError as error:
@@ -184,7 +184,7 @@ def materialize_snapshot(captured: CapturedEnvironment, environments: Path) -> P
     """Get-or-build, keyed by environment identity; atomic publication with the
     loser rule; an existing mismatching snapshot refuses and is never rebuilt.
     A copy, link, write or directory operation that fails is SnapshotMismatch
-    — no raw OSError leaves this module (design §8)."""
+    — no raw OSError leaves this module."""
     try:
         return _materialize(captured, environments)
     except OSError as error:
@@ -227,7 +227,7 @@ def _materialize(captured: CapturedEnvironment, environments: Path) -> Path:
     return target
 
 
-# --- integrity: two observations (design §4.4) ---------------------------------
+# --- integrity: two observations ---------------------------------
 def bundle_identity(bundle: Path) -> str:
     """`capture_bundle`'s fold, recomputed over the copied tree. A read that
     fails is ClosureMutated: the observation could not be made."""
@@ -277,8 +277,8 @@ def check_closure_intact(
     inputs_fingerprint: str,
 ) -> None:
     """The post-exit observation: one pass each over the bundle, the snapshot
-    and the staged inputs, against what was recorded before the bind
-    (design §4.4). Runs before the trace, the seeds or any output is read."""
+    and the staged inputs, against what was recorded before the bind. Runs
+    before the trace, the seeds or any output is read."""
     check_bundle_intact(bundle, code_identity)
     try:
         verify_snapshot(snapshot, captured)
@@ -400,7 +400,7 @@ def _unescape(field: str) -> str:
 def canonical_mounts(mountinfo: str, plan: MountPlan) -> tuple[tuple[str, str, str], ...]:
     """Every mount, one row each — a stacked or duplicate mount stays a row of
     its own — as (mountpoint, planned role or UNPLANNED, ro|rw), sorted. This
-    is what the receipt's instance carries (design §6.1 step 3)."""
+    is what the receipt's instance carries."""
     observed: list[tuple[str, str, str]] = []
     for line in mountinfo.splitlines():
         fields = line.split()
@@ -608,11 +608,11 @@ def launch_confined(
 ) -> Launch:
     """Start bubblewrap with the held probe as its command; read the child pid;
     wait for the probe's report and READY; inspect that child's namespaces and
-    mounts from this process's /proc; judge; then GO or close (design §6.1).
+    mounts from this process's /proc; judge; then GO or close.
 
     Every failure between the start and GO — a refusal, a closed pipe,
     malformed info or report, a missing key, an unstartable process — is
-    `ConfinementNotEstablished` (design §8: post-intent, never the pre-intent
+    `ConfinementNotEstablished` (post-intent, never the pre-intent
     `ConfinementUnavailable`); the child is terminated and reaped and every
     descriptor closed on every path."""
     bwrap = shutil.which(_BWRAP)

@@ -1,5 +1,5 @@
-"""Cut 12's durable arms that need a live boundary, a chain mutation, or a
-second writer: G4u11 (snapshot coherence), R12u1–u2, L7u14."""
+"""Durable tests that need a live boundary, a chain mutation, or a
+second writer: snapshot coherence, successor admission and the excised-entry defect."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ CHAIN_LEAF = ".#~chain"
 CORPUS_ID = "a" * 32
 
 
-def test_u11_a_writer_arriving_during_the_act_waits_and_is_not_consulted(certified_work) -> None:
+def test_a_writer_arriving_during_the_act_waits_and_is_not_consulted(certified_work) -> None:
     """The writer starts only once the act holds the root's operation lock —
     the seam's `inspect_registered` runs inside that hold, and the interposed
     seam starts the writer there. The writer queues behind the act (the lock
@@ -74,7 +74,7 @@ def test_u11_a_writer_arriving_during_the_act_waits_and_is_not_consulted(certifi
     assert isinstance(admit(root, unreferenced, original), SuccessorRefused)
 
 
-def test_u14_a_kill_between_append_and_execution_blocks_the_successor(certified_work) -> None:
+def test_a_kill_between_append_and_execution_blocks_the_successor(certified_work) -> None:
     # The port seam is the kill point: the intent is durable, no member act ran.
     root, port = corpus(certified_work, "kill")
     original, unreferenced, referencing = specs()
@@ -93,7 +93,7 @@ def _leaf(root, digest: str):
     return root / CHAIN_LEAF / digest
 
 
-def test_r12u1_an_excised_intent_entry_reads_malformed_and_the_act_refuses(certified_work) -> None:
+def test_an_excised_intent_entry_reads_malformed_and_the_act_refuses(certified_work) -> None:
     root, port = corpus(certified_work, "excised")
     original, unreferenced, _ = specs()
     intent = append_assessment_intent(port, original.identity)
@@ -107,7 +107,7 @@ def test_r12u1_an_excised_intent_entry_reads_malformed_and_the_act_refuses(certi
     _leaf(root, intent).unlink()
     view = seam().inspect_registered(root)
     assert type(view) is MalformedView, view
-    # Cut 12 §5 item 5: the defect names the excised entry's successor — the
+    # The defect names the excised entry's successor — the
     # registration whose predecessor is now missing — and its class.
     assert (view.defect.kind, view.defect.subject) == ("missing-predecessor", successor)
     with pytest.raises(AdmissionEvidenceRefused) as refused:
@@ -115,7 +115,7 @@ def test_r12u1_an_excised_intent_entry_reads_malformed_and_the_act_refuses(certi
     assert refused.value.reason == "chain not well-formed"
 
 
-def test_r12u2_a_truncated_chain_reads_refuted_under_an_anchor_and_the_act_admits(certified_work) -> None:
+def test_a_truncated_chain_reads_refuted_under_an_anchor_and_the_act_admits(certified_work) -> None:
     root, port = corpus(certified_work, "truncated")
     original, unreferenced, _ = specs()
     intent = append_assessment_intent(port, original.identity)

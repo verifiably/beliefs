@@ -1,9 +1,9 @@
-"""The acquisition operation (url-retrieval design §6).
+"""The acquisition operation.
 
 One operation intent, then per resource a URL look and an optional managed
 materialization, then one closing transaction carrying the dataset and the
-act-report. The cooperative stop (decision 5) skips every resource after the
-first that did not complete; a stop forbids the mint (decision 10).
+act-report. The cooperative stop skips every resource after the
+first that did not complete; a stop forbids the mint.
 """
 
 from __future__ import annotations
@@ -153,11 +153,11 @@ def acquire(
 ) -> AcquisitionOutcome:
     """`hold` is the caller's outer lock for the close — the session route passes
     the one `ScopedWriter._act` takes first — entered before the root lock and
-    never around a request (decision 15; the session's session-then-root order)."""
+    never around a request (the session's session-then-root order)."""
     heads: dict[str, tuple[HoldingsObservation, ...]] = {} if standing is None else dict(standing)
     if type(request) is not AcquisitionRequest:
         raise MalformedRecord("acquire takes an AcquisitionRequest")
-    # 1. Checks, before any effect (spec §6 step 1).
+    # 1. Checks, before any effect.
     ctx.authority.require("holdings", ("holdings-observation",))
     ctx.authority.require("corpus-write", ("dataset", "act-report"))
     if Path(writer.root).resolve() != Path(ctx.observer_root).resolve():

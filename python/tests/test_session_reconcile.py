@@ -1,6 +1,6 @@
-"""J8 portably: every intent, chain and ledger state of design §6 over stand-in
+"""Reconciliation, portably: every intent, chain and ledger state over stand-in
 views and ledger evidence, plus one composition test that `reconcile_sessions`
-returns §6's order over a real root."""
+returns the specified order over a real root."""
 
 from __future__ import annotations
 
@@ -219,7 +219,7 @@ def test_results_are_deterministic():
 
 
 def test_an_act_naming_a_corpus_with_no_truth_is_not_unverified():
-    """§6: a malformed or absent view classifies nothing for that corpus, and a
+    """A malformed or absent view classifies nothing for that corpus, and a
     corpus `chains` does not carry is not evidence either way."""
     acts = (("A", R, I),)
     malformed = {CORPUS: MalformedView(DefectView(kind="foreign-leaf", subject="x", detail="y"))}
@@ -238,7 +238,7 @@ def test_an_act_naming_a_corpus_with_no_truth_is_not_unverified():
 
 
 def test_findings_are_ordered_by_corpus_then_position_not_grouped_by_code():
-    """§6's order: corpus id, then chain position, then code.
+    """The order: corpus id, then chain position, then code.
 
     Both halves are pinned against a sort by code: within `CORPUS` the later
     entry's `session-entry-foreign` follows the earlier entry's
@@ -258,7 +258,7 @@ def test_findings_are_ordered_by_corpus_then_position_not_grouped_by_code():
 
 
 def test_reconcile_sessions_keeps_the_reconcile_order_and_leads_with_the_unadopted_roots(certified_work):
-    """§6's order is `reconcile`'s own, not a re-sort by code: an unadopted root
+    """The order is `reconcile`'s own, not a re-sort by code: an unadopted root
     leads even though `ledger-torn-tail` sorts before `session-corpus-unadopted`."""
     root, unadopted, ops = certified_work / "corpus", certified_work / "nope", certified_work / "ops"
     init_corpus_root(root, authority=FULL)
@@ -296,7 +296,7 @@ def test_reconcile_sessions_keeps_the_reconcile_order_and_leads_with_the_unadopt
     ]
 
 
-# --- the run and holdings shapes (session-routes design §4.4) ----------------------
+# --- the run and holdings shapes ----------------------
 def run_intent(digest: str, session: str = S1) -> IntentEntryView:
     return IntentEntryView(
         digest=digest,
@@ -327,7 +327,7 @@ def test_the_decoded_holdings_intent_carries_its_actor():
     assert decoded is not None and decoded["actor"] == f"session:{S1}"
 
 
-# --- session-mounts decision 8: matching by (corpus, digest) (J15-b, J15-c) -----
+# --- matching by (corpus, digest) -----
 
 A_ID, B_ID = "a" * 32, "b" * 32
 
@@ -339,12 +339,12 @@ def _misattributed():
 
 
 def test_a_registration_in_another_corpus_than_its_act_names_is_foreign_there():
-    """J15-b: the forward direction."""
+    """The forward direction."""
     assert ("session-entry-foreign", "error", R) in _misattributed()
 
 
 def test_an_act_naming_a_corpus_that_does_not_hold_it_is_unverified():
-    """J15-c: the backward direction."""
+    """The backward direction."""
     assert ("session-act-unverified", "error", R) in _misattributed()
 
 

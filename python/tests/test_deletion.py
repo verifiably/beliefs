@@ -1,4 +1,4 @@
-"""The ordinary-write `delete` (world-changing families §3.1)."""
+"""The ordinary-write `delete`."""
 
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ def _other_node(suffix: str) -> Node:
 
 def _stored_act_report(writer: CorpusWriter) -> Node:
     """An act-report as it actually enters a corpus: `import_bundle` of a
-    foreign report (cut 16's T8 test, `test_import_bundle.py::
+    foreign report (`test_import_bundle.py::
     test_foreign_act_report_enters_inert`) — never minted locally."""
     from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
 
@@ -243,10 +243,10 @@ def test_deletion_refusals_are_write_refusals():
     assert issubclass(DeletionKindExcluded, DeletionRefused)
 
 
-# --- T8 re-read against delete -------------------------------------------------
+# --- re-read against delete -------------------------------------------------
 
 
-def test_t8_delete_refuses_an_act_report_and_mints_none(writer):
+def test_delete_refuses_an_act_report_and_mints_none(writer):
     report = _stored_act_report(writer)
     # `import_bundle` mints its own act-report for the import operation, on top
     # of the foreign report it stores — so the live count is 2, not 1. What
@@ -258,10 +258,10 @@ def test_t8_delete_refuses_an_act_report_and_mints_none(writer):
     assert sum(1 for n in writer.read_view.iter_stored() if n.kind == "act-report") == act_reports_before
 
 
-# --- C1 re-read under §2.2's narrowing ----------------------------------------
+# --- re-read under the narrowing ----------------------------------------
 
 
-def test_c1_retract_never_deletes_or_re_addresses_its_target(writer, monkeypatch):
+def test_retract_never_deletes_or_re_addresses_its_target(writer, monkeypatch):
     target = mint_eligible_assessment(writer)
     before = path_for(writer.root, target.id).read_bytes()
     calls: list[str] = []
@@ -273,7 +273,7 @@ def test_c1_retract_never_deletes_or_re_addresses_its_target(writer, monkeypatch
     assert writer.read_view.resolve(target.id) == target.id
 
 
-# --- §3.6 re-resolution after a real delete -----------------------------------
+# --- re-resolution after a real delete -----------------------------------
 
 
 def test_retract_refuses_a_target_deleted_under_it(writer, monkeypatch):
@@ -309,8 +309,8 @@ def test_supersede_refuses_a_predecessor_deleted_under_it(writer, monkeypatch):
     assert writer.read_view.resolve(successor.id) is None
 
 
-def test_e1_delete_requires_the_corpus_write_permit_on_the_resolved_kind(writer):
-    """E1 for `delete` (write-permits design §15).
+def test_delete_requires_the_corpus_write_permit_on_the_resolved_kind(writer):
+    """The write permit for `delete`.
 
     The permit is required on the **resolved** record's kind, before every
     other refusal and before any effect: the family, then the kind, then the
@@ -341,7 +341,7 @@ def test_e1_delete_requires_the_corpus_write_permit_on_the_resolved_kind(writer)
     assert not path.exists()
 
 
-def test_e1_delete_requires_before_the_excluded_kind_rule(writer):
+def test_delete_requires_before_the_excluded_kind_rule(writer):
     """The permit check precedes `_refuse_excluded_kind`, so an authority that
     may not write the kind reads `PermitExceeded`, never `DeletionKindExcluded`."""
     from test_relocation import _rebind

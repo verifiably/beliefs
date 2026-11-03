@@ -1,5 +1,5 @@
-"""J3, J6 and J11 portably: a WriterSession built from parts over the in-memory
-executor and a synthetic-digest port (design §13 item 2)."""
+"""A WriterSession built from parts over the in-memory
+executor and a synthetic-digest port."""
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ def make_session(
 
 
 def replayed(claim: Claim) -> Any:
-    """The outcome a `ClaimDone` replays, read untyped by the mutation arms."""
+    """The outcome a `ClaimDone` replays, read untyped by the replay checks."""
     assert type(claim) is ClaimDone
     return claim.outcome
 
@@ -113,7 +113,7 @@ def replayed(claim: Claim) -> Any:
 PROPOSITIONS = RequiredCapabilities.for_kinds({"proposition"}, {})
 
 
-# --- J6: the claim table ---------------------------------------------------------
+# --- the claim table ---------------------------------------------------------
 def test_the_claim_table(tmp_path):
     session, _ = make_session(tmp_path)
     assert type(session.claim_invocation("A", "mint", DIGEST)) is ClaimFresh
@@ -196,7 +196,7 @@ def test_eight_threads_claiming_one_fresh_id_under_a_lock_see_one_fresh(tmp_path
     assert results.count(ClaimFresh) == 1 and results.count(ClaimDone) == 7
 
 
-# --- J3: scoped is a real writer bound to the requirement -----------------------
+# --- scoped is a real writer bound to the requirement -----------------------
 def test_scoped_refuses_an_uncovered_requirement_before_any_writer_exists(tmp_path):
     session, ports = make_session(tmp_path, ceiling=narrowed(kinds={"source"}, families={"corpus-write"}).permit)
     with pytest.raises(PermitExceeded) as caught:
@@ -232,7 +232,7 @@ def test_scoped_type_checks_its_arguments(tmp_path):
         session.scoped(PROPOSITIONS, "not valid!")
 
 
-# --- J11: bound to one invocation -----------------------------------------------
+# --- bound to one invocation -----------------------------------------------
 def test_a_scoped_writer_acts_only_under_its_own_current_invocation(tmp_path):
     session, _ = make_session(tmp_path)
     a = session.scoped(PROPOSITIONS, "A")
@@ -258,7 +258,7 @@ def test_a_scoped_writer_acts_only_under_its_own_current_invocation(tmp_path):
 
 
 def test_the_session_lock_spans_the_act_so_no_claim_interleaves_with_a_commit(tmp_path, monkeypatch):
-    """§13 item 18: a claim arriving mid-commit waits, so the durable commit and
+    """A claim arriving mid-commit waits, so the durable commit and
     its `act` line are one step. Without the session lock held across `perform`,
     the claiming thread would finish first and leave a committed registration
     with no `act` line in a session that stays live."""
@@ -348,7 +348,7 @@ def test_the_scoped_writer_exposes_the_twenty_three_methods_the_routes_and_its_i
     }
 
 
-# --- the session's store and the facade's authority (session-routes design §3) ---
+# --- the session's store and the facade's authority ---
 def test_the_facade_exposes_the_session_actor(tmp_path):
     session, _ = make_session(tmp_path)
     session.claim_invocation("A", "mint", DIGEST)
@@ -389,7 +389,7 @@ def test_kernel_refusal_value_wraps_a_value_and_exposes_it():
     assert caught.value is value and "recipe-mismatch" in str(caught)
 
 
-# --- J9 lifecycle, portable half -----------------------------------------------------
+# --- lifecycle, portable half -----------------------------------------------------
 def test_close_is_idempotent_and_every_later_call_is_session_closed(tmp_path):
     session, _ = make_session(tmp_path)
     session.close()
@@ -437,7 +437,7 @@ def test_attended_session_refuses_an_uncompiled_profile_before_ledger_effects(tm
     assert tuple(tmp_path.rglob("*")) == before
 
 
-# --- correction-remainder slice 2: the snapshot resolver reaches the writer --------
+# --- the snapshot resolver reaches the writer --------
 #
 # `open_attended_session`'s own `writer_factory` closure passes `snapshot_resolver`
 # straight through to the `CorpusWriter` it builds; a session opened without the
@@ -528,7 +528,7 @@ def test_attended_session_without_a_snapshot_resolver_refuses_the_arm(tmp_path, 
         scoped.retract(_session_snapshot_retraction(S, scoped.actor))
 
 
-# --- selection (selection design §4.2) ------------------------------------------------
+# --- selection ------------------------------------------------
 P, Q, D, L = ("1" * 32, "2" * 32, "3" * 32, "4" * 32)
 R1, R2, R3, R4, R5 = ("5" * 32, "6" * 32, "7" * 32, "8" * 32, "9" * 32)
 
@@ -739,7 +739,7 @@ def test_every_act_is_attributed_to_the_selection_standing_when_it_ran(tmp_path,
     session.close_invocation("C", {"done": []})
     session.claim_invocation("F", "project-select", DIGEST)
     session.select_project("F", CoordinationAddress(P))
-    session.claim_invocation("G", "mint", DIGEST)  # F is abandoned; its selection still stands (decision 4)
+    session.claim_invocation("G", "mint", DIGEST)  # F is abandoned; its selection still stands
     mint("G", "p4")
     session.close_invocation("G", {"done": []})
     reader = open_ledger_reader(session.operations_root, SESSION)
@@ -751,7 +751,7 @@ def test_every_act_is_attributed_to_the_selection_standing_when_it_ran(tmp_path,
     ]
 
 
-# --- the initial selection at open (selection design §4.1) -----------------------------
+# --- the initial selection at open -----------------------------
 def _coordinated_open(tmp_path, monkeypatch, base_contract, *, coordination=True, **kwargs):
     """Open a real `open_attended_session` over a coordination-pinned root holding
     projects P@R1, D@R3 and D@R4 (divergent), with the durable seams stubbed."""
@@ -807,7 +807,7 @@ def test_an_unresolvable_initial_project_refuses_before_any_ledger_effect(
     assert not (tmp_path / "ops" / "sessions").exists()
 
 
-# --- session-mounts §3.2: the write root and the mounts (row J12) --------------
+# --- the write root and the mounts --------------
 
 V2M = compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(2))
 
@@ -832,7 +832,6 @@ def _two_typed_roots(tmp_path, monkeypatch):
 
 
 def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
-    """J16-e's check."""
     a, b, config = _two_typed_roots(tmp_path, monkeypatch)
     library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
     d = library.add(
@@ -865,7 +864,7 @@ def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
 
 
 def test_a_session_with_no_mounts_refuses_a_citation_into_another_root(tmp_path, monkeypatch):
-    """J16's negative: with `mounts=None` the session has no read mounts (decision 6), so
+    """With `mounts=None` the session has no read mounts, so
     the assessment over B's dataset and proposition refuses as a library writer does."""
     from beliefs.errors import EligibilityUnmet
 
@@ -902,7 +901,7 @@ def test_a_session_with_no_mounts_refuses_a_citation_into_another_root(tmp_path,
 
 
 def test_a_symlinked_write_root_mount_key_is_filtered_after_normalization(tmp_path, monkeypatch):
-    """J16-g's check: the alias of the write root never reaches the writer."""
+    """The alias of the write root never reaches the writer."""
     a, b, config = _two_typed_roots(tmp_path, monkeypatch)
     alias = tmp_path / "alias-a"
     alias.symlink_to(a)
@@ -1011,7 +1010,7 @@ def test_a_non_path_write_root_is_a_type_error(tmp_path, monkeypatch):
         _open(config, tmp_path, write_root=a, profile=V2M, mounts={str(a): V2M, b: V2M})  # type: ignore[dict-item]
 
 
-# --- sharing lines (sharing design §2 decisions 3, 4, 6; §4.3) ---------------------------
+# --- sharing lines ---------------------------
 SHARING = RequiredCapabilities.sharing()
 EVIDENCE = SharingEvidence(
     CORPUS, "5" * 32, "6" * 64, WORLD, f"coord:{'1' * 32}@{'2' * 32}", "provider:https://r/a", "https://r/a"

@@ -1,5 +1,5 @@
-"""Conformance cut 43 — the multi-corpus session (session-mounts design §8.2):
-J12, J14 and J15-a over real roots on the certified volume. Corpus A (the
+"""The multi-corpus session over real roots on the certified volume.
+Corpus A (the
 write root) pins base, the fixture `biology` and coordination v2; B pins base,
 the shipped `biology` and coordination v2; C pins the fixture `biology` alone,
 the mm30 shape; D shares A's profile as a read mount. Every mount is compiled
@@ -61,14 +61,14 @@ def corpora(work_directory):
     """Every case owns one directory under the certified work directory: its
     roots, their `.metadata` siblings, its worlds, links and operations roots.
     Teardown removes it whole (plan review, round 2)."""
-    base = Path(mkdtemp(prefix="cut43-", dir=work_directory)).resolve()
+    base = Path(mkdtemp(prefix="session-mounts-", dir=work_directory)).resolve()
     try:
         yield SimpleNamespace(
             base=base,
             a=_adopt(base, "a", V2_LOCAL),
             b=_adopt(base, "b", V2_SHIPPED),
             c=_adopt(base, "c", WITH_BIOLOGY),
-            d=_adopt(base, "d", V2_LOCAL),  # a read mount with A's profile: J15-a's sabotage target
+            d=_adopt(base, "d", V2_LOCAL),  # a read mount with A's profile: the mount a profile change would affect
         )
     finally:
         shutil.rmtree(base, ignore_errors=True)
@@ -126,12 +126,9 @@ def state(root: Path):
     return tree(root), tree(metadata_root_for(root))
 
 
-# --- J12 ------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("case", ["outside", "zero-roots"])
-def test_j12_a_a_write_root_outside_the_configured_roots_refuses_durably(corpora, case):
-    """J12-a: the membership check, which also refuses a configuration naming no root."""
+def test_a_write_root_outside_the_configured_roots_refuses_durably(corpora, case):
+    """The membership check, which also refuses a configuration naming no root."""
     s = corpora
     if case == "outside":
         refused_without_directory(s, (s.a, s.b), s.c, profile=WITH_BIOLOGY)
@@ -140,8 +137,8 @@ def test_j12_a_a_write_root_outside_the_configured_roots_refuses_durably(corpora
 
 
 @pytest.mark.parametrize("case", ["missing", "extra", "repeated", "unadopted", "profile"])
-def test_j12_b_a_mount_set_other_than_the_configured_roots_refuses_durably(corpora, case):
-    """J12-b: the mount set is exactly the configured roots, each once; a read mount's
+def test_a_mount_set_other_than_the_configured_roots_refuses_durably(corpora, case):
+    """The mount set is exactly the configured roots, each once; a read mount's
     manifest loads; the writer's profile is its own mount's."""
     s = corpora
     compiled = mounts_for((s.a, s.b))
@@ -162,9 +159,9 @@ def test_j12_b_a_mount_set_other_than_the_configured_roots_refuses_durably(corpo
 
 
 @pytest.mark.parametrize("case", ["a", "d", "one-root"])
-def test_j12_c_the_session_writes_the_named_root_and_only_it_durably(corpora, case):
-    """J12-c: each configured root as the write root in turn; the negative, a
-    one-root world, opens as J9's sessions do."""
+def test_the_session_writes_the_named_root_and_only_it_durably(corpora, case):
+    """Each configured root as the write root in turn; the negative, a
+    one-root world, opens as the other sessions do."""
     s = corpora
     if case == "one-root":
         session, config, ops = open_over(s, (s.a,), s.a)
@@ -190,11 +187,8 @@ def test_j12_c_the_session_writes_the_named_root_and_only_it_durably(corpora, ca
     session.close()
 
 
-# --- J14 ------------------------------------------------------------------------
-
-
-def test_j14_a_coordination_resolves_over_every_mount_durably(corpora):
-    """J14-a: a project minted in B is the initial selection of a session writing
+def test_coordination_resolves_over_every_mount_durably(corpora):
+    """A project minted in B is the initial selection of a session writing
     A; its revision lands in A and resolves; a second tip in B makes it divergent;
     without mounts, coordination is unavailable."""
     s = corpora
@@ -228,11 +222,8 @@ def test_j14_a_coordination_resolves_over_every_mount_durably(corpora):
     bare.close()
 
 
-# --- J15 ------------------------------------------------------------------------
-
-
-def test_j15_a_a_session_never_writes_a_read_mount_durably(corpora):
-    """J15-a: an ordinary write, a coordination mint and a revision of a read-mount
+def test_a_session_never_writes_a_read_mount_durably(corpora):
+    """An ordinary write, a coordination mint and a revision of a read-mount
     predecessor leave every read mount byte-identical, and reconciliation finds nothing."""
     s = corpora
     project = library_on(s.b, V2_SHIPPED).mint_coordination("project", content=content_for("project", name="in-b"))
@@ -255,7 +246,7 @@ def test_j15_a_a_session_never_writes_a_read_mount_durably(corpora):
 
 
 def test_the_mm30_shape_mounts_beside_a_working_corpus_durably(corpora):
-    """Decision 3: a corpus pinning no coordination contract is mounted, and contributes nothing to resolution."""
+    """A corpus pinning no coordination contract is mounted, and contributes nothing to resolution."""
     s = corpora
     session, _, _ = open_over(s, (s.a, s.c), s.a)
     resolver = session._coordination_resolver

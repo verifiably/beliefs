@@ -4,8 +4,8 @@
 # git opens the connection and discovers refs before running us, because it needs the
 # remote shas for our stdin. A gate long enough to idle that socket out gets it closed
 # by the far end, and git takes SIGPIPE writing the pack: the push fails, silently,
-# after the gate has been paid for. An SSH keepalive on the host prevents it (design
-# §4.6). Refusing here costs nothing; discovering it after the gate costs the gate.
+# after the gate has been paid for. An SSH keepalive on the host prevents it (ops
+# test-ci-audit design §4.6). Refusing here costs nothing; discovering it after the gate costs the gate.
 # Which gate: the shortened one (hygiene, code checks and the fixed push set) only when
 # the push goes to the remote CI watches (ci_remote) and CI runs the full suite for every
 # ref in it (ci_suite_refs); otherwise the full gate. Each recipe runs hygiene, then its

@@ -1,5 +1,5 @@
-"""M1 — every read that crosses the instrumented resolver is inside the
-declared closure (world-changing families §6.3).
+"""Every read that crosses the instrumented resolver is inside the
+declared closure.
 
 One corpus, seeded by the raw-write fixture act and read back through a fresh
 facade, exercises **every** corpus-read kind the resolver has: two assessments
@@ -7,7 +7,7 @@ on the proposition over two runs, each run observing its own pinned dataset,
 one clean-environment passing verification each, and the proposition node
 carrying a full claim facet. Beside them sits an **unrelated** proposition
 with its own assessment, run and verification — the pool the resolver must not
-read, and the material the sabotage arm reaches for.
+read, and the material a deliberately wrong read reaches for.
 """
 
 from __future__ import annotations
@@ -126,8 +126,8 @@ def _seed(
 
     A path takes the raw-write fixture act, which is what the divergent
     `assesses` edge needs and what these portable rows have always used. An
-    open `CorpusWriter` — Task 8's acceptance module, bound to a registered
-    root — mints the same records through `add` instead, so the durable M1 arm
+    open `CorpusWriter` — the acceptance module, bound to a registered
+    root — mints the same records through `add` instead, so the durable test
     reads bytes the certified engine committed. The two paths must stay
     interchangeable, so the writer path is offered only where the fixture asks
     for nothing a raw write alone can build."""
@@ -384,7 +384,7 @@ def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixtu
     )
 
 
-def test_m1_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_fixture):
+def test_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
 
     inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
@@ -421,10 +421,10 @@ def test_the_records_are_already_proposition_scoped(corpus_fixture):
     assert records.source_assertions == ()
 
 
-def test_m1_sabotage_shape_an_unrelated_verification_read_fails_containment(corpus_fixture, monkeypatch):
+def test_an_unrelated_verification_read_fails_containment(corpus_fixture, monkeypatch):
     from domain_facet_fixtures import over_kwargs
 
-    """The sabotage N2 declares: `gather` reads one verification belonging to a
+    """A deliberately wrong read: `gather` reads one verification belonging to a
     different proposition; the digest is unchanged and the check fails."""
     from beliefs import evaluation
 
@@ -460,7 +460,7 @@ def test_a_proposition_with_no_claim_record_still_reaches_its_assessments_estima
     # The claim schema contributes nothing here (no claim resolves), but the
     # estimand walk is unconditional on that: each matched assessment still
     # carries a typed estimand under `testing/affects`, so `testing` is
-    # consulted through it alone (estimand-typing §5.4, D6's third trigger).
+    # consulted through it alone.
     from domain_facet_fixtures import over_kwargs
 
     inputs = gather(
@@ -489,7 +489,7 @@ def test_a_divergent_assesses_edge_is_selected_before_decode(divergent_fixture):
 def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
     from domain_facet_fixtures import over_kwargs
 
-    """M1's second bound, pinned rather than hidden: `run_value` hands out the
+    """The second bound, pinned rather than hidden: `run_value` hands out the
     declaration of every input role, and the resolver traces only `observes` —
     because the closure declares dataset refs only under `observes` and
     consumes no other role's declaration. Tracing one would record a read the
@@ -513,7 +513,7 @@ def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
 def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(corpus_fixture, monkeypatch):
     from domain_facet_fixtures import over_kwargs
 
-    """G3 makes the closure exist whenever a belief is produced; `NoBelief` and
+    """The closure exists whenever a belief is produced; `NoBelief` and
     `Refused` commit no input closure, so there is nothing on those arms for a
     read to be contained in. `gather` still runs — the only guard before it is
     the binding's."""
@@ -571,10 +571,10 @@ def test_the_closure_fields_are_build_closure_s_keywords_in_order():
     assert "acceptance" in {f.name for f in dataclasses.fields(EvaluationInputs)}
 
 
-from test_verify import production_pair  # noqa: F401 - the module-scoped fixture V7's arm resolves
+from test_verify import production_pair  # noqa: F401 - the module-scoped fixture the test resolves
 
 
-def test_v7_gather_never_selects_a_production_verification(production_pair, request, tmp_path):  # noqa: F811
+def test_gather_never_selects_a_production_verification(production_pair, request, tmp_path):  # noqa: F811
     from domain_facet_fixtures import over_kwargs
     from test_relocation import _writer
     from test_verify import _production_verification
@@ -597,7 +597,7 @@ def test_evaluate_over_is_the_first_projection_of_evaluate_over_traced(corpus_fi
     from beliefs.belief import Reached
     from beliefs.evaluation import evaluate_over_traced
 
-    # P1–P9 carry the proof that the first projection is the answer; this pins only that the tuple's first member is what `evaluate` returns.
+    # The other tests carry the proof that the first projection is the answer; this pins only that the tuple's first member is what `evaluate` returns.
     for fixture in (corpus_fixture, claimless_fixture):
         answer, admission = evaluate_over_traced(fixture.view, fixture.proposition, **over_kwargs(fixture.kwargs))
         assert evaluate_over(fixture.view, fixture.proposition, **over_kwargs(fixture.kwargs)) == answer

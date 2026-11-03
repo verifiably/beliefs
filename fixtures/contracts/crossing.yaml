@@ -1,5 +1,5 @@
-# A synthetic domain contract that names another contract's sorts (biology
-# pack design §4). Owned by neither implementation: both parsers read it, and
+# A synthetic domain contract that names another contract's sorts. Owned by
+# neither implementation: both parsers read it, and
 # both compiles must resolve `testing/entity` when `testing` is compiled
 # beside it and refuse when it is not.
 contract: crossing
@@ -16,7 +16,7 @@ dimensions:
 
 operators:
   # Its only route to `testing` is slot 1's argument sort: no dimension, so
-  # a walk that stops collecting sort contracts loses `testing` here (B2a).
+  # a walk that stops collecting sort contracts loses `testing` here.
   affects-local-entity:
     arity: 2
     arg_sorts: [local, testing/entity]
@@ -24,7 +24,7 @@ operators:
     layers: [causal]
     dimensions: []
   # The dimension's restriction sort crosses too, on an operator whose slots
-  # do not, so the restriction-sort route is exercised on its own (B1).
+  # do not, so the restriction-sort route is exercised on its own.
   scoped-local-local:
     arity: 2
     arg_sorts: [local, local]

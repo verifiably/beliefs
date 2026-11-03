@@ -1,6 +1,6 @@
 """View-query evaluation over the world read view.
 
-World resolution slice 4 §3. `evaluate_query` is a pure function of an open
+`evaluate_query` is a pure function of an open
 `WorldReadView` and a parsed `ViewQuery`: it opens nothing, names no
 `current`, reads no coordination record and consults no profile. It refuses
 a damaged or drifted capture at entry, locates every address the query
@@ -70,7 +70,7 @@ class Unresolved:
 @final
 @dataclass(frozen=True)
 class Selection:
-    """What a query denotes at one publication (§3.1). `complete` is derived
+    """What a query denotes at one publication. `complete` is derived
     and not a projection member: a member could disagree with the two it is
     computed from."""
 
@@ -101,14 +101,13 @@ class Selection:
 
 
 Held = Mapping[str, tuple[tuple[str, ...], Node]]
-"""Each held record by live address: its captured holders (sorted; cut 48 §5.2) and the node."""
+"""Each held record by live address: its captured holders (sorted) and the node."""
 """Live address -> (corpus_id, retained record), one enumeration of the capture."""
 
 
 class _QueryableView(Protocol):
     """What the denotation reads of a capture: a `WorldReadView` at an epoch,
-    or `live._LiveCapture` over the current state (live-query design
-    decision 9). Both satisfy it structurally; neither names it."""
+    or `live._LiveCapture` over the current state. Both satisfy it structurally; neither names it."""
 
     def _located_state(self, ref: str) -> LocatedState: ...
 
@@ -199,11 +198,11 @@ def _classify(view: _QueryableView, entry: RelationEntry) -> Unresolved:
 
 
 def evaluate_query(view: WorldReadView, query: ViewQuery) -> Selection:
-    """Denote `query` over `view` (§3.2), or refuse."""
+    """Denote `query` over `view`, or refuse."""
     if type(view) is not WorldReadView:
         raise TypeError(
             f"evaluate_query takes a WorldReadView, not {type(view).__name__}: a corpus-local selection is the "
-            "fb-2026-07-30-019 defect W7 exists to refuse"
+            "defect the world read view exists to refuse"
         )
     if not isinstance(query, ViewQuery):
         raise TypeError(f"evaluate_query takes a parsed ViewQuery, not {type(query).__name__}")
@@ -236,7 +235,7 @@ class _Denotation:
 
 
 def _denoted(view: _QueryableView, query: ViewQuery) -> _Denotation:
-    """The one denotation both entry points run (§3.2): every named address
+    """The one denotation both entry points run: every named address
     located first, then each clause the intersection of its predicates and
     the answer the union of its clauses."""
     _require_located(view, query.addresses())
@@ -266,7 +265,7 @@ def _denoted(view: _QueryableView, query: ViewQuery) -> _Denotation:
 def _require_located(view: _QueryableView, addresses: tuple[str, ...]) -> None:
     """Every address the query names resolves, or the evaluation refuses
     naming each offender of the worst state; unknown and not-present never
-    share one refusal (W6)."""
+    share one refusal."""
     unknown: list[str] = []
     not_present: list[tuple[str, str]] = []
     for address in addresses:

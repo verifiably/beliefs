@@ -1,4 +1,4 @@
-"""Cut 16's relocation arms on registered durable corpus roots."""
+"""The relocation tests on registered durable corpus roots."""
 
 from __future__ import annotations
 
@@ -88,7 +88,7 @@ def durable_factory(work_directory):
     managed: list[Path] = []
 
     def writer(label: str, pins: CorpusPins = PINS):
-        corpus_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}"
+        corpus_root = work_directory / f"relocation-{os.getpid()}-{next(_COUNTER)}-{label}"
         root.init_corpus_root(corpus_root, authority=FULL)
         profile = WITH_BIOLOGY_OTHER if pins == OTHER_PINS else WITH_BIOLOGY if pins == PINS else BASE
         assert pins == pins_for(profile)
@@ -98,7 +98,7 @@ def durable_factory(work_directory):
         return opened
 
     def world(label: str, *writers):
-        world_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}-world"
+        world_root = work_directory / f"relocation-{os.getpid()}-{next(_COUNTER)}-{label}-world"
         config = WorldConfig(world_root, f"{next(_COUNTER):032x}"[-32:], tuple(w.root for w in writers))
         root.init_world_root(config, authority=FULL)
         opened = root.open_world(config, authority=FULL)
@@ -130,7 +130,7 @@ def _with_coreference_balance(case):
         world,
         rules.RuleBundle(
             symbol="reduce_coreference",
-            fixtures=(("cut16.balance.yaml", fixture),),
+            fixtures=(("relocation.balance.yaml", fixture),),
             implementation=_COREFERENCE_SOURCE,
         ),
     )
@@ -319,7 +319,7 @@ def _produce_single_basis(
     return record, snapshot.bases[record.id]
 
 
-def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_factory):
+def test_move_changes_only_location_and_preserves_producer_semantics(durable_factory):
     writer, make_world = durable_factory
     source = writer("w5-source")
     destination = writer("w5-destination")
@@ -374,13 +374,13 @@ def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_
     assert _belief_digest(produced["before"]) == _belief_digest(produced["after"])
 
 
-def test_g3_location_is_not_a_belief_closure_member(durable_factory):
+def test_location_is_not_a_belief_closure_member(durable_factory):
     moved = _move_produced_dataset(durable_factory)
     assert moved["before"].members["address-map.yaml"] != moved["after"].members["address-map.yaml"]
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_c3_move_changes_exact_receipt_states_but_not_the_belief(durable_factory):
+def test_move_changes_exact_receipt_states_but_not_the_belief(durable_factory):
     moved = _move_produced_dataset(durable_factory)
     before = moved["before"].receipts["producer-receipt.yaml"]
     after = moved["after"].receipts["producer-receipt.yaml"]
@@ -390,7 +390,7 @@ def test_c3_move_changes_exact_receipt_states_but_not_the_belief(durable_factory
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_r23_location_and_receipt_identity_are_not_belief_inputs(durable_factory):
+def test_location_and_receipt_identity_are_not_belief_inputs(durable_factory):
     moved = _move_produced_dataset(durable_factory)
     before = moved["before"].receipts["producer-receipt.yaml"]
     after = moved["after"].receipts["producer-receipt.yaml"]
@@ -401,7 +401,7 @@ def test_r23_location_and_receipt_identity_are_not_belief_inputs(durable_factory
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_w16_consolidates_one_address_without_asserting_identity(durable_factory, tmp_path):
+def test_consolidates_one_address_without_asserting_identity(durable_factory, tmp_path):
     writer, make_world = durable_factory
     keep_writer = writer("w16-keep")
     other_writer = writer("w16-other")
@@ -546,7 +546,7 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
 
 @pytest.mark.parametrize("operation", ["move", "consolidate"])
 @pytest.mark.parametrize("fault", ["domain", "base", "missing"])
-def test_d7_each_public_relocation_refuses_contract_disagreement(durable_factory, operation: str, fault: str):
+def test_each_public_relocation_refuses_contract_disagreement(durable_factory, operation: str, fault: str):
     writer, _ = durable_factory
     from test_relocation import _node
 
@@ -584,7 +584,7 @@ def test_d7_each_public_relocation_refuses_contract_disagreement(durable_factory
         call()
 
 
-def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durable_factory):
+def test_consolidates_retraction_replicas_without_touching_the_counter(durable_factory):
     writer, _ = durable_factory
     keep = writer("m3-keep")
     other = writer("m3-other")
@@ -653,7 +653,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
     assert counter.relations[0].target == first.id
 
 
-def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_factory):
+def test_each_root_records_one_intent_before_one_qualifying_report(durable_factory):
     moved = _move_produced_dataset(durable_factory)
     writer, _ = durable_factory
     keep = writer("t2-keep")
@@ -702,7 +702,7 @@ def _store_report(corpus, report) -> None:
     corpus._publish_operation_report(report, digest)
 
 
-def test_t8_move_and_consolidate_refuse_act_reports(durable_factory):
+def test_move_and_consolidate_refuse_act_reports(durable_factory):
     writer, _ = durable_factory
     move_source = writer("t8-move-source")
     move_destination = writer("t8-move-destination")
@@ -754,10 +754,10 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
     destination.add(run)
     proposition = source.add(stored.proposition_node("claim", title="claim", claim={"operator": "affects"}))
     # The destination holds the assessment's `assesses` target as it holds its run:
-    # composite-claims U4 refuses an `assesses` edge whose target resolves nowhere on
+    # the composite-claims boundary refuses an `assesses` edge whose target resolves nowhere on
     # every write path, relocation included, so that a record arriving second cannot
     # establish an edge the boundary would have refused (`corpus.py`,
-    # `_refuse_assesses_target_kind`). The arm below is about re-resolving the
+    # `_refuse_assesses_target_kind`). The test below is about re-resolving the
     # *retraction* target after a real move, and is unchanged by it.
     destination.add(proposition)
     target = source.add(
@@ -820,7 +820,7 @@ def test_boundary_lock_deduplicates_resolved_same_root_before_refusal(durable_fa
     writer, _ = durable_factory
     corpus = writer("dedup")
     node = corpus.add(stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"}))
-    alias = tmp_path / "cut16-root-alias"
+    alias = tmp_path / "relocation-root-alias"
     alias.symlink_to(corpus.root, target_is_directory=True)
     twin = root.open_corpus(alias, authority=FULL, profile=WITH_BIOLOGY)
     events: list[str] = []

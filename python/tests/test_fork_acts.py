@@ -1,4 +1,4 @@
-"""The fork acts, the fork geneses, and the L6 lift in code (plan Task 7).
+"""The fork acts, the fork geneses, and the lift in code.
 
 Real engine on the certified volume. The parent corpora here carry stored
 nodes written through the `Corpus` handle — the fork reads the parent's
@@ -321,7 +321,7 @@ class TestTheL6Lift:
         member = next(path for path, _state in _genesis_entry(child).baseline if path.endswith(".md"))
         return child, minted.corpus_id, genesis, head, member
 
-    def test_l6_anchored_baseline_deletion_refutes(self, certified_work):
+    def test_anchored_baseline_deletion_refutes(self, certified_work):
         child, child_id, genesis, head, member = self._forked_child(certified_work)
         # The fixture's obligations: the member is baseline-covered and
         # pre-log — in the fork genesis's baseline, in no post-genesis entry.
@@ -337,7 +337,7 @@ class TestTheL6Lift:
         )
         assert report.outcome == "refuted"
 
-    def test_l6_anchor_free_rewrite_is_unresolvable(self, certified_work):
+    def test_anchor_free_rewrite_is_unresolvable(self, certified_work):
         child, child_id, _genesis, _head, member = self._forked_child(certified_work)
         copy = certified_work / "rewritten"
         shutil.copytree(child, copy, symlinks=True)

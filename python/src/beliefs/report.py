@@ -3,7 +3,7 @@
 Reports are inert by type: belief, admission, closure, and dataset do not
 import this module. Visibility is bought by pre-registration, never inferred
 from history. `_mint_report` stays private because no API accepts an authored
-report; this slice supplies only that ordinary-API bound (cut 3 §9 item 2).
+report; the ordinary API is the only bound supplied here.
 """
 
 from __future__ import annotations
@@ -73,8 +73,8 @@ __all__ = [
     "cite",
     "completion",
 ]
-# publish-act-local §7's functions, in a list of their own: cut 3's T1 and T8 arms
-# pin `"completion",\n]` as the tail of the list above
+# The publish report's functions, in a list of their own: a pinned test sabotage
+# relies on `"completion",\n]` being the tail of the list above
 __all__ += [
     "TRANSPORT_INCOMPLETE_REASONS",
     "PublicationTransportEntry",
@@ -89,8 +89,8 @@ __all__ += [
 ACT_REPORT_DOMAIN = "science.act-report.v1"
 # The kinds a domainless `OperationIntent` opens; `publish` joins the closed set
 # only beside them, because it opens through its domain intent alone
-# (publication-records design, decision 10). The literal below is cut 19 J1e's
-# pinned sabotage `before`: keep it byte-exact on one line, and derive beside it.
+# The literal below is a pinned test sabotage `before`: keep it byte-exact on
+# one line, and derive beside it.
 _DOMAINLESS_OPERATION_KINDS = (
     "acquisition",
     "audit",
@@ -499,7 +499,7 @@ class Transported:
 @final
 @dataclass(frozen=True)
 class TransportIncomplete:
-    """A terminal refusal that carries its orphan (publish-act-remote decision 4)."""
+    """A terminal refusal that carries its orphan."""
 
     corpus_id: str
     marker: str
@@ -786,12 +786,11 @@ _LIFECYCLE_SUCCESS = {
 
 
 def publish_sequence_error(sequence: object) -> str | None:
-    """`None` iff `sequence` is a publish report's sequence (publish-act-local §7,
-    publish-act-remote §5.1): a request refusal alone; a prefix of the local
+    """`None` iff `sequence` is a publish report's sequence: a request refusal alone; a prefix of the local
     lifecycle (staging, export, reveal) or of the remote one (… then transport),
     each entry but the last succeeding and the last refusing; a whole lifecycle,
-    every entry succeeding, then the binding; or the binding alone (cut 39's
-    door, called bare)."""
+    every entry succeeding, then the binding; or the binding alone (the door,
+    called bare)."""
     if type(sequence) is not tuple or not sequence or any(type(e) not in _ENTRY_KINDS for e in sequence):
         return "a publish report carries a non-empty tuple of entries"
     if len({e.subject for e in sequence}) != 1:
@@ -1000,8 +999,8 @@ def completion(intent: Intent, registrations: tuple[Registration, ...], held: Ma
     if not isinstance(held, Mapping):
         raise MalformedRecord("completion held values must be a mapping")
     if type(intent) is OperationIntent and intent.kind == "corpus-write":
-        # Writer-session design §4.1: the registration is the fulfillment;
-        # nothing about its pointer bears on the reading (§13 item 7).
+        # The registration is the fulfillment;
+        # nothing about its pointer bears on the reading.
         return CLOSED if any(r.intent_token == intent.event_token for r in registrations) else UNFINISHED
     from beliefs.intents import shapes
 

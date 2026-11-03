@@ -1,4 +1,4 @@
-"""Cut 20: the declared facet boundary over registered durable corpora."""
+"""The declared facet boundary over registered durable corpora."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def refused(writer, error, **kwargs):
     assert chain_entries(writer.root)[-1][0] == head
 
 
-def test_d2_interpretation_is_separable_from_identity_durably(corpora):
+def test_interpretation_is_separable_from_identity_durably(corpora):
     from nodes.core.projection import to_canonical_json
 
     from beliefs.dataset import dataset_address
@@ -98,7 +98,7 @@ def test_d2_interpretation_is_separable_from_identity_durably(corpora):
     assert dataset_address(stored.dataset_declaration(w.add(different))) != address
 
 
-def test_d4_one_kindspec_per_kind_compiled_from_the_profile(corpora, monkeypatch, testing_document):
+def test_one_kindspec_per_kind_compiled_from_the_profile(corpora, monkeypatch, testing_document):
     w = corpora()
     calls = []
     register = Registry.register
@@ -138,7 +138,7 @@ def test_d4_one_kindspec_per_kind_compiled_from_the_profile(corpora, monkeypatch
     assert not tuple(reopen(w.root).iter_stored())
 
 
-def test_d5_manifest_pin_projection_and_refusals(corpora, tmp_path):
+def test_manifest_pin_projection_and_refusals(corpora, tmp_path):
     import yaml
 
     from beliefs.contract.document import load_document
@@ -180,7 +180,7 @@ def test_d5_manifest_pin_projection_and_refusals(corpora, tmp_path):
             corpus_state_identity(w.root)
 
 
-def test_d8_contributions_compose_without_collision(corpora, testing_document):
+def test_contributions_compose_without_collision(corpora, testing_document):
     w = corpora()
     base = shipped_base_contract()
     for section in ("kinds", "relations"):
@@ -201,7 +201,7 @@ def test_d8_contributions_compose_without_collision(corpora, testing_document):
         compile_profile(base, [second])
 
 
-def test_d9_practices_carry_no_vocabulary(corpora, tmp_path):
+def test_practices_carry_no_vocabulary(corpora, tmp_path):
     import yaml
     from test_practice import GOOD
 
@@ -215,7 +215,7 @@ def test_d9_practices_carry_no_vocabulary(corpora, tmp_path):
     assert "practice" not in inspect.signature(compile_profile).parameters
 
 
-def test_d10_facets_stay_facets(corpora):
+def test_facets_stay_facets(corpora):
     corpora()
     for name, method in inspect.getmembers(CorpusWriter, inspect.isfunction):
         if not name.startswith("_"):
@@ -224,14 +224,14 @@ def test_d10_facets_stay_facets(corpora):
     assert set(inspect.signature(CorpusWriter.supersede).parameters) == {"self", "successor", "of"}
 
 
-def test_g5_no_divergence_kind_exists(corpora):
+def test_no_divergence_kind_exists(corpora):
     w = corpora()
     assert "divergence" not in w.profile.kinds
     with refused(w, ValidationRefused, match="kind-unknown"):
         w.add(Node(id="divergence:x", kind="divergence", title="x"))
 
 
-def test_f1_payload_contract_enforced_at_every_entry(corpora):
+def test_payload_contract_enforced_at_every_entry(corpora):
     malformed = [
         {"locator": "url:x", "attested_by": ACTOR, "extra": "x"},
         {"attested_by": ACTOR},
@@ -262,7 +262,7 @@ def test_f1_payload_contract_enforced_at_every_entry(corpora):
         assert reopen(w.root).holds(bad.id)
 
 
-def test_f2_bearer_invariant_over_resulting_state(corpora, tmp_path):
+def test_bearer_invariant_over_resulting_state(corpora, tmp_path):
     _durable_production_collision(corpora, tmp_path)
     w = corpora()
     d = w.add(acquired("d", ACTOR))
@@ -289,7 +289,7 @@ def test_f2_bearer_invariant_over_resulting_state(corpora, tmp_path):
     assert "facet-bearer-produced" in {f.code for f in corpus_check(reopen(w.root), BASE)}
 
 
-def test_f3_attestation_bound_and_preserved(corpora):
+def test_attestation_bound_and_preserved(corpora):
     w = corpora(authority=ALICE)
     with refused(w, ActorMismatch):
         w.add(acquired("wrong", "bob"))
@@ -320,7 +320,7 @@ def test_f3_attestation_bound_and_preserved(corpora):
     assert kept.facets["empirical-observation"] == own.facets["empirical-observation"]
 
 
-def test_f4_eligibility_reads_the_validity_predicate(corpora, acquisition_report):
+def test_eligibility_reads_the_validity_predicate(corpora, acquisition_report):
     from fixtures_cut3 import typed_applicability, typed_estimand
 
     for variant in ("payload", "absent", "basis", "deleted-retrieval"):
@@ -366,7 +366,7 @@ def test_f4_eligibility_reads_the_validity_predicate(corpora, acquisition_report
             assert expected in {f.code for f in corpus_check(reopen(w.root), BASE)}
 
 
-def test_f5_profile_agreement_rechecked_under_the_lock(corpora, tmp_path, monkeypatch):
+def test_profile_agreement_rechecked_under_the_lock(corpora, tmp_path, monkeypatch):
     _pin_change_after_intent(corpora, tmp_path, monkeypatch)
     w = corpora()
     stale = w.add(acquired("stale", ACTOR))
@@ -389,7 +389,7 @@ def test_f5_profile_agreement_rechecked_under_the_lock(corpora, tmp_path, monkey
     }
 
 
-def test_f6_dataset_revision_changes_interpretation_and_prose_only(corpora):
+def test_dataset_revision_changes_interpretation_and_prose_only(corpora):
     from test_dataset_revision import test_every_preserved_field_is_refused_when_moved
 
     from beliefs.errors import RevisionTargetMissing
@@ -431,7 +431,7 @@ def test_f6_dataset_revision_changes_interpretation_and_prose_only(corpora):
         )
 
 
-def test_f7_retrieval_resolves_or_refuses(corpora, acquisition_report):
+def test_retrieval_resolves_or_refuses(corpora, acquisition_report):
     w = corpora()
     with refused(w, FacetPayloadRefused, match="retrieval-unresolved"):
         w.add(acquired("d", ACTOR, retrieval="act-report:" + "0" * 64))
@@ -443,7 +443,7 @@ def test_f7_retrieval_resolves_or_refuses(corpora, acquisition_report):
     assert w.add(acquired("d", ACTOR, retrieval=report.id)).facets["empirical-observation"]["retrieval"] == report.id
 
 
-def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
+def test_every_builder_facet_is_declared(corpora, acquisition_report):
     from closure_fixtures import make_closure
     from coordination_fixtures import content_for
     from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
@@ -501,7 +501,7 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
         "holdings_observation_node": stored.holdings_observation_node(observation()),
         # A composite is built, never authored, and its node set is resolved against a
         # profile that declares the sorts — so the value comes from the fixture profile
-        # while the facet it carries is the base contract's, which is what F8 reads.
+        # while the facet it carries is the base contract's, which the facet test reads.
         "composite_node": stored.composite_node(
             build_composite(
                 WITH_BIOLOGY,
@@ -537,7 +537,7 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
         w.add(node)
 
 
-def test_d1_installed_nodes_takes_no_domain_argument(corpora):
+def test_installed_nodes_takes_no_domain_argument(corpora):
     corpora()
     for callable in (Registry.register, KindSpec, ShapeSpec):
         assert not {"domain", "contract", "vocabulary"} & inspect.signature(callable).parameters.keys()

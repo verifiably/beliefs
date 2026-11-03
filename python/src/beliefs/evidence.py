@@ -7,7 +7,7 @@ work on. A module that imported `beliefs.corpus` to name `Finding` would close
 that loop, so the reference is a type-checking one and nothing here imports the
 corpus at run time.
 
-Evidence is **supplied**, never ambient (M11's doctrine): a recomputation that
+Evidence is **supplied**, never ambient: a recomputation that
 reached for a registry of held specs would decide by process state, and two
 holders of the same bytes would reach different verdicts.
 """
@@ -34,7 +34,7 @@ __all__ = ["NO_EVIDENCE", "DerivationEvidence", "DerivationOutcome"]
 class DerivationEvidence:
     """What the caller holds: frozen specs, equivalence-rule implementations
     keyed by identity, and interpretation-rule implementations keyed by
-    identity. Supplied explicitly, never ambient (M11's doctrine)."""
+    identity. Supplied explicitly, never ambient."""
 
     specs: Mapping[str, FrozenSpec]
     held_rules: Mapping[str, EquivalenceImplementation]

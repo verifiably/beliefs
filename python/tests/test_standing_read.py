@@ -1,5 +1,5 @@
-"""Standing at the read (correction-remainder slice 1): the fold, the local
-enumeration, and — from Task 4 on — `gather`'s subtraction."""
+"""Standing at the read: the fold, the local
+enumeration, and `gather`'s subtraction."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from beliefs.errors import MalformedRecord, ManifestMissing, RetractionUnreadabl
 
 def adopted(tmp_path: Path, name: str = "corpus") -> CorpusWriter:
     """A corpus with a manifest: `ReadView.corpus_id` reads one, and
-    `test_local_standing.seed` writes none (spec §8.1)."""
+    `test_local_standing.seed` writes none."""
     writer = CorpusWriter(tmp_path / name, DefaultExecutor, authority=FULL, profile=BASE)
     writer.adopt_manifest(profile=pins_for(BASE))
     return writer
@@ -99,10 +99,10 @@ def seeded(tmp_path, *, outcomes=("supported", "refuted")):
     (`run:run-a` over `dataset:d-a`) and `assessment:a-2` (`run:run-b` over
     `dataset:d-b`), each carrying one clean-environment pass (`verification:v-1`,
     `verification:v-2`), both roots basisless so the pair certifies independent.
-    `outcomes` is the one knob this slice adds to `seed` (a second parameter,
+    `outcomes` is the one knob this fixture adds to `seed` (a second parameter,
     default `("supported", "supported")` so every existing caller is unchanged):
     with a-2 refuting, the baseline belief is 0 and subtracting a-1 moves it to
-    -1 — cut 5's C4 arithmetic through `evaluate_over` instead of a test-side
+    -1 — the arithmetic through `evaluate_over` instead of a test-side
     filter."""
     profile = profile_with()
     writer = CorpusWriter(tmp_path / "scratch", DefaultExecutor, authority=FULL, profile=profile)
@@ -195,7 +195,7 @@ class TestSubtractionAtTheRead:
 
 class TestTheAmendedG8Clause:
     """A retracted verification leaves the read set; `active` recomputes over
-    what remains (spec decision 5). Read two ways: the belief value through
+    what remains. Read two ways: the belief value through
     `evaluate_over` (a-1 admitted → 0, a-1 not admitted → -1 with a-2 refuting
     alone) and the gate itself, `admit(assessment, run, observations,
     verifications)`, which answers `Admitted` or `AdmissionRefused`."""
@@ -356,14 +356,14 @@ def test_a_found_retraction_missing_from_the_local_index_is_unreadable(tmp_path)
     assert refused.value.cause == str(refused.value.__cause__)
 
 
-# --- cut 48: the merge's self-check through the receipt path (G14-f) ---------------------------
+# --- the merge's self-check through the receipt path ---------------------------
 
 
 @pytest.mark.parametrize("order", ("original-in-alpha", "original-in-beta"))
 @pytest.mark.parametrize("conflict", ("differing-content", "differing-address", "distinct-uids", "deprecated-key"))
-def test_g14_f_merge_self_check(tmp_path, conflict, order):
+def test_merge_self_check(tmp_path, conflict, order):
     """`snapshot_standing`'s merge applies the address map's classification between
-    holders before collapsing anything (cut 48 §4.5): through `validate_receipt` the
+    holders before collapsing anything: through `validate_receipt` the
     verdict is `unresolvable`, never `retracted` and never an exception, and
     `reported_receipt` carries the conflict's finding beside it."""
     from fixtures_cut4 import raw_write

@@ -1,5 +1,5 @@
 """Verified arrival, and the refusals that stand between a replica and the
-registry (design §6.2, §6.3, §6.4).
+registry.
 
 **Arrival is the evaluator plus the one admission core.** `World.admit` refuses
 `ReplicaOf` outright — a bare admit holds no verdict to report — and
@@ -86,7 +86,7 @@ def make_world(tmp_path: Path, *corpus_roots: Path) -> registry.World:
 
 
 def unreached_registered(root: Path) -> logmodel.ChainView:
-    raise AssertionError(f"{root}: arrival inspects an arriving root **detached** (§2.1, §6.2)")
+    raise AssertionError(f"{root}: arrival inspects an arriving root **detached**")
 
 
 def unreached_head(root: Path) -> logmodel.ChainHead:
@@ -153,7 +153,7 @@ def pending_view(view: logmodel.WellFormedView) -> logmodel.WellFormedView:
     """The same chain with one registration nothing settled.
 
     Detached inspection runs no recovery, so a copied root's staged registration
-    survives into the view honestly — which is the state §6.2 refuses.
+    survives into the view honestly — which is the state arrival refuses.
     """
     return logmodel.WellFormedView(
         genesis=view.genesis,
@@ -165,7 +165,7 @@ def pending_view(view: logmodel.WellFormedView) -> logmodel.WellFormedView:
 
 def unreachable_anchor(view: logmodel.WellFormedView, corpus_id: str = ALPHA) -> verify.RegistryCarrier:
     """An anchor stating a head under this chain's genesis that its ancestry
-    cannot reach — §4.2 step 2's refutation."""
+    cannot reach — step 2's refutation."""
     return verify.RegistryCarrier.from_record(
         anchors.LogHeadRecord(
             anchors.CorpusSubject(corpus_id),
@@ -183,12 +183,12 @@ def registry_files(world: registry.World) -> dict[str, bytes]:
     return {path.name: path.read_bytes() for path in sorted(directory.iterdir())}
 
 
-# --- the four causes, ranked from the report's fields (§6.2) --------------------
+# --- the four causes, ranked from the report's fields --------------------
 
 
 class TestTheArrivalCauses:
     def test_arrival_cause_ranking_from_report_fields(self, tmp_path):
-        # D2. The cause is read off the **report**, never off which precedence
+        # The cause is read off the **report**, never off which precedence
         # step produced the outcome — and the four rank
         # `malformed > refuted > pending > chainless`.
         root = replica_root(tmp_path)
@@ -210,7 +210,7 @@ class TestTheArrivalCauses:
 
         # pending, from the **field**: with an empty observer set this chain is
         # `unresolvable` at step 2 (unanchored) and never reaches step 3, and it
-        # still refuses `pending` — §6.2's own worked example.
+        # still refuses `pending` — the documented worked example.
         with pytest.raises(ArrivalRefused) as caught:
             arrive(world, root, both)
         assert (caught.value.cause, caught.value.report.outcome) == ("pending", "unresolvable")
@@ -262,13 +262,13 @@ class TestTheArrivalCauses:
 
     def test_the_cause_vocabulary_is_closed_and_every_member_names_a_remedy(self):
         # The vocabulary is closed by the remedy table itself: a fifth cause
-        # with no remedy could not be raised, which is the point of §6.2's
+        # with no remedy could not be raised, which is the point of the
         # "the remedy named".
         assert set(science_errors._ARRIVAL_REMEDIES) == {"malformed", "refuted", "pending", "chainless"}
         assert all(remedy for remedy in science_errors._ARRIVAL_REMEDIES.values())
 
 
-# --- what is admissible (§6.2) --------------------------------------------------
+# --- what is admissible --------------------------------------------------
 
 
 class TestWhatIsAdmitted:
@@ -300,7 +300,7 @@ class TestWhatIsAdmitted:
         assert record == fixture_admission(root)
 
     def test_bare_admit_refusal_and_shared_core_identity(self, tmp_path, monkeypatch):
-        # D3. Two claims, and they are one claim: the verified route is the only
+        # Two claims, and they are one claim: the verified route is the only
         # route for a replica, and it is not a second registration path.
         root = replica_root(tmp_path)
         world = make_world(tmp_path, root)
@@ -362,7 +362,7 @@ class TestWhatIsAdmitted:
             arrive(world, root, view, observers=(corpus_anchor(view),))
 
     def test_retirement_appends_status_and_deletes_nothing(self, tmp_path):
-        # L13u4. The registry is append-only: a terminal status is a *new*
+        # The registry is append-only: a terminal status is a *new*
         # content-addressed record beside the admission, never an edit of it.
         root = replica_root(tmp_path)
         world = make_world(tmp_path, root)
@@ -379,12 +379,12 @@ class TestWhatIsAdmitted:
         assert world.status(record.corpus_id).live is False
 
 
-# --- the ordered refusals (§6.2, §6.3) ------------------------------------------
+# --- the ordered refusals ------------------------------------------
 
 
 class TestTheRefusalOrdering:
     def test_refusal_ordering_report_causes_then_mismatch_then_admission(self, tmp_path):
-        # D4. Three positions, pinned in one arm: a report cause outranks the
+        # Three positions, pinned in one test: a report cause outranks the
         # subject mismatch, the mismatch is decided **before** the transaction,
         # and only what survives both is admitted.
         root = replica_root(tmp_path, BETA)  # a manifest that is not the parent
@@ -410,9 +410,9 @@ class TestTheRefusalOrdering:
         assert record.corpus_id == ALPHA
 
     def test_fresh_manifest_over_parent_chain_refuses_subject_mismatch(self, tmp_path):
-        # L10u1. The arrival-identity arm: a copied root whose manifest was
+        # The arrival-identity case: a copied root whose manifest was
         # re-minted to a new id still carries the **parent's** chain, and the
-        # verdict on that chain is `validated`. §6.3 refuses it anyway — a
+        # verdict on that chain is `validated`. the lifecycle rule refuses it anyway — a
         # lifecycle-boundary refusal, on a validated report.
         root = replica_root(tmp_path, BETA)
         world = make_world(tmp_path, root)
@@ -447,7 +447,7 @@ class TestTheRefusalOrdering:
         #
         # The manifest names the parent, so `SubjectMismatch` has nothing to say;
         # what disagrees is `forked_from`, which a replica never carries. The
-        # chain is one genesis with the empty baseline §1.3 requires, and with no
+        # chain is one genesis with the empty baseline required, and with no
         # observer supplied the report is `unresolvable` and admissible — so the
         # act reaches the transaction's own gate and refuses there.
         root = corpus_at(tmp_path / "forked", ALPHA)
@@ -467,7 +467,7 @@ class TestTheRefusalOrdering:
     def test_the_mismatch_is_not_laundered_into_the_provenance_refusal(self, tmp_path):
         # `_validate_provenance` would also refuse this pair, one step later and
         # under a name that says "the caller composed the admission wrongly".
-        # §6.3 rules it a lifecycle refusal, so it is decided first and said as
+        # The lifecycle rule makes it a refusal, so it is decided first and said as
         # what it is.
         root = replica_root(tmp_path, BETA)
         world = make_world(tmp_path, root)
@@ -479,7 +479,7 @@ class TestTheRefusalOrdering:
             registry._validate_provenance(registry.load_manifest(root), registry.ReplicaOf(ALPHA))
 
 
-# --- the hold, its order, and R12 -----------------------------------------------
+# --- the hold and its order -----------------------------------------------
 
 
 class TestTheHold:
@@ -539,7 +539,7 @@ class TestTheHold:
         world_lock.release()
 
     def test_the_in_hold_order_is_inspection_then_the_claim_then_the_capture(self, tmp_path, monkeypatch):
-        # Task 8's pinned order, kept here for one reason: the manifest read and
+        # The pinned order, kept here for one reason: the manifest read and
         # the surface capture must stand on the same side of whatever the
         # inspection did to the root. Detached inspection runs no recovery, so
         # nothing here depends on it today — which is exactly why it is pinned
@@ -590,7 +590,7 @@ class TestTheHold:
         assert parameters["seam"].kind is inspect.Parameter.KEYWORD_ONLY
 
     def test_it_calls_no_world_method_under_the_world_lock(self, tmp_path):
-        # R12: the seam's world lock is the very non-reentrant lock
+        # The seam's world lock is the very non-reentrant lock
         # `World.registry()` takes. An act that called one would not raise — it
         # would hang — so the arm is that the act *completes*, and that the same
         # world answers afterwards.
@@ -672,11 +672,11 @@ class TestThePublicWrapper:
         assert "admit_arrival" in science_root.__all__
 
 
-# --- §6.4's engine refusal, in the arrival's context ------------------------------
+# --- the engine refusal, in the arrival's context ------------------------------
 
 
 def test_an_unrepresentable_entry_at_a_modeled_path_refuses_with_no_report(tmp_path):
-    """R11/§6.4's `PreconditionRefused` arm, reached through arrival.
+    """The `PreconditionRefused` case, reached through arrival.
 
     Not injected: a FIFO at `verification/v1.md` is a real entry outside the
     engine's closed path-state vocabulary, sitting at a path the corpus
@@ -701,14 +701,14 @@ def test_an_unrepresentable_entry_at_a_modeled_path_refuses_with_no_report(tmp_p
     assert _operation_lock_for(root)._holder is None
 
 
-# --- §2.3's pending gate, as the executor reports it ------------------------------
+# --- the pending gate, as the executor reports it ------------------------------
 
 
 def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatch):
-    """L2u5, **partial**. A root carrying an unsettled registration refuses
+    """**Partial.** A root carrying an unsettled registration refuses
     further mutation through the engine's shared pending gate.
 
-    The refusal is the **engine's** (§2.3), which is why arrival refuses
+    The refusal is the **engine's**, which is why arrival refuses
     `pending` from the report rather than adopting and then hoping: the
     registry's status vocabulary is monotone and holds nothing liftable, so the
     gate is the standing write-refusal authority. The engine's decision to raise
@@ -718,7 +718,7 @@ def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatc
     that the gate runs before any mutation, so the seam reports `applied=0`
     rather than leaving restoration unproved.
 
-    **Two of the three commands cut 8's L2 bullet enumerates are run here**, and
+    **Two of the three commands are run here**, and
     they are the two Science maps: `run_transaction` through the durable
     executor, and `append_intent` through the operation port. `root.py`'s own
     comment beside the second says the two mappings "must not drift", so they
@@ -729,7 +729,7 @@ def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatc
     existing-chain arm. Both initializers call `register_root` bare — there is
     no Science mapping there to arm, so the engine's refusal reaches the caller
     as it stands, and nothing on this side of the seam can be falsified. The
-    unit is therefore partial: cut 8 §1's rule is that any unrun arm makes the
+    test is therefore partial: any unrun case makes the
     claim partial, never full on an argument for why the arm should not count.
     """
     root = tmp_path / "corpus"

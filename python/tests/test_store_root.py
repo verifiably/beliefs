@@ -1,6 +1,6 @@
 """Store roots: the opaque identity, the init act, and the store projection.
 
-Plan Task 3 (docs/superpowers/plans/2026-08-23-root-lifecycle.md). The engine
+The engine
 is stubbed the way `test_root.py` stubs it — Science's own logic is the
 subject — except the detached genesis read, which is real: fabricated chain
 leaves are canonical engine bytes, so `store_identity` exercises

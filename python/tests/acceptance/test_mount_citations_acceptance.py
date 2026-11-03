@@ -1,7 +1,7 @@
-"""Conformance cut 44 — mount citations (spec §8.2): J16–J21 over real roots on the
+"""Mount citations over real roots on the
 certified volume. W (write root) pins testing, the fixture `biology` and
 coordination v2; M and M3 pin testing and the fixture `biology`; M2 pins another
-`biology` identity; O holds J20's one-corpus baseline."""
+`biology` identity; O holds the one-corpus baseline."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ def corpora(work_directory):
     """Every case owns one directory under the certified work directory: its
     roots, their `.metadata` siblings, its worlds and operations roots.
     Teardown removes it whole."""
-    base = Path(mkdtemp(prefix="cut44-", dir=work_directory)).resolve()
+    base = Path(mkdtemp(prefix="mount-citations-", dir=work_directory)).resolve()
     try:
         yield SimpleNamespace(
             base=base,
@@ -122,10 +122,7 @@ def run_then(w, d):
     )  # observes is not read at write time
 
 
-# --- J16 ------------------------------------------------------------------------
-
-
-def test_j16_a_session_cites_a_mount_dataset_and_proposition_durably(corpora):
+def test_session_cites_a_mount_dataset_and_proposition_durably(corpora):
     s = corpora
     d, p = seeded(s)
     before = state(s.m)
@@ -137,7 +134,7 @@ def test_j16_a_session_cites_a_mount_dataset_and_proposition_durably(corpora):
     assert ReadView.opened_at(s.w).holds(held.id) and state(s.m) == before
 
 
-def test_j16_a_citation_across_differing_identities_refuses_durably(corpora):
+def test_citation_across_differing_identities_refuses_durably(corpora):
     s = corpora
     d, _p = seeded(s)
     p2 = library_on(s.m2, TYPED_OTHER).add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
@@ -155,7 +152,7 @@ def test_j16_a_citation_across_differing_identities_refuses_durably(corpora):
     assert refused.value.writer == f"biology:{biology('fixture').content_identity}"
 
 
-def test_j16_producers_held_in_a_third_mount_refuse_durably(corpora):
+def test_producers_held_in_a_third_mount_refuse_durably(corpora):
     s = corpora
     d, p = seeded(s)
     library_on(s.m3, TYPED).add(stored.run_node("r3", title="r3", spec="analysis-spec:s1", produces=[d.id]))
@@ -167,7 +164,7 @@ def test_j16_producers_held_in_a_third_mount_refuse_durably(corpora):
     session.close()
 
 
-def test_j16_no_mount_is_written_durably(corpora):
+def test_no_mount_is_written_durably(corpora):
     s = corpora
     d, p = seeded(s)
     before = {root: state(root) for root in (s.m, s.m3)}
@@ -179,10 +176,7 @@ def test_j16_no_mount_is_written_durably(corpora):
     assert {root: state(root) for root in (s.m, s.m3)} == before
 
 
-# --- J17 ------------------------------------------------------------------------
-
-
-def test_j17_a_duplicate_citation_refuses_naming_both_durably(corpora):
+def test_duplicate_citation_refuses_naming_both_durably(corpora):
     s = corpora
     d, p = seeded(s)
     library_on(s.m3, TYPED).add(observed("d"))
@@ -199,7 +193,7 @@ def test_j17_a_duplicate_citation_refuses_naming_both_durably(corpora):
     assert (refused.value.finding.code, refused.value.finding.detail) == ("duplicate-location", ", ".join(ids))
 
 
-def test_j17_a_held_mount_refuses_build_contended_durably(corpora):
+def test_held_mount_refuses_build_contended_durably(corpora):
     s = corpora
     d, p = seeded(s)
     session = open_session(s, (s.w, s.m))
@@ -214,10 +208,7 @@ def test_j17_a_held_mount_refuses_build_contended_durably(corpora):
     session.close()
 
 
-# --- J18 ------------------------------------------------------------------------
-
-
-def test_j18_the_session_corpus_check_warns_not_errs_durably(corpora):
+def test_the_session_corpus_check_warns_not_errs_durably(corpora):
     s = corpora
     d, p = seeded(s)
     session = open_session(s, (s.w, s.m))
@@ -230,11 +221,11 @@ def test_j18_the_session_corpus_check_warns_not_errs_durably(corpora):
     ]
 
 
-# --- J19 / J20: the two-installation split ------------------------------------------
+# --- the two-installation split ------------------------------------------
 
 
 def _split_seed(s):
-    """J20's fixture: `seed_nodes()`'s proposition and datasets in M, its runs,
+    """The split-seed fixture: `seed_nodes()`'s proposition and datasets in M, its runs,
     assessments and verifications written in a session on W; the same nodes in O."""
     nodes = seed_nodes()
     in_m = {"proposition:p", dataset_ref("d-a"), dataset_ref("d-b")}
@@ -261,7 +252,7 @@ def _split_seed(s):
 
 
 def _world_context(view, pins, kwargs):
-    """`pins` are read once, while every manifest is present (plan review 2, P2)."""
+    """`pins` are read once, while every manifest is present."""
     return replace(
         kwargs["context"],
         snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"))),
@@ -279,7 +270,7 @@ def _eligibility(audit, corpus_id):
     return [(f.severity, f.code, f.ref, f.detail) for f in audit.corpora[corpus_id] if f.code.startswith("eligibility")]
 
 
-def test_j19_the_world_audit_supports_the_split_durably(corpora):
+def test_the_world_audit_supports_the_split_durably(corpora):
     s = corpora
     world, roots, published = _split_seed(s)
     w_id, m_id = ReadView.opened_at(s.w).corpus_id, ReadView.opened_at(s.m).corpus_id
@@ -304,7 +295,7 @@ def test_j19_the_world_audit_supports_the_split_durably(corpora):
     assert others <= {(f.code, f.ref) for f in absent.corpora[w_id]}
 
 
-def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
+def test_belief_over_the_world_matches_one_corpus_durably(corpora):
     s = corpora
     world, roots, published = _split_seed(s)
     w_id, m_id = ReadView.opened_at(s.w).corpus_id, ReadView.opened_at(s.m).corpus_id
@@ -319,7 +310,7 @@ def test_j20_belief_over_the_world_matches_one_corpus_durably(corpora):
     local_kwargs = kwargs_for(local, TYPED)
     local_answer, local_admission = evaluate_over_traced(local, "proposition:p", **over_kwargs(local_kwargs))
     # `belief_input_digest` differs by construction: the closure names the producer snapshot and the
-    # retraction coverage, the world's epoch and corpus ids (mount-citations spec §13). The verdict,
+    # retraction coverage, the world's epoch and corpus ids. The verdict,
     # the evidence set (every other closure member) and the admission are compared instead.
     assert isinstance(split_answer, Belief) and isinstance(local_answer, Belief)
     assert split_answer.value == local_answer.value and split_answer.policy_binding == local_answer.policy_binding
@@ -379,10 +370,7 @@ def _without_corpus_names(projection: Mapping[str, object]) -> dict[str, object]
     return kept
 
 
-# --- J21 ------------------------------------------------------------------------
-
-
-def test_j21_a_local_read_of_the_split_refuses_durably(corpora):
+def test_local_read_of_the_split_refuses_durably(corpora):
     s = corpora
     d, _p = seeded(s)
     own = library_on(s.w, W_PROFILE)  # W's own d-a and d-b: the roots `kwargs_for`'s lineage snapshot walks

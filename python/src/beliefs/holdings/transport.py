@@ -1,4 +1,4 @@
-"""The URL dereference boundary (url-retrieval design §4).
+"""The URL dereference boundary.
 
 The survey instrument's preflight, pinned connection and streaming fetch,
 made total over an injectable seam: `retrieve` answers with the **phase** the
@@ -49,7 +49,7 @@ __all__ = [
 CHUNK = 1024 * 1024
 REDIRECTS = (301, 302, 303, 307, 308)
 REFUSAL_CATEGORIES = ("scheme", "no-host", "unresolvable", "non-public-address", "unpinnable", "malformed")
-"""The closed set a refused hop is named by (decision 6); never a host, never bytes. `malformed`
+"""The closed set a refused hop is named by: never a host, never bytes. `malformed`
 is a server-supplied hop this transport will not split, resolve or send."""
 TRANSPORT_CATEGORIES = ("timeout", "tls", "connection", "protocol")
 """The closed set a failure after the request began is named by; never the exception's text,

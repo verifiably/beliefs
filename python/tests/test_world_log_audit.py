@@ -1,4 +1,4 @@
-"""The audit boundary and the ordered-cuts predicate (design §6.1, §6.3, §7).
+"""The audit boundary and the ordered-cuts predicate.
 
 **Audit is the evaluator plus a report and nothing else.** It takes the world
 *configuration* rather than an opened `World`, and an **explicit** target root,
@@ -199,7 +199,7 @@ def opaque_facts(value: object) -> tuple[tuple[str, str], ...]:
 
 
 def unreached_detached(root: Path) -> logmodel.ChainView:
-    raise AssertionError(f"{root}: audit consumes registered mode, never detached (§2.1)")
+    raise AssertionError(f"{root}: audit consumes registered mode, never detached")
 
 
 def unreached_head(root: Path) -> logmodel.ChainHead:
@@ -216,7 +216,7 @@ def make_seam(
 ) -> verify.LogSeam:
     """A seam over the production locks, with inspection and capture stubbed.
 
-    `detached` is the arrival boundary's mode (§2.1): audit consumes registered
+    `detached` is the arrival boundary's mode: audit consumes registered
     mode and leaves the detached slot refusing, and an arm that wires both wires
     a *different* table into each, so a boundary reaching for the wrong mode
     reads an empty table rather than a plausible answer.
@@ -263,14 +263,14 @@ def stand_in_read_chain(view: logmodel.WellFormedView):
 
 
 def genesis_entry(payload: bytes, *, label: str = "genesis") -> logmodel.GenesisEntryView:
-    """A genesis with the **empty** baseline §1.3 requires: both Science
+    """A genesis with the **empty** baseline required: both Science
     initializers register `()`, so a populated baseline is a chain no Science
     path mints — and the evaluator calls one malformed."""
     return logmodel.GenesisEntryView(digest=digest(label), payload=payload, baseline=())
 
 
 def chain(head: logmodel.GenesisEntryView, *rest: logmodel.EntryView) -> logmodel.WellFormedView:
-    """R10's shape: the genesis is `entries[0]`, the same object."""
+    """The genesis is `entries[0]`, the same object."""
     entries = (head, *rest)
     return logmodel.WellFormedView(genesis=head, entries=entries, tip=entries[-1].digest, pending=())
 
@@ -301,7 +301,7 @@ def settlement(entry_digest: str, registration_digest: str, txid: str, *, commit
 def surfaced(root: Path, kind: verify.RootKind, payload: bytes) -> logmodel.WellFormedView:
     """The chain that brought `root`'s present surface into existence.
 
-    The empty genesis §1.3 requires, then one committed transaction creating
+    The required empty genesis, then one committed transaction creating
     every path the projection presently finds — which is the smallest timeline
     that agrees with a populated root, and the shape every arm wanting a
     verdict over one starts from.
@@ -396,7 +396,7 @@ def corpus_anchor(view: logmodel.WellFormedView, corpus_id: str = ALPHA) -> veri
 
 def world_anchor(view: logmodel.WellFormedView, world_id: str = WORLD_ID) -> verify.ArtifactCarrier:
     """An exported head artifact anchoring `view`'s tip — the only eligible
-    carrier for a world subject (L11)."""
+    carrier for a world subject."""
     return verify.ArtifactCarrier.from_bytes(
         anchors.head_artifact_bytes(anchors.HeadArtifact(anchors.WorldSubject(world_id), view.genesis.digest, view.tip))
     )
@@ -412,7 +412,7 @@ def tree(*roots: Path) -> dict[str, bytes]:
     }
 
 
-# --- the audit act (§6.1) -------------------------------------------------------
+# --- the audit act -------------------------------------------------------
 
 
 class TestTheAuditAct:
@@ -482,9 +482,9 @@ class TestTheAuditAct:
         assert [(finding.code, finding.ref, finding.detail) for finding in report.findings] == [
             ("subject-mismatch", "manifest", f"claims={BETA} subject=corpus:{ALPHA}")
         ]
-        # §6.3: at audit the mismatch is a finding, never a refusal, and the
+        # At audit the mismatch is a finding, never a refusal, and the
         # chain verdict is whatever the chain says — a cooperatively logged
-        # rewrite replays consistently (§1.2).
+        # rewrite replays consistently.
         assert report.outcome == "validated"
 
     def test_the_presented_claim_is_the_one_the_recovered_root_makes(self, tmp_path):
@@ -691,7 +691,7 @@ class TestTheAuditAct:
         held.release()
 
     def test_it_calls_no_world_method_under_the_world_lock(self, tmp_path):
-        # R12: the seam's world lock is the very lock `World.registry()` takes,
+        # The seam's world lock is the very lock `World.registry()` takes,
         # and it is not reentrant. The audit is handed a configuration and never
         # a `World`, which is what makes the rule unbreakable here rather than
         # merely unbroken — and the opened world still answers afterwards.
@@ -775,7 +775,7 @@ class TestTheAuditAct:
         del FACT_BYTES[removed]
 
     def test_a_corrupt_history_refuses_before_the_root_is_read_at_all(self, tmp_path):
-        # §5.3: corrupt evidence is never silently ignored — and the pairs are
+        # Corrupt evidence is never silently ignored — and the pairs are
         # the caller's own input, so the refusal comes before the lock rather
         # than after a root has been inspected and stated.
         root = corpus_root(tmp_path)
@@ -796,7 +796,7 @@ class TestTheAuditAct:
         assert _operation_lock_for(root)._holder is None
 
     def test_the_audit_judges_through_the_one_evaluator_in_registered_mode(self, tmp_path, monkeypatch):
-        # §4.1: one read-only function is the entire judgment surface. Audit
+        # One read-only function is the entire judgment surface. Audit
         # calls it exactly once, over the registered-mode view — the detached
         # stub in this module's seam refuses, which is the other half.
         root = corpus_root(tmp_path)
@@ -864,7 +864,7 @@ class TestTheAuditAct:
         assert report.outcome == "unresolvable"
 
 
-# --- the audit's owned preimage reads (l13-preimage spec §5) ------------------
+# --- the audit's owned preimage reads ------------------
 
 
 class TestThePreimageReads:
@@ -1114,7 +1114,7 @@ class TestThePreimageReads:
         ]
 
 
-# --- the world genesis↔mirror agreement, as audit reports it (§6.3) -------------
+# --- the world genesis↔mirror agreement, as audit reports it -------------
 
 
 class TestTheWorldMirrorIsReportedAndNeverRaised:
@@ -1146,7 +1146,7 @@ class TestTheWorldMirrorIsReportedAndNeverRaised:
         assert report.outcome == "validated"
 
     def test_a_genesis_naming_another_world_is_a_finding_and_not_malformed(self, tmp_path):
-        # A valid world genesis naming a different `world_id` is §6.3's subject
+        # A valid world genesis naming a different `world_id` is a subject
         # mismatch, never step 1's malformed exit.
         root = world_root(tmp_path)
         view = surfaced(root, "world", science_root._world_genesis_payload(OTHER_WORLD_ID))
@@ -1166,10 +1166,10 @@ class TestTheWorldMirrorIsReportedAndNeverRaised:
         assert report.outcome == "validated"
 
     def test_edited_world_configuration_mismatch_and_refusal(self, tmp_path, monkeypatch):
-        # L4u4. The configuration's `world_id` edited to another world, and the
+        # The configuration's `world_id` edited to another world, and the
         # mirror edited to agree with it: the two claims a reader crosses now
-        # both say W2, and only the chain genesis still says W1. Both halves of
-        # the §6.3 split, over that one root — `open_world` **refuses** the
+        # both say the second world, and only the chain genesis still says the first. Both halves of
+        # the split, over that one root — `open_world` **refuses** the
         # disagreement, and the audit of the same world **reports** it.
         root = world_root(tmp_path, mirrored=OTHER_WORLD_ID)
         config = config_for(tmp_path, world_id=OTHER_WORLD_ID)
@@ -1220,7 +1220,7 @@ class TestTheWorldMirrorIsReportedAndNeverRaised:
         assert report.outcome == "validated"
 
 
-# --- the ordered-cuts predicate (§7) --------------------------------------------
+# --- the ordered-cuts predicate --------------------------------------------
 
 
 class MovingWorldHead(ChainHeads):
@@ -1302,7 +1302,7 @@ def ordered(config: registry.WorldConfig, first: str, second: str, view: logmode
 
 class TestTheOrderedCutsPredicate:
     def test_ordered_by_descent_is_the_pure_half_and_the_predicate_calls_it(self, tmp_path, monkeypatch):
-        """Spec decision 7: the relation asks the pure helper of one captured
+        """The relation asks the pure helper of one captured
         view; `_epochs_ordered` keeps its contract and routes through it."""
         sequence = Sequence(tmp_path)
         view = world_chain(sequence.first)
@@ -1439,7 +1439,7 @@ class TestTheOrderedCutsPredicate:
         assert "sequence" not in code + rest
 
 
-# --- the event-level relation (cut 36) -----------------------------------------
+# --- the event-level relation -----------------------------------------
 
 from beliefs.errors import (  # grouped with the section it serves
     BuildHold,
@@ -1529,7 +1529,7 @@ class Relation:
 
 
 def l8_pair(tmp_path: Path) -> tuple[Relation, Event, Event, str, str]:
-    """The L8 positive: freeze in A, E1, intent in B, E2 from E1's settlement."""
+    """The positive case: freeze in A, E1, intent in B, E2 from E1's settlement."""
     relation = Relation(tmp_path)
     e1 = relation.build(world_tip=WORLD_GENESIS, a_head=A_SETTLED.digest, b_head=B_GENESIS.digest)
     e2 = relation.build(world_tip=FIRST_SETTLEMENT, a_head=A_LATER.digest, b_head=B_INTENT.digest)
@@ -1537,7 +1537,7 @@ def l8_pair(tmp_path: Path) -> tuple[Relation, Event, Event, str, str]:
 
 
 class TestTheEventLevelRelation:
-    def test_the_l8_positive_orders_and_is_antisymmetric(self, tmp_path):
+    def test_the_event_order_positive_orders_and_is_antisymmetric(self, tmp_path):
         relation, a, b, e1, e2 = l8_pair(tmp_path)
         view = relation.world_chain(e1, e2)
         assert relation.order(a, b, world_view=view) == "a-precedes-b"
@@ -1585,7 +1585,7 @@ class TestTheEventLevelRelation:
         assert relation.order(a, b, world_view=logmodel.MalformedView(defect=defect)) == "unordered"
 
     def test_a_malformed_first_chain_answers_before_the_second_lock_is_taken(self, tmp_path):
-        """Spec §4.3 step 2 (review round 3, P2 7): with A malformed and B under
+        """With A malformed and B under
         a capture hold, the answer is `unordered`, never `BuildHold`."""
         relation, a, b, e1, e2 = l8_pair(tmp_path)
         defect = logmodel.DefectView(kind="cycle", subject=None, detail="fabricated")
@@ -1595,7 +1595,7 @@ class TestTheEventLevelRelation:
         assert relation.beta not in relation.inspections.roots
 
     def test_the_double_witness_is_unordered(self, tmp_path):
-        """Spec §4.3: e1 witnesses a before b, e3 (built from the same world
+        """e1 witnesses a before b, e3 (built from the same world
         head) witnesses b before a; e4 is built from e2's settlement, so it
         follows e2, and through it, both e1 and e3. Neither direction."""
         relation = Relation(tmp_path)
@@ -1742,7 +1742,7 @@ class TestTheEventLevelRelation:
             relation.order(a, b, world_view=view)
 
     def test_a_refused_inspection_propagates_untranslated(self, tmp_path):
-        """Spec §8.1 decision D9: `LogEvidenceRefused` is one of the reads'
+        """`LogEvidenceRefused` is one of the reads'
         own refusals too, alongside `EpochMalformed` and `BuildHold` above —
         untranslated, for the world root's inspection (the cross-chain
         question `l8_pair` asks) and for a corpus root's."""
@@ -1853,11 +1853,11 @@ class TestThePublicWrappers:
         assert inspect.signature(verify._event_order).parameters["seam"].kind is inspect.Parameter.KEYWORD_ONLY
 
 
-# --- one evaluator, two boundaries (§4.1) ----------------------------------------
+# --- one evaluator, two boundaries ----------------------------------------
 
 
 def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
-    """D10, all four clauses of the frozen row (spec §2.1, §4.1, §6.1–§6.2).
+    """All four clauses of the evaluator contract.
 
     1. **Audit and arrival share the one read-only evaluator, and no third path
        evaluates.** Each boundary calls `evaluate_log` exactly once, over the
@@ -1867,8 +1867,8 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
        docstring.
     2. **The staging leaf is never a foreign-leaf defect.** A `.#~stage` holding
        a readable regular file is bookkeeping: inert when it is not a staged
-       registration, `pending` when it is (§2.1/R3), and never a defect either
-       way. R2's tightening is the other side of the same claim and is shown
+       registration, `pending` when it is, and never a defect either
+       way. The tightening is the other side of the same claim and is shown
        beside it: the exemption covers regular files only, so a directory
        squatting on the reserved name *is* a foreign leaf.
     3. **A malformed chain carries one deterministic first defect.** The Science
@@ -1881,7 +1881,7 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
 
     Clauses 2–4 are driven through the **production** seam over chains written
     to disk as real canonical envelopes: `atoms` certifies its own interior, but
-    D10 is a Science declaration, so what is shown here is the Science
+    This is a Science declaration, so what is shown here is the Science
     evaluator's view of each fact.
     """
     root = corpus_root(tmp_path)
@@ -1996,13 +1996,13 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
     )
     stage.write_bytes(staged_registration)
     carried = seam.inspect_detached(populated)
-    # Still well-formed, and now the leaf is read as the evidence it is: §2.1's
+    # Still well-formed, and now the leaf is read as the evidence it is: the
     # detached rule keeps staged registration evidence in `pending`, which is
-    # exactly the state §6.2 refuses an arrival on.
+    # exactly the state arrival refuses an arrival on.
     assert type(carried) is logmodel.WellFormedView
     assert carried.pending == (("tx-staged", entry_digest(staged_registration)),)
 
-    # R2's tightening, the other side of the same claim: the exemption is
+    # The tightening, the other side of the same claim: the exemption is
     # readable, no-follow **regular** files only, so a directory squatting on the
     # reserved name is a foreign leaf after all.
     stage.unlink()
@@ -2023,8 +2023,8 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
     assert type(damaged) is logmodel.MalformedView
     # The lowest offending leaf in sorted-name order — not whichever `readdir`
     # happened to hand back first, and not the last one written. The defect
-    # *class* is asserted beside its subject, as cut 8 §5's first declaration-time
-    # obligation asks of every fabricated-chain arm.
+    # *class* is asserted beside its subject, as the fabricated-chain checks
+    # ask of every case.
     assert (damaged.defect.kind, damaged.defect.subject) == ("foreign-leaf", "aaa-foreign")
     assert seam.inspect_detached(populated) == damaged
     (populated / CHAIN_LEAF / "aaa-foreign").unlink()
@@ -2033,11 +2033,11 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
     assert (next_lowest.defect.kind, next_lowest.defect.subject) == ("foreign-leaf", "mmm-foreign")
 
 
-# --- §6.4's engine refusal, in the audit's context -------------------------------
+# --- the engine refusal, in the audit's context -------------------------------
 
 
 def test_a_chain_record_contradiction_at_audit_refuses_with_no_report(tmp_path, monkeypatch):
-    """R11/§6.4's `ChainStateInvalid` arm, reached through the audit.
+    """The `ChainStateInvalid` case, reached through the audit.
 
     The state being modelled is a live transaction record standing beside an
     empty chain — the engine's own chain/store contradiction, which keeps
@@ -2045,11 +2045,11 @@ def test_a_chain_record_contradiction_at_audit_refuses_with_no_report(tmp_path, 
 
     **The engine's decision to raise is injected, deliberately.** Whether that
     disk state produces `ChainStateInvalid` is the engine's own contract,
-    certified in `atoms` and outside this cut's mutation surface; what is
+    certified in `atoms` and outside this module's reach; what is
     Science's to arm is what the audit does with the exception — the seam
-    adapter's §6.4 translation reaching the caller as a refusal to judge,
+    adapter's translation reaching the caller as a refusal to judge,
     outside every precedence, with no `LogReport` produced and the lock
-    released. Task 4's `TransactionHalted` and `PreconditionRefused` arms are
+    released. The `TransactionHalted` and `PreconditionRefused` cases are
     injected on the same ground.
     """
     root = corpus_root(tmp_path)
@@ -2074,9 +2074,9 @@ def test_a_chain_record_contradiction_at_audit_refuses_with_no_report(tmp_path, 
     assert _operation_lock_for(root)._holder is None
 
 
-# --- cut 8's declarations, audited over real chains -----------------------------
+# --- declarations audited over real chains -----------------------------
 #
-# Cut 8 §5's obligation 1 in its literal form. The arms above build chain
+# The cases above build chain
 # *views* and hand them to a stubbed inspection, which is what lets them state
 # lock order, precedence and refusal without a disk; the three declarations
 # below judge **real directories of canonical entry envelopes** instead, so
@@ -2088,7 +2088,7 @@ def real_seam() -> verify.LogSeam:
 
     The registered slot is wired to the production seam's *detached* inspection:
     registered mode resolves recovery through a metadata root these fabricated
-    roots do not have, and both modes share one validation core (spec §2.1), so
+    roots do not have, and both modes share one validation core, so
     the substitution changes nothing the audit reads and buys the engine's own
     verdict over the chain. The locks are the production lookups, as everywhere
     in this module.
@@ -2129,7 +2129,7 @@ def world_config_at(root: Path, world_id: str) -> registry.WorldConfig:
 
 
 def exported_world_epoch(genesis_digest: str, head_digest: str) -> verify.EpochCarrier:
-    """An epoch supplied as an export, holding one world anchor — L11's only
+    """An epoch supplied as an export, holding one world anchor — the only
     eligible carrier for a world subject."""
     members = epoch_members(world_head=head_digest, world_genesis=genesis_digest)
     return verify.EpochCarrier.from_export(members, epoch.packaging_identity_of(members))
@@ -2139,11 +2139,11 @@ def codes_of(report: verify.LogReport) -> list[str]:
     return [finding.code for finding in report.findings]
 
 
-def test_exported_w1_head_refutes_rewritten_world(tmp_path):
-    """L4u6. A **W1** head exported, the local world subject and genesis then
-    rewritten to **W2**, and verification run explicitly selecting W1 → refuted
-    as removal/replacement. Selecting W2 is a *separate-world audit* and never a
-    verdict about W1: W1's artifact is filtered out by the subject, so nothing
+def test_exported_head_refutes_rewritten_world(tmp_path):
+    """A head of the first world exported, the local world subject and genesis then
+    rewritten to the second world's, and verification run explicitly selecting the first → refuted
+    as removal/replacement. Selecting the second is a *separate-world audit* and never a
+    verdict about the first: its artifact is filtered out by the subject, so nothing
     in that report speaks about the world the holder anchored.
     """
     chain = rewritten_world(tmp_path)
@@ -2183,10 +2183,10 @@ def test_exported_w1_head_refutes_rewritten_world(tmp_path):
 
 
 def test_coordinated_truncation_without_exported_holder_is_undetected(tmp_path):
-    """L11u3, the surviving-observer **negative**. World chain, registry records
+    """The surviving-observer **negative**. World chain, registry records
     and in-root epochs truncated together, with no exported holder → undetected.
 
-    Cut 8 §5's obligation 5 is asserted rather than assumed: all three in-root
+    That is asserted rather than assumed: all three in-root
     carriers really were truncated, so the negative is not a partial truncation
     refuting for the wrong reason.
 
@@ -2197,7 +2197,7 @@ def test_coordinated_truncation_without_exported_holder_is_undetected(tmp_path):
     run over the untouched world **with an exported holder supplied**, where it
     answers `validated` over a bound of one. So the audit does reach a verdict
     when a holder survives; here the coordinated truncation left none to reach
-    one with. The truncated-root-with-a-holder case is L11u4's and is cited, not
+    one with. The truncated-root-with-a-holder case is covered elsewhere and is cited, not
     re-declared.
     """
     chain = coordinated_truncation(tmp_path)
@@ -2235,7 +2235,7 @@ def test_coordinated_truncation_without_exported_holder_is_undetected(tmp_path):
 
 
 def test_coordinated_truncation_with_one_exported_epoch_refutes(tmp_path):
-    """L11u4. The **same** truncation, with one exported epoch supplied →
+    """The **same** truncation, with one exported epoch supplied →
     refuted. The bound is the surviving observer, and one is enough."""
     chain = coordinated_truncation(tmp_path)
     assert not (chain.root / "registry").exists()

@@ -1,8 +1,12 @@
-"""Cut 21's durable arms: verification publication through an attended session
-on the certified engine and volume (`docs/designs/2026-09-06-conformance-cut-21.md`
-§3, V1, V2, V3 and V5). Every body mirrors its portable twin and additionally
-reopens the corpus — a fresh process for V1 and V2 — so each assertion is
-about bytes the engine committed."""
+"""Durable tests: verification publication through an attended session on the
+certified engine and volume.
+
+Every body mirrors its portable twin and additionally reopens the corpus, so
+each assertion is about bytes the engine committed. The first test
+(`test_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone`)
+and the admission test
+(`test_admission_over_the_corpus_and_the_belief_moves_with_the_record`) do so in
+a fresh process."""
 
 from __future__ import annotations
 
@@ -29,7 +33,7 @@ from beliefs.verify import _mint_verification, publication_node
 
 KINDS = RequiredCapabilities.for_kinds(
     {"verification"}, {}
-)  # [R8] runs, datasets and the assessment go through the library writer
+)  # runs, datasets and the assessment go through the library writer
 TESTS = Path(__file__).resolve().parents[1]
 
 
@@ -48,7 +52,7 @@ def _session_over(work_directory):
     return root, session, writer
 
 
-def test_v1_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone(work_directory):
+def test_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
         published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
@@ -70,7 +74,7 @@ def test_v1_a_published_verification_is_recoverable_in_a_fresh_process_with_the_
     assert report["basis"] == json.dumps(derived.basis(), default=lambda r: r.identity(), sort_keys=True)
 
 
-def test_v2_and_v3_admission_over_the_corpus_and_the_belief_moves_with_the_record(work_directory):
+def test_admission_over_the_corpus_and_the_belief_moves_with_the_record(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
         published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
@@ -101,7 +105,7 @@ def test_v2_and_v3_admission_over_the_corpus_and_the_belief_moves_with_the_recor
     assert report["digest"] == digest_here
 
 
-def test_v3_a_superseding_failed_verification_invalidates_through_the_session(work_directory):
+def test_a_superseding_failed_verification_invalidates_through_the_session(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
         published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
@@ -126,12 +130,12 @@ def test_v3_a_superseding_failed_verification_invalidates_through_the_session(wo
     assert lifecycle_state(values) == INVALIDATED and {v.ref for v in active(values)} == {successor.id}
 
 
-def test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_directory):
+def test_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
         library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
         published = publish_corpus(library, claim=CLAIM_FACET)
-        cases = forgeries(library, published)  # [R8] helper records first, then the baseline
+        cases = forgeries(library, published)  # helper records first, then the baseline
         open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view  # a settled, non-writing probe  # noqa: B018
         head_before = chain(root).tip
         intents_before, registrations_before = len(intents(root)), len(registrations(root))

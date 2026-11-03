@@ -49,7 +49,7 @@ def now() -> str:
 
 
 def classify_scope(scope: str, *, conforming: tuple[bool, bool], recipes_agree: bool) -> str:
-    """Design §2 rule 4. `same-environment` with agreeing recipes is the
+    """`same-environment` with agreeing recipes is the
     host's; `not-certified` is a non-conforming closure (defect) or
     disagreeing recipes (authoring, i.e. corpus work). Never the host by
     default."""
@@ -129,7 +129,7 @@ def main() -> int:
             "the derived AssessmentValue spells `run` as a bare address and the stored record as run:<address>; "
             "the two identities differ, and no single one satisfies both admission over the corpus and the "
             "audit's recomputation (which digests the bare address)",
-            filed="assessment/run-record design (one spelling for the run member)",
+            filed="the assessment/run-record change (one spelling for the run member)",
         )
     # Step 7
     replayed = replay(original, spec=frozen, started_at=now(), scratch_base=paths.SCRATCH / "replayed", **common)

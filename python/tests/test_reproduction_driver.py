@@ -185,7 +185,7 @@ def test_classify_scope_attributes_only_same_environment_to_the_host():
 
 
 def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, monkeypatch):
-    """V1 and V8's 10b arms: the report, scope and verdict are read; the only
+    """The 10b checks: the report, scope and verdict are read; the only
     in-process input is the rule implementations; `spec.frozen()` is not
     reachable. The negative: a report-less record reports false."""
     from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, spec_rules
@@ -201,8 +201,8 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
     writer = _testing_writer(tmp_path / "corpus")
     # The stored spec's estimand is `spec_draft`'s default, against
     # `TESTING_CLAIM` (`frozen_for`, via `typed_estimand`); the boundary now
-    # requires the target proposition's own claim to agree (estimand-typing
-    # §7.2, Task 8), so the proposition carries that same claim rather than
+    # requires the target proposition's own claim to agree, so
+    # the proposition carries that same claim rather than
     # `publish_corpus`'s bare `{"operator": "affects"}` default.
     published = publish_corpus(writer, claim=project_claim(TESTING_CLAIM))
     spec_node = writer.add(stored.analysis_spec_node(published.frozen))
@@ -255,7 +255,7 @@ def test_10b_names_no_in_process_spec():
 
 def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_path):
     """`evidence_for` fails loud rather than silently narrowing the specs a
-    recomputation sees (design decision 15): a raw-written analysis-spec
+    recomputation sees : a raw-written analysis-spec
     record whose text disagrees with its own identity must stop 10b cold,
     never drop out of `stored_specs`' mapping unnoticed."""
     from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
@@ -279,7 +279,7 @@ def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_pa
 
 
 # The held concept list's content address, measured 2026-09-15 over the
-# predecessor's 285 concept records. The cut-22 document's content identity is
+# predecessor's 285 concept records. The earlier document's content identity is
 # taken over it, so the successor's declared predecessor moves with it; a
 # changed predecessor corpus fails this loudly rather than silently.
 HELD_CONCEPTS = "dataset:sha256:be3bf183a830c31d4f8acf46a309e01bd0476580d2d6db4079af3e3c7bd738d8"
@@ -317,7 +317,7 @@ def test_the_row_plan_maps_a_predicate_and_kind_pair(held_vocabulary):
     assert len(plan["operators"]) == 17
 
 
-def test_the_mm30_contract_binds_every_sort_to_its_held_list_and_succeeds_the_cut_31_document(held_vocabulary):
+def test_the_mm30_contract_binds_every_sort_to_its_held_list_and_succeeds_the_prior_document(held_vocabulary):
     from reproduction import vocabulary
 
     contract = vocabulary.contract()
@@ -332,13 +332,13 @@ def test_the_mm30_contract_binds_every_sort_to_its_held_list_and_succeeds_the_cu
         )
     assert contract.operators["affects-concept-molecular-entity"].arg_sorts == ("concept", "biology/molecular-entity")
     # Succession ran against the real predecessors, not authored stand-ins, and
-    # the whole chain is walked: cut 22 → cut 31 → current.
+    # the whole chain is walked: first → second → current.
     cut31 = vocabulary.contract(vocabulary.CUT31_DOCUMENT)
     assert contract.predecessor == cut31.content_identity
     assert cut31.predecessor == vocabulary.contract(vocabulary.CUT22_DOCUMENT).content_identity
     assert vocabulary.contract(vocabulary.CUT22_DOCUMENT).predecessor is None
     # The `edges:` table the composite-claims lane adds, and the operators it
-    # leaves without a row (composite-claims design §3.3, §3.4).
+    # leaves without a row.
     assert {name: (e.cause, e.effect) for name, e in contract.edges.items()} == {
         "affects-concept-concept": (0, 1),
         "affects-concept-molecular-entity": (0, 1),
@@ -454,7 +454,7 @@ def test_a_non_canonical_concept_id_refuses(tmp_path):
         concept_lines(tmp_path)
 
 
-# Re-pinned 2026-09-15 (estimand-typing Task 6): `estimand` and `applicability`
+# Re-pinned 2026-09-15: `estimand` and `applicability`
 # moved from prose to typed members, so the digest they enter into moved too —
 # the rule bindings this test actually guards are unchanged, per the assertion
 # above.
@@ -608,7 +608,7 @@ def test_the_reading_projection_round_trips_through_identity_v1(tmp_path):
     encoding must be a fixed point of decode-then-encode: an encoding that did
     not round-trip would make `reading_equal` a measurement of the encoder
     rather than of the corpus. Read through `read_composite`, which is the
-    reading's one mint (U8), over a memberless composite — the rows are
+    reading's one mint, over a memberless composite — the rows are
     exercised in `test_composite_reading.py`; what is measured here is the
     encoding the driver's two files hold."""
     from test_composite_boundary import GENE, _writer
@@ -690,7 +690,7 @@ def transition(tmp_path, monkeypatch):
 
 
 def test_the_transition_step_measures_a_base_mismatch_and_reads_no_record(tmp_path, transition):
-    """Decision 11's transition arm, re-runnable: the archived corpus state
+    """The transition check, re-runnable: the archived corpus state
     under the successor profile answers exactly `profile-mismatch: base`, and
     the audit reads none of its records. The archive's bytes are untouched."""
     from reproduction import paths
@@ -934,14 +934,14 @@ def _prior(environ: dict[str, str]) -> str:
     ).stdout.strip()
 
 
-def test_the_cut22_archive_defaults_to_the_sibling_and_the_variable_moves_it(tmp_path):
+def test_the_prior_archive_defaults_to_the_sibling_and_the_variable_moves_it(tmp_path):
     work = tmp_path / "fresh"
     assert _prior({"SCIENCE_MM30_ROOT": str(work)}) == str(tmp_path / "fresh.cut22")
     archive = tmp_path / "elsewhere" / "mm30.cut22"
     assert _prior({"SCIENCE_MM30_ROOT": str(work), "MM30_CUT22_ARCHIVE": str(archive)}) == str(archive)
 
 
-def test_a_missing_cut22_archive_raises(tmp_path, monkeypatch):
+def test_a_missing_prior_archive_raises(tmp_path, monkeypatch):
     from reproduction import paths, rederive
 
     monkeypatch.setattr(paths, "PRIOR", tmp_path / "absent.cut22")

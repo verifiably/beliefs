@@ -12,7 +12,7 @@ from nodes.core.write_plan import CreateOp, DefaultExecutor
 from profiles import BASE
 
 from beliefs import errors, stored
-from beliefs.corpus import ELIGIBLE_RETRACTION_TARGET_KINDS, CorpusWriter
+from beliefs.corpus import ELIGIBLE_RETRACTION_TARGET_KINDS, CorpusWriter, _cycle_edges
 
 PINNED = [{"name": "matrix", "digest": "sha256:" + "ab" * 32}]
 
@@ -77,7 +77,7 @@ def retraction_for(target: Node, *, reason: str = "defective-code") -> Node:
     )
 
 
-def test_e3_a_retraction_naming_another_actor_is_refused(tmp_path):
+def test_a_retraction_naming_another_actor_is_refused(tmp_path):
     writer = CorpusWriter(
         tmp_path,
         Recorder,
@@ -93,7 +93,7 @@ def test_e3_a_retraction_naming_another_actor_is_refused(tmp_path):
         writer.retract(retraction_for(target))
 
 
-def test_e3_a_retraction_under_its_own_actor_mints(tmp_path):
+def test_a_retraction_under_its_own_actor_mints(tmp_path):
     writer = CorpusWriter(
         tmp_path,
         Recorder,
@@ -353,3 +353,10 @@ def test_retract_accepts_a_verification_target(writer):
     )
 
     assert writer.retract(retraction_for(verification)).relations[0].target == verification.id
+
+
+def test_cycle_validator_returns_the_offending_edges():
+    assert _cycle_edges({"retraction:a": ("retraction:b",), "retraction:b": ("retraction:a",)}) == (
+        ("retraction:a", "retraction:b"),
+        ("retraction:b", "retraction:a"),
+    )

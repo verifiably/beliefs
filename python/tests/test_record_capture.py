@@ -1,4 +1,4 @@
-"""The no-follow, classified, bounded captured-record surface (spec §3.1)."""
+"""The no-follow, classified, bounded captured-record surface."""
 
 import errno
 import os
@@ -245,7 +245,7 @@ def test_close_failures_are_silent_without_retries(certified_work, monkeypatch) 
 
 
 def test_the_log_evaluator_surface_is_pinned(certified_work) -> None:
-    # cut 11's captured surface: the three namespaces, silent on every failure.
+    # the captured surface: the three namespaces, silent on every failure.
     root = _five(certified_work / "root")
     (root / "run" / "ok.md").write_bytes(b"ok")
     (root / "run" / "big.md").write_bytes(b"x" * (records.RECORD_CEILING + 1))

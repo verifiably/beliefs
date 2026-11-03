@@ -1,4 +1,4 @@
-"""Frozen cut-16 row evidence for the public ``move`` operation."""
+"""Portable evidence for the public ``move`` operation."""
 
 from __future__ import annotations
 
@@ -68,9 +68,9 @@ def _basis_route(name):
 
 
 def _duplicate_datasets(tmp_path, *, writers=None):
-    """The two one-address records W16 consolidates, in two corpora.
+    """The two one-address records `consolidate` merges, in two corpora.
 
-    `writers` lets Task 8's acceptance module supply open writers bound to
+    `writers` lets the acceptance module supply open writers bound to
     registered roots on the certified volume; the record construction below is
     the same either way."""
     keep_writer, other_writer = writers or (
@@ -155,7 +155,7 @@ def _move_published_dataset(tmp_path):
     }
 
 
-def test_w5_a_move_changes_only_location(tmp_path):
+def test_a_move_changes_only_location(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
     prior = {"pmid": "1"}
@@ -200,7 +200,7 @@ def test_w5_a_move_changes_only_location(tmp_path):
     assert _belief_digest(before) == _belief_digest(after)
 
 
-def test_w5_a_producers_map_member_moves_without_moving_the_digest(tmp_path):
+def test_a_producers_map_member_moves_without_moving_the_digest(tmp_path):
     moved = _move_published_dataset(tmp_path)
     before, after = moved["before"], moved["after"]
 
@@ -219,19 +219,19 @@ def test_w5_a_producers_map_member_moves_without_moving_the_digest(tmp_path):
     assert _belief_digest(before) == _belief_digest(after)
 
 
-def test_g3_location_is_not_a_closure_member(tmp_path):
+def test_location_is_not_a_closure_member(tmp_path):
     moved = _move_published_dataset(tmp_path)
     assert moved["before"].members["address-map.yaml"] != moved["after"].members["address-map.yaml"]
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_d7_a_permitted_move_preserves_w5(tmp_path):
+def test_a_permitted_move_preserves_producer_semantics(tmp_path):
     moved = _move_published_dataset(tmp_path)
     assert moved["source"].manifest_pins() == moved["destination"].manifest_pins() == PINS
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_d7_move_refuses_a_domain_facet_across_identities(tmp_path):
+def test_move_refuses_a_domain_facet_across_identities(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(
         tmp_path / "destination",
@@ -245,7 +245,7 @@ def test_d7_move_refuses_a_domain_facet_across_identities(tmp_path):
     assert source.read_view.holds(node.id) and not destination.read_view.holds(node.id)
 
 
-def test_d7_move_refuses_a_base_contract_for_a_facetless_node(tmp_path):
+def test_move_refuses_a_base_contract_for_a_facetless_node(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(
         tmp_path / "destination",
@@ -261,7 +261,7 @@ def test_d7_move_refuses_a_base_contract_for_a_facetless_node(tmp_path):
     assert source.read_view.holds(node.id) and not destination.read_view.holds(node.id)
 
 
-def test_d7_move_refuses_a_missing_pin(tmp_path):
+def test_move_refuses_a_missing_pin(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination")
     node = source.add(_node("biology/gene-axis"))
@@ -272,7 +272,7 @@ def test_d7_move_refuses_a_missing_pin(tmp_path):
     assert source.read_view.holds(node.id) and not destination.read_view.holds(node.id)
 
 
-def test_c3_an_in_coverage_move_leaves_the_digest_and_moves_the_receipt(tmp_path):
+def test_an_in_coverage_move_leaves_the_digest_and_moves_the_receipt(tmp_path):
     moved = _move_published_dataset(tmp_path)
     before, after = moved["before"], moved["after"]
     assert _belief_digest(before) == _belief_digest(after)
@@ -280,14 +280,14 @@ def test_c3_an_in_coverage_move_leaves_the_digest_and_moves_the_receipt(tmp_path
     assert after.receipts["producer-receipt.yaml"].corpus_states == tuple(sorted(moved["states_after"].items()))
 
 
-def test_r23_location_is_not_evidence(tmp_path):
+def test_location_is_not_evidence(tmp_path):
     moved = _move_published_dataset(tmp_path)
     assert moved["before"].members["producers-map.yaml"] == moved["after"].members["producers-map.yaml"]
     assert moved["states_before"] != moved["states_after"]
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_r23_the_receipt_is_not_a_belief_input(tmp_path):
+def test_the_receipt_is_not_a_belief_input(tmp_path):
     moved = _move_published_dataset(tmp_path)
     before_receipt = moved["before"].receipts["producer-receipt.yaml"]
     after_receipt = moved["after"].receipts["producer-receipt.yaml"]
@@ -296,7 +296,7 @@ def test_r23_the_receipt_is_not_a_belief_input(tmp_path):
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_t2_a_move_is_one_intent_and_one_report_in_each_root(tmp_path):
+def test_move_is_one_intent_and_one_report_in_each_root(tmp_path):
     moved = _move_published_dataset(tmp_path)
     destination_report = moved["destination_report"]
     source_report = moved["source_report"]
@@ -313,7 +313,7 @@ def test_t2_a_move_is_one_intent_and_one_report_in_each_root(tmp_path):
         assert writer.read_view.holds(f"act-report:{report.identity()}")
 
 
-def test_t8_move_refuses_an_act_report_subject(tmp_path):
+def test_move_refuses_an_act_report_subject(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
     report = sample_report()
@@ -384,7 +384,7 @@ def test_consolidate_unions_relations_and_preserves_both_bases(tmp_path):
         other_writer.read_view.get(other.id)
 
 
-def test_d7_consolidate_refuses_a_domain_facet_across_identities(tmp_path):
+def test_consolidate_refuses_a_domain_facet_across_identities(tmp_path):
     keep_writer = _writer(
         tmp_path / "domain" / "keep",
         domains={"biology": OTHER_BIOLOGY_ID},
@@ -401,7 +401,7 @@ def test_d7_consolidate_refuses_a_domain_facet_across_identities(tmp_path):
         )
 
 
-def test_d7_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
+def test_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
     keep_writer = _writer(
         tmp_path / "base" / "keep",
         domains=PINS.domains,
@@ -420,7 +420,7 @@ def test_d7_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
         )
 
 
-def test_d7_consolidate_refuses_a_missing_pin(tmp_path):
+def test_consolidate_refuses_a_missing_pin(tmp_path):
     keep_writer = _writer(tmp_path / "missing" / "keep")
     other_writer = _writer(tmp_path / "missing" / "other", domains=PINS.domains)
     from coordination_fixtures import raw_add
@@ -438,7 +438,7 @@ def test_d7_consolidate_refuses_a_missing_pin(tmp_path):
         )
 
 
-def test_m3_consolidating_equal_basis_retraction_replicas_leaves_the_counter_retraction(
+def test_consolidating_equal_basis_retraction_replicas_leaves_the_counter_retraction(
     tmp_path,
 ):
     keep_writer = _writer(tmp_path / "keep", domains=PINS.domains)
@@ -541,7 +541,7 @@ def test_consolidate_is_idempotent_over_an_already_unioned_survivor(tmp_path):
     assert repeated == survivor
 
 
-def test_t2_a_consolidate_is_one_intent_and_one_report_in_each_root(tmp_path, monkeypatch):
+def test_consolidate_is_one_intent_and_one_report_in_each_root(tmp_path, monkeypatch):
     keep_writer, other_writer, keep, other = _duplicate_datasets(tmp_path)
     report_operations = {}
     for label, writer in (("keep", keep_writer), ("other", other_writer)):
@@ -581,7 +581,7 @@ def test_t2_a_consolidate_is_one_intent_and_one_report_in_each_root(tmp_path, mo
 
 
 def test_retract_refuses_a_target_moved_away(tmp_path):
-    """§3.6 clause 1, through the operation that creates the state."""
+    """Through the operation that creates the state."""
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
     observation = source.add(

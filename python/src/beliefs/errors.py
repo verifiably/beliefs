@@ -2,7 +2,7 @@
 
 Every refusal in this package raises one of these. They are deliberately
 fine-grained: several banked oracles turn on refusals staying *distinct* rather
-than collapsing into one another (D3's five-way non-collapsing test is the
+than collapsing into one another (the five-way non-collapsing test is the
 sharpest case), and a test that can only assert "something was raised" cannot
 tell a good refusal from a bad one.
 """
@@ -185,7 +185,7 @@ class BuildContended(ScienceError):
 
 
 class AddressMapConflict(ScienceError):
-    """The captured world violates W8b; no epoch can be published.
+    """The captured world violates world uid uniqueness; no epoch can be published.
 
     The finding distinguishes `uid-corruption` (one uid, different canonical
     addresses) from `duplicate-location` (one canonical address, several
@@ -255,7 +255,7 @@ class AuditTargetUnconfigured(ScienceError):
     """An audit named a target root this world is not configured with.
 
     The audit's target is **explicit and never associated to the subject by
-    reading its manifest** (log-verification design §6.1) — a manifest-based
+    reading its manifest** — a manifest-based
     lookup could not locate the root whose `corpus.yaml` was rewritten to
     another id, which is the exact mismatch the audit exists to report. What
     remains is the configuration: for a corpus subject the root must be one of
@@ -273,7 +273,7 @@ class AuditTargetUnconfigured(ScienceError):
 class LogHeadCollision(ScienceError):
     """A content-addressed log-head record path exists with different bytes.
 
-    The rules store's discipline, verbatim (log-verification design §3.1): a
+    The rules store's discipline, verbatim: a
     byte-identical record is skipped as success and submits no transaction,
     and a same-name file holding anything else is a collision rather than an
     overwrite — a record is immutable, and one whose name no longer names its
@@ -285,14 +285,14 @@ class LogEvidenceRefused(ScienceError):
     """The engine refused to produce the log evidence an act asked for.
 
     Three engine states escape the inspecting commands' never-raises envelope
-    by design (log-verification design §6.4): a chain-vs-record contradiction
+    by design: a chain-vs-record contradiction
     (``ChainStateInvalid``), a halted transaction (``TransactionHalted``), and
     a capture refusal at a modeled path holding an unrepresentable entry
     (``PreconditionRefused``). The composition root's seam adapters translate
     exactly those three — nothing else, and ``ProtocolError`` and setup errors
     keep their own contracts — preserving the engine exception as ``__cause__``.
 
-    The preimage phase (l13-preimage spec §4) adds corrupt local history
+    The preimage phase adds corrupt local history
     (``MetadataStoreInvalid``), and translates the same ``ChainStateInvalid``
     and ``TransactionHalted``. Its ``PreconditionRefused`` is availability
     evidence and is not translated here.
@@ -329,7 +329,7 @@ class PreimageMismatch(ScienceError):
     the bytes by `read_preimage` against the same root — so a disagreement is
     a contradiction between two evidence sources the act itself obtained,
     never a judgment about the removal. Like `LogEvidenceRefused` it produces
-    no report, is no outcome and is no arrival cause (spec §6).
+    no report, is no outcome and is no arrival cause.
     """
 
 
@@ -337,7 +337,7 @@ class AdmissionEvidenceRefused(ScienceError):
     """The successor-admission act refused to judge: evidence it must read
     is unreadable, incoherent, or unresolved. Names the offending record
     so the repair is directed; the act is retried after correction, never
-    around it (successor-admission design §5)."""
+    around it."""
 
     def __init__(self, reason: str, ref: str) -> None:
         super().__init__(f"{reason}: {ref}")
@@ -352,8 +352,7 @@ class ReplicaAdmissionRequiresVerification(ScienceError):
     admitting it is the one admission that asks a question about evidence:
     whether the traveled chain is the one its anchors describe. `admit` holds no
     verdict to report — it inspects nothing, states no surface and consults no
-    observer — so it refuses rather than admitting on trust
-    (log-verification design §6.2). The verified route is
+    observer — so it refuses rather than admitting on trust. The verified route is
     `beliefs.root.admit_arrival`, which returns the admission record and the
     report side by side.
 
@@ -364,7 +363,7 @@ class ReplicaAdmissionRequiresVerification(ScienceError):
 
 
 ArrivalCause: TypeAlias = Literal["malformed", "refuted", "pending", "chainless"]
-"""§6.2's closed refusal vocabulary for a verified arrival, ranked
+"""The closed refusal vocabulary for a verified arrival, ranked
 `malformed > refuted > pending > chainless`. The cause is derived from the
 **report's fields**, never from which precedence step produced the outcome."""
 
@@ -376,7 +375,7 @@ _ARRIVAL_REMEDIES: Mapping[ArrivalCause, str] = MappingProxyType(
         "chainless": "recopy carrying the chain; a replica that did not carry its chain is not an unanchored arrival",
     }
 )
-"""The remedy each cause names, so that "the remedy named" (§6.2) is a property
+"""The remedy each cause names, so that "the remedy named" is a property
 of the error rather than of whichever call site raised it. The mapping is also
 what closes the vocabulary at run time: a fifth cause would have no remedy and
 could not be raised."""
@@ -387,8 +386,7 @@ class ArrivalRefused(ScienceError):
 
     Carries the **complete** report — never a summary of it, since the caller's
     next move depends on the findings, the pending set and the observer bound —
-    plus one closed cause and the remedy that cause names (log-verification
-    design §6.2).
+    plus one closed cause and the remedy that cause names.
 
     The cause is read off the report's fields rather than off the precedence
     step that produced the outcome: a pending chain with an empty observer set
@@ -413,7 +411,7 @@ class SubjectMismatch(ScienceError):
     """A root's manifest claims an identity that is not the selected subject.
 
     At **arrival** this is a lifecycle-boundary refusal and it fires even on a
-    `validated` report (log-verification design §1.2, §6.3): a copied root whose
+    `validated` report: a copied root whose
     manifest was re-minted to a fresh id still carries its parent's chain, and
     that chain judged against the parent validates — a cooperatively logged
     identity rewrite replays consistently. The chain is not what is wrong; the
@@ -434,7 +432,7 @@ class SubjectMismatch(ScienceError):
 class ObserverCarrierInvalid(ScienceError):
     """A supplied observer carrier does not validate as what it claims to be.
 
-    Every carrier validates before evaluation (log-verification design §4.1):
+    Every carrier validates before evaluation:
     an epoch against its packaging identity, an artifact by its codec, a record
     by its grammar. A carrier that fails refuses the act — **never a silently
     narrowed observer set**, because an anchor dropped for being unreadable and
@@ -449,7 +447,7 @@ class ObserverCarrierInvalid(ScienceError):
 
 class EnumeratedKindUngoverned(ScienceError):
     """A captured record claims a kind that one of the four epoch derivations
-    enumerates but that has no governed stored-kind definition (§13). The
+    enumerates but that has no governed stored-kind definition. The
     record can be neither derived from — no contract says what its fields mean
     — nor silently omitted, which would publish an enumeration that quietly
     disagreed with the corpus it names. An *absence* of such records is an
@@ -457,7 +455,7 @@ class EnumeratedKindUngoverned(ScienceError):
 
 
 class ResolutionRefused(ScienceError):
-    """A bound address resolution met ambiguity or corruption (§8.3).
+    """A bound address resolution met ambiguity or corruption.
 
     Two configured roots claiming one `corpus_id`, a present carrier whose
     manifest cannot be read, or a present carrier that does not produce the
@@ -471,8 +469,8 @@ class ResolutionRefused(ScienceError):
 
 class DeprecatedKeyCollision(ResolutionRefused):
     """A retired address claimed across holders by records of distinct uids, or
-    that is another record's live address in another holder (cut 48 §4.2 rule 3,
-    applied by the merged standing fold's self-check, §4.5). Its finding is the
+    that is another record's live address in another holder (applied by the
+    merged standing fold's self-check). Its finding is the
     receipt path's `deprecated-key-collision`, naming the address and every
     holder in capture order, never a chosen copy."""
 
@@ -508,8 +506,7 @@ class CorpusDamaged(ScienceError):
 
 
 class SelectionRefused(ScienceError):
-    """A view query could not be evaluated over this world view (world
-    resolution slice 4 §3.4): one class, a closed reason, the offending
+    """A view query could not be evaluated over this world view: one class, a closed reason, the offending
     references sorted. No reason says where a record is — that is
     ``NotPresent``'s and ``RecordNotPresent``'s job — and every reason says
     the question could not be answered."""
@@ -527,7 +524,7 @@ class SelectionRefused(ScienceError):
 
 
 class EdgeIndeterminate(ScienceError):
-    """A coreference expansion would have traversed an indeterminate edge (§8.4).
+    """A coreference expansion would have traversed an indeterminate edge.
 
     Inspecting an edge state may answer `indeterminate`; *expanding* through
     one may not, because an expansion that skipped the edge would be reporting
@@ -611,8 +608,8 @@ class ContractError(ScienceError):
 
 class MalformedContract(ContractError):
     """A contract that is structurally wrong — an unknown field, a missing one, a
-    value of the wrong shape. Unknown fields are refused rather than ignored: D5
-    is explicit that an unrecognized field is *"refused at load, never ignored and
+    value of the wrong shape. Unknown fields are refused rather than ignored: an unrecognized field is *"refused at
+    load, never ignored and
     never digested"*, and a contract quietly accepting one would make the reader
     and the loader disagree about what the document says."""
 
@@ -626,7 +623,7 @@ class UnparsedContract(ContractError):
     came from the authored documents. Without it a claim can be typed against a
     hand-built contract — which is to say typed against nothing, every operator,
     sort, layer and dimension in it invented by whoever built the object, with
-    the normative SSOT (D §6) never opened."""
+    the authored documents never opened."""
 
 
 class ContractMismatch(ContractError):
@@ -652,29 +649,29 @@ class ContractMismatch(ContractError):
 
 
 class CitationContractMismatch(ContractMismatch):
-    """A citation's holder pins another identity of a namespace the writer pins
-    (mount-citations decision 3): decoding under either profile would equate two
-    contracts, so the citation refuses instead."""
+    """A citation's holder pins another identity of a namespace the writer pins:
+    decoding under either profile would equate two contracts, so the
+    citation refuses instead."""
 
     def __init__(self, root: Path, namespace: str, held: str, writer: str) -> None:
         self.root, self.namespace, self.held, self.writer = root, namespace, held, writer
         super().__init__(
-            f"{root}: the cited corpus pins {held} for {namespace!r}; this writer pins {writer} "
-            "(mount-citations decision 3)"
+            f"{root}: the cited corpus pins {held} for {namespace!r}; this writer pins {writer}; "
+            "decoding under either profile would equate two contracts"
         )
 
 
 class ContractDisagreement(ContractError):
     """Two corpora in one closure pinning different identities for one
-    consulted namespace — refused, never merged, never preferred by recency
-    (D §8.1). The evaluator returns this as `Refused`, D7 unchanged."""
+    consulted namespace — refused, never merged, never preferred by recency. The evaluator returns this as
+    `Refused`."""
 
 
 class SuccessionViolation(ContractError):
     """A successor contract that redefines, drops, or misdeclares its lineage.
     Refused at contract **load** — never at claim decode, which sees wire bytes
     and cannot tell a claim being authored now from one being restored from a
-    backup (§7.3a)."""
+    backup."""
 
 
 class ProfileError(ScienceError):
@@ -694,7 +691,7 @@ class MountPinUnresolved(ProfileError):
 class ResolutionError(ScienceError):
     """A snapshot or receipt refused — at construction, never at resolution itself.
 
-    Resolving a term never raises: every one of §7.2's five outcomes is a
+    Resolving a term never raises: every one of the five outcomes is a
     well-formed answer, including the four that are not `member`. An exception
     here would be a sixth outcome smuggled in through the control flow, and it
     would be the one outcome a caller could not record in a receipt."""
@@ -724,17 +721,17 @@ class MalformedWireEstimand(DecodeError):
 class UnboundReferent(DecodeError):
     """A term that its sort's bound vocabulary was **read** and found not to contain.
 
-    The one outcome of §7.2's five that refuses. It is positive evidence of a bad
+    The one outcome of the five that refuses. It is positive evidence of a bad
     binding, and admitting it would put an unbindable identifier into an
     immutable claim identity. The three not-performed outcomes accept, and the
-    distance between this class and them is the whole subject of §7.2 — refusing
+    distance between this class and them is the whole point — refusing
     on `not-consulted` would report *"not in the vocabulary"* on the evidence
     that nobody looked."""
 
 
 class DuplicateContribution(ProfileError):
-    """Two contracts contributing to one namespace. D §8's rule for facets, and
-    the same one here: contributions in *different* namespaces compose, and two
+    """Two contracts contributing to one namespace. The rule for facets is
+    the rule here: contributions in *different* namespaces compose, and two
     contributions to one namespaced identifier are refused at compile, never
     resolved last-writer-wins."""
 
@@ -745,7 +742,7 @@ class SubclassRefused(ScienceError):
     Opacity is worth exactly what `isinstance` is worth. A subclass can expose a
     raw constructor and mint an unchecked object that still satisfies
     `isinstance(x, Claim)` — at which point every downstream reader that trusts a
-    `Claim` unconditionally is wrong, and M13's guarantee is gone without a line
+    `Claim` unconditionally is wrong, and the seal's guarantee is gone without a line
     of it having been edited. `ProfileSpec` makes the same claim and needs the
     same seal, and so does every user-defined value type whose invariant a
     `Claim` trusts — `Referent`'s own check is what makes a claim's contents
@@ -761,7 +758,7 @@ class WithdrawnFromAuthoring(ScienceError):
     sort.
 
     Deliberately not a `ContractError`: nothing is wrong with the contract, and
-    nothing is wrong with the claim as a historical record. §7.3a puts retirement
+    nothing is wrong with the claim as a historical record. Retirement belongs
     in authoring and *only* in authoring, so this refusal must never be reachable
     from decode, import or restore — which is why it is its own class and not a
     member of the family those boundaries raise.
@@ -772,8 +769,8 @@ class ClaimError(ScienceError):
     """A claim, or a part of one, that is not admissible.
 
     Raised by the validated constructor and by the value types it admits. The
-    subclasses stay distinct because M11 decodes each ill-formed input *in turn*
-    and asserts a refusal each time; a single `ClaimError` would let one check
+    subclasses stay distinct because each ill-formed input is decoded *in turn*
+    and refuses each time; a single `ClaimError` would let one check
     silently cover for another's absence.
     """
 
@@ -781,9 +778,9 @@ class ClaimError(ScienceError):
 class UntypedReferent(ClaimError):
     """A bare string, or any untyped value, in an argument slot or a restriction.
 
-    §6.2 types a slot as `Referent(ArgSort(op, i))`, so the sort must travel with
+    A slot is typed `Referent(ArgSort(op, i))`, so the sort must travel with
     the value. A string carries no sort, which means nothing about it can be
-    checked against the slot it was put in (M4)."""
+    checked against the slot it was put in."""
 
 
 class MalformedReferent(ClaimError):
@@ -805,7 +802,7 @@ class UntypedQualifier(ClaimError):
 
 class ArityMismatch(ClaimError):
     """More or fewer arguments than the operator declares. Arity is per operator
-    because it is not universally 2 (§6.2)."""
+    because it is not universally 2."""
 
 
 class ArgumentSortMismatch(ClaimError):
@@ -817,16 +814,16 @@ class ArgumentSortMismatch(ClaimError):
 class UndeclaredDimension(ClaimError):
     """A qualifier on a dimension the operator does not permit. `Dims(op)` is
     declared per operator — a population restriction is meaningless for a
-    structural operator (§6.2)."""
+    structural operator."""
 
 
 class RestrictionSortMismatch(ClaimError):
     """A restriction bound to a referent of the wrong sort. A restriction is
-    sorted exactly as an argument is (§6.2)."""
+    sorted exactly as an argument is."""
 
 
 class UnknownQuantifier(ClaimError):
-    """A quantifier outside the kernel's closed set. §6.4 rules the set
+    """A quantifier outside the kernel's closed set. The set is
     kernel-owned and closed: `{ generic, universal, existential }`."""
 
 
@@ -834,19 +831,19 @@ class PolarityRefused(ClaimError):
     """A polarity the operator cannot carry — a sign asserted on a sign-inapt
     operator, no sign supplied for a sign-apt one, or a tag outside the base
     contract's closed set. For a sign-inapt operator `Polarity(op)` is the unit
-    type (§6.3), so there is exactly one inhabitant and nothing for an author to
+    type, so there is exactly one inhabitant and nothing for an author to
     choose."""
 
 
 class InadmissibleLayer(ClaimError):
     """A layer outside the operator's declared set. `Layers(op)` is non-empty by
     construction — an operator admitting no layer would make `Claim` uninhabited
-    at that operator (§6.2)."""
+    at that operator."""
 
 
 class EstimandError(ScienceError):
-    """An estimand, or a part of one, that is not admissible (estimand-typing §7.1).
-    Subclasses stay distinct for M11's reason: each ill-formed input refuses in
+    """An estimand, or a part of one, that is not admissible.
+    Subclasses stay distinct for the same reason: each ill-formed input refuses in
     turn, and one class would let a check cover for another's absence."""
 
 
@@ -872,8 +869,8 @@ class ControlRefused(EstimandError):
 
 
 class UncertaintyRefused(EstimandError):
-    """An estimate or uncertainty the spec's scale and reference do not admit
-    (estimand-typing §6): a float, an interval excluding its estimate, a level
+    """An estimate or uncertainty the spec's scale and reference do not admit: a float, an interval excluding its
+    estimate, a level
     outside (0, 1), a negative standard error, a non-positive multiplicative
     estimate. Raised by the constructor's checks; `build_assessment` records it
     as a finding, never an assessment."""
@@ -885,14 +882,14 @@ class EstimandSortMismatch(EstimandError):
 
 
 class EstimandFragmentRefused(EstimandError):
-    """Anything richer than the inhabited fragment (estimand-typing §3.3):
+    """Anything richer than the inhabited fragment:
     refused with the fragment named, never flattened."""
 
 
 class TagCollision(ContractError):
     """Two kernel tags that must stay distinct and do not — a duplicate inside a
     closed set, or a ``sign_inapt_tag`` that is also an assertable polarity.
-    ``inapt`` and ``unsigned`` are different facts (§7.5), and a projection that
+    ``inapt`` and ``unsigned`` are different facts, and a projection that
     cannot tell them apart has lost the distinction it exists to carry."""
 
 
@@ -909,8 +906,7 @@ class MalformedRecord(RecordError):
 
 class InputOutsideCorpus(MalformedRecord):
     """A corpus-local read of an assessment whose run the corpus does not hold,
-    or whose run names an input the corpus does not hold (mount-citations
-    decision 9, extended to the run in spec §13): read it over a world view.
+    or whose run names an input the corpus does not hold: read it over a world view.
     For an unheld run, `inputs` is the run alone."""
 
     def __init__(self, assessment: str, run: str, inputs: tuple[str, ...]) -> None:
@@ -955,26 +951,25 @@ class RecordUndecodable(RecordError):
 class OutcomeRefused(RecordError):
     """An entry outcome outside its act kind's reserved vocabulary — the sharp
     case being `byte-locator-untested` on a non-locator entry. No
-    classification is borrowed across kinds (act-report §2.2, T5)."""
+    classification is borrowed across kinds."""
 
 
 class CitationRefused(RecordError):
     """A citation names exactly one entry by zero-based unsigned index into
     the canonical sequence; out-of-range — negative included — is refused at
-    the citing site (act-report §2.2, T6)."""
+    the citing site."""
 
 
 class SignatureRefused(RecordError):
-    """An edge outside kernel §4.1's closed relation signatures — the sharp
-    case being `assesses` from a source-assertion (G1). Refused in the typed
+    """An edge outside the kernel's closed relation signatures — the sharp
+    case being `assesses` from a source-assertion. Refused in the typed
     constructor: inertness is the default, belief-bearing is the declared
     exception, and the exception is declared exactly once."""
 
 
 class CompositeError(RecordError):
-    """A composite refused at construction, at the boundary or at reading
-    (composite-claims design §3.4, §4). `code` is the stable name the design
-    tables carry; the message names the position."""
+    """A composite refused at construction, at the boundary or at reading. `code` is the stable name
+    the composite tables carry; the message names the position."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(f"{code}: {message}")
@@ -985,7 +980,7 @@ class MalformedSnapshot(RecordError):
     """A lineage snapshot value refused at construction — one representation
     per fact: a `single` basis holds exactly one route, a `conflict` at least
     two distinct, sorted routes, so a conflict that never occurred cannot be
-    spelled (substrate §5, sub-problem 4 §5.2)."""
+    spelled."""
 
 
 class BasisTagMismatch(RecordError):
@@ -1003,44 +998,44 @@ class BasisTagMismatch(RecordError):
 class MalformedSpec(RecordError):
     """A spec facet the freeze cannot accept — an empty ``target``, a seed plan
     whose stream-to-root mapping is not total (a derivation with no determined
-    root argument), a mapped root nobody declared (computation §3.1a)."""
+    root argument), a mapped root nobody declared."""
 
 
 class UnfreezableSpec(RecordError):
     """A contradiction across two frozen fields, caught at freeze time — the
-    §1.2 case: ``stochastic-unseeded`` beside a bitwise equivalence rule. A
-    check, not a type refusal, because it spans fields (computation §3.1a)."""
+    ``stochastic-unseeded`` beside a bitwise equivalence rule. A
+    check, not a type refusal, because it spans fields."""
 
 
 class PreGrammarSpec(UnfreezableSpec):
     """A stored spec projection with no `estimand_grammar` member: frozen
     before `science.estimand.v1`. Refused by name, never coerced; a corpus
-    holding one was not recreated (estimand-typing decision 10)."""
+    holding one was not recreated."""
 
 
 class PreGrammarAssessment(MalformedRecord):
     """A stored assessment facet whose estimand is prose: minted before
-    `science.estimand.v1`. Refused by name, never coerced (decision 10)."""
+    `science.estimand.v1`. Refused by name, never coerced."""
 
 
 class RuleUnbound(RecordError):
     """A rule identity with no held conforming implementation. An
-    implementation that fails its fixtures is not that rule (computation
-    §3.1b). The registry/resolver form of this refusal is the rules store's
-    and is deferred (cut 3 §7 item 4)."""
+    implementation that fails its fixtures is not that rule. The registry/resolver form of this refusal is the
+    rules store's
+    and is deferred."""
 
 
 class MixedShapes(RecordError):
     """A verification pair whose run shapes differ.
 
     One side's equivalence rule is authored and the other's is fixed, so there
-    is no honest rule for a mixed pair (§7.3c).
+    is no honest rule for a mixed pair.
     """
 
 
 class UnreferencedSuccessor(RecordError):
     """Reserved for the revise path's internal guard; the boundary-facing
-    verdict is the ``SuccessorRefused`` value (G4 is an outcome over value
+    verdict is the ``SuccessorRefused`` value (it is an outcome over value
     state, not an exception)."""
 
 
@@ -1048,18 +1043,18 @@ class MalformedClosure(RecordError):
     """A closure that cannot be completed — a missing member, an unknown- or
     attested-valued component, a bare lockfile digest as environment identity,
     an input role outside the shape's partition, a manifest disagreeing with
-    the declaration. §2: this is not a weaker run; it is not a run."""
+    the declaration. This is not a weaker run; it is not a run."""
 
 
 class UnsafeInvocation(RecordError):
-    """The boundary's own input-safety construction, not confinement (cut 3
-    §3): an option-like engine target, an entrypoint that does not resolve to
+    """The boundary's own input-safety construction, not confinement: an option-like engine target, an entrypoint
+    that does not resolve to
     a regular file inside the captured bundle, an absolute or root-escaping
     declared output."""
 
 
 class ConfinementRefusal(ScienceError):
-    """Base of the confined boundary's refusals (run-confinement design §8).
+    """Base of the confined boundary's refusals.
 
     Each subclass carries a stable ``reason`` as a class attribute; the run
     boundary maps it into ``RunRefused.reason`` and keeps the message as the
@@ -1100,7 +1095,7 @@ class SnapshotMismatch(ConfinementRefusal):
 
 class ClosureMutated(ConfinementRefusal):
     """Post-intent: the bundle, the snapshot or the staged inputs differ
-    between the pre-bind and post-exit observations (design §4.4)."""
+    between the pre-bind and post-exit observations."""
 
     reason = "closure-mutated"
 
@@ -1115,7 +1110,7 @@ class ConfinementNotEstablished(ConfinementRefusal):
 
 class NotAnAssessmentVerification(RecordError):
     """``admission_record`` was offered a dataset-production verification,
-    which has no assessment to admit (design §7.2)."""
+    which has no assessment to admit."""
 
 
 class CorpusRootRefused(ScienceError):
@@ -1126,7 +1121,7 @@ class CorpusRootRefused(ScienceError):
 
 class SemanticHashStale(ScienceError):
     """A stored node whose recorded semantic hash disagrees with the one its
-    stored fields recompute to (`semantic-hash-stale`, substrate §4.3).
+    stored fields recompute to (`semantic-hash-stale`).
 
     Refused on the read path, never repaired: a disagreement says the fields
     and the hash were not written together, and which of the two is the record
@@ -1138,8 +1133,7 @@ class SemanticHashStale(ScienceError):
 
 class SemanticHashMissing(ScienceError):
     """A stored node of a governed kind carrying no semantic-identity stamp at
-    all (`semantic-hash-missing`; post-freeze strengthening, adapter design
-    review 2026-08-18).
+    all (`semantic-hash-missing`).
 
     The recorded-history bound covers fields and stamp moved *together*; a
     forger who simply omits the stamp is statically detectable, and admitting
@@ -1159,7 +1153,7 @@ class WriteRefused(ScienceError):
     vocabulary. Execution-layer failures are not these: plan validity, engine
     refusal and halt cross the boundary as the seam's `PlanRefusedError` and
     `ExecutionError`, and a third vocabulary wrapping those two would add a
-    layer with no added discrimination (adapter design §5)."""
+    layer with no added discrimination."""
 
 
 class RecordAlreadyMinted(WriteRefused):
@@ -1196,12 +1190,11 @@ class PredecessorMismatch(WriteRefused):
 
 class KindNotMintedHere(WriteRefused):
     """A kind the ordinary coordination doors never mint: `publication` and
-    `publication-binding` are minted only by the publish doors
-    (publication-records design decision 6)."""
+    `publication-binding` are minted only by the publish doors."""
 
 
 class PublicationRefused(WriteRefused):
-    """A publish door refused before its intent (publication-records design §6)."""
+    """A publish door refused before its intent."""
 
     def __init__(
         self,
@@ -1224,7 +1217,7 @@ class PublicationRefused(WriteRefused):
 
 
 class PublicationArrivalRefused(WriteRefused):
-    """A publication's arrival refused before any write (publish-act-local design §10).
+    """A publication's arrival refused before any write.
     Not `ArrivalRefused`, verified arrival's `(cause, report, detail)` refusal,
     which `admit_arrival` raises and which passes through `admit_publication`
     unchanged."""
@@ -1253,7 +1246,7 @@ class PublicationReadingRefused(WriteRefused):
 
 
 class CreateOnlyCollision(WriteRefused):
-    """A create-only name already holds other bytes (publish-act-local design §4.4)."""
+    """A create-only name already holds other bytes."""
 
     def __init__(self, path: Path) -> None:
         super().__init__(f"{path}: a create-only name already holds other bytes")
@@ -1287,8 +1280,7 @@ class RetractionGroundsMissing(WriteRefused):
 class RetractionUnreadable(RecordError):
     """A found retraction the evaluator cannot read — its facet, its stamp, its
     target's exact resolution or content identity, or its route — so standing
-    is undecidable for every input it might name (correction-remainder slice 1
-    §4, decision 4). The audit names the record; `delete` is the remedy."""
+    is undecidable for every input it might name. The audit names the record; `delete` is the remedy."""
 
     def __init__(self, ref: str, cause: str) -> None:
         super().__init__(f"{ref}: standing is undecidable: {cause}")
@@ -1299,7 +1291,7 @@ class RetractionUnreadable(RecordError):
 class RetractionResolutionDisagreement(RecordError):
     """The evaluator's standing fold and the enumeration's recorded resolution
     disagree for one retraction — the epoch folded per corpus and a `move`
-    separated a counter-retraction from what it counters (slice 1 §11.1)."""
+    separated a counter-retraction from what it counters."""
 
     def __init__(self, ref: str, recorded: str, computed: str, *, detail: str | None = None) -> None:
         super().__init__(
@@ -1310,7 +1302,7 @@ class RetractionResolutionDisagreement(RecordError):
 
 class ProducerSnapshotMismatch(RecordError):
     """A world read was handed a producer-snapshot identity that is not the
-    bound epoch's (slice 1 decision 2)."""
+    bound epoch's."""
 
     def __init__(self, supplied: str, bound: str) -> None:
         super().__init__(f"the supplied producer snapshot {supplied!r} is not the bound epoch's {bound!r}")
@@ -1319,9 +1311,8 @@ class ProducerSnapshotMismatch(RecordError):
 
 class ProducerSnapshotRetracted(RecordError):
     """A world read was handed the bound epoch's producer-snapshot identity,
-    and a standing snapshot-arm retraction in a covered corpus names it
-    (correction-remainder slice 2, decision 6). The computation is refused,
-    not performed; nothing enters a closure."""
+    and a standing snapshot-arm retraction in a covered corpus names it. The computation is refused, not performed; nothing enters a
+    closure."""
 
     def __init__(self, identity: str) -> None:
         super().__init__(f"the supplied producer snapshot {identity!r} is retracted in its covered corpora")
@@ -1329,8 +1320,8 @@ class ProducerSnapshotRetracted(RecordError):
 
 
 class CoreferenceEndpointRefused(WriteRefused):
-    """A coreference attestation names an endpoint the seam refuses (world
-    address ruling §5.1): the four typing refusals, one class, a closed reason."""
+    """A coreference attestation names an endpoint the seam refuses: the four typing refusals, one class, a closed
+    reason."""
 
     REASONS = ("self-pair", "kind-mismatch", "unresolved", "inadmissible-kind")
 
@@ -1344,8 +1335,8 @@ class CoreferenceEndpointRefused(WriteRefused):
 
 
 class IdentifierMalformed(WriteRefused):
-    """A source identifier refused by its scheme's form rule (slice 2b design
-    §3.1): one class, a closed reason, the scheme and the offending value.
+    """A source identifier refused by its scheme's form rule: one class, a closed reason, the scheme and the
+    offending value.
     `non-canonical` is the boundary's reason — a stored or supplied value the
     rule would have changed."""
 
@@ -1361,20 +1352,20 @@ class IdentifierMalformed(WriteRefused):
 
 
 class SourceAddressDisagreement(WriteRefused):
-    """A source's stored id is not the address its identifiers derive (slice 2b
-    §5.1). The basis is present and canonical; the record simply lives at the
+    """A source's stored id is not the address its identifiers derive. The basis is present and canonical; the
+    record simply lives at the
     wrong address, which is what a handle-addressed or hand-edited source is."""
 
 
 class DatasetAddressDisagreement(WriteRefused):
-    """A dataset's stored id is not the address its declaration derives (slice 5
-    §5). The declaration is present and pinned; the record simply lives at the
+    """A dataset's stored id is not the address its declaration derives. The declaration is present and pinned; the
+    record simply lives at the
     wrong address, which is what a handle-addressed or hand-edited dataset is —
     the dataset half of `SourceAddressDisagreement`."""
 
 
 class CorrectionRefused(WriteRefused):
-    """`correct_identifier` refused before any effect (slice 2b §6.1): one
+    """`correct_identifier` refused before any effect: one
     class, a closed reason. Identifier form refusals are `IdentifierMalformed`
     and an empty basis is `BasisMissing`; these are the seam's own."""
 
@@ -1412,7 +1403,7 @@ class SameRootRefused(RelocationRefused):
 
     `move` has nowhere to move to, and `consolidate`'s scope is two readable
     corpora — a single corpus holding two live records at one canonical address
-    needs a recovery scanner this design does not build.
+    needs a recovery scanner this module does not build.
     """
 
 
@@ -1421,18 +1412,18 @@ class AddressDisagreement(RelocationRefused):
 
     That is a coreference question and `consolidate` must not answer it. It is
     also why `consolidate` is unavailable for one `uid` under two addresses —
-    W8b's corruption case, refused on this precondition rather than by a
+    the uid-corruption case, refused on this precondition rather than by a
     corruption check.
     """
 
 
 class HistoryDisagreement(RelocationRefused):
     """`consolidate` was given two sources at one address whose identifier maps
-    differ (slice 2b §7: an identifier change is a correction's assertion, never
+    differ (an identifier change is a correction's assertion, never
     a side effect of consolidation), or whose correction histories cannot be
     reconciled — one token naming two different events, or a raw-imported chain
-    interleaving held and unheld events (slice 6 §4). Divergent histories
-    themselves reconcile by absorption since cut 30."""
+    interleaving held and unheld events. Divergent histories
+    themselves reconcile by absorption."""
 
 
 class DuplicateLocation(RelocationRefused):
@@ -1444,7 +1435,7 @@ class DuplicateLocation(RelocationRefused):
 
 
 class ContractPinDisagreement(RelocationRefused):
-    """The receiving corpus does not pin what the relocated node needs (D7).
+    """The receiving corpus does not pin what the relocated node needs.
 
     Raised for a differing `science_contract`, a differing identity for a
     namespace the node's facets use, and for a namespace the receiving corpus
@@ -1456,21 +1447,21 @@ class ContractPinDisagreement(RelocationRefused):
 class RelocationKindExcluded(RelocationRefused):
     """The record's kind is excluded from every world-changing operation.
 
-    Act-reports (T8), coordination records, and holdings observations.
+    Act-reports, coordination records, and holdings observations.
     """
 
 
 class RelocationTargetMissing(RelocationRefused):
     """A create-only family's target stopped resolving under the lock.
 
-    The replacement for family-adapters §5.3's monotonicity argument: consolidate
+    The replacement for the family adapters' monotonicity argument: consolidate
     and move can remove a record another operation resolved, so `retract` and
     `supersede` re-read their target and refuse rather than assume.
     """
 
 
 class DeletionRefused(WriteRefused):
-    """`delete`'s own refusals (world-changing families §3.1).
+    """`delete`'s own refusals.
 
     Deletion is a storage operation, not an epistemic one: it refuses on what
     it cannot resolve or must not touch, never on what names the target.
@@ -1483,19 +1474,19 @@ class DeletionTargetMissing(DeletionRefused):
 
 class DeletionKindExcluded(DeletionRefused):
     """The record's kind is excluded from every world-changing operation:
-    act-reports (T8), coordination records, and holdings observations (§3.0).
+    act-reports, coordination records, and holdings observations.
     """
 
 
 class BasisMissing(WriteRefused):
-    """W3 as narrowed: a `source` with no accepted external identifier, or a
+    """A `source` with no accepted external identifier, or a
     `dataset` with no content identity. Refused, never coerced to a curation
     `note` — a note is its own explicit add, and supplying the basis later is
     a second, separate mint. No title-and-year fallback exists to reach."""
 
 
 class EligibilityUnmet(WriteRefused):
-    """S7's write boundary: an inadmissible `assesses` edge — one whose run
+    """An inadmissible `assesses` edge — one whose run
     has no `observes` input carrying the `empirical-observation` facet. The
     cross-node predicate reads through the same corpus's read view."""
 
@@ -1511,16 +1502,16 @@ class FacetPayloadRefused(ValidationRefused):
 
 class FacetUndeclared(ScienceError):
     """A namespaced facet key on a record that the profile in force does not
-    declare (biology pack §5.5): the profile the derivation runs under is
+    declare: the profile the derivation runs under is
     stale against the corpus. Prefix `facet-undeclared:`."""
 
 
 class VerificationTargetMismatch(WriteRefused):
     """A published verification's `verifies` edge does not resolve to an
     assessment carrying the identity the verification names — before the
-    intent, at `add` and at import (verification-publication design §5.3).
+    intent, at `add` and at import.
     Equality of identity is the whole requirement: a second assessment record
-    with the same identity is an equally valid target (decision 17)."""
+    with the same identity is an equally valid target."""
 
 
 class CollisionRefused(WriteRefused):
@@ -1557,7 +1548,7 @@ class PermitFact:
 @dataclass(frozen=True)
 class PermitSummary:
     """A permit as plain data: sorted kinds, sorted act families, and whether
-    kinds outside the route map are permitted through corpus-write (§13.7)."""
+    kinds outside the route map are permitted through corpus-write."""
 
     kinds: tuple[str, ...]
     act_families: tuple[str, ...]
@@ -1565,8 +1556,7 @@ class PermitSummary:
 
 
 class PermitExceeded(WriteRefused):
-    """An act named a family or a kind the bound permit does not hold
-    (write-permits design §3.6). Raised before any effect; `requirement` and
+    """An act named a family or a kind the bound permit does not hold. Raised before any effect; `requirement` and
     `capability` are the structured fields the refusal envelope carries."""
 
     def __init__(self, requirement: PermitFact, capability: PermitSummary) -> None:
@@ -1577,20 +1567,19 @@ class PermitExceeded(WriteRefused):
 
 class ActorMismatch(WriteRefused):
     """A record names an actor other than the bound one — a retraction's
-    facet, or a run closure's occurrence through the add path (design §4.2).
+    facet, or a run closure's occurrence through the add path.
     Not a permit refusal: the permit may well cover the kind."""
 
 
 class PortMismatch(WriteRefused):
     """A supplied operation port is bound to another root, authority or
-    profile than the writer's (act-report-remainder design decision 13). A
+    profile than the writer's. A
     foreign root's port would carry the intent and the report into another
     chain while this writer's corpus is what the operation reads."""
 
 
 class SharingEvidenceDisagrees(WriteRefused):
-    """A sharing act door's evidence disagrees with the root it acts on (sharing
-    design §2 decision 4, §4.5). Raised before any effect, on the first
+    """A sharing act door's evidence disagrees with the root it acts on. Raised before any effect, on the first
     disagreeing field in the binding's order: `corpus`, `artifact`, `marker`,
     `world`, `view`. `claimed` is the evidence's value; `found` is the
     subject's, the root's or the carriers' (the comma-joined identities of the
@@ -1605,40 +1594,38 @@ class SharingEvidenceDisagrees(WriteRefused):
 
 class PlanRefused(WriteRefused):
     """The operation seam's preflight refused the plan — shape, a reserved
-    leaf, or the record ceiling — before any intent (writer-session design
-    §4.3 step 3). Wraps the executor layer's `PlanRefusedError` so the
+    leaf, or the record ceiling — before any intent. Wraps the executor layer's `PlanRefusedError` so the
     dispatcher's one refusal handler sees a `WriteRefused`."""
 
 
 class OperationPortMissing(WriteRefused):
     """An operation write was asked of a writer constructed without an
-    operation port (writer-session design §4.2)."""
+    operation port."""
 
 
 class SessionRefused(ScienceError):
-    """`open_attended_session` refused its configuration (writer-session
-    design §3.1, session-mounts design §3.2): a write root outside the configured
+    """`open_attended_session` refused its configuration: a write root outside the configured
     roots, a mount set other than the configured roots, a root with no manifest,
     or no well-formed chain."""
 
 
 class SessionClosed(ScienceError):
-    """A method was called on a session after `close()` (design §3.4)."""
+    """A method was called on a session after `close()`."""
 
 
 class SessionProtocolError(ScienceError):
     """A close naming anything but the current invocation, or an act by a
-    writer whose invocation is not current (design §3.3, §5). Unreachable
+    writer whose invocation is not current. Unreachable
     through the dispatcher's lock; reaching it is a bug, never an outcome."""
 
 
 class SessionLedgerFailed(ScienceError):
     """A ledger `write`, `flush` or `fsync` failed; the session is terminal
-    and appends nothing further (design §3.2, decision 20)."""
+    and appends nothing further."""
 
 
 class LedgerMalformed(ScienceError):
-    """The ledger reader refused a line (design §3.5)."""
+    """The ledger reader refused a line."""
 
 
 class BundleMemberHeld(ImportRefused):
@@ -1652,30 +1639,26 @@ class AcquisitionBoundaryRefused(WriteRefused):
 class AcquisitionRefused(WriteRefused):
     """An acquisition request refused before its intent — the wrong root, no
     operation port, a store-less materialization, a malformed request — or at
-    its close, when the report would name an observation no act published
-    (url-retrieval design §6 steps 1 and 4)."""
+    its close, when the report would name an observation no act published."""
 
 
 class AuditRefused(WriteRefused):
     """An audit operation refused before its intent — no operation port, an
-    observer or instrument that is empty or not canonically encodable
-    (act-report-remainder design §3 step 1)."""
+    observer or instrument that is empty or not canonically encodable."""
 
 
 class RecheckRefused(WriteRefused):
     """A re-check operation refused before its intent — duplicate locations, a
     foreign store, the wrong root, no operation port, an observer or
     instrument the observation would refuse, a `standing` set at another
-    location or for an unrequested one (act-report-remainder design §4 step 1,
-    decision 14) — or at its close, when the report would name an observation
-    no act published."""
+    location or for an unrequested one — or at its close, when the report would name an
+    observation no act published."""
 
 
 class StoreWriteRefused(ScienceError):
-    """The store transaction of a managed `write` was a routine engine refusal
-    (url-retrieval design decision 10): `applied == 0` and a
-    `ProjectApprovalRefused`, `PreconditionRefused` or `PendingUnresolved`
-    cause. Raised for that phase only; the intent append and the publication
+    """The store transaction of a managed `write` was a routine engine refusal:
+    `applied == 0` and a `ProjectApprovalRefused`, `PreconditionRefused` or
+    `PendingUnresolved` cause. Raised for that phase only; the intent append and the publication
     raise as themselves."""
 
     def __init__(self, location: str, detail: str) -> None:

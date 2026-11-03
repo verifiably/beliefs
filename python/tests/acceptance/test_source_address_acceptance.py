@@ -1,4 +1,4 @@
-"""Cut 25 — source addresses derived from the normalized identifier (W1, W2, W5a)."""
+"""Source addresses derived from the normalized identifier."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def world(work_directory):
     roots = []
 
     def corpus():
-        path = Path(mkdtemp(prefix="cut25-corpus-", dir=work_directory))
+        path = Path(mkdtemp(prefix="source-address-corpus-", dir=work_directory))
         roots.append(path)
         init_corpus_root(path, authority=FULL)
         writer = open_corpus(path, authority=FULL, profile=BASE)
@@ -82,7 +82,7 @@ def world(work_directory):
 
     a, alpha, left = corpus()
     b, beta, right = corpus()
-    path = Path(mkdtemp(prefix="cut25-world-", dir=work_directory))
+    path = Path(mkdtemp(prefix="source-address-world-", dir=work_directory))
     roots.append(path)
     config = WorldConfig(path, "e" * 32, (alpha, beta))
     init_world_root(config, authority=FULL)
@@ -97,7 +97,7 @@ def world(work_directory):
             shutil.rmtree(metadata_root_for(root), ignore_errors=True)
 
 
-def test_w1_distinct_bases_never_become_one_node(world):
+def test_distinct_bases_never_become_one_node(world):
     registry, (a, left), (b, right) = world
     for citekey, first, second in PAIRS:
         left.add(stored.source_node(title=citekey, identifiers={"doi": first}))
@@ -111,7 +111,7 @@ def test_w1_distinct_bases_never_become_one_node(world):
     assert all(view.resolve(address) == address for address in addresses)
 
 
-def test_w2_a_shared_basis_is_one_address(world):
+def test_shared_basis_is_one_address(world):
     registry, (a, left), (b, right) = world
     one = left.add(stored.source_node(title="x", identifiers={"doi": "10.1234/ABC"}))
     two = stored.source_node(title="y", identifiers={"doi": "https://doi.org/10.1234/abc"})
@@ -138,7 +138,7 @@ def test_w2_a_shared_basis_is_one_address(world):
     publish(registry, (a, b), hold_shipped(registry))
 
 
-def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
+def test_dataset_arm_a_rehold_is_a_new_entity(world):
     _, (_, left), _ = world
     assessment = mint_eligible_assessment(left)  # observes dataset:raw through run:r1
     run = left.read_view.get("run:r1")
@@ -168,7 +168,7 @@ def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
     assert left.read_view.get(d.id).facets[stored.DATASET_FACET] == d.facets[stored.DATASET_FACET]
 
 
-def test_w5a_source_arm_rename_preserves_uid_and_redirects(world):
+def test_source_arm_rename_preserves_uid_and_redirects(world):
     registry, (a, left), (b, _right) = world
     paper = left.add(stored.source_node(title="p", identifiers={"doi": "10.1234/wrong"}))
     # The referrer: a retraction grounded in the source (a source is not a retraction NodeTarget).
@@ -197,11 +197,11 @@ def test_w5a_source_arm_rename_preserves_uid_and_redirects(world):
     view = open_world_view(registry, published)
     assert view.resolve(paper.id) == corrected.id
 
-    # Negative — three arms, three calls, no chooser.
+    # Negative — three cases, three calls, no chooser.
     assert "case" not in inspect.signature(left.correct_identifier).parameters
-    other = left.add(stored.source_node(title="p2", identifiers={"doi": "10.1234/another"}))  # arm 2: a new work
+    other = left.add(stored.source_node(title="p2", identifiers={"doi": "10.1234/another"}))  # case 2: a new work
     assert other.uid != corrected.uid
-    attestation = stored.coreference_attestation_node(  # arm 3: two identifiers legitimately exist
+    attestation = stored.coreference_attestation_node(  # case 3: two identifiers legitimately exist
         title="same paper",
         endpoints=(corrected.id, other.id),
         stance=1,
@@ -236,8 +236,8 @@ def test_w5a_source_arm_rename_preserves_uid_and_redirects(world):
     ],
 )
 def test_refusals_leave_no_intent_or_file_effect(work_directory, case, exception, reason):
-    """Each refusing stage of §6.1 runs before intent append or file publication."""
-    root = adopted(work_directory, f"cut25-refuse-{case}")
+    """Each refusing stage runs before intent append or file publication."""
+    root = adopted(work_directory, f"source-address-refuse-{case}")
     session, _backend, ops = halting_session(work_directory, root)
     try:
         w = fresh(session, "setup", SOURCES)
@@ -328,7 +328,7 @@ def correction_halt_positions(work_directory) -> tuple[int, int]:
     state at each halt. The positions are derived from what was observed, never
     from the single-record count, and the sweep must show the create completing
     before the delete begins."""
-    root = adopted(work_directory, "cut25-sweep")
+    root = adopted(work_directory, "source-address-sweep")
     session, backend, _ops = halting_session(work_directory, root)
     w = fresh(session, "warm", SOURCES)
     w.add(stored.source_node(title="warm", identifiers={"pmid": "99"}))  # the kind directory exists
@@ -350,11 +350,11 @@ def correction_halt_positions(work_directory) -> tuple[int, int]:
 
 
 def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypatch, correction_halt_positions):
-    """Spec §10.3: a refusal has no effect; a halt after submission leaves a stated
+    """A refusal has no effect; a halt after submission leaves a stated
     prefix and the root unresolved; a post-commit readback fault leaves the record
     durable; settlement leaves exactly one record with the subject's uid."""
     halt_before_create, halt_between = correction_halt_positions
-    root = adopted(work_directory, "cut25-halt")
+    root = adopted(work_directory, "source-address-halt")
     session, backend, ops = halting_session(work_directory, root)
     w = fresh(session, "A", SOURCES)
     w.add(stored.source_node(title="warm", identifiers={"pmid": "99"}))  # the kind directory exists
@@ -482,8 +482,8 @@ def test_lifecycle_move_consolidate_delete(world):
 
 
 def test_consolidate_interrupted_after_replacement_re_runs_to_completion(world, monkeypatch):
-    """Families design, `consolidate` interrupted after step 4: keep holds the reconciled
-    survivor, other still holds its replica, and the recovery is to re-run. Slice 6 §5:
+    """`consolidate` interrupted after step 4: keep holds the reconciled
+    survivor, other still holds its replica, and the recovery is to re-run.
     the re-run absorbs nothing twice."""
     registry, (a, left), (b, right) = world
     for writer, grounds in ((left, "g-left"), (right, "g-right")):

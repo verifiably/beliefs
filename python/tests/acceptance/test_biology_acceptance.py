@@ -1,4 +1,4 @@
-"""Cut 22's durable biology facet arm and TypeScript contract-scope half."""
+"""The durable biology facet test and TypeScript contract-scope half."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ BIOLOGY_CLAIM = {
 }
 
 
-def test_d6_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_directory):
+def test_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_directory):
     profile = profile_with()
     root = adopted(work_directory, "corpus", pins=pins_for(profile), profile=profile)
     writer = open_corpus(root, authority=FULL, profile=profile)
@@ -51,7 +51,7 @@ def test_d6_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_dir
     assert isinstance(refused, Refused) and refused.reason.startswith("profile-pin-mismatch: biology")
 
 
-def test_b6_typescript_refuses_what_python_refuses():
+def test_typescript_refuses_what_python_refuses():
     completed = subprocess.run(
         ["npx", "vitest", "run", "tests/contract-scope.test.ts"],
         cwd=REPO_ROOT / "ts",

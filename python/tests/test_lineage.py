@@ -1,8 +1,8 @@
-"""S5's selected arms: certification computed from the supplied snapshot.
+"""Certification computed from the supplied snapshot.
 
 Deferred and absent here: the walk that *produces* a snapshot from a store
-(S1a's and the write API's), and the negative's "indistinguishable from one
-where that run never existed" clause, a store property (cut 2 §4.2).
+(the lineage tests' and the write API's), and the negative's "indistinguishable from one
+where that run never existed" clause, a store property.
 """
 
 from typing import Any, cast
@@ -138,9 +138,9 @@ class TestDivergence:
         assert certify(snapshot, ("x",), ("y",)).state != "not-certified"
 
     def test_a_divergent_producer_absent_from_the_snapshot_restores_the_certificate(self):
-        # S5's selected negative half: over supplied snapshots this collapses
+        # The negative half: over supplied snapshots this collapses
         # to purity of the certifier — the store's indistinguishability clause
-        # is deferred with the store (cut 2 §4.2).
+        # is deferred with the store.
         divergent = LineageSnapshot(
             roots=("x", "y"),
             bases={"x": Basis(tag="single", routes=(route("x", "a", transforms=("t1",)),))},
@@ -187,7 +187,7 @@ class TestTheProjectionRecordsBothHalves:
             producers={},
         )
         # The stored ref is unchanged and the resolution flips: the projection
-        # must differ, or a deletion is invisible to the digest (kernel §5.1).
+        # must differ, or a deletion is invisible to the digest.
         assert snapshot_projection(resolved) != snapshot_projection(deleted)
 
     def test_divergence_states_are_in_the_projection(self):

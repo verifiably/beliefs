@@ -1,4 +1,4 @@
-"""The publish intent (publication-records design §5, decisions 3, 9 and 10; row Y3)."""
+"""The publish intent."""
 
 from typing import Any
 
@@ -168,7 +168,7 @@ def test_destinations_are_canonical():
 
 @pytest.mark.parametrize("locator", ["/a\ud800", "/a\x00b"], ids=["lone-surrogate", "nul"])
 def test_a_local_locator_outside_canonical_text_is_refused_at_construction(locator):
-    """Task 3 review minor: a local locator is encodable canonical text with no NUL."""
+    """A local locator is encodable canonical text with no NUL."""
     with pytest.raises(MalformedRecord):
         Destination("local", locator)
 
@@ -205,7 +205,7 @@ def test_a_malformed_payload_under_the_domain_is_malformed():
 
 
 def test_completion_reads_a_publish_intent():
-    from test_report import publish_report  # Task 2's helper
+    from test_report import publish_report  # the helper
 
     from beliefs.report import BindingBound
 

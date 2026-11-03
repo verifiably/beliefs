@@ -1,4 +1,4 @@
-# The coordination contract, version 1 — coordination-and-view-kinds design §5.
+# The coordination contract, version 1.
 contract: coordination
 version: 1
 lineage: genesis

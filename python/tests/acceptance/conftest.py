@@ -4,12 +4,12 @@ Everything under `tests/acceptance` runs against the **real engine on a real
 volume**, and the gate below **errors** when that volume's configuration tuple
 is not certified. It never skips, and the distinction is the whole point: a
 skip reports green for a guarantee that was not exercised, and an environment
-where durability cannot be exercised must not be able to report cut-4 discharge.
+where durability cannot be exercised must not be able to report a discharged durability claim.
 
 **The work directory has to sit on the certified volume**, which the platform
 temporary directory generally does not — `/tmp` is a tmpfs on most hosts, and a
 tmpfs has no barrier-option table at all. So the default is a directory beside
-the main checkout, and `SCIENCE_CUT4_ROOT` overrides it for a host that keeps its
+the main checkout, and `BELIEFS_ACCEPTANCE_ROOT` overrides it for a host that keeps its
 certified volume elsewhere.
 """
 
@@ -22,6 +22,7 @@ from itertools import count
 from pathlib import Path
 
 import pytest
+from acceptance_runner import refuse_old_roots
 from authority import FULL
 from checkout import MAIN_CHECKOUT
 from fixtures_cut3 import TESTING_PROFILE
@@ -36,7 +37,11 @@ from beliefs.root import (
 )
 from beliefs.world import Fresh, WorldConfig
 
-DEFAULT_WORK = MAIN_CHECKOUT / ".cut4-acceptance"
+DEFAULT_WORK = MAIN_CHECKOUT / ".work" / "acceptance"
+
+_refusal = refuse_old_roots(os.environ)
+if _refusal is not None:
+    raise pytest.UsageError(_refusal)
 
 _counter = count()
 
@@ -50,12 +55,12 @@ def work_directory() -> Path:
     """The shared directory the per-test roots live under.
 
     **It is created and never removed here.** Concurrent acceptance processes
-    share it — the N2 audit runs a `pytest` per check, eight at a time — and a
+    share it — the acceptance runner starts one `pytest` per module — and a
     session teardown that deleted the directory would delete the roots of every
     other process still running. Each root cleans up after itself; the work
     directory is the acceptance command's to remove.
     """
-    configured = os.environ.get("SCIENCE_CUT4_ROOT")
+    configured = os.environ.get("BELIEFS_ACCEPTANCE_ROOT")
     work = Path(configured) if configured else DEFAULT_WORK
     work.mkdir(parents=True, exist_ok=True)
     return work
@@ -75,10 +80,10 @@ def durable_root(work_directory) -> Iterator[Path]:
         init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
-            f"the durable acceptance arms need a certified volume under {work_directory}; "
-            f"the engine refused: {refused}. Set SCIENCE_CUT4_ROOT to a certified volume. "
+            f"the durable acceptance tests need a certified volume under {work_directory}; "
+            f"the engine refused: {refused}. Set BELIEFS_ACCEPTANCE_ROOT to a certified volume. "
             "This is an error and not a skip: an environment that cannot exercise durability "
-            "must not be able to report cut-4 discharge."
+            "must not be able to report a discharged durability claim."
         ) from refused
     yield root
     shutil.rmtree(root, ignore_errors=True)
@@ -89,12 +94,12 @@ def durable_root(work_directory) -> Iterator[Path]:
 def durable_writer(durable_root):
     """The composition root's own product, bound to a registered root.
 
-    `TESTING_PROFILE`, not BASE: every acceptance arm that mints an assessment
+    `TESTING_PROFILE`, not BASE: every acceptance test that mints an assessment
     (directly, or through the portable `test_deletion_rows.py` builders this
     module shares) carries a typed estimand against `testing/affects`, which
     BASE does not declare, and the audit's recomputation
     (`stored.assessment_value`, `check_assessment`) decodes it under the
-    writer's own profile (estimand-typing §6, §9)."""
+    writer's own profile."""
     return open_corpus(durable_root, authority=FULL, profile=TESTING_PROFILE)
 
 
@@ -132,12 +137,12 @@ def durable_coordination_world(work_directory, durable_coordination_roots):
 
 @pytest.fixture(scope="session")
 def minted_corpus(work_directory) -> Iterator[Path]:
-    """Cut 4's fixture records, minted **once** through the add path into one
+    """The fixture records, minted **once** through the add path into one
     registered root and never written to again.
 
-    Shared by the read-only arms, which is what they are: every one of them
-    reopens the store from disk. An arm that writes — the raw-write act, a
-    second mint — takes its own root instead, so no arm can observe another's
+    Shared by the read-only tests, which is what they are: every one of them
+    reopens the store from disk. A test that writes — the raw-write act, a
+    second mint — takes its own root instead, so no test can observe another's
     construction.
     """
     from durable_fixture import mint_cut4_corpus
@@ -147,7 +152,7 @@ def minted_corpus(work_directory) -> Iterator[Path]:
         init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
-            f"the durable acceptance arms need a certified volume under {work_directory}; the engine refused: {refused}"
+            f"the durable acceptance tests need a certified volume under {work_directory}; the engine refused: {refused}"
         ) from refused
     mint_cut4_corpus(open_corpus(root, authority=FULL, profile=BASE))
     yield root
@@ -156,7 +161,7 @@ def minted_corpus(work_directory) -> Iterator[Path]:
 
 
 class ConfinementUnavailableHost(Exception):
-    """The confined arms' own error, raised rather than skipped."""
+    """The confined tests' own error, raised rather than skipped."""
 
 
 @pytest.fixture()
@@ -164,69 +169,12 @@ def confined_host() -> None:
     """The confinement gate: bubblewrap with --info-fd, unprivileged user
     namespaces, and the loader's --list. It errors and never skips — an
     environment that cannot exercise confinement must not be able to report
-    cut-13 discharge. No durable root is involved."""
+    a discharged confinement claim. No durable root is involved."""
     from beliefs.confinement import host_prerequisites
 
     reason = host_prerequisites()
     if reason is not None:
         raise ConfinementUnavailableHost(
-            f"the confined acceptance arms need bubblewrap and user namespaces on this host; {reason}. "
+            f"the confined acceptance tests need bubblewrap and user namespaces on this host; {reason}. "
             "This is an error and not a skip."
-        )
-
-
-# --- Cited, not run ------------------------------------------------------------------
-#
-# A guard module a later cut took out of the live chain is evidence, not machinery: its
-# bytes are what produced the discharge that cut cites, and several are pinned by content
-# for exactly that reason. Running one on today's tree proves nothing about today's tree,
-# and its red has twice been read as a regression by someone who did not know that.
-#
-# It is refused collection rather than skipped. The rule this file opens with holds: a
-# skip reports green for a guarantee that was not exercised. A refusal reports nothing at
-# all, which is the truth — and `pytest_report_header` says why, naming the ruling and the
-# discharge that stands. The doctrine is
-# `docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md`; the registry is
-# `tests/cited_not_run.py`, and `tests/test_frozen_guards.py` holds the tree to both.
-
-from cited_not_run import CITED_NOT_RUN
-
-_GUARD_DIRECTORY = Path(__file__).resolve().parent
-
-
-def pytest_ignore_collect(collection_path: Path, config) -> bool | None:
-    """Keep a cited-not-run guard out of a directory collection."""
-    if collection_path.parent == _GUARD_DIRECTORY and collection_path.name in CITED_NOT_RUN:
-        return True
-    return None
-
-
-def pytest_collection_modifyitems(session, config, items) -> None:
-    """And out of an explicit one, saying why.
-
-    `pytest_ignore_collect` is not consulted for a path named on the command line — the
-    same reason `addopts`' own `--ignore=tests/acceptance` does not stop `pytest
-    tests/acceptance/test_n2_cut8.py`. Naming the module directly is precisely how these
-    get run by mistake, so the refusal has to land here too.
-
-    The reason is written straight to the terminal rather than returned from
-    `pytest_report_header`, which `-q` — set for every run by `addopts` — suppresses. A
-    refusal nobody can read is how this went wrong the first time.
-    """
-    refused = [item for item in items if Path(str(item.path)).name in CITED_NOT_RUN]
-    if not refused:
-        return
-    items[:] = [item for item in items if item not in refused]
-    config.hook.pytest_deselected(items=refused)
-
-    reporter = config.pluginmanager.get_plugin("terminalreporter")
-    if reporter is None:
-        return
-    reporter.ensure_newline()
-    for module in dict.fromkeys(Path(str(item.path)).name for item in refused):
-        entry = CITED_NOT_RUN[module]
-        reporter.write_line(
-            f"{module}: cut {entry.cut}'s guard is cited, not run — refused collection, not "
-            f"skipped. Ruled by {entry.ruled_by}; its discharge stands at "
-            f"{entry.standing_record}; {entry.successor} carries the coverage now."
         )

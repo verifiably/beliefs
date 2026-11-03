@@ -1,4 +1,4 @@
-"""D1 — `nodes` assigns no domain semantics, read as an invariance.
+"""`nodes` assigns no domain semantics, read as an invariance.
 
 For every bijective renaming ρ of namespace tokens (the part of a facet name before
 `/`), every public `nodes` operation commutes with ρ. Built-in facet names carry no
@@ -7,9 +7,7 @@ and are outside the property, so the registry here holds only the kernel's shape
 invariants. Diagnostics compare after renaming and re-sorting, since `Registry.check`
 sorts by name and a renamed token legitimately moves.
 
-Design: docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md §3.
-The subject is the installed `nodes`; N2 runs this same test against a sabotaged copy
-(n2_arms_cut26.py), where it must fail.
+The subject is the installed `nodes`.
 """
 
 from __future__ import annotations
@@ -34,7 +32,7 @@ RENAMINGS = {
     "sorts-last": {"biology": "zzz"},  # and after
 }
 
-# `nodes`' own `fixtures/gene-axis.md`, inlined: a sabotaged copy of the package has no
+# `nodes`' own `fixtures/gene-axis.md`, inlined: a patched copy of the package has no
 # fixtures directory beside it, and the check must read the same bytes either way.
 GENE_AXIS = """---
 id: dataset:gene-expression-matrix
@@ -149,7 +147,7 @@ def _validate_outcome(registry: Registry, node: Node) -> type[BaseException] | N
 
 
 @pytest.mark.parametrize("rho", list(RENAMINGS.values()), ids=list(RENAMINGS))
-def test_d1_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path):
+def test_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path):
     identity: dict[str, str] = {}
     registry, renamed_registry = _registry(identity), _registry(rho)
     # the fixture nodes ships parses to the facets the constructed node carries

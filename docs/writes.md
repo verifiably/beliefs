@@ -1,0 +1,217 @@
+# Writes
+
+Type: protocol; document types 1. Currently unversioned. This document describes
+how a write reaches a corpus: the authority a writer is bound to, an ordinary write,
+the attended writer session and its ledger, operations and their act reports,
+verification and publication. It then covers what is refused and how an
+interrupted write recovers. The records being written are described in
+[records.md](records.md), and the contracts that type them in
+[contracts.md](contracts.md).
+
+## Participants
+
+- **Caller.** A library user, or the `science` layer acting for a person or an
+  agent. A caller never supplies an actor on a call.
+- **Authority.** A write permit together with an actor, bound once when a writer
+  is constructed.
+- **Writer.** A `CorpusWriter`, bound to one corpus root, one authority and one
+  compiled profile.
+- **Engine.** The certified `atoms` engine. `beliefs.root` is the only module that
+  imports it, and every write to a corpus root goes through it.
+- **Session.** A `WriterSession`, which writes one corpus root and records every
+  step in its ledger.
+- **Recipient.** A world that admits a published corpus.
+
+## Authority and permits
+
+A `WritePermit` has two closed sets: the record kinds a holder may write, and the
+act families it may perform. The families are `corpus-write`, `run`, `holdings`,
+`registry`, `epoch`, `lifecycle` and `publish`. An `Authority` binds a permit to an
+actor, which must be a non-empty string that `science.identity.v1` can encode.
+
+Every write entry point calls `authority.require(family, kinds)` before its first
+effect. If the family or any kind falls outside the permit, the call raises
+`PermitExceeded` and writes nothing. A kind outside the kernel and coordination
+inventory is admitted only by an `ungoverned` permit, and only for `corpus-write`.
+`WritePermit.full()` is the full permit. The read door, `open_world_read`, binds
+the empty permit, so every act through it is refused.
+
+## Opening a corpus
+
+1. `init_corpus_root(root, authority=...)` requires `lifecycle` and
+   [registers](glossary.md#registration) the root with the engine. A root must be
+   registered explicitly; a write against an unregistered root is refused.
+2. `open_corpus(root, authority=..., profile=...)` returns a writer. The profile's
+   base contract must be the one the runtime ships. The root does not need a
+   manifest yet.
+3. `writer.adopt_manifest(profile=pins)` requires `lifecycle` and writes
+   `corpus.yaml` with a fresh corpus id. It refuses when a manifest is already
+   present, or when the pins it is given disagree with the writer's profile.
+
+## An ordinary write
+
+`add`, `supersede`, `revise`, `retract`, `attest_coreference`,
+`correct_identifier`, `delete`, `mint_coordination` and `revise_coordination` are
+ordinary writes. Each runs these steps in order, except `delete` (below):
+
+1. Require the permit for the act's family and kind.
+2. Take the root's lock, check that the manifest pins agree with the profile, and
+   recover the root if an earlier write left it unresolved.
+3. Run the refusals: the kinds this door does not admit, the facet, identity,
+   eligibility and signature checks in [records.md](records.md), lossless
+   rendering, and collision with an existing record.
+4. Build one `nodes` write plan and submit it as one engine transaction. The
+   transaction applies completely or not at all.
+
+A kind with its own door is refused through `add`. Holdings observations, act
+reports and publication records have no ordinary door at all. `delete` removes one
+record's file. It takes the lock, checks the pins and resolves its target first,
+then requires the permit on the target's kind, then refuses act reports, holdings
+observations and coordination kinds.
+
+## Writer sessions
+
+The `science` layer writes through a session:
+
+1. `open_attended_session(world_config, operations_root, write_root=..., profile=...)`
+   opens one. `write_root` must be one of the world's configured corpus roots, and
+   `mounts`, when given, must name every configured root exactly once. The corpus
+   must have a manifest whose pins agree with the profile, and its
+   [chain](glossary.md#roots-log) must be well-formed. The session's actor is
+   `session:<32 hex>`, derived from a fresh session id. The session writes
+   `session-open` to its ledger and reconciles the other sessions' ledgers.
+2. `claim_invocation(id, command, input_digest)` writes `invocation-open` for a new
+   id and returns `ClaimFresh`. For an id it has seen, it returns `ClaimDone` (with
+   the recorded outcome), `ClaimOpen` or `ClaimMismatch`, and writes nothing.
+3. `scoped(required, id)` returns a `ScopedWriter` whose permit is exactly
+   `required`, as long as the session's ceiling covers it; otherwise it raises
+   `PermitExceeded`.
+4. Each write through the scoped writer first checks that the invocation is the
+   current one. It then appends a `corpus-write` operation intent, commits the
+   write as the transaction that fulfils that intent, and writes an `act` line that
+   names the intent, the [registration](glossary.md#registration) and the records
+   written.
+5. `close_invocation(id, outcome)` writes `invocation-close`, and `close()` writes
+   `session-close`.
+
+The ledger is the append-only file `<operations_root>/sessions/<id>/ledger.v1`.
+Every line is written, flushed and fsynced before the call that wrote it returns.
+
+## Citations across mounts
+
+A session with read mounts writes only to its write root, but a record may cite
+records in any mount. Citations include an assessment's run and its datasets, a
+spec's target, a verification's assessment and a composite's members. Each mount
+is opened inside that mount's [capture hold](glossary.md#capture-hold), which never
+waits. A write that changes a record (`supersede`, `revise`, `delete`) resolves
+that record in the write root only.
+
+## Operations
+
+An operation is an act made of several member acts. Its kind is one of `acquisition`,
+`audit`, `consolidate`, `corpus-write`, `import`, `move`, `publish`, `re-check` and
+`run-attempt`. An operation proceeds in three steps:
+
+1. Append an intent to [the root's log](glossary.md#roots-log), before any member
+   act. The intent is `{kind, event_token, actor}`, and its actor must be the
+   writer's.
+2. Perform the member acts.
+3. Close by registering one terminal record that fulfils the intent. That record is
+   the operation's act report, or a run closure for a run.
+
+`publish` opens with its own intent, `science.publish-intent.v1`. A `corpus-write`
+is closed by its own registration and writes no act report. An `acquisition` mints
+its dataset and its act report in the same transaction.
+
+Completion is read from the log and never stored:
+
+- `closed`: a registration carrying the intent's token points to a
+  [held](glossary.md#held) record of the matching shape;
+- `indeterminate`: a matching registration's record is not held here;
+- `unfinished`: neither.
+
+## Verification
+
+A verification compares two runs and is published through an ordinary `add`:
+
+1. `build_verification(original, replayed, specs=..., held_rules=...,
+   contract_identity=..., epoch=...)` takes two run closures. Both must be
+   assessment runs or both dataset-production runs; a mixed pair is refused
+   (`MixedShapes`). It returns an `AssessmentVerification` or a
+   `DatasetProductionVerification`, carrying the comparison report, the scope and
+   the verdict.
+2. `publication_node(derived, assessment_ref=...)` builds the record. An
+   assessment verification requires the corpus reference of its assessment, which
+   becomes the `verifies` edge. A dataset-production verification takes none.
+3. `writer.add(record)`, or a scoped writer's `add`, decodes the record, checks
+   that its id recomputes from its fields, and checks its `verifies` target; see
+   [records.md](records.md#verifications).
+
+## Publication
+
+`publish(writer, resolver, world, view=..., destination=..., operations_root=...,
+staging_profile=..., clock=..., seam=...)` shares what a saved view selects; see
+the function's signature for its optional arguments. It runs these steps:
+
+1. Require the publish, `corpus-write`, `lifecycle` and `registry` families.
+2. Resolve the view and evaluate it at the current [epoch](glossary.md#epoch).
+   The publish is refused if the selection is incomplete (`selection-incomplete`),
+   if it is empty (`empty-selection`), or if a selected record depends on one left
+   out (`closure-incomplete`).
+3. Append the publish intent. Then write `selection.v1` and `request.v1`
+   create-only under `<operations_root>/publish/<token>/`.
+4. Stage the selected records, together with one `publication` marker, in a fresh
+   corpus. Export it and reveal it at the destination. For a remote destination,
+   transport it.
+5. Write a `publication-binding` in the source corpus, and discard the operation
+   directory.
+
+The result is `Published`, `PublishRefused` or `PublishUnresolved`. Every publish
+mints a new corpus. `admit_publication` admits one on the recipient's side only
+when it holds exactly one consistent marker, holds no binding, and holds exactly the
+records the marker's selection names.
+
+## Failure
+
+**Refusals.** A refusal is raised before any effect, and nothing is written. The
+main ones are:
+
+- `PermitExceeded`: the permit does not cover the act;
+- `ContractMismatch`: the manifest pins disagree with the profile;
+- `WriteRefused` and its subclasses (`ValidationRefused`, `EligibilityUnmet`,
+  `CollisionRefused`, `RecordAlreadyMinted`, `ActorMismatch`): the record fails a
+  check;
+- `SignatureRefused`: a relation breaks an enforced signature;
+- `SessionRefused`: a session cannot open;
+- `PublicationRefused`: a publish is refused before its intent, and the exception
+  names the reason.
+
+Two further refusals concern read mounts. A read mount whose operation lock is held
+refuses a citing write with `BuildContended`; the write does not queue, and the
+caller retries. A citation held by several corpora with different content is
+refused with `AddressMapConflict`.
+
+**Engine failures.** Engine failures surface as `ExecutionError`. When
+`applied == 0`, the engine refused before changing anything. This covers an
+unregistered root, a failed precondition and `CapabilityUnavailable`, which is
+preserved as the cause. `CapabilityUnavailable` means the host's kernel and volume
+are not a tuple `atoms` certifies, and no write can happen there until they are.
+When `applied` is `None`, the engine could not prove that the disk is back in its
+state before the plan.
+
+**Interruption and recovery.** A root is unresolved when a process first opens it,
+and a writer marks it unresolved again before each submission. The first write on
+an unresolved root asks the engine to recover it, which settles any transaction a
+crash or an `applied=None` failure left open. The writer then rebuilds its index
+before reading anything. An interrupted operation reads as `unfinished` from its
+intent. An interrupted publish resumes with `resume_publish(event_token=...)`
+under the same actor, and `pending_publishes` lists the unfinished ones.
+
+**Sessions.** A failed ledger append makes the session terminal
+(`SessionLedgerFailed`). A write from an invocation that is not the current one
+raises `SessionProtocolError`. When a session opens, `reconcile_sessions` compares
+every other session's ledger with the chains. It reports findings such as
+`session-unclosed`, `session-intent-unclaimed` and `session-act-unverified`.
+
+**Gaps.** Reconciliation reports, but it writes nothing and recovers nothing. A
+contended or refused write is not retried automatically; the caller retries it.

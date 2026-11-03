@@ -29,7 +29,7 @@ __all__ = ["RecordEvidence", "decode_node", "decode_record", "record_layout_path
 
 RecordEvidence: TypeAlias = RunEvidence | ReportEvidence | ObservationEvidence | InertRecord
 """What one captured record decodes to — the closed union `reduce_registration`
-carries as its match (successor-admission design §4.4)."""
+carries as its match."""
 
 
 def record_layout_path(path: str) -> bool:
@@ -39,8 +39,7 @@ def record_layout_path(path: str) -> bool:
 def decode_node(path: str, payload: bytes) -> Node:
     """The gate every captured record passes before any typed reader: the
     frontmatter parses, the semantic stamp is present and agrees, the id
-    names this path, and the kind agrees with the id (spec §3.1;
-    successor-admission design §4.4 step 1)."""
+    names this path, and the kind agrees with the id."""
     try:
         node = node_from_markdown(payload.decode("utf-8"))
     except (

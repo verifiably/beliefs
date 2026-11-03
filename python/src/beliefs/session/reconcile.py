@@ -1,4 +1,4 @@
-"""Reconciliation (writer-session design §6): chains are truth, the ledger is
+"""Reconciliation: chains are truth, the ledger is
 evidence. A pure classification over ledger evidence and detached chain views;
 it writes nothing, recovers nothing, and never raises on ledger state."""
 
@@ -29,8 +29,8 @@ _SESSION_ACTOR = re.compile(r"session:([0-9a-f]{32})")
 _NO_CORPUS = "\uffff"
 """The sort key's corpus slot for a finding about a ledger rather than a chain.
 
-§13 item 6 makes the key internal — `(corpus_id, position, code, ref)` — and
-§6 orders findings by corpus id first. A ledger-level finding names no corpus,
+The key is internal — `(corpus_id, position, code, ref)` — and
+findings order by corpus id first. A ledger-level finding names no corpus,
 so it sorts after every corpus's own: a corpus id is 32 lowercase hexadecimal
 characters, and this sentinel is above all of them.
 """
@@ -60,7 +60,7 @@ def _session_of(decoded: shapes.DecodedIntent | shapes.Unrecognized) -> str | No
 
 
 def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]) -> tuple[Finding, ...]:
-    """§6's classification: one finding per state, ordered deterministically."""
+    """The classification: one finding per state, ordered deterministically."""
     by_session: dict[str, LedgerEvidence] = {evidence.session_id: evidence for evidence in ledgers}
     keyed: list[tuple[tuple[str, int, str, str], Finding]] = []
 
@@ -296,9 +296,9 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                 )
 
     # --- ledger claims the chains lack -------------------------------------------------
-    # Claims are matched by corpus (session-mounts decision 8). Only a well-formed
-    # view is truth to compare a claim against: §6 classifies
-    # nothing for a corpus whose view is absent or malformed, and a corpus with no
+    # Claims are matched by corpus. Only a well-formed
+    # view is truth to compare a claim against: nothing is classified
+    # for a corpus whose view is absent or malformed, and a corpus with no
     # view at all (its root was not read) is not evidence either way.
     for evidence in ledgers:
         if type(evidence) is not LedgerReader:

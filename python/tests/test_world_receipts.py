@@ -1,4 +1,4 @@
-"""Receipt validation: §7.5's four outcomes, decided in §8.2's order.
+"""Receipt validation: the four outcomes, decided in order.
 
 **What a receipt claims.** A receipt names a subject identity, the exact
 `(rule_identity, implementation_identity)` that produced it, and the exact
@@ -8,7 +8,7 @@ states and compare the canonical subject projection with the one the epoch
 published, byte for byte.
 
 **The four outcomes, and the order they are decided in.** ``malformed`` first
-and alone — it is a statement about the receipt document, and §7.5 settles it
+and alone — it is a statement about the receipt document, and the receipt format settles it
 before resolvability is ever asked, so no change to what a store holds or where
 a corpus stands can move it. ``unresolvable`` second: the named binding is not
 held here, or a named corpus does not presently stand at its named state.
@@ -17,7 +17,7 @@ answers a rebuild can give.
 
 **Two layers, and this module lives in the upper one.** The carrier layer
 (`test_world_epoch.py`) refuses bytes it cannot read. A receipt that *parses*
-and then violates §7.5's contract is not a carrier failure: it opens, reaches
+and then violates the receipt contract is not a carrier failure: it opens, reaches
 the validator here, and evaluates as ``malformed``. Several arms below build
 exactly such a carrier by repackaging a published epoch — recomputing the
 packaging identity from the edited members, never asserting a digest literal —
@@ -104,7 +104,7 @@ def world_over(
 
 def hold_shipped(world: registry.World, *, retraction: str = "v2") -> epoch.DerivationBindings:
     """Install every shipped rule and name one per kind as one build input;
-    `retraction` picks the retraction-enumeration version (cut 48 §4.5)."""
+    `retraction` picks the retraction-enumeration version."""
     held = install_bindings(world, retraction=retraction)
     return epoch.DerivationBindings(
         producer=held["producer"],
@@ -142,10 +142,10 @@ def repackage(world: registry.World, published: epoch.Epoch, changes: dict[str, 
     """A second retained epoch, identical to `published` but for `changes`.
 
     The packaging identity is **recomputed** from the edited members with
-    §6.2's own formula, so the carrier this returns is well-formed by
+    the packaging formula, so the carrier this returns is well-formed by
     construction and every arm below turns on the receipt contract rather than
-    on a carrier failure. No digest is written down anywhere: controller ruling
-    R3 forbids it, and a repackaging that hard-coded one would stop being a
+    on a carrier failure. No digest is written down anywhere: that
+    is forbidden, and a repackaging that hard-coded one would stop being a
     repackaging the first time a rule identity moved.
     """
     members = dict(published.members)
@@ -165,7 +165,7 @@ TEST_RECEIPT_KINDS: tuple[derive.ReceiptKind, ...] = (
     "certification-enumeration",
     "coreference-reduction",
 )
-"""§7.5's four kinds, named as literals so the arms below type-check.
+"""The four kinds, named as literals so the arms below type-check.
 
 Not `epoch.RECEIPT_KINDS`, which is the differently-shaped member-to-kind
 mapping this module also reads.
@@ -176,7 +176,7 @@ what order; `outcomes` asserts the two agree rather than trusting this copy.
 
 
 def outcomes(world: registry.World, published: epoch.Epoch) -> dict[str, str]:
-    """Every receipt kind's outcome, in §6.1's member order."""
+    """Every receipt kind's outcome, in member order."""
     assert TEST_RECEIPT_KINDS == epoch.DERIVATION_KINDS
     return {kind: read.validate_receipt(world, published, kind).outcome for kind in TEST_RECEIPT_KINDS}
 
@@ -217,7 +217,7 @@ def extra_node(corpus_root: Path, slug: str) -> None:
     Corpus(corpus_root).add(stored.dataset_node(title=f"dataset {slug}", resources=pinned(slug)))
 
 
-# --- Step 1: the four outcomes ------------------------------------------------
+# --- the four outcomes ------------------------------------------------
 
 
 class TestReceiptOutcomes:
@@ -321,7 +321,7 @@ class TestReceiptOutcomes:
     def test_bare_version_receipt_is_malformed_without_availability(self, tmp_path):
         """A receipt naming a rule but no exact implementation is malformed.
 
-        §5.2 and §7.5 admit one shape of reference and one only: the exact
+        The format admits one shape of reference and one only: the exact
         `(rule_identity, implementation_identity)` pair. A bare rule version —
         the pair with its implementation half simply not written — is not a
         weaker reference to be resolved leniently, it is an unsound contract,
@@ -474,7 +474,7 @@ class TestReceiptOutcomes:
         a nonzero balance — and a coreference receipt whose subject identity
         matches that map exactly, so the contract is sound — is refuted by the
         rebuild, which finds nothing to weigh. Populated refutations — an
-        omitted attestation, a wrong balance over a real one — are cut 24's
+        omitted attestation, a wrong balance over a real one — are the coreference
         arms in `test_coreference_attestation.py` and its acceptance module.
         """
         world, _bindings, _roots, published = published_world(tmp_path)
@@ -686,11 +686,11 @@ class TestReceiptOutcomes:
         `registry._carrier_roots` refuses a malformed manifest rather than
         treating it as an absence — a root that claims something unreadable is
         a configuration fault — and that refusal reaches validation. It is
-        converted here instead of propagating, because §8.4 makes an edge whose
+        converted here instead of propagating, because the edge rules make an edge whose
         receipt is anything but ``validated`` ``indeterminate``, and a query
-        that raised would leave the caller with nothing where the specification
-        promises a state. `resolve_address` converts the same fault the other
-        way, to `ResolutionRefused`, because §8.3 closes *its* answer set at
+        that raised would leave the caller with nothing where the edge rules
+        promise a state. `resolve_address` converts the same fault the other
+        way, to `ResolutionRefused`, because the resolution rules close *its* answer set at
         three arms and names the malformed manifest as one of the refusals.
         """
         world, _bindings, roots, published = published_world(tmp_path)
@@ -703,7 +703,7 @@ class TestReceiptOutcomes:
         assert ALPHA in producer.detail and "cannot read" in producer.detail
 
     def test_an_unknown_receipt_kind_is_refused_rather_than_answered(self, tmp_path):
-        """§7.5 has four kinds. A fifth is a caller error, not an outcome."""
+        """There are four kinds. A fifth is a caller error, not an outcome."""
         world, _bindings, _roots, published = published_world(tmp_path)
 
         with pytest.raises(ValueError, match="receipt kind"):
@@ -713,7 +713,7 @@ class TestReceiptOutcomes:
 
     def _refuse_availability(self, monkeypatch):
         """Every availability read refuses, so a `malformed` verdict proves the
-        order and not only the outcome (spec decision 9)."""
+        order and not only the outcome."""
 
         def refuse(*_args, **_kwargs):
             raise AssertionError("availability consulted before well-formedness")
@@ -735,7 +735,7 @@ class TestReceiptOutcomes:
 
     def test_every_coverage_declaration_must_agree(self, tmp_path, monkeypatch):
         """Snapshot {A, B}; epoch coverage and receipt {A}; subject digest untouched.
-        A two-way check passes this carrier — the spec's probe (decision 9)."""
+        A two-way check passes this carrier — the specified probe."""
         world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
         receipt = document(published, "producer-receipt.yaml")
         receipt["corpus_states"] = [state for state in receipt["corpus_states"] if state["corpus_id"] == ALPHA]
@@ -755,7 +755,7 @@ class TestReceiptOutcomes:
         assert "subject declares coverage" in outcome.detail
 
     def test_a_member_subject_disagreeing_with_its_receipt_is_malformed(self, tmp_path, monkeypatch):
-        """R23's literal omission fixture: the snapshot trimmed, the receipt untouched."""
+        """The literal omission fixture: the snapshot trimmed, the receipt untouched."""
         world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
         snapshot = document(published, "producer-snapshot.yaml")
         assert snapshot["producers"], "the sample corpus carries a producer to omit"
@@ -768,7 +768,7 @@ class TestReceiptOutcomes:
         assert "producer-snapshot.yaml has identity" in outcome.detail
 
     def test_the_consistent_omission_is_refuted_at_rebuild(self, tmp_path):
-        """R23's reconstruction clause: subject recomputed over the trimmed snapshot."""
+        """The reconstruction clause: subject recomputed over the trimmed snapshot."""
         world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
         snapshot = document(published, "producer-snapshot.yaml")
         snapshot["producers"] = snapshot["producers"][1:]

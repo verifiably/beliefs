@@ -112,7 +112,7 @@ def look(
     expected: str | None = None,
     standing: tuple[HoldingsObservation, ...] = (),
 ) -> PublishedLook | InconclusiveLook:
-    """The URL pure look (url-retrieval design §5): a `re-check` intent for the
+    """The URL pure look: a `re-check` intent for the
     registration, the request with nothing held, then a published `found` or an
     inconclusive attempt that mints nothing. The caller deletes `retrieved.path`
     on a `PublishedLook`; every other exit leaves no file."""

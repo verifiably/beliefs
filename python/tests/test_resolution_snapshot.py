@@ -1,4 +1,4 @@
-"""D3's remaining arm: all five outcomes and three availability states."""
+"""The remaining checks: all five outcomes and three availability states."""
 
 from typing import cast
 

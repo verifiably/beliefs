@@ -256,10 +256,9 @@ def _launch_qualifies(receipt: LaunchAttestation, environment_identity: str) -> 
 
 
 def qualifies(receipt: BoundaryReceipt, environment_identity: str) -> bool:
-    """§7.3a over the closed vocabulary — containment, never an ordering — plus
-    the fresh-instance conjunct, bound to the replayed recipe's environment
-    (design §7.1). Reads the receipt only; a policy's identity string is
-    nothing here."""
+    """Qualification over the closed vocabulary — containment, never an ordering —
+    plus the fresh-instance conjunct, bound to the replayed recipe's environment.
+    Reads the receipt only; a policy's identity string is nothing here."""
     if type(receipt) is not BoundaryReceipt:
         raise MalformedRecord("qualification reads a BoundaryReceipt")
     if receipt.planning is receipt.execution:
@@ -277,7 +276,9 @@ def derive_scope(
     *,
     certification: CodeLineageCertification | None,
 ) -> str:
-    """Walk every row of §7.3."""
+    """Derive the verification scope: `not-certified` unless both closures conform,
+    then `clean-environment` or `same-environment` for identical recipes, and
+    `independent-implementation` for a certified different code lineage."""
     if conformance(original) != CONFORMING or conformance(replayed) != CONFORMING:
         return "not-certified"
     if original.recipe.identity() == replayed.recipe.identity():
@@ -299,8 +300,9 @@ def derive_scope(
     return "not-certified"
 
 
-derive_scope.__doc__ = """Derive verification scope from two conforming closures — every row of
-§7.3. The `clean-environment` row is reached only through the replay's
-receipt qualifying under §7.3a (conformance cut 13); the original's receipt is
+derive_scope.__doc__ = """Derive verification scope from two conforming closures: one of
+`not-certified`, `same-environment`, `clean-environment` and
+`independent-implementation`. `clean-environment` is reached only through the replay's
+receipt qualifying; the original's receipt is
 not read, because the requirement is that the replay ran through the boundary.
 """

@@ -1,4 +1,4 @@
-"""J7 (and the ledger halves of J6): canonical lines, fsync before index, the
+"""The ledger: canonical lines, fsync before index, the
 reader's refusals, the torn tail, and the terminal LedgerFailed state."""
 
 from __future__ import annotations
@@ -386,7 +386,7 @@ def test_validated_outcome_accepts_the_two_shapes_and_nothing_else():
             validated_outcome(bad)
 
 
-# --- selection lines (selection design §3, §4.3) -------------------------------------
+# --- selection lines -------------------------------------
 def test_the_reader_reads_the_initial_project_each_selection_and_the_attribution(tmp_path):
     path = ledger_path(tmp_path, SESSION)
     path.parent.mkdir(parents=True)
@@ -396,7 +396,7 @@ def test_the_reader_reads_the_initial_project_each_selection_and_the_attribution
         open_line(project=P_AT_R1),
         invocation_open("A"),
         act("A", a1),
-        select("A", Q_AT_R2),  # one invocation may act, select, then act again (decision 5)
+        select("A", Q_AT_R2),  # one invocation may act, select, then act again
         act("A", a2),
         invocation_close("A"),
         invocation_open("B"),

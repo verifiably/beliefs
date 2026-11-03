@@ -1,8 +1,8 @@
-"""Mount citations (mount-citations design, cut 44): the mount view, the writer's
+"""Mount citations: the mount view, the writer's
 refusal chain over read mounts, and the session's wiring. Roots W, M and M3 pin
 `TYPED` (the testing contract and the fixture `biology`, so `typed_estimand()`'s
 `testing/affects` decodes); M2 pins `TYPED_OTHER`, another `biology` identity
-(decision 3's mismatch); M4 pins `TESTING_ONLY`, a namespace set without `biology`."""
+(the identity mismatch); M4 pins `TESTING_ONLY`, a namespace set without `biology`."""
 
 from __future__ import annotations
 
@@ -112,7 +112,6 @@ def test_holder_is_the_one_corpus_holding_a_ref(roots):
 
 
 def test_a_ref_held_twice_refuses_duplicate_location_naming_both(roots):
-    """J17-a's check."""
     d = adopted(roots["m"]).add(observed("d"))
     adopted(roots["m3"]).add(observed("d"))
     view = citations(roots, "m", "m3")
@@ -127,7 +126,7 @@ def test_a_ref_held_twice_refuses_duplicate_location_naming_both(roots):
 
 
 def test_a_citation_held_by_the_write_root_and_a_mount_refuses_naming_both(roots):
-    """J17's second case, amended by cut 48 §8: W and M both hold the observed dataset's
+    """W and M both hold the observed dataset's
     address with differing content (a raw write into M), so the citing assessment refuses
     `duplicate-location` naming W and M, and W is unchanged."""
     from fixtures_cut4 import raw_write
@@ -145,8 +144,8 @@ def test_a_citation_held_by_the_write_root_and_a_mount_refuses_naming_both(roots
     assert {path: path.read_bytes() for path in roots["w"].rglob("*") if path.is_file()} == before
 
 
-def test_j17_c_a_citation_of_equal_content_resolves_once_with_every_contract_checked(roots):
-    """Cut 48 §8: two session corpora holding equal content resolve once — through the
+def test_a_citation_of_equal_content_resolves_once_with_every_contract_checked(roots):
+    """Two session corpora holding equal content resolve once — through the
     write root when it holds the record, else the least corpus id's mount — with every
     mount holder's contract checked; differing content refuses naming every holder."""
     from fixtures_cut4 import raw_write
@@ -193,7 +192,7 @@ def test_j17_c_a_citation_of_equal_content_resolves_once_with_every_contract_che
 
 
 def test_a_held_read_mount_lock_refuses_build_contended(roots):
-    """J17-b's check: another holder owns M's operation lock."""
+    """Another holder owns M's operation lock."""
     d = adopted(roots["m"]).add(observed("d"))
     view = citations(roots, "m")
     try:
@@ -217,7 +216,7 @@ def test_read_mounts_open_lazily_and_close_releases_their_holds(roots):
 
 
 def test_a_citation_into_a_differing_namespace_identity_refuses(roots):
-    """J16-d's unit: M2 pins another `biology` identity than W's."""
+    """M2 pins another `biology` identity than W's."""
     p = adopted(roots["m2"], TYPED_OTHER).add(proposition("p2"))
     view = citations(roots, "m2")
     try:
@@ -282,7 +281,6 @@ def mounted_writer(roots, *names, profile=TYPED, port=False):
 
 
 def test_an_assessment_over_a_mount_dataset_and_proposition_is_written(roots):
-    """J16-a's and J16-b's check."""
     m = adopted(roots["m"])
     d, p = m.add(observed("d")), m.add(proposition("p"))
     w = mounted_writer(roots, "m")
@@ -293,7 +291,7 @@ def test_an_assessment_over_a_mount_dataset_and_proposition_is_written(roots):
 
 
 def test_a_verification_of_a_mount_assessment_is_written(roots):
-    """J16-c's check: a published, report-carrying verification reads its `verifies`
+    """A published, report-carrying verification reads its `verifies`
     target through the citation view (a report-less one never reads the view)."""
     published = publish_corpus(adopted(roots["m"]))
     w = mounted_writer(roots, "m")
@@ -306,7 +304,6 @@ def test_a_verification_of_a_mount_assessment_is_written(roots):
 
 
 def test_a_citation_across_differing_identities_refuses(roots):
-    """J16-d's check."""
     m2 = adopted(roots["m2"], TYPED_OTHER)
     p2 = m2.add(proposition("p2"))
     d = adopted(roots["m"]).add(observed("d"))
@@ -317,7 +314,7 @@ def test_a_citation_across_differing_identities_refuses(roots):
 
 
 def test_an_assessment_over_a_dataset_a_third_mount_produces_refuses(roots):
-    """J16-f's check: producers are the session's."""
+    """Producers are the session's."""
     d = adopted(roots["m"]).add(observed("d"))
     p = adopted(roots["m"]).add(proposition("p"))
     adopted(roots["m3"]).add(run_over("r3", produces=[d.id]))
@@ -335,7 +332,6 @@ def test_a_candidate_named_by_a_mount_runs_dangling_edge_refuses(roots):
 
 
 def test_revise_adding_the_facet_to_a_dataset_a_mount_run_produces_refuses(roots):
-    """J16-h's check."""
     w = mounted_writer(roots, "m")
     plain = w.add(stored.dataset_node(title="plain", resources=pinned("plain")))
     adopted(roots["m"]).add(run_over("rm", produces=[plain.id]))
@@ -346,7 +342,7 @@ def test_revise_adding_the_facet_to_a_dataset_a_mount_run_produces_refuses(roots
 
 
 def test_an_acquired_dataset_a_mount_run_produces_refuses(roots):
-    """J16-i's check, at the seam `holdings/acquire.py` calls."""
+    """At the seam `holdings/acquire.py` calls."""
     report = stored.act_report_node(acquisition_report(operation="acquisition"))
     dataset = observed("got", retrieval=report.id)
     adopted(roots["m"]).add(run_over("rm", produces=[dataset.id]))
@@ -356,7 +352,7 @@ def test_an_acquired_dataset_a_mount_run_produces_refuses(roots):
 
 
 def test_an_imported_run_producing_a_mount_observation_refuses(roots):
-    """J16-j's check: the reverse direction."""
+    """The reverse direction."""
     d = adopted(roots["m"]).add(observed("d"))
     w = mounted_writer(roots, "m", port=True)
     with pytest.raises(ImportRefused) as refused:
@@ -368,7 +364,7 @@ def test_an_imported_run_producing_a_mount_observation_refuses(roots):
 
 
 def test_a_dataset_whose_retrieval_report_is_in_a_mount_refuses(roots):
-    """J16-k's check: retrieval reports stay with their dataset."""
+    """Retrieval reports stay with their dataset."""
     m = adopted(roots["m"], TYPED)
     report = stored.act_report_node(acquisition_report(operation="acquisition"))
     m_port = CorpusWriter(
@@ -386,7 +382,7 @@ def test_a_dataset_whose_retrieval_report_is_in_a_mount_refuses(roots):
 
 
 def test_an_assessment_over_a_raw_split_dataset_refuses(roots):
-    """J16-l's check: eligibility reads a dataset's report in its own corpus."""
+    """Eligibility reads a dataset's report in its own corpus."""
     from fixtures_cut4 import raw_write
 
     report = stored.act_report_node(acquisition_report(operation="acquisition"))
@@ -408,7 +404,7 @@ def test_an_assessment_over_a_raw_split_dataset_refuses(roots):
 
 
 def test_an_imported_assessment_over_a_dataset_a_mount_produces_refuses(roots):
-    """J16-m's check: imports resolve locally and judge producers over the session."""
+    """Imports resolve locally and judge producers over the session."""
     w = mounted_writer(roots, "m", port=True)
     d = w.add(observed("d"))
     run = w.add(run_over("r", d))
@@ -421,7 +417,7 @@ def test_an_imported_assessment_over_a_dataset_a_mount_produces_refuses(roots):
 
 
 def test_a_corpus_local_read_of_an_assessment_over_a_mount_run_refuses(roots):
-    """Decision 9 extended to the run (spec §13, final review): the assessment is written
+    """The same applies to the run: the assessment is written
     in W over M's run, so a corpus-local read of W refuses `input-outside-corpus` naming
     the run, where it once raised `KeyError` indexing the run it skipped."""
     from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
@@ -487,7 +483,6 @@ def test_without_read_mounts_the_writes_refuse_as_today(roots):
 
 
 def test_a_write_citing_nothing_opens_no_mount_while_a_mount_is_held(roots):
-    """Review Focus 1, and J17's negative."""
     w = mounted_writer(roots, "m")
     with _root_state_for(roots["m"], DefaultExecutor).lock:
         w.add(proposition("q"))
@@ -505,7 +500,7 @@ def test_a_citing_write_while_a_mount_is_held_refuses_build_contended(roots):
 
 
 def test_a_writer_on_a_mount_a_citing_write_holds_refuses_build_hold(roots):
-    """The converse of decision 5 (spec §13, final review): a same-process writer on a
+    """The converse: a same-process writer on a
     read mount, arriving while a citing chain holds that mount's capture, refuses
     `BuildHold`, worded for an epoch build, and never waits."""
     m = adopted(roots["m"])
@@ -520,7 +515,7 @@ def test_a_writer_on_a_mount_a_citing_write_holds_refuses_build_hold(roots):
 
 
 def test_an_assessment_citing_only_write_root_records_still_contends(roots):
-    """J17's negative: decision 5 opens every read mount to rule out a second holder."""
+    """Opening every read mount rules out a second holder."""
     w = mounted_writer(roots, "m")
     d, p = w.add(observed("d")), w.add(proposition("p"))
     run = w.add(run_over("r", d))
@@ -563,8 +558,8 @@ def test_read_mounts_refuse_the_writers_own_root_and_repeats(roots, tmp_path):
 
 
 def test_a_spec_targeting_a_mount_proposition_is_written(tmp_path):
-    """J16's analysis-spec case: `test_corpus_write.py`'s spec-target admission, the target held in M.
-    Every root pins `TESTING_PROFILE`, as `typed_writer` does, so decision 3 does not fire."""
+    """The analysis-spec case: `test_corpus_write.py`'s spec-target admission, the target held in M.
+    Every root pins `TESTING_PROFILE`, as `typed_writer` does, so the identity mismatch does not fire."""
     from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, spec_draft, spec_rules
 
     from beliefs.projection import project_claim
@@ -583,8 +578,8 @@ def test_a_spec_targeting_a_mount_proposition_is_written(tmp_path):
 
 
 def test_a_composite_over_mount_propositions_is_written(tmp_path):
-    """J16's composite case: `test_composite_boundary.py`'s first add, the members held in M.
-    Every root pins `WITH_BIOLOGY`, as that module does, so decision 3 does not fire."""
+    """The composite case: `test_composite_boundary.py`'s first add, the members held in M.
+    Every root pins `WITH_BIOLOGY`, as that module does, so the identity mismatch does not fire."""
     from profiles import WITH_BIOLOGY
     from test_composite_boundary import SNAPSHOT, A, B, C, _claim, _proposition
 

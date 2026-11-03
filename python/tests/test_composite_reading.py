@@ -1,4 +1,4 @@
-"""`read_composite` (design §6, U8): rows equal the wrapper's answers; the node receipt sits on the reading."""
+"""`read_composite`: rows equal the wrapper's answers; the node receipt sits on the reading."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def corpus(tmp_path):
         stored.proposition_node("ac2", title="ac2", claim=project_claim(_claim("EX:a", "EX:c"))), of=ac.id
     )
     # One admitted assessment of `ab`: an observing run over a held dataset, a passed clean-environment verification,
-    # typed under the profile that restores it (Step 4).
+    # typed under the profile that restores it.
     from test_evaluation import seed_assessed_proposition
 
     dataset_address = seed_assessed_proposition(
@@ -279,7 +279,7 @@ def _assessments_naming(view, ref: str) -> set[str]:
 
 
 def test_the_identification_column_reads_only_the_assessments_naming_the_member(corpus, monkeypatch):
-    """Design §6.2: the column is the admitted assessments *of that member*. A
+    """The column is the admitted assessments *of that member*. A
     scan over every stored assessment decodes records the column cannot use,
     and makes one member's reading depend on another's records."""
     from test_evaluation import seed_assessed_proposition

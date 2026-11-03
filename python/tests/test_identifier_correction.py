@@ -1,4 +1,4 @@
-"""Slice 2b §5–§8: the source write boundary, the correction seam, its layers,
+"""The source write boundary, the correction seam, its layers,
 relocation and the read side."""
 
 from __future__ import annotations

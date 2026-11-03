@@ -1,4 +1,4 @@
-"""Cut 45 over registered roots and the composition root's durable writers."""
+"""Belief over registered roots and the composition root's durable writers."""
 
 from dataclasses import replace
 from uuid import uuid4
@@ -131,7 +131,7 @@ def test_node_and_route_corrections(case):
     dataset = writer.add(
         stored.dataset_node(
             title="derived",
-            resources=pinned("cut45-derived"),
+            resources=pinned("belief-derived"),
             basis={
                 "tag": "single",
                 "routes": [

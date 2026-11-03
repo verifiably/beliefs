@@ -1,4 +1,4 @@
-"""Cut 46: real carried publications, frozen retries and source integrity."""
+"""Real carried publications, frozen retries and source integrity."""
 
 from __future__ import annotations
 

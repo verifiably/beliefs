@@ -273,7 +273,7 @@ class World:
     ) -> AdmissionRecord:
         """Admit a corpus root this world holds no verdict about.
 
-        `ReplicaOf` is refused here (log-verification design §6.2): a replica's
+        `ReplicaOf` is refused here: a replica's
         chain traveled, and admitting it is the one admission that asks a
         question about evidence. This call inspects nothing, so it has no
         answer to report — `beliefs.root.admit_arrival` is the route that does,
@@ -330,7 +330,7 @@ def _locked_admit(
 ) -> AdmissionRecord:
     """The whole of admission, assuming `state.lock` is already held.
 
-    **One core, two callers** (log-verification design §6.2): `World.admit` and
+    **One core, two callers**: `World.admit` and
     the verified arrival both commit through this and there is no second
     registration path, which is what makes admission identity byte-identical
     across the two routes. Nothing here is amended by verification — the
@@ -350,7 +350,7 @@ def _locked_admit(
 
     It is `_locked_*` for the reason every helper in this module is: the world
     lock is not reentrant, and the arrival already holds it when it arrives
-    here — so this takes no lock and calls no `World` method (R12).
+    here — so this takes no lock and calls no `World` method.
     """
     authority.require("registry")
     state.registry = _scan_registry(world_root)
@@ -382,7 +382,7 @@ def _locked_barrier(world: World) -> Iterator[Path]:
     an address, publishing, deleting — begins the same way: take
     `_WorldState.lock`, then hand the world root to the injected chain callback
     so recovery of any interrupted transaction completes *inside* the critical
-    section. The order is the whole point (§8.1). Taking the lock second would
+    section. The order is the whole point. Taking the lock second would
     let a reader cross a barrier that a publication then invalidated; crossing
     the barrier second, but outside the lock, would let two acts recover at
     once.
@@ -581,10 +581,9 @@ def _record_bytes(projection: dict[str, object]) -> bytes:
 def _validate_provenance(manifest: CorpusManifest, provenance: AdmissionProvenance) -> None:
     """The provenance/manifest agreement, over **exact** types.
 
-    Exact and not `isinstance`, because `World.admit`'s replica gate is exact
-    (log-verification design §6.2): a `ReplicaOf` subclass that slipped past that
-    gate must not then be accepted *as a replica* here. The two tests are one
-    decision, so they are spelled the same way, and anything outside the three
+    Exact and not `isinstance`, because `World.admit`'s replica gate is exact: a
+    `ReplicaOf` subclass that slipped past that gate must not then be accepted *as a replica* here. The two tests are
+    one decision, so they are spelled the same way, and anything outside the three
     falls to the `TypeError` below rather than being read as its base.
     """
     if type(provenance) is Fresh:
@@ -719,7 +718,7 @@ def _live_corpus_ids(view: RegistryView) -> tuple[str, ...]:
 
     The registry's reduction and nothing else. A `corpus_id` this world has
     been *configured* with a carrier root for is not in the span — a directory
-    on disk is a claim, and §2's admission is what grants one — and a corpus
+    on disk is a claim, and the admission is what grants one — and a corpus
     that has been retired or departed has left it, which is exactly the fact
     that makes an epoch built over a wider coverage keep answering.
 
@@ -760,7 +759,7 @@ NODE_CONTENT_DOMAIN = "science.node-content.v1"
 """The domain of a record's content identity: the digest of `nodes`' canonical
 projection of the parsed node (id, uid, kind, title, body, metadata, relations,
 facets, deprecated_ids). One record held in several corpora is one record iff
-these agree (overlapping-publications design §4.1, cut 48); the corpus-state
+these agree; the corpus-state
 identity is built from the same member."""
 
 

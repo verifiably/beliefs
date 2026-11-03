@@ -1,14 +1,14 @@
 """``Claim`` — opacity, the validated constructor, and the authoring boundary.
 
-**M13 in the half that exists.** Its second clause — *"no function downstream of
+**The opacity guarantee, in the half that exists.** Its second clause — *"no function downstream of
 the boundary accepts a `WireClaim`"* — is **not** tested here, because
 `WireClaim` does not exist yet: a scan for it today would pass by finding
 nothing, which is a test that cannot fail. It lands with `decodeClaim`.
 
-The profile-dependent refusals below are **M11's**, exercised through the
-authoring route because it is the one that exists. M13's scope note is explicit
+The profile-dependent refusals below are **decode's**, exercised through the
+authoring route because it is the one that exists. The scope note is explicit
 that sign-aptness, arity, argument sorts, permitted dimensions and admissible
-layers are runtime and belong to M11; what is asserted *here* is that they
+layers are runtime and belong to decode; what is asserted *here* is that they
 happen at construction and cannot be bypassed.
 """
 
@@ -91,7 +91,7 @@ def affects(profile, gene, outcome):
 
 
 class TestTheOnlyRouteIsTheValidatedConstructor:
-    """M13's first clause: `Claim` cannot be built from ambient data."""
+    """The first clause: `Claim` cannot be built from ambient data."""
 
     def test_the_field_wise_constructor_is_refused(self, gene, outcome):
         with pytest.raises(ClaimError, match="use build_claim"):
@@ -158,7 +158,7 @@ class TestTheValueTypesOwnTheirInvariants:
 
     @pytest.mark.parametrize("term", [123, None, b"EX:gene-x", "", ("EX:gene-x",)])
     def test_a_referent_term_must_be_an_identifier(self, term):
-        # §6.5: every position in the projection is an identifier. `term` is the
+        # Every position in the projection is an identifier. `term` is the
         # only one nothing downstream checks — membership is decode's, against a
         # snapshot — so an unchecked non-string reaches a minted claim.
         with pytest.raises(MalformedReferent):
@@ -215,12 +215,12 @@ class TestTheValueTypesOwnTheirInvariants:
 
 
 class TestTheCheckIsAgainstTheProfile:
-    """M11's checks, at the route that exists. Each is refused **distinctly**:
-    M11 decodes each ill-formed input in turn, and a single collapsed error
+    """The decode checks, at the route that exists. Each is refused **distinctly**:
+    Decode checks each ill-formed input in turn, and a single collapsed error
     would let one check cover for another's absence."""
 
     def test_an_unresolvable_operator_refuses(self, profile, gene, outcome):
-        # §7.4 row 4a: a local, static failure — and *not* a ClaimError, because
+        # A local, static failure — and *not* a ClaimError, because
         # nothing is wrong with the claim as written; the profile cannot resolve
         # what it names.
         with pytest.raises(ProfileError, match="no operator"):
@@ -235,7 +235,7 @@ class TestTheCheckIsAgainstTheProfile:
             build_claim(profile, operator=AFFECTS, args=(outcome, gene), polarity="positive", layer="causal")
 
     def test_a_bare_string_cannot_occupy_a_slot(self, profile, outcome):
-        # M4's static arm, as far as a runtime carries it: a string has no sort,
+        # The static check, as far as a runtime carries it: a string has no sort,
         # so there is nothing to check against the slot's.
         with pytest.raises(UntypedReferent):
             build_claim(
@@ -310,7 +310,7 @@ class TestTheCheckIsAgainstTheProfile:
 
 
 class TestPolarityIsTheUnitInhabitantWhenTheOperatorHasNoSign:
-    """§6.3 and §7.5. `inapt` and `unsigned` are different facts."""
+    """`inapt` and `unsigned` are different facts."""
 
     def test_a_sign_inapt_operator_carries_the_inapt_tag(self, profile, base_contract, gene):
         claim = build_claim(profile, operator=SUBTYPE_OF, args=(gene, gene), layer="structural")
@@ -322,7 +322,7 @@ class TestPolarityIsTheUnitInhabitantWhenTheOperatorHasNoSign:
             build_claim(profile, operator=SUBTYPE_OF, args=(gene, gene), polarity="positive", layer="structural")
 
     def test_unsigned_is_not_a_way_to_say_inapt(self, profile, gene):
-        # The collapse §7.5 refuses: `unsigned` says the operator has a sign and
+        # The collapse refused: `unsigned` says the operator has a sign and
         # this claim asserts none.
         with pytest.raises(PolarityRefused):
             build_claim(profile, operator=SUBTYPE_OF, args=(gene, gene), polarity="unsigned", layer="structural")
@@ -344,7 +344,7 @@ class TestPolarityIsTheUnitInhabitantWhenTheOperatorHasNoSign:
 
 
 class TestTheAuthoringBoundaryRefusesRetiredVocabulary:
-    """§7.3a's per-claim half. Every route by which retirement reaches an
+    """The per-claim half. Every route by which retirement reaches an
     author is closed here; **none** of them reaches decode."""
 
     def test_a_retired_operator_cannot_be_authored(self, retire, gene, outcome):
@@ -382,7 +382,7 @@ class TestTheAuthoringBoundaryRefusesRetiredVocabulary:
             )
 
     def test_the_operator_stays_authorable_without_the_retired_dimension(self, retire, gene, outcome):
-        # §6.2: Dims(op) is *permitted*, not required, so retiring one withdraws
+        # Dims(op) is *permitted*, not required, so retiring one withdraws
         # only itself. Widening the operator rule to match would be the wrong
         # correction.
         profile = retire("dimensions", "population")

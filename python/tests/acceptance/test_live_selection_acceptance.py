@@ -1,4 +1,4 @@
-"""Cut 41: live view-query evaluation over certified durable roots (live-query design §6.2)."""
+"""Live view-query evaluation over certified durable roots."""
 
 from __future__ import annotations
 
@@ -38,14 +38,14 @@ def datasets(*slugs):
 
 
 def topic_records():
-    """Slice 4's topic records without its coordination project: ALPHA d_a, r_a; BETA d_b, r_b, p_b."""
+    """The topic records without its coordination project: ALPHA d_a, r_a; BETA d_b, r_b, p_b."""
     alpha, beta = topic_nodes()
     return tuple(node for node in alpha if node.kind != "project"), beta
 
 
 @pytest.fixture()
 def scratch(work_directory):
-    path = Path(mkdtemp(prefix="cut41-", dir=work_directory))
+    path = Path(mkdtemp(prefix="live-selection-", dir=work_directory))
     try:
         yield path
     finally:
@@ -92,10 +92,10 @@ def tree(root: Path) -> dict[str, bytes]:
     return {str(path.relative_to(root)): path.read_bytes() for path in sorted(root.rglob("*")) if path.is_file()}
 
 
-# --- Z1: coverage is the world's live admitted set ------------------------------------------------
+# --- coverage is the world's live admitted set ------------------------------------------------
 
 
-def test_z1_a_every_present_admitted_corpus_is_captured_and_stamped_durably(live_world):
+def test_every_present_admitted_corpus_is_captured_and_stamped_durably(live_world):
     world, roots, a, b = live_world()
     live = evaluate_live_query(world, DATASETS)
     assert live.selected == tuple(sorted((dataset_ref("d-a"), dataset_ref("d-b"))))
@@ -104,7 +104,7 @@ def test_z1_a_every_present_admitted_corpus_is_captured_and_stamped_durably(live
     assert live.absent == () and live.complete
 
 
-def test_z1_b_a_terminal_corpus_is_never_covered_durably(live_world):
+def test_a_terminal_corpus_is_never_covered_durably(live_world):
     world, roots, a, b = live_world(gamma=datasets("d-g"))
     (g,) = set(roots) - {a, b}
     world.retire(g)
@@ -114,7 +114,7 @@ def test_z1_b_a_terminal_corpus_is_never_covered_durably(live_world):
     assert g not in live.contributing and g not in live.absent
 
 
-def test_z1_c_an_absent_corpus_is_listed_and_its_addresses_are_unknown_durably(live_world):
+def test_an_absent_corpus_is_listed_and_its_addresses_are_unknown_durably(live_world):
     world, roots, a, b = live_world()
     (roots[b] / "corpus.yaml").unlink()
     live = evaluate_live_query(world, DATASETS)
@@ -125,7 +125,7 @@ def test_z1_c_an_absent_corpus_is_listed_and_its_addresses_are_unknown_durably(l
     assert refused.value.reason == "address-unknown" and refused.value.refs == (dataset_ref("d-b"),)
 
 
-def test_z1_d_coverage_is_the_registry_not_an_epoch_durably(live_world):
+def test_coverage_is_the_registry_not_an_epoch_durably(live_world):
     world, roots, a, b = live_world(records=(datasets("d-a"), datasets("d-b")), admit_beta=False)
     never_published = evaluate_live_query(world, DATASETS)
     assert never_published.selected == (dataset_ref("d-a"),)
@@ -136,10 +136,10 @@ def test_z1_d_coverage_is_the_registry_not_an_epoch_durably(live_world):
     assert set(dict(live.stamp.coverage)) == {a, b}
 
 
-# --- Z2: each corpus is captured inside its own hold -----------------------------------------------
+# --- each corpus is captured inside its own hold -----------------------------------------------
 
 
-def test_z2_a_a_state_moving_inside_the_hold_discards_the_evaluation_durably(live_world, monkeypatch):
+def test_a_state_moving_inside_the_hold_discards_the_evaluation_durably(live_world, monkeypatch):
     world, roots, a, b = live_world()
     first = min(a, b)
     original = registry.corpus_state_identity
@@ -156,7 +156,7 @@ def test_z2_a_a_state_moving_inside_the_hold_discards_the_evaluation_durably(liv
         evaluate_live_query(world, DATASETS)
 
 
-def test_z2_b_state_reads_and_enumeration_run_inside_the_corpus_hold_durably(live_world, monkeypatch):
+def test_state_reads_and_enumeration_run_inside_the_corpus_hold_durably(live_world, monkeypatch):
     world, roots, a, _b = live_world()
     carriers = {root.resolve() for root in roots.values()}
     seen: list[tuple[str, Path, object]] = []
@@ -197,10 +197,10 @@ def test_z2_b_state_reads_and_enumeration_run_inside_the_corpus_hold_durably(liv
         evaluate_live_query(world, DATASETS)
 
 
-# --- Z3: the stamp names what was denoted ------------------------------------------------------------
+# --- the stamp names what was denoted ------------------------------------------------------------
 
 
-def test_z3_a_the_stamp_names_the_states_the_selection_was_denoted_over_durably(live_world, monkeypatch):
+def test_the_stamp_names_the_states_the_selection_was_denoted_over_durably(live_world, monkeypatch):
     world, roots, a, b = live_world()
     first, second = sorted((a, b))
     (late,) = datasets("d-late")
@@ -225,10 +225,10 @@ def test_z3_a_the_stamp_names_the_states_the_selection_was_denoted_over_durably(
     assert registry.corpus_state_identity(roots[first]) != in_hold[first]
 
 
-# --- Z4: damage refuses and is never omitted -----------------------------------------------------------
+# --- damage refuses and is never omitted -----------------------------------------------------------
 
 
-def test_z4_a_a_malformed_corpus_refuses_and_is_never_omitted_durably(live_world):
+def test_a_malformed_corpus_refuses_and_is_never_omitted_durably(live_world):
     world, roots, _a, b = live_world()
     damage(roots[b], "parse-error")
     with pytest.raises(SelectionRefused) as refused:
@@ -236,7 +236,7 @@ def test_z4_a_a_malformed_corpus_refuses_and_is_never_omitted_durably(live_world
     assert refused.value.reason == "corpus-damaged" and refused.value.refs == (b,)
 
 
-def test_z4_b_a_disagreeing_base_pin_refuses_durably(live_world):
+def test_a_disagreeing_base_pin_refuses_durably(live_world):
     world, roots, _a, b = live_world()
     manifest = roots[b] / "corpus.yaml"
     science = load_manifest(roots[b]).profile.science_contract
@@ -250,20 +250,20 @@ def test_z4_b_a_disagreeing_base_pin_refuses_durably(live_world):
     assert refused.value.reason == "corpus-damaged" and refused.value.refs == (b,)
 
 
-# --- Z5: conflicts keep publish's classification -------------------------------------------------------
+# --- conflicts keep publish's classification -------------------------------------------------------
 
 
-def test_z5_a_a_shared_uid_duplicate_location_is_publishs_conflict_durably(live_world):
+def test_a_shared_uid_duplicate_location_is_publishs_conflict_durably(live_world):
     world, roots, a, b = live_world()
     copy = ReadView.opened_at(roots[a]).get(dataset_ref("d-a"))  # same address, same uid
-    copy.title = "d-a, revised"  # differing content: the duplicate location (cut 48 §4.2)
+    copy.title = "d-a, revised"  # differing content: the duplicate location
     raw_write(roots[b], copy)
     with pytest.raises(AddressMapConflict) as refused:
         evaluate_live_query(world, DATASETS)
     assert refused.value.finding.code == "duplicate-location" and refused.value.finding.ref == copy.id
 
 
-def test_z5_b_uid_corruption_outranks_duplicate_location_durably(live_world):
+def test_uid_corruption_outranks_duplicate_location_durably(live_world):
     world, roots, a, b = live_world()
     read = ReadView.opened_at(roots[a])
     run = read.get("run:r-a")
@@ -276,15 +276,15 @@ def test_z5_b_uid_corruption_outranks_duplicate_location_durably(live_world):
     assert refused.value.finding.code == "uid-corruption" and refused.value.finding.ref == run.uid
 
 
-def test_z5_c_a_uid_shared_with_a_record_outside_the_map_refuses_after_the_map_durably(live_world):
+def test_a_uid_shared_with_a_record_outside_the_map_refuses_after_the_map_durably(live_world):
     world, roots, a, b = live_world()
     shared = ReadView.opened_at(roots[b]).get("run:r-b").uid
     raw_write(roots[a], raw_coordination_node("project", PROJECT, shared))
-    with pytest.raises(ResolutionRefused, match="W8b"):
+    with pytest.raises(ResolutionRefused, match="world uid uniqueness is enforced"):
         evaluate_live_query(world, DATASETS)
 
 
-# --- the module's other tests (spec §6.2) --------------------------------------------------------------
+# --- the module's other tests --------------------------------------------------------------
 
 
 def test_live_after_a_write_selects_what_the_old_epoch_refuses_durably(live_world):
@@ -301,7 +301,7 @@ def test_live_after_a_write_selects_what_the_old_epoch_refuses_durably(live_worl
 
 
 AGREEMENT_QUERIES = (
-    # Slice 4's acceptance queries over its default topic records
+    # The acceptance queries over the default topic records
     # (`test_world_selection_acceptance.py`), then two of this plan's own.
     query([{"kinds": ["dataset"]}]),
     query([{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}]),

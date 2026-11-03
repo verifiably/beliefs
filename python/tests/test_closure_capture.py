@@ -1,5 +1,5 @@
-"""The runtime artifact closure (design §4.2): discovered from the executing
-interpreter, one row per file, host paths ephemeral; K7's three refusals."""
+"""The runtime artifact closure: discovered from the executing
+interpreter, one row per file, host paths ephemeral; three refusals."""
 
 import os
 import struct
@@ -33,8 +33,8 @@ from beliefs.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocatio
 from beliefs.identity import v1
 from beliefs.recipe import ENVIRONMENT_DOMAIN, EnvironmentManifest
 
-# The K7 fixtures below build synthetic .so files that must be treated as
-# loadable ELVES of *this* host's own architecture (ruling R4) — derived from
+# The fixtures below build synthetic .so files that must be treated as
+# loadable ELVES of *this* host's own architecture — derived from
 # the interpreter actually running the suite, never a hardcoded literal, so
 # the same fixtures hold on whatever host runs these tests.
 _NATIVE_CLASS, _NATIVE_DATA, _NATIVE_MACHINE = _elf_architecture(Path(os.path.realpath(sys.executable)))
@@ -137,7 +137,7 @@ def test_the_loader_map_covers_every_loadable_elf_and_names_rows_only(captured):
     assert all(resolved in rows for _, _, resolved in captured.loader_map)
     assert all(rows[_terminal(rows, resolved)][0] == "file" for _, _, resolved in captured.loader_map)
     assert any(soname.startswith("libc.so") for _, soname, _ in captured.loader_map)
-    # ruling R6: every mapped ELF is a loader elf too, but a loader elf need
+    # Every mapped ELF is a loader elf too, but a loader elf need
     # not be mapped — a zero-dependency ELF stays a key with an empty map,
     # never silently omitted from loader_elves.
     assert listed <= set(captured.loader_elves)
@@ -293,7 +293,7 @@ def test_a_failing_host_read_during_the_walk_is_closure_unsupported(monkeypatch)
         capture_closure()
 
 
-# --- K7: the three refusals, over synthetic closures --------------------------
+# --- the three refusals, over synthetic closures --------------------------
 def _site(tmp_path: Path) -> tuple[_Closure, Path]:
     purelib = tmp_path / "site"
     purelib.mkdir()
@@ -302,7 +302,7 @@ def _site(tmp_path: Path) -> tuple[_Closure, Path]:
     return walker, purelib
 
 
-def test_k7_a_mixed_pth_is_refused(tmp_path):
+def test_a_mixed_pth_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     tree = tmp_path / "tree"
     tree.mkdir()
@@ -374,7 +374,7 @@ def test_an_import_pth_may_name_a_stdlib_module_only_when_the_closure_carries_it
     assert walker.rows[f"{SANDBOX_SITE}/_wrap.pth"][0] == "file"
 
 
-def test_k7_a_symlink_escaping_the_closure_is_refused(tmp_path):
+def test_a_symlink_escaping_the_closure_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     (purelib / "escape").symlink_to("../../outside")
     with pytest.raises(ClosureUnsupported, match="escapes"):
@@ -469,7 +469,7 @@ def test_add_chain_captures_every_link_and_returns_the_terminal(tmp_path):
     assert walker.rows[f"{SANDBOX_SITE}/python3.13"][0] == "file"
 
 
-def test_k7_a_soname_collision_is_refused(tmp_path):
+def test_a_soname_collision_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     a, b = tmp_path / "a", tmp_path / "b"
     a.mkdir()
@@ -491,7 +491,7 @@ def test_k7_a_soname_collision_is_refused(tmp_path):
     assert single.loader_map == [(f"{SANDBOX_SITE}/one.so", "libz.so.1", f"{SANDBOX_LIB}/libz.so.1")]
 
 
-def test_k7_a_soname_collision_between_two_registered_roots_is_refused(tmp_path):
+def test_a_soname_collision_between_two_registered_roots_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     base = tmp_path / "base"
     (base / "lib").mkdir(parents=True)
@@ -541,7 +541,7 @@ def test_add_native_closes_over_the_libraries_it_adds_and_maps_in_root_targets_t
         (f"{SANDBOX_SITE}/libinner.so.1", "libouter.so.1", f"{SANDBOX_LIB}/libouter.so.1"),
     ]
     assert walker.rows[f"{SANDBOX_LIB}/libouter.so.1"][0] == "file"
-    # ruling R6: libouter.so.1 resolves zero dependencies of its own but is
+    # libouter.so.1 resolves zero dependencies of its own but is
     # still a loadable ELF under the environment root — a key in
     # loader_elves, even though it never gains a loader_map row.
     assert walker.loader_elves == sorted(
@@ -549,8 +549,8 @@ def test_add_native_closes_over_the_libraries_it_adds_and_maps_in_root_targets_t
     )
 
 
-def test_r4_a_foreign_class_or_machine_elf_is_a_row_but_never_listed_or_mapped(tmp_path):
-    """Ruling R4: an ELF joins the loader listing and map only when its
+def test_a_foreign_class_or_machine_elf_is_a_row_but_never_listed_or_mapped(tmp_path):
+    """An ELF joins the loader listing and map only when its
     class, data encoding and machine equal the capturing interpreter's own —
     a foreign-architecture file stays an ordinary digest-verified row."""
     walker, purelib = _site(tmp_path)

@@ -1,10 +1,10 @@
-"""The records cut 4's durable arms are asserted over, minted through the add
+"""The records the durable acceptance tests are asserted over, minted through the add
 path into one registered corpus root.
 
 Everything here goes through `CorpusWriter.add` — no raw write, no edit, no
-deletion. Where an arm needs a state the add path does not produce, the arm
+deletion. Where a test needs a state the add path does not produce, the test
 itself constructs it with the raw-write act; where it needs a state a deletion
-*would* produce, it is **minted** instead, which is what §3's add-only reading
+*would* produce, it is **minted** instead, which is what the add-only reading
 makes selectable: a basis entry naming an address no record carries is a state,
 not a transition.
 """
@@ -131,7 +131,7 @@ def mint_records(writer: CorpusWriter) -> None:
 
 
 def mint_relation_fixture(writer: CorpusWriter) -> None:
-    """S1's fixture: chain, diamond, cycle, unrelated predicate, deprecated
+    """The relation fixture: chain, diamond, cycle, unrelated predicate, deprecated
     ref, dangling target, and the undirected relation."""
     first, second, third = CHAIN
     writer.add(discussion(first, relations=[cites(first, second), cites(first, UNRELATED, predicate="mentions")]))
@@ -163,7 +163,7 @@ def mint_relation_fixture(writer: CorpusWriter) -> None:
 
 
 def mint_lineage_fixture(writer: CorpusWriter) -> None:
-    """S1a's fixture, walked as a facet: chain, diamond, cycle, a `single`
+    """The lineage fixture, walked as a facet: chain, diamond, cycle, a `single`
     basis, a `conflict` basis, and the two unresolvable cases — both **minted**,
     never produced by removing anything."""
 

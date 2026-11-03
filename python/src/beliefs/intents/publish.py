@@ -1,4 +1,4 @@
-"""The publish intent (publication-records design §5): a domain-tagged payload
+"""The publish intent: a domain-tagged payload
 carrying its own evidence. Pure: one codec, one sealed value."""
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ _FIELDS = frozenset(
 @final
 @dataclass(frozen=True)
 class Destination:
-    """The closed destination union (decision 9)."""
+    """The closed destination union."""
 
     type: Literal["local", "remote"]
     locator: str
@@ -89,7 +89,7 @@ def _strictly_ascending(values: tuple[object, ...], where: str) -> None:
 @final
 @dataclass(frozen=True)
 class PublishIntent:
-    """The evidence-bearing publish intent (decision 3)."""
+    """The evidence-bearing publish intent."""
 
     kind: str
     event_token: str

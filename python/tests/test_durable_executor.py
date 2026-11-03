@@ -296,7 +296,7 @@ class TestTheMalformednessChecks:
 
 
 class TestTheFailureMapping:
-    """§4's table, every row. `applied=0` is licensed only where the engine's
+    """The failure table, every row. `applied=0` is licensed only where the engine's
     own contract proves pre-mutation state; everything else says restoration is
     unproved."""
 

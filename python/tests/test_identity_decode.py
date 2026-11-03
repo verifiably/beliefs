@@ -1,4 +1,4 @@
-"""`v1.decode` — the exported inverse of the canonical codec (spec §2.6 item 5)."""
+"""`v1.decode` — the exported inverse of the canonical codec."""
 
 from decimal import Decimal
 

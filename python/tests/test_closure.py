@@ -1,8 +1,8 @@
-"""G3's selected arms: the closure is the digest's meaning.
+"""The closure is the digest's meaning.
 
-Deferred: the corpus-move negative — the slice has no corpora and no location
-input, so that arm cannot fail here and waits on world persistence (cut 2
-§4.2).
+Deferred: the corpus-move negative — the closure has no corpora and no location
+input, so that check cannot fail here and waits on world persistence.
+
 """
 
 import copy
@@ -118,7 +118,7 @@ def test_recomputation_from_the_named_closure_is_byte_identical():
     assert first == second
 
 
-# --- one-field mutations, one per projection key (G3's member-mutation arm) ---
+# --- one-field mutations, one per projection key ---
 
 
 def _mutate_facet(kwargs: dict) -> dict:
@@ -181,7 +181,7 @@ def _mutate_retraction_resolution(kwargs: dict) -> dict:
 
 
 def _mutate_implementation_identity(kwargs: dict) -> dict:
-    # Also P3's positive: the belief digest is a function of the binding.
+    # Also the positive case: the belief digest is a function of the binding.
     kwargs = dict(kwargs)
     rule, _impl = kwargs["binding"]
     kwargs["binding"] = (rule, "impl-2")
@@ -258,7 +258,7 @@ def test_a_second_producer_moves_it():
 def test_a_narrower_coverage_snapshot_moves_it():
     # `producer_snapshot_identity` differs — the identity covers the coverage,
     # so in-slice this is the same mechanism as the member-mutation case above;
-    # banked here under its own name (D §5.1's coverage arm).
+    # banked here under its own name.
     baseline = build_closure(**closure_kwargs()).digest()
     kwargs = closure_kwargs()
     kwargs["producer_snapshot_identity"] = "narrower-coverage-producer-snapshot"
@@ -266,7 +266,7 @@ def test_a_narrower_coverage_snapshot_moves_it():
 
 
 def test_the_same_binding_resolves_identically_elsewhere():
-    # P3 negative: the digest is a function of the closure kwargs only.
+    # Negative case: the digest is a function of the closure kwargs only.
     parameters = inspect.signature(build_closure).parameters
     assert set(parameters) == {
         "proposition",
@@ -288,11 +288,11 @@ def test_the_same_binding_resolves_identically_elsewhere():
     assert here == elsewhere
 
 
-# --- M6/M8 completions and D6's arms: the consulted member ---
+# --- completions: the consulted member ---
 
 
 def _successor_document(document: dict, predecessor, **sections) -> dict:
-    # Cut 1's exact document-mutation pattern
+    # The document-mutation pattern
     # (test_domain_contract.py::TestSuccession.successor_document).
     successor = copy.deepcopy(document)
     successor["lineage"] = {"successor": predecessor.content_identity}
@@ -302,7 +302,7 @@ def _successor_document(document: dict, predecessor, **sections) -> dict:
 
 
 def test_an_additive_successor_moves_consulted_digests(base_contract, testing_document):
-    # M6: the real succession path, not a hand-typed string — the "additive
+    # The real succession path, not a hand-typed string — the "additive
     # successor" is the loaded artifact.
     genesis = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
     operators = copy.deepcopy(testing_document["operators"])
@@ -326,7 +326,7 @@ def test_an_additive_successor_moves_consulted_digests(base_contract, testing_do
 
 
 def test_an_editorial_bump_moves_the_belief_digest(base_contract, testing_document):
-    # M8's editorial-bump digest half: cut 1's editorial-change fixture
+    # The editorial-bump digest half: the editorial-change fixture
     # pattern (test_domain_contract.py::TestSuccession
     # ::test_an_editorial_change_is_accepted_and_moves_contract_identity).
     genesis = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
@@ -352,7 +352,7 @@ def _bumped(base_contract, testing_document, description: str):
 
 
 def test_an_activated_but_unconsulted_bump_is_absent(base_contract, testing_document):
-    # M8 negative half + D6: an extra pinned-but-unread namespace is bumped;
+    # Negative half: an extra pinned-but-unread namespace is bumped;
     # the walk output — and hence the digest — is unchanged.
     profile = _bumped(base_contract, testing_document, "v1")
     real = pins_for(profile)
@@ -379,7 +379,7 @@ def test_an_activated_but_unconsulted_bump_is_absent(base_contract, testing_docu
 
 
 def test_the_base_contract_arm_at_the_eligibility_hinge(base_contract, testing_document, base_contract_path):
-    # D6: bump the *base* contract editorially and pin the bumped profile;
+    # Bump the *base* contract editorially and pin the bumped profile;
     # the digest moves even though this closure reads no base-profile facet.
     # The base parser takes exact top-level fields, so the editorial edit
     # goes on a facet's `description`, which `contract/facets.py` accepts.
@@ -409,7 +409,7 @@ def test_the_base_contract_arm_at_the_eligibility_hinge(base_contract, testing_d
 
 
 def test_reinterpretation_without_byte_changes_still_moves():
-    # D6 negative: same records byte-for-byte, different consulted identity →
+    # Negative case: same records byte-for-byte, different consulted identity →
     # different digest. Two beliefs can never share one digest.
     kwargs = closure_kwargs()
     baseline = build_closure(**kwargs).digest()
@@ -429,3 +429,18 @@ def test_closure_is_sealed_against_subclassing():
 
         class Subclass(Closure):  # type: ignore[misc]
             pass
+
+
+def _closure_digest(found: tuple[tuple[str, str], ...]) -> str:
+    kwargs = closure_kwargs()
+    kwargs["retractions"] = RetractionEnumeration(found=found, coverage=("local",))
+    return build_closure(**kwargs).digest()
+
+
+def test_retraction_enumeration_moves_only_when_in_closure():
+    baseline = _closure_digest(())
+    inside = _closure_digest((("retraction:inside", "standing"),))
+    outside = _closure_digest(())
+
+    assert inside != baseline
+    assert outside == baseline

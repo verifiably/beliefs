@@ -1,8 +1,8 @@
-"""Fork-of admission and `admit_arrival`'s inspection modes (plan Task 8).
+"""Fork-of admission and `admit_arrival`'s inspection modes.
 
 Real engine throughout: worlds and corpora are initialized through their own
 acts on the certified volume, the grant in the writable-refusal arm is
-`register_root`'s own (cut §6 — never fabricated bookkeeping), and the modes
+`register_root`'s own (never fabricated bookkeeping), and the modes
 are observed by wrapping the production seam's two inspection slots with a
 recorder that delegates.
 """
@@ -205,7 +205,7 @@ def test_arrival_detached_on_unserviceable_metadata_less_and_mismatched(certifie
 
 def test_arrival_refuses_a_writable_root(certified_work):
     parent = _parent_corpus(certified_work)
-    # The grant is register_root's own (cut §6), read back before the arm.
+    # The grant is register_root's own, read back before the arm.
     assert read_lifecycle_state(parent) is LifecycleState.WRITABLE
     world = _world_over(certified_work, "world", parent)
 

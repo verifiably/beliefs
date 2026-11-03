@@ -1,16 +1,16 @@
 """Domain contracts — operators, dimensions and sorts.
 
-§7.1: **operators are domain-issued without exception**, and the base contract
+**Operators are domain-issued without exception**, and the base contract
 may not issue one. A domain-neutral relation like ``subtype-of`` belongs to a
 general-purpose domain contract, since nothing requires a "domain" to be a
 natural science.
 
-Two identities, deliberately different in kind (§7.3):
+Two identities, deliberately different in kind:
 
     term identifier     authored, stable, namespaced      enters claim identity
     contract identity   content-derived, moves on edit    enters belief_input_digest
 
-Succession (§8.3) is the *never redefine* rule made checkable. It compares the
+Succession is the *never redefine* rule made checkable. It compares the
 **canonical schema projection** — the meaning-bearing fields — so an editorial
 edit is free while an `arity` change is refused at load. Two fields are
 deliberately outside that projection:
@@ -18,7 +18,7 @@ deliberately outside that projection:
 * ``description``, which is editorial by definition; and
 * ``retired``, because retirement is a status change and putting it in the
   projection would make **retiring** an identifier a redefinition of it, which
-  is precisely the operation §7.3a requires to be permitted.
+  is precisely the operation that must be permitted.
 """
 
 from __future__ import annotations
@@ -74,13 +74,13 @@ _SLOT_INDEX = re.compile(r"^(0|[1-9][0-9]*)$")
 @final
 @dataclass(frozen=True)
 class VocabularyBinding:
-    """D §5: a held ontology dataset by content identity, **or** a namespace with
+    """A held ontology dataset by content identity, **or** a namespace with
     an explicit release. **A bare namespace is refused** — the binding is exact or
     it is absent, and a binding without a release would let the same identifier
     mean different things in two checkouts.
 
     That *or* is a sum, and three optional fields are a product: the record shape
-    admits inhabitants D §5 does not have, and one of them is dangerous.
+    admits inhabitants the binding does not have, and one of them is dangerous.
     ``projection`` drops ``namespace`` and ``release`` on the dataset arm — which
     is correct, since on that arm they carry no information — so a value holding
     *both* a dataset identity and a namespace projects as though the namespace
@@ -116,7 +116,7 @@ class VocabularyBinding:
             if self.namespace is not None or self.release is not None:
                 raise MalformedContract(
                     f"a binding names dataset {self.dataset_identity!r} and also namespace "
-                    f"{self.namespace!r}/{self.release!r}. D §5's binding is one arm or the other; a value "
+                    f"{self.namespace!r}/{self.release!r}. A binding is one arm or the other; a value "
                     "carrying both projects as the dataset alone, so two bindings resolved against different "
                     "vocabularies would encode identically."
                 )
@@ -158,7 +158,7 @@ class DimensionDecl:
 
 @dataclass(frozen=True)
 class OperatorDecl:
-    """§6.2's declared schemas, and nothing else: ``arity``, ``arg_sorts``,
+    """The declared schemas, and nothing else: ``arity``, ``arg_sorts``,
     ``sign_apt``, ``layers``, ``dimensions`` are exactly ``arity(op)``,
     ``ArgSort(op)``, ``signApt(op)``, ``Layers(op)``, ``Dims(op)``.
 
@@ -177,7 +177,7 @@ class OperatorDecl:
 
     def schema_projection(self) -> dict[str, object]:
         # `arg_sorts` is positional and `layers`/`dimensions` are not, and the
-        # difference is §6.2's: `ArgSort(op) : Fin(arity(op)) → Sort` is a
+        # difference is the schemas': `ArgSort(op) : Fin(arity(op)) → Sort` is a
         # function on slots, while `Dims(op)` and `Layers(op)` are *finite sets*.
         # Holding a set in the order its author happened to type it would make
         # reordering one line of YAML a **redefinition**, refused at load — a
@@ -193,9 +193,9 @@ class OperatorDecl:
 
 @dataclass(frozen=True)
 class EstimandDecl:
-    """Which sorts fill the kernel's estimand structure at one operator
-    (estimand-typing §5.1). A claim-vocabulary declaration under §8.3's four
-    succession rules; keyed by the operator it belongs to, and carrying no
+    """Which sorts fill the kernel's estimand structure at one operator. A
+    claim-vocabulary declaration under the four succession rules; keyed by the
+    operator it belongs to, and carrying no
     `retired` of its own — retiring the operator retires it."""
 
     operator: str
@@ -221,9 +221,8 @@ class EstimandDecl:
 
 @dataclass(frozen=True)
 class EdgeDecl:
-    """Which slot of an operator is the cause and which the effect
-    (composite-claims design §3.3). The kernel does not assume slot 0 is the
-    cause — `binds(A, B)` is symmetric — so the direction is the owner's
+    """Which slot of an operator is the cause and which the effect. The kernel
+    does not assume slot 0 is the cause — `binds(A, B)` is symmetric — so the direction is the owner's
     declaration, and an operator with no row forms no edge."""
 
     operator: str
@@ -247,7 +246,7 @@ def _parse_edge(name: str, value: object, where: str, operators: Mapping[str, Op
     if "/" in name:
         raise MalformedContract(
             f"{where}: {name!r} names another namespace; a direction is part of what an operator means and only "
-            "its own contract may declare it (design §3.3)"
+            "its own contract may declare it"
         )
     operator = operators.get(name)
     if operator is None:
@@ -270,8 +269,8 @@ class DomainContract:
     """**Parsed, never authored** — see ``BaseContract`` for why the lock is here
     rather than only on what is compiled from it.
 
-    Operators, sorts and dimensions are **domain-issued without exception**
-    (§7.1), and this is the object that issues them. An authored one issues them
+    Operators, sorts and dimensions are **domain-issued without exception**,
+    and this is the object that issues them. An authored one issues them
     on no authority at all.
 
     The declaration tables are read-only views over private dicts, for the reason
@@ -285,10 +284,10 @@ class DomainContract:
     version: int
 
     predecessor: str | None
-    """``None`` is ``genesis``. §8.3 records that genesis is an escape hatch: the
+    """``None`` is ``genesis``. Genesis is an escape hatch: the
     rules enforce immutability **within a declared lineage**, not across a
-    namespace, and closing the parallel-genesis case needs governance this design
-    does not supply (ρC1, open)."""
+    namespace, and closing the parallel-genesis case needs governance the
+    kernel does not supply (open; see the lineage rules in docs/contracts.md)."""
 
     sorts: Mapping[str, SortDecl]
     dimensions: Mapping[str, DimensionDecl]
@@ -318,7 +317,7 @@ class DomainContract:
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise UnparsedContract(
             "DomainContract is parsed, never authored — use parse_domain_contract(document, source=..., "
-            "base=..., predecessor=...). Operators, sorts and dimensions are domain-issued (§7.1), and an "
+            "base=..., predecessor=...). Operators, sorts and dimensions are domain-issued, and an "
             "authored contract issues them on no authority; it would also carry a content_identity for a "
             "document it does not contain, and skip the succession check entirely."
         )
@@ -364,15 +363,15 @@ class DomainContract:
         return contract
 
     def term(self, local: str) -> str:
-        """The namespaced term identifier — what enters ``π_claim`` (§6.5)."""
+        """The namespaced term identifier — what enters ``π_claim``."""
         return f"{self.namespace}/{local}"
 
     def claim_vocabulary(self) -> dict[str, dict[str, object]]:
         """Every claim-vocabulary identifier and its canonical schema projection.
 
-        §8.3's scope restriction is deliberate: these rules govern claim
-        vocabulary and nothing else. An unscoped "every identifier" would have
-        this design quietly deciding facet versioning, which D §12 leaves open.
+        The scope restriction is deliberate: these rules govern claim
+        vocabulary and nothing else. An unscoped "every identifier" would
+        quietly decide facet versioning, which is left open.
         """
         return {key: decl.schema_projection() for key, decl in self._declarations()}
 
@@ -439,7 +438,7 @@ def _parse_vocabulary(value: object, where: str) -> VocabularyBinding:
     if not isinstance(namespace, str) or not namespace or not isinstance(release, str) or not release:
         raise MalformedContract(
             f"{where}: a namespace binding needs a non-empty namespace and an explicit release. "
-            "A bare namespace is refused (D §5) — without a release the same identifier can mean "
+            "A bare namespace is refused — without a release the same identifier can mean "
             "different things in two checkouts, with no way to tell."
         )
     return VocabularyBinding(namespace=namespace, release=release, dataset_identity=None)
@@ -479,7 +478,7 @@ def _parse_operator(name: str, value: object, where: str) -> OperatorDecl:
     raw_layers = body["layers"]
     if not isinstance(raw_layers, list) or not raw_layers:
         raise MalformedContract(
-            f"{where}: layers must be a non-empty list. §6.2: an operator admitting no layer would make "
+            f"{where}: layers must be a non-empty list: an operator admitting no layer would make "
             "Claim uninhabited at that operator."
         )
     layers = tuple(_name(item, f"{where}: layers[{i}]") for i, item in enumerate(raw_layers))
@@ -511,7 +510,7 @@ def _no_duplicates(values: tuple[str, ...], where: str) -> None:
 
 
 def _sort_reference(value: object, where: str, *, namespace: str, base_name: str, sorts: Mapping[str, SortDecl]) -> str:
-    """§4.1–§4.2: validate a local or deferred cross-contract sort reference."""
+    """Validate a local or deferred cross-contract sort reference."""
     if not isinstance(value, str) or not value:
         raise MalformedContract(f"{where}: {value!r} is not a sort reference")
     if "/" not in value:
@@ -529,8 +528,7 @@ def _sort_reference(value: object, where: str, *, namespace: str, base_name: str
         )
     if foreign == base_name:
         raise MalformedContract(
-            f"{where}: {value!r} names the base contract, which declares no claim vocabulary (§7.1); "
-            "a slot sort is a domain's"
+            f"{where}: {value!r} names the base contract, which declares no claim vocabulary; a slot sort is a domain's"
         )
     return value
 
@@ -548,7 +546,7 @@ def _parse_estimand_decl(
     if name not in operators:
         raise MalformedContract(
             f"{where}: {name!r} is not an operator this contract declares. An estimand declaration lives with its "
-            "operator (estimand-typing §5.1)."
+            "operator."
         )
     arity = operators[name].arity
     if arity == 0:
@@ -578,7 +576,7 @@ def parse_domain_contract(
     """Validate a parsed domain-contract document, or refuse it.
 
     The base contract is required because a domain's layer selections are checked
-    against it: §7.1 makes the layer set **base-owned but per-operator
+    against it: the layer set is **base-owned but per-operator
     restricted**, and a domain that could mint a layer would be redefining what
     kind of thing a claim is.
 
@@ -605,7 +603,7 @@ def parse_domain_contract(
     if predecessor is not None and not isinstance(predecessor, DomainContract):
         raise UnparsedContract(
             f"predecessor is a {type(predecessor).__name__}, not a parsed DomainContract. Succession is "
-            "the *never redefine* rule made checkable (§8.3); checked against an authored predecessor it "
+            "the *never redefine* rule made checkable; checked against an authored predecessor it "
             "certifies nothing, since the thing it compares against was written to pass."
         )
     root = _mapping(document, source)
@@ -613,7 +611,7 @@ def parse_domain_contract(
         if section in root:
             raise MalformedContract(
                 f"{source}: a domain contract declares no {section}; a kernel kind or relation signature is the "
-                "base contract's, and a domain contributes facets to kinds that already exist (D §3.3, D8) — refused"
+                "base contract's, and a domain contributes facets to kinds that already exist — refused"
             )
     _fields(root, _CONTRACT_FIELDS, _CONTRACT_OPTIONAL, source)
 
@@ -623,7 +621,7 @@ def parse_domain_contract(
     if namespace == base.name:
         raise MalformedContract(
             f"{source}: {namespace!r} is the base contract's namespace. Operators are domain-issued without "
-            "exception (§7.1), and a base-issued operator would sit outside the closure walk every other "
+            "exception, and a base-issued operator would sit outside the closure walk every other "
             "operator goes through."
         )
 
@@ -680,13 +678,13 @@ def parse_domain_contract(
             if layer not in base.claim_grammar.layers:
                 raise MalformedContract(
                     f"{where}: layer {layer!r} is not in the base contract's layer vocabulary. A domain selects "
-                    "from the base vocabulary and may not extend it (§7.1)."
+                    "from the base vocabulary and may not extend it."
                 )
         operators[name] = operator
 
     # `_mapping`, not `_declarations`: an edge key naming another namespace is
     # not a malformed identifier, it is a name this contract may not use, and
-    # `_parse_edge` is the one place that says so (design §3.3). Routing
+    # `_parse_edge` is the one place that says so. Routing
     # through `_declarations`'s `_name` check first would refuse it with a
     # generic "not an identifier" before that message is ever reached.
     edges: dict[str, EdgeDecl] = {}
@@ -736,7 +734,7 @@ def _declarations(value: object, where: str) -> dict[str, object]:
 
 
 def check_succession(contract: DomainContract, predecessor: DomainContract | None) -> None:
-    """§8.3's two-contract check, refused at contract **load**, not at claim decode.
+    """The two-contract succession check, refused at contract **load**, not at claim decode.
 
     A content-derived identity says what a contract *is* and never what it
     *succeeds*, which is why the predecessor is passed in rather than derived.
@@ -772,7 +770,7 @@ def check_succession(contract: DomainContract, predecessor: DomainContract | Non
     if dropped:
         raise SuccessionViolation(
             f"{contract.namespace}: drops claim-vocabulary declaration(s) {', '.join(dropped)}. A retired "
-            "declaration is retained immutably as a tombstone (§7.3a) — dropping one renders an existing claim "
+            "declaration is retained immutably as a tombstone — dropping one renders an existing claim "
             "population untypeable, which is redefinition arriving by another route."
         )
 
@@ -781,14 +779,14 @@ def check_succession(contract: DomainContract, predecessor: DomainContract | Non
             raise SuccessionViolation(
                 f"{contract.namespace}: {identifier} has a different canonical schema projection than in its "
                 "predecessor. Redefinition is refused within a declared lineage — retire the identifier and "
-                "issue a new one, which keeps every prior assertion bound to what it actually asserted (§7.3)."
+                "issue a new one, which keeps every prior assertion bound to what it actually asserted."
             )
 
     resurrected = sorted((predecessor.retired_identifiers() - contract.retired_identifiers()) & set(current))
     if resurrected:
         raise SuccessionViolation(
             f"{contract.namespace}: un-retires {', '.join(resurrected)}. Retirement is one-way.\n"
-            "§7.3a puts retirement in **authoring** — the typed constructor cannot select a retired identifier — "
+            "Retirement belongs to **authoring** — the typed constructor cannot select a retired identifier — "
             "so the retired set is what decides whether a claim was authorable when it was written. If that set "
             "can shrink, it is not reconstructible from any point in the lineage, and two contracts in one "
             "lineage disagree about whether an existing claim was legitimately authored, with the later one "

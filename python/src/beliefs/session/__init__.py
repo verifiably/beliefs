@@ -1,4 +1,4 @@
-"""The writer session (writer-session design): the contract's names, and the
+"""The writer session: the contract's names, and the
 two compositions over `beliefs.root`."""
 
 from __future__ import annotations
@@ -94,8 +94,7 @@ def open_attended_session(
     snapshot_resolver: SnapshotResolver | None = None,
     project: CoordinationAddress | None = None,
 ) -> WriterSession:
-    """The interactive constructor (design §3.1, as the session-mounts design
-    amends it): full permit by construction. It writes `write_root`, one of the
+    """The interactive constructor: full permit by construction. It writes `write_root`, one of the
     configured roots, and nothing else. When `mounts` is given, it covers every
     configured root, each under the profile its own manifest pins, and
     coordination resolves over all of them. `None` opens without coordination.
@@ -105,8 +104,7 @@ def open_attended_session(
 
     `project`, an unpinned project address, is the initial selection: it
     resolves through the coordination resolver before the session directory
-    exists, and the pinned result is written into `session-open` (selection
-    design §4.1).
+    exists, and the pinned result is written into `session-open`.
     """
     if type(world_config) is not WorldConfig:
         raise TypeError("open_attended_session takes an exact WorldConfig")
@@ -196,13 +194,13 @@ def open_attended_session(
         project=pinned,
         world_config=world_config,
     )
-    # §3.1: session-open is written (by the constructor) before reconciliation runs.
+    # Session-open is written (by the constructor) before reconciliation runs.
     session.findings = reconcile_sessions(world_config, operations_root, exclude=session_id)
     return session
 
 
 def _mount_resolver(mounted: Mapping[Path, ProfileSpec] | None) -> CoordinationResolver | None:
-    """Every mount in the resolver (decision 3). A read mount whose manifest does
+    """Every mount in the resolver. A read mount whose manifest does
     not load refuses as the write root's does; a pin mismatch is the resolver's own."""
     if mounted is None:
         return None
@@ -215,7 +213,7 @@ def _mount_resolver(mounted: Mapping[Path, ProfileSpec] | None) -> CoordinationR
 def reconcile_sessions(
     world_config: WorldConfig, operations_root: Path, *, exclude: str | None = None
 ) -> tuple[Finding, ...]:
-    """The audit surface (design §6): one lock-coherent snapshot per root, read
+    """The audit surface: one lock-coherent snapshot per root, read
     through detached inspection; writes nothing and recovers nothing.
 
     The session directories are listed *inside* the hold with the chains: a
@@ -251,6 +249,6 @@ def reconcile_sessions(
                 continue
             chains[corpus_id] = log_seam().inspect_detached(root)
         ledgers = tuple(read_ledger_evidence(operations_root, sid) for sid in ids)
-    # §6's order is `reconcile`'s own — corpus id, then chain position, then code.
+    # The order is `reconcile`'s own — corpus id, then chain position, then code.
     # The unadopted roots precede it in sorted-root order; nothing is re-sorted.
     return (*extra, *reconcile(ledgers, chains))

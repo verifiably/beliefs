@@ -1,9 +1,9 @@
-"""R4's full walk, R5's retained arms, R6, R9's three inconclusive
-checks, R16's evaluator and scope arms, G9's replay-eligibility third.
-R9's admission conjunct and R16's nothing-is-admitted conjunct live in
-acceptance/test_confinement_acceptance.py (cut 13); R5 negative (a) (persistence seam)
-— cut 3 §4.2/§7.1.
-R16's family/job/stream completeness is checked from the workflow snapshot.
+"""The full walk, the retained checks, the three inconclusive
+checks, the evaluator and scope checks, the replay-eligibility third.
+The admission conjunct and the nothing-is-admitted conjunct live in
+acceptance/test_confinement_acceptance.py; the persistence-seam negative
+is deferred.
+The family/job/stream completeness is checked from the workflow snapshot.
 """
 
 import dataclasses
@@ -388,7 +388,6 @@ def test_a_replay_refuses_a_reconstructed_recipe_mismatch(tmp_path):
     )
 
 
-# --- R6 -----------------------------------------------------------------------
 def existing_assessment_state(original):
     existing = AssessmentValue(
         spec="s",
@@ -410,7 +409,7 @@ def existing_assessment_state(original):
     return admitting, lifecycle_state(admitting)
 
 
-def test_r6_an_unreplayable_run_creates_no_verification_and_changes_no_state(pair, tmp_path):
+def test_an_unreplayable_run_creates_no_verification_and_changes_no_state(pair, tmp_path):
     original, _ = pair
     admitting, before = existing_assessment_state(original)
     before_records = admitting
@@ -428,7 +427,7 @@ def test_r6_an_unreplayable_run_creates_no_verification_and_changes_no_state(pai
     assert lifecycle_state(admitting) == before
 
 
-def test_r6_restoring_availability_changes_nothing_until_a_replay_actually_runs(pair, tmp_path):
+def test_restoring_availability_changes_nothing_until_a_replay_actually_runs(pair, tmp_path):
     original, _ = pair
     admitting, before = existing_assessment_state(original)
     everything = frozenset(
@@ -452,21 +451,20 @@ def test_r6_restoring_availability_changes_nothing_until_a_replay_actually_runs(
     assert isinstance(replayed, RunMinted)
 
 
-# --- R9 -----------------------------------------------------------------------
-def test_r9_a_missing_output_yields_inconclusive(pair):
+def test_a_missing_output_yields_inconclusive(pair):
     original, replayed = pair
     rule = byte_tolerance_rule(store={})
     assert rule.evaluate(original.run.result, replayed.run.result) == "inconclusive"
 
 
-def test_r9_an_unreadable_output_yields_inconclusive(pair):
+def test_an_unreadable_output_yields_inconclusive(pair):
     original, replayed = pair
     digests = [d for _, d in original.run.result.outputs] + [d for _, d in replayed.run.result.outputs]
     rule = byte_tolerance_rule(store={d: b"HELLO-not-a-number" for d in digests})
     assert rule.evaluate(original.run.result, replayed.run.result) == "inconclusive"
 
 
-def test_r9_a_reader_error_yields_inconclusive(pair):
+def test_a_reader_error_yields_inconclusive(pair):
     original, replayed = pair
 
     class Exploding(dict):
@@ -485,8 +483,8 @@ def test_a_byte_tolerance_rule_compares_numeric_payloads():
     assert rule.evaluate(left, far) == "failed"
 
 
-# --- R16's evaluator and scope arms -------------------------------------------
-def test_r16_no_equivalence_rule_can_read_an_occurrence():
+# --- the evaluator and scope checks -------------------------------------------
+def test_no_equivalence_rule_can_read_an_occurrence():
     with pytest.raises(MalformedRecord):
         EquivalenceImplementation(
             identity="impl-bad",
@@ -514,7 +512,7 @@ def test_equivalence_implementations_are_strict_immutable_values(identity, fixtu
         CONTENT_EQUALITY.identity = "changed"  # type: ignore[misc]
 
 
-def test_r16_a_seed_violating_run_is_non_conforming_and_derives_not_certified(tmp_path):
+def test_a_seed_violating_run_is_non_conforming_and_derives_not_certified(tmp_path):
     violating = run_assessment(tmp_path / "v", snakefile=SNAKEFILE_SEED_VIOLATING)
     clean = replay_of(violating, tmp_path / "r", snakefile=SNAKEFILE_SEED_VIOLATING)
     assert isinstance(violating, RunMinted) and isinstance(clean, RunMinted)
@@ -632,18 +630,17 @@ def test_seeded_conformance_refuses_a_wrong_reported_seed(pair):
     assert conformance(changed).startswith("non-conforming")
 
 
-# --- R4 -----------------------------------------------------------------------
-def test_r4_no_authored_scope_parameter_exists():
+def test_no_authored_scope_parameter_exists():
     assert "scope" not in inspect.signature(derive_scope).parameters
     assert "scope" not in inspect.signature(execute_assessment_run).parameters
 
 
-def test_r4_equal_recipes_without_a_receipt_derive_same_environment(pair):
+def test_equal_recipes_without_a_receipt_derive_same_environment(pair):
     original, replayed = pair
     assert derive_scope(original.run, replayed.run, certification=None) == "same-environment"
 
 
-def test_r4_negative_a_a_hostname_change_stays_same_environment(tmp_path):
+def test_a_hostname_change_stays_same_environment(tmp_path):
     a = run_assessment(tmp_path / "a", host_realization="host-x")
     b = replay_of(a, tmp_path / "b", host_realization="host-y")
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
@@ -651,7 +648,7 @@ def test_r4_negative_a_a_hostname_change_stays_same_environment(tmp_path):
     assert a.run.occurrence.receipt.execution.capabilities == ()
 
 
-def test_r4_negative_b_a_comment_change_is_not_certified_never_independent(tmp_path):
+def test_a_comment_change_is_not_certified_never_independent(tmp_path):
     a = run_assessment(tmp_path / "a")
     commented = SNAKEFILE_DETERMINISTIC.replace(
         "import pathlib, random",
@@ -663,7 +660,7 @@ def test_r4_negative_b_a_comment_change_is_not_certified_never_independent(tmp_p
     assert derive_scope(a.run, b.run, certification=None) == "not-certified"
 
 
-def test_r4_independent_implementation_needs_all_four_conditions(tmp_path):
+def test_independent_implementation_needs_all_four_conditions(tmp_path):
     a = run_assessment(tmp_path / "a")
     reimplemented = SNAKEFILE_DETERMINISTIC.replace("text.upper()", "text.upper() + ''")
     b = run_assessment(tmp_path / "b", snakefile=reimplemented)
@@ -673,7 +670,7 @@ def test_r4_independent_implementation_needs_all_four_conditions(tmp_path):
     assert derive_scope(a.run, b.run, certification=None) == "not-certified"
 
 
-def test_r4_negative_c_a_different_spec_identity_is_not_certified(tmp_path):
+def test_a_different_spec_identity_is_not_certified(tmp_path):
     a = run_assessment(tmp_path / "a")
     other_spec = freeze(spec_draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=spec_rules())
     b = run_assessment(tmp_path / "b", spec=other_spec)
@@ -697,7 +694,7 @@ def _confined(minted, *, capabilities=CAPABILITIES, environment_identity=None):
     return dataclasses.replace(run, occurrence=dataclasses.replace(run.occurrence, receipt=receipt))
 
 
-def test_r4_the_clean_environment_row_is_reached_only_through_a_qualifying_receipt(pair):
+def test_the_clean_environment_row_is_reached_only_through_a_qualifying_receipt(pair):
     original, replayed = pair
     assert derive_scope(original.run, _confined(replayed), certification=None) == "clean-environment"
     assert derive_scope(original.run, replayed.run, certification=None) == "same-environment"
@@ -705,7 +702,7 @@ def test_r4_the_clean_environment_row_is_reached_only_through_a_qualifying_recei
     assert derive_scope(original.run, foreign, certification=None) == "same-environment"
 
 
-def test_r4_negative_d_a_receipt_missing_a_required_capability_derives_same_environment(pair):
+def test_a_receipt_missing_a_required_capability_derives_same_environment(pair):
     original, replayed = pair
     for missing in CAPABILITIES:
         fewer = tuple(capability for capability in CAPABILITIES if capability != missing)
@@ -715,7 +712,7 @@ def test_r4_negative_d_a_receipt_missing_a_required_capability_derives_same_envi
         )
 
 
-def test_r4_negative_d_a_policy_qualifies_whatever_its_version_string(pair):
+def test_a_policy_qualifies_whatever_its_version_string(pair):
     original, replayed = pair
     v99 = BoundaryPolicy(
         identity="boundary-policy/confined-v99", scope_rule="scope-derivation/v1", capabilities=CAPABILITIES
@@ -727,7 +724,7 @@ def test_r4_negative_d_a_policy_qualifies_whatever_its_version_string(pair):
     assert derive_scope(left, right, certification=None) == "clean-environment"
 
 
-def test_r4_negative_d_two_incomparable_policies_are_not_ranked(pair):
+def test_two_incomparable_policies_are_not_ranked(pair):
     original, replayed = pair
     one = _confined(replayed, capabilities=("from-bundle", "closure-confined-filesystem"))
     other = _confined(replayed, capabilities=("from-bundle", "network-denied"))
@@ -738,7 +735,7 @@ def test_r4_negative_d_two_incomparable_policies_are_not_ranked(pair):
     assert not qualifies(one.occurrence.receipt, identity) and not qualifies(other.occurrence.receipt, identity)
 
 
-def test_r15_negative_a_minimal_pair_never_derives_clean_environment(pair):
+def test_minimal_pair_never_derives_clean_environment(pair):
     original, replayed = pair
     execution = replayed.run.occurrence.receipt.execution
     assert execution.capabilities == () and execution.instance is None
@@ -746,8 +743,7 @@ def test_r15_negative_a_minimal_pair_never_derives_clean_environment(pair):
     assert not qualifies(replayed.run.occurrence.receipt, replayed.run.recipe.environment.identity())
 
 
-# --- R5 / G9 ------------------------------------------------------------------
-def test_r5_g9_unreachable_bytes_with_a_held_copy_move_none_of_the_three(pair):
+def test_unreachable_bytes_with_a_held_copy_move_none_of_the_three(pair):
     original, _ = pair
     d = DatasetDeclaration(resources=(ResourceDeclaration(name="r", digest=D_IN),))
     run = RunValue(ref="run:run-1", spec="spec-1", inputs=(RunInput(role="observes", dataset=d),))
@@ -789,7 +785,7 @@ def test_r5_g9_unreachable_bytes_with_a_held_copy_move_none_of_the_three(pair):
     assert reading not in ("unverified", "failed")
 
 
-def test_r5_negative_b_removing_the_corpus_attribution_reads_not_available_never_an_unchanged_belief(pair):
+def test_removing_the_corpus_attribution_reads_not_available_never_an_unchanged_belief(pair):
     original, _ = pair
     everything = frozenset(
         {

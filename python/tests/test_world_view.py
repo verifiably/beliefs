@@ -266,7 +266,7 @@ class TestTheEpochsEnumeration:
         document["enumeration"] = {"found": "not-a-list", "coverage": [ALPHA, BETA]}
         receipts = dict(published.receipts)
         receipts["retraction-receipt.yaml"] = replace(carrier, document=document)
-        with pytest.raises(EpochMalformed, match="not .*projection"):
+        with pytest.raises(EpochMalformed, match="not a valid retraction enumeration"):
             open_world_view(world, replace(published, receipts=receipts))
 
     def test_a_producer_receipt_without_subject_identity_refuses_the_open(self, tmp_path):
@@ -382,7 +382,7 @@ def test_returned_objects_are_detached(tmp_path):
     assert view.get(alpha) is not view.get(alpha)
 
 
-class TestW10:
+class TestWorldClosure:
     def test_the_world_closure_is_complete_and_the_local_one_truncates(self, tmp_path):
         from beliefs.corpus import LineageAdjacency, RelationAdjacency
         from beliefs.traversal import closure
@@ -544,7 +544,7 @@ def split_evaluation_world(tmp_path: Path, beta_refs=(DATASET_D_A,)):
 
 def overlap_evaluation_world(tmp_path: Path, shared=("assessment:a-1", "run:run-a", DATASET_D_A, "verification:v-1")):
     """The seeded corpus in ALPHA, with `shared` also held in BETA as equal copies
-    (one record, two holders; cut 48 §6)."""
+    (one record, two holders)."""
     scratch = tmp_path / "scratch"
     seeded = seed(scratch, axis="rows")
     nodes = tuple(seeded.iter_stored())
@@ -567,8 +567,8 @@ def world_kwargs(view, profile):
     return {**kwargs, "context": context}
 
 
-def test_j20_the_two_installation_split_evaluates_as_one_corpus(tmp_path):
-    """J20: assessments and runs in ALPHA (W); the proposition and observed datasets in BETA (M)."""
+def test_the_two_installation_split_evaluates_as_one_corpus(tmp_path):
+    """Assessments and runs in ALPHA (W); the proposition and observed datasets in BETA (M)."""
     from beliefs.belief import Belief
     from beliefs.evaluation import evaluate_over_traced, gather
 
@@ -594,7 +594,7 @@ def test_j20_the_two_installation_split_evaluates_as_one_corpus(tmp_path):
         local, "proposition:p", **over_kwargs(kwargs_for(local, profile))
     )[:2]
     # `belief_input_digest` differs by construction: the closure names the producer snapshot and the
-    # retraction coverage, which are the world's epoch and corpus ids (mount-citations spec §13).
+    # retraction coverage, which are the world's epoch and corpus ids.
     assert isinstance(split_answer, Belief) and isinstance(local_answer, Belief)
     assert split_answer.value == local_answer.value and split_answer.policy_binding == local_answer.policy_binding
     assert split_admission == local_admission
@@ -738,7 +738,7 @@ class TestEvaluationOverTheWorld:
         """Absence beyond the observed dataset: the assessment's own run, and a
         input of each role, each recorded in the absent corpus.
 
-        correction-remainder slice 2 decision 7: BETA is in the bound producer
+        BETA is in the bound producer
         snapshot's own coverage, so `gather`'s world block answers absence for the
         whole read before any assessment, run or input role is walked — the same
         outcome for every role this parametrizes."""
@@ -895,7 +895,7 @@ class TestEvaluationOverTheWorld:
         assert isinstance(result, Refused) and "consulted-contracts-disagree" in result.reason
 
     def test_a_proposition_only_absent_carrier_is_reported(self, tmp_path):
-        """correction-remainder slice 2 decision 7: BETA is in the bound producer
+        """BETA is in the bound producer
         snapshot's own coverage, so `gather`'s world block reports its absence
         under the snapshot spelling before the proposition's own ref is ever
         walked."""
@@ -922,7 +922,7 @@ class TestEvaluationOverTheWorld:
         assert BETA in result.detail
 
     def test_absence_in_the_supplied_snapshot_is_reported(self, tmp_path):
-        """correction-remainder slice 2 decision 7: BETA is in the bound producer
+        """BETA is in the bound producer
         snapshot's own coverage, so `gather`'s world block reports its absence
         under the snapshot spelling before the supplied snapshot's own refs are
         ever walked."""
@@ -994,7 +994,7 @@ def split_verification_world(tmp_path: Path):
     return published, forged, roots, view, world, epoch
 
 
-class TestR19AcrossCorpora:
+class TestAcrossCorpora:
     def test_a_genuine_verification_is_checked(self, tmp_path):
         from beliefs.audit import check_verification
 
@@ -1155,7 +1155,7 @@ def test_mapped_records_enumerate_what_iter_stored_yields_without_copying(tmp_pa
     assert pairs[0][1] is first and next(iter(view._mapped_records()))[1] is first
 
 
-# --- cut 48: one record held in several corpora (W20) ---------------------------
+# --- one record held in several corpora ---------------------------
 
 
 def overlap_world(tmp_path: Path, holders: tuple[str, ...] = (ALPHA, BETA), extra: dict | None = None):
@@ -1180,8 +1180,8 @@ def revise_in_place(root: Path, address: str) -> None:
     Corpus(root).store.path_for(address).write_text(node_to_markdown(node))
 
 
-class TestW20ServedSurface:
-    def test_w20_a_view_serves_once(self, tmp_path):
+class TestServedSurface:
+    def test_view_serves_once(self, tmp_path):
         target = stored.dataset_node(title="target", resources=pinned("target"))
         shared_run = stored.run_node("shared-run", title="shared-run", spec="analysis-spec:s", produces=[target.id])
         world, _roots, published, shared = overlap_world(
@@ -1200,7 +1200,7 @@ class TestW20ServedSurface:
         assert [h for h, n in view._mapped_holders() if n.uid == shared.uid] == [(ALPHA, BETA)]
         assert sum(1 for n in view.iter_stored() if n.uid == shared.uid) == 1
 
-    def test_w20_b_holders_disagree_refuses(self, tmp_path):
+    def test_holders_disagree_refuses(self, tmp_path):
         from test_world_build import GAMMA
 
         world, roots, published, shared = overlap_world(tmp_path, holders=(ALPHA, BETA, GAMMA))
@@ -1210,7 +1210,7 @@ class TestW20ServedSurface:
         assert shared.id in str(caught.value)
         assert all(corpus_id in str(caught.value) for corpus_id in (ALPHA, BETA, GAMMA))
 
-    def test_w20_d_owners_check_narrowed(self, tmp_path):
+    def test_owners_check_narrowed(self, tmp_path):
         from test_world_build import GAMMA
 
         world, roots, published, shared = overlap_world(tmp_path, extra={GAMMA: sample_nodes("gamma")})
@@ -1220,7 +1220,7 @@ class TestW20ServedSurface:
         with pytest.raises(ResolutionRefused, match="uid uniqueness"):
             open_world_view(world, published)
 
-    def test_w20_e_damaged_holder_rule(self, tmp_path):
+    def test_damaged_holder_rule(self, tmp_path):
         from beliefs.errors import CorpusDamaged
 
         world, roots, published, shared = overlap_world(tmp_path)
@@ -1235,7 +1235,7 @@ class TestW20ServedSurface:
             drifted.get(shared.id)
         assert caught.value.corpus_id == BETA
 
-    def test_w20_h_mapped_view_and_absence(self, tmp_path):
+    def test_mapped_view_and_absence(self, tmp_path):
         from beliefs.corpus import _absence_of
 
         world, roots, published, shared = overlap_world(tmp_path)

@@ -1,4 +1,4 @@
-"""The closure-to-stored codec (spec §2.6 items 4–5)."""
+"""The closure-to-stored codec."""
 
 import dataclasses
 from decimal import Decimal

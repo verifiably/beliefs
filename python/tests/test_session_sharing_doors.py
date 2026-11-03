@@ -1,12 +1,12 @@
 """The sharing act doors on the scoped writer, over real roots on the certified
-volume (sharing design §2 decisions 3–6, §4.4, §4.5, §6 "The sharing doors").
+volume.
 
 A publication exported by the local publish act is copied without its metadata
 sibling; a recipient's attended session restores and admits it through
 `ScopedWriter.restore_root` and `ScopedWriter.admit_publication`, each door
 binding the caller's evidence to the root before its act and ledgering one
 `sharing` line after it. `ScopedWriter.retire` retires the adopted publication
-the same way (retirement door design §5), and a successor session recovers a
+the same way, and a successor session recovers a
 retirement whose line a failed append lost."""
 
 from __future__ import annotations
@@ -179,7 +179,7 @@ def test_restore_root_grants_read_serviceability_and_ledgers_fetched_validated(c
 def test_restore_root_of_a_disagreeing_copy_ledgers_the_refusing_verdict_and_grants_nothing(
     certified_work, exported_publication
 ):
-    """Ruling R3: the evidence names the right sibling, so the binding holds; one
+    """The evidence names the right sibling, so the binding holds; one
     record's bytes in the copy disagree with its chain, so the act refuses."""
     x = shared(certified_work, exported_publication)
     tamper_one_selected_record(x.copy)
@@ -398,7 +398,7 @@ def test_certified_work_dir_cleans_up_and_forgets_registries_on_exception(
     from beliefs import corpus
 
     vol = tmp_path / "vol"
-    monkeypatch.setenv("SCIENCE_CUT10_ROOT", str(vol))
+    monkeypatch.setenv("BELIEFS_TEST_ROOT", str(vol))
     forgotten_corpora: list[Path] = []
     forgotten_worlds: list[Path] = []
     real_forget_corpora = corpus._forget_roots_under
@@ -434,7 +434,7 @@ def test_a_session_without_a_world_configuration_refuses_admit_publication_and_r
     assert session.invocation_sharing("A") == ()
 
 
-# --- retire (retirement door design §5) ----------------------------------------------------
+# --- retire ----------------------------------------------------
 def adopted(work: Path, exported: SimpleNamespace) -> SimpleNamespace:
     """`shared`, with the copy admitted through the door as a replica of itself
     under invocation `A`; `x.admitted` is that line."""
@@ -537,7 +537,7 @@ def test_retire_of_a_corpus_never_admitted_refuses_status_target_unknown(certifi
 
 
 def test_retire_of_a_publication_admitted_fresh_refuses_status_target_unknown(certified_work, exported_publication):
-    """Decision 2, step 6: the root has the publication layout and the evidence
+    """Step 6: the root has the publication layout and the evidence
     binds, but the corpus was not adopted through the sharing doors."""
     x = shared(certified_work, exported_publication)
     full_world(x).admit(x.copy, provenance=Fresh())
@@ -602,7 +602,7 @@ def test_a_racing_departure_reraises_the_acts_status_terminal_and_appends_nothin
 def test_a_failed_retired_append_ends_the_session_and_a_successor_ledgers_already_retired(
     certified_work, exported_publication, monkeypatch, fault
 ):
-    """Decision 6: the status commits, then the `retired` append fails. Each
+    """The status commits, then the `retired` append fails. Each
     fault is armed for the ledger's file alone, since `World.retire` writes
     and fsyncs the registry inside the same call."""
     x = adopted(certified_work, exported_publication)
@@ -671,7 +671,7 @@ def test_a_failed_retired_append_ends_the_session_and_a_successor_ledgers_alread
 def test_close_waits_while_retire_holds_the_session_lock_and_completes_after_the_line(
     certified_work, exported_publication, monkeypatch
 ):
-    """Decision 5: a close from another thread while the door is inside
+    """A close from another thread while the door is inside
     `World.retire` waits on the session lock and runs after the line."""
     x = adopted(certified_work, exported_publication)
     retiring, release, close_waiting = threading.Event(), threading.Event(), threading.Event()

@@ -1,4 +1,4 @@
-"""The acquisition operation (url-retrieval design §6)."""
+"""The acquisition operation."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from authority import FULL
 from holdings_transport_fixtures import Scripted, scripted_seam
 from nodes.core.errors import ExecutionError
 from profiles import BASE, WITH_BIOLOGY, pins_for
-from test_holdings_boundary import _intents, context  # Task 4's helper and the store/observer context
+from test_holdings_boundary import _intents, context  # the helper and the store/observer context
 
 from beliefs import root as science_root
 from beliefs import stored
@@ -286,7 +286,7 @@ def test_a_registered_domain_facet_lands_on_the_minted_dataset(certified_work, t
 
 
 def _read_only_store(ctx, certified_work):
-    """A store the engine refuses to mutate, from the production seam (Task 4's last test)."""
+    """A store the engine refuses to mutate, from the production seam."""
     replica = certified_work / "replica"
     science_root.replicate_root(ctx.store_root, replica, authority=FULL)
     return replace(ctx, store_root=replica)
@@ -397,7 +397,7 @@ def test_no_lock_is_held_across_the_request(acquisition):
 
 
 def test_a_report_naming_an_observation_no_act_published_refuses_at_the_close(acquisition, monkeypatch):
-    """T5-c: the close checks every PublishedObservation ref resolves."""
+    """The close checks every PublishedObservation ref resolves."""
     ctx, _, writer, scratch = acquisition
     from beliefs.holdings import acquire as module
 

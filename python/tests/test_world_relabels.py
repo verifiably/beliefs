@@ -1,4 +1,4 @@
-"""Relabel arms and the measured R23 divergence arm (slice 3 design §7)."""
+"""Relabel cases and the measured divergence case."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from beliefs.world import read, registry
 from beliefs.world.view import open_world_view
 
 
-class TestW13:
+class TestRelocationChangesNoIdentity:
     def test_moving_renaming_and_remounting_a_root_changes_no_identity(self, tmp_path):
         coverage = (ALPHA, BETA)
         roots = corpora(tmp_path, {c: sample_nodes(slug_for(c, coverage)) for c in coverage})
@@ -34,7 +34,7 @@ class TestW13:
             target = tmp_path / relocation
             if relocation == "cloned":
                 shutil.copytree(roots[BETA], target)
-                shutil.rmtree(roots[BETA])  # the clone is mounted *instead*: two live carriers are X5's refusal
+                shutil.rmtree(roots[BETA])  # the clone is mounted *instead*: two live carriers are the refusal
             else:
                 roots[BETA].rename(target)
             roots[BETA] = target
@@ -101,7 +101,7 @@ class TestW13:
         )  # and no assertion ties them
 
     def test_raw_deleting_an_admission_evades_nothing(self, tmp_path):
-        """Cut 6 read the undetected half; the build's refusal is the other half."""
+        """The undetected half is read elsewhere; the build's refusal is the other half."""
         coverage = (ALPHA, BETA)
         roots = corpora(tmp_path, {c: sample_nodes(slug_for(c, coverage)) for c in coverage})
         world = world_over(tmp_path, roots)
@@ -113,9 +113,9 @@ class TestW13:
             publish(world, coverage, bindings)
 
 
-class TestX5:
+class TestTwoCarriersOfOneId:
     def test_two_carriers_of_one_id_refuse_the_build_and_offer_no_repair(self, tmp_path):
-        """The build arm (cut 7) re-read as X5's whole: refusal, reported, no merge."""
+        """The build case re-read as a whole: refusal, reported, no merge."""
         coverage = (ALPHA,)
         roots = corpora(tmp_path, {ALPHA: sample_nodes("one")})
         twin = tmp_path / "twin"
@@ -129,10 +129,10 @@ class TestX5:
         assert not hasattr(world, "merge") and not hasattr(world, "consolidate")
 
 
-class TestR23Divergence:
+class TestDivergence:
     def test_a_run_in_the_other_corpus_claiming_the_dataset_diverges_and_moves_the_digest(self, tmp_path):
-        """Negative (e), cross-corpus: R2 in BETA claims D (held once, in ALPHA)
-        from B by edges alone — no second D record (spec §7)."""
+        """Cross-corpus: a second run in BETA claims D (held once, in ALPHA)
+        from B by edges alone — no second D record."""
         d0, r1, d1, _r2, _d2 = chain_nodes()
         b = stored.dataset_node(title="b", resources=pinned("b"))
         r2 = stored.run_node("r2x", title="r2x", spec="s", transforms=[b.id], produces=[d1.id])
@@ -156,4 +156,4 @@ class TestR23Divergence:
         assert with_r2 != without_r2  # the lineage member moves with the producer set
         assert _belief_digest(published) != _belief_digest(
             published_without
-        )  # and so does kernel §5.1's digest: the snapshot covers the producer set
+        )  # and so does the digest: the snapshot covers the producer set

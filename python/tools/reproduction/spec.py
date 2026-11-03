@@ -56,8 +56,8 @@ def render_snakefile() -> bytes:
 
 
 def held_rules() -> dict:
-    """The driver's identities, bound to the kernel's implementations
-    (session-routes design §5.2). The record's spec identity is unchanged:
+    """The driver's identities, bound to the kernel's implementations.
+    The record's spec identity is unchanged:
     `freeze` digests (rule identity, implementation identity) pairs, and both
     pairs are the ones the 2026-09-05 record carries.
     """
@@ -71,7 +71,7 @@ def definition() -> WorkflowDefinition:
 RELOCATED_CLAUSE = (
     "prose applicability clause 'whose ids carry a stage token and whose value is finite' refused at retyping "
     "(no declared dimension); re-authored in `method` as estimator behaviour — the estimator refuses a non-finite "
-    "value as malformed input, it does not exclude the sample — an authored judgment (design §4, §9)"
+    "value as malformed input, it does not exclude the sample — an authored judgment"
 )
 
 
@@ -125,7 +125,7 @@ def frozen() -> FrozenSpec:
 
 
 def spec_record(spec: FrozenSpec) -> Node:
-    """The kernel's own builder (verification-publication design §7)."""
+    """The kernel's own builder."""
     return stored.analysis_spec_node(spec)
 
 
@@ -139,7 +139,7 @@ def main() -> int:
         "design-gap",
         "build_assessment hands the interpretation rule a ResultManifest of digests, not output bytes; "
         "the verdict is routed through a canonical outcome file whose digest the rule maps",
-        filed="computation design (where an interpretation rule reads content)",
+        filed="the computation change (where an interpretation rule reads content)",
     )
     findings.record(4, "corpus-work", RELOCATED_CLAUSE)
     print(f"frozen spec {spec.identity} targeting {spec.target}; record {minted.id}")

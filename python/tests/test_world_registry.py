@@ -63,7 +63,7 @@ def _registry_files(world_root):
     return sorted(path.name for path in directory.glob("*.yaml")) if directory.exists() else []
 
 
-def test_e1_admit_under_a_permit_lacking_registry_refuses_and_writes_nothing(tmp_path):
+def test_admit_under_a_permit_lacking_registry_refuses_and_writes_nothing(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     world = world_module.World(
@@ -79,7 +79,7 @@ def test_e1_admit_under_a_permit_lacking_registry_refuses_and_writes_nothing(tmp
     assert _registry_files(tmp_path / "world") == []
 
 
-def test_e3_an_admission_carries_the_bound_actor_and_takes_none(tmp_path):
+def test_an_admission_carries_the_bound_actor_and_takes_none(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     world = make_world(tmp_path, corpus)
@@ -90,7 +90,7 @@ def test_e3_an_admission_carries_the_bound_actor_and_takes_none(tmp_path):
     assert world.retire(record.corpus_id).actor == ACTOR
 
 
-def test_e2_open_world_and_world_require_an_authority(tmp_path):
+def test_open_world_and_world_require_an_authority(tmp_path):
     with pytest.raises(TypeError):
         world_module.World(
             world_module.WorldConfig(tmp_path / "world", "f" * 32, ()),
@@ -212,7 +212,7 @@ def test_known_id_refuses_fresh_and_replica_provenance(tmp_path):
     with pytest.raises(CorpusIdKnown):
         other_actor.admit(corpus, provenance=world_module.Fresh())
     # A replica refuses too, and now it refuses *sooner*: the log-verification
-    # design (§6.2) moved the replica route to `admit_arrival`, so a bare admit
+    # change moved the replica route to `admit_arrival`, so a bare admit
     # never reaches the known-id check for one. The known-id refusal itself
     # still stands on that route, over the same shared core — armed in
     # `test_world_arrival.py::test_an_id_already_admitted_under_another_provenance_still_refuses`.
@@ -224,7 +224,7 @@ def test_known_id_refuses_fresh_and_replica_provenance(tmp_path):
 
 def test_replica_parent_is_the_retained_manifest_id(tmp_path):
     # The predicate is unchanged; only its reachable caller moved. A bare admit
-    # refuses a replica before it (§6.2), so the rule is armed where it now
+    # refuses a replica before it, so the rule is armed where it now
     # runs — the shared core's own validation, reached through `admit_arrival`.
     corpus = tmp_path / "replica"
     write_manifest(corpus, "1" * 32)
@@ -246,8 +246,8 @@ def test_non_fork_provenance_refuses_a_fork_manifest(tmp_path):
 
     with pytest.raises(ProvenanceMismatch):
         instance.admit(corpus, provenance=world_module.Fresh())
-    # The replica arm of the same rule: a bare admit refuses a replica first
-    # (§6.2), so the fork-manifest refusal is armed over the predicate the
+    # The replica case of the same rule: a bare admit refuses a replica first,
+    # so the fork-manifest refusal is armed over the predicate the
     # shared core applies on either route.
     with pytest.raises(ProvenanceMismatch):
         world_module._validate_provenance(world_module.load_manifest(corpus), world_module.ReplicaOf("1" * 32))

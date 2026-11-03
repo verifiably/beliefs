@@ -1,17 +1,17 @@
 /**
  * Reading the contracts — for **typing only**.
  *
- * The contracts are the normative SSOT (D §6), so both implementations read the
+ * The contracts are the normative SSOT, so both implementations read the
  * same authored documents. Building the TypeScript profile from a Python-emitted
  * artifact would give the base contract a Python-privileged reading, which is
  * the arrangement a parity obligation exists to prevent.
  *
- * **What this side deliberately does not do**, because D §9 scopes `ts/` to the
- * shared-encoding path and formal model limitation 9 records M10 as the only
+ * **What this side deliberately does not do**, because `ts/` is scoped to the
+ * shared-encoding path and the parity fixture is the only
  * cross-implementation row:
  *
- * * no **contract content identity** and no **compiled profile identity** — §8
- *   sites compilation as Python-only, since it is not a shared encoding;
+ * * no **contract content identity** and no **compiled profile identity** — compilation is
+ *   Python-only, since it is not a shared encoding;
  * * no **succession validation**;
  * * no **retirement** semantics.
  *
@@ -113,7 +113,7 @@ export interface RelationDecl {
   readonly sameKind: boolean;
 }
 
-/** `composes`' one signature (composite-claims §3.1, U1): a composite composes
+/** `composes`' one signature: a composite composes
  * propositions, and nothing else composes anything. The Python parser's
  * `COMPOSES_SIGNATURE`, mirrored — both implementations refuse the same
  * documents with the same message. */
@@ -152,7 +152,7 @@ export class BaseContract {
     if (token !== MINT) {
       throw new UnparsedContract(
         "BaseContract is parsed, never authored — use parseBaseContract(text, source). The contracts are the " +
-          "normative SSOT (D §6); an authored one would let a claim be typed against a grammar nobody wrote down.",
+          "normative SSOT; an authored one would let a claim be typed against a grammar nobody wrote down.",
       );
     }
     if (parts.kinds === undefined || parts.relations === undefined || parts.facets === undefined) {
@@ -208,8 +208,7 @@ export interface OperatorDecl {
 }
 
 /**
- * Which sorts fill the kernel's estimand structure at one operator
- * (estimand-typing §5.1).
+ * Which sorts fill the kernel's estimand structure at one operator.
  */
 export interface EstimandDecl {
   readonly operator: string;
@@ -220,8 +219,8 @@ export interface EstimandDecl {
 }
 
 /**
- * Which slot of an operator is the cause and which the effect
- * (composite-claims design §3.3). An operator with no row forms no edge.
+ * Which slot of an operator is the cause and which the effect.
+ * An operator with no row forms no edge.
  */
 export interface EdgeDecl {
   readonly operator: string;
@@ -252,8 +251,8 @@ export class DomainContract {
    * is what makes it possible.
    *
    * Held as the object, compared by reference. Python records the base's content
-   * identity instead, since it computes one and this side deliberately does not
-   * (D §9). Reference equality is the **stricter** of the two — it also refuses
+   * identity instead, since it computes one and this side deliberately does not do.
+   * Reference equality is the **stricter** of the two — it also refuses
    * two separate parses of identical bytes — and strictness is the safe
    * direction for the reduced implementation: it can refuse what Python accepts,
    * never accept what Python refuses.
@@ -280,7 +279,7 @@ export class DomainContract {
     if (token !== MINT) {
       throw new UnparsedContract(
         "DomainContract is parsed, never authored — use parseDomainContract(text, source, base). An authored " +
-          "one would issue operators, sorts and dimensions that no document declares (§7.1).",
+          "one would issue operators, sorts and dimensions that no document declares.",
       );
     }
     this.namespace = parts.namespace;
@@ -310,7 +309,7 @@ function mapping(value: unknown, where: string): Record<string, unknown> {
 function exactFields(value: Record<string, unknown>, required: string[], optional: string[], where: string): void {
   const permitted = new Set([...required, ...optional]);
   for (const key of Object.keys(value)) {
-    // D5: an unrecognized field is refused at load, never ignored — a contract
+    // An unrecognized field is refused at load, never ignored — a contract
     // quietly accepting one would make the reader and the loader disagree about
     // what the document says.
     if (!permitted.has(key)) throw new MalformedContract(`${where}: unknown field ${JSON.stringify(key)}`);
@@ -360,7 +359,7 @@ function sortReference(
   }
   if (foreign === baseName) {
     throw new MalformedContract(
-      `${where}: ${JSON.stringify(value)} names the base contract, which declares no claim vocabulary (§7.1); a slot sort is a domain's`,
+      `${where}: ${JSON.stringify(value)} names the base contract, which declares no claim vocabulary; a slot sort is a domain's`,
     );
   }
   return value;
@@ -469,7 +468,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   const polarities = closedSet(grammarDocument.polarities, `${source}.claim_grammar.polarities`);
   const signInaptTag = tag(grammarDocument.sign_inapt_tag, `${source}.claim_grammar.sign_inapt_tag`);
   if (polarities.includes(signInaptTag)) {
-    // §7.5: `inapt` and `unsigned` are different facts, and a projection that
+    // `inapt` and `unsigned` are different facts, and a projection that
     // cannot tell them apart has lost the distinction it exists to carry.
     throw new MalformedContract(
       `${source}.claim_grammar.sign_inapt_tag: ${JSON.stringify(signInaptTag)} is also an assertable polarity`,
@@ -610,7 +609,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
 function refuseRetired(body: Record<string, unknown>, where: string): void {
   if ("retired" in body) {
     throw new UncheckableContract(
-      `${where}: retirement is an authoring-boundary property (§7.3a) and this implementation carries the shared-encoding path only. It refuses rather than reading past a rule it cannot enforce.`,
+      `${where}: retirement is an authoring-boundary property and this implementation carries the shared-encoding path only. It refuses rather than reading past a rule it cannot enforce.`,
     );
   }
 }
@@ -647,7 +646,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
 
   if (document.lineage !== "genesis") {
     throw new UncheckableContract(
-      `${source}.lineage: succession is validated against a declared predecessor (§8.3), which this implementation does not carry. Only a genesis contract is readable here.`,
+      `${source}.lineage: succession is validated against a declared predecessor, which this implementation does not carry. Only a genesis contract is readable here.`,
     );
   }
   const namespace = tag(document.contract, `${source}.contract`);
@@ -693,7 +692,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     refuseRetired(operatorBody, where);
     const arity = positiveInt(operatorBody.arity, `${where}.arity`);
     if (!Array.isArray(operatorBody.arg_sorts) || operatorBody.arg_sorts.length !== arity) {
-      // Every slot of Fin(arity(op)) is filled, and no slot twice (§6.2).
+      // Every slot of Fin(arity(op)) is filled, and no slot twice.
       throw new MalformedContract(`${where}.arg_sorts: expected exactly ${arity} sorts, one per slot`);
     }
     const argSorts = operatorBody.arg_sorts.map((entry, index) =>

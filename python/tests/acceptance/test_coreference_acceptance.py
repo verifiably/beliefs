@@ -1,4 +1,4 @@
-"""Cut 24 over registered roots and the composition root's durable executors."""
+"""Coreference over registered roots and the composition root's durable executors."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ INVENTORY = (
     "mint_coordination",
     "revise_coordination",
 )
-RELOCATION = {"observer": "corpus", "instrument": "cut24", "opened_at": "T0", "closed_at": "T1"}
+RELOCATION = {"observer": "corpus", "instrument": "coreference", "opened_at": "T0", "closed_at": "T1"}
 
 
 @pytest.fixture()
@@ -338,10 +338,10 @@ def test_coreference_between_retractions_closes_no_route_durably(durable_world, 
         assert not writers[0].read_view.holds("proposition:forced-cycle")
         assert {p: p.read_bytes() for p in before_records} == before_records
         assert {p.parent.name for p in writers[0].root.glob("*/*.md") if p not in before_records} <= {"act-report"}
-    # Cut 18's raw shapes: malformed controlled identities, not a constructible controlled cycle.
-    # From cut 48 (§4.5) standing is folded once over every holder at derivation, so a raw
+    # Raw shapes: malformed controlled identities, not a constructible controlled cycle.
+    # Standing is folded once over every holder at derivation, so a raw
     # cycle written across the two corpora refuses the build as `RuleNonconformant`
-    # (`test_g14_i_v2_fold_world` pins it); the raw pair here is a chain whose tail resolves nowhere.
+    # (`test_v2_fold_world` pins it); the raw pair here is a chain whose tail resolves nowhere.
     raw = (raw_retraction("retraction:r1", "retraction:r2"), raw_retraction("retraction:r2", "retraction:r3"))
     for writer, node in zip(writers, raw, strict=True):
         raw_write(writer.root, node)

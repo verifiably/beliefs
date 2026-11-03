@@ -1,16 +1,16 @@
-# The biology domain contract — the first domain the package ships
-# (biology pack design §3.2). It declares what is biology's regardless of
-# corpus: one sort bound to HGNC at an exact release, the three
-# protein→protein relations mm30 recorded, and the gene-axis facet a
-# tabular dataset carries when one axis holds molecular entities.
+# The biology domain contract — the first domain the package ships. It
+# declares what is biology's regardless of corpus: one sort bound to HGNC at an
+# exact release, the three protein→protein relations mm30 recorded, and the
+# gene-axis facet a tabular dataset carries when one axis holds molecular
+# entities.
 #
 # The HGNC release is the most recent quarterly archive date on or before
-# the design date (2026-09-08). No release is held in this slice, so the
-# sort resolves `not-consulted`; succession makes this binding the sort's
-# for the life of the identifier (design §12).
+# the date the contract was written (2026-09-08). No release is held with the
+# package, so the sort resolves `not-consulted`; succession makes this binding
+# the sort's for the life of the identifier.
 #
 # Operators with a corpus-local sort live in the corpus's own contract and
-# name `biology/molecular-entity` in their protein slot (design §3.3, §4).
+# name `biology/molecular-entity` in their protein slot.
 contract: biology
 version: 1
 lineage: genesis

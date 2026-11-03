@@ -1,4 +1,4 @@
-"""F1–F3, F7 at the write seams: add, import, relocation. Revision is Task 9's."""
+"""Facet checks at the write seams: add, import, relocation."""
 
 from typing import Any
 
@@ -43,7 +43,7 @@ def producing(slug, target):
     return stored.run_node(slug, title=slug, spec="analysis-spec:s", produces=[target])
 
 
-class TestF1:
+class TestAuthoredPayloadRefused:
     def test_the_reproductions_authored_payload_is_refused(self, tmp_path):
         node = stored.dataset_node(
             title="d",
@@ -63,7 +63,7 @@ class TestF1:
         assert isinstance(caught.value.__cause__, FacetPayloadRefused)
 
 
-class TestF2:
+class TestProducingRunRefused:
     def test_facet_dataset_then_producing_run_refuses_the_run(self, tmp_path):
         w = writer(tmp_path)
         d = w.add(acquired("d", ACTOR))
@@ -94,7 +94,7 @@ class TestF2:
         assert not (tmp_path / "dataset").exists() and not (tmp_path / "run").exists()
 
 
-class TestF3:
+class TestAttesterBinding:
     def test_add_binds_the_attester_to_the_authority(self, tmp_path):
         with pytest.raises(ActorMismatch):
             writer(tmp_path, ALICE).add(acquired("d", "bob"))
@@ -117,7 +117,7 @@ class TestF3:
         assert destination.read_view.get(dataset_ref("d")).facets["empirical-observation"]["attested_by"] == "carol"
 
 
-class TestF7:
+class TestUnresolvedRetrieval:
     def test_present_and_unresolved_is_refused(self, tmp_path):
         with pytest.raises(FacetPayloadRefused, match="retrieval-unresolved"):
             writer(tmp_path).add(acquired("d", ACTOR, retrieval="act-report:" + "0" * 64))

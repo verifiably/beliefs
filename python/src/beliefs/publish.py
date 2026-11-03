@@ -181,7 +181,7 @@ class _Attempt:
         return str(binding_address(self.opened.intent.view, self.opened.intent.destination))
 
     def remote(self) -> _Remote:
-        """Steps 7–9's view of this attempt (decision 5)."""
+        """Steps 7–9's view of this attempt."""
         assert self.transport is not None
         return _Remote(
             self.writer, self.resolver, self.opened, self.op, self.clock, self.seam, self.port, self.transport
@@ -196,7 +196,7 @@ class _Population:
 
 @dataclass(frozen=True)
 class _Remote:
-    """Steps 7–9 of a remote attempt (remote decision 5): the mark, never the
+    """Steps 7–9 of a remote attempt: the mark, never the
     request or the snapshot."""
 
     writer: CorpusWriter
@@ -218,7 +218,7 @@ class _Remote:
 
 
 def _require_transport(destination: Destination, transport: Transport | None) -> None:
-    """Remote §3.2: a remote destination needs a transport and a local one takes none."""
+    """A remote destination needs a transport and a local one takes none."""
     if destination.type == "remote" and transport is None:
         raise ValidationRefused("a remote destination needs a transport")
     if destination.type == "local" and transport is not None:
@@ -226,8 +226,8 @@ def _require_transport(destination: Destination, transport: Transport | None) ->
 
 
 def require_publishes(authority: Authority) -> None:
-    """The publication permit the act requires before any effect (sharing design
-    decision 7): the session's publish door checks it before it opens a world."""
+    """The publication permit the act requires before any effect: the session's publish door checks it before it opens
+    a world."""
     authority.require("publish", (BINDING_KIND, MARKER_KIND))
     authority.require("corpus-write", ("act-report", *stored.WORLD_KINDS))
     authority.require("lifecycle")
@@ -257,7 +257,7 @@ def _selected_attributions(
     own_corpora: frozenset[str] = frozenset(),
 ) -> tuple[tuple[str, str, str], ...] | None:
     """Check admissions, then declared ownership, then attribute each selected record
-    over its captured holder set (cut 48 §7).
+    over its captured holder set.
 
     Each captured holder yields one claim: an own holder (`Fresh`, `ForkOf`, or a
     declared markerless holder) yields *own*; a replica holder (undeclared
@@ -367,7 +367,7 @@ def _held_supersession(
     sources: Mapping[str, tuple[str, dict[str, tuple[str, str, str]]]],
 ) -> dict[tuple[str, str], frozenset[tuple[str, str]]]:
     """Each captured undeclared replica's marker `(holder, uid)` → the markers it
-    names in `supersedes_markers` (cut 48 §7 rule 3.3), read from the captured
+    names in `supersedes_markers`, read from the captured
     records; an idle replica's invalid marker refuses naming it with empty refs."""
     graph: dict[tuple[str, str], frozenset[tuple[str, str]]] = {}
     for holder in read.captured():
@@ -414,7 +414,7 @@ def _require_own_corpora(own_corpora: frozenset[str]) -> None:
 @final
 @dataclass(frozen=True)
 class PublicationPreview:
-    """What step 0 freezes, computed before the intent (sharing design §4.7)."""
+    """What step 0 freezes, computed before the intent."""
 
     view: CoordinationAddress  # pinned to the revision the selection was evaluated against
     epoch: str  # the published epoch's packaging identity
@@ -434,7 +434,7 @@ def publication_preview(
     own_pins: CorpusPins,
     own_corpora: frozenset[str] = frozenset(),
 ) -> PublicationPreview:
-    """Step 0 up to the intent (sharing design decision 10): resolve the view,
+    """Step 0 up to the intent: resolve the view,
     evaluate the selection at the current epoch, check closure, derive the pins,
     compute the attribution entries and render the records, refusing exactly as
     `publish` refuses there. It writes nothing and needs no authority; `publish`
@@ -495,15 +495,15 @@ def publish(
     hold: Callable[[], AbstractContextManager[object]] | None = None,
     own_corpora: frozenset[str] = frozenset(),
 ) -> PublishOutcome:
-    """Publish `view` to `destination` (local and remote specs §3–§8). The intent
-    is appended under the caller's `hold` (sharing design decision 9)."""
+    """Publish `view` to `destination`. The intent
+    is appended under the caller's `hold`."""
     require_publishes(writer.authority)
     _require_transport(destination, transport)
     forbidden = (*resolver.mounted(), *world.config.corpus_roots, world.config.world_root)
-    # local §4.1 item 7, remote §4.1: the returned destination is the one the intent and the request freeze
+    # the returned destination is the one the intent and the request freeze
     operations_root, destination = require_usable(operations_root, destination, forbidden=forbidden)
     if destination.type == "remote":
-        # remote §4.1, decision 6: a stranded attempt that may have shared its marker blocks the pair
+        # a stranded attempt that may have shared its marker blocks the pair
         blocking = tuple(
             token
             for token in unfinished_attempts(writer, view, destination, seam)
@@ -575,7 +575,7 @@ def _require_snapshot_records(
     *,
     attributions: tuple[tuple[str, str, str], ...] | None = None,
 ) -> None:
-    """Spec §4.3, asserted before the intent (§4.1 item 8): the records satisfy the
+    """Asserted before the intent: the records satisfy the
     snapshot's own rule (each parses, carries its id and is its canonical
     rendering), and each re-parses to the record the view captured. It holds by
     construction; a failure is a malformed record and nothing is written."""
@@ -618,10 +618,10 @@ def _expected_marker(a: _Attempt) -> Node:
 def _population(
     staging: CorpusWriter, corpus_id: str, snapshot: Snapshot, marker: Node
 ) -> _Population | StagingCorrupt:
-    """Spec §5's classification: a true prefix, complete, or corrupt. A staging
+    """Classify the staging store: a true prefix, complete, or corrupt. A staging
     store `nodes` refuses to read — bytes that do not parse, a record off its
     mapped path, a duplicate uid — is neither a prefix nor complete: `bytes`,
-    naming no record, since none can be read to name (Y7)."""
+    naming no record, since none can be read to name."""
     root = Path(staging.root)
     try:
         present = {
@@ -673,7 +673,7 @@ def _admit_and_export(a: _Attempt, world: World, corpus_id: str) -> bytes:
 
 def _export_root(a: _Attempt, corpus_id: str) -> Path:
     if a.request.destination.type == "remote":
-        return _remote_export(a.op, corpus_id)  # remote decision 7
+        return _remote_export(a.op, corpus_id)
     return Path(a.request.destination.locator) / corpus_id
 
 
@@ -708,9 +708,9 @@ def _serviceable(root: Path) -> bool:
 
 def _replicate(a: _Attempt, corpus_id: str) -> None:
     """Step 6, first half: the exact replication, reinvoked on every retry
-    whatever the export root's state (spec §6 step 6): its retained-operation
+    whatever the export root's state: its retained-operation
     check, not the root's serviceability, proves the root is this attempt's. A
-    foreign occupant refuses, and the refusal propagates (spec §16 item 6)."""
+    foreign occupant refuses, and the refusal propagates."""
     replicate_export(a.op / "staging", _export_root(a, corpus_id), authority=a.writer.authority)
 
 
@@ -735,7 +735,7 @@ def _bind(
     a: _Attempt | _Remote, corpus_id: str, artifact_identity: str, entries: tuple[Entry, ...], *, remote: bool = False
 ):
     """Step 8: the binding door, carrying the lifecycle entries. A remote reveal
-    refused here is an orphan (remote §4.4)."""
+    refused here is an orphan."""
     return _bind_publication(
         a.writer,
         a.resolver,
@@ -765,7 +765,7 @@ def _refused(a: _Attempt | _Remote, entries: tuple[Entry, ...]) -> PublishRefuse
 
 
 def _run(a: _Attempt) -> PublishOutcome:
-    """Steps 1–9, reinvoked identically on every retry (spec §2 decision 8)."""
+    """Steps 1–9, reinvoked identically on every retry."""
     initialized = _initialize(a)
     if type(initialized) is StagingCorrupt:
         return _refused(a, (PublicationStagingEntry(a.subject, initialized),))
@@ -794,13 +794,13 @@ def _run(a: _Attempt) -> PublishOutcome:
     return Published(a.token, corpus_id, marker_uid(a.token), outcome.binding.uid, artifact_identity)
 
 
-# --- the remote steps (remote §4.2–§4.4) ------------------------------------------
+# --- the remote steps -------------------------------------------------------------
 
 
 def _mark(a: _Attempt, corpus_id: str, artifact_identity: str) -> TransportMark:
-    """The durable record that a remote reveal may begin (decision 2): create-only,
+    """The durable record that a remote reveal may begin: create-only,
     after step 6 validates and before the first `push`."""
-    transport_files(a.op / "export", corpus_id)  # §3.1: refuse an invalid layout before the mark
+    transport_files(a.op / "export", corpus_id)  # refuse an invalid layout before the mark
     mark = TransportMark(
         a.token, a.request.destination, corpus_id, marker_uid(a.token), artifact_identity, len(a.snapshot.records)
     )
@@ -809,7 +809,7 @@ def _mark(a: _Attempt, corpus_id: str, artifact_identity: str) -> TransportMark:
 
 
 def _push(r: _Remote, files: Mapping[str, Path]) -> TransportAbandoned | None:
-    """Step 7's upload through the seam: idempotent, reinvoked whole on every retry (§14 item 5)."""
+    """Step 7's upload through the seam: idempotent, reinvoked whole on every retry."""
     return r.transport.push(r.opened.intent.destination, files)
 
 
@@ -822,11 +822,11 @@ def _listing_or_none(files: Mapping[str, Path]) -> dict[str, str] | None:
     try:
         return local_listing(files)
     except OSError:
-        return None  # a file the act cannot read is damage (planning note)
+        return None  # a file the act cannot read is damage
 
 
 def _evaluate_export(r: _Remote, mark: TransportMark) -> str:
-    """§4.3 step 2: the recipient's evaluation of the retained export against its
+    """The recipient's evaluation of the retained export against its
     own sibling, granting nothing; `"unreadable"` when it cannot be judged."""
     try:
         observers = ObserverSet((ArtifactCarrier.from_bytes(_remote_sibling(r.op, mark.corpus_id).read_bytes()),))
@@ -841,7 +841,7 @@ def _export_damaged(r: _Remote, mark: TransportMark) -> bool:
 
 
 def _transport(r: _Remote, mark: TransportMark) -> Transported | TransportIncomplete:
-    """Step 7 (§4.3): upload exactly the bytes the evaluation judged, then verify
+    """Step 7: upload exactly the bytes the evaluation judged, then verify
     by the remote's own listing. The act, not the seam, decides."""
     damaged = TransportIncomplete(mark.corpus_id, mark.marker, "export-damaged")
     try:
@@ -864,7 +864,7 @@ def _transport(r: _Remote, mark: TransportMark) -> Transported | TransportIncomp
 
 def _transport_and_bind(r: _Remote, mark: TransportMark, entries: tuple[Entry, ...]) -> PublishOutcome:
     """Steps 7, 8 and 9 from the mark. An incomplete transport writes its report
-    alone and carries its orphan (decision 4)."""
+    alone and carries its orphan."""
     transported = _transport(r, mark)
     if type(transported) is TransportIncomplete:
         return _refused(r, (*entries, PublicationTransportEntry(r.subject, transported)))
@@ -886,7 +886,7 @@ def _marker_path(r: _Remote, mark: TransportMark) -> Path:
 
 
 def _export_agrees(r: _Remote, mark: TransportMark) -> bool:
-    """§4.2 as identity only (planning note): the export's manifest names the
+    """Identity only: the export's manifest names the
     mark's corpus, the sibling is the mark's artifact and names that corpus and
     the export's chain head, and the export holds one `publication` file, the
     mark's marker by name. No record's content is read here, so a damaged
@@ -911,7 +911,7 @@ def _export_agrees(r: _Remote, mark: TransportMark) -> bool:
 
 
 def _mark_corrupt(r: _Remote, mark: TransportMark) -> bool:
-    """§4.2: the mark agrees with its intent, then with its export's identity."""
+    """The mark agrees with its intent, then with its export's identity."""
     intent = r.opened.intent
     if (
         mark.event_token != intent.event_token
@@ -944,7 +944,7 @@ def _marker_agrees(r: _Remote, mark: TransportMark) -> bool:
 
 
 def _resume_from_mark(r: _Remote) -> PublishOutcome:
-    """Decision 5: steps 7–9 from the mark alone. Identity first (a failure is
+    """Steps 7–9 from the mark alone. Identity first (a failure is
     `transport-mark-corrupt`); then the export's content (a failure closes the
     attempt `export-damaged` with its orphan, pushing nothing); then the marker's
     content, trusted only once the evaluation validated it."""
@@ -974,7 +974,7 @@ def _resume_from_mark(r: _Remote) -> PublishOutcome:
     return _transport_and_bind(r, mark, entries)
 
 
-# --- resumption (§9) --------------------------------------------------------------
+# --- resumption --------------------------------------------------------------
 
 
 def _binding_present(writer: CorpusWriter, opened: OpenedPublication) -> bool:
@@ -1021,7 +1021,7 @@ def resume_publish(
     port: OperationPort | None = None,
     transport: Transport | None = None,
 ) -> PublishOutcome:
-    """Resume from its request, or a remote transport mark (local §9, remote §4.2)."""
+    """Resume from its request, or a remote transport mark."""
     require_publishes(writer.authority)
     reading = attempt_reading(writer, event_token, seam)
     if reading is None:
@@ -1086,7 +1086,7 @@ def _published_from_disk(writer: CorpusWriter, opened: OpenedPublication) -> Pub
 
 def pending_publishes(writer: CorpusWriter, *, operations_root: Path, seam: MomentSeam) -> tuple[str, ...]:
     """Every request under the operations root whose intent is `unfinished`,
-    ascending by token (spec §3)."""
+    ascending by token."""
     root = Path(operations_root).resolve() / "publish"
     tokens: list[str] = []
     for request in sorted(root.glob("*/request.v1")) if root.is_dir() else ():

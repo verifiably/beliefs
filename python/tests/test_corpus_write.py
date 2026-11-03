@@ -1,7 +1,7 @@
 """The add path's refusals, the plans it emits, and the operation lock.
 
 Portable: the write API takes its executor factory as an argument, so these run
-against `DefaultExecutor` behind a recorder. What they cannot claim is cut-4
+against `DefaultExecutor` behind a recorder. What they cannot claim is durable
 discharge — a record minted through `DefaultExecutor` is minted through the
 substrate's best-effort path, not through the certified engine.
 """
@@ -125,14 +125,14 @@ def second_writer(tmp_path) -> CorpusWriter:
 def typed_writer(tmp_path) -> CorpusWriter:
     # `TESTING_PROFILE`, not `WITH_BIOLOGY`: `spec_draft`'s typed estimand is
     # built against `testing/affects`, which only the testing domain declares
-    # (estimand-typing §7.2, mirroring `test_stored._testing_writer`).
+    # (mirroring `test_stored._testing_writer`).
     from fixtures_cut3 import TESTING_PROFILE
 
     Recorder.plans = []
     return CorpusWriter(tmp_path, Recorder, authority=FULL, profile=TESTING_PROFILE)
 
 
-class TestE2AuthorityBindsOnceAtConstruction:
+class TestAuthorityBindsOnceAtConstruction:
     def test_a_writer_requires_an_authority_keyword(self, tmp_path):
         with pytest.raises(TypeError):
             CorpusWriter(tmp_path, Recorder, profile=BASE)  # type: ignore[call-arg]
@@ -197,7 +197,7 @@ class TestE2AuthorityBindsOnceAtConstruction:
             CorpusWriter(tmp_path, Recorder, authority="full", profile=BASE)  # type: ignore[arg-type]
 
 
-class TestE1CorpusWriteRequiresBeforeAnyEffect:
+class TestCorpusWriteRequiresBeforeAnyEffect:
     def test_add_under_a_permit_lacking_the_family_refuses_and_writes_nothing(self, tmp_path):
         Recorder.plans = []
         writer = CorpusWriter(
@@ -237,7 +237,7 @@ class TestE1CorpusWriteRequiresBeforeAnyEffect:
         assert not (tmp_path / "corpus.yaml").exists()
 
 
-class TestE3TheActorIsBound:
+class TestTheActorIsBound:
     def test_a_run_closure_naming_another_actor_is_refused_through_add(self, tmp_path):
         from fixtures_cut3 import closure as minted_closure
 
@@ -543,7 +543,7 @@ class TestTheAddPathIsAddOnly:
         assert Recorder.plans == []
 
 
-class TestW3TheBasisRefusal:
+class TestTheBasisRefusal:
     def test_a_source_with_no_accepted_external_identifier_refuses(self, writer):
         with pytest.raises(BasisMissing):
             stored.source_node(title="A paper", identifiers={})
@@ -582,7 +582,7 @@ class TestW3TheBasisRefusal:
             writer.add(half)
 
     def test_a_dataset_whose_bytes_are_held_nowhere_is_minted(self, writer):
-        # G9, and the admission ramp's narrowing: identity is not holding. The
+        # The admission ramp's narrowing: identity is not holding. The
         # add path performs no holding check — `declared` / `held` is derived on
         # read and never stored.
         minted = writer.add(stored.dataset_node(title="DepMap 24Q2", resources=PINNED))
@@ -594,7 +594,7 @@ class TestW3TheBasisRefusal:
         assert not any(n.kind == "source" for n in writer.read_view.iter_stored())
 
 
-class TestS7TheWriteBoundary:
+class TestTheWriteBoundary:
     def test_an_assesses_edge_whose_run_has_no_observes_input_refuses(self, writer):
         with pytest.raises(EligibilityUnmet):
             writer.add(admissible(writer, observes=False))
@@ -734,7 +734,7 @@ class TestTheExecutionLayerCrossesUnwrapped:
 
 
 class TestTheOperationLock:
-    """§7's deterministic barrier check, and the sabotage it exists to catch: a
+    """A deterministic barrier check, for the failure it exists to catch: a
     lock covering only `execute` lets the second add complete its reads and its
     planning while the first is still inside the engine, and two plans reach the
     executor with no collision refused anywhere."""
@@ -921,7 +921,7 @@ class TestTheLockOnlyLookup:
 
 
 class TestTheUnresolvedRoot:
-    """Writer-session design §4.3 and §13 items 10–12: the settling hold and the routed executor."""
+    """The settling hold and the routed executor."""
 
     def test_a_fresh_root_state_is_unresolved_and_the_first_write_settles_it(self, tmp_path):
         from beliefs.corpus import _root_state_for
@@ -1126,7 +1126,7 @@ class TestTheRegistryUnderARecreatedRoot:
         assert str(sibling.resolve()) in _ROOT_STATES and str(outside.resolve()) in _ROOT_STATES
 
 
-def test_v8_a_spec_record_whose_identity_is_false_is_refused_at_add(tmp_path):
+def test_a_spec_record_whose_identity_is_false_is_refused_at_add(tmp_path):
     from fixtures_cut3 import spec_draft, spec_rules
     from test_audit import _false_spec_record
     from test_relocation import _writer
@@ -1173,7 +1173,7 @@ def test_record_not_present_exposes_its_refusal_context():
 
 
 class TestDatasetAddress:
-    """Slice 5 §5: a dataset's stored id is its derived address, on every write path."""
+    """A dataset's stored id is its derived address, on every write path."""
 
     @staticmethod
     def handle(seed: str, node_id: str = "dataset:handle") -> Node:
@@ -1231,8 +1231,8 @@ class TestDatasetAddress:
 
 
 class TestEstimandTargetMatch:
-    """Estimand-typing §7.2: the boundary refuses a spec whose estimand does
-    not answer the claim its target proposition carries (Q6)."""
+    """The boundary refuses a spec whose estimand does
+    not answer the claim its target proposition carries."""
 
     def _proposition(self, writer, claim):
         from beliefs.projection import project_claim
@@ -1271,7 +1271,7 @@ class TestEstimandTargetMatch:
             typed_writer.add(stored.analysis_spec_node(spec))
 
     def test_the_inconsistent_stored_pair_is_caught_by_operator_equality(self, typed_writer):
-        """Q6's stored-pair arm: the target's true claim hash beside another operator."""
+        """The stored-pair case: the target's true claim hash beside another operator."""
         from decimal import Decimal
 
         from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, UNCONSULTED, spec_draft, spec_rules
@@ -1315,7 +1315,7 @@ class TestEstimandTargetMatch:
             typed_writer.add(node)
 
 
-# --- publish-act-local §5: the staging doors -----------------------------------
+# --- the staging doors -----------------------------------
 
 
 def _staging_writer(tmp_path):
@@ -1378,7 +1378,7 @@ def test_stage_marker_writes_only_a_consistent_marker(tmp_path):
     ids=["display-facet", "governed-stamp"],
 )
 def test_stage_marker_runs_the_display_facet_and_governed_stamp_guards(tmp_path, monkeypatch, extra, reason):
-    """Spec §5: both staging doors run the display-facet and governed-stamp guards.
+    """Both staging doors run the display-facet and governed-stamp guards.
     A marker carrying either facet is refused; the closed content rule and the
     facet-payload check refuse it first, so with those disarmed the guard itself
     is what refuses, under `_stage_record`'s message shape."""

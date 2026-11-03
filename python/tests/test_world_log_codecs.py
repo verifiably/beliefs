@@ -721,11 +721,11 @@ def test_the_seams_corpus_lock_is_the_write_apis_own(tmp_path):
     assert science_root._log_seam().corpus_lock(root) is corpus_module._operation_lock_for(root)
 
 
-# --- cut 8's on-disk chain fabrication -------------------------------------
+# --- on-disk chain fabrication -------------------------------------
 #
-# Cut 8 §5's first obligation: **every fabricated chain a declared arm rests on
+# The obligation: **every fabricated chain a declared case rests on
 # passes `inspect_chain` as well-formed**, asserted at declaration time, unless
-# the arm's point is the defect — and then exactly that one defect class and no
+# the case's point is the defect — and then exactly that one defect class and no
 # other. The builders below discharge it the only way the obligation can be
 # discharged literally: they write **real canonical entry envelopes** into a
 # real root's reserved chain directory, and every arm reads them back through
@@ -734,7 +734,7 @@ def test_the_seams_corpus_lock_is_the_write_apis_own(tmp_path):
 # nobody inspected, is what says the fabrication is well formed.
 #
 # `CUT8_FABRICATIONS` at the foot of this section is the catalogue
-# `acceptance/test_n2_cut8.py` walks: one entry per fabrication a declared arm
+# a harness could walk: one entry per fabrication a declared case
 # builds, naming the defect the engine must report over it (`None` for the
 # well-formed ones). A builder used by an arm and missing from the catalogue is
 # a fabrication nobody inspected, which the harness refuses.
@@ -769,7 +769,7 @@ def state_at(root: Path, path: str) -> object:
 
 def inspected(root: Path) -> logmodel.ChainView:
     """Detached inspection through the production seam — `inspect_chain`'s own
-    verdict over the fabrication, which is what cut 8 §5's obligation 1 asks
+    verdict over the fabrication, which is what the obligation asks
     for."""
     return science_root._log_seam().inspect_detached(root)
 
@@ -786,13 +786,13 @@ class Chain:
         self.root = root
         self.digests: list[str] = []
         self.anchor = ""
-        """The head a declared arm anchors at — set by the builders that mean one."""
+        """The head a declared case anchors at — set by the builders that mean one."""
         self.removed: tuple[str, ...] = ()
         """Digests the raw write deleted, in chain order."""
         self.replaced: tuple[bytes, ...] = ()
         self.added: tuple[bytes, ...] = ()
         """The envelope bytes a rewrite removed and the ones it wrote in their
-        place — cut 8 §5's obligation 3 is asserted over exactly these."""
+        place — the byte-difference check is asserted over exactly these."""
         self.paths: tuple[str, ...] = ()
         """The surface paths the arm judges this chain against."""
 
@@ -806,7 +806,7 @@ class Chain:
         return self.after(self.digests[-1] if self.digests else None, entry)
 
     def genesis(self, payload: bytes = SCIENCE_CORPUS_GENESIS) -> str:
-        """§1.3's **empty** baseline: both Science initializers register `()`,
+        """The **empty** baseline: both Science initializers register `()`,
         so a populated one is a chain no Science path mints."""
         return self.append(GenesisEntry(payload=payload, baseline=()))
 
@@ -862,7 +862,7 @@ class Chain:
         registration = self.registration(txid, initial, final, fulfills=fulfills)
         return registration, self.settlement(txid, registration, committed=committed)
 
-    # --- the raw-write licence (cut 8 §2) ---------------------------------
+    # --- the raw-write licence ---------------------------------
     def leaf(self, digest: str) -> Path:
         return self.root / CHAIN_LEAF / digest
 
@@ -882,7 +882,7 @@ class Chain:
         return self.digests[-1]
 
 
-# --- the builders every cut-8 declared arm fabricates through ---------------
+# --- the builders every declared case fabricates through ---------------
 
 CUT8_CORPUS_ID = "a" * 32
 CUT8_SIBLING_ID = "b" * 32
@@ -919,8 +919,8 @@ def populated_corpus(base: Path, *, corpus_id: str = CUT8_CORPUS_ID, name: str =
 
 
 def rolled_back_creation(base: Path) -> Chain:
-    """L2u1: a registration whose settlement rolled back, and the path it would
-    have created genuinely absent from disk (cut 8 §5's obligation 2)."""
+    """A registration whose settlement rolled back, and the path it would
+    have created genuinely absent from disk ."""
     chain = settled_corpus(base)
     record = _record_state(chain.root)
     (chain.root / RECORD).unlink()
@@ -931,7 +931,7 @@ def rolled_back_creation(base: Path) -> Chain:
 
 
 def removed_record(base: Path) -> Chain:
-    """L13: a cooperatively logged removal of a verification record."""
+    """A cooperatively logged removal of a verification record."""
     chain = populated_corpus(base)
     record = state_at(chain.root, RECORD)
     (chain.root / RECORD).unlink()
@@ -941,7 +941,7 @@ def removed_record(base: Path) -> Chain:
 
 
 def pending_before_apply(base: Path) -> Chain:
-    """L2u4: a copy caught before apply — the registration is unsettled and the
+    """A copy caught before apply — the registration is unsettled and the
     record it would create is **absent** from the copied root."""
     chain = settled_corpus(base)
     record = _record_state(chain.root)
@@ -952,7 +952,7 @@ def pending_before_apply(base: Path) -> Chain:
 
 
 def pending_after_apply(base: Path) -> Chain:
-    """L2u4's other variant: the copy caught *after* apply — same unsettled
+    """The other variant: the copy caught *after* apply — same unsettled
     registration, and the record present on disk."""
     chain = settled_corpus(base)
     record = _record_state(chain.root)
@@ -962,7 +962,7 @@ def pending_after_apply(base: Path) -> Chain:
 
 
 def truncated_prefix(base: Path) -> Chain:
-    """L3u1/L12u4: two committed transactions, truncated back to the first.
+    """Two committed transactions, truncated back to the first.
 
     `anchor` is the head that was anchored before the truncation, which the
     surviving prefix can no longer reach.
@@ -977,10 +977,10 @@ def truncated_prefix(base: Path) -> Chain:
 
 
 def alternative_chain(base: Path) -> Chain:
-    """L4u5: the same constant genesis, a self-consistent replacement tail.
+    """The same constant genesis, a self-consistent replacement tail.
 
     The corpus genesis payload carries no per-corpus identity, so a replacement
-    chain shares the original's genesis digest exactly — which is why §1.2's
+    chain shares the original's genesis digest exactly — which is why the
     mechanism for corpus replacement is anchored-head unreachability and not a
     genesis comparison.
     """
@@ -995,11 +995,11 @@ def alternative_chain(base: Path) -> Chain:
 
 
 def rewritten_tail(base: Path) -> Chain:
-    """L5: the tail beyond the maximal anchor rewritten into a self-consistent
+    """The tail beyond the maximal anchor rewritten into a self-consistent
     alternative, **and the registered surface rewritten to match**.
 
     `replaced` and `added` are the entry envelopes either side of the rewrite,
-    so cut 8 §5's obligation 3 — a byte difference beyond the anchor, over at
+    so the byte-difference obligation — a byte difference beyond the anchor, over at
     least one entry — is asserted over the bytes themselves.
     """
     chain = populated_corpus(base)
@@ -1015,7 +1015,7 @@ def rewritten_tail(base: Path) -> Chain:
 
 
 def forged_intent_beyond_the_anchor(base: Path) -> Chain:
-    """L12u5: a structurally valid raw append past the maximal anchor."""
+    """A structurally valid raw append past the maximal anchor."""
     chain = settled_corpus(base)
     chain.anchor = chain.tip
     chain.intent(b"an intent no act ever appended")
@@ -1024,7 +1024,7 @@ def forged_intent_beyond_the_anchor(base: Path) -> Chain:
 
 
 def four_state_classes(base: Path) -> Chain:
-    """L12u1: one committed transaction creating one path of each state class."""
+    """One committed transaction creating one path of each state class."""
     root = base / "states"
     root.mkdir(parents=True)
     (root / "f.txt").write_bytes(b"hello\n")
@@ -1046,7 +1046,7 @@ def four_state_classes(base: Path) -> Chain:
 
 
 def deleted_chain(base: Path) -> Chain:
-    """L4u1: the chain directory removed from an anchored corpus root."""
+    """The chain directory removed from an anchored corpus root."""
     chain = settled_corpus(base)
     chain.anchor = chain.tip
     chain.removed = tuple(chain.digests)
@@ -1057,15 +1057,15 @@ def deleted_chain(base: Path) -> Chain:
 
 
 def deletion_plus_remint(base: Path) -> Chain:
-    """L4u7: A's chain deleted **and** its `corpus.yaml` re-minted as B."""
+    """A's chain deleted **and** its `corpus.yaml` re-minted as B."""
     chain = deleted_chain(base)
     (chain.root / MANIFEST).write_text(f"corpus_id: {CUT8_REMINTED_ID}\nversion: 2\n", encoding="utf-8")
     return chain
 
 
 def manifest_remint(base: Path) -> Chain:
-    """L4u3: the manifest raw re-minted A → B with the chain present, and
-    **nothing else touched** — cut 8 §6's first freeze obligation."""
+    """The manifest raw re-minted A → B with the chain present, and
+    **nothing else touched** — the first freeze obligation."""
     chain = populated_corpus(base)
     chain.anchor = chain.tip
     (chain.root / MANIFEST).write_text(f"corpus_id: {CUT8_REMINTED_ID}\nversion: 2\n", encoding="utf-8")
@@ -1073,14 +1073,14 @@ def manifest_remint(base: Path) -> Chain:
 
 
 def duplicate_settlement(base: Path) -> Chain:
-    """L2u3: two settlements for one registration."""
+    """Two settlements for one registration."""
     chain = settled_corpus(base)
     chain.settlement("tx-1", chain.digests[1])
     return chain
 
 
 def interior_deleted(base: Path) -> Chain:
-    """L3u2/L12u4: an interior entry deleted, breaking the linkage."""
+    """An interior entry deleted, breaking the linkage."""
     chain = populated_corpus(base)
     chain.removed = (chain.digests[1],)
     chain.drop(chain.removed[0])
@@ -1088,7 +1088,7 @@ def interior_deleted(base: Path) -> Chain:
 
 
 def interior_rewritten(base: Path) -> Chain:
-    """L3u2/L12u4: an interior entry's bytes edited under its content name."""
+    """An interior entry's bytes edited under its content name."""
     chain = populated_corpus(base)
     leaf = chain.leaf(chain.digests[1])
     leaf.write_bytes(leaf.read_bytes() + b" ")
@@ -1096,14 +1096,14 @@ def interior_rewritten(base: Path) -> Chain:
 
 
 def sibling_branch(base: Path) -> Chain:
-    """L3u3: a second successor raw-appended beside the retained original."""
+    """A second successor raw-appended beside the retained original."""
     chain = settled_corpus(base)
     chain.after(chain.digests[0], chain.registered("tx-9", ((MANIFEST, ABSENT),), ((MANIFEST, ABSENT),)))
     return chain
 
 
 def orphan_entry(base: Path) -> Chain:
-    """L3u4: an entry naming a predecessor this chain does not carry.
+    """An entry naming a predecessor this chain does not carry.
 
     The engine names it `missing-predecessor`: `orphan-history` is reserved for
     a disconnected component with valid *internal* linkage, which no
@@ -1116,21 +1116,21 @@ def orphan_entry(base: Path) -> Chain:
 
 
 def fulfills_missing_intent(base: Path) -> Chain:
-    """L7u1: a `fulfills` naming an intent this chain does not carry."""
+    """A `fulfills` naming an intent this chain does not carry."""
     chain = settled_corpus(base)
     chain.registration("tx-2", ((RECORD, ABSENT),), ((RECORD, ABSENT),), fulfills="e" * 64)
     return chain
 
 
 def fulfills_non_intent(base: Path) -> Chain:
-    """L7u1: a `fulfills` naming a present entry that is not an intent."""
+    """A `fulfills` naming a present entry that is not an intent."""
     chain = settled_corpus(base)
     chain.registration("tx-2", ((RECORD, ABSENT),), ((RECORD, ABSENT),), fulfills=chain.digests[1])
     return chain
 
 
 def duplicate_fulfillment(base: Path) -> Chain:
-    """L7u2: a second committed registration fulfilling one intent."""
+    """A second committed registration fulfilling one intent."""
     root = corpus_root_at(base, CUT8_CORPUS_ID)
     chain = Chain(root)
     chain.genesis()
@@ -1153,7 +1153,7 @@ def settled_world(
     """A world root, its mirror, and the transaction that created it.
 
     `genesis_id` names the world the *chain* was minted under when it differs
-    from the configured one — D1's subject-mismatch split and L4u6's rewritten
+    from the configured one — the subject-mismatch split and the rewritten
     world both turn on exactly that disagreement.
     """
     root = base / name
@@ -1168,13 +1168,13 @@ def settled_world(
 
 
 def foreign_world_genesis(base: Path) -> Chain:
-    """D1: a *valid* world genesis naming another world — subject mismatch, and
-    never step 1's malformed exit (§4.2, §1.3)."""
+    """A *valid* world genesis naming another world — subject mismatch, and
+    never step 1's malformed exit."""
     return settled_world(base, world_id=CUT8_WORLD_ID, genesis_id=CUT8_OTHER_WORLD_ID)
 
 
 def undecodable_genesis(base: Path) -> Chain:
-    """D1: a genesis payload that is not a Science genesis document at all.
+    """A genesis payload that is not a Science genesis document at all.
 
     The engine calls this chain well formed — an entry payload is opaque bytes
     to the validator — so the malformation is the evaluator's own step-1 finding
@@ -1189,7 +1189,7 @@ def undecodable_genesis(base: Path) -> Chain:
 
 
 def wrong_form_genesis(base: Path) -> Chain:
-    """D1: a well-formed *world* genesis carried by a corpus root."""
+    """A well-formed *world* genesis carried by a corpus root."""
     root = corpus_root_at(base, CUT8_CORPUS_ID)
     chain = Chain(root)
     chain.genesis(payload=science_root._world_genesis_payload(CUT8_WORLD_ID))
@@ -1199,7 +1199,7 @@ def wrong_form_genesis(base: Path) -> Chain:
 
 
 def populated_baseline(base: Path) -> Chain:
-    """D1: §1.3's non-empty baseline — a chain no Science initializer mints."""
+    """The non-empty baseline — a chain no Science initializer mints."""
     root = corpus_root_at(base, CUT8_CORPUS_ID)
     manifest = state_at(root, MANIFEST)
     chain = Chain(root)
@@ -1215,11 +1215,11 @@ def populated_baseline(base: Path) -> Chain:
 
 
 def rewritten_world(base: Path) -> Chain:
-    """L4u6: a world root minted under W1, then rewritten — chain **and** mirror
-    — to W2.
+    """A world root minted under the first world id, then rewritten — chain **and** mirror
+    — to the second.
 
-    `removed` is the superseded W1 chain's digests, its genesis first, and
-    `anchor` is the W1 head an external holder exported before the rewrite.
+    `removed` is the superseded first-world chain's digests, its genesis first, and
+    `anchor` is the first-world head an external holder exported before the rewrite.
     """
     first = settled_world(base, world_id=CUT8_WORLD_ID)
     root = first.root
@@ -1239,13 +1239,13 @@ def rewritten_world(base: Path) -> Chain:
 IN_ROOT_EPOCH = "1" * 64
 IN_ROOT_RECORD = "a" * 64
 IN_ROOT_CARRIERS = (f"epochs/{IN_ROOT_EPOCH}/anchors.yaml", f"registry/{IN_ROOT_RECORD}.yaml")
-"""The two in-root carriers L11's negative truncates beside the chain itself —
+"""The two in-root carriers the truncation negative truncates beside the chain itself —
 an epoch stored in the world root and a registry record. Sorted, because the
 envelope grammar requires a surface to be."""
 
 
 def coordinated_truncation(base: Path) -> Chain:
-    """L11u3/L11u4: world chain, registry and in-root epochs truncated together.
+    """World chain, registry and in-root epochs truncated together.
 
     `removed` is the chain entries deleted and `anchor` the world head the
     deleted tip carried — the head an *exported* epoch would still hold. The
@@ -1279,7 +1279,7 @@ def coordinated_truncation(base: Path) -> Chain:
 
 ABSENT_CHAIN = "absent"
 """The catalogue's marker for a fabrication with no chain at all — an
-`AbsentView` is neither well formed nor a defect, and cut 8's L4 arms mean it."""
+`AbsentView` is neither well formed nor a defect, and the subject-binding cases mean it."""
 
 CUT8_FABRICATIONS: tuple[tuple[str, Callable[[Path], Chain], str | None], ...] = (
     ("settled_corpus", settled_corpus, None),
@@ -1312,16 +1312,16 @@ CUT8_FABRICATIONS: tuple[tuple[str, Callable[[Path], Chain], str | None], ...] =
     ("fulfills_non_intent", fulfills_non_intent, "fulfills-invalid"),
     ("duplicate_fulfillment", duplicate_fulfillment, "duplicate-fulfillment"),
 )
-"""Every on-disk fabrication a cut-8 declared arm rests on, with the engine's
-own verdict over it. `acceptance/test_n2_cut8.py` walks this table and runs
-`inspect_chain` over each — §5's obligation 1, discharged by the validator."""
+"""Every on-disk fabrication a declared case rests on, with the engine's
+own verdict over it. A harness can walk this table and run
+`inspect_chain` over each — the obligation, discharged by the validator."""
 
 
-# --- cut 8's declarations homed here ---------------------------------------
+# --- declarations homed here ---------------------------------------
 
 
 def test_world_subject_registry_record_is_unconstructible():
-    """L11u2. A registry log-head record carrying a `world` subject is
+    """A registry log-head record carrying a `world` subject is
     unconstructible through the anchor act **and** is never accepted as an
     anchor: the value type refuses it, the parser refuses it, the act's own
     signature cannot spell one, and the observer carrier refuses a record whose
@@ -1360,7 +1360,7 @@ def test_world_subject_registry_record_is_unconstructible():
 
 
 def test_no_entry_class_records_preimage_gc():
-    """L13u5, at the width the cut declares: a **taxonomy** fact over the entry
+    """A **taxonomy** fact over the entry
     classes.
 
     Preimage-blob collection is engine bookkeeping over content-addressed
@@ -1388,7 +1388,7 @@ def test_no_entry_class_records_preimage_gc():
 
 
 def test_store_subject_is_carried_by_codecs_and_judged_by_the_evaluator():
-    """D6, as the root-lifecycle slice leaves it: the store arm is carried by
+    """The store arm is carried by
     both codecs, and the evaluator judges a store subject through the same
     four-outcome precedence — the shape-only refusal is deleted, not merely
     un-raised (`test_store_subjects.py` pins the deletion)."""
@@ -1417,3 +1417,42 @@ def test_store_subject_is_carried_by_codecs_and_judged_by_the_evaluator():
     assert "store_roots" in inspect.signature(anchors._anchor_heads).parameters
     exported = inspect.signature(anchors._export_head_artifact).parameters["subject"]
     assert str(exported.annotation) == "Subject"
+
+
+@pytest.mark.parametrize(
+    ("name", "builder", "defect"), CUT8_FABRICATIONS, ids=[entry[0] for entry in CUT8_FABRICATIONS]
+)
+def test_every_catalogued_fabrication_is_what_the_engine_says_it_is(tmp_path, name, builder, defect):
+    """Run by the engine's own validator.
+
+    A well-formed fabrication must inspect **well formed**; a fabrication whose
+    point is the defect must carry exactly that one defect class and no other.
+    An absent chain is neither, and is marked as such in the catalogue.
+    """
+    chain = builder(tmp_path / name)
+    view = inspected(chain.root)
+
+    if defect is None:
+        assert type(view) is logmodel.WellFormedView, f"{name}: {view}"
+    elif defect == ABSENT_CHAIN:
+        assert view == logmodel.AbsentView(), f"{name}: {view}"
+    else:
+        assert type(view) is logmodel.MalformedView, f"{name}: {view}"
+        assert view.defect.kind == defect, f"{name}: {view.defect.kind}"
+
+
+def test_a_created_registration_round_trips_all_four_state_classes(tmp_path):
+    """The round trip covers all four typed state classes; a subset is
+    malformed declaration content, not a pass."""
+    chain = four_state_classes(tmp_path)
+    disk = capture_at(chain.root, *chain.paths)
+    assert {type(state).__name__ for _path, state in disk} == {
+        "AbsentState",
+        "DirectoryState",
+        "FileState",
+        "SymlinkState",
+    }
+    view = inspected(chain.root)
+    assert type(view) is logmodel.WellFormedView
+    (created,) = [entry for entry in view.entries if type(entry) is logmodel.RegisteredEntryView]
+    assert created.final == disk

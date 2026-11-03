@@ -1,5 +1,5 @@
-"""A mounted corpus's profile from its own manifest (session-mounts design §3.1,
-decision 5; row J13), portable: manifests written into `tmp_path` roots."""
+"""A mounted corpus's profile from its own manifest,
+portable: manifests written into `tmp_path` roots."""
 
 from __future__ import annotations
 
@@ -37,7 +37,6 @@ def test_shipped_pins_compile_with_nothing_available(tmp_path, version):
 
 
 def test_a_test_local_contract_resolves_when_available(tmp_path):
-    """J13-a."""
     root = _root(tmp_path, "b", pins_for(LOCAL))
     compiled = compile_mount_profile(root, available=(biology("fixture"),))
     assert compiled.compiled_identity == LOCAL.compiled_identity
@@ -51,7 +50,6 @@ def test_the_mm30_shape_compiles_without_coordination(tmp_path):
 
 
 def test_an_unresolved_pin_names_root_namespace_and_pin(tmp_path):
-    """J13-a, and Review Focus 2."""
     root = _root(tmp_path, "b", pins_for(LOCAL))
     with pytest.raises(MountPinUnresolved) as caught:
         compile_mount_profile(root)
@@ -61,14 +59,12 @@ def test_an_unresolved_pin_names_root_namespace_and_pin(tmp_path):
 
 
 def test_a_same_namespace_document_of_another_identity_does_not_satisfy_the_pin(tmp_path):
-    """J13-a's negative."""
     root = _root(tmp_path, "b", pins_for(LOCAL))
     with pytest.raises(MountPinUnresolved):
         compile_mount_profile(root, available=(biology("fixture, second variant"),))
 
 
 def test_an_available_unpinned_document_is_never_activated(tmp_path):
-    """J13-b."""
     root = _root(tmp_path, "coord", pins_for(COORD_ONLY))
     compiled = compile_mount_profile(root, available=(biology("fixture"),))
     assert set(compiled.activated_contracts) == {"coordination"}
@@ -106,7 +102,7 @@ def test_well_formed_pins_nothing_carries_refuse(tmp_path, pins, namespace):
 
 
 def test_a_malformed_pin_is_the_manifests_refusal(tmp_path):
-    """§3.1: `load_manifest`'s refusals propagate; `MountPinUnresolved` is for well-formed pins."""
+    """`load_manifest`'s refusals propagate; `MountPinUnresolved` is for well-formed pins."""
     pins = CorpusPins(pins_for(COORD_ONLY).science_contract, {"biology": "not-the-namespace:" + "0" * 64})
     with pytest.raises(ManifestMalformed):
         compile_mount_profile(_root(tmp_path, "x", pins), available=(biology("fixture"),))

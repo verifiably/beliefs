@@ -1,4 +1,4 @@
-"""Cut 23 over registered roots and the composition root's durable executors."""
+"""World views over registered roots and the composition root's durable executors."""
 
 from __future__ import annotations
 
@@ -51,11 +51,11 @@ from beliefs.world.view import open_world_view
 
 @pytest.fixture()
 def durable_world(work_directory):
-    """Own only this test's roots: N2's subprocesses share work_directory."""
+    """Own only this test's roots: subprocesses share work_directory."""
     roots = []
 
     def corpus(profile=BASE):
-        path = Path(mkdtemp(prefix="cut23-corpus-", dir=work_directory))
+        path = Path(mkdtemp(prefix="world-view-corpus-", dir=work_directory))
         roots.append(path)
         init_corpus_root(path, authority=FULL)
         writer = open_corpus(path, authority=FULL, profile=profile)
@@ -66,7 +66,7 @@ def durable_world(work_directory):
         a, alpha, left = corpus(profile)
         b, beta, right = corpus(profile)
         for writer, nodes, other in ((left, alpha_nodes, beta_nodes), (right, beta_nodes, alpha_nodes)):
-            # S7 admits assessments only with local prerequisites. Stage those
+            # Admission admits assessments only with local prerequisites. Stage those
             # through the durable writer, then remove the copies before publication.
             staging = (
                 tuple(n for n in other if n.kind in ("dataset", "run", "proposition"))
@@ -86,7 +86,7 @@ def durable_world(work_directory):
             assert {n.id for n in writer.read_view.iter_stored()} == {n.id for n in nodes}
         for node in raw:
             raw_write(alpha, node)  # A deliberately forged record, never an admitted write.
-        path = Path(mkdtemp(prefix="cut23-world-", dir=work_directory))
+        path = Path(mkdtemp(prefix="world-view-world-", dir=work_directory))
         roots.append(path)
         config = WorldConfig(path, "e" * 32, (alpha, beta))
         init_world_root(config, authority=FULL)
@@ -191,7 +191,7 @@ def test_an_absent_corpus_is_lineage_incomplete_naming_it_durably(chain):
     local = lineage_snapshot(ReadView.opened_at(roots[a]), [dataset_ref("d2")])
     assert not local.not_present
     both = lineage_snapshot(view, [dataset_ref("d2"), dataset_ref("d1")])
-    assert both.not_present == {dataset_ref("d1"): b}  # R1 is behind the unreadable basis.
+    assert both.not_present == {dataset_ref("d1"): b}  # the first run is behind the unreadable basis.
 
 
 def split_producer(durable_world):
@@ -390,7 +390,7 @@ def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(
         node_corpus={value.identity(): (a,) for value in inputs.assessments},
     )
     local_kwargs = {**kwargs, "context": local_context}
-    # J21 (mount-citations decision 9): a corpus-local read whose run names an input the
+    # A corpus-local read whose run names an input the
     # corpus does not hold refuses; run-a observes d-a, which only B holds.
     with pytest.raises(InputOutsideCorpus) as outside:
         gathered(local, local_kwargs)
@@ -405,7 +405,7 @@ def test_absent_runs_and_all_input_roles_are_named_durably(durable_world, role):
     world, roots, published, a, b, profile = evaluation_world(
         durable_world, ("run:run-a", extra.id), extra=(extra,), role=role
     )
-    # correction-remainder slice 2 decision 7: `b` is in the bound producer snapshot's
+    # `b` is in the bound producer snapshot's
     # own coverage, so `gather`'s world block answers absence for the whole read, under
     # the snapshot spelling, before any assessment, run or input role is walked.
     absent(roots, b)
@@ -428,7 +428,7 @@ def test_proposition_and_snapshot_absence_are_named_durably(durable_world, targe
         kwargs["context"] = replace(
             kwargs["context"], snapshot=lineage_snapshot(view, [dataset_ref("d-a"), dataset_ref("d-b"), target])
         )
-    # correction-remainder slice 2 decision 7: the absent corpus is in the bound producer
+    # The absent corpus is in the bound producer
     # snapshot's own coverage, so its absence is reported under the snapshot spelling
     # before the proposition's or the supplied snapshot's own refs are ever walked.
     assert gathered(view, kwargs).absent == ((f"producer-snapshot:{view.producer_snapshot_identity()}", b),)

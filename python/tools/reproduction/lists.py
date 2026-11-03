@@ -4,7 +4,7 @@ Two entry points, because `world.adopt()` compiles the contract and the
 contract binds every list's dataset address: `prepare` writes each list and
 computes its address **before** anything adopts, `mint` holds its bytes
 through the holdings boundary and mints its dataset record afterwards. The
-line format is the tool's, the same one `concepts.py` writes (design §6.3):
+line format is the tool's, the same one `concepts.py` writes:
 one canonical identifier per line, sorted, newline-terminated.
 """
 
@@ -31,7 +31,7 @@ INSTRUMENT = "mm30-reproduction/lists.v1"
 
 # `identification` carries the predecessor's two-axis values; `none` is
 # deliberately absent, because an estimand with no identification does not
-# freeze (estimand-typing design §9).
+# freeze.
 LISTS: dict[str, tuple[str, list[str]]] = {
     "levels": ("mm30-stage-levels.txt", ["level:ndmm", "level:pd"]),
     "measures": ("mm30-measures.txt", ["measure:rna-seq-tpm"]),
@@ -102,7 +102,7 @@ def mint() -> int:
         findings.record(
             1,
             "closed",
-            f"held {len(terms)} {name} as {digest}; dataset {minted.id}; the line format is the tool's (design §6.3)",
+            f"held {len(terms)} {name} as {digest}; dataset {minted.id}; the line format is the tool's",
         )
         print(f"held {len(terms)} {name} as {digest}; dataset {minted.id}")
     return 0

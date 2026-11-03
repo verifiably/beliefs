@@ -1,11 +1,11 @@
-"""Real roots for the session's sharing and publish doors (sharing design §6).
+"""Real roots for the session's sharing and publish doors.
 
-`published_source` mirrors cut 40's `source` fixture inside a caller-owned
+`published_source` mirrors the publish-act `source` fixture inside a caller-owned
 directory on the certified volume: a source world over one BASE corpus of topic
 records and a written root under coordination v2 that holds the view, so an
 attended session can open with the written root as its write root and every
 configured root mounted. `publish_locally` runs the local publish act as the
-cut-40 `run` does, and the remaining helpers turn its export into what a
+the publish-act `run` does, and the remaining helpers turn its export into what a
 recipient holds: a metadata-less copy, the head-artifact sibling's bytes, the
 evidence a sharing door binds, and a recipient session over its own world.
 """
@@ -55,7 +55,7 @@ SOURCE = "provider:https://remote.test/a"
 LOCATION = "https://remote.test/a"
 DIGEST = "d" * 64
 PUBLISHES = scoped_authority(RequiredCapabilities.publishes(), ACTOR)
-"""Exactly the publication permit, as cut 40's publishing writer binds it."""
+"""Exactly the publication permit, as the publishing writer binds it."""
 
 
 class Clock:
@@ -77,7 +77,7 @@ def _corpus(path: Path, profile, nodes=()) -> str:
 
 
 def published_source(work: Path) -> SimpleNamespace:
-    """The cut-40 source shape inside `work`: `alpha` (BASE, every topic record), `written`
+    """The source shape inside `work`: `alpha` (BASE, every topic record), `written`
     (coordination v2, holding a project whose query selects datasets and runs), a
     world over both with an epoch built, an operations root and a local destination."""
     base = Path(work).resolve()
@@ -119,7 +119,7 @@ def published_source(work: Path) -> SimpleNamespace:
 
 
 def publish_locally(s: SimpleNamespace, *, destination: Destination | None = None) -> Published:
-    """The local publish act under exactly the publication permit, as cut 40's `run`."""
+    """The local publish act under exactly the publication permit."""
     writer = open_corpus(s.written, authority=PUBLISHES, profile=V2, coordination_resolver=s.resolver)
     outcome = publish(
         writer,

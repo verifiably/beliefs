@@ -47,7 +47,7 @@ def main() -> int:
     dataset_path = Path(target["dataset_path"])
     held = dataset_path / target["held_file"] if dataset_path.is_dir() else dataset_path
     if not held.is_file():
-        print(f"REFUSED: held_file {held} is not a regular file; fix target.yaml (driver correction, record §8)")
+        print(f"REFUSED: held_file {held} is not a regular file; fix target.yaml (driver correction)")
         return 2
     content = held.read_bytes()
     digest = "sha256:" + sha256(content).hexdigest()
@@ -74,7 +74,7 @@ def main() -> int:
     findings.record(
         3,
         "closed",
-        "biology/gene-axis {axis: rows, namespace: HGNC} validated at write by cut 20's seam",
+        "biology/gene-axis {axis: rows, namespace: HGNC} validated at write by the write seam",
     )
     state.save(
         dataset_ref=minted.id,

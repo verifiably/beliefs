@@ -1,14 +1,14 @@
 """The admission gate: where a constructed assessment meets eligibility.
 
-Kernel §4.1's predicate over values: an `assesses` edge is admissible only if
+The predicate over values: an `assesses` edge is admissible only if
 its run has at least one `observes` input, **all** inputs are held under the
 observations supplied to this call, and the assessment is in the admitted
-verification state (§3.3). `reads` inputs never confer eligibility, in any
-quantity (G6). A refusal is an **outcome**, not an error — the reasons stay
+verification state. `reads` inputs never confer eligibility, in any
+quantity. A refusal is an **outcome**, not an error — the reasons stay
 distinct so no gate can silently cover for another.
 
 The gate takes declarations and observations and derives heldness itself; it
-accepts no state value, because no API accepts an authored `held` (G9).
+accepts no state value, because no API accepts an authored `held`.
 """
 
 from __future__ import annotations
@@ -50,8 +50,7 @@ def admit(
     verifications: tuple[Verification, ...],
 ) -> Admitted | AdmissionRefused:
     """The gate, in a fixed order the evaluator's absence-reasons rely on:
-    run-mismatch, then observes-presence (G6), then heldness of every input
-    (G2b), then verification state (G2c)."""
+    run-mismatch, then observes-presence, then heldness of every input, then verification state."""
     uid = assessment.identity()
     if run.ref != typed_ref("run", assessment.run):
         # Both sides in the typed spelling: `assessment.run` is the bare closure
@@ -71,7 +70,7 @@ def admit(
                 uid, f"input-not-held: a {run_input.role} input reads {type(state).__name__} under these observations"
             )
     if lifecycle_state(tuple(v for v in verifications if v.assessment == uid)) != ADMITTED:
-        return AdmissionRefused(uid, "not-admitted-verification-state: kernel 3.3 admits only clean-environment passes")
+        return AdmissionRefused(uid, "not-admitted-verification-state: only clean-environment passes are admitted")
     return Admitted(uid)
 
 
@@ -81,10 +80,10 @@ def vocabulary_availability(
     *,
     members: tuple[str, ...],
 ) -> tuple[bool, tuple[str, ...]]:
-    """D3's holding half, derived: a vocabulary bound to a dataset whose bytes
+    """The holding half, derived: a vocabulary bound to a dataset whose bytes
     are not held here is `not-available` — never `not-present`, which is the
     world index's finding, and never a membership finding. The members are
-    supplied by the fixture because reading held bytes is IO this slice does
+    supplied by the fixture because reading held bytes is IO this module does
     not perform."""
     state = admission_state(declaration, observations)
     if isinstance(state, Held):

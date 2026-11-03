@@ -1,4 +1,4 @@
-"""One algorithm, two adjacency adapters (substrate consolidation design §3).
+"""One algorithm, two adjacency adapters.
 
 The traversal `nodes` withdrew lives here, above its one-hop `outbound()` /
 `inbound()` operations. It serves two callers whose *edges* have nothing in
@@ -23,7 +23,7 @@ tie-break. A lineage entry carries the dataset, the route, and which position in
 the route failed.
 
 **Start-excluding.** The start never appears in `reached`, a cycle back to it
-included. Callers that need it say so — substrate §5's inspected set is
+included. Callers that need it say so — the lineage inspected set is
 `{observed root} ∪ closure`, the union written out, because deleting the root's
 own immediate parent must still be seen.
 """
@@ -78,7 +78,7 @@ class LineageEntry:
     route: int
     position: str
     """`run` or `ancestor` — the distinction the relation adapter cannot
-    express, and the one substrate §5 step 2 decides on."""
+    express, and the one the certification decides on."""
 
     target: str
 

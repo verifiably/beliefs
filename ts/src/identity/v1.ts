@@ -1,12 +1,11 @@
 /**
  * `science.identity.v1` — the canonical value contract, TypeScript half.
  *
- * The same contract the Python implementation carries, specified by the
- * computation-reproducibility design §4.3. This is one of exactly two things
+ * The same contract the Python implementation carries. This is one of exactly two things
  * `ts/` exists for; the other is `π_claim`.
  *
  * Three rules below are where two implementations of "canonical JSON" diverge,
- * and all three are pinned by §4.3's 2026-08-06 amendment rather than left to
+ * and all three are pinned by the contract rather than left to
  * each language's defaults:
  *
  * * **String escaping is exact.** `JSON.stringify` is not the specification —
@@ -48,7 +47,7 @@ const DECIMAL = /^([+-]?)(\d+)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/;
  *
  * JavaScript has no decimal type, and the one it does have is refused
  * (`BinaryFloatRefused`). Constructing one from text keeps the caller's
- * significant digits intact and their rounding theirs, which is §4.3's whole
+ * significant digits intact and their rounding theirs, which is the whole
  * reason for refusing binary floats.
  */
 export class Decimal {

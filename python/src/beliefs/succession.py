@@ -1,11 +1,11 @@
-"""Successor admission over the durable evidence (successor-admission design §4).
+"""Successor admission over the durable evidence.
 
 `admit_spec_successor` is the deriving boundary: under the root's own
 operation lock it reads the chain's qualification and the corpus's
-verification and assessment records, composes G4's two blocker classes,
+verification and assessment records, composes the two blocker classes,
 and calls the pure core with the derived sets — never a caller-invented
 one. It lives here and not in `beliefs.spec` because the derivation needs
-the log seam, which imports `corpus`, which imports `spec` (design §2).
+the log seam, which imports `corpus`, which imports `spec`.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from beliefs.world.verify import LogSeam
 __all__ = ["admit_spec_successor"]
 
 EVIDENCE_NAMESPACES = ("verification", "assessment")
-"""The two namespaces class 1a reads beside cut 11's three. Module-level, not
+"""The two namespaces class 1a reads beside the three it already reads. Module-level, not
 exported: the tests import it by name."""
 
 REASONS = (
@@ -56,8 +56,8 @@ REASONS = (
     "record collision",
     "qualification unresolved for the superseded spec",
 )
-"""The closed reason set of `AdmissionEvidenceRefused` (design §5). Module-level,
-not exported: the design's public surface is the one entrypoint."""
+"""The closed reason set of `AdmissionEvidenceRefused`. Module-level,
+not exported: the public surface is the one entrypoint."""
 
 
 def admit_spec_successor(
@@ -68,7 +68,7 @@ def admit_spec_successor(
     root: Path,
 ) -> SuccessorAdmitted | SuccessorRefused:
     """Admit or refuse `candidate` as a successor to `superseded`, over the
-    evidence beneath `root` — one hold, one pinned order (design §4.2)."""
+    evidence beneath `root` — one hold, one pinned order."""
     root = Path(root)
     try:
         root = root.resolve()
@@ -107,7 +107,7 @@ def _chain_classes(
     state_facts: StateFacts,
 ) -> tuple[frozenset[str], frozenset[str]]:
     """Unfinished attempts and run-attempt-recorded failures from the chain's
-    qualification, with the unresolved gate (design §4.3, §4.4 1b)."""
+    qualification, with the unresolved gate."""
     qualified = reduce_chain(view.entries, records, state_facts=state_facts)
     rows = qualified.rows
     matched_reductions = dict(qualified.matched_reductions)
@@ -145,8 +145,7 @@ def _spec_identity(row: IntentQualification, entry: IntentEntryView) -> str:
 
 
 def _recorded_failures(surface: CapturedSurface, records: Mapping[str, bytes]) -> frozenset[str]:
-    """The specs of every active, coherent, failing verification (design
-    §4.4 steps 1–5, §4.5)."""
+    """The specs of every active, coherent, failing verification."""
     _refuse_unreadable(surface)
     nodes = _decoded_evidence(records)
     verifications, assessments = _typed(nodes)
@@ -220,7 +219,7 @@ def _typed(nodes: Mapping[str, Node]) -> tuple[dict[str, Verification], dict[str
 
 def _index(nodes: Mapping[str, Node]) -> Index:
     """`Index.build`'s loop, admitting nodes in path order so the colliding
-    record is the one named (design §5: the ref is the colliding id)."""
+    record is the one named (the ref is the colliding id)."""
     index = Index()
     for path in sorted(nodes):
         node = nodes[path]
@@ -234,7 +233,7 @@ def _index(nodes: Mapping[str, Node]) -> Index:
 
 def _withheld_ids(surface: CapturedSurface) -> dict[str, str]:
     """`kind:slug` for every withheld evidence path — the id the layout rule
-    determines from the path alone (design §4.5)."""
+    determines from the path alone."""
     ids: dict[str, str] = {}
     for path in surface.withheld:
         kind, _, rest = path.partition("/")

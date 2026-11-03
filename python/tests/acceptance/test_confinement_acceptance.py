@@ -1,4 +1,4 @@
-"""Cut 13's confined arms: every check that executes under confined-v1.
+"""The confined tests: every check that executes under confined-v1.
 
 They need the confinement gate and no durable root. One snapshot serves the
 module (`shared_scratch`), so the closure is materialized once."""
@@ -191,8 +191,7 @@ def admission_of(minted: RunMinted, verification):
     return admit(assessment, run_value, observations_for(run_value), (verification,))
 
 
-# --- R15 ------------------------------------------------------------------------
-def test_r15u1_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_never_starts(
+def test_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_never_starts(
     tmp_path, shared_scratch, monkeypatch
 ):
     real_capture = boundary_module.capture_bundle
@@ -216,7 +215,7 @@ def test_r15u1_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_
     assert launched == []
 
 
-def test_r15u2_a_bundled_file_edited_after_exit_yields_no_run(tmp_path, shared_scratch, monkeypatch):
+def test_a_bundled_file_edited_after_exit_yields_no_run(tmp_path, shared_scratch, monkeypatch):
     real_launch = boundary_module.launch_confined
     launches = 0
 
@@ -234,7 +233,7 @@ def test_r15u2_a_bundled_file_edited_after_exit_yields_no_run(tmp_path, shared_s
     assert isinstance(outcome, RunRefused) and outcome.reason == "closure-mutated", outcome
 
 
-def test_r15u3_an_undeclared_file_read_fails_closed(tmp_path, shared_scratch):
+def test_an_undeclared_file_read_fails_closed(tmp_path, shared_scratch):
     assert isinstance(minimal(tmp_path / "host", snakefile=SNAKEFILE_UNDECLARED_READ), RunMinted)
     outcome = confined(tmp_path / "confined", shared_scratch, snakefile=SNAKEFILE_UNDECLARED_READ)
     assert isinstance(outcome, RunRefused), outcome
@@ -242,7 +241,7 @@ def test_r15u3_an_undeclared_file_read_fails_closed(tmp_path, shared_scratch):
     assert "FileNotFoundError" in outcome.detail or "No such file" in outcome.detail
 
 
-def test_r15u4_an_undeclared_network_connection_fails_closed(tmp_path, shared_scratch):
+def test_an_undeclared_network_connection_fails_closed(tmp_path, shared_scratch):
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))
     listener.listen(4)
@@ -257,7 +256,7 @@ def test_r15u4_an_undeclared_network_connection_fails_closed(tmp_path, shared_sc
     assert "ConnectionRefused" in outcome.detail or "Errno 111" in outcome.detail
 
 
-def test_r15u5_the_receipt_names_the_capabilities_observed_in_force(tmp_path, shared_scratch):
+def test_the_receipt_names_the_capabilities_observed_in_force(tmp_path, shared_scratch):
     outcome = confined(tmp_path / "confined", shared_scratch)
     assert isinstance(outcome, RunMinted), outcome
     receipt = outcome.run.occurrence.receipt
@@ -278,7 +277,7 @@ def test_r15u5_the_receipt_names_the_capabilities_observed_in_force(tmp_path, sh
     )
 
 
-def test_r15u6_a_minimal_run_is_valid_and_a_minimal_pair_stays_same_environment(tmp_path):
+def test_a_minimal_run_is_valid_and_a_minimal_pair_stays_same_environment(tmp_path):
     original = minimal(tmp_path / "original")
     assert isinstance(original, RunMinted)
     replayed = replay_of(original, tmp_path / "replayed", port=MEMORY_PORT)
@@ -287,8 +286,7 @@ def test_r15u6_a_minimal_run_is_valid_and_a_minimal_pair_stays_same_environment(
     assert derive_scope(original.run, replayed.run, certification=None) == "same-environment"
 
 
-# --- R4 ---------------------------------------------------------------------------
-def test_r4u1_a_confined_pair_derives_clean_environment(tmp_path, shared_scratch):
+def test_a_confined_pair_derives_clean_environment(tmp_path, shared_scratch):
     original, replayed = confined_pair(tmp_path, shared_scratch)
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
     assert derive_scope(original.run, replayed.run, certification=None) == "clean-environment"
@@ -304,8 +302,7 @@ def test_end_to_end_a_passing_clean_environment_verification_admits_and_yields_b
     assert isinstance(belief_over(original, record), Belief)
 
 
-# --- R9, R13, R16 ------------------------------------------------------------------
-def test_r9u1_an_inconclusive_verification_admits_nothing(tmp_path, shared_scratch):
+def test_an_inconclusive_verification_admits_nothing(tmp_path, shared_scratch):
     original, replayed = confined_pair(tmp_path, shared_scratch)
     unreadable = EquivalenceImplementation(
         identity="impl-eq-1", evaluate=lambda left, right: "inconclusive", fixtures=()
@@ -317,19 +314,17 @@ def test_r9u1_an_inconclusive_verification_admits_nothing(tmp_path, shared_scrat
     assert isinstance(verdict, AdmissionRefused) and verdict.reason.startswith("not-admitted-verification-state")
 
 
-def test_r13u1_an_import_outside_the_closure_is_refused_under_confinement_and_minted_under_minimal(
-    tmp_path, shared_scratch
-):
+def test_an_import_outside_the_closure_is_refused_under_confinement_and_minted_under_minimal(tmp_path, shared_scratch):
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "secret.py").write_text("VALUE = 42\n")
     snakefile = snakefile_importing_from(outside)
     assert isinstance(minimal(tmp_path / "host", snakefile=snakefile), RunMinted)
     outcome = confined(tmp_path / "confined", shared_scratch, snakefile=snakefile)
-    assert isinstance(outcome, RunRefused), outcome  # a refusal, and nothing about its diagnostic (spec §8)
+    assert isinstance(outcome, RunRefused), outcome  # a refusal, and nothing about its diagnostic
 
 
-def test_r16u1_a_not_certified_pair_admits_nothing(tmp_path, shared_scratch):
+def test_a_not_certified_pair_admits_nothing(tmp_path, shared_scratch):
     original, replayed = confined_pair(tmp_path, shared_scratch, snakefile=SNAKEFILE_CORES_SENSITIVE, replay_cores=2)
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
     assert original.run.occurrence.receipt.confined and replayed.run.occurrence.receipt.confined
@@ -344,17 +339,14 @@ def test_r16u1_a_not_certified_pair_admits_nothing(tmp_path, shared_scratch):
     assert isinstance(belief_over(original, record), NoBelief)
 
 
-# --- R21 --------------------------------------------------------------------------
-def test_r21u1_a_write_outside_the_output_root_fails_closed(tmp_path, shared_scratch):
+def test_a_write_outside_the_output_root_fails_closed(tmp_path, shared_scratch):
     outcome = confined(tmp_path / "confined", shared_scratch, snakefile=SNAKEFILE_WRITE_OUTSIDE)
     assert isinstance(outcome, RunRefused), outcome
     assert outcome.reason == "execution-failed", (outcome.reason, outcome.detail)
     assert "Read-only file system" in outcome.detail or "EROFS" in outcome.detail
 
 
-def test_r21u2_two_differently_mounted_scratch_roots_yield_equal_recipes_and_clean_environment(
-    tmp_path, shared_scratch
-):
+def test_two_differently_mounted_scratch_roots_yield_equal_recipes_and_clean_environment(tmp_path, shared_scratch):
     other_scratch = tmp_path / "other-mount"
     original = confined(tmp_path / "original", shared_scratch)
     assert isinstance(original, RunMinted), original

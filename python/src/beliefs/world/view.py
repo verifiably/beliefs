@@ -45,7 +45,7 @@ __all__ = ["DamageReport", "DriftReport", "WorldReadView", "open_world_view"]
 _MINT = object()
 
 LocatedState = Literal["resolved", "not-present", "unknown"]
-"""`locate`'s answer as the three states the query evaluator reads (live-query design decision 9)."""
+"""`locate`'s answer as the three states the query evaluator reads."""
 
 
 @final
@@ -152,7 +152,7 @@ class WorldReadView:
 
     def captured(self) -> tuple[str, ...]:
         """The captured corpus ids, sorted: present, readable, captured under
-        their own holds (cut 48 §5.2). Not `registry.admissions`, which also
+        their own holds. Not `registry.admissions`, which also
         lists corpora admitted after the epoch."""
         return tuple(sorted(self._held))
 
@@ -187,7 +187,7 @@ class WorldReadView:
 
     def corpus_of(self, ref: str) -> str | None:
         """The record's canonical holder: the least captured holder, or the
-        least recorded holder when none is captured (cut 48 §5.2). A label,
+        least recorded holder when none is captured. A label,
         never a choice of content: every captured holder's copy is the same
         record, and a caller whose answer depends on which holder reads
         `holders_of`."""
@@ -220,7 +220,7 @@ class WorldReadView:
 
     def snapshot_standing(self, *, counts: Callable[[str, str], bool] | None = None) -> SnapshotStanding:
         """The live fold over the present covered corpora, over the same
-        captured records this view serves (slice 2 §8) — never over `_live`:
+        captured records this view serves — never over `_live`:
         a `ReadView` resolves through the index built at its open and
         enumerates the store as it is now, and the two disagree after a
         write; never through the epoch's address map: a post-build record
@@ -287,7 +287,7 @@ class WorldReadView:
     def _mapped_holders(self) -> Iterator[tuple[tuple[str, ...], Node]]:
         """Yield each retained record once with its captured holders, ordered by
         `(canonical holder, uid)`, without copying: for callers that decide
-        something per record over its holders (cut 48 §5.2)."""
+        something per record over its holders."""
         seen: set[str] = set()
         for corpus_id in sorted(self._held):
             for uid in sorted(self._held[corpus_id]):
@@ -315,8 +315,7 @@ class WorldReadView:
 
     def _refuse_damaged(self, ref: str) -> None:
         """A damaged holder refuses the address, unless another holder was
-        captured and every captured copy equals the content the epoch mapped
-        (cut 48 §5.1): the damaged copy cannot be compared, so only the
+        captured and every captured copy equals the content the epoch mapped: the damaged copy cannot be compared, so only the
         publication can vouch for the copies that can."""
         entry = self._recorded.get(ref)
         if entry is None:
@@ -419,7 +418,7 @@ def open_world_view(
         states[corpus_id] = before
         live[corpus_id] = view
     damaged_ids = frozenset(report.corpus_id for report in damaged)
-    # `live`'s keys are exactly the present, readable covered corpora (§8): the ones
+    # `live`'s keys are exactly the present, readable covered corpora: the ones
     # captured inside their own hold, with the drift check, and not diverted to `damaged`.
     captured_views = {corpus_id: _CapturedCheckView(all_captured[corpus_id]) for corpus_id in live}
 
@@ -442,7 +441,7 @@ def open_world_view(
                     f"{node.id}: {corpus_id}: {carriers[corpus_id]}: mapped uid {entry.uid!r} has a live address "
                     "the epoch did not map to that record; a new canonical address requires a new publication"
                 )
-    # Cut 48 §5.1: captured copies of one record must agree with each other. Agreement with the
+    # Captured copies of one record must agree with each other. Agreement with the
     # epoch's content is not required — a single holder that moved is drift, and so are two that moved alike.
     checked: set[str] = set()
     for address, entry in sorted(recorded.items()):
@@ -457,7 +456,7 @@ def open_world_view(
                 "publish the conflict, or resolve it)"
             )
 
-    # W8b, the view's half (cut 48 §5.1): a uid held by two captured corpora is admitted only where the
+    # A uid held by two captured corpora is admitted only where the
     # recorded map established those corpora as holders of one record.
     owners: dict[str, list[str]] = {}
     for corpus_id in sorted(captured):
@@ -471,7 +470,7 @@ def open_world_view(
         if not established or not set(corpora) <= set(cast(derive.AddressEntry, next(iter(entries))).holders):
             raise ResolutionRefused(
                 f"uid {uid!r} is held by both {corpora[0]} and {corpora[1]}; world uid uniqueness is enforced "
-                "and its violation is corruption, not a record with two homes (W8b, the view's half)"
+                "and its violation is corruption, not a record with two homes"
             )
 
     drift: list[DriftReport] = []
@@ -533,7 +532,7 @@ def open_world_view(
 
 
 def _carried_enumeration(published: epoch.Epoch) -> RetractionEnumeration:
-    """Parse the receipt's §7.6 enumeration and check it against its named subject."""
+    """Parse the receipt's enumeration and check it against its named subject."""
     receipt = published.receipts["retraction-receipt.yaml"]
     carried = receipt.document.get("enumeration")
     if not isinstance(carried, Mapping):
@@ -542,7 +541,7 @@ def _carried_enumeration(published: epoch.Epoch) -> RetractionEnumeration:
         enumeration = derive.retraction_enumeration(_thawed(carried))
     except Exception as caught:
         raise EpochMalformed(
-            f"{published.packaging_identity}: the carried enumeration is not §7.6's projection: {caught}"
+            f"{published.packaging_identity}: the carried enumeration is not a valid retraction enumeration: {caught}"
         ) from caught
     identity = derive.retraction_enumeration_identity(enumeration)
     if identity != receipt.subject_identity:

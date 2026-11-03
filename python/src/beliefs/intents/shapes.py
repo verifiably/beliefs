@@ -1,4 +1,4 @@
-"""The closed intent union: total decoding and matching (spec §2.2, §3.2)."""
+"""The closed intent union: total decoding and matching."""
 
 from __future__ import annotations
 
@@ -135,7 +135,7 @@ def decode_intent(digest: str, payload: bytes) -> DecodedIntent | Unrecognized:
             "domainless-unrecognized",
         )
     if set(value) == {"kind", "event_token", "actor"} and value.get("kind") == "publish":
-        # decision 10: publish opens only through science.publish-intent.v1
+        # publish opens only through science.publish-intent.v1
         return _malformed(digest, "operation")
     if set(value) == {"kind", "event_token", "actor"} and value.get("kind") in OPERATION_KINDS:
         try:

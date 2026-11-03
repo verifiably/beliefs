@@ -1,5 +1,5 @@
 # python/tests/test_facet_validation.py
-"""§3.4's grammar at validation time, and §4.1's compiled products — immutable, one registry, private."""
+"""The grammar at validation time, and the compiled products — immutable, one registry, private."""
 
 import copy
 from dataclasses import FrozenInstanceError

@@ -1,4 +1,4 @@
-"""F6 and F3's revision cases (design §5.3)."""
+"""Revision cases."""
 
 import pytest
 from authority import lacking

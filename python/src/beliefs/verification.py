@@ -1,4 +1,4 @@
-"""Verification as a value, and the derived lifecycle (kernel §3.3).
+"""Verification as a value, and the derived lifecycle.
 
 Consumed, never produced: no replay happens here, and the node is an argument.
 The assessment has no verification field — its state is derived from the
@@ -7,11 +7,11 @@ asked. Only `(clean-environment, passed)` admits; the final row is a complement
 so the table is total by construction.
 
 "Active" here means **not superseded by a later verification that explicitly
-references it**. The amended definition (correction-lifecycle §7a) also excludes
+references it**. The amended definition also excludes
 targets of a standing retraction. That clause lives at the read:
 `evaluation.gather` drops a retracted verification before decoding, so a
 retracted resolution no longer supersedes the failure it named. This module
-computes over the standing read set (correction-remainder slice 1, decision 5).
+computes over the standing read set.
 """
 
 from __future__ import annotations
@@ -62,17 +62,17 @@ class Verification:
 
 
 def active(verifications: tuple[Verification, ...]) -> tuple[Verification, ...]:
-    """Not superseded (supersession only in this slice — see module docstring)."""
+    """Not superseded (supersession only — see module docstring)."""
     superseded = {v.supersedes for v in verifications if v.supersedes is not None}
     return tuple(v for v in verifications if v.ref not in superseded)
 
 
 def lifecycle_state(verifications: tuple[Verification, ...]) -> str:
-    """Kernel §3.3's table, over the verifications for one assessment.
+    """The lifecycle table, over the verifications for one assessment.
 
     A pure function of its argument: a cross-call memory here would make a
-    deleted failure keep invalidating, contradicting the deletion negative G8
-    pins (§3.2's undetectable-history limit)."""
+    deleted failure keep invalidating, contradicting the deletion negative
+    (the undetectable-history limit)."""
     if not verifications:
         return NOT_ADMITTED
     live = active(verifications)

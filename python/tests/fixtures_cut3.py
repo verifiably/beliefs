@@ -1,4 +1,4 @@
-"""Shared cut-3 fixtures: value builders and held Snakefile definitions."""
+"""Shared fixtures: value builders and held Snakefile definitions."""
 
 import json
 from decimal import Decimal
@@ -38,7 +38,7 @@ from beliefs.recipe import (
 )
 
 # Tests build fixture values through the private constructor deliberately —
-# the public surface must not offer one, and Task 11 pins that (T1).
+# the public surface must not offer one, and a test pins that.
 from beliefs.report import Entry, LocatorEntry, PublishedObservation, RunAttemptEntry, RunRefusal, _mint_report
 from beliefs.resolution import build_snapshot
 from beliefs.runrecord import GuardedCommit
@@ -351,7 +351,7 @@ def result_sensitive():
     # Outcome keyed to the RESULT's bytes: the output digest's low bit
     # decides. Deterministic, and a test can compute its expectation from the
     # manifest it holds — which is what makes the outcome's derivation, not
-    # merely the identity, checkable (R22).
+    # merely the identity, checkable.
     def evaluate(manifest):
         parity = int(manifest.outputs[0][1].split(":", 1)[1], 16) % 2
         return {
@@ -408,7 +408,7 @@ rule transform:
 
 # Disobeys its rendered configuration: the workflow itself uses and rewrites
 # its claim to seed+1 during execution. This is a genuinely violating closure,
-# not fixture post-processing — R16's mint arm and R21 negative (e).
+# not fixture post-processing — the mint and scratch-intermediate cases.
 SNAKEFILE_SEED_VIOLATING = SNAKEFILE_DETERMINISTIC.replace(
     "from beliefs.seeds import bind",
     "import json\nfrom beliefs.seeds import bind, record_digest_of",
@@ -425,8 +425,8 @@ SNAKEFILE_SEED_VIOLATING = SNAKEFILE_DETERMINISTIC.replace(
 )
 
 # Byte-nondeterministic output, urandom staying inside the scratch root. Used
-# with a stochastic-unseeded production recipe (R11) and, declared
-# deterministic, as the honest way to obtain a failing assessment replay (R8).
+# with a stochastic-unseeded production recipe and, declared
+# deterministic, as the honest way to obtain a failing assessment replay.
 SNAKEFILE_NONDETERMINISTIC = """\
 import os, pathlib
 
@@ -464,7 +464,7 @@ rule transform:
 """
 
 # Writes a random-content scratch intermediate beside the declared output —
-# R21's intermediates-excluded arm.
+# The intermediates-excluded case.
 SNAKEFILE_SCRATCHY = SNAKEFILE_DETERMINISTIC.replace(
     'pathlib.Path(output[0]).write_text(text.upper() + ":" + salt)',
     'pathlib.Path("scratch.tmp").write_text(__import__("os").urandom(8).hex())\n'

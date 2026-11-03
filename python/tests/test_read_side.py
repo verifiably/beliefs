@@ -1,7 +1,7 @@
 """The read side, portably: the one algorithm, its two adapters, the facade's
-node-read path, and the §6.2 corpus check.
+node-read path, and the corpus check.
 
-**These cannot claim cut-4 discharge and do not try to.** Every corpus here is
+**These cannot claim durable discharge and do not try to.** Every corpus here is
 seeded by the raw-write fixture act and read back through a fresh facade, which
 exercises the read code and nothing about durability. The arms that require a
 record to have been *minted* through the add path into a durable root run under
@@ -90,7 +90,7 @@ class TestTheOneAlgorithmsSharedBehaviour:
         assert relation_walk(view, "discussion:a").reached == ("discussion:b",)
 
     def test_the_start_is_never_in_the_reached_set(self, tmp_path):
-        # Start-excluding: substrate §5's inspected set writes the union out
+        # Start-excluding: the substrate's inspected set writes the union out
         # because the walk does not, and a walk that quietly included its start
         # would make `{root} ∪ closure` a no-op nobody could see fail.
         view = seed(tmp_path, discussion("a", relations=[cites("discussion:a", "discussion:a")]), discussion("b"))
@@ -224,7 +224,7 @@ class TestTheLineageAdapter:
 
     def test_an_unresolvable_producing_run_is_told_apart_from_an_unresolvable_ancestor(self, tmp_path):
         # The distinction the relation adapter cannot express, and the one
-        # substrate §5 step 2 decides on.
+        # the substrate decides on.
         view = seed(
             tmp_path,
             stored.dataset_node(
@@ -553,7 +553,6 @@ class TestTheCorpusCheck:
 
 
 def test_a_dataset_the_corpus_does_not_hold_is_eligibility_unresolved(tmp_path):
-    """J18-a's check."""
     view = admissible_corpus(tmp_path, observes=[dataset_ref("elsewhere")])
     findings = corpus_check(view, BASE)
     assert [(f.severity, f.code, f.ref, f.detail) for f in findings] == [
@@ -574,7 +573,6 @@ def test_an_unheld_run_is_eligibility_unresolved(tmp_path):
 
 
 def test_one_held_invalid_and_one_unheld_dataset_is_unresolved(tmp_path):
-    """J18-b's check."""
     plain = stored.dataset_node(title="plain", resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}])
     view = admissible_corpus(tmp_path, observes=[plain.id, dataset_ref("elsewhere")], extra=(plain,))
     assert [(f.severity, f.code) for f in corpus_check(view, BASE)] == [("warning", "eligibility-unresolved")]

@@ -1,6 +1,6 @@
-"""M10 — the cross-language parity fixture, Python half.
+"""The cross-language parity fixture, Python half.
 
-The fixture is a **frozen conformance oracle**. It is generated once by
+The fixture is a **frozen oracle**. It is generated once by
 `tools/generate_claim_identity_fixture.py`, reviewed, and committed; nothing here
 regenerates it, and the generator lives outside the installed package so that
 `beliefs` cannot reach it. A fixture recomputed during a test run asserts only
@@ -12,7 +12,7 @@ its expected projection, its expected canonical bytes and its expected digest,
 and the test walks all four: components → `build_claim` → `project_claim` →
 `encode` → `digest`. Comparing the stored projection against the stored bytes
 would test `science.identity.v1` parity while bypassing `π_claim` — the shared
-encoding covered, the shared projection not, which is most of what M10 is for.
+encoding covered, the shared projection not, which is most of what this fixture is for.
 
 The TypeScript half consumes this same artifact and makes the same four
 comparisons. Neither language owns it.
@@ -93,7 +93,7 @@ class TestTheFixtureIsAboutThisProfile:
 
     def test_the_header_pins_the_compiled_profile(self, fixture, parity_profile):
         # `compiled_identity` and not a contract identity, deliberately: it moves
-        # on a semantic schema edit and stays still on an editorial one (M7). So
+        # on a semantic schema edit and stays still on an editorial one. So
         # rewording a description does not demand a regenerated fixture, and
         # changing an operator's arity does.
         assert fixture["profile_compiled_identity"] == parity_profile.compiled_identity
@@ -120,7 +120,7 @@ class TestEveryRowRoundTrips:
 
 
 class TestTagCoverageIsCompleteAgainstTheBaseContract:
-    """M10's coverage clause.
+    """The coverage clause.
 
     Asserted against the **contract**, never against a hand-kept list, so adding
     a tag to the grammar forces a vector entry rather than silently going

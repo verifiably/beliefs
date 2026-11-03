@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import ast
+import inspect
+import textwrap
 from typing import ClassVar
 
 import pytest
@@ -136,3 +139,8 @@ def test_supersede_refuses_an_equal_semantic_identity(writer):
 def test_supersede_errors_are_write_refusals():
     for refusal in (RelocationTargetMissing, SupersedeIdentityUnchanged, FamilyKindUnsupported):
         assert issubclass(refusal, WriteRefused)
+
+
+def test_semantic_change_branch_names_no_rename_path():
+    tree = ast.parse(textwrap.dedent(inspect.getsource(CorpusWriter.supersede)))
+    assert "rename" not in {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}

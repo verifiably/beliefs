@@ -1,4 +1,4 @@
-"""The one log qualification reduction (spec §2.1, §3.3)."""
+"""The one log qualification reduction."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def _is_file(facts: tuple[tuple[str, str], ...]) -> bool:
 @final
 @dataclass(frozen=True, slots=True)
 class RegistrationReduction:
-    """One registration's whole reduction (successor-admission design §4.4):
+    """One registration's whole reduction:
     the first qualifying `(path, evidence)` in `final` order, whether any
     record path had no payload or failed to decode, and every decoded
     non-qualifying record's reason in order."""
@@ -217,7 +217,7 @@ def _qualify_corpus_write(
     registrations: list[RegisteredEntryView],
     settlement: Mapping[str, bool],
 ) -> tuple[IntentQualification, tuple[Finding, ...]]:
-    """Writer-session design §4.1: a committed registration fulfilling a
+    """A committed registration fulfilling a
     `corpus-write` intent qualifies it, whatever it publishes — one record, a
     replacement, or nothing for a deletion. Records are not inspected."""
     unresolved = False

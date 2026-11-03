@@ -1,0 +1,129 @@
+# mm30's claim vocabulary — **per-slot sorts, assigned by a stated rule**.
+#
+# An exercise artifact for the mm30 reproduction, not a shipped domain contract. It
+# differs from the unsorted mm30 vocabulary in `mm30-reproduction.yaml` (one sort covering every
+# term) in exactly one respect — `arg_sorts`; the placeholder vocabulary binding,
+# which parts of a result are fitted, and the polarity partition are the same.
+#
+# **The assignment rule, stated before the run so the result is not a choice.**
+# Each operator's two slots take the sorts of the subject/object kind pair that
+# operator most often relates in mm30. Nothing else was consulted: not what the
+# predicate's English name suggests a slot ought to hold, not which assignment
+# would type more records. A modal rule is arbitrary in the sense that any rule
+# is, but it is computed rather than picked per operator, so it cannot be
+# adjusted operator-by-operator until the yield improves.
+#
+# What that gives, from the measurement over 307 structured propositions:
+#
+#     affects          concept, concept   208 of 224   (also 10 c→p, 5 p→c, 1 p→p)
+#     associates-with  concept, concept    46 of  50
+#     regulates        concept, protein     5 of   9
+#     part-of          protein, concept     3 of   4
+#     induces-state    concept, concept    12 of  12
+#     is-proxy-for     concept, concept     5 of   5
+#     subtype-of       concept, concept     2 of   2
+#     binds            concept, concept     1 of   1
+#
+# The gap between this plan's typed count and the unsorted plan's is the whole
+# point of running both: it is what a sort discipline costs when imposed on a
+# corpus that recorded kind prefixes without ever constraining which kinds an
+# operator relates. `binds` is the sharp case in the other direction — mm30
+# records protein binding between two `concept:` terms, so the modal rule assigns
+# it two `concept` slots and the operator's own meaning objects.
+
+contract:
+  contract: mm30
+  version: 1
+  lineage: genesis
+
+  sorts:
+    concept:
+      vocabulary: { namespace: mm30-entities, release: "2026-08-07" }
+    protein:
+      vocabulary: { namespace: mm30-entities, release: "2026-08-07" }
+
+  dimensions: {}
+
+  operators:
+    affects:
+      arity: 2
+      arg_sorts: [concept, concept]
+      sign_apt: true
+      layers: [causal, structural, statistical]
+      dimensions: []
+
+    associates-with:
+      arity: 2
+      arg_sorts: [concept, concept]
+      sign_apt: true
+      layers: [statistical, causal]
+      dimensions: []
+
+    regulates:
+      arity: 2
+      arg_sorts: [concept, protein]
+      sign_apt: true
+      layers: [causal]
+      dimensions: []
+
+    induces-state:
+      arity: 2
+      arg_sorts: [concept, concept]
+      sign_apt: false
+      layers: [causal]
+      dimensions: []
+
+    is-proxy-for:
+      arity: 2
+      arg_sorts: [concept, concept]
+      sign_apt: false
+      layers: [causal, structural]
+      dimensions: []
+
+    subtype-of:
+      arity: 2
+      arg_sorts: [concept, concept]
+      sign_apt: false
+      layers: [structural]
+      dimensions: []
+
+    part-of:
+      arity: 2
+      arg_sorts: [protein, concept]
+      sign_apt: false
+      layers: [structural]
+      dimensions: []
+
+    binds:
+      arity: 2
+      arg_sorts: [concept, concept]
+      sign_apt: false
+      layers: [causal]
+      dimensions: []
+
+plan:
+  operators:
+    affects: affects
+    associates_with: associates-with
+    regulates: regulates
+    induces_state: induces-state
+    is_proxy_for: is-proxy-for
+    subtype_of: subtype-of
+    part_of: part-of
+    binds: binds
+
+  layers:
+    causal_effect: causal
+    structural_claim: structural
+    empirical_regularity: statistical
+
+  polarities:
+    positive: positive
+    negative: negative
+    unsigned: unsigned
+    not_applicable: null
+
+  # Each term kind is its own sort here — the difference from the unsorted plan.
+  sorts:
+    concept: concept
+    protein: protein

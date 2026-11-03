@@ -1,5 +1,4 @@
-"""The acquisition-boundary validity predicate and the bearer invariant
-(facet-contracts design §2 items 1 and 14, §5.2).
+"""The acquisition-boundary validity predicate and the bearer invariant.
 
 One function decides whether a dataset's empirical-observation facet stands:
 present, payload valid, no producer, no lineage basis, and `retrieval`
@@ -39,7 +38,7 @@ def validity_refusal(
 ) -> str | None:
     """`None` when `node` carries a valid acquisition-boundary declaration. The
     retrieval report is read through `reports`, the dataset's own corpus, when
-    given (mount-citations decision 3a)."""
+    given."""
     if stored.EMPIRICAL_OBSERVATION_FACET not in node.facets:
         return "no-empirical-observation-facet"
     payload = node.facets[stored.EMPIRICAL_OBSERVATION_FACET]

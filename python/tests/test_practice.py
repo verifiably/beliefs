@@ -1,4 +1,4 @@
-"""D9: a practice carries procedure and no vocabulary (design §3.6)."""
+"""A practice carries procedure and no vocabulary."""
 
 import inspect
 

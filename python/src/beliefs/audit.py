@@ -1,4 +1,4 @@
-"""The corpus-local semantic audit (world-changing families §6.3, §7).
+"""The corpus-local semantic audit.
 
 Pure over a read view and caller-supplied evidence: it writes nothing, mints
 nothing, and invokes no standing or belief evaluation. Ω_valid comes first —
@@ -139,7 +139,7 @@ WORLD_AUDIT_CODES = frozenset(
         "supersedes-cross-kind",
     }
 )
-"""Slice 3 design §5.5's closed set, beside `MALFORMEDNESS_CODES`."""
+"""The closed set of codes a world audit may report, beside `MALFORMEDNESS_CODES`."""
 
 
 @dataclass(frozen=True)
@@ -197,7 +197,7 @@ def check_verification(
 ) -> DerivationOutcome:
     """Recompute a stored verification's derivation from the two runs it names —
     verdict and assessment identity always; rule, scope rule, scope and report
-    identity when the record carries its report (design §6)."""
+    identity when the record carries its report."""
     decoded = decode_verification(
         node
     )  # MalformedRecord propagates: a present, malformed report is refused, never repaired
@@ -303,7 +303,7 @@ def _assessment_disagreements(stored_value: AssessmentValue, derived: Assessment
 def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> DerivationOutcome:
     """A stamped basis must name every resolved producer of its dataset. A
     producer the basis omits is what a raw-forged `single(A)` looks like while
-    `B`'s run stands; once `B`'s run is gone, nothing contradicts it (§7)."""
+    `B`'s run stands; once `B`'s run is gone, nothing contradicts it."""
     if stored.lineage_basis(node) is None:
         return _unchecked("no stamped basis")
     named = set()
@@ -336,7 +336,7 @@ def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> Derivatio
 def check_spec_target(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> DerivationOutcome:
-    """The boundary's estimand-target comparison, over a stored record (§7.2)."""
+    """The boundary's estimand-target comparison, over a stored record."""
     from beliefs.decode import claim_from_stored
     from beliefs.projection import claim_identity
     from beliefs.resolution import build_snapshot
@@ -371,7 +371,7 @@ def check_spec_target(
 def check_composite(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> DerivationOutcome:
-    """Design §4.3: the boundary's four steps over the stored record, reported
+    """The boundary's four steps over the stored record, reported
     rather than raised. Form only — the audit holds no snapshot."""
     from beliefs import composite as composite_module
     from beliefs.errors import CompositeError
@@ -438,7 +438,7 @@ def check_composite(
 def check_supersedes_kinds(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> Finding | None:
-    """Design §3.1's `same_kind` rule, under audit: a raw-written edge the
+    """The `same_kind` rule, under audit: a raw-written edge the
     shared path would have refused.
 
     `holds` before `get`, as `check_spec_target` does: over a world view a
@@ -469,7 +469,7 @@ def check_supersedes_kinds(
 
 def check_analysis_spec(node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
     """A stored spec restores or is malformed; `audit_corpus` reports the
-    latter as `derivation-malformed` under the catch R11 already has."""
+    latter as `derivation-malformed` under the catch it already has."""
     stored.analysis_spec_value(node, profile=profile)
     return DerivationOutcome(checked=True, reason="", contradiction=None)
 
@@ -480,9 +480,8 @@ def stored_specs(
     """Every restorable stored spec keyed by identity, and one
     `derivation-malformed` finding per record that does not restore — the
     two halves travel together so a false spec never vanishes into an
-    unchecked derivation (design decision 15). A pre-grammar spec is named by
-    its own code (`spec-pre-grammar`), never folded into `derivation-malformed`
-    (decision 10)."""
+    unchecked derivation. A pre-grammar spec is named by
+    its own code (`spec-pre-grammar`), never folded into `derivation-malformed`."""
     specs: dict[str, FrozenSpec] = {}
     findings: list[Finding] = []
     for node in view.iter_stored():
@@ -497,7 +496,7 @@ def stored_specs(
                     code="spec-pre-grammar",
                     ref=node.id,
                     detail=str(refused),
-                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",
+                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated",
                 )
             )
             continue
@@ -555,7 +554,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
                     code="spec-pre-grammar",
                     ref=node.id,
                     detail=str(refused),
-                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",
+                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated",
                 )
             )
             continue
@@ -566,7 +565,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
                     code="assessment-pre-grammar",
                     ref=node.id,
                     detail=str(refused),
-                    message=f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)",
+                    message=f"{node.id}: pre-grammar assessment; the corpus was not recreated",
                 )
             )
             continue
@@ -604,7 +603,7 @@ def _recompute(
 
 
 class _CapturedCitations:
-    """Decision 8's total reader over the captured world, for one citing corpus:
+    """The total reader over the captured world, for one citing corpus:
     own corpus first, then the epoch's map; never a live read, never a raise."""
 
     def __init__(
@@ -633,7 +632,7 @@ class _CapturedCitations:
         holders = [corpus_id for corpus_id in self._view.holders_of(ref) if corpus_id != self._citing]
         if not holders:
             return None
-        # Cut 48 §5.4: the first readable holder answers; unreadable only when none is, naming every cause.
+        # The first readable holder answers; unreadable only when none is, naming every cause.
         causes: list[str] = []
         for corpus_id in holders:
             cause = self._causes.get(corpus_id)
@@ -649,7 +648,7 @@ class _CapturedCitations:
         return None
 
     def _incomplete(self, ref: str) -> bool:
-        """Decision 8, per dataset: an own dataset the epoch never mapped, while a
+        """Per dataset: an own dataset the epoch never mapped, while a
         covered corpus is unreadable, is uncertain only when it would otherwise
         pass. A missing or malformed facet, a basis, a known producer or an
         unresolved report each decide it definitely, and the scan goes on."""
@@ -800,7 +799,7 @@ def audit_world(
         reader = _CapturedCitations(view, corpus_id, readable, causes, malformed_codes)
         second = _record_findings(captured, profile, scope, disagreeing, citations=reader)
         corpora[corpus_id].extend(f for f in second if f.code in ELIGIBILITY_CODES)
-    # Cut 48 §5.4: a record held in several corpora is recomputed once and its findings are
+    # A record held in several corpora is recomputed once and its findings are
     # filed under every captured holder whose audit is not excluded for it.
     for holders, node in view._mapped_holders():
         targets = [h for h in holders if h not in excluded and node.id not in malformed.get(h, set())]
@@ -833,7 +832,7 @@ def audit_world(
                     "spec-pre-grammar",
                     node.id,
                     str(refused),
-                    f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",
+                    f"{node.id}: pre-grammar spec; the corpus was not recreated",
                 )
             )
             for holder in targets:
@@ -846,7 +845,7 @@ def audit_world(
                     "assessment-pre-grammar",
                     node.id,
                     str(refused),
-                    f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)",
+                    f"{node.id}: pre-grammar assessment; the corpus was not recreated",
                 )
             )
             for holder in targets:
@@ -958,7 +957,7 @@ def _world_findings(
     for corpus_id, _state in published.coverage:
         if corpus_id in view.absent() or corpus_id in excluded:
             continue
-        for node in view.captured_records(corpus_id):  # unmapped post-build records included (§7.4)
+        for node in view.captured_records(corpus_id):  # unmapped post-build records included
             if node.kind != "retraction":
                 continue
             try:

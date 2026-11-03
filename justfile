@@ -27,11 +27,11 @@ tt := "python3 tools/tt"
 # `uv run --frozen pytest -q` is therefore a second `-q`, i.e. `-qq`, which drops the
 # summary line the wrapper counts tests from.
 #
-# `pyright` takes no path argument, deliberately: python/README.md records that naming a
+# `pyright` takes no path argument, deliberately: docs/development.md records that naming a
 # path narrows the check and hides diagnostics outside it, which is how tests/ drifted
 # once already. The gate is the whole project or it is not the gate.
-py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py)"
-py_test_cmd := py_fast_cmd + " && (cd python && uv run --frozen pytest tests/test_n2.py)"
+py_fast_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup)"
+py_test_cmd := py_fast_cmd
 py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen ruff format --check . && uv run --frozen pyright)"
 
 # `npm ci` is installation, not a gate, so it stays out of the gate recipes and lives in
@@ -45,14 +45,15 @@ fast_cmd := py_fast_cmd + " && " + ts_fast_cmd
 test_cmd := py_test_cmd + " && " + ts_test_cmd
 # Focused pytest selection, relative to python/. Override one_cmd for Vitest (AGENTS.md).
 one_cmd := "cd python && uv run --frozen pytest"
-hygiene_cmd := "python3 tools/ops-check && python3 tools/ops-docs check"
+hygiene_cmd := "python3 tools/ops-check && python3 tools/ops-docs check && python3 python/tools/check_doc_links.py"
 # The always-run checks (protected under tt policy) and the code checks (broad).
 check_hygiene_cmd := hygiene_cmd + " && tasks check"
 check_code_cmd := py_check_cmd + " && " + ts_check_cmd
 
-# Only agent guidance and task records take the docs-only path. README.md and docs/
-# are read by conformance tests, so the template's broader allowlist is unsafe here.
-docs_paths := "AGENTS.md tasks/*.md"
+# Agent guidance, the README and the public documents under docs/ take the docs-only
+# path: no test reads them, so a commit that changes only them cannot change a result.
+# The match is fnmatch, so the `*` also spans subdirectories.
+docs_paths := "AGENTS.md README.md docs/*.md"
 
 # The refs whose pushes the hook treats as covered by CI's complete package suites.
 # ci.yml runs them on every branch push (test_ci_workflow.py checks that it covers
@@ -61,7 +62,7 @@ docs_paths := "AGENTS.md tasks/*.md"
 ci_suite_refs := "refs/heads/*"
 ci_remote := "origin"
 
-# Fixed fast set (act design form 3): all non-N2 Python tests plus all TS tests.
+# Fixed fast set (ops test-ci-act design, form 3): all Python tests plus all TS tests.
 # Vitest's unbased --changed selection sees no committed push changes in a clean tree.
 push_fast_cmd := py_fast_cmd + " && " + ts_test_cmd
 
@@ -78,21 +79,23 @@ setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)
 # An empty vitest selection is a result, not a failure.
 #
 # `test`, `test-fast`, `test-push` and `test-one` run under ops' `host-budget run`, which sizes
-# them to this host's CPU budget: `-n auto` reads PYTEST_XDIST_AUTO_NUM_WORKERS, and
-# N2's pool reads OPS_WORKERS and refuses to run without it (ops
+# them to this host's CPU budget: `-n auto` reads PYTEST_XDIST_AUTO_NUM_WORKERS (ops
 # docs/specs/2026-09-24-host-budget-design.md). `tt` stays outside so it times the run.
 #
-# The documented fast local loop: xdist with N2 excluded, plus the affected TS tests.
+# The documented fast local loop: xdist over the Python tests, plus the affected TS tests.
 test-fast:
     {{tt}} test-fast -- host-budget run -- sh -c '{{fast_cmd}}'
+
+# Every real-engine acceptance module, each in its own process (about 25 minutes). Not a
+# broad target: tt policy never skips it. BELIEFS_ACCEPTANCE_ROOT overrides the work root.
+# It takes no arguments; a focused run is `just test-one tests/acceptance/<module>.py`.
+test-acceptance:
+    {{tt}} test-acceptance -- host-budget run -- sh -c 'cd python && uv run --frozen python tools/acceptance_runner.py'
 
 # One path, path::test, or -k expression; argument boundaries reach the runner intact.
 test-one +args:
     {{tt}} test-one -- host-budget run -- sh -c '{{one_cmd}} "$@" 2>&1' test-one "$@"
 
-# The complete Python gate: parallel non-N2 tests, then N2 alone with its full
-# OPS_WORKERS pool. Both summaries are counted by tt as one recorded run.
-#
 # The full suite, both packages.
 test:
     {{tt}} test -- host-budget run -- sh -c '{{test_cmd}}'
@@ -102,11 +105,11 @@ test:
 test-full:
     TT_FORCE=1 just test
 
-# The fixed push set (all non-N2 Python tests plus all TS tests), its own recorded target.
+# The fixed push set (all Python tests plus all TS tests), its own recorded target.
 test-push:
     {{tt}} test-push -- host-budget run -- sh -c '{{push_fast_cmd}}'
 
-# Always runs: the shared hygiene checks and the task-record check.
+# Always runs: the shared hygiene checks, the document link check and the task-record check.
 check-hygiene:
     {{tt}} check-hygiene -- sh -c '{{check_hygiene_cmd}}'
 
@@ -160,17 +163,16 @@ hook-pre-push-fast:
 # CI keeps a two-job matrix (Python 3.11/3.13, Node 20/24); each job runs the recipe for
 # its package, so the whole job is one recorded number. These run exactly what `test` and
 # `check` run for that package. `tasks check` is not in them: the tasks binary is not on
-# a runner, which is why CI runs these rather than `just gate` (design section 4.6).
-# A runner has no host-budget, so ci.yml sets both worker variables for the
-# parallel first phase and the standalone N2 pool.
+# a runner, which is why CI runs these rather than `just gate` (ops test-ci-audit design §4.6).
+# A runner has no host-budget, so ci.yml sets the xdist worker variable.
 #
 # Each also writes JUnit into BELIEFS_CI_EVIDENCE_DIR, which ci.yml uploads; the
 # reporting flags select nothing, so the suites are py_test_cmd's and ts_test_cmd's.
 ci_evidence_cmd := "case \"${BELIEFS_CI_EVIDENCE_DIR:?set BELIEFS_CI_EVIDENCE_DIR}\" in /*) ;; *) echo \"CI evidence path must be absolute\" >&2; exit 2;; esac"
-ci_py_test_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --ignore=tests/test_n2.py --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest.xml\") && (cd python && uv run --frozen pytest tests/test_n2.py --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest-n2.xml\")"
+ci_py_test_cmd := "(cd python && uv run --frozen pytest -n auto --dist=loadgroup --junitxml=\"$BELIEFS_CI_EVIDENCE_DIR/pytest.xml\")"
 ci_ts_test_cmd := "(cd ts && npm test -- --reporter=default --reporter=junit --outputFile.junit=\"$BELIEFS_CI_EVIDENCE_DIR/vitest.xml\")"
 
-# The Python job: both pytest phases, then ruff and pyright.
+# The Python job: the pytest suite, then ruff and pyright.
 ci-python:
     {{tt}} ci-python -- sh -c '{{ci_evidence_cmd}} && {{ci_py_test_cmd}} && {{py_check_cmd}}'
 
@@ -178,13 +180,12 @@ ci-python:
 ci-typescript:
     {{tt}} ci-typescript -- sh -c '{{ci_evidence_cmd}} && {{ci_ts_test_cmd}} && {{ts_check_cmd}}'
 
-# The mm30 recreation in one command (beliefs-9e0b42): the reproduction design's §13 and
-# §14 sequence into a fresh work directory, one process per step, stopping at the first
-# non-zero exit, then the read-only verdict and the tracked Snakefile check. Five steps
-# record a defect and still exit zero, so the verdict, not the exit codes, says whether it
-# reproduced (docs/notes/2026-09-29-reproduction-audit-backlog-brief.md, Recipe
-# inventory). Not part of any gate, and it deletes nothing. The cut-22 and cut-31
-# archives default to the fixture's siblings under the main checkout's .work/reproduction/.
+# The mm30 recreation in one command (beliefs-9e0b42): the reproduction steps run into a
+# fresh work directory, one process per step, stopping at the first non-zero exit, then
+# the read-only verdict and the tracked Snakefile check. Five steps record a defect and
+# still exit zero, so the verdict, not the exit codes, says whether it reproduced. Not
+# part of any gate, and it deletes nothing. The cut-22 and cut-31 archives default to
+# the fixture's siblings under the main checkout's .work/reproduction/.
 #
 # Recreate the mm30 corpus into WORK, a fresh absolute canonical path, from PREDECESSOR.
 mm30-recreate work predecessor cut22="" cut31="":

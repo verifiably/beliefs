@@ -1,4 +1,4 @@
-"""The audit operation (act-report-remainder design §3) — portable, over the recording port."""
+"""The audit operation — portable, over the recording port."""
 
 from __future__ import annotations
 

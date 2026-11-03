@@ -1,4 +1,4 @@
-"""`PRACTICE.yaml` — procedure without vocabulary (design §3.6)."""
+"""`PRACTICE.yaml` — procedure without vocabulary."""
 
 from __future__ import annotations
 
@@ -29,9 +29,7 @@ def parse_practice(document: object, *, source: str) -> Practice:
             raise MalformedContract(f"{source}: key {key!r} is {type(key).__name__}, not a string")
     for section in _REFUSED:
         if section in document:
-            raise MalformedContract(
-                f"{source}: {section} is not a practice field; a practice carries procedure only (D §3.5)"
-            )
+            raise MalformedContract(f"{source}: {section} is not a practice field; a practice carries procedure only")
     unknown = sorted(set(document) - _FIELDS)
     if unknown:
         raise MalformedContract(f"{source}: unknown field(s) {', '.join(unknown)}")

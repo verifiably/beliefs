@@ -1,9 +1,9 @@
-"""S6(a)–(g): only certified independence confers multiplicity.
+"""Only certified independence confers multiplicity.
 
-Arm (h) — the weak-D/strong-B regression — is recorded, not run: its own
+The weak-D/strong-B regression is recorded, not run: its own
 amended text makes it a named acceptance condition binding the first successor
 policy that admits unequal weights, and under v1's unit weight the case cannot
-be constructed (cut 2 §4.2). What binds v1 today is P5, below.
+be constructed. What binds v1 today is the fixture-set check, below.
 """
 
 import pytest
@@ -27,7 +27,7 @@ def graph(signs: dict[str, int], *edges: tuple[str, str]) -> AggregationInput:
     )
 
 
-class TestS6TheDependencyGraph:
+class TestTheDependencyGraph:
     def test_a_multiplicity_is_two_not_a_partition_and_not_components(self):
         # A={x}, B={x,y}, C={y}: A–B and B–C share, A–C disjoint.
         assert aggregate_v1(graph({"A": 1, "B": 1, "C": 1}, ("A", "B"), ("B", "C"))) == 2
@@ -39,7 +39,7 @@ class TestS6TheDependencyGraph:
     def test_c_adding_a_certified_independent_of_nothing_assessment_cannot_raise(self):
         before = aggregate_v1(graph({"A": 1, "C": 1}))
         universal = graph({"A": 1, "C": 1, "U": 1}, ("U", "A"), ("U", "C"))
-        assert aggregate_v1(universal) <= before  # addition only; deletion is §3.2's
+        assert aggregate_v1(universal) <= before  # addition only
 
     def test_d_the_clique_case(self):
         # Every singleton is maximum; the added vertex may be selected, and
@@ -84,7 +84,7 @@ class TestS6TheDependencyGraph:
         # independent), so contestation would cross the prior and is clamped
         # to land exactly at it. Without the clamp both candidates finish at
         # +/-1 and the sorted-uid tie-break would choose the SIGN of the
-        # result — the exact defect kernel §4.2.1's reduction exists to
+        # result — the exact defect the reduction exists to
         # prevent.
         crossing = graph(
             {"A": 1, "B": 1, "C": -1, "D": -1, "E": -1, "F": 1},
@@ -110,7 +110,7 @@ class TestS6TheDependencyGraph:
         assert aggregate_v1(graph({"A": 1, "B": -1, "D": -1}, ("A", "B"), ("A", "D"))) == -1
 
 
-class TestP5UnequalWeightsAreUnspellable:
+class TestUnequalWeightsAreUnspellable:
     def test_no_input_shape_carries_a_magnitude(self):
         # The vertex is (uid, sign) and nothing else; weight has no field.
         import dataclasses
@@ -122,7 +122,7 @@ class TestP5UnequalWeightsAreUnspellable:
             DirectionalInput(assessment="A", sign=0)
 
     def test_the_fixtures_catch_a_weighted_implementation(self):
-        # P5's sabotage, run as a live check: an implementation weighting one
+        # A deliberately wrong implementation, run as a live check: an implementation weighting one
         # assessment double fails the fixture set.
         def weighted(problem: AggregationInput) -> int:
             value = aggregate_v1(problem)
@@ -141,5 +141,5 @@ class TestTheFixtureSetBindsTheReference:
     def test_every_fixture_case_is_exercised(self):
         # A fixture set with fewer than five cases could not cover selection,
         # contestation, the clamp, the tie and the two-independent-supports
-        # case P5's detector needs.
+        # case the detector needs.
         assert len(BELIEF_V1_FIXTURES) >= 5

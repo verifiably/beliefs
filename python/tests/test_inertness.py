@@ -1,4 +1,4 @@
-"""T1 and T4: reports are boundary-minted and inert to belief."""
+"""Reports are boundary-minted and inert to belief."""
 
 import dataclasses
 import inspect
@@ -34,14 +34,14 @@ def admitted_scenario():
     return d, run, assessment, observations, admitting
 
 
-def test_t4_adding_and_removing_reports_leaves_belief_admission_and_eligibility_byte_unchanged():
+def test_adding_and_removing_reports_leaves_belief_admission_and_eligibility_byte_unchanged():
     d, run, assessment, observations, admitting = admitted_scenario()
     address = dataset_address(d)
     assert address is not None
     kwargs = closure_kwargs((assessment,), {"run-1": run})
     before_digest = build_closure(**kwargs).digest()
     before_admission = admit(assessment, run, observations, admitting)
-    # T4 asserts admission is *unchanged*; two equal refusals satisfy that
+    # The test asserts admission is *unchanged*; two equal refusals satisfy that
     # vacuously, so the scenario has to be admitted for the row to say anything.
     assert isinstance(before_admission, Admitted), before_admission
     before_state = admission_state(d, observations[address])
@@ -57,7 +57,7 @@ def test_t4_adding_and_removing_reports_leaves_belief_admission_and_eligibility_
     assert build_closure(**kwargs).digest() == before_digest
 
 
-def test_t4_no_belief_bearing_signature_names_a_report():
+def test_no_belief_bearing_signature_names_a_report():
     for fn in (build_closure, admit, admission_state):
         assert not {"report", "reports", "act_report"} & set(inspect.signature(fn).parameters)
     from beliefs.belief import Records
@@ -65,9 +65,9 @@ def test_t4_no_belief_bearing_signature_names_a_report():
     assert "reports" not in {field.name for field in dataclasses.fields(Records)}
 
 
-def test_t4_the_belief_modules_never_import_the_report_layer():
+def test_the_belief_modules_never_import_the_report_layer():
     # Inert BY TYPE: the reference conveys neither protection nor force, and
-    # the derivations cannot even see the layer (act-report §2.3).
+    # the derivations cannot even see the layer.
     import beliefs.admission
     import beliefs.belief
     import beliefs.closure
@@ -78,7 +78,7 @@ def test_t4_the_belief_modules_never_import_the_report_layer():
         assert "beliefs.report" not in source and "beliefs.boundary" not in source
 
 
-def test_t1_no_construction_path_authors_an_act_report():
+def test_no_construction_path_authors_an_act_report():
     import beliefs.boundary as boundary_module
     import beliefs.report as report_module
 
@@ -95,9 +95,9 @@ def test_t1_no_construction_path_authors_an_act_report():
                 assert not distinctive & params, (module.__name__, name)
 
 
-def test_t1_the_constructor_is_reachable_only_from_the_boundary():
+def test_the_constructor_is_reachable_only_from_the_boundary():
     # The one src caller of the private constructor is the boundary — the
-    # in-slice form of "minted only by the boundary" (cut 3 §9 item 2).
+    # in-process form of "minted only by the boundary".
     src = Path(beliefs.__file__).parent
     callers = [path.name for path in src.rglob("*.py") if "_mint_report" in path.read_text(encoding="utf-8")]
     assert sorted(callers) == ["boundary.py", "report.py"]

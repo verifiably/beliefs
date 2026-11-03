@@ -1,4 +1,4 @@
-"""Slice 2b §3: the source basis projection — normalization, precedence, address."""
+"""The source basis projection — normalization, precedence, address."""
 
 from __future__ import annotations
 
@@ -206,7 +206,7 @@ def entry(frm, to, *, actor="curator", grounds="checked the PDF", token="t1"):
 
 
 def consolidation(frm, absorbed, *, actor="consolidator", grounds="one paper", token="c1"):
-    """A consolidation entry (slice 6 §3.1): `from == to`, plus the absorbed chain."""
+    """A consolidation entry: `from == to`, plus the absorbed chain."""
     return {
         "from": dict(frm),
         "to": dict(frm),
@@ -253,7 +253,7 @@ class TestReaders:
             stored.identifier_corrections(raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A]))
         ) == {ADDR_A, ADDR_B}
 
-    # --- slice 6 §3: the consolidation entry and the nested chain ---
+    # --- the consolidation entry and the nested chain ---
 
     def test_a_consolidation_entry_reads_with_its_absorbed_chain(self):
         history = [entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry(C, B, token="o2")])]
@@ -428,7 +428,7 @@ class TestReaders:
 
 
 class TestReconcile:
-    """Slice 6 §4: keep's chain is the spine; other's unheld tail is absorbed; idempotent."""
+    """Keep's chain is the spine; other's unheld tail is absorbed; idempotent."""
 
     A_B = entry(A, B, token="a")
     B_ = entry(A, B, token="b")

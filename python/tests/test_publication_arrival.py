@@ -1,4 +1,4 @@
-"""Marker-required arrival (publish-act-local design §10)."""
+"""Marker-required arrival."""
 
 from __future__ import annotations
 
@@ -95,7 +95,7 @@ def test_records_other_than_the_selection_refuse(arriving, extra):
     assert caught.value.reason == "selection-mismatch" and caught.value.refs == (other.id,) and calls == []
 
 
-# --- publish-act-remote §7.1: the tip reading ---------------------------------
+# --- the tip reading ---------------------------------
 
 import os
 from pathlib import Path
@@ -155,7 +155,7 @@ def test_two_siblings_are_divergent_ascending(tmp_path):
 
 
 def test_publications_sharing_selected_records_are_read_side_by_side(tmp_path):
-    """Decision 9's premise: one record in two held roots does not stop the reading."""
+    """One record in two held roots does not stop the reading."""
     a, ca, ma = _held(tmp_path, "a", "1" * 32, records=("r", "s"))
     b, cb, mb = _held(tmp_path, "b", "2" * 32, carried=((ca, ma),), records=("r", "s"))
     assert publication_tip((a, b), VIEW, REMOTE) == CurrentPublication(cb, mb)

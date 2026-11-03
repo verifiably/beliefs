@@ -9,7 +9,7 @@
  * two implementations agree, and this file proves there is something to agree
  * about.
  *
- * Found by sabotage: accepting a hand-supplied `inapt` tag left the whole suite
+ * Found by mutation: accepting a hand-supplied `inapt` tag left the whole suite
  * green before this file existed.
  */
 
@@ -89,7 +89,7 @@ describe("polarity is the unit inhabitant where the operator has no sign", () =>
   });
 
   it("refuses a sign on a sign-inapt operator, `unsigned` included", () => {
-    // §7.5's collapse: `unsigned` says the operator has a sign and this claim
+    // The collapse: `unsigned` says the operator has a sign and this claim
     // asserts none, which is a different fact from having no sign to assert.
     for (const polarity of ["positive", "unsigned"]) {
       expect(() =>

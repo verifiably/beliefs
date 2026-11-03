@@ -1,4 +1,4 @@
-"""The transport seam (publish-act-remote design §3.1, decision 1): the caller's
+"""The transport seam: the caller's
 adapter moves bytes and reads the remote back, and the act — never the seam —
 decides "verified complete" by comparing the remote's enumeration with its own
 listing. Plain standard library over the export root; nothing of `atoms`."""
@@ -23,7 +23,7 @@ LISTING_DOMAIN = "science.publish-transport-listing.v1"
 
 @dataclass(frozen=True)
 class TransportAbandoned:
-    """This attempt's upload will never complete (decision 4): a terminal answer,
+    """This attempt's upload will never complete: a terminal answer,
     unlike an exception, which means "try again"."""
 
     detail: str

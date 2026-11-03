@@ -70,7 +70,7 @@ def _chain_len(root):
     return len(view.entries)
 
 
-def test_e1_a_permit_lacking_holdings_refuses_recheck_before_the_intent(certified_work):
+def test_a_permit_lacking_holdings_refuses_recheck_before_the_intent(certified_work):
     ctx, store_id = context(certified_work)
     ctx = replace(ctx, authority=narrowed(kinds=("holdings-observation",), families=("corpus-write",)))
     before = _chain_len(ctx.observer_root)
@@ -80,7 +80,7 @@ def test_e1_a_permit_lacking_holdings_refuses_recheck_before_the_intent(certifie
     assert _chain_len(ctx.observer_root) == before
 
 
-def test_e1_a_permit_lacking_the_observation_kind_refuses_write_before_any_store_effect(certified_work):
+def test_a_permit_lacking_the_observation_kind_refuses_write_before_any_store_effect(certified_work):
     ctx, store_id = context(certified_work)
     ctx = replace(ctx, authority=narrowed(families=("holdings",)))
     with pytest.raises(PermitExceeded) as caught:
@@ -89,13 +89,13 @@ def test_e1_a_permit_lacking_the_observation_kind_refuses_write_before_any_store
     assert not (ctx.store_root / "held.bin").exists()
 
 
-def test_e1_the_exact_holdings_requirement_publishes(certified_work):
+def test_the_exact_holdings_requirement_publishes(certified_work):
     ctx, store_id = context(certified_work)
     ctx = replace(ctx, authority=narrowed(kinds=("holdings-observation",), families=("holdings",)))
     assert write(ctx, StoreLocator(store_id, "held.bin"), b"bytes").record.outcome is not None
 
 
-def test_e3_the_holdings_intent_carries_the_bound_actor(certified_work):
+def test_the_holdings_intent_carries_the_bound_actor(certified_work):
     ctx, store_id = context(certified_work)
     assert ctx.actor == ACTOR
     ctx = replace(
@@ -770,6 +770,6 @@ def test_write_against_a_read_only_replica_raises_store_write_refused_from_the_p
     cause = caught.value.__cause__
     assert isinstance(cause, ExecutionError) and cause.applied == 0
     # `replicate_root` produces `READ_ONLY_UNSERVICEABLE`, refused by the engine
-    # with `PreconditionRefused` (not `ProjectApprovalRefused` as elsewhere in
-    # this design); it is still in the routine set (decision 10).
+    # with `PreconditionRefused` (not `ProjectApprovalRefused` as elsewhere);
+    # it is still in the routine set.
     assert isinstance(cause.__cause__, PreconditionRefused)

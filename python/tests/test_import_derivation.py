@@ -1,4 +1,4 @@
-"""R19 and R22 at the explicit-import boundary (world-changing families §6.3).
+"""Derivation recomputation at the explicit-import boundary.
 
 Explicit import is an **operation**, and this is where a derivation is
 recomputed before anything is written: a verification whose two runs resolve
@@ -52,8 +52,7 @@ def _writer(root):
     """`test_relocation._writer`, but `TESTING_PROFILE`: every derived
     assessment here carries a typed estimand against `testing/affects`, which
     BASE does not declare, and the import boundary's recomputation
-    (`check_assessment`) decodes it under the writer's own profile
-    (estimand-typing §6, §9)."""
+    (`check_assessment`) decodes it under the writer's own profile."""
     return _testing_writer(root)
 
 
@@ -95,7 +94,7 @@ verdict a forgery claiming `passed` contradicts."""
 
 
 def _evidence(frozen) -> DerivationEvidence:
-    """Task 3's interpretation evidence, plus the equivalence implementation a
+    """The interpretation evidence, plus the equivalence implementation a
     verification recomputation resolves from the original run's bindings."""
     return replace(_interpretation_evidence(frozen), held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY})
 
@@ -147,7 +146,7 @@ def _report_findings(report) -> tuple[str, ...]:
 
 
 def _admission(w, identity: str) -> str:
-    """Kernel §3.3's state for one assessment identity, over every verification
+    """The state for one assessment identity, over every verification
     the corpus holds — the only thing the mount, the audit and the superseding
     act are allowed to move, and only the last of them may."""
     return lifecycle_state(
@@ -167,9 +166,9 @@ def _two_runs(corpus, *, mount: bool, agreeing: bool) -> SimpleNamespace:
     `build_verification` derives from them.
 
     `mount=False` leaves the runs out of the corpus but keeps their stored
-    records, so a later import is the mount R19 transition (b) asks for.
+    records, so a later import is the mount transition asks for.
 
-    `corpus` is a path here and an open durable writer in Task 8's acceptance
+    `corpus` is a path here and an open durable writer in the acceptance
     module, so both suites build the pair through one construction.
     """
     writer = _writer_for(corpus)
@@ -226,7 +225,7 @@ def derived_unmounted(tmp_path):
     return namespace
 
 
-class TestR19ExplicitImport:
+class TestVerificationExplicitImport:
     def test_a_forged_verification_with_resolvable_runs_is_refused_before_any_write(self, derived):
         genuine = derived.verification
         forged = stored.verification_node(
@@ -311,7 +310,7 @@ class TestR19ExplicitImport:
         assert derived.writer.read_view.get(node.id).kind == "verification"
 
 
-class TestR19TransitionB:
+class TestVerificationMountTransition:
     def test_forged_unavailable_to_available(self, derived_unmounted):
         """Import the forgery while its runs are absent → admits; mount the
         runs → admission unchanged; audit → contradiction, mints nothing;
@@ -364,7 +363,7 @@ class TestR19TransitionB:
         ]
 
 
-class TestR19NegativesDAndE:
+class TestVerificationNegatives:
     def test_a_raw_written_forgery_is_caught_only_under_audit(self, derived):
         forged = _stored_from(derived.verification, slug="forged", verdict=_flip(derived.verification.verdict))
         raw_write(derived.writer.root, forged)  # `verification_node` already stamps it
@@ -380,7 +379,7 @@ class TestR19NegativesDAndE:
         """A raw-written run whose own hashes agree is invisible to every read
         path — nothing structural is wrong, because nothing is — and a forged
         verification differs from a genuine one on no read-path predicate at
-        all. Log-backed detection is Task 8's durable arm; this closes neither
+        all. Log-backed detection is the durable module's job; this closes neither
         limitation, it pins them."""
         third = assessment_closure(derived.spec, token="tok-raw")
         raw_write(derived.writer.root, run_publication(third))
@@ -422,7 +421,7 @@ class TestR19NegativesDAndE:
         } == {("verification-derivation-contradicted", forged.id)}
 
 
-class TestR22ExplicitImport:
+class TestAssessmentExplicitImport:
     def test_import_recomputes_the_assessment_facet_and_refuses_a_mismatch(self, derived):
         genuine = build_assessment(
             derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
@@ -472,7 +471,7 @@ class TestR22ExplicitImport:
         ] == ["assessment-derivation-contradicted"]
 
 
-# --- V4 / V5 / V6 at the import boundary (design §5.4) ------------------------
+# --- at the import boundary ------------------------
 from test_audit import V4_FORGERIES, V4_IDS
 from verification_fixtures import forgeries, publish_corpus, self_consistent_forgery
 
@@ -491,7 +490,7 @@ def _bundle_around(source, published, *extra) -> tuple[Node, ...]:
 
 
 @pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
-def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate, corpus):
+def test_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate, corpus):
     source = _writer(tmp_path / "source")
     published = publish_corpus(source, publish=True, **corpus)
     assert published.node is not None
@@ -502,7 +501,7 @@ def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tm
     assert not path_for(target.root, forged.id).exists() and not path_for(target.root, published.assessment.id).exists()
 
 
-def test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(tmp_path):
+def test_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(tmp_path):
     source = _writer(tmp_path / "source")
     published = publish_corpus(source, publish=True)
     assert published.node is not None
@@ -522,7 +521,7 @@ def test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(
     assert path_for(target.root, published.node.id).exists()
 
 
-def test_v6_a_report_less_verification_imports_on_cut_18s_terms(tmp_path):
+def test_a_report_less_verification_imports_on_the_ordinary_import_terms(tmp_path):
     source = _writer(tmp_path / "source")
     published = publish_corpus(source)
     legacy = _stored_from(published.derived, slug="legacy")
@@ -548,7 +547,7 @@ def test_v6_a_report_less_verification_imports_on_cut_18s_terms(tmp_path):
         )
 
 
-def test_v8_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):
+def test_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):
     from test_audit import _false_spec_record
 
     from beliefs.evidence import NO_EVIDENCE

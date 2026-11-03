@@ -199,8 +199,7 @@ class CapturedEnvironment:
     `loader_elves`, every architecture-matched loadable ELF under the
     environment root, whether or not it has a dependency of its own. The
     probe's in-layout listing must reproduce both exactly: a zero-dependency
-    ELF is a key with an empty map, not an omission (design §4.1–§4.2,
-    §5.2–§5.3, ruling R6)."""
+    ELF is a key with an empty map, not an omission."""
 
     manifest: EnvironmentManifest
     plan: Mapping[str, Path]
@@ -379,7 +378,7 @@ class _Closure:
 
     def add_chain(self, host: Path) -> str:
         """Every link of a symlink chain as a symlink row and its terminal file
-        as a file row; returns the terminal's sandbox path (design §4.2)."""
+        as a file row; returns the terminal's sandbox path."""
         located = self._located(host)
         seen: set[Path] = set()
         while located.is_symlink():
@@ -541,7 +540,7 @@ class _Closure:
         the expected map row for each — what the probe must reproduce. An ELF
         that resolves zero dependencies of its own still ends up in
         `loader_elves` — every ELF the walk ever listed — so it stays a key
-        with an empty map rather than vanishing (design §5.3, ruling R6)."""
+        with an empty map rather than vanishing."""
         listed: set[str] = set()
         while pending := [(sandbox, host) for sandbox, host in self.elves() if sandbox not in listed]:
             for elf_sandbox, elf in pending:
@@ -564,7 +563,7 @@ class _Closure:
     def elves(self) -> list[tuple[str, Path]]:
         """Every loadable ELF file row under the environment root, of the
         closure's own architecture, by sandbox path — the same set the probe
-        enumerates in-layout (design §5.3, ruling R4). A foreign-class,
+        enumerates in-layout. A foreign-class,
         foreign-encoding or foreign-machine file stays an ordinary row: it
         cannot execute in the sandbox regardless, its program interpreter
         being outside the closure."""
@@ -605,7 +604,7 @@ def _is_loadable_elf(path: Path) -> bool:
 def _elf_architecture(path: Path) -> tuple[int, int, int]:
     """(EI_CLASS, EI_DATA, e_machine) — the identity triple a loadable ELF
     must share with the capturing interpreter's own before the host loader
-    is asked to list it (design §5.3, ruling R4): a foreign-architecture
+    is asked to list it: a foreign-architecture
     file is neither listable by this host's native loader nor executable in
     the sandbox, whose closure holds no matching program interpreter for it."""
     with path.open("rb") as handle:
@@ -652,8 +651,7 @@ def _elf_library_path(path: Path) -> tuple[str, ...]:
     section and $ORIGIN-expanded against the binary's own real location,
     deduplicated in order — the one resolution context a process inherits
     process-wide from its own main executable at runtime, supplied to the
-    host listing explicitly rather than left to the ambient environment
-    (design §5.3)."""
+    host listing explicitly rather than left to the ambient environment."""
     with path.open("rb") as handle:
         header = handle.read(64)
         if header[:4] != _ELF_MAGIC:
@@ -771,7 +769,7 @@ def loader_listing(loader: str, path: Path, library_path: tuple[str, ...] = ()) 
     under an empty environment, so no ambient LD_LIBRARY_PATH or LD_PRELOAD
     shapes the capture. `library_path`, when supplied, is passed as the
     loader's own `--library-path` argument — the one resolution context
-    supplied explicitly rather than ambiently (design §5.3)."""
+    supplied explicitly rather than ambiently."""
     argv = [loader]
     if library_path:
         argv.extend(["--library-path", ":".join(library_path)])
@@ -787,7 +785,7 @@ def loader_listing(loader: str, path: Path, library_path: tuple[str, ...] = ()) 
 
 def capture_closure() -> CapturedEnvironment:
     """The closure walk; a host read that fails mid-walk is ClosureUnsupported,
-    never a raw OSError reaching the run boundary (design §8)."""
+    never a raw OSError reaching the run boundary."""
     try:
         return _walk_closure()
     except OSError as error:
@@ -849,7 +847,7 @@ def require_executing_environment(manifest: EnvironmentManifest | EnvironmentRef
     if manifest != capture_environment():
         raise MalformedClosure(
             "the recorded environment is not the executing environment — a recipe claiming "
-            "environment A cannot run in environment B through this boundary (§4.5)"
+            "environment A cannot run in environment B through this boundary"
         )
 
 
@@ -876,12 +874,12 @@ def build_argv(
     """Policy-neutral: the minimal policy supplies host paths, the confined
     policy sandbox paths. `in_process_jobs` adds `--force-use-threads`, under
     which Snakemake executes `run:` rules in-process instead of re-spawning
-    itself through `/bin/sh` (design §5.5)."""
+    itself through `/bin/sh`."""
     for target in targets:
         if target.startswith("-"):
             raise UnsafeInvocation(
                 f"target {target!r} is option-like; shell=False prevents shell injection, "
-                "not option injection — targets are separated from options (cut 3 §3)"
+                "not option injection — targets are separated from options"
             )
     for key in config:
         if not _CONFIG_KEY.fullmatch(key):

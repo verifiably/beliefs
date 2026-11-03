@@ -1,4 +1,4 @@
-"""§5.4: the production boundary's bearer check shares the publication lock."""
+"""The production boundary's bearer check shares the publication lock."""
 
 import pytest
 from authority import ACTOR, FULL
@@ -48,8 +48,8 @@ def test_a_pin_mismatch_under_the_lock_publishes_neither_plan(tmp_path):
 
 
 def test_the_acquisition_guard_reads_the_produced_address(tmp_path):
-    """The guard the production boundary installs (§5.4). The boundary path itself
-    runs durably in Task 15's acceptance module through `fixtures_cut15`'s
+    """The guard the production boundary installs. The boundary path itself
+    runs durably in the acceptance module through `fixtures_cut15`'s
     production helper."""
     from beliefs.boundary import acquisition_guard
 

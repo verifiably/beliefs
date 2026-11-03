@@ -1,10 +1,10 @@
-"""Cut 4's fixture acts.
+"""The fixture acts.
 
-Three acts do this cut's construction work, and only the first is portable:
+Three acts do the construction work, and only the first is portable:
 
-* the **raw filesystem write** — §4.2.1's untrusted import. A fixture act and
-  never a slice operation: it is how S7's corpus-check half, S8's negative,
-  R19(d)/(e)'s read-side nondetection, R22's at-the-address forgery and R23's
+* the **raw filesystem write** — the untrusted import. A fixture act and
+  never a corpus operation: it is how the corpus-check half, the capability negative,
+  the read-side nondetection, the at-the-address forgery and the
   basis/composition disagreement are built at all. Nothing in `beliefs` writes
   this way;
 * the **durable mint** through the add path on the certified tuple, walked back
@@ -14,7 +14,7 @@ Three acts do this cut's construction work, and only the first is portable:
 **A raw write is invisible to a live corpus**, which indexes at construction.
 Every assertion about one reads through a **fresh** facade, which is what
 `reopen` is for: reconstruction from disk is the recovery posture the seam
-names, and it is the read this cut actually runs.
+names, and it is the read these tests actually run.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def raw_write(root: Path, node: Node) -> Path:
     """Write a node with a plain filesystem call, behind every boundary.
 
     Nothing static distinguishes this from writing any other file, which is
-    exactly what S8's negative pins: the capability boundary is complete over
+    exactly what the capability negative pins: the capability boundary is complete over
     the paths that go through `nodes` at all, and this one does not.
     """
     target = path_for(root, node.id)

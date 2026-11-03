@@ -1,6 +1,6 @@
-"""R13's capture arms and the boundary's three input-safety rules.
-R13's import-resolution negative and R15's arms live in
-acceptance/test_confinement_acceptance.py (cut 13)."""
+"""The capture checks and the boundary's three input-safety rules.
+The import-resolution negative and the confinement checks live in
+acceptance/test_confinement_acceptance.py."""
 
 import importlib.metadata
 import inspect
@@ -188,7 +188,7 @@ def make_code_root(tmp_path: Path) -> Path:
     return root
 
 
-def test_r13_modifying_an_untracked_file_changes_code_identity(tmp_path):
+def test_modifying_an_untracked_file_changes_code_identity(tmp_path):
     root = make_code_root(tmp_path)
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "add", "helper.py"], cwd=root, check=True)
@@ -199,7 +199,7 @@ def test_r13_modifying_an_untracked_file_changes_code_identity(tmp_path):
     assert before != after  # the capture is real — the bundle covers what ran
 
 
-def test_r13_modifying_a_tracked_but_uncommitted_file_does_the_same(tmp_path):
+def test_modifying_a_tracked_but_uncommitted_file_does_the_same(tmp_path):
     root = make_code_root(tmp_path)
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "add", "-A"], cwd=root, check=True)
@@ -284,7 +284,7 @@ def test_execution_is_direct_argv_with_shell_false(tmp_path):
     assert argv[0] == sys.executable and argv[1:3] == ("-m", "snakemake")
     assert "--log-handler-script" in argv
     assert argv[argv.index("--") + 1 :] == ("outputs/result.txt",)  # targets after the delimiter, always
-    source = inspect.getsource(run_engine)  # the N2 sabotage target
+    source = inspect.getsource(run_engine)  # the function a patching test would target
     assert "shell=False" in source and "shell=True" not in source
 
 
@@ -459,7 +459,7 @@ def test_relocated_identical_bytes_yield_the_same_environment_digest(tmp_path):
         importlib.metadata.Distribution.at(relocated)
     )
     # …the same bytes reached via a different path are the same held content:
-    # RECORD-relative names carry no mount point (§4.5)
+    # RECORD-relative names carry no mount point
 
 
 def test_a_record_listed_site_packages_byte_moves_the_distribution_digest(tmp_path):

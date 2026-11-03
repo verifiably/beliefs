@@ -82,7 +82,7 @@ class LedgeredPort:
         guard: Callable[[Any], str | None],
         fallback: Callable[[str], WritePlan],
     ) -> GuardedCommit:
-        """The guarded commit (sharing-doors design §2 decision 8): each plan's
+        """The guarded commit: each plan's
         records are read and validated before it reaches the inner port — the
         primary's before delegation, the fallback's inside the delegated call
         after the guard chose it — and one act line names the plan that

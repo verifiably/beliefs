@@ -1,5 +1,5 @@
-"""K4: the wire codec accepts both receipt spellings and recomputes each run
-under the domain its receipt shape names; K3: a mount plan identity that
+"""The wire codec accepts both receipt spellings and recomputes each run
+under the domain its receipt shape names; a mount plan identity that
 disagrees with its mounts is refused on the wire too."""
 
 from typing import Any, cast
@@ -21,7 +21,7 @@ def _node_of(run):
     return node_from_markdown(create.content.decode("utf-8"))
 
 
-def test_k4_a_minimal_projection_carries_exactly_the_v1_receipt_keys():
+def test_a_minimal_projection_carries_exactly_the_v1_receipt_keys():
     parsed = cast(Any, decode_projection(projection_text(closure())))
     receipt = parsed["occurrence"]["receipt"]
     assert set(receipt) == {"planning", "execution"}
@@ -31,7 +31,7 @@ def test_k4_a_minimal_projection_carries_exactly_the_v1_receipt_keys():
     )
 
 
-def test_k4_a_confined_projection_round_trips_and_recomputes_under_run_v2():
+def test_a_confined_projection_round_trips_and_recomputes_under_run_v2():
     run = confined_closure()
     parsed = cast(Any, decode_projection(projection_text(run)))
     receipt = parsed["occurrence"]["receipt"]
@@ -44,7 +44,7 @@ def test_k4_a_confined_projection_round_trips_and_recomputes_under_run_v2():
     assert published is not None and published.address == run.address()
 
 
-def test_k4_a_minimal_run_still_recomputes_under_run_v1():
+def test_a_minimal_run_still_recomputes_under_run_v1():
     run = closure()
     published = decode_run_record(_node_of(run))
     assert published is not None and published.address == run.address() == v1.digest(
@@ -53,7 +53,7 @@ def test_k4_a_minimal_run_still_recomputes_under_run_v1():
     )
 
 
-def test_k3_a_wire_mount_plan_identity_disagreeing_with_its_mounts_is_refused():
+def test_a_wire_mount_plan_identity_disagreeing_with_its_mounts_is_refused():
     run = confined_closure()
     text = cast(Any, v1.decode(projection_text(run)))
     text["recipe"]["workflow_definition_identity"] = run.recipe.workflow_definition.identity()

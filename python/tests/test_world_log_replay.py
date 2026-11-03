@@ -1,7 +1,7 @@
 """The registered-surface projection, replay, and the removal policy pass.
 
 **Why the states here are inert objects.** Replay compares path states by
-equality and by nothing else — the design's one-summary-model rule is a
+equality and by nothing else — the one-summary-model rule is a
 mechanism only while Science cannot read a state. `Opaque` answers `==` and
 raises on every attribute, so a replay that reached inside a state to
 interpret or re-encode it fails these arms rather than passing them quietly.
@@ -114,7 +114,7 @@ def settlement(registration_digest: str, txid: str, *, committed: bool) -> Settl
 
 
 def chain(head: GenesisEntryView, *rest: IntentEntryView | RegisteredEntryView | SettledEntryView) -> WellFormedView:
-    """R10's shape: the genesis is `entries[0]`, the same object."""
+    """The genesis is `entries[0]`, the same object."""
     entries = (head, *rest)
     return WellFormedView(genesis=head, entries=entries, tip=entries[-1].digest, pending=())
 
@@ -518,7 +518,7 @@ def test_a_held_copy_resolves_by_the_removed_digest_and_classifies_the_removed_b
 
 
 def test_a_held_copy_of_another_version_of_the_same_record_resolves_nothing():
-    # Same id, so the same claimed path — the R16 misclassification, reversed.
+    # Same id, so the same claimed path — the path-match misclassification, reversed.
     other_version = verification_bytes("v1", "passed")
 
     result = replayed(history=held(other_version))
@@ -706,12 +706,12 @@ def test_replay_refuses_a_corrupt_history_rather_than_naming_a_digest_it_never_c
         )
 
 
-# --- cut 8's declarations, over chains the engine itself calls well formed ---
+# --- declarations over chains the engine itself calls well formed ---
 #
-# Cut 8 §5's obligation 1: the chains below are real directories of canonical
+# The chains below are real directories of canonical
 # entry envelopes, built by `test_world_log_codecs`'s catalogued builders and
 # read back through the production seam's detached inspection, so
-# `inspect_chain` itself is what says they are well formed. The `Opaque` arms
+# `inspect_chain` itself is what says they are well formed. The `Opaque` cases
 # above stay the unit arms for replay's own comparison rule; these are the
 # declarations, and their states are the engine's own.
 
@@ -746,14 +746,14 @@ def cut8_judge(chain: Chain, *carriers: verify.ObserverCarrier) -> verify.LogRep
     )
 
 
-# --- L2: settlement gates every absence test ---------------------------------
+# --- settlement gates every absence test ---------------------------------
 
 
 def test_rolled_back_creation_absence_is_not_refuted(tmp_path):
-    """L2u1. A registered creation that **rolled back**: the record's absence is
+    """A registered creation that **rolled back**: the record's absence is
     not refuted, because a rolled-back settlement is no transition at all.
 
-    Cut 8 §5's obligation 2 is asserted before anything is evaluated — the
+    It is asserted before anything is evaluated — the
     fabricated entry is genuinely `settled(rolled-back)` and the path it would
     have created is genuinely absent from disk. A refusal before registration,
     or a missing settlement, would make this arm vacuous: it would then be
@@ -781,10 +781,10 @@ def test_rolled_back_creation_absence_is_not_refuted(tmp_path):
 
 
 def test_committed_creation_raw_deleted_is_refuted(tmp_path):
-    """L2u2. A **committed** creation whose record is then raw-deleted → refuted
+    """A **committed** creation whose record is then raw-deleted → refuted
     at replay, the disagreement naming the head state of the deleted path.
 
-    The contrast with L2u1 is the whole claim: the same absent path is innocent
+    The contrast with the rolled-back case is the whole claim: the same absent path is innocent
     under a rolled-back settlement and refuting under a committed one, so it is
     the settlement — never the disk — that gates the absence test.
     """
@@ -805,16 +805,16 @@ def test_committed_creation_raw_deleted_is_refuted(tmp_path):
     assert [finding.code for finding in report.findings] == ["replay-disagreement"]
 
 
-# --- L5: the unanchored tail is the pinned residue ---------------------------
+# --- the unanchored tail is the pinned residue ---------------------------
 
 
 def test_consistent_tail_rewrite_beyond_anchor_validates(tmp_path):
-    """L5u1, the pinned negative. The tail beyond the maximal anchor rewritten
+    """The pinned negative. The tail beyond the maximal anchor rewritten
     into a self-consistent alternative, **and the affected registered surface
     rewritten to match** → `validated`, undetected. The bound is anchor cadence,
     and the negative is the claim.
 
-    Cut 8 §5's obligation 3 is asserted before the verdict is read: at least one
+    It is asserted before the verdict is read: at least one
     entry beyond the anchor was rewritten, and the entry envelopes differ
     byte-wise from the ones they replaced. An empty rewrite would validate
     vacuously.
@@ -836,7 +836,7 @@ def test_consistent_tail_rewrite_beyond_anchor_validates(tmp_path):
 
 
 def test_unanchored_tail_extent_covers_the_rewrite(tmp_path):
-    """L5u2. The report's unanchored-tail extent covers the rewritten span
+    """The report's unanchored-tail extent covers the rewritten span
     exactly — the residue is stated, never left for a caller to infer."""
     chain = rewritten_tail(tmp_path)
     view = cut8_view(chain)
@@ -851,14 +851,14 @@ def test_unanchored_tail_extent_covers_the_rewrite(tmp_path):
     assert chain.anchor not in report.unanchored_tail
 
 
-# --- L12: one state vocabulary, and the log path is bookkeeping --------------
+# --- one state vocabulary, and the log path is bookkeeping --------------
 
 
 def test_all_four_state_classes_round_trip(tmp_path):
-    """L12u1. Each typed state class — **absence, directory, symlink target,
+    """Each typed state class — **absence, directory, symlink target,
     mode** — round-trips through registration fingerprints and replay.
 
-    Cut 8 §5's obligation 6: all four, asserted as four distinct engine classes
+    All four, asserted as four distinct engine classes
     over one committed transaction. A subset pass is malformed declaration
     content, not a pass, so the class set is compared for equality rather than
     for containment. Each is then shown load-bearing: rotating the four states
@@ -898,7 +898,7 @@ def test_all_four_state_classes_round_trip(tmp_path):
 
 
 def test_log_appends_are_not_recursively_registered(tmp_path):
-    """L12u3. Appending the log is not itself registered.
+    """Appending the log is not itself registered.
 
     Three facts, and together they close the cooperative side: a transaction's
     registered paths are derived from **the plan's own operation paths** and from
@@ -914,7 +914,7 @@ def test_log_appends_are_not_recursively_registered(tmp_path):
     A fourth reading — that the chain's own entries name only surface paths — is
     deliberately **not** counted: this fixture authored those entries, so it
     would be re-reading its own construction. The engine's appending is atoms's
-    certified interior (cut 8 §2), and that is where it is certified.
+    certified interior, and that is where it is certified.
     """
     submitted = inspect.getsource(science_root.DurableExecutor.execute)
     assert "registered_paths=tuple(dict.fromkeys(operation.path for operation in plan))" in submitted
@@ -929,11 +929,11 @@ def test_log_appends_are_not_recursively_registered(tmp_path):
         science_root._refuse_malformed([CreateOp(path=f"{CHAIN_LEAF}/{'a' * 64}", content=b"forged")])
 
 
-# --- L13: logged is not permitted --------------------------------------------
+# --- logged is not permitted --------------------------------------------
 
 
 def test_cooperative_verification_removal_is_in_timeline_with_finding(tmp_path):
-    """L13u1 (cut 8, superseded by cut 37's L13-a). A log-visible removal of a
+    """A log-visible removal of a
     verification via a cooperative act is **in the replayed timeline** *and*
     draws the policy finding naming the deleted record."""
     chain, _removed_bytes = removed_verification(tmp_path)
@@ -959,10 +959,10 @@ def test_cooperative_verification_removal_is_in_timeline_with_finding(tmp_path):
 
 
 def test_failing_classification_resolves_through_history_naming_digest(tmp_path):
-    """L13u2 (cut 8, superseded by cut 37's L13-b/L13-c). Where the supplied
+    """Where the supplied
     `history` bytes resolve **by the removed state's digest**, the removal is
     classified as a *failing* verification's and the finding names that digest.
-    R16's path match is gone: the copy that resolves is the copy of the removed
+    A path match is not used: the copy that resolves is the copy of the removed
     bytes, and the finding speaks about them."""
     chain, removed_bytes = removed_verification(tmp_path)
     view = cut8_view(chain)
@@ -982,7 +982,7 @@ def test_failing_classification_resolves_through_history_naming_digest(tmp_path)
 
 
 def test_without_history_deletion_detected_classification_absent(tmp_path):
-    """L13u3 (cut 8, superseded by cut 37's L13-d). With no copy held the
+    """With no copy held the
     deletion is **still detected** and the classification is honestly
     **absent** — stated by `removal-unclassified`, never guessed from a copy of
     another record or another version."""
@@ -999,7 +999,7 @@ def test_without_history_deletion_detected_classification_absent(tmp_path):
         assert result.findings[1].detail.endswith("preimage=not-consulted")
 
 
-# --- D9: history evidence is validated ---------------------------------------
+# --- history evidence is validated ---------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -1014,9 +1014,9 @@ def test_without_history_deletion_detected_classification_absent(tmp_path):
     ],
 )
 def test_history_validation_refusals_and_digest_named_findings(tmp_path, key):
-    """D9. A malformed `history` key, or bytes that do not hash to their key,
+    """A malformed `history` key, or bytes that do not hash to their key,
     **refuses the act**; keys are exactly `sha256:<64 lowercase hex>`; and every
-    classified finding names the matched digest (spec §5.3)."""
+    classified finding names the matched digest."""
     with pytest.raises(ValueError, match="is not a content hash"):
         verify.validate_history({key: b"a record"})
     assert verify.CONTENT_HASH.pattern == r"^sha256:[0-9a-f]{64}$"

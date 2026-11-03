@@ -1,4 +1,4 @@
-"""The event domain of the event-level relation (spec §3): moments and placements
+"""The event domain of the event-level relation: moments and placements
 over fabricated well-formed views. Nothing here reads a root."""
 
 from __future__ import annotations

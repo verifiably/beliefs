@@ -6,7 +6,7 @@ decodeClaim :  WireClaim × ProfileSpec × ResolutionSnapshot
 ```
 
 **Unconstructibility eliminates the internal guard; it does not eliminate the
-boundary** (§6.3). Serialized YAML, an imported record, a restored corpus and a
+boundary**. Serialized YAML, an imported record, a restored corpus and a
 raw write can all *express* a combination the type cannot hold, so the type's
 guarantee and this boundary's are different laws at different places. Every
 import, deserialization and restore comes through here.
@@ -18,7 +18,7 @@ identical bytes differently and nothing could adjudicate. `ResolutionSnapshot`
 moves that into the signature. `Refused` is spelled as an exception here, which
 is the sum's refusing arm: it returns no claim, and therefore no receipt.
 
-**Retirement is not enforced here, deliberately** (§7.3a). This function sees
+**Retirement is not enforced here, deliberately**. This function sees
 wire bytes and cannot tell a claim being authored now from a historical one being
 restored from a backup, re-imported, or replayed from the mutation log. Refusing
 a retired identifier would make every corpus holding a prior claim
@@ -26,7 +26,7 @@ un-restorable — corrupting exactly the history retirement exists to preserve. 
 `build_claim` refuses withdrawn identifiers and this route does not, and that is
 the only respect in which the two differ.
 
-**`WireClaim` does not leave this module.** M13's second clause: no function
+**`WireClaim` does not leave this module.** No function
 downstream of the boundary accepts one, because a downstream signature that did
 would let unchecked data past the single place that checks it. The test for that
 walks the package's own signatures rather than grepping for the name.
@@ -77,7 +77,7 @@ __all__ = [
 class WireClaim:
     """A claim as it arrives: identifiers and tags, and nothing typed.
 
-    It mirrors `π_claim`'s shape (§6.5) because that is what a serialized claim
+    It mirrors `π_claim`'s shape because that is what a serialized claim
     is — and note what it does **not** carry: an argument's **sort**. The
     projection emits terms only, and the sort is recovered here from the
     operator's declaration. That asymmetry is the point of the boundary. On the
@@ -104,14 +104,13 @@ def _require_text(value: object, where: str) -> str:
 
 
 def _require_snapshot(snapshot: object, error: type[MalformedWireClaim | MalformedWireEstimand]) -> None:
-    """`decode_claim`'s and `decode_estimand`'s shared authentication check
-    (§7.2): availability is a parameter, never ambient, so a decoder that
-    supplied its own snapshot would decide by ambient state and two holders
-    could read identical bytes differently."""
+    """`decode_claim`'s and `decode_estimand`'s shared authentication check: availability is a
+    parameter, never ambient, so a decoder that supplied its own snapshot would decide by ambient
+    state and two holders could read identical bytes differently."""
     if not isinstance(snapshot, ResolutionSnapshot):
         raise error(
             f"snapshot is a {type(snapshot).__name__}, not a ResolutionSnapshot — use build_snapshot(...). "
-            "Availability is a parameter (§7.2); a decoder that supplied its own would decide by ambient "
+            "Availability is a parameter; a decoder that supplied its own would decide by ambient "
             "state, and two holders would read the same bytes differently."
         )
 
@@ -198,9 +197,7 @@ def decode_claim(
         if declared is None:
             # As with arity: the restriction's sort is read off the dimension, so
             # an undeclared one cannot be built into a `Qualifier` at all.
-            raise UndeclaredDimension(
-                f"no dimension {dimension!r} in this profile; Dims(op) is declared per operator (§6.2)."
-            )
+            raise UndeclaredDimension(f"no dimension {dimension!r} in this profile; Dims(op) is declared per operator.")
         qualifiers[dimension] = Qualifier(
             quantifier=body["quantifier"],
             restriction=Referent(sort=declared.restriction_sort, term=body["restriction"]),
@@ -228,7 +225,7 @@ def decode_claim(
         raise UnboundReferent(
             f"{', '.join(refused)}: the term is not in the vocabulary its sort binds, and the vocabulary "
             "was read — this is a finding, not an unconsulted binding. Admitting it would put an unbindable "
-            "identifier into an immutable claim identity (§7.2). Nothing was minted."
+            "identifier into an immutable claim identity. Nothing was minted."
         )
 
     return claim, _emit_receipt(claim_identity(claim), snapshot, outcomes)
@@ -278,27 +275,27 @@ def claim_from_stored(
     """Restore a `Claim` from a stored proposition's covered claim facet.
 
     The wire value is built **here** and consumed **here** — `WireClaim` still
-    never leaves this module (M13) — and typing is delegated to `decode_claim`
+    never leaves this module — and typing is delegated to `decode_claim`
     rather than duplicated, so the check still happens once, in one place. The
     same is true one level down: a qualifier body's own shape (missing or
     unknown fields) is `_wire_parts`' check, not a second copy of it, so it is
     called here — its return discarded — before `decode_claim`, rather than
     left for `decode_claim` to reach on its own. Every ill-formed input
     refuses **before** delegation, with nothing minted and no `KeyError` or
-    `AttributeError` on the way in (M11): a restore helper is exactly where
-    "be liberal in what you accept" would defeat the row.
+    `AttributeError` on the way in: a restore helper is exactly where
+    "be liberal in what you accept" would defeat that refuse-before-delegation rule.
     """
     wire = _stored_wire(node)
     _wire_parts(wire)
     return decode_claim(wire, profile=profile, snapshot=snapshot)
 
 
-# --- Estimands (estimand-typing §7.2) --------------------------------------
+# --- Estimands --------------------------------------
 #
 # `decode_estimand` mirrors `decode_claim`'s discipline one artifact over: type
 # first, against the operator's `estimands:` declaration, then resolve. But the
-# restoration route differs from `claim_from_stored`'s in the one respect §7.2
-# calls out: `estimand_from_stored` performs **no resolution at all**, because a
+# restoration route differs from `claim_from_stored`'s in the one respect that
+# matters: `estimand_from_stored` performs **no resolution at all**, because a
 # stored spec was typed against the declarations and membership was the
 # freeze's own check, not something a reader repeats. Retirement is unenforced
 # on every route here, for `decode_claim`'s reason: a decoder cannot tell

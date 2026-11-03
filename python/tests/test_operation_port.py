@@ -256,7 +256,7 @@ def test_a_port_commit_outside_every_writer_reaches_the_roots_shared_state(certi
     mints one through a session's scoped writer) must be visible to the next
     state-dependent read of every writer on the root. The root's shared state
     is cached for the process, so the port marks it unresolved and the next
-    write hold recovers and rebuilds it (§4.3) rather than reading stale."""
+    write hold recovers and rebuilds it rather than reading stale."""
     init_corpus_root(certified_work, authority=FULL)
     writer = open_corpus(certified_work, authority=FULL, profile=BASE)
     # A write through the writer settles the state: from here its index is
@@ -388,7 +388,7 @@ class TestPreflightReadbackAndRecovery:
             with pytest.raises(CapabilityUnavailable):
                 init_corpus_root(root, authority=FULL)
             with pytest.raises(CapabilityUnavailable):
-                read_lifecycle_state(root)  # the case §13 item 19 defers to
+                read_lifecycle_state(root)  # the case deferred to the acceptance tests
 
             def _fail_if_called(*_args, **_kwargs):
                 raise AssertionError("recover must not read the chain on an uncertified tuple")

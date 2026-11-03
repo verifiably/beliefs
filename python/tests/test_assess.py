@@ -1,6 +1,6 @@
-"""R22's in-cell arms and R7's constructor/admission halves.
-Deferred: R22's unresolvable-rule clause (rules store), negative (b)'s
-raw-write half and negative (c) (store, audit) — cut 3 §4.2.
+"""The in-cell checks and the constructor/admission halves.
+Deferred: the unresolvable-rule clause (rules store), negative (b)'s
+raw-write half and negative (c) (store, audit).
 """
 
 import dataclasses
@@ -95,7 +95,7 @@ def minted(tmp_path_factory):
     return outcome
 
 
-def test_r22_the_constructor_takes_only_a_run_ref(minted):
+def test_the_constructor_takes_only_a_run_ref(minted):
     params = inspect.signature(build_assessment).parameters
     assert list(params) == ["run", "specs", "implementations"]
     assert not {
@@ -108,7 +108,7 @@ def test_r22_the_constructor_takes_only_a_run_ref(minted):
     } & set(params)
 
 
-def test_r22_the_facet_derives_from_the_frozen_spec_and_the_manifest(minted):
+def test_the_facet_derives_from_the_frozen_spec_and_the_manifest(minted):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     derived = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
     assert isinstance(derived, AssessmentValue)
@@ -120,7 +120,7 @@ def test_r22_the_facet_derives_from_the_frozen_spec_and_the_manifest(minted):
     assert derived.outcome == "supported" and derived.run == minted.run.address()
 
 
-def test_r22_the_evaluator_resolves_from_the_binding_frozen_in_the_recipe(minted):
+def test_the_evaluator_resolves_from_the_binding_frozen_in_the_recipe(minted):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     recipe_implementation = RuleImplementation(
         identity="impl-interp-2",
@@ -146,7 +146,7 @@ def test_r22_the_evaluator_resolves_from_the_binding_frozen_in_the_recipe(minted
     assert derived.interpretation_rule == spec.interpretation_rule
 
 
-def test_r22_a_spec_mapping_key_cannot_substitute_a_different_frozen_spec(minted):
+def test_a_spec_mapping_key_cannot_substitute_a_different_frozen_spec(minted):
     expected = freeze(spec_draft(), held_rules=spec_rules())
     assert minted.run.recipe.spec_identity == expected.identity
     substitutions = (
@@ -192,7 +192,7 @@ def test_r22_a_spec_mapping_key_cannot_substitute_a_different_frozen_spec(minted
     ],
     ids=("forged-type", "mismatched-identity", "nonconforming-fixtures"),
 )
-def test_r22_an_implementation_mapping_key_cannot_substitute_unbound_content(minted, implementation):
+def test_an_implementation_mapping_key_cannot_substitute_unbound_content(minted, implementation):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     bound = dict(minted.run.recipe.rule_bindings)[spec.interpretation_rule]
 
@@ -206,7 +206,7 @@ def test_r22_an_implementation_mapping_key_cannot_substitute_unbound_content(min
     assert finding.reason.startswith("evaluation-failed:")
 
 
-def test_r22_the_derived_outcome_moves_only_with_the_result_or_the_rule(tmp_path):
+def test_the_derived_outcome_moves_only_with_the_result_or_the_rule(tmp_path):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     first = run_assessment(tmp_path / "a", data="hello")
     assert isinstance(first, RunMinted)
@@ -257,20 +257,20 @@ def test_r22_the_derived_outcome_moves_only_with_the_result_or_the_rule(tmp_path
     assert "outcome" not in inspect.signature(build_assessment).parameters
 
 
-def test_r22_a_failing_evaluator_produces_a_finding_never_inconclusive(minted):
+def test_a_failing_evaluator_produces_a_finding_never_inconclusive(minted):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     finding = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp(fail=True))
     assert isinstance(finding, AssessmentFinding)
     assert "inconclusive" not in finding.reason  # machinery failure is not a scientific outcome
 
 
-def test_r22_assessment_findings_are_immutable():
+def test_assessment_findings_are_immutable():
     finding = AssessmentFinding(run="run-1", reason="unparseable payload")
     with pytest.raises(dataclasses.FrozenInstanceError):
         finding.reason = "changed"  # type: ignore[misc]
 
 
-def test_r22_negative_a_narrowing_applicability_needs_a_successor_spec_and_a_new_run(
+def test_narrowing_applicability_needs_a_successor_spec_and_a_new_run(
     minted,
 ):
     spec = freeze(spec_draft(), held_rules=spec_rules())
@@ -290,7 +290,7 @@ def test_r22_negative_a_narrowing_applicability_needs_a_successor_spec_and_a_new
     assert derived.applicability == spec.applicability  # never the successor's
 
 
-def test_r22_negative_b_exchanged_facets_move_the_belief_digest(minted, tmp_path):
+def test_exchanged_facets_move_the_belief_digest(minted, tmp_path):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     other = run_assessment(tmp_path, data="different bytes")
     assert isinstance(other, RunMinted)
@@ -310,10 +310,10 @@ def test_r22_negative_b_exchanged_facets_move_the_belief_digest(minted, tmp_path
         sorted(value.facet_digest() for value in (exchanged_a, exchanged_b)),
     )
     assert bags[0] == bags[1]  # the bag of facet digests is identical…
-    assert straight != crossed  # …and the keyed pairing still moves the digest (cut 2's member)
+    assert straight != crossed  # …and the keyed pairing still moves the digest
 
 
-def test_r22_the_reach_arm_an_inline_exclusion_moves_the_digest_with_identical_facets(
+def test_the_reach_arm_an_inline_exclusion_moves_the_digest_with_identical_facets(
     tmp_path,
 ):
     # Two FROZEN SPECS differing only in the reads entry's inline exclusion
@@ -411,14 +411,14 @@ def test_r22_the_reach_arm_an_inline_exclusion_moves_the_digest_with_identical_f
     assert not hasattr(reprojected, "address")  # and only executing mints a run
 
 
-def test_r7_a_dataset_production_run_with_an_assesses_descendant_is_refused(tmp_path):
+def test_a_dataset_production_run_with_an_assesses_descendant_is_refused(tmp_path):
     outcome = run_production(tmp_path)
     assert isinstance(outcome, RunMinted)
     with pytest.raises(SignatureRefused):
         build_assessment(outcome.run, specs={}, implementations={})
 
 
-def test_r7_zero_observes_inputs_admit_nothing_at_any_quantity_of_reads():
+def test_zero_observes_inputs_admit_nothing_at_any_quantity_of_reads():
     reads = tuple(
         RecipeInput(
             role="reads",
@@ -439,7 +439,7 @@ def test_r7_zero_observes_inputs_admit_nothing_at_any_quantity_of_reads():
     assert verdict.reason.startswith("no-observes-input")
 
 
-# --- Q5: estimate and uncertainty are typed on the spec's scale ---
+# --- estimate and uncertainty are typed on the spec's scale ---
 
 
 @pytest.fixture

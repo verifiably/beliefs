@@ -1,8 +1,8 @@
-"""The D §8 membership walk and the §8.1 agreement rule, computed.
+"""The membership walk and the agreement rule, computed.
 
 What is certified is agreement — not resolution: "the manifest of the corpus
 holding the node" needs the index, and corpora exist here as supplied
-node→corpus attributions plus per-corpus pins (cut 2 §4.2, D7 row).
+node→corpus attributions plus per-corpus pins.
 """
 
 from dataclasses import replace
@@ -249,7 +249,7 @@ class TestSlotSorts:
 
 
 class TestPinAgreement:
-    """Biology pack §5.3a (B7): a consulted namespace's pin must equal the
+    """A consulted namespace's pin must equal the
     validating profile's identity; an unconsulted pin is not compared."""
 
     def test_the_base_pin_must_agree_with_the_profile(self, profile, pins):

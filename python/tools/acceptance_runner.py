@@ -1,16 +1,48 @@
-"""Shared machinery for the current acceptance runners."""
+"""The one acceptance runner: every `tests/acceptance` module, each in its own process."""
 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Mapping
 from pathlib import Path
 
+from checkout import MAIN_CHECKOUT
+
 PROBE_REFUSED = 2
+OLD_ROOT_REFUSED = 3
+# No `test_*.py` module under tests/acceptance: running nothing is never success.
+NO_MODULES = 4
+# Any argument at all: the runner has no narrowing option, and a silent one would run
+# every module but narrow only the last.
+ARGUMENTS_REFUSED = 5
+
+DEFAULT_ACCEPTANCE_ROOT = MAIN_CHECKOUT / ".work" / "acceptance"
+
+_OLD_ROOT = re.compile(r"SCIENCE_CUT(\d+)_ROOT")
+_REPLACEMENTS = {
+    "4": "BELIEFS_ACCEPTANCE_ROOT",
+    "10": "BELIEFS_TEST_ROOT",
+    "12": "BELIEFS_TEST_ROOT",
+    "13": "BELIEFS_TEST_ROOT",
+}
+
+
+def refuse_old_roots(environ: Mapping[str, str]) -> str | None:
+    """The refusal message when any `SCIENCE_CUT<n>_ROOT` is present (even empty), else None."""
+    found = sorted((match.group(1), key) for key in environ if (match := _OLD_ROOT.fullmatch(key)))
+    if not found:
+        return None
+    lines = ["the cut-named work-root variables were renamed and are no longer read:"]
+    for number, key in found:
+        replacement = _REPLACEMENTS.get(number, "BELIEFS_ACCEPTANCE_ROOT or BELIEFS_TEST_ROOT")
+        lines.append(f"  {key} is set: use {replacement} instead")
+    lines.append("Unset the old variable(s); this is an error, not a fallback.")
+    return "\n".join(lines)
 
 
 def _probe(run: Path, actor: str) -> str | None:
@@ -28,89 +60,66 @@ def _probe(run: Path, actor: str) -> str | None:
         shutil.rmtree(metadata_root_for(corpus_root), ignore_errors=True)
 
 
-def run_acceptance(
-    *,
-    cut: int,
-    python_root: Path,
-    default_work: Path,
-    prefix_runners: tuple[str, ...],
-    phase_modules: tuple[str, ...],
-    declared_accounting: Callable[[], tuple[int, int, int]],
-    argv: list[str],
-) -> int:
-    tools = python_root / "tools"
+def run_acceptance(*, python_root: Path, work: Path) -> int:
     acceptance = python_root / "tests" / "acceptance"
-    root_key = f"SCIENCE_CUT{cut}_ROOT"
-    phases = len(prefix_runners) + len(phase_modules)
-    for module in phase_modules:
-        if not (acceptance / module).is_file():
-            print(f"cut-{cut} required acceptance module is missing: {acceptance / module}", file=sys.stderr)
-            return 1
-    for runner in prefix_runners:
-        if not (tools / runner).is_file():
-            print(f"cut-{cut} required prefix runner is missing: {tools / runner}", file=sys.stderr)
-            return 1
-
-    work = Path(os.environ.get(root_key, default_work))
+    modules = sorted(acceptance.glob("test_*.py"))
+    if not modules:
+        print(
+            f"no acceptance modules found under {acceptance}. This is an error, not a skip.",
+            file=sys.stderr,
+        )
+        return NO_MODULES
     work.mkdir(parents=True, exist_ok=True)
     run = Path(tempfile.mkdtemp(prefix="run-", dir=work))
     try:
-        refusal = _probe(run, f"cut{cut}-probe")
+        refusal = _probe(run, "acceptance-probe")
         if refusal is not None:
             print(
-                f"cut-{cut} acceptance cannot run here: its durable corpus prerequisite refused.\n"
+                "acceptance cannot run here: its durable corpus prerequisite refused.\n"
                 f"  {refusal}\n"
-                f"  Set {root_key} to a certified volume or recertify the tuple. "
+                "  Set BELIEFS_ACCEPTANCE_ROOT to a certified volume or recertify the tuple. "
                 "This is an error, not a skip.",
                 file=sys.stderr,
             )
             return PROBE_REFUSED
 
-        phase = 0
-        # A prefix runner gets this runner's work directory, not its run, so its
-        # own run sits beside this one: nesting grew the deepest SQLite path by one
-        # run directory per cut until it passed 512 characters (beliefs-fdc40f).
-        for runner in prefix_runners:
-            phase += 1
-            print(f"[cut{cut} phase {phase}/{phases}] {runner}", flush=True)
-            completed = subprocess.run(
-                [sys.executable, str(tools / runner)],
-                cwd=python_root,
-                check=False,
-                env={
-                    **os.environ,
-                    "XDG_CACHE_HOME": str(run / ".cache"),
-                    f"SCIENCE_CUT{cut - 1}_ROOT": str(work),
-                },
-            )
-            if completed.returncode != 0:
-                return completed.returncode
-
         environment = {
             **os.environ,
             "XDG_CACHE_HOME": str(run / ".cache"),
-            **{f"SCIENCE_CUT{number}_ROOT": str(run) for number in range(4, cut + 1)},
+            "BELIEFS_ACCEPTANCE_ROOT": str(run),
         }
-        for index, module in enumerate(phase_modules):
-            phase += 1
-            print(f"[cut{cut} phase {phase}/{phases}] {module}", flush=True)
+        for index, module in enumerate(modules, start=1):
+            print(f"[acceptance {index}/{len(modules)}] {module.name}", flush=True)
             completed = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "pytest",
-                    str(acceptance / module),
-                    *(argv if index == len(phase_modules) - 1 else []),
-                ],
+                [sys.executable, "-m", "pytest", str(module)],
                 cwd=python_root,
                 check=False,
                 env=environment,
             )
             if completed.returncode != 0:
                 return completed.returncode
-
-        arms, units, rows = declared_accounting()
-        print(f"declared arms: {arms} (= {units} declaration units; {rows} guarantee rows)", flush=True)
         return 0
     finally:
         shutil.rmtree(run, ignore_errors=True)
+
+
+def main(argv: list[str]) -> int:
+    if argv:
+        print(
+            f"test-acceptance takes no arguments (got: {' '.join(argv)}). "
+            "For a focused run use `just test-one tests/acceptance/<module>.py`. "
+            "This is an error, not a narrowing.",
+            file=sys.stderr,
+        )
+        return ARGUMENTS_REFUSED
+    refusal = refuse_old_roots(os.environ)
+    if refusal is not None:
+        print(refusal, file=sys.stderr)
+        return OLD_ROOT_REFUSED
+    configured = os.environ.get("BELIEFS_ACCEPTANCE_ROOT")
+    work = Path(configured) if configured else DEFAULT_ACCEPTANCE_ROOT
+    return run_acceptance(python_root=Path(__file__).resolve().parents[1], work=work)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

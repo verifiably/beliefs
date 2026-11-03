@@ -2,7 +2,7 @@
 
 Every identity here is asserted as a **relation** — a projection digested under
 its pinned domain, or two captures compared — never as a literal digest. The
-shipped fixtures are normative content this slice keeps editing, so a pinned
+shipped fixtures are normative content keep changing, so a pinned
 constant would be a test of the fixture bytes rather than of the rule
 (`test_world_rules.py` says the same thing about rule identities).
 
@@ -157,7 +157,7 @@ TWO_CORPORA = capture(
 )
 
 
-# --- Step 1: the address map and the producers map ---------------------------
+# --- the address map and the producers map ---------------------------
 
 
 class TestAddressMap:
@@ -178,15 +178,15 @@ class TestAddressMap:
         )
 
     def test_a_deprecated_address_is_a_publication_member(self):
-        # §7.2: a retired address answers out of the epoch, so it survives its
+        # A retired address answers out of the epoch, so it survives its
         # corpus being absent. Losing it is the defect this arm names.
         mapping = derive.address_map(TWO_CORPORA)
         assert mapping["dataset:retired"] == mapping["dataset:two"]
 
     @pytest.mark.parametrize("other_uid", ["uid-dataset:one", "uid-other"])
     def test_duplicate_location_is_reported_with_either_shared_or_distinct_uids(self, other_uid):
-        # Amended at cut 48 (W8b note): a shared uid is a duplicate location only with differing
-        # content; equal content is one record held twice (W19-a). The shared-uid arm differs here.
+        # A shared uid is a duplicate location only with differing
+        # content; equal content is one record held twice. The shared-uid arm differs here.
         clash = capture(
             corpus("corpus-a", record("dataset:one"), at="a"),
             corpus("corpus-b", record("dataset:one", uid=other_uid, content=digest("f")), at="b"),
@@ -286,7 +286,7 @@ class TestProducersMap:
         }
 
     def test_the_map_member_carries_the_producers_without_the_coverage(self):
-        # §6.1 stores the map and the snapshot separately; only the snapshot
+        # The epoch stores the map and the snapshot separately; only the snapshot
         # declares what it was built over.
         assert derive.producers_map_projection(snapshot_of(TWO_CORPORA).producers) == {
             "producers": [
@@ -351,7 +351,7 @@ def belief_digest(snapshot: derive.ProducerSnapshot) -> str:
     ).digest()
 
 
-# --- Step 2: retraction, certification, and coreference ----------------------
+# --- retraction, certification, and coreference ----------------------
 
 RETRACTIONS = capture(
     corpus(
@@ -556,7 +556,7 @@ class TestCoreferenceReduction:
             derive.CoreferenceMap(pairs={("address-a",): (1, 1)})  # pyright: ignore[reportArgumentType]
 
 
-# --- Step 3: subject identities and the one receipt contract -----------------
+# --- subject identities and the one receipt contract -----------------
 
 
 class TestSubjectIdentities:
@@ -600,7 +600,7 @@ class TestSubjectIdentities:
         assert len(set(domains)) == 4
 
     def test_a_rule_return_round_trips_through_its_subject_value(self):
-        # The subject value parses the rule's return and re-emits §7.6's exact
+        # The subject value parses the rule's return and re-emits the exact
         # projection. Equality of the two is what licenses digesting the parsed
         # value rather than the bytes the rule happened to hand back.
         for parse, symbol in (
@@ -705,7 +705,7 @@ class TestReceipts:
             )
 
     def test_a_subject_coverage_that_disagrees_with_the_captured_states_refuses(self):
-        # §7.5: "the exact captured corpus-state identity for every covered
+        # "the exact captured corpus-state identity for every covered
         # corpus". A subject declaring one coverage beside states naming
         # another is a receipt whose two halves describe two builds.
         wide = capture(
@@ -787,7 +787,7 @@ class TestReceipts:
 
 class TestBeliefBoundary:
     def test_the_coreference_receipt_carries_no_semantic_identity_or_belief_input(self):
-        # §7.5: coreference is outside belief, so its receipt carries no
+        # Coreference is outside belief, so its receipt carries no
         # semantic identity. The contract is one shape for all four, so the
         # absence has to be a property of the *field set* — a receipt with
         # nowhere to put one cannot acquire one for the coreference kind alone.
@@ -815,15 +815,15 @@ class TestBeliefBoundary:
             derive.belief_input_identity(tuple(one for one in produced if one.kind != "producer"))
 
     def test_receipt_outcomes_are_the_closed_five(self):
-        # `retracted` (correction-remainder slice 2 decision 10) gained the set last.
+        # `retracted` gained the set last.
         assert derive.RECEIPT_OUTCOMES == ("validated", "refuted", "unresolvable", "malformed", "retracted")
 
 
-# --- Step 5: the shipped fixtures are normative ------------------------------
+# --- the shipped fixtures are normative ------------------------------
 
 
 FAILURE_MODE_FIXTURES = {
-    # Step 5's five named failure modes, each with the shipped fixture whose
+    # The five named failure modes, each with the shipped fixture whose
     # expected bytes an implementation with that defect cannot produce.
     #
     # This is a *claim*, not documentation: `TestFixturesDiscriminate` runs a
@@ -834,7 +834,7 @@ FAILURE_MODE_FIXTURES = {
     #
     # `deprecated-address loss` is the one that is only half a rule's business:
     # publishing retired addresses is the address map's job and the address map
-    # is not a rule (§5.2 names four), so the fixture pins the half a rule can
+    # is not a rule, so the fixture pins the half a rule can
     # lose — the retired addresses ride in the captured view every reducer
     # reads, and are not producers. `TestAddressMap` covers the other half.
     "omission": "producer.every-corpus.yaml",
@@ -852,7 +852,7 @@ class Mutation:
 
     The set is exact in both directions. A fixture that refuses a defect it was
     not written for is worth knowing about, and a fixture that stops refusing
-    the defect it exists for is the regression Step 5 is guarding against.
+    the defect it exists for is the regression these fixtures guard against.
     """
 
     symbol: str
@@ -1018,7 +1018,7 @@ def refusing_fixtures(symbol: str, source: bytes) -> frozenset[str]:
 
 
 class TestFixturesDiscriminate:
-    """Step 5's point: the fixtures are normative because they *catch* things.
+    """The point: the fixtures are normative because they *catch* things.
 
     `rules._run_fixtures` only ever runs the shipped implementation, so nothing
     in the store notices a fixture that has stopped discriminating. These arms
@@ -1052,7 +1052,7 @@ class TestShippedFixtures:
         # so the four reducers really do read one enumeration pass.
         for bundle in rules.shipped_rule_bundles():
             # The record key set is version-invariant; the retraction member's key set is the
-            # per-version schema (cut 48 §4.5): v2 inputs carry each retraction's `arm`.
+            # per-version schema: v2 inputs carry each retraction's `arm`.
             retraction_keys = {"target", "resolution"} | ({"arm"} if bundle.input_version else set())
             for name, content in bundle.fixtures:
                 supplied, _expected = rules._parse_fixture_document(name, content)
@@ -1162,14 +1162,14 @@ class TestPurity:
             capture(corpus("corpus-a", at="a"), corpus("corpus-a", at="b"))
 
 
-# --- cut 48: the multi-holder address map (W19) --------------------------------
+# --- the multi-holder address map --------------------------------
 
 
-class TestW19MultiHolderMap:
+class TestMultiHolderMap:
     """One address held in several corpora with equal content identity maps one
     entry; differing content refuses; deprecated keys follow the record."""
 
-    def test_w19_a_equal_content_reads_once(self):
+    def test_equal_content_reads_once(self):
         shared = record("dataset:shared", uid="uid-shared")
         entry = derive.AddressEntry("uid-shared", shared.content, ("corpus-a", "corpus-b"))
         two = capture(corpus("corpus-a", shared, at="a"), corpus("corpus-b", shared, at="b"))
@@ -1186,7 +1186,7 @@ class TestW19MultiHolderMap:
         [{"uid": "uid-shared", "content": digest("f")}, {"uid": "uid-other"}],
         ids=["shared-uid-differing-content", "distinct-uids"],
     )
-    def test_w19_b_differing_content_refuses(self, other):
+    def test_differing_content_refuses(self, other):
         clash = capture(
             corpus("corpus-a", record("dataset:one", uid="uid-shared"), at="a"),
             corpus("corpus-b", record("dataset:one", **other), at="b"),
@@ -1198,7 +1198,7 @@ class TestW19MultiHolderMap:
         assert "corpus-a" in finding.detail and "corpus-b" in finding.detail
 
     @pytest.mark.parametrize("reverse", [False, True])
-    def test_w19_c_corruption_outranks(self, reverse):
+    def test_corruption_outranks(self, reverse):
         """The uid at two addresses is refused before the duplicate location the same
         capture also carries (corpus-c's differing claim on `dataset:one`), either order."""
         shared = record("dataset:one", uid="shared")
@@ -1216,7 +1216,7 @@ class TestW19MultiHolderMap:
             derive.address_map(capture(*(reversed(corpora) if reverse else corpora)))
         assert caught.value.finding.code == "uid-corruption" and caught.value.finding.ref == "shared"
 
-    def test_w19_d_deprecated_key_entry(self):
+    def test_deprecated_key_entry(self):
         from beliefs.errors import ResolutionRefused
 
         renamed = record("dataset:two", uid="uid-two", deprecated_ids=("dataset:retired",))
@@ -1236,7 +1236,7 @@ class TestW19MultiHolderMap:
         with pytest.raises(ResolutionRefused, match="dataset:retired"):
             derive.address_map(capture(corpus("corpus-a", renamed, at="a"), corpus("corpus-b", other, at="b")))
 
-    def test_w19_f_discovery_once(self):
+    def test_discovery_once(self):
         held_twice = record("retraction:one", kind="retraction", retraction=retraction("target-1"))
         mapping = derive.retraction_discovery_map(
             capture(corpus("corpus-a", held_twice, at="a"), corpus("corpus-b", held_twice, at="b"))
@@ -1253,7 +1253,7 @@ class TestW19MultiHolderMap:
         assert dict(coreference_of(twice).pairs) == {("address-a", "address-b"): (1, 1)}
 
 
-# --- cut 48: the v2 retraction fold equals the kernel's fold over the same records --------------
+# --- the v2 retraction fold equals the kernel's fold over the same records --------------
 
 
 class _FixtureResolver:

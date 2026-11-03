@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-#: The broad targets the adopted policy lists (design, Command contract).
+#: The broad targets the adopted policy lists.
 BROAD = ["test", "test-fast", "test-push", "check-code", "ci-python", "ci-typescript"]
 
 _STUB = r"""
@@ -89,6 +89,12 @@ class Checkout:
         self._stub(self.root / "bin/host-budget", _HOST_BUDGET, executable=True)
         for name in ("ops-check", "ops-docs"):
             self._stub(self.root / "tools" / name, _STUB.replace("NAME", repr(name)), executable=False)
+        (self.root / "python" / "tools").mkdir()
+        self._stub(
+            self.root / "python/tools/check_doc_links.py",
+            _STUB.replace("NAME", repr("check-doc-links")),
+            executable=False,
+        )
 
     @staticmethod
     def _stub(path: Path, source: str, *, executable: bool) -> None:

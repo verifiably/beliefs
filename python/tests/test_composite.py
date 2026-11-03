@@ -1,4 +1,4 @@
-"""`beliefs.composite` — construction, classification, identity, the stored shape (design §3–§5, U3, U5)."""
+"""`beliefs.composite` — construction, classification, identity, the stored shape."""
 
 from __future__ import annotations
 

@@ -81,7 +81,7 @@ CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v4"
 MOUNT_PLAN_DOMAIN = "science.mount-plan.v1"
 WORKFLOW_DEFINITION_DOMAIN = "science.workflow-definition.v2"
 
-#: §7.3a's three capabilities — the closed vocabulary a policy may name.
+#: The three capabilities — the closed vocabulary a policy may name.
 CAPABILITIES = ("from-bundle", "closure-confined-filesystem", "network-denied")
 #: What `clean-environment` requires — spelled separately, never derived from
 #: CAPABILITIES, so a capability added later does not become a requirement.
@@ -247,7 +247,7 @@ def _environment_identity(artifacts: tuple[tuple[str, str, str], ...]) -> str:
 @dataclass(frozen=True)
 class EnvironmentManifest:
     """The runtime artifact closure, one row per file: (sandbox path, kind,
-    digest or link target). Host paths never enter it (design §4.1). Every
+    digest or link target). Host paths never enter it. Every
     path is normalized — absolute, no `.`, `..` or empty components — so a
     join under a snapshot root can never leave it."""
 
@@ -316,7 +316,7 @@ def supported_policy(policy: object) -> BoundaryPolicy:
     """The entire definition — identity, scope rule and capability *set* —
     must equal one of the two the boundary knows; the canonical known value is
     returned, so a reordered spelling of a known set carries on as the
-    definition it names (design §3)."""
+    definition it names."""
     if type(policy) is not BoundaryPolicy:
         raise BoundaryPolicyUnsupported("the boundary policy must be a BoundaryPolicy value")
     for known in SUPPORTED_POLICIES:
@@ -358,7 +358,7 @@ class Recipe:
             raise MalformedClosure("an assessment recipe carries its frozen spec identity")
         if self.shape == "dataset-production" and self.spec_identity is not None:
             raise MalformedClosure("a dataset-production recipe has no assessment spec identity")
-        if type(self.environment) is not EnvironmentManifest:  # noqa: SIM102 - frozen cut-3 mutation seam
+        if type(self.environment) is not EnvironmentManifest:  # noqa: SIM102 - frozen mutation seam
             if type(self.environment) is not EnvironmentReference:
                 raise MalformedClosure("environment must be an EnvironmentManifest or decoded EnvironmentReference")
         if type(self.invocation) is not Invocation:
@@ -614,7 +614,7 @@ def mount_plan_identity(mounts: tuple[tuple[str, str, str], ...]) -> str:
 class InstanceAttestation:
     """What the boundary observed of the fresh instance from its own /proc:
     every namespace distinct from the parent's, the canonical mount table, its
-    identity, and the verified snapshot's environment identity (design §6.3)."""
+    identity, and the verified snapshot's environment identity."""
 
     namespaces: tuple[str, ...]
     mounts: tuple[tuple[str, str, str], ...]
@@ -818,7 +818,7 @@ def run_domain_for_projection(parsed: Mapping[str, object]) -> str:
     if recipe_v2 == ("workflow_definition_identity" in recipe):
         raise MalformedRecord("a recipe projection carries exactly one workflow member")
     if recipe_v2 != composed:
-        raise MalformedRecord(f"recipe shape v{2 if recipe_v2 else 1} does not pair with this receipt shape (§3.5)")
+        raise MalformedRecord(f"recipe shape v{2 if recipe_v2 else 1} does not pair with this receipt shape")
     launch = cast(Mapping[str, object], receipt["execution"]) if composed else receipt
     return run_domain_for(recipe_v2=recipe_v2, confined="instance" in launch)
 

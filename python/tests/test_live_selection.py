@@ -1,4 +1,4 @@
-"""Live view-query evaluation (live-query design §6.1 and the plan's Review Focus)."""
+"""Live view-query evaluation."""
 
 from __future__ import annotations
 
@@ -137,7 +137,7 @@ class TestEvaluation:
 
     def test_an_unreadable_manifest_refuses_with_open_world_views_message(self, tmp_path):
         """`_coverage` copies `open_world_view`'s manifest-refusal text
-        verbatim rather than sharing it (design §8's frozen-arm ruling); this
+        verbatim rather than sharing it; this
         pins the two message sets equal so a later edit to one side cannot
         drift from the other unnoticed."""
         world, _roots = two_corpora(tmp_path)
@@ -168,8 +168,8 @@ class TestEvaluation:
         assert str(live_refusal.value) == str(view_refusal.value)
 
 
-class TestW19LiveMapHolders:
-    def test_w19_g_live_map_holders(self, tmp_path):
+class TestLiveMapHolders:
+    def test_live_map_holders(self, tmp_path):
         from beliefs.errors import AddressMapConflict
 
         (shared,) = datasets("d-shared")

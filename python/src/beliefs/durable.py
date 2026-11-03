@@ -1,5 +1,5 @@
-"""The durable create-only write (layer design §6.1 step 0; publish-act-local
-design §4.4): temporary name, fsync, a create-only link, fsync of the directory.
+"""The durable create-only write: temporary name, fsync, a create-only link,
+fsync of the directory.
 Partial bytes never appear at the final name. Plain POSIX, outside every root —
 the operations root and the head artifact's sibling have no engine boundary."""
 

@@ -3,21 +3,21 @@
  *
  * The three load-bearing choices are the Python side's, and they are load-bearing
  * here for the same reasons — restated rather than cross-referenced, because a
- * reader of this file is checking it against the design, not against the other
+ * reader of this file is checking it against the contract, not against the other
  * implementation:
  *
- * * **arguments emit `term`, never `sort`** — §6.5 admits the referent
+ * * **arguments emit `term`, never `sort`** — the projection admits the referent
  *   identifier, and a sort is contract-declared, so carrying it would let a
  *   re-declaration re-project stored claims;
  * * **slots stay ordered, dimensions are not ordered here** — `science.identity.v1`
  *   sorts object keys at encode time, and sorting them again would be a second,
  *   silent canonicalization that could drift from the encoder's;
  * * **the polarity position is always present**, read from the claim's own tag,
- *   so no contract field decides the shape (§7.5).
+ *   so no contract field decides the shape.
  *
  * And the signature: `projectClaim` takes a `Claim` and nothing else. A
  * `ProfileSpec` parameter would make it possible to fold a contract release into
- * `π_claim`, which is M8's named sabotage.
+ * `π_claim`, which is the named failure.
  */
 
 import { Claim } from "./claim.js";
@@ -25,7 +25,7 @@ import { ClaimError } from "./errors.js";
 import { digest } from "./identity/v1.js";
 
 /**
- * §6.5's `tag_claim`. The version is the **projection's**: it moves when
+ * The `tag_claim` version is the **projection's**: it moves when
  * π_claim's shape moves and nothing else moves it, so a grammar or corpus bump
  * cannot fork claims already written.
  */

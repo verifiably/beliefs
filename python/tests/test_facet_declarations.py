@@ -1,4 +1,4 @@
-"""Design §3.1, §3.2, §3.4: the declaration grammar's closure, in the base contract."""
+"""The declaration grammar's closure, in the base contract."""
 
 import copy
 from typing import Any, cast
@@ -43,7 +43,7 @@ class TestTheShippedDeclarations:
         assert base_contract.kinds["instrument-certification"].facets == {}
         assert base_contract.kinds["instrument-certification"].role == "world"
 
-    def test_the_coreference_attestation_is_governed_since_slice_2(self, base_contract):
+    def test_the_coreference_attestation_is_governed(self, base_contract):
         kind = base_contract.kinds["coreference-attestation"]
         assert kind.domain == "science.coreference-attestation.v1"
         assert set(kind.facets) == {"coreference-attestation"}

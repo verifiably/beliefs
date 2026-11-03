@@ -1,4 +1,4 @@
-"""Generate M10's cross-language parity fixture. **Run by hand, never by tests.**
+"""Generate the cross-language parity fixture. **Run by hand, never by tests.**
 
     uv run python tools/generate_claim_identity_fixture.py
 
@@ -17,7 +17,7 @@ holds the claim's parts, and both implementations must **build and project from
 the parts**. A fixture whose only input were the projection would test
 `science.identity.v1` parity while bypassing `π_claim` entirely — the shared
 encoding would be covered and the shared *projection* would not, which is most of
-what M10 is for.
+what this fixture is for.
 
 **The file is written pure-ASCII** (`ensure_ascii=True`). The vector deliberately
 contains non-ASCII and combining-character referents, and an editor, a merge tool

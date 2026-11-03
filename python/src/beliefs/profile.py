@@ -1,27 +1,27 @@
 """``ProfileSpec`` — the sole compiled runtime profile.
 
-D §6 closed substrate §12 by **retiring** the second per-kind source of truth
-rather than picking a winner between two. One normative source — the `science`
+The second per-kind source of truth is **retired** rather than reconciled with
+the first. There is one normative source — the `science`
 base contract together with the activated domain contracts — and every runtime
 artifact compiled from it:
 
     base contract  ─┐   (normative SSOT)
-                    ├─▶  ProfileSpec  ─┬─▶  KindSpec set  (D4)
-    domain contracts┘   (compiled)     └─▶  claim schemas (M7, here)
+                    ├─▶  ProfileSpec  ─┬─▶  KindSpec set
+    domain contracts┘   (compiled)     └─▶  claim schemas
 
 Kind and facet declarations compile into one private registry alongside the claim
-schemas. Operators belong to no kind (M7).
+schemas. Operators belong to no kind.
 
-**`ProfileSpec` resolves; contracts authorize** (§7.5). The two roles must not
+**`ProfileSpec` resolves; contracts authorize**. The two roles must not
 blur, and the sharp consequence is that **`ProfileSpec`'s own identity never
 appears in `π_claim` or in the consulted set**. If a compiled artifact were an
 identity authority, recompiling — a different merge order, a different compiler —
 could move claim identity with no contract edit anywhere, which is
 `KIND_DESCRIPTORS`' defect one level up. What enters `belief_input_digest` is the
-set of **contract** identities (D6), never the compiled artifact's.
+set of **contract** identities, never the compiled artifact's.
 
-``compiled_identity`` exists for a narrower job: it is what M7 means by
-*"semantic-schema edits recompile, description edits do not."* It is derived from
+``compiled_identity`` exists for a narrower job: it is the identity under which
+*semantic-schema edits recompile and description edits do not.* It is derived from
 the merged **schema projections** alone, so an editorial edit moves the contract
 identity and leaves this one still. It is not an input to any claim.
 """
@@ -89,9 +89,8 @@ def shipped_base_contract() -> BaseContract:
 
 
 def shipped_coordination(version: int = 2) -> CoordinationContract:
-    """The coordination contract carried by this package (publication-records
-    design decision 2): versions 1–3, each parsed against its immediate predecessor. The
-    default is normalised before the cache, so `shipped_coordination()` and
+    """The coordination contract carried by this package: versions 1–3, each parsed against its
+    immediate predecessor. The default is normalised before the cache, so `shipped_coordination()` and
     `shipped_coordination(2)` are one object."""
     if type(version) is not int:
         # `True in (1, 2)` holds and `@cache` would conflate True with 1
@@ -191,7 +190,7 @@ class CompiledOperator:
 
     Resolution is the compiled artifact's whole job. `arg_sorts` and `dimensions`
     are written locally in a contract and are namespaced here, because a claim's
-    projection carries **term identifiers** (§6.5) and a local name is not one.
+    projection carries **term identifiers** and a local name is not one.
     """
 
     term: str
@@ -217,8 +216,7 @@ class CompiledOperator:
 
 @dataclass(frozen=True)
 class CompiledEstimandDecl:
-    """An `estimands:` entry with every sort resolved to a term identifier
-    (estimand-typing §5.2)."""
+    """An `estimands:` entry with every sort resolved to a term identifier."""
 
     operator: str
     level_sorts: Mapping[str, str]
@@ -244,7 +242,7 @@ class CompiledKind:
     facets: Mapping[str, FacetUse]
     covered: tuple[str, ...]
     """The covered facets **sorted by key by code point** — coverage order is never
-    the authored order, so one contract identity yields one stamp (§4.2)."""
+    the authored order, so one contract identity yields one stamp."""
     contract: str
 
     def projection(self) -> dict[str, object]:
@@ -282,9 +280,9 @@ class ProfileSpec:
     """**Compiled, never authored.**
 
     There is no public field-wise constructor, and the mappings below are read-only
-    views over private copies. Both are the same requirement as M13's for `Claim`,
+    views over private copies. Both are the same requirement as the opacity of `Claim`,
     one level up: an authored `ProfileSpec` would be the second per-kind source of
-    truth D §6 retired, and a mutated one would carry a `compiled_identity`
+    truth that was retired, and a mutated one would carry a `compiled_identity`
     describing a profile that no longer exists.
     """
 
@@ -306,7 +304,7 @@ class ProfileSpec:
     coordination_query_relations: frozenset[str]
 
     base_contract_identity: str
-    """Unconditional. D §8: a derivation reading no base-profile facet at all
+    """Unconditional: a derivation reading no base-profile facet at all
     still consults the base contract, because a base contract can reinterpret a
     kernel kind or a relation signature."""
 
@@ -314,16 +312,15 @@ class ProfileSpec:
     """Namespace → content identity, for the domains **activated** in this
     profile.
 
-    **Activated is not consulted, and the two must never be conflated.** D6's
-    conditional arm is explicit that an activated-but-unconsulted contract
-    contributes *nothing* to `belief_input_digest`; a computation that took
+    **Activated is not consulted, and the two must never be conflated.** An
+    activated-but-unconsulted contract contributes *nothing* to
+    `belief_input_digest`; a computation that took
     ``activated_contracts.values()`` wholesale would move a belief because an
-    unrelated domain was switched on, which is the exact defect D6's negative arm
-    tests for. This is a **resolution table** — what a claim's identifiers can be
+    unrelated domain was switched on, which is the defect the tests for an
+    unconsulted contract exist to catch. This is a **resolution table** — what a claim's identifiers can be
     resolved against — and the consulted subset is whatever a derivation actually
-    reaches. Nothing here computes it: belief is outside cut 1, and §7.1's
-    amendment widens the walk that would (operator, dimension, sort and
-    vocabulary-binding triggers, not only facet namespaces).
+    reaches. Nothing here computes it: the walk that would reaches through operator,
+    dimension, sort and vocabulary-binding triggers, not only facet namespaces.
     """
 
     compiled_identity: str
@@ -334,7 +331,7 @@ class ProfileSpec:
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise ProfileError(
             "ProfileSpec is compiled, never authored — use compile_profile(base, domains). "
-            "D §6 closed substrate §12 by retiring the second per-kind source of truth; an "
+            "The second per-kind source of truth was retired; an "
             "authored profile would reintroduce it, and one built field-wise could carry a "
             "compiled_identity that describes a different profile than its own contents."
         )
@@ -395,7 +392,7 @@ class ProfileSpec:
         return MappingProxyType({**own, **attached})
 
     def validate_document(self, node: Node) -> None:
-        """Kind registered and facet keys declared (G5, D4), raising `nodes`' own
+        """Kind registered and facet keys declared, raising `nodes`' own
         `UnknownKindError` / `FacetError`. The registry stays private: exposing it
         would let a caller register or mutate a kind without moving a pin."""
         self._registry.validate(node)
@@ -406,36 +403,36 @@ class ProfileSpec:
     def operator(self, term: str) -> CompiledOperator:
         """Resolve an operator term identifier, or refuse.
 
-        §7.4 row 4a: a claim naming an operator whose declaring contract is not
+        A claim naming an operator whose declaring contract is not
         in the profile is a **local, static** failure, so it refuses here and
-        nothing is minted. That is a different failure from 4b's cross-corpus
+        nothing is minted. That is a different failure from a cross-corpus
         conflict, which is only visible when a derivation assembles a closure.
         """
         try:
             return self.operators[term]
         except KeyError:
             raise ProfileError(
-                f"no operator {term!r} in this profile. Operators are domain-issued (§7.1); "
+                f"no operator {term!r} in this profile. Operators are domain-issued; "
                 f"activated namespaces are {sorted(self.activated_contracts)}."
             ) from None
 
     def estimand(self, term: str) -> CompiledEstimandDecl:
         """The estimand declaration for an operator, or refuse. An operator with
         no declaration admits no typed estimand, so a spec targeting a claim at
-        it refuses at construction (estimand-typing §7.1)."""
+        it refuses at construction."""
         self.operator(term)
         try:
             return self.estimands[term]
         except KeyError:
             raise ProfileError(
-                f"operator {term!r} declares no estimand; its contract's `estimands:` table has no entry for it "
-                "(estimand-typing §5.1), so no spec can target a claim at it."
+                f"operator {term!r} declares no estimand; its contract's `estimands:` table has no entry for it"
+                ", so no spec can target a claim at it."
             ) from None
 
     def authorable_operators(self) -> tuple[str, ...]:
         """The operators the typed **authoring** constructor may offer.
 
-        §7.3a: retirement lives in authoring, not in validation. A retired
+        Retirement lives in authoring, not in validation. A retired
         identifier is still *resolvable* — decode, import and restore type a
         historical claim against the frozen retired declaration — and refusing it
         at decode would corrupt exactly the history retirement exists to
@@ -446,9 +443,9 @@ class ProfileSpec:
         `arg_sorts` is retired cannot be authored at all: `Referent(s)` for a
         retired `s` has nothing an author may select. Offering the operator and
         then refusing every attempt to fill the slot would put the refusal one
-        step too late, at a boundary §7.3a puts squarely in authoring.
+        step too late, at a boundary that belongs squarely to authoring.
 
-        **Permitted dimensions do not reach it.** §6.2 makes `Dims(op)` the set
+        **Permitted dimensions do not reach it.** `Dims(op)` is the set
         of dimensions *permitted*, not required, so a retired dimension withdraws
         only itself — see `authorable_dimensions`.
         """
@@ -472,12 +469,12 @@ class ProfileSpec:
         Refusing is also what keeps two different facts apart. An empty tuple is
         already the honest answer for a live operator that permits no dimensions
         — `subtype-of` is one — so returning it here would make *"withdrawn"* and
-        *"has none"* the same answer, which is §7.5's `inapt`/`unsigned` collapse
+        *"has none"* the same answer, which is the `inapt`/`unsigned` collapse
         committed one level down.
 
         A dimension is itself withdrawn either by its own retirement or by the
         retirement of the sort its restrictions bind to: a restriction is sorted
-        exactly as an argument is (§6.2), so a retired restriction sort leaves
+        exactly as an argument is, so a retired restriction sort leaves
         nothing selectable, and a dimension whose restriction cannot be bound is
         not a dimension an author can use.
         """
@@ -485,7 +482,7 @@ class ProfileSpec:
         if not self._is_authorable(operator):
             raise WithdrawnFromAuthoring(
                 f"operator {term!r} is withdrawn from authoring — {self._withdrawal_reason(operator)}. "
-                "§7.3a: it stays resolvable for decode, import and restore, which type a historical claim "
+                "It stays resolvable for decode, import and restore, which type a historical claim "
                 "against the frozen declaration."
             )
         return tuple(
@@ -512,7 +509,7 @@ def compile_profile(
 ) -> ProfileSpec:
     """Merge the base contract and the activated domain contracts.
 
-    Merging happens **upstream** of any registration, which is why D §6 could
+    Merging happens **upstream** of any registration, which is why the merge could
     report a zero `nodes` delta: `Registry` never sees two contributors for one
     kind because the compiled product is already one fully-composed spec.
 
@@ -550,7 +547,7 @@ def compile_profile(
             raise UnparsedContract(
                 f"a domain contract is a {type(contract).__name__}, not a parsed DomainContract — use "
                 "parse_domain_contract(document, source=..., base=..., predecessor=...) or "
-                "load_domain_contract(path, base=...). Operators are domain-issued (§7.1), and an authored "
+                "load_domain_contract(path, base=...). Operators are domain-issued, and an authored "
                 "contract issues them on no authority."
             )
         # Provenance is not enough on its own: two contracts can each be entirely
@@ -565,7 +562,7 @@ def compile_profile(
                 f"domain contract {contract.namespace!r} was typed against base contract "
                 f"{contract.base_identity[:12]}…, and this profile is being compiled with "
                 f"{base.content_identity[:12]}…. A domain selects its layers from the base vocabulary and "
-                "may not extend it (§7.1); that check ran at parse time against a different document, so "
+                "may not extend it; that check ran at parse time against a different document, so "
                 "nothing here can stand behind it."
             )
 
@@ -760,9 +757,8 @@ def _projection(
 
     That is the load-bearing choice. A sequence would make the merge order an
     identity input, so recompiling after activating the same domains in a
-    different order would move the compiled identity — and D §6 retired the
-    second per-kind source of truth precisely so that a compiled artifact could
-    not drift from what it was compiled from.
+    different order would move the compiled identity — and the second per-kind source of truth was
+    retired precisely so that a compiled artifact could not drift from what it was compiled from.
     """
     projection: dict[str, object] = {
         # Closed *sets*, so sorted here too. The base contract keeps its authored

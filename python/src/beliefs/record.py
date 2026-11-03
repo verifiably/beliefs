@@ -2,16 +2,16 @@
 
 Runs here are **values with role-typed inputs, not the execution boundary** —
 begin/capture/replay is not built, `spec` is an opaque supplied identity, and
-every R row stays at the run boundary (cut 2 §3). The roles are kernel §4.1's:
-`observes` is what confers eligibility, `reads` never does in any quantity (G6),
+the guarantees stay at the run boundary. The roles are:
+`observes` is what confers eligibility, `reads` never does in any quantity,
 `transforms` is dataset-production lineage input.
 
-The assessment facet is kernel §4.2.1's table. `estimand` and `applicability`
-are typed against the spec they derive from (estimand-typing design §6, §9):
+The assessment facet's `estimand` and `applicability`
+are typed against the spec they derive from;
 `estimate` and `uncertainty` are checked against the estimand's scale at
 **every** construction, never coerced. Its identity is `(spec, run,
 proposition)`; its keyed facet digest is what the closure pairs with that
-identity (kernel §5.1's first member).
+identity.
 """
 
 from __future__ import annotations
@@ -91,10 +91,10 @@ class RunValue:
 class AssessmentValue:
     spec: str
     run: str
-    """The run's bare closure address — its world identity — on the derived and the stored side alike (verification-publication design §3)."""
+    """The run's bare closure address — its world identity — on the derived and the stored side alike."""
 
     proposition: str
-    """A cut-1 claim identity: propositions are typed claims, consumed here."""
+    """A claim identity: propositions are typed claims, consumed here."""
 
     outcome: str
     interpretation_rule: str
@@ -118,7 +118,7 @@ class AssessmentValue:
             raise MalformedRecord(
                 f"uncertainty is an Interval, a StandardError or absent, found {type(self.uncertainty).__name__}"
             )
-        # The numerical invariants (estimand-typing §6) hold at **every**
+        # The numerical invariants hold at **every**
         # construction — the constructor's, the stored reader's, a test's — so a
         # stored record cannot carry a negative standard error or an interval
         # that excludes its estimate any more than a derived one can.
@@ -135,7 +135,7 @@ class AssessmentValue:
 
     def identity(self) -> str:
         """`(spec, run, proposition)` — which is what puts run identity in the
-        belief digest at all (kernel §5.1)."""
+        belief digest at all."""
         return v1.digest(ASSESSMENT_DOMAIN, {"spec": self.spec, "run": self.run, "proposition": self.proposition})
 
     def typed_projection(self) -> dict[str, object]:
@@ -170,8 +170,8 @@ class AssessmentValue:
 class SourceAssertion:
     """A source-assertion can assert, deny or hypothesize — never assess.
 
-    Kernel §4.1 closes the relation signatures, and this constructor is where
-    the closure is enforced in this slice (G1): there is no other authoring
+    The relation signatures are closed, and this constructor is where
+    the closure is enforced here: there is no other authoring
     surface to refuse at. Inertness is the default; `assesses` is declared for
     assessments exactly once."""
 
@@ -184,6 +184,6 @@ class SourceAssertion:
         if self.relation not in SOURCE_ASSERTION_RELATIONS:
             raise SignatureRefused(
                 f"a source-assertion cannot carry {self.relation!r}; its closed signatures are "
-                f"{SOURCE_ASSERTION_RELATIONS} — an `assesses` edge is the assessment's, by type (G1)"
+                f"{SOURCE_ASSERTION_RELATIONS} — an `assesses` edge is the assessment's, by type"
             )
         object.__setattr__(self, "payload", MappingProxyType(dict(self.payload)))

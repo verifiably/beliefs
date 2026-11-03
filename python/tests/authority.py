@@ -1,4 +1,4 @@
-"""The one full authority every migrated test binds (design §9.2)."""
+"""The one full authority every migrated test binds."""
 
 from __future__ import annotations
 

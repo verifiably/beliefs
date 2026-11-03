@@ -1,13 +1,12 @@
-"""The re-check operation (act-report-remainder design §4).
+"""The re-check operation.
 
 One operation intent, then per location the `recheck` act as built — its own
 holdings intent, its own observation — then one closing transaction carrying
 the act-report: one locator entry per location, in request order. No
-cooperative stop: the close mints nothing that depends on any location
-(decision 5). Nothing is held across the acts; the close takes the caller's
-hold and then the root lock, the view rebuilt before any ref resolves
-(decision 6). Every check the acts would make late is made before the
-intent (decision 14).
+cooperative stop: the close mints nothing that depends on any location.
+Nothing is held across the acts; the close takes the caller's
+hold and then the root lock, the view rebuilt before any ref resolves.
+Every check the acts would make late is made before the intent.
 """
 
 from __future__ import annotations
@@ -58,7 +57,7 @@ def _now() -> str:
 
 def _require_identity_text(value: object, name: str) -> None:
     """`holdings_observation`'s rule for observer and instrument, made before
-    the intent rather than after the read (decision 14)."""
+    the intent rather than after the read."""
     if type(value) is not str or not value:
         raise RecheckRefused(f"a re-check's {name} must be a non-empty string")
     try:
@@ -78,8 +77,8 @@ def recheck_locations(
 ) -> RecheckOutcome:
     """`hold` is the caller's outer lock for the close — the session route
     passes the one `ScopedWriter._act` takes first — entered before the root
-    lock and never around an act (decision 6)."""
-    # 1. Checks, before any effect (§4 step 1).
+    lock and never around an act."""
+    # 1. Checks, before any effect.
     if (
         type(locations) is not tuple
         or not locations

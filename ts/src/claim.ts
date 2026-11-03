@@ -1,7 +1,7 @@
 /**
  * `Claim` — the typed claim, and the only route to one, on this side too.
  *
- * M13's requirement is that a `Claim` is opaque and reachable only through a
+ * The requirement is that a `Claim` is opaque and reachable only through a
  * validated construction, so that the profile-dependent checks happen **once**
  * and no downstream reader re-validates. That requirement is the claim's, not
  * Python's. A TypeScript path that accepted an object shaped like a claim would
@@ -74,7 +74,7 @@ export class Referent {
   }
 }
 
-/** One entry of the flat fragment: `d ↦ ⟨quantifier, restriction⟩` (§6.4). */
+/** One entry of the flat fragment: `d ↦ ⟨quantifier, restriction⟩`. */
 export class Qualifier {
   #minted = true;
   readonly quantifier: string;
@@ -103,7 +103,7 @@ export interface ClaimParts {
   readonly operator: string;
   readonly args: readonly Referent[];
   readonly qualifiers: ReadonlyMap<string, Qualifier>;
-  /** `null` when the operator has no sign to assert — `Polarity(op)` is then the unit type (§6.3). */
+  /** `null` when the operator has no sign to assert — `Polarity(op)` is then the unit type. */
   readonly polarity: string | null;
   readonly layer: string;
 }
@@ -116,7 +116,7 @@ export class Claim {
   readonly operator: string;
   readonly args: readonly Referent[];
   readonly qualifiers: QualifierRecord;
-  /** Always a tag, and the base contract's `sign_inapt_tag` where the operator has no sign (§7.5). */
+  /** Always a tag, and the base contract's `sign_inapt_tag` where the operator has no sign. */
   readonly polarity: string;
   readonly layer: string;
 
@@ -127,7 +127,7 @@ export class Claim {
     if (token !== MINT) {
       throw new ClaimError(
         "Claim is validated at construction — use buildClaim(profile, parts). A field-wise constructor " +
-          "would put an unchecked claim downstream of the one boundary that checks (M13), and every reader " +
+          "would put an unchecked claim downstream of the one boundary that checks, and every reader " +
           "that trusts a Claim unconditionally would then be wrong.",
       );
     }
@@ -153,22 +153,22 @@ export class Claim {
 function requireIdentifier(value: unknown, where: string): void {
   if (typeof value !== "string" || value === "") {
     throw new MalformedReferent(
-      `${where} is ${JSON.stringify(value)}, not a term identifier. Every position in π_claim is an identifier (§6.5), and a referent's fields are the only ones no downstream check would catch.`,
+      `${where} is ${JSON.stringify(value)}, not a term identifier. Every position in π_claim is an identifier, and a referent's fields are the only ones no downstream check would catch.`,
     );
   }
 }
 
 /**
  * The validated constructor. Every check here is profile-dependent, and each one
- * refuses distinctly — M11 decodes each ill-formed input in turn.
+ * refuses distinctly — decode checks each ill-formed input in turn.
  *
  * The **profile is checked first, and by brand**. `ProfileSpec` was structurally
  * typed, so a hand-authored object could stand in for one — and a claim typed
  * against a forged profile is typed against nothing, with every operator, layer
  * and sort in it invented by whoever wrote the object. The contracts are the
- * normative SSOT (D §6); a profile that did not come from them is not a profile.
+ * normative SSOT; a profile that did not come from them is not a profile.
  *
- * Retirement is not among the checks: §7.3a puts it in authoring, and this
+ * Retirement is not among the checks: retirement lives in authoring, and this
  * implementation refuses a contract carrying a retired declaration outright
  * rather than half-enforcing an authoring boundary it does not own.
  */
@@ -189,7 +189,7 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
   parts.args.forEach((referent, index) => {
     if (!Referent.is(referent)) {
       throw new UntypedReferent(
-        `slot ${index} of ${parts.operator} does not hold a Referent. A slot is typed Referent(s) (§6.2), and a bare term carries no sort to check against the one declared.`,
+        `slot ${index} of ${parts.operator} does not hold a Referent. A slot is typed Referent(s), and a bare term carries no sort to check against the one declared.`,
       );
     }
     if (referent.sort !== declaration.argSorts[index]) {
@@ -208,12 +208,12 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
     }
     if (!permitted.has(dimension)) {
       throw new UndeclaredDimension(
-        `${parts.operator} does not permit dimension ${dimension}; Dims(op) is declared per operator (§6.2).`,
+        `${parts.operator} does not permit dimension ${dimension}; Dims(op) is declared per operator.`,
       );
     }
     if (!profile.claimGrammar.quantifiers.includes(qualifier.quantifier)) {
       throw new UnknownQuantifier(
-        `quantifier ${qualifier.quantifier} on ${dimension} is outside the kernel's closed set (§6.4).`,
+        `quantifier ${qualifier.quantifier} on ${dimension} is outside the kernel's closed set.`,
       );
     }
     const restrictionSort = profile.dimensions[dimension]?.restrictionSort;
@@ -240,7 +240,7 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
   } else {
     if (parts.polarity !== null) {
       throw new PolarityRefused(
-        `${parts.operator} is sign-inapt: Polarity(op) is the unit type (§6.3), so there is no polarity to supply — not even ${grammar.signInaptTag}, which the projection carries on the claim's behalf (§7.5) and an author never chooses.`,
+        `${parts.operator} is sign-inapt: Polarity(op) is the unit type, so there is no polarity to supply — not even ${grammar.signInaptTag}, which the projection carries on the claim's behalf and an author never chooses.`,
       );
     }
     tag = grammar.signInaptTag;

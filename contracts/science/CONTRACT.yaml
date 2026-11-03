@@ -1,13 +1,13 @@
 # The `science` base contract — the kernel-owned structure of a Claim.
 #
-# Authored data, never a constant compiled into an implementation: the formal
-# model §8 sites the claim grammar here "which is why it is a contract and not a
-# constant". Domain contracts declare operators, dimensions and sorts; this
-# document declares only what §6.4 refuses to let a domain choose.
+# Authored data, never a constant compiled into an implementation: the claim
+# grammar lives here, which is why it is a contract and not a constant. Domain
+# contracts declare operators, dimensions and sorts; this document declares
+# only what a domain may not choose.
 #
 # Editing a closed set below re-identifies every claim in every corpus. That is
-# §7.4 row 5, and it is not a migration — there is no path that preserves
-# identities across a tag change, because the identities *are* the bytes.
+# not a migration — there is no path that preserves identities across a tag
+# change, because the identities *are* the bytes.
 
 contract: science
 version: 1
@@ -17,27 +17,27 @@ claim_grammar:
 
   # A kernel tag's canonical bytes are its symbol, encoded as a string under the
   # named contract. Declared rather than assumed so that no implementation can
-  # choose its own serialization for a tag — the incidental re-encoding §7.4 row
-  # 5 exists to make impossible.
+  # choose its own serialization for a tag — the incidental re-encoding this
+  # exists to make impossible.
   tag_encoding: science.identity.v1
 
   quantifiers: [generic, universal, existential]
 
   # The polarities a claim may assert. `inapt` is deliberately not among them:
   # `unsigned` says the operator has a sign and this claim asserts none, while
-  # `inapt` says the operator has no sign to assert (§7.5). Collapsing the two
+  # `inapt` says the operator has no sign to assert. Collapsing the two
   # would lose a distinction the projection exists to carry.
   polarities: [positive, negative, unsigned]
   sign_inapt_tag: inapt
 
   layers: [causal, structural, statistical, methodological]
 
-# --- estimand grammar (estimand-typing design §3.1) ---------------------------
+# --- estimand grammar ---------------------------------------------------------
 # Three closed *structural* sets: each member is defined by an operation the
 # kernel performs — a `levels` contrast requires two bound levels, an
 # `additive` scale compares by difference, an `interval` carries bounds and a
 # level. Identification classes and measured quantities are vocabulary and are
-# declared by domain contracts (§5), never here.
+# declared by domain contracts, never here.
 estimand_grammar:
   version: 1
   tag_encoding: science.identity.v1
@@ -45,14 +45,14 @@ estimand_grammar:
   scales: [additive, multiplicative]
   uncertainty_kinds: [interval, standard-error]
 
-# --- composite grammar (composite-claims design §3.1) ------------------------
+# --- composite grammar --------------------------------------------------------
 # A shape is a thing the kernel does — for `dag`, derive directed edges from the
 # members' claims and refuse a cycle — so the set is kernel-owned and closed.
 composite_grammar:
   version: 1
   shapes: [dag]
 
-# --- kinds, relations and facets (facet-contracts design §3) -----------------
+# --- kinds, relations and facets ----------------------------------------------
 kinds:
   proposition:
     domain: science.proposition.v1

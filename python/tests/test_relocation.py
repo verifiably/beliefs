@@ -1,7 +1,7 @@
 """The two-root world-changing operations: move and consolidate.
 
 Portable: `relocation` takes its writers as arguments, so these run against
-`DefaultExecutor` behind the test recorder. What they cannot claim is cut-16
+`DefaultExecutor` behind the test recorder. What they cannot claim is durable
 discharge — that runs on the certified engine, under the acceptance runner.
 """
 

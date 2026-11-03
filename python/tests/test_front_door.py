@@ -16,10 +16,10 @@ from route_fixtures import Checkout
     ("path", "recipe"),
     [
         ("AGENTS.md", "hook-pre-commit-docs"),
-        ("tasks/task.md", "hook-pre-commit-docs"),
+        ("tasks/task.md", "hook-pre-commit"),
         ("justfile", "hook-pre-commit"),
-        ("README.md", "hook-pre-commit"),
-        ("docs/designs/cut.md", "hook-pre-commit"),
+        ("README.md", "hook-pre-commit-docs"),
+        ("docs/guide.md", "hook-pre-commit-docs"),
     ],
 )
 def test_staged_paths_choose_the_gate(tmp_path: Path, path: str, recipe: str) -> None:
@@ -84,7 +84,7 @@ def test_one_preserves_arguments_and_records_the_run(tmp_path: Path) -> None:
     assert checkout.just(*command).returncode != 0
 
 
-_HYGIENE = ["ops-check", "ops-docs", "tasks"]
+_HYGIENE = ["ops-check", "ops-docs", "check-doc-links", "tasks"]
 _CHECK_CODE = ["uv", "uv", "uv", "npm", "npm"]
 _BROAD_CHILDREN = {
     "hook-pre-commit": {"check-code"},
@@ -135,7 +135,7 @@ def test_failing_code_check_stops_the_suite(tmp_path: Path, recipe: str) -> None
         ("hook-pre-commit", _HYGIENE + _CHECK_CODE, ["hook-pre-commit", "check-code"]),
         (
             "hook-pre-push",
-            _HYGIENE + _CHECK_CODE + ["host-budget", "uv", "uv", "npm"],
+            _HYGIENE + _CHECK_CODE + ["host-budget", "uv", "npm"],
             ["hook-pre-push", "check-code", "test"],
         ),
         (

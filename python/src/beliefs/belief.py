@@ -1,6 +1,6 @@
-"""``evaluate`` — the belief evaluator, end to end (kernel §5, belief-policy §4).
+"""``evaluate`` — the belief evaluator, end to end.
 
-Three answers, as banked: a computed `Belief`, a `NoBelief` (the computation
+Three answers: a computed `Belief`, a `NoBelief` (the computation
 succeeded and found none), or a `Refused` (the computation could not be
 trusted to run at all). Reasons are discriminants *within* an arm, never a
 fourth answer.
@@ -14,7 +14,7 @@ defaulted.
 
 Heldness selects the *shape* of the answer — whether a held-eligible input is
 even available to weigh — never the answer's value, and it is not a member of
-the belief input closure (ρA8): nothing about which datasets happened to be
+the belief input closure: nothing about which datasets happened to be
 held here is digested, because two evaluators with different holdings must be
 able to agree on the digest of the belief they each *could* compute.
 
@@ -22,8 +22,8 @@ The evaluator stores nothing. Every field of every answer is derived, fresh,
 from the arguments of one call — there is no belief record, no "current
 belief" selector, and no cache; the module namespace itself carries no
 mutable state for the same reason `verification.lifecycle_state` takes no
-memory of its own (kernel §3.3's non-negotiable: a pure function of its
-argument, called again every time it is asked).
+memory of its own (a pure function of its argument, called again every time it
+is asked).
 """
 
 from __future__ import annotations
@@ -75,9 +75,9 @@ __all__ = [
     "evaluate_traced",
 ]
 
-# Base outcome semantics — deliberately not the policy's to choose (D §8).
+# Base outcome semantics — deliberately not the policy's to choose.
 # `supported`, `refuted` and `inconclusive` already carry meanings fixed by
-# kernel §4.2.1's facet table, and a policy permitted to remap them would be
+# the kernel's facet table, and a policy permitted to remap them would be
 # a policy permitted to reverse them, which is reinterpreting an outcome, not
 # aggregating it. In a full system this mapping is the `science_contract`'s
 # meaning-bearing content; here it is pinned as a module constant because
@@ -92,10 +92,9 @@ NO_BELIEF_REASONS = (
     "no-eligible-assessment",
     "no-directional-outcome",
 )
-"""The closed set of `NoBelief` reasons (belief-policy §4). `unavailable-
+"""The closed set of `NoBelief` reasons. `unavailable-
 corpus-absent` is returned by `evaluate_over` over a world read view whose
-inputs reach a record the epoch maps to a covered corpus with no carrier
-(world-resolution slice 1 §5.3)."""
+inputs reach a record the epoch maps to a covered corpus with no carrier."""
 
 
 def _acceptance_statement(statement: str) -> None:
@@ -140,7 +139,7 @@ class AcceptanceContext:
 class Belief:
     value: int
     belief_input_digest: str
-    """Accompanies the `Belief` arm only (ρA8) — a `NoBelief` or `Refused`
+    """Accompanies the `Belief` arm only — a `NoBelief` or `Refused`
     answer has no committed input set to digest."""
 
     policy_binding: PolicyBinding
@@ -224,7 +223,7 @@ class Records:
     assessments: tuple[AssessmentValue, ...]
     runs: Mapping[str, RunValue]
     source_assertions: tuple[SourceAssertion, ...]
-    """Never read below (G1): a source-assertion asserts, denies or
+    """Never read below: a source-assertion asserts, denies or
     hypothesizes, and moves no belief output byte."""
     verifications: tuple[Verification, ...]
     observed_facets: tuple[FacetRead, ...] = ()
@@ -248,8 +247,8 @@ class Records:
 @final
 @dataclass(frozen=True)
 class Availability:
-    """What is held **here**, supplied explicitly — never ambient (M11's
-    doctrine, cut 1). Keyed by dataset address, policy rule identity and
+    """What is held **here**, supplied explicitly — never ambient.
+    Keyed by dataset address, policy rule identity and
     implementation content identity respectively."""
 
     observations: Mapping[str, tuple[ByteObservation, ...]]
@@ -292,7 +291,7 @@ class SuppliedContext:
 def _observes_roots(run: RunValue) -> tuple[str, ...]:
     """The addresses `certify`'s independence test compares — every
     `observes` input's dataset address. A `None` address never enters: it
-    belongs to a dataset that already failed admission (G2b), so no assessment
+    belongs to a dataset that already failed admission, so no assessment
     reaching this point can carry one."""
     return tuple(
         address for i in run.inputs if i.role == "observes" if (address := dataset_address(i.dataset)) is not None
@@ -334,10 +333,10 @@ def _evaluate_traced(
     binding: object,
     profile: ProfileSpec,
 ) -> tuple[Belief | NoBelief | Refused, Admission]:
-    """Belief-policy §4's evaluation order, exactly, top to bottom, and the
+    """The belief policy's evaluation order, exactly, top to bottom, and the
     admission the answer rests on — `not-reached` for every answer given
-    before step 5 completed (design §6.2)."""
-    # 1. The binding is exact, or nothing computes (P1).
+    before step 5 completed."""
+    # 1. The binding is exact, or nothing computes.
     if not isinstance(binding, PolicyBinding):
         return Refused(
             f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"
@@ -347,7 +346,7 @@ def _evaluate_traced(
         return Refused("acceptance-selection-incomplete"), NotReached()
 
     # 2. The consulted-contract walk, over the closure's assessments, runs and observed datasets
-    # (D7, unchanged: a cross-corpus disagreement refuses, never merges).
+    # (a cross-corpus disagreement refuses, never merges).
     # `claims` is narrowed to the derivation's own claim — at most one entry,
     # keyed by `proposition` — never the whole record pool: membership in a
     # digested closure member must come from what this derivation reads, not
@@ -397,7 +396,7 @@ def _evaluate_traced(
         return NoBelief("unavailable-policy-unheld"), NotReached()
 
     # 4. A named implementation that fails its own fixtures is false, not
-    # merely unresolved (P2) — installing a conforming one beside it changes
+    # merely unresolved — installing a conforming one beside it changes
     # nothing, because the binding names the failing identity.
     implementation = availability.implementations[binding.implementation]
     fixtures = availability.fixtures[binding.rule]
@@ -411,14 +410,14 @@ def _evaluate_traced(
         )
 
     # 5. Collapse the record pool onto its identities, then gate what survives
-    # through admission (G2b, G6, G2c). Partition eligible from "would be
+    # through admission. Partition eligible from "would be
     # eligible, if only its input were held" (unheld_only) — the latter needs
     # its own verification-state check, since `admit` never reaches that check
     # for an input-not-held refusal. The gate is `admitted` above, called here
     # exactly once: what the answer rests on and what the trace reports are one
-    # set by construction, never two derivations that could disagree (§6.2).
+    # set by construction, never two derivations that could disagree.
     #
-    # Two assessment records can carry one identity (design decision 17): the
+    # Two assessment records can carry one identity: the
     # graph at step 7 is over the identity, not the record, so a genuine twin
     # must contribute no second vertex and no self-edge — aggregating it twice
     # would double-count identical evidence, which is exactly what
@@ -469,8 +468,7 @@ def _evaluate_traced(
     )
     reached = Reached(frozenset(a.identity() for a in eligible))
 
-    # 6. Directional eligibility, and the absence precedence (belief-policy
-    # §4, P4, P9): a withheld directional input outranks plain absence of
+    # 6. Directional eligibility, and the absence precedence: a withheld directional input outranks plain absence of
     # eligibility, which outranks an eligible set with nothing directional.
     directional = [a for a in eligible if OUTCOME_SIGNS[a.outcome] != 0]
     if not directional:
@@ -481,7 +479,7 @@ def _evaluate_traced(
         return NoBelief("no-directional-outcome"), reached
 
     # 7. The dependency graph: directional vertices, an edge for every pair
-    # not certified independent (S6, S5) — absence of an edge is a positive
+    # not certified independent — absence of an edge is a positive
     # claim of independence, never the default. Step 5 already collapsed the
     # pool onto its identities, so these records are distinct by identity and
     # the graph carries no second vertex and no self-edge for a genuine twin.
@@ -499,7 +497,7 @@ def _evaluate_traced(
     problem = AggregationInput(vertices=vertices, edges=tuple(edges))
     value = implementation.aggregate(problem)
 
-    # 9. The belief input closure (task 7), and the answer it accompanies.
+    # 9. The belief input closure, and the answer it accompanies.
     closure = build_closure(
         proposition=proposition,
         assessments=records.assessments,
@@ -526,7 +524,7 @@ def evaluate(
     binding: object,
     profile: ProfileSpec,
 ) -> Belief | NoBelief | Refused:
-    """Belief-policy §4's evaluation order, exactly, top to bottom — the first
+    """The belief policy's evaluation order, exactly, top to bottom — the first
     projection of `evaluate_traced`, so the answer cannot differ from it."""
     return evaluate_traced(
         proposition=proposition,

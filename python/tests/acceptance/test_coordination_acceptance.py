@@ -10,7 +10,7 @@ from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from test_belief import scenario as belief_scenario
-from test_n2_cut7 import shipped_bindings
+from test_world_epoch_acceptance import shipped_bindings
 
 from beliefs import stored
 from beliefs.belief import Belief, evaluate
@@ -42,7 +42,7 @@ def writers(case: tuple[tuple[Path, Path], ProfileSpec]):
     )
 
 
-def test_w11a_view_queries_reject_coordination_addresses():
+def test_view_queries_reject_coordination_addresses():
     with pytest.raises(ValueError, match="world-tier"):
         parse_view_query(
             {
@@ -52,7 +52,7 @@ def test_w11a_view_queries_reject_coordination_addresses():
         )
 
 
-def test_w11b_coordination_fields_reject_world_addresses(durable_coordination_roots):
+def test_coordination_fields_reject_world_addresses(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     project = writer.mint_coordination("project", content=content_for("project"))
     with pytest.raises(ValidationRefused):
@@ -63,7 +63,7 @@ def test_w11b_coordination_fields_reject_world_addresses(durable_coordination_ro
         )
 
 
-def test_w12_renaming_a_project_preserves_every_subordinate_address(durable_coordination_roots, monkeypatch):
+def test_renaming_a_project_preserves_every_subordinate_address(durable_coordination_roots, monkeypatch):
     _roots, resolver, (writer, _other) = writers(durable_coordination_roots)
     values = iter(("a" * 32, "b" * 32, "c" * 32, "d" * 32, "e" * 32))
     monkeypatch.setattr("beliefs.corpus.secrets", SimpleNamespace(token_hex=lambda _: next(values)))
@@ -81,7 +81,7 @@ def test_w12_renaming_a_project_preserves_every_subordinate_address(durable_coor
     assert coordination_revision(task).address.project == project_address.project
 
 
-def test_w13_project_identity_is_independent_of_corpus_identity_and_mount(
+def test_project_identity_is_independent_of_corpus_identity_and_mount(
     durable_coordination_roots,
 ):
     (left, right), profile = durable_coordination_roots
@@ -99,13 +99,13 @@ def test_w13_project_identity_is_independent_of_corpus_identity_and_mount(
     assert load_manifest(right).corpus_id == right_manifest.corpus_id
 
 
-def test_w17a_genesis_names_zero_predecessors(durable_coordination_roots):
+def test_genesis_names_zero_predecessors(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     project = writer.mint_coordination("project", content=content_for("project"))
     assert coordination_revision(project).predecessors == ()
 
 
-def test_w17n_every_edit_is_a_new_whole_revision(durable_coordination_roots):
+def test_every_edit_is_a_new_whole_revision(durable_coordination_roots):
     _roots, resolver, (writer, _other) = writers(durable_coordination_roots)
     project = writer.mint_coordination("project", content=content_for("project", name="old"))
     address = coordination_revision(project).address
@@ -121,7 +121,7 @@ def test_w17n_every_edit_is_a_new_whole_revision(durable_coordination_roots):
     assert resolver.resolve(address.pinned(project.uid)) == project
 
 
-def test_w17b_every_ordinary_door_refuses_coordination(durable_coordination_roots):
+def test_every_ordinary_door_refuses_coordination(durable_coordination_roots):
     (root, _), _profile = durable_coordination_roots
     writer = open_corpus(root, authority=FULL, profile=_profile)
     node = Node(id="note:old", kind="note", title="old")
@@ -136,7 +136,7 @@ def test_w17b_every_ordinary_door_refuses_coordination(durable_coordination_root
             call()
 
 
-def test_w17c_import_refuses_and_names_the_coordination_member(durable_coordination_roots):
+def test_import_refuses_and_names_the_coordination_member(durable_coordination_roots):
     _roots, _resolver, (writer, source) = writers(durable_coordination_roots)
     member = source.mint_coordination("project", content=content_for("project"))
     source.profile.validate_document(member)
@@ -145,14 +145,14 @@ def test_w17c_import_refuses_and_names_the_coordination_member(durable_coordinat
     assert caught.value.member == member.id
 
 
-def test_w17d_coordination_door_refuses_world_kinds(durable_coordination_roots):
+def test_coordination_door_refuses_world_kinds(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     for kind in stored.WORLD_KINDS:
         with pytest.raises(CoordinationKindUnsupported):
             writer.mint_coordination(kind, content=content_for("project"))
 
 
-def test_w17e_reusing_an_existing_revision_pair_refuses_before_a_plan(durable_coordination_roots, monkeypatch):
+def test_reusing_an_existing_revision_pair_refuses_before_a_plan(durable_coordination_roots, monkeypatch):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     values = iter(("a" * 32, "b" * 32, "a" * 32, "b" * 32))
     monkeypatch.setattr("beliefs.corpus.secrets", SimpleNamespace(token_hex=lambda _: next(values)))
@@ -161,7 +161,7 @@ def test_w17e_reusing_an_existing_revision_pair_refuses_before_a_plan(durable_co
         writer.mint_coordination("project", content=content_for("project"))
 
 
-def test_w17f_a_superseded_predecessor_refuses_at_commit(durable_coordination_roots):
+def test_a_superseded_predecessor_refuses_at_commit(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     first = writer.mint_coordination("project", content=content_for("project"))
     address = coordination_revision(first).address
@@ -180,7 +180,7 @@ def test_w17f_a_superseded_predecessor_refuses_at_commit(durable_coordination_ro
         )
 
 
-def test_w17g_continuity_refuses_a_standing_predecessor_of_another_address_or_kind(
+def test_continuity_refuses_a_standing_predecessor_of_another_address_or_kind(
     durable_coordination_roots,
 ):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
@@ -225,7 +225,7 @@ def divergent(case):
     return address, resolver, repair_writer, left_tip, right_tip
 
 
-def test_w17h_siblings_refuse_with_sorted_tips_independent_of_mount_order(
+def test_siblings_refuse_with_sorted_tips_independent_of_mount_order(
     durable_coordination_roots,
 ):
     address, resolver, _writer, left_tip, right_tip = divergent(durable_coordination_roots)
@@ -235,7 +235,7 @@ def test_w17h_siblings_refuse_with_sorted_tips_independent_of_mount_order(
     assert CoordinationResolver({roots[1]: profile, roots[0]: profile}).resolve(address) == expected
 
 
-def test_w17i_all_tip_repair_restores_resolution_and_retains_siblings(
+def test_all_tip_repair_restores_resolution_and_retains_siblings(
     durable_coordination_roots,
 ):
     address, resolver, writer, left_tip, right_tip = divergent(durable_coordination_roots)
@@ -250,7 +250,7 @@ def test_w17i_all_tip_repair_restores_resolution_and_retains_siblings(
     assert resolver.resolve(address.pinned(right_tip.uid)) == right_tip
 
 
-def test_w17j_a_raw_cycle_has_no_tip_and_an_audit_finding(durable_coordination_roots):
+def test_a_raw_cycle_has_no_tip_and_an_audit_finding(durable_coordination_roots):
     root, profile = durable_coordination_roots[0][0], durable_coordination_roots[1]
     first = raw_coordination_node("project", "a" * 32, "b" * 32)
     second = raw_coordination_node("project", "a" * 32, "c" * 32)
@@ -264,7 +264,7 @@ def test_w17j_a_raw_cycle_has_no_tip_and_an_audit_finding(durable_coordination_r
     )
 
 
-def test_w17k_a_malformed_facet_is_reported_and_excluded(durable_coordination_roots):
+def test_a_malformed_facet_is_reported_and_excluded(durable_coordination_roots):
     root, profile = durable_coordination_roots[0][0], durable_coordination_roots[1]
     valid = raw_coordination_node("project", "a" * 32, "b" * 32)
     malformed = raw_coordination_node("project", "a" * 32, "c" * 32)
@@ -277,14 +277,14 @@ def test_w17k_a_malformed_facet_is_reported_and_excluded(durable_coordination_ro
     )
 
 
-def test_w17l_a_subordinate_under_a_missing_project_refuses(durable_coordination_roots):
+def test_a_subordinate_under_a_missing_project_refuses(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     with pytest.raises(ProjectNotResolvable) as caught:
         writer.mint_coordination("task", project=CoordinationAddress("a" * 32), content=content_for("task"))
     assert caught.value.tips == ()
 
 
-def test_w17m_a_subordinate_under_a_divergent_project_names_the_project_tips(
+def test_a_subordinate_under_a_divergent_project_names_the_project_tips(
     durable_coordination_roots,
 ):
     address, _resolver, writer, left_tip, right_tip = divergent(durable_coordination_roots)
@@ -293,10 +293,10 @@ def test_w17m_a_subordinate_under_a_divergent_project_names_the_project_tips(
     assert caught.value.tips == tuple(sorted((left_tip.uid, right_tip.uid)))
 
 
-def test_w18a_an_undeclared_kind_mints_nothing(durable_coordination_roots):
+def test_an_undeclared_kind_mints_nothing(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     project = writer.mint_coordination("project", content=content_for("project"))
-    # Not `publication`: since cut 39 that kind is declared by v2 and refused at the door.
+    # Not `publication`: that kind is declared by v2 and refused at the door.
     with pytest.raises(ValidationRefused, match="not declared"):
         writer.mint_coordination(
             "milestone",
@@ -310,7 +310,7 @@ def test_w18a_an_undeclared_kind_mints_nothing(durable_coordination_roots):
     )
 
 
-def test_w18b_malformed_query_refuses(durable_coordination_roots):
+def test_malformed_query_refuses(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     query = {
         "version": "science.view-query.v1",
@@ -320,7 +320,7 @@ def test_w18b_malformed_query_refuses(durable_coordination_roots):
         writer.mint_coordination("project", content=content_for("project", query=query))
 
 
-def test_w18e_an_unresolved_anchor_is_accepted(durable_coordination_roots):
+def test_an_unresolved_anchor_is_accepted(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     query = {
         "version": "science.view-query.v1",
@@ -330,7 +330,7 @@ def test_w18e_an_unresolved_anchor_is_accepted(durable_coordination_roots):
     assert accepted.kind == "project"
 
 
-def test_w18i_coordination_moves_epoch_identity_not_world_maps_or_belief_input(
+def test_coordination_moves_epoch_identity_not_world_maps_or_belief_input(
     durable_coordination_world,
 ):
     world, corpus_root, profile = durable_coordination_world

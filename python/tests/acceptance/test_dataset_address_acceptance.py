@@ -1,4 +1,4 @@
-"""Cut 29: dataset ids derived from the content identity, over certified durable roots."""
+"""Dataset ids derived from the content identity, over certified durable roots."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ OBSERVED = {"locator": "instrument:fixture", "attested_by": ACTOR}
 
 @pytest.fixture()
 def scratch(work_directory):
-    path = Path(mkdtemp(prefix="cut29-", dir=work_directory))
+    path = Path(mkdtemp(prefix="dataset-address-", dir=work_directory))
     try:
         yield path
     finally:
@@ -47,10 +47,10 @@ def handle(seed: str, node_id: str = "dataset:handle"):
     )
 
 
-# --- W2, the dataset arm ---------------------------------------------------------
+# --- the dataset case ---------------------------------------------------------
 
 
-def test_w2_two_corpora_mint_one_address_from_one_declaration_durably(durable_world):
+def test_two_corpora_mint_one_address_from_one_declaration_durably(durable_world):
     _, _, left = durable_world.corpus(BASE)
     _, beta, _ = durable_world.corpus(BASE)
     # A second attester: the observation facet names its writer's actor (plan review finding 3).
@@ -67,7 +67,7 @@ def test_w2_two_corpora_mint_one_address_from_one_declaration_durably(durable_wo
     assert stored.dataset_address_of(left.read_view.get(a.id)) == a.id
 
 
-def test_w2_order_repetition_and_names_do_not_move_the_address_and_one_digest_does_durably(durable_world):
+def test_order_repetition_and_names_do_not_move_the_address_and_one_digest_does_durably(durable_world):
     _, _, writer = durable_world.corpus(BASE)
     x, y = pinned("x")[0], pinned("y")[0]
     one = stored.dataset_node(title="one", resources=[x, y])
@@ -82,7 +82,7 @@ def test_w2_order_repetition_and_names_do_not_move_the_address_and_one_digest_do
     assert writer.read_view.get(minted.id).title == "one"
 
 
-def test_w2_the_producers_map_and_the_observes_closure_name_the_derived_address_durably(durable_world, scratch):
+def test_the_producers_map_and_the_observes_closure_name_the_derived_address_durably(durable_world, scratch):
     a, alpha, left = durable_world.corpus(BASE)
     raw = left.add(stored.dataset_node(title="raw", resources=pinned("raw"), empirical_observation=OBSERVED))
     run = left.add(
@@ -115,7 +115,7 @@ def test_w2_the_producers_map_and_the_observes_closure_name_the_derived_address_
     assert stored.inputs_of(left.read_view.get(run.id), stored.OBSERVES) == (dataset_ref("raw"),)
 
 
-def test_w2_an_unaccepted_algorithm_has_no_address_at_the_builder_or_the_boundary_durably(durable_world):
+def test_an_unaccepted_algorithm_has_no_address_at_the_builder_or_the_boundary_durably(durable_world):
     _, _, writer = durable_world.corpus(BASE)
     md5 = [{"name": "m", "digest": "md5:" + "0" * 32}]
     with pytest.raises(BasisMissing):
@@ -124,10 +124,10 @@ def test_w2_an_unaccepted_algorithm_has_no_address_at_the_builder_or_the_boundar
         writer.add(stored.governed_node("dataset", "md5", "md5", {stored.DATASET_FACET: {"resources": md5}}, ()))
 
 
-# --- W3, the builder arm ---------------------------------------------------------
+# --- the builder case ---------------------------------------------------------
 
 
-def test_w3_the_builder_refuses_without_a_basis_and_mints_a_declared_unheld_dataset_durably(durable_world):
+def test_the_builder_refuses_without_a_basis_and_mints_a_declared_unheld_dataset_durably(durable_world):
     _, _, writer = durable_world.corpus(BASE)
     with pytest.raises(BasisMissing):
         stored.dataset_node(title="empty", resources=[])
@@ -137,17 +137,17 @@ def test_w3_the_builder_refuses_without_a_basis_and_mints_a_declared_unheld_data
     assert writer.read_view.holds(minted.id)
 
 
-def test_w3_the_boundary_refuses_a_hand_built_unpinned_record_durably(durable_world):
+def test_the_boundary_refuses_a_hand_built_unpinned_record_durably(durable_world):
     _, _, writer = durable_world.corpus(BASE)
     with pytest.raises(BasisMissing):
         writer.add(stored.governed_node("dataset", "d1", "d1", {stored.DATASET_FACET: {"resources": []}}, ()))
     assert not any(n.kind == "dataset" for n in writer.read_view.iter_stored())
 
 
-# --- W8, the address conflict on datasets ---------------------------------------
+# --- the address conflict on datasets ---------------------------------------
 
 
-def test_w8_a_handle_addressed_dataset_refuses_on_add_import_and_move_durably(durable_world):
+def test_handle_addressed_dataset_refuses_on_add_import_and_move_durably(durable_world):
     _, alpha, left = durable_world.corpus(BASE)
     _, _, right = durable_world.corpus(BASE)
     bad = handle("h")
@@ -166,7 +166,7 @@ def test_w8_a_handle_addressed_dataset_refuses_on_add_import_and_move_durably(du
     assert good.id == dataset_ref("h")
 
 
-def test_w8_consolidate_at_one_derived_address_gives_one_address_and_no_redirect_durably(durable_world):
+def test_consolidate_at_one_derived_address_gives_one_address_and_no_redirect_durably(durable_world):
     _, _, left = durable_world.corpus(BASE)
     _, _, right = durable_world.corpus(BASE)
     keep = left.add(stored.dataset_node(title="kept", resources=pinned("shared")))
@@ -178,7 +178,7 @@ def test_w8_consolidate_at_one_derived_address_gives_one_address_and_no_redirect
 
 
 @pytest.mark.parametrize("invalid", ["other", "keep"])
-def test_w8_consolidate_judges_both_declarations_before_it_discards_one_durably(durable_world, invalid):
+def test_consolidate_judges_both_declarations_before_it_discards_one_durably(durable_world, invalid):
     _, alpha, left = durable_world.corpus(BASE)
     _, beta, _ = durable_world.corpus(BASE)
     valid = left.add(stored.dataset_node(title="kept", resources=pinned("shared")))

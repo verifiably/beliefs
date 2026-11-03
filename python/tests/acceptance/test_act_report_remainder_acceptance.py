@@ -1,6 +1,6 @@
-"""Conformance cut 38 — the act-report remainder: `audit` and `re-check` open
-through the boundary (act-report-remainder design §9.2). Twelve declaration
-units over real roots on the certified volume, and three plain tests."""
+"""The act-report remainder: `audit` and `re-check` open
+through the boundary. Twelve acceptance
+groups over real roots on the certified volume, and three plain tests."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 from atoms.chain.model import (
-    SettledEntry,  # the raw-chain forgery, as cut 35's T2-d spells it; a test, not a boundary module
+    SettledEntry,  # the raw-chain forgery, as the URL-retrieval acceptance tests spell it; a test, not a boundary module
 )
 from authority import FULL
 from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
@@ -87,7 +87,7 @@ def run_audit(writer: CorpusWriter, **kwargs):
 
 
 class CountingPort:
-    """The durable port with every fulfilling submission counted (T2-h)."""
+    """The durable port with every fulfilling submission counted."""
 
     def __init__(self, inner) -> None:
         self._inner = inner
@@ -127,10 +127,7 @@ class RefusingPort(CountingPort):
         raise ExecutionError("refused", index=None, applied=0)
 
 
-# --- T2 ----------------------------------------------------------------------------
-
-
-def test_t2e_an_audit_closes_through_exactly_one_report_after_its_intent_and_the_evaluator_ran_between_durably(
+def test_an_audit_closes_through_exactly_one_report_after_its_intent_and_the_evaluator_ran_between_durably(
     observer, monkeypatch
 ):
     ctx, writer = observer.ctx, observer.writer
@@ -173,7 +170,7 @@ def test_t2e_an_audit_closes_through_exactly_one_report_after_its_intent_and_the
     assert closed(ctx.observer_root, "audit", outcome.report_ref, outcome.report)
 
 
-def test_t2f_a_recheck_closes_through_one_report_and_its_operation_intent_precedes_every_holdings_intent_durably(
+def test_a_recheck_closes_through_one_report_and_its_operation_intent_precedes_every_holdings_intent_durably(
     observer,
 ):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
@@ -194,12 +191,12 @@ def test_t2f_a_recheck_closes_through_one_report_and_its_operation_intent_preced
 
 
 @pytest.mark.parametrize("spoil", ["wrong-root", "no-port", "refusing-port", "foreign-store"])
-def test_t2g_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_no_act_for_both_kinds_durably(
+def test_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_no_act_for_both_kinds_durably(
     observer, certified_work, spoil, monkeypatch
 ):
-    """The audit has no root-selection or store arm (one writer, no store), so under
+    """The audit has no root-selection or store case (one writer, no store), so under
     `wrong-root` and `foreign-store` its half reads the port-less writer; the
-    assertion is the same for every arm — no read, no intent, no record."""
+    assertion is the same for every case — no read, no intent, no record."""
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a = held(ctx, store_id, "a.bin", b"alpha")
     reads: list[str] = []
@@ -236,9 +233,7 @@ def test_t2g_root_selection_no_port_a_refused_append_and_a_foreign_store_begin_n
         assert not any(node.kind == "act-report" for node in recheck_writer.read_view.iter_stored())
 
 
-def test_t2h_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_refused_durably(
-    observer, certified_work
-):
+def test_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_refused_durably(observer, certified_work):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     counting = CountingPort(writer._operation_port)
     outcome = run_audit(writer, port=counting)
@@ -268,7 +263,7 @@ def test_t2h_each_kind_submits_exactly_one_fulfilling_execution_and_a_second_is_
     assert view.defect.kind == "duplicate-fulfillment"
 
 
-def test_t2i_a_port_bound_to_another_root_is_refused_by_both_kinds_before_any_intent_durably(observer, certified_work):
+def test_a_port_bound_to_another_root_is_refused_by_both_kinds_before_any_intent_durably(observer, certified_work):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a = held(ctx, store_id, "a.bin", b"alpha")
     other = certified_work / "other"
@@ -287,7 +282,7 @@ def test_t2i_a_port_bound_to_another_root_is_refused_by_both_kinds_before_any_in
 @pytest.mark.parametrize(
     "spoil", ["empty-instrument", "unencodable-observer", "standing-elsewhere", "standing-unrequested"]
 )
-def test_t2j_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_holdings_intent_and_no_read_durably(
+def test_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_holdings_intent_and_no_read_durably(
     observer, spoil
 ):
     from beliefs.holdings.records import Found, holdings_observation
@@ -322,10 +317,7 @@ def test_t2j_late_inputs_refuse_the_recheck_before_the_operation_intent_with_no_
     assert chain(ctx.observer_root) == before and reads == []
 
 
-# --- T5, T6 ------------------------------------------------------------------------
-
-
-def test_t5d_an_inconclusive_recheck_location_spells_untested_or_failed_by_whether_the_read_began_durably(observer):
+def test_an_inconclusive_recheck_location_spells_untested_or_failed_by_whether_the_read_began_durably(observer):
     ctx, store_id, writer = observer.ctx, observer.store_id, observer.writer
     a, b, c = held(ctx, store_id, "a.bin", b"alpha"), StoreLocator(store_id, "b.bin"), StoreLocator(store_id, "c.bin")
     inner = ctx.seam.read_path
@@ -349,7 +341,7 @@ def test_t5d_an_inconclusive_recheck_location_spells_untested_or_failed_by_wheth
     assert closed(ctx.observer_root, "re-check", outcome.report_ref, outcome.report)
 
 
-def test_t6d_cite_resolves_each_finding_in_evaluator_order_and_a_permutation_moves_the_identity_durably(
+def test_cite_resolves_each_finding_in_evaluator_order_and_a_permutation_moves_the_identity_durably(
     observer, monkeypatch
 ):
     writer = observer.writer
@@ -377,7 +369,7 @@ def test_t6d_cite_resolves_each_finding_in_evaluator_order_and_a_permutation_mov
     assert permuted.identity() != outcome.report.identity()
 
 
-def test_t6e_findings_differing_only_in_message_mint_equal_entries_and_one_identity_under_a_fixed_envelope_durably(
+def test_findings_differing_only_in_message_mint_equal_entries_and_one_identity_under_a_fixed_envelope_durably(
     observer, monkeypatch
 ):
     writer = observer.writer
@@ -393,7 +385,7 @@ def test_t6e_findings_differing_only_in_message_mint_equal_entries_and_one_ident
     )
     detailed = run_audit(writer)
     assert reworded.entries == base.entries and detailed.entries != base.entries
-    assert reworded.report.identity() != base.report.identity()  # T8: distinct tokens; not the comparison that matters
+    assert reworded.report.identity() != base.report.identity()  # distinct tokens; not the comparison that matters
     envelope = {
         "observer": "o",
         "instrument": "i",
@@ -409,7 +401,7 @@ def test_t6e_findings_differing_only_in_message_mint_equal_entries_and_one_ident
 # --- BI ------------------------------------------------------------------------------
 
 
-def test_bi1_the_evaluator_modules_define_no_write_entry_point_and_reach_no_primitive_durably():
+def test_the_evaluator_modules_define_no_write_entry_point_and_reach_no_primitive_durably():
     evaluators = {"audit.py", "world/audit.py"}
     assert not {key for key in WRITE_ENTRY_POINTS if key.split(":", 1)[0] in evaluators}
     for module in modules():
@@ -426,7 +418,7 @@ def test_bi1_the_evaluator_modules_define_no_write_entry_point_and_reach_no_prim
     assert seen == wrappers
 
 
-def test_bi2_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_raced_write_lands_after_the_report_durably(
+def test_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_raced_write_lands_after_the_report_durably(
     observer, monkeypatch
 ):
     ctx, writer = observer.ctx, observer.writer
@@ -465,7 +457,7 @@ def test_bi2_the_evaluators_read_runs_under_the_root_lock_after_the_intent_so_a_
     assert outcome.entries == ()  # the raced record was not in the judged state
 
 
-def test_bi3_the_session_routes_write_one_act_line_per_committed_transaction_and_name_the_session_actor_durably(
+def test_the_session_routes_write_one_act_line_per_committed_transaction_and_name_the_session_actor_durably(
     certified_work,
 ):
     session = _durable_session(certified_work)
@@ -490,7 +482,7 @@ def test_bi3_the_session_routes_write_one_act_line_per_committed_transaction_and
     assert audited.report.observer == session.actor and rechecked.report.observer == session.actor
 
 
-# --- plain tests: T3 and T4, already closed, exercised by the new kinds ----------------
+# --- plain tests: already closed behaviour, exercised by the new kinds ----------------
 
 
 def test_deleting_the_published_audit_report_moves_the_operation_closed_to_indeterminate(observer):
@@ -508,7 +500,7 @@ def test_deleting_the_published_audit_report_moves_the_operation_closed_to_indet
 def test_the_two_reports_leave_the_holdings_projection_unchanged_and_an_unfinished_audit_blocks_nothing(
     observer, certified_work
 ):
-    """T4's projection arm for the new kinds: over a fixed set of observations, both
+    """The projection for the new kinds: over a fixed set of observations, both
     reports present, then one, then none, then an unmatched audit intent — the
     reducer outputs and the corpus's audit findings never move. The re-check's own
     observation is part of the fixed set, taken before the first snapshot."""
@@ -526,7 +518,7 @@ def test_the_two_reports_leave_the_holdings_projection_unchanged_and_an_unfinish
         return output_digest(active), output_digest(blocked), blocked == [], findings
 
     def unlink(ref: str) -> None:
-        # No ordinary API deletes a report (`DeletionKindExcluded`, families design §3.0); cut 35's T4-a unlinks likewise.
+        # No ordinary API deletes a report (`DeletionKindExcluded`); the URL-retrieval acceptance tests unlink likewise.
         os.unlink(writer.root / writer._relative_path(writer.read_view.get(ref)))
         writer._reconstruct()
 
@@ -542,7 +534,7 @@ def test_the_two_reports_leave_the_holdings_projection_unchanged_and_an_unfinish
 
 
 def test_the_two_reports_leave_the_belief_answer_and_its_admission_byte_unchanged(certified_work):
-    """T4's belief arm for the new kinds, over a belief-bearing corpus: the audit's
+    """The belief answer for the new kinds, over a belief-bearing corpus: the audit's
     report and a re-check's report are added and removed while the answer, its
     `belief_input_digest` and its traced admission stay identical."""
     belief_root, store_root = certified_work / "belief", certified_work / "belief-store"
@@ -561,7 +553,7 @@ def test_the_two_reports_leave_the_belief_answer_and_its_admission_byte_unchange
         return evaluate_over_traced(writer.read_view, PROPOSITION_REF, **kwargs)  # (answer, admission)
 
     before, before_admission = answer()
-    assert isinstance(before, Belief), before  # an unadmitted scenario would satisfy T4 vacuously
+    assert isinstance(before, Belief), before  # an unadmitted scenario would satisfy this test vacuously
     audited = run_audit(writer)
     location = held(ctx, store_id, "a.bin", b"alpha")
     rechecked = recheck_locations(ctx, writer, (location,))
