@@ -31,14 +31,14 @@ from beliefs.world import Fresh, WorldConfig, _world_mirror_bytes
 
 def patch_world_engine(monkeypatch, calls, world_id="1" * 32):
     """Stand in for the engine beneath a world root: registration, the world
-        executor, and the chain read `open_world` makes.
+    executor, and the chain read `open_world` makes.
 
-        The chain read is here rather than per-arm because `open_world` now checks
-        the genesis payload's `world_id` against the configuration and the mirror
-    , so every arm that opens a world needs a
-        genesis to read. It is **not** recorded in `calls`: the arms that assert
-        `calls == []` are asserting that opening registers nothing, which is a
-        different claim and still true.
+    The chain read is here rather than per-arm because `open_world` now checks
+    the genesis payload's `world_id` against the configuration and the mirror,
+    so every test that opens a world needs a
+    genesis to read. It is **not** recorded in `calls`: the arms that assert
+    `calls == []` are asserting that opening registers nothing, which is a
+    different claim and still true.
     """
 
     def record_registration(_backend, _project_root, _metadata_root, _storage, payload, _surface):
@@ -165,8 +165,7 @@ class TestWorldRoots:
         # The third claim: the configuration and the mirror can agree with each
         # other and still both be edits. The chain genesis is the one of the
         # three no operator rewrites in passing, and `open_world` is the surface
-        # every ordinary consumer crosses, so the disagreement is refused here
-        # .
+        # every ordinary consumer crosses, so the disagreement is refused here.
         calls = []
         patch_world_engine(monkeypatch, calls, world_id="2" * 32)
         config = WorldConfig(tmp_path / "world", "1" * 32, ())

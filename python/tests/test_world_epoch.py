@@ -423,14 +423,14 @@ class TestTheDeterministicCarrier:
     def test_an_empty_declared_coverage_is_not_publishable(self, tmp_path):
         """The decision this task owed: an epoch over no corpus is refused.
 
-                Nothing in the format makes an empty capture *unrepresentable*, so the
-                refusal is a choice and is written as one. An epoch declaring no
-                coverage answers `Unknown` for every address and
-                `indeterminate` for every edge in any world holding a live corpus
-        , so publishing one — and above all pointing `current` at one —
-                would silently disable every read the epoch exists to serve. A caller
-                that reached here with an empty set filtered its coverage down to
-                nothing and wants to know.
+        Nothing in the format makes an empty capture *unrepresentable*, so the
+        refusal is a choice and is written as one. An epoch declaring no
+        coverage answers `Unknown` for every address and
+        `indeterminate` for every edge in any world holding a live corpus,
+        so publishing one — and above all pointing `current` at one —
+        would silently disable every read the epoch exists to serve. A caller
+        that reached here with an empty set filtered its coverage down to
+        nothing and wants to know.
         """
         world, recorder, bindings, _roots = admitted_world(tmp_path)
 

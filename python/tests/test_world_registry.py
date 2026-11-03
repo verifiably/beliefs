@@ -246,8 +246,8 @@ def test_non_fork_provenance_refuses_a_fork_manifest(tmp_path):
 
     with pytest.raises(ProvenanceMismatch):
         instance.admit(corpus, provenance=world_module.Fresh())
-    # The replica arm of the same rule: a bare admit refuses a replica first
-    # , so the fork-manifest refusal is armed over the predicate the
+    # The replica case of the same rule: a bare admit refuses a replica first,
+    # so the fork-manifest refusal is armed over the predicate the
     # shared core applies on either route.
     with pytest.raises(ProvenanceMismatch):
         world_module._validate_provenance(world_module.load_manifest(corpus), world_module.ReplicaOf("1" * 32))

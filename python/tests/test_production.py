@@ -1,8 +1,7 @@
 """The in-cell checks only. Deferred: the `derived_from` view, the
 independence-multiplier and omission arms, every deletion, divergence,
 coverage, receipt, snapshot, merge, and conflict arm, negatives (e)–(g), and
-the raw-written-basis audit — the store, the world index, and the audit
-."""
+the raw-written-basis audit — the store, the world index, and the audit."""
 
 import dataclasses
 import inspect

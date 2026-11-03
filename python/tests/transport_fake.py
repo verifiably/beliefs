@@ -1,5 +1,5 @@
-"""A directory-backed `Transport` for the remote publish tests
-: `https://remote.test/<name>` is the
+"""A directory-backed `Transport` for the remote publish tests:
+`https://remote.test/<name>` is the
 directory `<base>/<name>`, and each transported name is a file under it. A
 test double; it never ships."""
 

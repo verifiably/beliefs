@@ -56,10 +56,10 @@ def render_snakefile() -> bytes:
 
 
 def held_rules() -> dict:
-    """The driver's identities, bound to the kernel's implementations
-    . The record's spec identity is unchanged:
-        `freeze` digests (rule identity, implementation identity) pairs, and both
-        pairs are the ones the 2026-09-05 record carries.
+    """The driver's identities, bound to the kernel's implementations.
+    The record's spec identity is unchanged:
+    `freeze` digests (rule identity, implementation identity) pairs, and both
+    pairs are the ones the 2026-09-05 record carries.
     """
     return {INTERPRETATION_RULE: INTERPRETATION, EQUIVALENCE_RULE: EQUIVALENCE}
 
