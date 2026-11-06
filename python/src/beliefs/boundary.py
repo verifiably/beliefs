@@ -487,6 +487,9 @@ def _bind_recipe_inputs(
     if expected_inputs is not None:
         if not isinstance(expected_inputs, Mapping):
             return {address: _InputConflict("expected_inputs must be a mapping") for address in bound}
+        for address in list(bound):
+            if address not in expected_inputs:
+                bound[address] = _InputConflict(f"expected input {address!r} is missing content identity")
         for address, expected in expected_inputs.items():
             if type(expected) is _InputConflict:
                 bound[address] = expected

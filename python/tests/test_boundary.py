@@ -1033,6 +1033,29 @@ def test_production_run_checks_expected_inputs_and_planning_restage(tmp_path, mo
     assert isinstance(disagree, RunRefused)
     assert "does not match recipe input" in disagree.reason
 
+    code_m, held_m = stage(tmp_path / "missing", snakefile=SNAKEFILE_PRODUCTION)
+    missing = execute_production_run(
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=actual_digest),),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION),
+        code_roots=(code_m,),
+        held_inputs={DATA_ADDRESS: held_m / "data.txt", READS_ADDRESS: held_m / "palette.txt"},
+        expected_inputs={},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "missing" / "scratch",
+        cores=1,
+    )
+    assert isinstance(missing, RunRefused)
+    assert f"expected input {DATA_ADDRESS!r} is missing content identity" in missing.reason
+
     code_c, held_c = stage(tmp_path / "conflict", snakefile=SNAKEFILE_PRODUCTION)
     conflict = execute_production_run(
         inputs=(
