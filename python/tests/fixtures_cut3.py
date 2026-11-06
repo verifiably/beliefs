@@ -653,6 +653,7 @@ def replay_of(
     snakefile=SNAKEFILE_DETERMINISTIC,
     host_realization="host-a",
     held_inputs=None,
+    expected_inputs=None,
     scratch_base=None,
     cores=1,
 ):
@@ -678,6 +679,7 @@ def replay_of(
         if isinstance(original.run.recipe.nondeterminism, Seeded)
         else {}
     )
+    extra = {"expected_inputs": expected_inputs} if expected_inputs is not None else {}
     return replay(
         original,
         port=port,
@@ -696,4 +698,5 @@ def replay_of(
         host_realization=host_realization,
         scratch_base=scratch_base if scratch_base is not None else tmp_path / "scratch",
         cores=cores,
+        **extra,
     )

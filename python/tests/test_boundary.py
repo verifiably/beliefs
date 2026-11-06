@@ -774,8 +774,9 @@ from fixtures_cut3 import replay_of as _replay_of
 
 import beliefs.boundary as _boundary
 from beliefs.errors import ClosureUnsupported
-from beliefs.recipe import CONFINED_POLICY
+from beliefs.recipe import CONFINED_POLICY, RecipeInput
 from beliefs.replay import replay as _replay
+from beliefs.report import CLOSED, completion
 
 
 def test_the_boundary_policy_has_no_default_and_no_ambient_constant():
@@ -823,3 +824,236 @@ def test_a_confinement_refusal_keeps_its_stable_reason_and_its_detail(tmp_path, 
     assert outcome.report is not None
     report_outcome = outcome.report.entries[0].outcome
     assert isinstance(report_outcome, RunRefusal) and report_outcome.missing_member == "closure-unsupported"
+
+
+# --- staged input digest enforcement (beliefs-246cde) -------------------
+
+
+def _forbid_engines(monkeypatch):
+    def _never_engine(*args, **kwargs):
+        raise AssertionError("engine must not launch when staged input digest check refuses")
+
+    monkeypatch.setattr(_boundary, "run_engine", _never_engine)
+    monkeypatch.setattr(_boundary, "launch_confined", _never_engine)
+
+
+def test_assessment_run_refuses_mismatched_expected_input_before_planning_or_execution(tmp_path, monkeypatch):
+    code, held = stage(tmp_path / "mismatched")
+    spec = freeze(spec_draft(), held_rules=spec_rules())
+    supplied = {DATA_ADDRESS: held / "data.txt", READS_ADDRESS: held / "palette.txt"}
+
+    _forbid_engines(monkeypatch)
+    outcome = execute_assessment_run(
+        spec=spec,
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(),
+        code_roots=(code,),
+        held_inputs=supplied,
+        expected_inputs={DATA_ADDRESS: "sha256:" + "0" * 64},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "mismatched" / "scratch",
+        cores=1,
+    )
+    assert isinstance(outcome, RunRefused)
+    assert "does not match expected" in outcome.reason
+    assert outcome.intent is not None
+    assert outcome.report is not None
+    assert outcome.registration is not None
+    assert completion(outcome.intent, (outcome.registration,), {outcome.report.identity(): outcome.report}) == CLOSED
+
+    monkeypatch.undo()
+    code_ok, held_ok = stage(tmp_path / "matching")
+    matching = execute_assessment_run(
+        spec=spec,
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(),
+        code_roots=(code_ok,),
+        held_inputs={DATA_ADDRESS: held_ok / "data.txt", READS_ADDRESS: held_ok / "palette.txt"},
+        expected_inputs={DATA_ADDRESS: _boundary._digest(held_ok / "data.txt")},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "matching" / "scratch",
+        cores=1,
+    )
+    assert isinstance(matching, RunMinted)
+
+
+def test_stage_inputs_hashes_copied_staged_bytes_not_source_file(tmp_path, monkeypatch):
+    import shutil as _shutil
+
+    code, held = stage(tmp_path)
+    source_path = held / "data.txt"
+    expected_digest = _boundary._digest(source_path)
+    real_copy2 = _shutil.copy2
+
+    def tampered_copy2(src, dst, *args, **kwargs):
+        result = real_copy2(src, dst, *args, **kwargs)
+        if Path(src) == source_path:
+            Path(dst).write_bytes(b"tampered-during-copy\n")
+        return result
+
+    monkeypatch.setattr(_boundary.shutil, "copy2", tampered_copy2)
+    _forbid_engines(monkeypatch)
+    outcome = execute_assessment_run(
+        spec=freeze(spec_draft(), held_rules=spec_rules()),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: source_path, READS_ADDRESS: held / "palette.txt"},
+        expected_inputs={DATA_ADDRESS: expected_digest},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch",
+        cores=1,
+    )
+    assert _boundary._digest(source_path) == expected_digest
+    assert isinstance(outcome, RunRefused)
+    assert "does not match expected" in outcome.reason
+
+
+@pytest.mark.parametrize("policy", [MINIMAL_POLICY, CONFINED_POLICY])
+def test_planning_restage_refuses_source_mutated_after_initial_staging_and_cleans_planning_dir(
+    tmp_path, monkeypatch, policy
+):
+    code, held = stage(tmp_path)
+    source_path = held / "data.txt"
+    scratch_base = tmp_path / "scratch"
+    real_stage_inputs = _boundary._stage_inputs
+    calls = 0
+
+    def mutating_stage_inputs(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        result = real_stage_inputs(*args, **kwargs)
+        if calls == 1:
+            source_path.write_bytes(b"mutated-before-planning\n")
+        return result
+
+    if policy == CONFINED_POLICY:
+        monkeypatch.setattr(_boundary, "materialize_snapshot", lambda captured, root: root)
+    monkeypatch.setattr(_boundary, "_stage_inputs", mutating_stage_inputs)
+    _forbid_engines(monkeypatch)
+
+    outcome = execute_assessment_run(
+        spec=freeze(spec_draft(), held_rules=spec_rules()),
+        port=MEMORY_PORT,
+        boundary_policy=policy,
+        definition=definition(),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: source_path, READS_ADDRESS: held / "palette.txt"},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=scratch_base,
+        cores=1,
+    )
+    assert calls == 2
+    assert isinstance(outcome, RunRefused)
+    assert "does not match expected" in outcome.reason
+    assert list(scratch_base.glob("planning-*")) == []
+
+
+@pytest.mark.parametrize(
+    ("bad_expected", "expected_Fragment"),
+    [
+        (["not-a-mapping"], "expected_inputs must be a mapping"),
+        ({}, f"expected input {DATA_ADDRESS!r} is missing content identity"),
+        ({DATA_ADDRESS: "not-a-sha256"}, f"expected input {DATA_ADDRESS!r} has malformed content identity"),
+    ],
+)
+def test_stage_inputs_refuses_malformed_or_incomplete_expected_inputs(
+    tmp_path, monkeypatch, bad_expected, expected_Fragment
+):
+    code, held = stage(tmp_path)
+    _forbid_engines(monkeypatch)
+    outcome = execute_assessment_run(
+        spec=freeze(spec_draft(), held_rules=spec_rules()),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: held / "data.txt", READS_ADDRESS: held / "palette.txt"},
+        expected_inputs=bad_expected,  # type: ignore[arg-type]
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch",
+        cores=1,
+    )
+    assert isinstance(outcome, RunRefused)
+    assert expected_Fragment in outcome.reason
+
+
+def test_production_run_checks_expected_inputs_and_planning_restage(tmp_path, monkeypatch):
+    code, held = stage(tmp_path / "disagree", snakefile=SNAKEFILE_PRODUCTION)
+    actual_digest = _boundary._digest(held / "data.txt")
+    _forbid_engines(monkeypatch)
+
+    disagree = execute_production_run(
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=actual_digest),),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: held / "data.txt", READS_ADDRESS: held / "palette.txt"},
+        expected_inputs={DATA_ADDRESS: "sha256:" + "b" * 64},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "disagree" / "scratch",
+        cores=1,
+    )
+    assert isinstance(disagree, RunRefused)
+    assert "does not match recipe input" in disagree.reason
+
+    code_c, held_c = stage(tmp_path / "conflict", snakefile=SNAKEFILE_PRODUCTION)
+    conflict = execute_production_run(
+        inputs=(
+            RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=actual_digest),
+            RecipeInput(role="reads", dataset=DATA_ADDRESS, content="sha256:" + "c" * 64),
+        ),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION),
+        code_roots=(code_c,),
+        held_inputs={DATA_ADDRESS: held_c / "data.txt", READS_ADDRESS: held_c / "palette.txt"},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "conflict" / "scratch",
+        cores=1,
+    )
+    assert isinstance(conflict, RunRefused)
+    assert "recipe inputs disagree on content identity" in conflict.reason

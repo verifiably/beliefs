@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import shutil
 import sys
@@ -462,7 +463,60 @@ def _preflight(addresses: tuple[str, ...], held_inputs: Mapping[str, Path]) -> s
     return None
 
 
-def _stage_inputs(addresses: tuple[str, ...], held_inputs: Mapping[str, Path], scratch: Path) -> Mapping[str, str]:
+_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+@dataclass(frozen=True)
+class _InputConflict:
+    reason: str
+
+
+def _bind_recipe_inputs(
+    inputs: tuple[RecipeInput, ...],
+    expected_inputs: Mapping[str, object] | None,
+) -> Mapping[str, object]:
+    bound: dict[str, object] = {}
+    for entry in inputs:
+        existing = bound.get(entry.dataset)
+        if existing is None:
+            bound[entry.dataset] = entry.content
+        elif type(existing) is not _InputConflict and existing != entry.content:
+            bound[entry.dataset] = _InputConflict(
+                f"recipe inputs disagree on content identity for {entry.dataset!r}: {existing} vs {entry.content}"
+            )
+    if expected_inputs is not None:
+        if not isinstance(expected_inputs, Mapping):
+            return {address: _InputConflict("expected_inputs must be a mapping") for address in bound}
+        for address, expected in expected_inputs.items():
+            if type(expected) is _InputConflict:
+                bound[address] = expected
+            elif address not in bound:
+                bound[address] = _InputConflict(f"expected input {address!r} is not in recipe inputs")
+            elif type(bound[address]) is not _InputConflict and expected != bound[address]:
+                bound[address] = _InputConflict(
+                    f"expected input {address!r} content identity {expected} does not match recipe input {bound[address]}"
+                )
+    return bound
+
+
+def _stage_inputs(
+    addresses: tuple[str, ...],
+    held_inputs: Mapping[str, Path],
+    scratch: Path,
+    expected_inputs: Mapping[str, object] | None = None,
+) -> Mapping[str, str]:
+    if expected_inputs is not None:
+        if not isinstance(expected_inputs, Mapping):
+            raise MalformedClosure("expected_inputs must be a mapping")
+        for address, value in expected_inputs.items():
+            if type(value) is _InputConflict:
+                raise MalformedClosure(value.reason)
+        for address in addresses:
+            expected = expected_inputs.get(address)
+            if type(expected) is not str:
+                raise MalformedClosure(f"expected input {address!r} is missing content identity")
+            if not _DIGEST.match(expected):
+                raise MalformedClosure(f"expected input {address!r} has malformed content identity")
     inputs_dir = scratch / "inputs"
     inputs_dir.mkdir()
     identities: dict[str, str] = {}
@@ -478,7 +532,12 @@ def _stage_inputs(addresses: tuple[str, ...], held_inputs: Mapping[str, Path], s
         names.add(source.name)
         staged = inputs_dir / source.name
         shutil.copy2(source, staged)
-        identities[address] = _digest(staged)
+        digest = _digest(staged)
+        if expected_inputs is not None and digest != expected_inputs[address]:
+            raise MalformedClosure(
+                f"held input {address!r} digest {digest} does not match expected {expected_inputs[address]}"
+            )
+        identities[address] = digest
     return identities
 
 
@@ -636,6 +695,7 @@ def _execute_run(
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
     held_inputs: Mapping[str, Path],
+    expected_inputs: Mapping[str, object] | None = None,
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
@@ -662,6 +722,7 @@ def _execute_run(
             if spec is not None
             else tuple(entry.dataset for entry in inputs)
         )
+        expected = expected_inputs if spec is not None else _bind_recipe_inputs(inputs, expected_inputs)
         if boundary_policy == CONFINED_POLICY:
             return _execute_confined(
                 intent=intent,
@@ -673,6 +734,7 @@ def _execute_run(
                 definition=definition,
                 addresses=addresses,
                 held_inputs=held_inputs,
+                expected_inputs=expected,
                 captured=captured,
                 scratch=scratch,
                 bundle=bundle,
@@ -688,7 +750,7 @@ def _execute_run(
                 scratch_base=scratch_base,
                 cores=cores,
             )
-        held = _stage_inputs(addresses, held_inputs, scratch)
+        held = _stage_inputs(addresses, held_inputs, scratch, expected)
         invocation = Invocation(
             entrypoint=entrypoint,
             targets=targets,
@@ -712,22 +774,22 @@ def _execute_run(
         _check_definition_plan(definition, recipe.nondeterminism)
 
         planning_dir = Path(tempfile.mkdtemp(prefix="planning-", dir=scratch_base))
-        planning_handler = planning_dir / "handler.py"
-        planning_events = planning_dir / "events.jsonl"
-        planning_handler.write_text(LOG_HANDLER_SCRIPT)
-        _stage_inputs(addresses, held_inputs, planning_dir)
-        planning_argv = build_argv(
-            interpreter=sys.executable,
-            snakefile=str(captured_entrypoint),
-            directory=str(planning_dir),
-            targets=targets,
-            config=config,
-            log_handler=str(planning_handler),
-            cores=cores,
-            in_process_jobs=False,
-            dry_run=True,
-        )
         try:
+            planning_handler = planning_dir / "handler.py"
+            planning_events = planning_dir / "events.jsonl"
+            planning_handler.write_text(LOG_HANDLER_SCRIPT)
+            _stage_inputs(addresses, held_inputs, planning_dir, held)
+            planning_argv = build_argv(
+                interpreter=sys.executable,
+                snakefile=str(captured_entrypoint),
+                directory=str(planning_dir),
+                targets=targets,
+                config=config,
+                log_handler=str(planning_handler),
+                cores=cores,
+                in_process_jobs=False,
+                dry_run=True,
+            )
             planning_returncode, _ = run_engine(
                 planning_argv,
                 cwd=planning_dir,
@@ -807,6 +869,7 @@ def _execute_confined(
     definition: WorkflowDefinition,
     addresses: tuple[str, ...],
     held_inputs: Mapping[str, Path],
+    expected_inputs: Mapping[str, object] | None = None,
     captured: CapturedEnvironment,
     scratch: Path,
     bundle: Path,
@@ -833,7 +896,7 @@ def _execute_confined(
     output_root.mkdir()
     (output_root / TRACE_DIR).mkdir()
     (output_root / HOME_DIR).mkdir()
-    held = _stage_inputs(addresses, held_inputs, output_root)
+    held = _stage_inputs(addresses, held_inputs, output_root, expected_inputs)
     invocation = Invocation(
         entrypoint=entrypoint,
         targets=targets,
@@ -865,7 +928,7 @@ def _execute_confined(
     try:
         (planning_root / TRACE_DIR).mkdir()
         (planning_root / HOME_DIR).mkdir()
-        _stage_inputs(addresses, held_inputs, planning_root)
+        _stage_inputs(addresses, held_inputs, planning_root, held)
         (planning_root / TRACE_DIR / "handler.py").write_text(LOG_HANDLER_SCRIPT)
         planning_argv = build_argv(
             interpreter=f"{SANDBOX_VENV}/bin/python",
@@ -988,6 +1051,7 @@ def execute_assessment_run(
     port: OperationPort,
     boundary_policy: BoundaryPolicy,
     expected_recipe_identity: str | None = None,
+    expected_inputs: Mapping[str, str] | None = None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
     held_inputs: Mapping[str, Path],
@@ -1030,6 +1094,7 @@ def execute_assessment_run(
         definition=definition,
         code_roots=code_roots,
         held_inputs=held_inputs,
+        expected_inputs=expected_inputs,
         entrypoint=entrypoint,
         targets=targets,
         declared_outputs=declared_outputs,
@@ -1061,6 +1126,7 @@ def execute_production_run(
     port: OperationPort,
     boundary_policy: BoundaryPolicy,
     expected_recipe_identity: str | None = None,
+    expected_inputs: Mapping[str, str] | None = None,
     parameters: Mapping[str, object],
     nondeterminism: NondeterminismContract,
     definition: WorkflowDefinition,
@@ -1104,6 +1170,7 @@ def execute_production_run(
         definition=definition,
         code_roots=code_roots,
         held_inputs=held_inputs,
+        expected_inputs=expected_inputs,
         entrypoint=entrypoint,
         targets=targets,
         declared_outputs=declared_outputs,

@@ -10,7 +10,14 @@ from pathlib import Path
 from typing import final
 
 from beliefs.adapter import WorkflowDefinition
-from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run, execute_production_run, resolve_targets
+from beliefs.boundary import (
+    RunMinted,
+    RunRefused,
+    _bind_recipe_inputs,
+    execute_assessment_run,
+    execute_production_run,
+    resolve_targets,
+)
 from beliefs.errors import MalformedRecord, TargetAmbiguous, TargetUnresolvable
 from beliefs.recipe import (
     REQUIRED_FOR_CLEAN_ENVIRONMENT,
@@ -125,6 +132,7 @@ def replay(
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
     held_inputs: Mapping[str, Path],
+    expected_inputs: Mapping[str, str] | None = None,
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
@@ -152,6 +160,7 @@ def replay(
     }
     recipe = closure.recipe
     common["expected_recipe_identity"] = recipe.identity()
+    common["expected_inputs"] = _bind_recipe_inputs(recipe.inputs, expected_inputs)
     if recipe.shape == "assessment":
         outcome = execute_assessment_run(spec=spec, **common)
     else:

@@ -798,3 +798,92 @@ def test_removing_the_corpus_attribution_reads_not_available_never_an_unchanged_
     reading = replay_eligibility(original.run, resolvable_here=everything, attributions={})
     assert reading == NOT_AVAILABLE
     assert not isinstance(reading, Belief)
+
+
+def _forbid_replay_engines(monkeypatch):
+    from beliefs import boundary as boundary_module
+
+    def _never_engine(*args, **kwargs):
+        raise AssertionError("engine must not launch when replay input digest check refuses")
+
+    monkeypatch.setattr(boundary_module, "run_engine", _never_engine)
+    monkeypatch.setattr(boundary_module, "launch_confined", _never_engine)
+
+
+def test_replay_refuses_mutated_held_input_before_any_engine_launch(tmp_path, monkeypatch):
+    original = run_assessment(tmp_path / "original")
+    assert isinstance(original, RunMinted)
+
+    tampered = tmp_path / "tampered"
+    tampered.mkdir()
+    bad_data = tampered / "data.txt"
+    bad_data.write_bytes(b"mutated-after-run\n")
+    palette = tmp_path / "original" / "held" / "palette.txt"
+
+    _forbid_replay_engines(monkeypatch)
+    attempt = replay_of(
+        original,
+        tmp_path / "replay",
+        held_inputs={DATA_ADDRESS: bad_data, READS_ADDRESS: palette},
+    )
+    assert isinstance(attempt, RunRefused)
+    assert "does not match expected" in attempt.reason
+    assert attempt.intent is not None and attempt.report is not None and attempt.registration is not None
+    assert completion(attempt.intent, (attempt.registration,), {attempt.report.identity(): attempt.report}) == CLOSED
+
+
+def test_assessment_replay_refuses_conflicting_recipe_input_digests_without_launching_engine(tmp_path, monkeypatch):
+    from beliefs.recipe import RecipeInput
+
+    original = run_assessment(tmp_path / "original")
+    assert isinstance(original, RunMinted)
+
+    conflicting_recipe = dataclasses.replace(
+        original.run.recipe,
+        inputs=(
+            RecipeInput("observes", DATA_ADDRESS, original.run.recipe.inputs[0].content),
+            RecipeInput("reads", DATA_ADDRESS, "sha256:" + "f" * 64),
+        ),
+    )
+    conflicting = dataclasses.replace(
+        original,
+        run=dataclasses.replace(original.run, recipe=conflicting_recipe),
+    )
+
+    _forbid_replay_engines(monkeypatch)
+    attempt = replay_of(conflicting, tmp_path / "conflicting")
+    assert isinstance(attempt, RunRefused)
+    assert "recipe inputs disagree on content identity" in attempt.reason
+    assert attempt.intent is not None and attempt.report is not None and attempt.registration is not None
+    assert completion(attempt.intent, (attempt.registration,), {attempt.report.identity(): attempt.report}) == CLOSED
+
+
+def test_assessment_replay_refuses_when_supplied_expected_inputs_disagree_with_recipe_inputs_even_if_bytes_match(
+    tmp_path, monkeypatch
+):
+    from beliefs import boundary as boundary_module
+
+    original = run_assessment(tmp_path / "original")
+    assert isinstance(original, RunMinted)
+    digest_a = original.run.recipe.inputs[0].content
+
+    restored = tmp_path / "restored"
+    restored.mkdir()
+    restored_data = restored / "data.txt"
+    restored_data.write_bytes(b"restored-declared\n")
+    digest_b = boundary_module._digest(restored_data)
+    assert boundary_module._digest(restored_data) == digest_b
+    assert digest_b != digest_a
+    palette = tmp_path / "original" / "held" / "palette.txt"
+
+    _forbid_replay_engines(monkeypatch)
+    attempt = replay_of(
+        original,
+        tmp_path / "replay",
+        held_inputs={DATA_ADDRESS: restored_data, READS_ADDRESS: palette},
+        expected_inputs={DATA_ADDRESS: digest_b},
+    )
+    assert isinstance(attempt, RunRefused)
+    assert "does not match recipe input" in attempt.reason
+    assert attempt.intent is not None and attempt.report is not None and attempt.registration is not None
+    assert completion(attempt.intent, (attempt.registration,), {attempt.report.identity(): attempt.report}) == CLOSED
