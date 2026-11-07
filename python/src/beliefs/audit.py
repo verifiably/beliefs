@@ -36,7 +36,6 @@ from nodes.core.errors import RefError
 from nodes.core.node import Node
 
 from beliefs import stored
-from beliefs.acquisition import validity_refusal
 from beliefs.assess import AssessmentValue, build_assessment
 from beliefs.corpus import (
     ELIGIBILITY_CODES,
@@ -46,6 +45,7 @@ from beliefs.corpus import (
     ReadView,
     _absence_of,
     _CapturedCheckView,
+    _dataset_standing_outcome,
     _ImportView,
     _manifest_findings,
     _merged_capture,
@@ -637,10 +637,11 @@ class _CapturedCitations:
         self._malformed = malformed
         self._profile: ProfileSpec | None = None
         self.unreadable: dict[str, str] = {}
+        self._judging_incomplete: set[str] = set()
 
     def _holder(self, ref: str) -> _CapturedCheckView | None:
         if self._own.holds(ref):
-            if self._incomplete(ref):
+            if ref not in self._judging_incomplete and self._incomplete(ref):
                 self.unreadable[ref] = f"{self._citing} producers-incomplete:{','.join(sorted(self._causes))}"
                 return None
             return self._own
@@ -665,15 +666,23 @@ class _CapturedCitations:
     def _incomplete(self, ref: str) -> bool:
         """Per dataset: an own dataset the epoch never mapped, while a
         covered corpus is unreadable, is uncertain only when it would otherwise
-        pass. A missing or malformed facet, a basis, a known producer or an
-        unresolved report each decide it definitely, and the scan goes on."""
+        have empirical standing, directly or inherited through its basis. A
+        missing or malformed facet, a divergent or retired basis, a known
+        producer, an unresolved report or an ancestor without standing each
+        decide it definitely, and the scan goes on. While `ref` itself is
+        judged it reads as held (`_judging_incomplete`); a distinct unmapped
+        ancestor reached on the walk is judged the same way in turn."""
         if self._view.corpus_of(ref) is not None or not self._causes:
             return False
         node = self._own.get(ref)
         if node.kind != "dataset":
             return False
         assert self._profile is not None, "producer completeness is judged inside eligibility()"
-        return validity_refusal(self, node, self._profile, reports=self._own) is None
+        self._judging_incomplete.add(ref)
+        try:
+            return _dataset_standing_outcome(self, ref, self._profile, judge=self, reports=self._holder) is None
+        finally:
+            self._judging_incomplete.discard(ref)
 
     def holds(self, ref: str) -> bool:
         return self._holder(ref) is not None
@@ -702,7 +711,15 @@ class _CapturedCitations:
         return self.unreadable.get(ref)
 
     def note_retractions_incomplete(self, ref: str) -> bool:
-        return False
+        """A route-identitied basis judged while a covered corpus is unreadable:
+        that corpus could hold a standing route retraction, or a counter to
+        one, that the fold over the readable corpora missed. Records why `ref`
+        is uncertain and answers `True`; a dataset being judged for producer
+        completeness defers to that judgment."""
+        if ref in self._judging_incomplete or not self._causes:
+            return False
+        self.unreadable[ref] = f"{self._citing} retractions-incomplete:{','.join(sorted(self._causes))}"
+        return True
 
     def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None:
         self.unreadable = {}

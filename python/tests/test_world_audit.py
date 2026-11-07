@@ -20,7 +20,7 @@ from test_world_view import damage, make_absent, split_verification_world, two_c
 from beliefs import stored
 from beliefs.audit import NO_EVIDENCE, WORLD_AUDIT_CODES, WorldAudit, audit_corpus, audit_world
 from beliefs.corpus import ReadView
-from beliefs.errors import CorpusDamaged
+from beliefs.errors import CorpusDamaged, ResolutionRefused
 
 
 def codes(findings) -> list[tuple[str, str]]:
@@ -986,3 +986,116 @@ def test_audit_files_per_holder(tmp_path):
     readable = {c: _CapturedCheckView(view.captured_records(c)) for c in (BETA, GAMMA)}
     reader = _CapturedCitations(view, GAMMA, readable, {ALPHA: "absent"}, {})
     assert reader._holder(shared.id) is readable[BETA] and reader.unreadable == {}
+
+
+# --- empirical standing inherited through lineage (beliefs-8ecbb5) ------------
+
+
+def _derived_world(tmp_path, *, alpha=(), beta=(), cover=(ALPHA, BETA)):
+    roots = corpora(tmp_path, {ALPHA: tuple(alpha), BETA: tuple(beta)})
+    world = world_over(tmp_path, roots)
+    return world, roots, publish(world, cover, hold_shipped(world))
+
+
+def _audited(world, published):
+    return audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+
+def _findings(audit, corpus_id=ALPHA):
+    return [f for f in audit.corpora[corpus_id] if f.code.startswith("eligibility")]
+
+
+def _over(d1):
+    import lineage_fixtures as lineage
+
+    run = lineage.analysis("r", d1.id)
+    return run, lineage.assessment_over("a", run.id, "proposition:p")
+
+
+def test_world_audit_admits_cross_corpus_derived_lineage_and_reports_unmapped_ancestor_unmet(tmp_path):
+    """A mapped record deleted from a present carrier refuses the open as corruption,
+    so a missing ancestor or producer is one the epoch never mapped."""
+    import lineage_fixtures as lineage
+
+    d0 = _observed("d0")
+    d1 = lineage.derived("d1", lineage.route("run:p1", d0.id))
+    p1 = lineage.production("p1", d0.id, d1.id)
+    p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    world, _roots, published = _derived_world(tmp_path / "complete", alpha=(d1, *_over(d1)), beta=(d0, REPORT, p1, p))
+    assert _findings(_audited(world, published)) == []
+    for label, beta in (("no-ancestor", (REPORT, p1, p)), ("no-producer", (d0, REPORT, p))):
+        world, _roots, published = _derived_world(tmp_path / label, alpha=(d1, *_over(d1)), beta=beta)
+        (finding,) = _findings(_audited(world, published))
+        assert (finding.severity, finding.code) == ("error", "eligibility-unmet")
+        assert "lineage-incomplete" in finding.message
+
+
+def test_world_audit_reports_unresolved_for_unreadable_producer_and_refuses_a_deleted_published_producer(tmp_path):
+    """An unreadable holder makes the producer absent, so standing is unresolved. A
+    published producer deleted from a readable holder never reaches the judgment:
+    the open refuses that carrier as corruption, not absence."""
+    import lineage_fixtures as lineage
+    from fixtures_cut4 import path_for
+
+    d0 = _observed("d0")
+    d1 = lineage.derived("d1", lineage.route("run:p1", d0.id))
+    p1 = lineage.production("p1", d0.id, d1.id)
+    p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    world, roots, published = _derived_world(tmp_path / "absent", alpha=(d0, REPORT, d1, p, *_over(d1)), beta=(p1,))
+    assert _findings(_audited(world, published)) == []
+    make_absent(roots, BETA)
+    (finding,) = _findings(_audited(world, published))
+    assert (finding.severity, finding.code) == ("warning", "eligibility-unresolved")
+    assert "run:p1" in finding.detail and BETA in finding.detail
+
+    world, roots, published = _derived_world(tmp_path / "deleted", alpha=(d0, REPORT, d1, p, *_over(d1)), beta=(p1,))
+    path_for(roots[BETA], p1.id).unlink()
+    with pytest.raises(ResolutionRefused, match="the present carrier does not hold"):
+        _audited(world, published)
+
+
+def test_unmapped_derived_dataset_while_corpus_is_absent_is_producers_incomplete_only_when_valid(tmp_path):
+    import lineage_fixtures as lineage
+
+    p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    q = stored.proposition_node("q", title="q", claim={"operator": "affects"})
+    for ancestor, expected in ((_observed("d0"), "warning"), (_observed("d0", facet=False), "error")):
+        d1 = lineage.derived("d1", lineage.route("run:p1", ancestor.id))
+        p1 = lineage.production("p1", ancestor.id, d1.id)
+        world, roots, published = _derived_world(tmp_path / expected, alpha=(ancestor, REPORT, p1, p), beta=(q,))
+        raw_add(roots[ALPHA], d1, *_over(d1))  # drift: the epoch never mapped d1
+        make_absent(roots, BETA)
+        (finding,) = _findings(_audited(world, published))
+        if expected == "warning":
+            assert (finding.severity, finding.code) == ("warning", "eligibility-unresolved")
+            assert "producers-incomplete" in finding.detail and d1.id in finding.detail
+        else:
+            assert (finding.severity, finding.code) == ("error", "eligibility-unmet")
+            assert "no-empirical-observation-facet" in finding.message
+
+
+def test_route_identitied_basis_while_corpus_is_absent_reports_retractions_incomplete(tmp_path):
+    import lineage_fixtures as lineage
+
+    d0 = _observed("d0")
+    d1 = lineage.derived("d1", lineage.route("run:p1", d0.id, identity="route:1"))
+    p1 = lineage.production("p1", d0.id, d1.id)
+    p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    q = stored.proposition_node("q", title="q", claim={"operator": "affects"})
+    world, roots, published = _derived_world(tmp_path / "absent", alpha=(d0, REPORT, d1, p1, p, *_over(d1)), beta=(q,))
+    assert _findings(_audited(world, published)) == []
+    make_absent(roots, BETA)
+    (finding,) = _findings(_audited(world, published))
+    assert (finding.severity, finding.code) == ("warning", "eligibility-unresolved")
+    assert "retractions-incomplete" in finding.detail and d1.id in finding.detail
+
+    world, roots, published = _derived_world(
+        tmp_path / "malformed", alpha=(d0, REPORT, d1, p1, p, *_over(d1)), beta=(q,)
+    )
+    stale = lineage.node_retraction(lineage.assessment_over("other", "run:other"), "s1")
+    stale.facets[stored.RETRACTION_FACET]["rationale"] = "changed after stamping"
+    raw_write(roots[ALPHA], stale)
+    make_absent(roots, BETA)
+    (finding,) = _findings(_audited(world, published))
+    assert (finding.severity, finding.code) == ("error", "eligibility-unmet")
+    assert "retraction-unreadable" in finding.message

@@ -620,3 +620,24 @@ def _pin_change_after_intent(corpora, tmp_path, monkeypatch):
     assert len(entries) == 1 and isinstance(entries[0][1], IntentEntry)
     assert not any(isinstance(entry, RegisteredEntry) for _, entry in entries)
     assert not tuple(reopen(w.root).iter_stored())
+
+
+def test_derived_dataset_inherits_standing_durably(corpora):
+    """A dataset produced from an acquired ancestor confers empirical standing on
+    an assessment that observes it, durably, and loses it when the ancestor goes
+    (beliefs-8ecbb5)."""
+    import lineage_fixtures as lineage
+    from fixtures_cut4 import path_for
+
+    w = corpora()
+    d0 = w.add(acquired("d0", ACTOR))
+    d1 = w.add(lineage.derived("d1", lineage.route("run:p1", d0.id)))
+    w.add(lineage.production("p1", d0.id, d1.id))
+    w.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    run = w.add(lineage.analysis("r", d1.id))
+    a1 = w.add(lineage.assessment_over("a1", run.id, "proposition:p"))
+    assert reopen(w.root).holds(a1.id)
+    assert corpus_check(reopen(w.root), BASE) == ()
+    path_for(w.root, d0.id).unlink()
+    findings = [(f.severity, f.code, f.ref, f.detail) for f in corpus_check(reopen(w.root), BASE)]
+    assert ("warning", "eligibility-unresolved", a1.id, d0.id) in findings

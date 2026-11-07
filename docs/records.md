@@ -201,7 +201,18 @@ or a standard error). A record minted before
 the estimand grammar is refused by name (`PreGrammarAssessment`) and is never
 converted. At the write boundary, a record that carries an `assesses` edge must
 name a run that resolves, and at least one of the run's `observes` inputs must
-carry a valid `empirical-observation` facet.
+have empirical standing — either carrying a valid `empirical-observation` facet
+directly or inheriting standing through a complete, undiverged `lineage-basis`
+chain from an ancestor dataset that carries one. The chain is the one
+independence certification walks: a `conflict` basis or a producer whose
+`transforms` differ from the route refuses as `lineage-divergent`, and a missing
+producing run or ancestor, a cycle, or a basis whose every route is retired
+refuses as `lineage-incomplete`. A dataset carrying the facet and a basis, or
+produced by a run, is refused as before. Route retractions are folded only when
+a route in the chain records an identity, which boundary-minted routes never do;
+a malformed or cyclic retraction then refuses standing. `corpus_check` reports an
+unmet rule as `eligibility-unmet`, and one resting on a run, producer or ancestor
+the corpus does not hold as `eligibility-unresolved`.
 
 ## Verifications
 
