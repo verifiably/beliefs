@@ -1101,3 +1101,112 @@ def test_replay_multi_resource_and_single_resource_nested_member_mappings(tmp_pa
         assert isinstance(rep_nested, RunMinted), rep_nested
         assert rep_nested.run.recipe.identity() == orig_nested_prod.run.recipe.identity()
         assert rep_nested.run.result == orig_nested_prod.run.result
+
+
+def test_replay_of_production_run_commits_replay_run_record_when_dataset_already_held_and_passes_corpus_check(
+    certified_work,
+):
+    from authority import FULL
+    from nodes.core.frontmatter import node_from_markdown, node_to_markdown
+    from nodes.core.paths import path_for_node_id
+    from nodes.core.write_plan import CreateOp
+    from profiles import BASE
+    from test_operation_port import durable_port
+
+    from beliefs import runrecord, stored
+    from beliefs.audit import NO_EVIDENCE, audit_corpus
+    from beliefs.corpus import ReadView, corpus_check
+    from beliefs.production import mint_dataset
+    from beliefs.root import init_corpus_root
+
+    root = certified_work / "corpus"
+    init_corpus_root(root, authority=FULL)
+    port = durable_port(root)
+
+    code, held = stage(certified_work / "work", snakefile=SNAKEFILE_PRODUCTION)
+    raw_path = held / "data.txt"
+    reads_path = held / "palette.txt"
+    raw_digest = _digest(raw_path)
+    reads_digest = _digest(reads_path)
+    raw_dataset = stored.dataset_node(
+        title="raw input",
+        resources=[{"name": "data.txt", "digest": raw_digest}],
+        empirical_observation={"locator": "url:https://example.org/raw", "attested_by": port.authority.actor},
+    )
+    reads_dataset = stored.dataset_node(
+        title="auxiliary reads",
+        resources=[{"name": "palette.txt", "digest": reads_digest}],
+        empirical_observation={"locator": "url:https://example.org/reads", "attested_by": port.authority.actor},
+    )
+    port.execute(
+        [
+            CreateOp(path_for_node_id(raw_dataset.id), node_to_markdown(raw_dataset).encode("utf-8")),
+            CreateOp(path_for_node_id(reads_dataset.id), node_to_markdown(reads_dataset).encode("utf-8")),
+        ]
+    )
+
+    defn = definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={})
+    held_inputs = {raw_dataset.id: raw_path, reads_dataset.id: reads_path}
+    orig_prod = execute_production_run(
+        inputs=(
+            RecipeInput(role="transforms", dataset=raw_dataset.id, content=raw_digest),
+            RecipeInput(role="reads", dataset=reads_dataset.id, content=reads_digest),
+        ),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=port,
+        boundary_policy=MINIMAL_POLICY,
+        definition=defn,
+        code_roots=(code,),
+        held_inputs=held_inputs,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=certified_work / "scratch-orig",
+        cores=1,
+        dataset_title="produced package",
+    )
+    assert isinstance(orig_prod, RunMinted), orig_prod
+    minted = mint_dataset(orig_prod.run, existing_bases={})
+    dataset_rel_path = path_for_node_id(minted.address)
+    assert (root / dataset_rel_path).exists()
+
+    rep_prod = _replay_fn(
+        orig_prod,
+        port=port,
+        spec=None,
+        definition=defn,
+        code_roots=(code,),
+        held_inputs=held_inputs,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-2",
+        started_at="2026-08-12T00:01:00Z",
+        host_realization="host-b",
+        scratch_base=certified_work / "scratch-replay",
+        cores=1,
+    )
+    assert isinstance(rep_prod, RunMinted), rep_prod
+    assert rep_prod.run.address() != orig_prod.run.address()
+    assert (root / "run" / f"{rep_prod.run.address()}.md").exists()
+
+    dataset_node = node_from_markdown((root / dataset_rel_path).read_text(encoding="utf-8"))
+    assert dataset_node.title == "produced package"
+    assert stored.lineage_basis(dataset_node) == {
+        "tag": "single",
+        "routes": [
+            {
+                "run": runrecord.run_ref(orig_prod.run.address()),
+                "ancestor": raw_dataset.id,
+                "transforms": [raw_dataset.id],
+            }
+        ],
+    }
+
+    view = ReadView.opened_at(root)
+    assert corpus_check(view, BASE) == ()
+    assert audit_corpus(view, evidence=NO_EVIDENCE, profile=BASE) == ()

@@ -435,6 +435,108 @@ class TestLineageBasisRecomputation:
         assert check_lineage_basis(writer.read_view, node) == DerivationOutcome(True, "", None)
         assert audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile) == ()
 
+    def test_r23_replay_production_run_with_matching_transforms_is_not_contradicted(self, writer):
+        from nodes.core.frontmatter import node_from_markdown
+
+        base_orig = make_closure(shape="dataset-production", spec=None, token="tok-orig")
+        orig = replace(base_orig, occurrence=replace(base_orig.occurrence, actor=ACTOR))
+        base_rep = make_closure(shape="dataset-production", spec=None, token="tok-replay")
+        replayed = replace(base_rep, occurrence=replace(base_rep.occurrence, actor=ACTOR))
+
+        for entry in orig.recipe.inputs:
+            if not writer.read_view.holds(entry.dataset):
+                writer.add(
+                    stored.dataset_node(
+                        title=entry.role,
+                        resources=pinned_for(entry.dataset),
+                        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
+                    )
+                )
+
+        _, _, (run_op_1, dataset_op) = runrecord.publication_plan(orig, dataset_title="produced package")
+        _, _, (run_op_2, _) = runrecord.publication_plan(replayed, dataset_title="produced package")
+        run_node_1 = writer.add(node_from_markdown(run_op_1.content.decode("utf-8")))
+        dataset_node = writer.add(node_from_markdown(dataset_op.content.decode("utf-8")))
+        run_node_2 = writer.add(node_from_markdown(run_op_2.content.decode("utf-8")))
+        assert run_node_1.id != run_node_2.id
+
+        node = writer.read_view.get(dataset_node.id)
+        assert check_lineage_basis(writer.read_view, node) == DerivationOutcome(True, "", None)
+        assert audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile) == ()
+
+    def test_second_producing_run_with_different_transforms_or_no_closure_is_contradicted(self, writer):
+        from nodes.core.frontmatter import node_from_markdown
+
+        from beliefs.recipe import RecipeInput
+
+        base_orig = make_closure(shape="dataset-production", spec=None, token="tok-orig")
+        orig = replace(base_orig, occurrence=replace(base_orig.occurrence, actor=ACTOR))
+
+        other_raw = writer.add(
+            stored.dataset_node(
+                title="other-raw",
+                resources=[{"name": "other.txt", "digest": "sha256:" + "3" * 64}],
+                empirical_observation={"locator": "instrument:other", "attested_by": ACTOR},
+            )
+        )
+        for entry in orig.recipe.inputs:
+            if not writer.read_view.holds(entry.dataset):
+                writer.add(
+                    stored.dataset_node(
+                        title=entry.role,
+                        resources=pinned_for(entry.dataset),
+                        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
+                    )
+                )
+
+        _, _, (run_op_1, dataset_op) = runrecord.publication_plan(orig)
+        writer.add(node_from_markdown(run_op_1.content.decode("utf-8")))
+        dataset_node = writer.add(node_from_markdown(dataset_op.content.decode("utf-8")))
+
+        # Case 1: second producing run has a valid run-closure facet but different transforms dataset
+        diff_inputs = (
+            RecipeInput(role="transforms", dataset=other_raw.id, content="sha256:" + "3" * 64),
+            orig.recipe.inputs[1],
+        )
+        diff_closure = replace(
+            orig,
+            recipe=replace(orig.recipe, inputs=diff_inputs),
+            occurrence=replace(orig.occurrence, event_token="tok-diff-transforms", actor=ACTOR),
+        )
+        _, _, (diff_run_op, _) = runrecord.publication_plan(diff_closure)
+        diff_run_node = writer.add(node_from_markdown(diff_run_op.content.decode("utf-8")))
+
+        node = writer.read_view.get(dataset_node.id)
+        outcome_diff = check_lineage_basis(writer.read_view, node)
+        assert outcome_diff.checked and outcome_diff.contradiction is not None
+        assert outcome_diff.contradiction.code == "lineage-basis-contradicted"
+        assert [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)] == [
+            "lineage-basis-contradicted"
+        ]
+
+        writer.delete(diff_run_node.id)
+        assert audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile) == ()
+
+        # Case 2: second producing run has matching transforms edge but no run-closure facet
+        ancestor = orig.recipe.inputs[0].dataset
+        no_closure_run = writer.add(
+            stored.run_node(
+                "no-closure-producer",
+                title="no-closure-producer",
+                spec="analysis-spec:s1",
+                transforms=[ancestor],
+                produces=[dataset_node.id],
+            )
+        )
+        node = writer.read_view.get(dataset_node.id)
+        outcome_no_closure = check_lineage_basis(writer.read_view, node)
+        assert outcome_no_closure.checked and outcome_no_closure.contradiction is not None
+        assert outcome_no_closure.contradiction.code == "lineage-basis-contradicted"
+        assert [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)] == [
+            "lineage-basis-contradicted"
+        ]
+        writer.delete(no_closure_run.id)
+
 
 class TestUncheckedIsNotContradicted:
     def test_a_verification_without_a_derivation_member_is_unchecked(self, writer):

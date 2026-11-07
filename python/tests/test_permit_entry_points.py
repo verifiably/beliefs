@@ -979,7 +979,7 @@ CASES = (
     Case(
         "boundary.py:execute_production_run",
         "run",
-        ("run", "act-report"),
+        ("run", "dataset", "act-report"),
         False,
         _nothing,
         _run("production"),

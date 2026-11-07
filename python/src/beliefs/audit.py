@@ -304,20 +304,34 @@ def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> Derivatio
     """A stamped basis must name every resolved producer of its dataset. A
     producer the basis omits is what a raw-forged `single(A)` looks like while
     `B`'s run stands; once `B`'s run is gone, nothing contradicts it."""
-    if stored.lineage_basis(node) is None:
+    basis = stored.lineage_basis(node)
+    if basis is None:
         return _unchecked("no stamped basis")
+    routes = stored.basis_routes(node)
     named = set()
-    for route in stored.basis_routes(node):
+    for route in routes:
         run = route.get("run")
         if type(run) is not str:
             raise MalformedRecord(f"{node.id}: a stamped basis route names its producing run as a string")
         named.add(run)
     named_resolved = {view.resolve(run) for run in named}
     try:
-        producers = {p.resolved_run for p in _producers_of(view, node.id) if p.resolved_run is not None}
+        producer_entries = _producers_of(view, node.id)
     except _UNREADABLE_NEIGHBOUR as refused:
         return _unchecked(f"a producing run of {node.id} is malformed here: {refused}")
-    omitted = sorted(producers - named_resolved)
+    single_transforms: tuple[str, ...] | None = None
+    if basis.get("tag") == "single" and len(routes) == 1:
+        single_transforms = tuple(str(entry) for entry in routes[0].get("transforms", []) or ())
+    omitted_set: set[str] = set()
+    for p in producer_entries:
+        if p.resolved_run is None or p.resolved_run in named_resolved:
+            continue
+        if single_transforms is not None:
+            closure, _ = _closure(view, p.stored_run)
+            if closure is not None and p.transforms == single_transforms:
+                continue
+        omitted_set.add(p.resolved_run)
+    omitted = sorted(omitted_set)
     if not omitted:
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(

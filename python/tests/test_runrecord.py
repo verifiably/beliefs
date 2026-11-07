@@ -7,13 +7,21 @@ from typing import cast
 import pytest
 from closure_fixtures import make_closure as build_closure
 from nodes.core.frontmatter import node_from_markdown
+from nodes.core.paths import path_for_node_id
 
 from beliefs import runrecord, stored
 from beliefs.adapter import require_executing_environment
 from beliefs.errors import MalformedClosure, MalformedRecord, RecipeVersionUnsupported
 from beliefs.identity import v1
 from beliefs.production import mint_dataset
-from beliefs.recipe import EnvironmentReference, ResultManifest, RunClosure, run_domain_for, run_domain_for_projection
+from beliefs.recipe import (
+    EnvironmentReference,
+    RecipeInput,
+    ResultManifest,
+    RunClosure,
+    run_domain_for,
+    run_domain_for_projection,
+)
 from beliefs.replay import CONTENT_EQUALITY, conformance
 
 
@@ -249,7 +257,7 @@ def test_shape_agreement_both_ways(assessment_closure, production_closure) -> No
     with pytest.raises(MalformedRecord):
         runrecord.decode_run_record(node)
 
-    _, _, (op,) = runrecord.publication_plan(production_closure)
+    _, _, (op, _dataset_op) = runrecord.publication_plan(production_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     node.facets["run"]["spec"] = "s" * 64
     node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
@@ -259,7 +267,7 @@ def test_shape_agreement_both_ways(assessment_closure, production_closure) -> No
 
 def test_run_facet_shapes_are_exact_not_get_based(assessment_closure, production_closure) -> None:
     for closure in (assessment_closure, production_closure):
-        _, _, (op,) = runrecord.publication_plan(closure)
+        _, _, (op, *_) = runrecord.publication_plan(closure)
         node = node_from_markdown(op.content.decode("utf-8"))
         node.facets["run"]["extra"] = "key"
         node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
@@ -276,7 +284,7 @@ def test_legacy_run_node_reads_and_never_qualifies() -> None:
 def test_production_facet_is_exactly_empty_and_run_spec_reads_none(
     production_closure,
 ) -> None:
-    _, _, (op,) = runrecord.publication_plan(production_closure)
+    _, _, (op, _dataset_op) = runrecord.publication_plan(production_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     assert node.facets["run"] == {}
     assert stored.run_spec(node) is None
@@ -295,13 +303,75 @@ def test_relations_are_role_preserving(assessment_closure, production_closure) -
     assert stored.inputs_of(node, "transforms") == ()
     assert stored.inputs_of(node, "produces") == ()
 
-    _, _, (op,) = runrecord.publication_plan(production_closure)
+    record_id, _, (op, dataset_op) = runrecord.publication_plan(production_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     edges(node, "transforms", production_closure)
     edges(node, "reads", production_closure)
     assert stored.inputs_of(node, "observes") == ()
     minted = mint_dataset(production_closure, existing_bases={})
     assert stored.inputs_of(node, "produces") == (minted.address,)
+    assert dataset_op.path == path_for_node_id(minted.address)
+    dataset_node = node_from_markdown(dataset_op.content.decode("utf-8"))
+    assert dataset_node.id == minted.address
+    assert dataset_node.title == "produced dataset"
+    transforms_input = next(e for e in production_closure.recipe.inputs if e.role == "transforms")
+    assert stored.lineage_basis(dataset_node) == {
+        "tag": "single",
+        "routes": [
+            {
+                "run": record_id,
+                "ancestor": transforms_input.dataset,
+                "transforms": [transforms_input.dataset],
+            }
+        ],
+    }
+
+    _, _, (_, custom_dataset_op) = runrecord.publication_plan(production_closure, dataset_title="curated package")
+    custom_dataset_node = node_from_markdown(custom_dataset_op.content.decode("utf-8"))
+    assert custom_dataset_node.title == "curated package"
+
+
+def test_production_publication_plan_validates_transforms_and_dataset_title(production_closure) -> None:
+    reads_only = dataclasses.replace(
+        production_closure,
+        recipe=dataclasses.replace(
+            production_closure.recipe,
+            inputs=(
+                RecipeInput(
+                    role="reads",
+                    dataset="dataset:" + "4" * 64,
+                    content="sha256:" + "4" * 64,
+                ),
+            ),
+        ),
+    )
+    with pytest.raises(MalformedClosure, match="requires exactly one transforms dataset"):
+        runrecord.publication_plan(reads_only)
+
+    two_transforms = dataclasses.replace(
+        production_closure,
+        recipe=dataclasses.replace(
+            production_closure.recipe,
+            inputs=(
+                RecipeInput(
+                    role="transforms",
+                    dataset="dataset:" + "1" * 64,
+                    content="sha256:" + "1" * 64,
+                ),
+                RecipeInput(
+                    role="transforms",
+                    dataset="dataset:" + "2" * 64,
+                    content="sha256:" + "2" * 64,
+                ),
+            ),
+        ),
+    )
+    with pytest.raises(MalformedClosure, match="requires exactly one transforms dataset"):
+        runrecord.publication_plan(two_transforms)
+
+    for bad_title in ("", "   ", 123, None):
+        with pytest.raises(MalformedClosure, match="dataset_title must be a non-empty string"):
+            runrecord.publication_plan(production_closure, dataset_title=bad_title)  # type: ignore[arg-type]
 
 
 def test_the_bridge_is_closed_over_the_closure_address_domain() -> None:

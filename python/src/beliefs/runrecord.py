@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, NoReturn, Protocol, cast, final
 
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
+from nodes.core.paths import path_for_node_id
 from nodes.core.write_plan import CreateOp, WritePlan
 
 from beliefs import stored
@@ -798,11 +799,20 @@ def decode_run_closure(node: Node) -> RunClosure:
     )
 
 
-def publication_plan(closure: RunClosure) -> tuple[str, str, tuple[CreateOp, ...]]:
+def publication_plan(
+    closure: RunClosure,
+    *,
+    dataset_title: str = "produced dataset",
+) -> tuple[str, str, tuple[CreateOp, ...]]:
+    if type(dataset_title) is not str or not dataset_title.strip():
+        raise MalformedClosure("dataset_title must be a non-empty string")
     shape = closure.recipe.shape
     produces = mint_dataset(closure, existing_bases={}).address if shape == "dataset-production" else None
     address = closure.address()
     inputs = closure.recipe.inputs
+    transform_datasets = tuple(dict.fromkeys(entry.dataset for entry in inputs if entry.role == "transforms"))
+    if shape == "dataset-production" and len(transform_datasets) != 1:
+        raise MalformedClosure("a dataset-production run requires exactly one transforms dataset")
     node = stored.run_publication_node(
         address,
         title=f"{shape} run",
@@ -817,4 +827,27 @@ def publication_plan(closure: RunClosure) -> tuple[str, str, tuple[CreateOp, ...
     record_id = run_ref(address)
     if node.id != record_id:
         raise MalformedRecord(f"the stored node id {node.id!r} disagrees with the bridge's {record_id!r}")
-    return record_id, path, (CreateOp(path, node_to_markdown(node).encode("utf-8")),)
+    run_op = CreateOp(path, node_to_markdown(node).encode("utf-8"))
+    if produces is None:
+        return record_id, path, (run_op,)
+    ancestor = transform_datasets[0]
+    basis_payload = {
+        "tag": "single",
+        "routes": [
+            {
+                "run": record_id,
+                "ancestor": ancestor,
+                "transforms": [ancestor],
+            }
+        ],
+    }
+    dataset_node = stored.dataset_node(
+        title=dataset_title,
+        resources=[{"name": name, "digest": digest} for name, digest in closure.result.outputs],
+        basis=basis_payload,
+    )
+    dataset_op = CreateOp(
+        path_for_node_id(dataset_node.id),
+        node_to_markdown(dataset_node).encode("utf-8"),
+    )
+    return record_id, path, (run_op, dataset_op)

@@ -264,7 +264,8 @@ def _held(name: str) -> tuple[object, str, bytes]:
         return closure, path, operation.content
     if name == "production":
         closure = make_closure(shape="dataset-production")
-        _, path, (operation,) = publication_plan(closure)
+        _, path, (operation, dataset_op) = publication_plan(closure)
+        assert dataset_op.path.startswith("dataset/sha256__") and dataset_op.path.endswith(".md")
         return closure, path, operation.content
     operation = {
         "run-attempt-report": "run-attempt",

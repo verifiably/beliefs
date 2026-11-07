@@ -1453,3 +1453,158 @@ def test_multi_resource_validation_refusals_before_and_during_staging(tmp_path, 
     )
     assert isinstance(symlink_refused, RunRefused)
     assert "is not a readable file" in symlink_refused.reason
+
+
+# --- produced dataset minting and pre-intent validation (beliefs-584078) ---
+
+
+def test_production_run_requires_dataset_in_permit_mints(tmp_path):
+    from fixtures_cut3 import run_production as production_run
+
+    port = _NarrowPort(narrowed(kinds=("run", "act-report"), families=("run",)))
+    outcome = production_run(tmp_path, port=port)
+    assert isinstance(outcome, RunRefused) and outcome.reason == "permit-exceeded"
+    assert outcome.report is None and outcome.intent is None and outcome.registration is None
+    assert "kind dataset" in outcome.detail
+    assert port.appended == []
+
+
+def test_production_run_refuses_pre_intent_on_invalid_transforms_or_dataset_title(tmp_path, monkeypatch):
+    code, held = stage(tmp_path, snakefile=SNAKEFILE_PRODUCTION)
+    data_digest = _boundary._digest(held / "data.txt")
+    reads_digest = _boundary._digest(held / "palette.txt")
+    _forbid_engines(monkeypatch)
+
+    class _RecordingPort(MemoryPort):
+        authority = FULL
+
+        def __init__(self):
+            self.intents: list[bytes] = []
+            self.executed: list[object] = []
+
+        def append_intent(self, payload: bytes) -> str:
+            self.intents.append(payload)
+            return super().append_intent(payload)
+
+        def execute(self, plan) -> None:
+            self.executed.append(plan)
+
+    def _call_prod(inputs, *, dataset_title: object = "produced dataset", sub="case"):
+        port = _RecordingPort()
+        outcome = execute_production_run(
+            inputs=inputs,
+            parameters={},
+            nondeterminism=Deterministic(),
+            port=port,
+            boundary_policy=MINIMAL_POLICY,
+            definition=definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={}),
+            code_roots=(code,),
+            held_inputs={DATA_ADDRESS: held / "data.txt", READS_ADDRESS: held / "palette.txt"},
+            entrypoint="code/workflow/Snakefile",
+            targets=("outputs/result.txt",),
+            declared_outputs=("outputs/result.txt",),
+            observer="observer-1",
+            started_at="2026-08-12T00:00:00Z",
+            host_realization="host-a",
+            scratch_base=tmp_path / f"scratch-{sub}",
+            cores=1,
+            dataset_title=dataset_title,  # type: ignore[arg-type]
+        )
+        return outcome, port
+
+    # 1. Zero transforms inputs (only reads)
+    reads_only = (RecipeInput(role="reads", dataset=READS_ADDRESS, content=reads_digest),)
+    outcome_zero, port_zero = _call_prod(reads_only, sub="zero-transforms")
+    assert isinstance(outcome_zero, RunRefused)
+    assert outcome_zero.reason == "malformed-inputs"
+    assert outcome_zero.intent is None and outcome_zero.registration is None and outcome_zero.report is not None
+    assert port_zero.intents == [] and len(port_zero.executed) == 1
+
+    # 2. >1 distinct transforms datasets
+    two_transforms = (
+        RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=data_digest),
+        RecipeInput(role="transforms", dataset=READS_ADDRESS, content=reads_digest),
+    )
+    outcome_two, port_two = _call_prod(two_transforms, sub="two-transforms")
+    assert isinstance(outcome_two, RunRefused)
+    assert outcome_two.reason == "malformed-inputs"
+    assert outcome_two.intent is None and outcome_two.registration is None and outcome_two.report is not None
+    assert port_two.intents == [] and len(port_two.executed) == 1
+
+    # 3. Invalid dataset_title (empty, whitespace, non-str)
+    valid_inputs = (
+        RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=data_digest),
+        RecipeInput(role="reads", dataset=READS_ADDRESS, content=reads_digest),
+    )
+    for idx, bad_title in enumerate(("", "   ", 123, None)):
+        outcome_title, port_title = _call_prod(valid_inputs, dataset_title=bad_title, sub=f"bad-title-{idx}")
+        assert isinstance(outcome_title, RunRefused)
+        assert outcome_title.reason == "malformed-inputs"
+        assert outcome_title.intent is None and outcome_title.registration is None and outcome_title.report is not None
+        assert port_title.intents == [] and len(port_title.executed) == 1
+
+
+def test_production_run_with_one_transforms_and_reads_mints_dataset_with_custom_title(tmp_path):
+    from nodes.core.frontmatter import node_from_markdown
+    from nodes.core.paths import path_for_node_id
+
+    from beliefs import stored
+    from beliefs.production import mint_dataset
+    from beliefs.runrecord import GuardedCommit, run_ref
+
+    code, held = stage(tmp_path, snakefile=SNAKEFILE_PRODUCTION)
+    data_digest = _boundary._digest(held / "data.txt")
+    reads_digest = _boundary._digest(held / "palette.txt")
+
+    class _CapturingPort(MemoryPort):
+        authority = FULL
+
+        def __init__(self):
+            self.plans: list[tuple] = []
+
+        def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+            self.plans.append(plan)
+            return GuardedCommit("r" * 64, None)
+
+    port = _CapturingPort()
+    outcome = execute_production_run(
+        inputs=(
+            RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=data_digest),
+            RecipeInput(role="reads", dataset=READS_ADDRESS, content=reads_digest),
+        ),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=port,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={}),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: held / "data.txt", READS_ADDRESS: held / "palette.txt"},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch",
+        cores=1,
+        dataset_title="curated package",
+    )
+    assert isinstance(outcome, RunMinted), outcome
+    assert len(port.plans) == 1
+    run_op, dataset_op = port.plans[0]
+    assert run_op.path == f"run/{outcome.run.address()}.md"
+    minted = mint_dataset(outcome.run, existing_bases={})
+    assert dataset_op.path == path_for_node_id(minted.address)
+    dataset_node = node_from_markdown(dataset_op.content.decode("utf-8"))
+    assert dataset_node.id == minted.address
+    assert dataset_node.title == "curated package"
+    assert stored.lineage_basis(dataset_node) == {
+        "tag": "single",
+        "routes": [
+            {
+                "run": run_ref(outcome.run.address()),
+                "ancestor": DATA_ADDRESS,
+                "transforms": [DATA_ADDRESS],
+            }
+        ],
+    }

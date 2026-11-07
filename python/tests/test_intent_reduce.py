@@ -23,7 +23,7 @@ from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, Settled
 
 
 def _publication(closure: RunClosure) -> tuple[str, bytes]:
-    _, path, (op,) = runrecord.publication_plan(closure)
+    _, path, (op, *_) = runrecord.publication_plan(closure)
     return path, op.content
 
 

@@ -166,18 +166,223 @@ def test_cross_root_publication_refuses(certified_work) -> None:
 def test_production_sequence_publishes_fulfilling_with_one_produces_edge(
     certified_work,
 ) -> None:
+    from hashlib import sha256
+
+    from fixtures_cut3 import DATA_ADDRESS, READS_ADDRESS, stage
+    from nodes.core.frontmatter import node_to_markdown
+    from nodes.core.paths import path_for_node_id
+    from profiles import BASE
+
+    from beliefs.audit import NO_EVIDENCE, audit_corpus
+    from beliefs.boundary import execute_production_run
+    from beliefs.corpus import ReadView, corpus_check
+    from beliefs.recipe import MINIMAL_POLICY, RecipeInput
+    from beliefs.spec import Deterministic
+
     root, port = _observer_port(certified_work)
-    result = run_production(certified_work / "work", port=port)
+    code, held = stage(certified_work / "work", snakefile=SNAKEFILE_PRODUCTION)
+    supplied = {
+        DATA_ADDRESS: held / "data.txt",
+        READS_ADDRESS: held / "palette.txt",
+    }
+    raw_digest = "sha256:" + sha256(supplied[DATA_ADDRESS].read_bytes()).hexdigest()
+    reads_digest = "sha256:" + sha256(supplied[READS_ADDRESS].read_bytes()).hexdigest()
+    raw_dataset = stored.dataset_node(
+        title="raw input",
+        resources=[{"name": "data.txt", "digest": raw_digest}],
+        empirical_observation={"locator": "url:https://example.org/raw", "attested_by": port.authority.actor},
+    )
+    reads_dataset = stored.dataset_node(
+        title="auxiliary reads",
+        resources=[{"name": "palette.txt", "digest": reads_digest}],
+        empirical_observation={"locator": "url:https://example.org/reads", "attested_by": port.authority.actor},
+    )
+    port.execute(
+        [
+            CreateOp(
+                path=path_for_node_id(raw_dataset.id),
+                content=node_to_markdown(raw_dataset).encode("utf-8"),
+            ),
+            CreateOp(
+                path=path_for_node_id(reads_dataset.id),
+                content=node_to_markdown(reads_dataset).encode("utf-8"),
+            ),
+        ]
+    )
+
+    result = execute_production_run(
+        inputs=(
+            RecipeInput(role="transforms", dataset=raw_dataset.id, content=raw_digest),
+            RecipeInput(role="reads", dataset=reads_dataset.id, content=reads_digest),
+        ),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=port,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={}),
+        code_roots=(code,),
+        held_inputs={raw_dataset.id: supplied[DATA_ADDRESS], reads_dataset.id: supplied[READS_ADDRESS]},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=certified_work / "work" / "scratch",
+        cores=1,
+        dataset_title="curated package",
+    )
     assert type(result) is RunMinted
     entries = _entries(root)
     (intent,) = [entry for entry in entries if type(entry) is IntentEntryView]
-    (registration,) = [entry for entry in entries if type(entry) is RegisteredEntryView]
-    assert registration.fulfills == intent.digest
+    fulfilling_regs = [
+        entry for entry in entries if type(entry) is RegisteredEntryView and entry.fulfills == intent.digest
+    ]
+    assert len(fulfilling_regs) == 1
+    registration = fulfilling_regs[0]
     address = result.run.address()
+    run_id = runrecord.run_ref(address)
     node = node_from_markdown((root / "run" / f"{address}.md").read_text())
     minted = mint_dataset(result.run, existing_bases={})
     assert stored.inputs_of(node, "produces") == (minted.address,)
     assert node.facets["run"] == {}
+
+    dataset_rel_path = path_for_node_id(minted.address)
+    assert {p for p, _ in registration.final} >= {f"run/{address}.md", dataset_rel_path}
+    dataset_bytes = (root / dataset_rel_path).read_bytes()
+    dataset_node = node_from_markdown(dataset_bytes.decode("utf-8"))
+    assert dataset_node.id == minted.address
+    assert dataset_node.title == "curated package"
+    assert stored.lineage_basis(dataset_node) == {
+        "tag": "single",
+        "routes": [
+            {
+                "run": run_id,
+                "ancestor": raw_dataset.id,
+                "transforms": [raw_dataset.id],
+            }
+        ],
+    }
+    view = ReadView.opened_at(root)
+    assert corpus_check(view, BASE) == ()
+    assert audit_corpus(view, evidence=NO_EVIDENCE, profile=BASE) == ()
+
+    # Second execution when dataset:sha256:<hex> is already held in the corpus:
+    # commits only run:<addr2> via _DATASET_ALREADY_HELD, preserves dataset node and basis.
+    second = execute_production_run(
+        inputs=(
+            RecipeInput(role="transforms", dataset=raw_dataset.id, content=raw_digest),
+            RecipeInput(role="reads", dataset=reads_dataset.id, content=reads_digest),
+        ),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=port,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={}),
+        code_roots=(code,),
+        held_inputs={raw_dataset.id: supplied[DATA_ADDRESS], reads_dataset.id: supplied[READS_ADDRESS]},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:05:00Z",
+        host_realization="host-a",
+        scratch_base=certified_work / "work" / "scratch-2",
+        cores=1,
+        dataset_title="different title that must not overwrite",
+    )
+    assert type(second) is RunMinted
+    address2 = second.run.address()
+    assert address2 != address
+    assert (root / "run" / f"{address2}.md").is_file()
+    assert (root / dataset_rel_path).read_bytes() == dataset_bytes
+
+    entries_after = _entries(root)
+    intents_after = [entry for entry in entries_after if type(entry) is IntentEntryView]
+    assert len(intents_after) == 2
+    (second_reg,) = [
+        entry
+        for entry in entries_after
+        if type(entry) is RegisteredEntryView and entry.fulfills == intents_after[1].digest
+    ]
+    assert [p for p, _ in second_reg.final] == [f"run/{address2}.md"]
+
+    view_after = ReadView.opened_at(root)
+    preserved_dataset = view_after.get(minted.address)
+    assert preserved_dataset.title == "curated package"
+    assert stored.lineage_basis(preserved_dataset) == {
+        "tag": "single",
+        "routes": [
+            {
+                "run": run_id,
+                "ancestor": raw_dataset.id,
+                "transforms": [raw_dataset.id],
+            }
+        ],
+    }
+    assert corpus_check(view_after, BASE) == ()
+    assert audit_corpus(view_after, evidence=NO_EVIDENCE, profile=BASE) == ()
+
+
+def test_production_pre_intent_refusal_publishes_unfulfilling_report(certified_work) -> None:
+    from fixtures_cut3 import DATA_ADDRESS, READS_ADDRESS, stage
+
+    from beliefs.boundary import execute_production_run
+    from beliefs.recipe import MINIMAL_POLICY, RecipeInput
+    from beliefs.spec import Deterministic
+
+    root, port = _observer_port(certified_work)
+    code, held = stage(certified_work / "work", snakefile=SNAKEFILE_PRODUCTION)
+    supplied = {
+        DATA_ADDRESS: held / "data.txt",
+        READS_ADDRESS: held / "palette.txt",
+    }
+    refused_transforms = execute_production_run(
+        inputs=(),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=port,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={}),
+        code_roots=(code,),
+        held_inputs=supplied,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=certified_work / "work" / "scratch-1",
+        cores=1,
+    )
+    assert type(refused_transforms) is RunRefused and refused_transforms.reason == "malformed-inputs"
+    assert refused_transforms.registration is None and refused_transforms.report is not None
+    assert (root / "act-report" / f"{refused_transforms.report.identity()}.md").is_file()
+
+    refused_title = execute_production_run(
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content="sha256:" + "a" * 64),),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=port,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={}),
+        code_roots=(code,),
+        held_inputs=supplied,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=certified_work / "work" / "scratch-2",
+        cores=1,
+        dataset_title="   ",
+    )
+    assert type(refused_title) is RunRefused and refused_title.reason == "malformed-inputs"
+    assert refused_title.registration is None and refused_title.report is not None
+    assert (root / "act-report" / f"{refused_title.report.identity()}.md").is_file()
+    entries = _entries(root)
+    assert [entry for entry in entries if type(entry) is IntentEntryView] == []
 
 
 def test_replay_recipe_mismatch_publishes_refusal_not_run(certified_work) -> None:

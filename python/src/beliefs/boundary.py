@@ -77,6 +77,7 @@ from beliefs.errors import (
 )
 from beliefs.identity import v1
 from beliefs.intents.publish import PublishIntent
+from beliefs.production import mint_dataset
 from beliefs.recipe import (
     CONFINED_POLICY,
     BoundaryPolicy,
@@ -135,6 +136,7 @@ __all__ = [
 ]
 
 _INSTRUMENT = "beliefs.boundary/v1"
+_DATASET_ALREADY_HELD = "dataset-already-held"
 
 
 @sealed
@@ -232,7 +234,7 @@ def _report_plan(report: ActReport | None) -> tuple[CreateOp, ...]:
 
 def acquisition_guard(run: RunClosure) -> Callable[[ReadView], str | None]:
     """Refuse a run that would produce a facet-bearing dataset."""
-    _, _, (operation,) = publication_plan(run)
+    _, _, (operation, *_) = publication_plan(run)
     proposed = node_from_markdown(operation.content.decode("utf-8"))
 
     def guard(view: ReadView) -> str | None:
@@ -1280,13 +1282,25 @@ def execute_production_run(
     host_realization: str,
     scratch_base: Path,
     cores: int = 1,
+    dataset_title: str = "produced dataset",
 ) -> RunMinted | RunRefused:
     try:
-        port.authority.require("run", ("run", "act-report"))
+        port.authority.require("run", ("run", "dataset", "act-report"))
     except PermitExceeded as exceeded:
         return RunRefused("permit-exceeded", None, None, None, str(exceeded))
     actor = port.authority.actor
-    if type(inputs) is not tuple or any(type(entry) is not RecipeInput for entry in inputs):
+    transform_datasets = (
+        tuple(dict.fromkeys(entry.dataset for entry in inputs if entry.role == "transforms"))
+        if type(inputs) is tuple and all(type(entry) is RecipeInput for entry in inputs)
+        else ()
+    )
+    if (
+        type(inputs) is not tuple
+        or any(type(entry) is not RecipeInput for entry in inputs)
+        or len(transform_datasets) != 1
+        or type(dataset_title) is not str
+        or not dataset_title.strip()
+    ):
         refused = _refused("malformed-inputs", "absent", actor, observer, started_at)
         port.execute(_report_plan(refused.report))
         return refused
@@ -1329,15 +1343,25 @@ def execute_production_run(
     ):
         result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
     if type(result) is RunMinted:
-        _, _, plan = publication_plan(result.run)
+        _, _, plan = publication_plan(result.run, dataset_title=dataset_title)
+        run_op = plan[0]
+        produced_address = mint_dataset(result.run, existing_bases={}).address
+        ac_guard = acquisition_guard(result.run)
+
+        def _guard(view: ReadView) -> str | None:
+            if (reason := ac_guard(view)) is not None:
+                return reason
+            if view.holds(produced_address):
+                return _DATASET_ALREADY_HELD
+            return None
 
         def _fallback(reason: str) -> WritePlan:
+            if reason == _DATASET_ALREADY_HELD:
+                return (run_op,)
             return _report_plan(_refused(reason, "absent", actor, observer, started_at, intent).report)
 
-        reason = port.execute_fulfilling_guarded(
-            plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback
-        ).reason
-        if reason is not None:
+        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=_guard, fallback=_fallback).reason
+        if reason not in (None, _DATASET_ALREADY_HELD):
             result = _refused(reason, "absent", actor, observer, started_at, intent)
     else:
         port.execute_fulfilling(_report_plan(result.report), fulfills)
