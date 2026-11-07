@@ -1262,6 +1262,16 @@ def execute_assessment_run(
     return result
 
 
+def _cleanup_exported(created_files: list[Path], created_dirs: list[Path]) -> None:
+    for f in reversed(created_files):
+        f.unlink(missing_ok=True)
+    for d in reversed(created_dirs):
+        try:
+            d.rmdir()
+        except OSError:
+            pass
+
+
 def execute_production_run(
     *,
     inputs: tuple[RecipeInput, ...],
@@ -1283,6 +1293,7 @@ def execute_production_run(
     scratch_base: Path,
     cores: int = 1,
     dataset_title: str = "produced dataset",
+    output_dir: Path | None = None,
 ) -> RunMinted | RunRefused:
     try:
         port.authority.require("run", ("run", "dataset", "act-report"))
@@ -1300,6 +1311,10 @@ def execute_production_run(
         or len(transform_datasets) != 1
         or type(dataset_title) is not str
         or not dataset_title.strip()
+        or (
+            output_dir is not None
+            and (not isinstance(output_dir, Path) or output_dir.is_symlink() or not output_dir.is_dir())
+        )
     ):
         refused = _refused("malformed-inputs", "absent", actor, observer, started_at)
         port.execute(_report_plan(refused.report))
@@ -1342,6 +1357,32 @@ def execute_production_run(
         and result.run.recipe.identity() != expected_recipe_identity
     ):
         result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
+    created_files: list[Path] = []
+    created_dirs: list[Path] = []
+    if type(result) is RunMinted and output_dir is not None:
+        scratch_root = Path(result.run.occurrence.receipt.execution.scratch_mapping)
+        run_output_root = scratch_root / "out" if result.run.occurrence.receipt.confined else scratch_root
+        resolved_output_dir = output_dir.resolve()
+        try:
+            for out_name, out_digest in result.run.result.outputs:
+                dest = _validate_relative_input_path(out_name, resolved_output_dir)
+                if dest.exists() or dest.is_symlink():
+                    raise OSError(f"export destination {dest} already exists")
+                missing_ancestors: list[Path] = []
+                cur = dest.parent
+                while cur != resolved_output_dir and not cur.exists():
+                    missing_ancestors.append(cur)
+                    cur = cur.parent
+                for ancestor in reversed(missing_ancestors):
+                    ancestor.mkdir()
+                    created_dirs.append(ancestor)
+                created_files.append(dest)
+                shutil.copy2(run_output_root / out_name, dest)
+                if _digest(dest) != out_digest:
+                    raise ValueError(f"exported output {out_name!r} digest mismatch")
+        except (ScienceError, OSError, ValueError):
+            _cleanup_exported(created_files, created_dirs)
+            result = _refused("manifest-digest-mismatch", "absent", actor, observer, started_at, intent)
     if type(result) is RunMinted:
         _, _, plan = publication_plan(result.run, dataset_title=dataset_title)
         run_op = plan[0]
@@ -1362,6 +1403,7 @@ def execute_production_run(
 
         reason = port.execute_fulfilling_guarded(plan, fulfills, guard=_guard, fallback=_fallback).reason
         if reason not in (None, _DATASET_ALREADY_HELD):
+            _cleanup_exported(created_files, created_dirs)
             result = _refused(reason, "absent", actor, observer, started_at, intent)
     else:
         port.execute_fulfilling(_report_plan(result.report), fulfills)

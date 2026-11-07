@@ -1608,3 +1608,217 @@ def test_production_run_with_one_transforms_and_reads_mints_dataset_with_custom_
             }
         ],
     }
+
+
+# --- verified output export from execute_production_run (beliefs-9dfa3f) ---
+
+SNAKEFILE_PRODUCTION_PACKAGE = """\
+import pathlib
+
+rule package:
+    input: "inputs/data.txt"
+    output: "tables/expression.tsv", "datapackage.json"
+    run:
+        text = pathlib.Path(input[0]).read_text().strip()
+        out_table = pathlib.Path(output[0])
+        out_table.parent.mkdir(parents=True, exist_ok=True)
+        out_table.write_text(f"gene\\tvalue\\n{text.upper()}\\t1\\n")
+        pathlib.Path(output[1]).write_text('{"name": "pkg"}\\n')
+"""
+
+
+class _GuardedMemoryPort(MemoryPort):
+    authority = FULL
+
+    def __init__(self, initial_nodes: dict[str, Any] | None = None):
+        self.nodes: dict[str, Any] = dict(initial_nodes or {})
+        self.plans: list[tuple] = []
+        self.reasons: list[str | None] = []
+        self.fulfilled: list[tuple] = []
+
+    def holds(self, ref: str) -> bool:
+        return ref in self.nodes
+
+    def resolve(self, ref: str) -> str | None:
+        return ref if ref in self.nodes else None
+
+    def get(self, ref: str):
+        return self.nodes[ref]
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        return ()
+
+    def execute_fulfilling(self, plan, fulfills: str) -> str:
+        self.fulfilled.append(plan)
+        return super().execute_fulfilling(plan, fulfills)
+
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        from nodes.core.frontmatter import node_from_markdown
+
+        from beliefs.runrecord import GuardedCommit
+
+        reason = guard(self)
+        self.reasons.append(reason)
+        chosen = plan if reason is None else fallback(reason)
+        self.plans.append(chosen)
+        for op in chosen:
+            node = node_from_markdown(op.content.decode("utf-8"))
+            self.nodes[node.id] = node
+        return GuardedCommit("r" * 64, reason)
+
+
+def _run_package_production(tmp_path: Path, *, port=MEMORY_PORT, output_dir: Any = None, sub: str = "run"):
+    code, held = stage(tmp_path / sub, snakefile=SNAKEFILE_PRODUCTION_PACKAGE)
+    data_digest = _boundary._digest(held / "data.txt")
+    return execute_production_run(
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=data_digest),),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=port,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION_PACKAGE, family_streams={}),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: held / "data.txt", READS_ADDRESS: held / "palette.txt"},
+        entrypoint="code/workflow/Snakefile",
+        targets=("tables/expression.tsv", "datapackage.json"),
+        declared_outputs=("tables/expression.tsv", "datapackage.json"),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / sub / "scratch",
+        cores=1,
+        output_dir=output_dir,
+    )
+
+
+def test_execute_production_run_exports_verified_declared_outputs_to_output_dir(tmp_path):
+    output_dir = tmp_path / "exported"
+    output_dir.mkdir()
+    outcome = _run_package_production(tmp_path, output_dir=output_dir)
+    assert isinstance(outcome, RunMinted), outcome
+    expected = dict(outcome.run.result.outputs)
+    assert set(expected) == {"tables/expression.tsv", "datapackage.json"}
+    for rel_name, expected_digest in expected.items():
+        exported_file = output_dir / rel_name
+        assert exported_file.is_file()
+        assert _boundary._digest(exported_file) == expected_digest
+
+
+def test_execute_production_run_refuses_invalid_output_dir_pre_intent(tmp_path, monkeypatch):
+    _forbid_engines(monkeypatch)
+
+    class _RecordingPort(MemoryPort):
+        authority = FULL
+
+        def __init__(self):
+            self.intents: list[bytes] = []
+            self.executed: list[object] = []
+
+        def append_intent(self, payload: bytes) -> str:
+            self.intents.append(payload)
+            return super().append_intent(payload)
+
+        def execute(self, plan) -> None:
+            self.executed.append(plan)
+
+    missing_dir = tmp_path / "does-not-exist"
+    regular_file = tmp_path / "regular-file.txt"
+    regular_file.write_text("not a dir\n")
+    real_dir = tmp_path / "real-dir"
+    real_dir.mkdir()
+    symlink_dir = tmp_path / "symlink-dir"
+    symlink_dir.symlink_to(real_dir)
+
+    for idx, bad_output_dir in enumerate((missing_dir, regular_file, symlink_dir)):
+        port = _RecordingPort()
+        outcome = _run_package_production(tmp_path, port=port, output_dir=bad_output_dir, sub=f"invalid-{idx}")
+        assert isinstance(outcome, RunRefused)
+        assert outcome.reason == "malformed-inputs"
+        assert outcome.intent is None and outcome.registration is None and outcome.report is not None
+        assert port.intents == [] and len(port.executed) == 1
+
+
+def test_execute_production_run_cleans_partial_file_and_nested_dirs_on_injected_copy_failure(tmp_path, monkeypatch):
+    import shutil as _shutil
+
+    output_dir = tmp_path / "exported"
+    output_dir.mkdir()
+    target_dest = (output_dir / "tables/expression.tsv").resolve()
+    real_copy2 = _shutil.copy2
+
+    def failing_copy2(src, dst, *args, **kwargs):
+        if Path(dst).resolve() == target_dest:
+            Path(dst).write_bytes(b"partial")
+            raise OSError("simulated mid-copy failure")
+        return real_copy2(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(_boundary.shutil, "copy2", failing_copy2)
+    port = _GuardedMemoryPort()
+    outcome = _run_package_production(tmp_path, port=port, output_dir=output_dir)
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "manifest-digest-mismatch"
+    assert outcome.intent is not None and outcome.report is not None and outcome.registration is not None
+    assert len(port.fulfilled) == 1
+    assert port.fulfilled[0][0].path == f"act-report/{outcome.report.identity()}.md"
+    assert list(output_dir.iterdir()) == []
+
+
+def test_execute_production_run_cleans_nested_outputs_and_dirs_on_acquisition_guard_refusal(tmp_path):
+    from hashlib import sha256 as _sha256
+
+    from nodes.core.node import Node
+
+    from beliefs import stored
+
+    expr_digest = "sha256:" + _sha256(b"gene\tvalue\nHELLO\t1\n").hexdigest()
+    pkg_digest = "sha256:" + _sha256(b'{"name": "pkg"}\n').hexdigest()
+    produced_address = dataset_address(
+        DatasetDeclaration(
+            resources=(
+                ResourceDeclaration("datapackage.json", pkg_digest),
+                ResourceDeclaration("tables/expression.tsv", expr_digest),
+            )
+        )
+    )
+    assert produced_address is not None
+
+    empirical_node = Node(
+        id=produced_address,
+        kind="dataset",
+        title="empirical package",
+        facets={stored.EMPIRICAL_OBSERVATION_FACET: {"source": "https://example.org/pkg"}},
+    )
+    port = _GuardedMemoryPort({produced_address: empirical_node})
+    output_dir = tmp_path / "exported"
+    output_dir.mkdir()
+
+    outcome = _run_package_production(tmp_path, port=port, output_dir=output_dir)
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "acquisition-boundary"
+    assert outcome.intent is not None and outcome.report is not None and outcome.registration is not None
+    assert len(port.plans) == 1
+    assert port.plans[0][0].path == f"act-report/{outcome.report.identity()}.md"
+    assert list(output_dir.iterdir()) == []
+
+
+def test_execute_production_run_retains_output_dir_when_dataset_already_held(tmp_path):
+    port = _GuardedMemoryPort()
+    output_dir_1 = tmp_path / "exported-1"
+    output_dir_1.mkdir()
+    output_dir_2 = tmp_path / "exported-2"
+    output_dir_2.mkdir()
+
+    outcome_1 = _run_package_production(tmp_path, port=port, output_dir=output_dir_1, sub="run-1")
+    outcome_2 = _run_package_production(tmp_path, port=port, output_dir=output_dir_2, sub="run-2")
+
+    assert isinstance(outcome_1, RunMinted), outcome_1
+    assert isinstance(outcome_2, RunMinted), outcome_2
+    assert port.reasons == [None, _boundary._DATASET_ALREADY_HELD]
+    assert len(port.plans[0]) == 2
+    assert len(port.plans[1]) == 1
+
+    expected = dict(outcome_2.run.result.outputs)
+    for rel_name, expected_digest in expected.items():
+        exported_file = output_dir_2 / rel_name
+        assert exported_file.is_file()
+        assert _boundary._digest(exported_file) == expected_digest
