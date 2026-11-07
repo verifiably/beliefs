@@ -1099,3 +1099,69 @@ def test_route_identitied_basis_while_corpus_is_absent_reports_retractions_incom
     (finding,) = _findings(_audited(world, published))
     assert (finding.severity, finding.code) == ("error", "eligibility-unmet")
     assert "retraction-unreadable" in finding.message
+
+
+def _unmapped_while_absent(tmp_path, *drift, observed: str):
+    """ALPHA holds the acquired ancestor and its report; `drift` is written after
+    publication (unmapped) with a run observing `observed`; BETA then goes absent."""
+    import lineage_fixtures as lineage
+
+    d0 = _observed("d0")
+    p = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    q = stored.proposition_node("q", title="q", claim={"operator": "affects"})
+    world, roots, published = _derived_world(tmp_path, alpha=(d0, REPORT, p), beta=(q,))
+    run = lineage.analysis("r", observed)
+    raw_add(roots[ALPHA], *drift, run, lineage.assessment_over("a", run.id, "proposition:p"))
+    make_absent(roots, BETA)
+    return d0, world, published
+
+
+def test_an_unmapped_derived_dataset_reached_by_alias_while_a_corpus_is_absent_is_producers_incomplete(tmp_path):
+    """The re-entrancy guard is keyed by the canonical id, so an alias neither
+    escapes it nor aborts the audit (final review C1)."""
+    import lineage_fixtures as lineage
+
+    d0 = _observed("d0")
+    d1 = lineage.derived("d1", lineage.route("run:p1", d0.id))
+    d1.deprecated_ids = ["dataset:old-d1"]
+    d1 = stored.stamp_semantic_identity(d1)
+    p1 = lineage.production("p1", d0.id, d1.id)
+    _d0, world, published = _unmapped_while_absent(tmp_path / "observed", d1, p1, observed="dataset:old-d1")
+    (finding,) = _findings(_audited(world, published))
+    assert (finding.severity, finding.code) == ("warning", "eligibility-unresolved")
+    assert "producers-incomplete" in finding.detail
+
+    d2 = lineage.derived("d2", lineage.route("run:p2", "dataset:old-d1"))
+    p2 = lineage.production("p2", "dataset:old-d1", d2.id)
+    _d0, world, published = _unmapped_while_absent(tmp_path / "ancestor", d1, p1, d2, p2, observed=d2.id)
+    (finding,) = _findings(_audited(world, published))
+    assert (finding.severity, finding.code) == ("warning", "eligibility-unresolved")
+    assert "producers-incomplete" in finding.detail
+
+
+def test_an_unmapped_chain_is_judged_once_per_dataset_while_a_corpus_is_absent(tmp_path, monkeypatch):
+    """Producer completeness is memoised per canonical id, so a drift chain costs
+    one standing evaluation per link, not one per touch (final review I1)."""
+    import lineage_fixtures as lineage
+
+    import beliefs.audit as audit_module
+
+    d0 = _observed("d0")
+    chain, previous = [], d0.id
+    for depth in range(1, 5):
+        node = lineage.derived(f"d{depth}", lineage.route(f"run:p{depth}", previous))
+        chain.extend((node, lineage.production(f"p{depth}", previous, node.id)))
+        previous = node.id
+    _d0, world, published = _unmapped_while_absent(tmp_path, *chain, observed=previous)
+    evaluations = []
+    judged = audit_module._dataset_standing_outcome
+
+    def counting(*args, **kwargs):
+        evaluations.append(args[1])
+        return judged(*args, **kwargs)
+
+    monkeypatch.setattr(audit_module, "_dataset_standing_outcome", counting)
+    (finding,) = _findings(_audited(world, published))
+    assert (finding.severity, finding.code) == ("warning", "eligibility-unresolved")
+    assert "producers-incomplete" in finding.detail
+    assert len(evaluations) == 4  # one judgment per unmapped link (5759 before the memo)

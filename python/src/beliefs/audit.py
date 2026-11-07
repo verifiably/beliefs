@@ -638,10 +638,12 @@ class _CapturedCitations:
         self._profile: ProfileSpec | None = None
         self.unreadable: dict[str, str] = {}
         self._judging_incomplete: set[str] = set()
+        self._incomplete_memo: dict[str, bool] = {}
+        self._fold_view: _CapturedCheckView | None = None
 
     def _holder(self, ref: str) -> _CapturedCheckView | None:
         if self._own.holds(ref):
-            if ref not in self._judging_incomplete and self._incomplete(ref):
+            if self._incomplete(ref):
                 self.unreadable[ref] = f"{self._citing} producers-incomplete:{','.join(sorted(self._causes))}"
                 return None
             return self._own
@@ -669,20 +671,34 @@ class _CapturedCitations:
         have empirical standing, directly or inherited through its basis. A
         missing or malformed facet, a divergent or retired basis, a known
         producer, an unresolved report or an ancestor without standing each
-        decide it definitely, and the scan goes on. While `ref` itself is
-        judged it reads as held (`_judging_incomplete`); a distinct unmapped
-        ancestor reached on the walk is judged the same way in turn."""
-        if self._view.corpus_of(ref) is not None or not self._causes:
+        decide it definitely, and the scan goes on.
+
+        Keyed by the canonical id, so an alias and its record are one dataset.
+        While a dataset is judged it reads as held (`_judging_incomplete`); a
+        distinct unmapped ancestor reached on the walk is judged the same way
+        in turn. Each answer is kept for the current `eligibility()` pass: it
+        does not depend on which datasets are being judged around it (a cycle
+        is `lineage-incomplete` under any guard), so a drift chain costs one
+        judgment per link rather than one per touch."""
+        if not self._causes:
             return False
         node = self._own.get(ref)
-        if node.kind != "dataset":
+        canonical = node.id
+        if canonical in self._judging_incomplete or node.kind != "dataset":
             return False
+        if self._view.corpus_of(canonical) is not None:
+            return False
+        known = self._incomplete_memo.get(canonical)
+        if known is not None:
+            return known
         assert self._profile is not None, "producer completeness is judged inside eligibility()"
-        self._judging_incomplete.add(ref)
+        self._judging_incomplete.add(canonical)
         try:
-            return _dataset_standing_outcome(self, ref, self._profile, judge=self, reports=self._holder) is None
+            answer = _dataset_standing_outcome(self, ref, self._profile, judge=self, reports=self._holder) is None
         finally:
-            self._judging_incomplete.discard(ref)
+            self._judging_incomplete.discard(canonical)
+        self._incomplete_memo[canonical] = answer
+        return answer
 
     def holds(self, ref: str) -> bool:
         return self._holder(ref) is not None
@@ -703,8 +719,11 @@ class _CapturedCitations:
         return tuple(sorted(found))
 
     def retraction_fold_view(self) -> _CapturedCheckView:
-        """Every readable corpus's records, merged: the retractions a route fold can see."""
-        return _merged_capture(self._readable)[0]
+        """Every readable corpus's records, merged once per audit reader: the
+        retractions a route fold can see."""
+        if self._fold_view is None:
+            self._fold_view = _merged_capture(self._readable)[0]
+        return self._fold_view
 
     def absence_cause(self, ref: str) -> str | None:
         """Why `ref` did not resolve, when an unreadable holder is the reason."""
@@ -716,13 +735,14 @@ class _CapturedCitations:
         one, that the fold over the readable corpora missed. Records why `ref`
         is uncertain and answers `True`; a dataset being judged for producer
         completeness defers to that judgment."""
-        if ref in self._judging_incomplete or not self._causes:
+        if not self._causes or (self._own.resolve(ref) or ref) in self._judging_incomplete:
             return False
         self.unreadable[ref] = f"{self._citing} retractions-incomplete:{','.join(sorted(self._causes))}"
         return True
 
     def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None:
         self.unreadable = {}
+        self._incomplete_memo = {}
         self._profile = profile
         outcome = eligibility_outcome(self, node, profile, reports=self._holder)
         if outcome is None or not outcome.unresolved:
