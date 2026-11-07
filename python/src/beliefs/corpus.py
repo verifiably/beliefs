@@ -1812,7 +1812,8 @@ def _fold_route_retractions(judging: EligibilityView) -> dict[str, set[str]]:
     for ref, facet in facets.items():
         target = cast(Mapping[str, str], facet["target"])
         if standing[ref] and target["arm"] == "route":
-            retired.setdefault(target["resolved"], set()).add(target["route_identity"])
+            dataset = target["resolved"]
+            retired[dataset] = retired.get(dataset, set()) | {target["route_identity"]}
     return retired
 
 
