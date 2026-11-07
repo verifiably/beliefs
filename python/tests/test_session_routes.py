@@ -37,7 +37,7 @@ from beliefs.session.routes import plan_records
 from beliefs.world.logmodel import RegisteredEntryView, WellFormedView
 from beliefs.world.registry import WorldConfig
 
-RUNS = RequiredCapabilities.for_kinds({"run", "act-report"}, {"run": "run", "act-report": "run"})
+RUNS = RequiredCapabilities.for_kinds({"run", "dataset", "act-report"}, {"run": "run", "act-report": "run"})
 INTENT = "1" * 64
 
 
@@ -245,8 +245,14 @@ def test_a_production_run_through_the_session_port_commits_and_ledgers(certified
     registrations = [entry for entry in _registrations(root) if entry.fulfills is not None]
     (act,) = session.invocation_acts("A")
     assert [(r.digest, r.fulfills) for r in registrations] == [(act.entry, act.intent)]
-    node = node_from_markdown((root / "run" / f"{result.run.address()}.md").read_text())
-    assert act.record_ids == ((node.uid, node.id),)
+    from nodes.core.paths import path_for_node_id
+
+    from beliefs.production import mint_dataset
+
+    run_node = node_from_markdown((root / "run" / f"{result.run.address()}.md").read_text())
+    minted = mint_dataset(result.run, existing_bases={})
+    dataset_node = node_from_markdown((root / path_for_node_id(minted.address)).read_text())
+    assert act.record_ids == ((run_node.uid, run_node.id), (dataset_node.uid, dataset_node.id))
     session.close_invocation("A", {"done": [list(pair) for pair in act.record_ids]})
     session.close()
     config = WorldConfig(certified_work / "world", "e" * 32, (root,))

@@ -479,8 +479,10 @@ RAW_WRITE_ALLOWLIST = {
     "adapter.py": {"copy2"},
     # The execution sandbox: an inputs tree and the log-handler script, minted
     # per run under a scratch directory the substrate owns; planning scratch is
-    # discarded after the snapshot is captured.
-    "boundary.py": {"copy2", "write_text", "rmtree"},
+    # discarded after the snapshot is captured; verified output export copies
+    # declared outputs to a caller-supplied export directory and unlinks/rmdirs
+    # attempt-created files and directories on refusal.
+    "boundary.py": {"copy2", "write_text", "rmtree", "unlink", "rmdir"},
     # The environment snapshot: manifested files copied, manifested and
     # rendered symlinks created, rendered files written, the build published
     # by rename, a losing build discarded — under a boundary-owned directory
