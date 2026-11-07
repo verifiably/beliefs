@@ -14,6 +14,7 @@ from beliefs.lineage import (
     Absence,
     Basis,
     Certification,
+    LineageResolution,
     LineageSnapshot,
     Producer,
     Route,
@@ -22,6 +23,7 @@ from beliefs.lineage import (
     divergence_state,
     effective_routes,
     effective_tag,
+    resolve_ancestor,
     retire,
     snapshot_projection,
 )
@@ -439,3 +441,99 @@ def test_identity_only_routes_have_one_canonical_order(identities):
     ]
     with pytest.raises(MalformedSnapshot, match="routes sorted"):
         Basis(tag="conflict", routes=tuple(reversed(routes)))
+
+
+def test_resolve_ancestor_walks_single_and_multi_hop_chains():
+    r2 = Route("dataset:d2", "run:r2", "run:r2", "dataset:d1", "dataset:d1", ("dataset:d1",))
+    r1 = Route("dataset:d1", "run:r1", "run:r1", "dataset:d0", "dataset:d0", ("dataset:d0",))
+    snapshot = LineageSnapshot(
+        roots=("dataset:d2",),
+        bases={"dataset:d2": Basis("single", (r2,)), "dataset:d1": Basis("single", (r1,))},
+        producers={
+            "dataset:d2": (Producer("run:r2", "run:r2", ("dataset:d1",)),),
+            "dataset:d1": (Producer("run:r1", "run:r1", ("dataset:d0",)),),
+            "dataset:d0": (),
+        },
+    )
+    assert resolve_ancestor(snapshot, "dataset:d2") == LineageResolution(
+        terminal="dataset:d0", findings=(), unresolved=()
+    )
+    assert resolve_ancestor(snapshot, "dataset:d1") == LineageResolution(
+        terminal="dataset:d0", findings=(), unresolved=()
+    )
+
+
+def test_resolve_ancestor_distinguishes_divergent_and_unresolved_incomplete():
+    r1 = Route("dataset:d1", "run:r1", None, "dataset:d0", "dataset:d0", ("dataset:d0",), identity="route:1")
+    unresolved_snap = LineageSnapshot(
+        roots=("dataset:d1",),
+        bases={"dataset:d1": Basis("single", (r1,))},
+        producers={"dataset:d1": (), "dataset:d0": ()},
+    )
+    assert resolve_ancestor(unresolved_snap, "dataset:d1") == LineageResolution(
+        terminal=None, findings=("lineage-incomplete",), unresolved=("run:r1",)
+    )
+    retired_snap = retire(
+        LineageSnapshot(
+            roots=("dataset:d1",),
+            bases={
+                "dataset:d1": Basis(
+                    "single",
+                    (Route("dataset:d1", "run:r1", "run:r1", "dataset:d0", "dataset:d0", ("dataset:d0",), "route:1"),),
+                )
+            },
+            producers={"dataset:d1": (Producer("run:r1", "run:r1", ("dataset:d0",)),), "dataset:d0": ()},
+        ),
+        {"dataset:d1": ("route:1",)},
+    )
+    assert resolve_ancestor(retired_snap, "dataset:d1") == LineageResolution(
+        terminal=None, findings=("lineage-incomplete",), unresolved=()
+    )
+    divergent_snap = LineageSnapshot(
+        roots=("dataset:d1",),
+        bases={
+            "dataset:d1": Basis(
+                "single",
+                (Route("dataset:d1", "run:r1", "run:r1", "dataset:d0", "dataset:d0", ("dataset:d0",)),),
+            )
+        },
+        producers={
+            "dataset:d1": (
+                Producer("run:r1", "run:r1", ("dataset:d0",)),
+                Producer("run:other", "run:other", ("dataset:other",)),
+            ),
+            "dataset:d0": (),
+        },
+    )
+    assert resolve_ancestor(divergent_snap, "dataset:d1") == LineageResolution(
+        terminal=None, findings=("lineage-divergent",), unresolved=()
+    )
+
+
+def test_resolve_ancestor_reports_absent_producers_and_missing_ancestors_as_unresolved():
+    route_ = Route("dataset:d1", "run:r1", "run:r1", "dataset:d0", None, ("dataset:d0",))
+    snapshot = LineageSnapshot(
+        roots=("dataset:d1",),
+        bases={"dataset:d1": Basis("single", (route_,))},
+        producers={"dataset:d1": (Producer("run:gone", None, (), absent=("c9",)),)},
+        not_present={"dataset:d0": "c2"},
+    )
+    assert resolve_ancestor(snapshot, "dataset:d1") == LineageResolution(
+        terminal=None, findings=("lineage-incomplete",), unresolved=("dataset:d0", "run:gone")
+    )
+
+
+def test_resolve_ancestor_classifies_a_fully_resolved_cycle_as_incomplete_without_unresolved_refs():
+    a = Route("dataset:a", "run:a", "run:a", "dataset:b", "dataset:b", ("dataset:b",))
+    b = Route("dataset:b", "run:b", "run:b", "dataset:a", "dataset:a", ("dataset:a",))
+    snapshot = LineageSnapshot(
+        roots=("dataset:a",),
+        bases={"dataset:a": Basis("single", (a,)), "dataset:b": Basis("single", (b,))},
+        producers={
+            "dataset:a": (Producer("run:a", "run:a", ("dataset:b",)),),
+            "dataset:b": (Producer("run:b", "run:b", ("dataset:a",)),),
+        },
+    )
+    assert resolve_ancestor(snapshot, "dataset:a") == LineageResolution(
+        terminal=None, findings=("lineage-incomplete",), unresolved=()
+    )

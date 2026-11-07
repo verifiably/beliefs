@@ -60,6 +60,7 @@ __all__ = [
     "Absence",
     "Basis",
     "Certification",
+    "LineageResolution",
     "LineageSnapshot",
     "Producer",
     "Route",
@@ -68,6 +69,7 @@ __all__ = [
     "divergence_state",
     "effective_routes",
     "effective_tag",
+    "resolve_ancestor",
     "retire",
     "snapshot_projection",
 ]
@@ -340,6 +342,49 @@ def _closure(snapshot: LineageSnapshot, root: str) -> tuple[frozenset[str], tupl
         elif state == "incomplete":
             findings.append("lineage-incomplete")
     return frozenset(inspected), tuple(findings)
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class LineageResolution:
+    """Where one root's basis chain ends. `terminal` is the unique inspected
+    dataset carrying no basis when the walk is complete and undiverged, else
+    `None`; `findings` are `_closure`'s, deduplicated order-stably; `unresolved`
+    names the references whose absence made an `incomplete` walk incomplete —
+    empty when the walk is divergent, or incomplete only through retirement
+    or a cycle over references that all resolve."""
+
+    terminal: str | None
+    findings: tuple[str, ...]
+    unresolved: tuple[str, ...] = ()
+
+
+def resolve_ancestor(snapshot: LineageSnapshot, root: str) -> LineageResolution:
+    """The terminal ancestor `root` inherits from, decided by the same walk
+    `certify` uses, so standing and certification never disagree on what a
+    complete, undiverged chain is."""
+    inspected, raw_findings = _closure(snapshot, root)
+    findings = tuple(dict.fromkeys(raw_findings))
+    if not findings:
+        (terminal,) = inspected - set(snapshot.bases)  # a complete single chain ends at exactly one
+        return LineageResolution(terminal=terminal, findings=(), unresolved=())
+    if "lineage-divergent" in findings:
+        return LineageResolution(terminal=None, findings=findings, unresolved=())
+    unresolved: set[str] = set()
+    if root in snapshot.not_present:
+        unresolved.add(root)
+    for dataset in inspected:
+        if dataset in snapshot.bases and effective_tag(snapshot, dataset) == "single":
+            for r in effective_routes(snapshot, dataset):
+                if r.resolved_run is None or r.stored_run in snapshot.not_present:
+                    unresolved.add(r.stored_run)
+                if r.resolved_ancestor is None or r.stored_ancestor in snapshot.not_present:
+                    unresolved.add(r.stored_ancestor)
+        for producer in snapshot.producers.get(dataset, ()):
+            if producer.absent or producer.resolved_run is None:
+                unresolved.add(producer.stored_run)
+    return LineageResolution(terminal=None, findings=findings, unresolved=tuple(sorted(unresolved)))
 
 
 def _walk_all(snapshot: LineageSnapshot, roots: tuple[str, ...]) -> tuple[frozenset[str], tuple[str, ...]]:

@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+import pytest
 from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut3 import typed_applicability, typed_estimand
 from nodes.core.relations import Relation
@@ -10,6 +11,7 @@ from test_read_side import seed  # the module's raw-write seeding helper
 
 from beliefs import stored
 from beliefs.acquisition import bearer_refusal, validity_refusal
+from beliefs.errors import MalformedRecord
 
 PINNED = [{"name": "m", "digest": "sha256:" + "1" * 64}]
 GOOD = {"locator": "accession:GSE1", "attested_by": "test-actor"}
@@ -160,3 +162,45 @@ def test_a_present_null_payload_is_malformed_not_absent(tmp_path):
     node.facets[stored.EMPIRICAL_OBSERVATION_FACET] = cast(Any, None)
     reason = validity_refusal(seed(tmp_path), node, BASE)
     assert reason is not None and reason.startswith("facet-payload-malformed:")
+
+
+def test_validate_lineage_basis_checks_route_fields():
+    good = stored.dataset_node(
+        title="d1",
+        resources=PINNED,
+        basis={"tag": "single", "routes": [{"run": "run:r1", "ancestor": "dataset:d0", "transforms": ["dataset:d0"]}]},
+    )
+    stored.validate_lineage_basis(good)
+    stored.validate_lineage_basis(stored.dataset_node(title="plain", resources=PINNED))
+    identitied = good.model_copy(
+        update={
+            "facets": {
+                **good.facets,
+                "lineage-basis": {
+                    "tag": "single",
+                    "routes": [
+                        {"run": "run:r1", "ancestor": "dataset:d0", "transforms": ["dataset:d0"], "identity": "route:1"}
+                    ],
+                },
+            }
+        }
+    )
+    stored.validate_lineage_basis(identitied)
+    for bad_route in (
+        {"run": "", "ancestor": "dataset:d0", "transforms": ["dataset:d0"]},
+        {"run": "run:r1", "ancestor": "", "transforms": ["dataset:d0"]},
+        {"run": "run:r1", "transforms": ["dataset:d0"]},
+        {"run": "run:r1", "ancestor": "dataset:d0", "transforms": []},
+        {"run": "run:r1", "ancestor": "dataset:d0", "transforms": 123},
+        {"run": "run:r1", "ancestor": "dataset:d0", "transforms": [""]},
+        {"run": "run:r1", "ancestor": "dataset:d0", "transforms": ["dataset:d0"], "extra": "x"},
+        {"run": "run:r1", "ancestor": "dataset:d0", "transforms": ["dataset:d0"], "identity": ""},
+    ):
+        node = good.model_copy(
+            update={"facets": {**good.facets, "lineage-basis": {"tag": "single", "routes": [bad_route]}}}
+        )
+        with pytest.raises(MalformedRecord):
+            stored.validate_lineage_basis(node)
+    malformed_tag = good.model_copy(update={"facets": {**good.facets, "lineage-basis": "malformed"}})
+    with pytest.raises(MalformedRecord):
+        stored.validate_lineage_basis(malformed_tag)

@@ -172,6 +172,7 @@ __all__ = [
     "typed_ref",
     "union_lineage_bases",
     "used_facet_namespaces",
+    "validate_lineage_basis",
     "validate_source_history",
     "verification_derivation",
     "verification_value",
@@ -795,6 +796,40 @@ def _tagged_basis_routes(node: Node) -> list[dict[str, Any]]:
     if tag == "conflict" and (len(routes) < 2 or len(set(keys)) != len(keys) or keys != sorted(keys)):
         raise MalformedRecord(f"{node.id}: a conflict lineage basis holds at least two distinct sorted routes")
     return routes
+
+
+_ROUTE_KEYS = frozenset({"run", "ancestor", "transforms", "identity"})
+_REQUIRED_ROUTE_KEYS = frozenset({"run", "ancestor", "transforms"})
+
+
+def _nonempty_str(value: object) -> bool:
+    return type(value) is str and bool(value)
+
+
+def validate_lineage_basis(node: Node) -> None:
+    """Refuse a stamped basis whose routes a lineage walk cannot follow:
+    every route names a non-empty `run` and `ancestor`, a non-empty list of
+    non-empty `transforms`, and — when it records one — a non-empty `identity`,
+    with no other keys. The eligibility path calls this before trusting a
+    basis; the shared snapshot walk does not, so certification over looser
+    fixtures is unchanged."""
+    if LINEAGE_BASIS_FACET not in node.facets:
+        return
+    for route in _tagged_basis_routes(node):
+        keys = set(route)
+        transforms = route.get("transforms")
+        identity = route.get("identity")
+        if (
+            not keys <= _ROUTE_KEYS
+            or not _REQUIRED_ROUTE_KEYS <= keys
+            or not _nonempty_str(route["run"])
+            or not _nonempty_str(route["ancestor"])
+            or not isinstance(transforms, list)
+            or not transforms
+            or not all(_nonempty_str(t) for t in transforms)
+            or (identity is not None and not _nonempty_str(identity))
+        ):
+            raise MalformedRecord(f"{node.id}: malformed lineage route")
 
 
 def union_lineage_bases(survivor: Node, loser: Node) -> dict[str, dict]:
