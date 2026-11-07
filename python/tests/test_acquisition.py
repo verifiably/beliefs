@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+import lineage_fixtures as lineage
 import pytest
 from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut3 import typed_applicability, typed_estimand
@@ -204,3 +205,152 @@ def test_validate_lineage_basis_checks_route_fields():
     malformed_tag = good.model_copy(update={"facets": {**good.facets, "lineage-basis": "malformed"}})
     with pytest.raises(MalformedRecord):
         stored.validate_lineage_basis(malformed_tag)
+
+
+# --- empirical standing inherited through lineage (beliefs-8ecbb5) ------------
+
+
+def _chain(*, ancestor=None):
+    """d2 -> d1 -> d0, each hop a production run stamped as the boundary stamps it."""
+    d0 = lineage.acquired("d0") if ancestor is None else ancestor
+    d1 = lineage.derived("d1", lineage.route("run:p1", d0.id))
+    d2 = lineage.derived("d2", lineage.route("run:p2", d1.id))
+    return d0, d1, d2, lineage.production("p1", d0.id, d1.id), lineage.production("p2", d1.id, d2.id)
+
+
+def _outcome(tmp_path, observed, *nodes):
+    from beliefs.corpus import eligibility_outcome
+
+    run = lineage.analysis("r", observed)
+    view = seed(tmp_path, run, *nodes)
+    return eligibility_outcome(view, lineage.assessment_over("a", run.id), BASE)
+
+
+def test_derived_dataset_inherits_standing_from_acquired_ancestor(tmp_path):
+    d0, d1, d2, p1, p2 = _chain()
+    assert _outcome(tmp_path / "one", d1.id, d0, d1, p1) is None
+    assert _outcome(tmp_path / "two", d2.id, d0, d1, d2, p1, p2) is None
+    view = seed(tmp_path / "direct", d0, d1, d2, p1, p2)
+    assert validity_refusal(view, d1, BASE) == "no-empirical-observation-facet"
+    assert validity_refusal(view, d2, BASE) == "no-empirical-observation-facet"
+    assert validity_refusal(view, d0, BASE) is None
+
+
+def test_derived_dataset_standing_fails_on_unobserving_ancestor_or_divergent_producer_or_missing_link_or_malformed_ancestor(
+    tmp_path,
+):
+    d0, d1, d2, p1, p2 = _chain(ancestor=lineage.plain("d0"))
+    outcome = _outcome(tmp_path / "plain", d1.id, d0, d1, p1)
+    assert outcome is not None and outcome.unresolved == ()
+    assert f"{d1.id}: {d0.id}: no-empirical-observation-facet" in outcome.reason
+    assert outcome.reason.startswith("no observes input of 'run:r' has empirical standing (")
+
+    d0, d1, _d2, p1, _p2 = _chain()
+    other = lineage.production("other", lineage.ref("elsewhere"), d1.id)
+    outcome = _outcome(tmp_path / "divergent", d1.id, d0, d1, p1, other)
+    assert outcome is not None and outcome.unresolved == ()
+    assert f"{d1.id}: lineage-divergent" in outcome.reason
+
+    no_run = lineage.derived("d1", lineage.route("run:missing", d0.id))
+    outcome = _outcome(tmp_path / "no-run", no_run.id, d0, no_run)
+    assert outcome is not None and outcome.unresolved == ("run:missing",)
+    assert f"{no_run.id}: lineage-incomplete" in outcome.reason
+
+    no_ancestor = lineage.derived("d1", lineage.route("run:p1", "dataset:missing"))
+    outcome = _outcome(
+        tmp_path / "no-ancestor",
+        no_ancestor.id,
+        no_ancestor,
+        lineage.production("p1", "dataset:missing", no_ancestor.id),
+    )
+    assert outcome is not None and outcome.unresolved == ("dataset:missing",)
+    assert f"{no_ancestor.id}: lineage-incomplete" in outcome.reason
+
+    d0, d1, d2, p1, p2 = _chain()
+    d1.facets[stored.LINEAGE_BASIS_FACET]["routes"][0]["transforms"] = 123
+    stored.stamp_semantic_identity(d1)
+    outcome = _outcome(tmp_path / "malformed", d2.id, d0, d1, d2, p1, p2)
+    assert outcome is not None and outcome.unresolved == ()
+    assert f"{d2.id}: lineage-basis-malformed:" in outcome.reason
+
+
+def test_a_cycle_refuses_as_incomplete_with_nothing_unresolved(tmp_path):
+    a_ref, b_ref = lineage.ref("a"), lineage.ref("b")
+    a = lineage.derived("a", lineage.route("run:pa", b_ref))
+    b = lineage.derived("b", lineage.route("run:pb", a_ref))
+    outcome = _outcome(
+        tmp_path, a.id, a, b, lineage.production("pa", b_ref, a_ref), lineage.production("pb", a_ref, b_ref)
+    )
+    assert outcome is not None and outcome.unresolved == ()
+    assert f"{a.id}: lineage-incomplete" in outcome.reason
+
+
+def test_a_terminal_with_an_unresolved_retrieval_report_refuses(tmp_path):
+    d0, d1, _d2, p1, _p2 = _chain(ancestor=lineage.acquired("d0", retrieval="act-report:" + "0" * 64))
+    outcome = _outcome(tmp_path, d1.id, d0, d1, p1)
+    assert outcome is not None
+    assert f"{d1.id}: {d0.id}: facet-retrieval-unresolved: act-report:" + "0" * 64 in outcome.reason
+
+
+def test_a_derived_dataset_carrying_the_facet_stays_refused_by_the_bearer_rule(tmp_path):
+    d0 = lineage.acquired("d0")
+    both = stored.dataset_node(
+        title="d1",
+        resources=pinned("d1"),
+        empirical_observation=lineage.OBSERVATION,
+        basis={"tag": "single", "routes": [lineage.route("run:p1", d0.id)]},
+    )
+    p1 = lineage.production("p1", d0.id, both.id)
+    outcome = _outcome(tmp_path, both.id, d0, both, p1)
+    assert outcome is not None
+    assert f"{both.id}: facet-bearer-produced: the dataset carries a lineage basis" in outcome.reason
+    assert bearer_refusal(seed(tmp_path / "b", d0, p1), both) is not None
+
+
+def _identitied(d0, *identities_runs):
+    return lineage.derived("d1", *(lineage.route(run, d0.id, identity=identity) for identity, run in identities_runs))
+
+
+def test_route_retraction_and_fail_closed_unreadable_retraction_on_identitied_basis(tmp_path):
+    d0 = lineage.acquired("d0")
+    conflict = _identitied(d0, ("route:1", "run:p1"), ("route:2", "run:p2"))
+    producers = (lineage.production("p1", d0.id, conflict.id), lineage.production("p2", d0.id, conflict.id))
+    outcome = _outcome(tmp_path / "conflict", conflict.id, d0, conflict, *producers)
+    assert outcome is not None and f"{conflict.id}: lineage-divergent" in outcome.reason
+    retired_one = lineage.route_retraction(conflict, "route:2", "rr2")
+    assert _outcome(tmp_path / "retired-one", conflict.id, d0, conflict, *producers, retired_one) is None
+
+    single = _identitied(d0, ("route:1", "run:p1"))
+    p1 = lineage.production("p1", d0.id, single.id)
+    assert _outcome(tmp_path / "single", single.id, d0, single, p1) is None
+    retired = lineage.route_retraction(single, "route:1", "rr1")
+    outcome = _outcome(tmp_path / "retired-all", single.id, d0, single, p1, retired)
+    assert outcome is not None and outcome.unresolved == ()
+    assert f"{single.id}: lineage-incomplete" in outcome.reason
+    counter = lineage.node_retraction(retired, "c1")
+    assert _outcome(tmp_path / "countered", single.id, d0, single, p1, retired, counter) is None
+
+    stale = lineage.node_retraction(lineage.assessment_over("other", "run:other"), "s1")
+    stale.facets[stored.RETRACTION_FACET]["rationale"] = "changed after stamping"
+    outcome = _outcome(tmp_path / "stale", single.id, d0, single, p1, stale)
+    assert outcome is not None and outcome.unresolved == ()
+    assert f"{single.id}: retraction-unreadable:" in outcome.reason
+
+    from test_local_standing import raw_retraction
+
+    cycle = (raw_retraction("retraction:r1", "retraction:r2"), raw_retraction("retraction:r2", "retraction:r1"))
+    outcome = _outcome(tmp_path / "cycle", single.id, d0, single, p1, *cycle)
+    assert outcome is not None and f"{single.id}: retraction-unreadable:" in outcome.reason
+    # an identity-free basis never folds retractions, so the same broken corpus still confers standing
+    boundary = lineage.derived("d1", lineage.route("run:p1", d0.id))
+    assert _outcome(tmp_path / "boundary", boundary.id, d0, boundary, p1, *cycle) is None
+
+
+def test_aliased_producer_and_ancestor_resolve_through_deprecated_ids(tmp_path):
+    d0 = lineage.acquired("d0")
+    d0.deprecated_ids = ["dataset:old-d0"]
+    d1 = lineage.derived("d1", lineage.route("run:old-p1", "dataset:old-d0"))
+    p1 = lineage.production("p1", "dataset:old-d0", d1.id)
+    p1.deprecated_ids = ["run:old-p1"]
+    nodes = (stored.stamp_semantic_identity(d0), d1, stored.stamp_semantic_identity(p1))
+    assert _outcome(tmp_path, d1.id, *nodes) is None

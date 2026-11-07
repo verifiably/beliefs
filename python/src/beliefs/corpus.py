@@ -101,6 +101,7 @@ from beliefs.errors import (
     KindNotMintedHere,
     LoneSurrogate,
     MalformedRecord,
+    MalformedSnapshot,
     ManifestAlreadyPresent,
     ManifestMalformed,
     ManifestMissing,
@@ -134,7 +135,16 @@ from beliefs.errors import (
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence
 from beliefs.facets import validate_payload
 from beliefs.identity import v1
-from beliefs.lineage import Basis, LineageSnapshot, Producer, Route, _route_sort_key
+from beliefs.lineage import (
+    Basis,
+    LineageSnapshot,
+    Producer,
+    Route,
+    _route_sort_key,
+    effective_tag,
+    resolve_ancestor,
+    retire,
+)
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import RunInput, RunValue
@@ -352,6 +362,18 @@ class ReadView:
         — by its id, by an alias, or by a target that resolves to it. Dangling
         edges count: a run written before its dataset is still a producer."""
         return _producer_ids(self, dataset, aliases=aliases)
+
+    def retraction_fold_view(self) -> ReadView:
+        """The records a route-retraction fold reads: this view's own."""
+        return self
+
+    def absence_cause(self, ref: str) -> str | None:
+        """A corpus-local view names no unreadable corpus."""
+        return None
+
+    def note_retractions_incomplete(self, ref: str) -> bool:
+        """Every retraction this view could hold is in it: never incomplete."""
+        return False
 
     def iter_stored(self) -> Iterator[Node]:
         """Every stored node, **unvalidated**. The corpus check's read: a
@@ -669,6 +691,18 @@ class _ImportView:
         yield from self._local.iter_stored()
         yield from self._records.values()
 
+    def retraction_fold_view(self) -> _ImportView:
+        """The records a route-retraction fold reads: this view's own."""
+        return self
+
+    def absence_cause(self, ref: str) -> str | None:
+        """A corpus-local view names no unreadable corpus."""
+        return None
+
+    def note_retractions_incomplete(self, ref: str) -> bool:
+        """Every retraction this view could hold is in it: never incomplete."""
+        return False
+
 
 class _CheckView:
     """Unvalidated neighbours: a stale record is reported where it stands."""
@@ -692,6 +726,18 @@ class _CheckView:
 
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
         return _producer_ids(self, dataset, aliases=aliases)
+
+    def retraction_fold_view(self) -> _CheckView:
+        """The records a route-retraction fold reads: this view's own."""
+        return self
+
+    def absence_cause(self, ref: str) -> str | None:
+        """A corpus-local view names no unreadable corpus."""
+        return None
+
+    def note_retractions_incomplete(self, ref: str) -> bool:
+        """Every retraction this view could hold is in it: never incomplete."""
+        return False
 
 
 class _CapturedCheckView:
@@ -725,6 +771,18 @@ class _CapturedCheckView:
 
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
         return _producer_ids(self, dataset, aliases=aliases)
+
+    def retraction_fold_view(self) -> _CapturedCheckView:
+        """The records a route-retraction fold reads: this view's own."""
+        return self
+
+    def absence_cause(self, ref: str) -> str | None:
+        """A corpus-local view names no unreadable corpus."""
+        return None
+
+    def note_retractions_incomplete(self, ref: str) -> bool:
+        """Every retraction this view could hold is in it: never incomplete."""
+        return False
 
 
 class MountCitations:
@@ -839,6 +897,21 @@ class MountCitations:
         for _root, view in self._read_views():
             yield from view.iter_stored()
 
+    def retraction_fold_view(self) -> _CapturedCheckView:
+        """The write root and every read mount, merged under the address map's
+        own classification, so a counter-retraction in one corpus reaches a
+        retraction in another."""
+        return _merged_capture(
+            {self._own.corpus_id: self._own, **{self._corpus_id(root): view for root, view in self._read_views()}}
+        )[0]
+
+    def absence_cause(self, ref: str) -> str | None:
+        """A session reads every corpus it mounts: none is unreadable."""
+        return None
+
+    def note_retractions_incomplete(self, ref: str) -> bool:
+        return False
+
     def overlay(self, base: ReadView | _ImportView) -> _SessionOverlay:
         return _SessionOverlay(self, base)
 
@@ -875,6 +948,21 @@ class _SessionOverlay:
         yield from self._base.iter_stored()
         for _root, view in self._citations._read_views():
             yield from view.iter_stored()
+
+    def retraction_fold_view(self) -> _CapturedCheckView:
+        """`base` (the overlay, or the write root) and every read mount, merged."""
+        return _merged_capture(
+            {
+                self._citations._corpus_id(None): _CapturedCheckView(tuple(self._base.iter_stored())),
+                **{self._citations._corpus_id(root): view for root, view in self._citations._read_views()},
+            }
+        )[0]
+
+    def absence_cause(self, ref: str) -> str | None:
+        return None
+
+    def note_retractions_incomplete(self, ref: str) -> bool:
+        return False
 
 
 def _producer_ids(
@@ -1101,7 +1189,7 @@ class LineageAdjacency:
     only one of them an edge of the closure.
     """
 
-    def __init__(self, view: ReadView | WorldReadView) -> None:
+    def __init__(self, view: ReadView | WorldReadView | EligibilityView) -> None:
         self._view = view
 
     def steps(self, ref: str) -> tuple[Step, ...]:
@@ -1154,7 +1242,8 @@ def superseded_by(view: ReadView | WorldReadView, ref: str) -> tuple[str, ...]:
 
 
 def retraction_standing(
-    view: ReadView | WorldReadView | _CapturedCheckView, facets: Mapping[str, Mapping[str, object]]
+    view: ReadView | WorldReadView | _ImportView | _CheckView | _CapturedCheckView,
+    facets: Mapping[str, Mapping[str, object]],
 ) -> Mapping[str, bool]:
     """Fold validated retraction facets into standing values."""
     targets: dict[str, list[str]] = {}
@@ -1531,7 +1620,7 @@ def run_value(view: ReadView | WorldReadView, ref: str) -> RunValue:
     return RunValue(ref=ref, spec=stored.run_spec(node) or "", inputs=inputs)
 
 
-def _absence_of(view: ReadView | WorldReadView, ref: str) -> str | None:
+def _absence_of(view: ReadView | WorldReadView | EligibilityView, ref: str) -> str | None:
     """Return the absent corpus recorded for `ref`; propagate refusals."""
     from beliefs.world.read import NotPresent
     from beliefs.world.view import WorldReadView
@@ -1541,13 +1630,22 @@ def _absence_of(view: ReadView | WorldReadView, ref: str) -> str | None:
     return view.corpus_of(ref) if type(view.locate(ref)) is NotPresent else None
 
 
-def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> LineageSnapshot:
+def lineage_snapshot(
+    view: ReadView | WorldReadView | EligibilityView,
+    roots: Sequence[str],
+    *,
+    judge: EligibilityView | None = None,
+) -> LineageSnapshot:
     """Produce the snapshot from a read view.
 
     The inspected set is `{observed root} ∪ closure` — the union written out,
     because the walk is start-excluding and a root whose own immediate parent is
     gone must still be inspected. Nothing here decides anything: `certify` reads
     the tags, the resolutions and the producer sets this assembles.
+
+    `judge`, when given, answers each dataset's producer set (the session's,
+    or the captured world's) while `view` resolves the walk — the eligibility
+    path's split; without it a corpus or world view answers both.
     """
     adjacency = LineageAdjacency(view)
     inspected: list[str] = []
@@ -1596,7 +1694,7 @@ def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> Li
                 tag=str(facet.get("tag", "single")),
                 routes=tuple(sorted(routes, key=_route_sort_key)),
             )
-        found = _producers_of(view, dataset)
+        found = _producers_of(view, dataset, judge=judge)
         for producer in found:
             if producer.absent:
                 not_present[producer.stored_run] = producer.absent[0]
@@ -1604,11 +1702,42 @@ def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> Li
     return LineageSnapshot(roots=tuple(roots), bases=bases, producers=producers, not_present=not_present)
 
 
-def _producers_of(view: ReadView | WorldReadView, dataset: str) -> list[Producer]:
+def _producers_of(
+    view: ReadView | WorldReadView | EligibilityView, dataset: str, *, judge: EligibilityView | None = None
+) -> list[Producer]:
     """The runs holding a `produces` edge to `dataset`, with what each of them
     `transforms`. The producer set is the divergence test's input; the basis
     route is what it is compared against, and the two are separate reads on
-    purpose — a build that derived one from the other could not disagree."""
+    purpose — a build that derived one from the other could not disagree.
+
+    With a `judge`, or over a view that is neither a corpus nor a world view,
+    the producer ids are the judging view's (held or dangling, aliases
+    included); a producer that does not resolve is absent when the judging view
+    names the unreadable corpus that holds it, and otherwise compares as stored
+    data with no transforms."""
+    from beliefs.world.view import WorldReadView
+
+    if judge is None and isinstance(view, (ReadView, WorldReadView)):
+        return _stored_producers_of(view, dataset)
+    producer_view = cast("EligibilityView", view if judge is None else judge)
+    aliases = tuple(view.get(dataset).deprecated_ids)
+    found: list[Producer] = []
+    for run_ref in producer_view.producers(dataset, aliases=aliases):
+        resolved = producer_view.resolve(run_ref)
+        if resolved is not None:
+            transforms = stored.inputs_of(producer_view.get(resolved), stored.TRANSFORMS)
+            found.append(Producer(stored_run=run_ref, resolved_run=resolved, transforms=transforms))
+            continue
+        cause = producer_view.absence_cause(run_ref)
+        found.append(
+            Producer(stored_run=run_ref, resolved_run=None, transforms=(), absent=() if cause is None else (cause,))
+        )
+    return found
+
+
+def _stored_producers_of(view: ReadView | WorldReadView, dataset: str) -> list[Producer]:
+    """`_producers_of` over a corpus or world view's own inbound edges (and a
+    world view's published producers)."""
     producers: list[Producer] = []
     for edge in view.inbound(dataset):
         if edge.relation.predicate != stored.PRODUCES:
@@ -1653,22 +1782,124 @@ class EligibilityOutcome:
     unresolved: tuple[str, ...] = ()
 
 
+class EligibilityView(ProducerView, Protocol):
+    """What the eligibility walk reads beyond a producer view: the records a
+    route-retraction fold covers, why an unresolved reference is absent, and
+    whether an unreadable corpus could hold a retraction the fold missed."""
+
+    def retraction_fold_view(self) -> ReadView | _ImportView | _CheckView | _CapturedCheckView: ...
+
+    def absence_cause(self, ref: str) -> str | None: ...
+
+    def note_retractions_incomplete(self, ref: str) -> bool: ...
+
+
+def _fold_route_retractions(judging: EligibilityView) -> dict[str, set[str]]:
+    """The route identities standing route-arm retractions retire, keyed by
+    the dataset each recorded target resolved to. Every retraction the fold
+    view holds is validated and resolved first, so a malformed, unresolvable
+    or cyclic one raises rather than being skipped."""
+    fold_view = judging.retraction_fold_view()
+    facets: dict[str, Mapping[str, object]] = {}
+    for stored_node in fold_view.iter_stored():
+        if stored_node.kind != "retraction":
+            continue
+        retraction = fold_view.get(stored_node.id)
+        facets[retraction.id] = CorpusWriter._validated_retraction(retraction)
+        CorpusWriter._resolve_retraction_target(retraction, fold_view)
+    standing = retraction_standing(fold_view, facets)
+    retired: dict[str, set[str]] = {}
+    for ref, facet in facets.items():
+        target = cast(Mapping[str, str], facet["target"])
+        if standing[ref] and target["arm"] == "route":
+            retired.setdefault(target["resolved"], set()).add(target["route_identity"])
+    return retired
+
+
+def _dataset_standing_outcome(
+    view: EligibilityView,
+    dataset_ref: str,
+    profile: ProfileSpec,
+    *,
+    judge: EligibilityView | None = None,
+    reports: Callable[[str], ReportView | None] | None = None,
+) -> EligibilityOutcome | None:
+    """`None` when one `observes` dataset has empirical standing.
+
+    A dataset carrying the `empirical-observation` facet, or carrying no
+    lineage basis, has it directly or not at all (`validity_refusal`). A
+    dataset carrying a basis and no facet inherits it from the terminal
+    ancestor its complete, undiverged basis chain reaches (`resolve_ancestor`,
+    the walk `certify` uses), when that ancestor has it directly. Route
+    retractions are folded only when a route in the chain records an identity
+    — boundary-minted routes never do — and then fail closed.
+    """
+    if not view.holds(dataset_ref):
+        return EligibilityOutcome(f"{dataset_ref}: unresolved", (dataset_ref,))
+    judging = view if judge is None else judge
+    node = view.get(dataset_ref)
+    if stored.EMPIRICAL_OBSERVATION_FACET in node.facets or stored.LINEAGE_BASIS_FACET not in node.facets:
+        reason = validity_refusal(judging, node, profile, reports=None if reports is None else reports(dataset_ref))
+        return None if reason is None else EligibilityOutcome(f"{dataset_ref}: {reason}")
+    try:
+        stored.validate_lineage_basis(node)
+        resolved_root = view.resolve(dataset_ref) or node.id
+        for reached in closure(resolved_root, LineageAdjacency(view)).reached:
+            if view.holds(reached):
+                stored.validate_lineage_basis(view.get(reached))
+        snapshot = lineage_snapshot(view, (resolved_root,), judge=judging)
+        for dataset in snapshot.bases:
+            stored.validate_lineage_basis(view.get(dataset))
+    except (MalformedRecord, MalformedSnapshot) as caught:
+        return EligibilityOutcome(f"{dataset_ref}: lineage-basis-malformed: {caught}")
+    has_route_identity = any(route.identity is not None for basis in snapshot.bases.values() for route in basis.routes)
+    if has_route_identity:
+        try:
+            snapshot = retire(snapshot, _fold_route_retractions(judging))
+        except ScienceError as caught:
+            return EligibilityOutcome(f"{dataset_ref}: retraction-unreadable: {caught}")
+    resolution = resolve_ancestor(snapshot, resolved_root)
+    if resolution.findings:
+        if (
+            has_route_identity
+            and resolution.findings == ("lineage-incomplete",)
+            and not resolution.unresolved
+            and any(effective_tag(snapshot, dataset) == "retired" for dataset in snapshot.bases)
+            and judging.note_retractions_incomplete(dataset_ref)
+        ):
+            return EligibilityOutcome(f"{dataset_ref}: retractions-incomplete", (dataset_ref,))
+        return EligibilityOutcome(f"{dataset_ref}: {', '.join(resolution.findings)}", resolution.unresolved)
+    terminal = resolution.terminal
+    assert terminal is not None, "a walk with no findings ends at a terminal ancestor"
+    if not view.holds(terminal):
+        return EligibilityOutcome(f"{dataset_ref}: lineage-incomplete", (terminal,))
+    reason = validity_refusal(
+        judging, view.get(terminal), profile, reports=None if reports is None else reports(terminal)
+    )
+    if reason is not None:
+        return EligibilityOutcome(f"{dataset_ref}: {terminal}: {reason}")
+    if has_route_identity and judging.note_retractions_incomplete(dataset_ref):
+        return EligibilityOutcome(f"{dataset_ref}: retractions-incomplete", (dataset_ref,))
+    return None
+
+
 def eligibility_outcome(
-    view: ProducerView,
+    view: EligibilityView,
     node: Node,
     profile: ProfileSpec,
     *,
-    judge: ProducerView | None = None,
+    judge: EligibilityView | None = None,
     reports: Callable[[str], ReportView | None] | None = None,
 ) -> EligibilityOutcome | None:
-    """The cross-node predicate. `view` finds the run and its datasets; `judge`
-    answers each dataset's producers (the session's); `reports`
+    """The cross-node predicate. `view` finds the run, its datasets and their
+    lineage; `judge` answers each dataset's producers (the session's); `reports`
     names the corpus holding a dataset's retrieval report.
 
-    assessment → run → `observes` → dataset → facet. `reads` inputs never
-    confer eligibility, in any quantity, and no clause of this reaches the
-    registry compile: the kinds are the kernel's and the facet is the `science`
-    base profile's own.
+    assessment → run → `observes` → dataset → empirical standing, held
+    directly or inherited through the dataset's lineage basis
+    (`_dataset_standing_outcome`). `reads` inputs never confer eligibility, in
+    any quantity, and no clause of this reaches the registry compile: the kinds
+    are the kernel's and the facet is the `science` base profile's own.
     """
     if not any(relation.predicate == stored.ASSESSES for relation in node.relations):
         return None
@@ -1687,19 +1918,14 @@ def eligibility_outcome(
     reasons: list[str] = []
     unresolved: list[str] = []
     for dataset_ref in observed:
-        if not view.holds(dataset_ref):
-            reasons.append(f"{dataset_ref}: unresolved")
-            unresolved.append(dataset_ref)
-            continue
-        reason = validity_refusal(
-            judging, view.get(dataset_ref), profile, reports=None if reports is None else reports(dataset_ref)
-        )
-        if reason is None:
+        outcome = _dataset_standing_outcome(view, dataset_ref, profile, judge=judging, reports=reports)
+        if outcome is None:
             return None
-        reasons.append(f"{dataset_ref}: {reason}")
+        reasons.append(outcome.reason)
+        unresolved.extend(outcome.unresolved)
     return EligibilityOutcome(
-        f"no observes input of {run_ref!r} carries a valid empirical-observation facet ({'; '.join(reasons)})",
-        tuple(unresolved),
+        f"no observes input of {run_ref!r} has empirical standing ({'; '.join(reasons)})",
+        tuple(dict.fromkeys(unresolved)),
     )
 
 
@@ -1708,7 +1934,7 @@ def eligibility_refusal(
     node: Node,
     profile: ProfileSpec,
     *,
-    judge: ProducerView | None = None,
+    judge: EligibilityView | None = None,
     reports: Callable[[str], ReportView | None] | None = None,
 ) -> str | None:
     """`eligibility_outcome`'s reason alone: the write boundary's and frozen callers' form."""
@@ -4034,7 +4260,7 @@ class CorpusWriter:
         means. With read mounts, both are judged only inside a citation scope:
         outside one this raises `RuntimeError`, as `_citation_view` does."""
         reading = self._citation_view() if view is None else view
-        judge: ProducerView | None = None
+        judge: EligibilityView | None = None
         reports: Callable[[str], ReportView | None] | None = None
         if self._read_mounts:
             citations = self._citations

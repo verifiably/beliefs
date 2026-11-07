@@ -869,3 +869,54 @@ def test_coordination_mismatch_preserves_base_supersession_findings(tmp_path, st
     if stray_coordination:
         expected.add(("facet-unexpected", node.id, stored.COORDINATION_FACET))
     assert {(f.code, f.ref, f.detail) for f in findings} == expected
+
+
+def test_corpus_check_accepts_derived_dataset_and_warns_unresolved_when_ancestor_is_unheld(tmp_path):
+    """Empirical standing inherited through lineage, read corpus-locally (beliefs-8ecbb5)."""
+    import lineage_fixtures as lineage
+
+    d0 = lineage.acquired("d0")
+    d1 = lineage.derived("d1", lineage.route("run:p1", d0.id))
+    p1 = lineage.production("p1", d0.id, d1.id)
+    proposition = stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
+
+    def checked(root, observed, *nodes):
+        run = lineage.analysis("r1", observed)
+        return [
+            (f.severity, f.code, f.ref, f.detail)
+            for f in corpus_check(seed(root, run, lineage.assessment_over("a1", run.id), proposition, *nodes), BASE)
+        ]
+
+    assert checked(tmp_path / "complete", d1.id, d0, d1, p1) == []
+    assert checked(tmp_path / "no-ancestor", d1.id, d1, p1) == [
+        ("warning", "eligibility-unresolved", "assessment:a1", d0.id)
+    ]
+    assert checked(tmp_path / "no-producer", d1.id, d0, d1) == [
+        ("warning", "eligibility-unresolved", "assessment:a1", "run:p1")
+    ]
+
+    both = stored.dataset_node(
+        title="both",
+        resources=pinned("both"),
+        empirical_observation=lineage.OBSERVATION,
+        basis={"tag": "single", "routes": [lineage.route("run:pb", d0.id)]},
+    )
+    d2 = lineage.derived("d2", lineage.route("run:p2", both.id))
+    walked = checked(
+        tmp_path / "intermediate",
+        d2.id,
+        d0,
+        both,
+        d2,
+        lineage.production("pb", d0.id, both.id),
+        lineage.production("p2", both.id, d2.id),
+    )
+    assert [(severity, code, ref) for severity, code, ref, _detail in walked] == [
+        ("error", "facet-bearer-produced", both.id)
+    ]
+
+    unobserved = lineage.plain("d0")
+    findings = checked(tmp_path / "unobserved", d1.id, unobserved, d1, p1)
+    assert [(severity, code, ref) for severity, code, ref, _detail in findings] == [
+        ("error", "eligibility-unmet", "assessment:a1")
+    ]

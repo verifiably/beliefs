@@ -48,6 +48,7 @@ from beliefs.corpus import (
     _CapturedCheckView,
     _ImportView,
     _manifest_findings,
+    _merged_capture,
     _producers_of,
     _record_findings,
     corpus_check,
@@ -691,6 +692,17 @@ class _CapturedCitations:
         found = {producer for view in self._readable.values() for producer in view.producers(dataset, aliases=aliases)}
         found.update(self._view.published_producers(dataset))
         return tuple(sorted(found))
+
+    def retraction_fold_view(self) -> _CapturedCheckView:
+        """Every readable corpus's records, merged: the retractions a route fold can see."""
+        return _merged_capture(self._readable)[0]
+
+    def absence_cause(self, ref: str) -> str | None:
+        """Why `ref` did not resolve, when an unreadable holder is the reason."""
+        return self.unreadable.get(ref)
+
+    def note_retractions_incomplete(self, ref: str) -> bool:
+        return False
 
     def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None:
         self.unreadable = {}

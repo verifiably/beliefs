@@ -604,3 +604,92 @@ def test_a_composite_over_mount_propositions_is_written(tmp_path):
     node = ReadView.opened_at(w_root).get(minted.id)
     assert {r.target for r in node.relations} == {"proposition:ab", "proposition:bc"}
     assert not ReadView.opened_at(m_root).holds(minted.id)
+
+
+# --- empirical standing inherited through lineage (beliefs-8ecbb5) ------------
+
+
+def _acquisition_report_in(root):
+    report = stored.act_report_node(acquisition_report(operation="acquisition"))
+    CorpusWriter(
+        root,
+        DefaultExecutor,
+        authority=FULL,
+        profile=TYPED,
+        operation_port=OperationRecorder(root, authority=FULL, profile=TYPED),
+    ).import_bundle([report], **IMPORT)
+    return report
+
+
+def test_session_mount_admits_assessment_over_derived_dataset_with_mount_ancestor_and_retrieval_report(roots):
+    import lineage_fixtures as lineage
+
+    report = _acquisition_report_in(roots["m"])
+    m = adopted(roots["m"])
+    d0 = m.add(observed("d0", retrieval=report.id))
+    p = m.add(proposition("p"))
+    w = mounted_writer(roots, "m")
+    d1 = w.add(lineage.derived("d1", lineage.route("run:p1", d0.id)))
+    w.add(lineage.production("p1", d0.id, d1.id))
+    run = w.add(run_over("r", d1))
+    held = w.add(assessment("a", run, p))
+    assert ReadView.opened_at(roots["w"]).holds(held.id)
+
+
+def test_session_mount_reads_the_terminal_ancestors_retrieval_report_in_the_ancestors_corpus(roots):
+    import lineage_fixtures as lineage
+    from fixtures_cut4 import raw_write
+
+    report = _acquisition_report_in(roots["w"])  # in the write root, not beside the ancestor
+    d0 = observed("d0", retrieval=report.id)
+    raw_write(roots["m"], d0)
+    m = adopted(roots["m"])
+    m._reconstruct()
+    p = m.add(proposition("p"))
+    w = mounted_writer(roots, "m")
+    d1 = w.add(lineage.derived("d1", lineage.route("run:p1", d0.id)))
+    w.add(lineage.production("p1", d0.id, d1.id))
+    run = w.add(run_over("r", d1))
+    with pytest.raises(EligibilityUnmet, match="facet-retrieval-unresolved"):
+        w.add(assessment("a", run, p))
+
+
+def test_session_mount_refuses_a_derived_dataset_whose_mount_ancestor_names_a_missing_report(roots):
+    import lineage_fixtures as lineage
+    from fixtures_cut4 import raw_write
+
+    d0 = observed("d0", retrieval="act-report:" + "0" * 64)
+    raw_write(roots["m"], d0)
+    p = adopted(roots["m"]).add(proposition("p"))
+    w = mounted_writer(roots, "m")
+    d1 = w.add(lineage.derived("d1", lineage.route("run:p1", d0.id)))
+    w.add(lineage.production("p1", d0.id, d1.id))
+    run = w.add(run_over("r", d1))
+    with pytest.raises(EligibilityUnmet, match=f"{d1.id}: {d0.id}: facet-retrieval-unresolved"):
+        w.add(assessment("a", run, p))
+
+
+def test_import_bundle_and_replace_enforce_lineage_standing(roots):
+    """The import overlay and the replacement preflight judge inherited standing too."""
+    import lineage_fixtures as lineage
+    from fixtures_cut4 import raw_write
+
+    w = mounted_writer(roots, "m", port=True)
+    d0 = w.add(observed("d0"))
+    d1 = w.add(lineage.derived("d1", lineage.route("run:p1", d0.id)))
+    w.add(lineage.production("p1", d0.id, d1.id))
+    run = w.add(run_over("r", d1))
+    p = w.add(proposition("p"))
+    w.import_bundle([assessment("a", run, p)], **IMPORT)
+    assert ReadView.opened_at(roots["w"]).holds("assessment:a")
+
+    plain = lineage.plain("d0")
+    raw_write(roots["w"], plain)  # the ancestor loses its facet behind the boundary
+    w._reconstruct()
+    with pytest.raises(ImportRefused) as refused:
+        w.import_bundle([assessment("b", run, p)], **IMPORT)
+    assert isinstance(refused.value.__cause__, EligibilityUnmet)
+    assert f"{d1.id}: {d0.id}: no-empirical-observation-facet" in str(refused.value.__cause__)
+    stored_assessment = w.read_view.get("assessment:a")
+    with w._operation, pytest.raises(EligibilityUnmet, match="no-empirical-observation-facet"):
+        w._preflight_replace_locked(stored_assessment)
