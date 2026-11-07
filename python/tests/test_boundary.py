@@ -1080,3 +1080,376 @@ def test_production_run_checks_expected_inputs_and_planning_restage(tmp_path, mo
     )
     assert isinstance(conflict, RunRefused)
     assert "recipe inputs disagree on content identity" in conflict.reason
+
+
+# --- multi-resource input staging & two-pass member verification (beliefs-98f1d7) ---
+
+from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+
+SNAKEFILE_MULTI_RESOURCE = """\
+import pathlib
+
+rule transform:
+    input: "inputs/tables/expression.tsv", "inputs/tables/clinical.tsv"
+    output: "outputs/result.txt"
+    run:
+        expr = pathlib.Path(input[0]).read_text()
+        clin = pathlib.Path(input[1]).read_text()
+        pathlib.Path(output[0]).write_text((expr + "|" + clin).upper())
+"""
+
+SNAKEFILE_SINGLE_NESTED_MEMBER = """\
+import pathlib
+
+rule transform:
+    input: "inputs/tables/clinical.tsv"
+    output: "outputs/result.txt"
+    run:
+        assert not pathlib.Path("inputs/clinical.tsv").exists()
+        clin = pathlib.Path(input[0]).read_text()
+        pathlib.Path(output[0]).write_text(clin.upper())
+"""
+
+
+def _stage_package_files(tmp_path: Path) -> tuple[Path, Path]:
+    pkg_dir = tmp_path / "pkg"
+    pkg_dir.mkdir(parents=True, exist_ok=True)
+    expr_path = pkg_dir / "expression.tsv"
+    clin_path = pkg_dir / "clinical.tsv"
+    expr_path.write_text("gene\ttpm\nTP53\t42\n")
+    clin_path.write_text("sample\tarm\nS1\tA\n")
+    return expr_path, clin_path
+
+
+def test_boundary_stages_multi_resource_dataset_and_folds_content_digest(tmp_path):
+    code, _ = stage(tmp_path, snakefile=SNAKEFILE_MULTI_RESOURCE)
+    expr_path, clin_path = _stage_package_files(tmp_path)
+    expr_digest = _boundary._digest(expr_path)
+    clin_digest = _boundary._digest(clin_path)
+    expected_folded = dataset_address(
+        DatasetDeclaration(
+            resources=(
+                ResourceDeclaration("tables/clinical.tsv", clin_digest),
+                ResourceDeclaration("tables/expression.tsv", expr_digest),
+            )
+        )
+    )
+    assert expected_folded is not None
+    expected_content = expected_folded.removeprefix("dataset:")
+
+    spec = freeze(
+        spec_draft(
+            nondeterminism=Deterministic(),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+        ),
+        held_rules=spec_rules(),
+    )
+    outcome = execute_assessment_run(
+        spec=spec,
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_MULTI_RESOURCE, family_streams={}),
+        code_roots=(code,),
+        held_inputs={
+            DATA_ADDRESS: {
+                "tables/expression.tsv": expr_path,
+                "tables/clinical.tsv": clin_path,
+            }
+        },
+        expected_inputs={
+            DATA_ADDRESS: {
+                "tables/expression.tsv": expr_digest,
+                "tables/clinical.tsv": clin_digest,
+            }
+        },
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch",
+        cores=1,
+    )
+    assert isinstance(outcome, RunMinted), outcome
+    assert outcome.run.recipe.inputs[0].content == expected_content
+    scratch = Path(outcome.run.occurrence.receipt.execution.scratch_mapping)
+    assert (scratch / "inputs" / "tables" / "expression.tsv").read_text() == expr_path.read_text()
+    assert (scratch / "inputs" / "tables" / "clinical.tsv").read_text() == clin_path.read_text()
+    assert (scratch / "outputs" / "result.txt").read_text() == (
+        expr_path.read_text() + "|" + clin_path.read_text()
+    ).upper()
+
+
+def test_boundary_preserves_nested_member_path_for_single_resource_mapping(tmp_path):
+    code, _ = stage(tmp_path, snakefile=SNAKEFILE_SINGLE_NESTED_MEMBER)
+    _, clin_path = _stage_package_files(tmp_path)
+    clin_digest = _boundary._digest(clin_path)
+
+    spec = freeze(
+        spec_draft(
+            nondeterminism=Deterministic(),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+        ),
+        held_rules=spec_rules(),
+    )
+    outcome = execute_assessment_run(
+        spec=spec,
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_SINGLE_NESTED_MEMBER, family_streams={}),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: {"tables/clinical.tsv": clin_path}},
+        expected_inputs={DATA_ADDRESS: {"tables/clinical.tsv": clin_digest}},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch-assess",
+        cores=1,
+    )
+    assert isinstance(outcome, RunMinted), outcome
+    assert outcome.run.recipe.inputs[0].content == clin_digest
+    scratch = Path(outcome.run.occurrence.receipt.execution.scratch_mapping)
+    assert (scratch / "inputs" / "tables" / "clinical.tsv").is_file()
+    assert not (scratch / "inputs" / "clinical.tsv").exists()
+
+    prod_outcome = execute_production_run(
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=clin_digest),),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=definition(snakefile=SNAKEFILE_SINGLE_NESTED_MEMBER, family_streams={}),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: {"tables/clinical.tsv": clin_path}},
+        expected_inputs={DATA_ADDRESS: {"tables/clinical.tsv": clin_digest}},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch-prod",
+        cores=1,
+    )
+    assert isinstance(prod_outcome, RunMinted), prod_outcome
+    assert prod_outcome.run.recipe.inputs[0].content == clin_digest
+
+
+@pytest.mark.parametrize("policy", [MINIMAL_POLICY, CONFINED_POLICY])
+def test_boundary_refuses_when_two_members_swap_bytes_between_initial_and_planning_staging(
+    tmp_path, monkeypatch, policy
+):
+    code, _ = stage(tmp_path, snakefile=SNAKEFILE_MULTI_RESOURCE)
+    expr_path = tmp_path / "expression.tsv"
+    clin_path = tmp_path / "clinical.tsv"
+    expr_bytes = b"gene\ttpm\nTP53\t42\n"
+    clin_bytes = b"sample\tarm\nS1\tA\n"
+    expr_path.write_bytes(expr_bytes)
+    clin_path.write_bytes(clin_bytes)
+    expr_digest = _boundary._digest(expr_path)
+    clin_digest = _boundary._digest(clin_path)
+
+    scratch_base = tmp_path / "scratch"
+    real_stage_inputs = _boundary._stage_inputs
+    calls = 0
+
+    def swapping_stage_inputs(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        result = real_stage_inputs(*args, **kwargs)
+        if calls == 1:
+            expr_path.write_bytes(clin_bytes)
+            clin_path.write_bytes(expr_bytes)
+        return result
+
+    if policy == CONFINED_POLICY:
+        monkeypatch.setattr(_boundary, "materialize_snapshot", lambda captured, root: root)
+    monkeypatch.setattr(_boundary, "_stage_inputs", swapping_stage_inputs)
+    _forbid_engines(monkeypatch)
+
+    spec = freeze(
+        spec_draft(
+            nondeterminism=Deterministic(),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+        ),
+        held_rules=spec_rules(),
+    )
+    outcome = execute_assessment_run(
+        spec=spec,
+        port=MEMORY_PORT,
+        boundary_policy=policy,
+        definition=definition(snakefile=SNAKEFILE_MULTI_RESOURCE, family_streams={}),
+        code_roots=(code,),
+        held_inputs={
+            DATA_ADDRESS: {
+                "expression.tsv": expr_path,
+                "clinical.tsv": clin_path,
+            }
+        },
+        expected_inputs={
+            DATA_ADDRESS: {
+                "expression.tsv": expr_digest,
+                "clinical.tsv": clin_digest,
+            }
+        },
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=scratch_base,
+        cores=1,
+    )
+    assert calls == 2
+    assert isinstance(outcome, RunRefused)
+    assert "resource 'clinical.tsv' digest" in outcome.reason or "resource 'expression.tsv' digest" in outcome.reason
+    assert outcome.intent is not None
+    assert outcome.report is not None
+    assert outcome.registration is not None
+    assert completion(outcome.intent, (outcome.registration,), {outcome.report.identity(): outcome.report}) == CLOSED
+    assert list(scratch_base.glob("planning-*")) == []
+
+
+def test_multi_resource_validation_refusals_before_and_during_staging(tmp_path, monkeypatch):
+    code, _ = stage(tmp_path, snakefile=SNAKEFILE_MULTI_RESOURCE)
+    expr_path, clin_path = _stage_package_files(tmp_path)
+    expr_digest = _boundary._digest(expr_path)
+    spec = freeze(
+        spec_draft(
+            nondeterminism=Deterministic(),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+        ),
+        held_rules=spec_rules(),
+    )
+    _forbid_engines(monkeypatch)
+
+    def _run(held_in, expected_in=None, spec_in=spec, sub="case"):
+        return execute_assessment_run(
+            spec=spec_in,
+            port=MEMORY_PORT,
+            boundary_policy=MINIMAL_POLICY,
+            definition=definition(snakefile=SNAKEFILE_MULTI_RESOURCE, family_streams={}),
+            code_roots=(code,),
+            held_inputs=held_in,
+            expected_inputs=expected_in,
+            entrypoint="code/workflow/Snakefile",
+            targets=("outputs/result.txt",),
+            declared_outputs=("outputs/result.txt",),
+            observer="observer-1",
+            started_at="2026-08-12T00:00:00Z",
+            host_realization="host-a",
+            scratch_base=tmp_path / f"scratch-{sub}",
+            cores=1,
+        )
+
+    # 1. Empty mapping refuses pre-intent with input-not-held
+    empty = _run({DATA_ADDRESS: {}}, sub="empty")
+    assert isinstance(empty, RunRefused)
+    assert empty.reason == "input-not-held"
+    assert empty.intent is None and empty.report is not None
+
+    # 2. Per-resource digest mismatch refuses before engine launch
+    bad_member = _run(
+        {DATA_ADDRESS: {"tables/expression.tsv": expr_path, "tables/clinical.tsv": clin_path}},
+        {DATA_ADDRESS: {"tables/expression.tsv": expr_digest, "tables/clinical.tsv": "sha256:" + "0" * 64}},
+        sub="bad-member",
+    )
+    assert isinstance(bad_member, RunRefused)
+    assert "resource 'tables/clinical.tsv' digest" in bad_member.reason
+
+    # 3. Mismatched keys between held_inputs and expected_inputs
+    key_mismatch = _run(
+        {DATA_ADDRESS: {"a.tsv": expr_path}},
+        {DATA_ADDRESS: {"b.tsv": expr_digest}},
+        sub="key-mismatch",
+    )
+    assert isinstance(key_mismatch, RunRefused)
+    assert key_mismatch.intent is not None
+
+    # 4. Plain str expected_inputs for a Mapping held_inputs is refused
+    plain_str_for_mapping = _run(
+        {DATA_ADDRESS: {"a.tsv": expr_path}},
+        {DATA_ADDRESS: expr_digest},
+        sub="plain-str-for-mapping",
+    )
+    assert isinstance(plain_str_for_mapping, RunRefused)
+
+    # 5. Mapping expected_inputs for a Path held_inputs is refused
+    mapping_for_path = _run(
+        {DATA_ADDRESS: expr_path},
+        {DATA_ADDRESS: {"a.tsv": expr_digest}},
+        sub="mapping-for-path",
+    )
+    assert isinstance(mapping_for_path, RunRefused)
+
+    # 6. Unsafe relative paths in held_inputs
+    for idx, unsafe_rel in enumerate(
+        ("../escape.tsv", "/abs.tsv", ".#~scratch.tsv", "a/../b.tsv", "a//b.tsv", "a\\b.tsv")
+    ):
+        unsafe = _run(
+            {DATA_ADDRESS: {unsafe_rel: expr_path}},
+            None,
+            sub=f"unsafe-{idx}",
+        )
+        assert isinstance(unsafe, RunRefused), unsafe_rel
+        assert "relative input path" in unsafe.reason
+
+    # 7. File-vs-file and file-vs-directory collisions across input datasets
+    two_input_spec = freeze(
+        spec_draft(
+            nondeterminism=Deterministic(),
+            input_roles=(
+                SpecInput(role="observes", dataset=DATA_ADDRESS),
+                SpecInput(role="reads", dataset=READS_ADDRESS),
+            ),
+        ),
+        held_rules=spec_rules(),
+    )
+    file_collision = _run(
+        {
+            DATA_ADDRESS: {"tables/clinical.tsv": expr_path},
+            READS_ADDRESS: {"tables/clinical.tsv": clin_path},
+        },
+        spec_in=two_input_spec,
+        sub="file-collision",
+    )
+    assert isinstance(file_collision, RunRefused)
+    assert "collide" in file_collision.reason
+
+    dir_collision = _run(
+        {
+            DATA_ADDRESS: {"tables": expr_path},
+            READS_ADDRESS: {"tables/clinical.tsv": clin_path},
+        },
+        spec_in=two_input_spec,
+        sub="dir-collision",
+    )
+    assert isinstance(dir_collision, RunRefused)
+    assert "collide" in dir_collision.reason
+
+    reverse_dir_collision = _run(
+        {
+            DATA_ADDRESS: {"tables/clinical.tsv": clin_path},
+            READS_ADDRESS: {"tables": expr_path},
+        },
+        spec_in=two_input_spec,
+        sub="reverse-dir-collision",
+    )
+    assert isinstance(reverse_dir_collision, RunRefused)
+    assert "collide" in reverse_dir_collision.reason
+
+    # 8. Symlink member in held_inputs is refused
+    symlink_path = tmp_path / "symlink_expr.tsv"
+    symlink_path.symlink_to(expr_path)
+    symlink_refused = _run(
+        {DATA_ADDRESS: {"tables/expression.tsv": symlink_path}},
+        None,
+        sub="symlink",
+    )
+    assert isinstance(symlink_refused, RunRefused)
+    assert "is not a readable file" in symlink_refused.reason

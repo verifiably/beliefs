@@ -887,3 +887,217 @@ def test_assessment_replay_refuses_when_supplied_expected_inputs_disagree_with_r
     assert "does not match recipe input" in attempt.reason
     assert attempt.intent is not None and attempt.report is not None and attempt.registration is not None
     assert completion(attempt.intent, (attempt.registration,), {attempt.report.identity(): attempt.report}) == CLOSED
+
+
+# --- multi-resource and 1-resource nested member replay (beliefs-98f1d7) ---
+
+from fixtures_cut3 import MEMORY_PORT, definition, stage
+
+from beliefs.boundary import _digest, execute_production_run
+from beliefs.recipe import MINIMAL_POLICY, RecipeInput
+from beliefs.replay import replay as _replay_fn
+from beliefs.spec import SpecInput
+
+SNAKEFILE_REPLAY_MULTI = """\
+import pathlib
+
+rule transform:
+    input: "inputs/tables/expression.tsv", "inputs/tables/clinical.tsv"
+    output: "outputs/result.txt"
+    run:
+        expr = pathlib.Path(input[0]).read_text()
+        clin = pathlib.Path(input[1]).read_text()
+        pathlib.Path(output[0]).write_text((expr + "|" + clin).upper())
+"""
+
+SNAKEFILE_REPLAY_NESTED_SINGLE = """\
+import pathlib
+
+rule transform:
+    input: "inputs/tables/clinical.tsv"
+    output: "outputs/result.txt"
+    run:
+        assert not pathlib.Path("inputs/clinical.tsv").exists()
+        clin = pathlib.Path(input[0]).read_text()
+        pathlib.Path(output[0]).write_text(clin.upper())
+"""
+
+
+def test_replay_multi_resource_and_single_resource_nested_member_mappings(tmp_path):
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    expr_path = pkg / "expression.tsv"
+    clin_path = pkg / "clinical.tsv"
+    expr_path.write_text("gene\ttpm\nTP53\t42\n")
+    clin_path.write_text("sample\tarm\nS1\tA\n")
+    expr_digest = _digest(expr_path)
+    clin_digest = _digest(clin_path)
+
+    multi_held = {
+        DATA_ADDRESS: {
+            "tables/expression.tsv": expr_path,
+            "tables/clinical.tsv": clin_path,
+        }
+    }
+    multi_expected = {
+        DATA_ADDRESS: {
+            "tables/expression.tsv": expr_digest,
+            "tables/clinical.tsv": clin_digest,
+        }
+    }
+    folded_addr = dataset_address(
+        DatasetDeclaration(
+            resources=(
+                ResourceDeclaration("tables/clinical.tsv", clin_digest),
+                ResourceDeclaration("tables/expression.tsv", expr_digest),
+            )
+        )
+    )
+    assert folded_addr is not None
+    folded_digest = folded_addr.removeprefix("dataset:")
+
+    # 1. Multi-resource assessment run + replay (with expected_inputs and with expected_inputs=None)
+    code_multi, _ = stage(tmp_path / "code-multi", snakefile=SNAKEFILE_REPLAY_MULTI)
+    spec_multi = freeze(
+        spec_draft(
+            nondeterminism=Deterministic(),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+        ),
+        held_rules=spec_rules(),
+    )
+    defn_multi = definition(snakefile=SNAKEFILE_REPLAY_MULTI, family_streams={})
+    orig_assess = execute_assessment_run(
+        spec=spec_multi,
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=defn_multi,
+        code_roots=(code_multi,),
+        held_inputs=multi_held,
+        expected_inputs=multi_expected,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch-assess-orig",
+        cores=1,
+    )
+    assert isinstance(orig_assess, RunMinted), orig_assess
+    assert orig_assess.run.recipe.inputs[0].content == folded_digest
+
+    for idx, exp in enumerate((multi_expected, None)):
+        rep_assess = _replay_fn(
+            orig_assess,
+            port=MEMORY_PORT,
+            spec=spec_multi,
+            definition=defn_multi,
+            code_roots=(code_multi,),
+            held_inputs=multi_held,
+            expected_inputs=exp,
+            entrypoint="code/workflow/Snakefile",
+            targets=("outputs/result.txt",),
+            declared_outputs=("outputs/result.txt",),
+            observer="observer-1",
+            started_at="2026-08-12T00:00:00Z",
+            host_realization="host-a",
+            scratch_base=tmp_path / f"scratch-assess-rep-{idx}",
+            cores=1,
+        )
+        assert isinstance(rep_assess, RunMinted), rep_assess
+        assert rep_assess.run.recipe.identity() == orig_assess.run.recipe.identity()
+        assert rep_assess.run.result == orig_assess.run.result
+
+    # 2. Multi-resource production run + replay (with expected_inputs and with expected_inputs=None)
+    orig_prod = execute_production_run(
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=folded_digest),),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=defn_multi,
+        code_roots=(code_multi,),
+        held_inputs=multi_held,
+        expected_inputs=multi_expected,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch-prod-orig",
+        cores=1,
+    )
+    assert isinstance(orig_prod, RunMinted), orig_prod
+
+    for idx, exp in enumerate((multi_expected, None)):
+        rep_prod = _replay_fn(
+            orig_prod,
+            port=MEMORY_PORT,
+            spec=None,
+            definition=defn_multi,
+            code_roots=(code_multi,),
+            held_inputs=multi_held,
+            expected_inputs=exp,
+            entrypoint="code/workflow/Snakefile",
+            targets=("outputs/result.txt",),
+            declared_outputs=("outputs/result.txt",),
+            observer="observer-1",
+            started_at="2026-08-12T00:00:00Z",
+            host_realization="host-a",
+            scratch_base=tmp_path / f"scratch-prod-rep-{idx}",
+            cores=1,
+        )
+        assert isinstance(rep_prod, RunMinted), rep_prod
+        assert rep_prod.run.recipe.identity() == orig_prod.run.recipe.identity()
+        assert rep_prod.run.result == orig_prod.run.result
+
+    # 3. 1-resource nested member mapping replay (assessment & production)
+    code_single, _ = stage(tmp_path / "code-single", snakefile=SNAKEFILE_REPLAY_NESTED_SINGLE)
+    defn_single = definition(snakefile=SNAKEFILE_REPLAY_NESTED_SINGLE, family_streams={})
+    single_held = {DATA_ADDRESS: {"tables/clinical.tsv": clin_path}}
+    single_expected = {DATA_ADDRESS: {"tables/clinical.tsv": clin_digest}}
+
+    orig_nested_prod = execute_production_run(
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=clin_digest),),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=defn_single,
+        code_roots=(code_single,),
+        held_inputs=single_held,
+        expected_inputs=single_expected,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch-nested-orig",
+        cores=1,
+    )
+    assert isinstance(orig_nested_prod, RunMinted), orig_nested_prod
+    assert orig_nested_prod.run.recipe.inputs[0].content == clin_digest
+
+    for idx, exp in enumerate((single_expected, None)):
+        rep_nested = _replay_fn(
+            orig_nested_prod,
+            port=MEMORY_PORT,
+            spec=None,
+            definition=defn_single,
+            code_roots=(code_single,),
+            held_inputs=single_held,
+            expected_inputs=exp,
+            entrypoint="code/workflow/Snakefile",
+            targets=("outputs/result.txt",),
+            declared_outputs=("outputs/result.txt",),
+            observer="observer-1",
+            started_at="2026-08-12T00:00:00Z",
+            host_realization="host-a",
+            scratch_base=tmp_path / f"scratch-nested-rep-{idx}",
+            cores=1,
+        )
+        assert isinstance(rep_nested, RunMinted), rep_nested
+        assert rep_nested.run.recipe.identity() == orig_nested_prod.run.recipe.identity()
+        assert rep_nested.run.result == orig_nested_prod.run.result

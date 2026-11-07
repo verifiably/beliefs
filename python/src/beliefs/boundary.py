@@ -62,6 +62,7 @@ from beliefs.confinement import (
     require_host,
     sandbox_environment,
 )
+from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import (
     CheckpointDeclarationUnmet,
     ConfinementRefusal,
@@ -455,11 +456,18 @@ def _is_acquisition(address: str) -> bool:
     return "://" in address or address.startswith("accession:")
 
 
-def _preflight(addresses: tuple[str, ...], held_inputs: Mapping[str, Path]) -> str | None:
+def _preflight(
+    addresses: tuple[str, ...],
+    held_inputs: Mapping[str, Path | Mapping[str, Path]],
+) -> str | None:
     if any(_is_acquisition(address) for address in addresses):
         return "acquisition-not-a-run"
-    if any(address not in held_inputs for address in addresses):
-        return "input-not-held"
+    for address in addresses:
+        if address not in held_inputs:
+            return "input-not-held"
+        source = held_inputs[address]
+        if isinstance(source, Mapping) and not source:
+            return "input-not-held"
     return None
 
 
@@ -471,43 +479,110 @@ class _InputConflict:
     reason: str
 
 
+@dataclass(frozen=True)
+class _RecipeContent:
+    digest: str
+
+
+def _content_identity(source_or_digests: str | Mapping[str, str]) -> str:
+    if isinstance(source_or_digests, str):
+        return source_or_digests
+    if not isinstance(source_or_digests, Mapping) or not source_or_digests:
+        raise MalformedClosure("resource digest mapping must be a non-empty mapping")
+    if len(source_or_digests) == 1:
+        return next(iter(source_or_digests.values()))
+    declaration = DatasetDeclaration(
+        resources=tuple(
+            ResourceDeclaration(name=name, digest=digest) for name, digest in sorted(source_or_digests.items())
+        )
+    )
+    addr = dataset_address(declaration)
+    assert addr is not None
+    return addr.removeprefix("dataset:")
+
+
+def _validate_relative_input_path(name: str, inputs_dir: Path) -> Path:
+    if type(name) is not str or not name or "\\" in name or name.startswith("/"):
+        raise MalformedClosure(f"invalid relative input path {name!r}")
+    parts = name.split("/")
+    if any(not part or part in (".", "..") or part.startswith(".#~") for part in parts):
+        raise MalformedClosure(f"invalid relative input path {name!r}")
+    staged = (inputs_dir / name).resolve()
+    if not staged.is_relative_to(inputs_dir.resolve()):
+        raise MalformedClosure(f"relative input path {name!r} escapes staging directory")
+    return staged
+
+
 def _bind_recipe_inputs(
     inputs: tuple[RecipeInput, ...],
     expected_inputs: Mapping[str, object] | None,
 ) -> Mapping[str, object]:
-    bound: dict[str, object] = {}
+    recipe_content: dict[str, str | _InputConflict] = {}
     for entry in inputs:
-        existing = bound.get(entry.dataset)
+        existing = recipe_content.get(entry.dataset)
         if existing is None:
-            bound[entry.dataset] = entry.content
+            recipe_content[entry.dataset] = entry.content
         elif type(existing) is not _InputConflict and existing != entry.content:
-            bound[entry.dataset] = _InputConflict(
+            recipe_content[entry.dataset] = _InputConflict(
                 f"recipe inputs disagree on content identity for {entry.dataset!r}: {existing} vs {entry.content}"
             )
-    if expected_inputs is not None:
-        if not isinstance(expected_inputs, Mapping):
-            return {address: _InputConflict("expected_inputs must be a mapping") for address in bound}
-        for address in list(bound):
-            if address not in expected_inputs:
-                bound[address] = _InputConflict(f"expected input {address!r} is missing content identity")
-        for address, expected in expected_inputs.items():
-            if type(expected) is _InputConflict:
-                bound[address] = expected
-            elif address not in bound:
-                bound[address] = _InputConflict(f"expected input {address!r} is not in recipe inputs")
-            elif type(bound[address]) is not _InputConflict and expected != bound[address]:
+    if expected_inputs is None:
+        return {
+            address: value if isinstance(value, _InputConflict) else _RecipeContent(value)
+            for address, value in recipe_content.items()
+        }
+    if not isinstance(expected_inputs, Mapping):
+        return {address: _InputConflict("expected_inputs must be a mapping") for address in recipe_content}
+    bound: dict[str, object] = dict(recipe_content)
+    for address in list(recipe_content):
+        if address not in expected_inputs:
+            bound[address] = _InputConflict(f"expected input {address!r} is missing content identity")
+    for address, expected in expected_inputs.items():
+        if type(expected) is _InputConflict:
+            bound[address] = expected
+        elif address not in recipe_content:
+            bound[address] = _InputConflict(f"expected input {address!r} is not in recipe inputs")
+        elif type(recipe_content[address]) is _InputConflict:
+            bound[address] = recipe_content[address]
+        elif type(expected) is _RecipeContent:
+            if expected.digest != recipe_content[address]:
                 bound[address] = _InputConflict(
-                    f"expected input {address!r} content identity {expected} does not match recipe input {bound[address]}"
+                    f"expected input {address!r} content identity {expected.digest} does not match recipe input {recipe_content[address]}"
                 )
+            else:
+                bound[address] = expected
+        elif type(expected) is str:
+            if expected != recipe_content[address]:
+                bound[address] = _InputConflict(
+                    f"expected input {address!r} content identity {expected} does not match recipe input {recipe_content[address]}"
+                )
+            else:
+                bound[address] = expected
+        elif isinstance(expected, Mapping):
+            if not expected or any(
+                type(k) is not str or type(v) is not str or not _DIGEST.match(v) for k, v in expected.items()
+            ):
+                bound[address] = _InputConflict(f"expected input {address!r} has malformed resource digests")
+            else:
+                folded = _content_identity(expected)
+                if folded != recipe_content[address]:
+                    bound[address] = _InputConflict(
+                        f"expected input {address!r} content identity {folded} does not match recipe input {recipe_content[address]}"
+                    )
+                else:
+                    bound[address] = dict(expected)
+        else:
+            bound[address] = _InputConflict(f"expected input {address!r} is missing content identity")
     return bound
 
 
 def _stage_inputs(
     addresses: tuple[str, ...],
-    held_inputs: Mapping[str, Path],
+    held_inputs: Mapping[str, Path | Mapping[str, Path]],
     scratch: Path,
     expected_inputs: Mapping[str, object] | None = None,
-) -> Mapping[str, str]:
+) -> dict[str, str | dict[str, str]]:
+    inputs_dir = scratch / "inputs"
     if expected_inputs is not None:
         if not isinstance(expected_inputs, Mapping):
             raise MalformedClosure("expected_inputs must be a mapping")
@@ -516,32 +591,92 @@ def _stage_inputs(
                 raise MalformedClosure(value.reason)
         for address in addresses:
             expected = expected_inputs.get(address)
-            if type(expected) is not str:
+            if type(expected) is str:
+                if not _DIGEST.match(expected):
+                    raise MalformedClosure(f"expected input {address!r} has malformed content identity")
+            elif type(expected) is _RecipeContent:
+                if type(expected.digest) is not str or not _DIGEST.match(expected.digest):
+                    raise MalformedClosure(f"expected input {address!r} has malformed content identity")
+            elif isinstance(expected, Mapping):
+                if not expected:
+                    raise MalformedClosure(f"expected input {address!r} has malformed resource digests")
+                for rel_name, member_digest in expected.items():
+                    _validate_relative_input_path(rel_name, inputs_dir)
+                    if type(member_digest) is not str or not _DIGEST.match(member_digest):
+                        raise MalformedClosure(f"expected input {address!r} has malformed resource digests")
+            else:
                 raise MalformedClosure(f"expected input {address!r} is missing content identity")
-            if not _DIGEST.match(expected):
-                raise MalformedClosure(f"expected input {address!r} has malformed content identity")
-    inputs_dir = scratch / "inputs"
     inputs_dir.mkdir()
-    identities: dict[str, str] = {}
-    names: set[str] = set()
+    staged_out: dict[str, str | dict[str, str]] = {}
+    files_staged: set[str] = set()
+    dirs_staged: set[str] = set()
     for address in addresses:
-        if address in identities:
+        if address in staged_out:
             continue
         source = held_inputs[address]
-        if not isinstance(source, Path) or not source.is_file():
+        if isinstance(source, Path):
+            if not source.is_file() or source.is_symlink():
+                raise MalformedClosure(f"held input {address!r} is not a readable file")
+            expected_digest: str | None = None
+            if expected_inputs is not None:
+                expected_val = expected_inputs[address]
+                if isinstance(expected_val, Mapping):
+                    raise MalformedClosure(f"expected input {address!r} is a mapping for a single-file input")
+                expected_digest = expected_val.digest if type(expected_val) is _RecipeContent else str(expected_val)
+            rel_name = source.name
+            if rel_name in files_staged or rel_name in dirs_staged:
+                raise MalformedClosure(f"held inputs collide at staging name {rel_name!r}")
+            files_staged.add(rel_name)
+            staged = inputs_dir / rel_name
+            shutil.copy2(source, staged)
+            digest = _digest(staged)
+            if expected_digest is not None and digest != expected_digest:
+                raise MalformedClosure(
+                    f"held input {address!r} digest {digest} does not match expected {expected_digest}"
+                )
+            staged_out[address] = digest
+        elif isinstance(source, Mapping):
+            if not source:
+                raise MalformedClosure(f"held input {address!r} is an empty resource mapping")
+            expected_entry = expected_inputs[address] if expected_inputs is not None else None
+            if expected_entry is not None:
+                if isinstance(expected_entry, Mapping):
+                    if set(expected_entry.keys()) != set(source.keys()):
+                        raise MalformedClosure(
+                            f"held input {address!r} resources {sorted(source.keys())} do not match expected {sorted(expected_entry.keys())}"
+                        )
+                elif type(expected_entry) is not _RecipeContent:
+                    raise MalformedClosure(
+                        f"expected input {address!r} must map resource names to digests for a multi-resource input"
+                    )
+            staged_digests: dict[str, str] = {}
+            for rel_name, member_path in sorted(source.items()):
+                staged = _validate_relative_input_path(rel_name, inputs_dir)
+                parts = rel_name.split("/")
+                parents = ["/".join(parts[:i]) for i in range(1, len(parts))]
+                if rel_name in files_staged or rel_name in dirs_staged or any(p in files_staged for p in parents):
+                    raise MalformedClosure(f"held inputs collide at staging name {rel_name!r}")
+                files_staged.add(rel_name)
+                dirs_staged.update(parents)
+                if not isinstance(member_path, Path) or not member_path.is_file() or member_path.is_symlink():
+                    raise MalformedClosure(f"held input {address!r} resource {rel_name!r} is not a readable file")
+                staged.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(member_path, staged)
+                member_digest = _digest(staged)
+                if isinstance(expected_entry, Mapping) and member_digest != expected_entry[rel_name]:
+                    raise MalformedClosure(
+                        f"held input {address!r} resource {rel_name!r} digest {member_digest} does not match expected {expected_entry[rel_name]}"
+                    )
+                staged_digests[rel_name] = member_digest
+            composite = _content_identity(staged_digests)
+            if type(expected_entry) is _RecipeContent and composite != expected_entry.digest:
+                raise MalformedClosure(
+                    f"held input {address!r} digest {composite} does not match expected {expected_entry.digest}"
+                )
+            staged_out[address] = staged_digests
+        else:
             raise MalformedClosure(f"held input {address!r} is not a readable file")
-        if source.name in names:
-            raise MalformedClosure(f"held inputs collide at staging name {source.name!r}")
-        names.add(source.name)
-        staged = inputs_dir / source.name
-        shutil.copy2(source, staged)
-        digest = _digest(staged)
-        if expected_inputs is not None and digest != expected_inputs[address]:
-            raise MalformedClosure(
-                f"held input {address!r} digest {digest} does not match expected {expected_inputs[address]}"
-            )
-        identities[address] = digest
-    return identities
+    return staged_out
 
 
 def _render_config(recipe: Recipe, _definition: WorkflowDefinition | WorkflowDefinitionSnapshot) -> dict[str, str]:
@@ -697,7 +832,7 @@ def _execute_run(
     nondeterminism: NondeterminismContract | None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
-    held_inputs: Mapping[str, Path],
+    held_inputs: Mapping[str, Path | Mapping[str, Path]],
     expected_inputs: Mapping[str, object] | None = None,
     entrypoint: str,
     targets: tuple[str, ...],
@@ -753,7 +888,8 @@ def _execute_run(
                 scratch_base=scratch_base,
                 cores=cores,
             )
-        held = _stage_inputs(addresses, held_inputs, scratch, expected)
+        staged = _stage_inputs(addresses, held_inputs, scratch, expected)
+        held = {address: _content_identity(entry) for address, entry in staged.items()}
         invocation = Invocation(
             entrypoint=entrypoint,
             targets=targets,
@@ -781,7 +917,7 @@ def _execute_run(
             planning_handler = planning_dir / "handler.py"
             planning_events = planning_dir / "events.jsonl"
             planning_handler.write_text(LOG_HANDLER_SCRIPT)
-            _stage_inputs(addresses, held_inputs, planning_dir, held)
+            _stage_inputs(addresses, held_inputs, planning_dir, staged)
             planning_argv = build_argv(
                 interpreter=sys.executable,
                 snakefile=str(captured_entrypoint),
@@ -871,7 +1007,7 @@ def _execute_confined(
     nondeterminism: NondeterminismContract | None,
     definition: WorkflowDefinition,
     addresses: tuple[str, ...],
-    held_inputs: Mapping[str, Path],
+    held_inputs: Mapping[str, Path | Mapping[str, Path]],
     expected_inputs: Mapping[str, object] | None = None,
     captured: CapturedEnvironment,
     scratch: Path,
@@ -899,7 +1035,8 @@ def _execute_confined(
     output_root.mkdir()
     (output_root / TRACE_DIR).mkdir()
     (output_root / HOME_DIR).mkdir()
-    held = _stage_inputs(addresses, held_inputs, output_root, expected_inputs)
+    staged = _stage_inputs(addresses, held_inputs, output_root, expected_inputs)
+    held = {address: _content_identity(entry) for address, entry in staged.items()}
     invocation = Invocation(
         entrypoint=entrypoint,
         targets=targets,
@@ -931,7 +1068,7 @@ def _execute_confined(
     try:
         (planning_root / TRACE_DIR).mkdir()
         (planning_root / HOME_DIR).mkdir()
-        _stage_inputs(addresses, held_inputs, planning_root, held)
+        _stage_inputs(addresses, held_inputs, planning_root, staged)
         (planning_root / TRACE_DIR / "handler.py").write_text(LOG_HANDLER_SCRIPT)
         planning_argv = build_argv(
             interpreter=f"{SANDBOX_VENV}/bin/python",
@@ -1054,10 +1191,10 @@ def execute_assessment_run(
     port: OperationPort,
     boundary_policy: BoundaryPolicy,
     expected_recipe_identity: str | None = None,
-    expected_inputs: Mapping[str, str] | None = None,
+    expected_inputs: Mapping[str, str | Mapping[str, str]] | None = None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
-    held_inputs: Mapping[str, Path],
+    held_inputs: Mapping[str, Path | Mapping[str, Path]],
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
@@ -1129,12 +1266,12 @@ def execute_production_run(
     port: OperationPort,
     boundary_policy: BoundaryPolicy,
     expected_recipe_identity: str | None = None,
-    expected_inputs: Mapping[str, str] | None = None,
+    expected_inputs: Mapping[str, str | Mapping[str, str]] | None = None,
     parameters: Mapping[str, object],
     nondeterminism: NondeterminismContract,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
-    held_inputs: Mapping[str, Path],
+    held_inputs: Mapping[str, Path | Mapping[str, Path]],
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
