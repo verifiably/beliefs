@@ -3,17 +3,20 @@
 The field rules, the two unit shapes with their sort order, the facet round
 trip, the content identity and the derived group changes of the two kinds
 declared in the exposure and reservation kinds design (2026-11-08), and the
-view helpers that read both kinds back through any view's own `iter_stored`
-and `get`. Nothing here writes a record or imports `beliefs.corpus`: the
-readers, the write boundary and the audit build on these types.
+checks the write boundary raises and the audit reports (one pure function per
+stage, over references the caller has already resolved), and the view helpers
+that read both kinds back through any view's own `iter_stored` and `get`.
+Nothing here writes a record or imports `beliefs.corpus` or `beliefs.audit`:
+the readers, the write boundary and the audit build on these types.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Container, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from itertools import pairwise
 from typing import TYPE_CHECKING, Protocol, final
 
@@ -24,6 +27,7 @@ from beliefs.sealed import sealed
 
 if TYPE_CHECKING:
     from nodes.core.node import Node
+    from nodes.core.relations import Relation
 
 __all__ = [
     "CHANNELS",
@@ -32,6 +36,8 @@ __all__ = [
     "OPEN",
     "RESERVATION_ASSIGNMENT_DOMAIN",
     "ROLES",
+    "UNREAD",
+    "CheckRefusal",
     "ExposureEvent",
     "Group",
     "GroupChange",
@@ -40,10 +46,14 @@ __all__ = [
     "ReservationAssignment",
     "TermUnit",
     "Unit",
+    "Unread",
     "assignment_changes",
     "assignment_changes_of",
     "assignment_head",
+    "assignment_record_refusal",
+    "assignment_succession_refusal",
     "exposure_event_from_facet",
+    "exposure_event_refusal",
     "exposure_events",
     "reservation_assignment_from_facet",
     "unit_facet",
@@ -551,6 +561,176 @@ def assignment_changes(predecessor: ReservationAssignment, successor: Reservatio
         if group.first not in covered:
             changes.append(GroupChange(group.first, "added", None, False))
     return tuple(changes)
+
+
+# --- the checks the boundary raises and the audit reports ----------------------
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class CheckRefusal:
+    """One failed check: the stable code the reservation tables carry and the detail naming the position.
+    The write boundary raises it as `ReservationRefused(code, f"{id}: {detail}")`; the audit reports it as
+    a `Finding` with the same code and detail."""
+
+    code: str
+    detail: str
+
+
+class Unread(Enum):
+    """A cited reference its caller cannot read here (recorded in an absent corpus, or unreadable in its
+    own right): the audit's neighbour case, never the boundary's. The checks that need it are skipped."""
+
+    UNREAD = "unread"
+
+
+UNREAD = Unread.UNREAD
+
+KindOf = Callable[[str], "str | Unread | None"]
+"""The caller's resolution: the kind of the record a reference names, None when it names no record here,
+or `UNREAD` when it names one that cannot be read here."""
+
+
+def exposure_event_refusal(
+    value: ExposureEvent, relations: Sequence[Relation], *, kind_of: KindOf, sorts: Container[str]
+) -> CheckRefusal | None:
+    """An exposure event's edges mirror its facet exactly, every kernel reference resolves to a record of
+    the kind its slot names, and each unit sort is declared; the first failure in that order."""
+    from beliefs import stored  # local: `stored` imports this module
+
+    if list(relations) != stored.exposure_event_relations(value):
+        return CheckRefusal("exposure-edge-mismatch", "the relations differ from those the facet names")
+    slots: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
+        ("subject", value.subjects, ("dataset", "source")),
+        ("proposition", value.propositions, ("proposition",)),
+        ("evidence", value.kernel_evidence(), ("act-report", "run", "holdings-observation")),
+    ]
+    for slot, refs, kinds in slots:
+        for ref in refs:
+            found = kind_of(ref)
+            if found is None:
+                return CheckRefusal("exposure-ref-unresolved", f"the {slot} {ref!r} resolves to no record here")
+            if found is UNREAD:
+                continue
+            if found not in kinds:
+                return CheckRefusal(
+                    "exposure-ref-unresolved", f"the {slot} {ref!r} is a {found}, not one of {', '.join(kinds)}"
+                )
+    for unit in value.units:
+        if isinstance(unit, TermUnit) and unit.sort not in sorts:
+            return CheckRefusal("exposure-unit-sort-undeclared", f"the unit sort {unit.sort!r} is not declared")
+    return None
+
+
+def assignment_record_refusal(
+    value: ReservationAssignment,
+    relations: Sequence[Relation],
+    *,
+    kind_of: KindOf,
+    assignment_of: Callable[[str], ReservationAssignment | None],
+    sorts: Container[str],
+) -> CheckRefusal | None:
+    """An assignment's own record, before its chain: edges mirror its facet (a successor's one
+    `supersedes` edge names its `predecessor`, a root carries none), every kernel reference resolves to a
+    record of the kind its slot names, `applies` names a program-level assignment, and each unit sort is
+    declared; the first failure in that order. `assignment_of` reads a resolved `applies` whole (None
+    when it cannot be read here, which skips the check); it is never asked for an `UNREAD` reference."""
+    from beliefs import stored  # local: `stored` imports this module
+
+    succession = [relation for relation in relations if relation.predicate == stored.SUPERSEDES]
+    mirrored = [relation for relation in relations if relation.predicate != stored.SUPERSEDES]
+    if mirrored != stored.reservation_assignment_relations(value):
+        return CheckRefusal("assignment-edge-mismatch", "the relations differ from those the facet names")
+    if value.predecessor is None and succession:
+        return CheckRefusal("assignment-edge-mismatch", "a chain root carries no supersedes edge")
+    if value.predecessor is not None and [r.target for r in succession] != [value.predecessor]:
+        return CheckRefusal(
+            "assignment-edge-mismatch",
+            f"a successor carries exactly one supersedes edge, to its predecessor {value.predecessor!r}",
+        )
+    slots: list[tuple[str, tuple[str, ...], str]] = [
+        ("event", value.events, "exposure-event"),
+        ("evidence", value.kernel_evidence(), "exposure-event"),
+        ("flagged assessment", value.flagged or (), "assessment"),
+        ("prior run", value.kernel_prior_runs(), "run"),
+        ("scope", () if value.scope is None else (value.scope,), "proposition"),
+        ("applies", () if value.applies is None else (value.applies,), "reservation-assignment"),
+        ("predecessor", () if value.predecessor is None else (value.predecessor,), "reservation-assignment"),
+    ]
+    unread: set[str] = set()
+    for slot, refs, kind in slots:
+        for ref in refs:
+            found = kind_of(ref)
+            if found is None:
+                return CheckRefusal("assignment-ref-unresolved", f"the {slot} {ref!r} resolves to no record here")
+            if found is UNREAD:
+                unread.add(ref)
+                continue
+            if found != kind:
+                return CheckRefusal("assignment-ref-unresolved", f"the {slot} {ref!r} is a {found}, not a {kind}")
+    if value.applies is not None and value.applies not in unread:
+        applied = assignment_of(value.applies)
+        if applied is not None and applied.scope:
+            return CheckRefusal(
+                "assignment-applies-scoped",
+                f"applies {value.applies!r}, a scoped assignment; it applies a program-level one",
+            )
+    for group in value.groups:
+        for unit in group.units:
+            if isinstance(unit, TermUnit) and unit.sort not in sorts:
+                return CheckRefusal("assignment-unit-sort-undeclared", f"the unit sort {unit.sort!r} is not declared")
+    return None
+
+
+_SUCCESSION_KEYS = frozenset({"predecessor", "assigned_at", "assigned_by"})
+
+
+def _derivation(value: ReservationAssignment) -> dict[str, object]:
+    """The facet without the keys every succession changes or may change (`predecessor`, `assigned_at`,
+    `assigned_by`): the door's semantic-identity check covers them, so it cannot see a successor whose
+    facet otherwise equals its predecessor's (ruling R3a)."""
+    return {key: field for key, field in value.facet().items() if key not in _SUCCESSION_KEYS}
+
+
+def assignment_succession_refusal(
+    value: ReservationAssignment, predecessor: ReservationAssignment | None
+) -> CheckRefusal | None:
+    """An assignment against its predecessor, after the chain's linearity: a successor keeps its
+    predecessor's chain, scope and unit shape, changes the derivation, and evidences every derived
+    change; then, for a root or a successor alike, every suspension is flagged and a flag needs one. The
+    first failure in that order. `predecessor` is the record `value.predecessor` names, read whole, and
+    None exactly for a root."""
+    if (predecessor is None) != (value.predecessor is None):
+        raise ValueError("assignment_succession_refusal takes the predecessor exactly when the value names one")
+    changes: tuple[GroupChange, ...] = ()
+    if predecessor is not None:
+        if (predecessor.chain, predecessor.scope, predecessor.shape) != (value.chain, value.scope, value.shape):
+            return CheckRefusal(
+                "assignment-scope-mismatch",
+                f"chain, scope and unit shape {(value.chain, value.scope, value.shape)!r} differ "
+                f"from the predecessor's {(predecessor.chain, predecessor.scope, predecessor.shape)!r}",
+            )
+        if _derivation(predecessor) == _derivation(value):
+            return CheckRefusal(
+                "assignment-unchanged",
+                "the facet, but for predecessor, assigned_at and assigned_by, equals the predecessor's",
+            )
+        changes = assignment_changes(predecessor, value)
+        if changes and not value.evidence:
+            return CheckRefusal(
+                "assignment-changes-without-evidence",
+                f"{len(changes)} group change(s) from the predecessor and no evidence",
+            )
+    suspended = any(change.suspended for change in changes)
+    if suspended and value.flagged is None:
+        return CheckRefusal(
+            "assignment-suspension-unflagged",
+            "a reserved group changes and no flagged list names the assessments made",
+        )
+    if not suspended and value.flagged is not None:
+        return CheckRefusal("assignment-flagged-without-suspension", "flagged is present and no reserved group changes")
+    return None
 
 
 class RecordView(Protocol):

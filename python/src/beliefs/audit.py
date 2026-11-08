@@ -46,7 +46,6 @@ from beliefs.corpus import (
     _absence_of,
     _CapturedCheckView,
     _dataset_standing_outcome,
-    _derivation,
     _ImportView,
     _manifest_findings,
     _merged_capture,
@@ -70,7 +69,15 @@ from beliefs.errors import (
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
 from beliefs.profile import ProfileSpec
 from beliefs.recipe import RunClosure
-from beliefs.reservation import GroupChange, ReservationAssignment, TermUnit, assignment_changes
+from beliefs.reservation import (
+    UNREAD,
+    CheckRefusal,
+    ReservationAssignment,
+    Unread,
+    assignment_record_refusal,
+    assignment_succession_refusal,
+    exposure_event_refusal,
+)
 from beliefs.runrecord import decode_run_closure
 from beliefs.spec import FrozenSpec
 from beliefs.verify import _derive, decode_verification
@@ -476,187 +483,83 @@ def _contradicted(node: Node, code: str, detail: str) -> DerivationOutcome:
     )
 
 
-def _resolve_cited(
-    view: ReadView | _ImportView | WorldReadView,
-    node: Node,
-    slots: list[tuple[str, tuple[str, ...], tuple[str, ...]]],
-    code: str,
-    *,
-    skipped: list[str],
-    resolved: set[str],
-) -> DerivationOutcome | None:
-    """The boundary's slot resolution, reported: a ref that resolves to no record, or to a record of a
-    kind its slot does not name, is a `code` contradiction. A ref recorded in an absent corpus, or one
-    whose own stamp is unreadable here, is a neighbour's fault (module docstring, third case): it lands
-    in `skipped` and the record's derivation is unchecked. `holds` before `get`, as
-    `check_supersedes_kinds` does. Every ref read whole lands in `resolved`."""
-    for slot, refs, kinds in slots:
-        for ref in refs:
-            if not view.holds(ref):
-                elsewhere = _absence_of(view, ref)
-                if elsewhere is not None:
-                    skipped.append(f"the {slot} {ref} is recorded in {elsewhere}, which has no carrier here")
-                    continue
-                return _contradicted(node, code, f"the {slot} {ref!r} resolves to no record here")
-            try:
-                found = view.get(ref).kind
-            except _UNREADABLE_NEIGHBOUR as refused:
-                skipped.append(f"the {slot} {ref} is malformed here: {refused}")
-                continue
-            if found not in kinds:
-                named = f"a {kinds[0]}" if len(kinds) == 1 else f"one of {', '.join(kinds)}"
-                return _contradicted(node, code, f"the {slot} {ref!r} is a {found}, not {named}")
-            resolved.add(ref)
-    return None
+class _CitedReader:
+    """The audit's resolution for the shared reservation checks. A reference recorded in an absent corpus,
+    or one whose own stamp or facet is unreadable here, is a neighbour's fault (module docstring, third
+    case): it answers `UNREAD` (or None from `assignment_of`), is named in `skipped`, and the record's
+    derivation is unchecked rather than convicted. `holds` before `get`, as `check_supersedes_kinds`
+    does; a dangling reference answers None, the shared check's `*-ref-unresolved`."""
 
+    def __init__(self, view: ReadView | _ImportView | WorldReadView) -> None:
+        self._view = view
+        self.skipped: list[str] = []
+        self.unread: set[str] = set()
 
-def _assignment_neighbour(
-    view: ReadView | _ImportView | WorldReadView, ref: str, slot: str, skipped: list[str]
-) -> ReservationAssignment | None:
-    """A resolved `applies` or `predecessor` read whole; one its reader refuses is the neighbour's own
-    `facet-payload-malformed`, so the record citing it is unchecked rather than convicted."""
-    try:
-        return stored.reservation_assignment_value(view.get(ref))
-    except MalformedRecord as refused:
-        skipped.append(f"the {slot} {ref} is malformed here: {refused}")
-        return None
+    def kind_of(self, ref: str) -> str | Unread | None:
+        if not self._view.holds(ref):
+            elsewhere = _absence_of(self._view, ref)
+            if elsewhere is None:
+                return None
+            return self._skip(ref, f"{ref} is recorded in {elsewhere}, which has no carrier here")
+        try:
+            return self._view.get(ref).kind
+        except _UNREADABLE_NEIGHBOUR as refused:
+            return self._skip(ref, f"{ref} is malformed here: {refused}")
 
+    def assignment_of(self, ref: str) -> ReservationAssignment | None:
+        try:
+            return stored.reservation_assignment_value(self._view.get(ref))
+        except MalformedRecord as refused:
+            self._skip(ref, f"{ref} is malformed here: {refused}")
+            return None
 
-def _checked_unless(skipped: list[str]) -> DerivationOutcome:
-    if skipped:
-        return _unchecked("; ".join(skipped))
-    return DerivationOutcome(checked=True, reason="", contradiction=None)
+    def _skip(self, ref: str, reason: str) -> Unread:
+        self.unread.add(ref)
+        self.skipped.append(reason)
+        return UNREAD
+
+    def outcome(self, node: Node, refusal: CheckRefusal | None) -> DerivationOutcome:
+        if refusal is not None:
+            return _contradicted(node, refusal.code, refusal.detail)
+        if self.skipped:
+            return _unchecked("; ".join(self.skipped))
+        return DerivationOutcome(checked=True, reason="", contradiction=None)
 
 
 def check_exposure_event(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> DerivationOutcome:
-    """`_refuse_exposure_event`'s checks over the stored record, reported rather than raised: edges
-    mirror the facet, every kernel reference resolves to a record of its slot's kind, every unit sort is
-    declared. The recorder's binding to an actor is a write-time authority check, not a derivation, and
-    is not repeated here."""
+    """The boundary's `exposure_event_refusal` over the stored record, reported rather than raised. The
+    recorder's binding to an actor is a write-time authority check, not a derivation, and is not
+    repeated here."""
     value = stored.exposure_event_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
-    if list(node.relations) != stored.exposure_event_relations(value):
-        return _contradicted(node, "exposure-edge-mismatch", "the relations differ from those the facet names")
-    skipped: list[str] = []
-    contradiction = _resolve_cited(
-        view,
-        node,
-        [
-            ("subject", value.subjects, ("dataset", "source")),
-            ("proposition", value.propositions, ("proposition",)),
-            ("evidence", value.kernel_evidence(), ("act-report", "run", "holdings-observation")),
-        ],
-        "exposure-ref-unresolved",
-        skipped=skipped,
-        resolved=set(),
+    reader = _CitedReader(view)
+    return reader.outcome(
+        node, exposure_event_refusal(value, node.relations, kind_of=reader.kind_of, sorts=profile.sorts)
     )
-    if contradiction is not None:
-        return contradiction
-    for unit in value.units:
-        if isinstance(unit, TermUnit) and unit.sort not in profile.sorts:
-            return _contradicted(node, "exposure-unit-sort-undeclared", f"the unit sort {unit.sort!r} is not declared")
-    return _checked_unless(skipped)
 
 
 def check_reservation_assignment(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> DerivationOutcome:
-    """`_refuse_reservation_assignment`'s per-record checks over the stored record, reported rather than
-    raised, in the boundary's order: edges, resolution, `applies`, unit sorts, then against the
-    predecessor scope, `assignment-unchanged` (ruling R3a) and evidence, then the suspension flag. The
-    chain's linearity is `check_assignment_chains`'s, one pass over the corpus; the assigner's binding is
-    a write-time authority check and is not repeated. A cited record that cannot be read here leaves the
-    checks that need it unchecked: without the predecessor no change is derived, so neither suspension
-    check is judged."""
+    """The boundary's `assignment_record_refusal` and `assignment_succession_refusal` over the stored
+    record, reported rather than raised. The chain's linearity between them is
+    `check_assignment_chains`'s, one pass over the corpus; the assigner's binding is a write-time
+    authority check and is not repeated. Without a readable predecessor no change is derived, so the
+    succession checks are not judged."""
     value = stored.reservation_assignment_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
-    succession = [relation for relation in node.relations if relation.predicate == stored.SUPERSEDES]
-    mirrored = [relation for relation in node.relations if relation.predicate != stored.SUPERSEDES]
-    if mirrored != stored.reservation_assignment_relations(value):
-        return _contradicted(node, "assignment-edge-mismatch", "the relations differ from those the facet names")
-    if value.predecessor is None and succession:
-        return _contradicted(node, "assignment-edge-mismatch", "a chain root carries no supersedes edge")
-    if value.predecessor is not None and [r.target for r in succession] != [value.predecessor]:
-        return _contradicted(
-            node,
-            "assignment-edge-mismatch",
-            f"a successor carries exactly one supersedes edge, to its predecessor {value.predecessor!r}",
-        )
-    skipped: list[str] = []
-    resolved: set[str] = set()
-    contradiction = _resolve_cited(
-        view,
-        node,
-        [
-            ("event", value.events, ("exposure-event",)),
-            ("evidence", value.kernel_evidence(), ("exposure-event",)),
-            ("flagged assessment", value.flagged or (), ("assessment",)),
-            ("prior run", value.kernel_prior_runs(), ("run",)),
-            ("scope", () if value.scope is None else (value.scope,), ("proposition",)),
-            ("applies", () if value.applies is None else (value.applies,), ("reservation-assignment",)),
-            ("predecessor", () if value.predecessor is None else (value.predecessor,), ("reservation-assignment",)),
-        ],
-        "assignment-ref-unresolved",
-        skipped=skipped,
-        resolved=resolved,
+    reader = _CitedReader(view)
+    refusal = assignment_record_refusal(
+        value, node.relations, kind_of=reader.kind_of, assignment_of=reader.assignment_of, sorts=profile.sorts
     )
-    if contradiction is not None:
-        return contradiction
-    if value.applies is not None and value.applies in resolved:
-        applied = _assignment_neighbour(view, value.applies, "applies", skipped)
-        if applied is not None and applied.scope:
-            return _contradicted(
-                node,
-                "assignment-applies-scoped",
-                f"applies {value.applies!r}, a scoped assignment; it applies a program-level one",
-            )
-    for group in value.groups:
-        for unit in group.units:
-            if isinstance(unit, TermUnit) and unit.sort not in profile.sorts:
-                return _contradicted(
-                    node, "assignment-unit-sort-undeclared", f"the unit sort {unit.sort!r} is not declared"
-                )
-    changes: tuple[GroupChange, ...] = ()
-    if value.predecessor is not None:
-        predecessor = (
-            _assignment_neighbour(view, value.predecessor, "predecessor", skipped)
-            if value.predecessor in resolved
-            else None
-        )
-        if predecessor is None:
-            return _checked_unless(skipped)
-        if (predecessor.chain, predecessor.scope, predecessor.shape) != (value.chain, value.scope, value.shape):
-            return _contradicted(
-                node,
-                "assignment-scope-mismatch",
-                f"chain, scope and unit shape {(value.chain, value.scope, value.shape)!r} differ "
-                f"from the predecessor's {(predecessor.chain, predecessor.scope, predecessor.shape)!r}",
-            )
-        if _derivation(predecessor) == _derivation(value):
-            return _contradicted(
-                node,
-                "assignment-unchanged",
-                "the facet, but for predecessor, assigned_at and assigned_by, equals the predecessor's",
-            )
-        changes = assignment_changes(predecessor, value)
-        if changes and not value.evidence:
-            return _contradicted(
-                node,
-                "assignment-changes-without-evidence",
-                f"{len(changes)} group change(s) from the predecessor and no evidence",
-            )
-    suspended = any(change.suspended for change in changes)
-    if suspended and value.flagged is None:
-        return _contradicted(
-            node,
-            "assignment-suspension-unflagged",
-            "a reserved group changes and no flagged list names the assessments made",
-        )
-    if not suspended and value.flagged is not None:
-        return _contradicted(
-            node, "assignment-flagged-without-suspension", "flagged is present and no reserved group changes"
-        )
-    return _checked_unless(skipped)
+    if refusal is not None or value.predecessor is None:
+        return reader.outcome(node, refusal or assignment_succession_refusal(value, None))
+    if value.predecessor in reader.unread:
+        return reader.outcome(node, None)
+    predecessor = reader.assignment_of(value.predecessor)
+    if predecessor is None:
+        return reader.outcome(node, None)
+    return reader.outcome(node, assignment_succession_refusal(value, predecessor))
 
 
 def check_assignment_chains(view: ReadView | _CapturedCheckView) -> tuple[Finding, ...]:
