@@ -241,8 +241,11 @@ def test_assignment_facet_omissions():
 
 
 def test_assignment_kernel_references_and_shape():
-    a = _assignment(evidence=("exposure-event:x", "task:t"), prior_runs=("ext:e", "run:r"))
-    assert a.kernel_evidence() == ()
+    a = _assignment(
+        evidence=("act-report:y", "exposure-event:x", "task:t"),
+        prior_runs=("act-report:a", "ext:e", "run:r"),
+    )
+    assert a.kernel_evidence() == ("exposure-event:x",)
     assert a.kernel_prior_runs() == ("run:r",)
     assert a.shape == "term"
     assert _sun_assignment_17().shape == "interval"

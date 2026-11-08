@@ -55,7 +55,9 @@ _TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 _SORT = re.compile(r"^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$")
-_KERNEL_EVIDENCE = ("act-report", "run", "holdings-observation")
+_EVENT_KERNEL_EVIDENCE = ("act-report", "run", "holdings-observation")
+_ASSIGNMENT_KERNEL_EVIDENCE = ("exposure-event",)
+_PRIOR_RUN_KERNEL_REFS = ("run",)
 
 
 def _refuse(message: str) -> MalformedRecord:
@@ -341,11 +343,11 @@ class ExposureEvent:
         return f"exposure-event:{self.identity()}"
 
     def kernel_evidence(self) -> tuple[str, ...]:
-        return _kernel_entries(self.evidence)
+        return _kernel_entries(self.evidence, _EVENT_KERNEL_EVIDENCE)
 
 
-def _kernel_entries(entries: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(e for e in entries if e.split(":", 1)[0] in _KERNEL_EVIDENCE)
+def _kernel_entries(entries: tuple[str, ...], schemes: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(e for e in entries if e.split(":", 1)[0] in schemes)
 
 
 def exposure_event_from_facet(facet: Mapping[str, object]) -> ExposureEvent:
@@ -476,10 +478,10 @@ class ReservationAssignment:
         return unit_shape(self.groups[0].first)
 
     def kernel_evidence(self) -> tuple[str, ...]:
-        return _kernel_entries(self.evidence)
+        return _kernel_entries(self.evidence, _ASSIGNMENT_KERNEL_EVIDENCE)
 
     def kernel_prior_runs(self) -> tuple[str, ...]:
-        return _kernel_entries(self.prior_runs)
+        return _kernel_entries(self.prior_runs, _PRIOR_RUN_KERNEL_REFS)
 
 
 def reservation_assignment_from_facet(facet: Mapping[str, object]) -> ReservationAssignment:
