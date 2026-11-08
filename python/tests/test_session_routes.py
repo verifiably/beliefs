@@ -659,6 +659,22 @@ def test_acquire_through_a_session_ledgers_every_commit(certified_work, tmp_path
     assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.dataset.id}
 
 
+def test_seal_route_ledgers_its_acts(certified_work, tmp_path):
+    from test_holdings_seal import MEMBERS, fetched_log, request_for
+
+    session = _durable_session(certified_work)
+    session.claim_invocation("A", "seal-acquisition", DIGEST)
+    scoped = session.scoped(ACQUIRES, "A")
+    outcome = scoped.seal_acquisition(request_for(tmp_path / "work", MEMBERS, fetched_log(MEMBERS)), instrument="inst")
+    assert outcome.dataset is not None
+    assert outcome.report.instrument == "inst" and outcome.report.observer == session.actor
+    session.close_invocation("A", {"done": []})
+    session.close()
+    acts = open_ledger_reader(session.operations_root, session.session_id).acts()
+    assert len(acts) == 3  # the log write's publication, the tree write's publication, the closing transaction
+    assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.dataset.id}
+
+
 AUDITS = RequiredCapabilities.for_kinds({"act-report"}, {"act-report": "corpus-write"})
 RECHECKS = RequiredCapabilities.for_kinds({"holdings-observation", "act-report"}, {"act-report": "corpus-write"})
 

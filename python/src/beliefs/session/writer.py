@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from beliefs.holdings.boundary import ActContext
     from beliefs.holdings.recheck import RecheckOutcome
     from beliefs.holdings.records import HoldingsObservation, StoreLocator, StoreTreeLocator
+    from beliefs.holdings.seal import SealOutcome, SealRequest
     from beliefs.holdings.transport import UrlSeam
     from beliefs.intents.publish import Destination
     from beliefs.publish import PublishOutcome
@@ -787,6 +788,32 @@ class ScopedWriter:
             seam=url_seam() if seam is None else seam,
             scratch=scratch,
             standing=standing,
+            port=self.operation_port(),
+            hold=self._closing_hold,
+        )
+
+    def seal_acquisition(
+        self,
+        request: SealRequest,
+        *,
+        instrument: str,
+        standing: Mapping[str, tuple[HoldingsObservation, ...]] | None = None,
+        unsettled: frozenset[str] = frozenset(),
+    ) -> SealOutcome:
+        """This invocation's seal route, as the acquisition route: the holdings
+        context supplies the ledgered store seam, `operation_port()` the ledgered
+        operation port, and no lock of this facade is held across an act. The
+        caller's `standing` and `unsettled` come from one holdings reduction
+        (`seal_acquisition`'s precondition)."""
+        from beliefs.holdings.seal import seal_acquisition as run_seal
+
+        ctx = self.holdings_context(instrument=instrument)
+        return run_seal(
+            ctx,
+            self._writer,
+            request,
+            standing=standing,
+            unsettled=unsettled,
             port=self.operation_port(),
             hold=self._closing_hold,
         )

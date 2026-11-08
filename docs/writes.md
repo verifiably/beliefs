@@ -131,6 +131,71 @@ Completion is read from the log and never stored:
 - `indeterminate`: a matching registration's record is not held here;
 - `unfinished`: neither.
 
+### Sealing an acquisition
+
+`seal_acquisition(ctx, writer, request, *, standing=None, unsettled=frozenset())`
+(`holdings/seal.py`) is the second `acquisition` operation; its session route is
+`ScopedWriter.seal_acquisition(request, *, instrument, standing=None, unsettled=frozenset())`.
+A program fetches or imports a set of files into a work area and writes its
+[acquisition log](records.md#acquisition-logs); the seal verifies both and holds the
+set as one tree dataset. The `SealRequest` gives the dataset's `title`, `locator` and
+optional `domain_facets`, as an acquisition request does, the `tree_name` of its one
+resource, `members` (the file for each tree path), the `log` file, `origin`,
+`fetched_by` and, for an import, `source_journals` (each a name and a file). The seal
+runs these steps:
+
+1. Check, before any effect. A missing permit (`holdings` for `holdings-observation`,
+   `corpus-write` for `dataset` and `act-report`) raises `PermitExceeded`. Every other
+   check raises `AcquisitionRefused` and writes nothing:
+   - the writer's root is the context's observer root, and an operation port exists;
+   - every file of the work area lies outside the corpus and store roots;
+   - the log parses and is its own canonical rendering, and its header's `origin` and
+     `fetched_by` equal the request's;
+   - the request's source journals are the header's, by name and in order, and each
+     file has the digest the header gives it;
+   - the tree of the log's `fetched` lines is non-empty, its paths are exactly the
+     request's members, and each member file, hashed one at a time, has its line's
+     digest and size;
+   - each `standing` entry at a location the seal writes holds only observations of
+     that location, and the dataset's shape is valid.
+2. Append the `acquisition` intent.
+3. Re-check each location the seal writes that `unsettled` names (the log's, a source
+   journal's or the store-tree location). The seal keeps a head map, one entry per
+   location, seeded from `standing`. A re-check runs with that location's heads, and the
+   `found` or `absent` it publishes replaces them; every later act at that location
+   supersedes it. An inconclusive re-check raises `AcquisitionRefused`: the seal writes
+   nothing more and leaves the intent unfinished.
+4. Write the log into the store at `<hex>/acquisition-log.jsonl`, and each source
+   journal at `<hex>/<name>`, where `<hex>` is the tree digest's hex, each with an
+   ordinary holdings `write`.
+5. Write the tree with the `tree-write` act
+   ([records.md](records.md#datasets-sources-and-holdings)).
+6. Close in one transaction, under `acquire`'s lock order. It mints the dataset, unless
+   its address is already held, with `empirical-observation` set to
+   `{locator, attested_by: actor, retrieval: <report id>}`, and the act report. The
+   report's entries are a `managed-mutation` for the log and for each source journal,
+   one for the store-tree location, the `acquisition-set` entry, and a
+   `declaration-pin` when the dataset is minted.
+
+The act context's `instrument` is the sealing tool: the act report and every
+observation the seal mints carry it. `fetched_by`, who fetched the bytes, appears only in
+the log header and the `acquisition-set` entry.
+
+`standing` and `unsettled` are the caller's, keyed by canonical location and taken from
+one holdings reduction: `standing` the current heads at each location the seal writes,
+`unsettled` the locations that reduction blocks as unsettled. Entries at other locations
+are ignored. That they are complete and current is the caller's precondition, which the
+seal does not establish. A head left out stays unsuperseded beside the seal's new
+observation, so an `absent` left there reads as contested beside the new `found`. An
+unsettled location left out stays blocked, since a later matched write does not clear an
+unmatched write intent.
+
+An interrupted seal leaves its intent unfinished and only whole objects in the store.
+Sealing the same set again, with `standing` and `unsettled` from a fresh reduction,
+repairs it: step 3 re-checks the interrupted locations, the log and journals are written
+with the same bytes, objects are create-only and reused only when they match, and a held
+address is not minted again. No step scans the stored records once per member.
+
 ## Verification
 
 A verification compares two runs and is published through an ordinary `add`:

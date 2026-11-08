@@ -5,6 +5,10 @@ the beliefs documents use, each linking the document that specifies or explains 
 [guide.md](guide.md), [records.md](records.md), [contracts.md](contracts.md),
 [writes.md](writes.md) and [development.md](development.md).
 
+- <a id="acquisition-set"></a>**Acquisition set** — The files a program fetched or
+  imported into a work area, with the acquisition log recording every request
+  behind them; a [seal](#seal) holds them as one tree dataset.
+  ([records](records.md#acquisition-logs))
 - <a id="act-family"></a>**Act family** — One of the seven closed classes of write a
   permit names: `corpus-write`, `run`, `holdings`, `registry`, `epoch`, `lifecycle`
   and `publish`. ([writes](writes.md#authority-and-permits))
@@ -157,6 +161,10 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="scoped-writer"></a>**Scoped writer** — The writer a session hands one
   invocation, with exactly the permit that invocation needs.
   ([writes](writes.md#writer-sessions))
+- <a id="seal"></a>**Seal** — The `acquisition` operation that verifies an
+  [acquisition set](#acquisition-set)'s log and files, writes the log and the
+  [tree](#tree) into the store, and closes with the dataset and one act report.
+  ([writes](writes.md#sealing-an-acquisition))
 - <a id="sort"></a>**Sort** — The type of referent an argument slot or qualifier
   dimension admits, bound to a vocabulary. ([contracts](contracts.md#domain-contracts))
 - <a id="source"></a>**Source** — A record of a published work, addressed by its first
@@ -166,6 +174,10 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([records](records.md#record-kinds))
 - <a id="standing"></a>**Standing** — Whether a record is active, computed from the
   retractions that target it. ([guide](guide.md#worlds-identity-and-change))
+- <a id="store-object"></a>**Store object** — A file a store keeps under its own
+  digest at `objects/sha256/<hh>/<hex>`, created only by a create-only write; a
+  tree's members and its tree file are store objects.
+  ([records](records.md#datasets-sources-and-holdings))
 - <a id="supersession"></a>**Supersession** — A `supersedes` link from a new record to
   the same-kind record it replaces. ([records](records.md#relations))
 - <a id="unit"></a>**Unit** — One element a group or an exposure covers: a term
