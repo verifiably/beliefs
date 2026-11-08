@@ -150,7 +150,7 @@ from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
-from beliefs.reservation import TermUnit
+from beliefs.reservation import GroupChange, ReservationAssignment, TermUnit, assignment_changes
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
@@ -2399,6 +2399,12 @@ def require_profile_compatible(profile: ProfileSpec, mounted: ProfileSpec | None
         raise ContractMismatch("the mounted coordination profile differs from this writer's profile")
 
 
+def _derivation(value: ReservationAssignment) -> tuple[object, ...]:
+    """What a successor must change: `predecessor` and `assigned_at` always differ, so the door's
+    semantic-identity check cannot see an assignment that re-derives nothing."""
+    return (value.rule_name, value.rule_version, value.inputs, value.events, value.groups, value.scope, value.applies)
+
+
 class CorpusWriter:
     """The write API — the sole constructor and holder of a mutable `Corpus`.
 
@@ -2568,6 +2574,8 @@ class CorpusWriter:
         with self._operation:
             self._require_pins_agree()
             self._refuse_family_kinds(node)
+            if node.kind == "reservation-assignment":
+                self._refuse_assignment_successor_on_add(node)
             self._refuse(node)
             self._refuse_foreign_closure_actor(node)
             return self._corpus.add(node)
@@ -3409,7 +3417,7 @@ class CorpusWriter:
             )
 
     def supersede(self, successor: Node, *, of: str) -> Node:
-        """Mint a proposition or composite successor without touching its predecessor."""
+        """Mint a proposition, composite or reservation-assignment successor without touching its predecessor."""
         self._authority.require("corpus-write", (successor.kind,))
         with self._operation:
             self._require_pins_agree()
@@ -3421,15 +3429,26 @@ class CorpusWriter:
                     f"{of}: the target no longer resolves in this corpus; a concurrent move or deletion removed it"
                 ) from caught
             predecessor_id = predecessor.id
-            if predecessor.kind != successor.kind or successor.kind not in ("proposition", "composite"):
+            if predecessor.kind != successor.kind or successor.kind not in (
+                "proposition",
+                "composite",
+                "reservation-assignment",
+            ):
                 raise FamilyKindUnsupported(
-                    f"supersede operates on a proposition or a composite and its same-kind successor; "
-                    f"found {predecessor.kind!r} → {successor.kind!r}"
+                    f"supersede operates on a proposition, a composite or a reservation assignment and its "
+                    f"same-kind successor; found {predecessor.kind!r} → {successor.kind!r}"
                 )
             self._refuse_already_minted(successor)
             self._refuse_malformed_supersede_successor(successor)
             if any(relation.predicate == stored.SUPERSEDES for relation in successor.relations):
                 raise ValidationRefused(f"{successor.id}: supersedes relations are authored by the adapter")
+            if successor.kind == "reservation-assignment":
+                named = stored.reservation_assignment_value(successor).predecessor
+                if named != predecessor_id:
+                    raise ValidationRefused(
+                        f"{successor.id}: the successor names predecessor {named!r}, not the superseded "
+                        f"{predecessor_id!r}"
+                    )
             try:
                 successor_identity = stored.recompute_semantic_hash(successor)
             except IdentityError as caught:
@@ -4087,6 +4106,8 @@ class CorpusWriter:
                     raise FacetPayloadRefused(f"{node.id}: {reason}")
             if node.kind == "exposure-event":
                 self._refuse_exposure_event(node, view=reading, provenance=provenance)
+            elif node.kind == "reservation-assignment":
+                self._refuse_reservation_assignment(node, view=reading, provenance=provenance)
 
     def _refuse_exposure_event(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations, provenance: bool
@@ -4124,6 +4145,132 @@ class CorpusWriter:
         if not provenance and value.recorded_by != self._authority.actor:
             raise ActorMismatch(
                 f"{node.id}: the event names recorder {value.recorded_by!r}, not the bound {self._authority.actor!r}"
+            )
+
+    @staticmethod
+    def _refuse_assignment_successor_on_add(node: Node) -> None:
+        """`add` mints chain roots only: a record naming a predecessor, or carrying the edge to one, is a
+        successor, which enters through `supersede`."""
+        named = node.facets.get(stored.RESERVATION_ASSIGNMENT_FACET)
+        if (isinstance(named, dict) and "predecessor" in named) or any(
+            relation.predicate == stored.SUPERSEDES for relation in node.relations
+        ):
+            raise FamilyKindUnsupported("a successor enters through supersede")
+
+    def _refuse_reservation_assignment(
+        self, node: Node, *, view: ReadView | _ImportView | MountCitations, provenance: bool
+    ) -> None:
+        """An assignment's edges mirror its facet (a successor's one `supersedes` edge names its
+        `predecessor`, a root carries none), every kernel reference resolves to a record of the kind its
+        slot names, `applies` names a program-level assignment, each unit sort is declared, its chain
+        (`chain` × `scope`) stays linear, a successor keeps its predecessor's chain, scope and unit shape
+        and changes the derivation, every derived change is evidenced and every suspension flagged, and
+        the assigner is the bound actor (kept as written under provenance).
+
+        The chain is judged over the write root (or the import's union), never a read mount; the record
+        itself is skipped, since import and relocation judge it against a view that already holds it,
+        and a malformed neighbour is the audit's finding, not this write's refusal."""
+        value = stored.reservation_assignment_value(node)
+        succession = [relation for relation in node.relations if relation.predicate == stored.SUPERSEDES]
+        mirrored = [relation for relation in node.relations if relation.predicate != stored.SUPERSEDES]
+        if mirrored != stored.reservation_assignment_relations(value):
+            raise ReservationRefused(
+                "assignment-edge-mismatch", f"{node.id}: the relations differ from those the facet names"
+            )
+        if value.predecessor is None and succession:
+            raise ReservationRefused("assignment-edge-mismatch", f"{node.id}: a chain root carries no supersedes edge")
+        if value.predecessor is not None and [r.target for r in succession] != [value.predecessor]:
+            raise ReservationRefused(
+                "assignment-edge-mismatch",
+                f"{node.id}: a successor carries exactly one supersedes edge, to its predecessor {value.predecessor!r}",
+            )
+        slots: list[tuple[str, tuple[str, ...], str]] = [
+            ("event", value.events, "exposure-event"),
+            ("evidence", value.kernel_evidence(), "exposure-event"),
+            ("flagged assessment", value.flagged or (), "assessment"),
+            ("prior run", value.kernel_prior_runs(), "run"),
+            ("scope", () if value.scope is None else (value.scope,), "proposition"),
+            ("applies", () if value.applies is None else (value.applies,), "reservation-assignment"),
+            ("predecessor", () if value.predecessor is None else (value.predecessor,), "reservation-assignment"),
+        ]
+        for slot, refs, kind in slots:
+            for ref in refs:
+                if not view.holds(ref):
+                    raise ReservationRefused(
+                        "assignment-ref-unresolved", f"{node.id}: the {slot} {ref!r} resolves to no record here"
+                    )
+                found = view.get(ref).kind
+                if found != kind:
+                    raise ReservationRefused(
+                        "assignment-ref-unresolved", f"{node.id}: the {slot} {ref!r} is a {found}, not a {kind}"
+                    )
+        if value.applies is not None and stored.reservation_assignment_value(view.get(value.applies)).scope:
+            raise ReservationRefused(
+                "assignment-applies-scoped",
+                f"{node.id}: applies {value.applies!r}, a scoped assignment; it applies a program-level one",
+            )
+        for group in value.groups:
+            for unit in group.units:
+                if isinstance(unit, TermUnit) and unit.sort not in self._profile.sorts:
+                    raise ReservationRefused(
+                        "assignment-unit-sort-undeclared", f"{node.id}: the unit sort {unit.sort!r} is not declared"
+                    )
+        chain = view if isinstance(view, (ReadView, _ImportView)) else self._view
+        for other in chain.iter_stored():
+            if other.kind != "reservation-assignment" or other.id == node.id:
+                continue
+            try:
+                neighbour = stored.reservation_assignment_value(other)
+            except MalformedRecord:
+                continue
+            if (
+                value.predecessor is None
+                and neighbour.predecessor is None
+                and (neighbour.chain, neighbour.scope) == (value.chain, value.scope)
+            ):
+                raise ReservationRefused(
+                    "assignment-root-exists",
+                    f"{node.id}: {other.id} already roots chain {value.chain!r} (scope {value.scope!r})",
+                )
+            if value.predecessor is not None and neighbour.predecessor == value.predecessor:
+                raise ReservationRefused(
+                    "assignment-superseded",
+                    f"{node.id}: {value.predecessor!r} already has the successor {other.id}; a chain is linear",
+                )
+        changes: tuple[GroupChange, ...] = ()
+        if value.predecessor is not None:
+            predecessor = stored.reservation_assignment_value(view.get(value.predecessor))
+            if (predecessor.chain, predecessor.scope, predecessor.shape) != (value.chain, value.scope, value.shape):
+                raise ReservationRefused(
+                    "assignment-scope-mismatch",
+                    f"{node.id}: chain, scope and unit shape {(value.chain, value.scope, value.shape)!r} differ "
+                    f"from the predecessor's {(predecessor.chain, predecessor.scope, predecessor.shape)!r}",
+                )
+            if _derivation(predecessor) == _derivation(value):
+                raise ReservationRefused(
+                    "assignment-unchanged",
+                    f"{node.id}: the rule, inputs, events, groups, scope and applies equal the predecessor's",
+                )
+            changes = assignment_changes(predecessor, value)
+            if changes and not value.evidence:
+                raise ReservationRefused(
+                    "assignment-changes-without-evidence",
+                    f"{node.id}: {len(changes)} group change(s) from the predecessor and no evidence",
+                )
+        suspended = any(change.suspended for change in changes)
+        if suspended and value.flagged is None:
+            raise ReservationRefused(
+                "assignment-suspension-unflagged",
+                f"{node.id}: a reserved group changes and no flagged list names the assessments made",
+            )
+        if not suspended and value.flagged is not None:
+            raise ReservationRefused(
+                "assignment-flagged-without-suspension", f"{node.id}: flagged is present and no reserved group changes"
+            )
+        if not provenance and value.assigned_by != self._authority.actor:
+            raise ActorMismatch(
+                f"{node.id}: the assignment names assigner {value.assigned_by!r}, not the bound "
+                f"{self._authority.actor!r}"
             )
 
     @staticmethod
