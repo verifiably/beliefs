@@ -60,6 +60,14 @@ def _probe(run: Path, actor: str) -> str | None:
         shutil.rmtree(metadata_root_for(corpus_root), ignore_errors=True)
 
 
+def _summary_line(output: str) -> str:
+    for raw in reversed(output.splitlines()):
+        stripped = raw.strip().strip("=").strip()
+        if stripped:
+            return stripped
+    return "-"
+
+
 def run_acceptance(*, python_root: Path, work: Path) -> int:
     acceptance = python_root / "tests" / "acceptance"
     modules = sorted(acceptance.glob("test_*.py"))
@@ -88,6 +96,7 @@ def run_acceptance(*, python_root: Path, work: Path) -> int:
             "XDG_CACHE_HOME": str(run / ".cache"),
             "BELIEFS_ACCEPTANCE_ROOT": str(run),
         }
+        results: list[tuple[str, int, str]] = []
         for index, module in enumerate(modules, start=1):
             print(f"[acceptance {index}/{len(modules)}] {module.name}", flush=True)
             completed = subprocess.run(
@@ -95,9 +104,29 @@ def run_acceptance(*, python_root: Path, work: Path) -> int:
                 cwd=python_root,
                 check=False,
                 env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
             )
-            if completed.returncode != 0:
-                return completed.returncode
+            output = completed.stdout or ""
+            if output:
+                print(output, end="" if output.endswith("\n") else "\n", flush=True)
+            results.append((module.name, completed.returncode, _summary_line(output)))
+
+        failed = [(name, code) for name, code, _ in results if code != 0]
+        passed_count = len(results) - len(failed)
+        width = max(len(name) for name, _, _ in results)
+        print(
+            f"[acceptance summary] {len(results)} modules: {passed_count} passed, {len(failed)} failed",
+            flush=True,
+        )
+        for name, code, summary in results:
+            verdict = "PASS" if code == 0 else "FAIL"
+            print(f"  {verdict}  {code:>6}  {name:<{width}}  {summary}", flush=True)
+        if failed:
+            listed = ", ".join(f"{name} (exit {code})" for name, code in failed)
+            print(f"failed modules ({len(failed)}): {listed}", flush=True)
+            return 1
         return 0
     finally:
         shutil.rmtree(run, ignore_errors=True)
