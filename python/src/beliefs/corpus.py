@@ -1998,6 +1998,16 @@ class _EligibilityReader(Protocol):
 ELIGIBILITY_CODES = frozenset({"eligibility-unmet", "eligibility-unresolved"})
 
 
+_RESERVATION_READERS: Mapping[str, tuple[str, Callable[[Node], object]]] = MappingProxyType(
+    {
+        "exposure-event": (stored.EXPOSURE_EVENT_FACET, stored.exposure_event_value),
+        "reservation-assignment": (stored.RESERVATION_ASSIGNMENT_FACET, stored.reservation_assignment_value),
+    }
+)
+"""The two reader-shaped facets `validate_payload` skips, read whole by `corpus_check` instead: a facet
+its reader refuses is `facet-payload-malformed`, and nothing below the classification reads it again."""
+
+
 def _record_findings(
     check: _CheckView | _CapturedCheckView,
     profile: ProfileSpec,
@@ -2101,6 +2111,13 @@ def _record_findings(
                         str(refused),
                     )
                 )
+        if node.kind in _RESERVATION_READERS:
+            facet_key, read = _RESERVATION_READERS[node.kind]
+            try:
+                read(node)
+            except MalformedRecord as refused:
+                base_valid = False
+                findings.append(Finding("error", "facet-payload-malformed", node.id, facet_key, str(refused)))
         if node.kind == "dataset" and stored.EMPIRICAL_OBSERVATION_FACET in node.facets:
             reason = validity_refusal(check, node, profile)
             if reason is not None and not reason.startswith("facet-payload-malformed"):

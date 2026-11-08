@@ -46,6 +46,7 @@ from beliefs.corpus import (
     _absence_of,
     _CapturedCheckView,
     _dataset_standing_outcome,
+    _derivation,
     _ImportView,
     _manifest_findings,
     _merged_capture,
@@ -69,6 +70,7 @@ from beliefs.errors import (
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
 from beliefs.profile import ProfileSpec
 from beliefs.recipe import RunClosure
+from beliefs.reservation import GroupChange, ReservationAssignment, TermUnit, assignment_changes
 from beliefs.runrecord import decode_run_closure
 from beliefs.spec import FrozenSpec
 from beliefs.verify import _derive, decode_verification
@@ -90,8 +92,11 @@ __all__ = [
     "audit_world",
     "check_analysis_spec",
     "check_assessment",
+    "check_assignment_chains",
     "check_composite",
+    "check_exposure_event",
     "check_lineage_basis",
+    "check_reservation_assignment",
     "check_spec_target",
     "check_supersedes_kinds",
     "check_verification",
@@ -138,6 +143,19 @@ WORLD_AUDIT_CODES = frozenset(
         "composite-relations-mismatch",
         "composite-malformed",
         "supersedes-cross-kind",
+        "exposure-edge-mismatch",
+        "exposure-ref-unresolved",
+        "exposure-unit-sort-undeclared",
+        "assignment-edge-mismatch",
+        "assignment-ref-unresolved",
+        "assignment-applies-scoped",
+        "assignment-unit-sort-undeclared",
+        "assignment-fork",
+        "assignment-scope-mismatch",
+        "assignment-changes-without-evidence",
+        "assignment-suspension-unflagged",
+        "assignment-flagged-without-suspension",
+        "assignment-unchanged",
     }
 )
 """The closed set of codes a world audit may report, beside `MALFORMEDNESS_CODES`."""
@@ -450,6 +468,234 @@ def check_composite(
     return DerivationOutcome(checked=True, reason="", contradiction=None)
 
 
+def _contradicted(node: Node, code: str, detail: str) -> DerivationOutcome:
+    return DerivationOutcome(
+        checked=True,
+        reason="",
+        contradiction=Finding(severity="error", code=code, ref=node.id, detail=detail, message=f"{node.id}: {detail}"),
+    )
+
+
+def _resolve_cited(
+    view: ReadView | _ImportView | WorldReadView,
+    node: Node,
+    slots: list[tuple[str, tuple[str, ...], tuple[str, ...]]],
+    code: str,
+    *,
+    skipped: list[str],
+    resolved: set[str],
+) -> DerivationOutcome | None:
+    """The boundary's slot resolution, reported: a ref that resolves to no record, or to a record of a
+    kind its slot does not name, is a `code` contradiction. A ref recorded in an absent corpus, or one
+    whose own stamp is unreadable here, is a neighbour's fault (module docstring, third case): it lands
+    in `skipped` and the record's derivation is unchecked. `holds` before `get`, as
+    `check_supersedes_kinds` does. Every ref read whole lands in `resolved`."""
+    for slot, refs, kinds in slots:
+        for ref in refs:
+            if not view.holds(ref):
+                elsewhere = _absence_of(view, ref)
+                if elsewhere is not None:
+                    skipped.append(f"the {slot} {ref} is recorded in {elsewhere}, which has no carrier here")
+                    continue
+                return _contradicted(node, code, f"the {slot} {ref!r} resolves to no record here")
+            try:
+                found = view.get(ref).kind
+            except _UNREADABLE_NEIGHBOUR as refused:
+                skipped.append(f"the {slot} {ref} is malformed here: {refused}")
+                continue
+            if found not in kinds:
+                named = f"a {kinds[0]}" if len(kinds) == 1 else f"one of {', '.join(kinds)}"
+                return _contradicted(node, code, f"the {slot} {ref!r} is a {found}, not {named}")
+            resolved.add(ref)
+    return None
+
+
+def _assignment_neighbour(
+    view: ReadView | _ImportView | WorldReadView, ref: str, slot: str, skipped: list[str]
+) -> ReservationAssignment | None:
+    """A resolved `applies` or `predecessor` read whole; one its reader refuses is the neighbour's own
+    `facet-payload-malformed`, so the record citing it is unchecked rather than convicted."""
+    try:
+        return stored.reservation_assignment_value(view.get(ref))
+    except MalformedRecord as refused:
+        skipped.append(f"the {slot} {ref} is malformed here: {refused}")
+        return None
+
+
+def _checked_unless(skipped: list[str]) -> DerivationOutcome:
+    if skipped:
+        return _unchecked("; ".join(skipped))
+    return DerivationOutcome(checked=True, reason="", contradiction=None)
+
+
+def check_exposure_event(
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
+) -> DerivationOutcome:
+    """`_refuse_exposure_event`'s checks over the stored record, reported rather than raised: edges
+    mirror the facet, every kernel reference resolves to a record of its slot's kind, every unit sort is
+    declared. The recorder's binding to an actor is a write-time authority check, not a derivation, and
+    is not repeated here."""
+    value = stored.exposure_event_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
+    if list(node.relations) != stored.exposure_event_relations(value):
+        return _contradicted(node, "exposure-edge-mismatch", "the relations differ from those the facet names")
+    skipped: list[str] = []
+    contradiction = _resolve_cited(
+        view,
+        node,
+        [
+            ("subject", value.subjects, ("dataset", "source")),
+            ("proposition", value.propositions, ("proposition",)),
+            ("evidence", value.kernel_evidence(), ("act-report", "run", "holdings-observation")),
+        ],
+        "exposure-ref-unresolved",
+        skipped=skipped,
+        resolved=set(),
+    )
+    if contradiction is not None:
+        return contradiction
+    for unit in value.units:
+        if isinstance(unit, TermUnit) and unit.sort not in profile.sorts:
+            return _contradicted(node, "exposure-unit-sort-undeclared", f"the unit sort {unit.sort!r} is not declared")
+    return _checked_unless(skipped)
+
+
+def check_reservation_assignment(
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
+) -> DerivationOutcome:
+    """`_refuse_reservation_assignment`'s per-record checks over the stored record, reported rather than
+    raised, in the boundary's order: edges, resolution, `applies`, unit sorts, then against the
+    predecessor scope, `assignment-unchanged` (ruling R3a) and evidence, then the suspension flag. The
+    chain's linearity is `check_assignment_chains`'s, one pass over the corpus; the assigner's binding is
+    a write-time authority check and is not repeated. A cited record that cannot be read here leaves the
+    checks that need it unchecked: without the predecessor no change is derived, so neither suspension
+    check is judged."""
+    value = stored.reservation_assignment_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
+    succession = [relation for relation in node.relations if relation.predicate == stored.SUPERSEDES]
+    mirrored = [relation for relation in node.relations if relation.predicate != stored.SUPERSEDES]
+    if mirrored != stored.reservation_assignment_relations(value):
+        return _contradicted(node, "assignment-edge-mismatch", "the relations differ from those the facet names")
+    if value.predecessor is None and succession:
+        return _contradicted(node, "assignment-edge-mismatch", "a chain root carries no supersedes edge")
+    if value.predecessor is not None and [r.target for r in succession] != [value.predecessor]:
+        return _contradicted(
+            node,
+            "assignment-edge-mismatch",
+            f"a successor carries exactly one supersedes edge, to its predecessor {value.predecessor!r}",
+        )
+    skipped: list[str] = []
+    resolved: set[str] = set()
+    contradiction = _resolve_cited(
+        view,
+        node,
+        [
+            ("event", value.events, ("exposure-event",)),
+            ("evidence", value.kernel_evidence(), ("exposure-event",)),
+            ("flagged assessment", value.flagged or (), ("assessment",)),
+            ("prior run", value.kernel_prior_runs(), ("run",)),
+            ("scope", () if value.scope is None else (value.scope,), ("proposition",)),
+            ("applies", () if value.applies is None else (value.applies,), ("reservation-assignment",)),
+            ("predecessor", () if value.predecessor is None else (value.predecessor,), ("reservation-assignment",)),
+        ],
+        "assignment-ref-unresolved",
+        skipped=skipped,
+        resolved=resolved,
+    )
+    if contradiction is not None:
+        return contradiction
+    if value.applies is not None and value.applies in resolved:
+        applied = _assignment_neighbour(view, value.applies, "applies", skipped)
+        if applied is not None and applied.scope:
+            return _contradicted(
+                node,
+                "assignment-applies-scoped",
+                f"applies {value.applies!r}, a scoped assignment; it applies a program-level one",
+            )
+    for group in value.groups:
+        for unit in group.units:
+            if isinstance(unit, TermUnit) and unit.sort not in profile.sorts:
+                return _contradicted(
+                    node, "assignment-unit-sort-undeclared", f"the unit sort {unit.sort!r} is not declared"
+                )
+    changes: tuple[GroupChange, ...] = ()
+    if value.predecessor is not None:
+        predecessor = (
+            _assignment_neighbour(view, value.predecessor, "predecessor", skipped)
+            if value.predecessor in resolved
+            else None
+        )
+        if predecessor is None:
+            return _checked_unless(skipped)
+        if (predecessor.chain, predecessor.scope, predecessor.shape) != (value.chain, value.scope, value.shape):
+            return _contradicted(
+                node,
+                "assignment-scope-mismatch",
+                f"chain, scope and unit shape {(value.chain, value.scope, value.shape)!r} differ "
+                f"from the predecessor's {(predecessor.chain, predecessor.scope, predecessor.shape)!r}",
+            )
+        if _derivation(predecessor) == _derivation(value):
+            return _contradicted(
+                node,
+                "assignment-unchanged",
+                "the facet, but for predecessor, assigned_at and assigned_by, equals the predecessor's",
+            )
+        changes = assignment_changes(predecessor, value)
+        if changes and not value.evidence:
+            return _contradicted(
+                node,
+                "assignment-changes-without-evidence",
+                f"{len(changes)} group change(s) from the predecessor and no evidence",
+            )
+    suspended = any(change.suspended for change in changes)
+    if suspended and value.flagged is None:
+        return _contradicted(
+            node,
+            "assignment-suspension-unflagged",
+            "a reserved group changes and no flagged list names the assessments made",
+        )
+    if not suspended and value.flagged is not None:
+        return _contradicted(
+            node, "assignment-flagged-without-suspension", "flagged is present and no reserved group changes"
+        )
+    return _checked_unless(skipped)
+
+
+def check_assignment_chains(view: ReadView | _CapturedCheckView) -> tuple[Finding, ...]:
+    """One pass over the view's reservation assignments: a predecessor named by two successors, or a
+    chain (`chain` × `scope`) with two roots, is an `assignment-fork` the boundary refuses
+    (`assignment-superseded`, `assignment-root-exists`) and only import or a raw write can make. The
+    finding names the later record by id order, its detail both. An assignment its reader refuses is
+    already `facet-payload-malformed` and is not read here."""
+    successors: dict[str, list[str]] = {}
+    roots: dict[tuple[str, str | None], list[str]] = {}
+    for node in view.iter_stored():
+        if node.kind != "reservation-assignment":
+            continue
+        try:
+            value = stored.reservation_assignment_value(node)
+        except MalformedRecord:
+            continue
+        if value.predecessor is None:
+            roots.setdefault((value.chain, value.scope), []).append(node.id)
+        else:
+            successors.setdefault(value.predecessor, []).append(node.id)
+    findings: list[Finding] = []
+
+    def fork(ref: str, detail: str) -> None:
+        findings.append(
+            Finding(severity="error", code="assignment-fork", ref=ref, detail=detail, message=f"{ref}: {detail}")
+        )
+
+    for predecessor, refs in successors.items():
+        first, *later = sorted(refs)
+        for ref in later:
+            fork(ref, f"{predecessor} has the successors {first} and {ref}; a chain is linear")
+    for (chain, scope), refs in roots.items():
+        first, *later = sorted(refs)
+        for ref in later:
+            fork(ref, f"chain {chain!r} (scope {scope!r}) has the roots {first} and {ref}")
+    return tuple(sorted(findings, key=lambda finding: finding.sort_key))
+
+
 def check_supersedes_kinds(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> Finding | None:
@@ -560,6 +806,10 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
                 outcome = check_spec_target(view, node, profile=profile)
             elif node.kind == "composite":
                 outcome = check_composite(view, node, profile=profile)
+            elif node.kind == "exposure-event":
+                outcome = check_exposure_event(view, node, profile=profile)
+            elif node.kind == "reservation-assignment":
+                outcome = check_reservation_assignment(view, node, profile=profile)
             else:
                 continue
         except PreGrammarSpec as refused:
@@ -597,6 +847,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
             continue
         if outcome.contradiction is not None:
             findings.append(outcome.contradiction)
+    findings.extend(check_assignment_chains(view))
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
 
 
@@ -614,6 +865,10 @@ def _recompute(
         return check_spec_target(view, node, profile=profile)
     if node.kind == "composite":
         return check_composite(view, node, profile=profile)
+    if node.kind == "exposure-event":
+        return check_exposure_event(view, node, profile=profile)
+    if node.kind == "reservation-assignment":
+        return check_reservation_assignment(view, node, profile=profile)
     return None
 
 
@@ -862,6 +1117,7 @@ def audit_world(
         reader = _CapturedCitations(view, corpus_id, readable, causes, malformed_codes)
         second = _record_findings(captured, profile, scope, disagreeing, citations=reader)
         corpora[corpus_id].extend(f for f in second if f.code in ELIGIBILITY_CODES)
+        corpora[corpus_id].extend(check_assignment_chains(captured))
     # A record held in several corpora is recomputed once and its findings are
     # filed under every captured holder whose audit is not excluded for it.
     for holders, node in view._mapped_holders():

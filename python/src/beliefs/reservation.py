@@ -2,24 +2,28 @@
 
 The field rules, the two unit shapes with their sort order, the facet round
 trip, the content identity and the derived group changes of the two kinds
-declared in the exposure and reservation kinds design (2026-11-08). Nothing
-here reads a corpus or writes a record: the readers and the write boundary
-build on these types.
+declared in the exposure and reservation kinds design (2026-11-08), and the
+view helpers that read both kinds back through any view's own `iter_stored`
+and `get`. Nothing here writes a record or imports `beliefs.corpus`: the
+readers, the write boundary and the audit build on these types.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import pairwise
-from typing import final
+from typing import TYPE_CHECKING, Protocol, final
 
-from beliefs.errors import MalformedRecord
+from beliefs.errors import ChainAmbiguous, MalformedRecord
 from beliefs.identity import v1
 from beliefs.permit import require_actor
 from beliefs.sealed import sealed
+
+if TYPE_CHECKING:
+    from nodes.core.node import Node
 
 __all__ = [
     "CHANNELS",
@@ -32,11 +36,15 @@ __all__ = [
     "Group",
     "GroupChange",
     "IntervalUnit",
+    "RecordView",
     "ReservationAssignment",
     "TermUnit",
     "Unit",
     "assignment_changes",
+    "assignment_changes_of",
+    "assignment_head",
     "exposure_event_from_facet",
+    "exposure_events",
     "reservation_assignment_from_facet",
     "unit_facet",
     "unit_from_facet",
@@ -543,3 +551,70 @@ def assignment_changes(predecessor: ReservationAssignment, successor: Reservatio
         if group.first not in covered:
             changes.append(GroupChange(group.first, "added", None, False))
     return tuple(changes)
+
+
+class RecordView(Protocol):
+    """What the view helpers read: a corpus `ReadView`, a captured check view or any other view with
+    these two methods."""
+
+    def iter_stored(self) -> Iterator[Node]: ...
+
+    def get(self, ref: str) -> Node: ...
+
+
+def exposure_events(
+    view: RecordView, *, subject: str | None = None, proposition: str | None = None
+) -> tuple[ExposureEvent, ...]:
+    """Every stored exposure event, narrowed to those whose `exposes` edges name `subject` and whose
+    `concerns` edges name `proposition` (the facet's `subjects` and `propositions`, which the edges
+    mirror), ordered by `observed_at` then id. A malformed event refuses (`MalformedRecord`): a reader
+    that skipped it would understate exposure."""
+    from beliefs import stored  # local: `stored` imports this module
+
+    found: list[ExposureEvent] = []
+    for node in view.iter_stored():
+        if node.kind != "exposure-event":
+            continue
+        event = stored.exposure_event_value(node)
+        if subject is not None and subject not in event.subjects:
+            continue
+        if proposition is not None and proposition not in event.propositions:
+            continue
+        found.append(event)
+    return tuple(sorted(found, key=lambda event: (event.observed_at, event.id)))
+
+
+def assignment_head(view: RecordView, chain: str, *, scope: str | None = None) -> ReservationAssignment | None:
+    """The record of chain `chain` × `scope` that no other record of it supersedes, or None when the
+    chain has no record. Two roots or two heads are a fork, refused as `ChainAmbiguous` rather than
+    resolved by choosing one; a malformed assignment refuses (`MalformedRecord`), since it may be a
+    member of the chain asked for."""
+    from beliefs import stored  # local: `stored` imports this module
+
+    members = {
+        value.id: value
+        for value in (
+            stored.reservation_assignment_value(node)
+            for node in view.iter_stored()
+            if node.kind == "reservation-assignment"
+        )
+        if (value.chain, value.scope) == (chain, scope)
+    }
+    roots = sorted(ref for ref, value in members.items() if value.predecessor is None)
+    if len(roots) > 1:
+        raise ChainAmbiguous(f"chain {chain!r} (scope {scope!r}) has two roots: {roots[0]} and {roots[1]}")
+    superseded = {value.predecessor for value in members.values()}
+    heads = sorted(ref for ref in members if ref not in superseded)
+    if len(heads) > 1:
+        raise ChainAmbiguous(f"chain {chain!r} (scope {scope!r}) has two heads: {heads[0]} and {heads[1]}")
+    return members[heads[0]] if heads else None
+
+
+def assignment_changes_of(view: RecordView, ref: str) -> tuple[GroupChange, ...]:
+    """The group changes the assignment at `ref` makes from its predecessor; empty for a chain root."""
+    from beliefs import stored  # local: `stored` imports this module
+
+    value = stored.reservation_assignment_value(view.get(ref))
+    if value.predecessor is None:
+        return ()
+    return assignment_changes(stored.reservation_assignment_value(view.get(value.predecessor)), value)

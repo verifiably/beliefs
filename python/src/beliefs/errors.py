@@ -916,6 +916,12 @@ class InputOutsideCorpus(MalformedRecord):
         )
 
 
+class ChainAmbiguous(RecordError):
+    """A reservation-assignment chain (`chain` × `scope`) with two roots or two heads: a fork that only
+    import or a raw write can make, which the audit reports as `assignment-fork`. A reader asked for the
+    head refuses rather than choose one."""
+
+
 class RecipeVersionUnsupported(RecordError):
     """A v1 recipe lacks the workflow snapshot required by typed decode."""
 
