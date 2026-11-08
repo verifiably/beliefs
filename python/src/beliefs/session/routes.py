@@ -139,4 +139,5 @@ def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) 
         store_move=guarded(inner.store_move),
         store_genesis=guarded(inner.store_genesis),
         store_refusal=inner.store_refusal,
+        store_create=guarded(inner.store_create),
     )

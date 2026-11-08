@@ -408,7 +408,7 @@ def test_write_records_the_engine_final_row_not_the_payload_digest(certified_wor
 
     def write_with_doctored_evidence(root, path, content):
         outcome = original_write(root, path, content)
-        return StoreOutcomeView(outcome.txid, ((path, FileStateView(doctored)),))
+        return StoreOutcomeView(outcome.txid, ((path, FileStateView(doctored, 7)),))
 
     ctx = replace(ctx, seam=replace(ctx.seam, store_write=write_with_doctored_evidence))
     result = write(ctx, StoreLocator(store_id, "held.bin"), b"payload")
@@ -419,7 +419,7 @@ def test_write_records_the_engine_final_row_not_the_payload_digest(certified_wor
 @pytest.mark.parametrize(
     ("final_states", "error"),
     [
-        ((("held.bin", FileStateView("sha256:" + "d" * 64)),), TypeError),
+        ((("held.bin", FileStateView("sha256:" + "d" * 64, 7)),), TypeError),
         ((), RuntimeError),
     ],
 )

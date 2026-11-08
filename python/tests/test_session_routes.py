@@ -391,7 +391,7 @@ def test_an_unheld_input_refusal_is_excluded_by_the_fulfilling_only_route(tmp_pa
 HOLDINGS = RequiredCapabilities.for_kinds({"holdings-observation"}, {})
 STORE_ID = "1" * 32
 GENESIS = b'{"domain":"science.store-root.v1","store_id":"' + STORE_ID.encode() + b'"}'
-STATE = FileStateView("sha256:" + "a" * 64)
+STATE = FileStateView("sha256:" + "a" * 64, 1)
 
 
 @dataclass
@@ -435,6 +435,10 @@ class FakeSeam:
             self._touch("store_write")
             return StoreOutcomeView("tx", ((path, STATE),))
 
+        def store_create(_root, path, _bytes):
+            self._touch("store_create")
+            return StoreOutcomeView("tx", ((path, STATE),))
+
         def store_genesis(_root):
             self._touch("store_genesis")
             return GENESIS
@@ -453,6 +457,7 @@ class FakeSeam:
             unused,
             store_genesis,
             lambda _caught: False,
+            store_create,
         )
 
 
@@ -518,6 +523,17 @@ def test_a_holdings_write_ledgers_an_act_naming_the_observation(tmp_path):
         "corpus_lock",
         "publish_fulfilling",
     ]
+
+
+def test_ledgered_seam_guards_store_create(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus")
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    ctx.seam.store_create(tmp_path / "store", "objects/sha256/aa/aa", b"x")
+    assert seam.reached == ["store_create"]
+    session.close_invocation("A", {"done": []})
+    with pytest.raises(SessionProtocolError):
+        ctx.seam.store_create(tmp_path / "store", "objects/sha256/aa/aa", b"x")
+    assert seam.reached == ["store_create"]
 
 
 def test_a_context_kept_past_its_invocation_reaches_no_member(tmp_path):

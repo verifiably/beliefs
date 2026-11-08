@@ -43,7 +43,7 @@ from beliefs.report import (
 
 STORE_ID = "1" * 32
 GENESIS = b'{"domain":"science.store-root.v1","store_id":"' + STORE_ID.encode() + b'"}'
-FOUND = PathObservedView(FileStateView("sha256:" + "a" * 64))
+FOUND = PathObservedView(FileStateView("sha256:" + "a" * 64, 1))
 
 
 @dataclass
@@ -92,6 +92,7 @@ class ScriptedStore:
             unused,
             lambda _root: GENESIS,
             lambda _caught: False,
+            unused,
         )
 
 

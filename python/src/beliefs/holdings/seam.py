@@ -14,6 +14,7 @@ WritePlan: TypeAlias = Sequence[object]
 @dataclass(frozen=True)
 class FileStateView:
     content_hash: str
+    byte_len: int
 
 
 @dataclass(frozen=True)
@@ -70,3 +71,5 @@ class StoreActSeam:
     """`True` for a routine engine refusal of `store_write` — the predicate
     lives in the composition root, which alone may name the engine's own
     exception types."""
+    store_create: Callable[[Path, str, bytes], StoreOutcomeView]
+    """Create-only write of a content-addressed object under `objects/sha256/`."""

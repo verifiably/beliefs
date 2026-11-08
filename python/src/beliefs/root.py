@@ -137,7 +137,7 @@ from beliefs.corpus import (
     mark_root_unresolved,
     require_pins_agree,
 )
-from beliefs.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch, WorldUninitialized
+from beliefs.errors import CorpusRootRefused, LogEvidenceRefused, StoreWriteRefused, WorldIdMismatch, WorldUninitialized
 from beliefs.holdings.seam import (
     AbsentStateView,
     FileStateView,
@@ -1183,7 +1183,7 @@ def _file_state(content: bytes) -> FileState:
 
 def _path_state_view(state: PathState) -> PathStateView:
     if type(state) is FileState:
-        return FileStateView(state.content_hash)
+        return FileStateView(state.content_hash, state.byte_len)
     if type(state) is AbsentState:
         return AbsentStateView()
     if type(state) is DirectoryState:
@@ -1214,9 +1214,19 @@ def _store_outcome_view(outcome: TransactionOutcome) -> StoreOutcomeView:
     )
 
 
+OBJECTS_REFUSAL = "objects/ is written only by tree-write"
+OBJECTS_PREFIX = "objects/sha256/"
+
+
+def _refuse_object_path(path: str) -> None:
+    if path == "objects" or path.startswith("objects/"):
+        raise StoreWriteRefused(path, OBJECTS_REFUSAL)
+
+
 def _store_write(root: Path, path: str, content: bytes) -> StoreOutcomeView:
     root = Path(root)
     require_rel_path("path", path)
+    _refuse_object_path(path)
     initial: dict[str, PathState] = {}
     final: dict[str, PathState] = {}
     effects: list[Effect] = []
@@ -1259,9 +1269,47 @@ def _store_write(root: Path, path: str, content: bytes) -> StoreOutcomeView:
     )
 
 
+def _store_create(root: Path, path: str, content: bytes) -> StoreOutcomeView:
+    """Create one content-addressed object; an existing file is a routine refusal."""
+    root = Path(root)
+    require_rel_path("path", path)
+    if not path.startswith(OBJECTS_PREFIX):
+        raise StoreWriteRefused(path, f"a created object lives under {OBJECTS_PREFIX}")
+    initial: dict[str, PathState] = {path: ABSENT}
+    final: dict[str, PathState] = {}
+    post = _file_state(content)
+    effects = [
+        *_missing_ancestors(root, path, 0, initial, final),
+        CreateFileNoClobber("op-0", path, post),
+    ]
+    final[path] = post
+    projection = {"op": "create", "path": path, "content_sha256": sha256(content).hexdigest()}
+    spec = build_spec(
+        consumer_tag=STORE_CONSUMER_TAG,
+        intent_digest="sha256:" + v1.digest(STORE_WRITE_INTENT_DOMAIN, [projection]),
+        initial_surface=initial,
+        final_surface=final,
+        effects=effects,
+        dependencies=(),
+        fulfills=None,
+        registered_paths=(path,),
+    )
+    return _store_outcome_view(
+        _mapped_submit(
+            backend=_PRODUCTION_BACKEND,
+            root=root,
+            metadata_root=metadata_root_for(root),
+            storage=PRODUCTION_STORAGE,
+            spec=spec,
+            payloads=_PlanPayloads({post.content_hash: content}),
+        )
+    )
+
+
 def _store_delete(root: Path, path: str) -> StoreOutcomeView:
     root = Path(root)
     require_rel_path("path", path)
+    _refuse_object_path(path)
     pre = _observe_file(root, path)
     spec = build_spec(
         consumer_tag=STORE_CONSUMER_TAG,
@@ -1299,6 +1347,8 @@ def _store_move(root: Path, source: str, destination: str) -> StoreOutcomeView:
     root = Path(root)
     require_rel_path("source", source)
     require_rel_path("destination", destination)
+    _refuse_object_path(source)
+    _refuse_object_path(destination)
     pre = _observe_file(root, source)
     spec = build_spec(
         consumer_tag=STORE_CONSUMER_TAG,
@@ -1770,6 +1820,7 @@ _HOLDINGS_SEAM = StoreActSeam(
     store_move=_store_move,
     store_genesis=_store_genesis,
     store_refusal=_store_refusal,
+    store_create=_store_create,
 )
 
 

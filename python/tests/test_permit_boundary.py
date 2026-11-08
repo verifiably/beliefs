@@ -21,6 +21,7 @@ PRIMITIVE_ATTRIBUTES = frozenset(
         "store_write",
         "store_delete",
         "store_move",
+        "store_create",
     }
 )
 PRIMITIVE_NAMES = frozenset(
@@ -52,6 +53,7 @@ PRIMITIVE_IMPLEMENTATIONS = frozenset(
         "root.py:_store_write",
         "root.py:_store_delete",
         "root.py:_store_move",
+        "root.py:_store_create",
         "root.py:_fork_resume",
         "session/routes.py:LedgeredPort.append_intent",
         "session/routes.py:LedgeredPort.execute_fulfilling",

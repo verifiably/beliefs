@@ -250,7 +250,7 @@ def holdings_context(tmp_path):
         published.append((plan, intent))
         return "cd" * 32
 
-    state = FileStateView("sha256:" + "1" * 64)
+    state = FileStateView("sha256:" + "1" * 64, 1)
     seam = StoreActSeam(
         corpus_lock=corpus_lock,
         append_intent=append,
@@ -262,6 +262,7 @@ def holdings_context(tmp_path):
         store_genesis=lambda _: b'{"domain":"science.store-root.v1","store_id":"11111111111111111111111111111111"}',
         # This fake never raises `ExecutionError`, so the predicate is never reached.
         store_refusal=lambda _caught: False,
+        store_create=lambda *_: StoreOutcomeView("unused", ()),
     )
     ctx = ActContext(tmp_path / "corpus", tmp_path / "store", "o", "i", FULL, seam, WITH_BIOLOGY)
     return ctx, intents, published

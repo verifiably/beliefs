@@ -319,7 +319,9 @@ optional `expected`. Holdings acts alone mint observations.
 A tree dataset is held as a tree file plus its member objects. The store keeps each
 object at `objects/sha256/<hh>/<hex>`, where `<hex>` is the object's digest and `<hh>`
 its first two characters. The `objects/` directory is closed to ordinary acts: a
-store locator refuses `objects` and every path under it.
+store locator refuses `objects` and every path under it. The store's ordinary write, delete and move primitives refuse
+those paths again, and objects are created only by a create-only primitive that
+refuses any path outside `objects/sha256/`; an existing object is a routine refusal.
 
 ## Other world records
 
