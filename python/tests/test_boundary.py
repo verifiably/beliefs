@@ -1822,3 +1822,248 @@ def test_execute_production_run_retains_output_dir_when_dataset_already_held(tmp
         exported_file = output_dir_2 / rel_name
         assert exported_file.is_file()
         assert _boundary._digest(exported_file) == expected_digest
+
+
+# --- tree inputs in run staging (beliefs-2814d7) ---
+
+from hashlib import sha256
+
+from fixtures_cut3 import SNAKEFILE_TREE, TREE_MEMBERS, lay_tree
+
+from beliefs.tree import object_path
+
+
+def _tree_assessment(tmp_path: Path, held_inputs, *, scratch_base: Path, policy=MINIMAL_POLICY):
+    code, _ = stage(tmp_path, snakefile=SNAKEFILE_TREE)
+    return execute_assessment_run(
+        spec=freeze(
+            spec_draft(
+                nondeterminism=Deterministic(),
+                input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+            ),
+            held_rules=spec_rules(),
+        ),
+        port=MEMORY_PORT,
+        boundary_policy=policy,
+        definition=definition(snakefile=SNAKEFILE_TREE, family_streams={}),
+        code_roots=(code,),
+        held_inputs=held_inputs,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=scratch_base,
+        cores=1,
+    )
+
+
+def _damage_last_member(store: Path) -> None:
+    last = max(TREE_MEMBERS)  # the last member in tree order, staged after the others
+    target = store / object_path("sha256:" + sha256(TREE_MEMBERS[last]).hexdigest())
+    target.write_bytes(b"damaged after it was observed\n")
+
+
+def test_stage_inputs_stages_a_held_tree_as_a_directory(tmp_path):
+    held = lay_tree(tmp_path / "store", TREE_MEMBERS)
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    staged_trees: list[Path] = []
+
+    staged = _boundary._stage_inputs(
+        (DATA_ADDRESS,), {DATA_ADDRESS: {"data": held}}, scratch, staged_trees=staged_trees
+    )
+
+    assert held.digest.startswith("sha256-tree:")
+    assert staged == {DATA_ADDRESS: {"data": held.digest}}
+    root = scratch / "inputs" / "data"
+    files = {path.relative_to(root).as_posix(): path for path in root.rglob("*") if not path.is_dir()}
+    assert {name: path.read_bytes() for name, path in files.items()} == TREE_MEMBERS
+    for path in files.values():
+        assert not path.is_symlink() and path.stat().st_nlink == 1  # a copy: neither a symbolic nor a hard link
+    assert staged_trees == [root.resolve()]
+
+
+@pytest.mark.parametrize("damaged", ["member", "tree-file"])
+def test_a_damaged_tree_object_refuses_staging(tmp_path, monkeypatch, damaged):
+    store = tmp_path / "store"
+    held = lay_tree(store, TREE_MEMBERS)
+    if damaged == "member":
+        _damage_last_member(store)
+    else:
+        tree_file = store / object_path(held.digest)
+        tree_file.write_bytes(tree_file.read_bytes() + b"\n")
+    held_inputs = {DATA_ADDRESS: {"data": held}}
+
+    scratch = tmp_path / "direct"
+    scratch.mkdir()
+    with pytest.raises(MalformedClosure, match="does not match"):
+        _boundary._stage_inputs((DATA_ADDRESS,), held_inputs, scratch, staged_trees=[])
+
+    _forbid_engines(monkeypatch)
+    scratch_base = tmp_path / "scratch"
+    outcome = _tree_assessment(tmp_path / "run", held_inputs, scratch_base=scratch_base)
+    assert isinstance(outcome, RunRefused), outcome
+    assert "does not match" in outcome.reason
+    assert outcome.intent is not None and outcome.report is not None
+    (run_scratch,) = scratch_base.iterdir()
+    assert (run_scratch / "inputs").is_dir() and not (run_scratch / "inputs" / "data").exists()
+
+
+@pytest.mark.parametrize("linked", ["member", "tree-file"])
+def test_a_symlinked_tree_object_refuses_staging_even_with_the_right_bytes(tmp_path, linked):
+    store = tmp_path / "store"
+    held = lay_tree(store, TREE_MEMBERS)
+    digest = held.digest if linked == "tree-file" else "sha256:" + sha256(TREE_MEMBERS["a.txt"]).hexdigest()
+    target = store / object_path(digest)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.write_bytes(target.read_bytes())
+    target.unlink()
+    target.symlink_to(elsewhere)
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+
+    with pytest.raises(MalformedClosure, match="is not a readable file"):
+        _boundary._stage_inputs((DATA_ADDRESS,), {DATA_ADDRESS: {"data": held}}, scratch, staged_trees=[])
+
+
+def test_a_tree_member_is_verified_by_its_staged_copy(tmp_path, monkeypatch):
+    held = lay_tree(tmp_path / "store", TREE_MEMBERS)
+    real_copyfile = _boundary.shutil.copyfile
+
+    def tampering_copyfile(src, dst, **kwargs):
+        result = real_copyfile(src, dst, **kwargs)
+        Path(dst).write_bytes(b"tampered during the copy\n")
+        return result
+
+    monkeypatch.setattr(_boundary.shutil, "copyfile", tampering_copyfile)
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+
+    with pytest.raises(MalformedClosure, match="member 'a.txt' digest .* does not match"):
+        _boundary._stage_inputs((DATA_ADDRESS,), {DATA_ADDRESS: {"data": held}}, scratch, staged_trees=[])
+
+
+_FILE = "file"
+_TREE = "tree"
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["in-order", "reversed"])
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ((_FILE, "data"), (_TREE, "data")),
+        ((_FILE, "data/x"), (_TREE, "data")),
+        ((_TREE, "data"), (_TREE, "data/sub")),
+        ((_TREE, "data"), (_TREE, "data")),
+        ((_TREE, "d"), (_FILE, "d/data/y")),
+    ],
+    ids=["file-equals-tree", "file-under-tree", "tree-under-tree", "tree-equals-tree", "file-deep-under-tree"],
+)
+def test_a_tree_root_reserves_its_subtree(tmp_path, monkeypatch, first, second, reverse):
+    source = tmp_path / "file.txt"
+    source.write_text("a file resource\n")
+    tree = lay_tree(tmp_path / "store", {"x": b"a verified member\n", "data/y": b"another member\n"})
+
+    def resource(kind):
+        return tree if kind == _TREE else source
+
+    held_inputs = {
+        DATA_ADDRESS: {first[1]: resource(first[0])},
+        READS_ADDRESS: {second[1]: resource(second[0])},
+    }
+    addresses = (READS_ADDRESS, DATA_ADDRESS) if reverse else (DATA_ADDRESS, READS_ADDRESS)
+    copies: list[object] = []
+    monkeypatch.setattr(_boundary.shutil, "copy2", lambda src, dst, **kwargs: copies.append(dst))
+    monkeypatch.setattr(_boundary.shutil, "copyfile", lambda src, dst, **kwargs: copies.append(dst))
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    staged_trees: list[Path] = []
+
+    with pytest.raises(MalformedClosure, match="collide"):
+        _boundary._stage_inputs(addresses, held_inputs, scratch, staged_trees=staged_trees)
+    assert copies == []
+    assert staged_trees == []
+
+
+def test_a_confined_tree_refused_mid_staging_leaves_no_staged_tree(tmp_path, monkeypatch):
+    store = tmp_path / "store"
+    held = lay_tree(store, TREE_MEMBERS)
+    _damage_last_member(store)
+    real_copyfile = _boundary.shutil.copyfile
+    copied: list[str] = []
+
+    def recording_copyfile(src, dst, **kwargs):
+        if "inputs" in Path(dst).parts:  # copy2 copies the code bundle through copyfile too
+            copied.append(Path(dst).name)
+        return real_copyfile(src, dst, **kwargs)
+
+    monkeypatch.setattr(_boundary.shutil, "copyfile", recording_copyfile)
+    monkeypatch.setattr(_boundary, "materialize_snapshot", lambda captured, root: root)
+    monkeypatch.setattr(_boundary, "require_host", lambda: None)
+    _forbid_engines(monkeypatch)
+    scratch_base = tmp_path / "scratch"
+
+    outcome = _tree_assessment(
+        tmp_path / "run", {DATA_ADDRESS: {"data": held}}, scratch_base=scratch_base, policy=CONFINED_POLICY
+    )
+
+    assert isinstance(outcome, RunRefused), outcome
+    assert "does not match" in outcome.reason
+    assert copied == ["a.txt", "b.txt"]  # the first member was staged before the damaged one refused
+    (run_scratch,) = scratch_base.iterdir()
+    assert (run_scratch / "out" / "inputs").is_dir()
+    assert not (run_scratch / "out" / "inputs" / "data").exists()
+    assert list(scratch_base.glob("planning-*")) == []
+
+
+def test_a_tree_expected_input_must_be_its_tree_digest(tmp_path):
+    held = lay_tree(tmp_path / "store", TREE_MEMBERS)
+    other = lay_tree(tmp_path / "other", {"a.txt": b"another tree\n"})
+    tree_file_digest = "sha256:" + held.digest.removeprefix("sha256-tree:")
+
+    def stage_expecting(expected, sub):
+        scratch = tmp_path / sub
+        scratch.mkdir()
+        return _boundary._stage_inputs(
+            (DATA_ADDRESS,), {DATA_ADDRESS: {"data": held}}, scratch, {DATA_ADDRESS: expected}, staged_trees=[]
+        )
+
+    staged = {DATA_ADDRESS: {"data": held.digest}}
+    assert stage_expecting({"data": held.digest}, "mapping") == staged
+    assert stage_expecting(_boundary._RecipeContent(held.digest), "recipe-content") == staged
+    for idx, wrong in enumerate(
+        ({"data": other.digest}, {"data": tree_file_digest}, _boundary._RecipeContent(other.digest))
+    ):
+        with pytest.raises(MalformedClosure, match="does not match expected"):
+            stage_expecting(wrong, f"wrong-{idx}")
+
+
+def test_a_staged_tree_is_removed_after_a_production_run(tmp_path):
+    held = lay_tree(tmp_path / "store", TREE_MEMBERS)
+    reads = tmp_path / "reads.txt"
+    reads.write_text("a file resource beside the tree\n")
+    output_dir = tmp_path / "exported"
+    output_dir.mkdir()
+
+    outcome = run_production(
+        tmp_path,
+        snakefile=SNAKEFILE_TREE,
+        inputs=(
+            RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=held.digest),
+            RecipeInput(role="reads", dataset=READS_ADDRESS, content=_boundary._digest(reads)),
+        ),
+        held_inputs={DATA_ADDRESS: {"data": held}, READS_ADDRESS: reads},
+        output_dir=output_dir,
+    )
+
+    assert isinstance(outcome, RunMinted), outcome
+    assert outcome.run.recipe.inputs[0].content == held.digest
+    scratch = Path(outcome.run.occurrence.receipt.execution.scratch_mapping)
+    assert not (scratch / "inputs" / "data").exists()
+    assert (scratch / "inputs" / "reads.txt").read_bytes() == reads.read_bytes()  # non-tree staging is kept
+    assert outcome.run.result.outputs
+    for name, digest in outcome.run.result.outputs:
+        assert _boundary._digest(output_dir / name) == digest
+    assert (output_dir / "outputs" / "result.txt").read_text() == "ALPHA\n|BETA\n"

@@ -220,6 +220,21 @@ typed by role. `observes` names held data and is the only role that can make an
 assessment eligible. `reads` never makes one eligible, in any quantity. `transforms` and
 `produces` record dataset lineage.
 
+A run starts only from held inputs, which it copies into the `inputs/` directory of
+the workflow's working directory. A file resource is staged at `inputs/<name>`. A
+tree resource is staged as a directory, `inputs/<name>/<member path>`, that holds
+exactly the tree's members: the tree file must hash to the tree's digest and parse,
+and each member is copied from its store object, never linked, and its copy re-hashed
+against the member's digest. A source that is a symbolic link or not a regular file
+is refused. A tree's staged digest is its `sha256-tree:` digest, and an expected value
+for that resource must equal it, so a one-tree dataset's content identity in the
+recipe is that digest. Every staging destination is checked before the first copy,
+whatever the input order: a file's name and a tree's root each reserve that path and
+everything beneath it, so no other resource may be staged at it or under it. Any of
+these refusals comes before anything executes. The staged tree is removed when the
+run ends, after a production run's outputs are exported, and also when the run is
+refused or fails closed.
+
 When read, an `assessment` facet must have exactly six text fields: `spec`, `run`,
 `proposition`, `outcome`, `interpretation_rule` and `typed`. `outcome` is
 `supported`, `refuted` or `inconclusive`. `typed` is canonical

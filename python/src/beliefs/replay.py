@@ -11,6 +11,7 @@ from typing import final
 
 from beliefs.adapter import WorkflowDefinition
 from beliefs.boundary import (
+    HeldTree,
     RunMinted,
     RunRefused,
     _bind_recipe_inputs,
@@ -131,7 +132,7 @@ def replay(
     spec: FrozenSpec | None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
-    held_inputs: Mapping[str, Path | Mapping[str, Path]],
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     expected_inputs: Mapping[str, str | Mapping[str, str]] | None = None,
     entrypoint: str,
     targets: tuple[str, ...],

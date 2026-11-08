@@ -11,7 +11,7 @@ from dataset_fixtures import dataset_ref
 from profiles import BASE
 
 from beliefs.assess import run_record
-from beliefs.boundary import execute_assessment_run, execute_production_run
+from beliefs.boundary import HeldTree, execute_assessment_run, execute_production_run
 from beliefs.claim import Referent, build_claim
 from beliefs.closure import RetractionEnumeration
 from beliefs.contract import parse_domain_contract
@@ -53,6 +53,7 @@ from beliefs.spec import (
     SpecInput,
     freeze,
 )
+from beliefs.tree import TreeMember, make_tree, object_path, tree_digest, tree_file_bytes
 
 D_IN = "sha256:" + "aa" * 32
 D_OUT = "sha256:" + "bb" * 32
@@ -451,6 +452,25 @@ rule transform:
         pathlib.Path(output[0]).write_text(text.upper())
 """
 
+# A tree resource named `data` with these members, read from its staged
+# directory; the job checks that the directory holds exactly the members, as
+# regular files.
+TREE_MEMBERS = {"a.txt": b"alpha\n", "sub/b.txt": b"beta\n"}
+SNAKEFILE_TREE = """\
+import pathlib
+
+rule transform:
+    input: "inputs/data/a.txt", "inputs/data/sub/b.txt"
+    output: "outputs/result.txt"
+    run:
+        staged = pathlib.Path("inputs/data")
+        assert not any(path.is_symlink() for path in staged.rglob("*"))
+        members = sorted(path.relative_to(staged).as_posix() for path in staged.rglob("*") if path.is_file())
+        assert members == ["a.txt", "sub/b.txt"], members
+        text = "|".join(pathlib.Path(name).read_text() for name in input)
+        pathlib.Path(output[0]).write_text(text.upper())
+"""
+
 SNAKEFILE_TWO_NAMES = """\
 import pathlib
 
@@ -537,6 +557,22 @@ def stage(tmp_path, *, snakefile=SNAKEFILE_DETERMINISTIC, data="hello"):
     return code, held
 
 
+def lay_tree(store: Path, members: dict[str, bytes]):
+    """A held tree laid out by hand in a store directory: one object per member
+    at `objects/sha256/<hh>/<hex>`, and the tree file at its own digest's path."""
+    tree = make_tree(
+        TreeMember(path=path, digest="sha256:" + sha256(data).hexdigest(), size=len(data))
+        for path, data in members.items()
+    )
+    objects = {member.digest: members[member.path] for member in tree.members}
+    objects[tree_digest(tree)] = tree_file_bytes(tree)
+    for digest, data in objects.items():
+        target = store / object_path(digest)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    return HeldTree(store_root=store, digest=tree_digest(tree))
+
+
 def run_assessment(
     tmp_path,
     *,
@@ -598,6 +634,8 @@ def run_production(
     cores=1,
     data="hello",
     definition_override=None,
+    scratch_base=None,
+    output_dir=None,
 ):
     code, held = stage(tmp_path, snakefile=snakefile, data=data)
     supplied = (
@@ -640,8 +678,9 @@ def run_production(
         observer="observer-1",
         started_at=started_at,
         host_realization=host_realization,
-        scratch_base=tmp_path / "scratch",
+        scratch_base=scratch_base if scratch_base is not None else tmp_path / "scratch",
         cores=cores,
+        output_dir=output_dir,
     )
 
 

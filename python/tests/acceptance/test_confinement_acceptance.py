@@ -10,9 +10,13 @@ from pathlib import Path
 
 import pytest
 from fixtures_cut3 import (
+    DATA_ADDRESS,
     MEMORY_PORT,
     SNAKEFILE_DETERMINISTIC,
+    SNAKEFILE_TREE,
+    TREE_MEMBERS,
     interp,
+    lay_tree,
     replay_of,
     run_assessment,
     run_production,
@@ -34,7 +38,7 @@ from beliefs.dataset import dataset_address
 from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import PolicyBinding
-from beliefs.recipe import CAPABILITIES, CONFINED_POLICY, MINIMAL_POLICY, NAMESPACES
+from beliefs.recipe import CAPABILITIES, CONFINED_POLICY, MINIMAL_POLICY, NAMESPACES, RecipeInput
 from beliefs.record import AssessmentValue
 from beliefs.replay import CONFORMING, EquivalenceImplementation, conformance, derive_scope
 from beliefs.spec import freeze
@@ -49,6 +53,10 @@ SNAKEFILE_UNDECLARED_READ = SNAKEFILE_DETERMINISTIC.replace(
 SNAKEFILE_WRITE_OUTSIDE = SNAKEFILE_DETERMINISTIC.replace(
     "        text = pathlib.Path(input[0]).read_text()",
     '        pathlib.Path("/escaped.txt").write_text("x")\n        text = pathlib.Path(input[0]).read_text()',
+)
+SNAKEFILE_TREE_WRITE_OUTSIDE = SNAKEFILE_TREE.replace(
+    '        staged = pathlib.Path("inputs/data")',
+    '        pathlib.Path("/escaped.txt").write_text("x")\n        staged = pathlib.Path("inputs/data")',
 )
 SNAKEFILE_CORES_SENSITIVE = """\
 import json, pathlib
@@ -360,3 +368,59 @@ def test_two_differently_mounted_scratch_roots_yield_equal_recipes_and_clean_env
     assert original.run.occurrence.receipt.execution.argv == replayed.run.occurrence.receipt.execution.argv
     assert derive_scope(original.run, replayed.run, certification=None) == "clean-environment"
     assert str(other_scratch) not in v1.encode(replayed.run.recipe._projection()).decode("utf-8")
+
+
+def confined_tree_production(tmp_path: Path, shared_scratch: Path, *, snakefile=SNAKEFILE_TREE, output_dir=None):
+    held = lay_tree(tmp_path / "store", TREE_MEMBERS)
+    outcome = run_production(
+        tmp_path,
+        port=MEMORY_PORT,
+        boundary_policy=CONFINED_POLICY,
+        snakefile=snakefile,
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=held.digest),),
+        held_inputs={DATA_ADDRESS: {"data": held}},
+        scratch_base=shared_scratch,
+        output_dir=output_dir,
+    )
+    return held, outcome
+
+
+def test_a_confined_tree_input_runs_and_replays_to_the_same_outputs(tmp_path, shared_scratch):
+    output_dir = tmp_path / "exported"
+    output_dir.mkdir()
+    held, original = confined_tree_production(tmp_path / "original", shared_scratch, output_dir=output_dir)
+    assert isinstance(original, RunMinted), original
+    replayed = replay_of(
+        original,
+        tmp_path / "replayed",
+        port=MEMORY_PORT,
+        snakefile=SNAKEFILE_TREE,
+        held_inputs={DATA_ADDRESS: {"data": lay_tree(tmp_path / "another-store", TREE_MEMBERS)}},
+        scratch_base=shared_scratch,
+    )
+    assert isinstance(replayed, RunMinted), replayed
+    assert replayed.run.result == original.run.result
+    for minted in (original, replayed):
+        assert minted.run.occurrence.receipt.confined
+        assert minted.run.recipe.inputs[0].content == held.digest
+        assert held.digest.startswith("sha256-tree:")
+        scratch = Path(minted.run.occurrence.receipt.execution.scratch_mapping)
+        assert (scratch / "out" / "inputs").is_dir()
+        assert not (scratch / "out" / "inputs" / "data").exists()
+        for name, digest in minted.run.result.outputs:
+            assert boundary_module._digest(scratch / "out" / name) == digest
+    assert original.run.result.outputs
+    for name, digest in original.run.result.outputs:
+        assert boundary_module._digest(output_dir / name) == digest
+    assert (output_dir / "outputs" / "result.txt").read_text() == "ALPHA\n|BETA\n"
+
+
+def test_a_confined_tree_run_that_fails_closed_leaves_no_staged_tree(tmp_path, shared_scratch):
+    before = set(shared_scratch.iterdir())
+    _, outcome = confined_tree_production(tmp_path, shared_scratch, snakefile=SNAKEFILE_TREE_WRITE_OUTSIDE)
+    assert isinstance(outcome, RunRefused), outcome
+    assert outcome.reason == "execution-failed", (outcome.reason, outcome.detail)
+    assert "Read-only file system" in outcome.detail or "EROFS" in outcome.detail
+    (scratch,) = set(shared_scratch.iterdir()) - before - {shared_scratch / "environments"}
+    assert (scratch / "out" / "inputs").is_dir()
+    assert not (scratch / "out" / "inputs" / "data").exists()

@@ -119,11 +119,13 @@ from beliefs.report import (
 from beliefs.runrecord import OperationPort, publication_plan
 from beliefs.sealed import sealed
 from beliefs.spec import DATASET_EQUIVALENCE_RULE, SEED_DERIVATION_V1, FrozenSpec, NondeterminismContract, Seeded
+from beliefs.tree import TREE_ALGORITHM, object_path, parse_tree_file
 
 if TYPE_CHECKING:
     from beliefs.corpus import ReadView
 
 __all__ = [
+    "HeldTree",
     "RunMinted",
     "RunRefused",
     "acquisition_guard",
@@ -159,6 +161,30 @@ class RunRefused:
     detail: str = ""
     """In-memory only: the refusing error's message. The durable ``RunRefusal``
     and the act-report carry the stable reason alone."""
+
+
+_TREE_DIGEST = re.compile(rf"^{TREE_ALGORITHM}:[0-9a-f]{{64}}$")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class HeldTree:
+    """A held tree resource: the store directory that holds it and its
+    ``sha256-tree:`` digest. A ``held_inputs[address]`` mapping holds one for a
+    resource name, and staging copies its members to
+    ``inputs/<name>/<member path>``."""
+
+    store_root: Path
+    digest: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.store_root, Path):
+            raise MalformedRecord(f"a held tree's store root {self.store_root!r} is not a path")
+        if type(self.digest) is not str or _TREE_DIGEST.fullmatch(self.digest) is None:
+            raise MalformedRecord(
+                f"a held tree's digest {self.digest!r} is not `{TREE_ALGORITHM}:` and 64 lowercase hex digits"
+            )
 
 
 def _digest(path: Path) -> str:
@@ -460,7 +486,7 @@ def _is_acquisition(address: str) -> bool:
 
 def _preflight(
     addresses: tuple[str, ...],
-    held_inputs: Mapping[str, Path | Mapping[str, Path]],
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
 ) -> str | None:
     if any(_is_acquisition(address) for address in addresses):
         return "acquisition-not-a-run"
@@ -473,7 +499,7 @@ def _preflight(
     return None
 
 
-_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_DIGEST = re.compile(rf"^(?:sha256|{TREE_ALGORITHM}):[0-9a-f]{{64}}$")
 
 
 @dataclass(frozen=True)
@@ -578,12 +604,73 @@ def _bind_recipe_inputs(
     return bound
 
 
+def _check_destinations(
+    addresses: tuple[str, ...],
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
+    inputs_dir: Path,
+) -> None:
+    """Decide every staging collision before the first copy, so the outcome never
+    depends on input order. A destination is a file resource's name or a tree
+    resource's root, and it reserves its path and everything beneath it: no other
+    destination may equal it or lie under it."""
+    destinations: list[str] = []
+    for address in dict.fromkeys(addresses):
+        source = held_inputs[address]
+        if isinstance(source, Path):
+            destinations.append(source.name)
+        elif isinstance(source, Mapping):
+            destinations.extend(source)
+    for name in destinations:
+        _validate_relative_input_path(name, inputs_dir)
+    reserved = frozenset(destinations)
+    seen: set[str] = set()
+    for name in sorted(destinations):
+        parts = name.split("/")
+        if name in seen or any("/".join(parts[:i]) in reserved for i in range(1, len(parts))):
+            raise MalformedClosure(f"held inputs collide at staging name {name!r}")
+        seen.add(name)
+
+
+def _stage_tree(address: str, name: str, held: HeldTree, staged: Path) -> str:
+    """Copy each member of a held tree to ``staged/<member path>``, one member at
+    a time, after verifying the tree file against the tree's digest; every copy is
+    re-hashed against its member's digest. Returns the tree's digest."""
+    label = f"held input {address!r} resource {name!r}"
+    tree_file = held.store_root / object_path(held.digest)
+    if not tree_file.is_file() or tree_file.is_symlink():
+        raise MalformedClosure(f"{label} tree file is not a readable file")
+    data = tree_file.read_bytes()
+    if f"{TREE_ALGORITHM}:{sha256(data).hexdigest()}" != held.digest:
+        raise MalformedClosure(f"{label} tree file does not match its digest {held.digest}")
+    try:
+        tree = parse_tree_file(data)
+    except MalformedRecord as error:
+        raise MalformedClosure(f"{label} tree file does not parse: {error}") from error
+    staged.mkdir(parents=True)
+    for member in tree.members:
+        source = held.store_root / object_path(member.digest)
+        if not source.is_file() or source.is_symlink():
+            raise MalformedClosure(f"{label} member {member.path!r} is not a readable file")
+        target = staged / member.path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        if (copied := _digest(target)) != member.digest:
+            raise MalformedClosure(f"{label} member {member.path!r} digest {copied} does not match {member.digest}")
+    return held.digest
+
+
 def _stage_inputs(
     addresses: tuple[str, ...],
-    held_inputs: Mapping[str, Path | Mapping[str, Path]],
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     scratch: Path,
     expected_inputs: Mapping[str, object] | None = None,
+    *,
+    staged_trees: list[Path],
 ) -> dict[str, str | dict[str, str]]:
+    """Copy every held input into ``scratch/inputs`` and return the staged
+    digests. A held tree is staged as the directory ``inputs/<name>``, which is
+    appended to ``staged_trees`` before its first copy, so that the caller
+    removes it when the run ends."""
     inputs_dir = scratch / "inputs"
     if expected_inputs is not None:
         if not isinstance(expected_inputs, Mapping):
@@ -608,10 +695,9 @@ def _stage_inputs(
                         raise MalformedClosure(f"expected input {address!r} has malformed resource digests")
             else:
                 raise MalformedClosure(f"expected input {address!r} is missing content identity")
+    _check_destinations(addresses, held_inputs, inputs_dir)
     inputs_dir.mkdir()
     staged_out: dict[str, str | dict[str, str]] = {}
-    files_staged: set[str] = set()
-    dirs_staged: set[str] = set()
     for address in addresses:
         if address in staged_out:
             continue
@@ -625,11 +711,7 @@ def _stage_inputs(
                 if isinstance(expected_val, Mapping):
                     raise MalformedClosure(f"expected input {address!r} is a mapping for a single-file input")
                 expected_digest = expected_val.digest if type(expected_val) is _RecipeContent else str(expected_val)
-            rel_name = source.name
-            if rel_name in files_staged or rel_name in dirs_staged:
-                raise MalformedClosure(f"held inputs collide at staging name {rel_name!r}")
-            files_staged.add(rel_name)
-            staged = inputs_dir / rel_name
+            staged = inputs_dir / source.name
             shutil.copy2(source, staged)
             digest = _digest(staged)
             if expected_digest is not None and digest != expected_digest:
@@ -652,19 +734,17 @@ def _stage_inputs(
                         f"expected input {address!r} must map resource names to digests for a multi-resource input"
                     )
             staged_digests: dict[str, str] = {}
-            for rel_name, member_path in sorted(source.items()):
+            for rel_name, resource in sorted(source.items()):
                 staged = _validate_relative_input_path(rel_name, inputs_dir)
-                parts = rel_name.split("/")
-                parents = ["/".join(parts[:i]) for i in range(1, len(parts))]
-                if rel_name in files_staged or rel_name in dirs_staged or any(p in files_staged for p in parents):
-                    raise MalformedClosure(f"held inputs collide at staging name {rel_name!r}")
-                files_staged.add(rel_name)
-                dirs_staged.update(parents)
-                if not isinstance(member_path, Path) or not member_path.is_file() or member_path.is_symlink():
-                    raise MalformedClosure(f"held input {address!r} resource {rel_name!r} is not a readable file")
-                staged.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(member_path, staged)
-                member_digest = _digest(staged)
+                if type(resource) is HeldTree:
+                    staged_trees.append(staged)
+                    member_digest = _stage_tree(address, rel_name, resource, staged)
+                else:
+                    if not isinstance(resource, Path) or not resource.is_file() or resource.is_symlink():
+                        raise MalformedClosure(f"held input {address!r} resource {rel_name!r} is not a readable file")
+                    staged.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(resource, staged)
+                    member_digest = _digest(staged)
                 if isinstance(expected_entry, Mapping) and member_digest != expected_entry[rel_name]:
                     raise MalformedClosure(
                         f"held input {address!r} resource {rel_name!r} digest {member_digest} does not match expected {expected_entry[rel_name]}"
@@ -834,7 +914,7 @@ def _execute_run(
     nondeterminism: NondeterminismContract | None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
-    held_inputs: Mapping[str, Path | Mapping[str, Path]],
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     expected_inputs: Mapping[str, object] | None = None,
     entrypoint: str,
     targets: tuple[str, ...],
@@ -846,6 +926,7 @@ def _execute_run(
     scratch_base: Path,
     cores: int,
     boundary_policy: BoundaryPolicy,
+    staged_trees: list[Path],
 ) -> RunMinted | RunRefused:
     try:
         scratch = create_scratch_root(scratch_base)
@@ -889,8 +970,9 @@ def _execute_run(
                 host_realization=host_realization,
                 scratch_base=scratch_base,
                 cores=cores,
+                staged_trees=staged_trees,
             )
-        staged = _stage_inputs(addresses, held_inputs, scratch, expected)
+        staged = _stage_inputs(addresses, held_inputs, scratch, expected, staged_trees=staged_trees)
         held = {address: _content_identity(entry) for address, entry in staged.items()}
         invocation = Invocation(
             entrypoint=entrypoint,
@@ -919,7 +1001,7 @@ def _execute_run(
             planning_handler = planning_dir / "handler.py"
             planning_events = planning_dir / "events.jsonl"
             planning_handler.write_text(LOG_HANDLER_SCRIPT)
-            _stage_inputs(addresses, held_inputs, planning_dir, staged)
+            _stage_inputs(addresses, held_inputs, planning_dir, staged, staged_trees=staged_trees)
             planning_argv = build_argv(
                 interpreter=sys.executable,
                 snakefile=str(captured_entrypoint),
@@ -1009,7 +1091,7 @@ def _execute_confined(
     nondeterminism: NondeterminismContract | None,
     definition: WorkflowDefinition,
     addresses: tuple[str, ...],
-    held_inputs: Mapping[str, Path | Mapping[str, Path]],
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     expected_inputs: Mapping[str, object] | None = None,
     captured: CapturedEnvironment,
     scratch: Path,
@@ -1025,6 +1107,7 @@ def _execute_confined(
     host_realization: str,
     scratch_base: Path,
     cores: int,
+    staged_trees: list[Path],
 ) -> RunMinted | RunRefused:
     """The scratch root's ``out/`` is the host side of
     the output root; the closure is snapshotted, verified, bound and observed;
@@ -1037,7 +1120,7 @@ def _execute_confined(
     output_root.mkdir()
     (output_root / TRACE_DIR).mkdir()
     (output_root / HOME_DIR).mkdir()
-    staged = _stage_inputs(addresses, held_inputs, output_root, expected_inputs)
+    staged = _stage_inputs(addresses, held_inputs, output_root, expected_inputs, staged_trees=staged_trees)
     held = {address: _content_identity(entry) for address, entry in staged.items()}
     invocation = Invocation(
         entrypoint=entrypoint,
@@ -1070,7 +1153,7 @@ def _execute_confined(
     try:
         (planning_root / TRACE_DIR).mkdir()
         (planning_root / HOME_DIR).mkdir()
-        _stage_inputs(addresses, held_inputs, planning_root, staged)
+        _stage_inputs(addresses, held_inputs, planning_root, staged, staged_trees=staged_trees)
         (planning_root / TRACE_DIR / "handler.py").write_text(LOG_HANDLER_SCRIPT)
         planning_argv = build_argv(
             interpreter=f"{SANDBOX_VENV}/bin/python",
@@ -1196,7 +1279,7 @@ def execute_assessment_run(
     expected_inputs: Mapping[str, str | Mapping[str, str]] | None = None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
-    held_inputs: Mapping[str, Path | Mapping[str, Path]],
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
@@ -1226,28 +1309,33 @@ def execute_assessment_run(
         return refused
     intent = AssessmentRunIntent(spec.identity, secrets.token_hex(16), actor)
     fulfills = port.append_intent(_intent_wire(intent))
-    result = _execute_run(
-        intent=intent,
-        subject=spec.identity,
-        spec=spec,
-        inputs=(),
-        parameters={},
-        nondeterminism=None,
-        definition=definition,
-        code_roots=code_roots,
-        held_inputs=held_inputs,
-        expected_inputs=expected_inputs,
-        entrypoint=entrypoint,
-        targets=targets,
-        declared_outputs=declared_outputs,
-        actor=actor,
-        observer=observer,
-        started_at=started_at,
-        host_realization=host_realization,
-        scratch_base=scratch_base,
-        cores=cores,
-        boundary_policy=supported_policy(boundary_policy),
-    )
+    staged_trees: list[Path] = []
+    try:
+        result = _execute_run(
+            intent=intent,
+            subject=spec.identity,
+            spec=spec,
+            inputs=(),
+            parameters={},
+            nondeterminism=None,
+            definition=definition,
+            code_roots=code_roots,
+            held_inputs=held_inputs,
+            expected_inputs=expected_inputs,
+            entrypoint=entrypoint,
+            targets=targets,
+            declared_outputs=declared_outputs,
+            actor=actor,
+            observer=observer,
+            started_at=started_at,
+            host_realization=host_realization,
+            scratch_base=scratch_base,
+            cores=cores,
+            boundary_policy=supported_policy(boundary_policy),
+            staged_trees=staged_trees,
+        )
+    finally:
+        _remove_staged_trees(staged_trees)
     if (
         type(result) is RunMinted
         and expected_recipe_identity is not None
@@ -1260,6 +1348,15 @@ def execute_assessment_run(
     else:
         port.execute_fulfilling(_report_plan(result.report), fulfills)
     return result
+
+
+def _remove_staged_trees(staged_trees: list[Path]) -> None:
+    """Remove the run's staged tree directories when it ends: science never
+    deletes run scratch, so a staged copy of a tree would otherwise outlive the
+    run. A removal that fails is ignored, as the planning directory's is, so it
+    never replaces the run's outcome."""
+    for staged in staged_trees:
+        shutil.rmtree(staged, ignore_errors=True)
 
 
 def _cleanup_exported(created_files: list[Path], created_dirs: list[Path]) -> None:
@@ -1283,7 +1380,7 @@ def execute_production_run(
     nondeterminism: NondeterminismContract,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
-    held_inputs: Mapping[str, Path | Mapping[str, Path]],
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
@@ -1329,60 +1426,65 @@ def execute_production_run(
         return refused
     intent = OperationIntent("run-attempt", secrets.token_hex(16), actor)
     fulfills = port.append_intent(_intent_wire(intent))
-    result = _execute_run(
-        intent=intent,
-        subject="absent",
-        spec=None,
-        inputs=inputs,
-        parameters=parameters,
-        nondeterminism=nondeterminism,
-        definition=definition,
-        code_roots=code_roots,
-        held_inputs=held_inputs,
-        expected_inputs=expected_inputs,
-        entrypoint=entrypoint,
-        targets=targets,
-        declared_outputs=declared_outputs,
-        actor=actor,
-        observer=observer,
-        started_at=started_at,
-        host_realization=host_realization,
-        scratch_base=scratch_base,
-        cores=cores,
-        boundary_policy=supported_policy(boundary_policy),
-    )
-    if (
-        type(result) is RunMinted
-        and expected_recipe_identity is not None
-        and result.run.recipe.identity() != expected_recipe_identity
-    ):
-        result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
     created_files: list[Path] = []
     created_dirs: list[Path] = []
-    if type(result) is RunMinted and output_dir is not None:
-        scratch_root = Path(result.run.occurrence.receipt.execution.scratch_mapping)
-        run_output_root = scratch_root / "out" if result.run.occurrence.receipt.confined else scratch_root
-        resolved_output_dir = output_dir.resolve()
-        try:
-            for out_name, out_digest in result.run.result.outputs:
-                dest = _validate_relative_input_path(out_name, resolved_output_dir)
-                if dest.exists() or dest.is_symlink():
-                    raise OSError(f"export destination {dest} already exists")
-                missing_ancestors: list[Path] = []
-                cur = dest.parent
-                while cur != resolved_output_dir and not cur.exists():
-                    missing_ancestors.append(cur)
-                    cur = cur.parent
-                for ancestor in reversed(missing_ancestors):
-                    ancestor.mkdir()
-                    created_dirs.append(ancestor)
-                created_files.append(dest)
-                shutil.copy2(run_output_root / out_name, dest)
-                if _digest(dest) != out_digest:
-                    raise ValueError(f"exported output {out_name!r} digest mismatch")
-        except (ScienceError, OSError, ValueError):
-            _cleanup_exported(created_files, created_dirs)
-            result = _refused("manifest-digest-mismatch", "absent", actor, observer, started_at, intent)
+    staged_trees: list[Path] = []
+    try:
+        result = _execute_run(
+            intent=intent,
+            subject="absent",
+            spec=None,
+            inputs=inputs,
+            parameters=parameters,
+            nondeterminism=nondeterminism,
+            definition=definition,
+            code_roots=code_roots,
+            held_inputs=held_inputs,
+            expected_inputs=expected_inputs,
+            entrypoint=entrypoint,
+            targets=targets,
+            declared_outputs=declared_outputs,
+            actor=actor,
+            observer=observer,
+            started_at=started_at,
+            host_realization=host_realization,
+            scratch_base=scratch_base,
+            cores=cores,
+            boundary_policy=supported_policy(boundary_policy),
+            staged_trees=staged_trees,
+        )
+        if (
+            type(result) is RunMinted
+            and expected_recipe_identity is not None
+            and result.run.recipe.identity() != expected_recipe_identity
+        ):
+            result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
+        if type(result) is RunMinted and output_dir is not None:
+            scratch_root = Path(result.run.occurrence.receipt.execution.scratch_mapping)
+            run_output_root = scratch_root / "out" if result.run.occurrence.receipt.confined else scratch_root
+            resolved_output_dir = output_dir.resolve()
+            try:
+                for out_name, out_digest in result.run.result.outputs:
+                    dest = _validate_relative_input_path(out_name, resolved_output_dir)
+                    if dest.exists() or dest.is_symlink():
+                        raise OSError(f"export destination {dest} already exists")
+                    missing_ancestors: list[Path] = []
+                    cur = dest.parent
+                    while cur != resolved_output_dir and not cur.exists():
+                        missing_ancestors.append(cur)
+                        cur = cur.parent
+                    for ancestor in reversed(missing_ancestors):
+                        ancestor.mkdir()
+                        created_dirs.append(ancestor)
+                    created_files.append(dest)
+                    shutil.copy2(run_output_root / out_name, dest)
+                    if _digest(dest) != out_digest:
+                        raise ValueError(f"exported output {out_name!r} digest mismatch")
+            except (ScienceError, OSError, ValueError):
+                _cleanup_exported(created_files, created_dirs)
+                result = _refused("manifest-digest-mismatch", "absent", actor, observer, started_at, intent)
+    finally:
+        _remove_staged_trees(staged_trees)
     if type(result) is RunMinted:
         _, _, plan = publication_plan(result.run, dataset_title=dataset_title)
         run_op = plan[0]

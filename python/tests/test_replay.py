@@ -1103,6 +1103,89 @@ def test_replay_multi_resource_and_single_resource_nested_member_mappings(tmp_pa
         assert rep_nested.run.result == orig_nested_prod.run.result
 
 
+def test_replay_binds_a_tree_input(tmp_path):
+    from fixtures_cut3 import SNAKEFILE_TREE, TREE_MEMBERS, lay_tree
+
+    held = lay_tree(tmp_path / "store", TREE_MEMBERS)
+    held_inputs = {DATA_ADDRESS: {"data": held}}
+    expected = {DATA_ADDRESS: {"data": held.digest}}
+    code, _ = stage(tmp_path / "code", snakefile=SNAKEFILE_TREE)
+    defn = definition(snakefile=SNAKEFILE_TREE, family_streams={})
+    spec = freeze(
+        spec_draft(
+            nondeterminism=Deterministic(),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+        ),
+        held_rules=spec_rules(),
+    )
+    assessment = execute_assessment_run(
+        spec=spec,
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=defn,
+        code_roots=(code,),
+        held_inputs=held_inputs,
+        expected_inputs=expected,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch-assessment",
+        cores=1,
+    )
+    production = execute_production_run(
+        inputs=(RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=held.digest),),
+        parameters={},
+        nondeterminism=Deterministic(),
+        port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
+        definition=defn,
+        code_roots=(code,),
+        held_inputs=held_inputs,
+        expected_inputs=expected,
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-1",
+        started_at="2026-08-12T00:00:00Z",
+        host_realization="host-a",
+        scratch_base=tmp_path / "scratch-production",
+        cores=1,
+    )
+    # The replay reads the same tree from another store: the recipe binds content, not location.
+    elsewhere = {DATA_ADDRESS: {"data": lay_tree(tmp_path / "another-store", TREE_MEMBERS)}}
+    for original, shape_spec in ((assessment, spec), (production, None)):
+        assert isinstance(original, RunMinted), original
+        assert original.run.recipe.inputs[0].content == held.digest
+        for idx, exp in enumerate((expected, None)):
+            replayed = _replay_fn(
+                original,
+                port=MEMORY_PORT,
+                spec=shape_spec,
+                definition=defn,
+                code_roots=(code,),
+                held_inputs=elsewhere,
+                expected_inputs=exp,
+                entrypoint="code/workflow/Snakefile",
+                targets=("outputs/result.txt",),
+                declared_outputs=("outputs/result.txt",),
+                observer="observer-1",
+                started_at="2026-08-12T00:00:00Z",
+                host_realization="host-a",
+                scratch_base=tmp_path / f"scratch-{original.run.recipe.shape}-replay-{idx}",
+                cores=1,
+            )
+            assert isinstance(replayed, RunMinted), replayed
+            assert replayed.run.recipe.identity() == original.run.recipe.identity()
+            assert replayed.run.recipe.inputs[0].content == held.digest
+            assert replayed.run.result == original.run.result
+            for minted in (original, replayed):
+                scratch = Path(minted.run.occurrence.receipt.execution.scratch_mapping)
+                assert not (scratch / "inputs" / "data").exists()
+
+
 def test_replay_of_production_run_commits_replay_run_record_when_dataset_already_held_and_passes_corpus_check(
     certified_work,
 ):
