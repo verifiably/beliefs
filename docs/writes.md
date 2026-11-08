@@ -146,7 +146,9 @@ runs these steps:
 
 1. Check, before any effect. A missing permit (`holdings` for `holdings-observation`,
    `corpus-write` for `dataset` and `act-report`) raises `PermitExceeded`. Every other
-   check raises `AcquisitionRefused` and writes nothing:
+   check raises `AcquisitionRefused` and writes nothing, except that an argument that is
+   not a `SealRequest` raises `MalformedRecord` and a failed read of the store's genesis
+   raises the engine's refusal:
    - the writer's root is the context's observer root, and an operation port exists;
    - every file of the work area lies outside the corpus and store roots;
    - the log parses and is its own canonical rendering, and its header's `origin` and
@@ -165,11 +167,11 @@ runs these steps:
    `found` or `absent` it publishes replaces them; every later act at that location
    supersedes it. An inconclusive re-check raises `AcquisitionRefused`: the seal writes
    nothing more and leaves the intent unfinished.
-4. Write the log into the store at `<hex>/<set>/acquisition-log.jsonl`, and each
-   source journal at `<hex>/<set>/<name>`, each with an ordinary holdings `write`.
-   `<hex>` is the tree digest's hex and `<set>` the log header's set token, so two sets
-   that yield one tree keep their own logs, and a set sealed again writes to the same
-   paths.
+4. Write the log into the store at `<hex>/acquisition-log.jsonl`, and each
+   source journal at `<hex>/<name>`, each with an ordinary holdings `write`. `<hex>` is
+   the sha256 hex of the file's own bytes, with no set or tree component, so different
+   bytes never share a path, no seal replaces bytes an earlier report binds, and sealing
+   the same bytes again writes the same bytes to the same path.
 5. Write the tree with the `tree-write` act
    ([records.md](records.md#datasets-sources-and-holdings)).
 6. Close in one transaction, under `acquire`'s lock order. It mints the dataset, unless

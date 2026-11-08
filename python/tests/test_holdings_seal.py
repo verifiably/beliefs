@@ -282,7 +282,7 @@ def test_seal_holds_a_fetched_set_with_four_records(sealing, certified_work):
     ctx, store_id, writer, work = sealing
     log = fetched_log(MEMBERS)
     location = tree_location(store_id, MEMBERS)
-    log_location = StoreLocator(store_id, f"{location.tree}/{SET}/{LOG_NAME}")
+    log_location = StoreLocator(store_id, f"{digest(log).split(':', 1)[1]}/{LOG_NAME}")
 
     outcome = seal_acquisition(ctx, writer, request_for(work, MEMBERS, log))
 
@@ -334,8 +334,7 @@ def test_seal_holds_a_fetched_set_with_four_records(sealing, certified_work):
 def test_seal_import_holds_its_source_journals(sealing):
     ctx, store_id, writer, work = sealing
     log = imported_log(MEMBERS, JOURNAL)
-    location = tree_location(store_id, MEMBERS)
-    journal_location = StoreLocator(store_id, f"{location.tree}/{SET}/{JOURNAL_NAME}")
+    journal_location = StoreLocator(store_id, f"{digest(JOURNAL).split(':', 1)[1]}/{JOURNAL_NAME}")
 
     outcome = seal_acquisition(
         ctx, writer, request_for(work, MEMBERS, log, origin="imported", journals={JOURNAL_NAME: JOURNAL})
@@ -399,7 +398,7 @@ def _spoiled(spoil: str, ctx, store_id: str, writer: CorpusWriter, work: Path, c
     elif spoil == "misplaced-standing":
         # a head at another location, keyed as the log's: the log write would refuse it after the intent
         stray = write(ctx, StoreLocator(store_id, "elsewhere.bin"), b"elsewhere").record
-        log_location = StoreLocator(store_id, f"{tree_location(store_id, MEMBERS).tree}/{SET}/{LOG_NAME}")
+        log_location = StoreLocator(store_id, f"{digest(log).split(':', 1)[1]}/{LOG_NAME}")
         kwargs["standing"] = {log_location.canonical(): (stray,)}
     else:
         raise AssertionError(spoil)
@@ -490,9 +489,8 @@ def test_sealing_an_already_held_tree_mints_no_second_dataset(sealing, certified
 
 def test_two_sets_of_one_tree_keep_their_own_logs_beside_one_dataset(sealing, certified_work, tmp_path):
     """Two acquisitions of identical bytes: one dataset, two act reports, each binding its own log."""
-    ctx, store_id, writer, work = sealing
+    ctx, _store_id, writer, work = sealing
     other_set = "6" * 32
-    location = tree_location(store_id, MEMBERS)
     logs = {SET: fetched_log(MEMBERS), other_set: fetched_log(MEMBERS, failed=False, set_token=other_set)}
     first = seal_acquisition(ctx, writer, request_for(work, MEMBERS, logs[SET]))
     world, binding = world_over(certified_work, ctx.observer_root)
@@ -517,7 +515,38 @@ def test_two_sets_of_one_tree_keep_their_own_logs_beside_one_dataset(sealing, ce
         relative_path = mutation.subject.split(":", 2)[2]  # the log location this set's report names
         assert (ctx.store_root / relative_path).read_bytes() == logs[set_token]  # still held, never replaced
         assert active[mutation.subject] == {"finding": "found", "digest": digest(logs[set_token])}
-        assert relative_path == f"{location.tree}/{set_token}/{LOG_NAME}"
+        assert relative_path == f"{digest(logs[set_token]).split(':', 1)[1]}/{LOG_NAME}"
+
+
+def test_one_set_token_with_two_different_logs_keeps_both(sealing, certified_work, tmp_path):
+    """The log is stored by its own digest: a second log never replaces one an earlier report binds."""
+    ctx, _store_id, writer, work = sealing
+    logs = [fetched_log(MEMBERS), fetched_log(MEMBERS, failed=False)]  # one set token, one attempt differs
+    assert logs[0] != logs[1]
+    first = seal_acquisition(ctx, writer, request_for(work, MEMBERS, logs[0]))
+    world, binding = world_over(certified_work, ctx.observer_root)
+    reduced = reduce(world, binding, writer)
+
+    second = seal_acquisition(
+        ctx,
+        writer,
+        request_for(tmp_path / "other-work", MEMBERS, logs[1]),
+        standing=reduced.standing,
+        unsettled=reduced.unsettled,
+    )
+
+    assert first.dataset is not None and second.dataset is None
+    assert stored_kinds(ctx.observer_root)["dataset"] == 1
+    after = reduce(world, binding, writer)
+    assert after.blocked == []
+    active = {cast(str, head["location"]): head["outcome"] for head in after.active}
+    for log, outcome in zip(logs, (first, second), strict=True):
+        mutation, summary = outcome.entries[0], outcome.entries[2].outcome
+        assert isinstance(summary, SetSummary) and summary.log == digest(log)
+        relative_path = mutation.subject.split(":", 2)[2]
+        assert (ctx.store_root / relative_path).read_bytes() == log  # still held under the report's digest
+        assert active[mutation.subject] == {"finding": "found", "digest": digest(log)}
+        assert relative_path == f"{digest(log).split(':', 1)[1]}/{LOG_NAME}"
 
 
 def _killed_after_two_objects(ctx):

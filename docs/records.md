@@ -233,7 +233,8 @@ whatever the input order: a file's name and a tree's root each reserve that path
 everything beneath it, so no other resource may be staged at it or under it. Any of
 these refusals comes before anything executes. The staged tree is removed when the
 run ends, after a production run's outputs are exported, and also when the run is
-refused or fails closed.
+refused or fails closed; a removal that fails is ignored, as the planning
+directory's is, so it never replaces the run's outcome.
 
 When read, an `assessment` facet must have exactly six text fields: `spec`, `run`,
 `proposition`, `outcome`, `interpretation_rule` and `typed`. `outcome` is
@@ -342,7 +343,8 @@ The `tree-write` act writes a tree into a store. It announces a `tree-write` int
 for each member in tree order (and last for the tree file) reads the object's path.
 An absent object is created from the member's source bytes, which must match the member's
 digest and size; a present object is reused only when its digest and size are exactly the
-tree's. Any other bytes, size or kind refuse the act, and so does a routine refusal of the
+tree's. Any other bytes, size or kind refuse the act, as does a read the engine does not
+observe (the object could not be read), and so does a routine refusal of the
 create whose object, read again, does not match exactly: a refusal alone never proves the
 object exists. The act holds one member's bytes at a time, leaves only whole objects when
 interrupted (with its intent unmatched), and on success publishes one `found` observation
@@ -360,7 +362,8 @@ counts as mismatched. The tree is `found` only when none is missing or mismatche
 A sealed acquisition set carries one acquisition log, `science.acquisition-log.v1`: UTF-8 JSON
 Lines, each line canonical `science.identity.v1` text and the file ending in a line feed. That
 encoding refuses `null`, so an optional field is absent, never null. The parser
-(`holdings/acquisition_log.py`) refuses a log with a `MalformedRecord` naming the line.
+(`holdings/acquisition_log.py`) refuses a log with a `MalformedRecord`: one that does not end
+with a line feed (an empty input included) names no line, and every other refusal names its line.
 
 The first line is the header, with exactly these keys: `format`, `set` (the set's 32-hex token),
 `origin` (`fetched` or `imported`) and `fetched_by`, then `plan` (the acquisition plan as given)

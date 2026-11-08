@@ -53,8 +53,9 @@ from beliefs.world.anchors import parse_store_genesis
 __all__ = ["LOG_NAME", "SealOutcome", "SealRequest", "seal_acquisition"]
 
 LOG_NAME = "acquisition-log.jsonl"
-"""The log's name beside the set's source journals: each is stored at `<tree hex>/<set>/<name>`, where `<set>`
-is the log header's set token, so every set that yields one tree keeps its own log."""
+"""The log's name: the log is stored at `<log sha256 hex>/<name>` and each source journal at
+`<journal sha256 hex>/<name>`, named by the file's own digest, so different bytes never share a path and no seal
+replaces bytes an earlier report binds."""
 _ORIGINS = ("fetched", "imported")
 _CHUNK = 1 << 20
 
@@ -250,10 +251,9 @@ def _plan(
     store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))
     location = StoreTreeLocator(store_id, tree_digest(tree).split(":", 1)[1])
     try:
-        set_directory = f"{location.tree}/{header.set}"  # per set: one tree may hold several sets' logs
-        log_location = StoreLocator(store_id, f"{set_directory}/{LOG_NAME}")
+        log_location = StoreLocator(store_id, f"{summary.log.split(':', 1)[1]}/{LOG_NAME}")
         journal_locations = tuple(
-            StoreLocator(store_id, f"{set_directory}/{name}") for name, _ in request.source_journals
+            StoreLocator(store_id, f"{recorded.split(':', 1)[1]}/{name}") for name, recorded in header.source_journals
         )
     except MalformedRecord as caught:
         raise AcquisitionRefused(f"a source journal's name is not a store path: {caught}") from caught
