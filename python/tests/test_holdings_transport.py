@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import socket
 import ssl
+from datetime import UTC, datetime
 from hashlib import sha256
 from http.client import BadStatusLine, IncompleteRead
 from pathlib import Path
@@ -16,6 +17,8 @@ from beliefs.errors import MalformedRecord
 from beliefs.holdings import transport
 from beliefs.holdings.records import url_locator
 from beliefs.holdings.transport import (
+    ALLOWED_HEADERS,
+    FAILURE_CATEGORIES,
     Approved,
     Failed,
     NotAttempted,
@@ -167,7 +170,7 @@ def test_a_refused_hop_is_failed_by_ordinal_and_category_and_never_by_its_bytes(
         resolve=lambda host, _p: ["10.1.1.1"] if host != "example.org" else [PUBLIC], connect=seam.connect
     )
     result = retrieve(DATA, BOUNDS, private, tmp_path)
-    assert result == Failed("redirect hop 1 refused: non-public-address")
+    assert isinstance(result, Failed) and result.reason == "redirect hop 1 refused: non-public-address"
     assert isinstance(result, Failed)
     for secret in ("X-Amz-Signature", "deadbeefcafe", "AKIA", "tok3n-9f2a", "s3.example", "example.net"):
         assert secret not in result.reason
@@ -186,7 +189,7 @@ def test_a_refused_hop_is_failed_by_ordinal_and_category_and_never_by_its_bytes(
 )
 def test_a_malformed_hop_is_refused_as_malformed_and_never_by_its_bytes(tmp_path, hop):
     result, log = fetch({"/data": Scripted(302, {"Location": hop})}, tmp_path=tmp_path)
-    assert result == Failed("redirect hop 1 refused: malformed")
+    assert isinstance(result, Failed) and result.reason == "redirect hop 1 refused: malformed"
     assert isinstance(result, Failed)
     assert "tok3n" not in result.reason and "example.net" not in result.reason
     assert len(log.requests) == 1
@@ -196,12 +199,184 @@ def test_too_many_redirects_is_failed_naming_the_bound(tmp_path):
     script = {f"/h{i}": Scripted(302, {"Location": f"/h{i + 1}"}) for i in range(6)}
     script["/data"] = Scripted(302, {"Location": "/h0"})
     result, _ = fetch(script, tmp_path=tmp_path)
-    assert result == Failed("redirect limit 3 exceeded")
+    assert isinstance(result, Failed) and result.reason == "redirect limit 3 exceeded"
 
 
 def test_a_redirect_without_a_location_is_failed(tmp_path):
     result, _ = fetch({"/data": Scripted(302, {})}, tmp_path=tmp_path)
-    assert result == Failed("redirect without a location")
+    assert isinstance(result, Failed) and result.reason == "redirect without a location"
+
+
+# --- the structured result ---------------------------------------------------
+
+CLOCK = datetime(2026, 11, 8, 12, 0, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "scripted,reason,expected",
+    [
+        (Scripted(404, {}, (b"",)), "status 404", ("status", 404, None, None)),
+        (
+            Scripted(200, {"Content-Length": "4", "Content-Encoding": "gzip"}, (b"abcd",)),
+            "content-encoding is not identity",
+            ("content-encoding", 200, None, None),
+        ),
+        (
+            Scripted(200, {"Content-Length": "8"}, (b"abcd",)),
+            "body shorter than content-length 8",
+            ("length-mismatch", 200, None, None),
+        ),
+        (
+            Scripted(200, {"Content-Length": "2"}, (b"abcd",)),
+            "body longer than content-length 2",
+            ("length-mismatch", 200, None, None),
+        ),
+        (
+            Scripted(200, {"Content-Length": "many"}, (b"ab",)),
+            "malformed content-length",
+            ("length-malformed", 200, None, None),
+        ),
+        (
+            Scripted(200, {}, (b"x" * 65,)),
+            "exceeded the 64-byte streaming ceiling",
+            ("byte-bound", 200, None, None),
+        ),
+        (
+            Scripted(200, {}, (b"ab",), raise_on_read=TimeoutError("timed out")),
+            "transport failure: timeout",
+            ("timeout", 200, None, None),
+        ),
+        (
+            Scripted(raise_on_request=ssl.SSLError(1, "alert")),
+            "transport failure: tls",
+            ("tls", None, None, None),
+        ),
+        (Scripted(302, {}), "redirect without a location", ("redirect-without-location", 302, None, None)),
+        (
+            Scripted(302, {"Location": "https://[bad/"}),
+            "redirect hop 1 refused: malformed",
+            ("redirect-refused", None, 1, "malformed"),
+        ),
+    ],
+)
+def test_every_failure_site_has_its_category(tmp_path, scripted, reason, expected):
+    result, _ = fetch({"/data": scripted}, tmp_path=tmp_path)
+    assert isinstance(result, Failed)
+    assert result.reason == reason
+    assert (result.category, result.status, result.hop, result.refusal) == expected
+    assert result.category in FAILURE_CATEGORIES
+
+
+def test_a_refused_later_hop_carries_its_ordinal_and_refusal(tmp_path):
+    seam, _ = scripted_seam({"/data": Scripted(302, {"Location": "https://other.example/x"})})
+    private = transport.UrlSeam(
+        resolve=lambda host, _p: ["10.1.1.1"] if host != "example.org" else [PUBLIC], connect=seam.connect
+    )
+    result = retrieve(DATA, BOUNDS, private, tmp_path)
+    assert isinstance(result, Failed)
+    assert (result.category, result.hop, result.refusal) == ("redirect-refused", 1, "non-public-address")
+
+
+def test_a_later_hop_that_cannot_be_pinned_is_redirect_refused_unpinnable(tmp_path):
+    seam, _ = scripted_seam({"/data": Scripted(302, {"Location": "/moved"}), "/moved": ok(b"x")})
+    calls: list[str] = []
+
+    def connect(approved: Approved, timeout: float) -> Any:
+        calls.append(approved.target)
+        if len(calls) > 1:
+            raise PinningUnavailable("no")
+        return seam.connect(approved, timeout)
+
+    result = retrieve(DATA, BOUNDS, transport.UrlSeam(resolve=seam.resolve, connect=connect), tmp_path)
+    assert isinstance(result, Failed)
+    assert (result.reason, result.category, result.hop, result.refusal) == (
+        "redirect hop 1 refused: unpinnable",
+        "redirect-refused",
+        1,
+        "unpinnable",
+    )
+
+
+def test_a_redirect_loop_is_failed_as_redirect_limit(tmp_path):
+    script = {f"/h{i}": Scripted(302, {"Location": f"/h{i + 1}"}) for i in range(6)}
+    script["/data"] = Scripted(302, {"Location": "/h0"})
+    result, _ = fetch(script, tmp_path=tmp_path)
+    assert isinstance(result, Failed) and result.category == "redirect-limit"
+
+
+def test_retrieved_carries_status_and_only_allowed_headers(tmp_path):
+    body = b"payload"
+    result, _ = fetch(
+        {
+            "/data": ok(
+                body,
+                **{
+                    "Content-Type": "text/plain",
+                    "ETag": '"abc"',
+                    "Set-Cookie": "session=secret",
+                    "Last-Modified": "Wed, 08 Nov 2026 11:00:00 GMT",
+                },
+            )
+        },
+        tmp_path=tmp_path,
+    )
+    assert isinstance(result, Retrieved)
+    assert result.status == 200
+    assert result.headers == (
+        ("content-length", "7"),
+        ("content-type", "text/plain"),
+        ("etag", '"abc"'),
+        ("last-modified", "Wed, 08 Nov 2026 11:00:00 GMT"),
+    )
+    assert {name for name, _ in result.headers} <= set(ALLOWED_HEADERS)
+
+
+def test_retry_after_is_parsed_on_429_and_503_only(tmp_path):
+    for status, expected in ((429, 30), (503, 30), (500, None), (404, None)):
+        result, _ = fetch({"/data": Scripted(status, {"Retry-After": "30"}, (b"",))}, tmp_path=tmp_path)
+        assert isinstance(result, Failed) and result.category == "status"
+        assert result.retry_after == expected, status
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("Wed, 08 Nov 2026 12:01:30 GMT", 90),
+        ("Wed, 08 Nov 2026 12:00:00 GMT", 0),
+        ("Wed, 08 Nov 2026 11:59:50 GMT", 0),
+        ("Wed, 08 Nov 2026 12:00:00.5 GMT", None),
+        ("soon", None),
+        ("", None),
+        ("-5", None),
+        ("1.5", None),
+        ("0", 0),
+    ],
+)
+def test_retry_after_dates_become_whole_seconds(tmp_path, value, expected):
+    seam, _ = scripted_seam({"/data": Scripted(429, {"Retry-After": value}, (b"",))})
+    result = retrieve(DATA, BOUNDS, seam, tmp_path, clock=lambda: CLOCK)
+    assert isinstance(result, Failed)
+    assert result.retry_after == expected
+
+
+def test_failed_refuses_an_unknown_category_and_a_stray_refusal():
+    with pytest.raises(MalformedRecord):
+        Failed("x", "nope")
+    with pytest.raises(MalformedRecord):
+        Failed("x", "status", refusal="malformed")
+    with pytest.raises(MalformedRecord):
+        Failed("x", "redirect-refused", hop=1)  # a redirect refusal names its refusal
+    with pytest.raises(MalformedRecord):
+        Failed("x", "redirect-refused", refusal="malformed")  # and its hop
+    with pytest.raises(MalformedRecord):
+        Failed("x", "redirect-refused", hop=1, refusal="nope")
+    with pytest.raises(MalformedRecord):
+        Failed("x", "timeout", retry_after=3)
+
+
+def test_not_attempted_refuses_a_reason_outside_the_refusal_categories():
+    with pytest.raises(MalformedRecord):
+        NotAttempted("because")
 
 
 # --- the body ----------------------------------------------------------------
@@ -224,7 +399,7 @@ def test_a_redirect_without_a_location_is_failed(tmp_path):
 )
 def test_an_incomplete_or_wrong_body_is_failed_carrying_no_digest(tmp_path, scripted, reason):
     result, _ = fetch({"/data": scripted}, tmp_path=tmp_path)
-    assert result == Failed(reason)
+    assert isinstance(result, Failed) and result.reason == reason
     assert not hasattr(result, "digest")
     assert list(tmp_path.iterdir()) == []
 
@@ -232,14 +407,14 @@ def test_an_incomplete_or_wrong_body_is_failed_carrying_no_digest(tmp_path, scri
 def test_the_ceiling_ends_the_stream_and_finalizes_no_digest(tmp_path):
     body = b"x" * 65
     result, log = fetch({"/data": Scripted(200, {}, (body[:32], body[32:]))}, tmp_path=tmp_path)
-    assert result == Failed("exceeded the 64-byte streaming ceiling")
+    assert isinstance(result, Failed) and result.reason == "exceeded the 64-byte streaming ceiling"
     assert log.reads == [65, 33]  # each read asks for the remaining allowance plus one
     assert list(tmp_path.iterdir()) == []
 
 
 def test_each_read_is_bounded_by_the_remaining_allowance_plus_one(tmp_path):
     result, log = fetch({"/data": Scripted(200, {}, (b"y" * 1000,))}, tmp_path=tmp_path)
-    assert result == Failed("exceeded the 64-byte streaming ceiling")
+    assert isinstance(result, Failed) and result.reason == "exceeded the 64-byte streaming ceiling"
     assert log.reads == [65]  # one read of 65 bytes, never 1 MiB against a 64-byte ceiling
 
 
@@ -257,10 +432,10 @@ def test_each_read_is_bounded_by_the_remaining_allowance_plus_one(tmp_path):
 )
 def test_a_transport_failure_is_failed_by_category_and_leaves_no_scratch(tmp_path, raised, category):
     result, _ = fetch({"/data": Scripted(200, {}, (b"ab",), raise_on_read=raised)}, tmp_path=tmp_path)
-    assert result == Failed(f"transport failure: {category}")
+    assert isinstance(result, Failed) and result.reason == f"transport failure: {category}"
     assert list(tmp_path.iterdir()) == []
     result, log = fetch({"/data": Scripted(raise_on_request=raised)}, tmp_path=tmp_path)
-    assert result == Failed(f"transport failure: {category}")
+    assert isinstance(result, Failed) and result.reason == f"transport failure: {category}"
     assert isinstance(result, Failed)
     assert "tok3n" not in result.reason and "example.net" not in result.reason and "peer" not in result.reason
     assert len(log.requests) == 1
@@ -328,7 +503,7 @@ def test_over_tls_a_truncated_chunked_body_is_a_protocol_failure_with_no_scratch
     with LocalTlsServer({"/data": Served(body=b"partial", truncate_chunked=True)}) as server:
         seam, _ = tls_seam(server)
         result = retrieve(DATA, BOUNDS, seam, tmp_path)
-    assert result == Failed("transport failure: protocol")
+    assert isinstance(result, Failed) and result.reason == "transport failure: protocol"
     assert list(tmp_path.iterdir()) == []
 
 
@@ -350,7 +525,7 @@ def test_over_tls_the_ceiling_ends_the_stream_one_byte_past_the_bound(tmp_path):
     with LocalTlsServer({"/data": Served(body=b"z" * 4096)}) as server:
         seam, _ = tls_seam(server)
         result = retrieve(DATA, BOUNDS, seam, tmp_path)
-    assert result == Failed("exceeded the 64-byte streaming ceiling")
+    assert isinstance(result, Failed) and result.reason == "exceeded the 64-byte streaming ceiling"
     assert list(tmp_path.iterdir()) == []
 
 
@@ -358,7 +533,7 @@ def test_over_tls_a_certificate_failure_after_a_credential_bearing_redirect_name
     with LocalTlsServer({"/data": Served(302, {"Location": TOKEN_HOST_HOP})}) as server:
         seam, log = tls_seam(server)
         result = retrieve(DATA, BOUNDS, seam, tmp_path)
-    assert result == Failed("transport failure: tls")
+    assert isinstance(result, Failed) and result.reason == "transport failure: tls"
     assert isinstance(result, Failed)
     assert "tok3n-9f2a" not in result.reason and "example.net" not in result.reason
     assert len(log.requests) == 1  # the second hop's handshake never completed, so the server parsed no request

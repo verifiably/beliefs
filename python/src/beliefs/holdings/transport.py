@@ -17,6 +17,7 @@ import ssl
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from http.client import HTTPException, HTTPSConnection
 from pathlib import Path
 from typing import Any, final
@@ -27,6 +28,8 @@ from beliefs.holdings.records import UrlLocator
 from beliefs.sealed import sealed
 
 __all__ = [
+    "ALLOWED_HEADERS",
+    "FAILURE_CATEGORIES",
     "REFUSAL_CATEGORIES",
     "TRANSPORT_CATEGORIES",
     "Approved",
@@ -54,6 +57,21 @@ is a server-supplied hop this transport will not split, resolve or send."""
 TRANSPORT_CATEGORIES = ("timeout", "tls", "connection", "protocol")
 """The closed set a failure after the request began is named by; never the exception's text,
 which for a certificate error carries the redirected host."""
+
+FAILURE_CATEGORIES = TRANSPORT_CATEGORIES + (
+    "status",
+    "content-encoding",
+    "length-mismatch",
+    "length-malformed",
+    "redirect-without-location",
+    "redirect-limit",
+    "byte-bound",
+    "redirect-refused",
+)
+"""The closed set a `Failed` is named by: a transport category, or the condition that ended the retrieval."""
+ALLOWED_HEADERS = ("content-type", "content-length", "last-modified", "etag")
+"""The only response headers a `Retrieved` carries; any other (cookies, tokens) is dropped."""
+RETRY_AFTER_STATUSES = (429, 503)
 
 Resolver = Callable[[str, int], list[str]]
 ConnectionFactory = Callable[["Approved", float], HTTPSConnection]
@@ -111,6 +129,8 @@ class Retrieved:
     digest: str
     size: int
     path: Path
+    status: int
+    headers: tuple[tuple[str, str], ...]
 
 
 @sealed
@@ -119,12 +139,34 @@ class Retrieved:
 class NotAttempted:
     reason: str
 
+    def __post_init__(self) -> None:
+        if self.reason not in REFUSAL_CATEGORIES:
+            raise MalformedRecord("NotAttempted reason must be a refusal category")
+
 
 @sealed
 @final
 @dataclass(frozen=True)
 class Failed:
     reason: str
+    category: str
+    status: int | None = None
+    hop: int | None = None
+    refusal: str | None = None
+    retry_after: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.category not in FAILURE_CATEGORIES:
+            raise MalformedRecord("Failed category must be a failure category")
+        refused = self.category == "redirect-refused"
+        if refused != (self.refusal is not None):
+            raise MalformedRecord("Failed refusal is present exactly when the category is redirect-refused")
+        if refused and self.refusal not in REFUSAL_CATEGORIES:
+            raise MalformedRecord("Failed refusal must be a refusal category")
+        if refused and self.hop is None:
+            raise MalformedRecord("a redirect-refused Failed names its hop")
+        if self.retry_after is not None and self.category != "status":
+            raise MalformedRecord("Failed retry_after is set only for a status failure")
 
 
 @dataclass(frozen=True)
@@ -229,8 +271,39 @@ def refuse_scratch_root(scratch: Path, roots: tuple[Path, ...]) -> None:
             raise MalformedRecord(f"scratch root {str(scratch)!r} lies under a corpus or store root {str(root)!r}")
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _retry_after(value: str | None, clock: Callable[[], datetime]) -> int | None:
+    """Whole seconds from a `Retry-After` value (RFC 9110 section 10.2.3): delay-seconds as given, an
+    HTTP-date as the rounded-up wait from `clock`, floored at 0; anything malformed is `None`."""
+    if value is None:
+        return None
+    text = value.strip()
+    if text.isascii() and text.isdigit():
+        return int(text)
+    try:
+        moment = parsedate_to_datetime(text)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return max(0, math.ceil((moment - clock()).total_seconds()))
+
+
+def _allowed_headers(response: Any) -> tuple[tuple[str, str], ...]:
+    pairs = ((name, response.getheader(name)) for name in sorted(ALLOWED_HEADERS))
+    return tuple((name, value) for name, value in pairs if value is not None)
+
+
 def retrieve(
-    locator: UrlLocator, bounds: RetrievalBounds, seam: UrlSeam, scratch: Path
+    locator: UrlLocator,
+    bounds: RetrievalBounds,
+    seam: UrlSeam,
+    scratch: Path,
+    *,
+    clock: Callable[[], datetime] = _utc_now,
 ) -> Retrieved | NotAttempted | Failed:
     """One GET of the declared URL, every hop revalidated, the body streamed to scratch and hashed as it arrives."""
     if type(locator) is not UrlLocator:
@@ -241,11 +314,18 @@ def retrieve(
         if isinstance(decision, Refused):
             if hop == 0:
                 return NotAttempted(decision.category)
-            return Failed(f"redirect hop {hop} refused: {decision.category}")
+            return Failed(
+                f"redirect hop {hop} refused: {decision.category}",
+                "redirect-refused",
+                hop=hop,
+                refusal=decision.category,
+            )
         try:
             connection = seam.connect(decision, bounds.timeout_seconds)
         except PinningUnavailable:
-            return NotAttempted("unpinnable") if hop == 0 else Failed(f"redirect hop {hop} refused: unpinnable")
+            if hop == 0:
+                return NotAttempted("unpinnable")
+            return Failed(f"redirect hop {hop} refused: unpinnable", "redirect-refused", hop=hop, refusal="unpinnable")
         try:
             try:
                 connection.request(
@@ -253,25 +333,36 @@ def retrieve(
                 )
                 response = connection.getresponse()
             except (OSError, HTTPException) as caught:
-                return Failed(f"transport failure: {_transport_category(caught)}")
+                category = _transport_category(caught)
+                return Failed(f"transport failure: {category}", category)
             if response.status in REDIRECTS:
                 location = response.getheader("Location")
                 if not location:
-                    return Failed("redirect without a location")
+                    return Failed("redirect without a location", "redirect-without-location", status=response.status)
                 joined = _join_hop(current, location)
                 if joined is None:
-                    return Failed(f"redirect hop {hop + 1} refused: malformed")
+                    return Failed(
+                        f"redirect hop {hop + 1} refused: malformed",
+                        "redirect-refused",
+                        hop=hop + 1,
+                        refusal="malformed",
+                    )
                 current = joined
                 continue
             if response.status != 200:
-                return Failed(f"status {response.status}")
+                retry_after = (
+                    _retry_after(response.getheader("Retry-After"), clock)
+                    if response.status in RETRY_AFTER_STATUSES
+                    else None
+                )
+                return Failed(f"status {response.status}", "status", status=response.status, retry_after=retry_after)
             encoding = response.getheader("Content-Encoding")
             if encoding is not None and encoding.strip().lower() != "identity":
-                return Failed("content-encoding is not identity")
+                return Failed("content-encoding is not identity", "content-encoding", status=response.status)
             return _stream(response, response.getheader("Content-Length"), bounds, scratch)
         finally:
             connection.close()
-    return Failed(f"redirect limit {bounds.max_redirects} exceeded")
+    return Failed(f"redirect limit {bounds.max_redirects} exceeded", "redirect-limit")
 
 
 def _stream(response: Any, declared_length: str | None, bounds: RetrievalBounds, scratch: Path) -> Retrieved | Failed:
@@ -297,21 +388,30 @@ def _stream_into(
             try:
                 chunk = response.read(min(CHUNK, bounds.max_bytes - size + 1))  # never past the ceiling plus one
             except (OSError, HTTPException) as caught:
-                return Failed(f"transport failure: {_transport_category(caught)}")
+                category = _transport_category(caught)
+                return Failed(f"transport failure: {category}", category, status=response.status)
             if not chunk:
                 break
             size += len(chunk)
             if size > bounds.max_bytes:
-                return Failed(f"exceeded the {bounds.max_bytes}-byte streaming ceiling")
+                return Failed(
+                    f"exceeded the {bounds.max_bytes}-byte streaming ceiling", "byte-bound", status=response.status
+                )
             hasher.update(chunk)
             handle.write(chunk)
     if declared_length is not None:
         try:
             expected = int(declared_length)
         except ValueError:
-            return Failed("malformed content-length")
+            return Failed("malformed content-length", "length-malformed", status=response.status)
         if size < expected:
-            return Failed(f"body shorter than content-length {expected}")
+            return Failed(f"body shorter than content-length {expected}", "length-mismatch", status=response.status)
         if size > expected:
-            return Failed(f"body longer than content-length {expected}")
-    return Retrieved(digest=f"sha256:{hasher.hexdigest()}", size=size, path=target)
+            return Failed(f"body longer than content-length {expected}", "length-mismatch", status=response.status)
+    return Retrieved(
+        digest=f"sha256:{hasher.hexdigest()}",
+        size=size,
+        path=target,
+        status=response.status,
+        headers=_allowed_headers(response),
+    )
