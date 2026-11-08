@@ -22,9 +22,11 @@ __all__ = [
     "Absent",
     "Found",
     "HoldingsObservation",
+    "Incomplete",
     "Locator",
     "Outcome",
     "StoreLocator",
+    "StoreTreeLocator",
     "UrlLocator",
     "holdings_observation",
     "require_canonical_digest",
@@ -36,6 +38,7 @@ HOLDINGS_OBSERVATION_DOMAIN = "science.holdings-observation.v1"
 HOLDINGS_OBSERVATION_KIND = "holdings-observation"
 
 _STORE_ID = re.compile(r"^[0-9a-f]{32}$")
+_TREE_HEX = re.compile(r"^[0-9a-f]{64}$")
 _DIGEST = re.compile(r"^(?P<algorithm>[a-z0-9-]+):(?P<hex>[0-9a-f]+)$")
 _OBSERVED_AT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _REFERENCE = re.compile(r"^[0-9a-f]{64}$")
@@ -86,9 +89,31 @@ class StoreLocator:
         if not isinstance(self.store_id, str) or _STORE_ID.fullmatch(self.store_id) is None:
             raise MalformedRecord(f"store identity {self.store_id!r} is not 32 lowercase hexadecimal characters")
         require_store_relative_path(self.relative_path)
+        if self.relative_path == "objects" or self.relative_path.startswith("objects/"):
+            raise MalformedRecord(f"store relative path {self.relative_path!r} is under the closed objects/ layout")
 
     def canonical(self) -> str:
         return f"store:{self.store_id}:{self.relative_path}"
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class StoreTreeLocator:
+    store_id: str
+    tree: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.store_id, str) or _STORE_ID.fullmatch(self.store_id) is None:
+            raise MalformedRecord(f"store identity {self.store_id!r} is not 32 lowercase hexadecimal characters")
+        if not isinstance(self.tree, str) or _TREE_HEX.fullmatch(self.tree) is None:
+            raise MalformedRecord(f"store tree {self.tree!r} is not 64 lowercase hexadecimal characters")
+
+    def canonical(self) -> str:
+        return f"store-tree:{self.store_id}:{self.tree}"
+
+    def digest(self) -> str:
+        return f"sha256-tree:{self.tree}"
 
 
 _DEFAULT_PORTS = MappingProxyType({"https": 443, "http": 80})
@@ -203,7 +228,7 @@ def url_locator(spelling: str) -> UrlLocator:
     return UrlLocator(_canonical_url(spelling))
 
 
-Locator = StoreLocator | UrlLocator
+Locator = StoreLocator | UrlLocator | StoreTreeLocator
 
 
 @sealed
@@ -219,8 +244,28 @@ class Found:
 @sealed
 @final
 @dataclass(frozen=True)
+class Incomplete:
+    missing: int
+    mismatched: int
+
+    def __post_init__(self) -> None:
+        for name in ("missing", "mismatched"):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise MalformedRecord(f"an incomplete count's {name} is a non-negative integer")
+        if self.missing + self.mismatched < 1:
+            raise MalformedRecord("an incomplete count names at least one missing or mismatched member")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
 class Absent:
-    pass
+    incomplete: Incomplete | None = None
+
+    def __post_init__(self) -> None:
+        if self.incomplete is not None and not isinstance(self.incomplete, Incomplete):
+            raise MalformedRecord("an absent observation's incomplete is an Incomplete value")
 
 
 Outcome = Found | Absent
@@ -240,12 +285,22 @@ class HoldingsObservation:
     supersedes: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.location, (StoreLocator, UrlLocator)):
-            raise MalformedRecord("a holdings observation names a store or url locator")
+        if not isinstance(self.location, (StoreLocator, UrlLocator, StoreTreeLocator)):
+            raise MalformedRecord("a holdings observation names a store, store-tree or url locator")
         if not isinstance(self.outcome, (Found, Absent)):
             raise MalformedRecord("a holdings observation outcome is Found or Absent")
         if isinstance(self.location, UrlLocator) and isinstance(self.outcome, Absent):
             raise MalformedRecord("a url location never establishes absent; only a store dereference can")
+        if isinstance(self.location, StoreTreeLocator):
+            tree_digest = self.location.digest()
+            if isinstance(self.outcome, Found) and self.outcome.digest != tree_digest:
+                raise MalformedRecord("a store-tree found observation's digest names its own tree")
+            if isinstance(self.outcome, Absent) and self.outcome.incomplete is None:
+                raise MalformedRecord("a store-tree absent observation carries its incomplete counts")
+            if self.expected is not None and self.expected != tree_digest:
+                raise MalformedRecord("a store-tree observation's expected digest names its own tree")
+        elif isinstance(self.outcome, Absent) and self.outcome.incomplete is not None:
+            raise MalformedRecord("only a store-tree absent observation carries incomplete counts")
         if self.expected is not None:
             require_canonical_digest(self.expected, "a holdings observation's expected digest")
             if (
@@ -278,9 +333,7 @@ class HoldingsObservation:
         doc: dict[str, object] = {
             "kind": HOLDINGS_OBSERVATION_KIND,
             "location": self.location_facet(),
-            "outcome": {"finding": "found", "digest": self.outcome.digest}
-            if isinstance(self.outcome, Found)
-            else {"finding": "absent"},
+            "outcome": self._outcome_facet(),
             "observer": self.observer,
             "instrument": self.instrument,
             "event_token": self.event_token,
@@ -294,9 +347,19 @@ class HoldingsObservation:
     def identity(self) -> str:
         return v1.digest(HOLDINGS_OBSERVATION_DOMAIN, self.facet())
 
+    def _outcome_facet(self) -> dict[str, object]:
+        if isinstance(self.outcome, Found):
+            return {"finding": "found", "digest": self.outcome.digest}
+        if self.outcome.incomplete is None:
+            return {"finding": "absent"}
+        counts = {"missing": self.outcome.incomplete.missing, "mismatched": self.outcome.incomplete.mismatched}
+        return {"finding": "absent", "incomplete": counts}
+
     def location_facet(self) -> dict[str, str]:
         if isinstance(self.location, UrlLocator):
             return {"type": "url", "url": self.location.url}
+        if isinstance(self.location, StoreTreeLocator):
+            return {"type": "store-tree", "store_id": self.location.store_id, "tree": self.location.tree}
         return {"type": "store", "store_id": self.location.store_id, "relative_path": self.location.relative_path}
 
 
@@ -311,8 +374,8 @@ def holdings_observation(
     observed_at: str,
     supersedes: tuple[HoldingsObservation, ...] = (),
 ) -> HoldingsObservation:
-    if not isinstance(location, (StoreLocator, UrlLocator)):
-        raise MalformedRecord("a holdings observation names a store or url locator")
+    if not isinstance(location, (StoreLocator, UrlLocator, StoreTreeLocator)):
+        raise MalformedRecord("a holdings observation names a store, store-tree or url locator")
     if not isinstance(supersedes, tuple) or not all(
         isinstance(predecessor, HoldingsObservation) for predecessor in supersedes
     ):

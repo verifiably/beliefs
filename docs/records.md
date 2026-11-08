@@ -298,10 +298,28 @@ A `source` facet holds `identifiers`, each stored in canonical form. An ordinary
 relocation carry it.
 
 A `holdings-observation` records one look at one location. Its `location` is
-either `{type: store, store_id, relative_path}` or `{type: url, url}`. Its `outcome`
-is either `{finding: found, digest}` or `{finding: absent}`. It also has the fields
-`observer`, `instrument`, `event_token`, `observed_at` and `supersedes` (a list of
-observations), and an optional `expected`. Holdings acts alone mint observations.
+one of three types:
+
+- `{type: store, store_id, relative_path}`, a file in a store;
+- `{type: store-tree, store_id, tree}`, a tree dataset held in a store, where
+  `tree` is the 64 lowercase hex characters of a `sha256-tree` digest (canonical
+  form `store-tree:<store_id>:<tree>`);
+- `{type: url, url}`.
+
+Its `outcome` is either `{finding: found, digest}` or `{finding: absent}`. At a
+store-tree location a found digest is exactly `sha256-tree:<tree>`, and so is
+`expected` when set. An absent observation at a store-tree location carries
+`incomplete`, `{missing, mismatched}`, two non-negative integers whose sum is at
+least 1: the count of members not in the store and the count whose stored bytes
+do not match. At any other location `incomplete` is refused. A url location never
+records absent. The observation also has the fields `observer`, `instrument`,
+`event_token`, `observed_at` and `supersedes` (a list of observations), and an
+optional `expected`. Holdings acts alone mint observations.
+
+A tree dataset is held as a tree file plus its member objects. The store keeps each
+object at `objects/sha256/<hh>/<hex>`, where `<hex>` is the object's digest and `<hh>`
+its first two characters. The `objects/` directory is closed to ordinary acts: a
+store locator refuses `objects` and every path under it.
 
 ## Other world records
 

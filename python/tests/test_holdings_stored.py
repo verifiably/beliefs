@@ -13,8 +13,11 @@ from beliefs.corpus import CorpusWriter
 from beliefs.errors import MalformedRecord, WriteRefused
 from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_DOMAIN,
+    Absent,
     Found,
+    Incomplete,
     StoreLocator,
+    StoreTreeLocator,
     holdings_observation,
     url_locator,
 )
@@ -145,3 +148,41 @@ def test_the_codec_refuses_a_location_outside_the_two_arms(location):
     facet["location"] = location
     with pytest.raises(MalformedRecord):
         stored.holdings_observation_value(node.model_copy(update={"facets": {"holdings-observation": facet}}))
+
+
+def _tree_record(outcome):
+    tree = "ef" * 32
+    return holdings_observation(
+        location=StoreTreeLocator("a" * 32, tree),
+        outcome=outcome,
+        observer="o",
+        instrument="i",
+        event_token="t",
+        observed_at="2026-09-20T00:00:00Z",
+    )
+
+
+@pytest.mark.parametrize("outcome", [Found("sha256-tree:" + "ef" * 32), Absent(Incomplete(3, 0))])
+def test_store_tree_observation_round_trips_through_the_codec(outcome):
+    record = _tree_record(outcome)
+    assert stored.holdings_observation_value(stored.holdings_observation_node(record)) == record
+
+
+def _decode_with(record, edit):
+    node = stored.holdings_observation_node(record)
+    facet = deepcopy(node.facets["holdings-observation"])
+    edit(facet)
+    return stored.holdings_observation_value(node.model_copy(update={"facets": {"holdings-observation": facet}}))
+
+
+def test_codec_refuses_extra_keys_in_a_store_tree_location_or_incomplete():
+    found = _tree_record(Found("sha256-tree:" + "ef" * 32))
+    absent = _tree_record(Absent(Incomplete(1, 1)))
+    with pytest.raises(MalformedRecord):
+        _decode_with(found, lambda f: f["location"].update(relative_path="x"))
+    with pytest.raises(MalformedRecord):
+        _decode_with(absent, lambda f: f["outcome"]["incomplete"].update(extra=1))
+    with pytest.raises(MalformedRecord):
+        _decode_with(absent, lambda f: f["outcome"]["incomplete"].pop("missing"))
+    with pytest.raises(MalformedRecord):
+        _decode_with(absent, lambda f: f["outcome"].update(extra=1))

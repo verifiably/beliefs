@@ -10,7 +10,9 @@ from beliefs.holdings.records import (
     Absent,
     Found,
     HoldingsObservation,
+    Incomplete,
     StoreLocator,
+    StoreTreeLocator,
     UrlLocator,
     holdings_observation,
     require_canonical_digest,
@@ -304,3 +306,70 @@ def test_sha256_tree_width_is_exact():
     with pytest.raises(MalformedRecord):
         require_canonical_digest("sha256-tree:" + "0" * 63, "w")
     require_canonical_digest("sha256-tree:" + "0" * 64, "w")
+
+
+TREE_HEX = "ef" * 32
+TREE_DIGEST = f"sha256-tree:{TREE_HEX}"
+
+
+def tree_observation(**changes: object):
+    fields: dict[str, object] = {
+        "location": StoreTreeLocator(STORE_ID, TREE_HEX),
+        "outcome": Found(TREE_DIGEST),
+        "observer": "observer-1",
+        "instrument": "instrument-1",
+        "event_token": "event-1",
+        "observed_at": "2026-08-24T12:00:00Z",
+    }
+    fields.update(changes)
+    return holdings_observation(**fields)  # type: ignore[arg-type]
+
+
+def test_store_tree_locator_canonical_and_facet():
+    locator = StoreTreeLocator(STORE_ID, TREE_HEX)
+    assert locator.canonical() == f"store-tree:{STORE_ID}:{TREE_HEX}"
+    assert tree_observation().facet()["location"] == {"type": "store-tree", "store_id": STORE_ID, "tree": TREE_HEX}
+
+
+@pytest.mark.parametrize("tree", ["AB" * 32, "ab" * 31, "zz" * 32, ""])
+def test_store_tree_locator_refuses_a_non_64_hex_tree(tree: str):
+    with pytest.raises(MalformedRecord):
+        StoreTreeLocator(STORE_ID, tree)
+
+
+@pytest.mark.parametrize("path", ["objects", "objects/sha256/ab/" + "ab" * 32, "objects/x"])
+def test_store_locator_refuses_object_paths(path: str):
+    with pytest.raises(MalformedRecord):
+        StoreLocator(STORE_ID, path)
+
+
+@pytest.mark.parametrize("path", ["objects2/x", "a/objects/x"])
+def test_store_locator_admits_look_alike_paths(path: str):
+    assert StoreLocator(STORE_ID, path).relative_path == path
+
+
+@pytest.mark.parametrize("digest", [DIGEST, "sha256-tree:" + "cd" * 32])
+def test_store_tree_found_names_its_own_tree(digest: str):
+    with pytest.raises(MalformedRecord):
+        tree_observation(outcome=Found(digest))
+
+
+def test_store_tree_expected_names_its_own_tree():
+    assert tree_observation(expected=TREE_DIGEST).expected == TREE_DIGEST
+    with pytest.raises(MalformedRecord):
+        tree_observation(expected="sha256-tree:" + "cd" * 32)
+
+
+def test_store_tree_absent_needs_incomplete_and_others_refuse_it():
+    absent = tree_observation(outcome=Absent(Incomplete(2, 1)))
+    assert absent.facet()["outcome"] == {"finding": "absent", "incomplete": {"missing": 2, "mismatched": 1}}
+    with pytest.raises(MalformedRecord):
+        tree_observation(outcome=Absent())
+    with pytest.raises(MalformedRecord):
+        observation(outcome=Absent(Incomplete(1, 0)))
+
+
+@pytest.mark.parametrize("missing, mismatched", [(0, 0), (-1, 2), (1, -1), (True, 0), (1, False), (1.0, 1)])
+def test_incomplete_refuses_zero_and_negative_and_bool(missing: object, mismatched: object):
+    with pytest.raises(MalformedRecord):
+        Incomplete(missing, mismatched)  # type: ignore[arg-type]

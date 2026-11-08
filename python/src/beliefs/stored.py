@@ -84,7 +84,9 @@ from beliefs.holdings.records import (
     Absent,
     Found,
     HoldingsObservation,
+    Incomplete,
     StoreLocator,
+    StoreTreeLocator,
     UrlLocator,
 )
 from beliefs.identity import v1
@@ -904,17 +906,26 @@ def holdings_observation_value(node: Node) -> HoldingsObservation:
         if not isinstance(location, dict) or not isinstance(location.get("type"), str):
             raise MalformedRecord("a holdings observation location is a store or url locator")
         if location["type"] == "store" and set(location) == {"type", "store_id", "relative_path"}:
-            decoded_location: StoreLocator | UrlLocator = StoreLocator(location["store_id"], location["relative_path"])
+            decoded_location: StoreLocator | UrlLocator | StoreTreeLocator = StoreLocator(
+                location["store_id"], location["relative_path"]
+            )
+        elif location["type"] == "store-tree" and set(location) == {"type", "store_id", "tree"}:
+            decoded_location = StoreTreeLocator(location["store_id"], location["tree"])
         elif location["type"] == "url" and set(location) == {"type", "url"}:
             decoded_location = UrlLocator(location["url"])
         else:
-            raise MalformedRecord("a holdings observation location is a store or url locator")
+            raise MalformedRecord("a holdings observation location is a store, store-tree or url locator")
         if not isinstance(outcome, dict):
             raise MalformedRecord("a holdings observation outcome is a finding")
         if outcome.get("finding") == "found" and set(outcome) == {"finding", "digest"}:
             finding = Found(outcome["digest"])
         elif outcome.get("finding") == "absent" and set(outcome) == {"finding"}:
             finding = Absent()
+        elif outcome.get("finding") == "absent" and set(outcome) == {"finding", "incomplete"}:
+            counts = outcome["incomplete"]
+            if not isinstance(counts, dict) or set(counts) != {"missing", "mismatched"}:
+                raise MalformedRecord("a holdings observation's incomplete counts are missing and mismatched")
+            finding = Absent(Incomplete(counts["missing"], counts["mismatched"]))
         else:
             raise MalformedRecord("a holdings observation outcome is a finding")
         value = HoldingsObservation(

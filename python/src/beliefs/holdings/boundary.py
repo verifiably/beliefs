@@ -20,6 +20,7 @@ from beliefs.holdings.records import (
     HoldingsObservation,
     Locator,
     StoreLocator,
+    StoreTreeLocator,
     UrlLocator,
     holdings_observation,
     require_canonical_digest,
@@ -56,6 +57,8 @@ def intent_payload(*, location: Locator, act_kind: str, event_token: str, actor:
     if not isinstance(event_token, str) or not event_token:
         raise MalformedRecord("a holdings intent event_token must be a non-empty string")
     require_actor(actor)
+    if isinstance(location, StoreTreeLocator):
+        raise MalformedRecord("a store-tree location has no holdings intent yet")
     location_facet = (
         {"type": "url", "url": location.url}
         if isinstance(location, UrlLocator)
