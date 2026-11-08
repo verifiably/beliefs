@@ -186,6 +186,8 @@ PROPOSITION_FACET = "proposition"
 ANALYSIS_SPEC_FACET = "analysis-spec"
 ASSESSMENT_FACET = "assessment"
 COMPOSITE_FACET = "composite"
+EXPOSURE_EVENT_FACET = "exposure-event"
+RESERVATION_ASSIGNMENT_FACET = "reservation-assignment"
 RUN_FACET = "run"
 RUN_CLOSURE_FACET = "run-closure"
 DATASET_FACET = "dataset"
@@ -211,9 +213,9 @@ COREFERENCE_ENDPOINT_KINDS: tuple[str, ...] = (
     "instrument-certification",
     "composite",
 )
-"""The kinds a coreference attestation may name as endpoints: the world kinds less the attestation itself and the two
-boundary-minted occurrence records. `test_coreference_attestation.py` holds
-this equal to `WORLD_KINDS - {coreference-attestation} - EXCLUDED_MUTATION_KINDS`."""
+"""The kinds a coreference attestation may name as endpoints: the world kinds less the attestation itself, the two
+boundary-minted occurrence records and the two append-only kinds. `test_coreference_attestation.py` holds
+this equal to `WORLD_KINDS - {coreference-attestation} - EXCLUDED_MUTATION_KINDS - APPEND_ONLY_KINDS`."""
 HOLDINGS_OBSERVATION_FACET = "holdings-observation"
 COORDINATION_FACET = "coordination"
 
@@ -241,6 +243,14 @@ RETRACTS = "retracts"
 GROUNDED_IN = "grounded-in"
 SUCCEEDED_BY = "succeeded-by"
 COMPOSES = "composes"
+EXPOSES = "exposes"
+CONCERNS = "concerns"
+ATTESTED_BY = "attested-by"
+CONSIDERS = "considers"
+EVIDENCED_BY = "evidenced-by"
+FLAGS = "flags"
+REPORTS = "reports"
+APPLIES = "applies"
 
 _SHIPPED = shipped_base()
 _WORLD = {name: kind for name, kind in _SHIPPED.kinds.items() if kind.role == "world"}

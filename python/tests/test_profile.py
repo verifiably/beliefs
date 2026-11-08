@@ -46,9 +46,10 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     again when the estimand grammar entered the projection,
     again when the (here empty) `estimands` table entered it too, again
     when the composite grammar entered the projection,
-    and again when the (here empty) `edges` table entered it too."""
+    and again when the (here empty) `edges` table entered it too,
+    and again when the exposure and reservation kinds entered it."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "ccd5ed099eef2c524c2dafbe7d30894b16f5f924f5315d0a073d9ba003e41548"
+    assert before.compiled_identity == "a2ba154ec3c555c85a6d421aa9643010c8a925ae0ca4ffb74fe479bdf5618c77"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 

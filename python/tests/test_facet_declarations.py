@@ -15,7 +15,7 @@ def parse(document):
 
 
 class TestTheShippedDeclarations:
-    def test_the_fourteen_world_kinds_and_three_prose_kinds_are_declared(self, base_contract):
+    def test_the_sixteen_world_kinds_and_three_prose_kinds_are_declared(self, base_contract):
         assert {n for n, k in base_contract.kinds.items() if k.role == "prose"} == {
             "interpretation",
             "discussion",
@@ -36,6 +36,8 @@ class TestTheShippedDeclarations:
             "coreference-attestation",
             "act-report",
             "composite",
+            "exposure-event",
+            "reservation-assignment",
         }
 
     def test_the_one_deferred_kind_carries_no_domain_and_no_facets(self, base_contract):
@@ -108,6 +110,14 @@ class TestTheShippedDeclarations:
             "member_of",
             "grounded-in",
             "composes",
+            "exposes",
+            "concerns",
+            "attested-by",
+            "considers",
+            "evidenced-by",
+            "flags",
+            "reports",
+            "applies",
         }
         assert lifecycle == {"supersedes", "retracts", "succeeded-by", "anchored_in"}
         assert base_contract.relations["retracts"].sources == ("retraction",)

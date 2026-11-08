@@ -250,7 +250,10 @@ def test_grammar_kind_and_relations(corpora):
         False,
     )
     supersedes = base.relations["supersedes"]
-    assert set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite"} and supersedes.same_kind
+    assert (
+        set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite", "reservation-assignment"}
+        and supersedes.same_kind
+    )
     # `assesses` keeps its one target kind — the boundary invariant the belief-inertness test rests on.
     assert base.relations["assesses"].targets == ("proposition",)
     writer = corpora()

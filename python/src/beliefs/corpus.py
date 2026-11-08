@@ -160,6 +160,7 @@ if TYPE_CHECKING:
     from beliefs.world.view import WorldReadView
 
 __all__ = [
+    "APPEND_ONLY_KINDS",
     "CONSTRUCTION_CODES",
     "DIRECTIONS",
     "ELIGIBLE_RETRACTION_TARGET_KINDS",
@@ -185,6 +186,8 @@ __all__ = [
 
 DIRECTIONS = ("inbound", "outbound")
 ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
+APPEND_ONLY_KINDS: tuple[str, ...] = ("exposure-event", "reservation-assignment")
+"""The world kinds minted once and never mutated in place; a later task applies it to the mutation operations."""
 EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("act-report", "holdings-observation", *COORDINATION_KINDS)
 """The statically excluded kinds no world-changing operation accepts:
 as a `delete` target, a `move` subject, or a `consolidate` input.

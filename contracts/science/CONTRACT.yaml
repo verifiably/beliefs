@@ -90,6 +90,16 @@ kinds:
     facets:
       composite: { required: true, covered: true }
       display: { required: false, covered: false }
+  exposure-event:
+    domain: science.exposure-event.v1
+    facets:
+      exposure-event: { required: true, covered: true }
+      display: { required: false, covered: false }
+  reservation-assignment:
+    domain: science.reservation-assignment.v1
+    facets:
+      reservation-assignment: { required: true, covered: true }
+      display: { required: false, covered: false }
   interpretation: { role: prose, facets: { display: { required: false, covered: false } } }
   discussion: { role: prose, facets: { display: { required: false, covered: false } } }
   story: { role: prose, facets: { display: { required: false, covered: false } } }
@@ -107,7 +117,15 @@ relations:
   member_of: { group: world, sources: [source], targets: [dataset] }
   grounded-in: { group: world, sources: [retraction], targets: [retraction, verification, source] }
   composes: { group: world, sources: [composite], targets: [proposition] }
-  supersedes: { group: lifecycle, sources: [proposition, composite], targets: [proposition, composite], same_kind: true }
+  exposes: { group: world, sources: [exposure-event], targets: [dataset, source] }
+  concerns: { group: world, sources: [exposure-event, reservation-assignment], targets: [proposition] }
+  attested-by: { group: world, sources: [exposure-event], targets: [act-report, run, holdings-observation] }
+  considers: { group: world, sources: [reservation-assignment], targets: [exposure-event] }
+  evidenced-by: { group: world, sources: [reservation-assignment], targets: [exposure-event] }
+  flags: { group: world, sources: [reservation-assignment], targets: [assessment] }
+  reports: { group: world, sources: [reservation-assignment], targets: [run] }
+  applies: { group: world, sources: [reservation-assignment], targets: [reservation-assignment] }
+  supersedes: { group: lifecycle, sources: [proposition, composite, reservation-assignment], targets: [proposition, composite, reservation-assignment], same_kind: true }
   retracts: { group: lifecycle, sources: [retraction], targets: [assessment, retraction, verification] }
   succeeded-by: { group: lifecycle, sources: [retraction], targets: [retraction] }
   anchored_in: { group: lifecycle, sources: [source-assertion], targets: [source] }
@@ -130,6 +148,8 @@ facets:
   coreference-attestation: { shape: reader, reader: stored.coreference_attestation_value }
   act-report: { shape: reader, reader: stored.act_report_facet }
   composite: { shape: reader, reader: stored.composite_value }
+  exposure-event: { shape: reader, reader: stored.exposure_event_value }
+  reservation-assignment: { shape: reader, reader: stored.reservation_assignment_value }
   empirical-observation:
     shape: schema
     description: The declared acquisition boundary (design §6). `locator` names the most upstream form outside the held boundary; `attested_by` is bound to the writer's actor at mint; `retrieval` is the boundary-minted acquisition report when one exists.
