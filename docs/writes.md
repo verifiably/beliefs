@@ -67,7 +67,8 @@ A kind with its own door is refused through `add`. Holdings observations, act
 reports and publication records have no ordinary door at all. `delete` removes one
 record's file. It takes the lock, checks the pins and resolves its target first,
 then requires the permit on the target's kind, then refuses act reports, holdings
-observations and coordination kinds.
+observations, coordination kinds, exposure events and reservation assignments
+(`DeletionKindExcluded`).
 
 ## Writer sessions
 

@@ -340,7 +340,7 @@ A unit is one of two shapes, and a list of units holds one shape only:
   digits and `-`) and `term` a non-empty string. The sort must be declared in the
   compiled profile;
 - an interval unit, `{start, end}`: each end is a whole-second UTC timestamp
-  (`YYYY-MM-DDTHH:MM:SSZ`) or the word `open`. Both ends may not be `open`, and a
+  (`YYYY-MM-DDTHH:MM:SSZ`) or the word `open`. The two ends cannot both be `open`, and a
   closed interval starts strictly before it ends.
 
 Units sort by shape, then by sort and term, or by start and end with an open start
@@ -429,14 +429,16 @@ role was `reserved`. An `added` group is never suspended.
 
 ### Write rules
 
-`add` mints a chain root or an exposure event; a record naming a predecessor, or
-carrying a `supersedes` edge, is refused there (`FamilyKindUnsupported`).
+`add` mints a chain root or an exposure event; for a reservation assignment, a record
+naming a predecessor, or carrying a `supersedes` edge, is refused there
+(`FamilyKindUnsupported`).
 `supersede` mints a successor: its facet's `predecessor` must name the record
 superseded, and the adapter authors the `supersedes` edge, so the caller supplies
 none. `revise` changes prose only (title, body, `display`) and refuses anything else
 (`ReviseOutsideAllowlist`). `delete` refuses both kinds (`DeletionKindExcluded`),
-and neither kind can be a coreference endpoint. `move` and `consolidate` carry them,
-keeping their edges in facet order.
+and neither kind can be a coreference endpoint. `move` and `consolidate` carry them: `move` keeps
+their edges in facet order, and `consolidate` writes the merged record's edges
+sorted, which the set comparison below accepts.
 
 The write boundary decodes the facet (a facet its reader refuses is
 `MalformedRecord`) and then refuses with `ReservationRefused`, whose `code` is one
@@ -448,24 +450,23 @@ duplicate-free set, so order is free and a missing, extra or doubled edge is not
   record of the wrong kind); `exposure-unit-sort-undeclared`.
 - An assignment's own record: `assignment-edge-mismatch` (including a successor
   without exactly one `supersedes` edge to its predecessor, and a root with one);
-  `assignment-ref-unresolved` (an event, `evidence`, `flagged`, `prior_runs`,
-  `scope`, `applies` or `predecessor` reference that resolves to no record or the
-  wrong kind); `assignment-applies-scoped` (`applies` names a scoped assignment);
+  `assignment-ref-unresolved` (an event, an `exposure-event:` entry of `evidence`,
+  a `flagged` assessment, a `run:` entry of `prior_runs`, or `scope`, `applies` or
+  `predecessor`, that resolves to no record or the wrong kind); `assignment-applies-scoped` (`applies` names a scoped assignment);
   `assignment-unit-sort-undeclared`.
 - Its chain, judged over the write root (or an import's union), never a read mount:
   `assignment-root-exists` (a second root for the same `chain` and `scope`) and
   `assignment-superseded` (the predecessor already has a successor).
 - Its succession, against the predecessor: `assignment-scope-mismatch` (a different
   chain, scope or unit shape); `assignment-unchanged` (the facet with `predecessor`,
-  `assigned_at` and `assigned_by` removed equals the predecessor's, so the
-  semantic-identity comparison of `supersede`, which cannot see this, is not
-  relied on); `assignment-changes-without-evidence` (any derived change, an
+  `assigned_at` and `assigned_by` removed equals the predecessor's); `assignment-changes-without-evidence` (any derived change, an
   addition included, and no `evidence`); `assignment-suspension-unflagged` (a
   suspended group and no `flagged` list); `assignment-flagged-without-suspension`
   (`flagged` present and no suspension, a root's included).
 
 Last, `recorded_by` (an event) or `assigned_by` (an assignment) must equal the bound
-actor; import keeps the actor as written (`ActorMismatch` otherwise).
+actor (`ActorMismatch` otherwise); import, `move` and `consolidate` keep the actor as
+written.
 
 ### Audit
 
@@ -501,7 +502,8 @@ Three module functions in `beliefs.reservation` read the kinds through any view 
 
 Publication closure follows each kind's world edges. A reservation assignment's
 `supersedes` edge counts too, so a published successor carries its predecessor
-chain; the `supersedes` edges of other kinds stay outside closure. See
+chain, and a selection that lacks the chain is refused (`closure-incomplete`); the
+`supersedes` edges of other kinds stay outside closure. See
 [writes.md](writes.md#publication).
 
 ## Beliefs
@@ -551,3 +553,7 @@ contract that declares a predecessor or a retired identifier.
   identifiers; authoring a new one does (`WithdrawnFromAuthoring`).
 - A stored estimand or applicability that does not restore against the profile
   (`MalformedWireEstimand`, `MalformedRecord`).
+- An exposure event or reservation assignment whose stored facet is not the
+  canonical form of the value it decodes to (for example an empty `evidence` or
+  `bound` written out), or whose id does not recompute from the facet
+  (`MalformedRecord`).
