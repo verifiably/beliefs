@@ -143,6 +143,12 @@ def move(
         return moved, destination_report, source_report
 
 
+FACET_ORDERED_KINDS: tuple[str, ...] = ("exposure-event", "reservation-assignment")
+"""Kinds whose edges mirror their facet in the facet's order, which the write boundary checks exactly:
+a consolidation keeps the survivor's edges in their stored order and appends the loser's others after
+them, rather than sorting the union as it does for every other kind."""
+
+
 def _relation_key(relation: Relation) -> tuple[str, str, str]:
     return relation.source, relation.predicate, relation.target
 
@@ -151,6 +157,11 @@ def _reconcile(survivor: Node, loser: Node, *, correction_entries: list[dict[str
     relations: dict[tuple[str, str, str], Relation] = {}
     for relation in (*survivor.relations, *loser.relations):
         relations.setdefault(_relation_key(relation), relation)
+    reconciled = (
+        list(relations.values())
+        if survivor.kind in FACET_ORDERED_KINDS
+        else [relations[key] for key in sorted(relations)]
+    )
     facets = stored.union_lineage_bases(survivor, loser)
     if correction_entries is not None:  # a source
         if correction_entries:
@@ -159,7 +170,7 @@ def _reconcile(survivor: Node, loser: Node, *, correction_entries: list[dict[str
             facets.pop(stored.IDENTIFIER_CORRECTION_FACET, None)
     unstamped = survivor.model_copy(
         update={
-            "relations": [relations[key] for key in sorted(relations)],
+            "relations": reconciled,
             "deprecated_ids": sorted({*survivor.deprecated_ids, *loser.deprecated_ids}),
             "facets": facets,
         }
