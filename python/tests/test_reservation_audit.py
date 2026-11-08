@@ -22,6 +22,7 @@ from test_reservation_boundary import (
     _knowledge,
     _node,
     _proposition,
+    _readdress_assignment,
     _root,
     _successor,
     _supersede,
@@ -30,7 +31,14 @@ from test_reservation_boundary import (
 from beliefs import audit, errors, reservation, stored
 from beliefs.audit import NO_EVIDENCE, audit_corpus
 from beliefs.corpus import CorpusWriter
-from beliefs.reservation import OPEN, ReservationAssignment, TermUnit, assignment_changes
+from beliefs.identity import v1
+from beliefs.reservation import (
+    EXPOSURE_EVENT_DOMAIN,
+    OPEN,
+    ReservationAssignment,
+    TermUnit,
+    assignment_changes,
+)
 
 GENE = "biology/gene"
 
@@ -199,6 +207,38 @@ def test_a_malformed_facet_is_facet_payload_malformed_and_skipped_below(writer, 
         [("facet-payload-malformed", second.id), ("facet-payload-malformed", event.id)]
     )
     assert audit.check_assignment_chains(reopen(writer.root)) == ()
+
+
+def test_misplaced_world_kind_tokens_and_unscoped_applies_audit_as_facet_payload_malformed(writer, events):
+    root = _root((events[0],))
+    _add(writer, root)
+
+    bad_event = _knowledge("2026-11-03T00:00:00Z").model_copy(deep=True)
+    event_facet = bad_event.facets[stored.EXPOSURE_EVENT_FACET]
+    event_facet["evidence"] = ["assessment:" + "a" * 64]
+    bad_event = bad_event.model_copy(update={"id": "exposure-event:" + v1.digest(EXPOSURE_EVENT_DOMAIN, event_facet)})
+    _raw(writer, bad_event)
+
+    bad_evidence = _readdress_assignment(_node(_root((events[0],), chain="second")), evidence=["run:" + "a" * 64])
+    _raw(writer, bad_evidence)
+
+    bad_prior = _readdress_assignment(
+        _node(_root((events[0],), chain="third")), prior_runs=["exposure-event:" + "a" * 64]
+    )
+    _raw(writer, bad_prior)
+
+    unscoped_applies = _readdress_assignment(_node(_root((events[0],), chain="fourth")), applies=root.id)
+    _raw(writer, unscoped_applies)
+
+    findings = _findings(writer)
+    assert sorted((f.code, f.ref, f.detail) for f in findings) == sorted(
+        [
+            ("facet-payload-malformed", bad_event.id, stored.EXPOSURE_EVENT_FACET),
+            ("facet-payload-malformed", bad_evidence.id, stored.RESERVATION_ASSIGNMENT_FACET),
+            ("facet-payload-malformed", bad_prior.id, stored.RESERVATION_ASSIGNMENT_FACET),
+            ("facet-payload-malformed", unscoped_applies.id, stored.RESERVATION_ASSIGNMENT_FACET),
+        ]
+    )
 
 
 def _world_of(tmp_path, placement):

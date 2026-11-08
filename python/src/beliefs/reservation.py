@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Protocol, final
 from beliefs.errors import ChainAmbiguous, MalformedRecord
 from beliefs.identity import v1
 from beliefs.permit import require_actor
+from beliefs.profile import shipped_base
 from beliefs.sealed import sealed
 
 if TYPE_CHECKING:
@@ -76,6 +77,7 @@ _SORT = re.compile(r"^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$")
 _EVENT_KERNEL_EVIDENCE = ("act-report", "run", "holdings-observation")
 _ASSIGNMENT_KERNEL_EVIDENCE = ("exposure-event",)
 _PRIOR_RUN_KERNEL_REFS = ("run",)
+_WORLD_KINDS = frozenset(name for name, kind in shipped_base().kinds.items() if kind.role == "world")
 
 
 def _refuse(message: str) -> MalformedRecord:
@@ -130,7 +132,12 @@ def _sorted_distinct(values: Sequence[object], where: str, key: object = None) -
 
 
 def _strings(
-    value: object, where: str, prefixes: tuple[str, ...] | None = None, *, tokens: bool = False, actors: bool = False
+    value: object,
+    where: str,
+    prefixes: tuple[str, ...] | None = None,
+    *,
+    tokens: tuple[str, ...] | None = None,
+    actors: bool = False,
 ) -> tuple[str, ...]:
     entries = _tuple(value, where)
     out: list[str] = []
@@ -140,9 +147,12 @@ def _strings(
                 out.append(require_actor(entry))
             except (TypeError, ValueError) as caught:
                 raise _refuse(f"{where}: {entry!r} is not an actor: {caught}") from caught
-        elif tokens:
+        elif tokens is not None:
             if type(entry) is not str or entry.find(":") < 1 or entry.endswith(":"):
                 raise _refuse(f"{where}: {entry!r} is not `<scheme>:<rest>`")
+            scheme = entry.split(":", 1)[0]
+            if scheme in _WORLD_KINDS and scheme not in tokens:
+                raise _refuse(f"{where}: {entry!r} names world kind {scheme!r}, not one of {tokens}")
             out.append(entry)
         else:
             assert prefixes is not None
@@ -332,7 +342,7 @@ class ExposureEvent:
         _strings((self.recorded_by,), "recorded_by", actors=True)
         _timestamp(self.observed_at, "observed_at")
         _strings(self.propositions, "propositions", ("proposition:",))
-        _strings(self.evidence, "evidence", tokens=True)
+        _strings(self.evidence, "evidence", tokens=_EVENT_KERNEL_EVIDENCE)
 
     def facet(self) -> dict[str, object]:
         out: dict[str, object] = {
@@ -445,14 +455,16 @@ class ReservationAssignment:
         ):
             if value is not None:
                 _prefixed(value, (prefix,), where)
+        if self.applies is not None and self.scope is None:
+            raise _refuse("applies requires scope: an unscoped reservation assignment may not carry `applies`")
         _check_groups(_tuple(self.groups, "groups"))  # type: ignore[arg-type]
-        _strings(self.evidence, "evidence", tokens=True)
+        _strings(self.evidence, "evidence", tokens=_ASSIGNMENT_KERNEL_EVIDENCE)
         if self.flagged is not None:
             _strings(self.flagged, "flagged", ("assessment:",))
         if self.account is not None:
             _text(self.account, "account")
         _strings(self.participants, "participants", actors=True)
-        _strings(self.prior_runs, "prior_runs", tokens=True)
+        _strings(self.prior_runs, "prior_runs", tokens=_PRIOR_RUN_KERNEL_REFS)
         _timestamp(self.assigned_at, "assigned_at")
         _strings((self.assigned_by,), "assigned_by", actors=True)
 

@@ -19,12 +19,14 @@ from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
     ActorMismatch,
     DeletionKindExcluded,
+    MalformedRecord,
     RecordAlreadyMinted,
     ReservationRefused,
     ReviseOutsideAllowlist,
 )
+from beliefs.identity import v1
 from beliefs.projection import project_claim
-from beliefs.reservation import TermUnit
+from beliefs.reservation import EXPOSURE_EVENT_DOMAIN, TermUnit
 
 GENE = "biology/gene"
 AFFECTS = "biology/affects"
@@ -163,3 +165,14 @@ def test_the_same_look_twice_is_one_record(writer, source):
     writer.add(node)
     with pytest.raises(RecordAlreadyMinted):
         writer.add(node)
+
+
+def test_a_disallowed_world_kind_scheme_in_evidence_is_refused(writer, source):
+    node = stored.exposure_event_node(_read(source), title="t").model_copy(deep=True)
+    facet = node.facets[stored.EXPOSURE_EVENT_FACET]
+    facet["evidence"] = ["assessment:" + _D]
+    readdressed = "exposure-event:" + v1.digest(EXPOSURE_EVENT_DOMAIN, facet)
+    relations = [Relation(source=readdressed, predicate=r.predicate, target=r.target) for r in node.relations]
+    stamped = stored.stamp_semantic_identity(node.model_copy(update={"id": readdressed, "relations": relations}))
+    with pytest.raises(MalformedRecord, match="assessment"):
+        writer.add(stamped)
