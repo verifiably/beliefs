@@ -21,11 +21,20 @@ from beliefs.errors import (
     ActorMismatch,
     FamilyKindUnsupported,
     ImportRefused,
+    MalformedRecord,
     ReservationRefused,
     ValidationRefused,
 )
+from beliefs.identity import v1
 from beliefs.projection import project_claim
-from beliefs.reservation import OPEN, Group, IntervalUnit, ReservationAssignment, TermUnit
+from beliefs.reservation import (
+    OPEN,
+    RESERVATION_ASSIGNMENT_DOMAIN,
+    Group,
+    IntervalUnit,
+    ReservationAssignment,
+    TermUnit,
+)
 
 GENE = "biology/gene"
 AFFECTS = "biology/affects"
@@ -269,8 +278,37 @@ def test_applies_must_name_a_program_level_assignment(writer, events):
         _add(writer, _root((events[0],), chain="other-program", scope=proposition.id, applies=scoped.id))
     assert _code(caught) == "assignment-applies-scoped"
     with pytest.raises(ReservationRefused) as caught:
-        _add(writer, _root((events[0],), chain="third", applies="reservation-assignment:" + "9" * 64))
+        _add(
+            writer,
+            _root((events[0],), chain="third", scope=proposition.id, applies="reservation-assignment:" + "9" * 64),
+        )
     assert _code(caught) == "assignment-ref-unresolved"
+
+
+def _readdress_assignment(node: Node, **facet_updates: object) -> Node:
+    copy = node.model_copy(deep=True)
+    facet = copy.facets[stored.RESERVATION_ASSIGNMENT_FACET]
+    facet.update(facet_updates)
+    new_id = "reservation-assignment:" + v1.digest(RESERVATION_ASSIGNMENT_DOMAIN, facet)
+    relations = [Relation(source=new_id, predicate=r.predicate, target=r.target) for r in copy.relations]
+    if "applies" in facet_updates and isinstance(facet_updates["applies"], str):
+        relations.append(Relation(source=new_id, predicate="applies", target=facet_updates["applies"]))
+    return stored.stamp_semantic_identity(copy.model_copy(update={"id": new_id, "relations": relations}))
+
+
+def test_unscoped_applies_and_disallowed_world_kind_tokens_are_refused(writer, events):
+    program = _root((events[0],))
+    _add(writer, program)
+    base = _node(_root((events[0],), chain="other-program"))
+
+    with pytest.raises(MalformedRecord, match="applies"):
+        writer.add(_readdress_assignment(base, applies=program.id))
+
+    with pytest.raises(MalformedRecord, match="run"):
+        writer.add(_readdress_assignment(base, evidence=["run:" + "a" * 64]))
+
+    with pytest.raises(MalformedRecord, match="exposure-event"):
+        writer.add(_readdress_assignment(base, prior_runs=["exposure-event:" + "a" * 64]))
 
 
 def test_an_unresolved_considered_event_is_refused(writer, events):

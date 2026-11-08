@@ -195,6 +195,21 @@ def test_event_lists_are_refused_not_tidied():
         _event(account="")
 
 
+def test_world_kind_schemes_outside_a_token_slot_allowlist_are_refused():
+    from beliefs.profile import shipped_base
+
+    world_kinds = {name for name, kind in shipped_base().kinds.items() if kind.role == "world"}
+    for scheme in sorted(world_kinds - {"act-report", "run", "holdings-observation"}):
+        with pytest.raises(MalformedRecord, match=scheme):
+            _event(evidence=(f"{scheme}:a",))
+    for scheme in sorted(world_kinds - {"exposure-event"}):
+        with pytest.raises(MalformedRecord, match=scheme):
+            _assignment(evidence=(f"{scheme}:a",))
+    for scheme in sorted(world_kinds - {"run"}):
+        with pytest.raises(MalformedRecord, match=scheme):
+            _assignment(prior_runs=(f"{scheme}:a",))
+
+
 def test_event_units_are_sorted_distinct_and_one_shape():
     a, b = TermUnit("mm/cohort", "a"), TermUnit("mm/cohort", "b")
     assert _event(units=(a, b)).units == (a, b)
@@ -242,8 +257,8 @@ def test_assignment_facet_omissions():
 
 def test_assignment_kernel_references_and_shape():
     a = _assignment(
-        evidence=("act-report:y", "exposure-event:x", "task:t"),
-        prior_runs=("act-report:a", "ext:e", "run:r"),
+        evidence=("atoms-event:y", "exposure-event:x", "task:t"),
+        prior_runs=("commit:a", "ext:e", "run:r"),
     )
     assert a.kernel_evidence() == ("exposure-event:x",)
     assert a.kernel_prior_runs() == ("run:r",)
@@ -311,13 +326,18 @@ def test_groups_are_sorted_non_empty_and_well_formed():
         {"events": ("exposure-event:b", "exposure-event:a")},
         {"events": ("event:a",)},
         {"scope": "claim:a"},
-        {"applies": "proposition:a"},
+        {"applies": "reservation-assignment:a"},
+        {"scope": "proposition:p", "applies": "proposition:a"},
         {"predecessor": "exposure-event:a"},
+        {"evidence": ("run:a",)},
+        {"evidence": ("act-report:a",)},
         {"flagged": ("proposition:a",)},
         {"account": ""},
         {"participants": ("",)},
         {"participants": ("b", "a")},
         {"prior_runs": ("noscheme",)},
+        {"prior_runs": ("act-report:a",)},
+        {"prior_runs": ("exposure-event:a",)},
         {"assigned_at": "yesterday"},
     ],
 )

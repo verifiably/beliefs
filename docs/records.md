@@ -362,14 +362,16 @@ some data. Its fields are:
 - `observer` and `recorded_by`: actors, in the form the permit accepts;
 - `observed_at`: a whole-second UTC timestamp;
 - `propositions`: `proposition:` references, sorted and distinct;
-- `evidence` (optional): sorted, distinct `<scheme>:<rest>` tokens.
+- `evidence` (optional): sorted, distinct `<scheme>:<rest>` tokens. A token whose
+  scheme names a world kind other than `act-report`, `run` or `holdings-observation`
+  is refused.
 
 The record's id is `exposure-event:` followed by the digest of its facet under
 `science.exposure-event.v1`, so the same look recorded twice is one record. Its
 edges mirror the facet: an `exposes` edge for each subject, a `concerns` edge for
 each proposition, and an `attested-by` edge for each evidence token whose scheme is
-`act-report`, `run` or `holdings-observation`. Other evidence tokens stay in the
-facet alone.
+`act-report`, `run` or `holdings-observation`. External evidence tokens (non-world
+schemes) stay in the facet alone.
 
 ### Reservation assignments
 
@@ -384,26 +386,29 @@ as one link of a chain. Its fields are:
 - `scope` (optional): a `proposition:` reference, with a `concerns` edge. An
   assignment without `scope` is program-level;
 - `applies` (optional): a `reservation-assignment:` reference, with an `applies`
-  edge;
+  edge. Admitted only when `scope` is present; an unscoped assignment carrying
+  `applies` is refused;
 - `groups`: at least one group, each `{units, role, label?, basis?}`. `units` is a
   non-empty unit list. `role` is `open`, `reserved`, `unresolved` or `withheld`.
   `label` is a non-empty string and `basis` a `sha256:` digest;
 - `predecessor` (optional): a `reservation-assignment:` reference;
 - `evidence` (optional): `<scheme>:<rest>` tokens. Those with the scheme
-  `exposure-event` also get an `evidenced-by` edge;
+  `exposure-event` also get an `evidenced-by` edge; a token whose scheme names any
+  other world kind is refused;
 - `flagged` (optional): `assessment:` references, one `flags` edge each. Absent
   means no suspension was reported, and an empty list means a suspension was
   reported and no assessment was made;
 - `account` (optional): a non-empty string;
 - `participants` (optional): sorted, distinct actors;
 - `prior_runs` (optional): `<scheme>:<rest>` tokens. Those with the scheme `run` also
-  get a `reports` edge;
+  get a `reports` edge; a token whose scheme names any other world kind is refused;
 - `assigned_at`: a whole-second UTC timestamp, and `assigned_by`: an actor.
 
 Groups are sorted by their first unit. Across all groups the units have one shape,
 no unit sits in two groups, and interval units do not overlap (they may touch). A
-record whose intervals overlap is refused by the reader, so it reads as
-`facet-payload-malformed` and has no separate audit code. The id is
+record whose intervals overlap, whose `applies` is set without `scope`, or whose
+`evidence` or `prior_runs` names a world kind the slot does not admit is refused by
+the reader, so it reads as `facet-payload-malformed` and has no separate audit code. The id is
 `reservation-assignment:` followed by the digest of the facet under
 `science.reservation-assignment.v1`. A successor also carries one `supersedes` edge
 to its `predecessor`; a chain root carries none.
@@ -554,7 +559,8 @@ contract that declares a predecessor or a retired identifier.
   identifiers; authoring a new one does (`WithdrawnFromAuthoring`).
 - A stored estimand or applicability that does not restore against the profile
   (`MalformedWireEstimand`, `MalformedRecord`).
-- An exposure event or reservation assignment whose stored facet is not the
-  canonical form of the value it decodes to (for example an empty `evidence` or
-  `bound` written out), or whose id does not recompute from the facet
-  (`MalformedRecord`).
+- An exposure event or reservation assignment whose fields break a value rule (such
+  as overlapping intervals, `applies` without `scope`, or a disallowed world-kind
+  scheme in `evidence` or `prior_runs`), whose stored facet is not the canonical
+  form of the value it decodes to (for example an empty `evidence` or `bound`
+  written out), or whose id does not recompute from the facet (`MalformedRecord`).
