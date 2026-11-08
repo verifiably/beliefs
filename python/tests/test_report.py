@@ -702,3 +702,14 @@ def test_the_stored_mirror_accepts_both_transport_outcomes():
 
     assert _valid_report_entry(_entry_facet(_MOVED))
     assert _valid_report_entry(_entry_facet(_incomplete("export-damaged")))
+
+
+def test_an_acquisition_set_entry_facet_carries_ints_and_bools():
+    from beliefs.report import AcquisitionSetEntry, SetSummary
+
+    outcome = SetSummary("fetched", "tool", 3, 2, 1, 0, True, "sha256:" + "a" * 64, "sha256-tree:" + "b" * 64)
+    facet = _entry_facet(AcquisitionSetEntry("store-tree:" + "c" * 32 + ":" + "b" * 64, outcome))
+    assert facet["kind"] == "acquisition-set"
+    assert facet["outcome"] == {"type": "set-summary", **vars(outcome)}
+    with pytest.raises(OutcomeRefused):
+        AcquisitionSetEntry("s", Staged("1" * 32, 1))  # type: ignore[arg-type]

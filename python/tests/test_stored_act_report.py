@@ -14,12 +14,14 @@ from beliefs.boundary import RunRefused
 from beliefs.errors import MalformedRecord
 from beliefs.report import (
     ACT_REPORT_DOMAIN,
+    AcquisitionSetEntry,
     ActReport,
     Consolidated,
     Moved,
     RecordMutationEntry,
     RunAttemptEntry,
     RunRefusal,
+    SetSummary,
 )
 
 
@@ -201,3 +203,48 @@ def test_act_report_node_refuses_a_non_report_value():
 def test_act_report_node_refuses_an_unencodable_boundary_report(tmp_path):
     with pytest.raises(MalformedRecord, match="canonically encodable"):
         run_assessment(tmp_path, spec=None.__class__, started_at="\ud800")
+
+
+def _set_summary_entry() -> AcquisitionSetEntry:
+    outcome = SetSummary("fetched", "tool", 3, 2, 1, 0, True, "sha256:" + "a" * 64, "sha256-tree:" + "b" * 64)
+    return AcquisitionSetEntry("store-tree:" + "c" * 32 + ":" + "b" * 64, outcome)
+
+
+def test_an_acquisition_set_entry_round_trips_through_the_act_report_facet():
+    from beliefs.boundary import _mint_acquisition_report
+    from beliefs.report import OperationIntent
+
+    entry = _set_summary_entry()
+    minted = _mint_acquisition_report(
+        OperationIntent("acquisition", "tok-1", "tester"),
+        observer="observer-1",
+        instrument="instrument-1",
+        opened_at="2026-11-08T00:00:00Z",
+        closed_at="2026-11-08T00:00:01Z",
+        entries=(entry,),
+    )
+    facet = stored.act_report_facet(stored.act_report_node(minted))
+    [row] = facet["entries"]
+    assert row["kind"] == "acquisition-set"
+    assert row["outcome"]["requests"] == 3 and row["outcome"]["traversal_complete"] is True
+    assert type(row["outcome"]["fetched"]) is int
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"requests": "3"},
+        {"traversal_complete": 1},
+        {"fetched": True},
+        {"origin": 7},
+        {"requests": 9},
+        {"extra": "x"},
+    ],
+    ids=["string-count", "int-bool", "bool-count", "int-origin", "counts-disagree", "extra-field"],
+)
+def test_the_validator_refuses_wrong_field_types_in_a_set_summary(bad: dict[str, object]):
+    node = stored.act_report_node(_mint(operation="acquisition", entries=(_set_summary_entry(),)))
+    deepcopy_node = deepcopy(node)
+    deepcopy_node.facets["act-report"]["entries"][0]["outcome"].update(bad)
+    with pytest.raises(MalformedRecord, match="malformed act-report entry"):
+        stored.act_report_facet(deepcopy_node)

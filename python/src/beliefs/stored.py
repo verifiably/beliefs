@@ -976,7 +976,22 @@ _REPORT_ENTRY_OUTCOMES: dict[str, dict[str, tuple[str, ...]]] = {
     "publication-export": {"exported": (), "export-collision": ()},
     "publication-reveal": {"revealed": (), "reveal-refused": ()},
     "publication-transport": {"transported": (), "transport-incomplete": ()},
+    "acquisition-set": {
+        "set-summary": (
+            "origin",
+            "fetched_by",
+            "requests",
+            "fetched",
+            "failed",
+            "abandoned",
+            "traversal_complete",
+            "log",
+            "tree",
+        )
+    },
 }
+# the one outcome whose fields are not all strings
+_SET_SUMMARY_COUNTS = ("requests", "fetched", "failed", "abandoned")
 
 
 def _valid_report_entry(entry: object) -> bool:
@@ -1035,10 +1050,24 @@ def _valid_report_entry(entry: object) -> bool:
         return False
     for field in fields:
         value = outcome[field]
-        if outcome_type == "imported-records" or field == "retired_uids":
+        if outcome_type == "set-summary":
+            if field == "traversal_complete":
+                if type(value) is not bool:
+                    return False
+            elif field in _SET_SUMMARY_COUNTS:
+                if type(value) is not int:
+                    return False
+            elif type(value) is not str:
+                return False
+        elif outcome_type == "imported-records" or field == "retired_uids":
             if not isinstance(value, list) or any(type(member) is not str for member in value):
                 return False
         elif type(value) is not str:
+            return False
+    if outcome_type == "set-summary":
+        try:
+            report_values.SetSummary(**{field: outcome[field] for field in fields})
+        except MalformedRecord:
             return False
     return True
 

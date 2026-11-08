@@ -340,6 +340,48 @@ observation counting one missing or one mismatched object; otherwise each missin
 counts as missing, and each member with other bytes, another size or a non-regular kind
 counts as mismatched. The tree is `found` only when none is missing or mismatched.
 
+### Acquisition logs
+
+A sealed acquisition set carries one acquisition log, `science.acquisition-log.v1`: UTF-8 JSON
+Lines, each line canonical `science.identity.v1` text and the file ending in a line feed. That
+encoding refuses `null`, so an optional field is absent, never null. The parser
+(`holdings/acquisition_log.py`) refuses a log with a `MalformedRecord` naming the line.
+
+The first line is the header, with exactly these keys: `format`, `set` (the set's 32-hex token),
+`origin` (`fetched` or `imported`) and `fetched_by`, then `plan` (the acquisition plan as given)
+when the origin is `fetched`, or `source_journals` (a non-empty list of `{name, digest}`, the
+original journals by name and `sha256:` digest) when it is `imported`, and neither otherwise.
+
+Each later line is one request, in `seq` order from 1 with no gap:
+
+- `seq`, `request` (exactly `{method: GET, url}`), `attempts` (always a list) and `result`;
+- optional `parent`, the `seq` of an earlier `fetched` line, and `expected`, a `sha256:` digest;
+- `digest`, `size` and `member` (the tree path), present if and only if `result` is `fetched`.
+
+An attempt is `{started_at, completed_at, outcome, status?, headers?, failure?}`. `outcome` is
+`fetched`, `failed` or `not-attempted`. `failure` is present exactly when the outcome is not
+`fetched`: a refusal category for `not-attempted`, and a transport failure category or
+`expected-mismatch` for `failed`. `headers` allows only `content-type`, `content-length`,
+`last-modified` and `etag`. `result` is `fetched`, `failed` (its retry budget is spent) or
+`abandoned` (never fetched, given up at a partial seal).
+
+In a fetched-origin log every line has at least one attempt, each with `started_at` and
+`completed_at`; a `fetched` line's last attempt is `fetched`, and a `failed` or `abandoned` line
+has no `fetched` attempt. An imported log's lines carry only what the source journal recorded, so
+an attempt may lack either time and `attempts` may be empty; each imported line also has
+`recorded`, `{journal, line, digest?}`, naming the 0-based index into `source_journals`, the
+journal's line number and, when the journal recorded one, its own digest of the bytes, which must
+equal the line's `digest`. `recorded` is absent from a fetched-origin line.
+
+`log_tree` is the tree of the `fetched` lines' members, and `log_summary` counts the requests by
+result and reports the log's `sha256:` digest and the tree's `sha256-tree:` digest. Its
+`traversal_complete` is false when the plan has a `traversal` and any line is `failed` or
+`abandoned`, and true otherwise. The act report records that summary as an `acquisition-set` entry
+whose subject is the set's store-tree location and whose `set-summary` outcome has the fields
+`origin`, `fetched_by`, `requests`, `fetched`, `failed`, `abandoned` (non-negative integers with
+`requests` their sum), `traversal_complete` (a boolean), `log` and `tree`. It is the one act-report
+outcome with integer and boolean fields; the stored validator checks each field's type.
+
 ## Other world records
 
 A `retraction` targets one of three arms:
@@ -368,7 +410,8 @@ An `act-report` carries only its `act-report` facet and its identity stamp, and 
 no relations. The facet's fields are `operation` (one of the operation kinds in
 [writes.md](writes.md#operations)), `event_token`, `actor`, `observer`,
 `instrument`, `opened_at`, `closed_at` and `entries`. Each entry records one member
-act's subject and outcome. An act report never feeds a belief.
+act's subject and outcome; the `acquisition-set` entry's outcome is described under
+[Acquisition logs](#acquisition-logs). An act report never feeds a belief.
 
 ## Exposure events and reservation assignments
 

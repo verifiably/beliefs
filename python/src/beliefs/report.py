@@ -77,7 +77,9 @@ __all__ = [
 # relies on `"completion",\n]` being the tail of the list above
 __all__ += [
     "TRANSPORT_INCOMPLETE_REASONS",
+    "AcquisitionSetEntry",
     "PublicationTransportEntry",
+    "SetSummary",
     "TransportIncomplete",
     "Transported",
     "lifecycle_outcome_from_facet",
@@ -514,6 +516,45 @@ class TransportIncomplete:
             )
 
 
+_SET_ORIGINS = ("fetched", "imported")
+_FILE_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+_TREE_DIGEST = re.compile(r"sha256-tree:[0-9a-f]{64}")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class SetSummary:
+    """What a sealed acquisition set holds: the log's counts, its digest and the tree's."""
+
+    origin: str
+    fetched_by: str
+    requests: int
+    fetched: int
+    failed: int
+    abandoned: int
+    traversal_complete: bool
+    log: str
+    tree: str
+
+    def __post_init__(self) -> None:
+        if self.origin not in _SET_ORIGINS:
+            raise MalformedRecord(f"set-summary origin {self.origin!r} is outside {_SET_ORIGINS}")
+        _require_str(self.fetched_by, "set-summary fetched_by")
+        for name in ("requests", "fetched", "failed", "abandoned"):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise MalformedRecord(f"set-summary {name} is a non-negative exact int")
+        if self.requests != self.fetched + self.failed + self.abandoned:
+            raise MalformedRecord("set-summary requests must equal fetched + failed + abandoned")
+        if type(self.traversal_complete) is not bool:
+            raise MalformedRecord("set-summary traversal_complete must be a bool")
+        if type(self.log) is not str or _FILE_DIGEST.fullmatch(self.log) is None:
+            raise MalformedRecord("set-summary log must be `sha256:` and 64 lowercase hex digits")
+        if type(self.tree) is not str or _TREE_DIGEST.fullmatch(self.tree) is None:
+            raise MalformedRecord("set-summary tree must be `sha256-tree:` and 64 lowercase hex digits")
+
+
 Outcome: TypeAlias = (
     PublishedObservation
     | ByteLocatorUntested
@@ -536,6 +577,7 @@ Outcome: TypeAlias = (
     | RevealRefused
     | Transported
     | TransportIncomplete
+    | SetSummary
 )
 
 
@@ -705,6 +747,20 @@ class PublicationTransportEntry:
         _require_outcome(self, self.outcome)
 
 
+@sealed
+@final
+@dataclass(frozen=True)
+class AcquisitionSetEntry:
+    """`subject` is the set's store-tree location in canonical form."""
+
+    subject: str
+    outcome: SetSummary
+
+    def __post_init__(self) -> None:
+        _require_str(self.subject, "acquisition set entry subject")
+        _require_outcome(self, self.outcome)
+
+
 Entry: TypeAlias = (
     LocatorEntry
     | ManagedMutationEntry
@@ -719,6 +775,7 @@ Entry: TypeAlias = (
     | PublicationExportEntry
     | PublicationRevealEntry
     | PublicationTransportEntry
+    | AcquisitionSetEntry
 )
 
 _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
@@ -735,6 +792,7 @@ _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
     PublicationExportEntry: (Exported, ExportCollision),
     PublicationRevealEntry: (Revealed, RevealRefused),
     PublicationTransportEntry: (Transported, TransportIncomplete),
+    AcquisitionSetEntry: (SetSummary,),
 }
 _ENTRY_KINDS: dict[type[object], str] = {
     LocatorEntry: "pure-look",
@@ -750,6 +808,7 @@ _ENTRY_KINDS: dict[type[object], str] = {
     PublicationExportEntry: "publication-export",
     PublicationRevealEntry: "publication-reveal",
     PublicationTransportEntry: "publication-transport",
+    AcquisitionSetEntry: "acquisition-set",
 }
 _OUTCOME_TYPES: dict[type[object], str] = {
     PublishedObservation: "published-observation",
@@ -773,6 +832,7 @@ _OUTCOME_TYPES: dict[type[object], str] = {
     RevealRefused: "reveal-refused",
     Transported: "transported",
     TransportIncomplete: "transport-incomplete",
+    SetSummary: "set-summary",
 }
 
 _LIFECYCLE_ENTRIES = (PublicationStagingEntry, PublicationExportEntry, PublicationRevealEntry)
