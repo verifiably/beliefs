@@ -449,6 +449,7 @@ def test_every_builder_facet_is_declared(corpora, acquisition_report):
     from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
     from profiles import WITH_BIOLOGY
     from test_holdings_records import observation
+    from test_reservation import _assignment, _sun_knowledge_event
 
     from beliefs.composite import CompositeNode, build_composite
     from beliefs.corpus import CoordinationResolver
@@ -522,6 +523,8 @@ def test_every_builder_facet_is_declared(corpora, acquisition_report):
             grounds="one work",
             event_token="coref",
         ),
+        "exposure_event_node": stored.exposure_event_node(_sun_knowledge_event(), title="t"),
+        "reservation_assignment_node": stored.reservation_assignment_node(_assignment(), title="t"),
     }
     assert set(builders) == {
         name
