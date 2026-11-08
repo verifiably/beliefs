@@ -460,6 +460,7 @@ BYTE_MUTATION_PRIMITIVES = (
     "remove",
     "copy",
     "copy2",
+    "copyfile",
     "copytree",
     "move",
 )
@@ -478,11 +479,13 @@ RAW_WRITE_ALLOWLIST = {
     # every corpus and world root and registered by nothing.
     "adapter.py": {"copy2"},
     # The execution sandbox: an inputs tree and the log-handler script, minted
-    # per run under a scratch directory the substrate owns; planning scratch is
+    # per run under a scratch directory the substrate owns; a held tree's
+    # members copied out of its store (read only) into that inputs tree, and the
+    # staged tree removed when the run ends; planning scratch is
     # discarded after the snapshot is captured; verified output export copies
     # declared outputs to a caller-supplied export directory and unlinks/rmdirs
     # attempt-created files and directories on refusal.
-    "boundary.py": {"copy2", "write_text", "rmtree", "unlink", "rmdir"},
+    "boundary.py": {"copy2", "copyfile", "write_text", "rmtree", "unlink", "rmdir"},
     # The environment snapshot: manifested files copied, manifested and
     # rendered symlinks created, rendered files written, the build published
     # by rename, a losing build discarded — under a boundary-owned directory
