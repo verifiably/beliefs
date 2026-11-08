@@ -45,6 +45,8 @@ def test_membership_is_exactly_what_it_was_before_this_slice():
         "coreference-attestation",
         "act-report",
         "composite",
+        "exposure-event",
+        "reservation-assignment",
     )
     assert stored.PROSE_KINDS == ("interpretation", "discussion", "story")
     assert stored.WORLD_RELATIONS == (
@@ -60,6 +62,14 @@ def test_membership_is_exactly_what_it_was_before_this_slice():
         "member_of",
         "grounded-in",
         "composes",
+        "exposes",
+        "concerns",
+        "attested-by",
+        "considers",
+        "evidenced-by",
+        "flags",
+        "reports",
+        "applies",
     )
     assert stored.COVERED_FACETS["dataset"] == ("dataset", "empirical-observation", "lineage-basis")
     assert stored.COVERED_FACETS["run"] == ("run", "run-closure")

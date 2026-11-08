@@ -34,7 +34,8 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="certified-host"></a>**Certified host** — A host whose kernel and volume form a
   configuration `atoms` certifies. Writes anywhere else fail with
   `CapabilityUnavailable`. ([development](development.md#the-certified-host))
-- <a id="chain"></a>**Chain** — See [the root's log](#roots-log).
+- <a id="chain"></a>**Chain** — See [the root's log](#roots-log); for the sequence of
+  reservation assignments, see [reservation chain](#reservation-chain).
 - <a id="claim"></a>**Claim** — The typed content of a proposition: operator,
   arguments, qualifiers, polarity and layer. ([records](records.md#propositions-and-claims))
 - <a id="claim-identity"></a>**Claim identity** — `I_claim`, the digest of the claim's
@@ -75,6 +76,10 @@ the beliefs documents use, each linking the document that specifies or explains 
   that says when two runs gave the same result. ([guide](guide.md#runs-and-reproducibility))
 - <a id="estimand"></a>**Estimand** — The typed quantity an analysis estimates, built
   against the claim it answers. ([records](records.md#specs-runs-and-assessments))
+- <a id="exposure-event"></a>**Exposure event** — A record that some data, or knowledge
+  of it, was seen on a channel (`read` or `knowledge`) over some units, with its effect
+  and an account. It is content-addressed and append-only.
+  ([records](records.md#exposure-events))
 - <a id="facet"></a>**Facet** — A named block of fields on a record, declared by a
   contract. ([contracts](contracts.md#facet-fields))
 - <a id="governed-kind"></a>**Governed kind** — A world kind with an identity domain;
@@ -130,9 +135,19 @@ the beliefs documents use, each linking the document that specifies or explains 
   refused. Each transaction is registered as an entry in the root's log before it
   is applied; that entry names what it writes and, when it fulfils an operation
   intent, carries the intent's token. ([writes](writes.md#operations))
+- <a id="reservation-assignment"></a>**Reservation assignment** — A record that
+  partitions units into groups, each with a role, under a named rule; one link of a
+  chain. It is content-addressed and append-only, and a successor supersedes its
+  predecessor. ([records](records.md#reservation-assignments))
+- <a id="reservation-chain"></a>**Reservation chain** — The linear sequence of
+  reservation assignments sharing a `chain` name and a `scope`, from one root to one
+  head. ([records](records.md#chains-and-derived-changes))
 - <a id="retraction"></a>**Retraction** — A record that withdraws the standing of a
   record, a dataset route or a producer snapshot without changing it.
   ([records](records.md#other-world-records))
+- <a id="role"></a>**Role** — A group's standing in a reservation assignment: `open`,
+  `reserved`, `unresolved` or `withheld`.
+  ([records](records.md#reservation-assignments))
 - <a id="roots-log"></a>**The root's log** — The append-only, hash-linked chain the
   `atoms` engine keeps for each registered root: intents, transaction registrations
   and their settlements. Operation completion and log audit are read from it.
@@ -153,6 +168,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   retractions that target it. ([guide](guide.md#worlds-identity-and-change))
 - <a id="supersession"></a>**Supersession** — A `supersedes` link from a new record to
   the same-kind record it replaces. ([records](records.md#relations))
+- <a id="unit"></a>**Unit** — One element a group or an exposure covers: a term
+  (`{sort, term}`) or an interval (`{start, end}`); a list holds one shape.
+  ([records](records.md#units))
 - <a id="verification"></a>**Verification** — The record of a comparison between two
   runs, with a derived scope and a verdict. ([records](records.md#verifications))
 - <a id="view"></a>**View** — A stored query over the world plus a label, such as a

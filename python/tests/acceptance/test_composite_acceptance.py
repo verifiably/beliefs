@@ -241,7 +241,7 @@ def test_grammar_kind_and_relations(corpora):
     assert kind.role == "world" and kind.domain == "science.composite.v1"
     assert kind.facets["composite"].required and kind.facets["composite"].covered
     assert not kind.facets["display"].covered
-    assert len([k for k in base.kinds.values() if k.role == "world"]) == 14
+    assert len([k for k in base.kinds.values() if k.role == "world"]) == 16
     composes = base.relations["composes"]
     assert (composes.group, composes.sources, composes.targets, composes.same_kind) == (
         "world",
@@ -250,7 +250,10 @@ def test_grammar_kind_and_relations(corpora):
         False,
     )
     supersedes = base.relations["supersedes"]
-    assert set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite"} and supersedes.same_kind
+    assert (
+        set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite", "reservation-assignment"}
+        and supersedes.same_kind
+    )
     # `assesses` keeps its one target kind — the boundary invariant the belief-inertness test rests on.
     assert base.relations["assesses"].targets == ("proposition",)
     writer = corpora()

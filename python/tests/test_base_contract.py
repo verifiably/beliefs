@@ -268,7 +268,9 @@ class TestCompositeGrammarAndKind:
         assert (composes.group, composes.sources, composes.targets) == ("world", ("composite",), ("proposition",))
         assert composes.same_kind is False
         supersedes = base_contract.relations["supersedes"]
-        assert set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite"}
+        assert (
+            set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite", "reservation-assignment"}
+        )
         assert supersedes.same_kind is True
         assert base_contract.relations["assesses"].targets == ("proposition",)
 

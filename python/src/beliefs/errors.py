@@ -916,6 +916,13 @@ class InputOutsideCorpus(MalformedRecord):
         )
 
 
+class ChainAmbiguous(RecordError):
+    """A reservation-assignment chain (`chain` × `scope`) with two roots or two heads: a fork that only
+    a raw write (one made around the boundary) can make, since import refuses it as `add` and
+    `supersede` do, and which the audit reports as `assignment-fork`. A reader asked for the
+    head refuses rather than choose one."""
+
+
 class RecipeVersionUnsupported(RecordError):
     """A v1 recipe lacks the workflow snapshot required by typed decode."""
 
@@ -1154,6 +1161,15 @@ class WriteRefused(ScienceError):
     refusal and halt cross the boundary as the seam's `PlanRefusedError` and
     `ExecutionError`, and a third vocabulary wrapping those two would add a
     layer with no added discrimination."""
+
+
+class ReservationRefused(WriteRefused):
+    """An exposure event or reservation assignment refused at the write boundary. `code` is the stable
+    name the reservation tables carry; the message names the position."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.code = code
 
 
 class RecordAlreadyMinted(WriteRefused):

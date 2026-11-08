@@ -113,6 +113,7 @@ from beliefs.errors import (
     ProjectNotResolvable,
     RecordAlreadyMinted,
     RelocationTargetMissing,
+    ReservationRefused,
     RetractionCycleMalformed,
     RetractionGroundsMissing,
     RetractionTargetIneligible,
@@ -149,6 +150,7 @@ from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
+from beliefs.reservation import assignment_record_refusal, assignment_succession_refusal, exposure_event_refusal
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
@@ -160,6 +162,7 @@ if TYPE_CHECKING:
     from beliefs.world.view import WorldReadView
 
 __all__ = [
+    "APPEND_ONLY_KINDS",
     "CONSTRUCTION_CODES",
     "DIRECTIONS",
     "ELIGIBLE_RETRACTION_TARGET_KINDS",
@@ -185,6 +188,10 @@ __all__ = [
 
 DIRECTIONS = ("inbound", "outbound")
 ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
+APPEND_ONLY_KINDS: tuple[str, ...] = ("exposure-event", "reservation-assignment")
+"""The world kinds minted once and never mutated in place: `delete` refuses them
+(`_refuse_excluded_kind`) and `revise` admits prose changes only. Unlike
+`EXCLUDED_MUTATION_KINDS` this does not bar `move` or `consolidate`."""
 EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("act-report", "holdings-observation", *COORDINATION_KINDS)
 """The statically excluded kinds no world-changing operation accepts:
 as a `delete` target, a `move` subject, or a `consolidate` input.
@@ -1991,6 +1998,16 @@ class _EligibilityReader(Protocol):
 ELIGIBILITY_CODES = frozenset({"eligibility-unmet", "eligibility-unresolved"})
 
 
+_RESERVATION_READERS: Mapping[str, tuple[str, Callable[[Node], object]]] = MappingProxyType(
+    {
+        "exposure-event": (stored.EXPOSURE_EVENT_FACET, stored.exposure_event_value),
+        "reservation-assignment": (stored.RESERVATION_ASSIGNMENT_FACET, stored.reservation_assignment_value),
+    }
+)
+"""The two reader-shaped facets `validate_payload` skips, read whole by `corpus_check` instead: a facet
+its reader refuses is `facet-payload-malformed`, and nothing below the classification reads it again."""
+
+
 def _record_findings(
     check: _CheckView | _CapturedCheckView,
     profile: ProfileSpec,
@@ -2094,6 +2111,13 @@ def _record_findings(
                         str(refused),
                     )
                 )
+        if node.kind in _RESERVATION_READERS:
+            facet_key, read = _RESERVATION_READERS[node.kind]
+            try:
+                read(node)
+            except MalformedRecord as refused:
+                base_valid = False
+                findings.append(Finding("error", "facet-payload-malformed", node.id, facet_key, str(refused)))
         if node.kind == "dataset" and stored.EMPIRICAL_OBSERVATION_FACET in node.facets:
             reason = validity_refusal(check, node, profile)
             if reason is not None and not reason.startswith("facet-payload-malformed"):
@@ -2561,6 +2585,8 @@ class CorpusWriter:
         with self._operation:
             self._require_pins_agree()
             self._refuse_family_kinds(node)
+            if node.kind == "reservation-assignment":
+                self._refuse_assignment_successor_on_add(node)
             self._refuse(node)
             self._refuse_foreign_closure_actor(node)
             return self._corpus.add(node)
@@ -2600,6 +2626,8 @@ class CorpusWriter:
         )
         if node.kind in EXCLUDED_MUTATION_KINDS or (profile is not None and node.kind in profile.coordination_kinds):
             raise DeletionKindExcluded(f"{node.id}: kind {node.kind!r} is excluded from every world-changing operation")
+        if node.kind in APPEND_ONLY_KINDS:
+            raise DeletionKindExcluded(f"{node.id}: kind {node.kind!r} is append-only and is never deleted")
 
     def _add_locked(self, node: Node, *, provenance: bool = False) -> Node:
         """`add`'s body, with the root's operation lock already held."""
@@ -3400,7 +3428,7 @@ class CorpusWriter:
             )
 
     def supersede(self, successor: Node, *, of: str) -> Node:
-        """Mint a proposition or composite successor without touching its predecessor."""
+        """Mint a proposition, composite or reservation-assignment successor without touching its predecessor."""
         self._authority.require("corpus-write", (successor.kind,))
         with self._operation:
             self._require_pins_agree()
@@ -3412,15 +3440,26 @@ class CorpusWriter:
                     f"{of}: the target no longer resolves in this corpus; a concurrent move or deletion removed it"
                 ) from caught
             predecessor_id = predecessor.id
-            if predecessor.kind != successor.kind or successor.kind not in ("proposition", "composite"):
+            if predecessor.kind != successor.kind or successor.kind not in (
+                "proposition",
+                "composite",
+                "reservation-assignment",
+            ):
                 raise FamilyKindUnsupported(
-                    f"supersede operates on a proposition or a composite and its same-kind successor; "
-                    f"found {predecessor.kind!r} → {successor.kind!r}"
+                    f"supersede operates on a proposition, a composite or a reservation assignment and its "
+                    f"same-kind successor; found {predecessor.kind!r} → {successor.kind!r}"
                 )
             self._refuse_already_minted(successor)
             self._refuse_malformed_supersede_successor(successor)
             if any(relation.predicate == stored.SUPERSEDES for relation in successor.relations):
                 raise ValidationRefused(f"{successor.id}: supersedes relations are authored by the adapter")
+            if successor.kind == "reservation-assignment":
+                named = stored.reservation_assignment_value(successor).predecessor
+                if named != predecessor_id:
+                    raise ValidationRefused(
+                        f"{successor.id}: the successor names predecessor {named!r}, not the superseded "
+                        f"{predecessor_id!r}"
+                    )
             try:
                 successor_identity = stored.recompute_semantic_hash(successor)
             except IdentityError as caught:
@@ -3463,8 +3502,10 @@ class CorpusWriter:
             if current.kind == "dataset":
                 return self._revise_dataset_locked(node, current)
             self._refuse_family_kinds(node)
-            if current.kind != "proposition" or node.kind != "proposition":
-                raise ReviseKindImmutable("revise operates on propositions and datasets only")
+            if current.kind != node.kind or node.kind not in ("proposition", *APPEND_ONLY_KINDS):
+                raise ReviseKindImmutable(
+                    "revise operates on propositions, datasets, exposure events and reservation assignments only"
+                )
             self._refuse_invalid(node)
             if not all(isinstance(relation, Relation) for relation in node.relations):
                 raise ValidationRefused(f"{node.id}: refused by document validation: malformed relation")
@@ -4038,6 +4079,11 @@ class CorpusWriter:
             facet = self._profile.facets.get(key)
             if facet is not None:
                 validate_payload(facet, payload, where=node.id)
+        # Decode at the boundary; `MalformedRecord` propagates, as `_refuse_verification` lets its decode's.
+        if node.kind == "exposure-event":
+            stored.exposure_event_value(node)
+        elif node.kind == "reservation-assignment":
+            stored.reservation_assignment_value(node)
 
     def _refuse_facets(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None, provenance: bool = False
@@ -4069,6 +4115,97 @@ class CorpusWriter:
                 reason = validity_refusal(judged, node, self._profile, reports=local)
                 if reason is not None:
                     raise FacetPayloadRefused(f"{node.id}: {reason}")
+            if node.kind == "exposure-event":
+                self._refuse_exposure_event(node, view=reading, provenance=provenance)
+            elif node.kind == "reservation-assignment":
+                self._refuse_reservation_assignment(node, view=reading, provenance=provenance)
+
+    def _refuse_exposure_event(
+        self, node: Node, *, view: ReadView | _ImportView | MountCitations, provenance: bool
+    ) -> None:
+        """An exposure event's edges mirror its facet as a duplicate-free set, every kernel reference
+        resolves to a record of the kind its slot names, each unit sort is declared, and the recorder is
+        the bound actor (kept as written under provenance)."""
+        value = stored.exposure_event_value(node)
+        refusal = exposure_event_refusal(
+            value,
+            node.relations,
+            kind_of=lambda ref: view.get(ref).kind if view.holds(ref) else None,
+            sorts=self._profile.sorts,
+        )
+        if refusal is not None:
+            raise ReservationRefused(refusal.code, f"{node.id}: {refusal.detail}")
+        if not provenance and value.recorded_by != self._authority.actor:
+            raise ActorMismatch(
+                f"{node.id}: the event names recorder {value.recorded_by!r}, not the bound {self._authority.actor!r}"
+            )
+
+    @staticmethod
+    def _refuse_assignment_successor_on_add(node: Node) -> None:
+        """`add` mints chain roots only: a record naming a predecessor, or carrying the edge to one, is a
+        successor, which enters through `supersede`."""
+        named = node.facets.get(stored.RESERVATION_ASSIGNMENT_FACET)
+        if (isinstance(named, dict) and "predecessor" in named) or any(
+            relation.predicate == stored.SUPERSEDES for relation in node.relations
+        ):
+            raise FamilyKindUnsupported("a successor enters through supersede")
+
+    def _refuse_reservation_assignment(
+        self, node: Node, *, view: ReadView | _ImportView | MountCitations, provenance: bool
+    ) -> None:
+        """An assignment's edges mirror its facet (a successor's one `supersedes` edge names its
+        `predecessor`, a root carries none), every kernel reference resolves to a record of the kind its
+        slot names, `applies` names a program-level assignment, each unit sort is declared, its chain
+        (`chain` × `scope`) stays linear, a successor keeps its predecessor's chain, scope and unit shape
+        and changes the derivation, every derived change is evidenced and every suspension flagged, and
+        the assigner is the bound actor (kept as written under provenance).
+
+        The chain is judged over the write root (or the import's union), never a read mount; the record
+        itself is skipped, since import and relocation judge it against a view that already holds it,
+        and a malformed neighbour is the audit's finding, not this write's refusal."""
+        value = stored.reservation_assignment_value(node)
+        refusal = assignment_record_refusal(
+            value,
+            node.relations,
+            kind_of=lambda ref: view.get(ref).kind if view.holds(ref) else None,
+            assignment_of=lambda ref: stored.reservation_assignment_value(view.get(ref)),
+            sorts=self._profile.sorts,
+        )
+        if refusal is not None:
+            raise ReservationRefused(refusal.code, f"{node.id}: {refusal.detail}")
+        chain = view if isinstance(view, (ReadView, _ImportView)) else self._view
+        for other in chain.iter_stored():
+            if other.kind != "reservation-assignment" or other.id == node.id:
+                continue
+            try:
+                neighbour = stored.reservation_assignment_value(other)
+            except MalformedRecord:
+                continue
+            if (
+                value.predecessor is None
+                and neighbour.predecessor is None
+                and (neighbour.chain, neighbour.scope) == (value.chain, value.scope)
+            ):
+                raise ReservationRefused(
+                    "assignment-root-exists",
+                    f"{node.id}: {other.id} already roots chain {value.chain!r} (scope {value.scope!r})",
+                )
+            if value.predecessor is not None and neighbour.predecessor == value.predecessor:
+                raise ReservationRefused(
+                    "assignment-superseded",
+                    f"{node.id}: {value.predecessor!r} already has the successor {other.id}; a chain is linear",
+                )
+        predecessor = (
+            None if value.predecessor is None else stored.reservation_assignment_value(view.get(value.predecessor))
+        )
+        refusal = assignment_succession_refusal(value, predecessor)
+        if refusal is not None:
+            raise ReservationRefused(refusal.code, f"{node.id}: {refusal.detail}")
+        if not provenance and value.assigned_by != self._authority.actor:
+            raise ActorMismatch(
+                f"{node.id}: the assignment names assigner {value.assigned_by!r}, not the bound "
+                f"{self._authority.actor!r}"
+            )
 
     @staticmethod
     def _refuse_governed_stamp(node: Node) -> None:

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
+from nodes.core.node import Node
+from nodes.core.relations import Relation
 
 from beliefs import stored
 from beliefs.consulted import CorpusPins
@@ -55,15 +57,28 @@ PUBLISHING_COORDINATION = frozenset(
 V3_PIN = "coordination:" + shipped_coordination(3).content_identity
 
 
+def _closes_over(node: Node, relation: Relation) -> bool:
+    """A world relation, or the `supersedes` edge a reservation assignment carries to its predecessor:
+    the destination resolves `predecessor` when it decodes the facet, so a published successor carries
+    its chain. Every other kind's `supersedes` stays a lifecycle edge outside closure."""
+    if relation.predicate in stored.WORLD_RELATIONS:
+        return True
+    return (
+        relation.predicate == stored.SUPERSEDES and node.kind == "reservation-assignment" and relation.source == node.id
+    )
+
+
 def closure_missing(view, selected: tuple[str, ...]) -> tuple[str, ...]:
     """Every world-relation endpoint of a selected record outside the selection, by its live
-    address, or by its stored spelling when it does not resolve. `view` answers `get(id)` and `resolve(ref)`."""
+    address, or by its stored spelling when it does not resolve; a selected reservation assignment's
+    `supersedes` edge counts too (its predecessor chain publishes with it). `view` answers `get(id)`
+    and `resolve(ref)`."""
     chosen = set(selected)
     missing: set[str] = set()
     for address in selected:
         node = view.get(address)
         for relation in node.relations:
-            if relation.predicate not in stored.WORLD_RELATIONS:
+            if not _closes_over(node, relation):
                 continue
             for endpoint in (relation.source, relation.target):
                 if endpoint == node.id:

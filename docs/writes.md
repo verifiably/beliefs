@@ -67,7 +67,8 @@ A kind with its own door is refused through `add`. Holdings observations, act
 reports and publication records have no ordinary door at all. `delete` removes one
 record's file. It takes the lock, checks the pins and resolves its target first,
 then requires the permit on the target's kind, then refuses act reports, holdings
-observations and coordination kinds.
+observations, coordination kinds, exposure events and reservation assignments
+(`DeletionKindExcluded`).
 
 ## Writer sessions
 
@@ -157,7 +158,9 @@ the function's signature for its optional arguments. It runs these steps:
 2. Resolve the view and evaluate it at the current [epoch](glossary.md#epoch).
    The publish is refused if the selection is incomplete (`selection-incomplete`),
    if it is empty (`empty-selection`), or if a selected record depends on one left
-   out (`closure-incomplete`).
+   out (`closure-incomplete`). Closure follows world relations, and a selected
+   reservation assignment's `supersedes` edge as well, so a published successor
+   carries its predecessor chain; other kinds' `supersedes` edges stay outside it.
 3. Append the publish intent. Then write `selection.v1` and `request.v1`
    create-only under `<operations_root>/publish/<token>/`.
 4. Stage the selected records, together with one `publication` marker, in a fresh
@@ -179,7 +182,9 @@ main ones are:
 - `PermitExceeded`: the permit does not cover the act;
 - `ContractMismatch`: the manifest pins disagree with the profile;
 - `WriteRefused` and its subclasses (`ValidationRefused`, `EligibilityUnmet`,
-  `CollisionRefused`, `RecordAlreadyMinted`, `ActorMismatch`): the record fails a
+  `CollisionRefused`, `RecordAlreadyMinted`, `ActorMismatch`, and `ReservationRefused`,
+  whose `code` names the exposure or reservation check that failed; see
+  [records.md](records.md#write-rules)): the record fails a
   check;
 - `SignatureRefused`: a relation breaks an enforced signature;
 - `SessionRefused`: a session cannot open;

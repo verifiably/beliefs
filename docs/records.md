@@ -28,7 +28,7 @@ to an equal node, and one that does not is refused.
 
 ## Record kinds
 
-The Science base contract (`contracts/science/CONTRACT.yaml`) declares fourteen
+The Science base contract (`contracts/science/CONTRACT.yaml`) declares sixteen
 world kinds and three prose kinds. A world kind is either governed, meaning the
 contract names an identity domain for it, or ungoverned (only
 `instrument-certification`). A kind's required facet is present on every record of
@@ -50,13 +50,16 @@ that kind.
 | `coreference-attestation` | `coreference-attestation` | `attest_coreference` only |
 | `act-report` | `act-report` | operations only (and import) |
 | `composite` | `composite` | `add`, `supersede` |
+| `exposure-event` | `exposure-event` | `add`, `revise` |
+| `reservation-assignment` | `reservation-assignment` | `add` (a chain root), `supersede`, `revise` |
 
 The base contract names a reader for each kernel facet, but that name is not
 resolved or called: the code checks each facet where it is used. At the write
 boundary, `add` checks that a record's kind and facets are in the compiled profile,
 checks every schema-shaped facet (`empirical-observation` and domain facets)
 against its fields, and decodes the `display`, `analysis-spec`, `verification`,
-`dataset`, `source`, `composite` and `run-closure` facets. `retract` and
+`dataset`, `source`, `composite`, `run-closure`, `exposure-event` and
+`reservation-assignment` facets. `retract` and
 `attest_coreference` decode their own records, and import decodes act reports. A
 proposition's claim, an assessment's facet, a `lineage-basis` and a run without a
 closure are checked only when read. A `source-assertion` record must carry its
@@ -84,10 +87,18 @@ each predicate's signature:
 | `member_of` | source | dataset |
 | `composes` | composite | proposition |
 | `grounded-in` | retraction | retraction, verification, source |
-| `supersedes` | proposition, composite | a record of the same kind |
+| `supersedes` | proposition, composite, reservation-assignment | a record of the same kind |
 | `retracts` | retraction | assessment, retraction, verification |
 | `succeeded-by` | retraction | retraction |
 | `anchored_in` | source-assertion | source |
+| `exposes` | exposure-event | dataset, source |
+| `concerns` | exposure-event, reservation-assignment | proposition |
+| `attested-by` | exposure-event | act-report, run, holdings-observation |
+| `considers` | reservation-assignment | exposure-event |
+| `evidenced-by` | reservation-assignment | exposure-event |
+| `flags` | reservation-assignment | assessment |
+| `reports` | reservation-assignment | run |
+| `applies` | reservation-assignment | reservation-assignment |
 
 The write boundary enforces these signatures:
 
@@ -96,7 +107,11 @@ The write boundary enforces these signatures:
 - each `composes` target must be a proposition, with one edge per member;
 - a `verifies` target must be an assessment (when the verification carries a
   report and an assessment);
-- a `retracts` node target must be an assessment, a retraction or a verification.
+- a `retracts` node target must be an assessment, a retraction or a verification;
+- the edges of an exposure event or a reservation assignment must equal those its
+  facet names, and each one's target must resolve to a record of the kind the table
+  gives (see [Exposure events and reservation
+  assignments](#exposure-events-and-reservation-assignments)).
 
 The other signatures are declarations that the write boundary does not check.
 Audit reports a `supersedes` edge across kinds that was written around the
@@ -137,6 +152,10 @@ Some records are content-addressed: their id is derived from their content.
   `science.source-address.v1`, where the scheme is its first accepted external
   identifier in the order `doi`, `pmid`, `isbn`, `accession`. There is no fallback
   to a title or year.
+- An exposure event's id is `exposure-event:` and the digest of its facet under
+  `science.exposure-event.v1`, and a reservation assignment's is
+  `reservation-assignment:` and the digest of its facet under
+  `science.reservation-assignment.v1`.
 - An analysis spec's id is its spec identity under `science.spec.v1`. An act
   report's id is the digest of its facet under `science.act-report.v1`, and a
   retraction's is the digest of its facet under `science.retraction.v1`.
@@ -304,6 +323,190 @@ no relations. The facet's fields are `operation` (one of the operation kinds in
 `instrument`, `opened_at`, `closed_at` and `entries`. Each entry records one member
 act's subject and outcome. An act report never feeds a belief.
 
+## Exposure events and reservation assignments
+
+Two world kinds record what has been seen of a question and how its data is held
+back. Both are content-addressed, append-only and governed (`science.exposure-event.v1`
+and `science.reservation-assignment.v1`). `beliefs.reservation` holds their value
+types, unit grammar and shared refusal functions; `stored.exposure_event_value` and
+`stored.reservation_assignment_value` read a stored record whole. Neither kind
+feeds a belief.
+
+### Units
+
+A unit is one of two shapes, and a list of units holds one shape only:
+
+- a term unit, `{sort, term}`: `sort` is `<namespace>/<name>` (lowercase letters,
+  digits and `-`) and `term` a non-empty string. The sort must be declared in the
+  compiled profile;
+- an interval unit, `{start, end}`: each end is a whole-second UTC timestamp
+  (`YYYY-MM-DDTHH:MM:SSZ`) or the word `open`. The two ends cannot both be `open`, and a
+  closed interval starts strictly before it ends.
+
+Units sort by shape, then by sort and term, or by start and end with an open start
+first and an open end last. A list of units is sorted and has no repeats.
+
+### Exposure events
+
+An `exposure-event` facet records one look at, or one piece of knowledge about,
+some data. Its fields are:
+
+- `channel`: `read` or `knowledge`. `subjects` is non-empty exactly when the channel
+  is `read`; each subject is a `dataset:` or `source:` reference, sorted and
+  distinct;
+- `units`: the units exposed (a list that may be empty);
+- `effect`: `exposing` or `non-exposing`;
+- `class`: a non-empty string naming the kind of exposure;
+- `bound` (optional): a mapping from a non-empty name to a `sha256:` digest;
+- `account`: a non-empty string telling what happened;
+- `observer` and `recorded_by`: actors, in the form the permit accepts;
+- `observed_at`: a whole-second UTC timestamp;
+- `propositions`: `proposition:` references, sorted and distinct;
+- `evidence` (optional): sorted, distinct `<scheme>:<rest>` tokens.
+
+The record's id is `exposure-event:` followed by the digest of its facet under
+`science.exposure-event.v1`, so the same look recorded twice is one record. Its
+edges mirror the facet: an `exposes` edge for each subject, a `concerns` edge for
+each proposition, and an `attested-by` edge for each evidence token whose scheme is
+`act-report`, `run` or `holdings-observation`. Other evidence tokens stay in the
+facet alone.
+
+### Reservation assignments
+
+A `reservation-assignment` facet partitions units into groups under a named rule,
+as one link of a chain. Its fields are:
+
+- `chain`: a name matching `[a-z][a-z0-9-]*`;
+- `rule`: `{name, version}`, both non-empty strings;
+- `inputs`: a non-empty mapping from name to `sha256:` digest;
+- `events`: `exposure-event:` references, sorted and distinct, one `considers` edge
+  each;
+- `scope` (optional): a `proposition:` reference, with a `concerns` edge. An
+  assignment without `scope` is program-level;
+- `applies` (optional): a `reservation-assignment:` reference, with an `applies`
+  edge;
+- `groups`: at least one group, each `{units, role, label?, basis?}`. `units` is a
+  non-empty unit list. `role` is `open`, `reserved`, `unresolved` or `withheld`.
+  `label` is a non-empty string and `basis` a `sha256:` digest;
+- `predecessor` (optional): a `reservation-assignment:` reference;
+- `evidence` (optional): `<scheme>:<rest>` tokens. Those with the scheme
+  `exposure-event` also get an `evidenced-by` edge;
+- `flagged` (optional): `assessment:` references, one `flags` edge each. Absent
+  means no suspension was reported, and an empty list means a suspension was
+  reported and no assessment was made;
+- `account` (optional): a non-empty string;
+- `participants` (optional): sorted, distinct actors;
+- `prior_runs` (optional): `<scheme>:<rest>` tokens. Those with the scheme `run` also
+  get a `reports` edge;
+- `assigned_at`: a whole-second UTC timestamp, and `assigned_by`: an actor.
+
+Groups are sorted by their first unit. Across all groups the units have one shape,
+no unit sits in two groups, and interval units do not overlap (they may touch). A
+record whose intervals overlap is refused by the reader, so it reads as
+`facet-payload-malformed` and has no separate audit code. The id is
+`reservation-assignment:` followed by the digest of the facet under
+`science.reservation-assignment.v1`. A successor also carries one `supersedes` edge
+to its `predecessor`; a chain root carries none.
+
+### Chains and derived changes
+
+A chain is the records sharing `chain` and `scope`; it is linear, with one root and
+one head. `beliefs.reservation.assignment_head(view, chain, scope=None)` returns the
+head, or None when the chain has no record, and raises `ChainAmbiguous` for two
+roots or two heads rather than choose one.
+
+A successor's group changes are derived at read time, never stored.
+`assignment_changes_of(view, ref)` returns them (empty for a root). Groups are
+matched by their first unit:
+
+- a predecessor group whose first unit sits in no successor group is `absent`;
+- a predecessor group whose first unit sits in a successor group that is not equal
+  to it (any field of the group) is `changed`;
+- a successor group whose first unit sits in no predecessor group is `added`.
+
+A change is suspended when it is `absent` or `changed` and the predecessor group's
+role was `reserved`. An `added` group is never suspended.
+
+### Write rules
+
+`add` mints a chain root or an exposure event; for a reservation assignment, a record
+naming a predecessor, or carrying a `supersedes` edge, is refused there
+(`FamilyKindUnsupported`).
+`supersede` mints a successor: its facet's `predecessor` must name the record
+superseded, and the adapter authors the `supersedes` edge, so the caller supplies
+none. `revise` changes prose only (title, body, `display`) and refuses anything else
+(`ReviseOutsideAllowlist`). `delete` refuses both kinds (`DeletionKindExcluded`),
+and neither kind can be a coreference endpoint. `move` and `consolidate` carry them: `move` keeps
+their edges in facet order, and `consolidate` writes the merged record's edges
+sorted, which the set comparison below accepts.
+
+The write boundary decodes the facet (a facet its reader refuses is
+`MalformedRecord`) and then refuses with `ReservationRefused`, whose `code` is one
+of the following, in this order. Edges are compared with the facet's as a
+duplicate-free set, so order is free and a missing, extra or doubled edge is not.
+
+- An event: `exposure-edge-mismatch`; `exposure-ref-unresolved` (a subject,
+  proposition or kernel evidence reference that resolves to no record, or to a
+  record of the wrong kind); `exposure-unit-sort-undeclared`.
+- An assignment's own record: `assignment-edge-mismatch` (including a successor
+  without exactly one `supersedes` edge to its predecessor, and a root with one);
+  `assignment-ref-unresolved` (an event, an `exposure-event:` entry of `evidence`,
+  a `flagged` assessment, a `run:` entry of `prior_runs`, or `scope`, `applies` or
+  `predecessor`, that resolves to no record or the wrong kind); `assignment-applies-scoped` (`applies` names a scoped assignment);
+  `assignment-unit-sort-undeclared`.
+- Its chain, judged over the write root (or an import's union), never a read mount:
+  `assignment-root-exists` (a second root for the same `chain` and `scope`) and
+  `assignment-superseded` (the predecessor already has a successor).
+- Its succession, against the predecessor: `assignment-scope-mismatch` (a different
+  chain, scope or unit shape); `assignment-unchanged` (the facet with `predecessor`,
+  `assigned_at` and `assigned_by` removed equals the predecessor's); `assignment-changes-without-evidence` (any derived change, an
+  addition included, and no `evidence`); `assignment-suspension-unflagged` (a
+  suspended group and no `flagged` list); `assignment-flagged-without-suspension`
+  (`flagged` present and no suspension, a root's included).
+
+Last, `recorded_by` (an event) or `assigned_by` (an assignment) must equal the bound
+actor (`ActorMismatch` otherwise); import, `move` and `consolidate` keep the actor as
+written.
+
+### Audit
+
+`audit_corpus` and `audit_world` recompute the same checks over stored records and
+report them as findings, with these codes (all in `WORLD_AUDIT_CODES`):
+`exposure-edge-mismatch`, `exposure-ref-unresolved`, `exposure-unit-sort-undeclared`,
+`assignment-edge-mismatch`, `assignment-ref-unresolved`, `assignment-applies-scoped`,
+`assignment-unit-sort-undeclared`, `assignment-fork`, `assignment-scope-mismatch`,
+`assignment-changes-without-evidence`, `assignment-suspension-unflagged`,
+`assignment-flagged-without-suspension` and `assignment-unchanged`.
+
+`assignment-fork` stands for the two chain refusals above (two successors of one
+predecessor, or two roots of one chain and scope), which import refuses as `add` and
+`supersede` do, so only a raw write (one made around the boundary) can produce it; it
+names the later record by id. A record whose reader refuses it is
+`facet-payload-malformed`. A reference recorded in a corpus not held here, or one
+that is itself unreadable, is a neighbour's fault: the check is reported unchecked
+rather than failed, and the succession checks need a readable predecessor. The
+bound-actor rule is a write-time check and is not repeated.
+
+### Reading them
+
+Three module functions in `beliefs.reservation` read the kinds through any view with
+`iter_stored` and `get` (they are not `ReadView` methods):
+
+- `exposure_events(view, subject=None, proposition=None)` returns every stored
+  event, narrowed to those naming the subject or the proposition, ordered by
+  `observed_at` then id. A malformed event raises `MalformedRecord` instead of
+  being skipped, since skipping would understate exposure;
+- `assignment_head(view, chain, scope=None)`, above;
+- `assignment_changes_of(view, ref)`, above.
+
+### Publication
+
+Publication closure follows each kind's world edges. A reservation assignment's
+`supersedes` edge counts too, so a published successor carries its predecessor
+chain, and a selection that lacks the chain is refused (`closure-incomplete`); the
+`supersedes` edges of other kinds stay outside closure. See
+[writes.md](writes.md#publication).
+
 ## Beliefs
 
 A belief is not a record. `evaluate` takes an exact `PolicyBinding` (a rule identity
@@ -351,3 +554,7 @@ contract that declares a predecessor or a retired identifier.
   identifiers; authoring a new one does (`WithdrawnFromAuthoring`).
 - A stored estimand or applicability that does not restore against the profile
   (`MalformedWireEstimand`, `MalformedRecord`).
+- An exposure event or reservation assignment whose stored facet is not the
+  canonical form of the value it decodes to (for example an empty `evidence` or
+  `bound` written out), or whose id does not recompute from the facet
+  (`MalformedRecord`).

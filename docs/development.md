@@ -43,6 +43,7 @@ The kernel's main areas, under `python/src/beliefs/`:
 | The corpus and its writes | `root.py`, `corpus.py`, `stored.py`, `permit.py`, `session/` | [writes.md](writes.md) |
 | Operations, acquisition and holdings | `intents/`, `report.py`, `acquisition.py`, `audit_operation.py`, `holdings/` | [writes.md](writes.md#operations) |
 | Runs, datasets and replay | `spec.py`, `recipe.py`, `adapter.py`, `boundary.py`, `confinement.py`, `replay.py`, `verify.py`, `dataset.py` | [records.md](records.md#specs-runs-and-assessments) |
+| Exposure events and reservation assignments | `reservation.py` (values, units, shared checks, view helpers), `stored.py` readers | [records.md](records.md#exposure-events-and-reservation-assignments) |
 | Assessment and belief | `assess.py`, `admission.py`, `belief.py`, `policy.py`, `evaluation.py`, `composite.py` | [records.md](records.md#beliefs) |
 | The world | `world/`, `relocation.py`, `audit.py` | [guide.md](guide.md#worlds-identity-and-change) |
 | Views and coordination | `coordination.py`, `view_query.py`, `contract/coordination.py`, `contracts/coordination/` | [contracts.md](contracts.md#coordination-contract) |

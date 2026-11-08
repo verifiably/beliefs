@@ -63,6 +63,8 @@ KIND_ACTS: Mapping[str, frozenset[str]] = MappingProxyType(
         "coreference-attestation": _CORPUS_WRITE,
         "act-report": frozenset({"corpus-write", "run"}),
         "composite": _CORPUS_WRITE,
+        "exposure-event": _CORPUS_WRITE,
+        "reservation-assignment": _CORPUS_WRITE,
         **{kind: _CORPUS_WRITE for kind in _ORDINARY_COORDINATION_KINDS},
         "publication": frozenset({"publish"}),
         "publication-binding": frozenset({"publish"}),

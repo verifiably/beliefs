@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
+from authority import ACTOR
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.relations import Relation
+from test_reservation import _event
 
 from beliefs import stored
 from beliefs.consulted import CorpusPins
@@ -29,6 +31,7 @@ from beliefs.publish_request import (
     require_usable,
     staging_world_id_for,
 )
+from beliefs.reservation import OPEN, Group, IntervalUnit, ReservationAssignment
 
 V2 = "coordination:" + shipped_coordination(2).content_identity
 V1 = "coordination:" + shipped_coordination(1).content_identity
@@ -85,6 +88,82 @@ def test_a_composite_missing_a_member_is_closure_incomplete():
     )
     composite.relations.append(Relation(source=composite.id, predicate="composes", target=p1.id))
     assert closure_missing(FakeView([p1, composite]), (composite.id,)) == (p1.id,)
+
+
+def _knowledge_event(observed_at: str):
+    """A knowledge-channel event: it names no subject and no evidence, so it carries no edge of its own."""
+    value = _event(
+        channel="knowledge",
+        subjects=(),
+        units=(IntervalUnit(OPEN, observed_at),),
+        read_class="training-knowledge",
+        bound=(),
+        observed_at=observed_at,
+        evidence=(),
+    )
+    return stored.exposure_event_node(value, title="e")
+
+
+def _assignment_chain():
+    """Three events, a root considering the first, and a successor considering the first two and
+    naming the third as evidence; the successor carries the `supersedes` edge `supersede` authors."""
+    events = [_knowledge_event(f"2026-11-0{day}T00:00:00Z") for day in (1, 2, 3)]
+    first, second, third = (event.id for event in events)
+    reserved = Group((IntervalUnit("2020-01-01T00:00:00Z", "2021-01-01T00:00:00Z"),), "reserved", None, None)
+    root = ReservationAssignment(
+        chain="sun-epochs",
+        rule_name="epoch-reservation-rule",
+        rule_version="3",
+        inputs=(("rule", "sha256:" + "a" * 64),),
+        events=(first,),
+        scope=None,
+        applies=None,
+        groups=(reserved,),
+        predecessor=None,
+        evidence=(),
+        flagged=None,
+        account=None,
+        participants=(),
+        prior_runs=(),
+        assigned_at="2026-11-06T10:00:00Z",
+        assigned_by=ACTOR,
+    )
+    successor = replace(
+        root,
+        events=tuple(sorted((first, second))),
+        evidence=(third,),
+        predecessor=root.id,
+        assigned_at="2026-11-07T10:00:00Z",
+    )
+    root_node = stored.reservation_assignment_node(root, title="root")
+    successor_node = stored.reservation_assignment_node(successor, title="successor")
+    successor_node.relations.append(Relation(source=successor.id, predicate=stored.SUPERSEDES, target=root.id))
+    return events, root_node, successor_node
+
+
+def test_an_assignment_missing_a_considered_event_is_closure_incomplete():
+    """Ruling R2: a selected successor needs every considered event, its evidence events and its predecessor,
+    which the destination resolves when it decodes the facet."""
+    events, root, successor = _assignment_chain()
+    view = FakeView([*events, root, successor])
+    assert closure_missing(view, (successor.id,)) == tuple(sorted([*(event.id for event in events), root.id]))
+    assert closure_missing(view, (successor.id, root.id)) == tuple(sorted(event.id for event in events))
+    assert closure_missing(view, (successor.id, *(event.id for event in events))) == (root.id,)
+
+
+def test_a_proposition_successor_still_publishes_without_its_predecessor():
+    """`supersedes` stays a lifecycle relation for every other kind: closure does not follow it."""
+    old = stored.proposition_node("old", title="old", claim={"terms": []})
+    new = stored.proposition_node("new", title="new", claim={"terms": []})
+    new.relations.append(Relation(source=new.id, predicate=stored.SUPERSEDES, target=old.id))
+    assert closure_missing(FakeView([old, new]), (new.id,)) == ()
+
+
+def test_an_assignment_with_its_events_and_predecessor_is_closure_complete():
+    events, root, successor = _assignment_chain()
+    selected = (successor.id, root.id, *(event.id for event in events))
+    assert closure_missing(FakeView([*events, root, successor]), selected) == ()
+    assert closure_missing(FakeView([*events, root, successor]), (root.id, events[0].id)) == ()
 
 
 def test_an_unresolvable_endpoint_is_missing_by_its_stored_spelling():

@@ -16,7 +16,7 @@ from test_world_derive import reduce_with
 from test_world_receipts import corpora, document, hold_shipped, outcomes, publish, repackage, world_over
 
 from beliefs import stored
-from beliefs.corpus import EXCLUDED_MUTATION_KINDS, CorpusWriter
+from beliefs.corpus import APPEND_ONLY_KINDS, EXCLUDED_MUTATION_KINDS, CorpusWriter
 from beliefs.errors import (
     ActorMismatch,
     CoreferenceEndpointRefused,
@@ -194,7 +194,10 @@ class TestTheKindIsGoverned:
 
     def test_the_endpoint_kinds_are_the_world_kinds_less_the_three_exclusions(self):
         assert set(stored.COREFERENCE_ENDPOINT_KINDS) == (
-            set(stored.WORLD_KINDS) - {"coreference-attestation"} - set(EXCLUDED_MUTATION_KINDS)
+            set(stored.WORLD_KINDS)
+            - {"coreference-attestation"}
+            - set(EXCLUDED_MUTATION_KINDS)
+            - set(APPEND_ONLY_KINDS)
         )
         assert stored.COREFERENCE_ENDPOINT_KINDS == (
             "proposition",

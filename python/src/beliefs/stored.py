@@ -91,6 +91,12 @@ from beliefs.identity import v1
 from beliefs.permit import require_actor
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import ASSESSMENT_DOMAIN, AssessmentValue
+from beliefs.reservation import (
+    ExposureEvent,
+    ReservationAssignment,
+    exposure_event_from_facet,
+    reservation_assignment_from_facet,
+)
 from beliefs.sealed import sealed
 from beliefs.spec import FrozenSpec, frozen_projection, restore
 from beliefs.verification import Verification
@@ -186,6 +192,8 @@ PROPOSITION_FACET = "proposition"
 ANALYSIS_SPEC_FACET = "analysis-spec"
 ASSESSMENT_FACET = "assessment"
 COMPOSITE_FACET = "composite"
+EXPOSURE_EVENT_FACET = "exposure-event"
+RESERVATION_ASSIGNMENT_FACET = "reservation-assignment"
 RUN_FACET = "run"
 RUN_CLOSURE_FACET = "run-closure"
 DATASET_FACET = "dataset"
@@ -211,9 +219,9 @@ COREFERENCE_ENDPOINT_KINDS: tuple[str, ...] = (
     "instrument-certification",
     "composite",
 )
-"""The kinds a coreference attestation may name as endpoints: the world kinds less the attestation itself and the two
-boundary-minted occurrence records. `test_coreference_attestation.py` holds
-this equal to `WORLD_KINDS - {coreference-attestation} - EXCLUDED_MUTATION_KINDS`."""
+"""The kinds a coreference attestation may name as endpoints: the world kinds less the attestation itself, the two
+boundary-minted occurrence records and the two append-only kinds. `test_coreference_attestation.py` holds
+this equal to `WORLD_KINDS - {coreference-attestation} - EXCLUDED_MUTATION_KINDS - APPEND_ONLY_KINDS`."""
 HOLDINGS_OBSERVATION_FACET = "holdings-observation"
 COORDINATION_FACET = "coordination"
 
@@ -241,6 +249,14 @@ RETRACTS = "retracts"
 GROUNDED_IN = "grounded-in"
 SUCCEEDED_BY = "succeeded-by"
 COMPOSES = "composes"
+EXPOSES = "exposes"
+CONCERNS = "concerns"
+ATTESTED_BY = "attested-by"
+CONSIDERS = "considers"
+EVIDENCED_BY = "evidenced-by"
+FLAGS = "flags"
+REPORTS = "reports"
+APPLIES = "applies"
 
 _SHIPPED = shipped_base()
 _WORLD = {name: kind for name, kind in _SHIPPED.kinds.items() if kind.role == "world"}
@@ -1077,8 +1093,10 @@ SNAPSHOT_SUBJECT_KINDS: tuple[str, ...] = ("producer",)
 _LOWER_HEX_64 = re.compile(r"[0-9a-f]{64}")
 
 
-def _node(kind: str, slug: str, title: str, facets: Mapping[str, Any], relations: Sequence[Relation]) -> Node:
-    node = Node(id=f"{kind}:{slug}", kind=kind, title=title, facets=dict(facets), relations=list(relations))
+def _node(
+    kind: str, slug: str, title: str, facets: Mapping[str, Any], relations: Sequence[Relation], *, body: str = ""
+) -> Node:
+    node = Node(id=f"{kind}:{slug}", kind=kind, title=title, body=body, facets=dict(facets), relations=list(relations))
     return stamp_semantic_identity(node)
 
 
@@ -1535,6 +1553,86 @@ def coreference_attestation_node(
     except LoneSurrogate as exc:
         raise MalformedRecord("a coreference attestation identity field is not canonically encodable") from exc
     return _node("coreference-attestation", slug, title, {COREFERENCE_ATTESTATION_FACET: facet}, ())
+
+
+def exposure_event_value(node: Node) -> ExposureEvent:
+    facet = _facet(node, EXPOSURE_EVENT_FACET)
+    if facet is None:
+        raise MalformedRecord(f"{node.id}: an exposure event carries a {EXPOSURE_EVENT_FACET!r} facet")
+    try:
+        value = exposure_event_from_facet(facet)
+        if value.facet() != facet:
+            raise MalformedRecord("the stored facet is not the canonical form of the event it decodes to")
+    except MalformedRecord as caught:
+        raise MalformedRecord(f"{node.id}: {caught}") from caught
+    if node.id != value.id:
+        raise MalformedRecord(f"{node.id}: the id does not recompute from the facet; its address is {value.id}")
+    return value
+
+
+def reservation_assignment_value(node: Node) -> ReservationAssignment:
+    facet = _facet(node, RESERVATION_ASSIGNMENT_FACET)
+    if facet is None:
+        raise MalformedRecord(f"{node.id}: a reservation assignment carries a {RESERVATION_ASSIGNMENT_FACET!r} facet")
+    try:
+        value = reservation_assignment_from_facet(facet)
+        if value.facet() != facet:
+            raise MalformedRecord("the stored facet is not the canonical form of the assignment it decodes to")
+    except MalformedRecord as caught:
+        raise MalformedRecord(f"{node.id}: {caught}") from caught
+    if node.id != value.id:
+        raise MalformedRecord(f"{node.id}: the id does not recompute from the facet; its address is {value.id}")
+    return value
+
+
+def exposure_event_relations(value: ExposureEvent) -> list[Relation]:
+    source = value.id
+    return [
+        *(Relation(source=source, predicate=EXPOSES, target=ref) for ref in value.subjects),
+        *(Relation(source=source, predicate=CONCERNS, target=ref) for ref in value.propositions),
+        *(Relation(source=source, predicate=ATTESTED_BY, target=ref) for ref in value.kernel_evidence()),
+    ]
+
+
+def reservation_assignment_relations(value: ReservationAssignment) -> list[Relation]:
+    source = value.id
+    relations = [
+        *(Relation(source=source, predicate=CONSIDERS, target=ref) for ref in value.events),
+        *(Relation(source=source, predicate=EVIDENCED_BY, target=ref) for ref in value.kernel_evidence()),
+        *(Relation(source=source, predicate=FLAGS, target=ref) for ref in value.flagged or ()),
+        *(Relation(source=source, predicate=REPORTS, target=ref) for ref in value.kernel_prior_runs()),
+    ]
+    if value.scope:
+        relations.append(Relation(source=source, predicate=CONCERNS, target=value.scope))
+    if value.applies:
+        relations.append(Relation(source=source, predicate=APPLIES, target=value.applies))
+    return relations
+
+
+def exposure_event_node(value: ExposureEvent, *, title: str, body: str = "") -> Node:
+    if type(value) is not ExposureEvent:
+        raise MalformedRecord("exposure_event_node writes an ExposureEvent and nothing else")
+    return _node(
+        "exposure-event",
+        value.identity(),
+        title,
+        {EXPOSURE_EVENT_FACET: value.facet()},
+        exposure_event_relations(value),
+        body=body,
+    )
+
+
+def reservation_assignment_node(value: ReservationAssignment, *, title: str, body: str = "") -> Node:
+    if type(value) is not ReservationAssignment:
+        raise MalformedRecord("reservation_assignment_node writes a ReservationAssignment and nothing else")
+    return _node(
+        "reservation-assignment",
+        value.identity(),
+        title,
+        {RESERVATION_ASSIGNMENT_FACET: value.facet()},
+        reservation_assignment_relations(value),
+        body=body,
+    )
 
 
 def holdings_observation_node(observation: HoldingsObservation) -> Node:

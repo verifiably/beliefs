@@ -16,8 +16,8 @@ describe("document load refuses duplicate keys", () => {
 
 describe("the base contract's declarations", () => {
   const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
-  it("declares fourteen world kinds and three prose kinds", () => {
-    expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(14);
+  it("declares sixteen world kinds and three prose kinds", () => {
+    expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(16);
     expect(Object.values(base.kinds).filter((kind) => kind.role === "prose")).toHaveLength(3);
     expect(base.kinds["instrument-certification"].domain).toBeNull();
     expect(base.kinds["coreference-attestation"].domain).toBe("science.coreference-attestation.v1");
@@ -27,6 +27,8 @@ describe("the base contract's declarations", () => {
     expect(base.relations.supersedes.sameKind).toBe(true);
     expect(base.relations.composes.sameKind).toBe(false);
     expect(base.relations.composes.targets).toEqual(["proposition"]);
+    expect(base.relations.supersedes.sources).toEqual(["proposition", "composite", "reservation-assignment"]);
+    expect(base.relations.considers.targets).toEqual(["exposure-event"]);
   });
   it("refuses same_kind where sources and targets differ", () => {
     const line = "composes: { group: world, sources: [composite], targets: [proposition] }";

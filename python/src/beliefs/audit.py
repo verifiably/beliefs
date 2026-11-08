@@ -69,6 +69,15 @@ from beliefs.errors import (
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
 from beliefs.profile import ProfileSpec
 from beliefs.recipe import RunClosure
+from beliefs.reservation import (
+    UNREAD,
+    CheckRefusal,
+    ReservationAssignment,
+    Unread,
+    assignment_record_refusal,
+    assignment_succession_refusal,
+    exposure_event_refusal,
+)
 from beliefs.runrecord import decode_run_closure
 from beliefs.spec import FrozenSpec
 from beliefs.verify import _derive, decode_verification
@@ -90,8 +99,11 @@ __all__ = [
     "audit_world",
     "check_analysis_spec",
     "check_assessment",
+    "check_assignment_chains",
     "check_composite",
+    "check_exposure_event",
     "check_lineage_basis",
+    "check_reservation_assignment",
     "check_spec_target",
     "check_supersedes_kinds",
     "check_verification",
@@ -138,6 +150,19 @@ WORLD_AUDIT_CODES = frozenset(
         "composite-relations-mismatch",
         "composite-malformed",
         "supersedes-cross-kind",
+        "exposure-edge-mismatch",
+        "exposure-ref-unresolved",
+        "exposure-unit-sort-undeclared",
+        "assignment-edge-mismatch",
+        "assignment-ref-unresolved",
+        "assignment-applies-scoped",
+        "assignment-unit-sort-undeclared",
+        "assignment-fork",
+        "assignment-scope-mismatch",
+        "assignment-changes-without-evidence",
+        "assignment-suspension-unflagged",
+        "assignment-flagged-without-suspension",
+        "assignment-unchanged",
     }
 )
 """The closed set of codes a world audit may report, beside `MALFORMEDNESS_CODES`."""
@@ -450,6 +475,130 @@ def check_composite(
     return DerivationOutcome(checked=True, reason="", contradiction=None)
 
 
+def _contradicted(node: Node, code: str, detail: str) -> DerivationOutcome:
+    return DerivationOutcome(
+        checked=True,
+        reason="",
+        contradiction=Finding(severity="error", code=code, ref=node.id, detail=detail, message=f"{node.id}: {detail}"),
+    )
+
+
+class _CitedReader:
+    """The audit's resolution for the shared reservation checks. A reference recorded in an absent corpus,
+    or one whose own stamp or facet is unreadable here, is a neighbour's fault (module docstring, third
+    case): it answers `UNREAD` (or None from `assignment_of`), is named in `skipped`, and the record's
+    derivation is unchecked rather than convicted. `holds` before `get`, as `check_supersedes_kinds`
+    does; a dangling reference answers None, the shared check's `*-ref-unresolved`."""
+
+    def __init__(self, view: ReadView | _ImportView | WorldReadView) -> None:
+        self._view = view
+        self.skipped: list[str] = []
+        self.unread: set[str] = set()
+
+    def kind_of(self, ref: str) -> str | Unread | None:
+        if not self._view.holds(ref):
+            elsewhere = _absence_of(self._view, ref)
+            if elsewhere is None:
+                return None
+            return self._skip(ref, f"{ref} is recorded in {elsewhere}, which has no carrier here")
+        try:
+            return self._view.get(ref).kind
+        except _UNREADABLE_NEIGHBOUR as refused:
+            return self._skip(ref, f"{ref} is malformed here: {refused}")
+
+    def assignment_of(self, ref: str) -> ReservationAssignment | None:
+        try:
+            return stored.reservation_assignment_value(self._view.get(ref))
+        except MalformedRecord as refused:
+            self._skip(ref, f"{ref} is malformed here: {refused}")
+            return None
+
+    def _skip(self, ref: str, reason: str) -> Unread:
+        self.unread.add(ref)
+        self.skipped.append(reason)
+        return UNREAD
+
+    def outcome(self, node: Node, refusal: CheckRefusal | None) -> DerivationOutcome:
+        if refusal is not None:
+            return _contradicted(node, refusal.code, refusal.detail)
+        if self.skipped:
+            return _unchecked("; ".join(self.skipped))
+        return DerivationOutcome(checked=True, reason="", contradiction=None)
+
+
+def check_exposure_event(
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
+) -> DerivationOutcome:
+    """The boundary's `exposure_event_refusal` over the stored record, reported rather than raised. The
+    recorder's binding to an actor is a write-time authority check, not a derivation, and is not
+    repeated here."""
+    value = stored.exposure_event_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
+    reader = _CitedReader(view)
+    return reader.outcome(
+        node, exposure_event_refusal(value, node.relations, kind_of=reader.kind_of, sorts=profile.sorts)
+    )
+
+
+def check_reservation_assignment(
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
+) -> DerivationOutcome:
+    """The boundary's `assignment_record_refusal` and `assignment_succession_refusal` over the stored
+    record, reported rather than raised. The chain's linearity between them is
+    `check_assignment_chains`'s, one pass over the corpus; the assigner's binding is a write-time
+    authority check and is not repeated. Without a readable predecessor no change is derived, so the
+    succession checks are not judged."""
+    value = stored.reservation_assignment_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
+    reader = _CitedReader(view)
+    refusal = assignment_record_refusal(
+        value, node.relations, kind_of=reader.kind_of, assignment_of=reader.assignment_of, sorts=profile.sorts
+    )
+    if refusal is not None or value.predecessor is None:
+        return reader.outcome(node, refusal or assignment_succession_refusal(value, None))
+    if value.predecessor in reader.unread:
+        return reader.outcome(node, None)
+    predecessor = reader.assignment_of(value.predecessor)
+    if predecessor is None:
+        return reader.outcome(node, None)
+    return reader.outcome(node, assignment_succession_refusal(value, predecessor))
+
+
+def check_assignment_chains(view: ReadView | _CapturedCheckView) -> tuple[Finding, ...]:
+    """One pass over the view's reservation assignments: a predecessor named by two successors, or a
+    chain (`chain` × `scope`) with two roots, is an `assignment-fork` the boundary refuses
+    (`assignment-superseded`, `assignment-root-exists`), import included, so only a raw write (one made
+    around the boundary) can make it. The finding names the later record by id order, its detail both.
+    An assignment its reader refuses is already `facet-payload-malformed` and is not read here."""
+    successors: dict[str, list[str]] = {}
+    roots: dict[tuple[str, str | None], list[str]] = {}
+    for node in view.iter_stored():
+        if node.kind != "reservation-assignment":
+            continue
+        try:
+            value = stored.reservation_assignment_value(node)
+        except MalformedRecord:
+            continue
+        if value.predecessor is None:
+            roots.setdefault((value.chain, value.scope), []).append(node.id)
+        else:
+            successors.setdefault(value.predecessor, []).append(node.id)
+    findings: list[Finding] = []
+
+    def fork(ref: str, detail: str) -> None:
+        findings.append(
+            Finding(severity="error", code="assignment-fork", ref=ref, detail=detail, message=f"{ref}: {detail}")
+        )
+
+    for predecessor, refs in successors.items():
+        first, *later = sorted(refs)
+        for ref in later:
+            fork(ref, f"{predecessor} has the successors {first} and {ref}; a chain is linear")
+    for (chain, scope), refs in roots.items():
+        first, *later = sorted(refs)
+        for ref in later:
+            fork(ref, f"chain {chain!r} (scope {scope!r}) has the roots {first} and {ref}")
+    return tuple(sorted(findings, key=lambda finding: finding.sort_key))
+
+
 def check_supersedes_kinds(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> Finding | None:
@@ -560,6 +709,10 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
                 outcome = check_spec_target(view, node, profile=profile)
             elif node.kind == "composite":
                 outcome = check_composite(view, node, profile=profile)
+            elif node.kind == "exposure-event":
+                outcome = check_exposure_event(view, node, profile=profile)
+            elif node.kind == "reservation-assignment":
+                outcome = check_reservation_assignment(view, node, profile=profile)
             else:
                 continue
         except PreGrammarSpec as refused:
@@ -597,6 +750,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
             continue
         if outcome.contradiction is not None:
             findings.append(outcome.contradiction)
+    findings.extend(check_assignment_chains(view))
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
 
 
@@ -614,6 +768,10 @@ def _recompute(
         return check_spec_target(view, node, profile=profile)
     if node.kind == "composite":
         return check_composite(view, node, profile=profile)
+    if node.kind == "exposure-event":
+        return check_exposure_event(view, node, profile=profile)
+    if node.kind == "reservation-assignment":
+        return check_reservation_assignment(view, node, profile=profile)
     return None
 
 
@@ -862,6 +1020,7 @@ def audit_world(
         reader = _CapturedCitations(view, corpus_id, readable, causes, malformed_codes)
         second = _record_findings(captured, profile, scope, disagreeing, citations=reader)
         corpora[corpus_id].extend(f for f in second if f.code in ELIGIBILITY_CODES)
+        corpora[corpus_id].extend(check_assignment_chains(captured))
     # A record held in several corpora is recomputed once and its findings are
     # filed under every captured holder whose audit is not excluded for it.
     for holders, node in view._mapped_holders():
