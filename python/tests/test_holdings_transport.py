@@ -538,3 +538,9 @@ def test_over_tls_a_certificate_failure_after_a_credential_bearing_redirect_name
     assert "tok3n-9f2a" not in result.reason and "example.net" not in result.reason
     assert len(log.requests) == 1  # the second hop's handshake never completed, so the server parsed no request
     assert [host for host, _a, _p in log.dialled] == ["example.org", "tok3n-9f2a.example.net"]
+
+
+def test_an_unconvertible_retry_after_is_malformed_and_never_raises(tmp_path):
+    seam, _ = scripted_seam({"/data": Scripted(429, {"Retry-After": "9" * 5000}, (b"",))})
+    result = retrieve(DATA, BOUNDS, seam, tmp_path)
+    assert result == Failed("status 429", "status", status=429, retry_after=None)

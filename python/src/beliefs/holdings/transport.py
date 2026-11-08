@@ -282,7 +282,10 @@ def _retry_after(value: str | None, clock: Callable[[], datetime]) -> int | None
         return None
     text = value.strip()
     if text.isascii() and text.isdigit():
-        return int(text)
+        try:
+            return int(text)
+        except ValueError:  # more digits than the interpreter converts: malformed
+            return None
     try:
         moment = parsedate_to_datetime(text)
     except (TypeError, ValueError, IndexError):
