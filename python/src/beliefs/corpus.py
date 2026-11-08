@@ -113,6 +113,7 @@ from beliefs.errors import (
     ProjectNotResolvable,
     RecordAlreadyMinted,
     RelocationTargetMissing,
+    ReservationRefused,
     RetractionCycleMalformed,
     RetractionGroundsMissing,
     RetractionTargetIneligible,
@@ -149,6 +150,7 @@ from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
+from beliefs.reservation import TermUnit
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
@@ -187,7 +189,9 @@ __all__ = [
 DIRECTIONS = ("inbound", "outbound")
 ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
 APPEND_ONLY_KINDS: tuple[str, ...] = ("exposure-event", "reservation-assignment")
-"""The world kinds minted once and never mutated in place; a later task applies it to the mutation operations."""
+"""The world kinds minted once and never mutated in place: `delete` refuses them
+(`_refuse_excluded_kind`) and `revise` admits prose changes only. Unlike
+`EXCLUDED_MUTATION_KINDS` this does not bar `move` or `consolidate`."""
 EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("act-report", "holdings-observation", *COORDINATION_KINDS)
 """The statically excluded kinds no world-changing operation accepts:
 as a `delete` target, a `move` subject, or a `consolidate` input.
@@ -2603,6 +2607,8 @@ class CorpusWriter:
         )
         if node.kind in EXCLUDED_MUTATION_KINDS or (profile is not None and node.kind in profile.coordination_kinds):
             raise DeletionKindExcluded(f"{node.id}: kind {node.kind!r} is excluded from every world-changing operation")
+        if node.kind in APPEND_ONLY_KINDS:
+            raise DeletionKindExcluded(f"{node.id}: kind {node.kind!r} is append-only and is never deleted")
 
     def _add_locked(self, node: Node, *, provenance: bool = False) -> Node:
         """`add`'s body, with the root's operation lock already held."""
@@ -3466,8 +3472,10 @@ class CorpusWriter:
             if current.kind == "dataset":
                 return self._revise_dataset_locked(node, current)
             self._refuse_family_kinds(node)
-            if current.kind != "proposition" or node.kind != "proposition":
-                raise ReviseKindImmutable("revise operates on propositions and datasets only")
+            if current.kind != node.kind or node.kind not in ("proposition", *APPEND_ONLY_KINDS):
+                raise ReviseKindImmutable(
+                    "revise operates on propositions, datasets, exposure events and reservation assignments only"
+                )
             self._refuse_invalid(node)
             if not all(isinstance(relation, Relation) for relation in node.relations):
                 raise ValidationRefused(f"{node.id}: refused by document validation: malformed relation")
@@ -4041,6 +4049,11 @@ class CorpusWriter:
             facet = self._profile.facets.get(key)
             if facet is not None:
                 validate_payload(facet, payload, where=node.id)
+        # Decode at the boundary; `MalformedRecord` propagates, as `_refuse_verification` lets its decode's.
+        if node.kind == "exposure-event":
+            stored.exposure_event_value(node)
+        elif node.kind == "reservation-assignment":
+            stored.reservation_assignment_value(node)
 
     def _refuse_facets(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None, provenance: bool = False
@@ -4072,6 +4085,46 @@ class CorpusWriter:
                 reason = validity_refusal(judged, node, self._profile, reports=local)
                 if reason is not None:
                     raise FacetPayloadRefused(f"{node.id}: {reason}")
+            if node.kind == "exposure-event":
+                self._refuse_exposure_event(node, view=reading, provenance=provenance)
+
+    def _refuse_exposure_event(
+        self, node: Node, *, view: ReadView | _ImportView | MountCitations, provenance: bool
+    ) -> None:
+        """An exposure event's edges mirror its facet exactly, every kernel reference resolves to a record
+        of the kind its slot names, each unit sort is declared, and the recorder is the bound actor
+        (kept as written under provenance)."""
+        value = stored.exposure_event_value(node)
+        if list(node.relations) != stored.exposure_event_relations(value):
+            raise ReservationRefused(
+                "exposure-edge-mismatch", f"{node.id}: the relations differ from those the facet names"
+            )
+        slots: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
+            ("subject", value.subjects, ("dataset", "source")),
+            ("proposition", value.propositions, ("proposition",)),
+            ("evidence", value.kernel_evidence(), ("act-report", "run", "holdings-observation")),
+        ]
+        for slot, refs, kinds in slots:
+            for ref in refs:
+                if not view.holds(ref):
+                    raise ReservationRefused(
+                        "exposure-ref-unresolved", f"{node.id}: the {slot} {ref!r} resolves to no record here"
+                    )
+                found = view.get(ref).kind
+                if found not in kinds:
+                    raise ReservationRefused(
+                        "exposure-ref-unresolved",
+                        f"{node.id}: the {slot} {ref!r} is a {found}, not one of {', '.join(kinds)}",
+                    )
+        for unit in value.units:
+            if isinstance(unit, TermUnit) and unit.sort not in self._profile.sorts:
+                raise ReservationRefused(
+                    "exposure-unit-sort-undeclared", f"{node.id}: the unit sort {unit.sort!r} is not declared"
+                )
+        if not provenance and value.recorded_by != self._authority.actor:
+            raise ActorMismatch(
+                f"{node.id}: the event names recorder {value.recorded_by!r}, not the bound {self._authority.actor!r}"
+            )
 
     @staticmethod
     def _refuse_governed_stamp(node: Node) -> None:

@@ -1156,6 +1156,15 @@ class WriteRefused(ScienceError):
     layer with no added discrimination."""
 
 
+class ReservationRefused(WriteRefused):
+    """An exposure event or reservation assignment refused at the write boundary. `code` is the stable
+    name the reservation tables carry; the message names the position."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.code = code
+
+
 class RecordAlreadyMinted(WriteRefused):
     """The create-path guard: the corpus already holds this `(uid, id)` pair.
 
