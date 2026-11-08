@@ -98,8 +98,8 @@ class ScriptedStore:
 
 def portable(tmp_path, views=None):
     observer_root, store_root = tmp_path / "observer", tmp_path / "store"
-    observer_root.mkdir()
-    store_root.mkdir()
+    observer_root.mkdir(parents=True)
+    store_root.mkdir(parents=True)
     seam = ScriptedStore(observer_root, {} if views is None else views)
     ctx = ActContext(observer_root, store_root, "observer", "instrument", FULL, seam.build(), profile=BASE)
     port = Ordered(FULL, observer_root, seam.events)
@@ -316,3 +316,90 @@ def test_the_mint_helper_refuses_the_wrong_intent_kind_and_the_wrong_entry_kind(
         entries=(entry,),
     )
     assert report.operation == "re-check" and report.entries == (entry,)
+
+
+def _tree_locator_and_file(store_root: Path, members: dict[str, bytes]):
+    """A tree over `members` with its tree file laid in the store root; returns (locator, tree)."""
+    from beliefs.holdings.records import StoreTreeLocator
+    from beliefs.tree import TreeMember, make_tree, object_path, tree_digest, tree_file_bytes
+
+    tree = make_tree(
+        TreeMember(name, "sha256:" + sha256(data).hexdigest(), len(data)) for name, data in members.items()
+    )
+    laid = store_root / object_path(tree_digest(tree))
+    laid.parent.mkdir(parents=True)
+    laid.write_bytes(tree_file_bytes(tree))
+    return StoreTreeLocator(STORE_ID, tree_digest(tree).split(":", 1)[1]), tree
+
+
+def _views_for(tree, *, tree_file_view=None, member_view=None):
+    from beliefs.tree import object_path, tree_digest
+
+    views = {
+        object_path(tree_digest(tree)): tree_file_view
+        or PathObservedView(FileStateView("sha256:" + tree_digest(tree).split(":", 1)[1], len(b"x")))
+    }
+    for member in tree.members:
+        views[object_path(member.digest)] = member_view or PathObservedView(FileStateView(member.digest, member.size))
+    return views
+
+
+def test_recheck_locations_dispatches_a_store_tree_location(tmp_path):
+    from beliefs.holdings.records import Absent, Incomplete
+
+    locator, tree = _tree_locator_and_file(tmp_path / "scratch", {"a.txt": b"alpha", "b.txt": b"beta"})
+    views = _views_for(tree)
+    ctx, seam, writer, _ = portable(tmp_path / "p", views)
+    from beliefs.tree import object_path, tree_digest, tree_file_bytes
+
+    laid = ctx.store_root / object_path(tree_digest(tree))
+    laid.parent.mkdir(parents=True)
+    laid.write_bytes(tree_file_bytes(tree))
+    plain = location("plain.bin")
+
+    outcome = recheck_locations(ctx, writer, (plain, locator))
+
+    assert [e.subject for e in outcome.entries] == [plain.canonical(), locator.canonical()]
+    tree_result = outcome.results[1]
+    assert not isinstance(tree_result, InconclusiveAttempt)
+    assert tree_result.record.outcome == Found(tree_digest(tree))
+    assert json.loads(seam.intents[1])["kind"] == "re-check"
+    assert json.loads(seam.intents[1])["location"]["type"] == "store-tree"
+
+    gone = {**views, object_path(tree.members[0].digest): PathObservedView(FileStateView("sha256:" + "0" * 64, 5))}
+    seam.views.update(gone)
+    second = recheck_locations(ctx, writer, (locator,))
+    assert second.results[0].record.outcome == Absent(Incomplete(0, 1))  # type: ignore[union-attr]
+
+
+@pytest.mark.parametrize(
+    ("which", "view", "report"),
+    [
+        (
+            "tree-file",
+            ReadNotAttemptedView(reason="lease-refused", lifecycle_state=None, detail="d"),
+            "byte-locator-untested",
+        ),
+        ("tree-file", ReadUnestablishedView(reason="io-error", detail="d"), "retrieval-failed"),
+        ("member", ReadUnestablishedView(reason="io-error", detail="d"), "retrieval-failed"),
+    ],
+)
+def test_an_unreadable_tree_object_is_inconclusive(tmp_path, which, view, report):
+    from beliefs.tree import object_path, tree_digest, tree_file_bytes
+
+    ctx, seam, writer, _ = portable(tmp_path / "p")
+    locator, tree = _tree_locator_and_file(tmp_path / "scratch", {"a.txt": b"alpha"})
+    laid = ctx.store_root / object_path(tree_digest(tree))
+    laid.parent.mkdir(parents=True)
+    laid.write_bytes(tree_file_bytes(tree))
+    views = _views_for(tree)
+    key = object_path(tree_digest(tree)) if which == "tree-file" else object_path(tree.members[0].digest)
+    views[key] = view
+    seam.views.update(views)
+
+    outcome = recheck_locations(ctx, writer, (locator,))
+
+    (result,) = outcome.results
+    assert isinstance(result, InconclusiveAttempt)
+    assert (result.report, result.reason) == (report, view.reason)
+    assert not (ctx.observer_root / "holdings-observation").exists()

@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     from beliefs.holdings.acquire import AcquisitionOutcome, AcquisitionRequest
     from beliefs.holdings.boundary import ActContext
     from beliefs.holdings.recheck import RecheckOutcome
-    from beliefs.holdings.records import HoldingsObservation, StoreLocator
+    from beliefs.holdings.records import HoldingsObservation, StoreLocator, StoreTreeLocator
     from beliefs.holdings.transport import UrlSeam
     from beliefs.intents.publish import Destination
     from beliefs.publish import PublishOutcome
@@ -809,7 +809,7 @@ class ScopedWriter:
 
     def recheck(
         self,
-        locations: tuple[StoreLocator, ...],
+        locations: tuple[StoreLocator | StoreTreeLocator, ...],
         *,
         instrument: str,
         standing: Mapping[str, tuple[HoldingsObservation, ...]] | None = None,

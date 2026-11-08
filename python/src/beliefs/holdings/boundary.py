@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import secrets
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 
 from nodes.core.errors import ExecutionError
@@ -18,6 +20,7 @@ from beliefs.holdings.records import (
     Absent,
     Found,
     HoldingsObservation,
+    Incomplete,
     Locator,
     StoreLocator,
     StoreTreeLocator,
@@ -29,6 +32,9 @@ from beliefs.holdings.seam import (
     AbsentStateView,
     FileStateView,
     NonRegularStateView,
+    PathObservedView,
+    PathReadView,
+    PathStateView,
     ReadNotAttemptedView,
     ReadUnestablishedView,
     StoreActSeam,
@@ -45,6 +51,7 @@ from beliefs.holdings.transport import (
 )
 from beliefs.permit import Authority, require_actor
 from beliefs.profile import ProfileSpec
+from beliefs.tree import Tree, object_path, parse_tree_file, tree_digest, tree_file_bytes
 from beliefs.world.anchors import parse_store_genesis
 
 HOLDINGS_INTENT_DOMAIN = "science.holdings-intent.v1"
@@ -194,16 +201,19 @@ def _publish_record(ctx: ActContext, record: HoldingsObservation, intent: str) -
 
 def _publish(
     ctx: ActContext,
-    location: StoreLocator,
+    location: StoreLocator | StoreTreeLocator,
     outcome: Found | Absent,
     token: str,
     intent: str,
     standing: tuple[HoldingsObservation, ...],
+    *,
+    expected: str | None = None,
 ) -> PublishedObservation:
     ctx.authority.require("holdings", ("holdings-observation",))
     record = holdings_observation(
         location=location,
         outcome=outcome,
+        expected=expected,
         observer=ctx.observer,
         instrument=ctx.instrument,
         event_token=token,
@@ -243,7 +253,7 @@ def _final(outcome: StoreOutcomeView, path: str) -> FileStateView | AbsentStateV
     raise RuntimeError(f"store outcome lacks final state for {path!r}")
 
 
-def _bind(ctx: ActContext, location: StoreLocator) -> None:
+def _bind(ctx: ActContext, location: StoreLocator | StoreTreeLocator) -> None:
     store_id, _ = parse_store_genesis(ctx.seam.store_genesis(ctx.store_root))
     if store_id != location.store_id:
         raise StoreIdMismatch(f"store root names {store_id}, not {location.store_id}")
@@ -340,3 +350,133 @@ def move(
             standing_destination,
         ),
     )
+
+
+def _require_object(location: StoreTreeLocator, path: str, digest: str, size: int, state: object) -> None:
+    """The object at `path` is a regular file of exactly this digest and size, or the act refuses."""
+    if not isinstance(state, FileStateView) or state.content_hash != digest or state.byte_len != size:
+        raise StoreWriteRefused(location.canonical(), f"{path} does not hold the declared object")
+
+
+def _place_object(
+    ctx: ActContext,
+    location: StoreTreeLocator,
+    digest: str,
+    size: int,
+    read_content: Callable[[], bytes],
+) -> None:
+    """Make `objects/sha256/..` hold `digest`: reuse a matching object, create an absent one.
+
+    `read_content` is called only when the object is absent, so a reused object
+    never loads its bytes. A routine refusal from the create proves nothing (a
+    concurrent create or a directory at the path refuses alike), so the object is
+    read again and counts only when it matches."""
+    ctx.authority.require("holdings", ("holdings-observation",))
+    path = object_path(digest)
+    view = ctx.seam.read_path(ctx.store_root, path)
+    if not isinstance(view, PathObservedView):
+        raise StoreWriteRefused(location.canonical(), f"{path} could not be read: {view.detail}")
+    if not isinstance(view.state, AbsentStateView):
+        _require_object(location, path, digest, size, view.state)
+        return
+    content = read_content()
+    if f"sha256:{sha256(content).hexdigest()}" != digest or len(content) != size:
+        raise MalformedRecord(f"the bytes for {path} do not match their declared digest and size")
+    try:
+        outcome = ctx.seam.store_create(ctx.store_root, path, content)
+    except ExecutionError as caught:
+        if not ctx.seam.store_refusal(caught):
+            raise
+        again = ctx.seam.read_path(ctx.store_root, path)
+        if not isinstance(again, PathObservedView):
+            raise StoreWriteRefused(location.canonical(), str(caught)) from caught
+        try:
+            _require_object(location, path, digest, size, again.state)
+        except StoreWriteRefused as refused:
+            raise StoreWriteRefused(location.canonical(), str(caught)) from refused
+        return
+    _require_object(location, path, digest, size, _final(outcome, path))
+
+
+def tree_write(
+    ctx: ActContext,
+    location: StoreTreeLocator,
+    tree: Tree,
+    members: Mapping[str, Path],
+    *,
+    standing: tuple[HoldingsObservation, ...] = (),
+) -> PublishedObservation:
+    """Write a tree into the store: every member object, then the tree file, then one `found`.
+
+    Holds one member's bytes in memory at a time. A failure part-way leaves whole
+    objects (each is created whole or not at all) and an unmatched intent."""
+    ctx.authority.require("holdings", ("holdings-observation",))
+    if location.digest() != tree_digest(tree):
+        raise MalformedRecord("the store-tree location does not name this tree")
+    if set(members) != {member.path for member in tree.members}:
+        raise MalformedRecord("the member sources must be exactly the tree's paths")
+    token, intent = _append(ctx, location, "tree-write")
+    _bind(ctx, location)
+    for member in tree.members:
+        source = members[member.path]
+        _place_object(ctx, location, member.digest, member.size, source.read_bytes)
+    file_bytes = tree_file_bytes(tree)
+    _place_object(ctx, location, f"sha256:{location.tree}", len(file_bytes), lambda: file_bytes)
+    return _publish(ctx, location, Found(location.digest()), token, intent, standing, expected=location.digest())
+
+
+def recheck_tree(
+    ctx: ActContext, location: StoreTreeLocator, *, standing: tuple[HoldingsObservation, ...] = ()
+) -> ActResult:
+    """Observe whether the store still holds the tree: its tree file and every member object."""
+    ctx.authority.require("holdings", ("holdings-observation",))
+    token, intent = _append(ctx, location, "re-check")
+    file_path = object_path(location.digest())
+    view = ctx.seam.read_path(ctx.store_root, file_path)
+    inconclusive = _inconclusive(view)
+    if inconclusive is not None:
+        return inconclusive
+    assert isinstance(view, PathObservedView)
+    _bind(ctx, location)
+    if isinstance(view.state, AbsentStateView):
+        return _publish(ctx, location, Absent(Incomplete(1, 0)), token, intent, standing)
+    tree = _held_tree(ctx, location, view.state, file_path)
+    if tree is None:
+        return _publish(ctx, location, Absent(Incomplete(0, 1)), token, intent, standing)
+    missing = mismatched = 0
+    for member in tree.members:
+        member_view = ctx.seam.read_path(ctx.store_root, object_path(member.digest))
+        inconclusive = _inconclusive(member_view)
+        if inconclusive is not None:
+            return inconclusive
+        assert isinstance(member_view, PathObservedView)
+        state = member_view.state
+        if isinstance(state, AbsentStateView):
+            missing += 1
+        elif (
+            not isinstance(state, FileStateView) or state.content_hash != member.digest or state.byte_len != member.size
+        ):
+            mismatched += 1
+    outcome = Found(location.digest()) if missing + mismatched == 0 else Absent(Incomplete(missing, mismatched))
+    return _publish(ctx, location, outcome, token, intent, standing)
+
+
+def _inconclusive(view: PathReadView) -> InconclusiveAttempt | None:
+    if isinstance(view, ReadNotAttemptedView):
+        return InconclusiveAttempt("byte-locator-untested", view.reason, view.detail)
+    if isinstance(view, ReadUnestablishedView):
+        return InconclusiveAttempt("retrieval-failed", view.reason, view.detail)
+    return None
+
+
+def _held_tree(ctx: ActContext, location: StoreTreeLocator, state: PathStateView, file_path: str) -> Tree | None:
+    """The tree the store's tree file declares, or `None` when it holds other bytes or does not parse."""
+    if not isinstance(state, FileStateView) or state.content_hash != f"sha256:{location.tree}":
+        return None
+    data = (ctx.store_root / file_path).read_bytes()
+    if sha256(data).hexdigest() != location.tree:
+        return None
+    try:
+        return parse_tree_file(data)
+    except MalformedRecord:
+        return None

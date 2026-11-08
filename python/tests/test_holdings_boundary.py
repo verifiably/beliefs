@@ -36,9 +36,11 @@ from beliefs.holdings.boundary import (
     look,
     move,
     recheck,
+    recheck_tree,
+    tree_write,
     write,
 )
-from beliefs.holdings.records import Absent, Found, StoreLocator, StoreTreeLocator, url_locator
+from beliefs.holdings.records import Absent, Found, Incomplete, StoreLocator, StoreTreeLocator, url_locator
 from beliefs.holdings.seam import FileStateView, ReadUnestablishedView, StoreOutcomeView
 from beliefs.holdings.transport import RetrievalBounds
 from beliefs.root import (
@@ -50,6 +52,7 @@ from beliefs.root import (
     replicate_root,
     restore_root,
 )
+from beliefs.tree import TreeMember, make_tree, object_path, tree_digest, tree_file_bytes
 from beliefs.world import anchors, verify
 from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
@@ -644,7 +647,9 @@ def test_a_mixed_store_move_refuses_before_mutating(certified_work):
 
 
 def test_boundary_never_hashes_payloads_it_did_not_observe():
-    assert "sha256(" not in (Path(__file__).parents[1] / "src/beliefs/holdings/boundary.py").read_text()
+    # The store acts publish the engine's final row; only the tree helpers hash, and only bytes they read.
+    for act in (recheck, write, delete, move, look, tree_write, recheck_tree):
+        assert "sha256(" not in inspect.getsource(act)
 
 
 BOUNDS = RetrievalBounds(timeout_seconds=5.0, max_bytes=1 << 20, max_redirects=3)
@@ -808,3 +813,248 @@ def test_write_against_a_read_only_replica_raises_store_write_refused_from_the_p
     # with `PreconditionRefused` (not `ProjectApprovalRefused` as elsewhere);
     # it is still in the routine set.
     assert isinstance(cause.__cause__, PreconditionRefused)
+
+
+# -- tree-write and the tree re-check ---------------------------------------
+
+
+def _digest(data: bytes) -> str:
+    return f"sha256:{sha256(data).hexdigest()}"
+
+
+def _tree_of(tmp_path, contents: dict[str, bytes], *, sizes: dict[str, int] | None = None):
+    """A tree over `contents`, its member sources laid under `tmp_path`, and its locator parts."""
+    sources = {}
+    members = []
+    for name, data in contents.items():
+        source = tmp_path / "src" / name
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(data)
+        sources[name] = source
+        size = len(data) if sizes is None or name not in sizes else sizes[name]
+        members.append(TreeMember(name, _digest(data), size))
+    return make_tree(members), sources
+
+
+def _observation_files(ctx):
+    directory = ctx.observer_root / "holdings-observation"
+    return sorted(directory.glob("*.md")) if directory.exists() else []
+
+
+def _unmatched_intents(ctx):
+    chain = science_root._log_seam().inspect_registered(ctx.observer_root)
+    assert isinstance(chain, WellFormedView)
+    intents = [entry for entry in chain.entries if type(entry) is IntentEntryView]
+    registered = [entry for entry in chain.entries if type(entry) is RegisteredEntryView]
+    return len(intents) - len(registered)
+
+
+def _locator(store_id, tree) -> StoreTreeLocator:
+    return StoreTreeLocator(store_id, tree_digest(tree).split(":", 1)[1])
+
+
+def _counting(ctx):
+    created = []
+    original = ctx.seam.store_create
+
+    def counting(root, path, content):
+        created.append(path)
+        return original(root, path, content)
+
+    return replace(ctx, seam=replace(ctx.seam, store_create=counting)), created
+
+
+def test_tree_write_creates_every_object_and_one_observation(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha", "d/b.txt": b"beta"})
+    location = _locator(store_id, tree)
+
+    result = tree_write(ctx, location, tree, sources)
+
+    assert isinstance(result, PublishedObservation)
+    assert result.record.outcome == Found(tree_digest(tree))
+    assert result.record.expected == tree_digest(tree)
+    for member in tree.members:
+        assert (ctx.store_root / object_path(member.digest)).read_bytes() == sources[member.path].read_bytes()
+    assert (ctx.store_root / object_path(tree_digest(tree))).read_bytes() == tree_file_bytes(tree)
+    assert len(_observation_files(ctx)) == 1
+
+
+def test_tree_write_reuses_objects_another_tree_holds(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    first, first_sources = _tree_of(tmp_path / "one", {"a.txt": b"alpha", "b.txt": b"beta"})
+    tree_write(ctx, _locator(store_id, first), first, first_sources)
+    second, second_sources = _tree_of(tmp_path / "two", {"a.txt": b"alpha", "b.txt": b"beta", "c.txt": b"gamma"})
+    counting_ctx, created = _counting(ctx)
+
+    tree_write(counting_ctx, _locator(store_id, second), second, second_sources)
+
+    assert sorted(created) == sorted([object_path(_digest(b"gamma")), object_path(tree_digest(second))])
+
+
+def test_tree_write_refuses_an_object_with_other_bytes(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha", "b.txt": b"beta"})
+    (ctx.store_root / object_path(_digest(b"beta"))).parent.mkdir(parents=True, exist_ok=True)
+    (ctx.store_root / object_path(_digest(b"beta"))).write_bytes(b"damaged")
+    intents_before = _unmatched_intents(ctx)
+
+    with pytest.raises(StoreWriteRefused) as caught:
+        tree_write(ctx, _locator(store_id, tree), tree, sources)
+
+    assert caught.value.location == _locator(store_id, tree).canonical()
+    assert not _observation_files(ctx)
+    assert _unmatched_intents(ctx) == intents_before + 1
+
+
+def test_a_directory_at_an_object_path_refuses_and_mints_nothing(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha"})
+    (ctx.store_root / object_path(_digest(b"alpha"))).mkdir(parents=True)
+
+    with pytest.raises(StoreWriteRefused):
+        tree_write(ctx, _locator(store_id, tree), tree, sources)
+
+    assert not _observation_files(ctx)
+
+
+def test_a_routine_create_refusal_counts_only_when_the_object_matches(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha"})
+    path = object_path(_digest(b"alpha"))
+
+    def refusing(root, rel, content):
+        if rel == path:
+            (ctx.store_root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (ctx.store_root / rel).write_bytes(b"damaged")  # another writer's bytes arrive first
+        raise ExecutionError("refused", index=None, applied=0) from ProjectApprovalRefused("exists")
+
+    with pytest.raises(StoreWriteRefused):
+        tree_write(
+            replace(ctx, seam=replace(ctx.seam, store_create=refusing)),
+            _locator(store_id, tree),
+            tree,
+            sources,
+        )
+    assert not _observation_files(ctx)
+
+
+def test_a_reused_object_refuses_a_wrong_declared_size(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    first, first_sources = _tree_of(tmp_path / "one", {"a.txt": b"abc"})
+    tree_write(ctx, _locator(store_id, first), first, first_sources)
+    second, second_sources = _tree_of(tmp_path / "two", {"a.txt": b"abc"}, sizes={"a.txt": 4})
+    before = len(_observation_files(ctx))
+
+    with pytest.raises(StoreWriteRefused):
+        tree_write(ctx, _locator(store_id, second), second, second_sources)
+
+    assert len(_observation_files(ctx)) == before
+    # a hand-laid tree file declaring that size reads as a mismatched member
+    laid = ctx.store_root / object_path(tree_digest(second))
+    laid.parent.mkdir(parents=True, exist_ok=True)
+    laid.write_bytes(tree_file_bytes(second))
+    result = recheck_tree(ctx, _locator(store_id, second))
+    assert isinstance(result, PublishedObservation)
+    assert result.record.outcome == Absent(Incomplete(0, 1))
+
+
+def test_tree_write_refuses_member_bytes_that_differ_from_the_tree(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha"})
+    sources["a.txt"].write_bytes(b"other")
+
+    with pytest.raises(MalformedRecord):
+        tree_write(ctx, _locator(store_id, tree), tree, sources)
+    assert not _observation_files(ctx)
+
+
+def test_tree_write_refuses_a_mismatched_location_or_member_set_before_the_intent(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha"})
+    other, _ = _tree_of(tmp_path / "x", {"z.txt": b"zed"})
+    before = _chain_len(ctx.observer_root)
+    with pytest.raises(MalformedRecord):
+        tree_write(ctx, _locator(store_id, other), tree, sources)
+    with pytest.raises(MalformedRecord):
+        tree_write(ctx, _locator(store_id, tree), tree, {})
+    assert _chain_len(ctx.observer_root) == before
+
+
+def test_recheck_tree_finds_a_complete_tree(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha", "b.txt": b"beta"})
+    location = _locator(store_id, tree)
+    tree_write(ctx, location, tree, sources)
+
+    result = recheck_tree(ctx, location)
+
+    assert isinstance(result, PublishedObservation)
+    assert result.record.outcome == Found(tree_digest(tree))
+
+
+def test_recheck_tree_counts_missing_and_mismatched(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha", "b.txt": b"beta", "c.txt": b"gamma"})
+    location = _locator(store_id, tree)
+    tree_write(ctx, location, tree, sources)
+    (ctx.store_root / object_path(_digest(b"alpha"))).unlink()
+    (ctx.store_root / object_path(_digest(b"beta"))).write_bytes(b"damaged")
+
+    result = recheck_tree(ctx, location)
+
+    assert isinstance(result, PublishedObservation)
+    assert result.record.outcome == Absent(Incomplete(1, 1))
+
+
+def test_recheck_tree_reports_a_missing_or_damaged_tree_file(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha"})
+    location = _locator(store_id, tree)
+    first = recheck_tree(ctx, location)
+    assert isinstance(first, PublishedObservation)
+    assert first.record.outcome == Absent(Incomplete(1, 0))
+    tree_write(ctx, location, tree, sources)
+    (ctx.store_root / object_path(tree_digest(tree))).write_bytes(b"damaged")
+    second = recheck_tree(ctx, location)
+    assert isinstance(second, PublishedObservation)
+    assert second.record.outcome == Absent(Incomplete(0, 1))
+
+
+def test_recheck_tree_supersedes_its_standing_heads(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha"})
+    location = _locator(store_id, tree)
+    first = tree_write(ctx, location, tree, sources)
+
+    second = recheck_tree(ctx, location, standing=(first.record,))
+
+    assert isinstance(second, PublishedObservation)
+    assert second.record.supersedes == (first.record.identity(),)
+    third = tree_write(ctx, location, tree, sources, standing=(second.record,))
+    assert third.record.supersedes == (second.record.identity(),)
+
+
+def test_an_interrupted_tree_write_leaves_whole_objects_and_an_unmatched_intent(certified_work, tmp_path):
+    ctx, store_id = context(certified_work)
+    tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha", "b.txt": b"beta", "c.txt": b"gamma"})
+    calls = []
+    original = ctx.seam.store_create
+
+    def interrupted(root, path, content):
+        if len(calls) == 2:
+            raise RuntimeError("kill")
+        calls.append(path)
+        return original(root, path, content)
+
+    with pytest.raises(RuntimeError, match="kill"):
+        tree_write(
+            replace(ctx, seam=replace(ctx.seam, store_create=interrupted)), _locator(store_id, tree), tree, sources
+        )
+
+    assert len(calls) == 2
+    for path in calls:
+        digest = f"sha256:{path.rsplit('/', 1)[1]}"
+        assert _digest((ctx.store_root / path).read_bytes()) == digest
+    assert not _observation_files(ctx)
+    assert _unmatched_intents(ctx) == 1

@@ -23,8 +23,8 @@ from beliefs import boundary as boundary_values
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import LoneSurrogate, MalformedRecord, RecheckRefused
-from beliefs.holdings.boundary import ActContext, ActResult, InconclusiveAttempt, recheck
-from beliefs.holdings.records import HoldingsObservation, StoreLocator
+from beliefs.holdings.boundary import ActContext, ActResult, InconclusiveAttempt, recheck, recheck_tree
+from beliefs.holdings.records import HoldingsObservation, StoreLocator, StoreTreeLocator
 from beliefs.identity import v1
 from beliefs.report import (
     ActReport,
@@ -69,7 +69,7 @@ def _require_identity_text(value: object, name: str) -> None:
 def recheck_locations(
     ctx: ActContext,
     writer: CorpusWriter,
-    locations: tuple[StoreLocator, ...],
+    locations: tuple[StoreLocator | StoreTreeLocator, ...],
     *,
     standing: Mapping[str, tuple[HoldingsObservation, ...]] | None = None,
     port: OperationPort | None = None,
@@ -82,9 +82,9 @@ def recheck_locations(
     if (
         type(locations) is not tuple
         or not locations
-        or any(type(location) is not StoreLocator for location in locations)
+        or any(type(location) not in (StoreLocator, StoreTreeLocator) for location in locations)
     ):
-        raise MalformedRecord("recheck_locations takes a non-empty tuple of StoreLocator values")
+        raise MalformedRecord("recheck_locations takes a non-empty tuple of StoreLocator or StoreTreeLocator values")
     canonicals = [location.canonical() for location in locations]
     if len(set(canonicals)) != len(canonicals):
         raise RecheckRefused("re-check locations are unique by canonical spelling")
@@ -121,7 +121,10 @@ def recheck_locations(
     results: list[ActResult] = []
     published: list[str] = []
     for location, canonical in zip(locations, canonicals, strict=True):
-        result = recheck(ctx, location, standing=heads.get(canonical, ()))
+        if isinstance(location, StoreTreeLocator):
+            result = recheck_tree(ctx, location, standing=heads.get(canonical, ()))
+        else:
+            result = recheck(ctx, location, standing=heads.get(canonical, ()))
         results.append(result)
         if isinstance(result, InconclusiveAttempt):
             outcome = (

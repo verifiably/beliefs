@@ -323,6 +323,23 @@ store locator refuses `objects` and every path under it. The store's ordinary wr
 those paths again, and objects are created only by a create-only primitive that
 refuses any path outside `objects/sha256/`; an existing object is a routine refusal.
 
+The `tree-write` act writes a tree into a store. It announces a `tree-write` intent, then
+for each member in tree order (and last for the tree file) reads the object's path.
+An absent object is created from the member's source bytes, which must match the member's
+digest and size; a present object is reused only when its digest and size are exactly the
+tree's. Any other bytes, size or kind refuse the act, and so does a routine refusal of the
+create whose object, read again, does not match exactly: a refusal alone never proves the
+object exists. The act holds one member's bytes at a time, leaves only whole objects when
+interrupted (with its intent unmatched), and on success publishes one `found` observation
+of the tree's digest.
+
+The re-check of a store-tree location is a `re-check` act that reads the tree file and
+then each member object. An unreadable read is an inconclusive attempt that mints nothing.
+A missing tree file, or one with other bytes or that does not parse, is an `absent`
+observation counting one missing or one mismatched object; otherwise each missing member
+counts as missing, and each member with other bytes, another size or a non-regular kind
+counts as mismatched. The tree is `found` only when none is missing or mismatched.
+
 ## Other world records
 
 A `retraction` targets one of three arms:

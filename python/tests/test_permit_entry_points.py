@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -433,6 +434,17 @@ def _holdings(act: str):
         ctx, store_id = _context(authority, work), _STATE[work]["store_id"]
         if act == "recheck":
             return boundary.recheck(ctx, StoreLocator(store_id, "held.bin"))
+        if act in ("tree-write", "tree-recheck"):
+            from beliefs.holdings.records import StoreTreeLocator
+            from beliefs.tree import TreeMember, make_tree, tree_digest
+
+            source = work / "tree-member.bin"
+            source.write_bytes(b"held")
+            tree = make_tree((TreeMember("held.bin", "sha256:" + sha256(b"held").hexdigest(), 4),))
+            location = StoreTreeLocator(store_id, tree_digest(tree).split(":", 1)[1])
+            if act == "tree-write":
+                return boundary.tree_write(ctx, location, tree, {"held.bin": source})
+            return boundary.recheck_tree(ctx, location)
         if act == "look":
             from holdings_transport_fixtures import Scripted, scripted_seam
 
@@ -463,6 +475,12 @@ def _holdings(act: str):
                 observed_at="2026-09-05T00:00:00Z",
             )
             return boundary._publish_record(ctx, record, _STATE[work]["intent"])
+        if act == "_place_object":
+            from beliefs.holdings.records import StoreTreeLocator
+
+            return boundary._place_object(
+                ctx, StoreTreeLocator(store_id, "1" * 64), "sha256:" + sha256(b"held").hexdigest(), 4, lambda: b"held"
+            )
         if act == "_append":
             return boundary._append(ctx, StoreLocator(store_id, "held.bin"), "write")
         return boundary._publish(
@@ -992,6 +1010,33 @@ CASES = (
         True,
         _prepare_holdings(("held.bin",)),
         _holdings("recheck"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:tree_write",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(),
+        _holdings("tree-write"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:recheck_tree",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(),
+        _holdings("tree-recheck"),
+        _holdings_probe,
+    ),
+    Case(
+        "holdings/boundary.py:_place_object",
+        "holdings",
+        ("holdings-observation",),
+        True,
+        _prepare_holdings(),
+        _holdings("_place_object"),
         _holdings_probe,
     ),
     Case(
