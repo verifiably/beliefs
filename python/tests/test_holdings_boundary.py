@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import inspect
 import json
 import shutil
@@ -646,10 +647,22 @@ def test_a_mixed_store_move_refuses_before_mutating(certified_work):
     assert not (ctx.observer_root / "holdings-observation").exists()
 
 
+HASHING_HELPERS = {"_place_object", "_held_tree"}
+
+
 def test_boundary_never_hashes_payloads_it_did_not_observe():
-    # The store acts publish the engine's final row; only the tree helpers hash, and only bytes they read.
-    for act in (recheck, write, delete, move, look, tree_write, recheck_tree):
-        assert "sha256(" not in inspect.getsource(act)
+    # Store acts publish the engine's final row; only the two tree helpers hash, and only bytes they read themselves.
+    tree = ast.parse((Path(__file__).parents[1] / "src/beliefs/holdings/boundary.py").read_text())
+    hashing = {
+        function.name
+        for function in ast.walk(tree)
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(
+            isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "sha256"
+            for call in ast.walk(function)
+        )
+    }
+    assert hashing == HASHING_HELPERS
 
 
 BOUNDS = RetrievalBounds(timeout_seconds=5.0, max_bytes=1 << 20, max_redirects=3)
