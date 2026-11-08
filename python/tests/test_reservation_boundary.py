@@ -17,7 +17,13 @@ from test_reservation import _event
 from beliefs import stored
 from beliefs.claim import Referent, build_claim
 from beliefs.corpus import CorpusWriter
-from beliefs.errors import ActorMismatch, FamilyKindUnsupported, ReservationRefused, ValidationRefused
+from beliefs.errors import (
+    ActorMismatch,
+    FamilyKindUnsupported,
+    ImportRefused,
+    ReservationRefused,
+    ValidationRefused,
+)
 from beliefs.projection import project_claim
 from beliefs.reservation import OPEN, Group, IntervalUnit, ReservationAssignment, TermUnit
 
@@ -293,6 +299,71 @@ def test_an_identical_derivation_is_refused_as_unchanged(writer, events):
     with pytest.raises(ReservationRefused) as caught:
         _supersede(writer, _successor(root))
     assert _code(caught) == "assignment-unchanged"
+    with pytest.raises(ReservationRefused) as caught:
+        _supersede(writer, _successor(root, assigned_by="someone-else"))
+    assert _code(caught) == "assignment-unchanged"
+
+
+def test_a_successor_differing_only_outside_the_derivation_fields_is_admitted(writer, events):
+    root = _root((events[0],))
+    _add(writer, root)
+    run = writer.add(stored.run_node("r1", title="r1", spec="s"))
+    with_runs = _successor(root, prior_runs=(run.id, "task:x-1"))
+    minted = _supersede(writer, with_runs)
+    assert ("reports", run.id) in [(r.predicate, r.target) for r in minted.relations]
+    with_account = _successor(stored.reservation_assignment_value(minted), account="bounds fixed before the look")
+    assert _supersede(writer, with_account).id == with_account.id
+
+
+def _import(writer: CorpusWriter, bundle: list[Node]) -> None:
+    writer.import_bundle(bundle, observer="o", instrument="i", opened_at="T0", closed_at="T1")
+
+
+def _edge_mismatch(writer: CorpusWriter, bundle: list[Node], member: str) -> None:
+    with pytest.raises(ImportRefused) as caught:
+        _import(writer, bundle)
+    assert caught.value.member == member
+    cause = caught.value.__cause__
+    assert isinstance(cause, ReservationRefused)
+    assert cause.code == "assignment-edge-mismatch"
+
+
+def _with_supersedes(node: Node, target: str) -> Node:
+    edge = Relation(source=node.id, predicate=stored.SUPERSEDES, target=target)
+    return node.model_copy(update={"relations": [*node.relations, edge]})
+
+
+def test_an_imported_root_carrying_a_supersedes_edge_is_an_edge_mismatch(writer, events):
+    root = _root((events[0],), assigned_by="someone-else")
+    other = _root((events[0],), chain="other-program", assigned_by="someone-else")
+    stray = _with_supersedes(_node(other), root.id)
+    _edge_mismatch(writer, [_node(root), stray], other.id)
+
+
+def test_an_imported_successor_without_its_supersedes_edge_is_an_edge_mismatch(writer, events):
+    root = _root((events[0],), assigned_by="someone-else")
+    successor = _successor(root, events=tuple(sorted(events)))
+    _edge_mismatch(writer, [_node(root), _node(successor)], successor.id)
+
+
+def test_an_imported_successor_whose_edge_names_another_assignment_is_an_edge_mismatch(writer, events):
+    root = _root((events[0],), assigned_by="someone-else")
+    other = _root((events[0],), chain="other-program", assigned_by="someone-else")
+    successor = _successor(root, events=tuple(sorted(events)))
+    bundle = [_node(root), _node(other), _with_supersedes(_node(successor), other.id)]
+    _edge_mismatch(writer, bundle, successor.id)
+    doubled = _with_supersedes(_with_supersedes(_node(successor), root.id), root.id)
+    _edge_mismatch(writer, [_node(root), doubled], successor.id)
+
+
+def test_an_imported_assignment_with_a_missing_or_reordered_considers_edge_is_an_edge_mismatch(writer, events):
+    root = _root(tuple(sorted(events)), assigned_by="someone-else")
+    node = _node(root)
+    assert [r.predicate for r in node.relations] == ["considers", "considers"]
+    missing = node.model_copy(update={"relations": node.relations[:1]})
+    _edge_mismatch(writer, [missing], root.id)
+    reordered = node.model_copy(update={"relations": list(reversed(node.relations))})
+    _edge_mismatch(writer, [reordered], root.id)
 
 
 def test_an_imported_chain_arrives_with_its_edges(writer, events):

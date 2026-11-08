@@ -2399,10 +2399,14 @@ def require_profile_compatible(profile: ProfileSpec, mounted: ProfileSpec | None
         raise ContractMismatch("the mounted coordination profile differs from this writer's profile")
 
 
-def _derivation(value: ReservationAssignment) -> tuple[object, ...]:
-    """What a successor must change: `predecessor` and `assigned_at` always differ, so the door's
-    semantic-identity check cannot see an assignment that re-derives nothing."""
-    return (value.rule_name, value.rule_version, value.inputs, value.events, value.groups, value.scope, value.applies)
+_SUCCESSION_KEYS = frozenset({"predecessor", "assigned_at", "assigned_by"})
+
+
+def _derivation(value: ReservationAssignment) -> dict[str, object]:
+    """The facet without the keys every succession changes or may change (`predecessor`, `assigned_at`,
+    `assigned_by`): the door's semantic-identity check covers them, so it cannot see a successor whose
+    facet otherwise equals its predecessor's (ruling R3a)."""
+    return {key: field for key, field in value.facet().items() if key not in _SUCCESSION_KEYS}
 
 
 class CorpusWriter:
@@ -4249,7 +4253,7 @@ class CorpusWriter:
             if _derivation(predecessor) == _derivation(value):
                 raise ReservationRefused(
                     "assignment-unchanged",
-                    f"{node.id}: the rule, inputs, events, groups, scope and applies equal the predecessor's",
+                    f"{node.id}: the facet, but for predecessor, assigned_at and assigned_by, equals the predecessor's",
                 )
             changes = assignment_changes(predecessor, value)
             if changes and not value.evidence:
