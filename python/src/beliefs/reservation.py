@@ -13,12 +13,12 @@ the readers, the write boundary and the audit build on these types.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Container, Iterator, Mapping, Sequence
+from collections.abc import Callable, Container, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from itertools import pairwise
-from typing import TYPE_CHECKING, Protocol, final
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, final
 
 from beliefs.errors import ChainAmbiguous, MalformedRecord
 from beliefs.identity import v1
@@ -29,6 +29,8 @@ from beliefs.sealed import sealed
 if TYPE_CHECKING:
     from nodes.core.node import Node
     from nodes.core.relations import Relation
+
+_T = TypeVar("_T")
 
 __all__ = [
     "CHANNELS",
@@ -43,6 +45,7 @@ __all__ = [
     "Group",
     "GroupChange",
     "IntervalUnit",
+    "KindOf",
     "RecordView",
     "ReservationAssignment",
     "TermUnit",
@@ -124,10 +127,10 @@ def _tuple(value: object, where: str) -> tuple[object, ...]:
     return value
 
 
-def _sorted_distinct(values: Sequence[object], where: str, key: object = None) -> None:
-    keyed = [key(v) if callable(key) else v for v in values]  # pyright: ignore[reportUnknownVariableType]
-    for before, after in pairwise(keyed):  # pyright: ignore[reportUnknownVariableType]
-        if not before < after:  # pyright: ignore[reportUnknownVariableType, reportOperatorIssue]
+def _sorted_distinct(values: Sequence[_T], where: str, key: Callable[[_T], tuple[str, ...]] | None = None) -> None:
+    keyed: list[Any] = [key(v) if key is not None else v for v in values]
+    for before, after in pairwise(keyed):
+        if not before < after:
             raise _refuse(f"{where} must be sorted and distinct; {before!r} is followed by {after!r}")
 
 
@@ -163,15 +166,18 @@ def _strings(
 
 def _digest_map(value: object, where: str) -> tuple[tuple[str, str], ...]:
     entries = _tuple(value, where)
+    out: list[tuple[str, str]] = []
     names: list[str] = []
     for entry in entries:
         if type(entry) is not tuple or len(entry) != 2:  # pyright: ignore[reportUnknownArgumentType]
             raise _refuse(f"{where}: {entry!r} is not a (name, digest) pair")
-        name, digest = entry  # pyright: ignore[reportUnknownVariableType]
-        names.append(_text(name, f"{where} name"))
-        _digest(digest, f"{where}[{name}]")
+        raw_name, raw_digest = cast(tuple[object, object], entry)
+        name = _text(raw_name, f"{where} name")
+        digest = _digest(raw_digest, f"{where}[{name}]")
+        names.append(name)
+        out.append((name, digest))
     _sorted_distinct(names, f"{where} keys")
-    return value  # type: ignore[return-value]
+    return tuple(out)
 
 
 @sealed
@@ -227,6 +233,8 @@ def unit_from_facet(value: Mapping[str, object]) -> Unit:
     if not isinstance(value, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
         raise _refuse(f"a unit is a mapping, not {value!r}")
     keys = set(value)
+    if not all(type(k) is str for k in keys):
+        raise _refuse("a unit's keys must be strings")
     if keys == {"sort", "term"}:
         return TermUnit(value["sort"], value["term"])  # type: ignore[arg-type]
     if keys == {"start", "end"}:
@@ -291,8 +299,14 @@ def _group_from_facet(value: object) -> Group:
 
 def _only(value: Mapping[str, object], required: set[str], optional: set[str], where: str) -> None:
     keys = set(value)
-    if not required <= keys or not keys <= required | optional:
-        raise _refuse(f"{where} carries {sorted(required)} and optionally {sorted(optional)}, not {sorted(keys)}")
+    if not all(type(k) is str for k in keys):
+        raise _refuse(f"{where} keys must be strings")
+    missing = required - keys
+    if missing:
+        raise _refuse(f"{where} is missing {sorted(missing)}")
+    extra = keys - required - optional
+    if extra:
+        raise _refuse(f"{where} has unexpected keys {sorted(extra)}")
 
 
 def _list(value: object, where: str) -> tuple[object, ...]:
@@ -308,6 +322,8 @@ def _unit_tuple(value: object) -> tuple[Unit, ...]:
 def _pairs(value: object, where: str) -> tuple[tuple[str, str], ...]:
     if not isinstance(value, Mapping):
         raise _refuse(f"{where}: {value!r} is not a mapping")
+    if not all(type(k) is str for k in value):  # pyright: ignore[reportUnknownVariableType]
+        raise _refuse(f"{where}: keys must be strings")
     return tuple(sorted(value.items()))  # type: ignore[arg-type]
 
 
@@ -405,8 +421,11 @@ def exposure_event_from_facet(facet: Mapping[str, object]) -> ExposureEvent:
 
 
 def _check_groups(groups: tuple[Group, ...]) -> None:
-    if not groups or any(not isinstance(g, Group) for g in groups):  # pyright: ignore[reportUnnecessaryIsInstance]
+    if not groups:
         raise _refuse("a reservation assignment holds at least one group")
+    for g in groups:
+        if not isinstance(g, Group):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise _refuse(f"groups entry must be a Group, got {g!r}")
     _sorted_distinct(groups, "groups", lambda g: unit_sort_key(g.first))
     every = [u for g in groups for u in g.units]
     if len({unit_shape(u) for u in every}) > 1:
@@ -548,6 +567,9 @@ def reservation_assignment_from_facet(facet: Mapping[str, object]) -> Reservatio
     )
 
 
+CHANGE_KINDS = ("changed", "absent", "added")
+
+
 @sealed
 @final
 @dataclass(frozen=True)
@@ -556,6 +578,18 @@ class GroupChange:
     kind: str
     previous_role: str | None
     suspended: bool
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.unit, (TermUnit, IntervalUnit)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise _refuse(f"GroupChange.unit: {self.unit!r} is not a unit")
+        _one_of(self.kind, CHANGE_KINDS, "GroupChange.kind")
+        if self.kind == "added":
+            if self.previous_role is not None or self.suspended is not False:
+                raise _refuse("an added GroupChange has previous_role=None and suspended=False")
+        else:
+            _one_of(self.previous_role, ROLES, "GroupChange.previous_role")
+            if type(self.suspended) is not bool:
+                raise _refuse("GroupChange.suspended must be a bool")
 
 
 def assignment_changes(predecessor: ReservationAssignment, successor: ReservationAssignment) -> tuple[GroupChange, ...]:
@@ -615,6 +649,35 @@ def _mirrors(relations: Sequence[Relation], expected: Sequence[Relation]) -> boo
     return sorted(relations, key=_edge_key) == sorted(expected, key=_edge_key)
 
 
+def _unresolved_ref(
+    slots: Sequence[tuple[str, tuple[str, ...], tuple[str, ...]]],
+    *,
+    kind_of: KindOf,
+    code: str,
+    unread: set[str] | None = None,
+) -> CheckRefusal | None:
+    for slot, refs, kinds in slots:
+        for ref in refs:
+            found = kind_of(ref)
+            if found is None:
+                return CheckRefusal(code, f"the {slot} {ref!r} resolves to no record here")
+            if found is UNREAD:
+                if unread is not None:
+                    unread.add(ref)
+                continue
+            if found not in kinds:
+                expected = f"a {kinds[0]}" if len(kinds) == 1 else f"one of {', '.join(kinds)}"
+                return CheckRefusal(code, f"the {slot} {ref!r} is a {found}, not {expected}")
+    return None
+
+
+def _undeclared_unit_sort(units: Iterable[Unit], sorts: Container[str], *, code: str) -> CheckRefusal | None:
+    for unit in units:
+        if isinstance(unit, TermUnit) and unit.sort not in sorts:
+            return CheckRefusal(code, f"the unit sort {unit.sort!r} is not declared")
+    return None
+
+
 def exposure_event_refusal(
     value: ExposureEvent, relations: Sequence[Relation], *, kind_of: KindOf, sorts: Container[str]
 ) -> CheckRefusal | None:
@@ -624,26 +687,15 @@ def exposure_event_refusal(
 
     if not _mirrors(relations, stored.exposure_event_relations(value)):
         return CheckRefusal("exposure-edge-mismatch", "the relations differ from those the facet names")
-    slots: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
+    slots: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
         ("subject", value.subjects, ("dataset", "source")),
         ("proposition", value.propositions, ("proposition",)),
         ("evidence", value.kernel_evidence(), ("act-report", "run", "holdings-observation")),
-    ]
-    for slot, refs, kinds in slots:
-        for ref in refs:
-            found = kind_of(ref)
-            if found is None:
-                return CheckRefusal("exposure-ref-unresolved", f"the {slot} {ref!r} resolves to no record here")
-            if found is UNREAD:
-                continue
-            if found not in kinds:
-                return CheckRefusal(
-                    "exposure-ref-unresolved", f"the {slot} {ref!r} is a {found}, not one of {', '.join(kinds)}"
-                )
-    for unit in value.units:
-        if isinstance(unit, TermUnit) and unit.sort not in sorts:
-            return CheckRefusal("exposure-unit-sort-undeclared", f"the unit sort {unit.sort!r} is not declared")
-    return None
+    )
+    unresolved = _unresolved_ref(slots, kind_of=kind_of, code="exposure-ref-unresolved")
+    if unresolved is not None:
+        return unresolved
+    return _undeclared_unit_sort(value.units, sorts, code="exposure-unit-sort-undeclared")
 
 
 def assignment_record_refusal(
@@ -672,26 +724,19 @@ def assignment_record_refusal(
             "assignment-edge-mismatch",
             f"a successor carries exactly one supersedes edge, to its predecessor {value.predecessor!r}",
         )
-    slots: list[tuple[str, tuple[str, ...], str]] = [
-        ("event", value.events, "exposure-event"),
-        ("evidence", value.kernel_evidence(), "exposure-event"),
-        ("flagged assessment", value.flagged or (), "assessment"),
-        ("prior run", value.kernel_prior_runs(), "run"),
-        ("scope", () if value.scope is None else (value.scope,), "proposition"),
-        ("applies", () if value.applies is None else (value.applies,), "reservation-assignment"),
-        ("predecessor", () if value.predecessor is None else (value.predecessor,), "reservation-assignment"),
-    ]
+    slots: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+        ("event", value.events, ("exposure-event",)),
+        ("evidence", value.kernel_evidence(), ("exposure-event",)),
+        ("flagged assessment", value.flagged or (), ("assessment",)),
+        ("prior run", value.kernel_prior_runs(), ("run",)),
+        ("scope", () if value.scope is None else (value.scope,), ("proposition",)),
+        ("applies", () if value.applies is None else (value.applies,), ("reservation-assignment",)),
+        ("predecessor", () if value.predecessor is None else (value.predecessor,), ("reservation-assignment",)),
+    )
     unread: set[str] = set()
-    for slot, refs, kind in slots:
-        for ref in refs:
-            found = kind_of(ref)
-            if found is None:
-                return CheckRefusal("assignment-ref-unresolved", f"the {slot} {ref!r} resolves to no record here")
-            if found is UNREAD:
-                unread.add(ref)
-                continue
-            if found != kind:
-                return CheckRefusal("assignment-ref-unresolved", f"the {slot} {ref!r} is a {found}, not a {kind}")
+    unresolved = _unresolved_ref(slots, kind_of=kind_of, code="assignment-ref-unresolved", unread=unread)
+    if unresolved is not None:
+        return unresolved
     if value.applies is not None and value.applies not in unread:
         applied = assignment_of(value.applies)
         if applied is not None and applied.scope:
@@ -699,11 +744,9 @@ def assignment_record_refusal(
                 "assignment-applies-scoped",
                 f"applies {value.applies!r}, a scoped assignment; it applies a program-level one",
             )
-    for group in value.groups:
-        for unit in group.units:
-            if isinstance(unit, TermUnit) and unit.sort not in sorts:
-                return CheckRefusal("assignment-unit-sort-undeclared", f"the unit sort {unit.sort!r} is not declared")
-    return None
+    return _undeclared_unit_sort(
+        (unit for group in value.groups for unit in group.units), sorts, code="assignment-unit-sort-undeclared"
+    )
 
 
 _SUCCESSION_KEYS = frozenset({"predecessor", "assigned_at", "assigned_by"})

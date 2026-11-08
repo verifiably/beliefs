@@ -8,7 +8,7 @@ import pytest
 from authority import ACTOR
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.relations import Relation
-from test_reservation import _event
+from test_reservation import _knowledge_event as _shared_knowledge_event
 
 from beliefs import stored
 from beliefs.consulted import CorpusPins
@@ -31,7 +31,7 @@ from beliefs.publish_request import (
     require_usable,
     staging_world_id_for,
 )
-from beliefs.reservation import OPEN, Group, IntervalUnit, ReservationAssignment
+from beliefs.reservation import Group, IntervalUnit, ReservationAssignment
 
 V2 = "coordination:" + shipped_coordination(2).content_identity
 V1 = "coordination:" + shipped_coordination(1).content_identity
@@ -92,16 +92,7 @@ def test_a_composite_missing_a_member_is_closure_incomplete():
 
 def _knowledge_event(observed_at: str):
     """A knowledge-channel event: it names no subject and no evidence, so it carries no edge of its own."""
-    value = _event(
-        channel="knowledge",
-        subjects=(),
-        units=(IntervalUnit(OPEN, observed_at),),
-        read_class="training-knowledge",
-        bound=(),
-        observed_at=observed_at,
-        evidence=(),
-    )
-    return stored.exposure_event_node(value, title="e")
+    return stored.exposure_event_node(_shared_knowledge_event(observed_at), title="e")
 
 
 def _assignment_chain():

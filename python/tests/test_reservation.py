@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
+from beliefs import reservation, stored
 from beliefs.errors import MalformedRecord
 from beliefs.identity import v1
 from beliefs.reservation import (
@@ -12,11 +15,14 @@ from beliefs.reservation import (
     RESERVATION_ASSIGNMENT_DOMAIN,
     ExposureEvent,
     Group,
+    GroupChange,
     IntervalUnit,
     ReservationAssignment,
     TermUnit,
     assignment_changes,
+    assignment_record_refusal,
     exposure_event_from_facet,
+    exposure_event_refusal,
     reservation_assignment_from_facet,
     unit_facet,
     unit_from_facet,
@@ -49,6 +55,20 @@ def _event(**overrides: object) -> ExposureEvent:
 
 def _mm_unmask_event() -> ExposureEvent:
     return _event()
+
+
+def _knowledge_event(observed_at: str = "2026-11-01T00:00:00Z", *, recorded_by: str = _SESSION) -> ExposureEvent:
+    return _event(
+        channel="knowledge",
+        subjects=(),
+        units=(IntervalUnit(OPEN, observed_at),),
+        read_class="training-knowledge",
+        bound=(),
+        observer=recorded_by,
+        recorded_by=recorded_by,
+        observed_at=observed_at,
+        evidence=(),
+    )
 
 
 def _sun_knowledge_event() -> ExposureEvent:
@@ -357,5 +377,138 @@ def test_changes_report_changed_absent_and_added_groups():
 
 def test_an_unchanged_successor_derives_no_changes():
     before = _sun_assignment_17()
-    after = _assignment(**{**{f: getattr(before, f) for f in before.__dataclass_fields__}, "events": ()})
+    after = replace(before, events=())
     assert assignment_changes(before, after) == ()
+
+
+def test_module_exports_cover_reservation_and_stored_symbols():
+    assert "KindOf" in reservation.__all__
+    expected_stored = {
+        "APPLIES",
+        "ATTESTED_BY",
+        "CONCERNS",
+        "CONSIDERS",
+        "EVIDENCED_BY",
+        "EXPOSES",
+        "EXPOSURE_EVENT_FACET",
+        "FLAGS",
+        "REPORTS",
+        "RESERVATION_ASSIGNMENT_FACET",
+        "exposure_event_node",
+        "exposure_event_relations",
+        "exposure_event_value",
+        "reservation_assignment_node",
+        "reservation_assignment_relations",
+        "reservation_assignment_value",
+    }
+    assert expected_stored <= set(stored.__all__)
+
+
+def test_non_string_keys_and_malformed_facet_mappings_raise_malformed_record():
+    with pytest.raises(MalformedRecord):
+        unit_from_facet({1: "mm/cohort", "term": "a"})  # pyright: ignore[reportArgumentType]
+    with pytest.raises(MalformedRecord):
+        exposure_event_from_facet({1: "read"})  # pyright: ignore[reportArgumentType]
+    with pytest.raises(MalformedRecord):
+        reservation_assignment_from_facet({1: "mm-roster"})  # pyright: ignore[reportArgumentType]
+    event_facet = _mm_unmask_event().facet()
+    with pytest.raises(MalformedRecord, match="bound"):
+        exposure_event_from_facet({**event_facet, "bound": {1: _D}})
+    with pytest.raises(MalformedRecord, match="exposure-event facet is missing"):
+        exposure_event_from_facet({k: v for k, v in event_facet.items() if k != "channel"})
+    with pytest.raises(MalformedRecord, match="exposure-event facet has unexpected keys"):
+        exposure_event_from_facet({**event_facet, "bogus": 1})
+    assignment_facet = _assignment().facet()
+    with pytest.raises(MalformedRecord, match="reservation-assignment facet is missing"):
+        reservation_assignment_from_facet({k: v for k, v in assignment_facet.items() if k != "chain"})
+    with pytest.raises(MalformedRecord, match="reservation-assignment facet has unexpected keys"):
+        reservation_assignment_from_facet({**assignment_facet, "bogus": 1})
+    with pytest.raises(MalformedRecord, match="rule is missing"):
+        reservation_assignment_from_facet({**assignment_facet, "rule": {"name": "r"}})
+    with pytest.raises(MalformedRecord, match="rule has unexpected keys"):
+        reservation_assignment_from_facet({**assignment_facet, "rule": {"name": "r", "version": "1", "extra": "x"}})
+    with pytest.raises(MalformedRecord, match="group is missing"):
+        reservation_assignment_from_facet(
+            {**assignment_facet, "groups": [{"units": [{"sort": "mm/cohort", "term": "a"}]}]}
+        )
+    with pytest.raises(MalformedRecord, match="group has unexpected keys"):
+        reservation_assignment_from_facet(
+            {
+                **assignment_facet,
+                "groups": [{"units": [{"sort": "mm/cohort", "term": "a"}], "role": "open", "extra": 1}],
+            }
+        )
+
+
+def test_non_group_element_and_group_change_invariants_raise_malformed_record():
+    with pytest.raises(MalformedRecord, match="groups entry must be a Group"):
+        _assignment(groups=("not-a-group",))  # type: ignore[arg-type]
+    unit = TermUnit("mm/cohort", "a")
+    assert GroupChange(unit, "changed", "reserved", True).suspended is True
+    assert GroupChange(unit, "added", None, False).previous_role is None
+    with pytest.raises(MalformedRecord, match="unit"):
+        GroupChange("not-a-unit", "added", None, False)  # type: ignore[arg-type]
+    with pytest.raises(MalformedRecord, match="kind"):
+        GroupChange(unit, "bogus", "open", False)
+    with pytest.raises(MalformedRecord, match="added"):
+        GroupChange(unit, "added", "open", False)
+    with pytest.raises(MalformedRecord, match="added"):
+        GroupChange(unit, "added", None, True)
+    with pytest.raises(MalformedRecord, match="previous_role"):
+        GroupChange(unit, "changed", None, False)
+    with pytest.raises(MalformedRecord, match="previous_role"):
+        GroupChange(unit, "absent", "bogus", False)
+
+
+def test_changes_cover_non_reserved_role_changes_absent_reserved_and_field_or_member_edits():
+    before = _assignment(
+        groups=(
+            _g("a", "open", label="old"),
+            _g("b", "reserved"),
+            _g("c", "open", basis=_D),
+            Group((TermUnit("mm/cohort", "d"), TermUnit("mm/cohort", "e")), "open", None, None),
+        )
+    )
+    after = _assignment(
+        groups=(
+            _g("a", "withheld", label="old"),
+            _g("c", "open", label="renamed", basis=_D),
+            Group((TermUnit("mm/cohort", "d"),), "open", None, None),
+        ),
+        predecessor=before.id,
+    )
+    changes = assignment_changes(before, after)
+    assert [(c.unit, c.kind, c.previous_role, c.suspended) for c in changes] == [
+        (TermUnit("mm/cohort", "a"), "changed", "open", False),
+        (TermUnit("mm/cohort", "b"), "absent", "reserved", True),
+        (TermUnit("mm/cohort", "c"), "changed", "open", False),
+        (TermUnit("mm/cohort", "d"), "changed", "open", False),
+    ]
+
+
+def test_refusal_functions_report_wrong_kind_with_single_and_multi_kind_grammar():
+    event = _event(propositions=("proposition:p",))
+    relations = stored.exposure_event_relations(event)
+    multi = exposure_event_refusal(event, relations, kind_of=lambda _ref: "proposition", sorts={"mm/cohort"})
+    assert multi is not None and multi.code == "exposure-ref-unresolved"
+    assert "is a proposition, not one of dataset, source" in multi.detail
+
+    single = exposure_event_refusal(
+        event,
+        relations,
+        kind_of=lambda ref: "dataset" if ref.startswith("source:") else "source",
+        sorts={"mm/cohort"},
+    )
+    assert single is not None and single.code == "exposure-ref-unresolved"
+    assert "is a source, not a proposition" in single.detail
+
+    assignment = _assignment(events=("exposure-event:e",))
+    assignment_refusal = assignment_record_refusal(
+        assignment,
+        stored.reservation_assignment_relations(assignment),
+        kind_of=lambda _ref: "source",
+        assignment_of=lambda _ref: None,
+        sorts={"mm/cohort"},
+    )
+    assert assignment_refusal is not None and assignment_refusal.code == "assignment-ref-unresolved"
+    assert "is a source, not a exposure-event" in assignment_refusal.detail

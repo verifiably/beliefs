@@ -68,21 +68,28 @@ def _read(source: Node, **overrides: object):
 
 
 def test_add_mints_an_exposure_event_whose_edges_mirror_its_facet(writer, source, proposition):
-    value = _read(source, propositions=(proposition.id,))
+    dataset = writer.add(stored.dataset_node(title="d", resources=[{"name": "r", "digest": "sha256:" + _D}]))
+    value = replace(
+        _read(source, propositions=(proposition.id,)),
+        subjects=tuple(sorted((dataset.id, source.id))),
+    )
     minted = writer.add(stored.exposure_event_node(value, title="t"))
     assert minted.id == value.id
     assert [(r.predicate, r.target) for r in writer.read_view.get(value.id).relations] == [
-        ("exposes", source.id),
+        *(("exposes", ref) for ref in sorted((dataset.id, source.id))),
         ("concerns", proposition.id),
     ]
 
 
-def test_an_edge_the_facet_does_not_name_is_refused(writer, source, proposition):
+def test_an_edge_the_facet_does_not_name_or_a_missing_edge_is_refused(writer, source, proposition):
     value = _read(source)
     node = stored.exposure_event_node(value, title="t")
     extra = Relation(source=node.id, predicate="concerns", target=proposition.id)
     with pytest.raises(ReservationRefused) as caught:
         writer.add(node.model_copy(update={"relations": [*node.relations, extra]}))
+    assert caught.value.code == "exposure-edge-mismatch"
+    with pytest.raises(ReservationRefused) as caught:
+        writer.add(node.model_copy(update={"relations": []}))
     assert caught.value.code == "exposure-edge-mismatch"
 
 
@@ -132,7 +139,8 @@ def test_recorded_by_must_be_the_bound_actor_except_on_import(writer, source):
     node = stored.exposure_event_node(value, title="t")
     with pytest.raises(ActorMismatch):
         writer.add(node)
-    assert writer._add_locked(node, provenance=True).id == value.id
+    writer.import_bundle([node], observer="o", instrument="i", opened_at="T0", closed_at="T1")
+    assert writer.read_view.holds(value.id)
 
 
 def test_an_undeclared_unit_sort_is_refused(writer, source):

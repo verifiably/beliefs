@@ -12,7 +12,7 @@ from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from profiles import WITH_BIOLOGY, pins_for
 from test_corpus_write import OperationRecorder
-from test_reservation import _event
+from test_reservation import _event, _knowledge_event
 
 from beliefs import stored
 from beliefs.claim import Referent, build_claim
@@ -59,18 +59,7 @@ def _proposition(writer: CorpusWriter, a: str = "EX:a", b: str = "EX:b") -> Node
 
 
 def _knowledge(observed_at: str) -> Node:
-    value = _event(
-        channel="knowledge",
-        subjects=(),
-        units=(IntervalUnit(OPEN, observed_at),),
-        read_class="training-knowledge",
-        bound=(),
-        observer=ACTOR,
-        recorded_by=ACTOR,
-        observed_at=observed_at,
-        evidence=(),
-    )
-    return stored.exposure_event_node(value, title="e")
+    return stored.exposure_event_node(_knowledge_event(observed_at, recorded_by=ACTOR), title="e")
 
 
 @pytest.fixture()
@@ -163,6 +152,8 @@ def test_supersede_mints_a_successor_with_one_owned_edge_and_matching_predecesso
 
     elsewhere = _root((events[0],), chain="other-program")
     _add(writer, elsewhere)
+    with pytest.raises(ValidationRefused, match="predecessor"):
+        writer.supersede(_node(elsewhere), of=minted.id)
     misdirected = _successor(elsewhere, events=tuple(sorted(events)))
     with pytest.raises(ValidationRefused, match="predecessor"):
         writer.supersede(_node(misdirected), of=minted.id)
@@ -328,7 +319,8 @@ def test_assigned_by_must_be_the_bound_actor(writer, events):
     node = _node(_root((events[0],), assigned_by="someone-else"))
     with pytest.raises(ActorMismatch):
         writer.add(node)
-    assert writer._add_locked(node, provenance=True).id == node.id
+    _import(writer, [node])
+    assert writer.read_view.holds(node.id)
 
 
 def test_an_identical_derivation_is_refused_as_unchanged(writer, events):

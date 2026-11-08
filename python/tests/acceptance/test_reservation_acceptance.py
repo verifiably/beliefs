@@ -440,7 +440,9 @@ def _sun_program(writer: CorpusWriter) -> tuple[ReservationAssignment, Reservati
         inputs=_SUN_INPUTS,
         events=earlier,
         groups=_epochs(_PROGRAM_ROLES),
-        account="Supersedes assignment 15 after ledgering the agent/K5 entry; bounds and guards unchanged.",
+        account=(  # stand-in: assignment 16's prose is not in the design
+            "Supersedes assignment 15 after ledgering the agent/K5 entry; bounds and guards unchanged."
+        ),
         assigned_at="2026-11-06T12:00:00Z",  # stand-in: assignment 16's instant is not in the design
     )
     writer.add(stored.reservation_assignment_node(sixteen, title="sun epoch assignment 16"))

@@ -336,9 +336,9 @@ feeds a belief.
 
 A unit is one of two shapes, and a list of units holds one shape only:
 
-- a term unit, `{sort, term}`: `sort` is `<namespace>/<name>` (lowercase letters,
-  digits and `-`) and `term` a non-empty string. The sort must be declared in the
-  compiled profile;
+- a term unit, `{sort, term}`: `sort` is `<namespace>/<name>`, each half starting
+  with a lowercase letter (`[a-z][a-z0-9-]*`), and `term` a non-empty string. The
+  sort must be declared in the compiled profile;
 - an interval unit, `{start, end}`: each end is a whole-second UTC timestamp
   (`YYYY-MM-DDTHH:MM:SSZ`) or the word `open`. The two ends cannot both be `open`, and a
   closed interval starts strictly before it ends.
@@ -392,16 +392,17 @@ as one link of a chain. Its fields are:
   non-empty unit list. `role` is `open`, `reserved`, `unresolved` or `withheld`.
   `label` is a non-empty string and `basis` a `sha256:` digest;
 - `predecessor` (optional): a `reservation-assignment:` reference;
-- `evidence` (optional): `<scheme>:<rest>` tokens. Those with the scheme
-  `exposure-event` also get an `evidenced-by` edge; a token whose scheme names any
-  other world kind is refused;
-- `flagged` (optional): `assessment:` references, one `flags` edge each. Absent
-  means no suspension was reported, and an empty list means a suspension was
-  reported and no assessment was made;
+- `evidence` (optional): sorted, distinct `<scheme>:<rest>` tokens. Those with the
+  scheme `exposure-event` also get an `evidenced-by` edge; a token whose scheme
+  names any other world kind is refused;
+- `flagged` (optional): sorted, distinct `assessment:` references, one `flags` edge
+  each. Absent means no suspension was reported, and an empty list means a
+  suspension was reported and no assessment was made;
 - `account` (optional): a non-empty string;
 - `participants` (optional): sorted, distinct actors;
-- `prior_runs` (optional): `<scheme>:<rest>` tokens. Those with the scheme `run` also
-  get a `reports` edge; a token whose scheme names any other world kind is refused;
+- `prior_runs` (optional): sorted, distinct `<scheme>:<rest>` tokens. Those with
+  the scheme `run` also get a `reports` edge; a token whose scheme names any other
+  world kind is refused;
 - `assigned_at`: a whole-second UTC timestamp, and `assigned_by`: an actor.
 
 Groups are sorted by their first unit. Across all groups the units have one shape,
@@ -416,9 +417,10 @@ to its `predecessor`; a chain root carries none.
 ### Chains and derived changes
 
 A chain is the records sharing `chain` and `scope`; it is linear, with one root and
-one head. `beliefs.reservation.assignment_head(view, chain, scope=None)` returns the
-head, or None when the chain has no record, and raises `ChainAmbiguous` for two
-roots or two heads rather than choose one.
+one head. `beliefs.reservation.assignment_head(view, chain, *, scope=None)` returns
+the head, or None when the chain has no record, and raises `ChainAmbiguous` for two
+roots or two heads rather than choose one (or `MalformedRecord` when a stored
+assignment in the view is malformed).
 
 A successor's group changes are derived at read time, never stored.
 `assignment_changes_of(view, ref)` returns them (empty for a root). Groups are
@@ -483,10 +485,10 @@ report them as findings, with these codes (all in `WORLD_AUDIT_CODES`):
 `assignment-changes-without-evidence`, `assignment-suspension-unflagged`,
 `assignment-flagged-without-suspension` and `assignment-unchanged`.
 
-`assignment-fork` stands for the two chain refusals above (two successors of one
-predecessor, or two roots of one chain and scope), which import refuses as `add` and
-`supersede` do, so only a raw write (one made around the boundary) can produce it; it
-names the later record by id. A record whose reader refuses it is
+`assignment-fork` reports the two chain conditions above (two successors of one
+predecessor, or two roots of one chain and scope); `add`, `supersede` and `import`
+refuse both, so only a raw write (one made around the boundary) can produce it, and
+the finding names the later record by id. A record whose reader refuses it is
 `facet-payload-malformed`. A reference recorded in a corpus not held here, or one
 that is itself unreadable, is a neighbour's fault: the check is reported unchecked
 rather than failed, and the succession checks need a readable predecessor. The
@@ -497,11 +499,11 @@ bound-actor rule is a write-time check and is not repeated.
 Three module functions in `beliefs.reservation` read the kinds through any view with
 `iter_stored` and `get` (they are not `ReadView` methods):
 
-- `exposure_events(view, subject=None, proposition=None)` returns every stored
-  event, narrowed to those naming the subject or the proposition, ordered by
+- `exposure_events(view, *, subject=None, proposition=None)` returns every stored
+  event matching each of `subject` and `proposition` that is given, ordered by
   `observed_at` then id. A malformed event raises `MalformedRecord` instead of
   being skipped, since skipping would understate exposure;
-- `assignment_head(view, chain, scope=None)`, above;
+- `assignment_head(view, chain, *, scope=None)`, above;
 - `assignment_changes_of(view, ref)`, above.
 
 ### Publication

@@ -156,17 +156,38 @@ def test_each_assignment_check_is_reported_rather_than_raised(writer, events):
     _raw(writer, _node(dangling))
     flagged = _root((events[0],), chain="fourth", flagged=())
     _raw(writer, _node(flagged))
+    edge_mismatch = _node(_root((events[0],), chain="fifth")).model_copy(update={"relations": []})
+    _raw(writer, edge_mismatch)
+    proposition = _proposition(writer)
+    scoped = _root((events[0],), chain="sixth", scope=proposition.id)
+    _add(writer, scoped)
+    applies_scoped = _root((events[0],), chain="seventh", scope=proposition.id, applies=scoped.id)
+    _raw(writer, _node(applies_scoped))
+    scope_mismatch_root = _root((events[0],), chain="eighth")
+    _add(writer, scope_mismatch_root)
+    scope_mismatch = _successor(scope_mismatch_root, chain="ninth", evidence=("task:x-1",))
+    _raw_successor(writer, scope_mismatch)
+    undeclared_sort = _root(
+        (events[0],),
+        chain="tenth",
+        groups=(reservation.Group((TermUnit("mm/cohort", "a"),), "open", None, None),),
+    )
+    _raw(writer, _node(undeclared_sort))
     assert _codes(writer) == sorted(
         [
             ("assignment-suspension-unflagged", released.id),
             ("assignment-unchanged", unchanged.id),
             ("assignment-ref-unresolved", dangling.id),
             ("assignment-flagged-without-suspension", flagged.id),
+            ("assignment-edge-mismatch", edge_mismatch.id),
+            ("assignment-applies-scoped", applies_scoped.id),
+            ("assignment-scope-mismatch", scope_mismatch.id),
+            ("assignment-unit-sort-undeclared", undeclared_sort.id),
         ]
     )
 
 
-def test_an_exposure_event_edge_mismatch_and_dangling_subject_are_reported(writer, events):
+def test_an_exposure_event_edge_mismatch_dangling_subject_and_undeclared_sort_are_reported(writer, events):
     proposition = _proposition(writer)
     event = _knowledge("2026-11-03T00:00:00Z")
     node = event.model_copy(
@@ -184,7 +205,59 @@ def test_an_exposure_event_edge_mismatch_and_dangling_subject_are_reported(write
         title="dangling",
     )
     _raw(writer, dangling)
-    assert _codes(writer) == sorted([("exposure-edge-mismatch", node.id), ("exposure-ref-unresolved", dangling.id)])
+    source = writer.add(stored.source_node(title="s", identifiers={"doi": "10.1000/xyz"}))
+    undeclared = stored.exposure_event_node(
+        _event(
+            subjects=(source.id,),
+            units=(TermUnit("mm/cohort", "a"),),
+            observer=ACTOR,
+            recorded_by=ACTOR,
+            evidence=(),
+        ),
+        title="undeclared",
+    )
+    _raw(writer, undeclared)
+    assert _codes(writer) == sorted(
+        [
+            ("exposure-edge-mismatch", node.id),
+            ("exposure-ref-unresolved", dangling.id),
+            ("exposure-unit-sort-undeclared", undeclared.id),
+        ]
+    )
+
+
+def test_stale_or_missing_semantic_hash_assignments_are_skipped_by_chain_scan_and_malformed_neighbours_leave_checks_unchecked(
+    writer, events
+):
+    root = _root((events[0],))
+    _add(writer, root)
+    stale_second = stored.stamp_semantic_identity(_node(_root((events[0],), assigned_at="2026-11-06T11:00:00Z")))
+    stale_second.facets[stored.SEMANTIC_IDENTITY_FACET]["digest"] = "0" * 64
+    raw_write(writer.root, stale_second)
+
+    unstamped_third = _node(_root((events[0],), assigned_at="2026-11-06T12:00:00Z")).model_copy(deep=True)
+    unstamped_third.facets.pop(stored.SEMANTIC_IDENTITY_FACET, None)
+    raw_write(writer.root, unstamped_third)
+
+    bad_predecessor = _node(_root((events[0],), chain="bad-pred"))
+    bad_predecessor.facets[stored.RESERVATION_ASSIGNMENT_FACET]["groups"][0]["role"] = "bogus"
+    _raw(writer, bad_predecessor)
+    after_bad = _evidenced(_root((events[0],), chain="bad-pred"))
+    _raw_successor(writer, after_bad)
+
+    findings = _findings(writer)
+    assert sorted((f.code, f.ref) for f in findings) == sorted(
+        [
+            ("semantic-hash-stale", stale_second.id),
+            ("semantic-hash-missing", unstamped_third.id),
+            ("facet-payload-malformed", bad_predecessor.id),
+        ]
+    )
+    view = reopen(writer.root)
+    assert audit.check_assignment_chains(view, malformed={stale_second.id, unstamped_third.id}) == ()
+    outcome = audit.check_reservation_assignment(view, view.get(after_bad.id), profile=WITH_BIOLOGY)
+    assert outcome.checked is False and outcome.contradiction is None
+    assert bad_predecessor.id in outcome.reason
 
 
 def test_a_malformed_facet_is_facet_payload_malformed_and_skipped_below(writer, events):
@@ -283,15 +356,19 @@ def test_world_audit_reports_dangling_refs_and_forks_under_the_holding_corpus(tm
     dangling = _root(("exposure-event:" + "9" * 64,), chain="third")
     first = _root((event.id,))
     second = _root((event.id,), assigned_at="2026-11-06T11:00:00Z")
+    stale_fork = _stamped(_root((event.id,), assigned_at="2026-11-06T12:00:00Z"))
+    stale_fork.facets[stored.SEMANTIC_IDENTITY_FACET]["digest"] = "0" * 64
     world, _roots, published = _world_of(
         tmp_path,
-        {ALPHA: (event, _stamped(dangling)), BETA: (_stamped(first), _stamped(second))},
+        {ALPHA: (event, _stamped(dangling)), BETA: (_stamped(first), _stamped(second), stale_fork)},
     )
 
     found = audit.audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
     assert [(f.code, f.ref) for f in found.corpora[ALPHA]] == [("assignment-ref-unresolved", dangling.id)]
-    assert [(f.code, f.ref) for f in found.corpora[BETA]] == [("assignment-fork", max(first.id, second.id))]
+    assert sorted((f.code, f.ref) for f in found.corpora[BETA]) == sorted(
+        [("assignment-fork", max(first.id, second.id)), ("semantic-hash-stale", stale_fork.id)]
+    )
 
 
 def test_assignment_head_returns_the_unsuperseded_record_and_refuses_a_fork(writer, events):

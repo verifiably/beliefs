@@ -150,7 +150,12 @@ from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
-from beliefs.reservation import assignment_record_refusal, assignment_succession_refusal, exposure_event_refusal
+from beliefs.reservation import (
+    ReservationAssignment,
+    assignment_record_refusal,
+    assignment_succession_refusal,
+    exposure_event_refusal,
+)
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
@@ -192,6 +197,8 @@ APPEND_ONLY_KINDS: tuple[str, ...] = ("exposure-event", "reservation-assignment"
 """The world kinds minted once and never mutated in place: `delete` refuses them
 (`_refuse_excluded_kind`) and `revise` admits prose changes only. Unlike
 `EXCLUDED_MUTATION_KINDS` this does not bar `move` or `consolidate`."""
+PROSE_REVISABLE_KINDS: tuple[str, ...] = ("proposition", *APPEND_ONLY_KINDS)
+"""The world kinds whose `revise` path admits prose changes (`title`, `body`, `display`) only."""
 EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("act-report", "holdings-observation", *COORDINATION_KINDS)
 """The statically excluded kinds no world-changing operation accepts:
 as a `delete` target, a `move` subject, or a `consolidate` input.
@@ -3502,7 +3509,7 @@ class CorpusWriter:
             if current.kind == "dataset":
                 return self._revise_dataset_locked(node, current)
             self._refuse_family_kinds(node)
-            if current.kind != node.kind or node.kind not in ("proposition", *APPEND_ONLY_KINDS):
+            if current.kind != node.kind or node.kind not in PROSE_REVISABLE_KINDS:
                 raise ReviseKindImmutable(
                     "revise operates on propositions, datasets, exposure events and reservation assignments only"
                 )
@@ -4150,6 +4157,33 @@ class CorpusWriter:
         ):
             raise FamilyKindUnsupported("a successor enters through supersede")
 
+    @staticmethod
+    def _refuse_assignment_chain(node_id: str, value: ReservationAssignment, chain: ReadView | _ImportView) -> None:
+        """Judge chain linearity (`chain` × `scope` has one root; each predecessor has at most one
+        successor) over the write root or import union, skipping `node_id` itself and any malformed
+        neighbour."""
+        for other in chain.iter_stored():
+            if other.kind != "reservation-assignment" or other.id == node_id:
+                continue
+            try:
+                neighbour = stored.reservation_assignment_value(other)
+            except MalformedRecord:
+                continue
+            if (
+                value.predecessor is None
+                and neighbour.predecessor is None
+                and (neighbour.chain, neighbour.scope) == (value.chain, value.scope)
+            ):
+                raise ReservationRefused(
+                    "assignment-root-exists",
+                    f"{node_id}: {other.id} already roots chain {value.chain!r} (scope {value.scope!r})",
+                )
+            if value.predecessor is not None and neighbour.predecessor == value.predecessor:
+                raise ReservationRefused(
+                    "assignment-superseded",
+                    f"{node_id}: {value.predecessor!r} already has the successor {other.id}; a chain is linear",
+                )
+
     def _refuse_reservation_assignment(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations, provenance: bool
     ) -> None:
@@ -4173,28 +4207,7 @@ class CorpusWriter:
         )
         if refusal is not None:
             raise ReservationRefused(refusal.code, f"{node.id}: {refusal.detail}")
-        chain = view if isinstance(view, (ReadView, _ImportView)) else self._view
-        for other in chain.iter_stored():
-            if other.kind != "reservation-assignment" or other.id == node.id:
-                continue
-            try:
-                neighbour = stored.reservation_assignment_value(other)
-            except MalformedRecord:
-                continue
-            if (
-                value.predecessor is None
-                and neighbour.predecessor is None
-                and (neighbour.chain, neighbour.scope) == (value.chain, value.scope)
-            ):
-                raise ReservationRefused(
-                    "assignment-root-exists",
-                    f"{node.id}: {other.id} already roots chain {value.chain!r} (scope {value.scope!r})",
-                )
-            if value.predecessor is not None and neighbour.predecessor == value.predecessor:
-                raise ReservationRefused(
-                    "assignment-superseded",
-                    f"{node.id}: {value.predecessor!r} already has the successor {other.id}; a chain is linear",
-                )
+        self._refuse_assignment_chain(node.id, value, view if isinstance(view, (ReadView, _ImportView)) else self._view)
         predecessor = (
             None if value.predecessor is None else stored.reservation_assignment_value(view.get(value.predecessor))
         )

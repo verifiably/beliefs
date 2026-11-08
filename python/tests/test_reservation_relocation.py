@@ -23,6 +23,7 @@ from profiles import BASE, WITH_BIOLOGY, pins_for
 from session_doors_fixture import PUBLISHES, V2, Clock
 from test_relocation import CONSOLIDATE_FIELDS, MOVE_FIELDS, _writer
 from test_reservation import _event
+from test_reservation import _knowledge_event as _shared_knowledge_event
 from test_world_receipts import hold_shipped
 
 from beliefs import relocation, stored
@@ -95,17 +96,7 @@ def _read_event(subject: str, proposition: str, *, recorded_by: str = ACTOR) -> 
 
 
 def _knowledge_event(observed_at: str, *, recorded_by: str = ACTOR) -> ExposureEvent:
-    return _event(
-        channel="knowledge",
-        subjects=(),
-        units=(IntervalUnit(OPEN, observed_at),),
-        read_class="training-knowledge",
-        bound=(),
-        observer=recorded_by,
-        recorded_by=recorded_by,
-        observed_at=observed_at,
-        evidence=(),
-    )
+    return _shared_knowledge_event(observed_at, recorded_by=recorded_by)
 
 
 def _group(start: str, end: str, role: str) -> Group:

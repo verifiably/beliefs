@@ -27,7 +27,7 @@ one import serves a caller that only ever names the audit.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Container, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
@@ -562,16 +562,18 @@ def check_reservation_assignment(
     return reader.outcome(node, assignment_succession_refusal(value, predecessor))
 
 
-def check_assignment_chains(view: ReadView | _CapturedCheckView) -> tuple[Finding, ...]:
+def check_assignment_chains(
+    view: ReadView | _CapturedCheckView, *, malformed: Container[str] = ()
+) -> tuple[Finding, ...]:
     """One pass over the view's reservation assignments: a predecessor named by two successors, or a
     chain (`chain` × `scope`) with two roots, is an `assignment-fork` the boundary refuses
     (`assignment-superseded`, `assignment-root-exists`), import included, so only a raw write (one made
     around the boundary) can make it. The finding names the later record by id order, its detail both.
-    An assignment its reader refuses is already `facet-payload-malformed` and is not read here."""
+    An assignment its reader refuses or `corpus_check` flagged malformed is not read here."""
     successors: dict[str, list[str]] = {}
     roots: dict[tuple[str, str | None], list[str]] = {}
     for node in view.iter_stored():
-        if node.kind != "reservation-assignment":
+        if node.kind != "reservation-assignment" or node.id in malformed:
             continue
         try:
             value = stored.reservation_assignment_value(node)
@@ -750,7 +752,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
             continue
         if outcome.contradiction is not None:
             findings.append(outcome.contradiction)
-    findings.extend(check_assignment_chains(view))
+    findings.extend(check_assignment_chains(view, malformed=malformed))
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
 
 
@@ -1020,7 +1022,7 @@ def audit_world(
         reader = _CapturedCitations(view, corpus_id, readable, causes, malformed_codes)
         second = _record_findings(captured, profile, scope, disagreeing, citations=reader)
         corpora[corpus_id].extend(f for f in second if f.code in ELIGIBILITY_CODES)
-        corpora[corpus_id].extend(check_assignment_chains(captured))
+        corpora[corpus_id].extend(check_assignment_chains(captured, malformed=malformed.get(corpus_id, ())))
     # A record held in several corpora is recomputed once and its findings are
     # filed under every captured holder whose audit is not excluded for it.
     for holders, node in view._mapped_holders():
