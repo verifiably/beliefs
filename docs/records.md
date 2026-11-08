@@ -50,8 +50,8 @@ that kind.
 | `coreference-attestation` | `coreference-attestation` | `attest_coreference` only |
 | `act-report` | `act-report` | operations only (and import) |
 | `composite` | `composite` | `add`, `supersede` |
-| `exposure-event` | `exposure-event` | `add` |
-| `reservation-assignment` | `reservation-assignment` | `add` (a chain root), `supersede` |
+| `exposure-event` | `exposure-event` | `add`, `revise` |
+| `reservation-assignment` | `reservation-assignment` | `add` (a chain root), `supersede`, `revise` |
 
 The base contract names a reader for each kernel facet, but that name is not
 resolved or called: the code checks each facet where it is used. At the write
@@ -479,8 +479,9 @@ report them as findings, with these codes (all in `WORLD_AUDIT_CODES`):
 `assignment-flagged-without-suspension` and `assignment-unchanged`.
 
 `assignment-fork` stands for the two chain refusals above (two successors of one
-predecessor, or two roots of one chain and scope), which only import or a raw write
-can produce; it names the later record by id. A record whose reader refuses it is
+predecessor, or two roots of one chain and scope), which import refuses as `add` and
+`supersede` do, so only a raw write (one made around the boundary) can produce it; it
+names the later record by id. A record whose reader refuses it is
 `facet-payload-malformed`. A reference recorded in a corpus not held here, or one
 that is itself unreadable, is a neighbour's fault: the check is reported unchecked
 rather than failed, and the succession checks need a readable predecessor. The

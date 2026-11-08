@@ -565,9 +565,9 @@ def check_reservation_assignment(
 def check_assignment_chains(view: ReadView | _CapturedCheckView) -> tuple[Finding, ...]:
     """One pass over the view's reservation assignments: a predecessor named by two successors, or a
     chain (`chain` × `scope`) with two roots, is an `assignment-fork` the boundary refuses
-    (`assignment-superseded`, `assignment-root-exists`) and only import or a raw write can make. The
-    finding names the later record by id order, its detail both. An assignment its reader refuses is
-    already `facet-payload-malformed` and is not read here."""
+    (`assignment-superseded`, `assignment-root-exists`), import included, so only a raw write (one made
+    around the boundary) can make it. The finding names the later record by id order, its detail both.
+    An assignment its reader refuses is already `facet-payload-malformed` and is not read here."""
     successors: dict[str, list[str]] = {}
     roots: dict[tuple[str, str | None], list[str]] = {}
     for node in view.iter_stored():

@@ -4123,9 +4123,9 @@ class CorpusWriter:
     def _refuse_exposure_event(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations, provenance: bool
     ) -> None:
-        """An exposure event's edges mirror its facet exactly, every kernel reference resolves to a record
-        of the kind its slot names, each unit sort is declared, and the recorder is the bound actor
-        (kept as written under provenance)."""
+        """An exposure event's edges mirror its facet as a duplicate-free set, every kernel reference
+        resolves to a record of the kind its slot names, each unit sort is declared, and the recorder is
+        the bound actor (kept as written under provenance)."""
         value = stored.exposure_event_value(node)
         refusal = exposure_event_refusal(
             value,

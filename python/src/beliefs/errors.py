@@ -918,7 +918,8 @@ class InputOutsideCorpus(MalformedRecord):
 
 class ChainAmbiguous(RecordError):
     """A reservation-assignment chain (`chain` × `scope`) with two roots or two heads: a fork that only
-    import or a raw write can make, which the audit reports as `assignment-fork`. A reader asked for the
+    a raw write (one made around the boundary) can make, since import refuses it as `add` and
+    `supersede` do, and which the audit reports as `assignment-fork`. A reader asked for the
     head refuses rather than choose one."""
 
 

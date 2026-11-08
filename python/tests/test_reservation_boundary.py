@@ -389,6 +389,39 @@ def test_an_event_and_an_assignment_whose_edges_arrive_out_of_facet_order_are_ad
     assert writer.read_view.holds(event.id) and writer.read_view.holds(root.id)
 
 
+def _chain_refusal(writer: CorpusWriter, bundle: list[Node], member: str, code: str) -> None:
+    with pytest.raises(ImportRefused) as caught:
+        _import(writer, bundle)
+    assert caught.value.member == member
+    cause = caught.value.__cause__
+    assert isinstance(cause, ReservationRefused)
+    assert cause.code == code
+
+
+def test_an_imported_second_root_for_a_held_chain_is_refused(writer, events):
+    """Ruling R6: import judges the chain over the bundle and the corpus, as `add` does, so a second
+    root reaches a corpus only by a raw write."""
+    _add(writer, _root((events[0],)))
+    second = _root((events[0],), assigned_at="2026-11-06T11:00:00Z", assigned_by="someone-else")
+    _chain_refusal(writer, [_node(second)], second.id, "assignment-root-exists")
+    assert not writer.read_view.holds(second.id)
+
+
+def test_an_imported_second_successor_of_a_superseded_predecessor_is_refused(writer, events):
+    """Ruling R6: a fork reaches a corpus only by a raw write; import refuses it as `supersede` does."""
+    root = _root((events[0],))
+    _add(writer, root)
+    _supersede(writer, _successor(root, events=tuple(sorted(events))))
+    fork = _successor(
+        root,
+        evidence=("task:x-1",),
+        groups=(*root.groups, _group(_T[2], OPEN, "unresolved")),
+        assigned_by="someone-else",
+    )
+    _chain_refusal(writer, [_with_supersedes(_node(fork), root.id)], fork.id, "assignment-superseded")
+    assert not writer.read_view.holds(fork.id)
+
+
 def test_an_imported_chain_arrives_with_its_edges(writer, events):
     root = _root((events[0],), assigned_by="someone-else")
     successor = _successor(root, events=tuple(sorted(events)))
