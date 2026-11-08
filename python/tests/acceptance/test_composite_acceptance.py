@@ -241,7 +241,7 @@ def test_grammar_kind_and_relations(corpora):
     assert kind.role == "world" and kind.domain == "science.composite.v1"
     assert kind.facets["composite"].required and kind.facets["composite"].covered
     assert not kind.facets["display"].covered
-    assert len([k for k in base.kinds.values() if k.role == "world"]) == 14
+    assert len([k for k in base.kinds.values() if k.role == "world"]) == 16
     composes = base.relations["composes"]
     assert (composes.group, composes.sources, composes.targets, composes.same_kind) == (
         "world",
