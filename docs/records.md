@@ -148,6 +148,15 @@ Some records are content-addressed: their id is derived from their content.
 
 - A dataset's id is `dataset:sha256:<hex>`. The hex is the SHA-256 of its declared
   resource digests, deduplicated, sorted, and each terminated by a newline.
+- A tree is a dataset resource that is a directory. Its tree file is the line
+  `science.dataset-tree.v1` and a newline, then the canonical `science.identity.v1`
+  bytes of `{"members": [{"digest", "path", "size"}, ...]}`. Members are files only,
+  sorted by path in code-point order. Each `path` is a store-relative path in NFC
+  with no component beginning `.#~`, each `digest` is `sha256:`, each `size` is a
+  non-negative integer, and no path is both a file and a directory. The tree's
+  digest is `sha256-tree:<hex>`, the `science.identity.v1` digest of that member
+  list under `science.dataset-tree.v1`, which is also the SHA-256 of the tree file's
+  bytes. `sha256-tree:` carries exactly 64 hex digits.
 - A source's id is `source:` followed by the digest of `{scheme, value}` under
   `science.source-address.v1`, where the scheme is its first accepted external
   identifier in the order `doi`, `pmid`, `isbn`, `accession`. There is no fallback
@@ -268,10 +277,11 @@ passed in a clean environment. Otherwise it is `not-admitted`.
 ## Datasets, sources and holdings
 
 A `dataset` facet lists `resources`, each with a `name` and a `digest` written as
-`<algorithm>:<lowercase hex>`. The only accepted algorithm is `sha256`. A dataset
+`<algorithm>:<lowercase hex>`. The accepted algorithms are `sha256` and `sha256-tree`. A dataset
 with any unpinned resource has no content identity and is refused. A dataset is
 *held* only when an observation matches every declared digest, and heldness is
-derived at read time, never stored.
+derived at read time, never stored. A `sha256-tree` resource is held by an
+observation of that digest, which a store-tree location supplies.
 
 The `empirical-observation` facet has three fields:
 
@@ -357,7 +367,7 @@ some data. Its fields are:
 - `units`: the units exposed (a list that may be empty);
 - `effect`: `exposing` or `non-exposing`;
 - `class`: a non-empty string naming the kind of exposure;
-- `bound` (optional): a mapping from a non-empty name to a `sha256:` digest;
+- `bound` (optional): a mapping from a non-empty name to a `sha256:` or `sha256-tree:` digest;
 - `account`: a non-empty string telling what happened;
 - `observer` and `recorded_by`: actors, in the form the permit accepts;
 - `observed_at`: a whole-second UTC timestamp;
@@ -380,7 +390,7 @@ as one link of a chain. Its fields are:
 
 - `chain`: a name matching `[a-z][a-z0-9-]*`;
 - `rule`: `{name, version}`, both non-empty strings;
-- `inputs`: a non-empty mapping from name to `sha256:` digest;
+- `inputs`: a non-empty mapping from name to a `sha256:` or `sha256-tree:` digest;
 - `events`: `exposure-event:` references, sorted and distinct, one `considers` edge
   each;
 - `scope` (optional): a `proposition:` reference, with a `concerns` edge. An
@@ -390,7 +400,8 @@ as one link of a chain. Its fields are:
   `applies` is refused;
 - `groups`: at least one group, each `{units, role, label?, basis?}`. `units` is a
   non-empty unit list. `role` is `open`, `reserved`, `unresolved` or `withheld`.
-  `label` is a non-empty string and `basis` a `sha256:` digest;
+  `label` is a non-empty string and `basis` a `sha256:` digest (never
+  `sha256-tree:`);
 - `predecessor` (optional): a `reservation-assignment:` reference;
 - `evidence` (optional): sorted, distinct `<scheme>:<rest>` tokens. Those with the
   scheme `exposure-event` also get an `evidenced-by` edge; a token whose scheme

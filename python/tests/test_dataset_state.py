@@ -149,3 +149,18 @@ class TestLocationIsNotTheDiscriminator:
         assert isinstance(admission_state(decl, observed(D1, location="repo://data")), Held)
         assert isinstance(admission_state(decl, observed(D1, location="https://mirror.example/d1")), Held)
         assert list(inspect.signature(dataset_address).parameters) == ["declaration"]
+
+
+def test_a_tree_digest_pins_a_dataset():
+    h = "44" * 32
+    tree = DatasetDeclaration(resources=(ResourceDeclaration("data", "sha256-tree:" + h),))
+    flat = DatasetDeclaration(resources=(ResourceDeclaration("data", "sha256:" + h),))
+    assert dataset_address(tree) is not None
+    assert dataset_address(tree) != dataset_address(flat)
+
+
+def test_a_tree_resource_is_held_by_a_matching_observation():
+    h = "44" * 32
+    decl = DatasetDeclaration(resources=(ResourceDeclaration("data", "sha256-tree:" + h),))
+    state = admission_state(decl, (ByteObservation("sha256-tree:" + h, "store-tree:s:" + h),))
+    assert isinstance(state, Held)

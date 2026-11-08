@@ -13,6 +13,7 @@ from beliefs.holdings.records import (
     StoreLocator,
     UrlLocator,
     holdings_observation,
+    require_canonical_digest,
     require_store_relative_path,
     url_locator,
 )
@@ -297,3 +298,9 @@ def test_direct_observation_construction_refuses_malformed_fields(changes: dict[
     record = observation()
     with pytest.raises(MalformedRecord):
         replace(cast(HoldingsObservation, record), **cast(Any, changes))
+
+
+def test_sha256_tree_width_is_exact():
+    with pytest.raises(MalformedRecord):
+        require_canonical_digest("sha256-tree:" + "0" * 63, "w")
+    require_canonical_digest("sha256-tree:" + "0" * 64, "w")

@@ -176,6 +176,9 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="view"></a>**View** — A stored query over the world plus a label, such as a
   `project` or `question`; it selects records and owns none.
   ([contracts](contracts.md#coordination-contract))
+- <a id="tree"></a>**Tree** — A dataset resource that is a directory: a sorted list of
+  file members (path, `sha256:` digest, size), identified by its `sha256-tree:` digest.
+  ([records](records.md#identity))
 - <a id="world"></a>**World** — Every corpus a world registry admits.
   ([guide](guide.md#worlds-identity-and-change))
 - <a id="write-permit"></a>**Write permit** — The record kinds and act families a writer

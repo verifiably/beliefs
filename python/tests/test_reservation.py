@@ -512,3 +512,11 @@ def test_refusal_functions_report_wrong_kind_with_single_and_multi_kind_grammar(
     )
     assert assignment_refusal is not None and assignment_refusal.code == "assignment-ref-unresolved"
     assert "is a source, not a exposure-event" in assignment_refusal.detail
+
+
+def test_bound_and_inputs_accept_a_tree_digest_and_basis_does_not():
+    tree = "sha256-tree:" + "b" * 64
+    _event(bound=(("set", tree),))
+    _assignment(inputs=(("set", tree),))
+    with pytest.raises(MalformedRecord):
+        _g("a", "reserved", basis=tree)

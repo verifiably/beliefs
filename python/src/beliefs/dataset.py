@@ -39,7 +39,7 @@ __all__ = [
 # Which digest algorithms pin bytes is owed to the profile and not
 # yet ruled; every digest in the measured corpus is sha256. The projection's
 # algorithm prefix is what makes the set expressible when it is ruled.
-ACCEPTED_ALGORITHMS: frozenset[str] = frozenset({"sha256"})
+ACCEPTED_ALGORITHMS: frozenset[str] = frozenset({"sha256", "sha256-tree"})
 
 _DIGEST = re.compile(r"^(?P<algorithm>[a-z0-9-]+):(?P<hex>[0-9a-f]+)$")
 

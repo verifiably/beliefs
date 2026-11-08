@@ -39,7 +39,7 @@ _STORE_ID = re.compile(r"^[0-9a-f]{32}$")
 _DIGEST = re.compile(r"^(?P<algorithm>[a-z0-9-]+):(?P<hex>[0-9a-f]+)$")
 _OBSERVED_AT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _REFERENCE = re.compile(r"^[0-9a-f]{64}$")
-ALGORITHM_WIDTHS: Mapping[str, int] = MappingProxyType({"sha256": 64})
+ALGORITHM_WIDTHS: Mapping[str, int] = MappingProxyType({"sha256": 64, "sha256-tree": 64})
 
 
 def require_canonical_digest(value: str, where: str) -> None:

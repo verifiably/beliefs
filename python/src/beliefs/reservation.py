@@ -75,6 +75,7 @@ OPEN = "open"
 
 _TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_RESOURCE_DIGEST = re.compile(r"^sha256(?:-tree)?:[0-9a-f]{64}$")
 _NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 _SORT = re.compile(r"^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$")
 _EVENT_KERNEL_EVIDENCE = ("act-report", "run", "holdings-observation")
@@ -106,6 +107,12 @@ def _timestamp(value: object, where: str) -> str:
 def _digest(value: object, where: str) -> str:
     if type(value) is not str or _DIGEST.fullmatch(value) is None:
         raise _refuse(f"{where}: {value!r} is not `sha256:` and 64 lowercase hex digits")
+    return value
+
+
+def _resource_digest(value: object, where: str) -> str:
+    if type(value) is not str or _RESOURCE_DIGEST.fullmatch(value) is None:
+        raise _refuse(f"{where}: {value!r} is not `sha256:` or `sha256-tree:` and 64 lowercase hex digits")
     return value
 
 
@@ -164,7 +171,9 @@ def _strings(
     return tuple(out)
 
 
-def _digest_map(value: object, where: str) -> tuple[tuple[str, str], ...]:
+def _digest_map(
+    value: object, where: str, validate: Callable[[object, str], str] = _resource_digest
+) -> tuple[tuple[str, str], ...]:
     entries = _tuple(value, where)
     out: list[tuple[str, str]] = []
     names: list[str] = []
@@ -173,7 +182,7 @@ def _digest_map(value: object, where: str) -> tuple[tuple[str, str], ...]:
             raise _refuse(f"{where}: {entry!r} is not a (name, digest) pair")
         raw_name, raw_digest = cast(tuple[object, object], entry)
         name = _text(raw_name, f"{where} name")
-        digest = _digest(raw_digest, f"{where}[{name}]")
+        digest = validate(raw_digest, f"{where}[{name}]")
         names.append(name)
         out.append((name, digest))
     _sorted_distinct(names, f"{where} keys")
