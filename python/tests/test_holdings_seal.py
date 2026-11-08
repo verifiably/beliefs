@@ -105,7 +105,13 @@ def _failed_line(seq: int) -> RequestLine:
     )
 
 
-def fetched_log(contents: dict[str, bytes], *, failed: bool = True, sizes: dict[str, int] | None = None) -> bytes:
+def fetched_log(
+    contents: dict[str, bytes],
+    *,
+    failed: bool = True,
+    sizes: dict[str, int] | None = None,
+    set_token: str = SET,
+) -> bytes:
     """A fetched-origin log: one fetched line per member, then one failed request."""
     lines = [
         _fetched_line(seq, path, data, size=(sizes or {}).get(path))
@@ -114,7 +120,7 @@ def fetched_log(contents: dict[str, bytes], *, failed: bool = True, sizes: dict[
     if failed:
         lines.append(_failed_line(len(lines) + 1))
     header = LogHeader(
-        set=SET,
+        set=set_token,
         origin="fetched",
         fetched_by=FETCHED_BY,
         plan={"requests": [line.url for line in lines]},
@@ -276,7 +282,7 @@ def test_seal_holds_a_fetched_set_with_four_records(sealing, certified_work):
     ctx, store_id, writer, work = sealing
     log = fetched_log(MEMBERS)
     location = tree_location(store_id, MEMBERS)
-    log_location = StoreLocator(store_id, f"{location.tree}/{LOG_NAME}")
+    log_location = StoreLocator(store_id, f"{location.tree}/{SET}/{LOG_NAME}")
 
     outcome = seal_acquisition(ctx, writer, request_for(work, MEMBERS, log))
 
@@ -329,7 +335,7 @@ def test_seal_import_holds_its_source_journals(sealing):
     ctx, store_id, writer, work = sealing
     log = imported_log(MEMBERS, JOURNAL)
     location = tree_location(store_id, MEMBERS)
-    journal_location = StoreLocator(store_id, f"{location.tree}/{JOURNAL_NAME}")
+    journal_location = StoreLocator(store_id, f"{location.tree}/{SET}/{JOURNAL_NAME}")
 
     outcome = seal_acquisition(
         ctx, writer, request_for(work, MEMBERS, log, origin="imported", journals={JOURNAL_NAME: JOURNAL})
@@ -393,7 +399,7 @@ def _spoiled(spoil: str, ctx, store_id: str, writer: CorpusWriter, work: Path, c
     elif spoil == "misplaced-standing":
         # a head at another location, keyed as the log's: the log write would refuse it after the intent
         stray = write(ctx, StoreLocator(store_id, "elsewhere.bin"), b"elsewhere").record
-        log_location = StoreLocator(store_id, f"{tree_location(store_id, MEMBERS).tree}/{LOG_NAME}")
+        log_location = StoreLocator(store_id, f"{tree_location(store_id, MEMBERS).tree}/{SET}/{LOG_NAME}")
         kwargs["standing"] = {log_location.canonical(): (stray,)}
     else:
         raise AssertionError(spoil)
@@ -480,6 +486,38 @@ def test_sealing_an_already_held_tree_mints_no_second_dataset(sealing, certified
     after = reduce(world, binding, writer)
     assert after.blocked == []
     assert sorted(Counter(head["location"] for head in after.active).values()) == [1, 1]  # one head per location
+
+
+def test_two_sets_of_one_tree_keep_their_own_logs_beside_one_dataset(sealing, certified_work, tmp_path):
+    """Two acquisitions of identical bytes: one dataset, two act reports, each binding its own log."""
+    ctx, store_id, writer, work = sealing
+    other_set = "6" * 32
+    location = tree_location(store_id, MEMBERS)
+    logs = {SET: fetched_log(MEMBERS), other_set: fetched_log(MEMBERS, failed=False, set_token=other_set)}
+    first = seal_acquisition(ctx, writer, request_for(work, MEMBERS, logs[SET]))
+    world, binding = world_over(certified_work, ctx.observer_root)
+    reduced = reduce(world, binding, writer)
+
+    second = seal_acquisition(
+        ctx,
+        writer,
+        request_for(tmp_path / "other-work", MEMBERS, logs[other_set]),
+        standing=reduced.standing,
+        unsettled=reduced.unsettled,
+    )
+
+    assert first.dataset is not None and second.dataset is None and second.address == first.address
+    assert stored_kinds(ctx.observer_root)["dataset"] == 1
+    after = reduce(world, binding, writer)
+    assert after.blocked == []
+    active = {cast(str, head["location"]): head["outcome"] for head in after.active}
+    for set_token, outcome in ((SET, first), (other_set, second)):
+        mutation, summary = outcome.entries[0], outcome.entries[2].outcome
+        assert isinstance(summary, SetSummary) and summary.log == digest(logs[set_token])  # its own log's digest
+        relative_path = mutation.subject.split(":", 2)[2]  # the log location this set's report names
+        assert (ctx.store_root / relative_path).read_bytes() == logs[set_token]  # still held, never replaced
+        assert active[mutation.subject] == {"finding": "found", "digest": digest(logs[set_token])}
+        assert relative_path == f"{location.tree}/{set_token}/{LOG_NAME}"
 
 
 def _killed_after_two_objects(ctx):

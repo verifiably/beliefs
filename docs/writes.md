@@ -165,9 +165,11 @@ runs these steps:
    `found` or `absent` it publishes replaces them; every later act at that location
    supersedes it. An inconclusive re-check raises `AcquisitionRefused`: the seal writes
    nothing more and leaves the intent unfinished.
-4. Write the log into the store at `<hex>/acquisition-log.jsonl`, and each source
-   journal at `<hex>/<name>`, where `<hex>` is the tree digest's hex, each with an
-   ordinary holdings `write`.
+4. Write the log into the store at `<hex>/<set>/acquisition-log.jsonl`, and each
+   source journal at `<hex>/<set>/<name>`, each with an ordinary holdings `write`.
+   `<hex>` is the tree digest's hex and `<set>` the log header's set token, so two sets
+   that yield one tree keep their own logs, and a set sealed again writes to the same
+   paths.
 5. Write the tree with the `tree-write` act
    ([records.md](records.md#datasets-sources-and-holdings)).
 6. Close in one transaction, under `acquire`'s lock order. It mints the dataset, unless
@@ -194,7 +196,9 @@ An interrupted seal leaves its intent unfinished and only whole objects in the s
 Sealing the same set again, with `standing` and `unsettled` from a fresh reduction,
 repairs it: step 3 re-checks the interrupted locations, the log and journals are written
 with the same bytes, objects are create-only and reused only when they match, and a held
-address is not minted again. No step scans the stored records once per member.
+address is not minted again. Two different sets of identical bytes give one dataset and
+two act reports, each naming its own log. No step scans the stored records once per
+member.
 
 ## Verification
 
