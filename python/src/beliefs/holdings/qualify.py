@@ -6,8 +6,9 @@
 import json
 
 
-ACT_KINDS = ("re-check", "write", "delete", "move-source", "move-destination")
-MUTATING_KINDS = ("write", "delete", "move-source", "move-destination")
+ACT_KINDS = ("re-check", "write", "delete", "move-source", "move-destination", "tree-write")
+MUTATING_KINDS = ("write", "delete", "move-source", "move-destination", "tree-write")
+TREE_KINDS = ("re-check", "tree-write")
 HOLDINGS_INTENT_DOMAIN = "science.holdings-intent.v1"
 
 
@@ -50,11 +51,25 @@ def _location(value):
         if not _lower_hex(value["store_id"], 32) or not _store_path(value["relative_path"]):
             return None
         return "store:" + value["store_id"] + ":" + value["relative_path"]
+    if value["type"] == "store-tree":
+        if set(value) != {"store_id", "tree", "type"}:
+            return None
+        if not _lower_hex(value["store_id"], 32) or not _lower_hex(value["tree"], 64):
+            return None
+        return "store-tree:" + value["store_id"] + ":" + value["tree"]
     if value["type"] == "url":
         if set(value) != {"type", "url"} or not _url(value["url"]):
             return None
         return "url:" + value["url"]
     return None
+
+
+def _pairs(kind, location):
+    if location is None:
+        return False
+    if location.startswith("store-tree:"):
+        return kind in TREE_KINDS
+    return kind != "tree-write"
 
 
 def decode_holdings_intent(row):
@@ -72,7 +87,7 @@ def decode_holdings_intent(row):
         and isinstance(value["event_token"], str)
         and bool(value["event_token"])
         and value["kind"] in ACT_KINDS
-        and _location(value["location"]) is not None
+        and _pairs(value["kind"], _location(value["location"]))
     )
     if not valid:
         raise ValueError("malformed holdings intent at " + row["digest"])

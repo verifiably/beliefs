@@ -48,7 +48,8 @@ from beliefs.profile import ProfileSpec
 from beliefs.world.anchors import parse_store_genesis
 
 HOLDINGS_INTENT_DOMAIN = "science.holdings-intent.v1"
-ACT_KINDS = ("re-check", "write", "delete", "move-source", "move-destination")
+ACT_KINDS = ("re-check", "write", "delete", "move-source", "move-destination", "tree-write")
+TREE_KINDS = ("re-check", "tree-write")
 
 
 def intent_payload(*, location: Locator, act_kind: str, event_token: str, actor: str) -> bytes:
@@ -58,12 +59,17 @@ def intent_payload(*, location: Locator, act_kind: str, event_token: str, actor:
         raise MalformedRecord("a holdings intent event_token must be a non-empty string")
     require_actor(actor)
     if isinstance(location, StoreTreeLocator):
-        raise MalformedRecord("a store-tree location has no holdings intent yet")
-    location_facet = (
-        {"type": "url", "url": location.url}
-        if isinstance(location, UrlLocator)
-        else {"relative_path": location.relative_path, "store_id": location.store_id, "type": "store"}
-    )
+        if act_kind not in TREE_KINDS:
+            raise MalformedRecord(f"holdings intent kind {act_kind!r} does not pair with a store-tree location")
+        location_facet = {"type": "store-tree", "store_id": location.store_id, "tree": location.tree}
+    else:
+        if act_kind == "tree-write":
+            raise MalformedRecord("a tree-write intent pairs only with a store-tree location")
+        location_facet = (
+            {"type": "url", "url": location.url}
+            if isinstance(location, UrlLocator)
+            else {"relative_path": location.relative_path, "store_id": location.store_id, "type": "store"}
+        )
     return json.dumps(
         {
             "actor": actor,

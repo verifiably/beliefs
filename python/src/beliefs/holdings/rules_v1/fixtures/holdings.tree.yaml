@@ -1,0 +1,53 @@
+input:
+  corpora:
+    - corpus_id: corpus-a
+      corpus_state: "1111111111111111111111111111111111111111111111111111111111111111"
+      chain_head: "4444444444444444444444444444444444444444444444444444444444444444"
+      records:
+        - uid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          canonical: '{"body":"","deprecated_ids":[],"facets":{"holdings-observation":{"event_token":"token-tree","instrument":"instrument","kind":"holdings-observation","location":{"store_id":"dddddddddddddddddddddddddddddddd","tree":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","type":"store-tree"},"observed_at":"2026-01-01T00:00:00Z","observer":"observer","outcome":{"digest":"sha256-tree:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","finding":"found"},"supersedes":[]},"semantic-identity":{"digest":"3bc2c85118029b89e17c4b9b63250dd2274cea4464c2821af354942ff7e36b89"}},"id":"holdings-observation:dac6ce94239f08b69cb544f4f16c9cb7ae7cbce227829e2e3961d20f6918566b","kind":"holdings-observation","metadata":{"created":null,"updated":null,"version":1},"relations":[],"title":"Holdings observation dac6ce94239f","uid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+      chain:
+        - digest: "0000000000000000000000000000000000000000000000000000000000000000"
+          entry:
+            kind: genesis
+            payload: "00"
+            baseline: []
+        - digest: "1111111111111111111111111111111111111111111111111111111111111111"
+          entry:
+            kind: intent
+            payload: "7b226163746f72223a226163746f72222c22646f6d61696e223a22736369656e63652e686f6c64696e67732d696e74656e742e7631222c226576656e745f746f6b656e223a22746f6b656e2d74726565222c226b696e64223a22747265652d7772697465222c226c6f636174696f6e223a7b2273746f72655f6964223a226464646464646464646464646464646464646464646464646464646464646464222c2274726565223a2261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c2274797065223a2273746f72652d74726565227d7d"
+        - digest: "2222222222222222222222222222222222222222222222222222222222222222"
+          entry:
+            kind: registered
+            txid: tx-2
+            intent_digest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            consumer_tag: science-corpus-write-v1
+            fulfills: "1111111111111111111111111111111111111111111111111111111111111111"
+            initial: []
+            final:
+              - - holdings-observation/dac6ce94239f08b69cb544f4f16c9cb7ae7cbce227829e2e3961d20f6918566b.md
+                - - [content_hash, "sha256:9999999999999999999999999999999999999999999999999999999999999999"]
+                  - [kind, file]
+                  - [mode, "0o100644"]
+        - digest: "3333333333333333333333333333333333333333333333333333333333333333"
+          entry:
+            kind: settled
+            txid: tx-2
+            registration: "2222222222222222222222222222222222222222222222222222222222222222"
+            outcome: committed
+        - digest: "4444444444444444444444444444444444444444444444444444444444444444"
+          entry:
+            kind: intent
+            payload: "7b226163746f72223a226163746f72222c22646f6d61696e223a22736369656e63652e686f6c64696e67732d696e74656e742e7631222c226576656e745f746f6b656e223a22746f6b656e2d756e6d617463686564222c226b696e64223a22747265652d7772697465222c226c6f636174696f6e223a7b2273746f72655f6964223a226464646464646464646464646464646464646464646464646464646464646464222c2274726565223a2262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262222c2274797065223a2273746f72652d74726565227d7d"
+expected:
+  active:
+    - head: dac6ce94239f08b69cb544f4f16c9cb7ae7cbce227829e2e3961d20f6918566b
+      location: "store-tree:dddddddddddddddddddddddddddddddd:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      outcome:
+        finding: found
+        digest: "sha256-tree:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      history: []
+  blocked:
+    - location: "store-tree:dddddddddddddddddddddddddddddddd:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      reasons: [unsettled]
+      heads: []

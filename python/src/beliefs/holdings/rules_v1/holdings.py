@@ -6,6 +6,8 @@
 def _location_key(location):
     if location["type"] == "url":
         return "url:" + location["url"]
+    if location["type"] == "store-tree":
+        return "store-tree:" + location["store_id"] + ":" + location["tree"]
     return location["type"] + ":" + location["store_id"] + ":" + location["relative_path"]
 
 

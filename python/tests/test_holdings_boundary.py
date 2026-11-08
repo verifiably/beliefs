@@ -38,7 +38,7 @@ from beliefs.holdings.boundary import (
     recheck,
     write,
 )
-from beliefs.holdings.records import Absent, Found, StoreLocator, url_locator
+from beliefs.holdings.records import Absent, Found, StoreLocator, StoreTreeLocator, url_locator
 from beliefs.holdings.seam import FileStateView, ReadUnestablishedView, StoreOutcomeView
 from beliefs.holdings.transport import RetrievalBounds
 from beliefs.root import (
@@ -185,6 +185,41 @@ def test_intent_payload_is_the_exact_canonical_json_shape():
     )
     assert set(json.loads(payload)) == {"actor", "domain", "event_token", "kind", "location"}
     assert set(json.loads(payload)["location"]) == {"relative_path", "store_id", "type"}
+
+
+def test_store_tree_intent_payload_is_exact():
+    payload = intent_payload(
+        location=StoreTreeLocator("a" * 32, "b" * 64), act_kind="tree-write", event_token="token", actor="actor"
+    )
+
+    assert (
+        payload
+        == b'{"actor":"actor","domain":"science.holdings-intent.v1","event_token":"token","kind":"tree-write","location":{"store_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","tree":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","type":"store-tree"}}'
+    )
+
+
+@pytest.mark.parametrize(
+    ("location", "kind"),
+    [
+        (StoreTreeLocator("a" * 32, "b" * 64), "write"),
+        (StoreTreeLocator("a" * 32, "b" * 64), "delete"),
+        (StoreLocator("a" * 32, "held.bin"), "tree-write"),
+        (url_locator("https://example.org/data"), "tree-write"),
+    ],
+)
+def test_intent_payload_refuses_a_kind_that_does_not_pair_with_the_location(location, kind):
+    with pytest.raises(MalformedRecord):
+        intent_payload(location=location, act_kind=kind, event_token="token", actor="actor")
+
+
+def test_a_store_tree_recheck_intent_payload_is_admitted():
+    payload = json.loads(
+        intent_payload(
+            location=StoreTreeLocator("a" * 32, "b" * 64), act_kind="re-check", event_token="token", actor="actor"
+        )
+    )
+
+    assert payload["location"] == {"store_id": "a" * 32, "tree": "b" * 64, "type": "store-tree"}
 
 
 @pytest.mark.parametrize(

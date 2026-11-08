@@ -26,6 +26,12 @@ REF_C = "c" * 64
 STORE = "d" * 32
 LOCATION = f"store:{STORE}:artifact.bin"
 OTHER_LOCATION = f"store:{STORE}:other.bin"
+TREE = "e" * 64
+OTHER_TREE = "f" * 64
+TREE_LOCATION = f"store-tree:{STORE}:{TREE}"
+OTHER_TREE_LOCATION = f"store-tree:{STORE}:{OTHER_TREE}"
+TREE_FACET = {"type": "store-tree", "store_id": STORE, "tree": TREE}
+TREE_DIGEST = f"sha256-tree:{TREE}"
 
 
 def observation(
@@ -38,6 +44,7 @@ def observation(
     token: str = "token",
     observed_at: str = "2026-01-01T00:00:00Z",
     supersedes: tuple[str, ...] = (),
+    incomplete: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     if isinstance(location, dict):
         location_facet = dict(location)
@@ -47,6 +54,8 @@ def observation(
     outcome: dict[str, Any] = {"finding": finding}
     if finding == "found":
         outcome["digest"] = digest
+    if incomplete is not None:
+        outcome["incomplete"] = incomplete
     facet: dict[str, Any] = {
         "kind": "holdings-observation",
         "location": location_facet,
@@ -83,6 +92,11 @@ def intent(
     payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     store, store_id, relative_path = location.split(":", 2)
+    location_facet = (
+        {"tree": relative_path, "store_id": store_id, "type": store}
+        if store == "store-tree"
+        else {"relative_path": relative_path, "store_id": store_id, "type": store}
+    )
     value = (
         payload
         if payload is not None
@@ -91,7 +105,7 @@ def intent(
             "domain": "science.holdings-intent.v1",
             "event_token": token,
             "kind": kind,
-            "location": {"relative_path": relative_path, "store_id": store_id, "type": store},
+            "location": location_facet,
         }
     )
     return {
@@ -172,10 +186,13 @@ def member(
     digest: str = "sha256:" + "1" * 64,
     expected: str | None = None,
     history: list[dict[str, Any]] | None = None,
+    incomplete: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     outcome: dict[str, Any] = {"finding": finding}
     if finding == "found":
         outcome["digest"] = digest
+    if incomplete is not None:
+        outcome["incomplete"] = incomplete
     value: dict[str, Any] = {
         "head": ref,
         "location": location,
@@ -204,6 +221,7 @@ def test_the_bundle_installs_through_the_fixture_bound_admission(tmp_path):
         "holdings.basic.yaml",
         "holdings.blocked.yaml",
         "holdings.empty.yaml",
+        "holdings.tree.yaml",
         "holdings.unresolved.yaml",
         "holdings.url.yaml",
     ]
@@ -575,6 +593,66 @@ def test_payloads_that_do_not_select_the_holdings_domain_are_ignored(payload):
     row = {"digest": "1" * 64, "entry": {"kind": "intent", "payload": payload}}
 
     assert invoke(capture(corpus(chain=[row]))) == {"active": [], "blocked": []}
+
+
+INCOMPLETE = {"missing": 1, "mismatched": 0}
+
+
+def tree_member(ref: str, *, finding: str = "found") -> dict[str, Any]:
+    return member(
+        ref,
+        location=TREE_LOCATION,
+        finding=finding,
+        digest=TREE_DIGEST,
+        incomplete=INCOMPLETE if finding == "absent" else None,
+    )
+
+
+def test_an_unmatched_tree_write_blocks_its_store_tree_location():
+    value = capture(corpus(chain=[intent("1" * 64, kind="tree-write", location=TREE_LOCATION)]))
+
+    assert invoke(value) == {
+        "active": [],
+        "blocked": [{"location": TREE_LOCATION, "reasons": ["unsettled"], "heads": []}],
+    }
+
+
+def test_a_matched_recheck_settles_an_unmatched_tree_write():
+    value = capture(
+        corpus(
+            records=[observation(REF_A, location=TREE_FACET, digest=TREE_DIGEST, token="repair")],
+            chain=[
+                intent("1" * 64, kind="tree-write", location=TREE_LOCATION),
+                intent("4" * 64, kind="re-check", location=TREE_LOCATION, token="repair"),
+                registration("5" * 64, "4" * 64, final=[file_row(f"holdings-observation/{REF_A}.md")]),
+                settlement("6" * 64, "5" * 64),
+            ],
+        )
+    )
+
+    assert invoke(value) == {"active": [tree_member(REF_A)], "blocked": []}
+
+
+def test_absent_and_found_heads_at_one_store_tree_location_are_contested():
+    value = capture(
+        corpus(
+            records=[
+                observation(REF_A, location=TREE_FACET, digest=TREE_DIGEST),
+                observation(REF_B, location=TREE_FACET, finding="absent", incomplete=INCOMPLETE),
+            ]
+        )
+    )
+
+    assert invoke(value) == {
+        "active": [],
+        "blocked": [
+            {
+                "location": TREE_LOCATION,
+                "reasons": ["contested"],
+                "heads": [tree_member(REF_A), tree_member(REF_B, finding="absent")],
+            }
+        ],
+    }
 
 
 def test_the_url_fixture_ships_and_reduces():
