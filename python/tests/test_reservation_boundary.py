@@ -356,14 +356,37 @@ def test_an_imported_successor_whose_edge_names_another_assignment_is_an_edge_mi
     _edge_mismatch(writer, [_node(root), doubled], successor.id)
 
 
-def test_an_imported_assignment_with_a_missing_or_reordered_considers_edge_is_an_edge_mismatch(writer, events):
+def test_an_imported_assignment_with_a_missing_or_doubled_considers_edge_is_an_edge_mismatch(writer, events):
+    """Edges mirror the facet as a duplicate-free set (ruling R5): order is free, count is not."""
     root = _root(tuple(sorted(events)), assigned_by="someone-else")
     node = _node(root)
     assert [r.predicate for r in node.relations] == ["considers", "considers"]
     missing = node.model_copy(update={"relations": node.relations[:1]})
     _edge_mismatch(writer, [missing], root.id)
-    reordered = node.model_copy(update={"relations": list(reversed(node.relations))})
-    _edge_mismatch(writer, [reordered], root.id)
+    doubled = node.model_copy(update={"relations": [*node.relations, node.relations[0]]})
+    _edge_mismatch(writer, [doubled], root.id)
+
+
+def test_an_event_and_an_assignment_whose_edges_arrive_out_of_facet_order_are_admitted(writer, events):
+    """Ruling R5: a canonicalising path (an export that sorts, a consolidation) may reorder the edges;
+    the boundary judges the set."""
+    source = writer.add(stored.source_node(title="s", identifiers={"doi": "10.1000/xyz"}))
+    proposition = _proposition(writer)
+    event = _event(
+        subjects=(source.id,),
+        units=(TermUnit(GENE, "EX:a"),),
+        observer="someone-else",
+        recorded_by="someone-else",
+        propositions=(proposition.id,),
+        evidence=(),
+    )
+    root = _root((event.id,), scope=proposition.id, assigned_by="someone-else")
+    nodes = [stored.exposure_event_node(event, title="e"), _node(root)]
+    for node in nodes:
+        assert len({r.predicate for r in node.relations}) == 2
+    reversed_nodes = [node.model_copy(update={"relations": list(reversed(node.relations))}) for node in nodes]
+    _import(writer, reversed_nodes)
+    assert writer.read_view.holds(event.id) and writer.read_view.holds(root.id)
 
 
 def test_an_imported_chain_arrives_with_its_edges(writer, events):

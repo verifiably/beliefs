@@ -206,9 +206,9 @@ def _scoped_chain(subject: str, proposition: str) -> tuple[ExposureEvent, Reserv
 
 
 def test_consolidate_moves_an_event_and_an_assignment_between_corpora(source_writer, destination_writer):
-    """Both roots hold the same event, root and successor; consolidating keeps each in `keep` with its
-    edges in facet order (the successor's `supersedes` last), judging each against a root that already
-    holds it, and removes the other location."""
+    """Both roots hold the same event, root and successor; consolidating keeps each in `keep`, judging
+    it against a root that already holds it, and removes the other location. The union of edges is stored
+    sorted, as for every kind, which the boundary admits since edges mirror the facet as a set (ruling R5)."""
     subject, proposition = _source(), _proposition()
     event, root = _scoped_chain(subject.id, proposition.id)
     successor = _successor(root, evidence=("task:roster-commit",), groups=root.groups[:2])
@@ -220,13 +220,14 @@ def test_consolidate_moves_an_event_and_an_assignment_between_corpora(source_wri
     refs = (successor.id, root.id, event.id)
     before = {ref: _edges(destination_writer, ref) for ref in refs}
     assert before[successor.id][-1] == (stored.SUPERSEDES, root.id)
+    assert any(edges != sorted(edges) for edges in before.values())
 
     for ref in refs:
         survivor, _, _ = relocation.consolidate((destination_writer, ref), (source_writer, ref), **CONSOLIDATE_FIELDS)
         assert survivor.id == ref
 
     for ref in refs:
-        assert _edges(destination_writer, ref) == before[ref]
+        assert _edges(destination_writer, ref) == sorted(before[ref])
         assert not source_writer.read_view.holds(ref)
     assert stored.exposure_event_value(destination_writer.read_view.get(event.id)) == event
     assert assignment_head(destination_writer.read_view, "sun-epochs", scope=proposition.id) == successor

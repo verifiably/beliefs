@@ -592,14 +592,25 @@ KindOf = Callable[[str], "str | Unread | None"]
 or `UNREAD` when it names one that cannot be read here."""
 
 
+def _edge_key(relation: Relation) -> tuple[str, str, str]:
+    return relation.source, relation.predicate, relation.target
+
+
+def _mirrors(relations: Sequence[Relation], expected: Sequence[Relation]) -> bool:
+    """The edges are the facet's, as a duplicate-free set: order is free (a canonicalising path such as
+    consolidation sorts them), while a missing, extra or doubled edge, or one differing in any field, is not
+    (ruling R5)."""
+    return sorted(relations, key=_edge_key) == sorted(expected, key=_edge_key)
+
+
 def exposure_event_refusal(
     value: ExposureEvent, relations: Sequence[Relation], *, kind_of: KindOf, sorts: Container[str]
 ) -> CheckRefusal | None:
-    """An exposure event's edges mirror its facet exactly, every kernel reference resolves to a record of
+    """An exposure event's edges mirror its facet as a set, every kernel reference resolves to a record of
     the kind its slot names, and each unit sort is declared; the first failure in that order."""
     from beliefs import stored  # local: `stored` imports this module
 
-    if list(relations) != stored.exposure_event_relations(value):
+    if not _mirrors(relations, stored.exposure_event_relations(value)):
         return CheckRefusal("exposure-edge-mismatch", "the relations differ from those the facet names")
     slots: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
         ("subject", value.subjects, ("dataset", "source")),
@@ -640,7 +651,7 @@ def assignment_record_refusal(
 
     succession = [relation for relation in relations if relation.predicate == stored.SUPERSEDES]
     mirrored = [relation for relation in relations if relation.predicate != stored.SUPERSEDES]
-    if mirrored != stored.reservation_assignment_relations(value):
+    if not _mirrors(mirrored, stored.reservation_assignment_relations(value)):
         return CheckRefusal("assignment-edge-mismatch", "the relations differ from those the facet names")
     if value.predecessor is None and succession:
         return CheckRefusal("assignment-edge-mismatch", "a chain root carries no supersedes edge")
