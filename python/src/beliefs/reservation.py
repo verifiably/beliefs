@@ -1,0 +1,543 @@
+"""Exposure events and reservation assignments as pure values.
+
+The field rules, the two unit shapes with their sort order, the facet round
+trip, the content identity and the derived group changes of the two kinds
+declared in the exposure and reservation kinds design (2026-11-08). Nothing
+here reads a corpus or writes a record: the readers and the write boundary
+build on these types.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from itertools import pairwise
+from typing import final
+
+from beliefs.errors import MalformedRecord
+from beliefs.identity import v1
+from beliefs.permit import require_actor
+from beliefs.sealed import sealed
+
+__all__ = [
+    "CHANNELS",
+    "EFFECTS",
+    "EXPOSURE_EVENT_DOMAIN",
+    "OPEN",
+    "RESERVATION_ASSIGNMENT_DOMAIN",
+    "ROLES",
+    "ExposureEvent",
+    "Group",
+    "GroupChange",
+    "IntervalUnit",
+    "ReservationAssignment",
+    "TermUnit",
+    "Unit",
+    "assignment_changes",
+    "exposure_event_from_facet",
+    "reservation_assignment_from_facet",
+    "unit_facet",
+    "unit_from_facet",
+    "unit_shape",
+    "unit_sort_key",
+]
+
+EXPOSURE_EVENT_DOMAIN = "science.exposure-event.v1"
+RESERVATION_ASSIGNMENT_DOMAIN = "science.reservation-assignment.v1"
+ROLES = ("open", "reserved", "unresolved", "withheld")
+CHANNELS = ("read", "knowledge")
+EFFECTS = ("exposing", "non-exposing")
+OPEN = "open"
+
+_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_NAME = re.compile(r"^[a-z][a-z0-9-]*$")
+_SORT = re.compile(r"^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$")
+_KERNEL_EVIDENCE = ("act-report", "run", "holdings-observation")
+
+
+def _refuse(message: str) -> MalformedRecord:
+    return MalformedRecord(message)
+
+
+def _text(value: object, where: str) -> str:
+    if type(value) is not str or not value:
+        raise _refuse(f"{where}: {value!r} is not a non-empty string")
+    return value
+
+
+def _timestamp(value: object, where: str) -> str:
+    if type(value) is not str or _TIMESTAMP.fullmatch(value) is None:
+        raise _refuse(f"{where}: {value!r} is not a whole-second YYYY-MM-DDTHH:MM:SSZ timestamp")
+    try:
+        datetime.fromisoformat(value)
+    except ValueError as caught:
+        raise _refuse(f"{where}: {value!r} is not a calendar time: {caught}") from caught
+    return value
+
+
+def _digest(value: object, where: str) -> str:
+    if type(value) is not str or _DIGEST.fullmatch(value) is None:
+        raise _refuse(f"{where}: {value!r} is not `sha256:` and 64 lowercase hex digits")
+    return value
+
+
+def _one_of(value: object, allowed: tuple[str, ...], where: str) -> str:
+    if type(value) is not str or value not in allowed:
+        raise _refuse(f"{where}: {value!r} is not one of {allowed}")
+    return value
+
+
+def _prefixed(value: object, prefixes: tuple[str, ...], where: str) -> str:
+    if type(value) is not str or not any(value.startswith(p) and len(value) > len(p) for p in prefixes):
+        raise _refuse(f"{where}: {value!r} does not carry a {' or '.join(prefixes)} reference")
+    return value
+
+
+def _tuple(value: object, where: str) -> tuple[object, ...]:
+    if type(value) is not tuple:
+        raise _refuse(f"{where}: {value!r} is not a tuple")
+    return value
+
+
+def _sorted_distinct(values: Sequence[object], where: str, key: object = None) -> None:
+    keyed = [key(v) if callable(key) else v for v in values]  # pyright: ignore[reportUnknownVariableType]
+    for before, after in pairwise(keyed):  # pyright: ignore[reportUnknownVariableType]
+        if not before < after:  # pyright: ignore[reportUnknownVariableType, reportOperatorIssue]
+            raise _refuse(f"{where} must be sorted and distinct; {before!r} is followed by {after!r}")
+
+
+def _strings(
+    value: object, where: str, prefixes: tuple[str, ...] | None = None, *, tokens: bool = False, actors: bool = False
+) -> tuple[str, ...]:
+    entries = _tuple(value, where)
+    out: list[str] = []
+    for entry in entries:
+        if actors:
+            try:
+                out.append(require_actor(entry))
+            except (TypeError, ValueError) as caught:
+                raise _refuse(f"{where}: {entry!r} is not an actor: {caught}") from caught
+        elif tokens:
+            if type(entry) is not str or entry.find(":") < 1 or entry.endswith(":"):
+                raise _refuse(f"{where}: {entry!r} is not `<scheme>:<rest>`")
+            out.append(entry)
+        else:
+            assert prefixes is not None
+            out.append(_prefixed(entry, prefixes, where))
+    _sorted_distinct(out, where)
+    return tuple(out)
+
+
+def _digest_map(value: object, where: str) -> tuple[tuple[str, str], ...]:
+    entries = _tuple(value, where)
+    names: list[str] = []
+    for entry in entries:
+        if type(entry) is not tuple or len(entry) != 2:  # pyright: ignore[reportUnknownArgumentType]
+            raise _refuse(f"{where}: {entry!r} is not a (name, digest) pair")
+        name, digest = entry  # pyright: ignore[reportUnknownVariableType]
+        names.append(_text(name, f"{where} name"))
+        _digest(digest, f"{where}[{name}]")
+    _sorted_distinct(names, f"{where} keys")
+    return value  # type: ignore[return-value]
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class TermUnit:
+    sort: str
+    term: str
+
+    def __post_init__(self) -> None:
+        if type(self.sort) is not str or _SORT.fullmatch(self.sort) is None:
+            raise _refuse(f"a term unit's sort {self.sort!r} is not `<namespace>/<name>`")
+        _text(self.term, "a term unit's term")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class IntervalUnit:
+    start: str
+    end: str
+
+    def __post_init__(self) -> None:
+        for where, value in (("start", self.start), ("end", self.end)):
+            if value != OPEN:
+                _timestamp(value, f"an interval unit's {where}")
+        if self.start == OPEN and self.end == OPEN:
+            raise _refuse("an interval unit may not be open at both ends")
+        if self.start != OPEN and self.end != OPEN and not self.start < self.end:
+            raise _refuse(f"an interval unit must start before it ends: {self.start!r} .. {self.end!r}")
+
+
+Unit = TermUnit | IntervalUnit
+
+
+def unit_shape(unit: Unit) -> str:
+    return "term" if isinstance(unit, TermUnit) else "interval"
+
+
+def unit_sort_key(unit: Unit) -> tuple[str, str, str]:
+    if isinstance(unit, TermUnit):
+        return ("term", unit.sort, unit.term)
+    return ("interval", "" if unit.start == OPEN else unit.start, "~" if unit.end == OPEN else unit.end)
+
+
+def unit_facet(unit: Unit) -> dict[str, str]:
+    if isinstance(unit, TermUnit):
+        return {"sort": unit.sort, "term": unit.term}
+    return {"start": unit.start, "end": unit.end}
+
+
+def unit_from_facet(value: Mapping[str, object]) -> Unit:
+    if not isinstance(value, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise _refuse(f"a unit is a mapping, not {value!r}")
+    keys = set(value)
+    if keys == {"sort", "term"}:
+        return TermUnit(value["sort"], value["term"])  # type: ignore[arg-type]
+    if keys == {"start", "end"}:
+        return IntervalUnit(value["start"], value["end"])  # type: ignore[arg-type]
+    raise _refuse(f"a unit carries `sort` and `term` or `start` and `end`, not {sorted(keys)}")
+
+
+def _units(value: object, where: str) -> tuple[Unit, ...]:
+    entries = _tuple(value, where)
+    for entry in entries:
+        if not isinstance(entry, (TermUnit, IntervalUnit)):
+            raise _refuse(f"{where}: {entry!r} is not a unit")
+    units: tuple[Unit, ...] = entries  # type: ignore[assignment]
+    _sorted_distinct(units, where, unit_sort_key)
+    if len({unit_shape(u) for u in units}) > 1:
+        raise _refuse(f"{where} mixes term and interval units")
+    return units
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Group:
+    units: tuple[Unit, ...]
+    role: str
+    label: str | None
+    basis: str | None
+
+    def __post_init__(self) -> None:
+        if not _units(self.units, "a group's units"):
+            raise _refuse("a group holds at least one unit")
+        _one_of(self.role, ROLES, "a group's role")
+        if self.label is not None:
+            _text(self.label, "a group's label")
+        if self.basis is not None:
+            _digest(self.basis, "a group's basis")
+
+    @property
+    def first(self) -> Unit:
+        return self.units[0]
+
+    def facet(self) -> dict[str, object]:
+        out: dict[str, object] = {"units": [unit_facet(u) for u in self.units], "role": self.role}
+        if self.label is not None:
+            out["label"] = self.label
+        if self.basis is not None:
+            out["basis"] = self.basis
+        return out
+
+
+def _group_from_facet(value: object) -> Group:
+    if not isinstance(value, Mapping):
+        raise _refuse(f"a group is a mapping, not {value!r}")
+    _only(value, {"units", "role"}, {"label", "basis"}, "a group")  # pyright: ignore[reportUnknownArgumentType]
+    return Group(
+        _unit_tuple(value["units"]),
+        value["role"],  # type: ignore[arg-type]
+        value.get("label"),  # type: ignore[arg-type]
+        value.get("basis"),  # type: ignore[arg-type]
+    )
+
+
+def _only(value: Mapping[str, object], required: set[str], optional: set[str], where: str) -> None:
+    keys = set(value)
+    if not required <= keys or not keys <= required | optional:
+        raise _refuse(f"{where} carries {sorted(required)} and optionally {sorted(optional)}, not {sorted(keys)}")
+
+
+def _list(value: object, where: str) -> tuple[object, ...]:
+    if not isinstance(value, list):
+        raise _refuse(f"{where}: {value!r} is not a list")
+    return tuple(value)  # pyright: ignore[reportUnknownArgumentType]
+
+
+def _unit_tuple(value: object) -> tuple[Unit, ...]:
+    return tuple(unit_from_facet(v) for v in _list(value, "units"))  # type: ignore[arg-type]
+
+
+def _pairs(value: object, where: str) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, Mapping):
+        raise _refuse(f"{where}: {value!r} is not a mapping")
+    return tuple(sorted(value.items()))  # type: ignore[arg-type]
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class ExposureEvent:
+    channel: str
+    subjects: tuple[str, ...]
+    units: tuple[Unit, ...]
+    effect: str
+    read_class: str
+    bound: tuple[tuple[str, str], ...]
+    account: str
+    observer: str
+    recorded_by: str
+    observed_at: str
+    propositions: tuple[str, ...]
+    evidence: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _one_of(self.channel, CHANNELS, "an exposure event's channel")
+        subjects = _strings(self.subjects, "subjects", ("dataset:", "source:"))
+        if (self.channel == "read") != bool(subjects):
+            raise _refuse("an exposure event names subjects exactly when its channel is `read`")
+        _units(self.units, "an exposure event's units")
+        _one_of(self.effect, EFFECTS, "an exposure event's effect")
+        _text(self.read_class, "an exposure event's class")
+        _digest_map(self.bound, "bound")
+        _text(self.account, "an exposure event's account")
+        _strings((self.observer,), "observer", actors=True)
+        _strings((self.recorded_by,), "recorded_by", actors=True)
+        _timestamp(self.observed_at, "observed_at")
+        _strings(self.propositions, "propositions", ("proposition:",))
+        _strings(self.evidence, "evidence", tokens=True)
+
+    def facet(self) -> dict[str, object]:
+        out: dict[str, object] = {
+            "channel": self.channel,
+            "subjects": list(self.subjects),
+            "units": [unit_facet(u) for u in self.units],
+            "effect": self.effect,
+            "class": self.read_class,
+        }
+        if self.bound:
+            out["bound"] = dict(self.bound)
+        out["account"] = self.account
+        out["observer"] = self.observer
+        out["recorded_by"] = self.recorded_by
+        out["observed_at"] = self.observed_at
+        out["propositions"] = list(self.propositions)
+        if self.evidence:
+            out["evidence"] = list(self.evidence)
+        return out
+
+    def identity(self) -> str:
+        return v1.digest(EXPOSURE_EVENT_DOMAIN, self.facet())
+
+    @property
+    def id(self) -> str:
+        return f"exposure-event:{self.identity()}"
+
+    def kernel_evidence(self) -> tuple[str, ...]:
+        return _kernel_entries(self.evidence)
+
+
+def _kernel_entries(entries: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(e for e in entries if e.split(":", 1)[0] in _KERNEL_EVIDENCE)
+
+
+def exposure_event_from_facet(facet: Mapping[str, object]) -> ExposureEvent:
+    if not isinstance(facet, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise _refuse(f"an exposure-event facet is a mapping, not {facet!r}")
+    _only(
+        facet,
+        {"channel", "subjects", "units", "effect", "class", "account", "observer", "recorded_by", "observed_at"}
+        | {"propositions"},
+        {"bound", "evidence"},
+        "an exposure-event facet",
+    )
+    return ExposureEvent(
+        channel=facet["channel"],  # type: ignore[arg-type]
+        subjects=_list(facet["subjects"], "subjects"),  # type: ignore[arg-type]
+        units=_unit_tuple(facet["units"]),
+        effect=facet["effect"],  # type: ignore[arg-type]
+        read_class=facet["class"],  # type: ignore[arg-type]
+        bound=_pairs(facet.get("bound", {}), "bound"),
+        account=facet["account"],  # type: ignore[arg-type]
+        observer=facet["observer"],  # type: ignore[arg-type]
+        recorded_by=facet["recorded_by"],  # type: ignore[arg-type]
+        observed_at=facet["observed_at"],  # type: ignore[arg-type]
+        propositions=_list(facet["propositions"], "propositions"),  # type: ignore[arg-type]
+        evidence=_list(facet.get("evidence", []), "evidence"),  # type: ignore[arg-type]
+    )
+
+
+def _check_groups(groups: tuple[Group, ...]) -> None:
+    if not groups or any(not isinstance(g, Group) for g in groups):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise _refuse("a reservation assignment holds at least one group")
+    _sorted_distinct(groups, "groups", lambda g: unit_sort_key(g.first))
+    every = [u for g in groups for u in g.units]
+    if len({unit_shape(u) for u in every}) > 1:
+        raise _refuse("a reservation assignment holds one unit shape")
+    if len(set(every)) != len(every):
+        raise _refuse("a unit sits in exactly one group")
+    intervals = sorted((u for u in every if isinstance(u, IntervalUnit)), key=unit_sort_key)
+    for before, after in pairwise(intervals):
+        if not unit_sort_key(before)[2] <= unit_sort_key(after)[1]:
+            raise _refuse(f"interval units overlap: {unit_facet(before)} and {unit_facet(after)}")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class ReservationAssignment:
+    chain: str
+    rule_name: str
+    rule_version: str
+    inputs: tuple[tuple[str, str], ...]
+    events: tuple[str, ...]
+    scope: str | None
+    applies: str | None
+    groups: tuple[Group, ...]
+    predecessor: str | None
+    evidence: tuple[str, ...]
+    flagged: tuple[str, ...] | None
+    account: str | None
+    participants: tuple[str, ...]
+    prior_runs: tuple[str, ...]
+    assigned_at: str
+    assigned_by: str
+
+    def __post_init__(self) -> None:
+        if type(self.chain) is not str or _NAME.fullmatch(self.chain) is None:
+            raise _refuse(f"chain {self.chain!r} does not match [a-z][a-z0-9-]*")
+        _text(self.rule_name, "rule name")
+        _text(self.rule_version, "rule version")
+        if not _digest_map(self.inputs, "inputs"):
+            raise _refuse("inputs may not be empty")
+        _strings(self.events, "events", ("exposure-event:",))
+        for where, value, prefix in (
+            ("scope", self.scope, "proposition:"),
+            ("applies", self.applies, "reservation-assignment:"),
+            ("predecessor", self.predecessor, "reservation-assignment:"),
+        ):
+            if value is not None:
+                _prefixed(value, (prefix,), where)
+        _check_groups(_tuple(self.groups, "groups"))  # type: ignore[arg-type]
+        _strings(self.evidence, "evidence", tokens=True)
+        if self.flagged is not None:
+            _strings(self.flagged, "flagged", ("assessment:",))
+        if self.account is not None:
+            _text(self.account, "account")
+        _strings(self.participants, "participants", actors=True)
+        _strings(self.prior_runs, "prior_runs", tokens=True)
+        _timestamp(self.assigned_at, "assigned_at")
+        _strings((self.assigned_by,), "assigned_by", actors=True)
+
+    def facet(self) -> dict[str, object]:
+        out: dict[str, object] = {
+            "chain": self.chain,
+            "rule": {"name": self.rule_name, "version": self.rule_version},
+            "inputs": dict(self.inputs),
+            "events": list(self.events),
+        }
+        if self.scope is not None:
+            out["scope"] = self.scope
+        if self.applies is not None:
+            out["applies"] = self.applies
+        out["groups"] = [g.facet() for g in self.groups]
+        if self.predecessor is not None:
+            out["predecessor"] = self.predecessor
+        if self.evidence:
+            out["evidence"] = list(self.evidence)
+        if self.flagged is not None:
+            out["flagged"] = list(self.flagged)
+        if self.account is not None:
+            out["account"] = self.account
+        if self.participants:
+            out["participants"] = list(self.participants)
+        if self.prior_runs:
+            out["prior_runs"] = list(self.prior_runs)
+        out["assigned_at"] = self.assigned_at
+        out["assigned_by"] = self.assigned_by
+        return out
+
+    def identity(self) -> str:
+        return v1.digest(RESERVATION_ASSIGNMENT_DOMAIN, self.facet())
+
+    @property
+    def id(self) -> str:
+        return f"reservation-assignment:{self.identity()}"
+
+    @property
+    def shape(self) -> str:
+        return unit_shape(self.groups[0].first)
+
+    def kernel_evidence(self) -> tuple[str, ...]:
+        return _kernel_entries(self.evidence)
+
+    def kernel_prior_runs(self) -> tuple[str, ...]:
+        return _kernel_entries(self.prior_runs)
+
+
+def reservation_assignment_from_facet(facet: Mapping[str, object]) -> ReservationAssignment:
+    if not isinstance(facet, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise _refuse(f"a reservation-assignment facet is a mapping, not {facet!r}")
+    _only(
+        facet,
+        {"chain", "rule", "inputs", "events", "groups", "assigned_at", "assigned_by"},
+        {"scope", "applies", "predecessor", "evidence", "flagged", "account", "participants", "prior_runs"},
+        "a reservation-assignment facet",
+    )
+    rule = facet["rule"]
+    if not isinstance(rule, Mapping):
+        raise _refuse(f"rule: {rule!r} is not a mapping")
+    _only(rule, {"name", "version"}, set(), "rule")  # pyright: ignore[reportUnknownArgumentType]
+    flagged = facet.get("flagged")
+    return ReservationAssignment(
+        chain=facet["chain"],  # type: ignore[arg-type]
+        rule_name=rule["name"],  # type: ignore[arg-type]
+        rule_version=rule["version"],  # type: ignore[arg-type]
+        inputs=_pairs(facet["inputs"], "inputs"),
+        events=_list(facet["events"], "events"),  # type: ignore[arg-type]
+        scope=facet.get("scope"),  # type: ignore[arg-type]
+        applies=facet.get("applies"),  # type: ignore[arg-type]
+        groups=tuple(_group_from_facet(g) for g in _list(facet["groups"], "groups")),
+        predecessor=facet.get("predecessor"),  # type: ignore[arg-type]
+        evidence=_list(facet.get("evidence", []), "evidence"),  # type: ignore[arg-type]
+        flagged=None if flagged is None else _list(flagged, "flagged"),  # type: ignore[arg-type]
+        account=facet.get("account"),  # type: ignore[arg-type]
+        participants=_list(facet.get("participants", []), "participants"),  # type: ignore[arg-type]
+        prior_runs=_list(facet.get("prior_runs", []), "prior_runs"),  # type: ignore[arg-type]
+        assigned_at=facet["assigned_at"],  # type: ignore[arg-type]
+        assigned_by=facet["assigned_by"],  # type: ignore[arg-type]
+    )
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class GroupChange:
+    unit: Unit
+    kind: str
+    previous_role: str | None
+    suspended: bool
+
+
+def assignment_changes(predecessor: ReservationAssignment, successor: ReservationAssignment) -> tuple[GroupChange, ...]:
+    held: dict[Unit, Group] = {u: g for g in successor.groups for u in g.units}
+    covered: set[Unit] = {u for g in predecessor.groups for u in g.units}
+    changes: list[GroupChange] = []
+    for group in predecessor.groups:
+        found = held.get(group.first)
+        if found is not None and found == group:
+            continue
+        changes.append(
+            GroupChange(group.first, "absent" if found is None else "changed", group.role, group.role == "reserved")
+        )
+    for group in successor.groups:
+        if group.first not in covered:
+            changes.append(GroupChange(group.first, "added", None, False))
+    return tuple(changes)
