@@ -1,0 +1,415 @@
+{
+ "domain": "beliefs.identifier-patterns.v1",
+ "rows": [
+  {
+   "name": "literal",
+   "pattern": "id:x",
+   "term": "id:x",
+   "matches": true
+  },
+  {
+   "name": "dot",
+   "pattern": "id:.",
+   "term": "id:q",
+   "matches": true
+  },
+  {
+   "name": "class-set",
+   "pattern": "id:[abc]",
+   "term": "id:b",
+   "matches": true
+  },
+  {
+   "name": "class-set-miss",
+   "pattern": "id:[abc]",
+   "term": "id:d",
+   "matches": false
+  },
+  {
+   "name": "class-range",
+   "pattern": "id:[a-c]",
+   "term": "id:b",
+   "matches": true
+  },
+  {
+   "name": "class-negated",
+   "pattern": "id:[^x]",
+   "term": "id:y",
+   "matches": true
+  },
+  {
+   "name": "class-negated-miss",
+   "pattern": "id:[^x]",
+   "term": "id:x",
+   "matches": false
+  },
+  {
+   "name": "star",
+   "pattern": "id:a*",
+   "term": "id:aaa",
+   "matches": true
+  },
+  {
+   "name": "star-empty",
+   "pattern": "id:a*",
+   "term": "id:",
+   "matches": true
+  },
+  {
+   "name": "plus",
+   "pattern": "id:a+",
+   "term": "id:aa",
+   "matches": true
+  },
+  {
+   "name": "plus-empty",
+   "pattern": "id:a+",
+   "term": "id:",
+   "matches": false
+  },
+  {
+   "name": "optional",
+   "pattern": "id:a?b",
+   "term": "id:b",
+   "matches": true
+  },
+  {
+   "name": "exact",
+   "pattern": "id:a{2}",
+   "term": "id:aa",
+   "matches": true
+  },
+  {
+   "name": "exact-miss",
+   "pattern": "id:a{2}",
+   "term": "id:aaa",
+   "matches": false
+  },
+  {
+   "name": "bounded",
+   "pattern": "id:a{1,3}",
+   "term": "id:aaa",
+   "matches": true
+  },
+  {
+   "name": "bounded-miss",
+   "pattern": "id:a{1,3}",
+   "term": "id:aaaa",
+   "matches": false
+  },
+  {
+   "name": "group",
+   "pattern": "id:(?:ab)+",
+   "term": "id:abab",
+   "matches": true
+  },
+  {
+   "name": "alternation",
+   "pattern": "id:a|id:b",
+   "term": "id:b",
+   "matches": true
+  },
+  {
+   "name": "alternation-grouped",
+   "pattern": "id:(?:a|b)c",
+   "term": "id:bc",
+   "matches": true
+  },
+  {
+   "name": "escape-backslash",
+   "pattern": "id:\\\\",
+   "term": "id:\\",
+   "matches": true
+  },
+  {
+   "name": "escape-dot",
+   "pattern": "id:\\.",
+   "term": "id:.",
+   "matches": true
+  },
+  {
+   "name": "escape-lbracket",
+   "pattern": "id:\\[",
+   "term": "id:[",
+   "matches": true
+  },
+  {
+   "name": "escape-rbracket",
+   "pattern": "id:\\]",
+   "term": "id:]",
+   "matches": true
+  },
+  {
+   "name": "escape-lparen",
+   "pattern": "id:\\(",
+   "term": "id:(",
+   "matches": true
+  },
+  {
+   "name": "escape-rparen",
+   "pattern": "id:\\)",
+   "term": "id:)",
+   "matches": true
+  },
+  {
+   "name": "escape-lbrace",
+   "pattern": "id:\\{",
+   "term": "id:{",
+   "matches": true
+  },
+  {
+   "name": "escape-rbrace",
+   "pattern": "id:\\}",
+   "term": "id:}",
+   "matches": true
+  },
+  {
+   "name": "escape-pipe",
+   "pattern": "id:\\|",
+   "term": "id:|",
+   "matches": true
+  },
+  {
+   "name": "escape-star",
+   "pattern": "id:\\*",
+   "term": "id:*",
+   "matches": true
+  },
+  {
+   "name": "escape-plus",
+   "pattern": "id:\\+",
+   "term": "id:+",
+   "matches": true
+  },
+  {
+   "name": "escape-question",
+   "pattern": "id:\\?",
+   "term": "id:?",
+   "matches": true
+  },
+  {
+   "name": "escape-caret",
+   "pattern": "id:\\^",
+   "term": "id:^",
+   "matches": true
+  },
+  {
+   "name": "escape-dollar",
+   "pattern": "id:\\$",
+   "term": "id:$",
+   "matches": true
+  },
+  {
+   "name": "class-escape-rbracket",
+   "pattern": "id:[\\]]",
+   "term": "id:]",
+   "matches": true
+  },
+  {
+   "name": "class-escape-dash",
+   "pattern": "id:[\\-a]",
+   "term": "id:-",
+   "matches": true
+  },
+  {
+   "name": "class-escape-caret",
+   "pattern": "id:[\\^a]",
+   "term": "id:^",
+   "matches": true
+  },
+  {
+   "name": "class-escape-backslash",
+   "pattern": "id:[\\\\]",
+   "term": "id:\\",
+   "matches": true
+  },
+  {
+   "name": "astral-dot",
+   "pattern": "id:.",
+   "term": "id:\ud83d\ude00",
+   "matches": true
+  },
+  {
+   "name": "astral-range",
+   "pattern": "id:[\ud83d\ude00-\ud83d\ude02]",
+   "term": "id:\ud83d\ude01",
+   "matches": true
+  },
+  {
+   "name": "dot-line-lf",
+   "pattern": "id:.",
+   "term": "id:\n",
+   "matches": true
+  },
+  {
+   "name": "negclass-line-lf",
+   "pattern": "id:[^x]",
+   "term": "id:\n",
+   "matches": true
+  },
+  {
+   "name": "dot-line-cr",
+   "pattern": "id:.",
+   "term": "id:\r",
+   "matches": true
+  },
+  {
+   "name": "negclass-line-cr",
+   "pattern": "id:[^x]",
+   "term": "id:\r",
+   "matches": true
+  },
+  {
+   "name": "dot-line-ls",
+   "pattern": "id:.",
+   "term": "id:\u2028",
+   "matches": true
+  },
+  {
+   "name": "negclass-line-ls",
+   "pattern": "id:[^x]",
+   "term": "id:\u2028",
+   "matches": true
+  },
+  {
+   "name": "dot-line-ps",
+   "pattern": "id:.",
+   "term": "id:\u2029",
+   "matches": true
+  },
+  {
+   "name": "negclass-line-ps",
+   "pattern": "id:[^x]",
+   "term": "id:\u2029",
+   "matches": true
+  },
+  {
+   "name": "trailing-newline",
+   "pattern": "id:x",
+   "term": "id:x\n",
+   "matches": false
+  },
+  {
+   "name": "nfc-term",
+   "pattern": "id:\u00e9",
+   "term": "id:e\u0301",
+   "matches": true
+  },
+  {
+   "name": "case-sensitive",
+   "pattern": "id:x",
+   "term": "id:X",
+   "matches": false
+  },
+  {
+   "name": "longer-term",
+   "pattern": "id:x",
+   "term": "id:xy",
+   "matches": false
+  },
+  {
+   "name": "shorter-term",
+   "pattern": "id:xy",
+   "term": "id:x",
+   "matches": false
+  }
+ ],
+ "malformed": [
+  {
+   "name": "escaped-dash-outside",
+   "pattern": "a\\-b"
+  },
+  {
+   "name": "bare-caret",
+   "pattern": "^a"
+  },
+  {
+   "name": "bare-dollar",
+   "pattern": "a$"
+  },
+  {
+   "name": "class-shorthand",
+   "pattern": "\\d"
+  },
+  {
+   "name": "empty-negated-class",
+   "pattern": "[^]]"
+  },
+  {
+   "name": "open-brace",
+   "pattern": "a{"
+  },
+  {
+   "name": "missing-low-bound",
+   "pattern": "a{,2}"
+  },
+  {
+   "name": "capture-group",
+   "pattern": "(a)"
+  },
+  {
+   "name": "lookahead",
+   "pattern": "a(?=b)"
+  },
+  {
+   "name": "backreference",
+   "pattern": "\\1"
+  },
+  {
+   "name": "unicode-property",
+   "pattern": "\\p{L}"
+  },
+  {
+   "name": "non-nfc",
+   "pattern": "e\u0301"
+  },
+  {
+   "name": "unmatched-lparen",
+   "pattern": "(?:a"
+  },
+  {
+   "name": "unmatched-rparen",
+   "pattern": "a)"
+  },
+  {
+   "name": "unmatched-lbracket",
+   "pattern": "[a"
+  },
+  {
+   "name": "unmatched-rbracket",
+   "pattern": "a]"
+  },
+  {
+   "name": "leading-quantifier",
+   "pattern": "*a"
+  },
+  {
+   "name": "double-quantifier",
+   "pattern": "a**"
+  },
+  {
+   "name": "inverted-range",
+   "pattern": "[z-a]"
+  },
+  {
+   "name": "inverted-bounds",
+   "pattern": "a{3,2}"
+  },
+  {
+   "name": "empty-class",
+   "pattern": "[]"
+  },
+  {
+   "name": "trailing-backslash",
+   "pattern": "a\\"
+  },
+  {
+   "name": "bare-dash-in-class",
+   "pattern": "[a-]"
+  },
+  {
+   "name": "lazy",
+   "pattern": "a*?"
+  }
+ ]
+}
