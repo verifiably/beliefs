@@ -185,7 +185,7 @@ def decode_claim(
     # authority on arity; this is the same refusal raised where the pairing
     # happens, not a second opinion about validity.
     if len(terms) != declaration.arity:
-        raise ArityMismatch(
+        raise MalformedWireClaim(
             f"{operator!r} has arity {declaration.arity}; the wire claim carries {len(terms)} argument(s)."
         )
     args = tuple(Referent(sort=sort, term=term) for term, sort in zip(terms, declaration.arg_sorts, strict=True))

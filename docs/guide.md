@@ -32,8 +32,9 @@ gives the wider picture.
 2. **A profile defines what records may mean.** The Science base contract and the
    domain contracts a corpus activates compile into one profile, and every write
    is checked against it.
-3. **A proposition is a typed claim.** Its operator, arguments, qualifiers,
-   polarity and layer are its identity. Its wording is not.
+3. **A proposition is a typed claim.** Its operator, the referents in its named
+   roles, its qualifiers, form, polarity and layer are its identity. Its wording
+   is not.
 4. **A run captures a complete execution.** The frozen plan, the held inputs, the
    code, the environment, the parameters and the outputs are all on the record.
 5. **Only a reproduced assessment of held data bears on belief.** A paper's
@@ -51,9 +52,12 @@ contracts + corpus manifest ──▶ compiled profile, which checks every write
 ## Claims and belief
 
 A claim is a small structure, not a sentence. The **operator** (for example
-*affects*) fixes how many arguments the claim takes and of what sort, which
-qualifiers it allows, whether it has a direction, and which layers (causal,
-statistical and so on) it may sit in. Two people who word the same claim
+*affects*) names the roles the claim fills (such as *cause* and *effect*), each
+with one referent or a set of members; its instantiations say which sorts may
+fill each role. The operator also fixes whether the claim has a direction,
+whether it may be stated as a null (absent) effect, and which layers (causal,
+statistical and so on) it may sit in; the qualifiers it allows are the
+dimensions that name it. Two people who word the same claim
 differently are recording one claim. A change to what is claimed is a new
 proposition that supersedes the old one, so assessments of the old claim stay
 attached to exactly what they assessed. The rules are in
