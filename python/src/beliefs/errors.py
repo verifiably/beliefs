@@ -709,7 +709,9 @@ class MalformedWireClaim(DecodeError):
     """A wire value that is not shaped like a claim at all.
 
     Distinct from the profile-dependent refusals: this is settled before any
-    contract is consulted, because the typing below it indexes into the value."""
+    contract is consulted, because the typing below it indexes into the value.
+    The one exception is whether each role's shape (a referent, or a list of
+    members) is its declared arity's, which reads the operator's template."""
 
 
 class MalformedWireEstimand(DecodeError):

@@ -14,20 +14,22 @@ covered corpus is absent. The cut keeps the two distinct.
 import subprocess
 import sys
 import textwrap
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 import pytest
 import yaml
+from domain_facet_fixtures import EX, GENE, OTHER_GENE
 
-from beliefs import resolution
-from beliefs.claim import Claim, Referent, build_claim
+from beliefs import resolution, stored
+from beliefs.claim import Claim, Member, Qualifier, Referent, build_claim
 from beliefs.contract.base import parse_base_contract
-from beliefs.contract.domain import VocabularyBinding
-from beliefs.decode import WireClaim, decode_claim
+from beliefs.contract.domain import DatasetBinding, ReleaseBinding
+from beliefs.decode import WireClaim, decode_claim, stored_claim_terms
 from beliefs.errors import (
-    ArityMismatch,
     ClaimError,
+    CoefficientRefused,
     DecodeError,
+    FormRefused,
     InadmissibleLayer,
     MalformedContract,
     MalformedReferent,
@@ -35,23 +37,35 @@ from beliefs.errors import (
     PolarityRefused,
     ProfileError,
     ResolutionError,
+    RestrictionSortMismatch,
+    RoleRefused,
     UnboundReferent,
     UndeclaredDimension,
 )
-from beliefs.identifiers import canonical
 from beliefs.identity import v1
 from beliefs.profile import compile_profile
-from beliefs.projection import claim_identity
+from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import BindingCheckReceipt, ReferentPosition, ResolutionSnapshot, TermOutcome, build_snapshot
 
-EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
-COHORT_DATASET = VocabularyBinding(namespace=None, release=None, dataset_identity="0" * 64)
+COHORT_DATASET = DatasetBinding(dataset="dataset:" + "0" * 64)
+"""The binding `testing`'s `cohort` sort declares."""
+SELECTED = DatasetBinding(dataset="dataset:" + "3" * 64)
+"""The `selected` dataset of `testing/event`'s selection binding."""
+PRODUCED = DatasetBinding(dataset="dataset:" + "5" * 64)
+"""The produced dataset of `testing/product`'s run-output binding."""
 
-GENE = "EX:gene-x"
-OTHER_GENE = "EX:gene-z"
+ENTITY = "testing/entity"
+OUTCOME_SORT = "testing/outcome"
+COHORT = "testing/cohort"
+METHOD = "testing/method"
+EVENT = "testing/event"
+PRODUCT = "testing/product"
+PROCEDURE_SPEC = "testing/procedure-spec"
+
 OUTCOME = "EX:outcome-y"
 ADULTS = "EX:adults"
 ABSENT = "EX:not-in-the-vocabulary"
+PROCEDURE = "procedure:" + "a" * 64
 
 
 def test_a_wire_contrast_kind_without_an_operable_decoder_cannot_enter_the_grammar(base_contract_path):
@@ -76,28 +90,72 @@ def readable():
     return build_snapshot(readable={EX: [GENE, OTHER_GENE, OUTCOME], COHORT_DATASET: [ADULTS]})
 
 
-def affects(*, args=(GENE, OUTCOME), qualifiers=None, polarity="positive", layer="causal"):
+def ref(sort: str, term: str) -> dict[str, object]:
+    return {"sort": sort, "term": term}
+
+
+def member(sort: str, term: str, coefficient: object = 1) -> dict[str, object]:
+    return {"sort": sort, "term": term, "coefficient": coefficient}
+
+
+def population(restriction: object = None, *, quantifier: str = "generic") -> dict[str, Any]:
+    return {
+        "testing/population": {
+            "quantifier": quantifier,
+            "restriction": ref(COHORT, ADULTS) if restriction is None else restriction,
+        }
+    }
+
+
+def affects(
+    *,
+    cause: str = GENE,
+    effect: str = OUTCOME,
+    roles: object = None,
+    qualifiers: object = None,
+    form: str = "polar",
+    polarity: str = "positive",
+    layer: str = "causal",
+    operator: str = "testing/affects",
+) -> WireClaim:
     return WireClaim(
-        operator="testing/affects",
-        args=list(args),
-        qualifiers=qualifiers or {},
+        operator=operator,
+        roles={"cause": ref(ENTITY, cause), "effect": ref(OUTCOME_SORT, effect)} if roles is None else roles,  # type: ignore[arg-type]
+        qualifiers={} if qualifiers is None else qualifiers,  # type: ignore[arg-type]
+        form=form,
         polarity=polarity,
         layer=layer,
     )
 
 
+def correlates(*parties: object, qualifiers: object = None) -> WireClaim:
+    return WireClaim(
+        operator="testing/correlates-with",
+        roles={"parties": list(parties)},
+        qualifiers={} if qualifiers is None else qualifiers,  # type: ignore[arg-type]
+        form="polar",
+        polarity="positive",
+        layer="statistical",
+    )
+
+
+def wire_of(claim: Claim) -> WireClaim:
+    """A serialized claim is its projection: the wire value a stored facet holds."""
+    return WireClaim(**project_claim(claim))  # type: ignore[arg-type]
+
+
 class TestTypedReferentsAndTheReceipt:
     def test_a_member_term_is_accepted_with_the_check_performed(self, profile, readable):
         claim, receipt = decode_claim(affects(), profile=profile, snapshot=readable)
-        assert claim.args[0] == claim.args[0].__class__(sort="testing/entity", term=GENE)
+        assert claim.roles["cause"] == Referent(sort=ENTITY, term=GENE)
         assert set(receipt.outcomes.values()) == {TermOutcome.MEMBER}
         assert receipt.performed
 
     def test_a_term_absent_from_a_readable_vocabulary_refuses_and_mints_nothing(self, profile, readable):
         # The only one of the five that refuses.
         with pytest.raises(UnboundReferent) as raised:
-            decode_claim(affects(args=(ABSENT, OUTCOME)), profile=profile, snapshot=readable)
-        assert "argument:0" in str(raised.value)
+            decode_claim(affects(cause=ABSENT), profile=profile, snapshot=readable)
+        assert "role:cause" in str(raised.value)
         assert "Nothing was minted" in str(raised.value)
 
     def test_availability_is_not_membership(self, profile, readable):
@@ -107,15 +165,15 @@ class TestTypedReferentsAndTheReceipt:
         report *"not in the vocabulary"* on the evidence that nobody looked —
         the same error the outcome vocabulary exists to avoid, committed by the decoder.
         """
-        bad = affects(args=(ABSENT, OUTCOME))
+        bad = affects(cause=ABSENT)
         with pytest.raises(UnboundReferent):
             decode_claim(bad, profile=profile, snapshot=readable)
 
         unreadable = build_snapshot(unreadable=[EX])
         claim, receipt = decode_claim(bad, profile=profile, snapshot=unreadable)
-        assert receipt.outcomes["argument:0"] is TermOutcome.NOT_AVAILABLE
+        assert receipt.outcomes["role:cause"] is TermOutcome.NOT_AVAILABLE
         assert not receipt.performed
-        assert claim.args[0].term == ABSENT
+        assert claim.roles["cause"] == Referent(sort=ENTITY, term=ABSENT)
 
     def test_the_two_accepting_receipts_are_distinguishable(self, profile):
         """Also a negative case: accepted-and-checked must not look like accepted-and-unchecked."""
@@ -131,26 +189,27 @@ class TestTypedReferentsAndTheReceipt:
         assert checked.claim_identity == unchecked.claim_identity
 
     def test_the_receipt_carries_exactly_one_outcome_per_referent_position(self, profile, readable):
-        wire = affects(qualifiers={"testing/population": {"quantifier": "generic", "restriction": ADULTS}})
-        claim, receipt = decode_claim(wire, profile=profile, snapshot=readable)
+        claim, receipt = decode_claim(affects(qualifiers=population()), profile=profile, snapshot=readable)
 
-        expected = {ReferentPosition.argument(0).label(), ReferentPosition.argument(1).label()} | {
-            ReferentPosition.restriction("testing/population").label()
+        expected = {
+            ReferentPosition.role("cause").label(),
+            ReferentPosition.role("effect").label(),
+            ReferentPosition.restriction("testing/population").label(),
         }
         assert set(receipt.outcomes) == expected
-        assert len(receipt.outcomes) == len(claim.args) + len(claim.qualifiers)
+        assert len(receipt.outcomes) == len(claim.roles) + len(claim.qualifiers)
 
-    def test_a_restriction_is_resolved_exactly_as_an_argument_is(self, profile):
-        # A restriction is sorted as an argument is, so it resolves as one.
+    def test_a_restriction_is_resolved_exactly_as_a_role_is(self, profile):
+        # A restriction is sorted as a role's referent is, so it resolves as one.
         # `cohort` binds a dataset, not the EX namespace, so a snapshot holding
-        # only EX leaves the restriction unconsulted while the arguments are read.
-        wire = affects(qualifiers={"testing/population": {"quantifier": "generic", "restriction": ADULTS}})
+        # only EX leaves the restriction unconsulted while the roles are read.
+        wire = affects(qualifiers=population())
         _, receipt = decode_claim(wire, profile=profile, snapshot=build_snapshot(readable={EX: [GENE, OUTCOME]}))
-        assert receipt.outcomes["argument:0"] is TermOutcome.MEMBER
+        assert receipt.outcomes["role:cause"] is TermOutcome.MEMBER
         assert receipt.outcomes["restriction:testing/population"] is TermOutcome.NOT_CONSULTED
 
-    def test_a_bad_restriction_refuses_like_a_bad_argument(self, profile, readable):
-        wire = affects(qualifiers={"testing/population": {"quantifier": "generic", "restriction": "EX:nobody"}})
+    def test_a_bad_restriction_refuses_like_a_bad_role(self, profile, readable):
+        wire = affects(qualifiers=population(ref(COHORT, "EX:nobody")))
         with pytest.raises(UnboundReferent, match="restriction:testing/population"):
             decode_claim(wire, profile=profile, snapshot=readable)
 
@@ -164,18 +223,95 @@ class TestTypedReferentsAndTheReceipt:
 
     def test_a_snapshot_cannot_be_authored(self):
         with pytest.raises(ResolutionError, match="never authored"):
-            ResolutionSnapshot(bindings={}, identity="x")
+            ResolutionSnapshot(bindings={}, kinds={}, identity="x")
 
-    def test_a_bare_string_cannot_occupy_a_slot_inside(self, profile, readable):
+    def test_a_bare_string_cannot_occupy_a_role_inside(self, profile, readable):
         """The static check, at this boundary.
 
-        The wire carries bare strings — that is what a wire is. What the boundary
-        guarantees is that nothing bare survives it: every slot of the decoded
-        claim holds a `Referent` carrying the sort its declaration names.
+        The wire carries strings — that is what a wire is. What the boundary
+        guarantees is that nothing bare survives it: every role of the decoded
+        claim holds a `Referent` carrying a sort the profile admitted there.
         """
         claim, _ = decode_claim(affects(), profile=profile, snapshot=readable)
-        assert [referent.sort for referent in claim.args] == ["testing/entity", "testing/outcome"]
-        assert all(not isinstance(slot, str) for slot in claim.args)
+        assert all(isinstance(value, Referent) for value in claim.roles.values())
+        assert claim.roles == {
+            "cause": Referent(sort=ENTITY, term=GENE),
+            "effect": Referent(sort=OUTCOME_SORT, term=OUTCOME),
+        }
+
+
+class TestRolePositions:
+    def test_receipt_positions_are_roles(self, profile):
+        """`role:<name>` for a `one` role, `role:<name>[<i>]` for the i-th member of a
+        `many` role in canonical member-key order, `restriction:<dimension>` unchanged;
+        `argument:<i>` is gone.
+
+        The members are written product-first and resolve differently (the
+        event's selected dataset is read, the product's dataset is not held), so
+        the outcome at each index says which member the index names: the
+        canonical first (`testing/event` sorts before `testing/product`), not the
+        first written."""
+        snapshot = build_snapshot(
+            readable={EX: [GENE, OUTCOME], COHORT_DATASET: [ADULTS], SELECTED: ["EX:event-1"]},
+            unreadable=[PRODUCED],
+        )
+        _, one = decode_claim(affects(qualifiers=population()), profile=profile, snapshot=snapshot)
+        _, many = decode_claim(
+            correlates(member(PRODUCT, "EX:product-1"), member(EVENT, "EX:event-1"), qualifiers=population()),
+            profile=profile,
+            snapshot=snapshot,
+        )
+        assert set(one.outcomes) == {"role:cause", "role:effect", "restriction:testing/population"}
+        assert set(many.outcomes) == {"role:parties[0]", "role:parties[1]", "restriction:testing/population"}
+        assert many.outcomes["role:parties[0]"] is TermOutcome.MEMBER
+        assert many.outcomes["role:parties[1]"] is TermOutcome.NOT_AVAILABLE
+        assert not any(label.startswith("argument:") for label in (*one.outcomes, *many.outcomes))
+        assert not hasattr(ReferentPosition, "argument")
+
+    def test_the_reserved_role_is_a_one_role_position(self, profile, readable):
+        wire = affects(
+            roles={
+                "cause": ref(ENTITY, GENE),
+                "effect": ref(OUTCOME_SORT, OUTCOME),
+                "within-model": ref(PROCEDURE_SPEC, PROCEDURE),
+            }
+        )
+        _, receipt = decode_claim(wire, profile=profile, snapshot=readable)
+        assert receipt.outcomes["role:within-model"] is TermOutcome.NOT_CONSULTED
+        _, held = decode_claim(
+            wire,
+            profile=profile,
+            snapshot=build_snapshot(readable={EX: [GENE, OUTCOME]}, kinds={"procedure": [PROCEDURE]}),
+        )
+        assert held.outcomes["role:within-model"] is TermOutcome.MEMBER
+
+    def test_an_empty_many_role_has_no_position(self, profile):
+        wire = WireClaim(
+            operator="testing/transforms",
+            roles={
+                "inputs": [member(ENTITY, GENE, 2)],
+                "outputs": [member(ENTITY, OTHER_GENE)],
+                "facilitators": [],
+            },
+            qualifiers={},
+            form="polar",
+            polarity="inapt",
+            layer="structural",
+        )
+        _, receipt = decode_claim(wire, profile=profile, snapshot=build_snapshot())
+        assert set(receipt.outcomes) == {"role:inputs[0]", "role:outputs[0]"}
+
+    def test_a_member_index_is_a_non_negative_integer(self):
+        assert ReferentPosition.member("parties", 1).label() == "role:parties[1]"
+        for index in (-1, True, "0"):
+            with pytest.raises(ResolutionError):
+                ReferentPosition.member("parties", index)  # type: ignore[arg-type]
+
+    def test_receipt_domain_v2(self, profile, readable):
+        _, receipt = decode_claim(affects(), profile=profile, snapshot=readable)
+        assert resolution.RECEIPT_DOMAIN == "science.receipt.v2"
+        assert receipt.identity() == v1.digest("science.receipt.v2", receipt.projection())
+        assert receipt.identity() != v1.digest("science.receipt.v1", receipt.projection())
 
 
 class TestDecodeIsAFunctionOfItsArguments:
@@ -194,7 +330,7 @@ class TestDecodeIsAFunctionOfItsArguments:
         script = textwrap.dedent(f"""
             from pathlib import Path
             from beliefs.contract import load_base_contract, load_domain_contract
-            from beliefs.contract.domain import VocabularyBinding
+            from beliefs.contract.domain import DatasetBinding, ReleaseBinding
             from beliefs.profile import compile_profile
             from beliefs.decode import WireClaim, decode_claim
             from beliefs.projection import claim_identity
@@ -203,13 +339,17 @@ class TestDecodeIsAFunctionOfItsArguments:
             base = load_base_contract(Path({str(base_contract_path)!r}))
             testing = load_domain_contract(Path({str(testing_contract_path)!r}), base=base, predecessor=None)
             profile = compile_profile(base, [testing])
-            EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
-            COHORT = VocabularyBinding(namespace=None, release=None, dataset_identity="0" * 64)
+            EX = ReleaseBinding(namespace="EX", release="2026-01-01")
+            COHORT = DatasetBinding(dataset="dataset:" + "0" * 64)
             snapshot = build_snapshot(readable={{EX: [{GENE!r}, {OTHER_GENE!r}, {OUTCOME!r}], COHORT: [{ADULTS!r}]}})
             wire = WireClaim(
                 operator="testing/affects",
-                args=[{GENE!r}, {OUTCOME!r}],
+                roles={{
+                    "cause": {{"sort": {ENTITY!r}, "term": {GENE!r}}},
+                    "effect": {{"sort": {OUTCOME_SORT!r}, "term": {OUTCOME!r}}},
+                }},
                 qualifiers={{}},
+                form="polar",
                 polarity="positive",
                 layer="causal",
             )
@@ -250,42 +390,66 @@ class TestDecodeIsAFunctionOfItsArguments:
         is not a defect; it is the fact that made `ResolutionSnapshot` a
         parameter, now visible in the result instead of hidden in the ambient.
         """
-        bad = affects(args=(ABSENT, OUTCOME))
+        bad = affects(cause=ABSENT)
         with pytest.raises(UnboundReferent):
             decode_claim(bad, profile=profile, snapshot=build_snapshot(readable={EX: [GENE, OUTCOME]}))
         _, receipt = decode_claim(bad, profile=profile, snapshot=build_snapshot())
-        assert receipt.outcomes["argument:0"] is TermOutcome.NOT_CONSULTED
+        assert receipt.outcomes["role:cause"] is TermOutcome.NOT_CONSULTED
 
     @pytest.mark.parametrize(
         ("wire", "error"),
         [
             pytest.param(
                 WireClaim(
-                    operator="testing/subtype-of",
-                    args=[GENE, OTHER_GENE],
+                    operator="testing/measured-by",
+                    roles={"subject": ref(ENTITY, GENE), "instrument": ref(METHOD, "EX:assay")},
                     qualifiers={},
+                    form="polar",
                     polarity="positive",
-                    layer="structural",
+                    layer="methodological",
                 ),
                 PolarityRefused,
                 id="a-sign-on-a-sign-inapt-operator",
             ),
-            pytest.param(affects(args=(GENE,)), ArityMismatch, id="wrong-arity"),
+            pytest.param(affects(roles={"cause": ref(ENTITY, GENE)}), RoleRefused, id="a-missing-role"),
             pytest.param(
-                affects(qualifiers={"testing/absent": {"quantifier": "generic", "restriction": ADULTS}}),
+                affects(
+                    roles={"cause": ref(ENTITY, GENE), "effect": ref(OUTCOME_SORT, OUTCOME), "extra": ref(ENTITY, GENE)}
+                ),
+                RoleRefused,
+                id="an-undeclared-role",
+            ),
+            pytest.param(
+                affects(qualifiers={"testing/absent": {"quantifier": "generic", "restriction": ref(COHORT, ADULTS)}}),
                 UndeclaredDimension,
                 id="an-undeclared-dimension",
             ),
-            pytest.param(affects(layer="statistical"), InadmissibleLayer, id="an-inadmissible-layer"),
             pytest.param(
-                WireClaim(operator="absent/operator", args=[GENE], qualifiers={}, polarity="positive", layer="causal"),
+                affects(qualifiers=population(ref(ENTITY, GENE))), RestrictionSortMismatch, id="a-restriction-sort"
+            ),
+            pytest.param(affects(layer="structural"), InadmissibleLayer, id="an-inadmissible-layer"),
+            pytest.param(
+                WireClaim(
+                    operator="testing/measured-by",
+                    roles={"subject": ref(ENTITY, GENE), "instrument": ref(METHOD, "EX:assay")},
+                    qualifiers={},
+                    form="null",
+                    polarity="inapt",
+                    layer="methodological",
+                ),
+                FormRefused,
+                id="a-form-the-template-does-not-declare",
+            ),
+            pytest.param(
+                affects(operator="absent/operator", roles={"cause": ref(ENTITY, GENE)}),
                 ProfileError,
                 id="a-missing-required-contract",
             ),
+            pytest.param(affects(qualifiers=population(quantifier="invented")), ClaimError, id="a-quantifier"),
             pytest.param(
-                affects(qualifiers={"testing/population": {"quantifier": "invented", "restriction": ADULTS}}),
-                ClaimError,
-                id="a-quantifier-outside-the-closed-set",
+                correlates(member(ENTITY, GENE, 0), member(OUTCOME_SORT, OUTCOME)),
+                CoefficientRefused,
+                id="a-coefficient-below-one",
             ),
         ],
     )
@@ -296,41 +460,84 @@ class TestDecodeIsAFunctionOfItsArguments:
     def test_a_malformed_wire_value_refuses_before_any_contract_is_consulted(self, profile, readable):
         # `WireClaim`'s annotations are a wish, not a guarantee — it models
         # untrusted input, so the values below are exactly what arrives when the
-        # writer disagreed with them. The type checker is told to allow what the
-        # run time is being asked to refuse.
+        # writer disagreed with them. Each is given an operator no profile
+        # declares, so a refusal that came from the profile would be a
+        # `ProfileError`, not this one.
         for wire in [
-            WireClaim(operator="", args=[GENE, OUTCOME], qualifiers={}, polarity="positive", layer="causal"),
-            WireClaim(operator="testing/affects", args=GENE, qualifiers={}, polarity="positive", layer="causal"),
-            WireClaim(
-                operator="testing/affects",
-                args=[GENE, 7],  # type: ignore[list-item]
-                qualifiers={},
-                polarity="positive",
-                layer="causal",
-            ),
-            WireClaim(
-                operator="testing/affects",
-                args=[GENE, OUTCOME],
-                qualifiers=[],  # type: ignore[arg-type]
-                polarity="positive",
-                layer="causal",
-            ),
-            WireClaim(
-                operator="testing/affects",
-                args=[GENE, OUTCOME],
-                qualifiers={"testing/population": {"quantifier": "generic"}},
-                polarity="positive",
-                layer="causal",
-            ),
+            affects(operator=""),
+            affects(roles="cause"),
+            affects(roles={"cause": ref(ENTITY, GENE), "effect": ref(OUTCOME_SORT, 7)}),  # type: ignore[arg-type]
+            affects(roles={"cause": ref(ENTITY, GENE), "effect": OUTCOME}),
+            affects(qualifiers=[]),
+            affects(qualifiers={"testing/population": {"quantifier": "generic"}}),
+            # The v1 shape: a bare restriction term carries no sort.
+            affects(qualifiers={"testing/population": {"quantifier": "generic", "restriction": ADULTS}}),
+            affects(form=""),
         ]:
-            with pytest.raises(MalformedWireClaim):
-                decode_claim(wire, profile=profile, snapshot=readable)
+            absent = WireClaim(**{**vars(wire), "operator": wire.operator and "absent/operator"})
+            for candidate in (wire, absent):
+                with pytest.raises(MalformedWireClaim):
+                    decode_claim(candidate, profile=profile, snapshot=readable)
+
+    @pytest.mark.parametrize(
+        "roles",
+        [
+            pytest.param([ref(ENTITY, GENE), ref(OUTCOME_SORT, OUTCOME)], id="a-list-roles"),
+            pytest.param({"cause": [GENE], "effect": ref(OUTCOME_SORT, OUTCOME)}, id="a-list-of-terms-in-a-one-role"),
+            pytest.param(
+                {"cause": [member(ENTITY, GENE)], "effect": ref(OUTCOME_SORT, OUTCOME)},
+                id="a-list-of-members-in-a-one-role",
+            ),
+            pytest.param(
+                {"cause": {**ref(ENTITY, GENE), "extra": "x"}, "effect": ref(OUTCOME_SORT, OUTCOME)},
+                id="a-stray-key-on-a-referent",
+            ),
+            pytest.param(
+                {"cause": {"sort": ENTITY}, "effect": ref(OUTCOME_SORT, OUTCOME)}, id="a-referent-without-term"
+            ),
+            pytest.param({1: ref(ENTITY, GENE), "effect": ref(OUTCOME_SORT, OUTCOME)}, id="a-role-name-not-a-string"),
+            pytest.param({"cause": None, "effect": ref(OUTCOME_SORT, OUTCOME)}, id="a-null-role"),
+        ],
+    )
+    def test_wire_roles_shapes_refuse(self, profile, readable, roles):
+        """Review Focus 1: a malformed `roles` value is `MalformedWireClaim`, never a
+        `TypeError` and never a typing error that read the shape as something else."""
+        with pytest.raises(MalformedWireClaim):
+            decode_claim(affects(roles=roles), profile=profile, snapshot=readable)
+
+    @pytest.mark.parametrize(
+        "parties",
+        [
+            pytest.param([ref(ENTITY, GENE), ref(OUTCOME_SORT, OUTCOME)], id="members-without-coefficient"),
+            pytest.param([member(ENTITY, GENE), {**member(OUTCOME_SORT, OUTCOME), "extra": 1}], id="a-stray-key"),
+            pytest.param([member(ENTITY, GENE, True), member(OUTCOME_SORT, OUTCOME)], id="a-bool-coefficient"),
+            pytest.param([member(ENTITY, GENE, 1.0), member(OUTCOME_SORT, OUTCOME)], id="a-float-coefficient"),
+            pytest.param([member(ENTITY, GENE, "1"), member(OUTCOME_SORT, OUTCOME)], id="a-string-coefficient"),
+            pytest.param([member(ENTITY, GENE), GENE], id="a-bare-term-member"),
+        ],
+    )
+    def test_wire_many_members_shapes_refuse(self, profile, readable, parties):
+        with pytest.raises(MalformedWireClaim):
+            decode_claim(correlates(*parties), profile=profile, snapshot=readable)
+
+    def test_a_referent_in_a_many_role_refuses(self, profile, readable):
+        wire = WireClaim(
+            operator="testing/correlates-with",
+            roles={"parties": ref(ENTITY, GENE)},
+            qualifiers={},
+            form="polar",
+            polarity="positive",
+            layer="statistical",
+        )
+        with pytest.raises(MalformedWireClaim, match="`many` role"):
+            decode_claim(wire, profile=profile, snapshot=readable)
 
     def test_a_value_merely_shaped_like_a_wire_claim_is_refused(self, profile, readable):
         class Impostor:
             operator = "testing/affects"
-            args = (GENE, OUTCOME)
+            roles: ClassVar[dict] = {"cause": ref(ENTITY, GENE), "effect": ref(OUTCOME_SORT, OUTCOME)}
             qualifiers: ClassVar[dict] = {}
+            form = "polar"
             polarity = "positive"
             layer = "causal"
 
@@ -341,7 +548,7 @@ class TestDecodeIsAFunctionOfItsArguments:
         class Impostor:
             identity = "0" * 64
 
-            def resolve(self, binding, term):
+            def resolve(self, sort, term):
                 return TermOutcome.MEMBER
 
         with pytest.raises(MalformedWireClaim, match="ResolutionSnapshot"):
@@ -358,7 +565,7 @@ class TestDecodeIsAFunctionOfItsArguments:
         """
         forged = object.__new__(Claim)
         object.__setattr__(forged, "operator", "testing/affects")
-        object.__setattr__(forged, "args", ())
+        object.__setattr__(forged, "roles", {})
         assert isinstance(forged, Claim)
         assert forged.operator == "testing/affects"
 
@@ -370,14 +577,11 @@ class TestDecodeIsAFunctionOfItsArguments:
         would make every corpus holding a prior claim un-restorable — corrupting
         the history retirement exists to preserve.
         """
-        import copy
-
         from beliefs.contract import domain
         from beliefs.errors import WithdrawnFromAuthoring
 
-        document = copy.deepcopy(testing_document)
-        document["operators"]["affects"]["retired"] = True
-        retired = domain.parse_domain_contract(document, source="<t>", base=base_contract, predecessor=None)
+        testing_document["templates"]["affects"]["retired"] = True
+        retired = domain.parse_domain_contract(testing_document, source="<t>", base=base_contract, predecessor=None)
         profile = compile_profile(base_contract, [retired])
         snapshot = build_snapshot(readable={EX: [GENE, OUTCOME]})
 
@@ -386,13 +590,7 @@ class TestDecodeIsAFunctionOfItsArguments:
         assert receipt.performed
 
         with pytest.raises(WithdrawnFromAuthoring):
-            build_claim(
-                profile,
-                operator="testing/affects",
-                args=claim.args,
-                layer="causal",
-                polarity="positive",
-            )
+            build_claim(profile, operator="testing/affects", roles=claim.roles, layer="causal", polarity="positive")
 
 
 class TestTheFiveOutcomesStayDistinct:
@@ -401,7 +599,7 @@ class TestTheFiveOutcomesStayDistinct:
     def test_a_readable_vocabulary_yields_member_and_not_member(self, profile, readable):
         _, receipt = decode_claim(affects(), profile=profile, snapshot=readable)
         assert set(receipt.outcomes.values()) == {TermOutcome.MEMBER}
-        assert readable.resolve(EX, ABSENT) is TermOutcome.NOT_MEMBER
+        assert readable.resolve(profile.sorts[ENTITY], ABSENT) is TermOutcome.NOT_MEMBER
 
     def test_an_unconsulted_namespace_yields_not_consulted(self, profile):
         _, receipt = decode_claim(affects(), profile=profile, snapshot=build_snapshot())
@@ -433,7 +631,7 @@ class TestTheFiveOutcomesStayDistinct:
         with evidence from another. The honest outcome is that nobody consulted
         the binding the contract actually names.
         """
-        other_release = VocabularyBinding(namespace="EX", release="2025-01-01", dataset_identity=None)
+        other_release = ReleaseBinding(namespace="EX", release="2025-01-01")
         snapshot = build_snapshot(readable={other_release: [GENE, OUTCOME]})
         _, receipt = decode_claim(affects(), profile=profile, snapshot=snapshot)
         assert set(receipt.outcomes.values()) == {TermOutcome.NOT_CONSULTED}
@@ -450,14 +648,11 @@ class TestTheFiveOutcomesStayDistinct:
         _, receipt = decode_claim(affects(), profile=profile, snapshot=build_snapshot())
         assert set(receipt.outcomes.values()) == {TermOutcome.NOT_CONSULTED}
 
-    def test_not_present_is_unreachable_in_this_cut_and_that_is_recorded(self, profile):
-        """Stated as a test rather than left as a silence.
-
-        `not-present` needs the world index and holding machinery, which is
-        deferred. Nothing can construct it, and the outcome is
-        defined anyway: implementing four of five would be a different closed
-        set than the contract rules, and the gap would be invisible.
-        """
+    def test_not_present_is_reached_only_through_its_own_argument(self, profile):
+        """`not-present` needs the world's word that the binding's corpus is absent,
+        and only `build_snapshot(not_present=...)` carries it: none of the other
+        availability states reaches it."""
+        entity = profile.sorts[ENTITY]
         reachable = set()
         for snapshot in [
             build_snapshot(readable={EX: [GENE, OUTCOME]}),
@@ -465,7 +660,7 @@ class TestTheFiveOutcomesStayDistinct:
             build_snapshot(unreadable=[EX]),
             build_snapshot(),
         ]:
-            reachable.add(snapshot.resolve(EX, GENE))
+            reachable.add(snapshot.resolve(entity, GENE))
         assert reachable == {
             TermOutcome.MEMBER,
             TermOutcome.NOT_MEMBER,
@@ -539,129 +734,224 @@ class TestTheWireTypeIsConfinedToTheDecodeModule:
     def test_the_refusing_arm_produces_no_receipt(self, profile, readable):
         """`+ Refused` carries no second component, and the receipt is emitted on the accepting arm only."""
         with pytest.raises(DecodeError) as raised:
-            decode_claim(affects(args=(ABSENT, OUTCOME)), profile=profile, snapshot=readable)
+            decode_claim(affects(cause=ABSENT), profile=profile, snapshot=readable)
         assert not hasattr(raised.value, "receipt")
 
 
 class TestDecodeInvertsTheProjection:
-    """decode ∘ π_claim = identity, over the frozen corpus.
+    """decode ∘ π_claim = identity.
 
     The completeness check the arm-by-arm tests above cannot give. Each of those
     fixes one behaviour; this one asserts that the boundary as a whole puts back
-    exactly the claim the projection took apart — for every closed kernel tag,
-    since the vector's coverage is asserted complete against the base contract.
+    exactly the claim the projection took apart, for claims covering each role
+    arity, both forms, both polarity regimes, the reserved role and every
+    binding arm a role can reach. The `projection` **is** a wire claim's shape,
+    because a serialized claim is a projection.
 
-    It reuses that fixture rather than inventing claims, which is the point: the
-    `projection` field **is** a wire claim's shape, because a serialized claim is
-    a projection. Nothing here re-derives the expected digests; they are the
-    frozen ones.
-
-    Written after a patched implementation exposed the gap — passing the wire polarity through
-    unmapped left every arm green, because no test decoded a **successful**
-    sign-inapt claim. The contract always emits the polarity position, so `inapt` is on
-    the wire for an operator whose `Polarity(op)` is the unit type, and the
-    boundary has to map it back to *there is nothing to supply* rather than
+    The sign-inapt case is the one an earlier patched implementation slipped
+    through: on the wire the polarity position carries `inapt`, and inside there
+    is no polarity to supply, so the boundary has to map it back rather than
     forward it as an asserted sign.
     """
 
-    @pytest.fixture()
-    def fixture(self, parity_fixture_path):
-        import json
+    @staticmethod
+    def claims(profile) -> list[Claim]:
+        cause = Referent(sort=ENTITY, term=GENE)
+        effect = Referent(sort=OUTCOME_SORT, term=OUTCOME)
+        adults = {"testing/population": Qualifier(quantifier="generic", restriction=Referent(sort=COHORT, term=ADULTS))}
+        return [
+            build_claim(
+                profile,
+                operator="testing/affects",
+                roles={"cause": cause, "effect": effect},
+                layer="causal",
+                polarity="negative",
+                qualifiers=adults,
+            ),
+            build_claim(
+                profile,
+                operator="testing/affects",
+                roles={"cause": cause, "effect": effect},
+                layer="statistical",
+                form="null",
+            ),
+            build_claim(
+                profile,
+                operator="testing/affects",
+                roles={"cause": cause, "effect": effect, "within-model": Referent(sort=PROCEDURE_SPEC, term=PROCEDURE)},
+                layer="causal",
+                polarity="unsigned",
+            ),
+            build_claim(
+                profile,
+                operator="testing/correlates-with",
+                roles={
+                    "parties": [
+                        Member(Referent(sort=PRODUCT, term="EX:product-1")),
+                        Member(Referent(sort=EVENT, term="EX:event-1")),
+                    ]
+                },
+                layer="statistical",
+                polarity="positive",
+                qualifiers=adults,
+            ),
+            build_claim(
+                profile,
+                operator="testing/transforms",
+                roles={
+                    "inputs": [Member(Referent(sort=ENTITY, term=OTHER_GENE), 3), Member(cause, 2)],
+                    "outputs": [Member(Referent(sort=ENTITY, term="EX:gene-w"))],
+                    "facilitators": [],
+                },
+                layer="structural",
+            ),
+            build_claim(
+                profile,
+                operator="testing/measured-by",
+                roles={"subject": cause, "instrument": Referent(sort=METHOD, term="EX:assay")},
+                layer="methodological",
+            ),
+            build_claim(
+                profile,
+                operator="testing/promotes",
+                roles={"cause": cause, "effect": effect},
+                layer="causal",
+                polarity="positive",
+            ),
+        ]
 
-        return json.loads(parity_fixture_path.read_text(encoding="utf-8"))
+    def test_decode_round_trips_projection(self, profile):
+        for claim in self.claims(profile):
+            decoded, receipt = decode_claim(wire_of(claim), profile=profile, snapshot=build_snapshot())
+            assert project_claim(decoded) == project_claim(claim)
+            assert claim_identity(decoded) == claim_identity(claim)
+            assert receipt.claim_identity == claim_identity(claim)
 
-    @pytest.fixture()
-    def every_term_readable(self, profile, fixture):
-        """A snapshot holding every term the vector mentions, grouped by the binding its sort names.
+    def test_the_sign_inapt_claim_round_trips_without_an_asserted_sign(self, profile):
+        claim = self.claims(profile)[5]
+        assert project_claim(claim)["polarity"] == profile.claim_grammar.sign_inapt_tag
+        decoded, _ = decode_claim(wire_of(claim), profile=profile, snapshot=build_snapshot())
+        assert decoded.polarity == profile.claim_grammar.sign_inapt_tag
+        assert claim_identity(decoded) == claim_identity(claim)
 
-        The terms are **canonicalized on the way in**, and one row makes that
-        load-bearing: `affects-decomposed-referent` holds its restriction in NFD
-        deliberately, so that an implementation normalizing at parse time fails
-        the fixture. A vocabulary stores canonical members and `resolve`
-        normalizes what it is asked about, which is how a legitimately decomposed
-        claim term resolves `member` against the composed one it names.
-        """
-        held: dict[VocabularyBinding, set[str]] = {}
-        for row in fixture["vector"]:
-            referents = list(row["claim"]["args"])
-            referents += [qualifier["restriction"] for qualifier in row["claim"]["qualifiers"].values()]
-            for referent in referents:
-                binding = profile.sorts[referent["sort"]].vocabulary
-                held.setdefault(binding, set()).add(canonical(referent["term"]))
-        return build_snapshot(readable=held)
-
-    def test_every_frozen_row_decodes_back_to_its_own_identity(self, profile, fixture, every_term_readable):
-        for row in fixture["vector"]:
-            projection = row["projection"]
-            wire = WireClaim(
-                operator=projection["operator"],
-                args=projection["args"],
-                qualifiers=projection["qualifiers"],
-                polarity=projection["polarity"],
-                layer=projection["layer"],
-            )
-            claim, receipt = decode_claim(wire, profile=profile, snapshot=every_term_readable)
-            assert claim_identity(claim) == row["digest"], row["name"]
-            assert receipt.claim_identity == row["digest"], row["name"]
-            assert receipt.performed, row["name"]
-
-    def test_the_sign_inapt_row_round_trips_without_an_asserted_sign(self, profile, fixture, every_term_readable):
-        # Called out separately because it is the row whose absence made an
-        # earlier patched implementation slip through: on the wire the position carries `inapt`, and
-        # inside there is no polarity to supply at all.
-        row = next(r for r in fixture["vector"] if r["name"] == "subtype-of-inapt-structural")
-        wire = WireClaim(**{k: row["projection"][k] for k in ("operator", "args", "qualifiers", "polarity", "layer")})
-        claim, _ = decode_claim(wire, profile=profile, snapshot=every_term_readable)
-        assert claim.polarity == profile.claim_grammar.sign_inapt_tag
-        assert claim_identity(claim) == row["digest"]
+    def test_members_written_out_of_order_decode_to_the_canonical_claim(self, profile):
+        claim = self.claims(profile)[3]
+        projection = project_claim(claim)
+        parties = cast(dict[str, list[object]], projection["roles"])["parties"]
+        reversed_wire = WireClaim(**{**projection, "roles": {"parties": list(reversed(parties))}})  # type: ignore[arg-type]
+        decoded, _ = decode_claim(reversed_wire, profile=profile, snapshot=build_snapshot())
+        assert claim_identity(decoded) == claim_identity(claim)
 
     def test_a_hand_supplied_inapt_tag_is_still_refused_on_the_authoring_route(self, profile):
         # The wire may carry it; an author may not. Decode maps the tag back to
         # the unit inhabitant, which is a different act from accepting it as a
         # sign — and `build_claim` still refuses it.
-        from beliefs.errors import PolarityRefused
-
         with pytest.raises(PolarityRefused):
             build_claim(
                 profile,
-                operator="testing/subtype-of",
-                args=(
-                    Referent(sort="testing/entity", term=GENE),
-                    Referent(sort="testing/entity", term=OTHER_GENE),
-                ),
-                layer="structural",
+                operator="testing/measured-by",
+                roles={
+                    "subject": Referent(sort=ENTITY, term=GENE),
+                    "instrument": Referent(sort=METHOD, term="EX:assay"),
+                },
+                layer="methodological",
                 polarity=profile.claim_grammar.sign_inapt_tag,
             )
+
+
+class TestStoredClaimTerms:
+    def test_stored_claim_terms_lists_members_in_canonical_order(self):
+        facet = {
+            "operator": "testing/correlates-with",
+            "roles": {
+                "parties": [member(PRODUCT, "EX:product-1"), member(EVENT, "EX:event-1")],
+                "within-model": ref(PROCEDURE_SPEC, PROCEDURE),
+            },
+            "qualifiers": {
+                "testing/setting": {"quantifier": "generic", "restriction": ref(ENTITY, OTHER_GENE)},
+                "testing/population": {"quantifier": "generic", "restriction": ref(COHORT, ADULTS)},
+            },
+            "form": "polar",
+            "polarity": "positive",
+            "layer": "statistical",
+        }
+        node = stored.proposition_node("p", title="p", claim=facet)
+        roles, restrictions = stored_claim_terms(node)
+        # Roles by name, members by canonical member key; restrictions by dimension.
+        assert roles == (
+            Referent(sort=EVENT, term="EX:event-1"),
+            Referent(sort=PRODUCT, term="EX:product-1"),
+            Referent(sort=PROCEDURE_SPEC, term=PROCEDURE),
+        )
+        assert restrictions == (Referent(sort=COHORT, term=ADULTS), Referent(sort=ENTITY, term=OTHER_GENE))
+
+    def test_a_non_identifier_term_is_a_malformed_stored_value(self):
+        facet = {
+            **project_claim_facet(),
+            "roles": {"cause": ref(ENTITY, GENE), "effect": {"sort": OUTCOME_SORT, "term": 7}},
+        }
+        with pytest.raises(MalformedWireClaim):
+            stored_claim_terms(stored.proposition_node("p", title="p", claim=facet))
+
+
+def project_claim_facet() -> dict[str, Any]:
+    return {
+        "operator": "testing/affects",
+        "roles": {"cause": ref(ENTITY, GENE), "effect": ref(OUTCOME_SORT, OUTCOME)},
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal",
+    }
 
 
 class TestTheWireValueIsCheckedFieldByField:
     @pytest.mark.parametrize(
         "body",
         [
-            {1: "x", "quantifier": "generic", "restriction": ADULTS},
-            {"quantifier": "generic", "restriction": ADULTS, 1: "x"},
+            {1: "x", "quantifier": "generic", "restriction": ref(COHORT, ADULTS)},
+            {"quantifier": "generic", "restriction": ref(COHORT, ADULTS), 1: "x"},
             {1: "x"},
-            {"quantifier": "generic", "restriction": ADULTS, (): "x"},
+            {"quantifier": "generic", "restriction": ref(COHORT, ADULTS), (): "x"},
             # Two unknown names of different types: this one crashes in `sorted`
             # rather than in `join`, which is why the guard has to precede the
             # whole field arithmetic and not merely its message.
-            {"quantifier": "generic", "restriction": ADULTS, 1: "x", "extra": "y"},
+            {"quantifier": "generic", "restriction": ref(COHORT, ADULTS), 1: "x", "extra": "y"},
+            {"quantifier": "generic", "restriction": {**ref(COHORT, ADULTS), 1: "x", "extra": "y"}},
         ],
     )
     def test_a_field_name_that_is_not_a_name_refuses_rather_than_crashes(self, profile, readable, body):
-        # The field arithmetic below sorts the unknown names and joins them into
-        # a message, and a non-string key raises `TypeError` in one or the other
-        # — which is not a `DecodeError`, so a caller holding this boundary's
+        # The field arithmetic sorts the unknown names and joins them into a
+        # message, and a non-string key raises `TypeError` in one or the other —
+        # which is not a `DecodeError`, so a caller holding this boundary's
         # refusing arm gets a crash instead of a refusal, on input this function
-        # exists to refuse. The contract loaders check mapping keys before their
-        # own field arithmetic for the same reason; this is that guard at the
-        # boundary that had skipped it.
+        # exists to refuse.
         wire = affects(qualifiers={"testing/population": body})
         with pytest.raises(MalformedWireClaim):
             decode_claim(wire, profile=profile, snapshot=readable)
 
+    @pytest.mark.parametrize(
+        "wire",
+        [
+            pytest.param(
+                affects(
+                    roles={"cause": {**ref(ENTITY, GENE), 1: "x", "extra": "y"}, "effect": ref(OUTCOME_SORT, OUTCOME)}
+                ),
+                id="a-referent",
+            ),
+            pytest.param(
+                correlates({**member(ENTITY, GENE), 1: "x", "extra": "y"}, member(OUTCOME_SORT, OUTCOME)), id="a-member"
+            ),
+        ],
+    )
+    def test_the_same_guard_covers_role_referents_and_members(self, profile, readable, wire):
+        with pytest.raises(MalformedWireClaim):
+            decode_claim(wire, profile=profile, snapshot=readable)
+
     def test_the_refusal_is_the_declared_arm_and_not_an_incidental_type_error(self, profile, readable):
-        wire = affects(qualifiers={"testing/population": {1: "x", "quantifier": "generic", "restriction": ADULTS}})
+        wire = affects(
+            qualifiers={"testing/population": {1: "x", "quantifier": "generic", "restriction": ref(COHORT, ADULTS)}}
+        )
         try:
             decode_claim(wire, profile=profile, snapshot=readable)
         except DecodeError:
@@ -675,7 +965,13 @@ class TestTheWireValueIsCheckedFieldByField:
         # with this reader about what a claim is, and guessing which of the two
         # is right is not a decision a decoder may take.
         wire = affects(
-            qualifiers={"testing/population": {"quantifier": "generic", "restriction": ADULTS, "confidence": "high"}}
+            qualifiers={
+                "testing/population": {
+                    "quantifier": "generic",
+                    "restriction": ref(COHORT, ADULTS),
+                    "confidence": "high",
+                }
+            }
         )
         with pytest.raises(MalformedWireClaim, match="confidence"):
             decode_claim(wire, profile=profile, snapshot=readable)
@@ -683,17 +979,15 @@ class TestTheWireValueIsCheckedFieldByField:
 
 class TestMembershipIsDecidedUnderTheSameEquivalenceAsIdentity:
     """`science.identity.v1` normalizes to NFC **at encode time**, so `"é"` and
-    `"é"` are one identifier to every digest here and two strings to
+    `"é"` are one identifier to every digest here and two strings to
     Python. Membership is decided by string comparison, so without care the two
     relations disagree — and a vocabulary reports `not-member` for a term it
     holds.
 
     The resolution is **not** to canonicalize claims. The claim layer preserves
-    what the author wrote, and the `affects-decomposed-referent` fixture row
-    exists to catch an implementation that normalizes at parse time; refusing or
-    folding a decomposed referent would make this implementation the one that row
-    is aimed at. So the snapshot stores canonically and `resolve` normalizes what
-    it is asked about.
+    what the author wrote; refusing or folding a decomposed referent would lose
+    the author's bytes. So the snapshot stores canonically and `resolve`
+    normalizes what it is asked about.
     """
 
     # The two spellings are written as escapes for the same reason the fixture
@@ -711,12 +1005,13 @@ class TestMembershipIsDecidedUnderTheSameEquivalenceAsIdentity:
         # The rule this whole class is arranged around: canonicity is required
         # where identities are taken over projections, and *not* where an
         # author's bytes are being recorded.
-        assert Referent(sort="testing/cohort", term=self.DECOMPOSED).term == self.DECOMPOSED
+        assert Referent(sort=COHORT, term=self.DECOMPOSED).term == self.DECOMPOSED
 
-    def test_a_decomposed_term_resolves_against_a_composed_member(self):
-        snapshot = build_snapshot(readable={EX: [self.COMPOSED]})
-        assert snapshot.resolve(EX, self.DECOMPOSED) is TermOutcome.MEMBER
-        assert snapshot.resolve(EX, self.COMPOSED) is TermOutcome.MEMBER
+    def test_a_decomposed_term_resolves_against_a_composed_member(self, profile):
+        snapshot = build_snapshot(readable={COHORT_DATASET: [self.COMPOSED]})
+        cohort = profile.sorts[COHORT]
+        assert snapshot.resolve(cohort, self.DECOMPOSED) is TermOutcome.MEMBER
+        assert snapshot.resolve(cohort, self.COMPOSED) is TermOutcome.MEMBER
 
     def test_a_noncanonical_member_is_refused_rather_than_stored(self):
         # The other half. Stored non-canonically, this member encodes identically
@@ -724,22 +1019,21 @@ class TestMembershipIsDecidedUnderTheSameEquivalenceAsIdentity:
         # projection cannot tell apart, and `resolve` would decide by whichever
         # spelling happened to be written down.
         with pytest.raises(ResolutionError, match="not in NFC"):
-            build_snapshot(readable={EX: [self.DECOMPOSED]})
+            build_snapshot(readable={COHORT_DATASET: [self.DECOMPOSED]})
 
     def test_a_binding_field_that_is_not_canonical_is_refused(self):
-        # `VocabularyBinding` is the other collision: two bindings differing only
-        # in normalization are two dictionary keys and one encoded binding, which
-        # is the sum-versus-product collision arriving through the text.
+        # Two bindings differing only in normalization are two dictionary keys and
+        # one encoded binding, which is the collision arriving through the text.
         with pytest.raises(MalformedContract, match="not in NFC"):
-            VocabularyBinding(namespace="cafe\u0301", release="2026-01-01", dataset_identity=None)
-        assert VocabularyBinding(namespace="caf\u00e9", release="2026-01-01", dataset_identity=None).namespace
+            ReleaseBinding(namespace="cafe\u0301", release="2026-01-01")
+        assert ReleaseBinding(namespace="caf\u00e9", release="2026-01-01").namespace
 
     def test_the_two_would_have_encoded_alike(self):
         # What that refusal prevents, reached through the raw route since the
         # ordinary one is now closed: two unequal bindings, one encoding.
-        one = VocabularyBinding(namespace="caf\u00e9", release="2026-01-01", dataset_identity=None)
-        other = object.__new__(VocabularyBinding)
-        for field, value in (("namespace", "cafe\u0301"), ("release", "2026-01-01"), ("dataset_identity", None)):
+        one = ReleaseBinding(namespace="caf\u00e9", release="2026-01-01")
+        other = object.__new__(ReleaseBinding)
+        for field, value in (("namespace", "cafe\u0301"), ("release", "2026-01-01")):
             object.__setattr__(other, field, value)
         assert one != other
         assert v1.encode(one.projection()) == v1.encode(other.projection())
@@ -751,7 +1045,7 @@ class TestMembershipIsDecidedUnderTheSameEquivalenceAsIdentity:
         held = build_snapshot(readable={EX: [GENE, OUTCOME], COHORT_DATASET: [self.COMPOSED]})
         claims = []
         for spelling in (self.DECOMPOSED, self.COMPOSED):
-            wire = affects(qualifiers={"testing/population": {"quantifier": "generic", "restriction": spelling}})
+            wire = affects(qualifiers=population(ref(COHORT, spelling)))
             claim, receipt = decode_claim(wire, profile=profile, snapshot=held)
             assert receipt.outcomes["restriction:testing/population"] is TermOutcome.MEMBER
             assert receipt.performed
@@ -769,8 +1063,10 @@ class TestTheSnapshotIdentityIsContentDerived:
         assert one.identity != two.identity
 
     def test_the_same_contents_give_the_same_identity_whatever_the_order(self):
-        one = build_snapshot(readable={EX: [GENE, OUTCOME], COHORT_DATASET: [ADULTS]})
-        two = build_snapshot(readable={COHORT_DATASET: [ADULTS], EX: [OUTCOME, GENE]})
+        one = build_snapshot(readable={EX: [GENE, OUTCOME], COHORT_DATASET: [ADULTS]}, kinds={"procedure": [PROCEDURE]})
+        two = build_snapshot(
+            kinds={"procedure": (PROCEDURE,)}, readable={COHORT_DATASET: [ADULTS], EX: [OUTCOME, GENE]}
+        )
         assert one.identity == two.identity
 
     def test_readable_and_unreadable_differ(self):
@@ -785,11 +1081,11 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
     """
 
     def test_a_key_that_is_not_a_binding_is_refused(self):
-        # Keys are matched by value against `profile.sorts[...].vocabulary`, so a
+        # Keys are matched by value against `profile.sorts[...].binding`, so a
         # lookalike matches nothing and every term under it resolves
         # `not-consulted` — a snapshot that was handed a vocabulary reporting
         # that nobody looked at it.
-        with pytest.raises(ResolutionError, match="keyed by VocabularyBinding"):
+        with pytest.raises(ResolutionError, match="keyed by SortBinding"):
             build_snapshot(readable={"EX": [GENE]})  # type: ignore[arg-type]
 
     def test_a_lookalike_binding_is_refused_before_it_can_be_asked_to_project(self):
@@ -797,7 +1093,7 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
             def projection(self) -> dict[str, object]:
                 return {"namespace": "EX", "release": "2026-01-01"}
 
-        with pytest.raises(ResolutionError, match="keyed by VocabularyBinding"):
+        with pytest.raises(ResolutionError, match="keyed by SortBinding"):
             build_snapshot(unreadable=[Lookalike()])  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("term", [1, "", None, ("EX", "gene-x")])
@@ -809,8 +1105,8 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
         # `str` satisfies `Iterable[str]`, so this type-checks and builds a
         # vocabulary of six characters — none of them the term it was written to
         # declare present, which then resolves `not-member`. The wire decoder
-        # already refuses a bare string where it wants a sequence of terms; this
-        # is the same guard, at the boundary that had not carried it over.
+        # already refuses a bare string where it wants members; this is the same
+        # guard, at the boundary that had not carried it over.
         snapshot = None
         with pytest.raises(ResolutionError, match="single string"):
             snapshot = build_snapshot(readable={EX: GENE})
@@ -821,23 +1117,21 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
         with pytest.raises(ResolutionError, match="collection of terms"):
             build_snapshot(readable={EX: terms})  # type: ignore[dict-item]
 
-    def test_that_predicate_is_the_one_a_referent_applies(self, profile, readable):
+    def test_that_predicate_is_the_one_a_referent_applies(self):
         # The two have to agree, and this is the sharper direction: a `Referent`
         # cannot carry a non-identifier term, so a snapshot holding one holds a
         # member no claim can ever name. `resolve` would then answer
         # `not-member` — the single *refusing* outcome, positive evidence that a
         # vocabulary was read and lacks the term — about a vocabulary that was
-        # told it has it. The outcome vocabulary keeps an absence of evidence from being reported
-        # as evidence of absence; this is the same confusion from the other side,
-        # and its victim is a well-formed claim.
+        # told it has it.
         for admitted in [GENE, "1"]:
-            assert Referent(sort="testing/entity", term=admitted).term == admitted
+            assert Referent(sort=ENTITY, term=admitted).term == admitted
             build_snapshot(readable={EX: [admitted]})
         for refused in [1, ""]:
             with pytest.raises(MalformedReferent):
-                Referent(sort="testing/entity", term=refused)
+                Referent(sort=ENTITY, term=refused)  # type: ignore[arg-type]
             with pytest.raises(ResolutionError):
-                build_snapshot(readable={EX: [refused]})
+                build_snapshot(readable={EX: [refused]})  # type: ignore[list-item]
 
     def test_the_integer_member_case_end_to_end(self, profile):
         # What the refusal above prevents, spelled out: the snapshot is told the
@@ -853,8 +1147,9 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
                     absent=(),
                 )
             },
+            kinds={},
             identity="unchecked",
         )
-        assert snapshot.resolve(EX, "1") is TermOutcome.NOT_MEMBER
+        assert snapshot.resolve(profile.sorts[ENTITY], "1") is TermOutcome.NOT_MEMBER
         with pytest.raises(ResolutionError):
             build_snapshot(readable={EX: [1]})  # type: ignore[list-item]

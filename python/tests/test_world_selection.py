@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 from coordination_fixtures import raw_coordination_node
 from dataset_fixtures import dataset_ref, pinned
+from domain_facet_fixtures import CLAIM_FACET, GENE, PHENO
 from nodes.core.corpus import Corpus
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.relations import Relation
-from test_evaluation import CLAIM_FACET, GENE, PHENO
 from test_world_build import ALPHA, BETA
 from test_world_receipts import corpora, hold_shipped, publish, world_over
 from test_world_view import make_absent
@@ -214,7 +214,7 @@ class TestAddressesAndKinds:
 
 
 class TestReferencesTerm:
-    def test_a_term_in_an_argument_selects_the_proposition_and_never_a_dataset(self, tmp_path):
+    def test_a_term_in_a_role_selects_the_proposition_and_never_a_dataset(self, tmp_path):
         world, roots, published, topic = topic_world(tmp_path, [{"references-term": GENE}])
         selection = evaluate_topic(world, roots, published, topic)
         assert selection.selected == ("proposition:p-b",) and selection.contributing == (BETA,)
@@ -223,7 +223,12 @@ class TestReferencesTerm:
         qualified = stored.proposition_node(
             "p-q",
             title="p-q",
-            claim={**CLAIM_FACET, "qualifiers": {"tissue": {"quantifier": "some", "restriction": "EX:liver"}}},
+            claim={
+                **CLAIM_FACET,
+                "qualifiers": {
+                    "tissue": {"quantifier": "some", "restriction": {"sort": "testing/cohort", "term": "EX:liver"}}
+                },
+            },
         )
         world, roots, published, topic = topic_world(
             tmp_path, [{"references-term": "EX:liver"}], beta_extra=(qualified,)
@@ -243,10 +248,11 @@ class TestReferencesTerm:
     @pytest.mark.parametrize(
         "claim",
         [
-            {**CLAIM_FACET, "args": "not-a-list"},
-            {**CLAIM_FACET, "args": [GENE, 7]},
-            {**CLAIM_FACET, "qualifiers": {"tissue": {"restriction": "EX:liver"}}},
-            {**CLAIM_FACET, "qualifiers": {"tissue": {"quantifier": "some", "restriction": "EX:liver", "extra": 1}}},
+            {**CLAIM_FACET, "roles": "not-a-map"},
+            {**CLAIM_FACET, "roles": {"cause": {"sort": "testing/entity", "term": 7}}},
+            {**CLAIM_FACET, "roles": {"parties": [{"sort": "testing/entity", "term": GENE}]}},
+            {**CLAIM_FACET, "qualifiers": {"tissue": {"restriction": {"sort": "testing/cohort", "term": "EX:liver"}}}},
+            {**CLAIM_FACET, "qualifiers": {"tissue": {"quantifier": "some", "restriction": "EX:liver"}}},
             {k: v for k, v in CLAIM_FACET.items() if k != "layer"},
         ],
     )
@@ -259,7 +265,10 @@ class TestReferencesTerm:
 
     def test_a_stale_edit_that_removed_the_term_refuses_rather_than_yielding_empty(self, tmp_path):
         stale = stored.proposition_node("p-s", title="p-s", claim=CLAIM_FACET)
-        stale.facets["proposition"]["args"] = ["EX:other", PHENO]
+        stale.facets["proposition"]["roles"] = {
+            "cause": {"sort": "testing/entity", "term": "EX:other"},
+            "effect": {"sort": "testing/outcome", "term": PHENO},
+        }
         world, roots, published, topic = topic_world(
             tmp_path,
             [{"references-term": GENE}],

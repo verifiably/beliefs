@@ -26,21 +26,44 @@ unperformed rather than omitted.
 view's `locate` found the binding's dataset in a covered corpus, and that corpus
 is absent from this world. The snapshot records that corpus so this state remains
 distinct from both an unheld local dataset and a binding nobody consulted.
+
+**Each of the six binding arms resolves in one way** (`ResolutionSnapshot.resolve`):
+
+    release      the held vocabulary at that release, by the binding itself
+    dataset      the members of the held dataset, by the binding itself
+    selection    the dataset arm over its `selected` dataset
+    run-output   the dataset arm over its produced `dataset`
+    scheme       `member` exactly when the term matches the sort's identifier
+                 class; always performed, whatever the snapshot holds
+    world-kind   the held record ids of that kind, or `not-consulted` when the
+                 snapshot carries no inventory of the kind
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from types import MappingProxyType
-from typing import Literal, final
+from typing import TYPE_CHECKING, Literal, final
 
-from beliefs.contract.domain import SortBinding
-from beliefs.errors import ResolutionError
+from beliefs.contract.domain import (
+    DatasetBinding,
+    ReleaseBinding,
+    RunOutputBinding,
+    SchemeBinding,
+    SelectionBinding,
+    SortBinding,
+    WorldKindBinding,
+)
+from beliefs.errors import ProfileError, ResolutionError
 from beliefs.identifiers import canonical, not_a_canonical_identifier
 from beliefs.identity import v1
 from beliefs.sealed import sealed
+
+if TYPE_CHECKING:
+    from beliefs.profile import CompiledSort
 
 __all__ = [
     "BindingCheckReceipt",
@@ -51,9 +74,13 @@ __all__ = [
 ]
 
 SNAPSHOT_DOMAIN = "science.snapshot.v1"
-RECEIPT_DOMAIN = "science.receipt.v1"
+RECEIPT_DOMAIN = "science.receipt.v2"
+"""v2: the position vocabulary is roles by name (`role:<name>`, `role:<name>[<i>]`),
+not argument slots; a receipt's identity is taken over its position labels."""
 
 _MINT = object()
+_HEX64 = "[0-9a-f]{64}"
+_KIND_NAME = re.compile("[a-z][a-z0-9-]*")
 
 
 class TermOutcome(Enum):
@@ -89,25 +116,37 @@ class TermOutcome(Enum):
 
 @dataclass(frozen=True)
 class ReferentPosition:
-    """Where in a claim a referent sits — a slot index, or a qualifier dimension.
+    """Where in a claim a referent sits — a role (or one member of a `many`
+    role), or a qualifier dimension.
 
     Both kinds are referent positions and both are resolved (a restriction
-    is sorted exactly as an argument is), so the receipt has to name them in one
+    is sorted exactly as a role's referent is), so the receipt has to name them in one
     vocabulary without conflating them.
     """
 
     kind: str
-    """``argument``, ``restriction``, ``estimand`` or ``node``."""
+    """``role``, ``restriction``, ``estimand`` or ``node``."""
 
     key: str
-    """The slot index rendered as text, or the dimension's term identifier."""
+    """The role name (with ``[<i>]`` for a member), the dimension's term
+    identifier, an estimand part, or a node index rendered as text."""
 
     def label(self) -> str:
         return f"{self.kind}:{self.key}"
 
     @classmethod
-    def argument(cls, slot: int) -> ReferentPosition:
-        return cls(kind="argument", key=str(slot))
+    def role(cls, name: str) -> ReferentPosition:
+        """`role:cause` — a `one` role's referent (the reserved `within-model` included)."""
+        return cls(kind="role", key=name)
+
+    @classmethod
+    def member(cls, name: str, index: int) -> ReferentPosition:
+        """`role:parties[0]` — the ``index``-th member, from 0, of a `many` role in
+        canonical member-key order: the order the claim holds them in, so the
+        label names the same referent wherever the claim was written."""
+        if isinstance(index, bool) or not isinstance(index, int) or index < 0:
+            raise ResolutionError(f"a member position is a non-negative integer, found {index!r}")
+        return cls(kind="role", key=f"{name}[{index}]")
 
     @classmethod
     def restriction(cls, dimension: str) -> ReferentPosition:
@@ -159,12 +198,20 @@ class ResolutionSnapshot:
     """
 
     bindings: Mapping[SortBinding, _BoundVocabulary]
+    """The vocabularies looked at, keyed by a `release` or `dataset` binding: the
+    two arms whose membership is a read vocabulary. `selection` and `run-output`
+    resolve through the `dataset` key of their dataset."""
+
+    kinds: Mapping[str, frozenset[str]]
+    """World kind → the record ids of that kind the corpus holds: the inventory a
+    `world-kind` binding resolves against. A kind absent here was not consulted."""
+
     identity: str
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise ResolutionError(
             "ResolutionSnapshot is built, never authored — use build_snapshot(readable=..., unreadable=..., "
-            "not_present=...). "
+            "not_present=..., kinds=...). "
             "Its identity is derived from its contents, and a field-wise constructor would let a snapshot "
             "carry an identity describing a different availability state than its own."
         )
@@ -190,18 +237,50 @@ class ResolutionSnapshot:
         snapshot would take two identities. That injectivity is
         `SortBinding`'s: a sealed six-arm sum whose projection carries the arm's tag, so no ordinary
         route produces a collision.
+
+        The world-kind inventory is a separate member, ``kinds``, keyed by kind
+        name, and present only when the snapshot carries one. A snapshot without
+        an inventory therefore projects exactly as it did before inventories
+        existed, and one with an inventory — even an empty one for a kind, which
+        says the kind was read and holds nothing — never projects like one
+        without.
         """
         entries = [{"binding": binding.projection(), **state.projection()} for binding, state in self.bindings.items()]
         entries.sort(key=lambda entry: v1.encode(entry["binding"]))
-        return {"bindings": entries}
+        projection: dict[str, object] = {"bindings": entries}
+        if self.kinds:
+            projection["kinds"] = {kind: sorted(ids) for kind, ids in self.kinds.items()}
+        return projection
 
-    def resolve(self, binding: SortBinding, term: str) -> TermOutcome:
-        """Resolve one term through one binding.
+    def resolve(self, sort: CompiledSort, term: str) -> TermOutcome:
+        """Resolve one term of one sort, by the arm its binding is.
 
         The three refusing-to-look outcomes are distinguished **here**, where the
         evidence is, rather than downstream where only their consequences are
-        visible.
+        visible. `scheme` never reaches them: its membership is the identifier
+        class, a computable predicate, so the check is always performed.
+        `selection` and `run-output` are the `dataset` arm plus provenance, so
+        they resolve through the dataset arm over the dataset they name, exactly.
         """
+        binding = sort.binding
+        if isinstance(binding, SchemeBinding):
+            if sort.identifier_class is None:
+                # Unreachable through compile, which requires a class on every arm
+                # but world-kind; a profile defect, not a sixth outcome.
+                raise ProfileError(f"sort {sort.term!r} is bound to a scheme and declares no identifier class")
+            return TermOutcome.MEMBER if sort.identifier_class.matches(term) else TermOutcome.NOT_MEMBER
+        if isinstance(binding, WorldKindBinding):
+            held = self.kinds.get(binding.world_kind)
+            if held is None:
+                return TermOutcome.NOT_CONSULTED
+            return TermOutcome.MEMBER if canonical(term) in held else TermOutcome.NOT_MEMBER
+        if isinstance(binding, SelectionBinding):
+            return self._vocabulary(DatasetBinding(dataset=binding.selected), term)
+        if isinstance(binding, RunOutputBinding):
+            return self._vocabulary(DatasetBinding(dataset=binding.dataset), term)
+        return self._vocabulary(binding, term)
+
+    def _vocabulary(self, binding: SortBinding, term: str) -> TermOutcome:
         state = self.bindings.get(binding)
         if state is None:
             # Nothing was looked at: this binding's namespace was never consulted.
@@ -225,6 +304,13 @@ def _require_binding(binding: object) -> None:
     that was told about a vocabulary reporting that nobody looked at it. The
     binding's own construction is what rules out the ill-formed inhabitants
     (the one-arm sum); this rules out values that never went through it.
+
+    The same defect arrives through a genuine arm that `resolve` never looks up:
+    only a `release` or `dataset` binding names a vocabulary that is read. A
+    `scheme` is checked by its identifier class, `selection` and `run-output` by
+    the `dataset` key of the dataset they name, and `world-kind` by the `kinds`
+    inventory, so a vocabulary keyed by any of those would be reported
+    `not-consulted` — or never consulted at all — and is refused instead.
     """
     if not isinstance(binding, SortBinding):
         raise ResolutionError(
@@ -232,9 +318,25 @@ def _require_binding(binding: object) -> None:
             "by value against the sort declarations in force, and a lookalike matches none of them — so the "
             "snapshot would report `not-consulted` for a vocabulary it was handed."
         )
+    if not isinstance(binding, ReleaseBinding | DatasetBinding):
+        route = _NOT_A_VOCABULARY[binding.kind]
+        raise ResolutionError(
+            f"a snapshot's vocabularies are keyed by a release or dataset binding; {binding.projection()} "
+            f"{route}, so a vocabulary under it would never be read."
+        )
 
 
-def _require_terms(terms: object, binding: SortBinding) -> Iterable[object]:
+_NOT_A_VOCABULARY: Mapping[str, str] = MappingProxyType(
+    {
+        "scheme": "is resolved by its sort's identifier class",
+        "selection": "is resolved through the dataset binding of its `selected` dataset",
+        "run-output": "is resolved through the dataset binding of its produced `dataset`",
+        "world-kind": "is resolved through the snapshot's `kinds` inventory",
+    }
+)
+
+
+def _require_terms(terms: object, where: str) -> Iterable[object]:
     """A vocabulary is a **collection** of terms, and a string is not one of those.
 
     `str` satisfies `Iterable[str]`, so `{binding: "EX:gene"}` type-checks and
@@ -246,16 +348,16 @@ def _require_terms(terms: object, binding: SortBinding) -> Iterable[object]:
     """
     if isinstance(terms, str | bytes):
         raise ResolutionError(
-            f"{binding.projection()}: a vocabulary is a collection of terms, and {terms!r} is a single string. "
+            f"{where}: a vocabulary is a collection of terms, and {terms!r} is a single string. "
             "Iterating it yields its characters, so the term this was meant to declare present would resolve "
             "`not-member` against a vocabulary that was written to contain it."
         )
     if not isinstance(terms, Iterable):
-        raise ResolutionError(f"{binding.projection()}: expected a collection of terms, found {terms!r}")
+        raise ResolutionError(f"{where}: expected a collection of terms, found {terms!r}")
     return terms
 
 
-def _require_term(term: object, binding: SortBinding) -> str:
+def _require_term(term: object, where: str) -> str:
     """A vocabulary's members are term identifiers — the same predicate `Referent` applies.
 
     The two have to agree, and this is the sharper direction: a `Referent` cannot
@@ -274,11 +376,30 @@ def _require_term(term: object, binding: SortBinding) -> str:
     problem = not_a_canonical_identifier(term)
     if problem is not None:
         raise ResolutionError(
-            f"{binding.projection()}: {problem}. A `Referent` cannot carry it, so no claim can name this "
+            f"{where}: {problem}. A `Referent` cannot carry it, so no claim can name this "
             "member, and a claim naming the identifier it was meant to be would be refused as `not-member` "
             "against a vocabulary that was read and was written to contain it."
         )
     return term  # type: ignore[return-value]
+
+
+def _require_kind(kind: object) -> str:
+    if not isinstance(kind, str) or not _KIND_NAME.fullmatch(kind):
+        raise ResolutionError(f"kinds is keyed by world kind name, found {kind!r}")
+    return kind
+
+
+def _require_record_id(record: object, kind: str) -> str:
+    """A held record id in the kernel's record-id grammar for its kind: the
+    identifier class of every sort bound to the kind, so an id outside it is a
+    member no claim can name — `_require_term`'s defect, arriving by inventory."""
+    _require_term(record, f"kind {kind!r}")
+    assert isinstance(record, str)
+    if not re.fullmatch(f"{re.escape(kind)}:{_HEX64}", record):
+        raise ResolutionError(
+            f"kind {kind!r}: {record!r} is not a {kind} record id, `{kind}:` followed by 64 lowercase hex characters"
+        )
+    return record
 
 
 def build_snapshot(
@@ -286,6 +407,7 @@ def build_snapshot(
     readable: Mapping[SortBinding, Iterable[str]] | None = None,
     unreadable: Iterable[SortBinding] = (),
     not_present: Mapping[SortBinding, str] | None = None,
+    kinds: Mapping[str, Iterable[str]] | None = None,
 ) -> ResolutionSnapshot:
     """Build a snapshot from what is readable and what is identified but not held.
 
@@ -294,6 +416,10 @@ def build_snapshot(
     binding is silence, not a claim that its vocabulary is empty. An empty
     `readable` entry is a different fact — the vocabulary was read and contains
     nothing — and the two produce different outcomes.
+
+    ``kinds`` is the world-kind inventory, by the same rule: a kind it names was
+    read, and its record ids are the members of every sort bound to that kind (an
+    empty entry holds none); a kind it omits is `not-consulted`.
     """
     table: dict[SortBinding, _BoundVocabulary] = {}
 
@@ -313,7 +439,10 @@ def build_snapshot(
             binding,
             _BoundVocabulary(
                 state="readable",
-                terms=frozenset(_require_term(term, binding) for term in _require_terms(terms, binding)),
+                terms=frozenset(
+                    _require_term(term, str(binding.projection()))
+                    for term in _require_terms(terms, str(binding.projection()))
+                ),
                 absent=(),
             ),
         )
@@ -326,7 +455,19 @@ def build_snapshot(
             raise ResolutionError(f"{binding.projection()}: a not-present binding names the absent corpus")
         _place(binding, _BoundVocabulary(state="not-present", terms=frozenset(), absent=(corpus_id,)))
 
-    snapshot = ResolutionSnapshot._built(_MINT, bindings=MappingProxyType(dict(table)), identity="")
+    inventory: dict[str, frozenset[str]] = {}
+    if kinds is not None:
+        if not isinstance(kinds, Mapping):
+            raise ResolutionError(f"kinds is a mapping from world kind to held record ids, found {kinds!r}")
+        for kind, ids in kinds.items():
+            name = _require_kind(kind)
+            inventory[name] = frozenset(
+                _require_record_id(record, name) for record in _require_terms(ids, f"kind {name!r}")
+            )
+
+    snapshot = ResolutionSnapshot._built(
+        _MINT, bindings=MappingProxyType(dict(table)), kinds=MappingProxyType(inventory), identity=""
+    )
     object.__setattr__(snapshot, "identity", v1.digest(SNAPSHOT_DOMAIN, snapshot.projection()))
     return snapshot
 
@@ -359,13 +500,11 @@ class BindingCheckReceipt:
     """The claim these outcomes were taken for.
 
     The receipt carries this in addition to the outcomes and the snapshot
-    identity. Without it a receipt is a set of slot labels with no way to tell
-    which claim's slots they were — and a diagnostic that cannot be attached to
-    its subject is not much of one. It also pins the sorts: the claim identity
-    fixes the operator, and redefining an operator's `arg_sorts`
-    under its own identifier is forbidden, so the positions cannot be reinterpreted. That
-    argument has one hole, and it is already open — a parallel `genesis` in the
-    same namespace is compared against nothing.
+    identity. Without it a receipt is a set of position labels with no way to
+    tell which claim's roles they were — and a diagnostic that cannot be attached
+    to its subject is not much of one. It also pins the sorts: the claim identity
+    carries every referent's sort beside its role name, so a position label names
+    one referent of one sort and cannot be reinterpreted.
     """
 
     snapshot_identity: str

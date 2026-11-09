@@ -131,10 +131,10 @@ class _QueryableView(Protocol):
 def _binds_term(node: Node, term: str) -> bool:
     validated_node(node)
     try:
-        args, restrictions = stored_claim_terms(node)
+        roles, restrictions = stored_claim_terms(node)
     except MalformedWireClaim:
         raise SelectionRefused("record-malformed", refs=[node.id]) from None
-    return term in args or term in restrictions
+    return any(referent.term == term for referent in (*roles, *restrictions))
 
 
 class _InboundAdjacency:

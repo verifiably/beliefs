@@ -197,7 +197,10 @@ binding, contract releases and prose never enter `π_claim`.
 ## Propositions and claims
 
 When read, a proposition's `proposition` facet must have exactly the fields
-`operator`, `args`, `qualifiers`, `polarity` and `layer`. A claim's operator is a
+`operator`, `roles`, `qualifiers`, `form`, `polarity` and `layer`: the claim's
+projection. A `one` role is `{sort, term}`, a `many` role a list of
+`{sort, term, coefficient}`, and a qualifier `{quantifier, restriction}` with the
+restriction `{sort, term}`. A claim's operator is a
 template or a bridge of the profile, and its roles are the template's (a bridge's
 are its template's). A typed claim satisfies the following rules, checked in this
 order, each refused with its own error:
@@ -240,7 +243,33 @@ of a retired sort. Typing a stored claim refuses none of them.
 
 `add` does not type the claim. It is typed whenever it is read through
 `claim_from_stored`: when an analysis spec that targets the proposition is written
-or audited, and when belief or a composite reads it. A semantic change is made by
+or audited, and when belief or a composite reads it.
+
+Decoding a claim (`decode_claim`, and `claim_from_stored` through it) types it by
+the rules above and then resolves every referent against a resolution snapshot to
+one of five outcomes: `member`, `not-member`, `not-consulted`, `not-present` or
+`not-available`. How a referent resolves depends on its sort's binding:
+
+- `release` and `dataset`: by the vocabulary the snapshot holds under that binding
+  (`member` or `not-member`), `not-available` when the snapshot identifies it as
+  unreadable, `not-present` when its corpus is absent from the world, and
+  `not-consulted` when the snapshot says nothing about it;
+- `selection`: as the `dataset` arm over its `selected` dataset, never its
+  catalogue `dataset`;
+- `run-output`: as the `dataset` arm over its produced `dataset`;
+- `scheme`: `member` when the term matches the sort's identifier class, else
+  `not-member`, whatever the snapshot holds, so the check is always performed;
+- `world-kind`: `member` when the snapshot's inventory of that kind holds the term
+  as a record id, else `not-member`, and `not-consulted` when the snapshot carries
+  no inventory of the kind.
+
+Only `not-member` refuses (`UnboundReferent`). An accepted decode returns a
+binding-check receipt holding the claim identity, the snapshot identity and one
+outcome per referent position: `role:<name>` for a `one` role (`within-model`
+included), `role:<name>[<i>]` for the i-th member of a `many` role, counting from 0
+in canonical member-key order, and `restriction:<dimension>` for a qualifier's
+restriction. A snapshot holds vocabularies only under `release` and `dataset`
+bindings and refuses the other four arms as keys. A semantic change is made by
 superseding the proposition: the successor is a new record linked to it by
 `supersedes`. `revise` changes only `title`, `body` and the `display` facet.
 
@@ -693,13 +722,22 @@ both test suites read and neither writes:
 The TypeScript side computes neither contract nor profile identity. It refuses any
 contract that declares a predecessor or a retired identifier.
 
+Only the Python side resolves referents. A binding-check receipt's identity is a
+digest under `science.receipt.v2` of the claim identity, the snapshot identity and
+the outcomes keyed by their position labels (`role:<name>`, `role:<name>[<i>]`,
+`restriction:<dimension>`); the receipt is a diagnostic and is never stored.
+
 ## What decoding rejects
 
 - `science.identity.v1` text whose re-encoding differs from its bytes: this covers
   malformed UTF-8 or JSON, `NaN` and `Infinity`, keys out of order or duplicated,
   and non-canonical numbers (`CanonicalTextRefused`).
-- A stored claim facet with missing or extra fields, or with `args` that is not a
-  sequence or `qualifiers` that is not a mapping (`MalformedWireClaim`).
+- A stored claim facet with missing or extra fields, `roles` or `qualifiers` that
+  is not a mapping, a role that is neither a `{sort, term}` referent nor a list of
+  `{sort, term, coefficient}` members (a member without `coefficient`, or with one
+  that is not an integer, included), a role whose shape is not its declared
+  arity's, or a referent or qualifier with a missing or unknown field
+  (`MalformedWireClaim`). A coefficient below 1 is `CoefficientRefused`.
 - A claim that breaks a typing rule (`RoleRefused`, `UntypedReferent`,
   `CoefficientRefused`, `DuplicateMember`, `UndeclaredSort`,
   `IdentifierClassMismatch`, `WithinModelRefused`, `UninstantiatedTemplate`,

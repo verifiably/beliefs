@@ -14,14 +14,13 @@ from dataclasses import dataclass, replace
 from authority import ACTOR
 from confinement_fixtures import confined_receipt, instance
 from dataset_fixtures import pinned_for
-from domain_facet_fixtures import over_kwargs
+from domain_facet_fixtures import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO, over_kwargs
+from fixtures_cut3 import TESTING_PROFILE as PROFILE
 from fixtures_cut3 import closure_with, planned, spec_draft, spec_rules, traced
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from profiles import pins_for
-from test_belief import PROFILE
-from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
 
 from beliefs import runrecord, stored
 from beliefs.admission import admit

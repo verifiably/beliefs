@@ -8,12 +8,13 @@ import sys
 import textwrap
 
 import pytest
+from domain_facet_fixtures import EX, GENE, OTHER_GENE
 from nodes.core.node import Node
-from test_decode import ADULTS, COHORT_DATASET, EX, GENE, OTHER_GENE, OUTCOME
+from test_decode import ADULTS, COHORT, COHORT_DATASET, ENTITY, OUTCOME, OUTCOME_SORT, member, population, ref
 from test_decode import affects as _affects  # the wire-claim builder; a plain function there, not a fixture
 
 from beliefs import decode, stored
-from beliefs.claim import Claim
+from beliefs.claim import Claim, Referent
 from beliefs.decode import claim_from_stored, decode_claim, stored_claim_terms
 from beliefs.errors import MalformedWireClaim
 from beliefs.projection import claim_identity, project_claim
@@ -52,8 +53,9 @@ def affects():
 def stored_proposition(wire) -> Node:
     facet = {
         "operator": wire.operator,
-        "args": list(wire.args),
+        "roles": dict(wire.roles),
         "qualifiers": {k: dict(v) for k, v in wire.qualifiers.items()},
+        "form": wire.form,
         "polarity": wire.polarity,
         "layer": wire.layer,
     }
@@ -61,14 +63,35 @@ def stored_proposition(wire) -> Node:
 
 
 class TestStoredClaimTerms:
-    def test_reads_arguments_and_qualifier_restrictions_without_a_profile(self, affects):
-        wire = affects(qualifiers={"testing/population": {"quantifier": "some", "restriction": ADULTS}})
-        assert stored_claim_terms(stored_proposition(wire)) == ((GENE, OUTCOME), (ADULTS,))
+    def test_reads_role_referents_and_qualifier_restrictions_without_a_profile(self, affects):
+        # `some` is no kernel quantifier: the read types nothing, so it does not care.
+        wire = affects(qualifiers=population(quantifier="some"))
+        assert stored_claim_terms(stored_proposition(wire)) == (
+            (Referent(sort=ENTITY, term=GENE), Referent(sort=OUTCOME_SORT, term=OUTCOME)),
+            (Referent(sort=COHORT, term=ADULTS),),
+        )
 
-    def test_refuses_a_malformed_qualifier_body(self, affects):
-        wire = affects(qualifiers={"testing/population": {"restriction": ADULTS}})
+    @pytest.mark.parametrize(
+        "mutate",
+        [
+            pytest.param(
+                lambda w: {**w, "qualifiers": {"testing/population": {"restriction": ref(COHORT, ADULTS)}}},
+                id="qualifier-body",
+            ),
+            pytest.param(lambda w: {**w, "roles": [ref(ENTITY, GENE)]}, id="roles-a-list"),
+            pytest.param(lambda w: {**w, "roles": {"cause": [GENE]}}, id="terms-in-a-role"),
+            pytest.param(lambda w: {**w, "roles": {"parties": [ref(ENTITY, GENE)]}}, id="member-without-coefficient"),
+            pytest.param(lambda w: {**w, "roles": {"parties": [member(ENTITY, GENE, 0)]}}, id="coefficient-below-one"),
+            pytest.param(lambda w: {**w, "roles": {"cause": ref(ENTITY, "")}}, id="an-empty-term"),
+        ],
+    )
+    def test_refuses_a_malformed_facet(self, affects, mutate):
+        node = stored_proposition(affects())
+        bad = node.model_copy(
+            update={"facets": {stored.PROPOSITION_FACET: mutate(node.facets[stored.PROPOSITION_FACET])}}
+        )
         with pytest.raises(MalformedWireClaim):
-            stored_claim_terms(stored_proposition(wire))
+            stored_claim_terms(bad)
 
 
 class TestOpacity:
@@ -104,7 +127,7 @@ class TestFunctionOfItsArguments:
         script = textwrap.dedent(f"""
             from pathlib import Path
             from beliefs.contract import load_base_contract, load_domain_contract
-            from beliefs.contract.domain import VocabularyBinding
+            from beliefs.contract.domain import DatasetBinding, ReleaseBinding
             from beliefs.profile import compile_profile
             from beliefs.decode import claim_from_stored
             from beliefs.projection import claim_identity
@@ -114,16 +137,17 @@ class TestFunctionOfItsArguments:
             base = load_base_contract(Path({str(base_contract_path)!r}))
             testing = load_domain_contract(Path({str(testing_contract_path)!r}), base=base, predecessor=None)
             profile = compile_profile(base, [testing])
-            EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
-            COHORT = VocabularyBinding(namespace=None, release=None, dataset_identity="0" * 64)
+            EX = ReleaseBinding(namespace="EX", release="2026-01-01")
+            COHORT = DatasetBinding(dataset="dataset:" + "0" * 64)
             snapshot = build_snapshot(readable={{EX: [{GENE!r}, {OTHER_GENE!r}, {OUTCOME!r}], COHORT: [{ADULTS!r}]}})
             node = stored.proposition_node(
                 "p",
                 title="p",
                 claim={{
                     "operator": {wire.operator!r},
-                    "args": [{wire.args[0]!r}, {wire.args[1]!r}],
+                    "roles": {dict(wire.roles)!r},
                     "qualifiers": {{}},
+                    "form": {wire.form!r},
                     "polarity": {wire.polarity!r},
                     "layer": {wire.layer!r},
                 }},
@@ -150,8 +174,13 @@ class TestFunctionOfItsArguments:
         [
             lambda f: {k: v for k, v in f.items() if k != "polarity"},  # missing field
             lambda f: {**f, "extra": "x"},  # extra field
-            lambda f: {**f, "args": "not-a-list"},  # malformed field
+            lambda f: {**f, "roles": "not-a-map"},  # malformed field
+            lambda f: {
+                **f,
+                "roles": {"cause": [ref(ENTITY, GENE)], "effect": ref(OUTCOME_SORT, OUTCOME)},
+            },  # member shape
             lambda f: {**f, "qualifiers": {"dim": {"quantifier": "all"}}},  # malformed qualifier body
+            lambda f: {**f, "qualifiers": {"dim": {"quantifier": "all", "restriction": ADULTS}}},  # v1 restriction
         ],
     )
     def test_refuses_before_delegation_and_mints_nothing(self, profile, readable, affects, monkeypatch, mutate):
