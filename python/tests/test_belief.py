@@ -60,7 +60,10 @@ PROFILE = compile_profile(_base, [_testing])
 CLAIM = build_claim(
     profile=PROFILE,
     operator="testing/affects",
-    args=(Referent(sort="testing/entity", term="EX:gene-x"), Referent(sort="testing/outcome", term="EX:pheno-y")),
+    roles={
+        "cause": Referent(sort="testing/entity", term="EX:gene-x"),
+        "effect": Referent(sort="testing/outcome", term="EX:pheno-y"),
+    },
     polarity="positive",
     layer="causal",
 )
@@ -73,9 +76,12 @@ PROPOSITION = claim_identity(CLAIM)
 # identity, so it exercises "present in `records.claims`, read by nobody".
 OTHER_CLAIM = build_claim(
     profile=PROFILE,
-    operator="testing/subtype-of",
-    args=(Referent(sort="testing/entity", term="EX:gene-x"), Referent(sort="testing/entity", term="EX:gene-z")),
-    layer="structural",
+    operator="testing/measured-by",
+    roles={
+        "subject": Referent(sort="testing/entity", term="EX:gene-x"),
+        "instrument": Referent(sort="testing/method", term="EX:gene-z"),
+    },
+    layer="methodological",
 )
 OTHER_PROPOSITION = claim_identity(OTHER_CLAIM)
 
@@ -319,7 +325,7 @@ class TestNoMagnitudeBearingRead:
                 "applicability",
                 {
                     "applicability": typed_applicability(
-                        {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))}
+                        {"testing/follow-up": Qualifier("generic", Referent("testing/level", "EX:six-months"))}
                     )
                 },
             ),

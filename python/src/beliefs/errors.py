@@ -845,6 +845,12 @@ class DimensionNotClaimSide(ClaimError):
     it never appears among a claim's qualifiers."""
 
 
+class DimensionNotApplicabilitySide(ClaimError):
+    """An applicability restriction on a dimension the pack placed claim-side:
+    `DimensionNotClaimSide`'s converse. Such a dimension says what a claim
+    asserts, never where an estimate applies."""
+
+
 class FormRefused(ClaimError):
     """A claim form the operator's template does not admit. ``"null"`` is
     admitted only by a template that declares it, and only a sign-apt template
@@ -899,8 +905,10 @@ class UntypedEstimandMember(EstimandError):
 
 
 class ContrastRefused(EstimandError):
-    """A slot outside `Fin(arity)`, a `levels` contrast on a slot with no level sort,
-    two equal levels, a continuous increment that is not a finite `Decimal > 0`."""
+    """A contrast whose role is not one of the operator's template's roles, a
+    `member` present on a `one` role or absent from a `many` one, a `member` that
+    is not a member of the claim's role (by canonical member key), two equal
+    levels, a continuous increment that is not a finite `Decimal > 0`."""
 
 
 class MeasureRefused(EstimandError):
@@ -924,8 +932,14 @@ class UncertaintyRefused(EstimandError):
 
 
 class EstimandSortMismatch(EstimandError):
-    """A referent whose sort is not the one the operator's declaration names
-    for its position — a term with no position to occupy."""
+    """A referent whose sort the profile does not declare, or two levels of one
+    contrast of different sorts — a term with no position to occupy."""
+
+
+class EstimandNotAdmitted(EstimandError):
+    """An estimand no estimand declaration of the claim's admitting set admits in
+    full (R12), or one checked against a claim whose identity or operator it does
+    not carry. Fields are never combined across declarations."""
 
 
 class EstimandFragmentRefused(EstimandError):
@@ -1052,7 +1066,8 @@ class BasisTagMismatch(RecordError):
 class MalformedSpec(RecordError):
     """A spec facet the freeze cannot accept — an empty ``target``, a seed plan
     whose stream-to-root mapping is not total (a derivation with no determined
-    root argument), a mapped root nobody declared."""
+    root argument), a mapped root nobody declared, a cited register id that is not
+    ``assumptions-register:`` followed by 64 lowercase hex characters."""
 
 
 class UnfreezableSpec(RecordError):

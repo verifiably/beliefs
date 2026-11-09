@@ -36,6 +36,7 @@ from beliefs.estimand import (
     LevelsContrast,
     Measure,
     StandardError,
+    admit_estimand,
     applicability_projection,
     build_applicability,
     build_estimand,
@@ -58,7 +59,19 @@ STAT = "natural-systems-pilot/statistic"
 IDENT = "natural-systems-pilot/identification"
 OPERATOR = "natural-systems-pilot/departs-from-series-source-observation-procedure"
 
-RECORD = "pilot-record-01"
+RECORD = "ns-pilot-series:pilot-record-01"
+
+
+def proc(local: str) -> str:
+    return f"ns-pilot-procedures:{local}"
+
+
+def stat(local: str) -> str:
+    return f"ns-pilot-statistics:{local}"
+
+
+def ident(local: str) -> str:
+    return f"ns-pilot-identification:{local}"
 
 
 @pytest.fixture()
@@ -73,7 +86,7 @@ def claim(profile):
     return build_claim(
         profile,
         operator=OPERATOR,
-        args=(Referent(SERIES, RECORD), Referent(PROC, "fourier-phase-randomized")),
+        roles={"source": Referent(SERIES, RECORD), "procedure": Referent(PROC, proc("fourier-phase-randomized"))},
         layer="statistical",
         polarity="unsigned",
     )
@@ -89,10 +102,10 @@ def snapshot(profile):
     # `identification`.
     return build_snapshot(
         readable={
-            profile.sorts[SERIES].vocabulary: [RECORD],
-            profile.sorts[PROC].vocabulary: ["identity", "fourier-phase-randomized", "aaft"],
-            profile.sorts[STAT].vocabulary: ["co-trev-1-num", "co-trev-2-num"],
-            profile.sorts[IDENT].vocabulary: ["within-series-surrogate"],
+            profile.sorts[SERIES].binding: [RECORD],
+            profile.sorts[PROC].binding: [proc("identity"), proc("fourier-phase-randomized"), proc("aaft")],
+            profile.sorts[STAT].binding: [stat("co-trev-1-num"), stat("co-trev-2-num")],
+            profile.sorts[IDENT].binding: [ident("within-series-surrogate")],
         }
     )
 
@@ -100,11 +113,14 @@ def snapshot(profile):
 def parts(**overrides):
     fields = {
         "contrast": LevelsContrast(
-            slot=1, baseline=Referent(PROC, "fourier-phase-randomized"), comparison=Referent(PROC, "identity")
+            role="procedure",
+            member=None,
+            baseline=Referent(PROC, proc("fourier-phase-randomized")),
+            comparison=Referent(PROC, proc("identity")),
         ),
-        "measure": Measure(quantity=Referent(STAT, "co-trev-1-num"), scale="additive"),
+        "measure": Measure(quantity=Referent(STAT, stat("co-trev-1-num")), scale="additive"),
         "reference": Decimal(0),
-        "control": Control(identification=Referent(IDENT, "within-series-surrogate"), conditioning=()),
+        "control": Control(identification=Referent(IDENT, ident("within-series-surrogate")), conditioning=()),
     }
     fields.update(overrides)
     return fields
@@ -119,13 +135,14 @@ def build(profile, claim, snapshot, **overrides):
 
 
 class TestAdmission:
-    def test_the_levels_contrast_on_the_procedure_slot_is_admitted(self, profile, claim, snapshot):
+    def test_the_levels_contrast_on_the_procedure_role_is_admitted(self, profile, claim, snapshot):
         estimand, receipt = build_estimand(profile, claim, snapshot=snapshot, **parts())
         projection = estimand_projection(estimand)
         contrast = cast(dict, projection["contrast"])
         assert projection["claim"] == claim_identity(claim)
         assert projection["operator"] == OPERATOR
-        assert contrast["slot"] == 1
+        assert contrast["role"] == "procedure" and "member" not in contrast
+        assert admit_estimand(profile, estimand, claim, authoring=True) == frozenset({"natural-systems-pilot"})
         assert contrast["kind"] == "levels"
         assert projection["reference"] == Decimal(0)
         from beliefs.resolution import TermOutcome
@@ -174,7 +191,7 @@ class TestAdmission:
 
 def test_a_surrogate_family_as_one_contrast_refuses_at_the_fragment(profile, claim, snapshot):
     # Refusal (a): identity against phase-randomized *and* AAFT is three levels on
-    # one slot. `LevelsContrast` has no third slot to name the third level
+    # one role. `LevelsContrast` has no third member to name the third level
     # (only `baseline`/`comparison`), so the family enters the only other way
     # it could — as a second contrast — and `build_estimand`'s `**richer`
     # refuses that by name rather than flattening it.
@@ -185,24 +202,29 @@ def test_a_surrogate_family_as_one_contrast_refuses_at_the_fragment(profile, cla
             snapshot=snapshot,
             **parts(),
             second_contrast=LevelsContrast(
-                slot=1, baseline=Referent(PROC, "fourier-phase-randomized"), comparison=Referent(PROC, "aaft")
+                role="procedure",
+                member=None,
+                baseline=Referent(PROC, proc("fourier-phase-randomized")),
+                comparison=Referent(PROC, proc("aaft")),
             ),
         )
     assert "second_contrast" in str(excinfo.value)
 
 
-def test_a_lag_range_as_a_continuous_contrast_over_an_absent_slot_refuses_with_the_slot_named(profile, claim, snapshot):
-    # Refusal (b): a lag range has no argument slot at all — the operator's arity
-    # is 2 (`Fin(2) = {0, 1}`), so slot 2 is outside it and the refusal names
-    # the slot.
-    with pytest.raises(ContrastRefused, match="slot 2") as excinfo:
+def test_a_lag_range_as_a_continuous_contrast_over_an_absent_role_refuses_with_the_role_named(profile, claim, snapshot):
+    # Refusal (b): a lag range has no role at all — the template's roles are
+    # `source` and `procedure`, so a contrast on `lag` is outside them and the
+    # refusal names the role and the roles there are.
+    with pytest.raises(ContrastRefused, match="role 'lag'") as excinfo:
         build(
             profile,
             claim,
             snapshot,
-            contrast=ContinuousContrast(slot=2, quantity=Referent(STAT, "co-trev-1-num"), increment=Decimal(1)),
+            contrast=ContinuousContrast(
+                role="lag", member=None, quantity=Referent(STAT, stat("co-trev-1-num")), increment=Decimal(1)
+            ),
         )
-    assert "Fin(2)" in str(excinfo.value)
+    assert "['procedure', 'source']" in str(excinfo.value)
 
 
 def test_a_data_dependent_looking_reference_is_admitted_because_the_type_cannot_tell(profile, claim, snapshot):
@@ -290,8 +312,12 @@ def test_a_float_estimate_refuses_and_is_never_coerced(profile, claim, snapshot)
 
 class TestCommensuration:
     def test_two_estimands_differing_only_in_the_statistic_are_not_commensurable(self, profile, claim, snapshot):
-        a = build(profile, claim, snapshot, measure=Measure(quantity=Referent(STAT, "co-trev-1-num"), scale="additive"))
-        b = build(profile, claim, snapshot, measure=Measure(quantity=Referent(STAT, "co-trev-2-num"), scale="additive"))
+        a = build(
+            profile, claim, snapshot, measure=Measure(quantity=Referent(STAT, stat("co-trev-1-num")), scale="additive")
+        )
+        b = build(
+            profile, claim, snapshot, measure=Measure(quantity=Referent(STAT, stat("co-trev-2-num")), scale="additive")
+        )
         assert not commensurable(a, b)
 
     def test_two_estimands_differing_only_in_identification_are_commensurable(self, profile, claim, snapshot):
@@ -302,26 +328,26 @@ class TestCommensuration:
         # test's own snapshot to exercise the difference — the fixture names only
         # `within-series-surrogate`; a distinct scheme is legitimate test data
         # for the sort, not a member the fragment lacks.
-        binding = profile.sorts[IDENT].vocabulary
+        binding = profile.sorts[IDENT].binding
         readable = build_snapshot(
             readable={
-                profile.sorts[SERIES].vocabulary: [RECORD],
-                profile.sorts[PROC].vocabulary: ["identity", "fourier-phase-randomized", "aaft"],
-                profile.sorts[STAT].vocabulary: ["co-trev-1-num", "co-trev-2-num"],
-                binding: ["within-series-surrogate", "block-bootstrap-surrogate"],
+                profile.sorts[SERIES].binding: [RECORD],
+                profile.sorts[PROC].binding: [proc("identity"), proc("fourier-phase-randomized"), proc("aaft")],
+                profile.sorts[STAT].binding: [stat("co-trev-1-num"), stat("co-trev-2-num")],
+                binding: [ident("within-series-surrogate"), ident("block-bootstrap-surrogate")],
             }
         )
         a = build(
             profile,
             claim,
             readable,
-            control=Control(identification=Referent(IDENT, "within-series-surrogate"), conditioning=()),
+            control=Control(identification=Referent(IDENT, ident("within-series-surrogate")), conditioning=()),
         )
         b = build(
             profile,
             claim,
             readable,
-            control=Control(identification=Referent(IDENT, "block-bootstrap-surrogate"), conditioning=()),
+            control=Control(identification=Referent(IDENT, ident("block-bootstrap-surrogate")), conditioning=()),
         )
         assert commensurable(a, b)
 

@@ -87,7 +87,10 @@ UNCONSULTED = build_snapshot(readable={})
 def typed_estimand(**overrides):
     fields = {
         "contrast": LevelsContrast(
-            slot=0, baseline=Referent("testing/level", "EX:ndmm"), comparison=Referent("testing/level", "EX:pd")
+            role="cause",
+            member=None,
+            baseline=Referent("testing/level", "EX:ndmm"),
+            comparison=Referent("testing/level", "EX:pd"),
         ),
         "measure": Measure(quantity=Referent("testing/measure", "EX:tpm"), scale="additive"),
         "reference": Decimal(0),
@@ -139,6 +142,7 @@ def spec_draft(**overrides) -> SpecDraft:
         "equivalence_rule": "content-identity-equality/v1",
         "parameters": {"alpha": Decimal("0.05")},
         "nondeterminism": Seeded(plan=seed_plan()),
+        "registers": (),
     }
     fields.update(overrides)
     return SpecDraft(**fields)

@@ -40,7 +40,7 @@ PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
 OTHER_CLAIM = build_claim(
     TESTING_PROFILE,
     operator="testing/affects",
-    args=(Referent("testing/entity", "EX:gene-z"), Referent("testing/outcome", "EX:pheno-y")),
+    roles={"cause": Referent("testing/entity", "EX:gene-z"), "effect": Referent("testing/outcome", "EX:pheno-y")},
     layer="causal",
     polarity="positive",
 )
@@ -1345,7 +1345,7 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
 
     from fixtures_cut3 import TESTING_CLAIM, UNCONSULTED
 
-    from beliefs.claim import Referent, build_claim
+    from beliefs.claim import Member, Referent, build_claim
     from beliefs.errors import ImportRefused
     from beliefs.estimand import ContinuousContrast, Control, Measure, build_estimand
     from beliefs.identity import v1
@@ -1353,10 +1353,11 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
     from beliefs.spec import SPEC_DOMAIN, frozen_projection
 
     target = writer.add(stored.proposition_node("p-target", title="p-target", claim=project_claim(TESTING_CLAIM)))
+    event = Referent("testing/event", "EX:e-1")
     correlates = build_claim(
         TESTING_PROFILE,
         operator="testing/correlates-with",
-        args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")),
+        roles={"parties": [Member(event), Member(Referent("testing/product", "EX:p-1"))]},
         layer="statistical",
         polarity="positive",
     )
@@ -1364,11 +1365,11 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
         TESTING_PROFILE,
         correlates,
         snapshot=UNCONSULTED,
-        contrast=ContinuousContrast(0, Referent("testing/measure", "EX:tpm"), Decimal(1)),
+        contrast=ContinuousContrast("parties", event, Referent("testing/measure", "EX:tpm"), Decimal(1)),
         measure=Measure(Referent("testing/measure", "EX:tpm"), "additive"),
         reference=Decimal(0),
         control=Control(Referent("testing/identification", "EX:observational"), ()),
-    )  # correlates-with declares level_sorts {}, so the contrast is continuous, not levels
+    )
     spec = freeze(spec_draft(target=target.id, estimand=foreign), held_rules=spec_rules())
     projection = frozen_projection(spec)
     projection["estimand"]["claim"] = claim_identity(TESTING_CLAIM)  # type: ignore[index]  # the target's true hash, another operator
@@ -1405,6 +1406,38 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
     [finding] = [f for f in findings if f.ref == node.id]
     assert finding.code == "spec-target-contradicted"
     assert finding.detail == "operator"
+
+
+def test_check_spec_target_reports_admission_disagreement(writer):
+    """The door's mirror (R12): a raw-written spec whose estimand carries its
+    target's claim identity and operator, but whose fields only a declaration
+    outside the claim's admitting set admits, restores (shape only) and is
+    contradicted by the audit on admission alone."""
+    from beliefs.audit import check_spec_target
+    from beliefs.decode import estimand_from_stored
+    from beliefs.estimand import estimand_projection
+    from beliefs.projection import claim_identity
+
+    entity_entity = build_claim(
+        TESTING_PROFILE,
+        operator="testing/affects",
+        roles={"cause": Referent("testing/entity", "EX:gene-x"), "effect": Referent("testing/entity", "EX:gene-y")},
+        layer="causal",
+        polarity="positive",
+    )  # only `affects-entity-entity` admits it; the estimand is `affects-entity-outcome`'s
+    projection = estimand_projection(typed_estimand())
+    projection["claim"] = claim_identity(entity_entity)
+    shape_only = estimand_from_stored(projection, profile=TESTING_PROFILE)
+    target = writer.add(stored.proposition_node("p-ee", title="p-ee", claim=project_claim(entity_entity)))
+    node = stored.analysis_spec_node(freeze(spec_draft(target=target.id, estimand=shape_only), held_rules=spec_rules()))
+    raw_write(writer.root, node)
+
+    outcome = check_spec_target(reopen(writer.root), node, profile=TESTING_PROFILE)
+    assert outcome.checked and outcome.contradiction is not None
+    assert outcome.contradiction.code == "spec-target-contradicted" and outcome.contradiction.detail == "admission"
+    findings = audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=TESTING_PROFILE)
+    [finding] = [f for f in findings if f.ref == node.id]
+    assert finding.code == "spec-target-contradicted" and finding.detail == "admission"
 
 
 def test_explicit_import_refuses_a_spec_whose_target_does_not_resolve_in_the_union(tmp_path):

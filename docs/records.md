@@ -169,7 +169,7 @@ Some records are content-addressed: their id is derived from their content.
   `science.exposure-event.v1`, and a reservation assignment's is
   `reservation-assignment:` and the digest of its facet under
   `science.reservation-assignment.v1`.
-- An analysis spec's id is its spec identity under `science.spec.v1`. An act
+- An analysis spec's id is its spec identity under `science.spec.v2`. An act
   report's id is the digest of its facet under `science.act-report.v1`, and a
   retraction's is the digest of its facet under `science.retraction.v1`.
 - A run that carries a `run-closure` facet has the id `run:<digest>`, taken over
@@ -277,10 +277,45 @@ superseding the proposition: the successor is a new record linked to it by
 
 An `analysis-spec` facet has exactly two fields: `identity` and `projection`. The
 `projection` is the canonical text of the frozen spec: its target, estimand,
-method, input roles, applicability, rules and parameters. The text, the identity
-and the record id must all agree. The spec's estimand must name the claim identity
-and the operator of the proposition it targets, which must resolve in the same
-corpus.
+method, input roles, applicability, rules, parameters and `registers`, the list of
+`assumptions-register:` ids the analysis relies on (required, possibly empty). The
+text, the identity and the record id must all agree. Freezing a spec refuses a
+`registers` entry that is not `assumptions-register:` followed by 64 lowercase hex
+characters (`MalformedSpec`); reading a stored one refuses it as
+`MalformedRecord`.
+
+An estimand names the claim it answers by identity and operator, and its contrast
+names one role of the operator's template (`role`); a contrast on a `many` role
+also names the member of that role it is on (`member`, a `{sort, term}` referent),
+and on a `one` role carries no `member`. The levels of a `levels` contrast share a
+sort. This role contrast is interim: the estimand grammar's own design replaces
+it. Restoring a stored estimand types only this shape against the profile: the
+operator resolves, the role is the template's, `member` is present exactly on a
+`many` role, and every referent's sort is declared. Whether the estimand is
+admitted for its claim is a separate check against that claim: the estimand must
+carry the claim's identity and operator, a contrast `member` must be a member of
+the claim's role by canonical member key, and some estimand declaration of an
+instantiation (or the bridge) admitting the claim must admit every field at once:
+the contrast's level sort for its role (for a `continuous` contrast, the measure
+sort), the measure sort, the identification sort and the conditioning sort. Fields
+admitted by different declarations do not combine. An estimand that fails this is
+`EstimandNotAdmitted` (or `ContrastRefused` for a member outside the role).
+Authoring an estimand checks admission against the declarations whose
+instantiations are not retired; the write door and the audit include retired ones.
+
+When a spec is written, its target must resolve in the same corpus to a
+proposition, and the spec's estimand must name that proposition's claim identity
+and operator and be admitted for its claim; otherwise the write is refused
+(`estimand-target-unresolvable`, `estimand-target-mismatch`,
+`estimand-not-admitted`). The audit reports a mismatch or a refused admission as
+`spec-target-contradicted`, naming `claim`, `operator` or `admission`; admission is
+checked only when the claim identity and operator agree.
+
+A spec's applicability restricts where its estimate applies: each restriction
+names a dimension placed `applicability` whose `applies_to` names the claim's
+operator (`DimensionNotApplicabilitySide` for a dimension placed `claim`,
+`UndeclaredDimension` otherwise), with a quantifier from the kernel's set and a
+restriction of the dimension's restriction sort. The claim is not typed again.
 
 A `run` facet names the spec the run executes, when it has one. A run's inputs are
 typed by role. `observes` names held data and is the only role that can make an

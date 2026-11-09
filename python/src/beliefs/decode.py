@@ -45,10 +45,7 @@ from beliefs.errors import (
     ClaimError,
     MalformedWireClaim,
     MalformedWireEstimand,
-    RestrictionSortMismatch,
     UnboundReferent,
-    UndeclaredDimension,
-    UnknownQuantifier,
 )
 from beliefs.estimand import ContinuousContrast, Control, Estimand, LevelsContrast, Measure
 from beliefs.profile import ProfileSpec
@@ -397,14 +394,20 @@ def claim_from_stored(
 
 # --- Estimands --------------------------------------
 #
+# Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the estimand structure around these names.
+#
 # `decode_estimand` mirrors `decode_claim`'s discipline one artifact over: type
-# first, against the operator's `estimands:` declaration, then resolve. But the
-# restoration route differs from `claim_from_stored`'s in the one respect that
-# matters: `estimand_from_stored` performs **no resolution at all**, because a
-# stored spec was typed against the declarations and membership was the
-# freeze's own check, not something a reader repeats. Retirement is unenforced
-# on every route here, for `decode_claim`'s reason: a decoder cannot tell
-# authoring from restoration.
+# first, then resolve. What it types is the estimand's **shape**
+# (`Estimand._checked`): no estimand declaration is read, because the wire
+# estimand carries no role assignment and admission (R12) is over the claim's
+# admitting set. Admission is `estimand.admit_estimand`'s, which every consumer
+# holding the claim calls. So every referent arrives as `{sort, term}`: with no
+# declaration to read, a bare term has no sort to take. The restoration route
+# differs from `claim_from_stored`'s in the one respect that matters:
+# `estimand_from_stored` performs **no resolution at all**, because membership was
+# the freeze's own check, not something a reader repeats. Retirement is
+# unenforced on every route here, for `decode_claim`'s reason: a decoder cannot
+# tell authoring from restoration.
 
 _WIRE_ESTIMAND_KEYS = frozenset({"claim", "operator", "contrast", "measure", "reference", "control"})
 
@@ -432,40 +435,27 @@ class WireEstimand:
     control: Mapping[str, object]
 
 
-def _wire_referent(value: object, where: str, *, declared: str, stored: bool) -> Referent:
-    """A referent in one of two forms, and the route decides which is admitted.
-
-    The **bare-term** form carries a term only and takes the declaration's sort;
-    it is the wire form, admitted by `decode_estimand` and nowhere else. The
-    **stored** form is exactly `{sort, term}` with a non-empty string sort,
-    passed through unchanged so that `Estimand._checked` refuses a sort that is
-    not the declared one. On a stored route (`stored=True`) a bare term is
-    refused outright: substituting the declaration's sort for a wrapper that is
-    missing, empty, non-string or absent altogether would repair a malformed
-    record on the way in, which is the one thing a decoder must not do."""
-    if isinstance(value, Mapping):
-        if set(value) != {"sort", "term"}:
-            raise MalformedWireEstimand(f"{where}: a stored referent is exactly {{sort, term}}")
-        return Referent(
-            sort=_require_estimand_text(value["sort"], f"{where}.sort"),
-            term=_require_estimand_text(value["term"], f"{where}.term"),
-        )
-    if stored:
+def _wire_referent(value: object, where: str) -> Referent:
+    """A referent is exactly `{sort, term}` with non-empty string members,
+    passed through unchanged so that the typed check refuses a sort that is
+    wrong. A bare term is refused: a decoder that substituted a declared sort
+    for a missing wrapper would repair a malformed value on the way in, and a
+    shape-only estimand decoder reads no declaration to take a sort from."""
+    if not isinstance(value, Mapping):
         raise MalformedWireEstimand(
-            f"{where}: a stored referent is exactly {{sort, term}}; a bare term is the wire form's, never a record's"
+            f"{where}: a referent is exactly {{sort, term}}; a bare term carries no sort, and none is supplied"
         )
-    return Referent(sort=declared, term=_require_estimand_text(value, where))
+    if set(value) != {"sort", "term"}:
+        raise MalformedWireEstimand(f"{where}: a referent is exactly {{sort, term}}")
+    return Referent(
+        sort=_require_estimand_text(value["sort"], f"{where}.sort"),
+        term=_require_estimand_text(value["term"], f"{where}.term"),
+    )
 
 
 def _decimal(value: object, where: str) -> Decimal:
     if type(value) is not Decimal:
         raise MalformedWireEstimand(f"{where}: expected a Decimal, found {type(value).__name__}")
-    return value
-
-
-def _slot(value: object, where: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise MalformedWireEstimand(f"{where}: slot is an integer, found {value!r}")
     return value
 
 
@@ -484,12 +474,17 @@ def _exact_keys(body: Mapping[str, object], keys: set[str], where: str) -> None:
         )
 
 
-def _typed_estimand(wire: WireEstimand, profile: ProfileSpec, *, stored: bool) -> Estimand:
+def _contrast_keys(body: Mapping[str, object], keys: set[str]) -> None:
+    """A contrast's members: `role`, `kind`, the kind's own, and `member` exactly
+    when the contrast is on a `many` role (absent, never null, otherwise)."""
+    _exact_keys(body, keys | ({"member"} if "member" in body else set()), "contrast")
+
+
+def _typed_estimand(wire: WireEstimand, profile: ProfileSpec) -> Estimand:
     if not isinstance(wire, WireEstimand):
         raise MalformedWireEstimand(f"decode_estimand takes a WireEstimand, found {type(wire).__name__}")
     claim = _require_estimand_text(wire.claim, "claim")
     operator = _require_estimand_text(wire.operator, "operator")
-    declaration = profile.estimand(operator)
     contrast_body, measure_body, control_body = (
         _mapping_body(getattr(wire, name), name) for name in ("contrast", "measure", "control")
     )
@@ -498,33 +493,29 @@ def _typed_estimand(wire: WireEstimand, profile: ProfileSpec, *, stored: bool) -
         raise MalformedWireEstimand(
             f"contrast.kind {kind!r} is outside {list(profile.estimand_grammar.contrast_kinds)}"
         )
-    slot = _slot(contrast_body.get("slot"), "contrast.slot")
+    role = _require_estimand_text(contrast_body.get("role"), "contrast.role")
+    member = _wire_referent(contrast_body["member"], "contrast.member") if "member" in contrast_body else None
     if kind == "levels":
-        _exact_keys(contrast_body, {"slot", "kind", "baseline", "comparison"}, "contrast")
-        level_sort = declaration.level_sorts.get(str(slot), "")
+        _contrast_keys(contrast_body, {"role", "kind", "baseline", "comparison"})
         contrast: LevelsContrast | ContinuousContrast = LevelsContrast(
-            slot=slot,
-            baseline=_wire_referent(contrast_body["baseline"], "contrast.baseline", declared=level_sort, stored=stored),
-            comparison=_wire_referent(
-                contrast_body["comparison"], "contrast.comparison", declared=level_sort, stored=stored
-            ),
+            role=role,
+            member=member,
+            baseline=_wire_referent(contrast_body["baseline"], "contrast.baseline"),
+            comparison=_wire_referent(contrast_body["comparison"], "contrast.comparison"),
         )
     elif kind == "continuous":
-        _exact_keys(contrast_body, {"slot", "kind", "quantity", "increment"}, "contrast")
+        _contrast_keys(contrast_body, {"role", "kind", "quantity", "increment"})
         contrast = ContinuousContrast(
-            slot=slot,
-            quantity=_wire_referent(
-                contrast_body["quantity"], "contrast.quantity", declared=declaration.measure_sort, stored=stored
-            ),
+            role=role,
+            member=member,
+            quantity=_wire_referent(contrast_body["quantity"], "contrast.quantity"),
             increment=_decimal(contrast_body["increment"], "contrast.increment"),
         )
     else:
         raise MalformedWireEstimand(f"contrast.kind {kind!r} is declared but not operable")
     _exact_keys(measure_body, {"quantity", "scale"}, "measure")
     measure = Measure(
-        quantity=_wire_referent(
-            measure_body["quantity"], "measure.quantity", declared=declaration.measure_sort, stored=stored
-        ),
+        quantity=_wire_referent(measure_body["quantity"], "measure.quantity"),
         scale=_require_estimand_text(measure_body["scale"], "measure.scale"),
     )
     _exact_keys(control_body, {"identification", "conditioning"}, "control")
@@ -532,15 +523,9 @@ def _typed_estimand(wire: WireEstimand, profile: ProfileSpec, *, stored: bool) -
     if isinstance(conditioning, (str, bytes)) or not isinstance(conditioning, Sequence):
         raise MalformedWireEstimand("control.conditioning is a sequence of referents")
     control = Control(
-        identification=_wire_referent(
-            control_body["identification"],
-            "control.identification",
-            declared=declaration.identification_sort,
-            stored=stored,
-        ),
+        identification=_wire_referent(control_body["identification"], "control.identification"),
         conditioning=tuple(
-            _wire_referent(member, f"control.conditioning[{i}]", declared=declaration.conditioning_sort, stored=stored)
-            for i, member in enumerate(conditioning)
+            _wire_referent(member, f"control.conditioning[{i}]") for i, member in enumerate(conditioning)
         ),
     )
     return Estimand._checked(
@@ -557,7 +542,10 @@ def _typed_estimand(wire: WireEstimand, profile: ProfileSpec, *, stored: bool) -
 def decode_estimand(
     wire: WireEstimand, *, profile: ProfileSpec, snapshot: ResolutionSnapshot
 ) -> tuple[Estimand, BindingCheckReceipt]:
-    """Type and resolve a wire estimand, or refuse — `decode_claim`'s discipline."""
+    """Type a wire estimand's shape and resolve its referents, or refuse —
+    `decode_claim`'s discipline. It establishes no admission: whether some
+    estimand declaration admits it for its claim is `admit_estimand`'s, which
+    needs the claim."""
     from beliefs.estimand import _referent_positions, _resolve_all
 
     if not isinstance(profile, ProfileSpec):
@@ -565,7 +553,7 @@ def decode_estimand(
             f"profile is a {type(profile).__name__}, not a compiled ProfileSpec — use compile_profile(base, domains)."
         )
     _require_snapshot(snapshot, MalformedWireEstimand)
-    estimand = _typed_estimand(wire, profile, stored=False)
+    estimand = _typed_estimand(wire, profile)
     outcomes = _resolve_all(
         profile, snapshot, {ReferentPosition.estimand(p).label(): r for p, r in _referent_positions(estimand).items()}
     )
@@ -573,46 +561,34 @@ def decode_estimand(
 
 
 def estimand_from_stored(projection: Mapping[str, object], *, profile: ProfileSpec) -> Estimand:
-    """Restore a typed estimand from a stored spec's projection member. Typed
-    against the declarations, resolved against nothing: restoration is not
-    authoring, and the freeze already performed the membership check."""
+    """Restore a typed estimand from a stored spec's projection member: its
+    shape typed against the profile, resolved against nothing — restoration is
+    not authoring, and the freeze already performed the membership check. It
+    establishes no admission: that is `admit_estimand`'s, against the claim."""
     if not isinstance(projection, Mapping) or set(projection) != _WIRE_ESTIMAND_KEYS:
         raise MalformedWireEstimand(f"a stored estimand carries exactly {sorted(_WIRE_ESTIMAND_KEYS)}")
     wire = WireEstimand(**{key: projection[key] for key in _WIRE_ESTIMAND_KEYS})  # type: ignore[arg-type]
-    return _typed_estimand(wire, profile, stored=True)
+    return _typed_estimand(wire, profile)
 
 
 def applicability_from_stored(
     projection: Mapping[str, object], *, profile: ProfileSpec, operator: str
 ) -> Mapping[str, Qualifier]:
-    """Restore an applicability map: the same checks a claim's qualifiers get."""
-    from types import MappingProxyType
+    """Restore an applicability map: each restriction typed against an
+    applicability-side dimension whose `applies_to` names `operator`, by the
+    check `build_applicability` performs."""
+    from beliefs.estimand import _checked_applicability
 
     if not isinstance(projection, Mapping):
         raise MalformedWireEstimand("a stored applicability is a mapping")
     qualifiers: dict[str, Qualifier] = {}
     for dimension, body in projection.items():
         where = f"applicability[{dimension!r}]"
-        declared = profile.dimensions.get(_require_estimand_text(dimension, "a dimension"))
-        if declared is None:
-            raise UndeclaredDimension(f"no dimension {dimension!r} in this profile")
+        name = _require_estimand_text(dimension, "a dimension")
         if not isinstance(body, Mapping) or set(body) != {"quantifier", "restriction"}:
             raise MalformedWireEstimand(f"{where}: exactly quantifier and restriction")
-        qualifiers[dimension] = Qualifier(
+        qualifiers[name] = Qualifier(
             quantifier=_require_estimand_text(body["quantifier"], f"{where}.quantifier"),
-            restriction=_wire_referent(
-                body["restriction"], f"{where}.restriction", declared=declared.restriction_sort, stored=True
-            ),
+            restriction=_wire_referent(body["restriction"], f"{where}.restriction"),
         )
-    declaration = profile.operator(operator)
-    permitted = set(declaration.dimensions)
-    for dimension, qualifier in qualifiers.items():
-        if dimension not in permitted:
-            raise UndeclaredDimension(f"{operator!r} does not permit dimension {dimension!r}")
-        if qualifier.quantifier not in profile.claim_grammar.quantifiers:
-            raise UnknownQuantifier(f"quantifier {qualifier.quantifier!r} is outside the kernel's closed set")
-        if qualifier.restriction.sort != profile.dimensions[dimension].restriction_sort:
-            raise RestrictionSortMismatch(
-                f"{dimension!r} restricts to {profile.dimensions[dimension].restriction_sort!r}"
-            )
-    return MappingProxyType(qualifiers)
+    return _checked_applicability(profile, operator, qualifiers)

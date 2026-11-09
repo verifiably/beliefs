@@ -171,6 +171,7 @@ def test_the_identity_matches_the_hand_authored_complete_normative_projection():
                     "stream_roots": {"model-initialization": "root-a"},
                 },
             },
+            "registers": [],
             "rule_bindings": [
                 ["content-identity-equality/v1", "impl-eq-1"],
                 ["median-difference/v1", "impl-interp-1"],
@@ -230,6 +231,7 @@ def test_supersedes_is_in_the_hand_authored_normative_projection():
                     "stream_roots": {"model-initialization": "root-a"},
                 },
             },
+            "registers": [],
             "rule_bindings": [
                 ["content-identity-equality/v1", "impl-eq-1"],
                 ["median-difference/v1", "impl-interp-1"],
@@ -508,7 +510,8 @@ def test_a_string_estimand_is_refused_at_the_draft():
     [
         {
             "contrast": __import__("beliefs.estimand", fromlist=["LevelsContrast"]).LevelsContrast(
-                slot=0,
+                role="cause",
+                member=None,
                 baseline=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:pd"),
                 comparison=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:ndmm"),
             )
@@ -530,10 +533,12 @@ def test_applicability_moves_the_spec_identity():
 
     from beliefs.claim import Qualifier, Referent
 
-    adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
+    six_months = typed_applicability(
+        {"testing/follow-up": Qualifier("generic", Referent("testing/level", "EX:six-months"))}
+    )
     assert (
         freeze(draft(), held_rules=held_rules()).identity
-        != freeze(draft(applicability=adults), held_rules=held_rules()).identity
+        != freeze(draft(applicability=six_months), held_rules=held_rules()).identity
     )
 
 
@@ -602,3 +607,62 @@ def test_revise_copies_the_typed_members():
     )
     assert successor.supersedes == original.identity and successor.estimand.reference == Decimal(1)
     assert dict(successor.applicability) == dict(original.applicability)
+
+
+# --- registers and the v2 identity domain -----------------------------------
+
+REGISTER = "assumptions-register:" + "ab" * 32
+
+
+def test_spec_domain_v2():
+    assert SPEC_DOMAIN == "science.spec.v2"
+    spec = freeze(draft(), held_rules=held_rules())
+    assert spec.identity == v1.digest("science.spec.v2", frozen_projection(spec))
+    assert spec.identity != v1.digest("science.spec.v1", frozen_projection(spec))
+
+
+def test_registers_required_and_frozen():
+    fields = {name: value for name, value in draft().__dict__.items() if name != "registers"}
+    with pytest.raises(TypeError, match="registers"):
+        SpecDraft(**fields)  # type: ignore[call-arg]  # required, may be empty
+    with pytest.raises(MalformedSpec, match="registers"):
+        draft(registers=[REGISTER])
+    empty = freeze(draft(), held_rules=held_rules())
+    cited = freeze(draft(registers=(REGISTER,)), held_rules=held_rules())
+    assert empty.registers == () and cited.registers == (REGISTER,)
+    assert frozen_projection(cited)["registers"] == [REGISTER]
+    assert cited.identity != empty.identity
+    successor = revise(cited, edits={}, held_rules=held_rules(), recorded_failures=frozenset())
+    assert successor.registers == (REGISTER,)
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "assumptions-register:" + "AB" * 32,
+        "assumptions-register:" + "ab" * 31,
+        "assumptions-register:" + "ab" * 32 + "\n",
+        "register:" + "ab" * 32,
+        "dataset:" + "ab" * 32,
+        "",
+    ],
+)
+def test_malformed_register_id_refuses_at_freeze(entry):
+    with pytest.raises(MalformedSpec, match="assumptions-register"):
+        freeze(draft(registers=(REGISTER, entry)), held_rules=held_rules())
+
+
+def test_restore_reads_registers():
+    spec = freeze(draft(registers=(REGISTER,)), held_rules=held_rules())
+    text = v1.encode(frozen_projection(spec))
+    restored = restore(spec.identity, text, profile=TESTING_PROFILE)
+    assert restored.registers == (REGISTER,) and restored == spec
+    missing = frozen_projection(spec)
+    del missing["registers"]
+    with pytest.raises(MalformedRecord, match="frozen members"):
+        restore(*_identified(missing), profile=TESTING_PROFILE)
+    for bad in (["assumptions-register:" + "zz" * 32], "not-a-list", [7]):
+        mapping = frozen_projection(spec)
+        mapping["registers"] = bad
+        with pytest.raises(MalformedRecord, match="register"):
+            restore(*_identified(mapping), profile=TESTING_PROFILE)

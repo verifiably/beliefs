@@ -10,10 +10,18 @@ Rule identities bind to behaviour through held, fixture-carrying
 implementations supplied to the freeze. The registry/
 resolver route — and the unresolvable-rule refusal clause — is the rules
 store's, and is not handled here.
+
+A spec cites the assumptions registers its analysis relies on (`registers`,
+possibly empty); `freeze` checks only that each is a well-formed
+`assumptions-register:` id. Whether a cited register is current is the write
+door's question, not this value's.
 """
+
+# Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the estimand structure around these names.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields
 from hashlib import sha256
@@ -70,11 +78,12 @@ __all__ = [
     "revise",
 ]
 
-SPEC_DOMAIN = "science.spec.v1"
+SPEC_DOMAIN = "science.spec.v2"
 SEED_DERIVATION_V1 = "seed-derivation/v1"
 BITWISE_EQUIVALENCE_RULES = frozenset({"content-identity-equality/v1", "beliefs/content-identity-equality/v1"})
 DATASET_EQUIVALENCE_RULE = "dataset-content-equality/v1"
 SPEC_INPUT_ROLES = ("observes", "reads")
+_REGISTER_ID = re.compile(r"assumptions-register:[0-9a-f]{64}")
 
 
 def derive_seed(stream_root: int, semantic_job_key: str, stream_key: str) -> int:
@@ -294,12 +303,16 @@ class SpecDraft:
     equivalence_rule: str
     parameters: Mapping[str, object]
     nondeterminism: Deterministic | Seeded | StochasticUnseeded
+    registers: tuple[str, ...]
+    """The `assumptions-register:` ids the analysis relies on; possibly empty."""
 
     def __post_init__(self) -> None:
         if not isinstance(self.input_roles, tuple) or not all(
             isinstance(entry, SpecInput) for entry in self.input_roles
         ):
             raise MalformedSpec("input_roles holds SpecInput values only")
+        if not isinstance(self.registers, tuple) or not all(type(entry) is str for entry in self.registers):
+            raise MalformedSpec("registers is a tuple of assumptions-register ids")
         if type(self.estimand) is not Estimand:
             raise MalformedSpec(
                 f"estimand is a typed Estimand built by build_estimand, found {type(self.estimand).__name__}"
@@ -331,6 +344,7 @@ class FrozenSpec:
     equivalence_rule: str
     parameters: Mapping[str, object]
     nondeterminism: Deterministic | Seeded | StochasticUnseeded
+    registers: tuple[str, ...]
     rule_bindings: tuple[tuple[str, str], ...]
     supersedes: str | None
     identity: str
@@ -412,6 +426,7 @@ def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) 
         "equivalence_rule": draft.equivalence_rule,
         "parameters": _project_parameter_value(draft.parameters),
         "nondeterminism": draft.nondeterminism.projection(),
+        "registers": list(draft.registers),
         "rule_bindings": [list(pair) for pair in rule_bindings],
     }
     if supersedes is not None:
@@ -429,10 +444,20 @@ def freeze(
             "stochastic-unseeded cannot support a bitwise equivalence rule — a contradiction, "
             "caught at freeze because both halves are now in one frozen record"
         )
+    _require_register_ids(draft.registers, MalformedSpec, "registers")
     rule_bindings = bind_rules((draft.interpretation_rule, draft.equivalence_rule), held_rules)
     identity = v1.digest(SPEC_DOMAIN, _facet_projection(draft, rule_bindings, supersedes))
     members = {f.name: getattr(draft, f.name) for f in fields(SpecDraft)}
     return _mint_frozen_spec(**members, rule_bindings=rule_bindings, supersedes=supersedes, identity=identity)
+
+
+def _require_register_ids(registers: tuple[str, ...], error: type[MalformedSpec | MalformedRecord], where: str) -> None:
+    for entry in registers:
+        if type(entry) is not str or _REGISTER_ID.fullmatch(entry) is None:
+            raise error(
+                f"{where}: {entry!r} is not an assumptions-register id — `assumptions-register:` followed by "
+                "64 lowercase hex characters"
+            )
 
 
 def frozen_projection(spec: FrozenSpec) -> dict[str, object]:
@@ -457,6 +482,7 @@ _FROZEN_MEMBERS = frozenset(
         "equivalence_rule",
         "parameters",
         "nondeterminism",
+        "registers",
         "rule_bindings",
     }
 )
@@ -562,6 +588,10 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
         not isinstance(pair, list) or len(pair) != 2 or any(type(half) is not str for half in pair) for pair in bindings
     ):
         raise MalformedRecord(f"{where}: rule bindings are string pairs")
+    registers = mapping["registers"]
+    if not isinstance(registers, list) or any(type(entry) is not str for entry in registers):
+        raise MalformedRecord(f"{where}: registers is a list of assumptions-register ids")
+    _require_register_ids(tuple(registers), MalformedRecord, where)
     nondeterminism = _restore_nondeterminism(mapping["nondeterminism"], where)
     if isinstance(nondeterminism, StochasticUnseeded) and text["equivalence_rule"] in BITWISE_EQUIVALENCE_RULES:
         raise UnfreezableSpec("stochastic-unseeded cannot support a bitwise equivalence rule")
@@ -575,6 +605,7 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
         input_roles=tuple(_restore_input(entry, where) for entry in mapping["input_roles"]),
         parameters=mapping["parameters"],
         nondeterminism=nondeterminism,
+        registers=tuple(registers),
         rule_bindings=tuple((pair[0], pair[1]) for pair in bindings),
         supersedes=supersedes,
         identity=identity,
@@ -610,5 +641,6 @@ def revise(
         equivalence_rule=cast(str, edits.get("equivalence_rule", original.equivalence_rule)),
         parameters=cast(Mapping[str, object], edits.get("parameters", original.parameters)),
         nondeterminism=cast(NondeterminismContract, edits.get("nondeterminism", original.nondeterminism)),
+        registers=cast(tuple[str, ...], edits.get("registers", original.registers)),
     )
     return freeze(draft, held_rules=held_rules, supersedes=original.identity)

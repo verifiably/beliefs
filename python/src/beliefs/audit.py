@@ -376,8 +376,13 @@ def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> Derivatio
 def check_spec_target(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> DerivationOutcome:
-    """The boundary's estimand-target comparison, over a stored record."""
+    """The boundary's estimand-target comparison, over a stored record: the
+    claim identity, the operator and, when both agree, admission of the
+    estimand for the target's claim (`admit_estimand` over the decodable set),
+    each a disagreement of its own."""
     from beliefs.decode import claim_from_stored
+    from beliefs.errors import EstimandError
+    from beliefs.estimand import admit_estimand
     from beliefs.projection import claim_identity
     from beliefs.resolution import build_snapshot
 
@@ -393,6 +398,11 @@ def check_spec_target(
         disagreements.append("claim")
     if spec.estimand.operator != claim.operator:
         disagreements.append("operator")
+    if not disagreements:
+        try:
+            admit_estimand(profile, spec.estimand, claim, authoring=False)
+        except EstimandError:
+            disagreements.append("admission")
     if not disagreements:
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(

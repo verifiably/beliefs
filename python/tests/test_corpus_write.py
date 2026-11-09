@@ -1255,7 +1255,10 @@ class TestEstimandTargetMatch:
         other = build_claim(
             TESTING_PROFILE,
             operator="testing/affects",
-            args=(Referent("testing/entity", "EX:gene-z"), Referent("testing/outcome", "EX:pheno-y")),
+            roles={
+                "cause": Referent("testing/entity", "EX:gene-z"),
+                "effect": Referent("testing/outcome", "EX:pheno-y"),
+            },
             layer="causal",
             polarity="positive",
         )
@@ -1277,17 +1280,18 @@ class TestEstimandTargetMatch:
 
         from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, UNCONSULTED, spec_draft, spec_rules
 
-        from beliefs.claim import Referent, build_claim
+        from beliefs.claim import Member, Referent, build_claim
         from beliefs.estimand import ContinuousContrast, Control, Measure, build_estimand
         from beliefs.identity import v1
         from beliefs.projection import claim_identity
         from beliefs.spec import SPEC_DOMAIN, frozen_projection
 
         target = self._proposition(typed_writer, TESTING_CLAIM)
+        event = Referent("testing/event", "EX:e-1")
         correlates = build_claim(
             TESTING_PROFILE,
             operator="testing/correlates-with",
-            args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")),
+            roles={"parties": [Member(event), Member(Referent("testing/product", "EX:p-1"))]},
             layer="statistical",
             polarity="positive",
         )
@@ -1295,11 +1299,11 @@ class TestEstimandTargetMatch:
             TESTING_PROFILE,
             correlates,
             snapshot=UNCONSULTED,
-            contrast=ContinuousContrast(0, Referent("testing/measure", "EX:tpm"), Decimal(1)),
+            contrast=ContinuousContrast("parties", event, Referent("testing/measure", "EX:tpm"), Decimal(1)),
             measure=Measure(Referent("testing/measure", "EX:tpm"), "additive"),
             reference=Decimal(0),
             control=Control(Referent("testing/identification", "EX:observational"), ()),
-        )  # correlates-with declares level_sorts {}, so the contrast is continuous, not levels
+        )
         spec = freeze(spec_draft(target=target.id, estimand=foreign), held_rules=spec_rules())
         projection = frozen_projection(spec)
         projection["estimand"]["claim"] = claim_identity(TESTING_CLAIM)  # type: ignore[index]  # the target's true hash, another operator
@@ -1314,6 +1318,39 @@ class TestEstimandTargetMatch:
         )
         with pytest.raises(ValidationRefused, match="estimand-target-mismatch.*operator"):
             typed_writer.add(node)
+
+    def test_spec_estimand_not_admitted_for_target_refuses(self, typed_writer):
+        """R12 at the door: the stored reader restores shape only, so admission
+        is checked against the target's claim. Only `affects-entity-entity`
+        admits `cause: entity, effect: entity`; the estimand carries that claim's
+        identity and operator but `affects-entity-outcome`'s level sort and measure."""
+        from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, spec_draft, spec_rules
+
+        from beliefs.claim import Referent, build_claim
+        from beliefs.decode import estimand_from_stored
+        from beliefs.estimand import estimand_projection
+        from beliefs.projection import claim_identity, project_claim
+
+        entity_entity = build_claim(
+            TESTING_PROFILE,
+            operator="testing/affects",
+            roles={"cause": Referent("testing/entity", "EX:gene-x"), "effect": Referent("testing/entity", "EX:gene-y")},
+            layer="causal",
+            polarity="positive",
+        )
+        projection = estimand_projection(spec_draft().estimand)  # affects-entity-outcome's fields
+        projection["claim"] = claim_identity(entity_entity)
+        shape_only = estimand_from_stored(projection, profile=TESTING_PROFILE)
+        target = typed_writer.add(stored.proposition_node("ee", title="ee", claim=project_claim(entity_entity)))
+        spec = freeze(spec_draft(target=target.id, estimand=shape_only), held_rules=spec_rules())  # freeze accepts
+        with pytest.raises(ValidationRefused, match="estimand-not-admitted"):
+            typed_writer.add(stored.analysis_spec_node(spec))
+
+        # The same fields over the `entity`→`outcome` claim, which both instantiations admit, write.
+        admitted_target = self._proposition(typed_writer, TESTING_CLAIM)
+        admitted = freeze(spec_draft(target=admitted_target.id), held_rules=spec_rules())
+        assert admitted.estimand.claim == claim_identity(TESTING_CLAIM)
+        assert typed_writer.add(stored.analysis_spec_node(admitted)).id == f"analysis-spec:{admitted.identity}"
 
 
 # --- the staging doors -----------------------------------

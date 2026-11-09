@@ -1,12 +1,20 @@
 """The typed estimand.
 
-`Estimand` is opaque and reachable only through `build_estimand`, which types
-it against the **claim** it answers: the claim's operator fixes every sort
-through the operator's `estimands:` declaration, and the claim's identity
-enters the value so the estimand says which proposition it answers. Every
-referent is resolved under its five outcomes; only `not-member` refuses.
-Nothing here is read by `science.belief.v1`.
+`Estimand` is opaque. `Estimand._checked` types its **shape** against the
+profile: the operator resolves, the contrast names one of the operator's
+template's roles (and, for a `many` role, the member it contrasts), and every
+referent has a declared sort. It establishes no admission. Admission is the
+claim-aware step `admit_estimand` (R12): the estimand is admitted when some
+estimand declaration of the claim's admitting set admits every field of it, and
+the step returns those declarations' contracts. `build_estimand` is the
+authoring route, through both; the stored readers (`decode_estimand`,
+`estimand_from_stored`) restore shape only, and every consumer that needs
+admission holds the claim and calls `admit_estimand`. `Estimand` carries no
+declaration contracts. Every referent is resolved under its five outcomes; only
+`not-member` refuses. Nothing here is read by `science.belief.v1`.
 """
+
+# Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the estimand structure around these names.
 
 from __future__ import annotations
 
@@ -17,19 +25,25 @@ from decimal import Decimal
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.claim import Claim, Qualifier, Referent
+from beliefs.claim import Claim, Qualifier, Referent, _check_referent, member_key
 from beliefs.contract.base import SUPPORTED_CONTRAST_KINDS, SUPPORTED_SCALES, SUPPORTED_UNCERTAINTY_KINDS
 from beliefs.errors import (
     ContrastRefused,
     ControlRefused,
+    DimensionNotApplicabilitySide,
     EstimandError,
     EstimandFragmentRefused,
+    EstimandNotAdmitted,
     EstimandSortMismatch,
     MeasureRefused,
     ReferenceRefused,
+    RestrictionSortMismatch,
     UnboundReferent,
     UncertaintyRefused,
+    UndeclaredDimension,
+    UnknownQuantifier,
     UntypedEstimandMember,
+    UntypedQualifier,
 )
 from beliefs.profile import CompiledEstimandDecl, ProfileSpec
 from beliefs.projection import claim_identity
@@ -48,6 +62,7 @@ __all__ = [
     "LevelsContrast",
     "Measure",
     "StandardError",
+    "admit_estimand",
     "applicability_projection",
     "build_applicability",
     "build_estimand",
@@ -63,6 +78,9 @@ __all__ = [
 
 ESTIMAND_ERRORS = (EstimandError, UnboundReferent)
 
+_MANY = "many"
+_APPLICABILITY_SIDE = "applicability"
+
 
 def _finite(value: object, where: str, error: type[EstimandError]) -> Decimal:
     if type(value) is not Decimal:
@@ -74,23 +92,31 @@ def _finite(value: object, where: str, error: type[EstimandError]) -> Decimal:
     return value
 
 
-def _require_slot(value: object) -> None:
-    """An integer, never a bool and never a float: the decoder already refuses
-    these on the wire, and the shared constructor refuses them for every route."""
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise ContrastRefused(f"contrast.slot is an integer slot index, found {value!r}")
+def _require_role(role: object, member: object) -> None:
+    """A role name, never an index; a member that is a `Referent` or absent. The
+    decoder refuses other shapes on the wire, and the shared constructor refuses
+    them for every route."""
+    if not isinstance(role, str) or not role:
+        raise ContrastRefused(f"contrast.role is a role name, found {role!r}")
+    if member is not None and not isinstance(member, Referent):
+        raise UntypedEstimandMember(f"contrast.member holds {type(member).__name__}, not a Referent")
 
 
 @sealed
 @final
 @dataclass(frozen=True)
 class LevelsContrast:
-    slot: int
+    """Two levels contrasted on one role of the claim. For a `many` role,
+    `member` names the member of the role the contrast is on; for a `one` role it
+    is `None`."""
+
+    role: str
+    member: Referent | None
     baseline: Referent
     comparison: Referent
 
     def __post_init__(self) -> None:
-        _require_slot(self.slot)
+        _require_role(self.role, self.member)
         for name in ("baseline", "comparison"):
             if not isinstance(getattr(self, name), Referent):
                 raise UntypedEstimandMember(
@@ -102,12 +128,15 @@ class LevelsContrast:
 @final
 @dataclass(frozen=True)
 class ContinuousContrast:
-    slot: int
+    """A continuous increment on one role of the claim; `member` as for `LevelsContrast`."""
+
+    role: str
+    member: Referent | None
     quantity: Referent
     increment: Decimal
 
     def __post_init__(self) -> None:
-        _require_slot(self.slot)
+        _require_role(self.role, self.member)
         if not isinstance(self.quantity, Referent):
             raise UntypedEstimandMember(f"contrast.quantity holds {type(self.quantity).__name__}, not a Referent")
         if _finite(self.increment, "contrast.increment", ContrastRefused) <= 0:
@@ -165,7 +194,9 @@ class StandardError:
 @final
 @dataclass(frozen=True, init=False)
 class Estimand:
-    """Opaque: the only route in is `build_estimand` (the same shape as `Claim`, one artifact over)."""
+    """Opaque: the authoring route is `build_estimand`, and a stored one is
+    restored by `decode_estimand` or `estimand_from_stored`. A value in hand is
+    shape-checked; whether it is admitted for a claim is `admit_estimand`'s."""
 
     claim: str
     operator: str
@@ -189,28 +220,46 @@ class Estimand:
         reference: Decimal,
         control: Control,
     ) -> Estimand:
-        declaration: CompiledEstimandDecl = profile.estimand(operator)
-        arity = profile.operator(operator).arity
+        """Type the estimand's shape, or refuse: the operator resolves, the
+        contrast's `role` is a role of the operator's template and `member` is
+        present exactly when that role is `many`, and every referent's sort is a
+        declared sort. No estimand declaration is read: that is admission, which
+        needs the claim (`admit_estimand`)."""
+        template = profile.template_of(profile.operator(operator))
         grammar = profile.estimand_grammar
         if not isinstance(contrast, (LevelsContrast, ContinuousContrast)):
             raise UntypedEstimandMember(f"contrast holds {type(contrast).__name__}")
-        if not (0 <= contrast.slot < arity):
-            raise ContrastRefused(f"contrast: slot {contrast.slot} is outside Fin({arity}) for {operator!r}")
+        role = template.roles.get(contrast.role)
+        if role is None:
+            raise ContrastRefused(
+                f"contrast: role {contrast.role!r} is not a role of {operator!r}; its roles are {sorted(template.roles)}"
+            )
+        if role.arity == _MANY and contrast.member is None:
+            raise ContrastRefused(
+                f"contrast: role {contrast.role!r} of {operator!r} is a `many` role, so the contrast names the "
+                "member it is on"
+            )
+        if role.arity != _MANY and contrast.member is not None:
+            raise ContrastRefused(
+                f"contrast: role {contrast.role!r} of {operator!r} is a `one` role and takes no member"
+            )
+        if contrast.member is not None:
+            _require_declared(profile, contrast.member, "contrast.member")
         if isinstance(contrast, LevelsContrast):
-            level_sort = declaration.level_sorts.get(str(contrast.slot))
-            if level_sort is None:
-                raise ContrastRefused(
-                    f"contrast: slot {contrast.slot} of {operator!r} declares no level sort; only a continuous contrast is admitted there"
-                )
             for name in ("baseline", "comparison"):
-                _require_sort(getattr(contrast, name), level_sort, f"contrast.{name}")
-            if contrast.baseline.term == contrast.comparison.term:
+                _require_declared(profile, getattr(contrast, name), f"contrast.{name}")
+            if contrast.baseline.sort != contrast.comparison.sort:
+                raise EstimandSortMismatch(
+                    f"contrast: the baseline is of sort {contrast.baseline.sort!r} and the comparison of "
+                    f"{contrast.comparison.sort!r}; two levels of one contrast share a sort"
+                )
+            if member_key(contrast.baseline) == member_key(contrast.comparison):
                 raise ContrastRefused("contrast: baseline and comparison must be distinct levels")
         else:
-            _require_sort(contrast.quantity, declaration.measure_sort, "contrast.quantity")
+            _require_declared(profile, contrast.quantity, "contrast.quantity")
         if not isinstance(measure, Measure):
             raise UntypedEstimandMember(f"measure holds {type(measure).__name__}")
-        _require_sort(measure.quantity, declaration.measure_sort, "measure.quantity")
+        _require_declared(profile, measure.quantity, "measure.quantity")
         if measure.scale not in grammar.scales:
             raise MeasureRefused(
                 f"measure.scale {measure.scale!r} is outside the kernel's closed set {list(grammar.scales)}"
@@ -222,9 +271,9 @@ class Estimand:
             raise ReferenceRefused(f"reference must be > 0 under a multiplicative scale, found {reference}")
         if not isinstance(control, Control):
             raise UntypedEstimandMember(f"control holds {type(control).__name__}")
-        _require_sort(control.identification, declaration.identification_sort, "control.identification")
+        _require_declared(profile, control.identification, "control.identification")
         for index, member in enumerate(control.conditioning):
-            _require_sort(member, declaration.conditioning_sort, f"control.conditioning[{index}]")
+            _require_declared(profile, member, f"control.conditioning[{index}]")
         estimand = object.__new__(cls)
         for name, value in (
             ("claim", claim),
@@ -238,15 +287,96 @@ class Estimand:
         return estimand
 
 
-def _require_sort(referent: Referent, sort: str, where: str) -> None:
-    if referent.sort != sort:
+def _require_declared(profile: ProfileSpec, referent: Referent, where: str) -> None:
+    if referent.sort not in profile.sorts:
         raise EstimandSortMismatch(
-            f"{where} is declared {sort!r}; {referent.term!r} is of sort {referent.sort!r} — a term with no slot to occupy"
+            f"{where}: {referent.term!r} is of sort {referent.sort!r}, which this profile does not declare — a "
+            "term with no position to occupy"
         )
+
+
+def admit_estimand(profile: ProfileSpec, estimand: Estimand, claim: Claim, *, authoring: bool) -> frozenset[str]:
+    """The interim admission step (R12): admit `estimand` for `claim`, or refuse.
+
+    The estimand must carry the claim's identity and operator (else
+    `EstimandNotAdmitted`), and a `many`-role contrast's `member` must be a
+    member of the claim's role by canonical member key (else `ContrastRefused`).
+    The declarations read are the estimand declarations of the claim's own
+    admitting set — `profile.admitting(operator, claim.assignment(), …)`, never
+    every instantiation of the operator — with retired declarations excluded when
+    `authoring`. The estimand is admitted when at least one of them admits
+    **every** field (the contrast's level sorts, the measure, identification and
+    conditioning sorts); fields are never combined across declarations. Returns
+    the contracts of the declarations that do, which join the consulted set;
+    refuses `EstimandNotAdmitted` when none does. The result reads the admission
+    index, so it cannot depend on contract activation order."""
+    if not isinstance(estimand, Estimand):
+        raise UntypedEstimandMember(f"admission takes an Estimand, found {type(estimand).__name__}")
+    if not isinstance(claim, Claim):
+        raise UntypedEstimandMember(f"an estimand is admitted against a Claim, found {type(claim).__name__}")
+    identity = claim_identity(claim)
+    if estimand.claim != identity:
+        raise EstimandNotAdmitted(f"the estimand answers claim {estimand.claim[:12]}…, not this claim {identity[:12]}…")
+    if estimand.operator != claim.operator:
+        raise EstimandNotAdmitted(
+            f"the estimand's operator {estimand.operator!r} is not the claim's {claim.operator!r}"
+        )
+    contrast = estimand.contrast
+    if contrast.member is not None:
+        filling = claim.roles.get(contrast.role)
+        members = filling if isinstance(filling, tuple) else ()
+        if member_key(contrast.member) not in {member_key(m.referent) for m in members}:
+            raise ContrastRefused(
+                f"contrast: {contrast.member.term!r} of sort {contrast.member.sort!r} is not a member of the claim's "
+                f"role {contrast.role!r}"
+            )
+    admitting = profile.admitting(claim.operator, claim.assignment(), authoring=authoring)
+    declarations = profile.estimand_declarations(claim.operator, admitting)
+    if not declarations:
+        raise EstimandNotAdmitted(
+            f"no declaration admitting this claim over {claim.operator!r} declares an estimand "
+            f"(admitting: {list(admitting)}); an admitting declaration with none admits no estimand"
+        )
+    refusals = {declaration.target: _unadmitted(declaration, estimand) for declaration in declarations}
+    admitted = frozenset(declaration.contract for declaration in declarations if not refusals[declaration.target])
+    if not admitted:
+        detail = "; ".join(f"{target} refuses {', '.join(fields)}" for target, fields in sorted(refusals.items()))
+        raise EstimandNotAdmitted(
+            f"no estimand declaration of the claim's admitting set admits the whole estimand ({detail}); fields "
+            "are never combined across declarations"
+        )
+    return admitted
+
+
+def _unadmitted(declaration: CompiledEstimandDecl, estimand: Estimand) -> tuple[str, ...]:
+    """The positions of the estimand one declaration does not admit; empty when it admits every field."""
+    refused: list[str] = []
+    contrast = estimand.contrast
+    if isinstance(contrast, LevelsContrast):
+        level_sort = declaration.level_sorts.get(contrast.role)
+        refused.extend(
+            f"contrast.{name}"
+            for name in ("baseline", "comparison")
+            if level_sort is None or getattr(contrast, name).sort != level_sort
+        )
+    elif contrast.quantity.sort != declaration.measure_sort:
+        refused.append("contrast.quantity")
+    if estimand.measure.quantity.sort != declaration.measure_sort:
+        refused.append("measure.quantity")
+    if estimand.control.identification.sort != declaration.identification_sort:
+        refused.append("control.identification")
+    refused.extend(
+        f"control.conditioning[{index}]"
+        for index, member in enumerate(estimand.control.conditioning)
+        if member.sort != declaration.conditioning_sort
+    )
+    return tuple(refused)
 
 
 def _referent_positions(estimand: Estimand) -> dict[str, Referent]:
     positions: dict[str, Referent] = {}
+    if estimand.contrast.member is not None:
+        positions["contrast.member"] = estimand.contrast.member
     if isinstance(estimand.contrast, LevelsContrast):
         positions["contrast.baseline"] = estimand.contrast.baseline
         positions["contrast.comparison"] = estimand.contrast.comparison
@@ -263,8 +393,7 @@ def _resolve_all(
     profile: ProfileSpec, snapshot: ResolutionSnapshot, positions: Mapping[str, Referent]
 ) -> dict[str, TermOutcome]:
     outcomes = {
-        label: snapshot.resolve(profile.sorts[referent.sort].vocabulary, referent.term)
-        for label, referent in positions.items()
+        label: snapshot.resolve(profile.sorts[referent.sort], referent.term) for label, referent in positions.items()
     }
     refused = sorted(label for label, outcome in outcomes.items() if outcome.refuses)
     if refused:
@@ -285,14 +414,17 @@ def build_estimand(
     snapshot: ResolutionSnapshot,
     **richer: object,
 ) -> tuple[Estimand, BindingCheckReceipt]:
-    """Type an estimand against the claim it answers, resolve its referents, or refuse.
+    """Type an estimand against the claim it answers, admit it, resolve its referents, or refuse.
 
-    `**richer` exists to be refused: a second measure, a second reference, a
-    multi-arm contrast handed in under any keyword is outside the inhabited
-    fragment, and the refusal names it rather than flattening it."""
+    The shape check (`Estimand._checked`) comes first, then admission over the
+    claim's authoring admitting set (`admit_estimand(…, authoring=True)`, retired
+    declarations excluded), then resolution. `**richer` exists to be refused: a
+    second measure, a second reference, a multi-arm contrast handed in under any
+    keyword is outside the inhabited fragment, and the refusal names it rather
+    than flattening it."""
     if richer:
         raise EstimandFragmentRefused(
-            f"the inhabited fragment admits one contrast on one slot, one measure, one reference, one identification and "
+            f"the inhabited fragment admits one contrast on one role, one measure, one reference, one identification and "
             f"one flat conditioning set; {sorted(richer)} is outside it and is refused, not flattened"
         )
     if not isinstance(claim, Claim):
@@ -309,6 +441,7 @@ def build_estimand(
         reference=reference,
         control=control,
     )
+    admit_estimand(profile, estimand, claim, authoring=True)
     outcomes = _resolve_all(
         profile,
         snapshot,
@@ -317,24 +450,66 @@ def build_estimand(
     return estimand, _emit_receipt(identity, snapshot, outcomes)
 
 
+def _checked_applicability(
+    profile: ProfileSpec, operator: str, qualifiers: Mapping[str, Qualifier]
+) -> Mapping[str, Qualifier]:
+    """Type an applicability map against the applicability-side dimensions whose
+    `applies_to` names `operator`, or refuse. Shared by `build_applicability` and
+    the stored reader, so the two cannot type one map two ways."""
+    term = profile.operator(operator).term
+    grammar = profile.claim_grammar
+    if not isinstance(qualifiers, Mapping):
+        raise UntypedQualifier(
+            f"applicability is a mapping of dimension → Qualifier, found {type(qualifiers).__name__}"
+        )
+    for dimension, qualifier in qualifiers.items():
+        if not isinstance(qualifier, Qualifier):
+            raise UntypedQualifier(
+                f"the applicability entry on {dimension!r} is {type(qualifier).__name__}, not a Qualifier"
+            )
+        declared = profile.dimensions.get(dimension)
+        if declared is None:
+            raise UndeclaredDimension(f"no dimension {dimension!r} in this profile.")
+        if declared.placement != _APPLICABILITY_SIDE:
+            raise DimensionNotApplicabilitySide(
+                f"{dimension!r} is placed {declared.placement!r}: it says what a claim asserts, never where an "
+                "estimate applies, so it is not an applicability restriction."
+            )
+        if term not in declared.applies_to:
+            raise UndeclaredDimension(f"{dimension!r} does not apply to {operator!r}.")
+        if qualifier.quantifier not in grammar.quantifiers:
+            raise UnknownQuantifier(
+                f"quantifier {qualifier.quantifier!r} on {dimension!r} is outside the kernel's closed set "
+                f"{list(grammar.quantifiers)}."
+            )
+        if qualifier.restriction.sort != declared.restriction_sort:
+            raise RestrictionSortMismatch(
+                f"{dimension!r} restricts to sort {declared.restriction_sort!r}; "
+                f"{qualifier.restriction.term!r} is of sort {qualifier.restriction.sort!r}."
+            )
+        _check_referent(
+            profile, qualifier.restriction, f"the restriction on {dimension!r}", world_kind=None, authoring=False
+        )
+    return MappingProxyType(dict(qualifiers))
+
+
 def build_applicability(
     profile: ProfileSpec, claim: Claim, qualifiers: Mapping[str, Qualifier], *, snapshot: ResolutionSnapshot
 ) -> tuple[Mapping[str, Qualifier], BindingCheckReceipt]:
-    """The claim grammar's flat fragment over the target operator's dimensions:
-    every check `Claim._checked` performs on a qualifier, performed here on
-    the applicability map, then each restriction resolved."""
+    """Type each restriction against an applicability-side dimension whose
+    `applies_to` names the claim's operator, then resolve it. The claim is not
+    re-typed: a claim-side dimension here refuses with
+    `DimensionNotApplicabilitySide`, the converse of the claim's
+    `DimensionNotClaimSide`."""
     if not isinstance(claim, Claim):
         raise UntypedEstimandMember(f"applicability is built against a Claim, found {type(claim).__name__}")
-    polarity = None if claim.polarity == profile.claim_grammar.sign_inapt_tag else claim.polarity
-    checked = Claim._checked(
-        profile, operator=claim.operator, args=claim.args, qualifiers=qualifiers, polarity=polarity, layer=claim.layer
-    )
+    checked = _checked_applicability(profile, claim.operator, qualifiers)
     outcomes = _resolve_all(
         profile,
         snapshot,
-        {ReferentPosition.restriction(d).label(): q.restriction for d, q in checked.qualifiers.items()},
+        {ReferentPosition.restriction(d).label(): q.restriction for d, q in checked.items()},
     )
-    return MappingProxyType(dict(checked.qualifiers)), _emit_receipt(claim_identity(claim), snapshot, outcomes)
+    return checked, _emit_receipt(claim_identity(claim), snapshot, outcomes)
 
 
 def _referent(referent: Referent) -> dict[str, str]:
@@ -342,10 +517,13 @@ def _referent(referent: Referent) -> dict[str, str]:
 
 
 def estimand_projection(estimand: Estimand) -> dict[str, object]:
-    """The canonical projection: `claim`, `operator`, the contrast by kind,
-    `measure`, `reference`, `control` with conditioning sorted. Decimals stay
-    `Decimal`; identity v1 renders them canonically at encode."""
-    contrast: dict[str, object] = {"slot": estimand.contrast.slot}
+    """The canonical projection: `claim`, `operator`, the contrast by kind with
+    its `role` and, for a `many` role, its `member` (absent otherwise, never
+    null), `measure`, `reference`, `control` with conditioning sorted. Decimals
+    stay `Decimal`; identity v1 renders them canonically at encode."""
+    contrast: dict[str, object] = {"role": estimand.contrast.role}
+    if estimand.contrast.member is not None:
+        contrast["member"] = _referent(estimand.contrast.member)
     if isinstance(estimand.contrast, LevelsContrast):
         contrast |= {
             "kind": "levels",

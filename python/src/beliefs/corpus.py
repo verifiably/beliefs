@@ -3815,8 +3815,13 @@ class CorpusWriter:
     def _refuse_estimand_target_mismatch(self, record: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
         """The spec's estimand names the claim its target
         record carries — both the identity and the operator, since a stored
-        estimand carries the two as independent members with no preimage."""
+        estimand carries the two as independent members with no preimage — and
+        is admitted for that claim (R12): the stored reader restores shape only,
+        so admission is checked here, over the claim's decodable admitting set
+        (retired declarations included)."""
         from beliefs.decode import claim_from_stored
+        from beliefs.errors import EstimandError
+        from beliefs.estimand import admit_estimand
         from beliefs.projection import claim_identity
         from beliefs.resolution import build_snapshot
 
@@ -3841,6 +3846,10 @@ class CorpusWriter:
                 f"{record.id}: estimand-target-mismatch: the estimand's operator {spec.estimand.operator!r} is not the "
                 f"target's {claim.operator!r} — a stored pair with the true hash and another operator"
             )
+        try:
+            admit_estimand(self._profile, spec.estimand, claim, authoring=False)
+        except EstimandError as refused:
+            raise ValidationRefused(f"{record.id}: estimand-not-admitted: {refused}") from refused
 
     @staticmethod
     def _refuse_malformed_act_report(record: Node) -> None:
